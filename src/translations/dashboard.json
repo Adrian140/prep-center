@@ -1,0 +1,2338 @@
+{
+  "en": {
+    "common": {
+      "greeting": "Hi, {name}!",
+      "subtitle": "Client portal: view reports and manage your account.",
+      "signOut": "Sign out",
+      "groups": { "operations": "Operations", "account": "My account" },
+      "loading": "Loading…",
+      "calculating": "Calculating…",
+      "na": "N/A",
+      "yes": "Yes",
+      "no": "No"
+    },
+
+    "sidebar": {
+      "activity": "Activity",
+      "fba": "FBA",
+      "fbm": "FBM",
+      "stock": "Stock",
+      "returns": "Returns",
+      "exports": "Exports",
+      "profile": "Profile",
+      "billing": "Billing details",
+      "invoices": "My invoices",
+      "integrations": "Integrations",
+      "security": "Security"
+    },
+
+    "balance": {
+      "title": "Balance",
+      "current": "Current balance: €{amount}",
+      "prepayment": "Prepayment: €{amount}",
+      "outstanding": "Outstanding balance: €{amount}"
+    },
+
+    "activity": {
+      "fbaTitle": "FBA",
+      "fbmTitle": "FBM",
+      "thead": {
+        "date": "Date",
+        "service": "Service",
+        "unitPrice": "Unit price",
+        "units": "Units",
+        "ordersUnits": "Orders/Units",
+        "total": "Total",
+        "adminNotes": "Admin notes"
+      },
+      "noRecords": "No records.",
+      "totals": "Totals",
+      "chartTitle": "FBA vs FBM daily totals",
+      "range": { "m1": "1 month", "m3": "3 months", "all": "All time" },
+      "tooltip": { "date": "Date" },
+      "companyMissing": "Your account is not linked to a company yet. Please contact support to activate it."
+    },
+
+    "fbaReport": {
+      "title": "FBA Report",
+      "readonly": "Read-only view.",
+      "monthLabel": "Month:",
+      "currentMonth": "Current month",
+      "noDataMonth": "No data for the selected month."
+    },
+
+    "fbmReport": {
+      "title": "FBM Report",
+      "readonly": "Read-only view.",
+      "monthLabel": "Month:",
+      "currentMonth": "Current month",
+      "noDataMonth": "No data for the selected month."
+    },
+
+    "exports": {
+      "title": "Exports",
+      "desc": "Download Excel reports for FBA, FBM, Stock, or Returns. Choose a date range.",
+      "reportType": "Report type",
+      "from": "From (inclusive)",
+      "to": "To (inclusive)",
+      "btn": "Export {kind} (.xlsx)",
+      "generating": "Generating…",
+      "footnote": "* The report includes a TOTAL row; numeric columns are summed.",
+      "alerts": {
+        "noCompany": "No company is set for this account.",
+        "failed": "Export failed."
+      },
+      "kinds": { "FBA": "FBA", "FBM": "FBM", "Stock": "Stock", "Returns": "Returns" }
+    },
+
+    "returns": {
+      "title": "Returns",
+      "readonly": "Read-only view.",
+      "thead": {
+        "date": "Date",
+        "asin": "ASIN",
+        "qty": "Quantity",
+        "type": "Return type",
+        "status": "Status",
+        "adminNotes": "Admin notes"
+      },
+      "noRecords": "No records."
+    },
+
+    "stock": {
+      "title": "Stock",
+      "desc": "<b>EAN</b> is managed by admin. You can edit <b>Product name</b>, <b>ASIN/SKU</b>, <b>Product link</b> and <b>Purchase price</b>.",
+      "month": { "label": "Month:", "current": "Current month" },
+      "search": {
+        "field": { "EAN": "EAN", "NAME": "Product name", "ASIN_SKU": "ASIN / SKU" },
+        "placeholder": {
+          "EAN": "Search by EAN",
+          "NAME": "Search by product name",
+          "ASIN_SKU": "Search by ASIN or SKU"
+        }
+      },
+      "stockFilter": {
+        "label": "Stock:",
+        "in": "In stock",
+        "out": "Out of stock",
+        "all": "All"
+      },
+      "actions": {
+        "selectAllOnPage": "Select all on page",
+        "sendToPrep": "Send to preparation",
+        "needSelection": "Select at least one product."
+      },
+      "thead": {
+        "sel": "",
+        "ean": "EAN",
+        "qty": "Qty",
+        "name": "Product name",
+        "asinSku": "ASIN / SKU",
+        "link": "Product link",
+        "purchasePrice": "Purchase price",
+        "value": "Value",
+        "save": "Save"
+      },
+      "link": {
+        "add": "Add\nLink",
+        "open": "Open\nLink",
+        "edit": "Edit\nLink",
+        "label": "Product link",
+        "cancel": "Cancel",
+        "save": "Save"
+      },
+      "table": {
+        "loading": "Loading…",
+        "empty": "No data for current filters.",
+        "saving": "Saving…",
+        "saved": "Saved successfully.",
+        "savedNameAdminOnly": "Saved (name is admin-only).",
+        "nothingToSave": "Nothing to save."
+      },
+      "pager": {
+        "rows": "Rows:",
+        "prev": "←",
+        "next": "→",
+        "pageXofY": "Page {x} / {y}"
+      },
+      "totals": {
+        "label": "Totals (current filters) — Quantity: <strong>{qty}</strong> · Value: <strong>{value} €</strong>"
+      },
+      "recent": {
+        "title": "Recent preparation requests",
+        "thead": {
+          "date": "Date",
+          "country": "Country",
+          "fbaShipmentId": "FBA Shipment ID",
+          "trackIds": "Track IDs",
+          "status": "Status"
+        },
+        "none": "No requests yet."
+      },
+      "drawer": {
+        "title": "Send to preparation",
+        "close": "Close",
+        "destCountry": "Destination country",
+        "line": "Line {n}",
+        "ean": "EAN",
+        "asin": "ASIN",
+        "remove": "Remove",
+        "asinSkuReq": "ASIN/SKU (required)",
+        "unitsToSend": "Units to send (max {max})",
+        "cancel": "Cancel",
+        "send": "Send request",
+        "errors": {
+          "noLines": "There are no lines in this request. Add at least one product.",
+          "asinSkuMissing": "Line {n}: ASIN/SKU missing (please fill at least one).",
+          "qtyZero": "Line {n}: quantity cannot be 0 or empty.",
+          "qtyExceeds": "Line {n}: units ({u}) exceed available stock ({max}).",
+          "createFailed": "Failed to create preparation draft."
+        },
+        "success": "Request sent to preparation.",
+        "handle": { "showMore": "+{n} more", "showLess": "show less" }
+      },
+      "countries": { "FR": "France", "DE": "Germany", "IT": "Italy", "ES": "Spain", "PL": "Poland", "RO": "Romania" }
+    },
+
+    "billing": {
+      "title": "Billing details",
+      "addProfile": "Add Profile",
+      "flash": {
+        "created": "Profile created successfully",
+        "updated": "Profile updated successfully",
+        "deleted": "Profile deleted successfully",
+        "deleteConfirm": "Are you sure you want to delete this billing profile?",
+        "errorSave": "Error while saving the profile",
+        "errorDelete": "Error while deleting the profile"
+      },
+      "form": {
+        "new": "New billing profile",
+        "edit": "Edit profile",
+        "type": "Profile type",
+        "individual": "Individual",
+        "company": "Company",
+        "firstName": "First name *",
+        "lastName": "Last name *",
+        "companyName": "Company name *",
+        "vat": "VAT number",
+        "sirenSiret": "SIREN/SIRET",
+        "country": "Country *",
+        "address": "Address *",
+        "city": "City *",
+        "postalCode": "Postal code *",
+        "phone": "Phone",
+        "default": "Set as default profile",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving…",
+        "update": "Update",
+        "validVatFailed": "VAT validation failed: {reason}",
+        "vatFormatInvalid": "Invalid VAT format for this country"
+      },
+      "list": {
+        "noneTitle": "No billing profiles",
+        "noneDesc": "Add your first billing profile to receive invoices.",
+        "add": "Add profile",
+        "defaultBadge": "Default",
+        "labels": { "vat": "VAT", "sirenSiret": "SIREN/SIRET", "tel": "Tel" }
+      }
+    },
+
+    "invoices": {
+      "title": "My invoices",
+      "total": "Total: {n} invoices",
+      "flashError": "Could not load invoices.",
+      "filters": {
+        "search": "Search",
+        "searchPh": "Invoice number or description…",
+        "status": "Status",
+        "period": "Period",
+        "all": "All",
+        "last30": "Last 30 days",
+        "last90": "Last 90 days",
+        "thisYear": "This year",
+        "paid": "Paid",
+        "pending": "Pending",
+        "overdue": "Overdue",
+        "cancelled": "Cancelled"
+      },
+      "card": {
+        "invoice": "Invoice #{no}",
+        "date": "Date",
+        "due": "Due",
+        "vat": "VAT: €{vat}",
+        "amount": "€{amount}",
+        "view": "View",
+        "download": "Download",
+        "noFile": "No file"
+      },
+      "empty": {
+        "noneFound": "No invoices found",
+        "noneYet": "No invoices available yet",
+        "tipFound": "Try adjusting your filters.",
+        "tipYet": "Your invoices will appear here after your first order."
+      },
+      "errors": { "download": "Error while downloading the invoice.", "view": "Could not generate a view link." }
+    },
+
+    "profile": {
+      "title": "Personal details",
+      "edit": "Edit",
+      "cancel": "Cancel",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "flashOk": "Profile updated successfully.",
+      "flashErr": "Error while updating the profile.",
+      "fields": {
+        "firstName": "First name",
+        "lastName": "Last name",
+        "email": "Email",
+        "emailNote": "Email cannot be changed here. Contact support if you need to update it.",
+        "phone": "Phone",
+        "country": "Country",
+        "language": "Preferred language",
+        "phonePh": "+33 6 12 34 56 78"
+      },
+      "languages": { "en": "English", "ro": "Română", "fr": "Français", "de": "Deutsch", "it": "Italiano", "es": "Español" },
+      "countries": { "RO": "Romania", "FR": "France", "DE": "Germany", "IT": "Italy", "ES": "Spain", "PL": "Poland" }
+    },
+
+    "security": {
+      "title": "Security",
+      "flash": {
+        "pwdMismatch": "Passwords do not match.",
+        "pwdTooShort": "Password must be at least 8 characters long.",
+        "pwdOk": "Password changed successfully.",
+        "pwdErr": "Error while changing the password."
+      },
+      "changePwd": {
+        "title": "Change password",
+        "new": "New password",
+        "newPh": "Minimum 8 characters",
+        "confirm": "Confirm new password",
+        "confirmPh": "Re-type the new password",
+        "toggle": { "show": "Show", "hide": "Hide" },
+        "submit": "Change password",
+        "changing": "Changing…"
+      },
+      "accountInfo": {
+        "title": "Account information",
+        "emailVerified": "Email verified:",
+        "verified": "Verified",
+        "unverified": "Unverified",
+        "lastSignIn": "Last sign-in:",
+        "createdAt": "Account created:"
+      },
+      "tips": {
+        "title": "Security tips",
+        "t1": "Use a unique, complex password for this account.",
+        "t2": "Enable two-factor authentication for maximum security (if available).",
+        "t3": "Never share your login credentials with anyone.",
+        "t4": "Always sign out when using public or shared computers."
+      }
+    }
+  },
+
+  "ro": {
+    "common": {
+      "greeting": "Salut, {name}!",
+      "subtitle": "Portal clienți: vezi rapoarte și gestionează-ți contul.",
+      "signOut": "Ieșire",
+      "groups": { "operations": "Operațiuni", "account": "Contul meu" },
+      "loading": "Se încarcă…",
+      "calculating": "Se calculează…",
+      "na": "—",
+      "yes": "Da",
+      "no": "Nu"
+    },
+
+    "sidebar": {
+      "activity": "Activitate",
+      "fba": "FBA",
+      "fbm": "FBM",
+      "stock": "Stoc",
+      "returns": "Retururi",
+      "exports": "Exporturi",
+      "profile": "Profil",
+      "billing": "Date de facturare",
+      "invoices": "Facturile mele",
+      "integrations": "Integrări",
+      "security": "Securitate"
+    },
+
+    "balance": {
+      "title": "Sold",
+      "current": "Sold curent: €{amount}",
+      "prepayment": "Avans: €{amount}",
+      "outstanding": "Restanță: €{amount}"
+    },
+
+    "activity": {
+      "fbaTitle": "FBA",
+      "fbmTitle": "FBM",
+      "thead": {
+        "date": "Data",
+        "service": "Serviciu",
+        "unitPrice": "Preț unitar",
+        "units": "Unități",
+        "ordersUnits": "Comenzi/Unități",
+        "total": "Total",
+        "adminNotes": "Note admin"
+      },
+      "noRecords": "Nu există înregistrări.",
+      "totals": "Totaluri",
+      "chartTitle": "Totaluri zilnice FBA vs FBM",
+      "range": { "m1": "1 lună", "m3": "3 luni", "all": "Tot istoricul" },
+      "tooltip": { "date": "Data" },
+      "companyMissing": "Contul tău nu este încă asociat unei companii. Scrie-ne pentru activare."
+    },
+
+    "fbaReport": {
+      "title": "Raport FBA",
+      "readonly": "Vizualizare doar în citire.",
+      "monthLabel": "Luna:",
+      "currentMonth": "Luna curentă",
+      "noDataMonth": "Nu există date pentru luna selectată."
+    },
+
+    "fbmReport": {
+      "title": "Raport FBM",
+      "readonly": "Vizualizare doar în citire.",
+      "monthLabel": "Luna:",
+      "currentMonth": "Luna curentă",
+      "noDataMonth": "Nu există date pentru luna selectată."
+    },
+
+    "exports": {
+      "title": "Exporturi",
+      "desc": "Descarcă rapoarte Excel pentru FBA, FBM, Stoc sau Retururi. Alege intervalul.",
+      "reportType": "Tip raport",
+      "from": "De la (inclusiv)",
+      "to": "Până la (inclusiv)",
+      "btn": "Export {kind} (.xlsx)",
+      "generating": "Se generează…",
+      "footnote": "* Raportul include un rând TOTAL; coloanele numerice sunt însumate.",
+      "alerts": {
+        "noCompany": "Acest cont nu are setată compania.",
+        "failed": "Export eșuat."
+      },
+      "kinds": { "FBA": "FBA", "FBM": "FBM", "Stock": "Stoc", "Returns": "Retururi" }
+    },
+
+    "returns": {
+      "title": "Retururi",
+      "readonly": "Vizualizare doar în citire.",
+      "thead": {
+        "date": "Data",
+        "asin": "ASIN",
+        "qty": "Cantitate",
+        "type": "Tip retur",
+        "status": "Stare",
+        "adminNotes": "Note admin"
+      },
+      "noRecords": "Nu există înregistrări."
+    },
+
+    "stock": {
+      "title": "Stoc",
+      "desc": "<b>EAN</b> este gestionat de admin. Poți edita <b>Denumirea produsului</b>, <b>ASIN/SKU</b>, <b>Link produs</b> și <b>Preț de achiziție</b>.",
+      "month": { "label": "Luna:", "current": "Luna curentă" },
+      "search": {
+        "field": { "EAN": "EAN", "NAME": "Denumire produs", "ASIN_SKU": "ASIN / SKU" },
+        "placeholder": {
+          "EAN": "Caută după EAN",
+          "NAME": "Caută după denumire",
+          "ASIN_SKU": "Caută după ASIN sau SKU"
+        }
+      },
+      "stockFilter": {
+        "label": "Stoc:",
+        "in": "În stoc",
+        "out": "Fără stoc",
+        "all": "Toate"
+      },
+      "actions": {
+        "selectAllOnPage": "Selectează toate de pe pagină",
+        "sendToPrep": "Trimite la pregătire",
+        "needSelection": "Selectează cel puțin un produs."
+      },
+      "thead": {
+        "sel": "",
+        "ean": "EAN",
+        "qty": "Cant.",
+        "name": "Denumire produs",
+        "asinSku": "ASIN / SKU",
+        "link": "Link produs",
+        "purchasePrice": "Preț achiziție",
+        "value": "Valoare",
+        "save": "Salvează"
+      },
+      "link": {
+        "add": "Adaugă\nLink",
+        "open": "Deschide\nLink",
+        "edit": "Editează\nLink",
+        "label": "Link produs",
+        "cancel": "Anulează",
+        "save": "Salvează"
+      },
+      "table": {
+        "loading": "Se încarcă…",
+        "empty": "Nicio înregistrare pentru filtrele curente.",
+        "saving": "Se salvează…",
+        "saved": "Salvat cu succes.",
+        "savedNameAdminOnly": "Salvat (denumirea este doar pentru admin).",
+        "nothingToSave": "Nu e nimic de salvat."
+      },
+      "pager": {
+        "rows": "Rânduri:",
+        "prev": "←",
+        "next": "→",
+        "pageXofY": "Pagina {x} / {y}"
+      },
+      "totals": {
+        "label": "Totaluri (filtre curente) — Cantitate: <strong>{qty}</strong> · Valoare: <strong>{value} €</strong>"
+      },
+      "recent": {
+        "title": "Cereri recente de pregătire",
+        "thead": {
+          "date": "Data",
+          "country": "Țara",
+          "fbaShipmentId": "FBA Shipment ID",
+          "trackIds": "Coduri tracking",
+          "status": "Stare"
+        },
+        "none": "Nu există cereri încă."
+      },
+      "drawer": {
+        "title": "Trimite la pregătire",
+        "close": "Închide",
+        "destCountry": "Țara de destinație",
+        "line": "Linia {n}",
+        "ean": "EAN",
+        "asin": "ASIN",
+        "remove": "Șterge",
+        "asinSkuReq": "ASIN/SKU (obligatoriu)",
+        "unitsToSend": "Unități de trimis (max {max})",
+        "cancel": "Anulează",
+        "send": "Trimite cererea",
+        "errors": {
+          "noLines": "Nu există linii în această cerere. Adaugă cel puțin un produs.",
+          "asinSkuMissing": "Linia {n}: lipsește ASIN/SKU (completează cel puțin unul).",
+          "qtyZero": "Linia {n}: cantitatea nu poate fi 0 sau goală.",
+          "qtyExceeds": "Linia {n}: unitățile ({u}) depășesc stocul disponibil ({max}).",
+          "createFailed": "Crearea draftului de pregătire a eșuat."
+        },
+        "success": "Cererea a fost trimisă la pregătire.",
+        "handle": { "showMore": "+{n} în plus", "showLess": "arată mai puțin" }
+      },
+      "countries": { "FR": "Franța", "DE": "Germania", "IT": "Italia", "ES": "Spania", "PL": "Polonia", "RO": "România" }
+    },
+
+    "billing": {
+      "title": "Date de facturare",
+      "addProfile": "Adaugă profil",
+      "flash": {
+        "created": "Profilul a fost creat cu succes",
+        "updated": "Profilul a fost actualizat cu succes",
+        "deleted": "Profilul a fost șters cu succes",
+        "deleteConfirm": "Ești sigur că vrei să ștergi acest profil de facturare?",
+        "errorSave": "Eroare la salvarea profilului",
+        "errorDelete": "Eroare la ștergerea profilului"
+      },
+      "form": {
+        "new": "Profil nou de facturare",
+        "edit": "Editează profil",
+        "type": "Tip profil",
+        "individual": "Persoană fizică",
+        "company": "Firmă",
+        "firstName": "Prenume *",
+        "lastName": "Nume *",
+        "companyName": "Denumire firmă *",
+        "vat": "Număr VAT",
+        "sirenSiret": "SIREN/SIRET",
+        "country": "Țară *",
+        "address": "Adresă *",
+        "city": "Oraș *",
+        "postalCode": "Cod poștal *",
+        "phone": "Telefon",
+        "default": "Setează ca profil implicit",
+        "cancel": "Anulează",
+        "save": "Salvează",
+        "saving": "Se salvează…",
+        "update": "Actualizează",
+        "validVatFailed": "Validare VAT eșuată: {reason}",
+        "vatFormatInvalid": "Format VAT invalid pentru această țară"
+      },
+      "list": {
+        "noneTitle": "Niciun profil de facturare",
+        "noneDesc": "Adaugă primul profil pentru a putea primi facturi.",
+        "add": "Adaugă profil",
+        "defaultBadge": "Implicit",
+        "labels": { "vat": "VAT", "sirenSiret": "SIREN/SIRET", "tel": "Tel" }
+      }
+    },
+
+    "invoices": {
+      "title": "Facturile mele",
+      "total": "Total: {n} facturi",
+      "flashError": "Nu am putut încărca facturile.",
+      "filters": {
+        "search": "Căutare",
+        "searchPh": "Număr factură sau descriere…",
+        "status": "Stare",
+        "period": "Perioadă",
+        "all": "Toate",
+        "last30": "Ultimele 30 de zile",
+        "last90": "Ultimele 90 de zile",
+        "thisYear": "Anul acesta",
+        "paid": "Plătită",
+        "pending": "În așteptare",
+        "overdue": "Restantă",
+        "cancelled": "Anulată"
+      },
+      "card": {
+        "invoice": "Factura #{no}",
+        "date": "Data",
+        "due": "Scadența",
+        "vat": "TVA: €{vat}",
+        "amount": "€{amount}",
+        "view": "Vezi",
+        "download": "Descarcă",
+        "noFile": "Fără fișier"
+      },
+      "empty": {
+        "noneFound": "Nu am găsit facturi",
+        "noneYet": "Încă nu există facturi",
+        "tipFound": "Încearcă să ajustezi filtrele.",
+        "tipYet": "Facturile tale vor apărea aici după prima comandă."
+      },
+      "errors": { "download": "Eroare la descărcarea facturii.", "view": "Nu am putut genera linkul de vizualizare." }
+    },
+
+    "profile": {
+      "title": "Date personale",
+      "edit": "Editează",
+      "cancel": "Anulează",
+      "save": "Salvează modificările",
+      "saving": "Se salvează…",
+      "flashOk": "Profil actualizat cu succes.",
+      "flashErr": "Eroare la actualizarea profilului.",
+      "fields": {
+        "firstName": "Prenume",
+        "lastName": "Nume",
+        "email": "Email",
+        "emailNote": "Emailul nu poate fi schimbat aici. Scrie-ne dacă vrei să-l actualizăm.",
+        "phone": "Telefon",
+        "country": "Țară",
+        "language": "Limbă preferată",
+        "phonePh": "+33 6 12 34 56 78"
+      },
+      "languages": { "en": "English", "ro": "Română", "fr": "Français", "de": "Deutsch", "it": "Italiano", "es": "Español" },
+      "countries": { "RO": "România", "FR": "Franța", "DE": "Germania", "IT": "Italia", "ES": "Spania", "PL": "Polonia" }
+    },
+
+    "security": {
+      "title": "Securitate",
+      "flash": {
+        "pwdMismatch": "Parolele nu coincid.",
+        "pwdTooShort": "Parola trebuie să aibă cel puțin 8 caractere.",
+        "pwdOk": "Parola a fost schimbată.",
+        "pwdErr": "Eroare la schimbarea parolei."
+      },
+      "changePwd": {
+        "title": "Schimbă parola",
+        "new": "Parolă nouă",
+        "newPh": "Minim 8 caractere",
+        "confirm": "Confirmă parola nouă",
+        "confirmPh": "Rescrie parola nouă",
+        "toggle": { "show": "Arată", "hide": "Ascunde" },
+        "submit": "Schimbă parola",
+        "changing": "Se modifică…"
+      },
+      "accountInfo": {
+        "title": "Informații cont",
+        "emailVerified": "Email verificat:",
+        "verified": "Verificat",
+        "unverified": "Neverificat",
+        "lastSignIn": "Ultima autentificare:",
+        "createdAt": "Cont creat:"
+      },
+      "tips": {
+        "title": "Sfaturi de securitate",
+        "t1": "Folosește o parolă unică și complexă pentru acest cont.",
+        "t2": "Activează autentificarea în doi pași dacă este disponibilă.",
+        "t3": "Nu partaja niciodată datele de autentificare.",
+        "t4": "Deconectează-te când folosești calculatoare publice sau partajate."
+      }
+    }
+  },  
+  "fr": {
+    "common": {
+      "greeting": "Salut, {name} !",
+      "subtitle": "Portail client : consultez vos rapports et gérez votre compte.",
+      "signOut": "Déconnexion",
+      "groups": { "operations": "Opérations", "account": "Mon compte" },
+      "loading": "Chargement…",
+      "calculating": "Calcul en cours…",
+      "na": "N/A",
+      "yes": "Oui",
+      "no": "Non"
+    },
+
+    "sidebar": {
+      "activity": "Activité",
+      "fba": "FBA",
+      "fbm": "FBM",
+      "stock": "Stock",
+      "returns": "Retours",
+      "exports": "Exports",
+      "profile": "Profil",
+      "billing": "Coordonnées de facturation",
+      "invoices": "Mes factures",
+      "integrations": "Intégrations",
+      "security": "Sécurité"
+    },
+
+    "balance": {
+      "title": "Solde",
+      "current": "Solde actuel : {amount} €",
+      "prepayment": "Acompte : {amount} €",
+      "outstanding": "Solde restant : {amount} €"
+    },
+
+    "activity": {
+      "fbaTitle": "FBA",
+      "fbmTitle": "FBM",
+      "thead": {
+        "date": "Date",
+        "service": "Service",
+        "unitPrice": "Prix unitaire",
+        "units": "Unités",
+        "ordersUnits": "Commandes/Unités",
+        "total": "Total",
+        "adminNotes": "Notes admin"
+      },
+      "noRecords": "Aucun enregistrement.",
+      "totals": "Totaux",
+      "chartTitle": "Totaux journaliers FBA vs FBM",
+      "range": { "m1": "1 mois", "m3": "3 mois", "all": "Depuis le début" },
+      "tooltip": { "date": "Date" },
+      "companyMissing": "Votre compte n’est pas encore lié à une société. Contactez le support pour l’activer."
+    },
+
+    "fbaReport": {
+      "title": "Rapport FBA",
+      "readonly": "Vue en lecture seule.",
+      "monthLabel": "Mois :",
+      "currentMonth": "Mois en cours",
+      "noDataMonth": "Aucune donnée pour le mois sélectionné."
+    },
+
+    "fbmReport": {
+      "title": "Rapport FBM",
+      "readonly": "Vue en lecture seule.",
+      "monthLabel": "Mois :",
+      "currentMonth": "Mois en cours",
+      "noDataMonth": "Aucune donnée pour le mois sélectionné."
+    },
+
+    "exports": {
+      "title": "Exports",
+      "desc": "Téléchargez des rapports Excel pour FBA, FBM, Stock ou Retours. Choisissez une période.",
+      "reportType": "Type de rapport",
+      "from": "Du (inclus)",
+      "to": "Au (inclus)",
+      "btn": "Exporter {kind} (.xlsx)",
+      "generating": "Génération…",
+      "footnote": "* Le rapport inclut une ligne TOTAL ; les colonnes numériques sont additionnées.",
+      "alerts": {
+        "noCompany": "Aucune société n’est définie pour ce compte.",
+        "failed": "Échec de l’export."
+      },
+      "kinds": { "FBA": "FBA", "FBM": "FBM", "Stock": "Stock", "Returns": "Retours" }
+    },
+
+    "returns": {
+      "title": "Retours",
+      "readonly": "Vue en lecture seule.",
+      "thead": {
+        "date": "Date",
+        "asin": "ASIN",
+        "qty": "Quantité",
+        "type": "Type de retour",
+        "status": "Statut",
+        "adminNotes": "Notes admin"
+      },
+      "noRecords": "Aucun enregistrement."
+    },
+
+    "stock": {
+      "title": "Stock",
+      "desc": "<b>EAN</b> est géré par l’admin. Vous pouvez modifier <b>Nom du produit</b>, <b>ASIN/SKU</b>, <b>Lien produit</b> et <b>Prix d’achat</b>.",
+      "month": { "label": "Mois :", "current": "Mois en cours" },
+      "search": {
+        "field": { "EAN": "EAN", "NAME": "Nom du produit", "ASIN_SKU": "ASIN / SKU" },
+        "placeholder": {
+          "EAN": "Rechercher par EAN",
+          "NAME": "Rechercher par nom de produit",
+          "ASIN_SKU": "Rechercher par ASIN ou SKU"
+        }
+      },
+      "stockFilter": {
+        "label": "Stock :",
+        "in": "En stock",
+        "out": "Rupture",
+        "all": "Tous"
+      },
+      "actions": {
+        "selectAllOnPage": "Sélectionner tout sur la page",
+        "sendToPrep": "Envoyer en préparation",
+        "needSelection": "Sélectionnez au moins un produit."
+      },
+      "thead": {
+        "sel": "",
+        "ean": "EAN",
+        "qty": "Qté",
+        "name": "Nom du produit",
+        "asinSku": "ASIN / SKU",
+        "link": "Lien produit",
+        "purchasePrice": "Prix d’achat",
+        "value": "Valeur",
+        "save": "Enregistrer"
+      },
+      "link": {
+        "add": "Ajouter\nLien",
+        "open": "Ouvrir\nLien",
+        "edit": "Modifier\nLien",
+        "label": "Lien produit",
+        "cancel": "Annuler",
+        "save": "Enregistrer"
+      },
+      "table": {
+        "loading": "Chargement…",
+        "empty": "Aucune donnée pour les filtres actuels.",
+        "saving": "Enregistrement…",
+        "saved": "Enregistré avec succès.",
+        "savedNameAdminOnly": "Enregistré (le nom est réservé à l’admin).",
+        "nothingToSave": "Rien à enregistrer."
+      },
+      "pager": {
+        "rows": "Lignes :",
+        "prev": "←",
+        "next": "→",
+        "pageXofY": "Page {x} / {y}"
+      },
+      "totals": {
+        "label": "Totaux (filtres actuels) — Quantité : <strong>{qty}</strong> · Valeur : <strong>{value} €</strong>"
+      },
+      "recent": {
+        "title": "Demandes de préparation récentes",
+        "thead": {
+          "date": "Date",
+          "country": "Pays",
+          "fbaShipmentId": "ID expédition FBA",
+          "trackIds": "IDs de suivi",
+          "status": "Statut"
+        },
+        "none": "Aucune demande pour le moment."
+      },
+      "drawer": {
+        "title": "Envoyer en préparation",
+        "close": "Fermer",
+        "destCountry": "Pays de destination",
+        "line": "Ligne {n}",
+        "ean": "EAN",
+        "asin": "ASIN",
+        "remove": "Supprimer",
+        "asinSkuReq": "ASIN/SKU (obligatoire)",
+        "unitsToSend": "Unités à envoyer (max {max})",
+        "cancel": "Annuler",
+        "send": "Envoyer la demande",
+        "errors": {
+          "noLines": "Aucune ligne dans cette demande. Ajoutez au moins un produit.",
+          "asinSkuMissing": "Ligne {n} : ASIN/SKU manquant (renseignez au moins un champ).",
+          "qtyZero": "Ligne {n} : la quantité ne peut pas être 0 ou vide.",
+          "qtyExceeds": "Ligne {n} : unités ({u}) supérieures au stock disponible ({max}).",
+          "createFailed": "Échec de création du brouillon de préparation."
+        },
+        "success": "Demande envoyée en préparation.",
+        "handle": { "showMore": "+{n} de plus", "showLess": "voir moins" }
+      },
+      "countries": { "FR": "France", "DE": "Allemagne", "IT": "Italie", "ES": "Espagne", "PL": "Pologne", "RO": "Roumanie" }
+    },
+
+    "billing": {
+      "title": "Coordonnées de facturation",
+      "addProfile": "Ajouter un profil",
+      "flash": {
+        "created": "Profil créé avec succès",
+        "updated": "Profil mis à jour avec succès",
+        "deleted": "Profil supprimé avec succès",
+        "deleteConfirm": "Voulez-vous vraiment supprimer ce profil de facturation ?",
+        "errorSave": "Erreur lors de l’enregistrement du profil",
+        "errorDelete": "Erreur lors de la suppression du profil"
+      },
+      "form": {
+        "new": "Nouveau profil de facturation",
+        "edit": "Modifier le profil",
+        "type": "Type de profil",
+        "individual": "Particulier",
+        "company": "Entreprise",
+        "firstName": "Prénom *",
+        "lastName": "Nom *",
+        "companyName": "Raison sociale *",
+        "vat": "N° de TVA",
+        "sirenSiret": "SIREN/SIRET",
+        "country": "Pays *",
+        "address": "Adresse *",
+        "city": "Ville *",
+        "postalCode": "Code postal *",
+        "phone": "Téléphone",
+        "default": "Définir comme profil par défaut",
+        "cancel": "Annuler",
+        "save": "Enregistrer",
+        "saving": "Enregistrement…",
+        "update": "Mettre à jour",
+        "validVatFailed": "Échec de la validation TVA : {reason}",
+        "vatFormatInvalid": "Format de TVA invalide pour ce pays"
+      },
+      "list": {
+        "noneTitle": "Aucun profil de facturation",
+        "noneDesc": "Ajoutez votre premier profil pour recevoir des factures.",
+        "add": "Ajouter un profil",
+        "defaultBadge": "Par défaut",
+        "labels": { "vat": "TVA", "sirenSiret": "SIREN/SIRET", "tel": "Tél" }
+      }
+    },
+
+    "invoices": {
+      "title": "Mes factures",
+      "total": "Total : {n} factures",
+      "flashError": "Impossible de charger les factures.",
+      "filters": {
+        "search": "Recherche",
+        "searchPh": "Numéro de facture ou description…",
+        "status": "Statut",
+        "period": "Période",
+        "all": "Toutes",
+        "last30": "30 derniers jours",
+        "last90": "90 derniers jours",
+        "thisYear": "Cette année",
+        "paid": "Payée",
+        "pending": "En attente",
+        "overdue": "En retard",
+        "cancelled": "Annulée"
+      },
+      "card": {
+        "invoice": "Facture n°{no}",
+        "date": "Date",
+        "due": "Échéance",
+        "vat": "TVA : {vat} €",
+        "amount": "{amount} €",
+        "view": "Voir",
+        "download": "Télécharger",
+        "noFile": "Aucun fichier"
+      },
+      "empty": {
+        "noneFound": "Aucune facture trouvée",
+        "noneYet": "Pas encore de factures",
+        "tipFound": "Essayez d’ajuster vos filtres.",
+        "tipYet": "Vos factures apparaîtront après votre première commande."
+      },
+      "errors": { "download": "Erreur lors du téléchargement de la facture.", "view": "Impossible de générer un lien de visualisation." }
+    },
+
+    "profile": {
+      "title": "Informations personnelles",
+      "edit": "Modifier",
+      "cancel": "Annuler",
+      "save": "Enregistrer les modifications",
+      "saving": "Enregistrement…",
+      "flashOk": "Profil mis à jour avec succès.",
+      "flashErr": "Erreur lors de la mise à jour du profil.",
+      "fields": {
+        "firstName": "Prénom",
+        "lastName": "Nom",
+        "email": "Email",
+        "emailNote": "L’email ne peut pas être modifié ici. Contactez le support pour le mettre à jour.",
+        "phone": "Téléphone",
+        "country": "Pays",
+        "language": "Langue préférée",
+        "phonePh": "+33 6 12 34 56 78"
+      },
+      "languages": { "en": "English", "ro": "Română", "fr": "Français", "de": "Deutsch", "it": "Italiano", "es": "Español" },
+      "countries": { "RO": "Roumanie", "FR": "France", "DE": "Allemagne", "IT": "Italie", "ES": "Espagne", "PL": "Pologne" }
+    },
+
+    "security": {
+      "title": "Sécurité",
+      "flash": {
+        "pwdMismatch": "Les mots de passe ne correspondent pas.",
+        "pwdTooShort": "Le mot de passe doit contenir au moins 8 caractères.",
+        "pwdOk": "Mot de passe modifié avec succès.",
+        "pwdErr": "Erreur lors du changement de mot de passe."
+      },
+      "changePwd": {
+        "title": "Changer le mot de passe",
+        "new": "Nouveau mot de passe",
+        "newPh": "Minimum 8 caractères",
+        "confirm": "Confirmer le nouveau mot de passe",
+        "confirmPh": "Saisir à nouveau le nouveau mot de passe",
+        "toggle": { "show": "Afficher", "hide": "Masquer" },
+        "submit": "Changer le mot de passe",
+        "changing": "Modification…"
+      },
+      "accountInfo": {
+        "title": "Informations du compte",
+        "emailVerified": "Email vérifié :",
+        "verified": "Vérifié",
+        "unverified": "Non vérifié",
+        "lastSignIn": "Dernière connexion :",
+        "createdAt": "Compte créé :"
+      },
+      "tips": {
+        "title": "Conseils de sécurité",
+        "t1": "Utilisez un mot de passe unique et complexe pour ce compte.",
+        "t2": "Activez l’authentification à deux facteurs si disponible.",
+        "t3": "Ne partagez jamais vos identifiants.",
+        "t4": "Déconnectez-vous sur les ordinateurs publics ou partagés."
+      }
+    }
+  },
+
+  "de": {
+    "common": {
+      "greeting": "Hallo, {name}!",
+      "subtitle": "Kundenportal: Berichte anzeigen und Ihr Konto verwalten.",
+      "signOut": "Abmelden",
+      "groups": { "operations": "Operationen", "account": "Mein Konto" },
+      "loading": "Wird geladen…",
+      "calculating": "Wird berechnet…",
+      "na": "k. A.",
+      "yes": "Ja",
+      "no": "Nein"
+    },
+
+    "sidebar": {
+      "activity": "Aktivität",
+      "fba": "FBA",
+      "fbm": "FBM",
+      "stock": "Bestand",
+      "returns": "Retouren",
+      "exports": "Exporte",
+      "profile": "Profil",
+      "billing": "Rechnungsdaten",
+      "invoices": "Meine Rechnungen",
+      "integrations": "Integrationen",
+      "security": "Sicherheit"
+    },
+
+    "balance": {
+      "title": "Saldo",
+      "current": "Aktueller Saldo: {amount} €",
+      "prepayment": "Vorauszahlung: {amount} €",
+      "outstanding": "Offener Saldo: {amount} €"
+    },
+
+    "activity": {
+      "fbaTitle": "FBA",
+      "fbmTitle": "FBM",
+      "thead": {
+        "date": "Datum",
+        "service": "Service",
+        "unitPrice": "Stückpreis",
+        "units": "Einheiten",
+        "ordersUnits": "Bestellungen/Einheiten",
+        "total": "Summe",
+        "adminNotes": "Admin-Notizen"
+      },
+      "noRecords": "Keine Einträge.",
+      "totals": "Summen",
+      "chartTitle": "Tägliche Summen FBA vs. FBM",
+      "range": { "m1": "1 Monat", "m3": "3 Monate", "all": "Gesamter Zeitraum" },
+      "tooltip": { "date": "Datum" },
+      "companyMissing": "Ihr Konto ist noch keiner Firma zugeordnet. Bitte Support zur Aktivierung kontaktieren."
+    },
+
+    "fbaReport": {
+      "title": "FBA-Bericht",
+      "readonly": "Nur Leseansicht.",
+      "monthLabel": "Monat:",
+      "currentMonth": "Aktueller Monat",
+      "noDataMonth": "Keine Daten für den gewählten Monat."
+    },
+
+    "fbmReport": {
+      "title": "FBM-Bericht",
+      "readonly": "Nur Leseansicht.",
+      "monthLabel": "Monat:",
+      "currentMonth": "Aktueller Monat",
+      "noDataMonth": "Keine Daten für den gewählten Monat."
+    },
+
+    "exports": {
+      "title": "Exporte",
+      "desc": "Excel-Berichte für FBA, FBM, Bestand oder Retouren herunterladen. Zeitraum wählen.",
+      "reportType": "Berichtstyp",
+      "from": "Von (inkl.)",
+      "to": "Bis (inkl.)",
+      "btn": "{kind} exportieren (.xlsx)",
+      "generating": "Wird erstellt…",
+      "footnote": "* Der Bericht enthält eine ZEILE GESAMT; numerische Spalten werden aufsummiert.",
+      "alerts": {
+        "noCompany": "Für dieses Konto ist keine Firma hinterlegt.",
+        "failed": "Export fehlgeschlagen."
+      },
+      "kinds": { "FBA": "FBA", "FBM": "FBM", "Stock": "Bestand", "Returns": "Retouren" }
+    },
+
+    "returns": {
+      "title": "Retouren",
+      "readonly": "Nur Leseansicht.",
+      "thead": {
+        "date": "Datum",
+        "asin": "ASIN",
+        "qty": "Menge",
+        "type": "Retourenart",
+        "status": "Status",
+        "adminNotes": "Admin-Notizen"
+      },
+      "noRecords": "Keine Einträge."
+    },
+
+    "stock": {
+      "title": "Bestand",
+      "desc": "<b>EAN</b> wird vom Admin verwaltet. Bearbeitbar: <b>Produktname</b>, <b>ASIN/SKU</b>, <b>Produktlink</b>, <b>Einkaufspreis</b>.",
+      "month": { "label": "Monat:", "current": "Aktueller Monat" },
+      "search": {
+        "field": { "EAN": "EAN", "NAME": "Produktname", "ASIN_SKU": "ASIN / SKU" },
+        "placeholder": {
+          "EAN": "Nach EAN suchen",
+          "NAME": "Nach Produktname suchen",
+          "ASIN_SKU": "Nach ASIN oder SKU suchen"
+        }
+      },
+      "stockFilter": {
+        "label": "Bestand:",
+        "in": "Verfügbar",
+        "out": "Nicht vorrätig",
+        "all": "Alle"
+      },
+      "actions": {
+        "selectAllOnPage": "Alle auf der Seite auswählen",
+        "sendToPrep": "Zur Vorbereitung senden",
+        "needSelection": "Mindestens ein Produkt auswählen."
+      },
+      "thead": {
+        "sel": "",
+        "ean": "EAN",
+        "qty": "Menge",
+        "name": "Produktname",
+        "asinSku": "ASIN / SKU",
+        "link": "Produktlink",
+        "purchasePrice": "Einkaufspreis",
+        "value": "Wert",
+        "save": "Speichern"
+      },
+      "link": {
+        "add": "Link\nHinzuf.",
+        "open": "Link\nÖffnen",
+        "edit": "Link\nBearb.",
+        "label": "Produktlink",
+        "cancel": "Abbrechen",
+        "save": "Speichern"
+      },
+      "table": {
+        "loading": "Wird geladen…",
+        "empty": "Keine Daten für die aktuellen Filter.",
+        "saving": "Wird gespeichert…",
+        "saved": "Erfolgreich gespeichert.",
+        "savedNameAdminOnly": "Gespeichert (Name nur für Admin).",
+        "nothingToSave": "Nichts zu speichern."
+      },
+      "pager": {
+        "rows": "Zeilen:",
+        "prev": "←",
+        "next": "→",
+        "pageXofY": "Seite {x} / {y}"
+      },
+      "totals": {
+        "label": "Summen (aktuelle Filter) — Menge: <strong>{qty}</strong> · Wert: <strong>{value} €</strong>"
+      },
+      "recent": {
+        "title": "Aktuelle Vorbereitungsanfragen",
+        "thead": {
+          "date": "Datum",
+          "country": "Land",
+          "fbaShipmentId": "FBA Shipment ID",
+          "trackIds": "Tracking-IDs",
+          "status": "Status"
+        },
+        "none": "Noch keine Anfragen."
+      },
+      "drawer": {
+        "title": "Zur Vorbereitung senden",
+        "close": "Schließen",
+        "destCountry": "Zielland",
+        "line": "Zeile {n}",
+        "ean": "EAN",
+        "asin": "ASIN",
+        "remove": "Entfernen",
+        "asinSkuReq": "ASIN/SKU (erforderlich)",
+        "unitsToSend": "Zu sendende Einheiten (max {max})",
+        "cancel": "Abbrechen",
+        "send": "Anfrage senden",
+        "errors": {
+          "noLines": "Keine Zeilen in dieser Anfrage. Fügen Sie mindestens ein Produkt hinzu.",
+          "asinSkuMissing": "Zeile {n}: ASIN/SKU fehlt (mindestens eines angeben).",
+          "qtyZero": "Zeile {n}: Menge darf nicht 0 oder leer sein.",
+          "qtyExceeds": "Zeile {n}: Einheiten ({u}) überschreiten verfügbaren Bestand ({max}).",
+          "createFailed": "Erstellung des Entwurfs fehlgeschlagen."
+        },
+        "success": "Anfrage zur Vorbereitung gesendet.",
+        "handle": { "showMore": "+{n} mehr", "showLess": "weniger anzeigen" }
+      },
+      "countries": { "FR": "Frankreich", "DE": "Deutschland", "IT": "Italien", "ES": "Spanien", "PL": "Polen", "RO": "Rumänien" }
+    },
+
+    "billing": {
+      "title": "Rechnungsdaten",
+      "addProfile": "Profil hinzufügen",
+      "flash": {
+        "created": "Profil erfolgreich erstellt",
+        "updated": "Profil erfolgreich aktualisiert",
+        "deleted": "Profil erfolgreich gelöscht",
+        "deleteConfirm": "Möchten Sie dieses Rechnungsprofil wirklich löschen?",
+        "errorSave": "Fehler beim Speichern des Profils",
+        "errorDelete": "Fehler beim Löschen des Profils"
+      },
+      "form": {
+        "new": "Neues Rechnungsprofil",
+        "edit": "Profil bearbeiten",
+        "type": "Profiltyp",
+        "individual": "Privatperson",
+        "company": "Unternehmen",
+        "firstName": "Vorname *",
+        "lastName": "Nachname *",
+        "companyName": "Firmenname *",
+        "vat": "USt-IdNr.",
+        "sirenSiret": "SIREN/SIRET",
+        "country": "Land *",
+        "address": "Adresse *",
+        "city": "Stadt *",
+        "postalCode": "PLZ *",
+        "phone": "Telefon",
+        "default": "Als Standardprofil festlegen",
+        "cancel": "Abbrechen",
+        "save": "Speichern",
+        "saving": "Wird gespeichert…",
+        "update": "Aktualisieren",
+        "validVatFailed": "USt-IdNr.-Prüfung fehlgeschlagen: {reason}",
+        "vatFormatInvalid": "Ungültiges USt-Format für dieses Land"
+      },
+      "list": {
+        "noneTitle": "Keine Rechnungsprofile",
+        "noneDesc": "Fügen Sie Ihr erstes Profil hinzu, um Rechnungen zu erhalten.",
+        "add": "Profil hinzufügen",
+        "defaultBadge": "Standard",
+        "labels": { "vat": "USt", "sirenSiret": "SIREN/SIRET", "tel": "Tel." }
+      }
+    },
+
+    "invoices": {
+      "title": "Meine Rechnungen",
+      "total": "Summe: {n} Rechnungen",
+      "flashError": "Rechnungen konnten nicht geladen werden.",
+      "filters": {
+        "search": "Suche",
+        "searchPh": "Rechnungsnummer oder Beschreibung…",
+        "status": "Status",
+        "period": "Zeitraum",
+        "all": "Alle",
+        "last30": "Letzte 30 Tage",
+        "last90": "Letzte 90 Tage",
+        "thisYear": "Dieses Jahr",
+        "paid": "Bezahlt",
+        "pending": "Offen",
+        "overdue": "Überfällig",
+        "cancelled": "Storniert"
+      },
+      "card": {
+        "invoice": "Rechnung #{no}",
+        "date": "Datum",
+        "due": "Fällig",
+        "vat": "MwSt.: {vat} €",
+        "amount": "{amount} €",
+        "view": "Ansehen",
+        "download": "Download",
+        "noFile": "Keine Datei"
+      },
+      "empty": {
+        "noneFound": "Keine Rechnungen gefunden",
+        "noneYet": "Noch keine Rechnungen vorhanden",
+        "tipFound": "Passen Sie Ihre Filter an.",
+        "tipYet": "Nach Ihrer ersten Bestellung erscheinen hier Rechnungen."
+      },
+      "errors": { "download": "Fehler beim Herunterladen der Rechnung.", "view": "Ansichtslink konnte nicht erstellt werden." }
+    },
+
+    "profile": {
+      "title": "Persönliche Daten",
+      "edit": "Bearbeiten",
+      "cancel": "Abbrechen",
+      "save": "Änderungen speichern",
+      "saving": "Wird gespeichert…",
+      "flashOk": "Profil erfolgreich aktualisiert.",
+      "flashErr": "Fehler beim Aktualisieren des Profils.",
+      "fields": {
+        "firstName": "Vorname",
+        "lastName": "Nachname",
+        "email": "E-Mail",
+        "emailNote": "E-Mail kann hier nicht geändert werden. Support kontaktieren, wenn eine Änderung nötig ist.",
+        "phone": "Telefon",
+        "country": "Land",
+        "language": "Bevorzugte Sprache",
+        "phonePh": "+49 170 0000000"
+      },
+      "languages": { "en": "English", "ro": "Română", "fr": "Français", "de": "Deutsch", "it": "Italiano", "es": "Español" },
+      "countries": { "RO": "Rumänien", "FR": "Frankreich", "DE": "Deutschland", "IT": "Italien", "ES": "Spanien", "PL": "Polen" }
+    },
+
+    "security": {
+      "title": "Sicherheit",
+      "flash": {
+        "pwdMismatch": "Passwörter stimmen nicht überein.",
+        "pwdTooShort": "Passwort muss mindestens 8 Zeichen lang sein.",
+        "pwdOk": "Passwort erfolgreich geändert.",
+        "pwdErr": "Fehler beim Ändern des Passworts."
+      },
+      "changePwd": {
+        "title": "Passwort ändern",
+        "new": "Neues Passwort",
+        "newPh": "Mindestens 8 Zeichen",
+        "confirm": "Neues Passwort bestätigen",
+        "confirmPh": "Neues Passwort erneut eingeben",
+        "toggle": { "show": "Anzeigen", "hide": "Verbergen" },
+        "submit": "Passwort ändern",
+        "changing": "Wird geändert…"
+      },
+      "accountInfo": {
+        "title": "Kontoinformationen",
+        "emailVerified": "E-Mail verifiziert:",
+        "verified": "Verifiziert",
+        "unverified": "Nicht verifiziert",
+        "lastSignIn": "Letzte Anmeldung:",
+        "createdAt": "Konto erstellt:"
+      },
+      "tips": {
+        "title": "Sicherheitstipps",
+        "t1": "Verwenden Sie ein einzigartiges, komplexes Passwort.",
+        "t2": "Aktivieren Sie nach Möglichkeit Zwei-Faktor-Authentifizierung.",
+        "t3": "Geben Sie Ihre Zugangsdaten niemals weiter.",
+        "t4": "Melden Sie sich auf öffentlichen/ gemeinsamen Computern immer ab."
+      }
+    }
+  },
+
+  "it": {
+    "common": {
+      "greeting": "Ciao, {name}!",
+      "subtitle": "Portale clienti: visualizza i report e gestisci il tuo account.",
+      "signOut": "Esci",
+      "groups": { "operations": "Operazioni", "account": "Il mio account" },
+      "loading": "Caricamento…",
+      "calculating": "Calcolo in corso…",
+      "na": "N/D",
+      "yes": "Sì",
+      "no": "No"
+    },
+
+    "sidebar": {
+      "activity": "Attività",
+      "fba": "FBA",
+      "fbm": "FBM",
+      "stock": "Magazzino",
+      "returns": "Resi",
+      "exports": "Esportazioni",
+      "profile": "Profilo",
+      "billing": "Dati di fatturazione",
+      "invoices": "Le mie fatture",
+      "integrations": "Integrazioni",
+      "security": "Sicurezza"
+    },
+
+    "balance": {
+      "title": "Saldo",
+      "current": "Saldo attuale: {amount} €",
+      "prepayment": "Anticipo: {amount} €",
+      "outstanding": "Saldo residuo: {amount} €"
+    },
+
+    "activity": {
+      "fbaTitle": "FBA",
+      "fbmTitle": "FBM",
+      "thead": {
+        "date": "Data",
+        "service": "Servizio",
+        "unitPrice": "Prezzo unitario",
+        "units": "Unità",
+        "ordersUnits": "Ordini/Unità",
+        "total": "Totale",
+        "adminNotes": "Note admin"
+      },
+      "noRecords": "Nessun record.",
+      "totals": "Totali",
+      "chartTitle": "Totali giornalieri FBA vs FBM",
+      "range": { "m1": "1 mese", "m3": "3 mesi", "all": "Tutto il periodo" },
+      "tooltip": { "date": "Data" },
+      "companyMissing": "Il tuo account non è ancora collegato a un’azienda. Contatta il supporto per l’attivazione."
+    },
+
+    "fbaReport": {
+      "title": "Report FBA",
+      "readonly": "Solo visualizzazione.",
+      "monthLabel": "Mese:",
+      "currentMonth": "Mese corrente",
+      "noDataMonth": "Nessun dato per il mese selezionato."
+    },
+
+    "fbmReport": {
+      "title": "Report FBM",
+      "readonly": "Solo visualizzazione.",
+      "monthLabel": "Mese:",
+      "currentMonth": "Mese corrente",
+      "noDataMonth": "Nessun dato per il mese selezionato."
+    },
+
+    "exports": {
+      "title": "Esportazioni",
+      "desc": "Scarica report Excel per FBA, FBM, Magazzino o Resi. Scegli un intervallo di date.",
+      "reportType": "Tipo di report",
+      "from": "Da (incluso)",
+      "to": "A (incluso)",
+      "btn": "Esporta {kind} (.xlsx)",
+      "generating": "Generazione…",
+      "footnote": "* Il report include una riga TOTALE; le colonne numeriche sono sommate.",
+      "alerts": {
+        "noCompany": "Nessuna azienda impostata per questo account.",
+        "failed": "Esportazione non riuscita."
+      },
+      "kinds": { "FBA": "FBA", "FBM": "FBM", "Stock": "Magazzino", "Returns": "Resi" }
+    },
+
+    "returns": {
+      "title": "Resi",
+      "readonly": "Solo visualizzazione.",
+      "thead": {
+        "date": "Data",
+        "asin": "ASIN",
+        "qty": "Quantità",
+        "type": "Tipo di reso",
+        "status": "Stato",
+        "adminNotes": "Note admin"
+      },
+      "noRecords": "Nessun record."
+    },
+
+    "stock": {
+      "title": "Magazzino",
+      "desc": "<b>EAN</b> è gestito dall’amministratore. Puoi modificare <b>Nome prodotto</b>, <b>ASIN/SKU</b>, <b>Link prodotto</b> e <b>Prezzo di acquisto</b>.",
+      "month": { "label": "Mese:", "current": "Mese corrente" },
+      "search": {
+        "field": { "EAN": "EAN", "NAME": "Nome prodotto", "ASIN_SKU": "ASIN / SKU" },
+        "placeholder": {
+          "EAN": "Cerca per EAN",
+          "NAME": "Cerca per nome prodotto",
+          "ASIN_SKU": "Cerca per ASIN o SKU"
+        }
+      },
+      "stockFilter": {
+        "label": "Magazzino:",
+        "in": "Disponibile",
+        "out": "Esaurito",
+        "all": "Tutti"
+      },
+      "actions": {
+        "selectAllOnPage": "Seleziona tutti nella pagina",
+        "sendToPrep": "Invia alla preparazione",
+        "needSelection": "Seleziona almeno un prodotto."
+      },
+      "thead": {
+        "sel": "",
+        "ean": "EAN",
+        "qty": "Qtà",
+        "name": "Nome prodotto",
+        "asinSku": "ASIN / SKU",
+        "link": "Link prodotto",
+        "purchasePrice": "Prezzo d’acquisto",
+        "value": "Valore",
+        "save": "Salva"
+      },
+      "link": {
+        "add": "Aggiungi\nLink",
+        "open": "Apri\nLink",
+        "edit": "Modifica\nLink",
+        "label": "Link prodotto",
+        "cancel": "Annulla",
+        "save": "Salva"
+      },
+      "table": {
+        "loading": "Caricamento…",
+        "empty": "Nessun dato per i filtri correnti.",
+        "saving": "Salvataggio…",
+        "saved": "Salvato con successo.",
+        "savedNameAdminOnly": "Salvato (nome solo per admin).",
+        "nothingToSave": "Niente da salvare."
+      },
+      "pager": {
+        "rows": "Righe:",
+        "prev": "←",
+        "next": "→",
+        "pageXofY": "Pagina {x} / {y}"
+      },
+      "totals": {
+        "label": "Totali (filtri correnti) — Quantità: <strong>{qty}</strong> · Valore: <strong>{value} €</strong>"
+      },
+      "recent": {
+        "title": "Richieste di preparazione recenti",
+        "thead": {
+          "date": "Data",
+          "country": "Paese",
+          "fbaShipmentId": "ID spedizione FBA",
+          "trackIds": "Codici tracking",
+          "status": "Stato"
+        },
+        "none": "Nessuna richiesta."
+      },
+      "drawer": {
+        "title": "Invia alla preparazione",
+        "close": "Chiudi",
+        "destCountry": "Paese di destinazione",
+        "line": "Riga {n}",
+        "ean": "EAN",
+        "asin": "ASIN",
+        "remove": "Rimuovi",
+        "asinSkuReq": "ASIN/SKU (obbligatorio)",
+        "unitsToSend": "Unità da inviare (max {max})",
+        "cancel": "Annulla",
+        "send": "Invia richiesta",
+        "errors": {
+          "noLines": "Nessuna riga in questa richiesta. Aggiungi almeno un prodotto.",
+          "asinSkuMissing": "Riga {n}: manca ASIN/SKU (compila almeno uno).",
+          "qtyZero": "Riga {n}: quantità non può essere 0 o vuota.",
+          "qtyExceeds": "Riga {n}: unità ({u}) oltre il magazzino disponibile ({max}).",
+          "createFailed": "Creazione bozza di preparazione non riuscita."
+        },
+        "success": "Richiesta inviata alla preparazione.",
+        "handle": { "showMore": "+{n} in più", "showLess": "mostra meno" }
+      },
+      "countries": { "FR": "Francia", "DE": "Germania", "IT": "Italia", "ES": "Spagna", "PL": "Polonia", "RO": "Romania" }
+    },
+
+    "billing": {
+      "title": "Dati di fatturazione",
+      "addProfile": "Aggiungi profilo",
+      "flash": {
+        "created": "Profilo creato con successo",
+        "updated": "Profilo aggiornato con successo",
+        "deleted": "Profilo eliminato con successo",
+        "deleteConfirm": "Eliminare questo profilo di fatturazione?",
+        "errorSave": "Errore durante il salvataggio del profilo",
+        "errorDelete": "Errore durante l’eliminazione del profilo"
+      },
+      "form": {
+        "new": "Nuovo profilo di fatturazione",
+        "edit": "Modifica profilo",
+        "type": "Tipo di profilo",
+        "individual": "Privato",
+        "company": "Azienda",
+        "firstName": "Nome *",
+        "lastName": "Cognome *",
+        "companyName": "Ragione sociale *",
+        "vat": "Partita IVA",
+        "sirenSiret": "SIREN/SIRET",
+        "country": "Paese *",
+        "address": "Indirizzo *",
+        "city": "Città *",
+        "postalCode": "CAP *",
+        "phone": "Telefono",
+        "default": "Imposta come profilo predefinito",
+        "cancel": "Annulla",
+        "save": "Salva",
+        "saving": "Salvataggio…",
+        "update": "Aggiorna",
+        "validVatFailed": "Verifica IVA non riuscita: {reason}",
+        "vatFormatInvalid": "Formato IVA non valido per questo Paese"
+      },
+      "list": {
+        "noneTitle": "Nessun profilo di fatturazione",
+        "noneDesc": "Aggiungi il tuo primo profilo per ricevere fatture.",
+        "add": "Aggiungi profilo",
+        "defaultBadge": "Predefinito",
+        "labels": { "vat": "IVA", "sirenSiret": "SIREN/SIRET", "tel": "Tel" }
+      }
+    },
+
+    "invoices": {
+      "title": "Le mie fatture",
+      "total": "Totale: {n} fatture",
+      "flashError": "Impossibile caricare le fatture.",
+      "filters": {
+        "search": "Cerca",
+        "searchPh": "Numero fattura o descrizione…",
+        "status": "Stato",
+        "period": "Periodo",
+        "all": "Tutte",
+        "last30": "Ultimi 30 giorni",
+        "last90": "Ultimi 90 giorni",
+        "thisYear": "Quest’anno",
+        "paid": "Pagata",
+        "pending": "In sospeso",
+        "overdue": "Scaduta",
+        "cancelled": "Annullata"
+      },
+      "card": {
+        "invoice": "Fattura #{no}",
+        "date": "Data",
+        "due": "Scadenza",
+        "vat": "IVA: {vat} €",
+        "amount": "{amount} €",
+        "view": "Visualizza",
+        "download": "Scarica",
+        "noFile": "Nessun file"
+      },
+      "empty": {
+        "noneFound": "Nessuna fattura trovata",
+        "noneYet": "Nessuna fattura disponibile",
+        "tipFound": "Prova a modificare i filtri.",
+        "tipYet": "Le fatture appariranno dopo il primo ordine."
+      },
+      "errors": { "download": "Errore durante il download della fattura.", "view": "Impossibile generare il link di visualizzazione." }
+    },
+
+    "profile": {
+      "title": "Dati personali",
+      "edit": "Modifica",
+      "cancel": "Annulla",
+      "save": "Salva modifiche",
+      "saving": "Salvataggio…",
+      "flashOk": "Profilo aggiornato con successo.",
+      "flashErr": "Errore durante l’aggiornamento del profilo.",
+      "fields": {
+        "firstName": "Nome",
+        "lastName": "Cognome",
+        "email": "Email",
+        "emailNote": "L’email non può essere modificata qui. Contatta il supporto per l’aggiornamento.",
+        "phone": "Telefono",
+        "country": "Paese",
+        "language": "Lingua preferita",
+        "phonePh": "+39 333 000 0000"
+      },
+      "languages": { "en": "English", "ro": "Română", "fr": "Français", "de": "Deutsch", "it": "Italiano", "es": "Español" },
+      "countries": { "RO": "Romania", "FR": "Francia", "DE": "Germania", "IT": "Italia", "ES": "Spagna", "PL": "Polonia" }
+    },
+
+    "security": {
+      "title": "Sicurezza",
+      "flash": {
+        "pwdMismatch": "Le password non coincidono.",
+        "pwdTooShort": "La password deve contenere almeno 8 caratteri.",
+        "pwdOk": "Password modificata con successo.",
+        "pwdErr": "Errore durante la modifica della password."
+      },
+      "changePwd": {
+        "title": "Cambia password",
+        "new": "Nuova password",
+        "newPh": "Minimo 8 caratteri",
+        "confirm": "Conferma nuova password",
+        "confirmPh": "Ripeti la nuova password",
+        "toggle": { "show": "Mostra", "hide": "Nascondi" },
+        "submit": "Cambia password",
+        "changing": "Modifica in corso…"
+      },
+      "accountInfo": {
+        "title": "Informazioni account",
+        "emailVerified": "Email verificata:",
+        "verified": "Verificata",
+        "unverified": "Non verificata",
+        "lastSignIn": "Ultimo accesso:",
+        "createdAt": "Account creato:"
+      },
+      "tips": {
+        "title": "Suggerimenti di sicurezza",
+        "t1": "Usa una password unica e complessa.",
+        "t2": "Abilita l’autenticazione a due fattori se disponibile.",
+        "t3": "Non condividere mai le credenziali.",
+        "t4": "Esci sempre quando usi computer pubblici o condivisi."
+      }
+    }
+  },
+
+  "es": {
+    "common": {
+      "greeting": "¡Hola, {name}!",
+      "subtitle": "Portal de clientes: consulta informes y gestiona tu cuenta.",
+      "signOut": "Cerrar sesión",
+      "groups": { "operations": "Operaciones", "account": "Mi cuenta" },
+      "loading": "Cargando…",
+      "calculating": "Calculando…",
+      "na": "N/D",
+      "yes": "Sí",
+      "no": "No"
+    },
+
+    "sidebar": {
+      "activity": "Actividad",
+      "fba": "FBA",
+      "fbm": "FBM",
+      "stock": "Stock",
+      "returns": "Devoluciones",
+      "exports": "Exportaciones",
+      "profile": "Perfil",
+      "billing": "Datos de facturación",
+      "invoices": "Mis facturas",
+      "integrations": "Integraciones",
+      "security": "Seguridad"
+    },
+
+    "balance": {
+      "title": "Saldo",
+      "current": "Saldo actual: {amount} €",
+      "prepayment": "Prepago: {amount} €",
+      "outstanding": "Saldo pendiente: {amount} €"
+    },
+
+    "activity": {
+      "fbaTitle": "FBA",
+      "fbmTitle": "FBM",
+      "thead": {
+        "date": "Fecha",
+        "service": "Servicio",
+        "unitPrice": "Precio unitario",
+        "units": "Unidades",
+        "ordersUnits": "Pedidos/Unidades",
+        "total": "Total",
+        "adminNotes": "Notas admin"
+      },
+      "noRecords": "Sin registros.",
+      "totals": "Totales",
+      "chartTitle": "Totales diarios FBA vs FBM",
+      "range": { "m1": "1 mes", "m3": "3 meses", "all": "Todo el periodo" },
+      "tooltip": { "date": "Fecha" },
+      "companyMissing": "Tu cuenta aún no está vinculada a una empresa. Contacta con soporte para activarla."
+    },
+
+    "fbaReport": {
+      "title": "Informe FBA",
+      "readonly": "Vista de solo lectura.",
+      "monthLabel": "Mes:",
+      "currentMonth": "Mes actual",
+      "noDataMonth": "No hay datos para el mes seleccionado."
+    },
+
+    "fbmReport": {
+      "title": "Informe FBM",
+      "readonly": "Vista de solo lectura.",
+      "monthLabel": "Mes:",
+      "currentMonth": "Mes actual",
+      "noDataMonth": "No hay datos para el mes seleccionado."
+    },
+
+    "exports": {
+      "title": "Exportaciones",
+      "desc": "Descarga informes Excel de FBA, FBM, Stock o Devoluciones. Elige un rango de fechas.",
+      "reportType": "Tipo de informe",
+      "from": "Desde (incl.)",
+      "to": "Hasta (incl.)",
+      "btn": "Exportar {kind} (.xlsx)",
+      "generating": "Generando…",
+      "footnote": "* El informe incluye una fila TOTAL; las columnas numéricas se suman.",
+      "alerts": {
+        "noCompany": "No hay empresa configurada para esta cuenta.",
+        "failed": "Exportación fallida."
+      },
+      "kinds": { "FBA": "FBA", "FBM": "FBM", "Stock": "Stock", "Returns": "Devoluciones" }
+    },
+
+    "returns": {
+      "title": "Devoluciones",
+      "readonly": "Vista de solo lectura.",
+      "thead": {
+        "date": "Fecha",
+        "asin": "ASIN",
+        "qty": "Cantidad",
+        "type": "Tipo de devolución",
+        "status": "Estado",
+        "adminNotes": "Notas admin"
+      },
+      "noRecords": "Sin registros."
+    },
+
+    "stock": {
+      "title": "Stock",
+      "desc": "<b>EAN</b> lo gestiona el administrador. Puedes editar <b>Nombre del producto</b>, <b>ASIN/SKU</b>, <b>Enlace del producto</b> y <b>Precio de compra</b>.",
+      "month": { "label": "Mes:", "current": "Mes actual" },
+      "search": {
+        "field": { "EAN": "EAN", "NAME": "Nombre del producto", "ASIN_SKU": "ASIN / SKU" },
+        "placeholder": {
+          "EAN": "Buscar por EAN",
+          "NAME": "Buscar por nombre de producto",
+          "ASIN_SKU": "Buscar por ASIN o SKU"
+        }
+      },
+      "stockFilter": {
+        "label": "Stock:",
+        "in": "En stock",
+        "out": "Sin stock",
+        "all": "Todos"
+      },
+      "actions": {
+        "selectAllOnPage": "Seleccionar todo en la página",
+        "sendToPrep": "Enviar a preparación",
+        "needSelection": "Selecciona al menos un producto."
+      },
+      "thead": {
+        "sel": "",
+        "ean": "EAN",
+        "qty": "Cant.",
+        "name": "Nombre del producto",
+        "asinSku": "ASIN / SKU",
+        "link": "Enlace del producto",
+        "purchasePrice": "Precio de compra",
+        "value": "Valor",
+        "save": "Guardar"
+      },
+      "link": {
+        "add": "Añadir\nEnlace",
+        "open": "Abrir\nEnlace",
+        "edit": "Editar\nEnlace",
+        "label": "Enlace del producto",
+        "cancel": "Cancelar",
+        "save": "Guardar"
+      },
+      "table": {
+        "loading": "Cargando…",
+        "empty": "No hay datos para los filtros actuales.",
+        "saving": "Guardando…",
+        "saved": "Guardado correctamente.",
+        "savedNameAdminOnly": "Guardado (nombre solo para admin).",
+        "nothingToSave": "Nada que guardar."
+      },
+      "pager": {
+        "rows": "Filas:",
+        "prev": "←",
+        "next": "→",
+        "pageXofY": "Página {x} / {y}"
+      },
+      "totals": {
+        "label": "Totales (filtros actuales) — Cantidad: <strong>{qty}</strong> · Valor: <strong>{value} €</strong>"
+      },
+      "recent": {
+        "title": "Solicitudes de preparación recientes",
+        "thead": {
+          "date": "Fecha",
+          "country": "País",
+          "fbaShipmentId": "ID de envío FBA",
+          "trackIds": "IDs de seguimiento",
+          "status": "Estado"
+        },
+        "none": "Aún no hay solicitudes."
+      },
+      "drawer": {
+        "title": "Enviar a preparación",
+        "close": "Cerrar",
+        "destCountry": "País de destino",
+        "line": "Línea {n}",
+        "ean": "EAN",
+        "asin": "ASIN",
+        "remove": "Eliminar",
+        "asinSkuReq": "ASIN/SKU (obligatorio)",
+        "unitsToSend": "Unidades a enviar (máx. {max})",
+        "cancel": "Cancelar",
+        "send": "Enviar solicitud",
+        "errors": {
+          "noLines": "No hay líneas en esta solicitud. Añade al menos un producto.",
+          "asinSkuMissing": "Línea {n}: falta ASIN/SKU (rellena al menos uno).",
+          "qtyZero": "Línea {n}: la cantidad no puede ser 0 o estar vacía.",
+          "qtyExceeds": "Línea {n}: unidades ({u}) superan el stock disponible ({max}).",
+          "createFailed": "Error al crear el borrador de preparación."
+        },
+        "success": "Solicitud enviada a preparación.",
+        "handle": { "showMore": "+{n} más", "showLess": "ver menos" }
+      },
+      "countries": { "FR": "Francia", "DE": "Alemania", "IT": "Italia", "ES": "España", "PL": "Polonia", "RO": "Rumanía" }
+    },
+
+    "billing": {
+      "title": "Datos de facturación",
+      "addProfile": "Añadir perfil",
+      "flash": {
+        "created": "Perfil creado correctamente",
+        "updated": "Perfil actualizado correctamente",
+        "deleted": "Perfil eliminado correctamente",
+        "deleteConfirm": "¿Seguro que deseas eliminar este perfil de facturación?",
+        "errorSave": "Error al guardar el perfil",
+        "errorDelete": "Error al eliminar el perfil"
+      },
+      "form": {
+        "new": "Nuevo perfil de facturación",
+        "edit": "Editar perfil",
+        "type": "Tipo de perfil",
+        "individual": "Particular",
+        "company": "Empresa",
+        "firstName": "Nombre *",
+        "lastName": "Apellidos *",
+        "companyName": "Nombre de la empresa *",
+        "vat": "NIF/IVA",
+        "sirenSiret": "SIREN/SIRET",
+        "country": "País *",
+        "address": "Dirección *",
+        "city": "Ciudad *",
+        "postalCode": "Código postal *",
+        "phone": "Teléfono",
+        "default": "Establecer como perfil predeterminado",
+        "cancel": "Cancelar",
+        "save": "Guardar",
+        "saving": "Guardando…",
+        "update": "Actualizar",
+        "validVatFailed": "Validación de IVA fallida: {reason}",
+        "vatFormatInvalid": "Formato de IVA inválido para este país"
+      },
+      "list": {
+        "noneTitle": "No hay perfiles de facturación",
+        "noneDesc": "Añade tu primer perfil para recibir facturas.",
+        "add": "Añadir perfil",
+        "defaultBadge": "Predeterminado",
+        "labels": { "vat": "IVA", "sirenSiret": "SIREN/SIRET", "tel": "Tel" }
+      }
+    },
+
+    "invoices": {
+      "title": "Mis facturas",
+      "total": "Total: {n} facturas",
+      "flashError": "No se pudieron cargar las facturas.",
+      "filters": {
+        "search": "Buscar",
+        "searchPh": "Número de factura o descripción…",
+        "status": "Estado",
+        "period": "Periodo",
+        "all": "Todas",
+        "last30": "Últimos 30 días",
+        "last90": "Últimos 90 días",
+        "thisYear": "Este año",
+        "paid": "Pagada",
+        "pending": "Pendiente",
+        "overdue": "Vencida",
+        "cancelled": "Cancelada"
+      },
+      "card": {
+        "invoice": "Factura #{no}",
+        "date": "Fecha",
+        "due": "Vencimiento",
+        "vat": "IVA: {vat} €",
+        "amount": "{amount} €",
+        "view": "Ver",
+        "download": "Descargar",
+        "noFile": "Sin archivo"
+      },
+      "empty": {
+        "noneFound": "No se encontraron facturas",
+        "noneYet": "Aún no hay facturas",
+        "tipFound": "Prueba a ajustar tus filtros.",
+        "tipYet": "Tus facturas aparecerán aquí tras tu primer pedido."
+      },
+      "errors": { "download": "Error al descargar la factura.", "view": "No se pudo generar un enlace de visualización." }
+    },
+
+    "profile": {
+      "title": "Datos personales",
+      "edit": "Editar",
+      "cancel": "Cancelar",
+      "save": "Guardar cambios",
+      "saving": "Guardando…",
+      "flashOk": "Perfil actualizado correctamente.",
+      "flashErr": "Error al actualizar el perfil.",
+      "fields": {
+        "firstName": "Nombre",
+        "lastName": "Apellidos",
+        "email": "Correo electrónico",
+        "emailNote": "El correo no puede cambiarse aquí. Contacta con soporte para actualizarlo.",
+        "phone": "Teléfono",
+        "country": "País",
+        "language": "Idioma preferido",
+        "phonePh": "+34 600 000 000"
+      },
+      "languages": { "en": "English", "ro": "Română", "fr": "Français", "de": "Deutsch", "it": "Italiano", "es": "Español" },
+      "countries": { "RO": "Rumanía", "FR": "Francia", "DE": "Alemania", "IT": "Italia", "ES": "España", "PL": "Polonia" }
+    },
+
+    "security": {
+      "title": "Seguridad",
+      "flash": {
+        "pwdMismatch": "Las contraseñas no coinciden.",
+        "pwdTooShort": "La contraseña debe tener al menos 8 caracteres.",
+        "pwdOk": "Contraseña cambiada correctamente.",
+        "pwdErr": "Error al cambiar la contraseña."
+      },
+      "changePwd": {
+        "title": "Cambiar contraseña",
+        "new": "Nueva contraseña",
+        "newPh": "Mínimo 8 caracteres",
+        "confirm": "Confirmar nueva contraseña",
+        "confirmPh": "Reescribe la nueva contraseña",
+        "toggle": { "show": "Mostrar", "hide": "Ocultar" },
+        "submit": "Cambiar contraseña",
+        "changing": "Cambiando…"
+      },
+      "accountInfo": {
+        "title": "Información de la cuenta",
+        "emailVerified": "Correo verificado:",
+        "verified": "Verificado",
+        "unverified": "No verificado",
+        "lastSignIn": "Último acceso:",
+        "createdAt": "Cuenta creada:"
+      },
+      "tips": {
+        "title": "Consejos de seguridad",
+        "t1": "Usa una contraseña única y compleja.",
+        "t2": "Activa la autenticación en dos pasos si está disponible.",
+        "t3": "Nunca compartas tus credenciales.",
+        "t4": "Cierra sesión al usar ordenadores públicos o compartidos."
+      }
+    }
+  },
+
+  "pl": {
+    "common": {
+      "greeting": "Cześć, {name}!",
+      "subtitle": "Portal klienta: przeglądaj raporty i zarządzaj kontem.",
+      "signOut": "Wyloguj",
+      "groups": { "operations": "Operacje", "account": "Moje konto" },
+      "loading": "Ładowanie…",
+      "calculating": "Obliczanie…",
+      "na": "—",
+      "yes": "Tak",
+      "no": "Nie"
+    },
+
+    "sidebar": {
+      "activity": "Aktywność",
+      "fba": "FBA",
+      "fbm": "FBM",
+      "stock": "Stan",
+      "returns": "Zwroty",
+      "exports": "Eksporty",
+      "profile": "Profil",
+      "billing": "Dane do faktury",
+      "invoices": "Moje faktury",
+      "integrations": "Integracje",
+      "security": "Bezpieczeństwo"
+    },
+
+    "balance": {
+      "title": "Saldo",
+      "current": "Bieżące saldo: {amount} €",
+      "prepayment": "Przedpłata: {amount} €",
+      "outstanding": "Saldo zaległe: {amount} €"
+    },
+
+    "activity": {
+      "fbaTitle": "FBA",
+      "fbmTitle": "FBM",
+      "thead": {
+        "date": "Data",
+        "service": "Usługa",
+        "unitPrice": "Cena jedn.",
+        "units": "Sztuki",
+        "ordersUnits": "Zamówienia/Sztuki",
+        "total": "Razem",
+        "adminNotes": "Notatki admina"
+      },
+      "noRecords": "Brak rekordów.",
+      "totals": "Podsumowania",
+      "chartTitle": "Dzienne sumy FBA vs FBM",
+      "range": { "m1": "1 miesiąc", "m3": "3 miesiące", "all": "Cały okres" },
+      "tooltip": { "date": "Data" },
+      "companyMissing": "Twoje konto nie jest jeszcze przypisane do firmy. Skontaktuj się z supportem, aby je aktywować."
+    },
+
+    "fbaReport": {
+      "title": "Raport FBA",
+      "readonly": "Widok tylko do odczytu.",
+      "monthLabel": "Miesiąc:",
+      "currentMonth": "Bieżący miesiąc",
+      "noDataMonth": "Brak danych dla wybranego miesiąca."
+    },
+
+    "fbmReport": {
+      "title": "Raport FBM",
+      "readonly": "Widok tylko do odczytu.",
+      "monthLabel": "Miesiąc:",
+      "currentMonth": "Bieżący miesiąc",
+      "noDataMonth": "Brak danych dla wybranego miesiąca."
+    },
+
+    "exports": {
+      "title": "Eksporty",
+      "desc": "Pobierz raporty Excel dla FBA, FBM, Stanu lub Zwrotów. Wybierz zakres dat.",
+      "reportType": "Typ raportu",
+      "from": "Od (włącznie)",
+      "to": "Do (włącznie)",
+      "btn": "Eksportuj {kind} (.xlsx)",
+      "generating": "Generowanie…",
+      "footnote": "* Raport zawiera wiersz RAZEM; kolumny liczbowe są sumowane.",
+      "alerts": {
+        "noCompany": "Dla tego konta nie ustawiono firmy.",
+        "failed": "Eksport nieudany."
+      },
+      "kinds": { "FBA": "FBA", "FBM": "FBM", "Stock": "Stan", "Returns": "Zwroty" }
+    },
+
+    "returns": {
+      "title": "Zwroty",
+      "readonly": "Widok tylko do odczytu.",
+      "thead": {
+        "date": "Data",
+        "asin": "ASIN",
+        "qty": "Ilość",
+        "type": "Typ zwrotu",
+        "status": "Status",
+        "adminNotes": "Notatki admina"
+      },
+      "noRecords": "Brak rekordów."
+    },
+
+    "stock": {
+      "title": "Stan",
+      "desc": "<b>EAN</b> zarządzany przez admina. Możesz edytować <b>Nazwę produktu</b>, <b>ASIN/SKU</b>, <b>Link do produktu</b> i <b>Cenę zakupu</b>.",
+      "month": { "label": "Miesiąc:", "current": "Bieżący miesiąc" },
+      "search": {
+        "field": { "EAN": "EAN", "NAME": "Nazwa produktu", "ASIN_SKU": "ASIN / SKU" },
+        "placeholder": {
+          "EAN": "Szukaj po EAN",
+          "NAME": "Szukaj po nazwie",
+          "ASIN_SKU": "Szukaj po ASIN lub SKU"
+        }
+      },
+      "stockFilter": {
+        "label": "Stan:",
+        "in": "Na stanie",
+        "out": "Brak na stanie",
+        "all": "Wszystkie"
+      },
+      "actions": {
+        "selectAllOnPage": "Zaznacz wszystko na stronie",
+        "sendToPrep": "Wyślij do przygotowania",
+        "needSelection": "Zaznacz co najmniej jeden produkt."
+      },
+      "thead": {
+        "sel": "",
+        "ean": "EAN",
+        "qty": "Ilość",
+        "name": "Nazwa produktu",
+        "asinSku": "ASIN / SKU",
+        "link": "Link do produktu",
+        "purchasePrice": "Cena zakupu",
+        "value": "Wartość",
+        "save": "Zapisz"
+      },
+      "link": {
+        "add": "Dodaj\nLink",
+        "open": "Otwórz\nLink",
+        "edit": "Edytuj\nLink",
+        "label": "Link do produktu",
+        "cancel": "Anuluj",
+        "save": "Zapisz"
+      },
+      "table": {
+        "loading": "Ładowanie…",
+        "empty": "Brak danych dla bieżących filtrów.",
+        "saving": "Zapisywanie…",
+        "saved": "Zapisano pomyślnie.",
+        "savedNameAdminOnly": "Zapisano (nazwa tylko dla admina).",
+        "nothingToSave": "Nic do zapisania."
+      },
+      "pager": {
+        "rows": "Wiersze:",
+        "prev": "←",
+        "next": "→",
+        "pageXofY": "Strona {x} / {y}"
+      },
+      "totals": {
+        "label": "Podsumowanie (bieżące filtry) — Ilość: <strong>{qty}</strong> · Wartość: <strong>{value} €</strong>"
+      },
+      "recent": {
+        "title": "Ostatnie zgłoszenia przygotowania",
+        "thead": {
+          "date": "Data",
+          "country": "Kraj",
+          "fbaShipmentId": "ID wysyłki FBA",
+          "trackIds": "ID śledzenia",
+          "status": "Status"
+        },
+        "none": "Brak zgłoszeń."
+      },
+      "drawer": {
+        "title": "Wyślij do przygotowania",
+        "close": "Zamknij",
+        "destCountry": "Kraj docelowy",
+        "line": "Wiersz {n}",
+        "ean": "EAN",
+        "asin": "ASIN",
+        "remove": "Usuń",
+        "asinSkuReq": "ASIN/SKU (wymagane)",
+        "unitsToSend": "Jednostki do wysłania (maks {max})",
+        "cancel": "Anuluj",
+        "send": "Wyślij zgłoszenie",
+        "errors": {
+          "noLines": "Brak wierszy w tym zgłoszeniu. Dodaj przynajmniej jeden produkt.",
+          "asinSkuMissing": "Wiersz {n}: brak ASIN/SKU (wypełnij przynajmniej jedno).",
+          "qtyZero": "Wiersz {n}: ilość nie może wynosić 0 ani być pusta.",
+          "qtyExceeds": "Wiersz {n}: jednostki ({u}) przekraczają dostępny stan ({max}).",
+          "createFailed": "Nie udało się utworzyć szkicu przygotowania."
+        },
+        "success": "Zgłoszenie wysłane do przygotowania.",
+        "handle": { "showMore": "+{n} więcej", "showLess": "pokaż mniej" }
+      },
+      "countries": { "FR": "Francja", "DE": "Niemcy", "IT": "Włochy", "ES": "Hiszpania", "PL": "Polska", "RO": "Rumunia" }
+    },
+
+    "billing": {
+      "title": "Dane do faktury",
+      "addProfile": "Dodaj profil",
+      "flash": {
+        "created": "Profil utworzono pomyślnie",
+        "updated": "Profil zaktualizowano pomyślnie",
+        "deleted": "Profil usunięto pomyślnie",
+        "deleteConfirm": "Na pewno usunąć ten profil rozliczeniowy?",
+        "errorSave": "Błąd podczas zapisywania profilu",
+        "errorDelete": "Błąd podczas usuwania profilu"
+      },
+      "form": {
+        "new": "Nowy profil rozliczeniowy",
+        "edit": "Edytuj profil",
+        "type": "Typ profilu",
+        "individual": "Osoba fizyczna",
+        "company": "Firma",
+        "firstName": "Imię *",
+        "lastName": "Nazwisko *",
+        "companyName": "Nazwa firmy *",
+        "vat": "NIP/VAT",
+        "sirenSiret": "SIREN/SIRET",
+        "country": "Kraj *",
+        "address": "Adres *",
+        "city": "Miasto *",
+        "postalCode": "Kod pocztowy *",
+        "phone": "Telefon",
+        "default": "Ustaw jako domyślny profil",
+        "cancel": "Anuluj",
+        "save": "Zapisz",
+        "saving": "Zapisywanie…",
+        "update": "Aktualizuj",
+        "validVatFailed": "Weryfikacja VAT nie powiodła się: {reason}",
+        "vatFormatInvalid": "Nieprawidłowy format VAT dla tego kraju"
+      },
+      "list": {
+        "noneTitle": "Brak profili rozliczeniowych",
+        "noneDesc": "Dodaj pierwszy profil, aby otrzymywać faktury.",
+        "add": "Dodaj profil",
+        "defaultBadge": "Domyślny",
+        "labels": { "vat": "VAT", "sirenSiret": "SIREN/SIRET", "tel": "Tel." }
+      }
+    },
+
+    "invoices": {
+      "title": "Moje faktury",
+      "total": "Razem: {n} faktur(y)",
+      "flashError": "Nie udało się wczytać faktur.",
+      "filters": {
+        "search": "Szukaj",
+        "searchPh": "Numer faktury lub opis…",
+        "status": "Status",
+        "period": "Okres",
+        "all": "Wszystkie",
+        "last30": "Ostatnie 30 dni",
+        "last90": "Ostatnie 90 dni",
+        "thisYear": "Bieżący rok",
+        "paid": "Opłacona",
+        "pending": "Oczekująca",
+        "overdue": "Zaległa",
+        "cancelled": "Anulowana"
+      },
+      "card": {
+        "invoice": "Faktura #{no}",
+        "date": "Data",
+        "due": "Termin",
+        "vat": "VAT: {vat} €",
+        "amount": "{amount} €",
+        "view": "Podgląd",
+        "download": "Pobierz",
+        "noFile": "Brak pliku"
+      },
+      "empty": {
+        "noneFound": "Nie znaleziono faktur",
+        "noneYet": "Brak dostępnych faktur",
+        "tipFound": "Spróbuj zmienić filtry.",
+        "tipYet": "Faktury pojawią się po pierwszym zamówieniu."
+      },
+      "errors": { "download": "Błąd podczas pobierania faktury.", "view": "Nie udało się wygenerować linku podglądu." }
+    },
+
+    "profile": {
+      "title": "Dane osobowe",
+      "edit": "Edytuj",
+      "cancel": "Anuluj",
+      "save": "Zapisz zmiany",
+      "saving": "Zapisywanie…",
+      "flashOk": "Profil zaktualizowano pomyślnie.",
+      "flashErr": "Błąd podczas aktualizacji profilu.",
+      "fields": {
+        "firstName": "Imię",
+        "lastName": "Nazwisko",
+        "email": "Email",
+        "emailNote": "Emaila nie można zmienić w tym miejscu. Skontaktuj się z supportem, aby go zaktualizować.",
+        "phone": "Telefon",
+        "country": "Kraj",
+        "language": "Preferowany język",
+        "phonePh": "+48 600 000 000"
+      },
+      "languages": { "en": "English", "ro": "Română", "fr": "Français", "de": "Deutsch", "it": "Italiano", "es": "Español" },
+      "countries": { "RO": "Rumunia", "FR": "Francja", "DE": "Niemcy", "IT": "Włochy", "ES": "Hiszpania", "PL": "Polska" }
+    },
+
+    "security": {
+      "title": "Bezpieczeństwo",
+      "flash": {
+        "pwdMismatch": "Hasła nie są identyczne.",
+        "pwdTooShort": "Hasło musi mieć co najmniej 8 znaków.",
+        "pwdOk": "Hasło zostało zmienione.",
+        "pwdErr": "Błąd podczas zmiany hasła."
+      },
+      "changePwd": {
+        "title": "Zmień hasło",
+        "new": "Nowe hasło",
+        "newPh": "Minimum 8 znaków",
+        "confirm": "Potwierdź nowe hasło",
+        "confirmPh": "Wpisz ponownie nowe hasło",
+        "toggle": { "show": "Pokaż", "hide": "Ukryj" },
+        "submit": "Zmień hasło",
+        "changing": "Zmiana…"
+      },
+      "accountInfo": {
+        "title": "Informacje o koncie",
+        "emailVerified": "Email zweryfikowany:",
+        "verified": "Zweryfikowany",
+        "unverified": "Niezweryfikowany",
+        "lastSignIn": "Ostatnie logowanie:",
+        "createdAt": "Konto utworzone:"
+      },
+      "tips": {
+        "title": "Wskazówki dotyczące bezpieczeństwa",
+        "t1": "Używaj unikalnego, złożonego hasła.",
+        "t2": "Włącz uwierzytelnianie dwuskładnikowe, jeśli dostępne.",
+        "t3": "Nigdy nie udostępniaj swoich danych logowania.",
+        "t4": "Wylogowuj się na komputerach publicznych lub współdzielonych."
+      }
+    }
+  }
+}

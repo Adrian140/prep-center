@@ -1,0 +1,816 @@
+// src/i18n/ClientReciving.js
+// Default language: FR
+  
+export const CLIENT_RECIVING_LANG_DEFAULT = 'fr';
+
+export const CLIENT_RECIVING_DICT = {
+  fr: {
+    // Page
+    page_title: "Réception / Inbound",
+    page_subtitle: "Annoncez vos envois au dépôt",
+    or: "ou",
+    // Player titles
+    guide_video: "📹 Guide vidéo",
+    guide_tutorial: "📹 Tutoriel : Guide utilisateur",
+    import_instructions_pdf: "Instructions d’import (PDF)",
+    stock_send_to_prep_instructions_sub: "Consignes d’envoi en préparation",
+  guide_download_error_prefix: "Impossible de télécharger le guide",
+  direct_with_qty: "Direct (Qté : {qty})",
+
+    // Buttons (generic)
+    
+    new_receipt: "Nouvelle réception",
+    view_details: "Voir détails",
+    back_to_list: "← Retour à la liste",
+    edit: "Modifier",
+    save: "Enregistrer",
+    saving: "Enregistrement…",
+    cancel: "Annuler",
+    add_row: "Ajouter ligne",
+    download_template: "Télécharger le modèle",
+    import_file: "Importer le fichier",
+    save_draft: "Enregistrer le brouillon",
+    send: "Envoyer",
+    actions: "Actions",
+    template_filename: "modele_reception.csv", 
+
+    // List headers
+    list_carrier: "Transporteur",
+    list_tracking: "Numéro de suivi",
+    list_status: "Statut",
+    list_products: "Produits",
+    list_date: "Date",
+
+    // Empty states
+    empty_list_title: "Aucune réception",
+    empty_list_desc: "Commencez par créer votre première annonce de réception",
+    empty_products_title: "Aucun produit ajouté",
+    empty_products_desc: "Utilisez le modèle Excel ou ajoutez des lignes manuellement",
+
+    // Sections
+    shipment_details: "Détails de la Réception",
+    delivery_info: "Informations de Livraison",
+    import_products: "Importer les Produits",
+    products_count: "Produits ({count})",
+
+    // Fields
+    carrier: "Transporteur",
+    select_carrier: "Sélectionner un transporteur",
+    other: "Autre",
+    other_carrier: "Autre transporteur",
+    other_carrier_ph: "Nom du transporteur",
+    tracking_id: "Numéro de suivi",
+    tracking_ph: "Ex: 1Z999AA1234567890",
+    notes: "Notes (optionnel)",
+    notes_ph: "Notes supplémentaires…",
+    date_created: "Date de création",
+
+    // Table headers
+    th_ean_asin: "EAN/ASIN",
+    th_ean_asin_req: "EAN/ASIN *",
+    th_name: "Nom du Produit",
+    th_name_req: "Nom du Produit *",
+    th_qty: "Quantité",
+    th_qty_req: "Quantité *",
+    th_sku: "SKU",
+    th_price: "Prix d'Achat",
+    th_send_to_fba: "Send to FBA",
+    th_valid: "Valid",
+    th_validation: "Validation",
+
+    // FBA
+    fba_direct: "Direct",
+    fba_qty_ph: "Qty",
+    fba_qty_title: "Cantitate trimisă direct FBA (≤ Quantity)",
+
+    // Status badges
+    status_draft: "Brouillon",
+    status_submitted: "Envoyé",
+    status_received: "Reçu",
+    status_processed: "Traité",
+    status_cancelled: "Annulé",
+
+    // Upload area
+    drop_text: "Glissez-déposez votre fichier .csv ou .xlsx ici",
+
+    // Messages / toasts
+    processing_file: "Traitement du fichier…",
+    imported_lines_ok: "{count} lignes importées avec succès",
+    load_error_prefix: "Erreur de chargement",
+    generic_error_prefix: "Erreur",
+
+    // Validation + parsing errors
+    must_have_header_and_row: "Le fichier doit contenir au moins un en-tête et une ligne de données",
+    model_must_contain_cols: "Le modèle doit contenir les colonnes: {cols}",
+    line_missing_ean: "Ligne {line}: EAN/ASIN manquant",
+    line_missing_name: "Ligne {line}: Nom du produit manquant",
+    line_invalid_qty: "Ligne {line}: Quantité invalide",
+    line_invalid_ean: "Ligne {line}: Format EAN/ASIN invalide",
+    detected_errors: "Erreurs détectées:\n{errors}",
+    csv_read_error: "Eroare la citirea CSV: {msg}",
+    upload_csv_xlsx_only: "Veuillez télécharger un fichier .csv ou .xlsx",
+
+    // Form validation
+    at_least_one_line: "Au moins une ligne valide est requise",
+    invalid_lines_detected: "{count} ligne(s) invalide(s) détectée(s)",
+
+    // Confirmations
+    confirm_send: "Envoyer cette réception? Vous ne pourrez plus la modifier.",
+
+    // Success
+    draft_saved: "Brouillon sauvegardé avec succès",
+    reception_sent: "Réception envoyée avec succès",
+    changes_saved: "Modifications enregistrées",
+
+    // Placeholders in table
+    ph_ean: "B0123456789",
+    ph_name: "Nom du produit",
+    ph_sku: "SKU-001",
+    ph_price: "0.00",
+
+    // Misc
+    units_label: "produits",
+    created_at_label: "Date",
+  },
+
+  en: {
+    page_title: "Receiving / Inbound",
+    page_subtitle: "Announce your inbound shipments",
+    or: "or",
+
+    guide_video: "📹 Video Guide",
+    guide_tutorial: "📹 Tutorial: User Guide",
+    import_instructions_pdf: "Import Instructions (PDF)",
+    preparation_request_guide_pdf: "Preparation request guide PDF",
+    stock_send_to_prep_instructions_sub: "Send to preparation instructions",
+  guide_download_error_prefix: "Can't download the guide",
+  direct_with_qty: "Direct (Qty: {qty})",
+    template_filename: "receiving_template.csv",
+
+    new_receipt: "New receiving",
+    view_details: "View details",
+    back_to_list: "← Back to list",
+    edit: "Edit",
+    save: "Save",
+    saving: "Saving…",
+    cancel: "Cancel",
+    add_row: "Add row",
+    download_template: "Download template",
+    import_file: "Import file",
+    save_draft: "Save draft",
+    send: "Send",
+    actions: "Actions",
+
+    list_carrier: "Carrier",
+    list_tracking: "Tracking number",
+    list_status: "Status",
+    list_products: "Products",
+    list_date: "Date",
+
+    empty_list_title: "No receivings",
+    empty_list_desc: "Start by creating your first receiving notice",
+    empty_products_title: "No products added",
+    empty_products_desc: "Use the Excel template or add rows manually",
+
+    shipment_details: "Receiving Details",
+    delivery_info: "Delivery Information",
+    import_products: "Import Products",
+    products_count: "Products ({count})",
+
+    carrier: "Carrier",
+    select_carrier: "Select a carrier",
+    other: "Other",
+    other_carrier: "Other carrier",
+    other_carrier_ph: "Carrier name",
+    tracking_id: "Tracking number",
+    tracking_ph: "e.g. 1Z999AA1234567890",
+    notes: "Notes (optional)",
+    notes_ph: "Additional notes…",
+    date_created: "Created at",
+
+    th_ean_asin: "EAN/ASIN",
+    th_ean_asin_req: "EAN/ASIN *",
+    th_name: "Product Name",
+    th_name_req: "Product Name *",
+    th_qty: "Quantity",
+    th_qty_req: "Quantity *",
+    th_sku: "SKU",
+    th_price: "Purchase Price",
+    th_send_to_fba: "Send to FBA",
+    th_valid: "Valid",
+    th_validation: "Validation",
+
+    fba_direct: "Direct",
+    fba_qty_ph: "Qty",
+    fba_qty_title: "Quantity sent directly to FBA (≤ Quantity)",
+
+    status_draft: "Draft",
+    status_submitted: "Submitted",
+    status_received: "Received",
+    status_processed: "Processed",
+    status_cancelled: "Cancelled",
+
+    drop_text: "Drag & drop your .csv or .xlsx file here",
+
+    processing_file: "Processing file…",
+    imported_lines_ok: "{count} lines imported successfully",
+    load_error_prefix: "Load error",
+    generic_error_prefix: "Error",
+
+    must_have_header_and_row: "File must contain at least a header and one data row",
+    model_must_contain_cols: "Template must contain columns: {cols}",
+    line_missing_ean: "Line {line}: Missing EAN/ASIN",
+    line_missing_name: "Line {line}: Missing product name",
+    line_invalid_qty: "Line {line}: Invalid quantity",
+    line_invalid_ean: "Line {line}: Invalid EAN/ASIN format",
+    detected_errors: "Detected errors:\n{errors}",
+    csv_read_error: "CSV read error: {msg}",
+    upload_csv_xlsx_only: "Please upload a .csv or .xlsx file",
+
+    at_least_one_line: "At least one valid row is required",
+    invalid_lines_detected: "{count} invalid row(s) detected",
+
+    confirm_send: "Send this receiving? You won't be able to edit it afterwards.",
+
+    draft_saved: "Draft saved successfully",
+    reception_sent: "Receiving sent successfully",
+    changes_saved: "Changes saved",
+
+    ph_ean: "B0123456789",
+    ph_name: "Product name",
+    ph_sku: "SKU-001",
+    ph_price: "0.00",
+
+    units_label: "products",
+    created_at_label: "Date",
+  },
+  de: {
+    page_title: "Wareneingang / Inbound",
+    page_subtitle: "Melden Sie Ihre Wareneingänge an",
+    or: "oder",
+
+    guide_video: "📹 Videoanleitung",
+    guide_tutorial: "📹 Tutorial: Benutzerhandbuch",
+    import_instructions_pdf: "Import-Anleitung (PDF)",
+    preparation_request_guide_pdf: "Vorbereitungsanforderungsleitfaden PDF",
+
+    stock_send_to_prep_instructions_sub: "Anleitung zum Vorbereitungsversand",
+  guide_download_error_prefix: "Leitfaden kann nicht heruntergeladen werden",
+  direct_with_qty: "Direkt (Menge: {qty})",
+    template_filename: "vorlage_wareneingang.csv", 
+
+    new_receipt: "Neuer Wareneingang",
+    view_details: "Details anzeigen",
+    back_to_list: "← Zurück zur Liste",
+    edit: "Bearbeiten",
+    save: "Speichern",
+    saving: "Speichere…",
+    cancel: "Abbrechen",
+    add_row: "Zeile hinzufügen",
+    download_template: "Vorlage herunterladen",
+    import_file: "Datei importieren",
+    save_draft: "Entwurf speichern",
+    send: "Senden",
+    actions: "Aktionen",
+
+    list_carrier: "Spediteur",
+    list_tracking: "Sendungsnummer",
+    list_status: "Status",
+    list_products: "Produkte",
+    list_date: "Datum",
+
+    empty_list_title: "Keine Wareneingänge",
+    empty_list_desc: "Erstellen Sie zuerst eine Wareneingangsanmeldung",
+    empty_products_title: "Keine Produkte hinzugefügt",
+    empty_products_desc: "Verwenden Sie die Excel-Vorlage oder fügen Sie manuell Zeilen hinzu",
+
+    shipment_details: "Details zum Wareneingang",
+    delivery_info: "Lieferinformationen",
+    import_products: "Produkte importieren",
+    products_count: "Produkte ({count})",
+
+    carrier: "Spediteur",
+    select_carrier: "Spediteur auswählen",
+    other: "Andere",
+    other_carrier: "Anderer Spediteur",
+    other_carrier_ph: "Name des Spediteurs",
+    tracking_id: "Sendungsnummer",
+    tracking_ph: "z. B. 1Z999AA1234567890",
+    notes: "Notizen (optional)",
+    notes_ph: "Zusätzliche Notizen…",
+    date_created: "Erstellt am",
+
+    th_ean_asin: "EAN/ASIN",
+    th_ean_asin_req: "EAN/ASIN *",
+    th_name: "Produktname",
+    th_name_req: "Produktname *",
+    th_qty: "Menge",
+    th_qty_req: "Menge *",
+    th_sku: "SKU",
+    th_price: "Einkaufspreis",
+    th_send_to_fba: "An FBA senden",
+    th_valid: "Gültig",
+    th_validation: "Validierung",
+
+    fba_direct: "Direkt",
+    fba_qty_ph: "Menge",
+    fba_qty_title: "Menge direkt an FBA (≤ Menge)",
+
+    status_draft: "Entwurf",
+    status_submitted: "Gesendet",
+    status_received: "Eingegangen",
+    status_processed: "Verarbeitet",
+    status_cancelled: "Storniert",
+
+    drop_text: "Ziehen Sie Ihre .csv- oder .xlsx-Datei hierher",
+
+    processing_file: "Datei wird verarbeitet…",
+    imported_lines_ok: "{count} Zeilen erfolgreich importiert",
+    load_error_prefix: "Ladefehler",
+    generic_error_prefix: "Fehler",
+
+    must_have_header_and_row: "Datei muss mindestens Kopfzeile und eine Datenzeile enthalten",
+    model_must_contain_cols: "Vorlage muss folgende Spalten enthalten: {cols}",
+    line_missing_ean: "Zeile {line}: EAN/ASIN fehlt",
+    line_missing_name: "Zeile {line}: Produktname fehlt",
+    line_invalid_qty: "Zeile {line}: Ungültige Menge",
+    line_invalid_ean: "Zeile {line}: Ungültiges EAN/ASIN-Format",
+    detected_errors: "Erkannte Fehler:\n{errors}",
+    csv_read_error: "CSV-Lesefehler: {msg}",
+    upload_csv_xlsx_only: "Bitte laden Sie eine .csv- oder .xlsx-Datei hoch",
+
+    at_least_one_line: "Mindestens eine gültige Zeile erforderlich",
+    invalid_lines_detected: "{count} ungültige Zeile(n) gefunden",
+
+    confirm_send: "Diesen Wareneingang senden? Danach ist keine Bearbeitung mehr möglich.",
+
+    draft_saved: "Entwurf erfolgreich gespeichert",
+    reception_sent: "Wareneingang erfolgreich gesendet",
+    changes_saved: "Änderungen gespeichert",
+
+    ph_ean: "B0123456789",
+    ph_name: "Produktname",
+    ph_sku: "SKU-001",
+    ph_price: "0.00",
+
+    units_label: "Produkte",
+    created_at_label: "Datum",
+  },
+
+  it: {
+    page_title: "Ricezione / Inbound",
+    page_subtitle: "Annuncia le tue spedizioni in arrivo",
+    template_filename: "modello_ricezione.csv", 
+    or: "oppure",
+    guide_video: "📹 Guida video",
+    
+    import_instructions_pdf: "Istruzioni di importazione (PDF)",
+    preparation_request_guide_pdf: "Guida alla richiesta di preparazione PDF",
+
+    stock_send_to_prep_instructions_sub: "Istruzioni per invio a preparazione",
+  guide_download_error_prefix: "Impossibile scaricare la guida",
+  direct_with_qty: "Diretto (Qtà: {qty})",
+
+    new_receipt: "Nuova ricezione",
+    view_details: "Vedi dettagli",
+    back_to_list: "← Torna all’elenco",
+    edit: "Modifica",
+    save: "Salva",
+    saving: "Salvataggio…",
+    cancel: "Annulla",
+    add_row: "Aggiungi riga",
+    download_template: "Scarica modello",
+    import_file: "Importa file",
+    save_draft: "Salva bozza",
+    send: "Invia",
+    actions: "Azioni",
+
+    list_carrier: "Corriere",
+    list_tracking: "Numero di tracking",
+    list_status: "Stato",
+    list_products: "Prodotti",
+    list_date: "Data",
+
+    empty_list_title: "Nessuna ricezione",
+    empty_list_desc: "Inizia creando la tua prima notifica di ricezione",
+    empty_products_title: "Nessun prodotto aggiunto",
+    empty_products_desc: "Usa il modello Excel o aggiungi righe manualmente",
+
+    shipment_details: "Dettagli della Ricezione",
+    delivery_info: "Informazioni di Consegna",
+    import_products: "Importa Prodotti",
+    products_count: "Prodotti ({count})",
+
+    carrier: "Corriere",
+    select_carrier: "Seleziona un corriere",
+    other: "Altro",
+    other_carrier: "Altro corriere",
+    other_carrier_ph: "Nome del corriere",
+    tracking_id: "Numero di tracking",
+    tracking_ph: "es. 1Z999AA1234567890",
+    notes: "Note (opzionale)",
+    notes_ph: "Note aggiuntive…",
+    date_created: "Data creazione",
+
+    th_ean_asin: "EAN/ASIN",
+    th_ean_asin_req: "EAN/ASIN *",
+    th_name: "Nome prodotto",
+    th_name_req: "Nome prodotto *",
+    th_qty: "Quantità",
+    th_qty_req: "Quantità *",
+    th_sku: "SKU",
+    th_price: "Prezzo d’acquisto",
+    th_send_to_fba: "Invia a FBA",
+    th_valid: "Valido",
+    th_validation: "Validazione",
+
+    fba_direct: "Diretto",
+    fba_qty_ph: "Qtà",
+    fba_qty_title: "Quantità inviata direttamente a FBA (≤ Quantità)",
+
+    status_draft: "Bozza",
+    status_submitted: "Inviato",
+    status_received: "Ricevuto",
+    status_processed: "Elaborato",
+    status_cancelled: "Annullato",
+
+    drop_text: "Trascina qui il tuo file .csv o .xlsx",
+
+    processing_file: "Elaborazione file…",
+    imported_lines_ok: "{count} righe importate con successo",
+    load_error_prefix: "Errore di caricamento",
+    generic_error_prefix: "Errore",
+
+    must_have_header_and_row: "Il file deve contenere almeno un’intestazione e una riga dati",
+    model_must_contain_cols: "Il modello deve contenere le colonne: {cols}",
+    line_missing_ean: "Riga {line}: EAN/ASIN mancante",
+    line_missing_name: "Riga {line}: Nome prodotto mancante",
+    line_invalid_qty: "Riga {line}: Quantità non valida",
+    line_invalid_ean: "Riga {line}: Formato EAN/ASIN non valido",
+    detected_errors: "Errori rilevati:\n{errors}",
+    csv_read_error: "Errore lettura CSV: {msg}",
+    upload_csv_xlsx_only: "Carica un file .csv o .xlsx",
+
+    at_least_one_line: "È richiesta almeno una riga valida",
+    invalid_lines_detected: "{count} riga/e non valida/e rilevata/e",
+
+    confirm_send: "Inviare questa ricezione? Non potrai più modificarla.",
+
+    draft_saved: "Bozza salvata con successo",
+    reception_sent: "Ricezione inviata con successo",
+    changes_saved: "Modifiche salvate",
+
+    ph_ean: "B0123456789",
+    ph_name: "Nome prodotto",
+    ph_sku: "SKU-001",
+    ph_price: "0.00",
+
+    units_label: "prodotti",
+    created_at_label: "Data",
+  },
+  es: {
+    page_title: "Recepción / Inbound",
+    page_subtitle: "Anuncia tus envíos entrantes",
+    template_filename: "plantilla_recepcion.csv", 
+    or: "o", 
+
+
+    guide_video: "📹 Guía en video",
+    guide_tutorial: "📹 Tutorial: Guía de usuario",
+    import_instructions_pdf: "Instrucciones de importación (PDF)",
+    preparation_request_guide_pdf: "Guía de solicitud de preparación PDF",
+
+    stock_send_to_prep_instructions_sub: "Instrucciones para envío a preparación",
+  guide_download_error_prefix: "No se puede descargar la guía",
+  direct_with_qty: "Directo (Cant.: {qty})",
+
+    new_receipt: "Nueva recepción",
+    view_details: "Ver detalles",
+    back_to_list: "← Volver a la lista",
+    edit: "Editar",
+    save: "Guardar",
+    saving: "Guardando…",
+    cancel: "Cancelar",
+    add_row: "Añadir fila",
+    download_template: "Descargar plantilla",
+    import_file: "Importar archivo",
+    save_draft: "Guardar borrador",
+    send: "Enviar",
+    actions: "Acciones",
+
+    list_carrier: "Transportista",
+    list_tracking: "Número de seguimiento",
+    list_status: "Estado",
+    list_products: "Productos",
+    list_date: "Fecha",
+
+    empty_list_title: "Sin recepciones",
+    empty_list_desc: "Empieza creando tu primer aviso de recepción",
+    empty_products_title: "No hay productos añadidos",
+    empty_products_desc: "Usa la plantilla de Excel o añade filas manualmente",
+
+    shipment_details: "Detalles de la Recepción",
+    delivery_info: "Información de Entrega",
+    import_products: "Importar Productos",
+    products_count: "Productos ({count})",
+
+    carrier: "Transportista",
+    select_carrier: "Selecciona un transportista",
+    other: "Otro",
+    other_carrier: "Otro transportista",
+    other_carrier_ph: "Nombre del transportista",
+    tracking_id: "Número de seguimiento",
+    tracking_ph: "p. ej. 1Z999AA1234567890",
+    notes: "Notas (opcional)",
+    notes_ph: "Notas adicionales…",
+    date_created: "Fecha de creación",
+
+    th_ean_asin: "EAN/ASIN",
+    th_ean_asin_req: "EAN/ASIN *",
+    th_name: "Nombre del producto",
+    th_name_req: "Nombre del producto *",
+    th_qty: "Cantidad",
+    th_qty_req: "Cantidad *",
+    th_sku: "SKU",
+    th_price: "Precio de compra",
+    th_send_to_fba: "Enviar a FBA",
+    th_valid: "Válido",
+    th_validation: "Validación",
+
+    fba_direct: "Directo",
+    fba_qty_ph: "Cant.",
+    fba_qty_title: "Cantidad enviada directamente a FBA (≤ Cantidad)",
+
+    status_draft: "Borrador",
+    status_submitted: "Enviado",
+    status_received: "Recibido",
+    status_processed: "Procesado",
+    status_cancelled: "Cancelado",
+
+    drop_text: "Arrastra y suelta aquí tu archivo .csv o .xlsx",
+
+    processing_file: "Procesando archivo…",
+    imported_lines_ok: "{count} líneas importadas correctamente",
+    load_error_prefix: "Error de carga",
+    generic_error_prefix: "Error",
+
+    must_have_header_and_row: "El archivo debe contener al menos un encabezado y una fila de datos",
+    model_must_contain_cols: "La plantilla debe contener las columnas: {cols}",
+    line_missing_ean: "Línea {line}: Falta EAN/ASIN",
+    line_missing_name: "Línea {line}: Falta el nombre del producto",
+    line_invalid_qty: "Línea {line}: Cantidad no válida",
+    line_invalid_ean: "Línea {line}: Formato de EAN/ASIN no válido",
+    detected_errors: "Errores detectados:\n{errors}",
+    csv_read_error: "Error al leer CSV: {msg}",
+    upload_csv_xlsx_only: "Sube un archivo .csv o .xlsx",
+
+    at_least_one_line: "Se requiere al menos una fila válida",
+    invalid_lines_detected: "{count} fila(s) no válidas detectadas",
+
+    confirm_send: "¿Enviar esta recepción? Luego no podrás modificarla.",
+
+    draft_saved: "Borrador guardado correctamente",
+    reception_sent: "Recepción enviada correctamente",
+    changes_saved: "Cambios guardados",
+
+    ph_ean: "B0123456789",
+    ph_name: "Nombre del producto",
+    ph_sku: "SKU-001",
+    ph_price: "0.00",
+
+    units_label: "productos",
+    created_at_label: "Fecha",
+  },
+
+  ro: {
+    page_title: "Recepție / Inbound",
+    page_subtitle: "Anunță-ți expedierile către depozit",
+    template_filename: "sablon_receptie.csv", 
+    or: "sau",
+
+    guide_video: "📹 Tutorial: Ghid utilizator",
+  guide_tutorial: "📹 Tutorial: Ghid utilizator",
+  import_instructions_pdf: "Instrucțiuni import (PDF)",
+  preparation_request_guide_pdf: "Ghid cerere de pregătire PDF",
+
+  stock_send_to_prep_instructions_sub: "Instrucțiuni pentru trimitere la pregătire",
+  guide_download_error_prefix: "Nu pot descărca ghidul",
+  direct_with_qty: "Direct (Buc.: {qty})",
+
+    new_receipt: "Recepție nouă",
+    view_details: "Vezi detalii",
+    back_to_list: "← Înapoi la listă",
+    edit: "Modifică",
+    save: "Salvează",
+    saving: "Se salvează…",
+    cancel: "Anulează",
+    add_row: "Adaugă rând",
+    download_template: "Descarcă șablon",
+    import_file: "Importă fișier",
+    save_draft: "Salvează ciorna",
+    send: "Trimite",
+    actions: "Acțiuni",
+
+    list_carrier: "Curier",
+    list_tracking: "Număr tracking",
+    list_status: "Stare",
+    list_products: "Produse",
+    list_date: "Data",
+
+    empty_list_title: "Nicio recepție",
+    empty_list_desc: "Începe prin a crea primul anunț de recepție",
+    empty_products_title: "Niciun produs adăugat",
+    empty_products_desc: "Folosește șablonul Excel sau adaugă manual rânduri",
+
+    shipment_details: "Detalii Recepție",
+    delivery_info: "Informații Livrare",
+    import_products: "Importă Produse",
+    products_count: "Produse ({count})",
+
+    carrier: "Curier",
+    select_carrier: "Selectează un curier",
+    other: "Altul",
+    other_carrier: "Alt curier",
+    other_carrier_ph: "Numele curierului",
+    tracking_id: "Număr de urmărire",
+    tracking_ph: "ex. 1Z999AA1234567890",
+    notes: "Note (opțional)",
+    notes_ph: "Note suplimentare…",
+    date_created: "Data creării",
+
+    th_ean_asin: "EAN/ASIN",
+    th_ean_asin_req: "EAN/ASIN *",
+    th_name: "Nume produs",
+    th_name_req: "Nume produs *",
+    th_qty: "Cantitate",
+    th_qty_req: "Cantitate *",
+    th_sku: "SKU",
+    th_price: "Preț de achiziție",
+    th_send_to_fba: "Trimite la FBA",
+    th_valid: "Valid",
+    th_validation: "Validare",
+
+    fba_direct: "Direct",
+    fba_qty_ph: "Buc.",
+    fba_qty_title: "Cantitate trimisă direct la FBA (≤ Cantitate)",
+
+    status_draft: "Ciornă",
+    status_submitted: "Trimis",
+    status_received: "Recepționat",
+    status_processed: "Procesat",
+    status_cancelled: "Anulat",
+
+    drop_text: "Trage și plasează aici fișierul .csv sau .xlsx",
+
+    processing_file: "Se procesează fișierul…",
+    imported_lines_ok: "{count} rânduri importate cu succes",
+    load_error_prefix: "Eroare la încărcare",
+    generic_error_prefix: "Eroare",
+
+    must_have_header_and_row: "Fișierul trebuie să conțină cel puțin un header și un rând de date",
+    model_must_contain_cols: "Șablonul trebuie să conțină coloanele: {cols}",
+    line_missing_ean: "Rândul {line}: lipsește EAN/ASIN",
+    line_missing_name: "Rândul {line}: lipsește numele produsului",
+    line_invalid_qty: "Rândul {line}: cantitate invalidă",
+    line_invalid_ean: "Rândul {line}: format EAN/ASIN invalid",
+    detected_errors: "Erori detectate:\n{errors}",
+    csv_read_error: "Eroare la citirea CSV: {msg}",
+    upload_csv_xlsx_only: "Te rog încarcă un fișier .csv sau .xlsx",
+
+    at_least_one_line: "Este necesar cel puțin un rând valid",
+    invalid_lines_detected: "{count} rând(uri) invalide",
+
+    confirm_send: "Trimiți această recepție? Nu o vei mai putea modifica.",
+
+    draft_saved: "Ciornă salvată cu succes",
+    reception_sent: "Recepție trimisă cu succes",
+    changes_saved: "Modificări salvate",
+
+    ph_ean: "B0123456789",
+    ph_name: "Nume produs",
+    ph_sku: "SKU-001",
+    ph_price: "0.00",
+
+    units_label: "produse",
+    created_at_label: "Data",
+  },
+
+  pl: {
+    page_title: "Przyjęcie / Inbound",
+    page_subtitle: "Zgłoś swoje przesyłki przychodzące",
+    template_filename: "szablon_przyjecie.csv",
+    exports_archive_title: "Archiwum raportów stanu magazynu (miesięczne)",
+    exports_archive_empty: "Brak zarchiwizowanych raportów",
+    exports_archive_download: "Pobierz",
+
+    guide_video: "📹 Poradnik wideo",
+    guide_tutorial: "📹 Samouczek: instrukcja użytkownika",
+    import_instructions_pdf: "Instrukcja importu (PDF)",
+    preparation_request_guide_pdf: "Przewodnik dotyczący żądania przygotowania PDF",
+
+    stock_send_to_prep_instructions_sub: "Wskazówki dot. wysyłki do przygotowania",
+  guide_download_error_prefix: "Nie można pobrać przewodnika",
+  direct_with_qty: "Bezpośrednio (Ilość: {qty})",
+
+    new_receipt: "Nowe przyjęcie",
+    view_details: "Zobacz szczegóły",
+    back_to_list: "← Wróć do listy",
+    edit: "Edytuj",
+    save: "Zapisz",
+    saving: "Zapisywanie…",
+    cancel: "Anuluj",
+    add_row: "Dodaj wiersz",
+    download_template: "Pobierz szablon",
+    import_file: "Importuj plik",
+    save_draft: "Zapisz szkic",
+    send: "Wyślij",
+    actions: "Akcje",
+
+    list_carrier: "Przewoźnik",
+    list_tracking: "Numer śledzenia",
+    list_status: "Status",
+    list_products: "Produkty",
+    list_date: "Data",
+
+    empty_list_title: "Brak przyjęć",
+    empty_list_desc: "Zacznij od utworzenia pierwszego zgłoszenia przyjęcia",
+    empty_products_title: "Nie dodano produktów",
+    empty_products_desc: "Użyj szablonu Excel lub dodaj wiersze ręcznie",
+
+    shipment_details: "Szczegóły przyjęcia",
+    delivery_info: "Informacje o dostawie",
+    import_products: "Importuj produkty",
+    products_count: "Produkty ({count})",
+
+    carrier: "Przewoźnik",
+    select_carrier: "Wybierz przewoźnika",
+    other: "Inny",
+    other_carrier: "Inny przewoźnik",
+    other_carrier_ph: "Nazwa przewoźnika",
+    tracking_id: "Numer śledzenia",
+    tracking_ph: "np. 1Z999AA1234567890",
+    notes: "Notatki (opcjonalnie)",
+    notes_ph: "Dodatkowe notatki…",
+    date_created: "Data utworzenia",
+
+    th_ean_asin: "EAN/ASIN",
+    th_ean_asin_req: "EAN/ASIN *",
+    th_name: "Nazwa produktu",
+    th_name_req: "Nazwa produktu *",
+    th_qty: "Ilość",
+    th_qty_req: "Ilość *",
+    th_sku: "SKU",
+    th_price: "Cena zakupu",
+    th_send_to_fba: "Wyślij do FBA",
+    th_valid: "Ważne",
+    th_validation: "Walidacja",
+
+    fba_direct: "Bezpośrednio",
+    fba_qty_ph: "Ilość",
+    fba_qty_title: "Ilość wysłana bezpośrednio do FBA (≤ Ilość)",
+
+    status_draft: "Szkic",
+    status_submitted: "Wysłane",
+    status_received: "Odebrane",
+    status_processed: "Przetworzone",
+    status_cancelled: "Anulowane",
+
+    drop_text: "Przeciągnij i upuść tutaj plik .csv lub .xlsx",
+
+    processing_file: "Przetwarzanie pliku…",
+    imported_lines_ok: "Pomyślnie zaimportowano {count} wierszy",
+    load_error_prefix: "Błąd ładowania",
+    generic_error_prefix: "Błąd",
+
+    must_have_header_and_row: "Plik musi zawierać nagłówek i co najmniej jeden wiersz danych",
+    model_must_contain_cols: "Szablon musi zawierać kolumny: {cols}",
+    line_missing_ean: "Wiersz {line}: brak EAN/ASIN",
+    line_missing_name: "Wiersz {line}: brak nazwy produktu",
+    line_invalid_qty: "Wiersz {line}: nieprawidłowa ilość",
+    line_invalid_ean: "Wiersz {line}: nieprawidłowy format EAN/ASIN",
+    detected_errors: "Wykryte błędy:\n{errors}",
+    csv_read_error: "Błąd odczytu CSV: {msg}",
+    upload_csv_xlsx_only: "Prześlij plik .csv lub .xlsx",
+
+    at_least_one_line: "Wymagany jest co najmniej jeden prawidłowy wiersz",
+    invalid_lines_detected: "Wykryto {count} nieprawidłowych wierszy",
+
+    confirm_send: "Wysłać to przyjęcie? Późniejsza edycja nie będzie możliwa.",
+
+    draft_saved: "Szkic zapisany pomyślnie",
+    reception_sent: "Przyjęcie wysłane pomyślnie",
+    changes_saved: "Zmiany zapisane",
+    or: "albo",
+
+    ph_ean: "B0123456789",
+    ph_name: "Nazwa produktu",
+    ph_sku: "SKU-001",
+    ph_price: "0.00",
+
+    units_label: "produkty",
+    created_at_label: "Data",
+  },
+};
+// ---- end of file ----
+export default CLIENT_RECIVING_DICT;
+

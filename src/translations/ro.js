@@ -1,0 +1,143 @@
+export const ro = {
+  // Navigation
+  home: 'Acasă',
+  services: 'Servicii și Prețuri',
+  about: 'Despre Noi',
+  contact: 'Contact',
+  blog: 'Blog',
+  login: 'Autentificare',
+  register: 'Înregistrare',
+  dashboard: 'Panou',
+  logout: 'Deconectare',
+  admin: 'Admin',
+  
+  // Common
+  getQuote: 'Obține Ofertă',
+  chatWhatsApp: 'Chat WhatsApp',
+  bookZoom: 'Rezervă Zoom',
+  readMore: 'Citește Mai Mult',
+  learnMore: 'Află Mai Mult',
+  
+  // Home Page - Hero Section
+  heroTitle: 'Centru de Preparare Amazon FBA Franța – Preparare, Etichetare și Expediere 24h către UE',
+  heroSubtitle: 'Procesare 24h, control calitate, etichetare FNSKU, ambalare și expediere rapidă către centrele de fulfillment Amazon din Europa',
+  
+  // Home Page - Stats
+  yearsExperience: 'Ani de Experiență',
+  ordersProcessed: 'Comenzi Procesate',
+  happyClients: 'Clienți Mulțumiți',
+  averageTurnaround: 'Procesare Medie',
+  
+  // Home Page - Why Choose Us
+  whyChooseTitle: 'De Ce să Alegi Prep Center France pentru Prepararea Amazon FBA',
+  whyChooseSubtitle: 'Servicii profesionale de preparare Amazon FBA în Franța proiectate pentru vânzătorii europeni',
+  turnaroundTitle: 'Procesare 24h',
+  turnaroundDesc: 'Procesare rapidă a produselor tale către centrele de fulfillment Amazon FBA',
+  transparentPricingTitle: 'Prețuri transparente pentru prepararea FBA',
+  transparentPricingDesc: 'Fără taxe ascunse, tarife competitive pentru toate serviciile de preparare Amazon FBA din Franța',
+  strategicLocationTitle: 'Locația strategică a centrului de preparare din Franța',
+  strategicLocationDesc: 'Poziție optimă pentru distribuția în toată UE și expediere rapidă către centrele de fulfillment Amazon',
+  amazonReadyTitle: 'Ambalare gata pentru Amazon FBA',
+  amazonReadyDesc: 'Cunoștințe experte despre cerințele Amazon FBA europene și standardele de conformitate',
+  
+  // Home Page - Services
+  coreServicesTitle: 'Serviciile Noastre Principale',
+  coreServicesSubtitle: 'Soluții complete de fulfillment Amazon FBA și multi-platformă',
+  fnskuLabelingTitle: 'Etichetare FNSKU',
+  fnskuLabelingDesc: 'Etichetare FNSKU profesională cu ambalare inclusă',
+  fbmShippingTitle: 'Expediere FBM',
+  fbmShippingDesc: 'Fulfillment comenzi multi-platformă pentru Amazon, eBay, Shopify',
+  storageTitle: 'Soluții de Depozitare',
+  storageDesc: 'Depozitare sigură cu gestionarea inventarului',
+  perProduct: 'per produs',
+  perOrder: 'per comandă',
+  perPalletMonth: 'per palet/lună',
+  
+  // Home Page - How It Works
+  howItWorksTitle: 'Cum Funcționează',
+  howItWorksSubtitle: 'Proces simplu în 6 pași de la sosire la centrul Amazon FC',
+  receptionStep: 'Recepție',
+  receptionDesc: 'Produsele tale sosesc la facilitatea noastră',
+  qualityControlStep: 'Control Calitate',
+  qualityControlDesc: 'Proces de control calitate și inspecție',
+  labelingStep: 'Etichetare',
+  labelingDesc: 'Aplicarea etichetării FNSKU/EAN',
+  polybaggingStep: 'Ambalare',
+  polybaggingDesc: 'Ambalare și împachetare protectoare',
+  shippingStep: 'Expediere',
+  shippingDesc: 'Expediere rapidă către centrele Amazon FC',
+  confirmStep: 'Confirmare',
+  confirmDesc: 'Confirmarea livrării și raportare',
+  
+  // Home Page - Benefits
+  benefitsTitle: 'De Ce Vânzătorii Europeni Ne Aleg',
+  benefitsSubtitle: 'Avantaje care fac diferența pentru afacerea ta Amazon FBA',
+  euDistributionTitle: 'Distribuție în toată UE',
+  euDistributionDesc: 'Locație strategică în Franța pentru expediere rapidă către toate centrele de fulfillment Amazon europene',
+  complianceTitle: 'Expertiză în Conformitate',
+  complianceDesc: 'Cunoștințe profunde despre cerințele Amazon FBA și reglementările europene',
+  qualityAssuranceTitle: 'Asigurarea Calității',
+  qualityAssuranceDesc: 'Proces riguros de control calitate cu documentație fotografică',
+  transparentPricingBenefitTitle: 'Prețuri Transparente',
+  transparentPricingBenefitDesc: 'Fără taxe ascunse, tarife competitive cu structură de prețuri clară',
+  
+  // Home Page - Testimonials
+  testimonialsTitle: 'Ce Spun Clienții Noștri',
+  testimonialsSubtitle: 'Încrederea vânzătorilor Amazon globali',
+  testimonial1Text: 'Prep Center France ne-a transformat operațiunile FBA. Procesarea 24h este incredibilă!',
+  testimonial1Name: 'Marcus Weber',
+  testimonial1Company: 'Weber Electronics',
+  testimonial2Text: 'Serviciu profesional, prețuri transparente. Centrul nostru de preparare de referință din Europa.',
+  testimonial2Name: 'Sophie Martin',
+  testimonial2Company: 'Martin Home & Garden',
+  testimonial3Text: 'Control de calitate excelent și procesare rapidă. Foarte recomandat pentru vânzătorii UE.',
+  testimonial3Name: 'Alessandro Rossi',
+  testimonial3Company: 'Rossi Fashion',
+  
+  // Home Page - Carriers
+  carriersTitle: 'Parteneri de Expediere de Încredere',
+  carriersSubtitle: 'Lucrăm cu transportatori de top pentru livrare fiabilă',
+  
+  // Home Page - Private Label
+  privateLabelTitle: 'Servicii Private Label și Multi-Platformă',
+  privateLabelSubtitle: 'Soluții complete de fulfillment pentru brandul tău pe toate platformele',
+  privateLabelPartnershipTitle: 'Parteneriat Private Label',
+  customPackaging: 'Ambalare și branding personalizate',
+  productSourcing: 'Consultanță sourcing produse',
+  qualityCompliance: 'Control calitate și conformitate',
+  endToEndFulfillment: 'Soluții de fulfillment end-to-end',
+  multiPlatformTitle: 'FBM Multi-Platformă',
+  amazonFbmFulfillment: 'Fulfillment Amazon FBM',
+  ebayProcessing: 'Procesarea comenzilor eBay',
+  shopifyIntegration: 'Integrare Shopify',
+  customWebsiteFulfillment: 'Fulfillment site-uri web personalizate',
+  
+  // Home Page - Contact
+  getStartedTitle: 'Începe Astăzi',
+  getStartedSubtitle: 'Contactează-ne pentru o ofertă personalizată și consultanță',
+  callUsTitle: 'Sună-ne',
+  callUsDesc: 'Vorbește direct cu echipa noastră',
+  whatsappTitle: 'WhatsApp',
+  whatsappDesc: 'Chat rapid pentru răspunsuri instantanee',
+  emailTitle: 'Email',
+  emailDesc: 'Trimite-ne cerințele tale',
+  startChat: 'Începe Chat',
+  
+  // Home Page - CTA
+  ctaTitle: 'Gata să Optimizezi Operațiunile Amazon FBA în Europa?',
+  ctaSubtitle: 'Începe cu servicii profesionale de preparare Amazon FBA în Franța. Timpi de procesare 24h, control calitate, etichetare FNSKU și expediere rapidă către centrele de fulfillment Amazon europene.',
+  
+  // Service Features
+  receptionInspection: 'Recepție și inspecție',
+  fnskuLabeling: 'Etichetare FNSKU',
+  polybagging: 'Ambalare',
+  qualityControl: 'Control calitate',
+  pickPack: 'Picking și împachetare',
+  multiPlatform: 'Multi-platformă',
+  sameDayShipping: 'Expediere în aceeași zi',
+  returnsHandling: 'Gestionarea retururilor',
+  secureStorage: 'Depozitare sigură',
+  inventoryTracking: 'Urmărirea inventarului',
+  climateControlled: 'Climatizat',
+  monitoring24h: 'Monitorizare 24/7'
+};

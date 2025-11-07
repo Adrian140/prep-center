@@ -1,0 +1,1102 @@
+// FILE: src/config/supabase.js
+import { createClient } from '@supabase/supabase-js';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Supabase URL and Anon Key must be defined in .env file');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+const SITE_URL = import.meta.env.PROD
+  ? 'https://prep-center.eu'
+  : window.location.origin;
+
+// ---- User Guides helpers (upload + signed URL) ----
+async function uploadUserGuideVideo(section, file) {
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'mp4';
+  const name = `${section}-${Date.now()}.${ext}`;
+  const path = `${section}/${name}`;
+
+  const { error: upErr } = await supabase.storage
+    .from('user-guides')
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType: file.type || 'video/mp4'
+    });
+  if (upErr) return { data: null, error: upErr };
+
+  const { data, error } = await supabase
+    .from('user_guides')
+    .upsert(
+      { section, video_path: path, source_type: 'upload' },
+      { onConflict: 'section' }
+    )
+    .select()
+    .single();
+
+  return { data, error };
+}
+
+async function getUserGuideSignedUrl(path, expiresIn = 3600) {
+  const { data, error } = await supabase.storage
+    .from('user-guides')
+    .createSignedUrl(path, expiresIn);
+  if (error) return { data: null, error };
+  return { data: { signedUrl: data.signedUrl }, error: null };
+}
+
+export const supabaseHelpers = {
+  uploadUserGuideVideo,
+  getUserGuideSignedUrl,
+
+  async getUserGuides() {
+    return await supabase.from('user_guides').select('*').order('section');
+  },
+
+  async getUserGuideBySection(section) {
+    const { data, error } = await supabase
+      .from('user_guides')
+       .select('section, video_url, video_path, source_type')
+      .eq('section', section)
+      .maybeSingle()
+    // dacă nu există, nu trata ca eroare
+    if (error && error.code !== 'PGRST116') return { data: null, error };
+    return { data: data || null, error: null };
+  },
+
+  async upsertUserGuide({ section, video_url }) {
+    return await supabase.from('user_guides').upsert(
+      { section, video_url },
+      { onConflict: 'section' }
+    );
+  },
+  async deleteUserGuide(section) {
+    return await supabase.from('user_guides').delete().eq('section', section);
+  },
+  
+  signUp: async (email, password, userData) => {
+    const redirectTo = `${SITE_URL}/auth/callback?next=/admin-login`;
+    return await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: userData,
+        emailRedirectTo: redirectTo,
+      },
+    });
+  },
+
+  // ===== Company Deals =====
+  listCompanyDeals: async (companyId) => {
+    return await supabase
+      .from('company_deals')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('active', true)
+      .order('created_at', { ascending: false });
+  },
+
+  createCompanyDeal: async ({ company_id, title, amount, currency = 'EUR' }) => {
+    return await supabase
+      .from('company_deals')
+      .insert({ company_id, title, amount, currency, active: true })
+      .select()
+      .single();
+  },
+
+  deleteCompanyDeal: async (dealId) => {
+    // soft delete (active=false) ca să nu pierzi istoric
+    return await supabase
+      .from('company_deals')
+      .update({ active: false })
+      .eq('id', dealId);
+  },
+
+  resendConfirmation: async (email) => {
+    const redirectTo = `${SITE_URL}/auth/callback?next=/admin-login`;
+    return await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: redirectTo },
+    });
+  },
+  signIn: async (email, password) => {
+    return await supabase.auth.signInWithPassword({ email, password });
+  },
+
+  signOut: async () => {
+    return await supabase.auth.signOut();
+  },
+
+resetPassword: async (email) => {
+  return await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${SITE_URL}/reset-password`,
+  });
+},
+
+
+  getProfile: async (userId) => {
+    return await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+  },
+
+  updateProfile: async (userId, updates) => {
+    return await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', userId)
+      .select();
+  },
+
+  // ===== Content Management =====
+  getContent: async () => {
+    const { data, error } = await supabase
+      .from('content')
+      .select('*')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .single();
+    return { data, error };
+  },
+
+  updateContent: async (contentData) => {
+    return await supabase
+      .from('content')
+      .update(contentData)
+      .eq('id', '00000000-0000-0000-0000-000000000001');
+  },
+
+  // ===== Pricing =====
+  getPricing: async () => {
+    const { data, error } = await supabase
+      .from('pricing')
+      .select('*')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .single();
+    return { data, error };
+  },
+
+  updatePricing: async (pricingData) => {
+    return await supabase
+      .from('pricing')
+      .update(pricingData)
+      .eq('id', '00000000-0000-0000-0000-000000000001');
+  },
+
+  // ===== Services =====
+  getServices: async () => {
+    return await supabase
+      .from('services')
+      .select('*')
+      .eq('active', true)
+      .order('title');
+  },
+
+  createService: async (serviceData) => {
+    return await supabase
+      .from('services')
+      .insert(serviceData);
+  },
+
+  updateService: async (serviceId, serviceData) => {
+    return await supabase
+      .from('services')
+      .update(serviceData)
+      .eq('id', serviceId);
+  },
+
+  deleteService: async (serviceId) => {
+    return await supabase
+      .from('services')
+      .delete()
+      .eq('id', serviceId);
+  },
+
+  // ===== Reviews =====
+  getReviews: async () => {
+    return await supabase
+      .from('reviews')
+      .select('*')
+      .order('created_at', { ascending: false });
+  },
+
+  createReview: async (reviewData) => {
+    return await supabase
+      .from('reviews')
+      .insert(reviewData);
+  },
+
+  deleteReview: async (reviewId) => {
+    return await supabase
+      .from('reviews')
+      .delete()
+      .eq('id', reviewId);
+  },
+
+  // ===== Billing Profiles =====
+  getBillingProfiles: async (userId) => {
+    return await supabase
+      .from('billing_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+  },
+
+  createBillingProfile: async (profileData) => {
+    return await supabase
+      .from('billing_profiles')
+      .insert(profileData);
+  },
+
+  updateBillingProfile: async (profileId, updates) => {
+    return await supabase
+      .from('billing_profiles')
+      .update(updates)
+      .eq('id', profileId);
+  },
+
+  deleteBillingProfile: async (profileId) => {
+    return await supabase
+      .from('billing_profiles')
+      .delete()
+      .eq('id', profileId);
+  },
+
+  // ===== Invoices =====
+  getInvoices: async (userId) => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', userId)
+      .single();
+
+    if (!profile?.company_id) return { data: [], error: null };
+
+    return await supabase
+      .from('invoices')
+      .select('*')
+      .eq('company_id', profile.company_id)
+      .order('issue_date', { ascending: false });
+  },
+
+  uploadInvoice: async (file, userId, invoiceData) => {
+    try {
+      let filePath = null;
+      
+      if (file) {
+        const fileExt = file.name.split('.').pop();
+       const safeNumber = String(invoiceData.invoice_number || '')
+         .normalize('NFKD')
+         .replace(/[\u0300-\u036f]/g, '')   
+         .replace(/[^A-Za-z0-9-_]/g, '_')     
+         .slice(0, 100);
+       const fileName = `${safeNumber}-${Date.now()}.${fileExt}`;
+       filePath = `${userId}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+         .from('invoices')
+         .upload(filePath, file, {
+           contentType: 'application/pdf',
+           upsert: true,
+           cacheControl: '3600'
+         });
+
+        
+        if (uploadError) throw uploadError;
+      }
+
+     const { data, error } = await supabase
+       .from('invoices')
+       .insert({ ...invoiceData, file_path: filePath })
+       .select()
+       .single();
+
+      return { data, error };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  updateInvoice: async (invoiceId, updates) => {
+    return await supabase
+      .from('invoices')
+      .update(updates)
+      .eq('id', invoiceId);
+  },
+
+  deleteInvoice: async (invoice) => {
+    try {
+      if (invoice.file_path) {
+        await supabase.storage
+          .from('invoices')
+          .remove([invoice.file_path]);
+      }
+      
+      const { error } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', invoice.id);
+      
+      return { error };
+    } catch (error) {
+      return { error };
+    }
+  },
+
+  downloadInvoice: async (filePath) => {
+    const { data, error } = await supabase.storage
+      .from('invoices')
+      .download(filePath);
+    return { data, error };
+  },
+
+  getInvoiceSignedUrl: async (filePath, expiresIn = 60) => {
+    return await supabase.storage
+      .from('invoices')
+      .createSignedUrl(filePath, expiresIn);
+  },
+
+  // ===== Client Activity =====
+  listFbaLinesByCompany: async (companyId) => {
+    return await supabase
+      .from('fba_lines')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('service_date', { ascending: false });
+  },
+
+  listFbmLinesByCompany: async (companyId) => {
+    return await supabase
+      .from('fbm_lines')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('service_date', { ascending: false });
+  },
+
+  listStockByCompany: async (companyId) => {
+    return await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+  },
+
+  updateStockItem: async (itemId, updates) => {
+    return await supabase
+      .from('stock_items')
+      .update(updates)
+      .eq('id', itemId);
+  },
+
+  createPrepRequestDraft: async (draftData) => {
+    try {
+      // 1) Insert header cu user_id + destination_country normalizat
+      const { data: request, error: requestError } = await supabase
+        .from('prep_requests')
+        .insert({
+          company_id: draftData.company_id,
+          user_id:
+            draftData.user_id ??
+            (await supabase.auth.getUser()).data?.user?.id ??
+            null,
+          destination_country:
+            draftData.destination_country || draftData.country, // compat
+          status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (requestError) throw requestError;
+      if (!request?.id) throw new Error('Prep request insert returned no id');
+
+const items = (draftData.items || []).map((it) => ({
+  request_id: request.id,
+  stock_item_id: it.stock_item_id ?? null,
+  ean: it.ean ?? null,                 // 👈 ADD
+  product_name: it.product_name ?? null, // 👈 ADD (snapshot nume)
+  asin: (it.asin ?? '').trim() || null,
+  sku: (it.sku ?? '').trim() || null,
+  units_requested: Number(
+    it.units_requested != null ? it.units_requested : it.units
+  ),
+}));
+
+      if (items.length === 0) {
+        throw new Error('No items to insert for prep request');
+      }
+
+      const { error: itemsError } = await supabase
+        .from('prep_request_items')
+        .insert(items);
+
+      if (itemsError) throw itemsError;
+
+      return { data: request, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  createPrepRequest(payload) {
+  return this.createPrepRequestDraft(payload);
+},
+
+  // Client history (O SINGURĂ definiție)
+  listClientPrepRequests: async (companyId) => {
+    return await supabase
+      .from('prep_requests')
+      .select(
+        `
+        *,
+        prep_request_items (*),
+        prep_request_tracking (*)
+      `
+      )
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+  },
+
+  // ===== Prep Requests Management =====
+   listPrepRequests: async (options = {}) => {
+let query = supabase
+  .from('prep_requests')
+  .select(
+    `
+    *,
+    profiles(first_name, last_name, email, company_name),
+    companies(name),
+    prep_request_items(
+      *,
+      stock_item:stock_items(id, name, ean)
+    ),
+    prep_request_tracking(*)
+  `,
+    { count: 'exact' }
+  );
+
+    if (options.status) {
+      query = query.eq('status', options.status);
+    }
+
+    if (options.page && options.pageSize) {
+      const from = (options.page - 1) * options.pageSize;
+      const to = from + options.pageSize - 1;
+      query = query.range(from, to);
+    }
+
+    query = query.order('created_at', { ascending: false });
+
+    const { data, error, count } = await query;
+    
+    if (error) return { data: [], error, count: 0 };
+
+    const processed = (data || []).map(r => ({
+      ...r,
+      client_name: [r.profiles?.first_name, r.profiles?.last_name].filter(Boolean).join(' '),
+      user_email: r.profiles?.email,
+      company_name: r.companies?.name || r.profiles?.company_name
+    }));
+
+    return { data: processed, error: null, count };
+  },
+
+  getPrepRequest: async (requestId) => {
+ const { data, error } = await supabase
+  .from('prep_requests')
+  .select(`
+    *,
+    profiles(first_name, last_name, email, company_name),
+    companies(name),
+    prep_request_items(
+      *,
+      stock_item:stock_items(id, name, ean)
+    ),
+    prep_request_tracking(*)
+  `)
+  .eq('id', requestId)
+  .single();
+    if (error) return { data: null, error };
+
+    const processed = {
+      ...data,
+      client_name: [data.profiles?.first_name, data.profiles?.last_name].filter(Boolean).join(' '),
+      user_email: data.profiles?.email,
+      company_name: data.companies?.name || data.profiles?.company_name
+    };
+
+    return { data: processed, error: null };
+  },
+
+deletePrepRequest: async (requestId) => {
+  // SECURITY DEFINER – trece peste RLS pentru cascade corect
+  return await supabase.rpc('admin_delete_prep_request', {
+    p_request_id: requestId
+  });
+},
+
+  setFbaShipmentId: async (requestId, shipmentId) => {
+    return await supabase
+      .from('prep_requests')
+      .update({ fba_shipment_id: shipmentId })
+      .eq('id', requestId);
+  },
+
+  updatePrepHeader: async (requestId, updates) => {
+    return await supabase
+      .from('prep_requests')
+      .update(updates)
+      .eq('id', requestId);
+  },
+
+addTrackingId: async (requestId, trackingId) => {
+  return await supabase
+    .from('prep_request_tracking')
+    .insert({
+      request_id: requestId,       // 👈 corect
+      tracking_id: trackingId
+    });
+},
+
+  removeTrackingId: async (trackingId) => {
+    return await supabase
+      .from('prep_request_tracking')
+      .delete()
+      .eq('id', trackingId);
+  },
+
+  updatePrepItem: async (itemId, updates) => {
+    return await supabase
+      .from('prep_request_items')
+      .update(updates)
+      .eq('id', itemId);
+  },
+// Creează o linie nouă în prep_request_items
+createPrepItem: async (requestId, item) => {
+  const { data, error } = await supabase
+    .from('prep_request_items')
+   .insert({
+  request_id: requestId,
+  stock_item_id: item.stock_item_id ?? null,
+  ean: item.ean ?? null,               // 👈 ADD
+  product_name: item.product_name ?? null, // 👈 ADD
+  asin: (item.asin ?? '').trim() || null,
+  sku: (item.sku ?? '').trim() || null,
+  units_requested: Number(item.units_requested),
+})
+    .select()
+    .single();
+  return { data, error };
+},
+
+// Șterge o linie din prep_request_items
+deletePrepItem: async (itemId) => {
+  const { error } = await supabase
+    .from('prep_request_items')
+    .delete()
+    .eq('id', itemId);
+  return { error };
+},
+
+  bulkUpdatePrepItems: async (items) => {
+    const updatePromises = items.map(item => 
+      supabase
+        .from('prep_request_items')
+        .update({
+          units_sent: item.units_sent,
+          obs_admin: item.obs_admin
+        })
+        .eq('id', item.id)
+    );
+    
+    const results = await Promise.all(updatePromises);
+    const error = results.find(r => r.error)?.error;
+    return { error };
+  },
+
+  confirmPrepRequestV2: async (requestId, adminId) => {
+    const { data, error } = await supabase.rpc('confirm_prep_request_v2', {
+  p_request_id: requestId,   // 👈 numele corect
+  p_admin_id: adminId        // 👈 numele corect
+});
+    return { data, error };
+  },
+
+  setPrepStatus: async (requestId, status) => {
+    return await supabase
+      .from('prep_requests')
+      .update({ status })
+      .eq('id', requestId);
+  },
+
+  sendPrepConfirmationEmail: async (payload) => {
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/send_prep_confirm_email`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Email service error: ${text}`);
+      }
+
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  },
+
+  // ===== Analytics =====
+trackVisit: async (visitData) => {
+  try {
+    const payload = {
+      path: visitData?.path || window?.location?.pathname || '/',
+      referrer: visitData?.referrer || document?.referrer || null
+    };
+    await supabase.from('analytics_visits').insert(payload);
+  } catch (error) {
+    console.error('Analytics error:', error);
+  }
+},
+
+  getAnalytics: async (options = {}) => {
+    try {
+      const days = options.days || 30;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+
+      const [byDayRes, pathRes, refRes] = await Promise.all([
+        supabase
+          .from('analytics_visits')
+          .select('created_at')
+          .gte('created_at', cutoff.toISOString()),
+        supabase
+          .from('analytics_visits')
+          .select('path')
+          .gte('created_at', cutoff.toISOString()),
+        supabase
+          .from('analytics_visits')
+          .select('referrer')
+          .gte('created_at', cutoff.toISOString())
+      ]);
+
+      return {
+        byDay: byDayRes.data || [],
+        topPaths: pathRes.data || [],
+        topReferrers: refRes.data || [],
+        error: byDayRes.error || pathRes.error || refRes.error
+      };
+    } catch (error) {
+      return { byDay: [], topPaths: [], topReferrers: [], error };
+    }
+  },
+// ===== Analytics / Balances =====
+getPeriodBalances: async (...args) => {
+  // compatibilitate: acceptă atât (companyId, startDate, endDate)
+  // cât și (userId, companyId, startDate, endDate)
+  let companyId, startDate, endDate;
+  if (args.length === 4) {
+    [, companyId, startDate, endDate] = args; // apel vechi
+  } else {
+    [companyId, startDate, endDate] = args;   // apel nou
+  }
+
+  const { data, error } = await supabase.rpc('get_period_balances', {
+    p_company_id: companyId,
+    p_start_date: startDate,   // 'YYYY-MM-DD'
+    p_end_date: endDate        // 'YYYY-MM-DD'
+  });
+
+  // rpc întoarce o singură linie; normalizez ca obiect
+  const row = Array.isArray(data) ? data[0] : data;
+  return { data: row, error };
+},
+
+  // ===== NEW: Receiving System =====
+  
+  // Carriers
+  getCarriers: async () => {
+    return await supabase
+      .from('carriers')
+      .select('*')
+      .eq('active', true)
+      .order('sort_order');
+  },
+
+createReceivingShipment: async (shipmentData) => {
+  const dataToInsert = {
+    ...shipmentData,
+    tracking_ids: shipmentData.tracking_ids || (shipmentData.tracking_id ? [shipmentData.tracking_id] : [])
+  };
+  const { data, error } = await supabase
+    .from('receiving_shipments')
+    .insert(dataToInsert)
+    .select()
+    .single();
+  return { data, error };
+},
+
+
+  getClientReceivingShipments: async (companyId) => {
+    return await supabase
+      .from('receiving_shipments')
+      .select(`
+        *,
+        receiving_items(*)
+      `)
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+  },
+
+  updateReceivingShipment: async (shipmentId, updates) => {
+    return await supabase
+      .from('receiving_shipments')
+      .update(updates)
+      .eq('id', shipmentId);
+  },
+
+  deleteReceivingShipment: async (shipmentId) => {
+    return await supabase
+      .from('receiving_shipments')
+      .delete()
+      .eq('id', shipmentId);
+  },
+
+createReceivingItems: async (items) => {
+  // Acceptă un singur obiect sau un array de obiecte
+  const arr = Array.isArray(items) ? items : [items];
+
+  // Grupăm pe shipment_id, ca să numerotăm corect per shipment
+  const byShipment = arr.reduce((acc, it) => {
+    if (!it.shipment_id) {
+      throw new Error('Missing shipment_id on receiving item');
+    }
+    (acc[it.shipment_id] ||= []).push(it);
+    return acc;
+  }, {});
+
+  const rowsToInsert = [];
+
+  // Pentru fiecare shipment, aflăm ultimul line_number și continuăm numerotarea
+  for (const [shipmentId, group] of Object.entries(byShipment)) {
+    const { data: last } = await supabase
+      .from('receiving_items')
+      .select('line_number')
+      .eq('shipment_id', shipmentId)
+      .order('line_number', { ascending: false })
+      .limit(1)
+      .maybeSingle(); // evită 406 când nu există rânduri
+
+    let next = (last?.line_number ?? 0) + 1;
+
+    for (const it of group) {
+      rowsToInsert.push({
+        ...it,
+        line_number: next++,
+      });
+    }
+  }
+
+  return await supabase
+    .from('receiving_items')
+    .insert(rowsToInsert)
+    .select('*');
+},
+
+  updateReceivingItem: async (itemId, updates) => {
+    return await supabase
+      .from('receiving_items')
+      .update(updates)
+      .eq('id', itemId);
+  },
+
+  deleteReceivingItem: async (itemId) => {
+    return await supabase
+      .from('receiving_items')
+      .delete()
+      .eq('id', itemId);
+  },
+
+  getReceivingItems: async (shipmentId) => {
+    return await supabase
+      .from('receiving_items')
+      .select('*')
+      .eq('shipment_id', shipmentId)
+      .order('line_number');
+  },
+
+  deleteReceivingItemsByShipment: async (shipmentId) => {
+  const { data, error } = await supabase
+    .from('receiving_items')
+    .delete()
+    .eq('shipment_id', shipmentId);
+  return { data, error };
+},
+
+
+getAllReceivingShipments: async (options = {}) => {
+  const from = (options.page ? (options.page - 1) * (options.pageSize || 20) : 0);
+  const to = from + ((options.pageSize || 20) - 1);
+
+  // aduce ambele versiuni de tabele de items
+  let query = supabase
+    .from('receiving_shipments')
+    .select(`
+      *,
+      receiving_shipment_items(*),
+      receiving_items(*)
+    `, { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (options.status) query = query.eq('status', options.status);
+  if (options.companyId) query = query.eq('company_id', options.companyId);
+
+  const { data, error, count } = await query;
+  if (error) return { data: [], error, count: 0 };
+
+  // colectăm user_id-urile pentru a aduce store_name din profiles
+  const userIds = [...new Set((data || []).map(r => r.user_id).filter(Boolean))];
+  let profilesById = {};
+  if (userIds.length > 0) {
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, store_name')
+      .in('id', userIds);
+    profilesById = Object.fromEntries(profilesData?.map(p => [p.id, p.store_name]) || []);
+  }
+
+  // combinăm datele din ambele tabele (receiving_shipment_items și receiving_items)
+  const processed = (data || []).map(r => {
+    const items = [
+      ...(r.receiving_shipment_items || []),
+      ...(r.receiving_items || [])
+    ];
+
+    return {
+      ...r,
+      receiving_items: items,
+      produits_count: items.length,
+      store_name: profilesById[r.user_id] || null,
+      company_name: r.companies?.name || null
+    };
+  });
+
+  return { data: processed, error: null, count };
+},
+
+  markReceivingAsReceived: async (shipmentId, receivedBy) => {
+    return await supabase
+      .from('receiving_shipments')
+      .update({
+        status: 'received',
+        received_at: new Date().toISOString(),
+        received_by: receivedBy
+      })
+      .eq('id', shipmentId);
+  },
+
+  markMultipleAsReceived: async (shipmentIds, receivedBy) => {
+    return await supabase
+      .from('receiving_shipments')
+      .update({
+        status: 'received',
+        received_at: new Date().toISOString(),
+        received_by: receivedBy
+      })
+      .in('id', shipmentIds);
+  },
+
+  // Process to Stock
+  processReceivingToStock: async (shipmentId, processedBy, itemsToProcess) => {
+    try {
+      // 1. Update shipment status to processed
+      const { error: shipmentError } = await supabase
+        .from('receiving_shipments')
+        .update({
+          status: 'processed',
+          processed_at: new Date().toISOString(),
+          processed_by: processedBy
+        })
+        .eq('id', shipmentId);
+
+      if (shipmentError) throw shipmentError;
+
+      // 2. Process each item to stock
+      for (const item of itemsToProcess) {
+        if (item.quantity_to_stock > 0) {
+          // Check if EAN already exists in stock for this company
+          const { data: existingStock } = await supabase
+            .from('stock_items')
+            .select('*')
+            .eq('company_id', item.company_id)
+            .eq('ean', item.ean_asin)
+            .single();
+
+          if (existingStock) {
+            // Update existing stock item
+            const newQty = Number(existingStock.qty || 0) + Number(item.quantity_to_stock);
+            const updates = { qty: newQty };
+            
+            // Update price if provided and different
+            if (item.purchase_price != null && item.purchase_price !== existingStock.purchase_price) {
+              updates.purchase_price = item.purchase_price;
+            }
+            
+            // Update ASIN if provided and different
+            if (item.sku && item.sku !== existingStock.asin) {
+              updates.asin = item.sku;
+            }
+            
+            // Update name if provided and different
+            if (item.product_name && item.product_name !== existingStock.name) {
+              updates.name = item.product_name;
+            }
+
+            await supabase
+              .from('stock_items')
+              .update(updates)
+              .eq('id', existingStock.id);
+
+            // Log the movement
+            await supabase
+              .from('receiving_to_stock_log')
+              .insert({
+                receiving_item_id: item.id,
+                stock_item_id: existingStock.id,
+                quantity_moved: item.quantity_to_stock,
+                moved_by: processedBy,
+                notes: `Processed from receiving shipment`
+              });
+          } else {
+            // Create new stock item
+            const { data: newStockItem, error: stockError } = await supabase
+              .from('stock_items')
+              .insert({
+                company_id: item.company_id,
+                ean: item.ean_asin,
+                name: item.product_name,
+                asin: item.sku,
+                qty: item.quantity_to_stock,
+                purchase_price: item.purchase_price,
+                created_by: processedBy
+              })
+              .select()
+              .single();
+
+            if (stockError) throw stockError;
+
+            // Log the movement
+            await supabase
+              .from('receiving_to_stock_log')
+              .insert({
+                receiving_item_id: item.id,
+                stock_item_id: newStockItem.id,
+                quantity_moved: item.quantity_to_stock,
+                moved_by: processedBy,
+                notes: `New stock item from receiving shipment`
+              });
+          }
+
+          // Update receiving item with processing info
+          await supabase
+            .from('receiving_items')
+            .update({
+              quantity_to_stock: item.quantity_to_stock,
+              remaining_action: item.remaining_action
+            })
+            .eq('id', item.id);
+        }
+      }
+
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  },
+
+  // Stock matching for receiving
+  findStockMatches: async (companyId, eanAsins) => {
+    if (!eanAsins || eanAsins.length === 0) return { data: [], error: null };
+    
+    return await supabase
+      .from('stock_items')
+      .select('id, ean, name, asin, qty, purchase_price')
+      .eq('company_id', companyId)
+      .in('ean', eanAsins);
+  },
+
+  // EAN/UPC/GTIN & ASIN validation (Amazon-style)
+  validateEAN: (ean) => {
+    const raw0 = String(ean ?? '');
+
+    // normalize: remove Excel leading apostrophe, BOM/NBSP/ZWSP, spaces & separators
+    const raw = raw0
+      .replace(/^\uFEFF/, '')                 // BOM
+      .replace(/^[']+/, '')                   // '12345 -> 12345
+      .replace(/[\u00A0\u200B\u200C\u200D]/g, '') // NBSP & zero-width
+      .trim();
+
+    // build two versions
+    const digitsOnly = raw.replace(/[^0-9]/g, '');
+    const upperAlnum = raw.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+
+    // generic GTIN check digit calculator (for 7/11/12/13 base lengths -> 8/12/13/14 total)
+    function gtinCheckOk(d) {
+      // last digit is check
+      const digits = d.split('').map(n => Number(n));
+      const base = digits.slice(0, -1);
+      const check = digits[digits.length - 1];
+
+      // From right over base digits, positions start at 1 with weight 3, then 1, then 3...
+      let sum = 0;
+      let pos = 1;
+      for (let i = base.length - 1; i >= 0; i--, pos++) {
+        const weight = (pos % 2 === 1) ? 3 : 1;
+        sum += base[i] * weight;
+      }
+      const calc = (10 - (sum % 10)) % 10;
+      return calc === check;
+    }
+
+    // 1) ASIN: 10 chars, alphanumeric uppercase, Amazon style (e.g., B00EXAMPLE)
+    if (/^[A-Z0-9]{10}$/.test(upperAlnum) && /[A-Z]/.test(upperAlnum)) {
+      return { valid: true, type: 'ASIN', formatted: upperAlnum };
+    }
+
+    // 2) GTIN/EAN/UPC: digits only with valid check digit
+    //    Accept total lengths: 8 (EAN-8), 12 (UPC-A), 13 (EAN-13), 14 (GTIN-14)
+    if (/^\d+$/.test(digitsOnly)) {
+      const len = digitsOnly.length;
+      if ((len === 8 || len === 12 || len === 13 || len === 14) && gtinCheckOk(digitsOnly)) {
+        let label = 'GTIN';
+        if (len === 8)  label = 'EAN-8';
+        if (len === 12) label = 'UPC-A';
+        if (len === 13) label = 'EAN-13';
+        if (len === 14) label = 'GTIN-14';
+        return { valid: true, type: label, formatted: digitsOnly };
+      }
+    }
+
+    // 3) Anything else = invalid (Amazon nu acceptă alte lungimi/formate ca GTIN valid)
+    return { valid: false, type: 'Unknown', formatted: raw0 };
+ }
+};
+
+export { supabase as default };
+
+export async function setPrepStatus(requestId, status) {
+  return supabase
+    .from('prep_requests')
+    .update({ status })
+    .eq('id', requestId);
+}

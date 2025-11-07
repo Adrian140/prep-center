@@ -1,0 +1,10 @@
+// FILE: supabase/functions/trigger_monthly_snapshots/deno.json
+{
+  "tasks": {
+    "monthly-snapshots": {
+      "schedule": "0 2 1 * *",
+      "endpoint": "/",
+      "method": "POST"
+    }
+  }
+}
