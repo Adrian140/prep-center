@@ -14,7 +14,7 @@ const num = (v, { allowNull = false } = {}) => {
   return Number.isFinite(n) ? n : (allowNull ? null : 0);
 };
 
-export default function ClientBalanceBar({ companyId }) {
+export default function ClientBalanceBar({ companyId, variant = 'default' }) {
   const { t } = useDashboardTranslation();
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState(0);
@@ -93,22 +93,34 @@ export default function ClientBalanceBar({ companyId }) {
       ? "bg-green-100 text-green-800"
       : "bg-red-100 text-red-800";
 
+  const compact = variant === 'compact';
+
   return (
-    <div className="mb-6">
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col items-end">
-        <div className="text-sm text-text-secondary self-start">{t('ClientBalanceBar.title')}</div>
-        <div className={`px-3 py-1 rounded-md text-base font-semibold ${cls}`}>
+    <div className={compact ? '' : 'mb-6'}>
+      <div
+        className={`bg-slate-50 border border-slate-200 rounded-xl ${
+          compact ? 'p-3 w-[210px]' : 'p-4 flex flex-col items-end'
+        }`}
+      >
+        <div className={`text-sm text-text-secondary ${compact ? 'mb-1' : 'self-start'}`}>
+          {t('ClientBalanceBar.title')}
+        </div>
+        <div
+          className={`px-3 py-1 rounded-md font-semibold ${cls} ${
+            compact ? 'text-sm' : 'text-base'
+          }`}
+        >
           {loading
             ? t('common.calculating')
             : t('ClientBalanceBar.current').replace('{amount}', fmt2(Number(balance || 0)))}
         </div>
-        {balance < 0 && !loading && (
-          <div className="mt-2 text-xs text-green-600 italic">
+        {!loading && balance < 0 && (
+          <div className="mt-1 text-xs text-green-600 italic">
             {t('ClientBalanceBar.prepayment').replace('{amount}', fmt2(Math.abs(balance)))}
           </div>
         )}
-        {balance > 0 && !loading && (
-          <div className="mt-2 text-xs text-red-600 italic">
+        {!loading && balance > 0 && (
+          <div className="mt-1 text-xs text-red-600 italic">
             {t('ClientBalanceBar.outstanding').replace('{amount}', fmt2(balance))}
           </div>
         )}

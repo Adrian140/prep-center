@@ -2,9 +2,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSupabaseAuth } from "../../../contexts/SupabaseAuthContext";
 import { supabaseHelpers } from "../../../config/supabase";
-import ClientBalanceBar from "./ClientBalanceBar";
-
-
 import {
   ResponsiveContainer,
   LineChart,
@@ -25,8 +22,6 @@ function Box({ title, children }) {
     </div>
   );
 }
-
-const SHOW_DEALS_KEY = 'client_showDeals_v2';
 
 const fmt2 = (n) => (typeof n === "number" && isFinite(n) ? Number(n).toFixed(2) : "—");
 // ✅ necesar pentru filtrarea datelor din grafic
@@ -71,25 +66,11 @@ export default function SupabaseClientActivity() {
 
   const [fba, setFba] = useState([]);
   const [fbm, setFbm] = useState([]);
-  const [deals, setDeals] = useState([]);
-  const [showAllDeals, setShowAllDeals] = useState(false);
-  const [showDeals, setShowDeals] = useState(false); // ascuns by default
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("3m");
   const [activeReport, setActiveReport] = useState('fba');
   const [fbaMonth, setFbaMonth] = useState(() => currentMonthStr());
   const [fbmMonth, setFbmMonth] = useState(() => currentMonthStr());
-
-  // Persistă preferința pe device: afișează deal-urile doar dacă user-ul apasă "Afficher"
-  useEffect(() => {
-    const v = typeof window !== 'undefined' ? localStorage.getItem(SHOW_DEALS_KEY) : null;
-    if (v === '1') setShowDeals(true);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(SHOW_DEALS_KEY, showDeals ? '1' : '0');
-  }, [showDeals]);
 
   const load = async () => {
     if (!companyId) {
@@ -99,18 +80,12 @@ export default function SupabaseClientActivity() {
       return;
     }
     setLoading(true);
-    const [
-   { data: fbaData },
-   { data: fbmData },
-   { data: dealsData }
- ] = await Promise.all([
-   supabaseHelpers.listFbaLinesByCompany(companyId),
-   supabaseHelpers.listFbmLinesByCompany(companyId),
-   supabaseHelpers.listCompanyDeals(companyId),
- ]);
+    const [{ data: fbaData }, { data: fbmData }] = await Promise.all([
+      supabaseHelpers.listFbaLinesByCompany(companyId),
+      supabaseHelpers.listFbmLinesByCompany(companyId)
+    ]);
     setFba(fbaData || []);
     setFbm(fbmData || []);
-    setDeals(dealsData || []);  
     setLoading(false);
   };
 
@@ -242,76 +217,53 @@ export default function SupabaseClientActivity() {
 
   return (
   <div className="space-y-6">
-    {/* HEADER ZONE: split 1/2 - 1/2 */}
-    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] gap-4">
-
-     {/* LEFT: Deals list (fully collapsible) */}
-    <div className="bg-white rounded-xl shadow-sm p-5">
-      {!showDeals ? (
-        <button
-          className="text-sm text-primary hover:underline"
-          onClick={() => setShowDeals(true)}
-        >
-          Afficher les offres négociées
-        </button>
-      ) : (
-        <>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-text-primary">
-              Offres négociées
-            </h3>
-            {deals?.length > 0 && (
-              <span className="text-xs rounded-full px-2 py-0.5 bg-slate-100 text-text-secondary">
-                {deals.length}
-              </span>
-            )}
-          </div>
-
-          {(!deals || deals.length === 0) ? (
-            <div className="text-text-secondary">Aucune offre active.</div>
-          ) : (
-            <>
-              <ul className="divide-y divide-gray-100">
-                {(showAllDeals ? deals : deals.slice(0, 4)).map(d => (
-                  <li key={d.id} className="py-1.5">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="font-medium truncate">{d.title}</span>
-                      <span className="text-sm text-text-secondary whitespace-nowrap">
-                        {fmtMoneyHT(d.amount)}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="flex items-center gap-4 mt-3">
-                {deals.length > 4 && (
-                  <button
-                    className="text-sm text-primary hover:underline"
-                    onClick={() => setShowAllDeals(s => !s)}
-                  >
-                    {showAllDeals ? 'Masquer' : 'Voir tout'}
-                  </button>
-                )}
-                <button
-                  className="text-sm text-text-secondary hover:underline"
-                  onClick={() => { setShowDeals(false); setShowAllDeals(false); }}
-                >
-                  Fermer
-                </button>
-              </div>
-            </>
-          )}
-        </>
-      )}
-    </div>
-        {/* RIGHT: Solde */}
-          <div className="flex justify-end">
-            <div className="w-full max-w-sm">
-              <ClientBalanceBar companyId={companyId} />
-            </div>
-          </div>
+      <Box title={t('SupabaseClientActivity.chartTitle')}>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {[
+            { k: "1m", label: t('SupabaseClientActivity.range.m1') },
+            { k: "3m", label: t('SupabaseClientActivity.range.m3') },
+            { k: "all", label: t('SupabaseClientActivity.range.all') },
+          ].map((opt) => (
+            <button
+              key={opt.k}
+              onClick={() => setRange(opt.k)}
+              className={`px-3 py-1 rounded-lg border text-sm ${
+                range === opt.k
+                  ? "bg-primary text-white border-primary"
+                  : "bg-white text-text-primary border-gray-300"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
+
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={filteredChartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend />
+            <Line
+              type="monotone"
+              dataKey="fba"
+              stroke="#ec4899"
+              strokeWidth={2}
+              dot={false}
+              name="FBA"
+            />
+            <Line
+              type="monotone"
+              dataKey="fbm"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              dot={false}
+              name="FBM"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </Box>
 
       <div className="bg-white rounded-xl shadow-sm p-5">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-3 mb-4">
@@ -425,53 +377,6 @@ export default function SupabaseClientActivity() {
         </div>
       </div>
 
-      <Box title={t('SupabaseClientActivity.chartTitle')}>
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          {[
-            { k: "1m", label: t('SupabaseClientActivity.range.m1') },
-            { k: "3m", label: t('SupabaseClientActivity.range.m3') },
-            { k: "all", label: t('SupabaseClientActivity.range.all') },
-          ].map((opt) => (
-            <button
-              key={opt.k}
-              onClick={() => setRange(opt.k)}
-              className={`px-3 py-1 rounded-lg border text-sm ${
-                range === opt.k
-                  ? "bg-primary text-white border-primary"
-                  : "bg-white text-text-primary border-gray-300"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={filteredChartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            <Line
-              type="monotone"
-              dataKey="fba"
-              stroke="#ec4899"
-              strokeWidth={2}
-              dot={false}
-              name="FBA"
-            />
-            <Line
-              type="monotone"
-              dataKey="fbm"
-              stroke="#3b82f6"
-              strokeWidth={2}
-              dot={false}
-              name="FBM"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </Box>
     </div>
   );
 }

@@ -31,6 +31,8 @@ import ClientExports from './client/ClientExports';
 import ClientReceiving from './client/ClientReceiving';
 import ClientIntegrations from './client/ClientIntegrations';
 import ClientPrepShipments from './client/ClientPrepShipments';
+import ClientDealsPopover from './client/ClientDealsPopover';
+import ClientBalanceBar from './client/ClientBalanceBar';
 
 const REPORT_TABS = [
   { id: 'reports-shipments', labelKey: 'reportsMenu.shipments', icon: Package },
@@ -82,6 +84,7 @@ useEffect(() => {
 }, [activeTab]);
 
   const { user, profile, signOut } = useSupabaseAuth();
+  const companyId = profile?.company_id;
 
   const tabs = [
     // Operations
@@ -136,20 +139,28 @@ const renderTabContent = useMemo(() => {
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-lg font-semibold text-text-primary">
                 {tp('common.greeting', { name: displayName })}
               </h1>
               <p className="text-sm text-text-secondary">{t('common.subtitle')}</p>
             </div>
-            <button
-              onClick={signOut}
-              className="flex items-center px-3 py-2 text-sm text-text-secondary hover:text-red-600 transition-colors"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              {t('common.signOut')}
-            </button>
+            <div className="flex items-center gap-3">
+              {activeTab === 'activity' && (
+                <>
+                  <ClientDealsPopover companyId={companyId} />
+                  <ClientBalanceBar companyId={companyId} variant="compact" />
+                </>
+              )}
+              <button
+                onClick={signOut}
+                className="flex items-center px-3 py-2 text-sm text-text-secondary hover:text-red-600 transition-colors"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                {t('common.signOut')}
+              </button>
+            </div>
           </div>
         </div>
 
