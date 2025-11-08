@@ -59,10 +59,11 @@ function SupabaseDashboard() {
     ...REPORT_TABS.map((rt) => rt.id)
   ];
 
+  const normalizeTab = (tab) => (tab === 'receiving' ? 'reports-receiving' : tab);
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    const initialTab = params.get('tab');
-    const saved = localStorage.getItem('clientDashboardTab');
+    const initialTab = normalizeTab(params.get('tab'));
+    const saved = normalizeTab(localStorage.getItem('clientDashboardTab'));
     if (initialTab && validTabs.includes(initialTab)) return initialTab;
     return validTabs.includes(saved) ? saved : 'fba';
   });
@@ -89,9 +90,9 @@ useEffect(() => {
   const tabs = [
     // Operations
     { id: 'activity', label: t('sidebar.activity'), icon: FileText, group: 'Operations' },
+    { id: 'stock', label: t('sidebar.stock'), icon: Boxes, group: 'Operations' },
     { id: 'fba', label: t('sidebar.fba'), icon: Package, group: 'Operations' },
     { id: 'fbm', label: t('sidebar.fbm'), icon: Package, group: 'Operations' },
-    { id: 'stock', label: t('sidebar.stock'), icon: Boxes, group: 'Operations' },
     { id: 'returns', label: t('sidebar.returns'), icon: RotateCcw, group: 'Operations' },
     { id: 'exports', label: t('sidebar.exports'), icon: Download, group: 'Operations' },
 
@@ -171,57 +172,60 @@ const renderTabContent = useMemo(() => {
                   </div>
                   <nav className="space-y-2">
                     {tabs
-                      .filter((t) => t.group === g.key)
+                      .filter((tab) => tab.group === g.key)
                       .map((tab) => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setActiveTab(tab.id)}
-                          className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
-                            activeTab === tab.id
-                              ? 'bg-primary text-white'
-                              : 'text-text-secondary hover:bg-gray-50'
-                          }`}
-                        >
-                          <tab.icon className="w-5 h-5 mr-3" />
-                          {tab.label}
-                        </button>
+                        <React.Fragment key={tab.id}>
+                          <button
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                              activeTab === tab.id
+                                ? 'bg-primary text-white'
+                                : 'text-text-secondary hover:bg-gray-50'
+                            }`}
+                          >
+                            <tab.icon className="w-5 h-5 mr-3" />
+                            {tab.label}
+                          </button>
+
+                          {g.key === 'Operations' && tab.id === 'stock' && (
+                            <div className="ml-2 mt-3">
+                              <button
+                                onClick={() => setReportsOpen((v) => !v)}
+                                className="w-full flex items-center justify-between px-4 py-3 text-left rounded-lg border text-text-secondary hover:bg-gray-50"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <FileText className="w-5 h-5" />
+                                  {t('sidebar.reports')}
+                                </span>
+                                <ChevronDown
+                                  className={`w-5 h-5 transition-transform ${
+                                    reportsOpen ? 'rotate-180' : ''
+                                  }`}
+                                />
+                              </button>
+                              {reportsOpen && (
+                                <div className="mt-2 space-y-2 pl-6">
+                                  {REPORT_TABS.map((reportTab) => (
+                                    <button
+                                      key={reportTab.id}
+                                      onClick={() => setActiveTab(reportTab.id)}
+                                      className={`w-full flex items-center px-4 py-2 text-left rounded-lg transition-colors ${
+                                        activeTab === reportTab.id
+                                          ? 'bg-primary/90 text-white'
+                                          : 'text-text-secondary hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      <reportTab.icon className="w-4 h-4 mr-2" />
+                                      {t(reportTab.labelKey)}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </React.Fragment>
                       ))}
                   </nav>
-
-                  {g.key === 'Operations' && (
-                    <div className="mt-6">
-                      <button
-                        onClick={() => setReportsOpen((v) => !v)}
-                        className="w-full flex items-center justify-between px-4 py-3 text-left rounded-lg border text-text-secondary hover:bg-gray-50"
-                      >
-                        <span className="flex items-center gap-2">
-                          <FileText className="w-5 h-5" />
-                          {t('sidebar.reports')}
-                        </span>
-                        <ChevronDown
-                          className={`w-5 h-5 transition-transform ${reportsOpen ? 'rotate-180' : ''}`}
-                        />
-                      </button>
-                      {reportsOpen && (
-                        <div className="mt-2 space-y-2 pl-6">
-                          {REPORT_TABS.map((tab) => (
-                            <button
-                              key={tab.id}
-                              onClick={() => setActiveTab(tab.id)}
-                              className={`w-full flex items-center px-4 py-2 text-left rounded-lg transition-colors ${
-                                activeTab === tab.id
-                                  ? 'bg-primary/90 text-white'
-                                  : 'text-text-secondary hover:bg-gray-50'
-                              }`}
-                            >
-                              <tab.icon className="w-4 h-4 mr-2" />
-                              {t(tab.labelKey)}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

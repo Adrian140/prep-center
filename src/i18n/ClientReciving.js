@@ -4,8 +4,9 @@
 export const CLIENT_RECIVING_DICT = {
   fr: {
     // Page
-    page_title: "Réception / Inbound",
-    page_subtitle: "Annoncez vos envois au dépôt",
+    page_title: "Réceptions prep-center",
+    page_subtitle: "Consultez les réceptions créées depuis l’onglet Produits.",
+    report_hint: "Créez vos réceptions depuis Produits ▸ Annonce de réception ; vous pouvez les ajuster ici tant qu’elles ne sont pas confirmées.",
     or: "ou",
     // Player titles
     guide_video: "📹 Guide vidéo",
@@ -25,6 +26,8 @@ export const CLIENT_RECIVING_DICT = {
     saving: "Enregistrement…",
     cancel: "Annuler",
     add_row: "Ajouter ligne",
+    add_tracking_number: "Ajouter un numéro de suivi",
+    add_fba_id: "Ajouter un ID d’expédition FBA",
     download_template: "Télécharger le modèle",
     import_file: "Importer le fichier",
     save_draft: "Enregistrer le brouillon",
@@ -41,7 +44,7 @@ export const CLIENT_RECIVING_DICT = {
 
     // Empty states
     empty_list_title: "Aucune réception",
-    empty_list_desc: "Commencez par créer votre première annonce de réception",
+    empty_list_desc: "Créez d’abord vos réceptions dans Produits ▸ Annonce de réception, puis gérez-les ici.",
     empty_products_title: "Aucun produit ajouté",
     empty_products_desc: "Utilisez le modèle Excel ou ajoutez des lignes manuellement",
 
@@ -132,8 +135,9 @@ export const CLIENT_RECIVING_DICT = {
   },
 
   en: {
-    page_title: "Receiving / Inbound",
-    page_subtitle: "Announce your inbound shipments",
+    page_title: "Prep-center receiving",
+    page_subtitle: "Review inbound shipments created from the Products tab.",
+    report_hint: "Create receivings from Products ▸ Announce Reception; you can adjust tracking and quantities here until staff confirms them.",
     or: "or",
 
     guide_video: "📹 Video Guide",
@@ -153,6 +157,8 @@ export const CLIENT_RECIVING_DICT = {
     saving: "Saving…",
     cancel: "Cancel",
     add_row: "Add row",
+    add_tracking_number: "Add tracking number",
+    add_fba_id: "Add FBA Shipment ID",
     download_template: "Download template",
     import_file: "Import file",
     save_draft: "Save draft",
@@ -166,7 +172,7 @@ export const CLIENT_RECIVING_DICT = {
     list_date: "Date",
 
     empty_list_title: "No receivings",
-    empty_list_desc: "Start by creating your first receiving notice",
+    empty_list_desc: "Create receivings from Products ▸ Announce Reception, then review them here.",
     empty_products_title: "No products added",
     empty_products_desc: "Use the Excel template or add rows manually",
 
@@ -243,8 +249,9 @@ export const CLIENT_RECIVING_DICT = {
     created_at_label: "Date",
   },
   de: {
-    page_title: "Wareneingang / Inbound",
-    page_subtitle: "Melden Sie Ihre Wareneingänge an",
+    page_title: "Prep-Center Wareneingänge",
+    page_subtitle: "Überprüfe die Wareneingänge, die im Tab Produkte angelegt wurden.",
+    report_hint: "Neue Eingänge bitte unter Produkte ▸ Wareneingang ankündigen; hier kannst du sie bearbeiten, bis das Team sie bestätigt.",
     or: "oder",
 
     guide_video: "📹 Videoanleitung",
@@ -265,6 +272,8 @@ export const CLIENT_RECIVING_DICT = {
     saving: "Speichere…",
     cancel: "Abbrechen",
     add_row: "Zeile hinzufügen",
+    add_tracking_number: "Trackingnummer hinzufügen",
+    add_fba_id: "FBA-Sendungs-ID hinzufügen",
     download_template: "Vorlage herunterladen",
     import_file: "Datei importieren",
     save_draft: "Entwurf speichern",
@@ -278,7 +287,7 @@ export const CLIENT_RECIVING_DICT = {
     list_date: "Datum",
 
     empty_list_title: "Keine Wareneingänge",
-    empty_list_desc: "Erstellen Sie zuerst eine Wareneingangsanmeldung",
+    empty_list_desc: "Erstelle Wareneingänge im Tab Produkte ▸ Wareneingang ankündigen und verwalte sie hier.",
     empty_products_title: "Keine Produkte hinzugefügt",
     empty_products_desc: "Verwenden Sie die Excel-Vorlage oder fügen Sie manuell Zeilen hinzu",
 
@@ -356,8 +365,9 @@ export const CLIENT_RECIVING_DICT = {
   },
 
   it: {
-    page_title: "Ricezione / Inbound",
-    page_subtitle: "Annuncia le tue spedizioni in arrivo",
+    page_title: "Ricezioni prep-center",
+    page_subtitle: "Rivedi le ricezioni create dal tab Prodotti.",
+    report_hint: "Crea le ricezioni da Prodotti ▸ Annuncia ricezione; qui puoi modificarle finché non vengono confermate.",
     template_filename: "modello_ricezione.csv", 
     or: "oppure",
     guide_video: "📹 Guida video",
@@ -377,6 +387,8 @@ export const CLIENT_RECIVING_DICT = {
     saving: "Salvataggio…",
     cancel: "Annulla",
     add_row: "Aggiungi riga",
+    add_tracking_number: "Aggiungi numero di tracking",
+    add_fba_id: "Aggiungi ID spedizione FBA",
     download_template: "Scarica modello",
     import_file: "Importa file",
     save_draft: "Salva bozza",
@@ -390,7 +402,7 @@ export const CLIENT_RECIVING_DICT = {
     list_date: "Data",
 
     empty_list_title: "Nessuna ricezione",
-    empty_list_desc: "Inizia creando la tua prima notifica di ricezione",
+    empty_list_desc: "Crea una ricezione da Prodotti ▸ Annuncia ricezione e poi gestiscila qui.",
     empty_products_title: "Nessun prodotto aggiunto",
     empty_products_desc: "Usa il modello Excel o aggiungi righe manualmente",
 
@@ -467,8 +479,9 @@ export const CLIENT_RECIVING_DICT = {
     created_at_label: "Data",
   },
   es: {
-    page_title: "Recepción / Inbound",
-    page_subtitle: "Anuncia tus envíos entrantes",
+    page_title: "Recepciones del prep-center",
+    page_subtitle: "Revisa las recepciones creadas desde el tab Productos.",
+    report_hint: "Crea recepciones en Productos ▸ Anunciar recepción; aquí puedes ajustarlas hasta que el equipo las confirme.",
     template_filename: "plantilla_recepcion.csv", 
     or: "o", 
 
@@ -490,6 +503,8 @@ export const CLIENT_RECIVING_DICT = {
     saving: "Guardando…",
     cancel: "Cancelar",
     add_row: "Añadir fila",
+    add_tracking_number: "Agregar número de seguimiento",
+    add_fba_id: "Agregar ID de envío FBA",
     download_template: "Descargar plantilla",
     import_file: "Importar archivo",
     save_draft: "Guardar borrador",
@@ -503,7 +518,7 @@ export const CLIENT_RECIVING_DICT = {
     list_date: "Fecha",
 
     empty_list_title: "Sin recepciones",
-    empty_list_desc: "Empieza creando tu primer aviso de recepción",
+    empty_list_desc: "Crea primero una recepción en Productos ▸ Anunciar recepción y luego gestiónala aquí.",
     empty_products_title: "No hay productos añadidos",
     empty_products_desc: "Usa la plantilla de Excel o añade filas manualmente",
 
@@ -581,8 +596,9 @@ export const CLIENT_RECIVING_DICT = {
   },
 
   ro: {
-    page_title: "Recepție / Inbound",
-    page_subtitle: "Anunță-ți expedierile către depozit",
+    page_title: "Recepții prep-center",
+    page_subtitle: "Vezi recepțiile create din tab-ul Produse.",
+    report_hint: "Creează recepții din Produse ▸ Anunță recepția; aici le poți modifica până sunt confirmate de echipă.",
     template_filename: "sablon_receptie.csv", 
     or: "sau",
 
@@ -603,6 +619,8 @@ export const CLIENT_RECIVING_DICT = {
     saving: "Se salvează…",
     cancel: "Anulează",
     add_row: "Adaugă rând",
+    add_tracking_number: "Adaugă număr de tracking",
+    add_fba_id: "Adaugă ID de expediere FBA",
     download_template: "Descarcă șablon",
     import_file: "Importă fișier",
     save_draft: "Salvează ciorna",
@@ -616,7 +634,7 @@ export const CLIENT_RECIVING_DICT = {
     list_date: "Data",
 
     empty_list_title: "Nicio recepție",
-    empty_list_desc: "Începe prin a crea primul anunț de recepție",
+    empty_list_desc: "Creează o recepție în Produse ▸ Anunță recepția, apoi urmărește-o aici.",
     empty_products_title: "Niciun produs adăugat",
     empty_products_desc: "Folosește șablonul Excel sau adaugă manual rânduri",
 
