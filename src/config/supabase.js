@@ -468,11 +468,11 @@ let query = supabase
   .select(
     `
     *,
-    profiles(first_name, last_name, email, company_name),
+    profiles(first_name, last_name, email, company_name, store_name),
     companies(name),
     prep_request_items(
       *,
-      stock_item:stock_items(id, name, ean)
+      stock_item:stock_items(id, name, ean, image_url, sku)
     ),
     prep_request_tracking(*)
   `,
@@ -499,7 +499,8 @@ let query = supabase
       ...r,
       client_name: [r.profiles?.first_name, r.profiles?.last_name].filter(Boolean).join(' '),
       user_email: r.profiles?.email,
-      company_name: r.companies?.name || r.profiles?.company_name
+      company_name: r.profiles?.store_name || r.companies?.name || r.profiles?.company_name,
+      store_name: r.profiles?.store_name || null
     }));
 
     return { data: processed, error: null, count };
@@ -510,11 +511,11 @@ let query = supabase
   .from('prep_requests')
   .select(`
     *,
-    profiles(first_name, last_name, email, company_name),
+    profiles(first_name, last_name, email, company_name, store_name),
     companies(name),
     prep_request_items(
       *,
-      stock_item:stock_items(id, name, ean)
+      stock_item:stock_items(id, name, ean, image_url, sku)
     ),
     prep_request_tracking(*)
   `)
@@ -526,17 +527,31 @@ let query = supabase
       ...data,
       client_name: [data.profiles?.first_name, data.profiles?.last_name].filter(Boolean).join(' '),
       user_email: data.profiles?.email,
-      company_name: data.companies?.name || data.profiles?.company_name
+      company_name: data.profiles?.store_name || data.companies?.name || data.profiles?.company_name
     };
 
     return { data: processed, error: null };
   },
 
 deletePrepRequest: async (requestId) => {
-  // SECURITY DEFINER – trece peste RLS pentru cascade corect
-  return await supabase.rpc('admin_delete_prep_request', {
-    p_request_id: requestId
-  });
+  // fallback JS cascade (tracking -> items -> header)
+  const { error: trackErr } = await supabase
+    .from('prep_request_tracking')
+    .delete()
+    .eq('request_id', requestId);
+  if (trackErr) return { error: trackErr };
+
+  const { error: itemsErr } = await supabase
+    .from('prep_request_items')
+    .delete()
+    .eq('request_id', requestId);
+  if (itemsErr) return { error: itemsErr };
+
+  const { error } = await supabase
+    .from('prep_requests')
+    .delete()
+    .eq('id', requestId);
+  return { error };
 },
 
   setFbaShipmentId: async (requestId, shipmentId) => {
@@ -853,9 +868,8 @@ getAllReceivingShipments: async (options = {}) => {
     .select(`
       *,
       companies:companies(name),
-      profiles:user_id(id, store_name, full_name, email),
-      receiving_shipment_items(*, stock_item:stock_items(asin, name)),
-      receiving_items(*, stock_item:stock_items(asin, name))
+      receiving_shipment_items(*, stock_item:stock_items(asin, name, image_url, sku)),
+      receiving_items(*, stock_item:stock_items(asin, name, image_url, sku))
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, to);
@@ -872,9 +886,11 @@ getAllReceivingShipments: async (options = {}) => {
   if (userIds.length > 0) {
     const { data: profilesData } = await supabase
       .from('profiles')
-      .select('id, store_name')
+      .select('id, store_name, full_name, email')
       .in('id', userIds);
-    profilesById = Object.fromEntries(profilesData?.map(p => [p.id, p.store_name]) || []);
+    profilesById = Object.fromEntries(
+      (profilesData || []).map((p) => [p.id, p])
+    );
   }
 
   // combinăm datele din ambele tabele (receiving_shipment_items și receiving_items)
@@ -884,17 +900,16 @@ getAllReceivingShipments: async (options = {}) => {
       ...(r.receiving_items || [])
     ];
 
-    const clientProfile = r.profiles || {};
-
-    const { profiles, companies, receiving_shipment_items, receiving_items, ...rest } = r;
+    const { companies, receiving_shipment_items, receiving_items, ...rest } = r;
+    const profileMeta = profilesById[r.user_id] || {};
 
     return {
       ...rest,
       receiving_items: items,
       produits_count: items.length,
-      store_name: clientProfile.store_name || profilesById[r.user_id] || rest.client_name || null,
-      client_name: clientProfile.store_name || rest.client_name || null,
-      client_email: clientProfile.email || rest.user_email || null,
+      store_name: profileMeta.store_name || rest.client_name || null,
+      client_name: profileMeta.store_name || profileMeta.full_name || rest.client_name || null,
+      client_email: profileMeta.email || rest.user_email || null,
       company_name: companies?.name || null
     };
   });

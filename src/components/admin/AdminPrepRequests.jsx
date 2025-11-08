@@ -146,7 +146,7 @@ export default function AdminPrepRequests() {
             <tr>
               <th className="px-4 py-3 text-left">Creat la</th>
               <th className="px-4 py-3 text-left">Client</th>
-              <th className="px-4 py-3 text-left">Companie</th>
+              <th className="px-4 py-3 text-left">Store</th>
               <th className="px-4 py-3 text-left">Țara</th>
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-left">Produse</th>
@@ -174,7 +174,7 @@ export default function AdminPrepRequests() {
                     {r.client_name ? <b>{r.client_name}</b> : '—'}
                     <div className="text-xs text-text-secondary">{r.user_email || '—'}</div>
                   </td>
-                  <td className="px-4 py-3">{r.company_name || '—'}</td>
+                  <td className="px-4 py-3">{r.company_name || r.store_name || '—'}</td>
                   <td className="px-4 py-3">{r.destination_country}</td>
                   <td className="px-4 py-3">
                     <StatusPill s={r.status} />

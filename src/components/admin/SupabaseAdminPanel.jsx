@@ -65,6 +65,45 @@ useEffect(() => {
     navigate(`/admin?tab=${activeTab}`, { replace: true });
   }
 }, [activeTab, location.search, navigate]);
+
+  const syncProfileParam = (profileId) => {
+    const params = new URLSearchParams(location.search);
+    if (profileId) params.set('profile', profileId);
+    else params.delete('profile');
+    if (!params.get('tab')) params.set('tab', activeTab);
+    navigate(`/admin?${params.toString()}`, { replace: true });
+  };
+
+  const handleSelectProfile = (profile) => {
+    if (!profile) return;
+    setSelectedProfile(profile);
+    syncProfileParam(profile.id);
+  };
+
+  const handleCloseProfile = () => {
+    setSelectedProfile(null);
+    syncProfileParam(null);
+  };
+useEffect(() => {
+  const params = new URLSearchParams(location.search);
+  const profileId = params.get('profile');
+  if (activeTab !== 'profiles' || !profileId) return;
+  if (selectedProfile?.id === profileId) return;
+
+  let mounted = true;
+  (async () => {
+    const { data, error } = await supabaseHelpers.getProfile(profileId);
+    if (!mounted) return;
+    if (!error && data) {
+      setSelectedProfile(data);
+    }
+  })();
+
+  return () => {
+    mounted = false;
+  };
+}, [activeTab, location.search, selectedProfile?.id]);
+
   const [services, setServices] = useState([]);
   const [maintenance, setMaintenance] = useState({
     enabled: false,
@@ -1006,8 +1045,8 @@ const renderTabContent = () => {
   switch (activeTab) {
     case 'analytics': return <AdminAnalytics />;
     case 'profiles': return selectedProfile
-      ? <AdminUserDetail profile={selectedProfile} onBack={() => setSelectedProfile(null)} />
-      : <AdminProfiles onSelect={setSelectedProfile} />;
+      ? <AdminUserDetail profile={selectedProfile} onBack={handleCloseProfile} />
+      : <AdminProfiles onSelect={handleSelectProfile} />;
     case 'receiving': return <AdminReceiving />;
     case 'prep-requests': return <AdminPrepRequests />;
     case 'services': return renderServicesTab();

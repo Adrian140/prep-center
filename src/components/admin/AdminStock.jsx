@@ -232,8 +232,7 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-3 py-2 text-left w-24">Foto</th>
-              <th className="px-3 py-2 text-left">Produs</th>
-              <th className="px-3 py-2 text-left">Amazon</th>
+              <th className="px-3 py-2 text-left">Produs / Amazon</th>
               <th className="px-3 py-2 text-right">Stoc Prep Center</th>
               <th className="px-3 py-2 text-left">Obs admin</th>
               <th className="px-3 py-2 text-right">Acțiuni</th>
@@ -257,6 +256,7 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
                   { label: 'Reserved', value: l.amazon_reserved },
                   { label: 'Unfulfillable', value: l.amazon_unfulfillable },
                 ];
+                const hasAmazonData = amazonBlocks.some(block => Number(block.value || 0) > 0);
                 return (
                   <tr key={l.id} className="border-t align-top">
                     <td className="px-3 py-2">
@@ -272,7 +272,7 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
                         </div>
                       )}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2 align-top">
                       {isEdit ? (
                         <>
                           <input
@@ -309,23 +309,23 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
                             <div>ASIN: {l.asin || '—'}</div>
                             <div>SKU: {l.sku || '—'}</div>
                           </div>
-                        </>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="text-xs text-text-secondary">
-                        <div className="font-semibold mb-1">Amazon inventory</div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {amazonBlocks.map((block) => (
-                            <div key={block.label} className="bg-gray-100 rounded px-2 py-1 text-center">
-                              <div className="text-[10px] uppercase tracking-wide text-gray-500">{block.label}</div>
-                              <div className="text-sm font-semibold text-text-primary">
-                                {Number(block.value || 0)}
+                          {hasAmazonData && (
+                            <div className="mt-2">
+                              <div className="text-[10px] uppercase tracking-wide text-gray-500">Amazon inventory</div>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {amazonBlocks.map((block) => (
+                                  <div key={block.label} className="px-2 py-1 bg-gray-100 rounded text-center">
+                                    <div className="text-[10px] text-gray-500">{block.label}</div>
+                                    <div className="text-sm font-semibold text-text-primary">
+                                      {Number(block.value || 0)}
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                          )}
+                        </>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <QtyCell row={l} />
@@ -370,7 +370,7 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
           </tbody>
           <tfoot className="border-t font-semibold bg-gray-50">
             <tr>
-              <td className="px-3 py-2 text-right" colSpan={3}>Total</td>
+              <td className="px-3 py-2 text-right" colSpan={2}>Total</td>
               <td className="px-3 py-2 text-right">
                 {localRows.reduce((sum, r) => sum + (Number(r.qty) || 0), 0)}
               </td>
