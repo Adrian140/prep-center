@@ -620,6 +620,7 @@ export default function ClientStock() {
   const [searchQuery, setSearchQuery] = useState('');
   const [stockFilter, setStockFilter] = useState('in');
   const [productSearch, setProductSearch] = useState('');
+  const [sortMode, setSortMode] = useState('amazon');
 
   const [selectedIds, setSelectedIds] = useState(new Set());
 
@@ -726,18 +727,35 @@ const [receptionForm, setReceptionForm] = useState({
 
   const quickFiltered = useMemo(() => {
     const term = productSearch.trim().toLowerCase();
-    if (!term) return stockFiltered;
-    const hits = [];
-    const rest = [];
-    stockFiltered.forEach((row) => {
+    const filtered = stockFiltered.map((row) => {
       const name = String(row.name || '').toLowerCase();
       const asin = String(row.asin || '').toLowerCase();
       const sku = String(row.sku || '').toLowerCase();
-      const match = name.includes(term) || asin.includes(term) || sku.includes(term);
-      (match ? hits : rest).push(row);
+      const match = term
+        ? name.includes(term) || asin.includes(term) || sku.includes(term)
+        : false;
+      return { row, match };
     });
-    return [...hits, ...rest];
-  }, [stockFiltered, productSearch]);
+    let ordered = filtered;
+    if (term) {
+      const hits = [];
+      const rest = [];
+      ordered.forEach(({ row, match }) => (match ? hits : rest).push(row));
+      ordered = [...hits, ...rest];
+    } else {
+      ordered = filtered.map((item) => item.row);
+    }
+    if (sortMode === 'prep') {
+      ordered = [...ordered].sort(
+        (a, b) => Number(b.qty || 0) - Number(a.qty || 0)
+      );
+    } else if (sortMode === 'amazon') {
+      ordered = [...ordered].sort(
+        (a, b) => Number(b.amazon_stock || 0) - Number(a.amazon_stock || 0)
+      );
+    }
+    return ordered;
+  }, [stockFiltered, productSearch, sortMode]);
 
   const totalPages = Math.max(1, Math.ceil(quickFiltered.length / perPage));
   const pageClamped = Math.min(page, totalPages);
@@ -1202,7 +1220,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       </div>
 
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <label className="inline-flex items-center gap-2 text-sm">
             <input
@@ -1220,6 +1238,35 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
             />
             {t('ClientStock.actions.selectAllOnPage')}
           </label>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-text-secondary">Ordonare rapidă:</span>
+          <button
+            onClick={() => {
+              setSortMode('prep');
+              setPage(1);
+            }}
+            className={`px-3 py-1 rounded border ${
+              sortMode === 'prep'
+                ? 'bg-primary text-white border-primary'
+                : 'text-text-secondary border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            Stoc Prep Center
+          </button>
+          <button
+            onClick={() => {
+              setSortMode('amazon');
+              setPage(1);
+            }}
+            className={`px-3 py-1 rounded border ${
+              sortMode === 'amazon'
+                ? 'bg-primary text-white border-primary'
+                : 'text-text-secondary border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            Stoc Amazon
+          </button>
         </div>
       </div>
 
