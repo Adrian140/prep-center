@@ -100,6 +100,12 @@ export const SupabaseAuthProvider = ({ children }) => {
     }
   }, [profile?.language, changeLanguage]);
 
+  useEffect(() => {
+    if (profile?.account_type === 'admin' && currentLanguage !== 'en') {
+      changeLanguage('en');
+    }
+  }, [profile?.account_type, currentLanguage, changeLanguage]);
+
   const loadUserProfile = async (userId) => {
     try {
       const { data, error } = await supabaseHelpers.getProfile(userId);

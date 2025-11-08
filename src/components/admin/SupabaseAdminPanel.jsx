@@ -15,9 +15,11 @@ import {
   Star, Users, BarChart3, PackageCheck, Truck
 } from 'lucide-react';
 import AdminPrepRequests from './AdminPrepRequests';
+import { useAdminTranslation } from '@/i18n/useAdminTranslation';
 
 function SupabaseAdminPanel() {
   const { user, signOut } = useSupabaseAuth();
+  const { t } = useAdminTranslation();
   const [isAdmin, setIsAdmin] = useState(false);
 const [checkingAdmin, setCheckingAdmin] = useState(true);
 
@@ -116,19 +118,19 @@ useEffect(() => {
   const [pricingData, setPricingData] = useState({}); // Added pricingData state
   const [reviews, setReviews] = useState([]); // Added reviews state
   const [contentData, setContentData] = useState({}); // Added contentData state
-  const tabs = [
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'profiles', label: 'Clienți', icon: Users },
-    { id: 'receiving', label: 'Réceptions', icon: Truck },
-    { id: 'prep-requests', label: 'Prep Requests', icon: PackageCheck },
-    { id: 'services', label: 'Servicii', icon: Package },
-    { id: 'pricing', label: 'Prețuri', icon: DollarSign },
-    { id: 'content', label: 'Conținut Homepage', icon: FileText },
-    { id: 'reviews', label: 'Recenzii', icon: Star },
-    { id: 'services-page-content', label: 'Conținut Servicii', icon: FileText },
-    { id: 'user-guide', label: 'User Guide', icon: PlayCircle },
-    { id: 'settings', label: 'Setări', icon: Settings }
-  ];
+  const tabs = useMemo(() => ([
+    { id: 'analytics', label: t('sidebar.analytics'), icon: BarChart3 },
+    { id: 'profiles', label: t('sidebar.profiles'), icon: Users },
+    { id: 'receiving', label: t('sidebar.receiving'), icon: Truck },
+    { id: 'prep-requests', label: t('sidebar.prepRequests'), icon: PackageCheck },
+    { id: 'services', label: t('sidebar.services'), icon: Package },
+    { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
+    { id: 'content', label: t('sidebar.homeContent'), icon: FileText },
+    { id: 'reviews', label: t('sidebar.reviews'), icon: Star },
+    { id: 'services-page-content', label: t('sidebar.servicesContent'), icon: FileText },
+    { id: 'user-guide', label: t('sidebar.userGuide'), icon: PlayCircle },
+    { id: 'settings', label: t('sidebar.settings'), icon: Settings }
+  ]), [t]);
 
   useEffect(() => {
      if (user) { // Changed to user
@@ -1076,13 +1078,13 @@ if (checkingAdmin) {
 if (!isAdmin) {
   return (
     <div className="flex flex-col justify-center items-center min-h-screen text-center text-gray-600">
-      <p className="text-xl mb-2">Acces interzis</p>
-      <p className="text-sm">Contul tău nu are permisiuni de administrator.</p>
+      <p className="text-xl mb-2">{t('common.accessDeniedTitle')}</p>
+      <p className="text-sm">{t('common.accessDeniedDesc')}</p>
       <button
         onClick={signOut}
         className="mt-4 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark"
       >
-        Deconectare
+        {t('common.signOut')}
       </button>
     </div>
   );
@@ -1095,15 +1097,15 @@ if (!isAdmin) {
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-text-primary mb-2">Panou de Administrare</h1>
-              <p className="text-text-secondary">Gestionează conținutul și setările site-ului</p>
+              <h1 className="text-3xl font-bold text-text-primary mb-2">{t('shell.title')}</h1>
+              <p className="text-text-secondary">{t('shell.subtitle')}</p>
             </div>
             <button
               onClick={signOut}
               className="flex items-center px-4 py-2 text-text-secondary hover:text-red-600 transition-colors"
             >
               <LogOut className="w-5 h-5 mr-2" />
-              Deconectare
+              {t('common.signOut')}
             </button>
           </div>
         </div>

@@ -1,0 +1,425 @@
+{
+  "en": {
+    "shell": {
+      "title": "Admin Control Panel",
+      "subtitle": "Manage site content and settings."
+    },
+    "sidebar": {
+      "analytics": "Analytics",
+      "profiles": "Clients",
+      "receiving": "Receptions",
+      "prepRequests": "Prep Requests",
+      "services": "Services",
+      "pricing": "Pricing",
+      "homeContent": "Homepage Content",
+      "reviews": "Reviews",
+      "servicesContent": "Services Content",
+      "userGuide": "User Guide",
+      "settings": "Settings"
+    },
+    "common": {
+      "loading": "Loading…",
+      "errorPrefix": "Error",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "save": "Save",
+      "refresh": "Refresh"
+    },
+    "clients": {
+      "filters": {
+        "month": "Month",
+        "prevMonth": "Previous month",
+        "nextMonth": "Next month",
+        "balance": "Balance filter",
+        "search": "Search",
+        "searchPlaceholder": "Name / company / email…"
+      },
+      "balanceFilters": {
+        "all": "All",
+        "with": "With outstanding",
+        "advance": "With advance",
+        "without": "No outstanding"
+      },
+      "buttons": {
+        "exportCsv": "Export CSV",
+        "showEmail": "Show Email",
+        "hideEmail": "Hide Email",
+        "toggleEmail": "Show/Hide email column"
+      },
+      "rpcRange": "RPC period: {start} (inclusive) → {end} (inclusive)",
+      "table": {
+        "store": "Store",
+        "name": "Name",
+        "company": "Company",
+        "email": "Email",
+        "createdAt": "Created",
+        "currentBalance": "Balance\n(FBA+FBM current month)",
+        "carryBalance": "Outstanding / Advance",
+        "liveBalance": "Live balance",
+        "actions": "Actions",
+        "open": "Open"
+      },
+      "csv": {
+        "name": "Name",
+        "company": "Company",
+        "email": "Email",
+        "createdAt": "Created",
+        "current": "Current month balance",
+        "carry": "Outstanding / advance",
+        "live": "Live balance",
+        "footer": "Current page total"
+      },
+      "empty": "No clients found.",
+      "pagination": "Page {page} / {total}",
+      "paginationPrev": "Previous page",
+      "paginationNext": "Next page"
+    },
+    "receiving": {
+      "title": "Reception management",
+      "subtitle": "Manage client reception announcements",
+      "filters": {
+        "status": "All statuses",
+        "searchPlaceholder": "Search by tracking, client, email…"
+      },
+      "buttons": {
+        "markSelected": "Mark selected as received",
+        "refresh": "Refresh"
+      },
+      "status": {
+        "draft": "Draft",
+        "submitted": "Submitted",
+        "received": "Received",
+        "processed": "Processed",
+        "cancelled": "Cancelled"
+      },
+      "messages": {
+        "selectOne": "Select at least one reception first.",
+        "marked": "Reception marked as received.",
+        "deleted": "Reception deleted successfully.",
+        "processed": "Reception processed into stock successfully.",
+        "bulkMarked": "{count} reception(s) marked as received.",
+        "error": "Error",
+        "processingError": "Processing error",
+        "deleteError": "Delete error"
+      },
+      "confirm": {
+        "mark": "Mark this reception as received?",
+        "bulkMark": "Mark selected receptions as received?",
+        "delete": "Delete this reception? This action cannot be undone.",
+        "process": "Process this reception into stock? This action cannot be undone."
+      },
+      "table": {
+        "client": "Client",
+        "carrier": "Carrier",
+        "tracking": "Tracking",
+        "status": "Status",
+        "products": "Products",
+        "lines": "Lines",
+        "date": "Date",
+        "actions": "Actions",
+        "noRows": "No receptions found",
+        "more": "+{count} more"
+      },
+      "detail": {
+        "client": "Client",
+        "carrier": "Carrier",
+        "otherCarrier": "Carrier name",
+        "trackingNumbers": "Tracking numbers",
+        "addTracking": "Add tracking number",
+        "trackingPlaceholder": "Ex: 1Z999AA1234567890",
+        "fbaIds": "FBA Shipment ID(s)",
+        "addFba": "Add FBA shipment ID",
+        "notes": "Notes",
+        "status": "Status",
+        "actions": {
+          "mark": "Mark as received",
+          "delete": "Delete",
+          "process": "Process to stock"
+        },
+        "products": "Products"
+      }
+    }
+  },
+  "fr": {
+    "shell": {
+      "title": "Panneau d'administration",
+      "subtitle": "Gérez le contenu et les paramètres du site."
+    },
+    "sidebar": {
+      "analytics": "Analytics",
+      "profiles": "Clients",
+      "receiving": "Réceptions",
+      "prepRequests": "Demandes de préparation",
+      "services": "Services",
+      "pricing": "Tarifs",
+      "homeContent": "Contenu d'accueil",
+      "reviews": "Avis",
+      "servicesContent": "Contenu services",
+      "userGuide": "Guide utilisateur",
+      "settings": "Paramètres"
+    },
+    "common": {
+      "loading": "Chargement…",
+      "errorPrefix": "Erreur",
+      "delete": "Supprimer",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "refresh": "Actualiser"
+    },
+    "clients": {
+      "filters": {
+        "month": "Mois",
+        "prevMonth": "Mois précédent",
+        "nextMonth": "Mois suivant",
+        "balance": "Filtre solde",
+        "search": "Recherche",
+        "searchPlaceholder": "Nom / société / email…"
+      },
+      "balanceFilters": {
+        "all": "Tous",
+        "with": "Avec restant",
+        "advance": "Avec avance",
+        "without": "Sans restant"
+      },
+      "buttons": {
+        "exportCsv": "Exporter CSV",
+        "showEmail": "Afficher l'email",
+        "hideEmail": "Masquer l'email",
+        "toggleEmail": "Afficher / masquer la colonne email"
+      },
+      "rpcRange": "Période RPC : {start} (inclus) → {end} (inclus)",
+      "table": {
+        "store": "Store",
+        "name": "Nom",
+        "company": "Société",
+        "email": "Email",
+        "createdAt": "Créé le",
+        "currentBalance": "Solde\n(FBA+FBM mois courant)",
+        "carryBalance": "Solde restant / avance",
+        "liveBalance": "Solde du jour",
+        "actions": "Actions",
+        "open": "Ouvrir"
+      },
+      "csv": {
+        "name": "Nom",
+        "company": "Société",
+        "email": "Email",
+        "createdAt": "Créé le",
+        "current": "Solde mois courant",
+        "carry": "Restant / avance",
+        "live": "Solde du jour",
+        "footer": "Total page courante"
+      },
+      "empty": "Aucun client trouvé.",
+      "pagination": "Page {page} / {total}",
+      "paginationPrev": "Page précédente",
+      "paginationNext": "Page suivante"
+    },
+    "receiving": {
+      "title": "Gestion des réceptions",
+      "subtitle": "Gérez les annonces de réception des clients",
+      "filters": {
+        "status": "Tous les statuts",
+        "searchPlaceholder": "Rechercher par tracking, client, email…"
+      },
+      "buttons": {
+        "markSelected": "Marquer la sélection comme reçue",
+        "refresh": "Actualiser"
+      },
+      "status": {
+        "draft": "Brouillon",
+        "submitted": "Soumise",
+        "received": "Reçue",
+        "processed": "Traitée",
+        "cancelled": "Annulée"
+      },
+      "messages": {
+        "selectOne": "Sélectionnez d'abord au moins une réception.",
+        "marked": "Réception marquée comme reçue.",
+        "deleted": "Réception supprimée avec succès.",
+        "processed": "Réception traitée vers le stock.",
+        "bulkMarked": "{count} réception(s) marquée(s) comme reçue(s).",
+        "error": "Erreur",
+        "processingError": "Erreur de traitement",
+        "deleteError": "Erreur de suppression"
+      },
+      "confirm": {
+        "mark": "Marquer cette réception comme reçue ?",
+        "bulkMark": "Marquer les réceptions sélectionnées comme reçues ?",
+        "delete": "Supprimer cette réception ? Cette action est définitive.",
+        "process": "Traiter cette réception vers le stock ? Cette action est irréversible."
+      },
+      "table": {
+        "client": "Client",
+        "carrier": "Transporteur",
+        "tracking": "Tracking",
+        "status": "Statut",
+        "products": "Produits",
+        "lines": "Lignes",
+        "date": "Date",
+        "actions": "Actions",
+        "noRows": "Aucune réception trouvée",
+        "more": "+{count} de plus"
+      },
+      "detail": {
+        "client": "Client",
+        "carrier": "Transporteur",
+        "otherCarrier": "Nom du transporteur",
+        "trackingNumbers": "Numéros de suivi",
+        "addTracking": "Ajouter un numéro de suivi",
+        "trackingPlaceholder": "Ex: 1Z999AA1234567890",
+        "fbaIds": "ID(s) d'expédition FBA",
+        "addFba": "Ajouter un ID FBA",
+        "notes": "Notes",
+        "status": "Statut",
+        "actions": {
+          "mark": "Marquer comme reçu",
+          "delete": "Supprimer",
+          "process": "Traiter vers le stock"
+        },
+        "products": "Produits"
+      }
+    }
+  },
+  "ro": {
+    "shell": {
+      "title": "Panou de Administrare",
+      "subtitle": "Gestionează conținutul și setările site-ului."
+    },
+    "sidebar": {
+      "analytics": "Analytics",
+      "profiles": "Clienți",
+      "receiving": "Recepții",
+      "prepRequests": "Cereri prep",
+      "services": "Servicii",
+      "pricing": "Prețuri",
+      "homeContent": "Conținut Homepage",
+      "reviews": "Recenzii",
+      "servicesContent": "Conținut Servicii",
+      "userGuide": "Ghid utilizator",
+      "settings": "Setări"
+    },
+    "common": {
+      "loading": "Se încarcă…",
+      "errorPrefix": "Eroare",
+      "delete": "Șterge",
+      "cancel": "Anulează",
+      "save": "Salvează",
+      "refresh": "Actualizează"
+    },
+    "clients": {
+      "filters": {
+        "month": "Luna",
+        "prevMonth": "Luna anterioară",
+        "nextMonth": "Luna următoare",
+        "balance": "Filtru sold",
+        "search": "Căutare",
+        "searchPlaceholder": "Nume / companie / email…"
+      },
+      "balanceFilters": {
+        "all": "Toate",
+        "with": "Cu restanță",
+        "advance": "Cu avans",
+        "without": "Fără restanță"
+      },
+      "buttons": {
+        "exportCsv": "Export CSV",
+        "showEmail": "Afișează email",
+        "hideEmail": "Ascunde email",
+        "toggleEmail": "Afișează/ascunde coloana email"
+      },
+      "rpcRange": "Perioadă RPC: {start} (inclusiv) → {end} (inclusiv)",
+      "table": {
+        "store": "Store",
+        "name": "Nume",
+        "company": "Companie",
+        "email": "Email",
+        "createdAt": "Creat la",
+        "currentBalance": "Sold\n(FBA+FBM luna curentă)",
+        "carryBalance": "Sold restant / avans",
+        "liveBalance": "Sold la zi",
+        "actions": "Acțiuni",
+        "open": "Deschide"
+      },
+      "csv": {
+        "name": "Nume",
+        "company": "Companie",
+        "email": "Email",
+        "createdAt": "Creat la",
+        "current": "Sold luna curentă",
+        "carry": "Restant / avans",
+        "live": "Sold la zi",
+        "footer": "Total pagină curentă"
+      },
+      "empty": "Niciun client găsit.",
+      "pagination": "Pagina {page} / {total}",
+      "paginationPrev": "Pagina anterioară",
+      "paginationNext": "Pagina următoare"
+    },
+    "receiving": {
+      "title": "Gestionare recepții",
+      "subtitle": "Gestionează anunțurile de recepție ale clienților",
+      "filters": {
+        "status": "Toate statusurile",
+        "searchPlaceholder": "Caută după tracking, client, email…"
+      },
+      "buttons": {
+        "markSelected": "Marchează selecția ca recepționată",
+        "refresh": "Actualizează"
+      },
+      "status": {
+        "draft": "Ciornă",
+        "submitted": "Trimisă",
+        "received": "Recepționată",
+        "processed": "Procesată",
+        "cancelled": "Anulată"
+      },
+      "messages": {
+        "selectOne": "Selectează mai întâi cel puțin o recepție.",
+        "marked": "Recepția a fost marcată ca recepționată.",
+        "deleted": "Recepția a fost ștearsă cu succes.",
+        "processed": "Recepția a fost procesată în stoc.",
+        "bulkMarked": "{count} recepție(i) marcate ca recepționate.",
+        "error": "Eroare",
+        "processingError": "Eroare la procesare",
+        "deleteError": "Eroare la ștergere"
+      },
+      "confirm": {
+        "mark": "Marchezi această recepție ca recepționată?",
+        "bulkMark": "Marchezi recepțiile selectate ca recepționate?",
+        "delete": "Ștergi această recepție? Acțiunea este definitivă.",
+        "process": "Procesezi recepția către stoc? Acțiunea este definitivă."
+      },
+      "table": {
+        "client": "Client",
+        "carrier": "Curier",
+        "tracking": "Tracking",
+        "status": "Status",
+        "products": "Produse",
+        "lines": "Linii",
+        "date": "Dată",
+        "actions": "Acțiuni",
+        "noRows": "Nu există recepții",
+        "more": "+{count} în plus"
+      },
+      "detail": {
+        "client": "Client",
+        "carrier": "Curier",
+        "otherCarrier": "Nume curier",
+        "trackingNumbers": "Numere de tracking",
+        "addTracking": "Adaugă număr de tracking",
+        "trackingPlaceholder": "Ex: 1Z999AA1234567890",
+        "fbaIds": "ID-uri FBA",
+        "addFba": "Adaugă ID FBA",
+        "notes": "Note",
+        "status": "Status",
+        "actions": {
+          "mark": "Marchează ca recepționat",
+          "delete": "Șterge",
+          "process": "Procesează în stoc"
+        },
+        "products": "Produse"
+      }
+    }
+  }
+}

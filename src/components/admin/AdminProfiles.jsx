@@ -10,6 +10,7 @@ import {
   Search,
   Info as InfoIcon,
 } from "lucide-react";
+import { useAdminTranslation } from "@/i18n/useAdminTranslation";
 
 const PER_PAGE = 20;
 const fmt2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "0.00");
@@ -37,6 +38,7 @@ function MoneyPill({ value }) {
 }
 
 export default function AdminProfiles({ onSelect }) {
+  const { t, tp } = useAdminTranslation();
   // month selector
   const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date()));
   const [showEmail, setShowEmail] = useState(false);
@@ -199,8 +201,13 @@ export default function AdminProfiles({ onSelect }) {
   // >>> CSV export
   function exportCsv() {
     const headers = [
-      "Nume","Companie","Email","Creat la",
-      "Sold_luna_curenta","Sold_restant_avans","Sold_la_zi",
+      t("clients.csv.name"),
+      t("clients.csv.company"),
+      t("clients.csv.email"),
+      t("clients.csv.createdAt"),
+      t("clients.csv.current"),
+      t("clients.csv.carry"),
+      t("clients.csv.live"),
     ];
     const rowsCsv = slice.map((p) => {
       const name = [p.first_name, p.last_name].filter(Boolean).join(" ") || "—";
@@ -215,7 +222,7 @@ export default function AdminProfiles({ onSelect }) {
         fmt2(Number(c.diff || 0)),
       ].join(",");
     });
-    const footer = ["","","","Total pagina curentă",
+    const footer = ["","","",t("clients.csv.footer"),
       fmt2(tableTotals.totCurrent),
       fmt2(tableTotals.totCarry),
       fmt2(tableTotals.totDiff),
@@ -258,9 +265,9 @@ const handleStoreChange = async (profileId, value) => {
       <div className="flex flex-wrap items-end gap-3">
         {/* Month selector */}
         <div className="flex flex-col">
-          <label className="text-xs text-text-secondary mb-1">Luna</label>
+          <label className="text-xs text-text-secondary mb-1">{t("clients.filters.month")}</label>
           <div className="flex items-center gap-2">
-            <button className="border rounded p-2" onClick={() => gotoMonth(-1)} title="Luna anterioară"><ChevronLeft className="w-4 h-4" /></button>
+            <button className="border rounded p-2" onClick={() => gotoMonth(-1)} title={t("clients.filters.prevMonth")}><ChevronLeft className="w-4 h-4" /></button>
             <div className="relative">
               <CalendarIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
               <input
@@ -277,34 +284,34 @@ const handleStoreChange = async (profileId, value) => {
                 className="pl-9 pr-3 py-2 border rounded w-44"
               />
             </div>
-            <button className="border rounded p-2" onClick={() => gotoMonth(1)} title="Luna următoare"><ChevronRight className="w-4 h-4" /></button>
+            <button className="border rounded p-2" onClick={() => gotoMonth(1)} title={t("clients.filters.nextMonth")}><ChevronRight className="w-4 h-4" /></button>
           </div>
           <div className="text-[11px] text-gray-500 mt-1">{from} → {to}</div>
         </div>
 
         {/* Balance filter */}
         <div className="flex flex-col">
-          <label className="text-xs text-text-secondary mb-1">Filtru sold restant / avans</label>
+          <label className="text-xs text-text-secondary mb-1">{t("clients.filters.balance")}</label>
           <div className="relative">
             <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
             <select value={restFilter} onChange={(e)=>setRestFilter(e.target.value)} className="pl-9 pr-3 py-2 border rounded w-48">
-              <option value="all">Toate</option>
-              <option value="with">Cu restanță</option>
-              <option value="advance">Cu avans</option>
-              <option value="without">Fără restanță</option>
+              <option value="all">{t("clients.balanceFilters.all")}</option>
+              <option value="with">{t("clients.balanceFilters.with")}</option>
+              <option value="advance">{t("clients.balanceFilters.advance")}</option>
+              <option value="without">{t("clients.balanceFilters.without")}</option>
             </select>
           </div>
         </div>
 
         {/* Search */}
         <div className="flex-1 min-w-[280px]">
-          <label className="text-xs text-text-secondary mb-1">Căutare</label>
+          <label className="text-xs text-text-secondary mb-1">{t("clients.filters.search")}</label>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
             <input
               value={q}
               onChange={(e) => { setQ(e.target.value); setPage(1); }}
-              placeholder="Nume / companie / email…"
+              placeholder={t("clients.filters.searchPlaceholder")}
               className="pl-9 pr-3 py-2 w-full border rounded"
             />
           </div>
@@ -313,16 +320,16 @@ const handleStoreChange = async (profileId, value) => {
         <button
           onClick={exportCsv}
           className="inline-flex items-center gap-2 px-3 py-2 border rounded shadow-sm"
-          title="Export CSV"
+          title={t("clients.buttons.exportCsv")}
         >
-          <Download className="w-4 h-4" /> Export CSV
+          <Download className="w-4 h-4" /> {t("clients.buttons.exportCsv")}
         </button>
         <button
           onClick={() => setShowEmail(!showEmail)}
           className="inline-flex items-center gap-2 px-3 py-2 border rounded shadow-sm"
-          title="Afișează/ascunde coloana Email"
+          title={t("clients.buttons.toggleEmail")}
         >
-          {showEmail ? "Ascunde Email" : "Afișează Email"}
+          {showEmail ? t("clients.buttons.hideEmail") : t("clients.buttons.showEmail")}
         </button>
       </div>
 
@@ -330,7 +337,7 @@ const handleStoreChange = async (profileId, value) => {
 <div className="text-xs text-gray-600 flex items-center gap-2">
   <InfoIcon className="w-4 h-4" />
   <span>
-    Perioadă RPC: <strong>{rpcStart}</strong> (inclusiv) → <strong>{rpcEnd}</strong> (inclusiv)
+    {tp("clients.rpcRange", { start: rpcStart, end: rpcEnd })}
   </span>
 </div>
 
@@ -339,24 +346,24 @@ const handleStoreChange = async (profileId, value) => {
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-text-secondary">
             <tr>
-            <th className="px-4 py-3 text-left">Store</th>
-              <th className="px-4 py-3 text-left">Nume</th>
-              <th className="px-4 py-3 text-left">Companie</th>
-              {showEmail && <th className="px-4 py-3 text-left">Email</th>}
-              <th className="px-4 py-3 text-left">Creat la</th>
-              <th className="px-4 py-3 text-left">Sold<div className="text-[11px] text-gray-400">(FBA+FBM luna curentă)</div></th>
-              <th className="px-4 py-3 text-left">Sold Restant/Avans</th>
-              <th className="px-4 py-3 text-left">Sold la zi</th>
-              <th className="px-4 py-3 text-right">Acțiuni</th>
+            <th className="px-4 py-3 text-left">{t("clients.table.store")}</th>
+              <th className="px-4 py-3 text-left">{t("clients.table.name")}</th>
+              <th className="px-4 py-3 text-left">{t("clients.table.company")}</th>
+              {showEmail && <th className="px-4 py-3 text-left">{t("clients.table.email")}</th>}
+              <th className="px-4 py-3 text-left">{t("clients.table.createdAt")}</th>
+              <th className="px-4 py-3 text-left whitespace-pre-line">{t("clients.table.currentBalance")}</th>
+              <th className="px-4 py-3 text-left">{t("clients.table.carryBalance")}</th>
+              <th className="px-4 py-3 text-left">{t("clients.table.liveBalance")}</th>
+              <th className="px-4 py-3 text-right">{t("clients.table.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400">Se încarcă…</td></tr>
+              <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400">{t("common.loading")}</td></tr>
             ) : error ? (
               <tr><td colSpan={8} className="px-4 py-6 text-center text-red-600">{error}</td></tr>
             ) : slice.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400">Niciun client găsit.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
             ) : (
               slice.map((p) => {
                 const name = [p.first_name, p.last_name].filter(Boolean).join(" ") || "—";
@@ -384,7 +391,7 @@ const handleStoreChange = async (profileId, value) => {
                     <td className="px-4 py-3"><MoneyPill value={c.carry} /></td>
                     <td className="px-4 py-3"><MoneyPill value={c.diff} /></td>
                     <td className="px-4 py-3 text-right">
-                      <button className="text-sm bg-primary text-white rounded px-3 py-1" onClick={() => onSelect?.(p)}>Deschide</button>
+                      <button className="text-sm bg-primary text-white rounded px-3 py-1" onClick={() => onSelect?.(p)}>{t("clients.table.open")}</button>
                     </td>
                   </tr>
                 );
@@ -395,7 +402,7 @@ const handleStoreChange = async (profileId, value) => {
           {!loading && slice.length > 0 && (
             <tfoot>
               <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
-                <td className="px-4 py-3" colSpan={showEmail ? 9 : 8}>Total (pagina curentă)</td>
+                <td className="px-4 py-3" colSpan={showEmail ? 9 : 8}>{t("clients.csv.footer")}</td>
                 <td className="px-4 py-3">{fmt2(tableTotals.totCurrent)}</td>
                 <td className="px-4 py-3">{fmt2(tableTotals.totCarry)}</td>
                 <td className="px-4 py-3">{fmt2(tableTotals.totDiff)}</td>
@@ -408,9 +415,9 @@ const handleStoreChange = async (profileId, value) => {
 
       {/* Pagination */}
       <div className="flex items-center gap-2 justify-end text-sm">
-        <button className="border rounded px-2 py-1 disabled:opacity-50" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={pageClamped <= 1} title="Pagina anterioară"><ChevronLeft className="w-4 h-4" /></button>
-        <span>Pagina {pageClamped} / {totalPages}</span>
-        <button className="border rounded px-2 py-1 disabled:opacity-50" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={pageClamped >= totalPages} title="Pagina următoare"><ChevronRight className="w-4 h-4" /></button>
+        <button className="border rounded px-2 py-1 disabled:opacity-50" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={pageClamped <= 1} title={t("clients.paginationPrev")}><ChevronLeft className="w-4 h-4" /></button>
+        <span>{tp("clients.pagination", { page: pageClamped, total: totalPages })}</span>
+        <button className="border rounded px-2 py-1 disabled:opacity-50" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={pageClamped >= totalPages} title={t("clients.paginationNext")}><ChevronRight className="w-4 h-4" /></button>
       </div>
 
       {/* OVERVIEW (chart placeholder) */}
