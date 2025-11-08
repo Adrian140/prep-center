@@ -97,16 +97,41 @@ function normalizeInventory(raw = []) {
 
     const details = summary.inventoryDetails || {};
     const fulfillable = Number(details.fulfillableQuantity ?? 0);
+    const inboundTotal =
+      Number(details.inboundWorkingQuantity ?? 0) +
+      Number(details.inboundShippedQuantity ?? 0) +
+      Number(details.inboundReceivedQuantity ?? 0);
+    const reserved = (() => {
+      if (details.reservedQuantity == null) return 0;
+      if (typeof details.reservedQuantity === 'number') return Number(details.reservedQuantity);
+      if (typeof details.reservedQuantity === 'object') {
+        return Number(
+          details.reservedQuantity.totalReservedQuantity ??
+            details.reservedQuantity.reservedQuantity ??
+            details.reservedQuantity.total ??
+            0
+        );
+      }
+      return 0;
+    })();
+    const unfulfillable = Number(details.unfulfillableQuantity ?? details.totalUnfulfillableQuantity ?? 0);
+
     const baseline = map.get(key) || {
       key,
       asin: asin || null,
       sku: sku || null,
       fnsku: summary.fnSku || null,
       amazon_stock: 0,
+      amazon_inbound: 0,
+      amazon_reserved: 0,
+      amazon_unfulfillable: 0,
       name: summary.productName || null
     };
 
     baseline.amazon_stock += fulfillable;
+    baseline.amazon_inbound += inboundTotal;
+    baseline.amazon_reserved += reserved;
+    baseline.amazon_unfulfillable += unfulfillable;
     if (!baseline.asin && asin) baseline.asin = asin;
     if (!baseline.sku && sku) baseline.sku = sku;
     if (!baseline.fnsku && summary.fnSku) baseline.fnsku = summary.fnSku;
@@ -205,7 +230,10 @@ async function syncToSupabase({ items, companyId, userId, spClient, marketplaceI
     if (row) {
       const patch = {
         id: row.id,
-        amazon_stock: item.amazon_stock
+        amazon_stock: item.amazon_stock,
+        amazon_inbound: item.amazon_inbound,
+        amazon_reserved: item.amazon_reserved,
+        amazon_unfulfillable: item.amazon_unfulfillable
       };
       if (!row.asin && item.asin) patch.asin = item.asin;
       if (!row.sku && item.sku) patch.sku = item.sku;
@@ -219,6 +247,9 @@ async function syncToSupabase({ items, companyId, userId, spClient, marketplaceI
         sku: item.sku,
         name: item.name || item.asin || item.sku,
         amazon_stock: item.amazon_stock,
+        amazon_inbound: item.amazon_inbound,
+        amazon_reserved: item.amazon_reserved,
+        amazon_unfulfillable: item.amazon_unfulfillable,
         qty: 0
       });
       catalogTargets.push(item.asin);

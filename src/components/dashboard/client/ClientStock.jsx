@@ -65,6 +65,42 @@ const toNum = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
+
+const InventoryBreakdown = ({ row }) => {
+  const available = Number(row.amazon_stock ?? 0);
+  const inbound = Number(row.amazon_inbound ?? 0);
+  const reserved = Number(row.amazon_reserved ?? 0);
+  const unfulfillable = Number(row.amazon_unfulfillable ?? 0);
+
+  const value = (n) => (
+    <span className="text-[#008296] font-semibold">{Number.isFinite(n) ? n : 0}</span>
+  );
+
+  return (
+    <div className="border rounded-xl p-2 text-[11px] leading-5 text-gray-600 bg-white shadow-inner min-w-[130px]">
+      <div className="text-[12px] font-semibold text-gray-900">Inventory</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-400">Fulfilled by and quantity</div>
+      <div className="mt-2 space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-gray-900">Available (FBA)</span>
+          {value(available)}
+        </div>
+        <div className="flex items-center justify-between">
+          <span>Inbound</span>
+          {value(inbound)}
+        </div>
+        <div className="flex items-center justify-between">
+          <span>Unfulfillable</span>
+          {value(unfulfillable)}
+        </div>
+        <div className="flex items-center justify-between">
+          <span>Reserved</span>
+          {value(reserved)}
+        </div>
+      </div>
+    </div>
+  );
+};
 function TrackingBadges({ list = [], max = 1, t }) {
   const [open, setOpen] = React.useState(false);
   if (!Array.isArray(list) || list.length === 0) return <span>—</span>;
@@ -770,6 +806,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
       <th className="px-2 py-2 w-6"></th>
       <th className="px-2 py-2 text-left w-16">Photo</th>
       <th className="px-2 py-2 text-left">Product</th>
+      <th className="px-2 py-2 text-left w-40">Inventory</th>
       <th className="px-2 py-2 text-right w-24">Amazon stock</th>
       <th className="px-2 py-2 text-right w-24">PrepCenter stock</th>
       <th className="px-2 py-2 text-right w-32">Units to Send / Receive</th>
@@ -832,12 +869,17 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
   </div>
 </td>
 
-{/* 4) Amazon stock — doar vizual */}
-<td className="px-2 py-2 text-right text-gray-700">
-  {r.amazon_stock != null ? r.amazon_stock : '—'}
-</td>
+          {/* 4) Inventory breakdown */}
+          <td className="px-2 py-2 align-top">
+            <InventoryBreakdown row={r} />
+          </td>
 
-    {/* 5) PrepCenter stock — afișare (folosim direct qty din DB) */}
+          {/* 5) Amazon stock — doar vizual */}
+          <td className="px-2 py-2 text-right text-gray-700">
+            {r.amazon_stock != null ? r.amazon_stock : '—'}
+          </td>
+
+    {/* 6) PrepCenter stock — afișare (folosim direct qty din DB) */}
     <td className="px-2 py-2 text-right text-gray-700">
       {r.qty != null ? r.qty : '—'}
     </td>
