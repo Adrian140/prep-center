@@ -780,7 +780,10 @@ const filteredShipments = shipments.filter(shipment => {
                 </td>
               </tr>
             ) : (
-              filteredShipments.map((shipment) => (
+              filteredShipments.map((shipment) => {
+                const emailRaw = String(shipment.client_email || shipment.user_email || '').trim();
+                const showEmail = emailRaw.includes('@');
+                return (
                 <tr key={shipment.id} className="border-t hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <input
@@ -797,7 +800,9 @@ const filteredShipments = shipments.filter(shipment => {
                         <p className="font-medium text-text-primary">
                           {shipment.store_name || shipment.client_name || '—'}
                         </p>
-                        <p className="text-xs text-text-secondary">{shipment.client_email || shipment.user_email}</p>
+                        {showEmail && (
+                          <p className="text-xs text-text-secondary">{emailRaw}</p>
+                        )}
                         {shipment.company_name && (
                           <p className="text-xs text-text-secondary flex items-center">
                             <Building className="w-3 h-3 mr-1" />
@@ -885,9 +890,9 @@ const filteredShipments = shipments.filter(shipment => {
                 Supprimer
               </button>
             </div>
-          </td>
-          </tr>
-              ))
+                  </td>
+                </tr>
+              )})
             )}
           </tbody>
         </table>
