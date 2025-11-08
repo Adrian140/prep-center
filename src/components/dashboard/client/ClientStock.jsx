@@ -1,6 +1,6 @@
 // FILE: src/components/dashboard/client/ClientStock.jsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { FileDown, Languages } from 'lucide-react';
+import { FileDown, Languages, Plus, X } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
 import { useDashboardTranslation } from '../../../translations';
@@ -48,6 +48,15 @@ function HelpMenuButtonStock({ section = 'stock', t, tp }) {
             </button>
           ))}
         </div>
+      )}
+      {createModalOpen && (
+        <CreateProductModal
+          open={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          profile={profile}
+          t={t}
+          onCreated={handleProductCreated}
+        />
       )}
     </div>
   );
@@ -119,6 +128,458 @@ const InventoryBreakdown = ({ row, t }) => {
     </div>
   );
 };
+
+const BASE_PRODUCT_FORM = {
+  name: '',
+  asin: '',
+  sku: '',
+  ean: '',
+  qty: '0',
+  purchase_price: '',
+  product_link: ''
+};
+
+const ADVANCED_PRODUCT_FORM = {
+  supplierName: '',
+  supplierNumber: '',
+  supplierUrl: '',
+  supplierPrice: '',
+  manufacturer: '',
+  manufacturerNumber: '',
+  productExtId: '',
+  approxPriceEbay: '',
+  approxPriceFbm: '',
+  weightValue: '',
+  weightUnit: 'kg',
+  packageWidth: '',
+  packageHeight: '',
+  packageLength: '',
+  packageUnit: 'cm',
+  unitsMeasure: 'pcs',
+  unitsCount: '',
+  condition: 'New',
+  shipTemplate: '',
+  notes: ''
+};
+
+function CreateProductModal({ open, onClose, profile, t, onCreated }) {
+  const [tab, setTab] = useState('simple');
+  const [baseForm, setBaseForm] = useState(BASE_PRODUCT_FORM);
+  const [advancedForm, setAdvancedForm] = useState(ADVANCED_PRODUCT_FORM);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!open) {
+      setTimeout(() => {
+        setTab('simple');
+        setBaseForm(BASE_PRODUCT_FORM);
+        setAdvancedForm(ADVANCED_PRODUCT_FORM);
+        setSaving(false);
+        setError('');
+      }, 200);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const handleChange = (formUpdater) => (field, value) => {
+    formUpdater((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updateBase = handleChange(setBaseForm);
+  const updateAdvanced = handleChange(setAdvancedForm);
+
+  const parseNumber = (value, allowNull = true) => {
+    if (value === '' || value == null) return allowNull ? null : 0;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  };
+
+  const handleSubmit = async () => {
+    if (!profile?.company_id) {
+      setError('Missing company profile.');
+      return;
+    }
+    if (!baseForm.name.trim()) {
+      setError('Product name is required.');
+      return;
+    }
+    const qty = parseNumber(baseForm.qty, false);
+    if (qty == null || qty < 0) {
+      setError('Quantity must be a positive number.');
+      return;
+    }
+
+    const purchasePrice = parseNumber(baseForm.purchase_price);
+    if (baseForm.purchase_price && purchasePrice == null) {
+      setError('Invalid purchase price.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    try {
+      const payload = {
+        name: baseForm.name.trim(),
+        asin: baseForm.asin.trim() || null,
+        sku: baseForm.sku.trim() || null,
+        ean: baseForm.ean.trim() || null,
+        qty,
+        purchase_price: purchasePrice,
+        product_link: baseForm.product_link.trim() || null
+      };
+      const created = await supabaseHelpers.createStockItem(profile, payload);
+
+      if (tab === 'advanced') {
+        try {
+          await supabaseHelpers.createProductBlueprint(profile, created.id, {
+            ...advancedForm,
+            approxPriceEbay: parseNumber(advancedForm.approxPriceEbay),
+            approxPriceFbm: parseNumber(advancedForm.approxPriceFbm),
+            supplierPrice: parseNumber(advancedForm.supplierPrice),
+            weightValue: parseNumber(advancedForm.weightValue),
+            packageWidth: parseNumber(advancedForm.packageWidth),
+            packageHeight: parseNumber(advancedForm.packageHeight),
+            packageLength: parseNumber(advancedForm.packageLength),
+            unitsCount: parseNumber(advancedForm.unitsCount)
+          });
+        } catch (blueprintErr) {
+          console.error(blueprintErr);
+          setError(
+            blueprintErr?.message ||
+              'Product saved, but advanced details could not be stored (run latest migration?).'
+          );
+        }
+      }
+
+      onCreated(created);
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Failed to create product.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">{t('ClientStock.createProduct.title')}</h3>
+            <p className="text-sm text-gray-500">{t('ClientStock.createProduct.subtitle')}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="px-6 pt-4">
+          <div className="flex gap-3 border-b">
+            {['simple', 'advanced'].map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setTab(mode)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 ${
+                  tab === mode ? 'border-primary text-primary' : 'border-transparent text-gray-500'
+                }`}
+              >
+                {mode === 'simple'
+                  ? t('ClientStock.createProduct.simpleTab')
+                  : t('ClientStock.createProduct.advancedTab')}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="px-6 py-4 space-y-6">
+          {/* Base fields */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700">{t('ClientStock.createProduct.fields.name')}</label>
+              <input
+                type="text"
+                value={baseForm.name}
+                onChange={(e) => updateBase('name', e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="Product title"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700">{t('ClientStock.createProduct.fields.asin')}</label>
+              <input
+                type="text"
+                value={baseForm.asin}
+                onChange={(e) => updateBase('asin', e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="B0..."
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700">{t('ClientStock.createProduct.fields.sku')}</label>
+              <input
+                type="text"
+                value={baseForm.sku}
+                onChange={(e) => updateBase('sku', e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="SKU-123"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700">{t('ClientStock.createProduct.fields.ean')}</label>
+              <input
+                type="text"
+                value={baseForm.ean}
+                onChange={(e) => updateBase('ean', e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="EAN / UPC"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700">{t('ClientStock.createProduct.fields.qty')}</label>
+              <input
+                type="number"
+                min={0}
+                value={baseForm.qty}
+                onChange={(e) => updateBase('qty', e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700">{t('ClientStock.createProduct.fields.price')}</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={baseForm.purchase_price}
+                onChange={(e) => updateBase('purchase_price', e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium text-gray-700">
+                {t('ClientStock.createProduct.fields.link')}
+              </label>
+              <input
+                type="url"
+                value={baseForm.product_link}
+                onChange={(e) => updateBase('product_link', e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="https://"
+              />
+            </div>
+          </div>
+
+          {tab === 'advanced' && (
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-gray-700">{t('ClientStock.createProduct.advancedSections.supplier')}</h4>
+              <div className="grid md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  className="border rounded-lg px-3 py-2"
+                  placeholder={t('ClientStock.createProduct.fields.supplierName')}
+                  value={advancedForm.supplierName}
+                  onChange={(e) => updateAdvanced('supplierName', e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="border rounded-lg px-3 py-2"
+                  placeholder={t('ClientStock.createProduct.fields.supplierNumber')}
+                  value={advancedForm.supplierNumber}
+                  onChange={(e) => updateAdvanced('supplierNumber', e.target.value)}
+                />
+                <input
+                  type="url"
+                  className="border rounded-lg px-3 py-2"
+                  placeholder={t('ClientStock.createProduct.fields.supplierUrl')}
+                  value={advancedForm.supplierUrl}
+                  onChange={(e) => updateAdvanced('supplierUrl', e.target.value)}
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  className="border rounded-lg px-3 py-2"
+                  placeholder={t('ClientStock.createProduct.fields.supplierPrice')}
+                  value={advancedForm.supplierPrice}
+                  onChange={(e) => updateAdvanced('supplierPrice', e.target.value)}
+                />
+              </div>
+
+              <h4 className="text-sm font-semibold text-gray-700">{t('ClientStock.createProduct.advancedSections.product')}</h4>
+              <div className="grid md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  className="border rounded-lg px-3 py-2"
+                  placeholder={t('ClientStock.createProduct.fields.manufacturer')}
+                  value={advancedForm.manufacturer}
+                  onChange={(e) => updateAdvanced('manufacturer', e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="border rounded-lg px-3 py-2"
+                  placeholder={t('ClientStock.createProduct.fields.manufacturerNumber')}
+                  value={advancedForm.manufacturerNumber}
+                  onChange={(e) => updateAdvanced('manufacturerNumber', e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="border rounded-lg px-3 py-2"
+                  placeholder={t('ClientStock.createProduct.fields.productExtId')}
+                  value={advancedForm.productExtId}
+                  onChange={(e) => updateAdvanced('productExtId', e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="border rounded-lg px-3 py-2"
+                  placeholder={t('ClientStock.createProduct.fields.shipTemplate')}
+                  value={advancedForm.shipTemplate}
+                  onChange={(e) => updateAdvanced('shipTemplate', e.target.value)}
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  className="border rounded-lg px-3 py-2"
+                  placeholder={t('ClientStock.createProduct.fields.approxPriceEbay')}
+                  value={advancedForm.approxPriceEbay}
+                  onChange={(e) => updateAdvanced('approxPriceEbay', e.target.value)}
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  className="border rounded-lg px-3 py-2"
+                  placeholder={t('ClientStock.createProduct.fields.approxPriceFbm')}
+                  value={advancedForm.approxPriceFbm}
+                  onChange={(e) => updateAdvanced('approxPriceFbm', e.target.value)}
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    className="border rounded-lg px-3 py-2 flex-1"
+                    placeholder={t('ClientStock.createProduct.fields.weightValue')}
+                    value={advancedForm.weightValue}
+                    onChange={(e) => updateAdvanced('weightValue', e.target.value)}
+                  />
+                  <select
+                    className="border rounded-lg px-3 py-2"
+                    value={advancedForm.weightUnit}
+                    onChange={(e) => updateAdvanced('weightUnit', e.target.value)}
+                  >
+                    {['kg', 'g', 'lb'].map((unit) => (
+                      <option key={unit} value={unit}>
+                        {unit}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    className="border rounded-lg px-3 py-2 flex-1"
+                    placeholder={t('ClientStock.createProduct.fields.unitsCount')}
+                    value={advancedForm.unitsCount}
+                    onChange={(e) => updateAdvanced('unitsCount', e.target.value)}
+                  />
+                  <select
+                    className="border rounded-lg px-3 py-2"
+                    value={advancedForm.unitsMeasure}
+                    onChange={(e) => updateAdvanced('unitsMeasure', e.target.value)}
+                  >
+                    {['pcs', 'm', 'l', 'kg', '100 ml', '100 gr'].map((unit) => (
+                      <option key={unit} value={unit}>
+                        {unit}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-4">
+                {['packageWidth', 'packageHeight', 'packageLength'].map((field) => (
+                  <input
+                    key={field}
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    className="border rounded-lg px-3 py-2"
+                    placeholder={t(`ClientStock.createProduct.fields.${field}`)}
+                    value={advancedForm[field]}
+                    onChange={(e) => updateAdvanced(field, e.target.value)}
+                  />
+                ))}
+                <select
+                  className="border rounded-lg px-3 py-2"
+                  value={advancedForm.packageUnit}
+                  onChange={(e) => updateAdvanced('packageUnit', e.target.value)}
+                >
+                  {['mm', 'cm', 'm', 'inch', 'ft'].map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <select
+                  className="border rounded-lg px-3 py-2"
+                  value={advancedForm.condition}
+                  onChange={(e) => updateAdvanced('condition', e.target.value)}
+                >
+                  {['New', 'UsedLikeNew', 'UsedVeryGood', 'UsedGood', 'UsedAcceptable', 'Defect'].map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <textarea
+                  className="border rounded-lg px-3 py-2"
+                  rows={2}
+                  placeholder={t('ClientStock.createProduct.fields.notes')}
+                  value={advancedForm.notes}
+                  onChange={(e) => updateAdvanced('notes', e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        </div>
+
+        <div className="flex justify-end gap-3 border-t px-6 py-4">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border text-sm text-gray-600 hover:bg-gray-50"
+            disabled={saving}
+          >
+            {t('ClientStock.createProduct.cancel')}
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-dark disabled:opacity-60"
+          >
+            {saving ? t('ClientStock.createProduct.saving') : t('ClientStock.createProduct.submit')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TrackingBadges({ list = [], max = 1, t }) {
   const [open, setOpen] = React.useState(false);
   if (!Array.isArray(list) || list.length === 0) return <span>—</span>;
@@ -177,6 +638,7 @@ export default function ClientStock() {
 
   const [linkEditor, setLinkEditor] = useState({ open: false, id: null, value: '' });
 const [submitType, setSubmitType] = useState('reception');
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   // ===== Request Editor (history item) =====
 const [reqOpen, setReqOpen] = useState(false);
@@ -321,6 +783,11 @@ const resetReceptionForm = () => {
     notes: '',
   });
 };
+
+  const handleProductCreated = (item) => {
+    setRows((prev) => [item, ...prev]);
+    setToast({ type: 'success', text: t('ClientStock.createProduct.success') });
+  };
 
   const saveRow = async (row) => {
     setSavingId(row.id);
@@ -718,6 +1185,15 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
         <StockGuideGrid t={t} tp={tp} />
       </div>
 
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setCreateModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white shadow hover:bg-primary-dark"
+          >
+            <Plus className="w-4 h-4" />
+            {t('ClientStock.createProduct.button')}
+          </button>
+        </div>
       </div>
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       </div>

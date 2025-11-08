@@ -173,6 +173,44 @@ createReceptionRequest: async (data) => {
     return data;
   },
 
+  createProductBlueprint: async (profile, stockItemId, details = {}) => {
+    if (!profile?.company_id) {
+      throw new Error("Missing company profile");
+    }
+    if (!stockItemId) {
+      throw new Error("Missing stock item id");
+    }
+
+    const payload = {
+      company_id: profile.company_id,
+      user_id: profile.id,
+      stock_item_id: stockItemId,
+      supplier_name: details.supplierName || null,
+      supplier_number: details.supplierNumber || null,
+      supplier_url: details.supplierUrl || null,
+      supplier_price: details.supplierPrice ?? null,
+      manufacturer: details.manufacturer || null,
+      manufacturer_number: details.manufacturerNumber || null,
+      product_ext_id: details.productExtId || null,
+      approx_price_ebay: details.approxPriceEbay ?? null,
+      approx_price_fbm: details.approxPriceFbm ?? null,
+      weight_value: details.weightValue ?? null,
+      weight_unit: details.weightUnit || null,
+      package_width: details.packageWidth ?? null,
+      package_height: details.packageHeight ?? null,
+      package_length: details.packageLength ?? null,
+      package_unit: details.packageUnit || null,
+      units_measure: details.unitsMeasure || null,
+      units_count: details.unitsCount ?? null,
+      condition: details.condition || null,
+      ship_template: details.shipTemplate || null,
+      notes: details.notes || null
+    };
+
+    const { error } = await supabase.from("product_blueprints").insert([payload]);
+    if (error) throw error;
+  },
+
   getClientStock: async (companyId) => {
     const { data, error } = await supabase
       .from("stock_items")

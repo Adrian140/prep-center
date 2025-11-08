@@ -8,6 +8,7 @@ import { Upload, Download, Plus, Edit, Trash2, Send, Save, X, FileSpreadsheet, T
 from 'lucide-react';
 import Papa from 'papaparse';
 import { useDashboardTranslation } from '@/translations';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const TEMPLATE_HEADERS = ['EAN/ASIN', 'Product Name', 'Quantity Received', 'SKU', 'Purchase Price'];
 
@@ -20,6 +21,7 @@ const toNull = (v) => {
 function ClientReceiving() {
   // --- i18n (ClientReceiving) ---
   const { t: baseT, tp } = useDashboardTranslation();
+  const { currentLanguage } = useLanguage();
   const t = (key, params) => {
     if (params) return tp(`ClientReceiving.${key}`, params);
     return baseT(`ClientReceiving.${key}`);
@@ -149,9 +151,16 @@ const [savingEdits, setSavingEdits] = useState(false);
   }
 };
 
-const DATE_LOCALE = ({
-  fr:'fr-FR', en:'en-US', de:'de-DE', it:'it-IT', es:'es-ES', ro:'ro-RO', pl:'pl-PL'
-}[langState]) || 'en-US';
+const DATE_LOCALE_MAP = {
+  fr: 'fr-FR',
+  en: 'en-US',
+  de: 'de-DE',
+  it: 'it-IT',
+  es: 'es-ES',
+  ro: 'ro-RO',
+  pl: 'pl-PL'
+};
+const DATE_LOCALE = DATE_LOCALE_MAP[currentLanguage] || 'en-US';
 
 // 1) Păstrează constantele tale:
 const TEMPLATE_BUCKET = "user_guides";

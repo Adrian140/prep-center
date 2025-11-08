@@ -343,6 +343,46 @@
         "inbound": "Inbound",
         "unfulfillable": "Unfulfillable",
         "reserved": "Reserved"
+      },
+      "createProduct": {
+        "button": "Create product",
+        "title": "Create product",
+        "subtitle": "Bootstrap inbound-ready products even if they are not on Amazon yet.",
+        "simpleTab": "Simple form",
+        "advancedTab": "Advanced form",
+        "cancel": "Cancel",
+        "submit": "Save product",
+        "saving": "Saving…",
+        "success": "Product created successfully.",
+        "fields": {
+          "name": "Product name",
+          "asin": "ASIN",
+          "sku": "SKU",
+          "ean": "EAN / UPC",
+          "qty": "Initial quantity",
+          "price": "Purchase price (€)",
+          "link": "Product link",
+          "supplierName": "Supplier name",
+          "supplierNumber": "Supplier num",
+          "supplierUrl": "Supplier URL",
+          "supplierPrice": "Supplier price",
+          "manufacturer": "Manufacturer",
+          "manufacturerNumber": "Manufacturer number",
+          "productExtId": "Product external ID",
+          "shipTemplate": "Ship template",
+          "approxPriceEbay": "Approx. eBay price",
+          "approxPriceFbm": "Approx. FBM price",
+          "weightValue": "Weight value",
+          "unitsCount": "Units count",
+          "packageWidth": "Package width",
+          "packageHeight": "Package height",
+          "packageLength": "Package length",
+          "notes": "Notes"
+        },
+        "advancedSections": {
+          "supplier": "Supplier",
+          "product": "Product data"
+        }
       }
     },
     "ClientReturns": {
@@ -764,6 +804,46 @@
         "inbound": "În tranzit",
         "unfulfillable": "Nerealizabil",
         "reserved": "Rezervat"
+      },
+      "createProduct": {
+        "button": "Creează produs",
+        "title": "Creează produs",
+        "subtitle": "Adaugă produse pregătite pentru inbound chiar dacă nu există încă în Amazon.",
+        "simpleTab": "Formular simplu",
+        "advancedTab": "Formular avansat",
+        "cancel": "Anulează",
+        "submit": "Salvează produsul",
+        "saving": "Se salvează…",
+        "success": "Produs creat cu succes.",
+        "fields": {
+          "name": "Nume produs",
+          "asin": "ASIN",
+          "sku": "SKU",
+          "ean": "EAN / UPC",
+          "qty": "Cantitate inițială",
+          "price": "Preț de achiziție (€)",
+          "link": "Link produs",
+          "supplierName": "Furnizor",
+          "supplierNumber": "Cod furnizor",
+          "supplierUrl": "URL furnizor",
+          "supplierPrice": "Preț furnizor",
+          "manufacturer": "Producător",
+          "manufacturerNumber": "Cod producător",
+          "productExtId": "ID extern",
+          "shipTemplate": "Șablon livrare",
+          "approxPriceEbay": "Preț eBay estimat",
+          "approxPriceFbm": "Preț FBM estimat",
+          "weightValue": "Greutate",
+          "unitsCount": "Număr unități",
+          "packageWidth": "Lățime colet",
+          "packageHeight": "Înălțime colet",
+          "packageLength": "Lungime colet",
+          "notes": "Note"
+        },
+        "advancedSections": {
+          "supplier": "Furnizor",
+          "product": "Date produs"
+        }
       }
     },
     "ClientReturns": {
@@ -1185,6 +1265,46 @@
         "inbound": "En transit",
         "unfulfillable": "Non réalisable",
         "reserved": "Réservé"
+      },
+      "createProduct": {
+        "button": "Créer un produit",
+        "title": "Créer un produit",
+        "subtitle": "Ajoutez des produits prêts à entrer au dépôt, même sans fiche Amazon.",
+        "simpleTab": "Formulaire simple",
+        "advancedTab": "Formulaire avancé",
+        "cancel": "Annuler",
+        "submit": "Enregistrer le produit",
+        "saving": "Enregistrement…",
+        "success": "Produit créé avec succès.",
+        "fields": {
+          "name": "Nom du produit",
+          "asin": "ASIN",
+          "sku": "SKU",
+          "ean": "EAN / UPC",
+          "qty": "Quantité initiale",
+          "price": "Prix d’achat (€)",
+          "link": "Lien produit",
+          "supplierName": "Fournisseur",
+          "supplierNumber": "Référence fournisseur",
+          "supplierUrl": "URL fournisseur",
+          "supplierPrice": "Prix fournisseur",
+          "manufacturer": "Fabricant",
+          "manufacturerNumber": "Réf. fabricant",
+          "productExtId": "ID externe",
+          "shipTemplate": "Modèle d’expédition",
+          "approxPriceEbay": "Prix eBay approx.",
+          "approxPriceFbm": "Prix FBM approx.",
+          "weightValue": "Poids",
+          "unitsCount": "Nombre d’unités",
+          "packageWidth": "Largeur colis",
+          "packageHeight": "Hauteur colis",
+          "packageLength": "Longueur colis",
+          "notes": "Notes"
+        },
+        "advancedSections": {
+          "supplier": "Fournisseur",
+          "product": "Données produit"
+        }
       }
     },
     "ClientReturns": {
@@ -1606,6 +1726,46 @@
         "inbound": "Eingehend",
         "unfulfillable": "Nicht erfüllbar",
         "reserved": "Reserviert"
+      },
+      "createProduct": {
+        "button": "Produkt erstellen",
+        "title": "Produkt erstellen",
+        "subtitle": "Lege eingangsbereite Produkte an, auch ohne Amazon-Listing.",
+        "simpleTab": "Einfaches Formular",
+        "advancedTab": "Erweitertes Formular",
+        "cancel": "Abbrechen",
+        "submit": "Produkt speichern",
+        "saving": "Speichere…",
+        "success": "Produkt erfolgreich erstellt.",
+        "fields": {
+          "name": "Produktname",
+          "asin": "ASIN",
+          "sku": "SKU",
+          "ean": "EAN / UPC",
+          "qty": "Startmenge",
+          "price": "Einkaufspreis (€)",
+          "link": "Produktlink",
+          "supplierName": "Lieferant",
+          "supplierNumber": "Lieferant-Nr.",
+          "supplierUrl": "Lieferant-URL",
+          "supplierPrice": "Lieferantenpreis",
+          "manufacturer": "Hersteller",
+          "manufacturerNumber": "Hersteller-Nr.",
+          "productExtId": "Externes Produkt-ID",
+          "shipTemplate": "Versandvorlage",
+          "approxPriceEbay": "ca. eBay-Preis",
+          "approxPriceFbm": "ca. FBM-Preis",
+          "weightValue": "Gewicht",
+          "unitsCount": "Einheitenanzahl",
+          "packageWidth": "Paketbreite",
+          "packageHeight": "Pakethöhe",
+          "packageLength": "Paketlänge",
+          "notes": "Notizen"
+        },
+        "advancedSections": {
+          "supplier": "Lieferant",
+          "product": "Produktdaten"
+        }
       }
     },
     "ClientReturns": {
@@ -2027,6 +2187,46 @@
         "inbound": "In arrivo",
         "unfulfillable": "Non evadibile",
         "reserved": "Prenotato"
+      },
+      "createProduct": {
+        "button": "Crea prodotto",
+        "title": "Crea prodotto",
+        "subtitle": "Configura articoli pronti all’inbound anche se non esistono ancora su Amazon.",
+        "simpleTab": "Modulo semplice",
+        "advancedTab": "Modulo avanzato",
+        "cancel": "Annulla",
+        "submit": "Salva prodotto",
+        "saving": "Salvataggio…",
+        "success": "Prodotto creato con successo.",
+        "fields": {
+          "name": "Nome prodotto",
+          "asin": "ASIN",
+          "sku": "SKU",
+          "ean": "EAN / UPC",
+          "qty": "Quantità iniziale",
+          "price": "Prezzo di acquisto (€)",
+          "link": "Link prodotto",
+          "supplierName": "Fornitore",
+          "supplierNumber": "Codice fornitore",
+          "supplierUrl": "URL fornitore",
+          "supplierPrice": "Prezzo fornitore",
+          "manufacturer": "Produttore",
+          "manufacturerNumber": "Codice produttore",
+          "productExtId": "ID esterno",
+          "shipTemplate": "Template spedizione",
+          "approxPriceEbay": "Prezzo eBay approx.",
+          "approxPriceFbm": "Prezzo FBM approx.",
+          "weightValue": "Peso",
+          "unitsCount": "Numero unità",
+          "packageWidth": "Larghezza pacco",
+          "packageHeight": "Altezza pacco",
+          "packageLength": "Lunghezza pacco",
+          "notes": "Note"
+        },
+        "advancedSections": {
+          "supplier": "Fornitore",
+          "product": "Dati prodotto"
+        }
       }
     },
     "ClientReturns": {
@@ -2448,6 +2648,46 @@
         "inbound": "En tránsito",
         "unfulfillable": "No realizable",
         "reserved": "Reservado"
+      },
+      "createProduct": {
+        "button": "Crear producto",
+        "title": "Crear producto",
+        "subtitle": "Prepara productos listos para inbound aunque aún no existan en Amazon.",
+        "simpleTab": "Formulario simple",
+        "advancedTab": "Formulario avanzado",
+        "cancel": "Cancelar",
+        "submit": "Guardar producto",
+        "saving": "Guardando…",
+        "success": "Producto creado correctamente.",
+        "fields": {
+          "name": "Nombre del producto",
+          "asin": "ASIN",
+          "sku": "SKU",
+          "ean": "EAN / UPC",
+          "qty": "Cantidad inicial",
+          "price": "Precio de compra (€)",
+          "link": "Enlace del producto",
+          "supplierName": "Proveedor",
+          "supplierNumber": "Referencia proveedor",
+          "supplierUrl": "URL proveedor",
+          "supplierPrice": "Precio proveedor",
+          "manufacturer": "Fabricante",
+          "manufacturerNumber": "Referencia fabricante",
+          "productExtId": "ID externo",
+          "shipTemplate": "Plantilla de envío",
+          "approxPriceEbay": "Precio eBay aprox.",
+          "approxPriceFbm": "Precio FBM aprox.",
+          "weightValue": "Peso",
+          "unitsCount": "Unidades",
+          "packageWidth": "Ancho paquete",
+          "packageHeight": "Alto paquete",
+          "packageLength": "Largo paquete",
+          "notes": "Notas"
+        },
+        "advancedSections": {
+          "supplier": "Proveedor",
+          "product": "Datos del producto"
+        }
       }
     },
     "ClientReturns": {
