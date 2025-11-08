@@ -88,6 +88,16 @@ createReceptionRequest: async (data) => {
       ? data.fba_shipment_ids
       : null;
 
+  let storeName = data.store_name || null;
+  if (!storeName && data.user_id) {
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('store_name')
+      .eq('id', data.user_id)
+      .single();
+    storeName = profileData?.store_name || null;
+  }
+
   const headerPayload = {
     user_id: data.user_id,
     company_id: data.company_id,
@@ -99,6 +109,7 @@ createReceptionRequest: async (data) => {
     tracking_ids: trackingIds,
     fba_shipment_ids: fbaShipmentIds,
     notes: data.notes || null,
+    client_store_name: storeName
   };
 
   const { data: header, error: err1 } = await supabase

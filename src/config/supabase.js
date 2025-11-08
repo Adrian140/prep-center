@@ -960,7 +960,7 @@ getAllReceivingShipments: async (options = {}) => {
         stock_item: stockMap[it.stock_item_id] || null,
       })),
       produits_count: items.length,
-      store_name: profileMeta.store_name || rest.client_name || null,
+      store_name: rest.client_store_name || profileMeta.store_name || rest.client_name || null,
       client_name: profileMeta.store_name || profileMeta.full_name || rest.client_name || null,
       client_email: profileMeta.email || rest.user_email || null,
       company_name: companies?.name || null
