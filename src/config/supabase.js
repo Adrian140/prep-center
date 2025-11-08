@@ -574,7 +574,7 @@ deletePrepRequest: async (requestId) => {
   const { error: itemsErr } = await supabase
     .from('prep_request_items')
     .delete()
-    .eq('request_id', requestId);
+    .eq('prep_request_id', requestId);
   if (itemsErr) return { error: itemsErr };
 
   const { error } = await supabase
