@@ -241,7 +241,20 @@ export default function SupabaseClientActivity() {
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={filteredChartData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
+            <XAxis
+              dataKey="date"
+              tickFormatter={(value) => {
+                const d = new Date(value);
+                if (Number.isNaN(d.getTime())) return value;
+                return d.toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric'
+                });
+              }}
+              tick={{ fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
             <YAxis />
             <Tooltip content={<CustomTooltip />} />
             <Legend />
