@@ -226,7 +226,6 @@ const [receptionForm, setReceptionForm] = useState({
           asin: r.asin || '',
           product_link: r.product_link || '',
           purchase_price: r.purchase_price != null ? String(r.purchase_price) : '',
-          amazon_stock: r.amazon_stock != null ? String(r.amazon_stock) : '',
           sku: r.sku || '',
         };
       }
@@ -339,9 +338,6 @@ const resetReceptionForm = () => {
       if ((edit.asin || '') !== (row.asin || '')) patch.asin = edit.asin || null;
       if ((edit.product_link || '') !== (row.product_link || '')) patch.product_link = edit.product_link || null;
       if ((edit.sku || '') !== (row.sku || '')) patch.sku = edit.sku || null;
-if (Number(edit.amazon_stock) !== Number(row.amazon_stock || 0))
-  patch.amazon_stock = Number(edit.amazon_stock) || 0;
-
 
       const currentPrice = row.purchase_price == null ? null : Number(row.purchase_price);
       if ((parsedPrice ?? null) !== (currentPrice ?? null)) patch.purchase_price = parsedPrice;
@@ -825,7 +821,6 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
       <th className="px-2 py-2 text-left w-16">Photo</th>
       <th className="px-2 py-2 text-left">Product</th>
       <th className="px-2 py-2 text-left w-40">Inventory</th>
-      <th className="px-2 py-2 text-right w-24">Amazon stock</th>
       <th className="px-2 py-2 text-right w-24">PrepCenter stock</th>
       <th className="px-2 py-2 text-right w-32">Units to Send / Receive</th>
     </tr>
@@ -892,12 +887,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
             <InventoryBreakdown row={r} t={t} />
           </td>
 
-          {/* 5) Amazon stock — doar vizual */}
-          <td className="px-2 py-2 text-right text-gray-700">
-            {r.amazon_stock != null ? r.amazon_stock : '—'}
-          </td>
-
-    {/* 6) PrepCenter stock — afișare (folosim direct qty din DB) */}
+    {/* 5) PrepCenter stock — afișare (folosim direct qty din DB) */}
     <td className="px-2 py-2 text-right text-gray-700">
       {r.qty != null ? r.qty : '—'}
     </td>

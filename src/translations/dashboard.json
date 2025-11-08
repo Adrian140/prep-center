@@ -18,7 +18,7 @@
       "activity": "Activity",
       "fba": "FBA",
       "fbm": "FBM",
-      "stock": "Stock",
+      "stock": "Products",
       "returns": "Returns",
       "exports": "Exports",
       "profile": "Profile",
@@ -224,8 +224,8 @@
       "noDataMonth": "No data for the selected month."
     },
     "ClientStock": {
-      "title": "Stock",
-      "desc": "<b>EAN</b> is managed by admin. You can edit <b>Product name</b>, <b>ASIN/SKU</b>, <b>Product link</b> and <b>Purchase price</b>.",
+      "title": "Products",
+      "desc": "Manage inbound-ready products, Amazon data, and prep submissions from one place.",
       "month": {
         "label": "Month:",
         "current": "Current month"
@@ -439,7 +439,7 @@
       "activity": "Activitate",
       "fba": "FBA",
       "fbm": "FBM",
-      "stock": "Stoc",
+      "stock": "Produse",
       "returns": "Retururi",
       "exports": "Exporturi",
       "profile": "Profil",
@@ -645,8 +645,8 @@
       "noDataMonth": "Nu există date pentru luna selectată."
     },
     "ClientStock": {
-      "title": "Stoc",
-      "desc": "<b>EAN</b> este gestionat de admin. Poți edita <b>Denumirea produsului</b>, <b>ASIN/SKU</b>, <b>Link produs</b> și <b>Preț de achiziție</b>.",
+      "title": "Produse",
+      "desc": "Gestionează produsele, datele Amazon și solicitările de pregătire dintr-un singur loc.",
       "month": {
         "label": "Luna:",
         "current": "Luna curentă"
@@ -860,7 +860,7 @@
       "activity": "Activité",
       "fba": "FBA",
       "fbm": "FBM",
-      "stock": "Stock",
+      "stock": "Produits",
       "returns": "Retours",
       "exports": "Exports",
       "profile": "Profil",
@@ -1066,8 +1066,8 @@
       "noDataMonth": "Aucune donnée pour le mois sélectionné."
     },
     "ClientStock": {
-      "title": "Stock",
-      "desc": "<b>EAN</b> est géré par l’admin. Vous pouvez modifier <b>Nom du produit</b>, <b>ASIN/SKU</b>, <b>Lien produit</b> et <b>Prix d’achat</b>.",
+      "title": "Produits",
+      "desc": "Gérez vos produits, les données Amazon et les envois en préparation au même endroit.",
       "month": {
         "label": "Mois :",
         "current": "Mois en cours"
@@ -1281,7 +1281,7 @@
       "activity": "Aktivität",
       "fba": "FBA",
       "fbm": "FBM",
-      "stock": "Bestand",
+      "stock": "Produkte",
       "returns": "Retouren",
       "exports": "Exporte",
       "profile": "Profil",
@@ -1487,8 +1487,8 @@
       "noDataMonth": "Keine Daten für den gewählten Monat."
     },
     "ClientStock": {
-      "title": "Bestand",
-      "desc": "<b>EAN</b> wird vom Admin verwaltet. Bearbeitbar: <b>Produktname</b>, <b>ASIN/SKU</b>, <b>Produktlink</b>, <b>Einkaufspreis</b>.",
+      "title": "Produkte",
+      "desc": "Verwalten Sie Produkte, Amazon-Daten und Prep-Anfragen an einem Ort.",
       "month": {
         "label": "Monat:",
         "current": "Aktueller Monat"
@@ -1702,7 +1702,7 @@
       "activity": "Attività",
       "fba": "FBA",
       "fbm": "FBM",
-      "stock": "Magazzino",
+      "stock": "Prodotti",
       "returns": "Resi",
       "exports": "Esportazioni",
       "profile": "Profilo",
@@ -1908,8 +1908,8 @@
       "noDataMonth": "Nessun dato per il mese selezionato."
     },
     "ClientStock": {
-      "title": "Magazzino",
-      "desc": "<b>EAN</b> è gestito dall’amministratore. Puoi modificare <b>Nome prodotto</b>, <b>ASIN/SKU</b>, <b>Link prodotto</b> e <b>Prezzo di acquisto</b>.",
+      "title": "Prodotti",
+      "desc": "Gestisci prodotti, dati Amazon e richieste di prep da un unico hub.",
       "month": {
         "label": "Mese:",
         "current": "Mese corrente"
@@ -2123,7 +2123,7 @@
       "activity": "Actividad",
       "fba": "FBA",
       "fbm": "FBM",
-      "stock": "Stock",
+      "stock": "Productos",
       "returns": "Devoluciones",
       "exports": "Exportaciones",
       "profile": "Perfil",
@@ -2329,8 +2329,8 @@
       "noDataMonth": "No hay datos para el mes seleccionado."
     },
     "ClientStock": {
-      "title": "Stock",
-      "desc": "<b>EAN</b> lo gestiona el administrador. Puedes editar <b>Nombre del producto</b>, <b>ASIN/SKU</b>, <b>Enlace del producto</b> y <b>Precio de compra</b>.",
+      "title": "Productos",
+      "desc": "Gestiona tus productos, los datos de Amazon y los envíos a preparación desde un único lugar.",
       "month": {
         "label": "Mes:",
         "current": "Mes actual"
