@@ -141,81 +141,81 @@ const renderTabContent = useMemo(() => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+        <div className="bg-white rounded-xl shadow-sm p-5 mb-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-text-primary">
+              <h1 className="text-xl font-semibold text-text-primary">
                 {tp('common.greeting', { name: displayName })}
               </h1>
-              <p className="text-text-secondary">{t('common.subtitle')}</p>
+              <p className="text-sm text-text-secondary">{t('common.subtitle')}</p>
             </div>
             <button
               onClick={signOut}
-              className="flex items-center px-4 py-2 text-text-secondary hover:text-red-600 transition-colors"
+              className="flex items-center px-3 py-2 text-sm text-text-secondary hover:text-red-600 transition-colors"
             >
-              <LogOut className="w-5 h-5 mr-2" />
+              <LogOut className="w-4 h-4 mr-2" />
               {t('common.signOut')}
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-6 lg:gap-8">
           {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm p-6">
+          <div>
+            <div className="bg-white rounded-xl shadow-sm p-4">
               {groups.map((g) => (
                 <div key={g.key} className="mb-6">
-                  <div className="px-2 pb-2 text-xs uppercase tracking-wide text-text-light">
+                  <div className="px-1 pb-2 text-[11px] uppercase tracking-wide text-text-light">
                     {g.label}
                   </div>
-                  <nav className="space-y-2">
+                  <nav className="space-y-1.5">
                     {tabs
                       .filter((tab) => tab.group === g.key)
                       .map((tab) => (
                         <React.Fragment key={tab.id}>
                           <button
                             onClick={() => setActiveTab(tab.id)}
-                            className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg text-sm transition-colors ${
                               activeTab === tab.id
                                 ? 'bg-primary text-white'
                                 : 'text-text-secondary hover:bg-gray-50'
                             }`}
                           >
-                            <tab.icon className="w-5 h-5 mr-3" />
+                            <tab.icon className="w-4 h-4" />
                             {tab.label}
                           </button>
 
                           {g.key === 'Operations' && tab.id === 'stock' && (
-                            <div className="ml-2 mt-3">
+                            <div className="ml-2 mt-2">
                               <button
                                 onClick={() => setReportsOpen((v) => !v)}
-                                className="w-full flex items-center justify-between px-4 py-3 text-left rounded-lg border text-text-secondary hover:bg-gray-50"
+                                className="w-full flex items-center justify-between px-3 py-2 text-left rounded-lg border text-sm text-text-secondary hover:bg-gray-50"
                               >
                                 <span className="flex items-center gap-2">
-                                  <FileText className="w-5 h-5" />
+                                  <FileText className="w-4 h-4" />
                                   {t('sidebar.reports')}
                                 </span>
                                 <ChevronDown
-                                  className={`w-5 h-5 transition-transform ${
+                                  className={`w-4 h-4 transition-transform ${
                                     reportsOpen ? 'rotate-180' : ''
                                   }`}
                                 />
                               </button>
                               {reportsOpen && (
-                                <div className="mt-2 space-y-2 pl-6">
+                                <div className="mt-2 space-y-1.5 pl-5">
                                   {REPORT_TABS.map((reportTab) => (
                                     <button
                                       key={reportTab.id}
                                       onClick={() => setActiveTab(reportTab.id)}
-                                      className={`w-full flex items-center px-4 py-2 text-left rounded-lg transition-colors ${
+                                      className={`w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg text-sm transition-colors ${
                                         activeTab === reportTab.id
                                           ? 'bg-primary/90 text-white'
                                           : 'text-text-secondary hover:bg-gray-50'
                                       }`}
                                     >
-                                      <reportTab.icon className="w-4 h-4 mr-2" />
+                                      <reportTab.icon className="w-4 h-4" />
                                       {t(reportTab.labelKey)}
                                     </button>
                                   ))}
@@ -232,8 +232,8 @@ const renderTabContent = useMemo(() => {
           </div>
 
           {/* Main Content */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-xl shadow-sm p-6 animate-fade-in">
+          <div>
+            <div className="bg-white rounded-xl shadow-sm p-5 animate-fade-in">
               {renderTabContent}
             </div>
           </div>

@@ -68,7 +68,7 @@ export default function ClientPrepShipments() {
         )}
 
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-gray-50 text-text-secondary">
               <tr>
                 <th className="px-4 py-2 text-left">{t('ClientStock.recent.thead.date')}</th>

@@ -568,7 +568,7 @@ function ClientReceiving() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="w-full min-w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left">{t('th_ean_asin')}</th>
@@ -829,7 +829,7 @@ function ClientReceiving() {
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-        <table className="min-w-[1000px]">
+        <table className="w-full min-w-[900px]">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">

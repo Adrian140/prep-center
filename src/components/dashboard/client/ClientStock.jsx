@@ -1281,7 +1281,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
 
       <div className="border rounded-lg overflow-hidden">
         <div className="w-full overflow-x-auto">
-         <table className="min-w-[960px] text-sm table-auto [&_th]:px-1 [&_td]:px-1 [&_th]:py-1 [&_td]:py-1">
+         <table className="w-full min-w-[900px] text-sm table-auto [&_th]:px-1 [&_td]:px-1 [&_th]:py-1 [&_td]:py-1">
   <thead className="bg-gray-50 text-gray-700">
     <tr>
       <th className="px-2 py-2 w-6"></th>
