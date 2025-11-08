@@ -23,7 +23,10 @@
       "delete": "Delete",
       "cancel": "Cancel",
       "save": "Save",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "signOut": "Sign out",
+      "accessDeniedTitle": "Access denied",
+      "accessDeniedDesc": "Your account does not have administrator permissions."
     },
     "clients": {
       "filters": {
@@ -164,7 +167,10 @@
       "delete": "Supprimer",
       "cancel": "Annuler",
       "save": "Enregistrer",
-      "refresh": "Actualiser"
+      "refresh": "Actualiser",
+      "signOut": "Se déconnecter",
+      "accessDeniedTitle": "Accès refusé",
+      "accessDeniedDesc": "Votre compte n'a pas de permissions administrateur."
     },
     "clients": {
       "filters": {
@@ -305,7 +311,10 @@
       "delete": "Șterge",
       "cancel": "Anulează",
       "save": "Salvează",
-      "refresh": "Actualizează"
+      "refresh": "Actualizează",
+      "signOut": "Deconectare",
+      "accessDeniedTitle": "Acces interzis",
+      "accessDeniedDesc": "Contul tău nu are permisiuni de administrator."
     },
     "clients": {
       "filters": {
