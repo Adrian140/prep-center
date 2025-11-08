@@ -2,37 +2,39 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link2, ExternalLink, CheckCircle, AlertTriangle, Loader2, RefreshCw, Unplug } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { useDashboardTranslation } from '../../../translations';
 
 const AMAZON_REGIONS = [
-  { id: 'eu', label: 'Amazon EU', consentUrl: 'https://sellercentral-europe.amazon.com/apps/authorize/consent', marketplaceId: 'A13V1IB3VIYZZH' },
-  { id: 'na', label: 'Amazon North America', consentUrl: 'https://sellercentral.amazon.com/apps/authorize/consent', marketplaceId: 'ATVPDKIKX0DER' },
-  { id: 'jp', label: 'Amazon Japan', consentUrl: 'https://sellercentral-japan.amazon.com/apps/authorize/consent', marketplaceId: 'A1VC38T7YXB528' }
+  { id: 'eu', consentUrl: 'https://sellercentral-europe.amazon.com/apps/authorize/consent', marketplaceId: 'A13V1IB3VIYZZH' },
+  { id: 'na', consentUrl: 'https://sellercentral.amazon.com/apps/authorize/consent', marketplaceId: 'ATVPDKIKX0DER' },
+  { id: 'jp', consentUrl: 'https://sellercentral-japan.amazon.com/apps/authorize/consent', marketplaceId: 'A1VC38T7YXB528' }
 ];
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, t }) {
   if (status === 'active') {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700">
-        <CheckCircle className="w-3 h-3" /> Connected
+        <CheckCircle className="w-3 h-3" /> {t('ClientIntegrations.status.active')}
       </span>
     );
   }
   if (status === 'error') {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-50 text-red-700">
-        <AlertTriangle className="w-3 h-3" /> Error
+        <AlertTriangle className="w-3 h-3" /> {t('ClientIntegrations.status.error')}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">
-      Pending
+      {t('ClientIntegrations.status.pending')}
     </span>
   );
 }
 
 export default function ClientIntegrations() {
   const { user, profile } = useSupabaseAuth();
+  const { t, tp } = useDashboardTranslation();
   const [region, setRegion] = useState('eu');
   const [stateToken] = useState(() => Math.random().toString(36).slice(2) + Date.now().toString(36));
   const [rows, setRows] = useState([]);
@@ -96,13 +98,13 @@ export default function ClientIntegrations() {
   }, [user?.id]);
 
   const removeIntegration = async (id) => {
-    if (!window.confirm('Disconnect this Amazon account?')) return;
+    if (!window.confirm(t('ClientIntegrations.confirmDisconnect'))) return;
     setFlash('');
     const { error } = await supabase.from('amazon_integrations').delete().eq('id', id);
     if (error) {
       setFlash(error.message);
     } else {
-      setFlash('Integration removed.');
+      setFlash(t('ClientIntegrations.flashRemoved'));
       loadIntegrations();
     }
   };
@@ -114,17 +116,17 @@ export default function ClientIntegrations() {
           <Link2 className="w-5 h-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Integrations</h1>
-          <p className="text-sm text-text-secondary">
-            Connect your Amazon Seller Central account to synchronize inventory automatically.
-          </p>
+          <h1 className="text-2xl font-semibold text-text-primary">{t('ClientIntegrations.title')}</h1>
+          <p className="text-sm text-text-secondary">{t('ClientIntegrations.desc')}</p>
         </div>
       </header>
 
       {!clientId && (
         <div className="p-4 rounded-lg border border-amber-300 bg-amber-50 text-sm text-amber-900">
-          Configure <code>VITE_SPAPI_CLIENT_ID</code> și <code>VITE_SPAPI_REDIRECT_URI</code> în `.env` pentru a activa
-          butonul de autorizare.
+          {tp('ClientIntegrations.notice', {
+            clientId: 'VITE_SPAPI_CLIENT_ID',
+            redirect: 'VITE_SPAPI_REDIRECT_URI'
+          })}
         </div>
       )}
 
@@ -135,7 +137,7 @@ export default function ClientIntegrations() {
       <section className="bg-white border rounded-xl p-5 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-text-secondary">Marketplace</label>
+            <label className="text-sm text-text-secondary">{t('ClientIntegrations.marketplaceLabel')}</label>
             <select
               value={region}
               onChange={(e) => setRegion(e.target.value)}
@@ -143,7 +145,7 @@ export default function ClientIntegrations() {
             >
               {AMAZON_REGIONS.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.label}
+                  {t(`ClientIntegrations.regions.${r.id}`)}
                 </option>
               ))}
             </select>
@@ -153,63 +155,63 @@ export default function ClientIntegrations() {
             disabled={!authorizeUrl}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
           >
-            <ExternalLink className="w-4 h-4" /> Connect Amazon
+            <ExternalLink className="w-4 h-4" /> {t('ClientIntegrations.connectButton')}
           </button>
         </div>
-        <p className="text-xs text-text-light">
-          După ce autorizezi aplicația în Seller Central vei fi redirecționat înapoi în portal. Token-ul este salvat
-          automat. Orice sincronizare usează rolul tău Amazon, nu îl vezi niciodată în clar.
-        </p>
+        <p className="text-xs text-text-light">{t('ClientIntegrations.instructions')}</p>
       </section>
 
       <section className="bg-white border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-text-primary">Connected accounts</h2>
-            <p className="text-sm text-text-secondary">
-              Poți revoca oricând accesul. Ultima sincronizare este afișată mai jos.
-            </p>
+            <h2 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.listTitle')}</h2>
+            <p className="text-sm text-text-secondary">{t('ClientIntegrations.listDesc')}</p>
           </div>
           <button
             onClick={loadIntegrations}
             className="inline-flex items-center gap-2 border rounded-lg px-3 py-1.5 text-sm"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> {t('ClientIntegrations.refresh')}
           </button>
         </div>
 
         {loading ? (
           <div className="flex items-center gap-2 text-text-secondary text-sm">
-            <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+            <Loader2 className="w-4 h-4 animate-spin" /> {t('common.loading')}
           </div>
         ) : rows.length === 0 ? (
-          <div className="text-sm text-text-secondary">No integrations yet.</div>
+          <div className="text-sm text-text-secondary">{t('ClientIntegrations.empty')}</div>
         ) : (
           <div className="grid gap-3">
             {rows.map((row) => (
               <div key={row.id} className="border rounded-lg p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="font-semibold text-text-primary flex items-center gap-2">
-                    Marketplace: {row.marketplace_id}
-                    <StatusBadge status={row.status} />
+                    {t('ClientIntegrations.card.marketplaceAlt', { id: row.marketplace_id })}
+                    <StatusBadge status={row.status} t={t} />
                   </div>
                   <div className="text-xs text-text-secondary">
-                    Added: {new Date(row.created_at).toLocaleString()}
+                    {tp('ClientIntegrations.fields.added', { date: new Date(row.created_at).toLocaleString() })}
                     {row.last_synced_at && (
                       <>
-                        {' · '}Last sync: {new Date(row.last_synced_at).toLocaleString()}
+                        {' · '}
+                        {tp('ClientIntegrations.fields.lastSync', {
+                          date: new Date(row.last_synced_at).toLocaleString()
+                        })}
                       </>
                     )}
                   </div>
                   {row.last_error && (
-                    <div className="text-xs text-red-600 mt-1">Last error: {row.last_error}</div>
+                    <div className="text-xs text-red-600 mt-1">
+                      {t('ClientIntegrations.fields.lastError')} {row.last_error}
+                    </div>
                   )}
                 </div>
                 <button
                   onClick={() => removeIntegration(row.id)}
                   className="inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-700"
                 >
-                  <Unplug className="w-4 h-4" /> Disconnect
+                  <Unplug className="w-4 h-4" /> {t('ClientIntegrations.actions.disconnect')}
                 </button>
               </div>
             ))}

@@ -96,20 +96,20 @@ export default function ClientBalanceBar({ companyId }) {
   return (
     <div className="mb-6">
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col items-end">
-        <div className="text-sm text-text-secondary self-start">{t('balance.title')}</div>
+        <div className="text-sm text-text-secondary self-start">{t('ClientBalanceBar.title')}</div>
         <div className={`px-3 py-1 rounded-md text-base font-semibold ${cls}`}>
           {loading
             ? t('common.calculating')
-            : t('balance.current').replace('{amount}', fmt2(Number(balance || 0)))}
+            : t('ClientBalanceBar.current').replace('{amount}', fmt2(Number(balance || 0)))}
         </div>
         {balance < 0 && !loading && (
           <div className="mt-2 text-xs text-green-600 italic">
-            {t('balance.prepayment').replace('{amount}', fmt2(Math.abs(balance)))}
+            {t('ClientBalanceBar.prepayment').replace('{amount}', fmt2(Math.abs(balance)))}
           </div>
         )}
         {balance > 0 && !loading && (
           <div className="mt-2 text-xs text-red-600 italic">
-            {t('balance.outstanding').replace('{amount}', fmt2(balance))}
+            {t('ClientBalanceBar.outstanding').replace('{amount}', fmt2(balance))}
           </div>
         )}
       </div>

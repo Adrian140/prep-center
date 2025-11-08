@@ -26,7 +26,6 @@ function SupabasePersonalProfile() {
     { code: 'DE', name: 'Germany' },
     { code: 'IT', name: 'Italy' },
     { code: 'ES', name: 'Spain' },
-    { code: 'PL', name: 'Poland' },
     { code: 'NL', name: 'Netherlands' },
   ];
 

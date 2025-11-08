@@ -7,8 +7,7 @@ import { Languages, FileDown } from "lucide-react";
 import { Upload, Download, Plus, Edit, Trash2, Send, Save, X, FileSpreadsheet, Truck, Package } 
 from 'lucide-react';
 import Papa from 'papaparse';
-import CLIENT_RECIVING_DICT, { CLIENT_RECIVING_LANG_DEFAULT } from '@/i18n/ClientReciving';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useDashboardTranslation } from '@/translations';
 
 const TEMPLATE_HEADERS = ['EAN/ASIN', 'Product Name', 'Quantity Received', 'SKU', 'Purchase Price'];
 
@@ -20,16 +19,11 @@ const toNull = (v) => {
 
 function ClientReceiving() {
   // --- i18n (ClientReceiving) ---
-  const { currentLanguage } = useLanguage();
-  const langState = CLIENT_RECIVING_DICT[currentLanguage]
-    ? currentLanguage
-    : CLIENT_RECIVING_LANG_DEFAULT;
-
-  const t = (k, params = {}) => {
-    const raw = (CLIENT_RECIVING_DICT[langState]?.[k] ?? CLIENT_RECIVING_DICT.fr[k] ?? k);
-    return Object.entries(params).reduce((acc,[kk,v]) => acc.replace(`{${kk}}`, v), raw);
+  const { t: baseT, tp } = useDashboardTranslation();
+  const t = (key, params) => {
+    if (params) return tp(`ClientReceiving.${key}`, params);
+    return baseT(`ClientReceiving.${key}`);
   };
-
   const { profile } = useSupabaseAuth();
   const [shipments, setShipments] = useState([]);
   const [carriers, setCarriers] = useState([]);
@@ -40,7 +34,7 @@ function ClientReceiving() {
   const [messageType, setMessageType] = useState(null); // poate fi: success, error, info
   const [showLangMenu, setShowLangMenu] = useState(false);
   const GUIDE_SECTION = "receiving";
-  const GUIDE_LANGS = ["fr","en","de","it","es","ro","pl"]; // adaptează dacă vrei și altele
+  const GUIDE_LANGS = ["fr","en","de","it","es","ro"]; // adaptează dacă vrei și altele
   const [history, setHistory] = useState([]);
 const [historyPage, setHistoryPage] = useState(1);
 const HISTORY_PER_PAGE = 5;
@@ -1731,4 +1725,3 @@ setEditHeader({ ...editHeader, status: 'draft' });
 }
 
 export default ClientReceiving;
-

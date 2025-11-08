@@ -59,12 +59,12 @@ export default function ClientFBAReport() {
     <div>
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-text-primary">{t('fbaReport.title')}</h2>
-          <p className="text-sm text-text-secondary">{t('fbaReport.readonly')}</p>
+          <h2 className="text-xl font-semibold text-text-primary">{t('ClientFBAReport.title')}</h2>
+          <p className="text-sm text-text-secondary">{t('ClientFBAReport.readonly')}</p>
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-sm text-text-secondary">{t('fbaReport.monthLabel')}</label>
+          <label className="text-sm text-text-secondary">{t('ClientFBAReport.monthLabel')}</label>
           <input
             type="month"
             value={monthStr}
@@ -78,7 +78,7 @@ export default function ClientFBAReport() {
               setMonthStr(`${d.getFullYear()}-${(String(d.getMonth() + 1)).padStart(2, '0')}`);
             }}
           >
-            {t('fbaReport.currentMonth')}
+            {t('ClientFBAReport.currentMonth')}
           </button>
         </div>
       </div>
@@ -105,7 +105,7 @@ export default function ClientFBAReport() {
             ) : monthFiltered.length === 0 ? (
               <tr className="border-t">
                 <td className="px-4 py-6 text-center text-gray-400" colSpan={6}>
-                  {t('fbaReport.noDataMonth')}
+                  {t('ClientFBAReport.noDataMonth')}
                 </td>
               </tr>
             ) : (

@@ -58,12 +58,12 @@ export default function ClientFBMReport() {
     <div>
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-text-primary">{t('fbmReport.title')}</h2>
-          <p className="text-sm text-text-secondary">{t('fbmReport.readonly')}</p>
+          <h2 className="text-xl font-semibold text-text-primary">{t('ClientFBMReport.title')}</h2>
+          <p className="text-sm text-text-secondary">{t('ClientFBMReport.readonly')}</p>
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-sm text-text-secondary">{t('fbmReport.monthLabel')}</label>
+          <label className="text-sm text-text-secondary">{t('ClientFBMReport.monthLabel')}</label>
           <input
             type="month"
             value={monthStr}
@@ -77,7 +77,7 @@ export default function ClientFBMReport() {
               setMonthStr(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`);
             }}
           >
-            {t('fbmReport.currentMonth')}
+            {t('ClientFBMReport.currentMonth')}
           </button>
         </div>
       </div>
@@ -104,7 +104,7 @@ export default function ClientFBMReport() {
             ) : monthFiltered.length === 0 ? (
               <tr className="border-t">
                 <td className="px-4 py-6 text-center text-gray-400" colSpan={6}>
-                  {t('fbmReport.noDataMonth')}
+                  {t('ClientFBMReport.noDataMonth')}
                 </td>
               </tr>
             ) : (

@@ -10,7 +10,6 @@ export const languages = {
   it: { name: 'Italiano', flag: '🇮🇹' },
   es: { name: 'Español',  flag: '🇪🇸' },
   ro: { name: 'Română',   flag: '🇷🇴' },
-  pl: { name: 'Polski',   flag: '🇵🇱' },
 };
 
 const STORAGE_KEY  = 'preferredLanguage';

@@ -35,20 +35,20 @@ export default function ClientReturns() {
   return (
     <div>
       <div className="mb-4">
-        <h2 className="text-xl font-semibold text-text-primary">{t('returns.title')}</h2>
-        <p className="text-sm text-text-secondary">{t('returns.readonly')}</p>
+        <h2 className="text-xl font-semibold text-text-primary">{t('ClientReturns.title')}</h2>
+        <p className="text-sm text-text-secondary">{t('ClientReturns.readonly')}</p>
       </div>
 
       <div className="border rounded-lg overflow-hidden">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-text-secondary">
             <tr>
-              <th className="px-4 py-3 text-left">{t('returns.thead.date')}</th>
+              <th className="px-4 py-3 text-left">{t('ClientReturns.thead.date')}</th>
               <th className="px-4 py-3 text-left">ASIN</th>
-              <th className="px-4 py-3 text-right">{t('returns.thead.qty')}</th>
-              <th className="px-4 py-3 text-left">{t('returns.thead.type')}</th>
-              <th className="px-4 py-3 text-left">{t('returns.thead.status')}</th>
-              <th className="px-4 py-3 text-left">{t('returns.thead.adminNotes')}</th>
+              <th className="px-4 py-3 text-right">{t('ClientReturns.thead.qty')}</th>
+              <th className="px-4 py-3 text-left">{t('ClientReturns.thead.type')}</th>
+              <th className="px-4 py-3 text-left">{t('ClientReturns.thead.status')}</th>
+              <th className="px-4 py-3 text-left">{t('ClientReturns.thead.adminNotes')}</th>
             </tr>
           </thead>
           <tbody>
@@ -58,7 +58,7 @@ export default function ClientReturns() {
               </tr>
             ) : rows.length === 0 ? (
               <tr className="border-t">
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-400">{t('returns.noRecords')}</td>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-400">{t('ClientReturns.noRecords')}</td>
               </tr>
             ) : (
               rows.map((r) => (

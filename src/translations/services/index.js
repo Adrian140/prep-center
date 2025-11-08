@@ -4,7 +4,6 @@ import { servicesDe } from './de';
 import { servicesIt } from './it';
 import { servicesEs } from './es';
 import { servicesRo } from './ro';
-import { servicesPl } from './pl';
 
 export const servicesTranslations = {
   en: servicesEn,
@@ -12,8 +11,7 @@ export const servicesTranslations = {
   de: servicesDe,
   it: servicesIt,
   es: servicesEs,
-  ro: servicesRo,
-  pl: servicesPl
+  ro: servicesRo
 };
 
 export const useServicesTranslation = (currentLanguage) => {

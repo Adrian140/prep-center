@@ -25,7 +25,7 @@ function SupabaseBillingProfiles() {
     phone: '',
     is_default: false
   });
-const countries = ['FR','DE','IT','ES','PL','RO'].map(code => ({
+const countries = ['FR','DE','IT','ES','RO'].map(code => ({
     code, name: t(`profile.countries.${code}`)
   }));
   useEffect(() => {
@@ -56,7 +56,6 @@ const countries = ['FR','DE','IT','ES','PL','RO'].map(code => ({
       'ES': /^ES[0-9A-Z][0-9]{7}[0-9A-Z]$/,
       'NL': /^NL[0-9]{9}B[0-9]{2}$/,
       'BE': /^BE[0-9]{10}$/,
-      'PL': /^PL[0-9]{10}$/,
       'RO': /^RO[0-9]{2,10}$/
     };
 

@@ -1,45 +1,63 @@
 // FILE: src/components/dashboard/client/ClientStock.jsx
 import React, { useEffect, useMemo, useState } from 'react';
+import { FileDown, Languages } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
-import { supabaseHelpers } from "@/config/supabaseHelpers";
+import { supabaseHelpers } from '@/config/supabaseHelpers';
 import { useDashboardTranslation } from '../../../translations';
- import { supabase } from '../../../config/supabase';
- import CLIENT_RECIVING_DICT, { CLIENT_RECIVING_LANG_DEFAULT } from '@/i18n/ClientReciving';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '../../../config/supabase';
 
-function HelpMenuButtonStock({ section = "stock", t }) {
-  const GUIDE_LANGS = ["fr","en","de","it","es","ro","pl"];
+function HelpMenuButtonStock({ section = 'stock', t, tp }) {
+  const GUIDE_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
   const [open, setOpen] = useState(false);
 
   const downloadGuide = async (lang) => {
     try {
       const path = `${section}/${lang}.pdf`;
-      const { data, error } = await supabase
-        .storage
-        .from("user_guides")
-        .createSignedUrl(path, 60);
+      const { data, error } = await supabase.storage.from('user_guides').createSignedUrl(path, 60);
       if (error) throw error;
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
       setOpen(false);
     } catch (e) {
-      alert(`Cannot open guide (${lang.toUpperCase()}): ${e.message}`);
+      alert(tp('ClientStock.guides.error', { lang: lang.toUpperCase(), msg: e.message }));
     }
   };
-const { currentLanguage } = useLanguage();
-const langState = CLIENT_RECIVING_DICT[currentLanguage]
-  ? currentLanguage
-  : CLIENT_RECIVING_LANG_DEFAULT;
-const dict = CLIENT_RECIVING_DICT[langState];
-  return 
+
+  return (
+    <div className="relative inline-flex">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
+      >
+        <FileDown className="w-4 h-4 mr-2" />
+        {t('ClientStock.guides.button')}
+        <Languages className="w-4 h-4 ml-2 opacity-80" />
+      </button>
+
+      {open && (
+        <div className="absolute z-10 right-0 mt-2 w-44 bg-white border rounded-lg shadow-lg">
+          {GUIDE_LANGS.map((lg) => (
+            <button
+              key={lg}
+              onClick={async () => {
+                await downloadGuide(lg);
+                setOpen(false);
+              }}
+              className="w-full text-left px-3 py-2 hover:bg-gray-50"
+            >
+              {lg.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 
 const DEFAULT_PER_PAGE = 50;
 const HISTORY_PER_PAGE = 5;
 
-const COUNTRIES = [
-  { code: 'FR' }, { code: 'DE' }, { code: 'IT' }, { code: 'ES' }, { code: 'PL' }, { code: 'RO' }
-];
+const COUNTRIES = [{ code: 'FR' }, { code: 'DE' }, { code: 'IT' }, { code: 'ES' }, { code: 'RO' }];
 
 const CARRIERS = [
   { code: 'UPS', label: 'UPS' },
@@ -51,10 +69,10 @@ const CARRIERS = [
   { code: 'OTHER', label: 'Other' }
 ];
 
-function StockGuideGrid({ t }) {
+function StockGuideGrid({ t, tp }) {
   return (
     <div className="mt-3">
-      <HelpMenuButtonStock t={t} />
+      <HelpMenuButtonStock t={t} tp={tp} />
     </div>
   );
 }
@@ -66,7 +84,7 @@ const toNum = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const InventoryBreakdown = ({ row }) => {
+const InventoryBreakdown = ({ row, t }) => {
   const available = Number(row.amazon_stock ?? 0);
   const inbound = Number(row.amazon_inbound ?? 0);
   const reserved = Number(row.amazon_reserved ?? 0);
@@ -78,23 +96,23 @@ const InventoryBreakdown = ({ row }) => {
 
   return (
     <div className="border rounded-xl p-2 text-[11px] leading-5 text-gray-600 bg-white shadow-inner min-w-[130px]">
-      <div className="text-[12px] font-semibold text-gray-900">Inventory</div>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">Fulfilled by and quantity</div>
+      <div className="text-[12px] font-semibold text-gray-900">{t('ClientStock.inventory.title')}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-400">{t('ClientStock.inventory.subtitle')}</div>
       <div className="mt-2 space-y-1">
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-gray-900">Available (FBA)</span>
+          <span className="font-semibold text-gray-900">{t('ClientStock.inventory.available')}</span>
           {value(available)}
         </div>
         <div className="flex items-center justify-between">
-          <span>Inbound</span>
+          <span>{t('ClientStock.inventory.inbound')}</span>
           {value(inbound)}
         </div>
         <div className="flex items-center justify-between">
-          <span>Unfulfillable</span>
+          <span>{t('ClientStock.inventory.unfulfillable')}</span>
           {value(unfulfillable)}
         </div>
         <div className="flex items-center justify-between">
-          <span>Reserved</span>
+          <span>{t('ClientStock.inventory.reserved')}</span>
           {value(reserved)}
         </div>
       </div>
@@ -121,12 +139,12 @@ function TrackingBadges({ list = [], max = 1, t }) {
       ))}
       {!open && rest > 0 && (
         <button className="text-xs underline" onClick={() => setOpen(true)}>
-          {t('stock.drawer.handle.showMore').replace('{n}', String(rest))}
+          {t('ClientStock.drawer.handle.showMore').replace('{n}', String(rest))}
         </button>
       )}
       {open && list.length > max && (
         <button className="text-xs underline" onClick={() => setOpen(false)}>
-          {t('stock.drawer.handle.showLess')}
+          {t('ClientStock.drawer.handle.showLess')}
         </button>
       )}
     </div>
@@ -329,7 +347,7 @@ if (Number(edit.amazon_stock) !== Number(row.amazon_stock || 0))
       if ((parsedPrice ?? null) !== (currentPrice ?? null)) patch.purchase_price = parsedPrice;
 
       if (Object.keys(patch).length === 0) {
-        setToast({ type: 'success', text: t('stock.table.nothingToSave') });
+        setToast({ type: 'success', text: t('ClientStock.table.nothingToSave') });
         return;
       }
 
@@ -343,7 +361,7 @@ if (Number(edit.amazon_stock) !== Number(row.amazon_stock || 0))
             setRows(prev =>
               prev.map(r => (r.id === row.id ? { ...r, ...rest } : r))
             );
-            setToast({ type: 'success', text: t('stock.table.savedNameAdminOnly') });
+            setToast({ type: 'success', text: t('ClientStock.table.savedNameAdminOnly') });
             return;
           }
           error = r2.error;
@@ -355,7 +373,7 @@ if (Number(edit.amazon_stock) !== Number(row.amazon_stock || 0))
       setRows(prev =>
         prev.map(r => (r.id === row.id ? { ...r, ...patch } : r))
       );
-      setToast({ type: 'success', text: t('stock.table.saved') });
+      setToast({ type: 'success', text: t('ClientStock.table.saved') });
     } catch (e) {
       console.error('[SAVE ERROR]', e);
       setToast({ type: 'error', text: e?.message || 'Failed to save row' });
@@ -693,15 +711,15 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
       <div className="min-w-0">
         <div className="flex items-center">
           <h2 className="text-xl font-semibold text-text-primary whitespace-nowrap">
-            {t('stock.title')}
+            {t('ClientStock.title')}
           </h2>
         </div>
 
         <p
           className="text-sm text-text-secondary"
-          dangerouslySetInnerHTML={{ __html: t('stock.desc') }}
+          dangerouslySetInnerHTML={{ __html: t('ClientStock.desc') }}
         />
-        <StockGuideGrid t={t} notify={setToast} />
+        <StockGuideGrid t={t} tp={tp} />
       </div>
 
       </div>
@@ -724,7 +742,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
                 setSelectedIds(next);
               }}
             />
-            {t('stock.actions.selectAllOnPage')}
+            {t('ClientStock.actions.selectAllOnPage')}
           </label>
         </div>
       </div>
@@ -871,7 +889,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
 
           {/* 4) Inventory breakdown */}
           <td className="px-2 py-2 align-top">
-            <InventoryBreakdown row={r} />
+            <InventoryBreakdown row={r} t={t} />
           </td>
 
           {/* 5) Amazon stock — doar vizual */}
@@ -913,7 +931,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
         </div>
 
         <div className="px-3 py-2 border-t bg-white flex items-center justify-end gap-2 text-sm">
-          <span className="text-text-secondary">{t('stock.pager.rows')}</span>
+          <span className="text-text-secondary">{t('ClientStock.pager.rows')}</span>
           <select
             className="border rounded px-2 py-1"
             value={perPage}
@@ -930,10 +948,10 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
             disabled={pageClamped <= 1}
             aria-label="Previous page"
           >
-            {t('stock.pager.prev')}
+            {t('ClientStock.pager.prev')}
           </button>
           <span>
-            {tp('stock.pager.pageXofY', { x: pageClamped, y: totalPages })}
+            {tp('ClientStock.pager.pageXofY', { x: pageClamped, y: totalPages })}
           </span>
           <button
             className="border rounded px-2 py-1 disabled:opacity-50"
@@ -941,7 +959,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
             disabled={pageClamped >= totalPages}
             aria-label="Next page"
           >
-            {t('stock.pager.next')}
+            {t('ClientStock.pager.next')}
           </button>
         </div>
       </div>
@@ -970,7 +988,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
           {/* Header read-only */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 text-sm px-6 pt-4">
             <div><span className="text-text-secondary">Date:</span> {reqHeader?.created_at?.slice(0,10) || '—'}</div>
-            <div><span className="text-text-secondary">Country:</span> {t(`stock.countries.${reqHeader?.destination_country || 'RO'}`)}</div>
+            <div><span className="text-text-secondary">Country:</span> {t(`ClientStock.countries.${reqHeader?.destination_country || 'RO'}`)}</div>
             <div><span className="text-text-secondary">Status:</span> {reqHeader?.status || 'pending'}</div>
             <div><span className="text-text-secondary">FBA Shipment ID:</span> {reqHeader?.fba_shipment_id || '—'}</div>
           </div>

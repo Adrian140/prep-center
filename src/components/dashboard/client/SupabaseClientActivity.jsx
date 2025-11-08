@@ -163,19 +163,19 @@ export default function SupabaseClientActivity() {
     const point = payload[0]?.payload || {};
     return (
       <div className="bg-white/95 border border-gray-200 rounded-md px-3 py-2 text-sm shadow">
-        <div className="font-medium mb-1">{t('activity.tooltip.date')}: {label}</div>
+        <div className="font-medium mb-1">{t('SupabaseClientActivity.tooltip.date')}: {label}</div>
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#ec4899" }} />
             <span>FBA:</span>
             <strong>{fmtMoneyHT(point.fba)}</strong>
-            <span className="text-gray-500">({point.fbaUnits || 0} {t('activity.thead.units').toLowerCase()})</span>
+            <span className="text-gray-500">({point.fbaUnits || 0} {t('SupabaseClientActivity.thead.units').toLowerCase()})</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#3b82f6" }} />
             <span>FBM:</span>
             <strong>{fmtMoneyHT(point.fbm)}</strong>
-            <span className="text-gray-500">({point.fbmUnits || 0} {t('activity.thead.units').toLowerCase()})</span>
+            <span className="text-gray-500">({point.fbmUnits || 0} {t('SupabaseClientActivity.thead.units').toLowerCase()})</span>
           </div>
         </div>
       </div>
@@ -185,7 +185,7 @@ export default function SupabaseClientActivity() {
   if (!companyId) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4">
-        {t('activity.companyMissing')}
+        {t('SupabaseClientActivity.companyMissing')}
       </div>
     );
   }
@@ -271,24 +271,24 @@ export default function SupabaseClientActivity() {
         </div>
 
       {/* FBA */}
-      <Box title={t('activity.fbaTitle')}>
+      <Box title={t('SupabaseClientActivity.fbaTitle')}>
         <div className="overflow-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 py-2 text-left">{t('activity.thead.date')}</th>
-                <th className="px-3 py-2 text-left">{t('activity.thead.service')}</th>
-                <th className="px-3 py-2 text-right">{t('activity.thead.unitPrice')} (HT)</th>
-                <th className="px-3 py-2 text-right">{t('activity.thead.units')}</th>
-                 <th className="px-3 py-2 text-right">{t('activity.thead.total')} (HT)</th>
-                <th className="px-3 py-2 text-left">{t('activity.thead.adminNotes')}</th>
+                <th className="px-3 py-2 text-left">{t('SupabaseClientActivity.thead.date')}</th>
+                <th className="px-3 py-2 text-left">{t('SupabaseClientActivity.thead.service')}</th>
+                <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.unitPrice')} (HT)</th>
+                <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.units')}</th>
+                 <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.total')} (HT)</th>
+                <th className="px-3 py-2 text-left">{t('SupabaseClientActivity.thead.adminNotes')}</th>
               </tr>
             </thead>
             <tbody>
               {fba.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-3 py-4 text-center text-text-secondary">
-                    {t('activity.noRecords')}
+                    {t('SupabaseClientActivity.noRecords')}
                   </td>
                 </tr>
               ) : (
@@ -313,7 +313,7 @@ export default function SupabaseClientActivity() {
                   })}
                   <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
                     <td className="px-3 py-2" colSpan={3}>
-                      {t('activity.totals')}
+                      {t('SupabaseClientActivity.totals')}
                     </td>
                     <td className="px-3 py-2 text-right">{fbaTotals.units}</td>
                     <td className="px-3 py-2 text-right">{fmtMoneyHT(fbaTotals.total)}</td>
@@ -327,24 +327,24 @@ export default function SupabaseClientActivity() {
       </Box>
 
       {/* FBM */}
-      <Box title={t('activity.fbmTitle')}>
+      <Box title={t('SupabaseClientActivity.fbmTitle')}>
         <div className="overflow-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 py-2 text-left">{t('activity.thead.date')}</th>
-                <th className="px-3 py-2 text-left">{t('activity.thead.service')}</th>
-                 <th className="px-3 py-2 text-right">{t('activity.thead.unitPrice')} (HT)</th>
-                <th className="px-3 py-2 text-right">{t('activity.thead.ordersUnits')}</th>
-                 <th className="px-3 py-2 text-right">{t('activity.thead.total')} (HT)</th>
-                <th className="px-3 py-2 text-left">{t('activity.thead.adminNotes')}</th>
+                <th className="px-3 py-2 text-left">{t('SupabaseClientActivity.thead.date')}</th>
+                <th className="px-3 py-2 text-left">{t('SupabaseClientActivity.thead.service')}</th>
+                 <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.unitPrice')} (HT)</th>
+                <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.ordersUnits')}</th>
+                 <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.total')} (HT)</th>
+                <th className="px-3 py-2 text-left">{t('SupabaseClientActivity.thead.adminNotes')}</th>
               </tr>
             </thead>
             <tbody>
               {fbm.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-3 py-4 text-center text-text-secondary">
-                    {t('activity.noRecords')}
+                    {t('SupabaseClientActivity.noRecords')}
                   </td>
                 </tr>
               ) : (
@@ -371,7 +371,7 @@ export default function SupabaseClientActivity() {
                   })}
                   <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
                     <td className="px-3 py-2" colSpan={3}>
-                      {t('activity.totals')}
+                      {t('SupabaseClientActivity.totals')}
                     </td>
                     <td className="px-3 py-2 text-right">{fbmTotals.ordersUnits}</td>
                     <td className="px-3 py-2 text-right">{fmtMoneyHT(fbmTotals.total)}</td>
@@ -387,13 +387,13 @@ export default function SupabaseClientActivity() {
         <div className="mt-8">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-md font-semibold text-text-primary">
-              {t('activity.chartTitle')}
+              {t('SupabaseClientActivity.chartTitle')}
             </h4>
             <div className="flex gap-2">
               {[
-                { k: "1m", label: t('activity.range.m1') },
-                { k: "3m", label: t('activity.range.m3') },
-                { k: "all", label: t('activity.range.all') },
+                { k: "1m", label: t('SupabaseClientActivity.range.m1') },
+                { k: "3m", label: t('SupabaseClientActivity.range.m3') },
+                { k: "all", label: t('SupabaseClientActivity.range.all') },
               ].map((opt) => (
                 <button
                   key={opt.k}

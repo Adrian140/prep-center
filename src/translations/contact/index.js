@@ -4,7 +4,6 @@ import { contactDe } from './de';
 import { contactIt } from './it';
 import { contactEs } from './es';
 import { contactRo } from './ro';
-import { contactPl } from './pl';
 
 export const contactTranslations = {
   en: contactEn,
@@ -12,8 +11,7 @@ export const contactTranslations = {
   de: contactDe,
   it: contactIt,
   es: contactEs,
-  ro: contactRo,
-  pl: contactPl
+  ro: contactRo
 };
 
 export const useContactTranslation = (currentLanguage) => {

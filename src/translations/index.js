@@ -1,6 +1,7 @@
 // FILE: src/translations/index.js
 import { useLanguage } from '../contexts/LanguageContext';
 import CLIENT_EXPORTS_DICT from '../i18n/ClientExports';
+import CLIENT_RECIVING_DICT from '../i18n/ClientReciving';
 
 // (existente – pentru restul site-ului)
 import { en } from './en';
@@ -9,7 +10,6 @@ import { de } from './de';
 import { it } from './it';
 import { es } from './es';
 import { ro } from './ro';
-import { pl } from './pl';
 
 // (nou – dashboard)
 import dashboardDict from './dashboard.json';
@@ -18,7 +18,7 @@ import dashboardDict from './dashboard.json';
 import { terms as TERMS_I18N } from './legal/terms';
 import { privacy as PRIVACY_I18N } from './legal/privacy';
 
-export const translations = { en, fr, de, it, es, ro, pl };
+export const translations = { en, fr, de, it, es, ro };
 
 // ===== helper comun =====
 const deepGet = (obj, path) =>
@@ -67,13 +67,23 @@ const interpolate = (str, vars = {}) =>
     ? str.replace(/\{(\w+)\}/g, (_, k) => (vars[k] ?? `{${k}}`))
     : str;
 
+const EXTRA_DICTIONARIES = [CLIENT_EXPORTS_DICT, CLIENT_RECIVING_DICT];
+
 export const useDashboardTranslation = () => {
   const { currentLanguage } = useLanguage();
 
   // 1) ia pachetul principal (dashboard.json) în limba curentă
   const base = pickLocale(dashboardDict, currentLanguage);
-  // 2) ia dicționarul pentru Exports în limba curentă
-  const extra = pickLocale(CLIENT_EXPORTS_DICT, currentLanguage);
+  // 2) merget extra dicționare (ClientExports, ClientReceiving, etc.)
+  const extra = EXTRA_DICTIONARIES.reduce((acc, bundle, index) => {
+    const fragment = pickLocale(bundle, currentLanguage) || {};
+    if (bundle === CLIENT_RECIVING_DICT) {
+      // namespace pentru ClientReceiving
+      acc.ClientReceiving = fragment;
+      return acc;
+    }
+    return { ...acc, ...fragment };
+  }, {});
   // 3) lipește-le; cheile din extra au prioritate
   const dict = { ...base, ...extra };
 

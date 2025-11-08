@@ -4,7 +4,7 @@ import { Upload, FileText } from 'lucide-react';
 
 export default function AdminUserGuide() {
   const [section, setSection] = React.useState('receiving'); 
-  const GUIDE_LANGS = ['fr','en','de','it','es','ro','pl'];
+const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
 
   const [guideLang, setGuideLang] = React.useState('fr');
   const [guideFile, setGuideFile] = React.useState(null);

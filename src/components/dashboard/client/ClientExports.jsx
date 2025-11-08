@@ -289,7 +289,7 @@ export default function ClientExports() {
 
   const handleExport = async () => {
     if (!profile?.company_id) {
-      alert(t('exports.alerts.noCompany'));
+      alert(t('ClientExports.alerts.noCompany'));
       return;
     }
     setBusy(true);
@@ -366,7 +366,7 @@ export default function ClientExports() {
       XLSX.writeFile(wb, filename);
     } catch (e) {
       console.error(e);
-      alert(t('exports.alerts.failed'));
+      alert(t('ClientExports.alerts.failed'));
     } finally {
       setBusy(false);
     }
@@ -381,7 +381,7 @@ export default function ClientExports() {
       if (error) throw error;
       window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
     } catch (e) {
-      alert(t('exports.alerts.failed'));
+      alert(t('ClientExports.alerts.failed'));
     }
   };
 
