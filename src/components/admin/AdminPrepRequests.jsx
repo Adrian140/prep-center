@@ -180,13 +180,35 @@ export default function AdminPrepRequests() {
                     <StatusPill s={r.status} />
                   </td>
                   <td className="px-4 py-3">
-                    {(r.prep_request_items || []).slice(0, 3).map((it) => (
-                      <div key={it.id}>
-                        ASIN: <b>{it.asin}</b> · SKU: {it.sku} · {it.units_requested} u.
-                      </div>
-                    ))}
+                    <div className="flex flex-wrap gap-3">
+                      {(r.prep_request_items || []).slice(0, 3).map((it) => {
+                        const thumb = it.stock_item?.image_url || it.image_url || '';
+                        const code = it.asin || it.sku || '—';
+                        return (
+                          <div key={it.id} className="flex items-center gap-2 min-w-[140px]">
+                            {thumb ? (
+                              <img
+                                src={thumb}
+                                alt={it.product_name || it.stock_item?.name || code}
+                                className="w-12 h-12 rounded border object-cover"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded border bg-gray-50 text-[10px] text-text-secondary flex items-center justify-center">
+                                No Img
+                              </div>
+                            )}
+                            <div className="text-xs leading-tight">
+                              <div className="font-semibold font-mono">{code}</div>
+                              <div className="text-text-secondary">
+                                {it.units_requested} u · SKU: {it.sku || '—'}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                     {(r.prep_request_items || []).length > 3 && (
-                      <div className="text-xs text-text-secondary">
+                      <div className="text-xs text-text-secondary mt-1">
                         +{(r.prep_request_items || []).length - 3} produse…
                       </div>
                     )}

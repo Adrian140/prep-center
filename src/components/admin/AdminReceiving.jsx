@@ -491,25 +491,41 @@ const processToStock = async () => {
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
-               <tr>
-              <th className="px-4 py-3 text-left">ASIN</th>
-              <th className="px-4 py-3 text-left">Nom du Produit</th>
-              <th className="px-4 py-3 text-right">Quantité</th>
-              <th className="px-4 py-3 text-left">SKU</th>
-            </tr>
+              <tr>
+                <th className="px-4 py-3 text-left">Foto</th>
+                <th className="px-4 py-3 text-left">ASIN</th>
+                <th className="px-4 py-3 text-left">Nom du Produit</th>
+                <th className="px-4 py-3 text-right">Quantité</th>
+                <th className="px-4 py-3 text-left">SKU</th>
+              </tr>
             </thead>
             <tbody>
               {items.map((item) => {
                 const asin = item.asin || item.stock_item?.asin || '—';
                 const productName = item.product_name || item.stock_item?.name || '—';
+                const imageUrl = item.stock_item?.image_url || item.image_url || '';
                 return (
-                <tr key={item.id} className="border-t">
-                  <td className="px-4 py-3 font-mono">{asin}</td>
-                  <td className="px-4 py-3">{productName}</td>
-                  <td className="px-4 py-3 text-right">{item.quantity_received}</td>
-                  <td className="px-4 py-3 font-mono">{item.sku || '—'}</td>
-                </tr>
-              )})}
+                  <tr key={item.id} className="border-t">
+                    <td className="px-4 py-3">
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt={productName}
+                          className="w-14 h-14 object-cover rounded border"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 border rounded bg-gray-50 text-[10px] text-text-secondary flex items-center justify-center">
+                          No Img
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-mono">{asin}</td>
+                    <td className="px-4 py-3">{productName}</td>
+                    <td className="px-4 py-3 text-right">{item.quantity_received}</td>
+                    <td className="px-4 py-3 font-mono">{item.sku || '—'}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -743,7 +759,8 @@ const filteredShipments = shipments.filter(shipment => {
               <th className="px-4 py-3 text-left">Transporteur</th>
               <th className="px-4 py-3 text-left">Tracking</th>
               <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-center">Produits</th>
+              <th className="px-4 py-3 text-left">Produits</th>
+              <th className="px-4 py-3 text-center">Lignes</th>
               <th className="px-4 py-3 text-left">Date</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -806,8 +823,40 @@ const filteredShipments = shipments.filter(shipment => {
                   <td className="px-4 py-3">
                     <StatusPill status={shipment.status} />
                   </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {(shipment.receiving_items || []).slice(0, 4).map((item, idx) => {
+                        const thumb =
+                          item.stock_item?.image_url ||
+                          item.image_url ||
+                          '';
+                        const title = item.product_name || item.stock_item?.name || `Ligne ${idx + 1}`;
+                        return thumb ? (
+                          <img
+                            key={`${shipment.id}-${item.id || idx}`}
+                            src={thumb}
+                            alt={title}
+                            className="w-10 h-10 rounded border object-cover"
+                          />
+                        ) : (
+                          <div
+                            key={`${shipment.id}-${item.id || idx}-ph`}
+                            className="w-10 h-10 rounded border bg-gray-100 flex items-center justify-center text-[10px] text-gray-400"
+                            title={title}
+                          >
+                            N/A
+                          </div>
+                        );
+                      })}
+                      {(shipment.receiving_items?.length || 0) > 4 && (
+                        <span className="text-xs text-text-secondary">
+                          +{(shipment.receiving_items?.length || 0) - 4} autres
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-center">
-                    <span className="text-text-primary">
+                    <span className="text-text-primary font-semibold">
                       {shipment.receiving_items?.length || 0}
                     </span>
                   </td>

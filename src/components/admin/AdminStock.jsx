@@ -1,5 +1,5 @@
 // FILE: src/components/admin/AdminStock.jsx
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Trash2, Edit3, Save, X } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import Section from '../common/Section';
@@ -8,6 +8,11 @@ const pick = (obj, keys) => Object.fromEntries(keys.map(k => [k, obj[k]]));
 
 export default function AdminStock({ rows = [], reload, companyId, profile }) {
   const [edit, setEdit] = useState(null);
+  const [localRows, setLocalRows] = useState(rows);
+
+  useEffect(() => {
+    setLocalRows(rows);
+  }, [rows]);
 
   // INPUT-URI LOCALE pentru +/- pe fiecare rând
   const [qtyInputs, setQtyInputs] = useState({}); // { [id]: { dec: '', inc: '' } }
@@ -18,7 +23,7 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
     qty: '',
     name: '',
     asin: '',
-    purchase_price: '',
+    sku: '',
     obs_admin: '',
   });
 
@@ -36,26 +41,20 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
       qty: form.qty === '' ? 0 : Number(form.qty),
       name: form.name || null,
       asin: form.asin || null,
-      purchase_price:
-        form.purchase_price === '' || form.purchase_price == null
-          ? null
-          : Number(form.purchase_price),
+      sku: form.sku || null,
       obs_admin: form.obs_admin || null,
       created_by: profile.id,
     };
     const { error } = await supabase.from('stock_items').insert(payload);
     if (error) return alert(error.message);
-    setForm({ ean: '', qty: '', name: '', asin: '', purchase_price: '', obs_admin: '' });
+    setForm({ ean: '', qty: '', name: '', asin: '', sku: '', obs_admin: '' });
     reload?.();
   };
 
   const saveEdit = async () => {
     if (!edit) return;
-    const payload = pick(edit, ['ean','qty','name','asin','purchase_price','obs_admin']);
+    const payload = pick(edit, ['ean','qty','name','asin','sku','obs_admin']);
     if (payload.qty != null) payload.qty = Number(payload.qty);
-    if (payload.purchase_price !== '' && payload.purchase_price != null) {
-      payload.purchase_price = Number(payload.purchase_price);
-    }
     const { error } = await supabase.from('stock_items').update(payload).eq('id', edit.id);
     if (error) return alert(error.message);
     setEdit(null);
@@ -101,7 +100,9 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
         inc: which === 'inc' ? '' : (s[row.id]?.inc ?? ''),
       },
     }));
-    reload?.();
+    setLocalRows((prev) =>
+      prev.map((item) => (item.id === row.id ? { ...item, qty: next } : item))
+    );
   };
 
   // === celula de cantitate (stânga = scade, dreapta = adaugă) ===
@@ -115,8 +116,8 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
           type="text"
           inputMode="numeric"
           pattern="\\d*"
-          className="border rounded text-right px-1 py-0.5
-                     w-[28px] h-[32px] text-[13px]
+          className="border rounded text-right px-1.5 py-1
+                     w-14 h-[34px] text-[13px]
                      [appearance:textfield]
                      [&::-webkit-outer-spin-button]:appearance-none
                      [&::-webkit-inner-spin-button]:appearance-none"
@@ -141,8 +142,8 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
           type="text"
           inputMode="numeric"
           pattern="\\d*"
-          className="border rounded text-right px-1 py-0.5
-                     w-[28px] h-[32px] text-[13px]
+          className="border rounded text-right px-1.5 py-1
+                     w-14 h-[34px] text-[13px]
                      [appearance:textfield]
                      [&::-webkit-outer-spin-button]:appearance-none
                      [&::-webkit-inner-spin-button]:appearance-none"
@@ -159,21 +160,24 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
       </div>
     );
   };
-const sortedRows = [...rows].sort((a, b) => {
-            const qtyA = Number(a.qty) || 0;
-            const qtyB = Number(b.qty) || 0;
-            if (qtyA > 0 && qtyB > 0) return 0;     // ambele active → păstrează ordinea
-            if (qtyA === 0 && qtyB > 0) return 1;   // 0 merge după
-            if (qtyA > 0 && qtyB === 0) return -1;  // activ merge înainte
-            return 0;                               // ambele 0 → ordinea originală
-          });
+  const sortedRows = useMemo(() => {
+    const list = [...localRows];
+    return list.sort((a, b) => {
+      const qtyA = Number(a.qty) || 0;
+      const qtyB = Number(b.qty) || 0;
+      if (qtyA > 0 && qtyB > 0) return 0;
+      if (qtyA === 0 && qtyB > 0) return 1;
+      if (qtyA > 0 && qtyB === 0) return -1;
+      return 0;
+    });
+  }, [localRows]);
   return (
     <Section
       title="Stoc"
       right={
         <div className="w-full">
           {/* -1 coloană: fără Link */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
             <input
               placeholder="EAN (admin)"
               className="border rounded px-2 py-1 w-full"
@@ -193,16 +197,16 @@ const sortedRows = [...rows].sort((a, b) => {
               onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
             />
             <input
-              placeholder="ASIN / SKU (client)"
+              placeholder="ASIN (Amazon)"
               className="border rounded px-2 py-1 w-full"
               value={form.asin}
               onChange={(e) => setForm((s) => ({ ...s, asin: e.target.value }))}
             />
             <input
-              placeholder="Preț ach. (client)"
+              placeholder="SKU (client)"
               className="border rounded px-2 py-1 w-full"
-              value={form.purchase_price}
-              onChange={(e) => setForm((s) => ({ ...s, purchase_price: e.target.value }))}
+              value={form.sku}
+              onChange={(e) => setForm((s) => ({ ...s, sku: e.target.value }))}
             />
             <input
               placeholder="Obs admin"
@@ -227,95 +231,114 @@ const sortedRows = [...rows].sort((a, b) => {
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-3 py-2 text-left">EAN (admin)</th>
-              <th className="px-3 py-2 text-right">Cantitate</th>
-              <th className="px-3 py-2 text-left">Product name</th>
-              <th className="px-3 py-2 text-left">ASIN / SKU (client)</th>
-              <th className="px-3 py-2 text-right">Preț ach. (client)</th>
-              <th className="px-3 py-2 text-right">Valoare (auto)</th>
+              <th className="px-3 py-2 text-left w-24">Foto</th>
+              <th className="px-3 py-2 text-left">Produs</th>
+              <th className="px-3 py-2 text-left">Amazon</th>
+              <th className="px-3 py-2 text-right">Stoc Prep Center</th>
               <th className="px-3 py-2 text-left">Obs admin</th>
               <th className="px-3 py-2 text-right">Acțiuni</th>
             </tr>
           </thead>
 
           <tbody>
-            {rows.length === 0 ? (
+            {localRows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-text-secondary">
+                <td colSpan={6} className="px-3 py-4 text-center text-text-secondary">
                   Fără înregistrări.
                 </td>
               </tr>
             ) : (
               sortedRows.map((l) => {
                 const isEdit = edit?.id === l.id;
+                const thumb = l.image_url;
+                const amazonBlocks = [
+                  { label: 'Disponibil', value: l.amazon_stock },
+                  { label: 'Inbound', value: l.amazon_inbound },
+                  { label: 'Reserved', value: l.amazon_reserved },
+                  { label: 'Unfulfillable', value: l.amazon_unfulfillable },
+                ];
                 return (
-                  <tr key={l.id} className="border-t">
-                    {/* EAN */}
+                  <tr key={l.id} className="border-t align-top">
+                    <td className="px-3 py-2">
+                      {thumb ? (
+                        <img
+                          src={thumb}
+                          alt={l.name || l.asin || 'Produs'}
+                          className="w-16 h-16 rounded border object-cover"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded border bg-gray-50 text-[11px] text-text-secondary flex items-center justify-center">
+                          No Img
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-2">
                       {isEdit ? (
-                        <input
-                          className="border rounded px-2 py-1 w-40"
-                          value={edit.ean || ''}
-                          onChange={(e) => setEdit((s) => ({ ...s, ean: e.target.value }))}
-                        />
-                      ) : (l.ean || '—')}
+                        <>
+                          <input
+                            className="border rounded px-2 py-1 w-full mb-2"
+                            value={edit.name || ''}
+                            onChange={(e) => setEdit((s) => ({ ...s, name: e.target.value }))}
+                          />
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                            <input
+                              className="border rounded px-2 py-1"
+                              placeholder="ASIN"
+                              value={edit.asin || ''}
+                              onChange={(e) => setEdit((s) => ({ ...s, asin: e.target.value }))}
+                            />
+                            <input
+                              className="border rounded px-2 py-1"
+                              placeholder="SKU"
+                              value={edit.sku || ''}
+                              onChange={(e) => setEdit((s) => ({ ...s, sku: e.target.value }))}
+                            />
+                          </div>
+                          <input
+                            className="border rounded px-2 py-1 w-full"
+                            placeholder="EAN"
+                            value={edit.ean || ''}
+                            onChange={(e) => setEdit((s) => ({ ...s, ean: e.target.value }))}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <div className="font-semibold text-text-primary">{l.name || '—'}</div>
+                          <div className="text-xs text-text-secondary mt-1 space-y-0.5 font-mono">
+                            <div>EAN: {l.ean || '—'}</div>
+                            <div>ASIN: {l.asin || '—'}</div>
+                            <div>SKU: {l.sku || '—'}</div>
+                          </div>
+                        </>
+                      )}
                     </td>
-
-                    {/* Cantitate: minus / valoare / plus (mereu activ, fără Edit) */}
+                    <td className="px-3 py-2">
+                      <div className="text-xs text-text-secondary">
+                        <div className="font-semibold mb-1">Amazon inventory</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {amazonBlocks.map((block) => (
+                            <div key={block.label} className="bg-gray-100 rounded px-2 py-1 text-center">
+                              <div className="text-[10px] uppercase tracking-wide text-gray-500">{block.label}</div>
+                              <div className="text-sm font-semibold text-text-primary">
+                                {Number(block.value || 0)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </td>
                     <td className="px-3 py-2 text-right">
                       <QtyCell row={l} />
                     </td>
-
-                    {/* Product name */}
                     <td className="px-3 py-2">
                       {isEdit ? (
                         <input
-                          className="border rounded px-2 py-1 w-56"
-                          value={edit.name || ''}
-                          onChange={(e) => setEdit((s) => ({ ...s, name: e.target.value }))}
-                        />
-                      ) : (l.name || '—')}
-                    </td>
-
-                    {/* ASIN / SKU */}
-                    <td className="px-3 py-2">
-                      {isEdit ? (
-                        <input
-                          className="border rounded px-2 py-1 w-44"
-                          value={edit.asin || ''}
-                          onChange={(e)=>setEdit(s=>({...s,asin:e.target.value}))}
-                        />
-                      ) : (l.asin || '—')}
-                    </td>
-
-                    {/* Preț achiziție */}
-                    <td className="px-3 py-2 text-right">
-                      {isEdit ? (
-                        <input
-                          className="border rounded px-2 py-1 w-24 text-right"
-                          value={edit.purchase_price ?? ''}
-                          onChange={(e)=>setEdit(s=>({...s,purchase_price:Number(e.target.value||0)}))}
-                        />
-                      ) : (l.purchase_price != null ? Number(l.purchase_price).toFixed(2) : '—')}
-                    </td>
-
-                    {/* Valoare stoc */}
-                    <td className="px-3 py-2 text-right">
-                      {l.stock_value != null ? Number(l.stock_value).toFixed(2) : '—'}
-                    </td>
-
-                    {/* Obs admin */}
-                    <td className="px-3 py-2">
-                      {isEdit ? (
-                        <input
-                          className="border rounded px-2 py-1 w-56"
+                          className="border rounded px-2 py-1 w-full"
                           value={edit.obs_admin || ''}
                           onChange={(e)=>setEdit(s=>({...s,obs_admin:e.target.value}))}
                         />
                       ) : (l.obs_admin || '—')}
                     </td>
-
-                    {/* Acțiuni */}
                     <td className="px-3 py-2 text-right">
                       {isEdit ? (
                         <div className="flex justify-end gap-2">
@@ -345,21 +368,11 @@ const sortedRows = [...rows].sort((a, b) => {
               })
             )}
           </tbody>
-
-          <tfoot>
-            <tr>
-              <td colSpan={8} className="px-3 py-2"></td>
-            </tr>
-          </tfoot>
           <tfoot className="border-t font-semibold bg-gray-50">
             <tr>
-              <td className="px-3 py-2 text-right" colSpan={1}>Total</td>
+              <td className="px-3 py-2 text-right" colSpan={3}>Total</td>
               <td className="px-3 py-2 text-right">
-                {rows.reduce((sum, r) => sum + (Number(r.qty) || 0), 0)}
-              </td>
-              <td colSpan={3}></td>
-              <td className="px-3 py-2 text-right">
-                {rows.reduce((sum, r) => sum + (Number(r.stock_value) || 0), 0).toFixed(2)}
+                {localRows.reduce((sum, r) => sum + (Number(r.qty) || 0), 0)}
               </td>
               <td colSpan={2}></td>
             </tr>

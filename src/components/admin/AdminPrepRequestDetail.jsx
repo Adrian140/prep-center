@@ -432,6 +432,7 @@ onChanged?.();
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-3 py-2 text-left">Photo</th>
                   <th className="px-3 py-2 text-left">ASIN / SKU</th>
                   <th className="px-3 py-2 text-left">Product name</th>
                   <th className="px-3 py-2 text-right">Units requested</th>
@@ -444,7 +445,7 @@ onChanged?.();
               <tbody>
                 {(row.prep_request_items || []).length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-3 py-4 text-center text-text-secondary">
+                    <td colSpan={8} className="px-3 py-4 text-center text-text-secondary">
                       —
                     </td>
                   </tr>
@@ -454,10 +455,24 @@ onChanged?.();
                     const snd = Number(it.units_sent ?? 0);
                     const clamped = Math.min(Math.max(Number.isFinite(snd) ? snd : 0, 0), req);
                     const removed = req - clamped;
+                    const imageUrl = it.stock_item?.image_url || it.image_url || '';
 
                     return (
                       <tr key={it.id} className="border-t align-top">
-                        <td className="px-3 py-2" title={nameOf(it)}>
+                        <td className="px-3 py-2">
+                          {imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              alt={nameOf(it)}
+                              className="w-12 h-12 rounded border object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded border bg-gray-50 text-[10px] text-text-secondary flex items-center justify-center">
+                              No Img
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 font-mono" title={nameOf(it)}>
                           {codeOf(it) || "—"}
                         </td>
                         <td className="px-3 py-2">
