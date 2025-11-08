@@ -25,7 +25,8 @@
       "billing": "Billing details",
       "invoices": "My invoices",
       "integrations": "Integrations",
-      "security": "Security"
+      "security": "Security",
+      "reports": "Reports"
     },
     "billing": {
       "title": "Billing details",
@@ -458,6 +459,18 @@
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
       }
+    },
+    "reportsMenu": {
+      "shipments": "Prep-center shipments",
+      "receiving": "Prep-center receiving"
+    },
+    "ClientPrepShipments": {
+      "title": "Prep-center shipments",
+      "desc": "Monitor the status of shipments prepared in our warehouse.",
+      "table": {
+        "title": "Recent preparation requests",
+        "empty": "No shipments yet."
+      }
     }
   },
   "ro": {
@@ -486,7 +499,8 @@
       "billing": "Date de facturare",
       "invoices": "Facturile mele",
       "integrations": "Integrări",
-      "security": "Securitate"
+      "security": "Securitate",
+      "reports": "Rapoarte"
     },
     "billing": {
       "title": "Date de facturare",
@@ -919,6 +933,18 @@
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
       }
+    },
+    "reportsMenu": {
+      "shipments": "Expedieri prep-center",
+      "receiving": "Recepții prep-center"
+    },
+    "ClientPrepShipments": {
+      "title": "Expedieri prep-center",
+      "desc": "Monitorizează statusul expedierilor pregătite în depozit.",
+      "table": {
+        "title": "Solicitări de pregătire recente",
+        "empty": "Nu există expedieri încă."
+      }
     }
   },
   "fr": {
@@ -947,7 +973,8 @@
       "billing": "Coordonnées de facturation",
       "invoices": "Mes factures",
       "integrations": "Intégrations",
-      "security": "Sécurité"
+      "security": "Sécurité",
+      "reports": "Rapports"
     },
     "billing": {
       "title": "Coordonnées de facturation",
@@ -1380,6 +1407,18 @@
       "card": {
         "marketplaceAlt": "Marketplace : {id}"
       }
+    },
+    "reportsMenu": {
+      "shipments": "Expéditions prep-center",
+      "receiving": "Réceptions prep-center"
+    },
+    "ClientPrepShipments": {
+      "title": "Expéditions prep-center",
+      "desc": "Suivez l’état des expéditions préparées dans notre entrepôt.",
+      "table": {
+        "title": "Demandes de préparation récentes",
+        "empty": "Aucune expédition pour le moment."
+      }
     }
   },
   "de": {
@@ -1408,7 +1447,8 @@
       "billing": "Rechnungsdaten",
       "invoices": "Meine Rechnungen",
       "integrations": "Integrationen",
-      "security": "Sicherheit"
+      "security": "Sicherheit",
+      "reports": "Berichte"
     },
     "billing": {
       "title": "Rechnungsdaten",
@@ -1841,6 +1881,18 @@
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
       }
+    },
+    "reportsMenu": {
+      "shipments": "Prep-Center Sendungen",
+      "receiving": "Prep-Center Wareneingang"
+    },
+    "ClientPrepShipments": {
+      "title": "Prep-Center Sendungen",
+      "desc": "Überwache den Status der in unserem Lager vorbereiteten Sendungen.",
+      "table": {
+        "title": "Aktuelle Vorbereitungsvorgänge",
+        "empty": "Noch keine Sendungen."
+      }
     }
   },
   "it": {
@@ -1869,7 +1921,8 @@
       "billing": "Dati di fatturazione",
       "invoices": "Le mie fatture",
       "integrations": "Integrazioni",
-      "security": "Sicurezza"
+      "security": "Sicurezza",
+      "reports": "Report"
     },
     "billing": {
       "title": "Dati di fatturazione",
@@ -2302,6 +2355,18 @@
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
       }
+    },
+    "reportsMenu": {
+      "shipments": "Spedizioni prep-center",
+      "receiving": "Ricezioni prep-center"
+    },
+    "ClientPrepShipments": {
+      "title": "Spedizioni prep-center",
+      "desc": "Monitora lo stato delle spedizioni preparate nel nostro magazzino.",
+      "table": {
+        "title": "Richieste di preparazione recenti",
+        "empty": "Nessuna spedizione ancora."
+      }
     }
   },
   "es": {
@@ -2330,7 +2395,8 @@
       "billing": "Datos de facturación",
       "invoices": "Mis facturas",
       "integrations": "Integraciones",
-      "security": "Seguridad"
+      "security": "Seguridad",
+      "reports": "Reportes"
     },
     "billing": {
       "title": "Datos de facturación",
@@ -2762,6 +2828,18 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
+      }
+    },
+    "reportsMenu": {
+      "shipments": "Envíos del prep-center",
+      "receiving": "Recepciones del prep-center"
+    },
+    "ClientPrepShipments": {
+      "title": "Envíos del prep-center",
+      "desc": "Supervisa el estado de los envíos preparados en nuestro almacén.",
+      "table": {
+        "title": "Solicitudes de preparación recientes",
+        "empty": "Sin envíos por ahora."
       }
     }
   }

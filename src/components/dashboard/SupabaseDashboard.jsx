@@ -2,8 +2,19 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  User, CreditCard, FileText, Shield, MapPin, LogOut,
-  Package, Boxes, RotateCcw, Download, Truck, Link2
+  User,
+  CreditCard,
+  FileText,
+  Shield,
+  MapPin,
+  LogOut,
+  Package,
+  Boxes,
+  RotateCcw,
+  Download,
+  Truck,
+  Link2,
+  ChevronDown
 } from 'lucide-react';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../translations';
@@ -21,24 +32,43 @@ import ClientReturns from './client/ClientReturns';
 import ClientExports from './client/ClientExports';
 import ClientReceiving from './client/ClientReceiving';
 import ClientIntegrations from './client/ClientIntegrations';
+import ClientPrepShipments from './client/ClientPrepShipments';
+
+const REPORT_TABS = [
+  { id: 'reports-shipments', labelKey: 'reportsMenu.shipments', icon: Package },
+  { id: 'reports-receiving', labelKey: 'reportsMenu.receiving', icon: Truck }
+];
 
 function SupabaseDashboard() {
   const { t, tp } = useDashboardTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ Save & restore last selected tab
-  const [activeTab, setActiveTab] = useState(() => {
-  const params = new URLSearchParams(window.location.search);
-  const initialTab = params.get('tab');
-  const saved = localStorage.getItem('clientDashboardTab');
   const validTabs = [
-    'activity', 'receiving', 'fba', 'fbm', 'stock',
-    'returns', 'exports', 'profile', 'billing', 'invoices', 'security'
+    'activity',
+    'fba',
+    'fbm',
+    'stock',
+    'returns',
+    'exports',
+    'profile',
+    'billing',
+    'invoices',
+    'integrations',
+    'security',
+    ...REPORT_TABS.map((rt) => rt.id)
   ];
-  if (initialTab && validTabs.includes(initialTab)) return initialTab;
-  return validTabs.includes(saved) ? saved : 'fba';
-});
+
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const initialTab = params.get('tab');
+    const saved = localStorage.getItem('clientDashboardTab');
+    if (initialTab && validTabs.includes(initialTab)) return initialTab;
+    return validTabs.includes(saved) ? saved : 'fba';
+  });
+  const [reportsOpen, setReportsOpen] = useState(() =>
+    REPORT_TABS.some((rt) => rt.id === activeTab)
+  );
 
 useEffect(() => {
   localStorage.setItem('clientDashboardTab', activeTab);
@@ -48,35 +78,41 @@ useEffect(() => {
   }
 }, [activeTab, location.search, navigate]);
 
+useEffect(() => {
+  if (REPORT_TABS.some((rt) => rt.id === activeTab)) {
+    setReportsOpen(true);
+  }
+}, [activeTab]);
+
   const { user, profile, signOut } = useSupabaseAuth();
 
   const tabs = [
     // Operations
-    { id: 'activity', label: t('sidebar.activity'), icon: FileText,  group: 'Operations' },
-    { id: 'receiving', label: 'Réception', icon: Truck, group: 'Operations' },
-    { id: 'fba',      label: t('sidebar.fba'),      icon: Package,   group: 'Operations' },
-    { id: 'fbm',      label: t('sidebar.fbm'),      icon: Package,   group: 'Operations' },
-    { id: 'stock',    label: t('sidebar.stock'),    icon: Boxes,     group: 'Operations' },
-    { id: 'returns',  label: t('sidebar.returns'),  icon: RotateCcw, group: 'Operations' },
-    { id: 'exports',  label: t('sidebar.exports'),  icon: Download,  group: 'Operations' },
+    { id: 'activity', label: t('sidebar.activity'), icon: FileText, group: 'Operations' },
+    { id: 'fba', label: t('sidebar.fba'), icon: Package, group: 'Operations' },
+    { id: 'fbm', label: t('sidebar.fbm'), icon: Package, group: 'Operations' },
+    { id: 'stock', label: t('sidebar.stock'), icon: Boxes, group: 'Operations' },
+    { id: 'returns', label: t('sidebar.returns'), icon: RotateCcw, group: 'Operations' },
+    { id: 'exports', label: t('sidebar.exports'), icon: Download, group: 'Operations' },
 
     // Account
-    { id: 'profile',      label: t('sidebar.profile'),      icon: User,      group: 'Account' },
-    { id: 'billing',      label: t('sidebar.billing'),      icon: CreditCard, group: 'Account' },
-    { id: 'invoices',     label: t('sidebar.invoices'),     icon: FileText,  group: 'Account' },
-    { id: 'integrations', label: 'Integrations',            icon: Link2,     group: 'Account' },
-    { id: 'security',     label: t('sidebar.security'),     icon: Shield,    group: 'Account' },
+    { id: 'profile', label: t('sidebar.profile'), icon: User, group: 'Account' },
+    { id: 'billing', label: t('sidebar.billing'), icon: CreditCard, group: 'Account' },
+    { id: 'invoices', label: t('sidebar.invoices'), icon: FileText, group: 'Account' },
+    { id: 'integrations', label: 'Integrations', icon: Link2, group: 'Account' },
+    { id: 'security', label: t('sidebar.security'), icon: Shield, group: 'Account' }
   ];
 
 const renderTabContent = useMemo(() => {
   switch (activeTab) {
     case 'activity':  return <SupabaseClientActivity />;
-    case 'receiving': return <ClientReceiving />;
     case 'fba':       return <ClientFBAReport />;
     case 'fbm':       return <ClientFBMReport />;
     case 'stock':     return <ClientStock />;
     case 'returns':   return <ClientReturns />;
     case 'exports':   return <ClientExports />;
+    case 'reports-shipments': return <ClientPrepShipments />;
+    case 'reports-receiving': return <ClientReceiving />;
 
     case 'profile':   return <SupabasePersonalProfile />;
     case 'billing':   return <SupabaseBillingProfiles />;
@@ -151,6 +187,41 @@ const renderTabContent = useMemo(() => {
                         </button>
                       ))}
                   </nav>
+
+                  {g.key === 'Operations' && (
+                    <div className="mt-6">
+                      <button
+                        onClick={() => setReportsOpen((v) => !v)}
+                        className="w-full flex items-center justify-between px-4 py-3 text-left rounded-lg border text-text-secondary hover:bg-gray-50"
+                      >
+                        <span className="flex items-center gap-2">
+                          <FileText className="w-5 h-5" />
+                          {t('sidebar.reports')}
+                        </span>
+                        <ChevronDown
+                          className={`w-5 h-5 transition-transform ${reportsOpen ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      {reportsOpen && (
+                        <div className="mt-2 space-y-2 pl-6">
+                          {REPORT_TABS.map((tab) => (
+                            <button
+                              key={tab.id}
+                              onClick={() => setActiveTab(tab.id)}
+                              className={`w-full flex items-center px-4 py-2 text-left rounded-lg transition-colors ${
+                                activeTab === tab.id
+                                  ? 'bg-primary/90 text-white'
+                                  : 'text-text-secondary hover:bg-gray-50'
+                              }`}
+                            >
+                              <tab.icon className="w-4 h-4 mr-2" />
+                              {t(tab.labelKey)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
