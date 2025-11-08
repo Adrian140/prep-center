@@ -19,6 +19,7 @@ export const SupabaseAuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const status = loading ? 'loading' : 'ready';
   const isAuthenticated = !!user;
@@ -53,9 +54,14 @@ export const SupabaseAuthProvider = ({ children }) => {
       setLoading(false);
 
       if (u) {
-        loadUserProfile(u.id).catch((err) => console.error('loadUserProfile error:', err));
+        setProfileLoading(true);
+        loadUserProfile(u.id).catch((err) => {
+          console.error('loadUserProfile error:', err);
+          setProfileLoading(false);
+        });
       } else {
         setProfile(null);
+        setProfileLoading(false);
       }
     };
 
@@ -70,9 +76,14 @@ export const SupabaseAuthProvider = ({ children }) => {
       setLoading(false);
 
       if (u) {
-        loadUserProfile(u.id).catch((err) => console.error('loadUserProfile error:', err));
+        setProfileLoading(true);
+        loadUserProfile(u.id).catch((err) => {
+          console.error('loadUserProfile error:', err);
+          setProfileLoading(false);
+        });
       } else {
         setProfile(null);
+        setProfileLoading(false);
       }
     });
 
@@ -108,6 +119,7 @@ export const SupabaseAuthProvider = ({ children }) => {
 
   const loadUserProfile = async (userId) => {
     try {
+      setProfileLoading(true);
       const { data, error } = await supabaseHelpers.getProfile(userId);
       if (error) {
         console.error('Error loading profile:', error);
@@ -120,6 +132,8 @@ export const SupabaseAuthProvider = ({ children }) => {
       console.error('loadUserProfile exception:', e);
       setProfile(null);
       return null;
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -163,6 +177,8 @@ export const SupabaseAuthProvider = ({ children }) => {
     const { error } = await supabaseHelpers.signOut();
     setLoading(false);
     if (error) return { success: false, error: error.message };
+    setProfile(null);
+    setProfileLoading(false);
     return { success: true };
   };
 
@@ -194,6 +210,7 @@ const resetPassword = async (email) => {
     setLoading(false);
     if (error) return { success: false, error: error.message };
     setProfile(data[0]);
+    setProfileLoading(false);
     return { success: true, data: data[0] };
   };
 
@@ -202,6 +219,7 @@ const resetPassword = async (email) => {
     profile,
     session,
     loading,
+    profileLoading,
     status,
     isAuthenticated,
     isEmailVerified,
