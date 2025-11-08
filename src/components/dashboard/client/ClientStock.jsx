@@ -95,10 +95,8 @@ const InventoryBreakdown = ({ row, t }) => {
   );
 
   return (
-    <div className="border rounded-xl p-2 text-[11px] leading-5 text-gray-600 bg-white shadow-inner min-w-[130px]">
-      <div className="text-[12px] font-semibold text-gray-900">{t('ClientStock.inventory.title')}</div>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{t('ClientStock.inventory.subtitle')}</div>
-      <div className="mt-2 space-y-1">
+    <div className="border rounded-xl p-1.5 text-[11px] leading-5 text-gray-600 bg-white shadow-inner min-w-[130px]">
+      <div className="mt-1 space-y-0.5">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-gray-900">{t('ClientStock.inventory.available')}</span>
           {value(available)}
@@ -621,6 +619,7 @@ export default function ClientStock() {
   const [searchField, setSearchField] = useState('EAN');
   const [searchQuery, setSearchQuery] = useState('');
   const [stockFilter, setStockFilter] = useState('in');
+  const [productSearch, setProductSearch] = useState('');
 
   const [selectedIds, setSelectedIds] = useState(new Set());
 
@@ -725,12 +724,27 @@ const [receptionForm, setReceptionForm] = useState({
     return searched.filter((r) => Number(r.qty || 0) === 0);
   }, [searched, stockFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(stockFiltered.length / perPage));
+  const quickFiltered = useMemo(() => {
+    const term = productSearch.trim().toLowerCase();
+    if (!term) return stockFiltered;
+    const hits = [];
+    const rest = [];
+    stockFiltered.forEach((row) => {
+      const name = String(row.name || '').toLowerCase();
+      const asin = String(row.asin || '').toLowerCase();
+      const sku = String(row.sku || '').toLowerCase();
+      const match = name.includes(term) || asin.includes(term) || sku.includes(term);
+      (match ? hits : rest).push(row);
+    });
+    return [...hits, ...rest];
+  }, [stockFiltered, productSearch]);
+
+  const totalPages = Math.max(1, Math.ceil(quickFiltered.length / perPage));
   const pageClamped = Math.min(page, totalPages);
   const pageSlice = useMemo(() => {
     const start = (pageClamped - 1) * perPage;
-    return stockFiltered.slice(start, start + perPage);
-  }, [stockFiltered, pageClamped, perPage]);
+    return quickFiltered.slice(start, start + perPage);
+  }, [quickFiltered, pageClamped, perPage]);
 
   const isAllOnPageSelected = pageSlice.length > 0 && pageSlice.every(r => selectedIds.has(r.id));
   const toggleSelectAllOnPage = () => {
@@ -1160,30 +1174,29 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
         </div>
       )}
       {/* HEADER */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      {/* Stânga: titlu + ghid PDF pe limbi */}
-      <div className="min-w-0">
-        <div className="flex items-center">
-          <h2 className="text-xl font-semibold text-text-primary whitespace-nowrap">
-            {t('ClientStock.title')}
-          </h2>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center">
+            <h2 className="text-xl font-semibold text-text-primary whitespace-nowrap">
+              {t('ClientStock.title')}
+            </h2>
+          </div>
+
+          <p
+            className="text-sm text-text-secondary"
+            dangerouslySetInnerHTML={{ __html: t('ClientStock.desc') }}
+          />
         </div>
 
-        <p
-          className="text-sm text-text-secondary"
-          dangerouslySetInnerHTML={{ __html: t('ClientStock.desc') }}
-        />
-        <StockGuideGrid t={t} tp={tp} />
-      </div>
-
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setCreateModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white shadow hover:bg-primary-dark"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#ffb703] text-[#4f2a00] px-3 py-1.5 text-sm font-semibold shadow hover:bg-[#ff9f00]"
           >
             <Plus className="w-4 h-4" />
             {t('ClientStock.createProduct.button')}
           </button>
+          <HelpMenuButtonStock t={t} tp={tp} />
         </div>
       </div>
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1279,15 +1292,33 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
           </div>
         )}
 
-      <div className="border rounded-lg overflow-hidden">
+      <div className="border rounded-lg overflow-hidden mt-2">
         <div className="w-full overflow-x-auto">
          <table className="w-full min-w-[900px] text-sm table-auto [&_th]:px-1 [&_td]:px-1 [&_th]:py-1 [&_td]:py-1">
   <thead className="bg-gray-50 text-gray-700">
     <tr>
       <th className="px-2 py-2 w-6"></th>
       <th className="px-2 py-2 text-left w-16">Photo</th>
-      <th className="px-2 py-2 text-left">Product</th>
-      <th className="px-2 py-2 text-left w-40">Inventory</th>
+      <th className="px-2 py-2 text-left">
+        <div className="flex flex-col gap-1">
+          <span>Product</span>
+          <input
+            type="text"
+            value={productSearch}
+            onChange={(e) => {
+              setProductSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Search by name / ASIN / SKU"
+            className="border rounded px-2 py-1 text-xs"
+          />
+        </div>
+      </th>
+      <th className="px-2 py-2 text-left w-40">
+        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          {t('ClientStock.inventory.subtitle')}
+        </div>
+      </th>
       <th className="px-2 py-2 text-right w-24">PrepCenter stock</th>
       <th className="px-2 py-2 text-right w-32">Units to Send / Receive</th>
     </tr>
