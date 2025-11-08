@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabaseHelpers } from '@/config/supabase';
+import { useDashboardTranslation } from '@/translations';
 
 export default function ClientDealsPopover({ companyId }) {
+  const { t } = useDashboardTranslation();
   const [open, setOpen] = useState(false);
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -47,7 +49,7 @@ export default function ClientDealsPopover({ companyId }) {
         onClick={() => setOpen((v) => !v)}
         className="text-sm text-primary border border-primary px-3 py-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors"
       >
-        Afficher les offres négociées
+        {t('ClientDeals.button')}
       </button>
 
       {open && (
@@ -56,7 +58,7 @@ export default function ClientDealsPopover({ companyId }) {
           className="absolute right-0 mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-xl z-30 p-4"
         >
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-semibold text-text-primary">Offres négociées</h4>
+            <h4 className="text-sm font-semibold text-text-primary">{t('ClientDeals.title')}</h4>
             <button
               className="text-xs text-text-secondary hover:text-primary"
               onClick={() => {
@@ -69,9 +71,9 @@ export default function ClientDealsPopover({ companyId }) {
           </div>
 
           {loading ? (
-            <div className="text-xs text-text-secondary">Se încarcă…</div>
+            <div className="text-xs text-text-secondary">{t('ClientDeals.loading')}</div>
           ) : deals.length === 0 ? (
-            <div className="text-xs text-text-secondary">Nicio ofertă activă.</div>
+            <div className="text-xs text-text-secondary">{t('ClientDeals.empty')}</div>
           ) : (
             <>
               <ul className="divide-y divide-gray-100 text-sm max-h-56 overflow-auto mb-3">
@@ -91,7 +93,7 @@ export default function ClientDealsPopover({ companyId }) {
                   className="text-xs text-primary hover:underline"
                   onClick={() => setShowAll((v) => !v)}
                 >
-                  {showAll ? 'Ascunde' : 'Vezi tot'}
+                  {showAll ? t('ClientDeals.hide') : t('ClientDeals.showAll')}
                 </button>
               )}
             </>

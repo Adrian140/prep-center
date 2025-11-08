@@ -249,6 +249,12 @@
         "out": "Out of stock",
         "all": "All"
       },
+      "quickSort": {
+        "label": "Quick sort:",
+        "prep": "Prep-center stock",
+        "amazon": "Amazon stock"
+      },
+      "productSearchPlaceholder": "Search by name / ASIN / SKU",
       "actions": {
         "selectAllOnPage": "Select all on page",
         "sendToPrep": "Send to preparation",
@@ -424,6 +430,14 @@
       "current": "Current balance: €{amount}",
       "prepayment": "Prepayment: €{amount}",
       "outstanding": "Outstanding balance: €{amount}"
+    },
+    "ClientDeals": {
+      "button": "View negotiated offers",
+      "title": "Negotiated offers",
+      "loading": "Loading…",
+      "empty": "No active offers.",
+      "showAll": "Show all",
+      "hide": "Hide"
     },
     "ClientIntegrations": {
       "title": "Integrations",
@@ -723,6 +737,12 @@
         "out": "Fără stoc",
         "all": "Toate"
       },
+      "quickSort": {
+        "label": "Sortare rapidă:",
+        "prep": "Stoc prep-center",
+        "amazon": "Stoc Amazon"
+      },
+      "productSearchPlaceholder": "Caută după nume / ASIN / SKU",
       "actions": {
         "selectAllOnPage": "Selectează toate de pe pagină",
         "sendToPrep": "Trimite la pregătire",
@@ -898,6 +918,14 @@
       "current": "Sold curent: €{amount}",
       "prepayment": "Avans: €{amount}",
       "outstanding": "Restanță: €{amount}"
+    },
+    "ClientDeals": {
+      "button": "Vezi ofertele negociate",
+      "title": "Oferte negociate",
+      "loading": "Se încarcă…",
+      "empty": "Nicio ofertă activă.",
+      "showAll": "Vezi tot",
+      "hide": "Ascunde"
     },
     "ClientIntegrations": {
       "title": "Integrări",
@@ -1197,6 +1225,12 @@
         "out": "Rupture",
         "all": "Tous"
       },
+      "quickSort": {
+        "label": "Tri rapide :",
+        "prep": "Stock prep-center",
+        "amazon": "Stock Amazon"
+      },
+      "productSearchPlaceholder": "Rechercher par nom / ASIN / SKU",
       "actions": {
         "selectAllOnPage": "Sélectionner tout sur la page",
         "sendToPrep": "Envoyer en préparation",
@@ -1372,6 +1406,14 @@
       "current": "Solde actuel : {amount} €",
       "prepayment": "Acompte : {amount} €",
       "outstanding": "Solde restant : {amount} €"
+    },
+    "ClientDeals": {
+      "button": "Afficher les offres négociées",
+      "title": "Offres négociées",
+      "loading": "Chargement…",
+      "empty": "Aucune offre active.",
+      "showAll": "Voir tout",
+      "hide": "Masquer"
     },
     "ClientIntegrations": {
       "title": "Intégrations",
@@ -1671,6 +1713,12 @@
         "out": "Nicht vorrätig",
         "all": "Alle"
       },
+      "quickSort": {
+        "label": "Schnellsortierung:",
+        "prep": "Prep-Center-Bestand",
+        "amazon": "Amazon-Bestand"
+      },
+      "productSearchPlaceholder": "Nach Name / ASIN / SKU suchen",
       "actions": {
         "selectAllOnPage": "Alle auf der Seite auswählen",
         "sendToPrep": "Zur Vorbereitung senden",
@@ -1846,6 +1894,14 @@
       "current": "Aktueller Saldo: {amount} €",
       "prepayment": "Vorauszahlung: {amount} €",
       "outstanding": "Offener Saldo: {amount} €"
+    },
+    "ClientDeals": {
+      "button": "Verhandelte Angebote anzeigen",
+      "title": "Verhandelte Angebote",
+      "loading": "Lädt…",
+      "empty": "Keine aktiven Angebote.",
+      "showAll": "Alle anzeigen",
+      "hide": "Weniger anzeigen"
     },
     "ClientIntegrations": {
       "title": "Integrationen",
@@ -2145,6 +2201,12 @@
         "out": "Esaurito",
         "all": "Tutti"
       },
+      "quickSort": {
+        "label": "Ordinamento rapido:",
+        "prep": "Stock prep-center",
+        "amazon": "Stock Amazon"
+      },
+      "productSearchPlaceholder": "Cerca per nome / ASIN / SKU",
       "actions": {
         "selectAllOnPage": "Seleziona tutti nella pagina",
         "sendToPrep": "Invia alla preparazione",
@@ -2320,6 +2382,14 @@
       "current": "Saldo attuale: {amount} €",
       "prepayment": "Anticipo: {amount} €",
       "outstanding": "Saldo residuo: {amount} €"
+    },
+    "ClientDeals": {
+      "button": "Mostra offerte negoziate",
+      "title": "Offerte negoziate",
+      "loading": "Caricamento…",
+      "empty": "Nessuna offerta attiva.",
+      "showAll": "Mostra tutte",
+      "hide": "Nascondi"
     },
     "ClientIntegrations": {
       "title": "Integrazioni",
@@ -2619,6 +2689,12 @@
         "out": "Sin stock",
         "all": "Todos"
       },
+      "quickSort": {
+        "label": "Orden rápido:",
+        "prep": "Stock del prep-center",
+        "amazon": "Stock de Amazon"
+      },
+      "productSearchPlaceholder": "Buscar por nombre / ASIN / SKU",
       "actions": {
         "selectAllOnPage": "Seleccionar todo en la página",
         "sendToPrep": "Enviar a preparación",
@@ -2794,6 +2870,14 @@
       "current": "Saldo actual: {amount} €",
       "prepayment": "Prepago: {amount} €",
       "outstanding": "Saldo pendiente: {amount} €"
+    },
+    "ClientDeals": {
+      "button": "Ver ofertas negociadas",
+      "title": "Ofertas negociadas",
+      "loading": "Cargando…",
+      "empty": "No hay ofertas activas.",
+      "showAll": "Ver todas",
+      "hide": "Ocultar"
     },
     "ClientIntegrations": {
       "title": "Integraciones",

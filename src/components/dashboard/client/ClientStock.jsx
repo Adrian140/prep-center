@@ -1240,7 +1240,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
           </label>
         </div>
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-text-secondary">Ordonare rapidă:</span>
+          <span className="text-text-secondary">{t('ClientStock.quickSort.label')}</span>
           <button
             onClick={() => {
               setSortMode('prep');
@@ -1252,7 +1252,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
                 : 'text-text-secondary border-gray-200 hover:bg-gray-50'
             }`}
           >
-            Stoc Prep Center
+            {t('ClientStock.quickSort.prep')}
           </button>
           <button
             onClick={() => {
@@ -1265,7 +1265,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
                 : 'text-text-secondary border-gray-200 hover:bg-gray-50'
             }`}
           >
-            Stoc Amazon
+            {t('ClientStock.quickSort.amazon')}
           </button>
         </div>
       </div>
@@ -1348,7 +1348,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
       <th className="px-2 py-2 text-left w-16">Photo</th>
       <th className="px-2 py-2 text-left">
         <div className="flex flex-col gap-1">
-          <span>Product</span>
+          <span>{t('ClientStock.thead.name')}</span>
           <input
             type="text"
             value={productSearch}
@@ -1356,7 +1356,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
               setProductSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search by name / ASIN / SKU"
+            placeholder={t('ClientStock.productSearchPlaceholder')}
             className="border rounded px-2 py-1 text-xs"
           />
         </div>
