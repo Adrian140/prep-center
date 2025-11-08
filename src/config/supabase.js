@@ -462,22 +462,19 @@ const items = (draftData.items || []).map((it) => ({
   },
 
   // ===== Prep Requests Management =====
-   listPrepRequests: async (options = {}) => {
-let query = supabase
-  .from('prep_requests')
-  .select(
-    `
-    *,
-    profiles(first_name, last_name, email, company_name, store_name),
-    companies(name),
-    prep_request_items(
-      *,
-      stock_item:stock_items(id, name, ean, image_url, sku)
-    ),
-    prep_request_tracking(*)
-  `,
-    { count: 'exact' }
-  );
+  listPrepRequests: async (options = {}) => {
+    let query = supabase
+      .from('prep_requests')
+      .select(
+        `
+        *,
+        profiles(first_name, last_name, email, company_name, store_name),
+        companies(name),
+        prep_request_items(*),
+        prep_request_tracking(*)
+      `,
+        { count: 'exact' }
+      );
 
     if (options.status) {
       query = query.eq('status', options.status);
@@ -495,8 +492,28 @@ let query = supabase
     
     if (error) return { data: [], error, count: 0 };
 
+    const allStockIds = new Set();
+    (data || []).forEach((r) => {
+      (r.prep_request_items || []).forEach((it) => {
+        if (it.stock_item_id) allStockIds.add(it.stock_item_id);
+      });
+    });
+
+    let stockMap = {};
+    if (allStockIds.size > 0) {
+      const { data: stockData } = await supabase
+        .from('stock_items')
+        .select('id, name, ean, image_url, sku, asin')
+        .in('id', Array.from(allStockIds));
+      stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
+    }
+
     const processed = (data || []).map(r => ({
       ...r,
+      prep_request_items: (r.prep_request_items || []).map((it) => ({
+        ...it,
+        stock_item: stockMap[it.stock_item_id] || null,
+      })),
       client_name: [r.profiles?.first_name, r.profiles?.last_name].filter(Boolean).join(' '),
       user_email: r.profiles?.email,
       company_name: r.profiles?.store_name || r.companies?.name || r.profiles?.company_name,
@@ -507,24 +524,37 @@ let query = supabase
   },
 
   getPrepRequest: async (requestId) => {
- const { data, error } = await supabase
-  .from('prep_requests')
-  .select(`
-    *,
-    profiles(first_name, last_name, email, company_name, store_name),
-    companies(name),
-    prep_request_items(
-      *,
-      stock_item:stock_items(id, name, ean, image_url, sku)
-    ),
-    prep_request_tracking(*)
-  `)
-  .eq('id', requestId)
-  .single();
+    const { data, error } = await supabase
+      .from('prep_requests')
+      .select(`
+        *,
+        profiles(first_name, last_name, email, company_name, store_name),
+        companies(name),
+        prep_request_items(*),
+        prep_request_tracking(*)
+      `)
+      .eq('id', requestId)
+      .single();
     if (error) return { data: null, error };
+
+    let stockMap = {};
+    const itemIds = (data.prep_request_items || [])
+      .map((it) => it.stock_item_id)
+      .filter(Boolean);
+    if (itemIds.length > 0) {
+      const { data: stockData } = await supabase
+        .from('stock_items')
+        .select('id, name, ean, image_url, sku, asin')
+        .in('id', itemIds);
+      stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
+    }
 
     const processed = {
       ...data,
+      prep_request_items: (data.prep_request_items || []).map((it) => ({
+        ...it,
+        stock_item: stockMap[it.stock_item_id] || null,
+      })),
       client_name: [data.profiles?.first_name, data.profiles?.last_name].filter(Boolean).join(' '),
       user_email: data.profiles?.email,
       company_name: data.profiles?.store_name || data.companies?.name || data.profiles?.company_name
@@ -868,8 +898,8 @@ getAllReceivingShipments: async (options = {}) => {
     .select(`
       *,
       companies:companies(name),
-      receiving_shipment_items(*, stock_item:stock_items(asin, name, image_url, sku)),
-      receiving_items(*, stock_item:stock_items(asin, name, image_url, sku))
+      receiving_shipment_items(*),
+      receiving_items(*)
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, to);
@@ -893,6 +923,26 @@ getAllReceivingShipments: async (options = {}) => {
     );
   }
 
+  // pregătește metadate stock
+  const allStockIds = new Set();
+  (data || []).forEach((r) => {
+    (r.receiving_shipment_items || []).forEach((it) => {
+      if (it.stock_item_id) allStockIds.add(it.stock_item_id);
+    });
+    (r.receiving_items || []).forEach((it) => {
+      if (it.stock_item_id) allStockIds.add(it.stock_item_id);
+    });
+  });
+
+  let stockMap = {};
+  if (allStockIds.size > 0) {
+    const { data: stockData } = await supabase
+      .from('stock_items')
+      .select('id, asin, name, image_url, sku')
+      .in('id', Array.from(allStockIds));
+    stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
+  }
+
   // combinăm datele din ambele tabele (receiving_shipment_items și receiving_items)
   const processed = (data || []).map(r => {
     const items = [
@@ -905,7 +955,10 @@ getAllReceivingShipments: async (options = {}) => {
 
     return {
       ...rest,
-      receiving_items: items,
+      receiving_items: items.map((it) => ({
+        ...it,
+        stock_item: stockMap[it.stock_item_id] || null,
+      })),
       produits_count: items.length,
       store_name: profileMeta.store_name || rest.client_name || null,
       client_name: profileMeta.store_name || profileMeta.full_name || rest.client_name || null,
