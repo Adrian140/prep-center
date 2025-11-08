@@ -239,9 +239,9 @@ const processToStock = async () => {
           <div>
             <label className="block text-sm font-medium text-text-secondary">Client</label>
             <p className="text-text-primary">
-              {shipment.client_name || 'N/A'}
+              {shipment.store_name || shipment.client_name || '—'}
               <br />
-              <span className="text-sm text-text-secondary">{shipment.user_email}</span>
+              <span className="text-sm text-text-secondary">{shipment.client_email || shipment.user_email || '—'}</span>
             </p>
           </div>
            <div>
@@ -499,14 +499,17 @@ const processToStock = async () => {
             </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {items.map((item) => {
+                const asin = item.asin || item.stock_item?.asin || '—';
+                const productName = item.product_name || item.stock_item?.name || '—';
+                return (
                 <tr key={item.id} className="border-t">
-                  <td className="px-4 py-3 font-mono">{item.asin}</td>
-                  <td className="px-4 py-3">{item.product_name}</td>
+                  <td className="px-4 py-3 font-mono">{asin}</td>
+                  <td className="px-4 py-3">{productName}</td>
                   <td className="px-4 py-3 text-right">{item.quantity_received}</td>
                   <td className="px-4 py-3 font-mono">{item.sku || '—'}</td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>
@@ -777,7 +780,7 @@ const filteredShipments = shipments.filter(shipment => {
                         <p className="font-medium text-text-primary">
                           {shipment.store_name || shipment.client_name || '—'}
                         </p>
-                        <p className="text-xs text-text-secondary">{shipment.user_email}</p>
+                        <p className="text-xs text-text-secondary">{shipment.client_email || shipment.user_email}</p>
                         {shipment.company_name && (
                           <p className="text-xs text-text-secondary flex items-center">
                             <Building className="w-3 h-3 mr-1" />

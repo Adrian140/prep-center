@@ -852,8 +852,10 @@ getAllReceivingShipments: async (options = {}) => {
     .from('receiving_shipments')
     .select(`
       *,
-      receiving_shipment_items(*),
-      receiving_items(*)
+      companies:companies(name),
+      profiles:user_id(id, store_name, full_name, email),
+      receiving_shipment_items(*, stock_item:stock_items(asin, name)),
+      receiving_items(*, stock_item:stock_items(asin, name))
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, to);
@@ -882,12 +884,18 @@ getAllReceivingShipments: async (options = {}) => {
       ...(r.receiving_items || [])
     ];
 
+    const clientProfile = r.profiles || {};
+
+    const { profiles, companies, receiving_shipment_items, receiving_items, ...rest } = r;
+
     return {
-      ...r,
+      ...rest,
       receiving_items: items,
       produits_count: items.length,
-      store_name: profilesById[r.user_id] || null,
-      company_name: r.companies?.name || null
+      store_name: clientProfile.store_name || profilesById[r.user_id] || rest.client_name || null,
+      client_name: clientProfile.store_name || rest.client_name || null,
+      client_email: clientProfile.email || rest.user_email || null,
+      company_name: companies?.name || null
     };
   });
 
