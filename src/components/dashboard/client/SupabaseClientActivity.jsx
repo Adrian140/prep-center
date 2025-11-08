@@ -19,8 +19,8 @@ import { useDashboardTranslation } from "../../../translations";
 
 function Box({ title, children }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-      <h3 className="text-lg font-semibold text-text-primary mb-4">{title}</h3>
+    <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
+      <h3 className="text-base font-semibold text-text-primary mb-3">{title}</h3>
       {children}
     </div>
   );
@@ -36,6 +36,34 @@ const fmtMoney = (n, currency = 'EUR', locale = 'fr-FR') =>
   new Intl.NumberFormat(locale, { style: 'currency', currency }).format(Number(n || 0));
 const fmtMoneyHT = (n, currency = 'EUR') => `${fmtMoney(n, currency)} HT`;
 
+const currentMonthStr = () => {
+  const now = new Date();
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+};
+
+const filterRowsByMonth = (rows, month) => {
+  if (!month) return rows;
+  const prefix = `${month}-`;
+  return rows.filter((r) => (r?.service_date || '').startsWith(prefix));
+};
+
+const calcReportTotals = (rows, qtyField) =>
+  rows.reduce(
+    (acc, row) => {
+      const rawQty = Number(row?.[qtyField] || 0);
+      const qty = Number.isFinite(rawQty) ? rawQty : 0;
+      acc.qty += qty;
+      const total =
+        row?.total != null
+          ? Number(row.total)
+          : Number(row.unit_price || 0) * qty;
+      if (Number.isFinite(total)) acc.total += total;
+      return acc;
+    },
+    { qty: 0, total: 0 }
+  );
+
 export default function SupabaseClientActivity() {
   const { t } = useDashboardTranslation();
   const { profile } = useSupabaseAuth();
@@ -48,6 +76,9 @@ export default function SupabaseClientActivity() {
   const [showDeals, setShowDeals] = useState(false); // ascuns by default
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("3m");
+  const [activeReport, setActiveReport] = useState('fba');
+  const [fbaMonth, setFbaMonth] = useState(() => currentMonthStr());
+  const [fbmMonth, setFbmMonth] = useState(() => currentMonthStr());
 
   // Persistă preferința pe device: afișează deal-urile doar dacă user-ul apasă "Afficher"
   useEffect(() => {
@@ -87,31 +118,20 @@ export default function SupabaseClientActivity() {
     load();
   }, [companyId]);
 
-  const fbaTotals = useMemo(() => {
-    const units = fba.reduce((s, r) => s + Number(r.units || 0), 0);
-    const total = fba.reduce(
-      (s, r) =>
-        s +
-        (r.total != null
-          ? Number(r.total)
-          : Number(r.unit_price || 0) * Number(r.units || 0)),
-      0
-    );
-    return { units, total };
-  }, [fba]);
+  useEffect(() => {
+    const m = currentMonthStr();
+    setFbaMonth(m);
+    setFbmMonth(m);
+  }, [companyId]);
 
-  const fbmTotals = useMemo(() => {
-    const ordersUnits = fbm.reduce((s, r) => s + Number(r.orders_units || 0), 0);
-    const total = fbm.reduce(
-      (s, r) =>
-        s +
-        (r.total != null
-          ? Number(r.total)
-          : Number(r.unit_price || 0) * Number(r.orders_units || 0)),
-      0
-    );
-    return { ordersUnits, total };
-  }, [fbm]);
+  const fbaMonthRows = useMemo(() => filterRowsByMonth(fba, fbaMonth), [fba, fbaMonth]);
+  const fbmMonthRows = useMemo(() => filterRowsByMonth(fbm, fbmMonth), [fbm, fbmMonth]);
+
+  const fbaMonthTotals = useMemo(() => calcReportTotals(fbaMonthRows, 'units'), [fbaMonthRows]);
+  const fbmMonthTotals = useMemo(
+    () => calcReportTotals(fbmMonthRows, 'orders_units'),
+    [fbmMonthRows]
+  );
 
   const chartData = useMemo(() => {
     const map = {};
@@ -198,13 +218,35 @@ export default function SupabaseClientActivity() {
     );
   }
 
+  const isFbaView = activeReport === 'fba';
+  const activeRows = isFbaView ? fbaMonthRows : fbmMonthRows;
+  const activeTotals = isFbaView ? fbaMonthTotals : fbmMonthTotals;
+  const activeMonth = isFbaView ? fbaMonth : fbmMonth;
+  const setActiveMonth = isFbaView ? setFbaMonth : setFbmMonth;
+  const reportTitle = isFbaView ? t('ClientFBAReport.title') : t('ClientFBMReport.title');
+  const reportSubtitle = isFbaView
+    ? t('ClientFBAReport.readonly')
+    : t('ClientFBMReport.readonly');
+  const monthLabel = isFbaView
+    ? t('ClientFBAReport.monthLabel')
+    : t('ClientFBMReport.monthLabel');
+  const currentMonthLabel = isFbaView
+    ? t('ClientFBAReport.currentMonth')
+    : t('ClientFBMReport.currentMonth');
+  const qtyHeading = isFbaView ? t('activity.thead.units') : t('activity.thead.ordersUnits');
+  const emptyState = isFbaView
+    ? t('ClientFBAReport.noDataMonth')
+    : t('ClientFBMReport.noDataMonth');
+
+  const resetActiveMonth = () => setActiveMonth(currentMonthStr());
+
   return (
-  <div className="space-y-8">
+  <div className="space-y-6">
     {/* HEADER ZONE: split 1/2 - 1/2 */}
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] gap-4">
 
      {/* LEFT: Deals list (fully collapsible) */}
-    <div className="bg-white rounded-xl shadow-sm p-6">
+    <div className="bg-white rounded-xl shadow-sm p-5">
       {!showDeals ? (
         <button
           className="text-sm text-primary hover:underline"
@@ -263,15 +305,56 @@ export default function SupabaseClientActivity() {
         </>
       )}
     </div>
-
         {/* RIGHT: Solde */}
-          <div>
-            <ClientBalanceBar companyId={companyId} />
+          <div className="flex justify-end">
+            <div className="w-full max-w-sm">
+              <ClientBalanceBar companyId={companyId} />
+            </div>
           </div>
         </div>
 
-      {/* FBA */}
-      <Box title={t('SupabaseClientActivity.fbaTitle')}>
+      <div className="bg-white rounded-xl shadow-sm p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-3 mb-4">
+          <div className="flex items-center gap-2">
+            {[
+              { id: 'fba', label: 'FBA' },
+              { id: 'fbm', label: 'FBM' }
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => setActiveReport(opt.id)}
+                className={`px-4 py-1.5 rounded-lg text-sm border transition-colors ${
+                  activeReport === opt.id
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-white text-text-primary border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 text-sm text-text-secondary">
+            <label>{monthLabel}</label>
+            <input
+              type="month"
+              value={activeMonth}
+              onChange={(e) => setActiveMonth(e.target.value)}
+              className="border rounded px-2 py-1 text-sm"
+            />
+            <button
+              className="text-sm border rounded px-2 py-1"
+              onClick={resetActiveMonth}
+            >
+              {currentMonthLabel}
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-text-primary">{reportTitle}</h2>
+          <p className="text-sm text-text-secondary">{reportSubtitle}</p>
+        </div>
+
         <div className="overflow-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
@@ -279,163 +362,115 @@ export default function SupabaseClientActivity() {
                 <th className="px-3 py-2 text-left">{t('SupabaseClientActivity.thead.date')}</th>
                 <th className="px-3 py-2 text-left">{t('SupabaseClientActivity.thead.service')}</th>
                 <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.unitPrice')} (HT)</th>
-                <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.units')}</th>
-                 <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.total')} (HT)</th>
+                <th className="px-3 py-2 text-right">{qtyHeading}</th>
+                <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.total')} (HT)</th>
                 <th className="px-3 py-2 text-left">{t('SupabaseClientActivity.thead.adminNotes')}</th>
               </tr>
             </thead>
             <tbody>
-              {fba.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-4 text-center text-text-secondary">
-                    {t('SupabaseClientActivity.noRecords')}
+                  <td colSpan={6} className="px-3 py-6 text-center text-text-secondary">
+                    {t('common.loading')}
+                  </td>
+                </tr>
+              ) : activeRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-6 text-center text-text-secondary">
+                    {emptyState}
                   </td>
                 </tr>
               ) : (
-                <>
-                  {fba.map((r) => {
-                    const lineTotal =
-                      r.total != null
-                        ? Number(r.total)
-                        : Number(r.unit_price || 0) * Number(r.units || 0);
-                    return (
-                      <tr key={r.id} className="border-t">
-                        <td className="px-3 py-2">{r.service_date}</td>
-                        <td className="px-3 py-2">{r.service}</td>
-                        <td className="px-3 py-2 text-right">
-                          {fmtMoneyHT(r.unit_price)}
-                        </td>
-                        <td className="px-3 py-2 text-right">{Number(r.units || 0)}</td>
-                        <td className="px-3 py-2 text-right">{fmtMoneyHT(lineTotal)}</td>
-                        <td className="px-3 py-2">{r.obs_admin || "—"}</td>
-                      </tr>
-                    );
-                  })}
-                  <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
-                    <td className="px-3 py-2" colSpan={3}>
-                      {t('SupabaseClientActivity.totals')}
-                    </td>
-                    <td className="px-3 py-2 text-right">{fbaTotals.units}</td>
-                    <td className="px-3 py-2 text-right">{fmtMoneyHT(fbaTotals.total)}</td>
-                    <td className="px-3 py-2" colSpan={1}></td>
-                  </tr>
-                </>
+                activeRows.map((r) => {
+                  const qty = Number(isFbaView ? r.units || 0 : r.orders_units || 0);
+                  const lineTotal =
+                    r.total != null
+                      ? Number(r.total)
+                      : Number(r.unit_price || 0) * (Number.isFinite(qty) ? qty : 0);
+                  return (
+                    <tr key={r.id} className="border-t">
+                      <td className="px-3 py-2">{r.service_date}</td>
+                      <td className="px-3 py-2">{r.service}</td>
+                      <td className="px-3 py-2 text-right">
+                        {r.unit_price != null ? fmt2(Number(r.unit_price)) : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {Number.isFinite(qty) ? qty : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {Number.isFinite(lineTotal) ? fmt2(lineTotal) : '—'}
+                      </td>
+                      <td className="px-3 py-2">{r.obs_admin || '—'}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
-          </table>
-        </div>
-      </Box>
-
-      {/* FBM */}
-      <Box title={t('SupabaseClientActivity.fbmTitle')}>
-        <div className="overflow-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 text-left">{t('SupabaseClientActivity.thead.date')}</th>
-                <th className="px-3 py-2 text-left">{t('SupabaseClientActivity.thead.service')}</th>
-                 <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.unitPrice')} (HT)</th>
-                <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.ordersUnits')}</th>
-                 <th className="px-3 py-2 text-right">{t('SupabaseClientActivity.thead.total')} (HT)</th>
-                <th className="px-3 py-2 text-left">{t('SupabaseClientActivity.thead.adminNotes')}</th>
+            <tfoot>
+              <tr className="bg-slate-50/80 font-semibold text-text-primary">
+                <td className="px-3 py-2" colSpan={3}>
+                  {t('SupabaseClientActivity.totals')}
+                </td>
+                <td className="px-3 py-2 text-right">{activeTotals.qty}</td>
+                <td className="px-3 py-2 text-right">{fmt2(activeTotals.total)}</td>
+                <td className="px-3 py-2"></td>
               </tr>
-            </thead>
-            <tbody>
-              {fbm.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-3 py-4 text-center text-text-secondary">
-                    {t('SupabaseClientActivity.noRecords')}
-                  </td>
-                </tr>
-              ) : (
-                <>
-                  {fbm.map((r) => {
-                    const lineTotal =
-                      r.total != null
-                        ? Number(r.total)
-                        : Number(r.unit_price || 0) * Number(r.orders_units || 0);
-                    return (
-                      <tr key={r.id} className="border-t">
-                        <td className="px-3 py-2">{r.service_date}</td>
-                        <td className="px-3 py-2">{r.service}</td>
-                        <td className="px-3 py-2 text-right">
-                          {fmtMoneyHT(r.unit_price)}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          {Number(r.orders_units || 0)}
-                        </td>
-                        <td className="px-3 py-2 text-right">{fmtMoneyHT(lineTotal)}</td>
-                        <td className="px-3 py-2">{r.obs_admin || "—"}</td>
-                      </tr>
-                    );
-                  })}
-                  <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
-                    <td className="px-3 py-2" colSpan={3}>
-                      {t('SupabaseClientActivity.totals')}
-                    </td>
-                    <td className="px-3 py-2 text-right">{fbmTotals.ordersUnits}</td>
-                    <td className="px-3 py-2 text-right">{fmtMoneyHT(fbmTotals.total)}</td>
-                    <td className="px-3 py-2" colSpan={1}></td>
-                  </tr>
-                </>
-              )}
-            </tbody>
+            </tfoot>
           </table>
         </div>
 
-        {/* Controls + Chart */}
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-md font-semibold text-text-primary">
-              {t('SupabaseClientActivity.chartTitle')}
-            </h4>
-            <div className="flex gap-2">
-              {[
-                { k: "1m", label: t('SupabaseClientActivity.range.m1') },
-                { k: "3m", label: t('SupabaseClientActivity.range.m3') },
-                { k: "all", label: t('SupabaseClientActivity.range.all') },
-              ].map((opt) => (
-                <button
-                  key={opt.k}
-                  onClick={() => setRange(opt.k)}
-                  className={`px-3 py-1 rounded-lg border text-sm ${
-                    range === opt.k
-                      ? "bg-primary text-white border-primary"
-                      : "bg-white text-text-primary border-gray-300"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={filteredChartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="fba"
-                stroke="#ec4899"
-                strokeWidth={2}
-                dot={false}
-                name="FBA"
-              />
-              <Line
-                type="monotone"
-                dataKey="fbm"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                dot={false}
-                name="FBM"
-              />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="mt-3 text-sm text-text-secondary">
+          Monthly totals — {qtyHeading}: <strong>{activeTotals.qty}</strong> · Total:{' '}
+          <strong>{fmt2(activeTotals.total)} €</strong>
         </div>
+      </div>
+
+      <Box title={t('SupabaseClientActivity.chartTitle')}>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {[
+            { k: "1m", label: t('SupabaseClientActivity.range.m1') },
+            { k: "3m", label: t('SupabaseClientActivity.range.m3') },
+            { k: "all", label: t('SupabaseClientActivity.range.all') },
+          ].map((opt) => (
+            <button
+              key={opt.k}
+              onClick={() => setRange(opt.k)}
+              className={`px-3 py-1 rounded-lg border text-sm ${
+                range === opt.k
+                  ? "bg-primary text-white border-primary"
+                  : "bg-white text-text-primary border-gray-300"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={filteredChartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend />
+            <Line
+              type="monotone"
+              dataKey="fba"
+              stroke="#ec4899"
+              strokeWidth={2}
+              dot={false}
+              name="FBA"
+            />
+            <Line
+              type="monotone"
+              dataKey="fbm"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              dot={false}
+              name="FBM"
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </Box>
     </div>
   );

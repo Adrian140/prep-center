@@ -25,8 +25,6 @@ import SupabaseInvoicesList from './SupabaseInvoicesList';
 import SupabaseSecuritySettings from './SupabaseSecuritySettings';
 import SupabaseClientActivity from "./client/SupabaseClientActivity";
 
-import ClientFBAReport from './client/ClientFBAReport';
-import ClientFBMReport from './client/ClientFBMReport';
 import ClientStock from './client/ClientStock';
 import ClientReturns from './client/ClientReturns';
 import ClientExports from './client/ClientExports';
@@ -46,8 +44,6 @@ function SupabaseDashboard() {
 
   const validTabs = [
     'activity',
-    'fba',
-    'fbm',
     'stock',
     'returns',
     'exports',
@@ -65,7 +61,7 @@ function SupabaseDashboard() {
     const initialTab = normalizeTab(params.get('tab'));
     const saved = normalizeTab(localStorage.getItem('clientDashboardTab'));
     if (initialTab && validTabs.includes(initialTab)) return initialTab;
-    return validTabs.includes(saved) ? saved : 'fba';
+    return validTabs.includes(saved) ? saved : 'activity';
   });
   const [reportsOpen, setReportsOpen] = useState(() =>
     REPORT_TABS.some((rt) => rt.id === activeTab)
@@ -91,8 +87,6 @@ useEffect(() => {
     // Operations
     { id: 'activity', label: t('sidebar.activity'), icon: FileText, group: 'Operations' },
     { id: 'stock', label: t('sidebar.stock'), icon: Boxes, group: 'Operations' },
-    { id: 'fba', label: t('sidebar.fba'), icon: Package, group: 'Operations' },
-    { id: 'fbm', label: t('sidebar.fbm'), icon: Package, group: 'Operations' },
     { id: 'returns', label: t('sidebar.returns'), icon: RotateCcw, group: 'Operations' },
     { id: 'exports', label: t('sidebar.exports'), icon: Download, group: 'Operations' },
 
@@ -107,8 +101,6 @@ useEffect(() => {
 const renderTabContent = useMemo(() => {
   switch (activeTab) {
     case 'activity':  return <SupabaseClientActivity />;
-    case 'fba':       return <ClientFBAReport />;
-    case 'fbm':       return <ClientFBMReport />;
     case 'stock':     return <ClientStock />;
     case 'returns':   return <ClientReturns />;
     case 'exports':   return <ClientExports />;
@@ -140,13 +132,13 @@ const renderTabContent = useMemo(() => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 py-6">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm p-5 mb-8">
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-xl font-semibold text-text-primary">
+              <h1 className="text-lg font-semibold text-text-primary">
                 {tp('common.greeting', { name: displayName })}
               </h1>
               <p className="text-sm text-text-secondary">{t('common.subtitle')}</p>
