@@ -49,15 +49,6 @@ function HelpMenuButtonStock({ section = 'stock', t, tp }) {
           ))}
         </div>
       )}
-      {createModalOpen && (
-        <CreateProductModal
-          open={createModalOpen}
-          onClose={() => setCreateModalOpen(false)}
-          profile={profile}
-          t={t}
-          onCreated={handleProductCreated}
-        />
-      )}
     </div>
   );
 }
