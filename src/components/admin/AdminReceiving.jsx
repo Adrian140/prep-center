@@ -823,34 +823,34 @@ const filteredShipments = shipments.filter(shipment => {
                   <td className="px-4 py-3">
                     <StatusPill status={shipment.status} />
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      {(shipment.receiving_items || []).slice(0, 4).map((item, idx) => {
+                  <td className="px-4 py-3 align-top">
+                    <div className="flex flex-col gap-2">
+                      {(shipment.receiving_items || []).slice(0, 3).map((item, idx) => {
                         const thumb =
                           item.stock_item?.image_url ||
                           item.image_url ||
                           '';
-                        const title = item.product_name || item.stock_item?.name || `Ligne ${idx + 1}`;
+                        const title = item.product_name || item.stock_item?.name || `Line ${idx + 1}`;
                         return thumb ? (
                           <img
                             key={`${shipment.id}-${item.id || idx}`}
                             src={thumb}
                             alt={title}
-                            className="w-10 h-10 rounded border object-cover"
+                            className="w-12 h-12 rounded border object-cover"
                           />
                         ) : (
                           <div
                             key={`${shipment.id}-${item.id || idx}-ph`}
-                            className="w-10 h-10 rounded border bg-gray-100 flex items-center justify-center text-[10px] text-gray-400"
+                            className="w-12 h-12 rounded border bg-gray-100 flex items-center justify-center text-[10px] text-gray-400"
                             title={title}
                           >
                             N/A
                           </div>
                         );
                       })}
-                      {(shipment.receiving_items?.length || 0) > 4 && (
+                      {(shipment.receiving_items?.length || 0) > 3 && (
                         <span className="text-xs text-text-secondary">
-                          +{(shipment.receiving_items?.length || 0) - 4} autres
+                          +{(shipment.receiving_items?.length || 0) - 3} more
                         </span>
                       )}
                     </div>
