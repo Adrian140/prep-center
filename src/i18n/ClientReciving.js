@@ -92,8 +92,6 @@ export const CLIENT_RECIVING_DICT = {
     th_sku: "SKU",
     th_price: "Prix d'Achat",
     th_send_to_fba: "Send to FBA",
-    th_valid: "Valid",
-    th_validation: "Validation",
 
     // FBA
     fba_direct: "Direct",
@@ -233,8 +231,6 @@ export const CLIENT_RECIVING_DICT = {
     th_sku: "SKU",
     th_price: "Purchase Price",
     th_send_to_fba: "Send to FBA",
-    th_valid: "Valid",
-    th_validation: "Validation",
 
     fba_direct: "Direct",
     fba_qty_ph: "Qty",
@@ -364,8 +360,6 @@ export const CLIENT_RECIVING_DICT = {
     th_sku: "SKU",
     th_price: "Einkaufspreis",
     th_send_to_fba: "An FBA senden",
-    th_valid: "Gültig",
-    th_validation: "Validierung",
 
     fba_direct: "Direkt",
     fba_qty_ph: "Menge",
@@ -495,8 +489,6 @@ export const CLIENT_RECIVING_DICT = {
     th_sku: "SKU",
     th_price: "Prezzo d’acquisto",
     th_send_to_fba: "Invia a FBA",
-    th_valid: "Valido",
-    th_validation: "Validazione",
 
     fba_direct: "Diretto",
     fba_qty_ph: "Qtà",
@@ -627,8 +619,6 @@ export const CLIENT_RECIVING_DICT = {
     th_sku: "SKU",
     th_price: "Precio de compra",
     th_send_to_fba: "Enviar a FBA",
-    th_valid: "Válido",
-    th_validation: "Validación",
 
     fba_direct: "Directo",
     fba_qty_ph: "Cant.",
@@ -759,8 +749,6 @@ export const CLIENT_RECIVING_DICT = {
     th_sku: "SKU",
     th_price: "Preț de achiziție",
     th_send_to_fba: "Trimite la FBA",
-    th_valid: "Valid",
-    th_validation: "Validare",
 
     fba_direct: "Direct",
     fba_qty_ph: "Buc.",
