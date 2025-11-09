@@ -242,11 +242,7 @@ function ClientReceiving() {
         fba_mode: editHeader.fba_mode || 'none'
       };
 
-      const { error: headerError } = await supabaseHelpers.updateReceivingShipment(
-        shipmentId,
-        payloadHeader
-      );
-      if (headerError) throw headerError;
+      await supabaseHelpers.updateReceivingShipment(shipmentId, payloadHeader);
 
       if (typeof supabaseHelpers.deleteReceivingItemsByShipment === 'function') {
         const { error: delErr } = await supabaseHelpers.deleteReceivingItemsByShipment(
