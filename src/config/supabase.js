@@ -13,6 +13,116 @@ const SITE_URL = import.meta.env.PROD
   ? 'https://prep-center.eu'
   : window.location.origin;
 
+const PHOTO_SUBSCRIPTION_SERVICE = 'Photo storage subscription';
+const PHOTO_MANUAL_SERVICE = 'Manual photo capture (6 images)';
+const PHOTO_SUBSCRIPTION_PRICE = 3;
+const PHOTO_MANUAL_PRICE = 1;
+
+const pad2 = (value) => String(value).padStart(2, '0');
+const formatSqlDate = (date = new Date()) =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
+const currentMonthWindow = (date = new Date()) => {
+  const start = new Date(date.getFullYear(), date.getMonth(), 1);
+  const next = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  return { start: formatSqlDate(start), next: formatSqlDate(next) };
+};
+
+const fetchCompanyStockIds = async (companyId) => {
+  if (!companyId) return [];
+  const { data, error } = await supabase
+    .from('stock_items')
+    .select('id')
+    .eq('company_id', companyId);
+  if (error || !Array.isArray(data)) return [];
+  return data.map((row) => row.id);
+};
+
+const countCompanyProductPhotos = async (companyId) => {
+  if (!companyId) return 0;
+  const ids = await fetchCompanyStockIds(companyId);
+  if (!ids.length) return 0;
+  const { count, error } = await supabase
+    .from('product_images')
+    .select('id', { count: 'exact', head: true })
+    .in('stock_item_id', ids);
+  if (error) return 0;
+  return count || 0;
+};
+
+const ensurePhotoSubscriptionLine = async (companyId) => {
+  if (!companyId) return;
+  const { start, next } = currentMonthWindow(new Date());
+  const { data, error } = await supabase
+    .from('fba_lines')
+    .select('id')
+    .eq('company_id', companyId)
+    .eq('service', PHOTO_SUBSCRIPTION_SERVICE)
+    .gte('service_date', start)
+    .lt('service_date', next)
+    .limit(1);
+  if (error) return;
+  if (data && data.length) return;
+  await supabase.from('fba_lines').insert({
+    company_id: companyId,
+    service: PHOTO_SUBSCRIPTION_SERVICE,
+    service_date: formatSqlDate(new Date()),
+    unit_price: PHOTO_SUBSCRIPTION_PRICE,
+    units: 1,
+    total: PHOTO_SUBSCRIPTION_PRICE,
+    obs_admin: 'Auto photo subscription'
+  });
+};
+
+const removePhotoSubscriptionLine = async (companyId) => {
+  if (!companyId) return;
+  const { start, next } = currentMonthWindow(new Date());
+  await supabase
+    .from('fba_lines')
+    .delete()
+    .eq('company_id', companyId)
+    .eq('service', PHOTO_SUBSCRIPTION_SERVICE)
+    .gte('service_date', start)
+    .lt('service_date', next);
+};
+
+const insertManualPhotoCharge = async ({ companyId, sets = 1, stockItemName }) => {
+  if (!companyId || !sets) return;
+  await supabase.from('fba_lines').insert({
+    company_id: companyId,
+    service: PHOTO_MANUAL_SERVICE,
+    service_date: formatSqlDate(new Date()),
+    unit_price: PHOTO_MANUAL_PRICE,
+    units: sets,
+    total: PHOTO_MANUAL_PRICE * sets,
+    obs_admin: stockItemName ? `Product: ${stockItemName}` : null
+  });
+};
+
+const handlePhotoUploadBilling = async ({
+  companyId,
+  uploadedByAdmin,
+  uploadedCount = 0,
+  stockItemName
+}) => {
+  if (!companyId) return;
+  await ensurePhotoSubscriptionLine(companyId);
+  if (uploadedByAdmin && uploadedCount > 0) {
+    const sets = Math.max(1, Math.ceil(uploadedCount / 6));
+    await insertManualPhotoCharge({ companyId, sets, stockItemName });
+  }
+};
+
+const syncPhotoSubscription = async (companyId) => {
+  if (!companyId) return;
+  const totalPhotos = await countCompanyProductPhotos(companyId);
+  if (totalPhotos > 0) {
+    await ensurePhotoSubscriptionLine(companyId);
+  } else {
+    await removePhotoSubscriptionLine(companyId);
+  }
+};
+
 // ---- User Guides helpers (upload + signed URL) ----
 async function uploadUserGuideVideo(section, file) {
   const ext = file.name.split('.').pop()?.toLowerCase() || 'mp4';
@@ -415,6 +525,11 @@ resetPassword: async (email) => {
       .delete()
       .eq('id', imageId);
   },
+  countCompanyProductPhotos,
+  ensurePhotoSubscriptionLine,
+  removePhotoSubscriptionLine,
+  handlePhotoUploadBilling,
+  syncPhotoSubscription,
 
   createPrepRequestDraft: async (draftData) => {
     try {

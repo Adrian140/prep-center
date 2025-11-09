@@ -192,7 +192,7 @@
         "date": "Date",
         "service": "Service",
         "unitPrice": "Unit price",
-        "units": "Units",
+        "units": "Unit",
         "ordersUnits": "Orders/Units",
         "total": "Total",
         "adminNotes": "Admin notes"
@@ -389,6 +389,32 @@
         "advancedSections": {
           "supplier": "Supplier",
           "product": "Product data"
+        }
+      },
+      "photos": {
+        "button": "Photos",
+        "statusAvailable": "Photos available ({count})",
+        "statusUnavailable": "Photos unavailable"
+      },
+      "photosModal": {
+        "title": "Photos – {name}",
+        "count": "{current} / {max} images uploaded",
+        "disclaimer": "ChatGPT said:\n\nFor using the photo storage service on the platform, a monthly fee of €3 applies starting from the first upload. This keeps the images available as long as the product stays in inventory. If I upload the photos for you, an extra €1 is charged for each set of 6 images per product. If you upload the photos yourself, only the €3 monthly fee applies. The service is optional, and the photos can be sent for free via WhatsApp on request.",
+        "uploadCta": "Drag & drop or click to upload (max {slots} more)",
+        "uploading": "Uploading…",
+        "downloadAll": "Download all",
+        "download": "Download",
+        "remove": "Remove",
+        "loading": "Loading photos…",
+        "empty": "No photos uploaded yet.",
+        "previewUnavailable": "Preview unavailable",
+        "errors": {
+          "load": "Failed to load photos.",
+          "limit": "Photo limit reached. Remove an image before uploading another.",
+          "tooLarge": "\"{name}\" exceeds the 4 MB limit per photo. Please upload smaller files.",
+          "upload": "Failed to upload photo.",
+          "delete": "Failed to delete photo.",
+          "zip": "Failed to download archive."
         }
       }
     },
@@ -680,7 +706,7 @@
         "date": "Data",
         "service": "Serviciu",
         "unitPrice": "Preț unitar",
-        "units": "Unități",
+        "units": "Unitate",
         "ordersUnits": "Comenzi/Unități",
         "total": "Total",
         "adminNotes": "Note admin"
@@ -877,6 +903,32 @@
         "advancedSections": {
           "supplier": "Furnizor",
           "product": "Date produs"
+        }
+      },
+      "photos": {
+        "button": "Foto",
+        "statusAvailable": "Foto disponibile ({count})",
+        "statusUnavailable": "Foto indisponibile"
+      },
+      "photosModal": {
+        "title": "Foto – {name}",
+        "count": "{current} / {max} imagini încărcate",
+        "disclaimer": "ChatGPT said:\n\nPentru utilizarea serviciului de stocare a pozelor pe platformă se aplică o taxă lunară de 3 €, începând din momentul primei încărcări. Aceasta permite păstrarea imaginilor atât timp cât produsul rămâne în inventar. În cazul în care pozele sunt încărcate de mine, se adaugă o taxă de 1 € pentru fiecare set de 6 imagini per produs. Dacă pozele sunt încărcate direct de tine, se aplică doar taxa lunară de 3 €. Serviciul este opțional, iar pozele pot fi trimise gratuit prin WhatsApp la cerere.",
+        "uploadCta": "Trage fișierele sau apasă pentru a încărca (maxim {slots} în plus)",
+        "uploading": "Încărcare…",
+        "downloadAll": "Descarcă tot",
+        "download": "Descarcă",
+        "remove": "Șterge",
+        "loading": "Se încarcă pozele…",
+        "empty": "Nu există încă poze încărcate.",
+        "previewUnavailable": "Previzualizare indisponibilă",
+        "errors": {
+          "load": "Nu s-au putut încărca pozele.",
+          "limit": "Limita de poze a fost atinsă. Șterge o imagine înainte de a adăuga alta.",
+          "tooLarge": "\"{name}\" depășește limita de 4 MB per poză. Încarcă fișiere mai mici.",
+          "upload": "Încărcarea pozei a eșuat.",
+          "delete": "Ștergerea pozei a eșuat.",
+          "zip": "Descărcarea arhivei a eșuat."
         }
       }
     },
@@ -1168,7 +1220,7 @@
         "date": "Date",
         "service": "Service",
         "unitPrice": "Prix unitaire",
-        "units": "Unités",
+        "units": "Unité",
         "ordersUnits": "Commandes/Unités",
         "total": "Total",
         "adminNotes": "Notes admin"
@@ -1365,6 +1417,32 @@
         "advancedSections": {
           "supplier": "Fournisseur",
           "product": "Données produit"
+        }
+      },
+      "photos": {
+        "button": "Photos",
+        "statusAvailable": "Photos disponibles ({count})",
+        "statusUnavailable": "Photos indisponibles"
+      },
+      "photosModal": {
+        "title": "Photos – {name}",
+        "count": "{current} / {max} images importées",
+        "disclaimer": "ChatGPT said:\n\nPour utiliser le service de stockage des photos sur la plateforme, une redevance mensuelle de 3 € s’applique à partir de la première mise en ligne. Cela maintient les images disponibles tant que le produit reste en inventaire. Si je télécharge les photos pour vous, un supplément de 1 € est facturé pour chaque lot de 6 images par produit. Si vous les importez vous-même, seule la redevance mensuelle de 3 € s’applique. Ce service est optionnel et les photos peuvent être envoyées gratuitement via WhatsApp sur demande.",
+        "uploadCta": "Glissez-déposez ou cliquez pour importer (max {slots} supplémentaires)",
+        "uploading": "Téléversement…",
+        "downloadAll": "Télécharger tout",
+        "download": "Télécharger",
+        "remove": "Supprimer",
+        "loading": "Chargement des photos…",
+        "empty": "Aucune photo importée pour le moment.",
+        "previewUnavailable": "Aperçu indisponible",
+        "errors": {
+          "load": "Impossible de charger les photos.",
+          "limit": "Limite de photos atteinte. Supprimez une image avant d’en ajouter une autre.",
+          "tooLarge": "\"{name}\" dépasse la limite de 4 Mo par photo. Importez des fichiers plus petits.",
+          "upload": "Échec du téléversement.",
+          "delete": "Échec de la suppression.",
+          "zip": "Échec du téléchargement de l’archive."
         }
       }
     },
@@ -1656,7 +1734,7 @@
         "date": "Datum",
         "service": "Service",
         "unitPrice": "Stückpreis",
-        "units": "Einheiten",
+        "units": "Einheit",
         "ordersUnits": "Bestellungen/Einheiten",
         "total": "Summe",
         "adminNotes": "Admin-Notizen"
@@ -1853,6 +1931,32 @@
         "advancedSections": {
           "supplier": "Lieferant",
           "product": "Produktdaten"
+        }
+      },
+      "photos": {
+        "button": "Fotos",
+        "statusAvailable": "Fotos verfügbar ({count})",
+        "statusUnavailable": "Keine Fotos verfügbar"
+      },
+      "photosModal": {
+        "title": "Fotos – {name}",
+        "count": "{current} / {max} Bilder hochgeladen",
+        "disclaimer": "ChatGPT said:\n\nFür die Nutzung des Fotostorage-Dienstes auf der Plattform fällt ab dem ersten Upload eine monatliche Gebühr von 3 € an. Dadurch bleiben die Bilder verfügbar, solange sich das Produkt im Bestand befindet. Wenn ich die Fotos für dich hochlade, wird pro Satz von 6 Bildern je Produkt eine zusätzliche Gebühr von 1 € berechnet. Wenn du die Bilder selbst hochlädst, gilt nur die monatliche Gebühr von 3 €. Der Dienst ist optional und die Fotos können auf Wunsch kostenlos per WhatsApp gesendet werden.",
+        "uploadCta": "Dateien hier ablegen oder klicken zum Hochladen (max. {slots} weitere)",
+        "uploading": "Wird hochgeladen…",
+        "downloadAll": "Alles herunterladen",
+        "download": "Herunterladen",
+        "remove": "Entfernen",
+        "loading": "Fotos werden geladen…",
+        "empty": "Noch keine Fotos hochgeladen.",
+        "previewUnavailable": "Vorschau nicht verfügbar",
+        "errors": {
+          "load": "Fotos konnten nicht geladen werden.",
+          "limit": "Fotolimit erreicht. Entferne ein Bild, bevor du ein weiteres hochlädst.",
+          "tooLarge": "\"{name}\" überschreitet die Grenze von 4 MB pro Foto. Bitte lade kleinere Dateien hoch.",
+          "upload": "Foto konnte nicht hochgeladen werden.",
+          "delete": "Foto konnte nicht gelöscht werden.",
+          "zip": "Archiv konnte nicht heruntergeladen werden."
         }
       }
     },
@@ -2342,6 +2446,32 @@
           "supplier": "Fornitore",
           "product": "Dati prodotto"
         }
+      },
+      "photos": {
+        "button": "Foto",
+        "statusAvailable": "Foto disponibili ({count})",
+        "statusUnavailable": "Foto indisponibili"
+      },
+      "photosModal": {
+        "title": "Foto – {name}",
+        "count": "{current} / {max} immagini caricate",
+        "disclaimer": "ChatGPT said:\n\nPer utilizzare il servizio di archiviazione delle foto sulla piattaforma si applica una tariffa mensile di 3 €, a partire dal primo caricamento. Questo mantiene le immagini disponibili finché il prodotto resta in inventario. Se carico io le foto per te, viene aggiunta una tariffa di 1 € per ogni set di 6 immagini per prodotto. Se le carichi direttamente tu, si applica solo la tariffa mensile di 3 €. Il servizio è opzionale e le foto possono essere inviate gratuitamente tramite WhatsApp su richiesta.",
+        "uploadCta": "Trascina i file o fai clic per caricare (max {slots} aggiuntive)",
+        "uploading": "Caricamento in corso…",
+        "downloadAll": "Scarica tutto",
+        "download": "Scarica",
+        "remove": "Rimuovi",
+        "loading": "Caricamento foto…",
+        "empty": "Nessuna foto caricata.",
+        "previewUnavailable": "Anteprima non disponibile",
+        "errors": {
+          "load": "Impossibile caricare le foto.",
+          "limit": "Limite di foto raggiunto. Rimuovi un’immagine prima di caricarne un’altra.",
+          "tooLarge": "\"{name}\" supera il limite di 4 MB per foto. Carica file più piccoli.",
+          "upload": "Caricamento della foto non riuscito.",
+          "delete": "Eliminazione della foto non riuscita.",
+          "zip": "Impossibile scaricare l’archivio."
+        }
       }
     },
     "ClientReturns": {
@@ -2632,7 +2762,7 @@
         "date": "Fecha",
         "service": "Servicio",
         "unitPrice": "Precio unitario",
-        "units": "Unidades",
+        "units": "Unidad",
         "ordersUnits": "Pedidos/Unidades",
         "total": "Total",
         "adminNotes": "Notas admin"
@@ -2829,6 +2959,32 @@
         "advancedSections": {
           "supplier": "Proveedor",
           "product": "Datos del producto"
+        }
+      },
+      "photos": {
+        "button": "Fotos",
+        "statusAvailable": "Fotos disponibles ({count})",
+        "statusUnavailable": "Fotos no disponibles"
+      },
+      "photosModal": {
+        "title": "Fotos – {name}",
+        "count": "{current} / {max} imágenes subidas",
+        "disclaimer": "ChatGPT said:\n\nPara utilizar el servicio de almacenamiento de fotos en la plataforma se aplica una tarifa mensual de 3 €, a partir de la primera carga. Esto mantiene las imágenes disponibles mientras el producto permanezca en inventario. Si yo subo las fotos por ti, se añade una tarifa de 1 € por cada conjunto de 6 imágenes por producto. Si las subes directamente tú, solo se aplica la tarifa mensual de 3 €. El servicio es opcional y las fotos pueden enviarse gratuitamente por WhatsApp si lo solicitas.",
+        "uploadCta": "Arrastra y suelta o haz clic para subir (máx. {slots} adicionales)",
+        "uploading": "Subiendo…",
+        "downloadAll": "Descargar todo",
+        "download": "Descargar",
+        "remove": "Eliminar",
+        "loading": "Cargando fotos…",
+        "empty": "Todavía no se han subido fotos.",
+        "previewUnavailable": "Vista previa no disponible",
+        "errors": {
+          "load": "No se pudieron cargar las fotos.",
+          "limit": "Se alcanzó el límite de fotos. Elimina una imagen antes de subir otra.",
+          "tooLarge": "\"{name}\" supera el límite de 4 MB por foto. Sube archivos más pequeños.",
+          "upload": "Error al subir la foto.",
+          "delete": "Error al eliminar la foto.",
+          "zip": "No se pudo descargar el archivo."
         }
       }
     },

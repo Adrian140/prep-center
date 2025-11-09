@@ -43,8 +43,8 @@ export const es = {
   // Home Page - Services
   coreServicesTitle: 'Nuestros Servicios Principales',
   coreServicesSubtitle: 'Soluciones completas de fulfillment Amazon FBA y multi-plataforma',
-  fnskuLabelingTitle: 'Etiquetado FNSKU',
-  fnskuLabelingDesc: 'Etiquetado FNSKU profesional con embolsado incluido',
+  fnskuLabelingTitle: 'Suscripción de almacenamiento de fotos',
+  fnskuLabelingDesc: 'Alojamiento en la nube de hasta 6 fotos detalladas por SKU: 3 €/mes desde la primera carga (si las subes tú) + 1 €/lote cuando capturamos nosotros las imágenes.',
   fbmShippingTitle: 'Envío FBM',
   fbmShippingDesc: 'Fulfillment de pedidos multi-plataforma para Amazon, eBay, Shopify',
   storageTitle: 'Soluciones de Almacenamiento',
@@ -129,7 +129,7 @@ export const es = {
   
   // Service Features
   receptionInspection: 'Recepción e inspección',
-  fnskuLabeling: 'Etiquetado FNSKU',
+  fnskuLabeling: 'Suscripción de almacenamiento de fotos',
   polybagging: 'Embolsado',
   qualityControl: 'Control de calidad',
   pickPack: 'Picking y empaquetado',

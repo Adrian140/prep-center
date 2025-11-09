@@ -43,8 +43,8 @@ export const en = {
   // Home Page - Services
   coreServicesTitle: 'Our Core Services',
   coreServicesSubtitle: 'Complete Amazon FBA and multi-platform fulfillment solutions',
-  fnskuLabelingTitle: 'FNSKU Labeling',
-  fnskuLabelingDesc: 'Professional FNSKU labeling with polybagging included',
+  fnskuLabelingTitle: 'Photo Storage Subscription',
+  fnskuLabelingDesc: 'Cloud hosting for up to 6 detailed product photos per SKU: €3/month from the first upload (self-service) + €1/set when we capture the images for you.',
   fbmShippingTitle: 'FBM Shipping',
   fbmShippingDesc: 'Multi-platform order fulfillment for Amazon, eBay, Shopify',
   storageTitle: 'Storage Solutions',
@@ -129,7 +129,7 @@ export const en = {
   
   // Service Features
   receptionInspection: 'Reception & inspection',
-  fnskuLabeling: 'FNSKU labeling',
+  fnskuLabeling: 'Photo storage subscription',
   polybagging: 'Polybagging',
   qualityControl: 'Quality control',
   pickPack: 'Pick & pack',

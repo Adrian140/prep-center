@@ -43,8 +43,8 @@ export const ro = {
   // Home Page - Services
   coreServicesTitle: 'Serviciile Noastre Principale',
   coreServicesSubtitle: 'Soluții complete de fulfillment Amazon FBA și multi-platformă',
-  fnskuLabelingTitle: 'Etichetare FNSKU',
-  fnskuLabelingDesc: 'Etichetare FNSKU profesională cu ambalare inclusă',
+  fnskuLabelingTitle: 'Abonament stocare foto',
+  fnskuLabelingDesc: 'Găzduire în cloud pentru până la 6 fotografii detaliate per SKU: 3 €/lună din momentul primei încărcări (dacă le urci tu) + 1 €/set când realizăm noi pozele.',
   fbmShippingTitle: 'Expediere FBM',
   fbmShippingDesc: 'Fulfillment comenzi multi-platformă pentru Amazon, eBay, Shopify',
   storageTitle: 'Soluții de Depozitare',
@@ -129,7 +129,7 @@ export const ro = {
   
   // Service Features
   receptionInspection: 'Recepție și inspecție',
-  fnskuLabeling: 'Etichetare FNSKU',
+  fnskuLabeling: 'Abonament stocare foto',
   polybagging: 'Ambalare',
   qualityControl: 'Control calitate',
   pickPack: 'Picking și împachetare',

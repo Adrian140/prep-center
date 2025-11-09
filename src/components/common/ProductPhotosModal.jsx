@@ -4,7 +4,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { supabase, supabaseHelpers } from '../../config/supabase';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useDashboardTranslation } from '../../translations';
 
 const slugify = (value) =>
   (value || '')
@@ -16,15 +16,6 @@ const slugify = (value) =>
 const bucket = 'product-images';
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // 4 MB per image
 
-const PHOTO_DISCLAIMER = {
-  en: `For storing photos on the platform there is a €1 fee for uploading up to 6 photos per product, applicable only when I upload the photos for you. Photos remain available as long as the product stays in inventory. The €3 monthly fee starts from the moment the first photo is uploaded. If you upload them yourself, you only pay the €3 monthly fee. The service is optional; photos can be sent for free via WhatsApp on request.`,
-  fr: `Pour stocker les photos sur la plateforme, des frais de 1 € s’appliquent pour le téléchargement de 6 photos par produit, uniquement lorsque je les télécharge pour vous. Les photos restent disponibles tant que le produit est présent dans l’inventaire. Les frais mensuels de 3 € commencent au moment du premier téléchargement de photo. Si vous les téléchargez vous‑même, vous payez uniquement les 3 € par mois. Ce service est optionnel ; les photos peuvent être envoyées gratuitement par WhatsApp sur demande.`,
-  de: `Für die Speicherung der Fotos auf der Plattform fällt eine Gebühr von 1 € für bis zu 6 Fotos pro Produkt an, jedoch nur, wenn ich die Fotos für dich hochlade. Die Fotos bleiben verfügbar, solange das Produkt im Bestand ist. Die monatliche Gebühr von 3 € gilt ab dem Moment, in dem das erste Foto hochgeladen wird. Wenn du sie selbst hochlädst, zahlst du nur die monatlichen 3 €. Der Service ist optional; die Fotos können auf Wunsch kostenlos per WhatsApp gesendet werden.`,
-  it: `Per conservare le foto sulla piattaforma viene applicata una tariffa di 1 € per il caricamento di 6 foto per prodotto, dovuta solo se carico io le foto. Le foto restano disponibili finché il prodotto rimane in inventario. La tariffa mensile di 3 € decorre dal momento del primo caricamento. Se le carichi tu, paghi soltanto i 3 € al mese. Il servizio è facoltativo; le foto possono essere inviate gratuitamente via WhatsApp su richiesta.`,
-  es: `Para almacenar las fotos en la plataforma se cobra una tarifa de 1 € por subir hasta 6 fotos por producto, aplicable solo cuando yo subo las fotos por ti. Las fotos permanecen disponibles mientras el producto siga en inventario. La cuota mensual de 3 € empieza en el momento en que se sube la primera foto. Si las subes tú mismo, solo pagas la cuota mensual de 3 €. El servicio es opcional; las fotos se pueden enviar gratis por WhatsApp si lo solicitas.`,
-  ro: `Pentru stocarea pozelor pe platformă se percepe o taxă de 1 € pentru încărcarea a 6 poze per produs, aplicabilă doar dacă eu încarc pozele. Pozele rămân disponibile atât timp cât produsul este prezent în inventar. Taxa lunară de 3 € se aplică din momentul primei încărcări de poză. Dacă le încarci tu direct, plătești doar taxa lunară de 3 €. Serviciul este opțional; pozele pot fi trimise gratuit prin WhatsApp la cerere.`
-};
-
 const ProductPhotosModal = ({
   open,
   onClose,
@@ -35,12 +26,12 @@ const ProductPhotosModal = ({
   onPhotoCountChange
 }) => {
   const { profile } = useSupabaseAuth();
-  const { currentLanguage } = useLanguage();
+  const { t, tp } = useDashboardTranslation();
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const photoDisclaimer = PHOTO_DISCLAIMER[currentLanguage] || PHOTO_DISCLAIMER.en;
+  const isAdminUploader = profile?.account_type === 'admin';
 
   const productName = stockItem?.name || stockItem?.product_name || 'Product';
   const slug = useMemo(() => slugify(productName), [productName]);
@@ -65,7 +56,7 @@ const ProductPhotosModal = ({
       setImages(mapped);
     } catch (err) {
       console.error('fetchImages error', err);
-      setError(err.message || 'Failed to load photos');
+      setError(t('ClientStock.photosModal.errors.load'));
     } finally {
       setLoading(false);
     }
@@ -90,6 +81,11 @@ const ProductPhotosModal = ({
   if (!open || !stockItem) return null;
 
   const remainingSlots = Math.max(0, maxPhotos - images.length);
+  const modalTitle = tp('ClientStock.photosModal.title', { name: productName });
+  const countLabel = tp('ClientStock.photosModal.count', { current: images.length, max: maxPhotos });
+  const disclaimer = t('ClientStock.photosModal.disclaimer');
+  const uploadCta = tp('ClientStock.photosModal.uploadCta', { slots: remainingSlots });
+  const uploadingLabel = t('ClientStock.photosModal.uploading');
 
   const handleFiles = async (evt) => {
     const files = Array.from(evt.target.files || []);
@@ -97,12 +93,12 @@ const ProductPhotosModal = ({
     setError('');
     const allowed = files.slice(0, remainingSlots);
     if (!allowed.length) {
-      setError('Photo limit reached. Remove an image before uploading another.');
+      setError(t('ClientStock.photosModal.errors.limit'));
       return;
     }
     const tooLarge = allowed.find((file) => file.size > MAX_UPLOAD_BYTES);
     if (tooLarge) {
-      setError(`"${tooLarge.name}" depășește limita de 4 MB per poză. Te rugăm să încarci fișiere mai mici.`);
+      setError(tp('ClientStock.photosModal.errors.tooLarge', { name: tooLarge.name }));
       return;
     }
     setUploading(true);
@@ -128,10 +124,18 @@ const ProductPhotosModal = ({
         });
         if (insertError) throw insertError;
       }
-      fetchImages();
+      await fetchImages();
+      if (companyId) {
+        await supabaseHelpers.handlePhotoUploadBilling({
+          companyId,
+          uploadedByAdmin: isAdminUploader,
+          uploadedCount: allowed.length,
+          stockItemName: productName
+        });
+      }
     } catch (err) {
       console.error('upload error', err);
-      setError(err.message || 'Failed to upload photo');
+      setError(t('ClientStock.photosModal.errors.upload'));
     } finally {
       setUploading(false);
       evt.target.value = '';
@@ -145,9 +149,12 @@ const ProductPhotosModal = ({
       const { error: deleteErr } = await supabaseHelpers.deleteProductImage(image.id);
       if (deleteErr) throw deleteErr;
       setImages((prev) => prev.filter((img) => img.id !== image.id));
+      if (companyId) {
+        await supabaseHelpers.syncPhotoSubscription(companyId);
+      }
     } catch (err) {
       console.error('delete error', err);
-      setError(err.message || 'Failed to delete photo');
+      setError(t('ClientStock.photosModal.errors.delete'));
     }
   };
 
@@ -176,7 +183,7 @@ const ProductPhotosModal = ({
       saveAs(content, `${slug}-photos.zip`);
     } catch (err) {
       console.error('zip download error', err);
-      setError(err.message || 'Failed to download archive');
+      setError(t('ClientStock.photosModal.errors.zip'));
     }
   };
 
@@ -189,13 +196,13 @@ const ProductPhotosModal = ({
         <div className="flex items-center justify-between border-b px-6 py-4">
           <div>
             <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-              <Images className="w-5 h-5" /> Photos – {productName}
+              <Images className="w-5 h-5" /> {modalTitle}
             </h3>
             <p className="text-sm text-text-secondary">
-              {images.length} / {maxPhotos} images uploaded
+              {countLabel}
             </p>
             <p className="text-[13px] text-text-secondary mt-1 leading-relaxed whitespace-pre-line">
-              {photoDisclaimer}
+              {disclaimer}
             </p>
           </div>
           <button onClick={closeModal} className="text-text-secondary hover:text-text-primary">
@@ -214,7 +221,7 @@ const ProductPhotosModal = ({
             <div className="border-2 border-dashed rounded-xl p-4 flex flex-col items-center text-center">
               <Upload className="w-6 h-6 text-text-secondary" />
               <p className="text-sm mt-2 text-text-secondary">
-                Drag & drop or click to upload (max {remainingSlots} more)
+                {uploadCta}
               </p>
               <input
                 type="file"
@@ -233,19 +240,19 @@ const ProductPhotosModal = ({
               disabled={!images.length}
               className="inline-flex items-center gap-2 px-3 py-2 border rounded text-sm disabled:opacity-50"
             >
-              <Download className="w-4 h-4" /> Download all
+              <Download className="w-4 h-4" /> {t('ClientStock.photosModal.downloadAll')}
             </button>
-            {uploading && <span className="text-xs text-text-secondary">Uploading…</span>}
+            {uploading && <span className="text-xs text-text-secondary">{uploadingLabel}</span>}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {loading ? (
               <div className="col-span-full flex justify-center py-10 text-text-secondary">
-                Loading photos…
+                {t('ClientStock.photosModal.loading')}
               </div>
             ) : images.length === 0 ? (
               <p className="col-span-full text-sm text-text-secondary text-center">
-                No photos uploaded yet.
+                {t('ClientStock.photosModal.empty')}
               </p>
             ) : (
               images.map((image, idx) => (
@@ -258,19 +265,19 @@ const ProductPhotosModal = ({
                     />
                   ) : (
                     <div className="w-full h-40 flex items-center justify-center text-sm text-text-secondary">
-                      Preview unavailable
+                      {t('ClientStock.photosModal.previewUnavailable')}
                     </div>
                   )}
                   <div className="flex items-center justify-between px-3 py-2 bg-white text-sm">
                     <button onClick={() => downloadSingle(image)} className="inline-flex items-center gap-1 text-primary">
-                      <Download className="w-4 h-4" /> Download
+                      <Download className="w-4 h-4" /> {t('ClientStock.photosModal.download')}
                     </button>
                     {canEdit && (
                       <button
                         onClick={() => handleDelete(image)}
                         className="inline-flex items-center gap-1 text-red-500"
                       >
-                        <Trash2 className="w-4 h-4" /> Remove
+                        <Trash2 className="w-4 h-4" /> {t('ClientStock.photosModal.remove')}
                       </button>
                     )}
                   </div>

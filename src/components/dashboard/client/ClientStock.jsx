@@ -1455,10 +1455,12 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
     onClick={() => setPhotoItem(r)}
     className="mt-2 inline-flex items-center text-xs text-primary hover:underline"
   >
-    <ImageIcon className="w-3 h-3 mr-1" /> Photos
+    <ImageIcon className="w-3 h-3 mr-1" /> {t('ClientStock.photos.button')}
   </button>
   <p className="text-[11px] text-gray-500 mt-1">
-    {hasPhotos ? `Photos available (${photoCount})` : 'Photos unavailable'}
+    {hasPhotos
+      ? tp('ClientStock.photos.statusAvailable', { count: photoCount })
+      : t('ClientStock.photos.statusUnavailable')}
   </p>
 </td>
 

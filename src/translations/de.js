@@ -43,8 +43,8 @@ export const de = {
   // Home Page - Services
   coreServicesTitle: 'Unsere Kernservices',
   coreServicesSubtitle: 'Komplette Amazon FBA und Multi-Plattform Fulfillment-Lösungen',
-  fnskuLabelingTitle: 'FNSKU-Etikettierung',
-  fnskuLabelingDesc: 'Professionelle FNSKU-Etikettierung mit Polyverpackung inklusive',
+  fnskuLabelingTitle: 'Foto-Speicherabonnement',
+  fnskuLabelingDesc: 'Cloud-Hosting für bis zu 6 detaillierte Produktfotos pro SKU: 3 €/Monat ab dem ersten Upload (Eigen-Upload) + 1 €/Set, wenn wir die Bilder für dich aufnehmen.',
   fbmShippingTitle: 'FBM-Versand',
   fbmShippingDesc: 'Multi-Plattform Bestellabwicklung für Amazon, eBay, Shopify',
   storageTitle: 'Lagerlösungen',
@@ -129,7 +129,7 @@ export const de = {
   
   // Service Features
   receptionInspection: 'Empfang & Inspektion',
-  fnskuLabeling: 'FNSKU-Etikettierung',
+  fnskuLabeling: 'Foto-Speicherabonnement',
   polybagging: 'Polyverpackung',
   qualityControl: 'Qualitätskontrolle',
   pickPack: 'Kommissionierung & Verpackung',
