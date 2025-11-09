@@ -107,8 +107,10 @@ async function fetchOtherLineSums(companyId, startDate, endDate) {
 // --- UI
 function MoneyPill({ value }) {
   const isZero = !Number.isFinite(value) || Math.abs(value) < 1e-9;
-  const cls = isZero ? "bg-gray-100 text-gray-700"
-    : value < 0 ? "bg-red-100 text-red-800"
+  const cls = isZero
+    ? "bg-gray-100 text-gray-700"
+    : value > 0
+    ? "bg-red-100 text-red-800"
     : "bg-green-100 text-green-800";
   return <span className={`px-2 py-1 rounded-md text-sm font-medium ${cls}`}>{fmt2(value)}</span>;
 }
