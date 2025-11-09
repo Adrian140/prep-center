@@ -54,6 +54,9 @@ const ProductPhotosModal = ({
         })
       );
       setImages(mapped);
+      if (companyId) {
+        await supabaseHelpers.syncPhotoSubscription(companyId);
+      }
     } catch (err) {
       console.error('fetchImages error', err);
       setError(t('ClientStock.photosModal.errors.load'));

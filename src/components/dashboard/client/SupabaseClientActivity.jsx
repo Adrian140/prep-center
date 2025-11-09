@@ -37,6 +37,13 @@ const currentMonthStr = () => {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
 };
 
+const deriveMonth = (serviceDate) => {
+  if (typeof serviceDate === 'string' && serviceDate.length >= 7) {
+    return serviceDate.slice(0, 7);
+  }
+  return currentMonthStr();
+};
+
 const filterRowsByMonth = (rows, month) => {
   if (!month) return rows;
   const prefix = `${month}-`;
@@ -70,9 +77,15 @@ export default function SupabaseClientActivity() {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("3m");
   const [activeReport, setActiveReport] = useState('fba');
-  const [fbaMonth, setFbaMonth] = useState(() => currentMonthStr());
-  const [fbmMonth, setFbmMonth] = useState(() => currentMonthStr());
-  const [otherMonth, setOtherMonth] = useState(() => currentMonthStr());
+  const [fbaMonth, setFbaMonth] = useState('');
+  const [fbmMonth, setFbmMonth] = useState('');
+  const [otherMonth, setOtherMonth] = useState('');
+  const [baseMonths, setBaseMonths] = useState({
+    fba: currentMonthStr(),
+    fbm: currentMonthStr(),
+    other: currentMonthStr()
+  });
+  const [monthsInitialized, setMonthsInitialized] = useState(false);
 
   const load = async () => {
     if (!companyId) {
@@ -88,9 +101,27 @@ export default function SupabaseClientActivity() {
       supabaseHelpers.listFbmLinesByCompany(companyId),
       supabaseHelpers.listOtherLinesByCompany(companyId)
     ]);
-    setFba(fbaData || []);
-    setFbm(fbmData || []);
-    setOther(otherData || []);
+    const safeFba = fbaData || [];
+    const safeFbm = fbmData || [];
+    const safeOther = otherData || [];
+    setFba(safeFba);
+    setFbm(safeFbm);
+    setOther(safeOther);
+
+    const nextBase = {
+      fba: deriveMonth(safeFba[0]?.service_date),
+      fbm: deriveMonth(safeFbm[0]?.service_date),
+      other: deriveMonth(safeOther[0]?.service_date)
+    };
+    setBaseMonths(nextBase);
+
+    if (!monthsInitialized) {
+      setFbaMonth(nextBase.fba);
+      setFbmMonth(nextBase.fbm);
+      setOtherMonth(nextBase.other);
+      setMonthsInitialized(true);
+    }
+
     setLoading(false);
   };
 
@@ -99,15 +130,25 @@ export default function SupabaseClientActivity() {
   }, [companyId]);
 
   useEffect(() => {
-    const m = currentMonthStr();
-    setFbaMonth(m);
-    setFbmMonth(m);
-    setOtherMonth(m);
+    setMonthsInitialized(false);
   }, [companyId]);
 
-  const fbaMonthRows = useMemo(() => filterRowsByMonth(fba, fbaMonth), [fba, fbaMonth]);
-  const fbmMonthRows = useMemo(() => filterRowsByMonth(fbm, fbmMonth), [fbm, fbmMonth]);
-  const otherMonthRows = useMemo(() => filterRowsByMonth(other, otherMonth), [other, otherMonth]);
+  const effectiveFbaMonth = fbaMonth || baseMonths.fba;
+  const effectiveFbmMonth = fbmMonth || baseMonths.fbm;
+  const effectiveOtherMonth = otherMonth || baseMonths.other;
+
+  const fbaMonthRows = useMemo(
+    () => filterRowsByMonth(fba, effectiveFbaMonth),
+    [fba, effectiveFbaMonth]
+  );
+  const fbmMonthRows = useMemo(
+    () => filterRowsByMonth(fbm, effectiveFbmMonth),
+    [fbm, effectiveFbmMonth]
+  );
+  const otherMonthRows = useMemo(
+    () => filterRowsByMonth(other, effectiveOtherMonth),
+    [other, effectiveOtherMonth]
+  );
 
   const fbaMonthTotals = useMemo(() => calcReportTotals(fbaMonthRows, 'units'), [fbaMonthRows]);
   const fbmMonthTotals = useMemo(
@@ -265,7 +306,9 @@ export default function SupabaseClientActivity() {
       ? t('ClientFBMReport.noDataMonth')
       : t('ClientOtherReport.noDataMonth');
 
-  const resetActiveMonth = () => setActiveMonth(currentMonthStr());
+  const resetActiveMonth = () => {
+    setActiveMonth(isFbaView ? baseMonths.fba : isFbmView ? baseMonths.fbm : baseMonths.other);
+  };
 
   return (
   <div className="space-y-6">
@@ -359,7 +402,7 @@ export default function SupabaseClientActivity() {
             <label>{monthLabel}</label>
             <input
               type="month"
-              value={activeMonth}
+              value={activeMonth || (isFbaView ? baseMonths.fba : isFbmView ? baseMonths.fbm : baseMonths.other)}
               onChange={(e) => setActiveMonth(e.target.value)}
               className="border rounded px-2 py-1 text-sm"
             />
