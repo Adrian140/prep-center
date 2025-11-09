@@ -253,8 +253,8 @@ export default function ClientPrepShipments() {
           if (error) throw error;
         }
       }
-      await openReqEditor(reqHeader.id);
       setReqErrors([]);
+      setReqOpen(false);
     } catch (e) {
       setReqErrors([e?.message || 'Failed to save changes.']);
     } finally {
