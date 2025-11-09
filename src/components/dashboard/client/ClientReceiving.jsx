@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Languages, FileDown, Plus, Edit, Trash2, Send } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '../../../config/supabase';
@@ -72,6 +72,18 @@ function ClientReceiving() {
   const [editHeader, setEditHeader] = useState(null);
   const [editItems, setEditItems] = useState([]);
   const [savingEdits, setSavingEdits] = useState(false);
+  const [stock, setStock] = useState([]);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryDraftQty, setInventoryDraftQty] = useState({});
+  const filteredInventory = useMemo(() => {
+    const term = inventorySearch.trim().toLowerCase();
+    if (!term) return stock;
+    return stock.filter((item) => {
+      const hay = `${item.name || ''} ${item.ean || ''} ${item.sku || ''} ${item.asin || ''}`.toLowerCase();
+      return hay.includes(term);
+    });
+  }, [stock, inventorySearch]);
 
   const buildHeaderState = (shipment) => ({
     carrier: shipment?.carrier || '',
@@ -88,6 +100,9 @@ function ClientReceiving() {
     setMessageType(null);
     setEditHeader(buildHeaderState(shipment));
     setEditItems(cloneItems(sortItems(shipment?.receiving_items)));
+    setInventoryOpen(false);
+    setInventorySearch('');
+    setInventoryDraftQty({});
   };
 
   const loadData = async () => {
@@ -100,17 +115,26 @@ function ClientReceiving() {
 
     setLoading(true);
     try {
-      const [shipmentsRes, carriersRes] = await Promise.all([
+      const [shipmentsRes, carriersRes, stockRes] = await Promise.all([
         supabaseHelpers.getClientReceivingShipments(profile.company_id),
-        supabaseHelpers.getCarriers()
+        supabaseHelpers.getCarriers(),
+        supabase
+          .from('stock_items')
+          .select('*')
+          .eq('user_id', profile.id)
+          .order('created_at', { ascending: false })
       ]);
 
       if (shipmentsRes.error) throw shipmentsRes.error;
       if (carriersRes.error) throw carriersRes.error;
+      if (stockRes?.error) {
+        console.error('Failed to load inventory', stockRes.error);
+      }
 
       const nextShipments = Array.isArray(shipmentsRes.data) ? shipmentsRes.data : [];
       setShipments(nextShipments);
       setCarriers(carriersRes.data || []);
+      setStock(Array.isArray(stockRes?.data) ? stockRes.data : []);
       return nextShipments;
     } catch (error) {
       setShipments([]);
@@ -130,6 +154,14 @@ function ClientReceiving() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.company_id]);
+
+  useEffect(() => {
+    if (!editMode) {
+      setInventoryOpen(false);
+      setInventorySearch('');
+      setInventoryDraftQty({});
+    }
+  }, [editMode]);
 
   const downloadImportGuide = async (lang) => {
     try {
@@ -286,6 +318,35 @@ function ClientReceiving() {
       setMessage(`${t('generic_error_prefix')}: ${err.message}`);
       setMessageType('error');
     }
+  };
+
+  const handleInventoryAdd = (stockId) => {
+    const stockItem = stock.find((item) => item.id === stockId);
+    const qtyValue = Number(inventoryDraftQty[stockId] || 0);
+    if (!stockItem) {
+      return;
+    }
+    if (!Number.isFinite(qtyValue) || qtyValue < 1) {
+      setMessage(t('inventory_qty_error'));
+      setMessageType('error');
+      return;
+    }
+    setEditItems((prev) => [
+      ...prev,
+      {
+        id: undefined,
+        ean_asin: stockItem.ean || stockItem.asin || '',
+        product_name: stockItem.name || '',
+        quantity_received: qtyValue,
+        sku: stockItem.sku || null,
+        purchase_price: stockItem.purchase_price ?? null,
+        send_to_fba: false,
+        fba_qty: null
+      }
+    ]);
+    setInventoryDraftQty((prev) => ({ ...prev, [stockId]: '' }));
+    setMessage('');
+    setMessageType(null);
   };
 
   if (loading) {
@@ -774,27 +835,105 @@ function ClientReceiving() {
               </tbody>
             </table>
             {editMode && (
-              <div className="mt-3">
-                <button
-                  onClick={() =>
-                    setEditItems((arr) => [
-                      ...arr,
-                      {
-                        id: undefined,
-                        ean_asin: '',
-                        product_name: '',
-                        quantity_received: 1,
-                        sku: null,
-                        purchase_price: null,
-                        send_to_fba: false,
-                        fba_qty: null
-                      }
-                    ])
-                  }
-                  className="flex items-center px-3 py-2 text-primary border border-primary rounded-lg hover:bg-primary hover:text-white"
-                >
-                  <Plus className="w-4 h-4 mr-1" /> {t('add_row')}
-                </button>
+              <div className="mt-3 space-y-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() =>
+                      setEditItems((arr) => [
+                        ...arr,
+                        {
+                          id: undefined,
+                          ean_asin: '',
+                          product_name: '',
+                          quantity_received: 1,
+                          sku: null,
+                          purchase_price: null,
+                          send_to_fba: false,
+                          fba_qty: null
+                        }
+                      ])
+                    }
+                    className="flex items-center px-3 py-2 text-primary border border-primary rounded-lg hover:bg-primary hover:text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> {t('add_row')}
+                  </button>
+                  <button
+                    onClick={() =>
+                      setInventoryOpen((prev) => {
+                        const next = !prev;
+                        if (!next) {
+                          setInventorySearch('');
+                          setInventoryDraftQty({});
+                        }
+                        return next;
+                      })
+                    }
+                    className="flex items-center px-3 py-2 text-primary border border-dashed rounded-lg hover:bg-primary hover:text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    {inventoryOpen ? t('inventory_close') : t('inventory_open')}
+                  </button>
+                </div>
+                {inventoryOpen && (
+                  <div className="border rounded-lg p-4 bg-white shadow-sm">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
+                      <div>
+                        <p className="text-sm font-semibold">{t('inventory_title')}</p>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder={t('inventory_search')}
+                        value={inventorySearch}
+                        onChange={(e) => setInventorySearch(e.target.value)}
+                        className="px-3 py-2 border rounded-lg text-sm w-full sm:w-72"
+                      />
+                    </div>
+                    <div className="max-h-64 overflow-y-auto divide-y">
+                      {filteredInventory.map((item) => (
+                        <div
+                          key={item.id}
+                          className="py-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div>
+                            <p className="font-semibold text-text-primary">
+                              {item.name || '—'}
+                            </p>
+                            <p className="text-xs text-text-secondary">
+                              {(item.ean || item.asin || '—')}{' '}
+                              · {t('inventory_in_stock', { qty: item.qty ?? 0 })}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              placeholder="Qty"
+                              className="w-20 text-right px-2 py-1 border rounded"
+                              value={inventoryDraftQty[item.id] || ''}
+                              onChange={(e) =>
+                                setInventoryDraftQty((prev) => ({
+                                  ...prev,
+                                  [item.id]: e.target.value
+                                }))
+                              }
+                            />
+                            <button
+                              onClick={() => handleInventoryAdd(item.id)}
+                              className="px-3 py-1 bg-primary text-white rounded text-xs"
+                            >
+                              {t('inventory_add')}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {filteredInventory.length === 0 && (
+                        <div className="py-4 text-center text-sm text-text-secondary">
+                          {t('inventory_empty')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

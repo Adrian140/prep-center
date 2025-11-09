@@ -70,6 +70,8 @@ export default function ClientPrepShipments() {
     setAdding(false);
     setAddingSel('');
     setAddingQty('');
+    setInventorySearch('');
+    setInventoryDraftQty({});
   };
   const confirmAddItem = () => {
     const stockId = String(addingSel || '').trim();
@@ -529,6 +531,7 @@ export default function ClientPrepShipments() {
                       )}
                     </div>
 
+                    {adding && (
                     <div className="px-6 mb-6 border rounded-xl p-3 bg-white shadow-sm">
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-sm font-semibold">{t('ClientPrepShipments.drawer.inventoryTitle')}</div>
@@ -576,6 +579,7 @@ export default function ClientPrepShipments() {
                         )}
                       </div>
                     </div>
+                    )}
                   </>
                 )}
 
