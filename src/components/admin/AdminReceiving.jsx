@@ -21,18 +21,18 @@ const StatusPill = ({ status }) => {
 
 const FBA_MODE_META = {
   none: {
-    label: 'Pas d’envoi direct',
-    detail: 'Aucune expédition directe vers Amazon n’a été demandée.',
+    label: 'No direct Amazon shipment',
+    detail: 'Client wants everything stored in the prep center.',
     badge: 'bg-gray-100 text-gray-700'
   },
   full: {
-    label: 'Tout envoyer vers Amazon',
-    detail: 'Le client souhaite que toutes les unités partent directement vers Amazon.',
-    badge: 'bg-blue-100 text-blue-800'
+    label: 'Send everything to Amazon',
+    detail: 'Client asked for the full reception to go straight to Amazon.',
+    badge: 'bg-sky-100 text-sky-800'
   },
   partial: {
-    label: 'Envoi partiel vers Amazon',
-    detail: 'Le client souhaite envoyer seulement une partie des unités vers Amazon. Vérifiez les quantités ci-dessous.',
+    label: 'Partial Amazon shipment',
+    detail: 'Client wants only part of the reception sent to Amazon. Double-check the per-line quantities below.',
     badge: 'bg-indigo-100 text-indigo-800'
   }
 };
@@ -135,22 +135,22 @@ const checkStockMatches = async () => {
 
 const markAsReceived = async () => {
   if (!profile?.id) {
-    setMessage('Profil indisponibil. Reîncearcă.');
+    setMessage('Profile unavailable. Please try again.');
     return;
   }
-  if (!confirm('Marquer cette réception comme reçue?')) return;
+  if (!confirm('Mark this reception as received?')) return;
   try {
     const { error } = await supabaseHelpers.markReceivingAsReceived(shipment.id, profile.id);
     if (error) throw error;
-    setMessage('Réception marquée comme reçue');
+    setMessage('Reception marked as received.');
     onUpdate();
   } catch (err) {
-    setMessage(`Erreur: ${err.message}`);
+    setMessage(`Error: ${err.message}`);
   }
 };
 
   const deleteThisShipment = async () => {
-    if (!confirm('Ștergi această recepție? Operațiunea este definitivă.')) return;
+    if (!confirm('Delete this reception? This action cannot be undone.')) return;
     try {
       let { error } = await supabaseHelpers.deleteReceivingShipment(shipment.id);
       if (error && /foreign key|constraint/i.test(error.message)) {
@@ -167,20 +167,20 @@ const markAsReceived = async () => {
       }
       if (error) throw error;
 
-      setMessage('Recepția a fost ștearsă cu succes');
+      setMessage('Reception deleted successfully.');
       onUpdate();
       onBack();
     } catch (err) {
-      setMessage(`Eroare la ștergere: ${err.message}`);
+      setMessage(`Delete error: ${err.message}`);
     }
   };
 
 const processToStock = async () => {
   if (!profile?.id) {
-    setMessage('Profil indisponibil. Reîncearcă.');
+    setMessage('Profile unavailable. Please try again.');
     return;
   }
-  if (!confirm('Traiter cette réception vers le stock? Cette action ne peut pas être annulée.')) return;
+  if (!confirm('Process this reception into stock? This cannot be undone.')) return;
   setProcessing(true);
   try {
     const hasInvalidFba = items.some(it => {
@@ -190,7 +190,7 @@ const processToStock = async () => {
       return !Number.isFinite(fba) || fba < 1 || fba > rec;
     });
     if (hasInvalidFba) {
-      setMessage('Verifică cantitățile FBA la produse.');
+      setMessage('Please double-check the FBA quantities for each product.');
       setProcessing(false);
       return;
     }
@@ -212,10 +212,10 @@ const processToStock = async () => {
     );
     if (error) throw error;
 
-    setMessage('Réception traitée vers le stock avec succès');
+    setMessage('Reception processed to stock successfully.');
     onUpdate();
   } catch (error) {
-    setMessage(`Erreur de traitement: ${error.message}`);
+    setMessage(`Processing error: ${error.message}`);
   } finally {
     setProcessing(false);
   }
@@ -224,16 +224,19 @@ const processToStock = async () => {
   const fbaModeValue = editHeader.fba_mode || shipment.fba_mode || 'none';
   const fbaMeta = getFbaModeMeta(fbaModeValue);
   const hasFbaLines = items.some(
-    (item) => item.send_to_fba && Number(item.fba_qty || 0) > 0
+    (item) =>
+      (item.send_to_fba && Number(item.fba_qty || 0) > 0) ||
+      item.remaining_action === 'direct_to_amazon'
   );
   const showFbaInfo = fbaModeValue !== 'none' || hasFbaLines;
+  const messageSuccess = typeof message === 'string' && message.toLowerCase().includes('success');
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="flex items-center text-text-secondary hover:text-primary">
           <ArrowLeft className="w-4 h-4 mr-1" />
-          Retour à la liste
+          Back to list
         </button>
         {(
           ['draft', 'submitted', 'received', 'processed', 'cancelled'].includes(shipment.status)
@@ -242,22 +245,22 @@ const processToStock = async () => {
             onClick={() => setEditMode(true)}
             className="px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50"
           >
-            Modifier
+            Edit
           </button>
         )}
         <div className="flex items-center space-x-4">
           <StatusPill status={shipment.status} />
           <span className="text-text-secondary">
-            {new Date(shipment.created_at).toLocaleDateString('fr-FR')}
+            {new Date(shipment.created_at).toLocaleDateString()}
           </span>
         </div>
       </div>
 
       {message && (
         <div className={`px-4 py-3 rounded-lg ${
-          message.includes('succès') ? 'bg-green-50 border border-green-200 text-green-600'
-          : message.includes('succes') ? 'bg-green-50 border border-green-200 text-green-600'
-          : 'bg-red-50 border border-red-200 text-red-600'
+          messageSuccess
+            ? 'bg-green-50 border border-green-200 text-green-600'
+            : 'bg-red-50 border border-red-200 text-red-600'
         }`}>
           {message}
         </div>
@@ -273,7 +276,7 @@ const processToStock = async () => {
       {/* Shipment Header (card) */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-text-primary mb-4">
-          Réception #{shipment.id.slice(0, 8)}
+          Reception #{shipment.id.slice(0, 8)}
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
@@ -286,7 +289,7 @@ const processToStock = async () => {
             </p>
           </div>
            <div>
-          <label className="block text-sm font-medium text-text-secondary">Transporteur</label>
+          <label className="block text-sm font-medium text-text-secondary">Carrier</label>
           {editMode ? (
             <>
       <select
@@ -294,25 +297,24 @@ const processToStock = async () => {
         onChange={e => setEditHeader(h => ({ ...h, carrier: e.target.value }))}
         className="border rounded px-2 py-1 w-full mb-2"
       >
-        <option value="">Sélectionner</option>
+        <option value="">Select carrier</option>
         {carriers.map(c => (
           <option key={c.code} value={c.code}>{c.name}</option>
         ))}
-        <option value="OTHER">Autre</option>
+        <option value="OTHER">Other</option>
       </select>
 
       {editHeader.carrier === 'OTHER' && (
         <input
           type="text"
-          placeholder="Nom du transporteur"
+          placeholder="Carrier name"
           value={editHeader.carrier_other}
           onChange={e => setEditHeader(h => ({ ...h, carrier_other: e.target.value }))}
           className="border rounded px-2 py-1 w-full mb-2"
         />
       )}
 
-      {/* === Bloc nou: gestion multiple tracking IDs === */}
-      <label className="block text-sm font-medium text-text-secondary mt-3">Numéros de suivi</label>
+      <label className="block text-sm font-medium text-text-secondary mt-3">Tracking numbers</label>
       {(editHeader.tracking_ids || ['']).map((num, index) => (
         <div key={index} className="flex items-center gap-2 mb-2">
           <input
@@ -324,7 +326,7 @@ const processToStock = async () => {
               setEditHeader({ ...editHeader, tracking_ids: updated });
             }}
             className="flex-1 px-3 py-2 border rounded font-mono"
-            placeholder="Ex: 1Z999AA1234567890"
+            placeholder="e.g. 1Z999AA1234567890"
           />
           {(editHeader.tracking_ids?.length ?? 0) > 1 && (
             <button
@@ -350,7 +352,7 @@ const processToStock = async () => {
         }
         className="text-blue-600 hover:underline text-sm"
       >
-        Ajouter un numéro de suivi
+        Add tracking number
       </button>
       {/* === Bloc FBA Shipment IDs === */}
         <label className="block text-sm font-medium text-text-secondary mt-3">FBA Shipment ID(s)</label>
@@ -365,7 +367,7 @@ const processToStock = async () => {
                 setEditHeader({ ...editHeader, fba_shipment_ids: updated });
               }}
               className="flex-1 px-3 py-2 border rounded font-mono"
-              placeholder="Ex: FBA15KZV38J"
+              placeholder="e.g. FBA15KZV38J"
             />
             {(editHeader.fba_shipment_ids?.length ?? 0) > 1 && (
               <button
@@ -437,7 +439,7 @@ const processToStock = async () => {
             
           </div>
           <div>
-            <label className="block text-sm font-medium text-text-secondary">Envoi direct Amazon</label>
+            <label className="block text-sm font-medium text-text-secondary">Direct Amazon shipment</label>
             {editMode ? (
               <select
                 value={editHeader.fba_mode || 'none'}
@@ -446,9 +448,9 @@ const processToStock = async () => {
                 }
                 className="border rounded px-2 py-1 w-full"
               >
-                <option value="none">Pas d’envoi direct</option>
-                <option value="full">Tout envoyer vers Amazon</option>
-                <option value="partial">Envoi partiel</option>
+                <option value="none">Store everything</option>
+                <option value="full">Send everything to Amazon</option>
+                <option value="partial">Partial shipment</option>
               </select>
             ) : (
               <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${fbaMeta.badge}`}>
@@ -502,13 +504,13 @@ const processToStock = async () => {
               }}
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
             >
-              Sauvegarder
+              Save changes
             </button>
             <button
               onClick={() => setEditMode(false)}
               className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-50"
             >
-              Annuler
+              Cancel
             </button>
           </div>
         )}
@@ -521,7 +523,7 @@ const processToStock = async () => {
                 className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Marquer comme reçu
+                Mark as received
               </button>
               <button
                 onClick={deleteThisShipment}
@@ -540,14 +542,14 @@ const processToStock = async () => {
               className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
             >
               <Package className="w-4 h-4 mr-2" />
-              {processing ? 'Traitement...' : 'Traiter vers stock'}
+              {processing ? 'Processing…' : 'Process to stock'}
             </button>
           )}
         </div>
       {/* Items Table */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h4 className="text-lg font-semibold text-text-primary mb-4">
-          Produits ({items.length})
+          Products ({items.length})
         </h4>
 
         <div className="overflow-x-auto">
@@ -556,8 +558,8 @@ const processToStock = async () => {
               <tr>
                 <th className="px-4 py-3 text-left">Photo</th>
                 <th className="px-4 py-3 text-left">EAN / ASIN</th>
-                <th className="px-4 py-3 text-left">Nom du Produit</th>
-                <th className="px-4 py-3 text-right">Quantité</th>
+                <th className="px-4 py-3 text-left">Product name</th>
+                <th className="px-4 py-3 text-right">Quantity</th>
                 <th className="px-4 py-3 text-left">SKU</th>
                 <th className="px-4 py-3 text-center">FBA</th>
               </tr>
@@ -569,8 +571,14 @@ const processToStock = async () => {
                 const productName = item.product_name || item.stock_item?.name || '—';
                 const imageUrl = item.stock_item?.image_url || item.image_url || '';
                 const skuValue = item.sku || item.stock_item?.sku || '—';
-                const fbaQty = item.send_to_fba ? Math.max(0, Number(item.fba_qty) || 0) : 0;
-                const rowHighlight = fbaQty > 0 ? 'bg-blue-50/60' : '';
+                const storedFbaQty = Math.max(0, Number(item.fba_qty) || 0);
+                const hasDirectIntent = (item.send_to_fba && storedFbaQty > 0) || item.remaining_action === 'direct_to_amazon';
+                const displayFbaQty = storedFbaQty > 0
+                  ? storedFbaQty
+                  : item.remaining_action === 'direct_to_amazon'
+                  ? Math.max(0, Number(item.quantity_received) || 0)
+                  : 0;
+                const rowHighlight = hasDirectIntent ? 'bg-sky-50' : '';
                 return (
                   <tr key={item.id} className={`border-t ${rowHighlight}`}>
                     <td className="px-4 py-3">
@@ -594,9 +602,9 @@ const processToStock = async () => {
                     <td className="px-4 py-3 text-right">{item.quantity_received}</td>
                     <td className="px-4 py-3 font-mono">{skuValue}</td>
                     <td className="px-4 py-3 text-center">
-                      {fbaQty > 0 ? (
+                      {hasDirectIntent ? (
                         <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
-                          {fbaQty}
+                          {displayFbaQty || '→'}
                         </span>
                       ) : (
                         <span className="text-text-secondary">—</span>
@@ -678,17 +686,17 @@ const filteredShipments = shipments.filter(shipment => {
 
   const handleBulkReceived = async () => {
     if (selectedIds.size === 0) {
-      setMessage('Veuillez sélectionner au moins une réception');
+      setMessage('Please select at least one reception.');
       return;
     }
-    if (!confirm(`Marquer ${selectedIds.size} réception(s) comme reçue(s)?`)) return;
+    if (!confirm(`Mark ${selectedIds.size} reception(s) as received?`)) return;
 
     try {
       const shipmentIds = Array.from(selectedIds);
       const { error } = await supabaseHelpers.markMultipleAsReceived(shipmentIds, profile.id);
       if (error) throw error;
 
-      setMessage(`${selectedIds.size} réception(s) marquée(s) comme reçue(s)`);
+      setMessage(`${selectedIds.size} reception(s) marked as received.`);
       setSelectedIds(new Set());
       loadShipments();
     } catch (error) {
@@ -753,12 +761,14 @@ const filteredShipments = shipments.filter(shipment => {
     );
   }
 
+  const listMessageSuccess = typeof message === 'string' && message.toLowerCase().includes('success');
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-text-primary">Gestion des Réceptions</h2>
-          <p className="text-text-secondary">Gérez les annonces de réception des clients</p>
+          <h2 className="text-2xl font-semibold text-text-primary">Reception Management</h2>
+          <p className="text-text-secondary">Review and process client receiving announcements</p>
         </div>
         <div className="flex items-center space-x-3">
           {selectedIds.size > 0 && (
@@ -767,7 +777,7 @@ const filteredShipments = shipments.filter(shipment => {
               className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
-              Marquer sélectionnées comme reçues ({selectedIds.size})
+              Mark selected as received ({selectedIds.size})
             </button>
           )}
           <button
@@ -775,14 +785,14 @@ const filteredShipments = shipments.filter(shipment => {
             className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Package className="w-4 h-4 mr-2" />
-            Actualiser
+            Refresh
           </button>
         </div>
       </div>
 
       {message && (
         <div className={`px-4 py-3 rounded-lg ${
-          message.includes('succes') || message.includes('succès')
+          listMessageSuccess
             ? 'bg-green-50 border border-green-200 text-green-600'
             : 'bg-red-50 border border-red-200 text-red-600'
         }`}>
@@ -799,7 +809,7 @@ const filteredShipments = shipments.filter(shipment => {
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
             className="border border-gray-300 rounded-lg px-3 py-2"
           >
-            <option value="all">Tous les statuts</option>
+            <option value="all">All statuses</option>
              <option value="draft">Draft</option>
             <option value="submitted">Submitted</option>
             <option value="received">Received</option>
@@ -814,7 +824,7 @@ const filteredShipments = shipments.filter(shipment => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Rechercher par tracking, client, email..."
+            placeholder="Search by tracking number, client, or email..."
             className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
           />
         </div>
@@ -835,11 +845,11 @@ const filteredShipments = shipments.filter(shipment => {
                 />
               </th>
               <th className="px-4 py-3 text-left">Client</th>
-              <th className="px-4 py-3 text-left">Transporteur</th>
+              <th className="px-4 py-3 text-left">Carrier</th>
               <th className="px-4 py-3 text-left">Tracking</th>
               <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">Produits</th>
-              <th className="px-4 py-3 text-center">Lignes</th>
+              <th className="px-4 py-3 text-left">Products</th>
+              <th className="px-4 py-3 text-center">Lines</th>
               <th className="px-4 py-3 text-left">Date</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -855,7 +865,7 @@ const filteredShipments = shipments.filter(shipment => {
               <tr>
                 <td colSpan={8} className="px-4 py-12 text-center">
                   <Truck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-text-secondary">Aucune réception trouvée</p>
+                  <p className="text-text-secondary">No receptions found</p>
                 </td>
               </tr>
             ) : (
@@ -864,11 +874,12 @@ const filteredShipments = shipments.filter(shipment => {
                 const showEmail = emailRaw.includes('@');
                 const hasFbaIntent =
                   (shipment.fba_mode && shipment.fba_mode !== 'none') ||
-                  (shipment.receiving_items || []).some(
-                    (item) => item.send_to_fba && Number(item.fba_qty || 0) > 0
-                  );
+                  (shipment.receiving_items || []).some((item) => {
+                    const qty = Number(item.fba_qty || 0);
+                    return (item.send_to_fba && qty > 0) || item.remaining_action === 'direct_to_amazon';
+                  });
                 const rowClass = hasFbaIntent
-                  ? 'border-t bg-blue-50/50 hover:bg-blue-100/50'
+                  ? 'border-t bg-sky-50 hover:bg-sky-100/60'
                   : 'border-t hover:bg-gray-50';
                 return (
                 <tr key={shipment.id} className={rowClass}>
@@ -970,18 +981,18 @@ const filteredShipments = shipments.filter(shipment => {
               <button
                 onClick={() => setSelectedShipment(shipment)}
                 className="text-primary hover:text-primary-dark font-medium"
-                title="Voir les détails de la réception"
+                title="View reception details"
               >
-                Voir détails
+                View details
               </button>
 
               <button
                 onClick={() => deleteShipment(shipment.id)}
                 className="flex items-center text-red-600 hover:text-red-700 font-medium"
-                title="Supprimer la réception"
+                title="Delete reception"
               >
                 <Trash2 className="inline w-4 h-4 mr-1" />
-                Supprimer
+                Delete
               </button>
             </div>
                   </td>
@@ -995,10 +1006,10 @@ const filteredShipments = shipments.filter(shipment => {
       {/* Pagination */}
       <div className="flex items-center justify-between">
           <div className="text-sm text-text-secondary">
-            Affichage de {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, totalCount)}
+            Showing {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, totalCount)} of {totalCount}
             {selectedIds.size > 0 && (
               <span className="ml-2 font-medium">
-                ({selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''})
+                ({selectedIds.size} selected)
               </span>
             )}
           </div>
@@ -1012,7 +1023,7 @@ const filteredShipments = shipments.filter(shipment => {
             <ChevronLeft className="w-4 h-4" />
           </button>
           <span className="text-sm text-text-secondary">
-            Page {page} sur {totalPages}
+            Page {page} of {totalPages}
           </span>
           <button
             onClick={() => setPage(Math.min(totalPages, page + 1))}

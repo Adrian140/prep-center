@@ -178,7 +178,8 @@ createReceptionRequest: async (data) => {
           product_name: it.product_name || null,
           sku: it.sku || null,
           purchase_price: it.purchase_price || null,
-          quantity_received: it.units_requested || 0
+          quantity_received: it.units_requested || 0,
+          remaining_action: it.send_to_fba ? 'direct_to_amazon' : 'store_only'
         };
         if (withFbaFields) {
           base.stock_item_id = it.stock_item_id || null;
