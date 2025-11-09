@@ -599,7 +599,29 @@ const processToStock = async () => {
                       <div className="font-mono">{asin}</div>
                     </td>
                     <td className="px-4 py-3">{productName}</td>
-                    <td className="px-4 py-3 text-right">{item.quantity_received}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="font-semibold text-text-primary">
+                        {item.quantity_received}
+                      </div>
+                      {(() => {
+                        const prepQty = Math.max(
+                          0,
+                          Number(item.quantity_received || 0) - displayFbaQty
+                        );
+                        return (
+                          <div className="text-xs space-y-0.5">
+                            <div className={hasDirectIntent ? 'text-blue-700' : 'text-text-secondary'}>
+                              {hasDirectIntent ? `${displayFbaQty} → Amazon` : 'Stored in prep center'}
+                            </div>
+                            {hasDirectIntent && (
+                              <div className="text-text-secondary">
+                                {prepQty} kept in prep center
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3 font-mono">{skuValue}</td>
                     <td className="px-4 py-3 text-center">
                       {hasDirectIntent ? (
