@@ -22,6 +22,92 @@ const pad2 = (value) => String(value).padStart(2, '0');
 const formatSqlDate = (date = new Date()) =>
   `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 
+let supportsReceivingFbaMode = false;
+let supportsReceivingItemFbaColumns = false;
+let receivingSupportPromise = null;
+
+const isMissingColumnError = (error, column) => {
+  if (!error) return false;
+  const needle = column.toLowerCase();
+  const parts = [
+    String(error.message || ''),
+    String(error.details || ''),
+    String(error.hint || '')
+  ].map((part) => part.toLowerCase());
+  return parts.some((part) => part.includes(needle));
+};
+
+const receivingItemColumnMissing = (error) =>
+  ['send_to_fba', 'fba_qty', 'stock_item_id'].some((col) => isMissingColumnError(error, col));
+
+const sanitizeShipmentUpdate = (payload) => {
+  if (supportsReceivingFbaMode || !payload || typeof payload !== 'object') return payload;
+  if (!Object.prototype.hasOwnProperty.call(payload, 'fba_mode')) return payload;
+  const clone = { ...payload };
+  delete clone.fba_mode;
+  return clone;
+};
+
+const sanitizeItemPayload = (payload) => {
+  if (supportsReceivingItemFbaColumns || !payload || typeof payload !== 'object') {
+    return payload;
+  }
+  const clone = { ...payload };
+  delete clone.stock_item_id;
+  delete clone.send_to_fba;
+  delete clone.fba_qty;
+  return clone;
+};
+
+const checkColumnExists = async (table, column) => {
+  const { data, error } = await supabase
+    .from('information_schema.columns')
+    .select('column_name')
+    .eq('table_schema', 'public')
+    .eq('table_name', table)
+    .eq('column_name', column)
+    .maybeSingle();
+  if (error) {
+    console.warn('[supabase] Failed column check', table, column, error.message);
+    return false;
+  }
+  return Boolean(data);
+};
+
+export const ensureReceivingColumnSupport = async () => {
+  if (!receivingSupportPromise) {
+    receivingSupportPromise = (async () => {
+      try {
+        supportsReceivingFbaMode = await checkColumnExists('receiving_shipments', 'fba_mode');
+      } catch (err) {
+        supportsReceivingFbaMode = false;
+      }
+      try {
+        const send = await checkColumnExists('receiving_items', 'send_to_fba');
+        const qty = await checkColumnExists('receiving_items', 'fba_qty');
+        const stockCol = await checkColumnExists('receiving_items', 'stock_item_id');
+        supportsReceivingItemFbaColumns = send && qty && stockCol;
+      } catch (err) {
+        supportsReceivingItemFbaColumns = false;
+      }
+    })().catch((err) => {
+      console.warn('[supabase] receiving support probe failed', err?.message);
+    });
+  }
+  return receivingSupportPromise;
+};
+
+export const canUseReceivingFbaMode = () => supportsReceivingFbaMode;
+export const canUseReceivingItemFbaColumns = () => supportsReceivingItemFbaColumns;
+export const disableReceivingFbaModeSupport = () => {
+  supportsReceivingFbaMode = false;
+  receivingSupportPromise = null;
+};
+export const disableReceivingItemFbaSupport = () => {
+  supportsReceivingItemFbaColumns = false;
+  receivingSupportPromise = null;
+};
+
 const currentMonthWindow = (date = new Date()) => {
   const start = new Date(date.getFullYear(), date.getMonth(), 1);
   const next = new Date(date.getFullYear(), date.getMonth() + 1, 1);
@@ -980,10 +1066,29 @@ createReceivingShipment: async (shipmentData) => {
   },
 
   updateReceivingShipment: async (shipmentId, updates) => {
-    return await supabase
-      .from('receiving_shipments')
-      .update(updates)
-      .eq('id', shipmentId);
+    await ensureReceivingColumnSupport();
+    const executeUpdate = async (payload) => {
+      const { error } = await supabase
+        .from('receiving_shipments')
+        .update(payload)
+        .eq('id', shipmentId);
+      if (error) throw error;
+    };
+
+    let patch = { ...updates };
+    if (!supportsReceivingFbaMode) patch = sanitizeShipmentUpdate(patch);
+
+    try {
+      await executeUpdate(patch);
+    } catch (error) {
+      if (supportsReceivingFbaMode && isMissingColumnError(error, 'fba_mode')) {
+        disableReceivingFbaModeSupport();
+        patch = sanitizeShipmentUpdate(patch);
+        await executeUpdate(patch);
+      } else {
+        throw error;
+      }
+    }
   },
 
   deleteReceivingShipment: async (shipmentId) => {
@@ -994,6 +1099,7 @@ createReceivingShipment: async (shipmentData) => {
   },
 
 createReceivingItems: async (items) => {
+  await ensureReceivingColumnSupport();
   // Acceptă un singur obiect sau un array de obiecte
   const arr = Array.isArray(items) ? items : [items];
 
@@ -1006,7 +1112,7 @@ createReceivingItems: async (items) => {
     return acc;
   }, {});
 
-  const rowsToInsert = [];
+  const rawRows = [];
 
   // Pentru fiecare shipment, aflăm ultimul line_number și continuăm numerotarea
   for (const [shipmentId, group] of Object.entries(byShipment)) {
@@ -1021,24 +1127,64 @@ createReceivingItems: async (items) => {
     let next = (last?.line_number ?? 0) + 1;
 
     for (const it of group) {
-      rowsToInsert.push({
+      rawRows.push({
         ...it,
         line_number: next++,
       });
     }
   }
 
-  return await supabase
-    .from('receiving_items')
-    .insert(rowsToInsert)
-    .select('*');
+  const buildPayload = () =>
+    rawRows.map((row) =>
+      supportsReceivingItemFbaColumns ? row : sanitizeItemPayload(row)
+    );
+
+  const insertRows = async (rows) => {
+    const { data, error } = await supabase
+      .from('receiving_items')
+      .insert(rows)
+      .select('*');
+    if (error) throw error;
+    return data;
+  };
+
+  let payload = buildPayload();
+  try {
+    return await insertRows(payload);
+  } catch (error) {
+    if (supportsReceivingItemFbaColumns && receivingItemColumnMissing(error)) {
+      disableReceivingItemFbaSupport();
+      payload = buildPayload();
+      return await insertRows(payload);
+    }
+    throw error;
+  }
 },
 
   updateReceivingItem: async (itemId, updates) => {
-    return await supabase
-      .from('receiving_items')
-      .update(updates)
-      .eq('id', itemId);
+    await ensureReceivingColumnSupport();
+    const executeUpdate = async (payload) => {
+      const { error } = await supabase
+        .from('receiving_items')
+        .update(payload)
+        .eq('id', itemId);
+      if (error) throw error;
+    };
+
+    let patch = { ...updates };
+    if (!supportsReceivingItemFbaColumns) patch = sanitizeItemPayload(patch);
+
+    try {
+      await executeUpdate(patch);
+    } catch (error) {
+      if (supportsReceivingItemFbaColumns && receivingItemColumnMissing(error)) {
+        disableReceivingItemFbaSupport();
+        patch = sanitizeItemPayload(patch);
+        await executeUpdate(patch);
+      } else {
+        throw error;
+      }
+    }
   },
 
   deleteReceivingItem: async (itemId) => {
@@ -1172,6 +1318,7 @@ getAllReceivingShipments: async (options = {}) => {
   // Process to Stock
   processReceivingToStock: async (shipmentId, processedBy, itemsToProcess) => {
     try {
+      await ensureReceivingColumnSupport();
       const { data: shipment, error: shipmentFetchError } = await supabase
         .from('receiving_shipments')
         .select('id, company_id, user_id')
@@ -1258,16 +1405,35 @@ getAllReceivingShipments: async (options = {}) => {
             });
         }
 
-        await supabase
-          .from('receiving_items')
-          .update({
-            stock_item_id: stockId,
-            quantity_to_stock: qtyToStock,
-            remaining_action: fbaQty > 0 ? 'direct_to_amazon' : 'store_only',
-            send_to_fba: item.send_to_fba,
-            fba_qty: fbaQty
-          })
-          .eq('id', item.id);
+        const applyItemUpdate = async (payload) => {
+          const { error } = await supabase
+            .from('receiving_items')
+            .update(payload)
+            .eq('id', item.id);
+          if (error) throw error;
+        };
+
+        let itemPatch = {
+          stock_item_id: stockId,
+          quantity_to_stock: qtyToStock,
+          remaining_action: fbaQty > 0 ? 'direct_to_amazon' : 'store_only',
+          send_to_fba: item.send_to_fba,
+          fba_qty: fbaQty
+        };
+
+        if (!supportsReceivingItemFbaColumns) itemPatch = sanitizeItemPayload(itemPatch);
+
+        try {
+          await applyItemUpdate(itemPatch);
+        } catch (error) {
+          if (supportsReceivingItemFbaColumns && receivingItemColumnMissing(error)) {
+            disableReceivingItemFbaSupport();
+            itemPatch = sanitizeItemPayload(itemPatch);
+            await applyItemUpdate(itemPatch);
+          } else {
+            throw error;
+          }
+        }
 
         if (fbaQty > 0 && stockId) {
           fbaLines.push({

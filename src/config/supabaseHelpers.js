@@ -1,4 +1,23 @@
-import { supabase } from "./supabase";
+import {
+  supabase,
+  ensureReceivingColumnSupport,
+  canUseReceivingFbaMode,
+  canUseReceivingItemFbaColumns,
+  disableReceivingFbaModeSupport,
+  disableReceivingItemFbaSupport
+} from "./supabase";
+
+const isMissingColumnError = (error, column) => {
+  if (!error) return false;
+  const columnName = column.toLowerCase();
+  const message = String(error.message || '').toLowerCase();
+  const details = String(error.details || '').toLowerCase();
+  const hint = String(error.hint || '').toLowerCase();
+  return message.includes(columnName) || details.includes(columnName) || hint.includes(columnName);
+};
+
+const receivingItemColumnMissing = (error) =>
+  ['send_to_fba', 'fba_qty', 'stock_item_id'].some((col) => isMissingColumnError(error, col));
 
 export const supabaseHelpers = {
   /* =========================
@@ -79,6 +98,10 @@ export const supabaseHelpers = {
      Reception Announcements
      ========================= */
 createReceptionRequest: async (data) => {
+  await ensureReceivingColumnSupport();
+  let useShipmentFba = canUseReceivingFbaMode();
+  let useItemsFba = canUseReceivingItemFbaColumns();
+
   const trackingIds =
     Array.isArray(data.tracking_ids) && data.tracking_ids.length > 0
       ? data.tracking_ids
@@ -98,7 +121,8 @@ createReceptionRequest: async (data) => {
     storeName = profileData?.store_name || null;
   }
 
-  const headerPayload = {
+  const buildHeaderPayload = (withFbaMode) => {
+    const payload = {
     user_id: data.user_id,
     company_id: data.company_id,
     status: data.status || "submitted",
@@ -109,38 +133,85 @@ createReceptionRequest: async (data) => {
     tracking_ids: trackingIds,
     fba_shipment_ids: fbaShipmentIds,
     notes: data.notes || null,
-    fba_mode: data.fba_mode || 'none',
     client_store_name: storeName
   };
+    if (withFbaMode) {
+      payload.fba_mode = data.fba_mode || 'none';
+    }
+    return payload;
+  };
 
-  const { data: header, error: err1 } = await supabase
-    .from("receiving_shipments")
-    .insert([headerPayload])
-    .select()
-    .single();
+  const insertHeader = async (payload) => {
+    const { data, error } = await supabase
+      .from("receiving_shipments")
+      .insert([payload])
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  };
 
-  if (err1) throw err1;
+  let headerPayload = buildHeaderPayload(useShipmentFba);
+
+  let header;
+  try {
+    header = await insertHeader(headerPayload);
+  } catch (error) {
+    if (useShipmentFba && isMissingColumnError(error, 'fba_mode')) {
+      disableReceivingFbaModeSupport();
+      useShipmentFba = false;
+      headerPayload = buildHeaderPayload(false);
+      header = await insertHeader(headerPayload);
+    } else {
+      throw error;
+    }
+  }
 
   if (Array.isArray(data.items) && data.items.length > 0) {
-    let lineCounter = 1;
-    const insertItems = data.items.map((it) => ({
-      shipment_id: header.id,
-      line_number: lineCounter++,
-      stock_item_id: it.stock_item_id || null,
-      ean_asin: it.ean || it.asin || null,
-      product_name: it.product_name || null,
-      sku: it.sku || null,
-      purchase_price: it.purchase_price || null,
-      quantity_received: it.units_requested || 0,
-      send_to_fba: !!it.send_to_fba,
-      fba_qty: it.send_to_fba ? Math.max(0, Number(it.fba_qty) || 0) : 0
-    }));
+    const buildItemsPayload = (withFbaFields) => {
+      let lineCounter = 1;
+      return data.items.map((it) => {
+        const base = {
+          shipment_id: header.id,
+          line_number: lineCounter++,
+          ean_asin: it.ean || it.asin || null,
+          product_name: it.product_name || null,
+          sku: it.sku || null,
+          purchase_price: it.purchase_price || null,
+          quantity_received: it.units_requested || 0
+        };
+        if (withFbaFields) {
+          base.stock_item_id = it.stock_item_id || null;
+          const units = Math.max(0, Number(it.fba_qty ?? it.units_requested) || 0);
+          const sendToFba = !!it.send_to_fba && units > 0;
+          base.send_to_fba = sendToFba;
+          base.fba_qty = sendToFba ? Math.max(0, Number(it.fba_qty) || 0) : 0;
+        }
+        return base;
+      });
+    };
 
-    const { error: err2 } = await supabase
-      .from("receiving_items")
-      .insert(insertItems);
+    const insertItems = async (payload) => {
+      if (!payload.length) return;
+      const { error } = await supabase
+        .from("receiving_items")
+        .insert(payload);
+      if (error) throw error;
+    };
 
-    if (err2) throw err2;
+    let itemPayload = buildItemsPayload(useItemsFba);
+    try {
+      await insertItems(itemPayload);
+    } catch (error) {
+      if (useItemsFba && receivingItemColumnMissing(error)) {
+        disableReceivingItemFbaSupport();
+        useItemsFba = false;
+        itemPayload = buildItemsPayload(false);
+        await insertItems(itemPayload);
+      } else {
+        throw error;
+      }
+    }
   }
 
   return header;

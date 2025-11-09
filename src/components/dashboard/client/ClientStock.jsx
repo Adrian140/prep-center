@@ -660,11 +660,10 @@ const [photoCounts, setPhotoCounts] = useState({});
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase
-      .from('stock_items')
-      .select('*')
-      .eq('user_id', profile.id)
-      .order('created_at', { ascending: false });
+    let query = supabase.from('stock_items').select('*');
+    if (profile?.company_id) query = query.eq('company_id', profile.company_id);
+    else query = query.eq('user_id', profile.id);
+    const { data, error } = await query.order('created_at', { ascending: false });
 
       if (!mounted) return;
 
@@ -1346,8 +1345,8 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
                 onChange={(e) => setSubmitType(e.target.value)}
                 className="border rounded-md px-3 py-1 text-sm"
               >
-                <option value="prep">Send to Prep (Amazon)</option>
-                <option value="reception">Announce Reception</option>
+                <option value="prep">{t('ClientStock.cta.sendToPrep')}</option>
+                <option value="reception">{t('ClientStock.cta.announceReception')}</option>
               </select>
               {submitType === 'reception' && (
                 <div className="flex flex-col gap-2 text-xs sm:text-sm w-full">
@@ -1368,7 +1367,7 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
                         type="text"
                         value={receptionForm.carrierOther}
                         onChange={(e) => handleReceptionFormChange('carrierOther', e.target.value)}
-                        placeholder="Carrier name"
+                        placeholder={t('ClientStock.receptionForm.carrierOther')}
                         className="border rounded-md px-2 py-1 w-32 sm:w-40"
                       />
                     )}
@@ -1376,14 +1375,14 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
                       type="text"
                       value={receptionForm.trackingId}
                       onChange={(e) => handleReceptionFormChange('trackingId', e.target.value)}
-                      placeholder="Tracking ID"
+                      placeholder={t('ClientStock.receptionForm.tracking')}
                       className="border rounded-md px-2 py-1 w-32 sm:w-44"
                     />
                     <input
                       type="text"
                       value={receptionForm.notes}
                       onChange={(e) => handleReceptionFormChange('notes', e.target.value)}
-                      placeholder="Notes"
+                      placeholder={t('ClientStock.receptionForm.notes')}
                       className="border rounded-md px-2 py-1 w-40 sm:w-56"
                     />
                   </div>
@@ -1470,13 +1469,15 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
                 }}
                 className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-4 py-1 rounded-md"
               >
-                {submitType === 'prep' ? 'Send to Prep' : 'Announce Reception'}
+                {submitType === 'prep'
+                  ? t('ClientStock.cta.sendToPrep')
+                  : t('ClientStock.cta.announceReception')}
               </button>
               <button
                 onClick={() => setSelectedIds(new Set())}
                 className="text-sm text-gray-500 hover:text-gray-700"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </div>

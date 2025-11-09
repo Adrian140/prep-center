@@ -253,9 +253,18 @@
       "quickSort": {
         "label": "Quick sort:",
         "prep": "Prep-center stock",
-        "amazon": "Amazon stock"
+        "amazon": "Amazon inventory"
       },
       "productSearchPlaceholder": "Search by name / ASIN / SKU",
+      "cta": {
+        "sendToPrep": "Send to Prep (Amazon)",
+        "announceReception": "Announce Reception"
+      },
+      "receptionForm": {
+        "carrierOther": "Carrier name",
+        "tracking": "Tracking ID",
+        "notes": "Notes"
+      },
       "actions": {
         "selectAllOnPage": "Select all on page",
         "sendToPrep": "Send to preparation",
@@ -827,6 +836,15 @@
         "amazon": "Stoc Amazon"
       },
       "productSearchPlaceholder": "Caută după nume / ASIN / SKU",
+      "cta": {
+        "sendToPrep": "Trimite în Prep (Amazon)",
+        "announceReception": "Anunță recepția"
+      },
+      "receptionForm": {
+        "carrierOther": "Numele curierului",
+        "tracking": "Tracking ID",
+        "notes": "Notițe"
+      },
       "actions": {
         "selectAllOnPage": "Selectează toate de pe pagină",
         "sendToPrep": "Trimite la pregătire",
@@ -1398,6 +1416,15 @@
         "amazon": "Stock Amazon"
       },
       "productSearchPlaceholder": "Rechercher par nom / ASIN / SKU",
+      "cta": {
+        "sendToPrep": "Envoyer en préparation (Amazon)",
+        "announceReception": "Annoncer une réception"
+      },
+      "receptionForm": {
+        "carrierOther": "Nom du transporteur",
+        "tracking": "Numéro de suivi",
+        "notes": "Notes"
+      },
       "actions": {
         "selectAllOnPage": "Sélectionner tout sur la page",
         "sendToPrep": "Envoyer en préparation",
@@ -1969,6 +1996,15 @@
         "amazon": "Amazon-Bestand"
       },
       "productSearchPlaceholder": "Nach Name / ASIN / SKU suchen",
+      "cta": {
+        "sendToPrep": "An Prep-Center senden (Amazon)",
+        "announceReception": "Wareneingang ankündigen"
+      },
+      "receptionForm": {
+        "carrierOther": "Name des Transporteurs",
+        "tracking": "Tracking-ID",
+        "notes": "Notizen"
+      },
       "actions": {
         "selectAllOnPage": "Alle auf der Seite auswählen",
         "sendToPrep": "Zur Vorbereitung senden",
@@ -2540,6 +2576,15 @@
         "amazon": "Stock Amazon"
       },
       "productSearchPlaceholder": "Cerca per nome / ASIN / SKU",
+      "cta": {
+        "sendToPrep": "Invia al Prep (Amazon)",
+        "announceReception": "Annuncia una ricezione"
+      },
+      "receptionForm": {
+        "carrierOther": "Nome del corriere",
+        "tracking": "Tracking ID",
+        "notes": "Note"
+      },
       "actions": {
         "selectAllOnPage": "Seleziona tutti nella pagina",
         "sendToPrep": "Invia alla preparazione",
@@ -3111,6 +3156,15 @@
         "amazon": "Stock de Amazon"
       },
       "productSearchPlaceholder": "Buscar por nombre / ASIN / SKU",
+      "cta": {
+        "sendToPrep": "Enviar al Prep (Amazon)",
+        "announceReception": "Anunciar recepción"
+      },
+      "receptionForm": {
+        "carrierOther": "Nombre del transportista",
+        "tracking": "ID de seguimiento",
+        "notes": "Notas"
+      },
       "actions": {
         "selectAllOnPage": "Seleccionar todo en la página",
         "sendToPrep": "Enviar a preparación",
