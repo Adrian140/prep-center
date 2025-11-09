@@ -617,7 +617,7 @@ export default function ClientStock() {
 
   const [searchField, setSearchField] = useState('EAN');
   const [searchQuery, setSearchQuery] = useState('');
-  const [stockFilter, setStockFilter] = useState('in');
+const [stockFilter, setStockFilter] = useState('all');
   const [productSearch, setProductSearch] = useState('');
   const [sortMode, setSortMode] = useState('amazon');
 
@@ -765,8 +765,12 @@ const [photoCounts, setPhotoCounts] = useState({});
         (a, b) => Number(b.amazon_stock || 0) - Number(a.amazon_stock || 0)
       );
     }
-    return ordered;
-  }, [stockFiltered, productSearch, sortMode]);
+    if (stockFilter !== 'all') return ordered;
+
+    const withStock = ordered.filter((row) => Number(row.qty || 0) > 0);
+    const withoutStock = ordered.filter((row) => Number(row.qty || 0) <= 0);
+    return [...withStock, ...withoutStock];
+  }, [stockFiltered, productSearch, sortMode, stockFilter]);
 
   const totalPages = Math.max(1, Math.ceil(quickFiltered.length / perPage));
   const pageClamped = Math.min(page, totalPages);
