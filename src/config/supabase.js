@@ -592,7 +592,7 @@ resetPassword: async (email) => {
       if (!request?.id) throw new Error('Prep request insert returned no id');
 
 const items = (draftData.items || []).map((it) => ({
-  request_id: request.id,
+  prep_request_id: request.id,
   stock_item_id: it.stock_item_id ?? null,
   ean: it.ean ?? null,                 // 👈 ADD
   product_name: it.product_name ?? null, // 👈 ADD (snapshot nume)
