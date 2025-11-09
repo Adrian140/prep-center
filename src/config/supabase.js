@@ -59,42 +59,9 @@ const sanitizeItemPayload = (payload) => {
   return clone;
 };
 
-const probeColumn = async (table, column) => {
-  const { error } = await supabase.from(table).select(column).limit(1);
-  if (error && isMissingColumnError(error, column)) {
-    return false;
-  }
-  return true;
-};
-
 export const ensureReceivingColumnSupport = async () => {
   if (!receivingSupportPromise) {
-    receivingSupportPromise = (async () => {
-      if (supportsReceivingFbaMode) {
-        try {
-          const ok = await probeColumn('receiving_shipments', 'fba_mode');
-          if (!ok) disableReceivingFbaModeSupport();
-        } catch (err) {
-          console.warn('[supabase] receiving_shipments probe failed', err?.message);
-          disableReceivingFbaModeSupport();
-        }
-      }
-      if (supportsReceivingItemFbaColumns) {
-        try {
-          const send = await probeColumn('receiving_items', 'send_to_fba');
-          const qty = await probeColumn('receiving_items', 'fba_qty');
-          const stockCol = await probeColumn('receiving_items', 'stock_item_id');
-          if (!(send && qty && stockCol)) {
-            disableReceivingItemFbaSupport();
-          }
-        } catch (err) {
-          console.warn('[supabase] receiving_items probe failed', err?.message);
-          disableReceivingItemFbaSupport();
-        }
-      }
-    })().catch((err) => {
-      console.warn('[supabase] receiving column probe failed', err?.message);
-    });
+    receivingSupportPromise = Promise.resolve();
   }
   return receivingSupportPromise;
 };
