@@ -14,7 +14,7 @@ const SITE_URL = import.meta.env.PROD
   : window.location.origin;
 
 const PHOTO_SUBSCRIPTION_SERVICE = 'Photo storage subscription';
-const PHOTO_MANUAL_SERVICE = 'Manual photo capture (6 images)';
+const PHOTO_MANUAL_SERVICE = 'Manual photo capture';
 const PHOTO_SUBSCRIPTION_PRICE = 3;
 const PHOTO_MANUAL_PRICE = 1;
 

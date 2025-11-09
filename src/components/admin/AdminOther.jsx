@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Edit3, Save, Trash2, X } from 'lucide-react';
 import Section from '../common/Section';
 import { supabaseHelpers } from '@/config/supabase';
+import { useAdminTranslation } from '@/i18n/useAdminTranslation';
 
 const todayStr = () => {
   const d = new Date();
@@ -13,6 +14,7 @@ const todayStr = () => {
 const fmt = (value) => Number.isFinite(value) ? value.toFixed(2) : '0.00';
 
 export default function AdminOther({ rows = [], reload, companyId, profile }) {
+  const { t } = useAdminTranslation();
   const [edit, setEdit] = useState(null);
   const [form, setForm] = useState({
     service: '',
@@ -82,6 +84,22 @@ export default function AdminOther({ rows = [], reload, companyId, profile }) {
       return;
     }
     reload?.();
+  };
+
+  const serviceLabels = useMemo(
+    () => ({
+      manual: t('serviceNames.manualPhoto') || 'Manual photo capture',
+      subscription: t('serviceNames.photoSubscription') || 'Photo storage subscription'
+    }),
+    [t]
+  );
+
+  const renderServiceName = (value) => {
+    if (!value) return '—';
+    const normalized = value.trim();
+    if (/^manual photo capture/i.test(normalized)) return serviceLabels.manual;
+    if (/^photo storage subscription$/i.test(normalized)) return serviceLabels.subscription;
+    return normalized.replace(/ \(6 images\)/i, '');
   };
 
   const totalSum = useMemo(() => {
@@ -185,7 +203,7 @@ export default function AdminOther({ rows = [], reload, companyId, profile }) {
                           value={edit.service || ''}
                           onChange={(e) => setEdit((s) => ({ ...s, service: e.target.value }))}
                         />
-                      ) : row.service}
+                      ) : renderServiceName(row.service)}
                     </td>
                     <td className="px-3 py-2 text-right">
                       {isEdit ? (

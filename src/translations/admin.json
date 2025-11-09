@@ -77,6 +77,10 @@
       "paginationPrev": "Previous page",
       "paginationNext": "Next page"
     },
+    "serviceNames": {
+      "photoSubscription": "Photo storage subscription",
+      "manualPhoto": "Manual photo capture"
+    },
     "receiving": {
       "title": "Reception management",
       "subtitle": "Manage client reception announcements",
@@ -221,6 +225,10 @@
       "paginationPrev": "Page précédente",
       "paginationNext": "Page suivante"
     },
+    "serviceNames": {
+      "photoSubscription": "Abonnement stockage photos",
+      "manualPhoto": "Prise de photos manuelle"
+    },
     "receiving": {
       "title": "Gestion des réceptions",
       "subtitle": "Gérez les annonces de réception des clients",
@@ -364,6 +372,10 @@
       "pagination": "Pagina {page} / {total}",
       "paginationPrev": "Pagina anterioară",
       "paginationNext": "Pagina următoare"
+    },
+    "serviceNames": {
+      "photoSubscription": "Abonament stocare fotografii",
+      "manualPhoto": "Fotografiere manuală"
     },
     "receiving": {
       "title": "Gestionare recepții",

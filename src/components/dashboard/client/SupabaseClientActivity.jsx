@@ -66,6 +66,16 @@ const calcReportTotals = (rows, qtyField) =>
     { qty: 0, total: 0 }
   );
 
+const formatOtherServiceName = (service, t) => {
+  if (!service) return '—';
+  const value = service.trim();
+  const manualLabel = t('ClientOtherReport.serviceNames.manualPhoto');
+  const subscriptionLabel = t('ClientOtherReport.serviceNames.photoSubscription');
+  if (/^manual photo capture/i.test(value)) return manualLabel;
+  if (/^photo storage subscription$/i.test(value)) return subscriptionLabel;
+  return value.replace(/ \(6 images\)/i, '');
+};
+
 export default function SupabaseClientActivity() {
   const { t } = useDashboardTranslation();
   const { profile } = useSupabaseAuth();
@@ -457,7 +467,7 @@ export default function SupabaseClientActivity() {
                   return (
                     <tr key={r.id} className="border-t">
                       <td className="px-3 py-2">{r.service_date}</td>
-                      <td className="px-3 py-2">{r.service}</td>
+                      <td className="px-3 py-2">{formatOtherServiceName(r.service, t)}</td>
                       <td className="px-3 py-2 text-right">
                         {r.unit_price != null ? fmt2(Number(r.unit_price)) : '—'}
                       </td>

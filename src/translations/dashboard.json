@@ -555,7 +555,11 @@
       "readonly": "Read-only view of additional services.",
       "monthLabel": "Month:",
       "currentMonth": "Current month",
-      "noDataMonth": "No entries for this month."
+      "noDataMonth": "No entries for this month.",
+      "serviceNames": {
+        "photoSubscription": "Photo storage subscription",
+        "manualPhoto": "Manual photo capture"
+      }
     }
   },
   "ro": {
@@ -1114,7 +1118,11 @@
       "readonly": "Vizualizare doar pentru citire a taxelor suplimentare.",
       "monthLabel": "Luna:",
       "currentMonth": "Luna curentă",
-      "noDataMonth": "Nu există înregistrări în această lună."
+      "noDataMonth": "Nu există înregistrări în această lună.",
+      "serviceNames": {
+        "photoSubscription": "Abonament stocare fotografii",
+        "manualPhoto": "Fotografiere manuală"
+      }
     }
   },
   "fr": {
@@ -1673,7 +1681,11 @@
       "readonly": "Vue en lecture seule des frais additionnels.",
       "monthLabel": "Mois :",
       "currentMonth": "Mois en cours",
-      "noDataMonth": "Aucune entrée pour ce mois."
+      "noDataMonth": "Aucune entrée pour ce mois.",
+      "serviceNames": {
+        "photoSubscription": "Abonnement stockage photos",
+        "manualPhoto": "Prise de photos manuelle"
+      }
     }
   },
   "de": {
@@ -2232,7 +2244,11 @@
       "readonly": "Nur-Lese-Ansicht der zusätzlichen Leistungen.",
       "monthLabel": "Monat:",
       "currentMonth": "Aktueller Monat",
-      "noDataMonth": "Keine Einträge für diesen Monat."
+      "noDataMonth": "Keine Einträge für diesen Monat.",
+      "serviceNames": {
+        "photoSubscription": "Foto-Speicher-Abonnement",
+        "manualPhoto": "Manuelle Produktfotografie"
+      }
     }
   },
   "it": {
@@ -2791,7 +2807,11 @@
       "readonly": "Vista in sola lettura dei servizi aggiuntivi.",
       "monthLabel": "Mese:",
       "currentMonth": "Mese corrente",
-      "noDataMonth": "Nessuna voce per questo mese."
+      "noDataMonth": "Nessuna voce per questo mese.",
+      "serviceNames": {
+        "photoSubscription": "Abbonamento archiviazione foto",
+        "manualPhoto": "Servizio foto manuale"
+      }
     }
   },
   "es": {
@@ -3350,7 +3370,11 @@
       "readonly": "Vista de solo lectura de los cargos adicionales.",
       "monthLabel": "Mes:",
       "currentMonth": "Mes actual",
-      "noDataMonth": "No hay registros este mes."
+      "noDataMonth": "No hay registros este mes.",
+      "serviceNames": {
+        "photoSubscription": "Suscripción almacenamiento de fotos",
+        "manualPhoto": "Captura manual de fotos"
+      }
     }
   }
 }

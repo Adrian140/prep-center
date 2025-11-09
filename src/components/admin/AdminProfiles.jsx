@@ -27,6 +27,40 @@ function isoLocal(d) {
   return `${y}-${m}-${day}`;
 }
 function monthKey(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
+const sumOtherLineRows = (rows = []) =>
+  rows.reduce((acc, row) => {
+    const total =
+      row?.total != null
+        ? Number(row.total)
+        : Number(row?.unit_price || 0) * Number(row?.units || 0);
+    return acc + (Number.isFinite(total) ? total : 0);
+  }, 0);
+
+async function fetchOtherLineSums(companyId, startDate, endDate) {
+  if (!companyId) {
+    return { monthTotal: 0, carryTotal: 0 };
+  }
+  const [{ data: monthRows, error: monthErr }, { data: prevRows, error: prevErr }] = await Promise.all([
+    supabase
+      .from("other_lines")
+      .select("total, unit_price, units, service_date")
+      .eq("company_id", companyId)
+      .gte("service_date", startDate)
+      .lte("service_date", endDate),
+    supabase
+      .from("other_lines")
+      .select("total, unit_price, units, service_date")
+      .eq("company_id", companyId)
+      .lt("service_date", startDate)
+  ]);
+  if (monthErr || prevErr) {
+    return { monthTotal: 0, carryTotal: 0 };
+  }
+  return {
+    monthTotal: sumOtherLineRows(monthRows),
+    carryTotal: sumOtherLineRows(prevRows)
+  };
+}
 
 // --- UI
 function MoneyPill({ value }) {
@@ -155,10 +189,12 @@ export default function AdminProfiles({ onSelect }) {
           );
           if (error || !data) return [p.id, { currentSold: 0, carry: 0, diff: 0 }];
 
-          // Cheile exacte din RPC (observă sold_curent cu un singur „r”)
-          const current = Number((data.sold_current ?? data.sold_curent) ?? 0);
-          const carry   = Number(data.sold_restant ?? 0);
-          const diff    = Number(data.sold_la_zi   ?? 0);
+          let current = Number((data.sold_current ?? data.sold_curent) ?? 0);
+          let carry   = Number(data.sold_restant ?? 0);
+          const otherSums = await fetchOtherLineSums(p.company_id, start, end);
+          current += otherSums.monthTotal;
+          carry   += otherSums.carryTotal;
+          const diff    = current + carry;
 
           return [p.id, { currentSold: current, carry, diff }];
         })
