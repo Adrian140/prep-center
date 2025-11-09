@@ -268,8 +268,7 @@ function ClientReceiving() {
       }));
 
       if (itemsPayload.length) {
-        const { error: itemsError } = await supabaseHelpers.createReceivingItems(itemsPayload);
-        if (itemsError) throw itemsError;
+        await supabaseHelpers.createReceivingItems(itemsPayload);
       }
 
       const refreshed = await loadData();
