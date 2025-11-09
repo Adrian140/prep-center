@@ -847,10 +847,13 @@ addTrackingId: async (requestId, trackingId) => {
   },
 
   updatePrepItem: async (itemId, updates) => {
-    return await supabase
+    const { data, error } = await supabase
       .from('prep_request_items')
       .update(updates)
-      .eq('id', itemId);
+      .eq('id', itemId)
+      .select()
+      .single();
+    return { data, error };
   },
 // Creează o linie nouă în prep_request_items
 createPrepItem: async (requestId, item) => {
@@ -872,11 +875,12 @@ createPrepItem: async (requestId, item) => {
 
 // Șterge o linie din prep_request_items
 deletePrepItem: async (itemId) => {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('prep_request_items')
     .delete()
-    .eq('id', itemId);
-  return { error };
+    .eq('id', itemId)
+    .select();
+  return { data, error };
 },
 
   bulkUpdatePrepItems: async (items) => {
