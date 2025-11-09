@@ -608,7 +608,7 @@ export default function ClientStock() {
   const [toast, setToast] = useState(null);
   useEffect(() => {
     if (!toast) return;
-    const tmr = setTimeout(() => setToast(null), 2500);
+    const tmr = setTimeout(() => setToast(null), 6000);
     return () => clearTimeout(tmr);
   }, [toast]);
 
@@ -965,13 +965,13 @@ const openPrep = async () => {
     return;
   }
 
-  // verificare dacă au amazon_stock > 0
-  const noAmazonStock = selectedRows.filter(r => Number(r.amazon_stock || 0) <= 0);
-  if (noAmazonStock.length > 0) {
+  // verificare dacă au stoc în Prep Center (>0)
+  const noPrepStock = selectedRows.filter(r => Number(r.qty || 0) <= 0);
+  if (noPrepStock.length > 0) {
     setToast({
       type: 'error',
-      text: `Some selected products have no Amazon stock available: ${noAmazonStock
-        .map(r => r.name || r.asin)
+      text: `Some selected products have no Prep Center stock available: ${noPrepStock
+        .map(r => r.name || r.asin || r.sku || r.ean || 'Unknown')
         .join(', ')}`,
     });
     return;
