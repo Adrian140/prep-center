@@ -750,7 +750,6 @@ function ClientReceiving() {
                   <th className="px-4 py-3 text-left">{t('th_name')}</th>
                   <th className="px-4 py-3 text-right">{t('th_qty')}</th>
                   <th className="px-4 py-3 text-left">{t('th_sku')}</th>
-                  <th className="px-4 py-3 text-center">{t('th_validation')}</th>
                   {editMode && (
                     <th className="px-4 py-3 text-center">{t('actions')}</th>
                   )}
@@ -840,13 +839,6 @@ function ClientReceiving() {
                         />
                       ) : (
                         item.sku || '—'
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {validateEAN(item.ean_asin).valid ? (
-                        <span className="text-green-600">✓</span>
-                      ) : (
-                        <span className="text-red-600">✗</span>
                       )}
                     </td>
                     {editMode && (
