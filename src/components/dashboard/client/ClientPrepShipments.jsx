@@ -242,8 +242,12 @@ export default function ClientPrepShipments() {
       }
       for (const ins of toInsert) {
         const stockMeta = rows.find((r) => r.id === ins.stock_item_id) || {};
+        const resolvedStockId = await ensureStockItemId(ins);
+        if (resolvedStockId && !ins.stock_item_id) {
+          ins.stock_item_id = resolvedStockId;
+        }
         const payload = {
-          stock_item_id: ins.stock_item_id || null,
+          stock_item_id: resolvedStockId || null,
           ean: stockMeta.ean || ins.ean || null,
           product_name: stockMeta.name || ins.product_name || null,
           asin: ins.asin || stockMeta.asin || null,
@@ -612,3 +616,60 @@ export default function ClientPrepShipments() {
     </div>
   );
 }
+  const normalizeCode = (value) => String(value || '').trim().toLowerCase();
+
+  const findStockMatch = (line) => {
+    const ean = normalizeCode(line.ean || line.ean_asin);
+    if (ean) {
+      const match = stock.find((item) => normalizeCode(item.ean) === ean);
+      if (match) return match;
+    }
+    const asin = normalizeCode(line.asin);
+    if (asin) {
+      const match = stock.find((item) => normalizeCode(item.asin) === asin);
+      if (match) return match;
+    }
+    const sku = normalizeCode(line.sku);
+    if (sku) {
+      const match = stock.find((item) => normalizeCode(item.sku) === sku);
+      if (match) return match;
+    }
+    const name = normalizeCode(line.product_name);
+    if (name) {
+      const match = stock.find((item) => normalizeCode(item.name) === name);
+      if (match) return match;
+    }
+    return null;
+  };
+
+  const ensureStockItemId = async (line) => {
+    if (line.stock_item_id) return line.stock_item_id;
+    const existing = findStockMatch(line);
+    if (existing) return existing.id;
+    if (!profile?.company_id) return null;
+
+    const payload = {
+      company_id: profile.company_id,
+      user_id: profile.id,
+      name:
+        line.product_name ||
+        line.name ||
+        line.asin ||
+        line.ean ||
+        'Prep product',
+      asin: line.asin || null,
+      sku: line.sku || null,
+      ean: line.ean || null,
+      qty: 0,
+      created_by: profile.id
+    };
+
+    const { data, error } = await supabase
+      .from('stock_items')
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+    setStock((prev) => [data, ...prev]);
+    return data.id;
+  };

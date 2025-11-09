@@ -1217,8 +1217,12 @@ const saveReqChanges = async () => {
 
     for (const ins of toInsert) {
       const st = rows.find(r => r.id === ins.stock_item_id) || {};
+      const resolvedStockId = await ensureStockItemId(ins, rows, setRows, profile);
+      if (resolvedStockId && !ins.stock_item_id) {
+        ins.stock_item_id = resolvedStockId;
+      }
       const payload = {
-        stock_item_id: ins.stock_item_id || null,
+        stock_item_id: resolvedStockId || null,
         ean: st.ean ?? ins.ean ?? null,
         product_name: st.name ?? ins.product_name ?? null,
         asin: ins.asin || st.asin || null,
@@ -1887,3 +1891,56 @@ const saveReqChanges = async () => {
     </div>
   );
 }
+const normalizeCode = (value) => String(value || '').trim().toLowerCase();
+
+const findStockMatch = (line, rows) => {
+  const ean = normalizeCode(line.ean || line.ean_asin);
+  if (ean) {
+    const match = rows.find((item) => normalizeCode(item.ean) === ean);
+    if (match) return match;
+  }
+  const asin = normalizeCode(line.asin);
+  if (asin) {
+    const match = rows.find((item) => normalizeCode(item.asin) === asin);
+    if (match) return match;
+  }
+  const sku = normalizeCode(line.sku);
+  if (sku) {
+    const match = rows.find((item) => normalizeCode(item.sku) === sku);
+    if (match) return match;
+  }
+  const name = normalizeCode(line.name || line.product_name);
+  if (name) {
+    const match = rows.find((item) => normalizeCode(item.name) === name);
+    if (match) return match;
+  }
+  return null;
+};
+
+const ensureStockItemId = async (line, rows, setRows, profile) => {
+  if (line.stock_item_id) return line.stock_item_id;
+  const existing = findStockMatch(line, rows);
+  if (existing) return existing.id;
+  if (!profile?.company_id) return null;
+
+  const payload = {
+    company_id: profile.company_id,
+    user_id: profile.id,
+    name: line.name || line.product_name || line.asin || line.ean || 'Prep product',
+    asin: line.asin || null,
+    sku: line.sku || null,
+    ean: line.ean || null,
+    qty: 0,
+    created_by: profile.id,
+    purchase_price: line.purchase_price ?? null
+  };
+
+  const { data, error } = await supabase
+    .from('stock_items')
+    .insert(payload)
+    .select()
+    .single();
+  if (error) throw error;
+  setRows((prev) => [data, ...prev]);
+  return data.id;
+};
