@@ -516,7 +516,38 @@
       "desc": "Monitor the status of shipments prepared in our warehouse.",
       "table": {
         "title": "Recent preparation requests",
-        "empty": "No shipments yet."
+        "empty": "No shipments yet.",
+        "actions": "Actions",
+        "edit": "Edit draft",
+        "view": "View request"
+      },
+      "drawer": {
+        "pendingTitle": "Preparation request (Pending – editable)",
+        "readonlyTitle": "Preparation request (Read-only)",
+        "date": "Date",
+        "country": "Destination",
+        "status": "Status",
+        "shipment": "FBA Shipment ID",
+        "product": "Product name",
+        "units": "Units",
+        "actions": "Actions",
+        "remove": "Remove",
+        "addManual": "Add new item",
+        "selectProduct": "Select product",
+        "selectStock": "Select a product from stock.",
+        "qtyError": "Quantity must be at least 1.",
+        "stockError": "Quantity exceeds available stock ({qty}).",
+        "line": "Line",
+        "cancel": "Cancel",
+        "add": "Add",
+        "inventoryTitle": "Inventory",
+        "inventorySearch": "Search name / SKU / EAN…",
+        "inventoryEmpty": "No matching products found.",
+        "inStock": "In stock: {qty}",
+        "close": "Close",
+        "save": "Save changes",
+        "empty": "No items in this request.",
+        "locked": "Request is no longer editable (status changed)."
       }
     },
     "ClientOtherReport": {
@@ -1044,7 +1075,38 @@
       "desc": "Monitorizează statusul expedierilor pregătite în depozit.",
       "table": {
         "title": "Solicitări de pregătire recente",
-        "empty": "Nu există expedieri încă."
+        "empty": "Nu există expedieri încă.",
+        "actions": "Acțiuni",
+        "edit": "Editează cererea",
+        "view": "Vezi cererea"
+      },
+      "drawer": {
+        "pendingTitle": "Cerere de pregătire (în așteptare – editabilă)",
+        "readonlyTitle": "Cerere de pregătire (doar citire)",
+        "date": "Data",
+        "country": "Destinație",
+        "status": "Stare",
+        "shipment": "ID transport FBA",
+        "product": "Produs",
+        "units": "Unități",
+        "actions": "Acțiuni",
+        "remove": "Șterge",
+        "addManual": "Adaugă articol",
+        "selectProduct": "Selectează produs",
+        "selectStock": "Selectează un produs din inventar.",
+        "qtyError": "Cantitatea trebuie să fie minim 1.",
+        "stockError": "Cantitatea depășește stocul disponibil ({qty}).",
+        "line": "Linia",
+        "cancel": "Anulează",
+        "add": "Adaugă",
+        "inventoryTitle": "Inventar",
+        "inventorySearch": "Caută după nume / SKU / EAN…",
+        "inventoryEmpty": "Nu există produse potrivite.",
+        "inStock": "În stoc: {qty}",
+        "close": "Închide",
+        "save": "Salvează modificările",
+        "empty": "Nu există articole în această cerere.",
+        "locked": "Cererea nu mai poate fi editată."
       }
     },
     "ClientOtherReport": {
@@ -1572,7 +1634,38 @@
       "desc": "Suivez l’état des expéditions préparées dans notre entrepôt.",
       "table": {
         "title": "Demandes de préparation récentes",
-        "empty": "Aucune expédition pour le moment."
+        "empty": "Aucune expédition pour le moment.",
+        "actions": "Actions",
+        "edit": "Modifier le brouillon",
+        "view": "Voir la demande"
+      },
+      "drawer": {
+        "pendingTitle": "Demande de préparation (en attente – modifiable)",
+        "readonlyTitle": "Demande de préparation (lecture seule)",
+        "date": "Date",
+        "country": "Destination",
+        "status": "Statut",
+        "shipment": "ID FBA",
+        "product": "Produit",
+        "units": "Unités",
+        "actions": "Actions",
+        "remove": "Supprimer",
+        "addManual": "Ajouter un article",
+        "selectProduct": "Sélectionnez un produit",
+        "selectStock": "Sélectionnez un produit din stoc.",
+        "qtyError": "Cantitatea trebuie să fie cel puțin 1.",
+        "stockError": "Cantitatea depășește stocul disponibil ({qty}).",
+        "line": "Linia",
+        "cancel": "Anulează",
+        "add": "Adaugă",
+        "inventoryTitle": "Inventar",
+        "inventorySearch": "Caută nume / SKU / EAN…",
+        "inventoryEmpty": "Nu există produse potrivite.",
+        "inStock": "În stoc: {qty}",
+        "close": "Închide",
+        "save": "Salvează modificările",
+        "empty": "Nu există articole în această cerere.",
+        "locked": "Cererea nu mai poate fi editată."
       }
     },
     "ClientOtherReport": {
@@ -2100,7 +2193,38 @@
       "desc": "Überwache den Status der in unserem Lager vorbereiteten Sendungen.",
       "table": {
         "title": "Aktuelle Vorbereitungsvorgänge",
-        "empty": "Noch keine Sendungen."
+        "empty": "Noch keine Sendungen.",
+        "actions": "Aktionen",
+        "edit": "Entwurf bearbeiten",
+        "view": "Anfrage ansehen"
+      },
+      "drawer": {
+        "pendingTitle": "Vorbereitungsauftrag (ausstehend – bearbeitbar)",
+        "readonlyTitle": "Vorbereitungsauftrag (nur lesen)",
+        "date": "Datum",
+        "country": "Ziel",
+        "status": "Status",
+        "shipment": "FBA Sendungs-ID",
+        "product": "Produkt",
+        "units": "Einheiten",
+        "actions": "Aktionen",
+        "remove": "Entfernen",
+        "addManual": "Artikel hinzufügen",
+        "selectProduct": "Produkt auswählen",
+        "selectStock": "Wähle ein Produkt aus dem Lager.",
+        "qtyError": "Menge muss mindestens 1 sein.",
+        "stockError": "Menge überschreitet verfügbaren Bestand ({qty}).",
+        "line": "Position",
+        "cancel": "Abbrechen",
+        "add": "Hinzufügen",
+        "inventoryTitle": "Inventar",
+        "inventorySearch": "Suche nach Name / SKU / EAN…",
+        "inventoryEmpty": "Keine passenden Produkte.",
+        "inStock": "Auf Lager: {qty}",
+        "close": "Schließen",
+        "save": "Änderungen speichern",
+        "empty": "Keine Artikel in dieser Anfrage.",
+        "locked": "Anfrage kann nicht mehr bearbeitet werden."
       }
     },
     "ClientOtherReport": {
@@ -2628,7 +2752,38 @@
       "desc": "Monitora lo stato delle spedizioni preparate nel nostro magazzino.",
       "table": {
         "title": "Richieste di preparazione recenti",
-        "empty": "Nessuna spedizione ancora."
+        "empty": "Nessuna spedizione ancora.",
+        "actions": "Azioni",
+        "edit": "Modifica bozza",
+        "view": "Visualizza richiesta"
+      },
+      "drawer": {
+        "pendingTitle": "Richiesta di preparazione (in attesa – modificabile)",
+        "readonlyTitle": "Richiesta di preparazione (solo lettura)",
+        "date": "Data",
+        "country": "Destinazione",
+        "status": "Stato",
+        "shipment": "ID spedizione FBA",
+        "product": "Prodotto",
+        "units": "Unità",
+        "actions": "Azioni",
+        "remove": "Rimuovi",
+        "addManual": "Aggiungi articolo",
+        "selectProduct": "Seleziona prodotto",
+        "selectStock": "Seleziona un prodotto dal magazzino.",
+        "qtyError": "La quantità deve essere almeno 1.",
+        "stockError": "La quantità supera lo stock disponibile ({qty}).",
+        "line": "Linea",
+        "cancel": "Annulla",
+        "add": "Aggiungi",
+        "inventoryTitle": "Inventario",
+        "inventorySearch": "Cerca nome / SKU / EAN…",
+        "inventoryEmpty": "Nessun prodotto trovato.",
+        "inStock": "In magazzino: {qty}",
+        "close": "Chiudi",
+        "save": "Salva modifiche",
+        "empty": "Nessun articolo in questa richiesta.",
+        "locked": "La richiesta non è più modificabile."
       }
     },
     "ClientOtherReport": {
@@ -3156,7 +3311,38 @@
       "desc": "Supervisa el estado de los envíos preparados en nuestro almacén.",
       "table": {
         "title": "Solicitudes de preparación recientes",
-        "empty": "Sin envíos por ahora."
+        "empty": "Sin envíos por ahora.",
+        "actions": "Acciones",
+        "edit": "Editar borrador",
+        "view": "Ver solicitud"
+      },
+      "drawer": {
+        "pendingTitle": "Solicitud de preparación (pendiente – editable)",
+        "readonlyTitle": "Solicitud de preparación (solo lectura)",
+        "date": "Fecha",
+        "country": "Destino",
+        "status": "Estado",
+        "shipment": "ID de envío FBA",
+        "product": "Producto",
+        "units": "Unidades",
+        "actions": "Acciones",
+        "remove": "Eliminar",
+        "addManual": "Agregar artículo",
+        "selectProduct": "Seleccionar producto",
+        "selectStock": "Selecciona un producto del inventario.",
+        "qtyError": "La cantidad debe ser al menos 1.",
+        "stockError": "La cantidad supera el stock disponible ({qty}).",
+        "line": "Línea",
+        "cancel": "Cancelar",
+        "add": "Agregar",
+        "inventoryTitle": "Inventario",
+        "inventorySearch": "Buscar nombre / SKU / EAN…",
+        "inventoryEmpty": "No hay productos coincidentes.",
+        "inStock": "En stock: {qty}",
+        "close": "Cerrar",
+        "save": "Guardar cambios",
+        "empty": "No hay artículos en esta solicitud.",
+        "locked": "La solicitud ya no se puede editar."
       }
     },
     "ClientOtherReport": {
