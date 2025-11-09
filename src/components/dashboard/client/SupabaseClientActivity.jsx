@@ -212,6 +212,12 @@ export default function SupabaseClientActivity() {
     );
   }
 
+  const reportTabs = useMemo(() => ([
+    { id: 'fba', label: t('SupabaseClientActivity.fbaTitle') || 'FBA' },
+    { id: 'fbm', label: t('SupabaseClientActivity.fbmTitle') || 'FBM' },
+    { id: 'other', label: t('SupabaseClientActivity.otherTitle') || 'Other' }
+  ]), [t]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -260,12 +266,6 @@ export default function SupabaseClientActivity() {
       : t('ClientOtherReport.noDataMonth');
 
   const resetActiveMonth = () => setActiveMonth(currentMonthStr());
-
-  const reportTabs = useMemo(() => ([
-    { id: 'fba', label: t('SupabaseClientActivity.fbaTitle') || 'FBA' },
-    { id: 'fbm', label: t('SupabaseClientActivity.fbmTitle') || 'FBM' },
-    { id: 'other', label: t('SupabaseClientActivity.otherTitle') || 'Other' }
-  ]), [t]);
 
   return (
   <div className="space-y-6">
