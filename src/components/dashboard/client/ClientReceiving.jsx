@@ -90,7 +90,8 @@ function ClientReceiving() {
     carrier_other: shipment?.carrier_other || '',
     tracking_ids: buildEditableList(shipment?.tracking_ids, shipment?.tracking_id),
     fba_shipment_ids: buildEditableList(shipment?.fba_shipment_ids),
-    notes: shipment?.notes || ''
+    notes: shipment?.notes || '',
+    fba_mode: shipment?.fba_mode || 'none'
   });
 
   const handleSelectShipment = (shipment) => {
@@ -237,7 +238,8 @@ function ClientReceiving() {
           editHeader.carrier === 'OTHER' ? toNull(editHeader.carrier_other) : null,
         tracking_ids: trackingValues.length ? trackingValues : null,
         fba_shipment_ids: fbaValues.length ? fbaValues : null,
-        notes: toNull(editHeader.notes)
+        notes: toNull(editHeader.notes),
+        fba_mode: editHeader.fba_mode || 'none'
       };
 
       const { error: headerError } = await supabaseHelpers.updateReceivingShipment(
@@ -255,13 +257,14 @@ function ClientReceiving() {
 
       const itemsPayload = (editItems || []).map((item) => ({
         shipment_id: shipmentId,
+        stock_item_id: item.stock_item_id || null,
         ean_asin: item.ean_asin,
         product_name: item.product_name,
         quantity_received: Number(item.quantity_received) || 0,
         sku: item.sku || null,
         purchase_price: item.purchase_price ?? null,
         send_to_fba: !!item.send_to_fba,
-        fba_qty: item.send_to_fba ? item.fba_qty ?? null : null
+        fba_qty: item.send_to_fba ? Math.max(0, Number(item.fba_qty) || 0) : 0
       }));
 
       if (itemsPayload.length) {
@@ -320,6 +323,37 @@ function ClientReceiving() {
     }
   };
 
+  const applyFbaModeToEditItems = (mode) => {
+    setEditItems((prev) =>
+      prev.map((item) => {
+        const qty = Math.max(0, Number(item.quantity_received || 0));
+        if (mode === 'full') {
+          return {
+            ...item,
+            send_to_fba: qty > 0,
+            fba_qty: qty,
+          };
+        }
+        if (mode === 'none') {
+          return {
+            ...item,
+            send_to_fba: false,
+            fba_qty: 0,
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleFbaModeChange = (mode) => {
+    if (!editMode) return;
+    setEditHeader((prev) => ({ ...prev, fba_mode: mode }));
+    if (mode === 'full' || mode === 'none') {
+      applyFbaModeToEditItems(mode);
+    }
+  };
+
   const handleInventoryAdd = (stockId) => {
     const stockItem = stock.find((item) => item.id === stockId);
     const qtyValue = Number(inventoryDraftQty[stockId] || 0);
@@ -335,6 +369,7 @@ function ClientReceiving() {
       ...prev,
       {
         id: undefined,
+        stock_item_id: stockItem.id,
         ean_asin: stockItem.ean || stockItem.asin || '',
         product_name: stockItem.name || '',
         quantity_received: qtyValue,
@@ -609,6 +644,85 @@ function ClientReceiving() {
             </div>
           </div>
 
+          <div className="border rounded-lg p-4 md:col-span-2">
+            <div className="flex flex-col gap-2">
+              <h4 className="text-sm font-semibold text-text-secondary">
+                {t('fba_mode_title')}
+              </h4>
+              <div className="flex flex-wrap gap-4 text-sm text-text-primary">
+                {['none', 'full', 'partial'].map((mode) => (
+                  <label key={mode} className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="client-receiving-fba-mode"
+                      value={mode}
+                      checked={(headerState.fba_mode || 'none') === mode}
+                      disabled={!editMode}
+                      onChange={() => handleFbaModeChange(mode)}
+                    />
+                      {mode === 'none'
+                        ? t('fba_mode_none')
+                        : mode === 'full'
+                        ? t('fba_mode_full')
+                        : t('fba_mode_partial')}
+                  </label>
+                ))}
+              </div>
+              {editMode && headerState.fba_mode === 'partial' && (
+                <div className="mt-2 border rounded-md bg-white max-h-64 overflow-y-auto divide-y">
+                  {editItems.length === 0 && (
+                    <p className="text-text-secondary text-sm">{t('fba_mode_hint')}</p>
+                  )}
+                  {editItems.map((item, idx) => {
+                    const qty = Math.max(0, Number(item.quantity_received || 0));
+                    const value = item.fba_qty ?? '';
+                    return (
+                      <div
+                        key={item.id || idx}
+                        className="py-2 flex items-center justify-between gap-3"
+                      >
+                        <div>
+                          <p className="font-medium text-text-primary">{item.product_name}</p>
+                          <p className="text-xs text-text-secondary">
+                            {t('fba_mode_available', { qty })}
+                          </p>
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-20 text-right border rounded px-2 py-1"
+                          value={value}
+                          onChange={(e) =>
+                            setEditItems((arr) => {
+                              const next = [...arr];
+                              const desired = Math.min(
+                                qty,
+                                Math.max(0, Number(e.target.value) || 0)
+                              );
+                              next[idx] = {
+                                ...next[idx],
+                                send_to_fba: desired > 0,
+                                fba_qty: desired
+                              };
+                              return next;
+                            })
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {!editMode && headerState.fba_mode !== 'none' && (
+                <p className="text-xs text-text-secondary">
+                  {headerState.fba_mode === 'full'
+                    ? t('fba_mode_summary_full')
+                    : t('fba_mode_summary_partial')}
+                </p>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-text-secondary">{t('notes')}</label>
             {editMode ? (
@@ -636,7 +750,6 @@ function ClientReceiving() {
                   <th className="px-4 py-3 text-left">{t('th_name')}</th>
                   <th className="px-4 py-3 text-right">{t('th_qty')}</th>
                   <th className="px-4 py-3 text-left">{t('th_sku')}</th>
-                  <th className="px-4 py-3 text-center">{t('th_send_to_fba')}</th>
                   <th className="px-4 py-3 text-center">{t('th_validation')}</th>
                   {editMode && (
                     <th className="px-4 py-3 text-center">{t('actions')}</th>
@@ -645,7 +758,12 @@ function ClientReceiving() {
               </thead>
               <tbody>
                 {viewItems.map((item, idx) => (
-                  <tr key={item.id || idx} className="border-t">
+                  <tr
+                    key={item.id || idx}
+                    className={`border-t ${
+                      item.send_to_fba && Number(item.fba_qty || 0) > 0 ? 'bg-blue-50/60' : ''
+                    }`}
+                  >
                     <td className="px-4 py-3 font-mono">
                       {editMode ? (
                         <input
@@ -722,66 +840,6 @@ function ClientReceiving() {
                         />
                       ) : (
                         item.sku || '—'
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {editMode ? (
-                        <div className="flex flex-col items-center gap-1">
-                          <label className="inline-flex items-center gap-2 text-xs text-text-secondary">
-                            <input
-                              type="checkbox"
-                              checked={!!item.send_to_fba}
-                              onChange={(e) =>
-                                setEditItems((arr) => {
-                                  const copy = [...arr];
-                                  const v = e.target.checked;
-                                  const current = { ...copy[idx], send_to_fba: v };
-                                  if (v && (current.fba_qty == null || current.fba_qty < 1)) {
-                                    const qty =
-                                      Math.max(1, Number(current.quantity_received) || 1);
-                                    current.fba_qty = qty;
-                                  }
-                                  if (!v) current.fba_qty = null;
-                                  copy[idx] = current;
-                                  return copy;
-                                })
-                              }
-                            />
-                            {t('fba_direct')}
-                          </label>
-                          {item.send_to_fba && (
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.fba_qty ?? ''}
-                              onChange={(e) =>
-                                setEditItems((arr) => {
-                                  const copy = [...arr];
-                                  const qty =
-                                    Math.max(1, Number(copy[idx].quantity_received) || 1);
-                                  const val = Number(e.target.value);
-                                  copy[idx] = {
-                                    ...copy[idx],
-                                    fba_qty: Number.isFinite(val)
-                                      ? Math.min(qty, Math.max(1, val))
-                                      : null
-                                  };
-                                  return copy;
-                                })
-                              }
-                              className="w-16 text-right px-2 py-0.5 border border-yellow-300 rounded bg-white"
-                              placeholder={t('fba_qty_ph')}
-                            />
-                          )}
-                        </div>
-                      ) : item.send_to_fba || item.fba_qty ? (
-                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
-                          {item.fba_qty
-                            ? t('direct_with_qty', { qty: item.fba_qty })
-                            : t('fba_direct')}
-                        </span>
-                      ) : (
-                        '—'
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">

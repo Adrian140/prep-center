@@ -646,6 +646,7 @@ const [receptionForm, setReceptionForm] = useState({
   carrierOther: '',
   trackingId: '',
   notes: '',
+  fbaMode: 'none',
 });
 const [photoItem, setPhotoItem] = useState(null);
 const [photoCounts, setPhotoCounts] = useState({});
@@ -679,6 +680,8 @@ const [photoCounts, setPhotoCounts] = useState({});
           product_link: r.product_link || '',
           purchase_price: r.purchase_price != null ? String(r.purchase_price) : '',
           sku: r.sku || '',
+          units_to_send: 0,
+          fba_units: 0,
         };
       }
       setRowEdits(seed);
@@ -787,16 +790,42 @@ const [photoCounts, setPhotoCounts] = useState({});
     next.has(id) ? next.delete(id) : next.add(id);
     setSelectedIds(next);
   };
+  const selectedRows = useMemo(
+    () => rows.filter((r) => selectedIds.has(r.id)),
+    [rows, selectedIds]
+  );
 
   const updateEdit = (id, patch) => {
-    setRowEdits((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), ...patch } }));
+    setRowEdits((prev) => {
+      const current = prev[id] || {};
+      const next = { ...current, ...patch };
+      if (Object.prototype.hasOwnProperty.call(patch, 'units_to_send')) {
+        const units = Math.max(0, Number(patch.units_to_send) || 0);
+        next.units_to_send = units;
+        if (receptionForm.fbaMode === 'full') {
+          next.fba_units = units;
+        } else if (receptionForm.fbaMode === 'partial') {
+          const currentFba = Number(next.fba_units || 0);
+          if (currentFba > units) next.fba_units = units;
+        } else {
+          next.fba_units = 0;
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, 'fba_units')) {
+        const units = Math.max(0, Number(next.units_to_send || 0));
+        let desired = Math.max(0, Number(patch.fba_units) || 0);
+        if (desired > units) desired = units;
+        next.fba_units = desired;
+      }
+      return { ...prev, [id]: next };
+    });
   };
 const resetSelectionsAndUnits = React.useCallback(() => {
   setSelectedIds(new Set());
   setRowEdits((prev) => {
     const next = { ...prev };
     rows.forEach((r) => {
-      next[r.id] = { ...(next[r.id] || {}), units_to_send: 0 };
+      next[r.id] = { ...(next[r.id] || {}), units_to_send: 0, fba_units: 0 };
     });
     return next;
   });
@@ -806,12 +835,30 @@ const [savingId, setSavingId] = useState(null);
 const handleReceptionFormChange = (field, value) => {
   setReceptionForm((prev) => ({ ...prev, [field]: value }));
 };
+const handleReceptionFbaModeChange = (mode) => {
+  setReceptionForm((prev) => ({ ...prev, fbaMode: mode }));
+  if (mode === 'full' || mode === 'none') {
+    setRowEdits((prev) => {
+      const next = { ...prev };
+      selectedRows.forEach((row) => {
+        const current = next[row.id] || {};
+        const units = Math.max(0, Number(current.units_to_send || 0));
+        next[row.id] = {
+          ...current,
+          fba_units: mode === 'full' ? units : 0,
+        };
+      });
+      return next;
+    });
+  }
+};
 const resetReceptionForm = () => {
   setReceptionForm({
     carrier: 'UPS',
     carrierOther: '',
     trackingId: '',
     notes: '',
+    fbaMode: 'none',
   });
 };
 
@@ -891,9 +938,21 @@ const resetReceptionForm = () => {
     closeLinkEditor();
   };
 
-const openReception = async () => {
-  const selectedRows = rows.filter(r => selectedIds.has(r.id));
+const getReceptionFbaForRow = (rowId, units) => {
+  if (receptionForm.fbaMode === 'full') {
+    return { send_to_fba: units > 0, fba_qty: units };
+  }
+  if (receptionForm.fbaMode === 'partial') {
+    const edits = rowEdits[rowId] || {};
+    const requested = Math.max(0, Number(units) || 0);
+    let partial = Math.max(0, Number(edits.fba_units || 0));
+    if (partial > requested) partial = requested;
+    return { send_to_fba: partial > 0, fba_qty: partial };
+  }
+  return { send_to_fba: false, fba_qty: 0 };
+};
 
+const openReception = async () => {
   if (selectedRows.length === 0) {
     setToast({ type: 'error', text: 'Select products to announce reception.' });
     return;
@@ -910,14 +969,21 @@ const openReception = async () => {
     tracking_id: trackingId || null,
     tracking_ids: trackingId ? [trackingId] : null,
     notes: (receptionForm.notes || '').trim() || null,
-    items: selectedRows.map(r => ({
+    fba_mode: receptionForm.fbaMode || 'none',
+    items: selectedRows.map(r => {
+      const units = Number(rowEdits[r.id]?.units_to_send || 0);
+      const fbaInfo = getReceptionFbaForRow(r.id, units);
+      return {
       stock_item_id: r.id,
       ean: r.ean || null,
       product_name: r.name || null,
       asin: r.asin || null,
       sku: r.sku || null,
-      units_requested: Number(rowEdits[r.id]?.units_to_send || 0),
-    })),
+      units_requested: units,
+      send_to_fba: fbaInfo.send_to_fba,
+      fba_qty: fbaInfo.fba_qty,
+    };
+    }),
     status: 'submitted',
   };
 
@@ -1280,41 +1346,117 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
                 <option value="reception">Announce Reception</option>
               </select>
               {submitType === 'reception' && (
-                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-                  <select
-                    value={receptionForm.carrier}
-                    onChange={(e) => handleReceptionFormChange('carrier', e.target.value)}
-                    className="border rounded-md px-2 py-1"
-                  >
-                    {CARRIERS.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                  {receptionForm.carrier === 'OTHER' && (
+                <div className="flex flex-col gap-2 text-xs sm:text-sm w-full">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={receptionForm.carrier}
+                      onChange={(e) => handleReceptionFormChange('carrier', e.target.value)}
+                      className="border rounded-md px-2 py-1"
+                    >
+                      {CARRIERS.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                    {receptionForm.carrier === 'OTHER' && (
+                      <input
+                        type="text"
+                        value={receptionForm.carrierOther}
+                        onChange={(e) => handleReceptionFormChange('carrierOther', e.target.value)}
+                        placeholder="Carrier name"
+                        className="border rounded-md px-2 py-1 w-32 sm:w-40"
+                      />
+                    )}
                     <input
                       type="text"
-                      value={receptionForm.carrierOther}
-                      onChange={(e) => handleReceptionFormChange('carrierOther', e.target.value)}
-                      placeholder="Carrier name"
-                      className="border rounded-md px-2 py-1 w-32 sm:w-40"
+                      value={receptionForm.trackingId}
+                      onChange={(e) => handleReceptionFormChange('trackingId', e.target.value)}
+                      placeholder="Tracking ID"
+                      className="border rounded-md px-2 py-1 w-32 sm:w-44"
                     />
-                  )}
-                  <input
-                    type="text"
-                    value={receptionForm.trackingId}
-                    onChange={(e) => handleReceptionFormChange('trackingId', e.target.value)}
-                    placeholder="Tracking ID"
-                    className="border rounded-md px-2 py-1 w-32 sm:w-44"
-                  />
-                  <input
-                    type="text"
-                    value={receptionForm.notes}
-                    onChange={(e) => handleReceptionFormChange('notes', e.target.value)}
-                    placeholder="Notes"
-                    className="border rounded-md px-2 py-1 w-40 sm:w-56"
-                  />
+                    <input
+                      type="text"
+                      value={receptionForm.notes}
+                      onChange={(e) => handleReceptionFormChange('notes', e.target.value)}
+                      placeholder="Notes"
+                      className="border rounded-md px-2 py-1 w-40 sm:w-56"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-text-secondary">
+                      {t('ClientStock.receptionFba.title')}
+                    </span>
+                    <div className="flex flex-wrap gap-4">
+                      <label className="inline-flex items-center gap-1">
+                        <input
+                          type="radio"
+                          name="reception-fba-mode"
+                          value="none"
+                          checked={receptionForm.fbaMode === 'none'}
+                          onChange={() => handleReceptionFbaModeChange('none')}
+                        />
+                        {t('ClientStock.receptionFba.none')}
+                      </label>
+                      <label className="inline-flex items-center gap-1">
+                        <input
+                          type="radio"
+                          name="reception-fba-mode"
+                          value="full"
+                          checked={receptionForm.fbaMode === 'full'}
+                          onChange={() => handleReceptionFbaModeChange('full')}
+                        />
+                        {t('ClientStock.receptionFba.full')}
+                      </label>
+                      <label className="inline-flex items-center gap-1">
+                        <input
+                          type="radio"
+                          name="reception-fba-mode"
+                          value="partial"
+                          checked={receptionForm.fbaMode === 'partial'}
+                          onChange={() => handleReceptionFbaModeChange('partial')}
+                        />
+                        {t('ClientStock.receptionFba.partial')}
+                      </label>
+                    </div>
+                    {receptionForm.fbaMode === 'partial' && (
+                      <div className="border rounded-md p-2 bg-white max-h-48 overflow-y-auto">
+                        {selectedRows.length === 0 && (
+                          <p className="text-text-secondary">
+                            {t('ClientStock.receptionFba.noSelection')}
+                          </p>
+                        )}
+                        {selectedRows.map((row) => {
+                          const edits = rowEdits[row.id] || {};
+                          const units = Number(edits.units_to_send || 0);
+                          return (
+                            <div
+                              key={row.id}
+                              className="flex items-center justify-between gap-2 py-1 text-xs sm:text-sm border-b last:border-b-0"
+                            >
+                              <div className="truncate">
+                                <p className="font-medium text-text-primary truncate">
+                                  {row.name || row.asin || row.ean || '—'}
+                                </p>
+                                <p className="text-text-secondary">
+                                  {t('ClientStock.receptionFba.available', { qty: units })}
+                                </p>
+                              </div>
+                              <input
+                                type="number"
+                                min="0"
+                                className="w-16 text-right border rounded px-2 py-1"
+                                value={edits.fba_units ?? ''}
+                                onChange={(e) =>
+                                  updateEdit(row.id, { fba_units: e.target.value })
+                                }
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
               <button

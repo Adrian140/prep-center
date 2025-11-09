@@ -265,7 +265,7 @@ export default function ClientPrepShipments() {
   };
 
   useEffect(() => {
-    if (!profile?.id) return;
+    if (!profile?.id || !profile?.company_id) return;
     let active = true;
 
     const load = async () => {
@@ -280,7 +280,7 @@ export default function ClientPrepShipments() {
         supabase
           .from('stock_items')
           .select('*')
-          .eq('user_id', profile.id)
+          .eq('company_id', profile.company_id)
           .order('created_at', { ascending: false })
       ]);
 
@@ -300,7 +300,7 @@ export default function ClientPrepShipments() {
     return () => {
       active = false;
     };
-  }, [profile?.id]);
+  }, [profile?.id, profile?.company_id]);
 
   return (
     <div className="space-y-6">

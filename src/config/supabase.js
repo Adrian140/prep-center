@@ -1172,7 +1172,125 @@ getAllReceivingShipments: async (options = {}) => {
   // Process to Stock
   processReceivingToStock: async (shipmentId, processedBy, itemsToProcess) => {
     try {
-      // 1. Update shipment status to processed
+      const { data: shipment, error: shipmentFetchError } = await supabase
+        .from('receiving_shipments')
+        .select('id, company_id, user_id')
+        .eq('id', shipmentId)
+        .single();
+      if (shipmentFetchError) throw shipmentFetchError;
+
+      const fbaLines = [];
+
+      const ensureStockItem = async (item) => {
+        if (item.stock_item_id) {
+          const { data } = await supabase
+            .from('stock_items')
+            .select('*')
+            .eq('id', item.stock_item_id)
+            .maybeSingle();
+          if (data) return data;
+        }
+
+        if (item.ean_asin) {
+          const { data } = await supabase
+            .from('stock_items')
+            .select('*')
+            .eq('company_id', item.company_id)
+            .eq('ean', item.ean_asin)
+            .maybeSingle();
+          if (data) return data;
+        }
+
+        const insertPayload = {
+          company_id: item.company_id,
+          ean: item.ean_asin,
+          name: item.product_name,
+          asin: item.sku,
+          qty: 0,
+          purchase_price: item.purchase_price,
+          created_by: processedBy
+        };
+
+        const { data: created, error } = await supabase
+          .from('stock_items')
+          .insert(insertPayload)
+          .select()
+          .single();
+        if (error) throw error;
+        return created;
+      };
+
+      for (const item of itemsToProcess) {
+        const quantityReceived = Math.max(0, Number(item.quantity_received || 0));
+        const fbaQty = item.send_to_fba ? Math.max(0, Number(item.fba_qty) || 0) : 0;
+        const qtyToStock = Math.max(0, quantityReceived - fbaQty);
+
+        const stockRow = await ensureStockItem(item);
+        const stockId = stockRow?.id || null;
+
+        if (qtyToStock > 0 && stockRow) {
+          const newQty = Number(stockRow.qty || 0) + qtyToStock;
+          const updates = { qty: newQty };
+
+          if (item.purchase_price != null && item.purchase_price !== stockRow.purchase_price) {
+            updates.purchase_price = item.purchase_price;
+          }
+          if (item.product_name && item.product_name !== stockRow.name) {
+            updates.name = item.product_name;
+          }
+          if (item.sku && item.sku !== stockRow.asin) {
+            updates.asin = item.sku;
+          }
+
+          await supabase
+            .from('stock_items')
+            .update(updates)
+            .eq('id', stockRow.id);
+
+          await supabase
+            .from('receiving_to_stock_log')
+            .insert({
+              receiving_item_id: item.id,
+              stock_item_id: stockRow.id,
+              quantity_moved: qtyToStock,
+              moved_by: processedBy,
+              notes: 'Processed from receiving shipment'
+            });
+        }
+
+        await supabase
+          .from('receiving_items')
+          .update({
+            stock_item_id: stockId,
+            quantity_to_stock: qtyToStock,
+            remaining_action: fbaQty > 0 ? 'direct_to_amazon' : 'store_only',
+            send_to_fba: item.send_to_fba,
+            fba_qty: fbaQty
+          })
+          .eq('id', item.id);
+
+        if (fbaQty > 0 && stockId) {
+          fbaLines.push({
+            stock_item_id: stockId,
+            ean: stockRow?.ean || item.ean_asin || null,
+            product_name: stockRow?.name || item.product_name || null,
+            asin: stockRow?.asin || item.sku || null,
+            sku: item.sku || null,
+            units_requested: fbaQty
+          });
+        }
+      }
+
+      if (fbaLines.length) {
+        await supabaseHelpers.createPrepRequest({
+          company_id: shipment.company_id,
+          user_id: shipment.user_id || processedBy,
+          status: 'pending',
+          destination_country: 'FR',
+          items: fbaLines
+        });
+      }
+
       const { error: shipmentError } = await supabase
         .from('receiving_shipments')
         .update({
@@ -1183,93 +1301,6 @@ getAllReceivingShipments: async (options = {}) => {
         .eq('id', shipmentId);
 
       if (shipmentError) throw shipmentError;
-
-      // 2. Process each item to stock
-      for (const item of itemsToProcess) {
-        if (item.quantity_to_stock > 0) {
-          // Check if EAN already exists in stock for this company
-          const { data: existingStock } = await supabase
-            .from('stock_items')
-            .select('*')
-            .eq('company_id', item.company_id)
-            .eq('ean', item.ean_asin)
-            .single();
-
-          if (existingStock) {
-            // Update existing stock item
-            const newQty = Number(existingStock.qty || 0) + Number(item.quantity_to_stock);
-            const updates = { qty: newQty };
-            
-            // Update price if provided and different
-            if (item.purchase_price != null && item.purchase_price !== existingStock.purchase_price) {
-              updates.purchase_price = item.purchase_price;
-            }
-            
-            // Update ASIN if provided and different
-            if (item.sku && item.sku !== existingStock.asin) {
-              updates.asin = item.sku;
-            }
-            
-            // Update name if provided and different
-            if (item.product_name && item.product_name !== existingStock.name) {
-              updates.name = item.product_name;
-            }
-
-            await supabase
-              .from('stock_items')
-              .update(updates)
-              .eq('id', existingStock.id);
-
-            // Log the movement
-            await supabase
-              .from('receiving_to_stock_log')
-              .insert({
-                receiving_item_id: item.id,
-                stock_item_id: existingStock.id,
-                quantity_moved: item.quantity_to_stock,
-                moved_by: processedBy,
-                notes: `Processed from receiving shipment`
-              });
-          } else {
-            // Create new stock item
-            const { data: newStockItem, error: stockError } = await supabase
-              .from('stock_items')
-              .insert({
-                company_id: item.company_id,
-                ean: item.ean_asin,
-                name: item.product_name,
-                asin: item.sku,
-                qty: item.quantity_to_stock,
-                purchase_price: item.purchase_price,
-                created_by: processedBy
-              })
-              .select()
-              .single();
-
-            if (stockError) throw stockError;
-
-            // Log the movement
-            await supabase
-              .from('receiving_to_stock_log')
-              .insert({
-                receiving_item_id: item.id,
-                stock_item_id: newStockItem.id,
-                quantity_moved: item.quantity_to_stock,
-                moved_by: processedBy,
-                notes: `New stock item from receiving shipment`
-              });
-          }
-
-          // Update receiving item with processing info
-          await supabase
-            .from('receiving_items')
-            .update({
-              quantity_to_stock: item.quantity_to_stock,
-              remaining_action: item.remaining_action
-            })
-            .eq('id', item.id);
-        }
-      }
 
       return { error: null };
     } catch (error) {

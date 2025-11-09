@@ -19,6 +19,26 @@ const StatusPill = ({ status }) => {
   return <span className={`px-2 py-1 text-xs rounded-full ${badge.color}`}>{badge.text}</span>;
 };
 
+const FBA_MODE_META = {
+  none: {
+    label: 'Pas d’envoi direct',
+    detail: 'Aucune expédition directe vers Amazon n’a été demandée.',
+    badge: 'bg-gray-100 text-gray-700'
+  },
+  full: {
+    label: 'Tout envoyer vers Amazon',
+    detail: 'Le client souhaite que toutes les unités partent directement vers Amazon.',
+    badge: 'bg-blue-100 text-blue-800'
+  },
+  partial: {
+    label: 'Envoi partiel vers Amazon',
+    detail: 'Le client souhaite envoyer seulement une partie des unités vers Amazon. Vérifiez les quantités ci-dessous.',
+    badge: 'bg-indigo-100 text-indigo-800'
+  }
+};
+
+const getFbaModeMeta = (mode = 'none') => FBA_MODE_META[mode] || FBA_MODE_META.none;
+
 function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   const { profile } = useSupabaseAuth();
   const carriers = [
@@ -46,7 +66,8 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     fba_shipment_ids: shipment.fba_shipment_ids?.length
       ? shipment.fba_shipment_ids
       : [''],
-    notes: shipment.notes || ''
+    notes: shipment.notes || '',
+    fba_mode: shipment.fba_mode || 'none'
   });
 
   const updateFba = async (itemId, patch) => {
@@ -88,7 +109,13 @@ useEffect(() => {
 // în AdminReceivingDetail, păstrează useEffect-ul și înlocuiește funcția
 const checkStockMatches = async () => {
   if (!shipment.company_id || items.length === 0) return;
-  const eans = items.map(i => i.ean).filter(Boolean);
+  const eans = Array.from(
+    new Set(
+      items
+        .map((i) => i.ean || i.ean_asin || i.stock_item?.ean || null)
+        .filter(Boolean)
+    )
+  );
   if (eans.length === 0) {
     setStockMatches({});
     return;
@@ -194,6 +221,13 @@ const processToStock = async () => {
   }
 };
 
+  const fbaModeValue = editHeader.fba_mode || shipment.fba_mode || 'none';
+  const fbaMeta = getFbaModeMeta(fbaModeValue);
+  const hasFbaLines = items.some(
+    (item) => item.send_to_fba && Number(item.fba_qty || 0) > 0
+  );
+  const showFbaInfo = fbaModeValue !== 'none' || hasFbaLines;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -226,6 +260,13 @@ const processToStock = async () => {
           : 'bg-red-50 border border-red-200 text-red-600'
         }`}>
           {message}
+        </div>
+      )}
+
+      {showFbaInfo && (
+        <div className="px-4 py-3 rounded-lg border border-blue-200 bg-blue-50 text-blue-900 text-sm">
+          <p className="font-semibold">{fbaMeta.label}</p>
+          <p className="text-xs mt-1">{fbaMeta.detail}</p>
         </div>
       )}
 
@@ -395,6 +436,26 @@ const processToStock = async () => {
             )}
             
           </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary">Envoi direct Amazon</label>
+            {editMode ? (
+              <select
+                value={editHeader.fba_mode || 'none'}
+                onChange={(e) =>
+                  setEditHeader((prev) => ({ ...prev, fba_mode: e.target.value }))
+                }
+                className="border rounded px-2 py-1 w-full"
+              >
+                <option value="none">Pas d’envoi direct</option>
+                <option value="full">Tout envoyer vers Amazon</option>
+                <option value="partial">Envoi partiel</option>
+              </select>
+            ) : (
+              <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${fbaMeta.badge}`}>
+                {fbaMeta.label}
+              </span>
+            )}
+          </div>
             <div>
             <label className="block text-sm font-medium text-text-secondary">Statut</label>
             {editMode ? (
@@ -433,7 +494,8 @@ const processToStock = async () => {
               tracking_ids: cleanTracking.length > 0 ? cleanTracking : [],
               fba_shipment_ids: cleanFBA.length > 0 ? cleanFBA : [],
               notes: editHeader.notes?.trim() || null,
-              status: editHeader.status || shipment.status
+              status: editHeader.status || shipment.status,
+              fba_mode: editHeader.fba_mode || shipment.fba_mode || 'none'
             });
                 setEditMode(false);
                onUpdate();
@@ -492,20 +554,25 @@ const processToStock = async () => {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left">Foto</th>
-                <th className="px-4 py-3 text-left">ASIN</th>
+                <th className="px-4 py-3 text-left">Photo</th>
+                <th className="px-4 py-3 text-left">EAN / ASIN</th>
                 <th className="px-4 py-3 text-left">Nom du Produit</th>
                 <th className="px-4 py-3 text-right">Quantité</th>
                 <th className="px-4 py-3 text-left">SKU</th>
+                <th className="px-4 py-3 text-center">FBA</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item) => {
                 const asin = item.asin || item.stock_item?.asin || '—';
+                const eanValue = item.ean || item.ean_asin || item.stock_item?.ean || '—';
                 const productName = item.product_name || item.stock_item?.name || '—';
                 const imageUrl = item.stock_item?.image_url || item.image_url || '';
+                const skuValue = item.sku || item.stock_item?.sku || '—';
+                const fbaQty = item.send_to_fba ? Math.max(0, Number(item.fba_qty) || 0) : 0;
+                const rowHighlight = fbaQty > 0 ? 'bg-blue-50/60' : '';
                 return (
-                  <tr key={item.id} className="border-t">
+                  <tr key={item.id} className={`border-t ${rowHighlight}`}>
                     <td className="px-4 py-3">
                       {imageUrl ? (
                         <img
@@ -519,10 +586,22 @@ const processToStock = async () => {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 font-mono">{asin}</td>
+                    <td className="px-4 py-3 text-xs text-text-secondary">
+                      <div className="font-mono text-sm text-text-primary">{eanValue}</div>
+                      <div className="font-mono">{asin}</div>
+                    </td>
                     <td className="px-4 py-3">{productName}</td>
                     <td className="px-4 py-3 text-right">{item.quantity_received}</td>
-                    <td className="px-4 py-3 font-mono">{item.sku || '—'}</td>
+                    <td className="px-4 py-3 font-mono">{skuValue}</td>
+                    <td className="px-4 py-3 text-center">
+                      {fbaQty > 0 ? (
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
+                          {fbaQty}
+                        </span>
+                      ) : (
+                        <span className="text-text-secondary">—</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -783,8 +862,16 @@ const filteredShipments = shipments.filter(shipment => {
               filteredShipments.map((shipment) => {
                 const emailRaw = String(shipment.client_email || shipment.user_email || '').trim();
                 const showEmail = emailRaw.includes('@');
+                const hasFbaIntent =
+                  (shipment.fba_mode && shipment.fba_mode !== 'none') ||
+                  (shipment.receiving_items || []).some(
+                    (item) => item.send_to_fba && Number(item.fba_qty || 0) > 0
+                  );
+                const rowClass = hasFbaIntent
+                  ? 'border-t bg-blue-50/50 hover:bg-blue-100/50'
+                  : 'border-t hover:bg-gray-50';
                 return (
-                <tr key={shipment.id} className="border-t hover:bg-gray-50">
+                <tr key={shipment.id} className={rowClass}>
                   <td className="px-4 py-3">
                     <input
                       type="checkbox"
@@ -826,7 +913,14 @@ const filteredShipments = shipments.filter(shipment => {
                       ))}
                     </td>
                   <td className="px-4 py-3">
-                    <StatusPill status={shipment.status} />
+                    <div className="flex items-center gap-2">
+                      <StatusPill status={shipment.status} />
+                      {hasFbaIntent && (
+                        <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
+                          FBA
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 align-top">
                     <div className="flex flex-col gap-2">

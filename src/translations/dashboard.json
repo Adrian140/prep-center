@@ -358,6 +358,14 @@
         "unfulfillable": "Unfulfillable",
         "reserved": "Reserved"
       },
+      "receptionFba": {
+        "title": "Expédier vers Amazon",
+        "none": "Ne pas envoyer pour le moment",
+        "full": "Envoyer toutes les unités vers Amazon",
+        "partial": "Envoi partiel",
+        "noSelection": "Sélectionnez des produits pour configurer l’envoi partiel.",
+        "available": "Unités annoncées : {qty}"
+      },
       "createProduct": {
         "button": "Create product",
         "title": "Create product",
@@ -920,6 +928,14 @@
         "inbound": "În tranzit",
         "unfulfillable": "Nerealizabil",
         "reserved": "Rezervat"
+      },
+      "receptionFba": {
+        "title": "Trimitere către Amazon",
+        "none": "Nu trimit acum",
+        "full": "Trimit toate unitățile în Amazon",
+        "partial": "Trimitere parțială",
+        "noSelection": "Selectează produse pentru a configura cantitățile parțiale.",
+        "available": "Unități anunțate: {qty}"
       },
       "createProduct": {
         "button": "Creează produs",
@@ -1484,6 +1500,14 @@
         "unfulfillable": "Non réalisable",
         "reserved": "Réservé"
       },
+      "receptionFba": {
+        "title": "Zu Amazon senden",
+        "none": "Jetzt nicht senden",
+        "full": "Alle Einheiten zu Amazon senden",
+        "partial": "Teilweise Sendung",
+        "noSelection": "Wähle Produkte aus, um die Teilsendung zu konfigurieren.",
+        "available": "Gemeldete Einheiten: {qty}"
+      },
       "createProduct": {
         "button": "Créer un produit",
         "title": "Créer un produit",
@@ -2046,6 +2070,14 @@
         "inbound": "Eingehend",
         "unfulfillable": "Nicht erfüllbar",
         "reserved": "Reserviert"
+      },
+      "receptionFba": {
+        "title": "Invia ad Amazon",
+        "none": "Non inviare ora",
+        "full": "Invia tutte le unità ad Amazon",
+        "partial": "Spedizione parziale",
+        "noSelection": "Seleziona prodotti per configurare la spedizione parziale.",
+        "available": "Unità annunciate: {qty}"
       },
       "createProduct": {
         "button": "Produkt erstellen",
@@ -2610,6 +2642,14 @@
         "unfulfillable": "Non evadibile",
         "reserved": "Prenotato"
       },
+      "receptionFba": {
+        "title": "Enviar a Amazon",
+        "none": "No enviar ahora",
+        "full": "Enviar todas las unidades a Amazon",
+        "partial": "Envío parcial",
+        "noSelection": "Selecciona productos para configurar el envío parcial.",
+        "available": "Unidades anunciadas: {qty}"
+      },
       "createProduct": {
         "button": "Crea prodotto",
         "title": "Crea prodotto",
@@ -3172,6 +3212,14 @@
         "inbound": "En tránsito",
         "unfulfillable": "No realizable",
         "reserved": "Reservado"
+      },
+      "receptionFba": {
+        "title": "Send to Amazon",
+        "none": "Do not send now",
+        "full": "Send everything to Amazon",
+        "partial": "Partial shipment",
+        "noSelection": "Select products to configure partial shipment.",
+        "available": "Units announced: {qty}"
       },
       "createProduct": {
         "button": "Crear producto",

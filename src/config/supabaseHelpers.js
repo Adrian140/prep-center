@@ -109,6 +109,7 @@ createReceptionRequest: async (data) => {
     tracking_ids: trackingIds,
     fba_shipment_ids: fbaShipmentIds,
     notes: data.notes || null,
+    fba_mode: data.fba_mode || 'none',
     client_store_name: storeName
   };
 
@@ -123,13 +124,16 @@ createReceptionRequest: async (data) => {
   if (Array.isArray(data.items) && data.items.length > 0) {
     let lineCounter = 1;
     const insertItems = data.items.map((it) => ({
-      shipment_id: header.id,                  // aici e fixul
+      shipment_id: header.id,
       line_number: lineCounter++,
-      ean_asin: it.asin || it.ean || null,
+      stock_item_id: it.stock_item_id || null,
+      ean_asin: it.ean || it.asin || null,
       product_name: it.product_name || null,
       sku: it.sku || null,
       purchase_price: it.purchase_price || null,
       quantity_received: it.units_requested || 0,
+      send_to_fba: !!it.send_to_fba,
+      fba_qty: it.send_to_fba ? Math.max(0, Number(it.fba_qty) || 0) : 0
     }));
 
     const { error: err2 } = await supabase
