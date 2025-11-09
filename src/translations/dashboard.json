@@ -304,9 +304,15 @@
           "country": "Country",
           "fbaShipmentId": "FBA Shipment ID",
           "trackIds": "Track IDs",
-          "status": "Status"
+          "status": "Status",
+          "actions": "Actions"
         },
-        "none": "No requests yet."
+        "none": "No requests yet.",
+        "caption": "Monitor what was sent from Prep Center and edit drafts until they are approved.",
+        "actions": {
+          "edit": "Edit draft",
+          "view": "View request"
+        }
       },
       "drawer": {
         "title": "Send to preparation",
@@ -826,9 +832,15 @@
           "country": "Țara",
           "fbaShipmentId": "FBA Shipment ID",
           "trackIds": "Coduri tracking",
-          "status": "Stare"
+          "status": "Stare",
+          "actions": "Acțiuni"
         },
-        "none": "Nu există cereri încă."
+        "none": "Nu există cereri încă.",
+        "caption": "Monitorizează ce trimitem din depozit și modifică cererile cât timp sunt neconfirmate.",
+        "actions": {
+          "edit": "Editează cererea",
+          "view": "Vezi cererea"
+        }
       },
       "drawer": {
         "title": "Trimite la pregătire",
@@ -1348,9 +1360,15 @@
           "country": "Pays",
           "fbaShipmentId": "ID expédition FBA",
           "trackIds": "IDs de suivi",
-          "status": "Statut"
+          "status": "Statut",
+          "actions": "Actions"
         },
-        "none": "Aucune demande pour le moment."
+        "none": "Aucune demande pour le moment.",
+        "caption": "Suivez vos envois préparés et modifiez les brouillons tant qu’ils sont en attente.",
+        "actions": {
+          "edit": "Modifier le brouillon",
+          "view": "Voir la demande"
+        }
       },
       "drawer": {
         "title": "Envoyer en préparation",
@@ -1870,9 +1888,15 @@
           "country": "Land",
           "fbaShipmentId": "FBA Shipment ID",
           "trackIds": "Tracking-IDs",
-          "status": "Status"
+          "status": "Status",
+          "actions": "Aktionen"
         },
-        "none": "Noch keine Anfragen."
+        "none": "Noch keine Anfragen.",
+        "caption": "Überwachen Sie vorbereitete Sendungen und bearbeiten Sie Entwürfe, solange sie nicht bestätigt sind.",
+        "actions": {
+          "edit": "Entwurf bearbeiten",
+          "view": "Anfrage ansehen"
+        }
       },
       "drawer": {
         "title": "Zur Vorbereitung senden",
@@ -2392,9 +2416,15 @@
           "country": "Paese",
           "fbaShipmentId": "ID spedizione FBA",
           "trackIds": "Codici tracking",
-          "status": "Stato"
+          "status": "Stato",
+          "actions": "Azioni"
         },
-        "none": "Nessuna richiesta."
+        "none": "Nessuna richiesta.",
+        "caption": "Monitora le spedizioni preparate e modifica i draft finché restano in attesa.",
+        "actions": {
+          "edit": "Modifica bozza",
+          "view": "Visualizza richiesta"
+        }
       },
       "drawer": {
         "title": "Invia alla preparazione",
@@ -2914,9 +2944,15 @@
           "country": "País",
           "fbaShipmentId": "ID de envío FBA",
           "trackIds": "IDs de seguimiento",
-          "status": "Estado"
+          "status": "Estado",
+          "actions": "Acciones"
         },
-        "none": "Aún no hay solicitudes."
+        "none": "Aún no hay solicitudes.",
+        "caption": "Controla tus envíos preparados y edita los borradores mientras estén pendientes.",
+        "actions": {
+          "edit": "Editar borrador",
+          "view": "Ver solicitud"
+        }
       },
       "drawer": {
         "title": "Enviar a preparación",

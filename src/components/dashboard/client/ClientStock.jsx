@@ -645,6 +645,14 @@ const [addingQty, setAddingQty] = useState('');      // number
 
 const [history, setHistory] = useState([]);
 const [historyPage, setHistoryPage] = useState(1);
+const historyTotalPages = useMemo(() => Math.max(1, Math.ceil((history?.length || 0) / HISTORY_PER_PAGE)), [history?.length]);
+const historySlice = useMemo(() => {
+  const start = (historyPage - 1) * HISTORY_PER_PAGE;
+  return (history || []).slice(start, start + HISTORY_PER_PAGE);
+}, [history, historyPage]);
+useEffect(() => {
+  setHistoryPage(1);
+}, [history?.length]);
 const [receptionForm, setReceptionForm] = useState({
   carrier: 'UPS',
   carrierOther: '',
@@ -1239,6 +1247,103 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
           </button>
           <HelpMenuButtonStock t={t} tp={tp} />
         </div>
+      </div>
+      <div className="mt-10 bg-white rounded-2xl shadow-sm border border-gray-100">
+        <div className="px-4 pt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-text-primary">{t('ClientStock.recent.title')}</h3>
+            <p className="text-sm text-text-secondary">{t('ClientStock.recent.caption')}</p>
+          </div>
+          {history && history.length > HISTORY_PER_PAGE && (
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <button
+                className="px-3 py-1 border rounded disabled:opacity-40"
+                onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                disabled={historyPage <= 1}
+              >
+                {t('ClientStock.pager.prev')}
+              </button>
+              <span>{historyPage} / {historyTotalPages}</span>
+              <button
+                className="px-3 py-1 border rounded disabled:opacity-40"
+                onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}
+                disabled={historyPage >= historyTotalPages}
+              >
+                {t('ClientStock.pager.next')}
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="overflow-x-auto mt-4">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 text-text-secondary">
+              <tr>
+                <th className="px-3 py-2 text-left">{t('ClientStock.recent.thead.date')}</th>
+                <th className="px-3 py-2 text-left">{t('ClientStock.recent.thead.country')}</th>
+                <th className="px-3 py-2 text-left">{t('ClientStock.recent.thead.fbaShipmentId')}</th>
+                <th className="px-3 py-2 text-left">{t('ClientStock.recent.thead.trackIds')}</th>
+                <th className="px-3 py-2 text-left">{t('ClientStock.recent.thead.status')}</th>
+                <th className="px-3 py-2 text-right">{t('ClientStock.recent.thead.actions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(!history || history.length === 0) && (
+                <tr>
+                  <td colSpan={6} className="px-3 py-5 text-center text-text-secondary">
+                    {t('ClientStock.recent.none')}
+                  </td>
+                </tr>
+              )}
+              {historySlice.map((req) => {
+                const tracks = Array.isArray(req.tracking_ids) && req.tracking_ids.length
+                  ? req.tracking_ids.join(', ')
+                  : req.tracking_id || '—';
+                const status = (req.status || 'pending').replace(/_/g, ' ');
+                return (
+                  <tr key={req.id} className="border-t">
+                    <td className="px-3 py-2">{req.created_at?.slice(0, 10) || '—'}</td>
+                    <td className="px-3 py-2">{t(`ClientStock.countries.${req.destination_country || 'FR'}`)}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{req.fba_shipment_id || '—'}</td>
+                    <td className="px-3 py-2 text-xs text-text-secondary">{tracks || '—'}</td>
+                    <td className="px-3 py-2 capitalize">{status}</td>
+                    <td className="px-3 py-2 text-right">
+                      <button
+                        className="text-primary text-sm hover:underline disabled:opacity-50"
+                        disabled={!req.id}
+                        onClick={() => req.id && openReqEditor(req.id)}
+                      >
+                        {req.status === 'pending'
+                          ? t('ClientStock.recent.actions.edit')
+                          : t('ClientStock.recent.actions.view')}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {history && history.length > HISTORY_PER_PAGE && (
+          <div className="px-4 py-3 border-t flex items-center justify-between text-sm text-text-secondary">
+            <span>{tp('ClientStock.pager.pageXofY', { x: historyPage, y: historyTotalPages })}</span>
+            <div className="flex items-center gap-2">
+              <button
+                className="px-3 py-1 border rounded disabled:opacity-40"
+                onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                disabled={historyPage <= 1}
+              >
+                {t('ClientStock.pager.prev')}
+              </button>
+              <button
+                className="px-3 py-1 border rounded disabled:opacity-40"
+                onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}
+                disabled={historyPage >= historyTotalPages}
+              >
+                {t('ClientStock.pager.next')}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       </div>
