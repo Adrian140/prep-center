@@ -802,7 +802,7 @@ createPrepItem: async (requestId, item) => {
   const { data, error } = await supabase
     .from('prep_request_items')
    .insert({
-  request_id: requestId,
+  prep_request_id: requestId,
   stock_item_id: item.stock_item_id ?? null,
   ean: item.ean ?? null,               // 👈 ADD
   product_name: item.product_name ?? null, // 👈 ADD
