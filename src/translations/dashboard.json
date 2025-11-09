@@ -199,7 +199,7 @@
       },
       "noRecords": "No records.",
       "totals": "Totals",
-      "chartTitle": "FBA vs FBM daily totals",
+      "chartTitle": "FBA · FBM · Other daily totals",
       "range": {
         "m1": "1 month",
         "m3": "3 months",
@@ -208,7 +208,8 @@
       "tooltip": {
         "date": "Date"
       },
-      "companyMissing": "Your account is not linked to a company yet. Please contact support to activate it."
+      "companyMissing": "Your account is not linked to a company yet. Please contact support to activate it.",
+      "otherTitle": "Other"
     },
     "ClientFBAReport": {
       "title": "FBA Report",
@@ -399,7 +400,7 @@
       "photosModal": {
         "title": "Photos – {name}",
         "count": "{current} / {max} images uploaded",
-        "disclaimer": "ChatGPT said:\n\nFor using the photo storage service on the platform, a monthly fee of €3 applies starting from the first upload. This keeps the images available as long as the product stays in inventory. If I upload the photos for you, an extra €1 is charged for each set of 6 images per product. If you upload the photos yourself, only the €3 monthly fee applies. The service is optional, and the photos can be sent for free via WhatsApp on request.",
+        "disclaimer": "For using the photo storage service on the platform, a monthly fee of €3 applies starting from the first upload. This keeps the images available as long as the product stays in inventory. If I upload the photos for you, an extra €1 is charged for each set of 6 images per product. If you upload the photos yourself, only the €3 monthly fee applies. The service is optional, and the photos can be sent for free via WhatsApp on request.",
         "uploadCta": "Drag & drop or click to upload (max {slots} more)",
         "uploading": "Uploading…",
         "downloadAll": "Download all",
@@ -511,6 +512,13 @@
         "title": "Recent preparation requests",
         "empty": "No shipments yet."
       }
+    },
+    "ClientOtherReport": {
+      "title": "Other services",
+      "readonly": "Read-only view of additional services.",
+      "monthLabel": "Month:",
+      "currentMonth": "Current month",
+      "noDataMonth": "No entries for this month."
     }
   },
   "ro": {
@@ -713,7 +721,7 @@
       },
       "noRecords": "Nu există înregistrări.",
       "totals": "Totaluri",
-      "chartTitle": "Totaluri zilnice FBA vs FBM",
+      "chartTitle": "FBA · FBM · Altele — totaluri zilnice",
       "range": {
         "m1": "1 lună",
         "m3": "3 luni",
@@ -722,7 +730,8 @@
       "tooltip": {
         "date": "Data"
       },
-      "companyMissing": "Contul tău nu este încă asociat unei companii. Scrie-ne pentru activare."
+      "companyMissing": "Contul tău nu este încă asociat unei companii. Scrie-ne pentru activare.",
+      "otherTitle": "Altele"
     },
     "ClientFBAReport": {
       "title": "Raport FBA",
@@ -913,7 +922,7 @@
       "photosModal": {
         "title": "Foto – {name}",
         "count": "{current} / {max} imagini încărcate",
-        "disclaimer": "ChatGPT said:\n\nPentru utilizarea serviciului de stocare a pozelor pe platformă se aplică o taxă lunară de 3 €, începând din momentul primei încărcări. Aceasta permite păstrarea imaginilor atât timp cât produsul rămâne în inventar. În cazul în care pozele sunt încărcate de mine, se adaugă o taxă de 1 € pentru fiecare set de 6 imagini per produs. Dacă pozele sunt încărcate direct de tine, se aplică doar taxa lunară de 3 €. Serviciul este opțional, iar pozele pot fi trimise gratuit prin WhatsApp la cerere.",
+        "disclaimer": "Pentru utilizarea serviciului de stocare a pozelor pe platformă se aplică o taxă lunară de 3 €, începând din momentul primei încărcări. Aceasta permite păstrarea imaginilor atât timp cât produsul rămâne în inventar. În cazul în care pozele sunt încărcate de mine, se adaugă o taxă de 1 € pentru fiecare set de 6 imagini per produs. Dacă pozele sunt încărcate direct de tine, se aplică doar taxa lunară de 3 €. Serviciul este opțional, iar pozele pot fi trimise gratuit prin WhatsApp la cerere.",
         "uploadCta": "Trage fișierele sau apasă pentru a încărca (maxim {slots} în plus)",
         "uploading": "Încărcare…",
         "downloadAll": "Descarcă tot",
@@ -1025,6 +1034,13 @@
         "title": "Solicitări de pregătire recente",
         "empty": "Nu există expedieri încă."
       }
+    },
+    "ClientOtherReport": {
+      "title": "Servicii diverse",
+      "readonly": "Vizualizare doar pentru citire a taxelor suplimentare.",
+      "monthLabel": "Luna:",
+      "currentMonth": "Luna curentă",
+      "noDataMonth": "Nu există înregistrări în această lună."
     }
   },
   "fr": {
@@ -1227,7 +1243,7 @@
       },
       "noRecords": "Aucun enregistrement.",
       "totals": "Totaux",
-      "chartTitle": "Totaux journaliers FBA vs FBM",
+      "chartTitle": "FBA · FBM · Autres — totaux quotidiens",
       "range": {
         "m1": "1 mois",
         "m3": "3 mois",
@@ -1236,7 +1252,8 @@
       "tooltip": {
         "date": "Date"
       },
-      "companyMissing": "Votre compte n’est pas encore lié à une société. Contactez le support pour l’activer."
+      "companyMissing": "Votre compte n’est pas encore lié à une société. Contactez le support pour l’activer.",
+      "otherTitle": "Autres"
     },
     "ClientFBAReport": {
       "title": "Rapport FBA",
@@ -1427,7 +1444,7 @@
       "photosModal": {
         "title": "Photos – {name}",
         "count": "{current} / {max} images importées",
-        "disclaimer": "ChatGPT said:\n\nPour utiliser le service de stockage des photos sur la plateforme, une redevance mensuelle de 3 € s’applique à partir de la première mise en ligne. Cela maintient les images disponibles tant que le produit reste en inventaire. Si je télécharge les photos pour vous, un supplément de 1 € est facturé pour chaque lot de 6 images par produit. Si vous les importez vous-même, seule la redevance mensuelle de 3 € s’applique. Ce service est optionnel et les photos peuvent être envoyées gratuitement via WhatsApp sur demande.",
+        "disclaimer": "Pour utiliser le service de stockage des photos sur la plateforme, une redevance mensuelle de 3 € s’applique à partir de la première mise en ligne. Cela maintient les images disponibles tant que le produit reste en inventaire. Si je télécharge les photos pour vous, un supplément de 1 € est facturé pour chaque lot de 6 images par produit. Si vous les importez vous-même, seule la redevance mensuelle de 3 € s’applique. Ce service est optionnel et les photos peuvent être envoyées gratuitement via WhatsApp sur demande.",
         "uploadCta": "Glissez-déposez ou cliquez pour importer (max {slots} supplémentaires)",
         "uploading": "Téléversement…",
         "downloadAll": "Télécharger tout",
@@ -1539,6 +1556,13 @@
         "title": "Demandes de préparation récentes",
         "empty": "Aucune expédition pour le moment."
       }
+    },
+    "ClientOtherReport": {
+      "title": "Autres services",
+      "readonly": "Vue en lecture seule des frais additionnels.",
+      "monthLabel": "Mois :",
+      "currentMonth": "Mois en cours",
+      "noDataMonth": "Aucune entrée pour ce mois."
     }
   },
   "de": {
@@ -1741,7 +1765,7 @@
       },
       "noRecords": "Keine Einträge.",
       "totals": "Summen",
-      "chartTitle": "Tägliche Summen FBA vs. FBM",
+      "chartTitle": "FBA · FBM · Sonstiges – Tagesumsätze",
       "range": {
         "m1": "1 Monat",
         "m3": "3 Monate",
@@ -1750,7 +1774,8 @@
       "tooltip": {
         "date": "Datum"
       },
-      "companyMissing": "Ihr Konto ist noch keiner Firma zugeordnet. Bitte Support zur Aktivierung kontaktieren."
+      "companyMissing": "Ihr Konto ist noch keiner Firma zugeordnet. Bitte Support zur Aktivierung kontaktieren.",
+      "otherTitle": "Sonstiges"
     },
     "ClientFBAReport": {
       "title": "FBA-Bericht",
@@ -1941,7 +1966,7 @@
       "photosModal": {
         "title": "Fotos – {name}",
         "count": "{current} / {max} Bilder hochgeladen",
-        "disclaimer": "ChatGPT said:\n\nFür die Nutzung des Fotostorage-Dienstes auf der Plattform fällt ab dem ersten Upload eine monatliche Gebühr von 3 € an. Dadurch bleiben die Bilder verfügbar, solange sich das Produkt im Bestand befindet. Wenn ich die Fotos für dich hochlade, wird pro Satz von 6 Bildern je Produkt eine zusätzliche Gebühr von 1 € berechnet. Wenn du die Bilder selbst hochlädst, gilt nur die monatliche Gebühr von 3 €. Der Dienst ist optional und die Fotos können auf Wunsch kostenlos per WhatsApp gesendet werden.",
+        "disclaimer": "Für die Nutzung des Fotostorage-Dienstes auf der Plattform fällt ab dem ersten Upload eine monatliche Gebühr von 3 € an. Dadurch bleiben die Bilder verfügbar, solange sich das Produkt im Bestand befindet. Wenn ich die Fotos für dich hochlade, wird pro Satz von 6 Bildern je Produkt eine zusätzliche Gebühr von 1 € berechnet. Wenn du die Bilder selbst hochlädst, gilt nur die monatliche Gebühr von 3 €. Der Dienst ist optional und die Fotos können auf Wunsch kostenlos per WhatsApp gesendet werden.",
         "uploadCta": "Dateien hier ablegen oder klicken zum Hochladen (max. {slots} weitere)",
         "uploading": "Wird hochgeladen…",
         "downloadAll": "Alles herunterladen",
@@ -2053,6 +2078,13 @@
         "title": "Aktuelle Vorbereitungsvorgänge",
         "empty": "Noch keine Sendungen."
       }
+    },
+    "ClientOtherReport": {
+      "title": "Weitere Leistungen",
+      "readonly": "Nur-Lese-Ansicht der zusätzlichen Leistungen.",
+      "monthLabel": "Monat:",
+      "currentMonth": "Aktueller Monat",
+      "noDataMonth": "Keine Einträge für diesen Monat."
     }
   },
   "it": {
@@ -2255,7 +2287,7 @@
       },
       "noRecords": "Nessun record.",
       "totals": "Totali",
-      "chartTitle": "Totali giornalieri FBA vs FBM",
+      "chartTitle": "FBA · FBM · Altro – totali giornalieri",
       "range": {
         "m1": "1 mese",
         "m3": "3 mesi",
@@ -2264,7 +2296,8 @@
       "tooltip": {
         "date": "Data"
       },
-      "companyMissing": "Il tuo account non è ancora collegato a un’azienda. Contatta il supporto per l’attivazione."
+      "companyMissing": "Il tuo account non è ancora collegato a un’azienda. Contatta il supporto per l’attivazione.",
+      "otherTitle": "Altro"
     },
     "ClientFBAReport": {
       "title": "Report FBA",
@@ -2455,7 +2488,7 @@
       "photosModal": {
         "title": "Foto – {name}",
         "count": "{current} / {max} immagini caricate",
-        "disclaimer": "ChatGPT said:\n\nPer utilizzare il servizio di archiviazione delle foto sulla piattaforma si applica una tariffa mensile di 3 €, a partire dal primo caricamento. Questo mantiene le immagini disponibili finché il prodotto resta in inventario. Se carico io le foto per te, viene aggiunta una tariffa di 1 € per ogni set di 6 immagini per prodotto. Se le carichi direttamente tu, si applica solo la tariffa mensile di 3 €. Il servizio è opzionale e le foto possono essere inviate gratuitamente tramite WhatsApp su richiesta.",
+        "disclaimer": "Per utilizzare il servizio di archiviazione delle foto sulla piattaforma si applica una tariffa mensile di 3 €, a partire dal primo caricamento. Questo mantiene le immagini disponibili finché il prodotto resta in inventario. Se carico io le foto per te, viene aggiunta una tariffa di 1 € per ogni set di 6 immagini per prodotto. Se le carichi direttamente tu, si applica solo la tariffa mensile di 3 €. Il servizio è opzionale e le foto possono essere inviate gratuitamente tramite WhatsApp su richiesta.",
         "uploadCta": "Trascina i file o fai clic per caricare (max {slots} aggiuntive)",
         "uploading": "Caricamento in corso…",
         "downloadAll": "Scarica tutto",
@@ -2567,6 +2600,13 @@
         "title": "Richieste di preparazione recenti",
         "empty": "Nessuna spedizione ancora."
       }
+    },
+    "ClientOtherReport": {
+      "title": "Altri servizi",
+      "readonly": "Vista in sola lettura dei servizi aggiuntivi.",
+      "monthLabel": "Mese:",
+      "currentMonth": "Mese corrente",
+      "noDataMonth": "Nessuna voce per questo mese."
     }
   },
   "es": {
@@ -2769,7 +2809,7 @@
       },
       "noRecords": "Sin registros.",
       "totals": "Totales",
-      "chartTitle": "Totales diarios FBA vs FBM",
+      "chartTitle": "FBA · FBM · Otros – totales diarios",
       "range": {
         "m1": "1 mes",
         "m3": "3 meses",
@@ -2778,7 +2818,8 @@
       "tooltip": {
         "date": "Fecha"
       },
-      "companyMissing": "Tu cuenta aún no está vinculada a una empresa. Contacta con soporte para activarla."
+      "companyMissing": "Tu cuenta aún no está vinculada a una empresa. Contacta con soporte para activarla.",
+      "otherTitle": "Otros"
     },
     "ClientFBAReport": {
       "title": "Informe FBA",
@@ -2969,7 +3010,7 @@
       "photosModal": {
         "title": "Fotos – {name}",
         "count": "{current} / {max} imágenes subidas",
-        "disclaimer": "ChatGPT said:\n\nPara utilizar el servicio de almacenamiento de fotos en la plataforma se aplica una tarifa mensual de 3 €, a partir de la primera carga. Esto mantiene las imágenes disponibles mientras el producto permanezca en inventario. Si yo subo las fotos por ti, se añade una tarifa de 1 € por cada conjunto de 6 imágenes por producto. Si las subes directamente tú, solo se aplica la tarifa mensual de 3 €. El servicio es opcional y las fotos pueden enviarse gratuitamente por WhatsApp si lo solicitas.",
+        "disclaimer": "Para utilizar el servicio de almacenamiento de fotos en la plataforma se aplica una tarifa mensual de 3 €, a partir de la primera carga. Esto mantiene las imágenes disponibles mientras el producto permanezca en inventario. Si yo subo las fotos por ti, se añade una tarifa de 1 € por cada conjunto de 6 imágenes por producto. Si las subes directamente tú, solo se aplica la tarifa mensual de 3 €. El servicio es opcional y las fotos pueden enviarse gratuitamente por WhatsApp si lo solicitas.",
         "uploadCta": "Arrastra y suelta o haz clic para subir (máx. {slots} adicionales)",
         "uploading": "Subiendo…",
         "downloadAll": "Descargar todo",
@@ -3081,6 +3122,13 @@
         "title": "Solicitudes de preparación recientes",
         "empty": "Sin envíos por ahora."
       }
+    },
+    "ClientOtherReport": {
+      "title": "Otros servicios",
+      "readonly": "Vista de solo lectura de los cargos adicionales.",
+      "monthLabel": "Mes:",
+      "currentMonth": "Mes actual",
+      "noDataMonth": "No hay registros este mes."
     }
   }
 }

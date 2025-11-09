@@ -66,26 +66,31 @@ export default function SupabaseClientActivity() {
 
   const [fba, setFba] = useState([]);
   const [fbm, setFbm] = useState([]);
+  const [other, setOther] = useState([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("3m");
   const [activeReport, setActiveReport] = useState('fba');
   const [fbaMonth, setFbaMonth] = useState(() => currentMonthStr());
   const [fbmMonth, setFbmMonth] = useState(() => currentMonthStr());
+  const [otherMonth, setOtherMonth] = useState(() => currentMonthStr());
 
   const load = async () => {
     if (!companyId) {
       setFba([]);
       setFbm([]);
+      setOther([]);
       setLoading(false);
       return;
     }
     setLoading(true);
-    const [{ data: fbaData }, { data: fbmData }] = await Promise.all([
+    const [{ data: fbaData }, { data: fbmData }, { data: otherData }] = await Promise.all([
       supabaseHelpers.listFbaLinesByCompany(companyId),
-      supabaseHelpers.listFbmLinesByCompany(companyId)
+      supabaseHelpers.listFbmLinesByCompany(companyId),
+      supabaseHelpers.listOtherLinesByCompany(companyId)
     ]);
     setFba(fbaData || []);
     setFbm(fbmData || []);
+    setOther(otherData || []);
     setLoading(false);
   };
 
@@ -97,15 +102,21 @@ export default function SupabaseClientActivity() {
     const m = currentMonthStr();
     setFbaMonth(m);
     setFbmMonth(m);
+    setOtherMonth(m);
   }, [companyId]);
 
   const fbaMonthRows = useMemo(() => filterRowsByMonth(fba, fbaMonth), [fba, fbaMonth]);
   const fbmMonthRows = useMemo(() => filterRowsByMonth(fbm, fbmMonth), [fbm, fbmMonth]);
+  const otherMonthRows = useMemo(() => filterRowsByMonth(other, otherMonth), [other, otherMonth]);
 
   const fbaMonthTotals = useMemo(() => calcReportTotals(fbaMonthRows, 'units'), [fbaMonthRows]);
   const fbmMonthTotals = useMemo(
     () => calcReportTotals(fbmMonthRows, 'orders_units'),
     [fbmMonthRows]
+  );
+  const otherMonthTotals = useMemo(
+    () => calcReportTotals(otherMonthRows, 'units'),
+    [otherMonthRows]
   );
 
   const chartData = useMemo(() => {
@@ -116,7 +127,7 @@ export default function SupabaseClientActivity() {
         r.total != null
           ? Number(r.total)
           : Number(r.unit_price || 0) * Number(r.units || 0);
-      if (!map[d]) map[d] = { date: d, fba: 0, fbm: 0, fbaUnits: 0, fbmUnits: 0 };
+      if (!map[d]) map[d] = { date: d, fba: 0, fbm: 0, other: 0, fbaUnits: 0, fbmUnits: 0, otherUnits: 0 };
       map[d].fba += isFinite(total) ? total : 0;
       map[d].fbaUnits += Number(r.units || 0);
     }
@@ -126,12 +137,22 @@ export default function SupabaseClientActivity() {
         r.total != null
           ? Number(r.total)
           : Number(r.unit_price || 0) * Number(r.orders_units || 0);
-      if (!map[d]) map[d] = { date: d, fba: 0, fbm: 0, fbaUnits: 0, fbmUnits: 0 };
+      if (!map[d]) map[d] = { date: d, fba: 0, fbm: 0, other: 0, fbaUnits: 0, fbmUnits: 0, otherUnits: 0 };
       map[d].fbm += isFinite(total) ? total : 0;
       map[d].fbmUnits += Number(r.orders_units || 0);
     }
+    for (const r of other) {
+      const d = r.service_date;
+      const total =
+        r.total != null
+          ? Number(r.total)
+          : Number(r.unit_price || 0) * Number(r.units || 0);
+      if (!map[d]) map[d] = { date: d, fba: 0, fbm: 0, other: 0, fbaUnits: 0, fbmUnits: 0, otherUnits: 0 };
+      map[d].other += isFinite(total) ? total : 0;
+      map[d].otherUnits += Number(r.units || 0);
+    }
     return Object.values(map).sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [fba, fbm]);
+  }, [fba, fbm, other]);
 
   useEffect(() => {
     if (!chartData.length) return;
@@ -172,6 +193,12 @@ export default function SupabaseClientActivity() {
             <strong>{fmtMoneyHT(point.fbm)}</strong>
             <span className="text-gray-500">({point.fbmUnits || 0} {t('SupabaseClientActivity.thead.units').toLowerCase()})</span>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#22c55e" }} />
+            <span>{t('SupabaseClientActivity.otherTitle')}:</span>
+            <strong>{fmtMoneyHT(point.other)}</strong>
+            <span className="text-gray-500">({point.otherUnits || 0} {t('SupabaseClientActivity.thead.units').toLowerCase()})</span>
+          </div>
         </div>
       </div>
     );
@@ -194,26 +221,51 @@ export default function SupabaseClientActivity() {
   }
 
   const isFbaView = activeReport === 'fba';
-  const activeRows = isFbaView ? fbaMonthRows : fbmMonthRows;
-  const activeTotals = isFbaView ? fbaMonthTotals : fbmMonthTotals;
-  const activeMonth = isFbaView ? fbaMonth : fbmMonth;
-  const setActiveMonth = isFbaView ? setFbaMonth : setFbmMonth;
-  const reportTitle = isFbaView ? t('ClientFBAReport.title') : t('ClientFBMReport.title');
+  const isFbmView = activeReport === 'fbm';
+  const activeRows = isFbaView ? fbaMonthRows : isFbmView ? fbmMonthRows : otherMonthRows;
+  const activeTotals = isFbaView
+    ? fbaMonthTotals
+    : isFbmView
+      ? fbmMonthTotals
+      : otherMonthTotals;
+  const activeMonth = isFbaView ? fbaMonth : isFbmView ? fbmMonth : otherMonth;
+  const setActiveMonth = isFbaView ? setFbaMonth : isFbmView ? setFbmMonth : setOtherMonth;
+  const reportTitle = isFbaView
+    ? t('ClientFBAReport.title')
+    : isFbmView
+      ? t('ClientFBMReport.title')
+      : t('ClientOtherReport.title');
   const reportSubtitle = isFbaView
     ? t('ClientFBAReport.readonly')
-    : t('ClientFBMReport.readonly');
+    : isFbmView
+      ? t('ClientFBMReport.readonly')
+      : t('ClientOtherReport.readonly');
   const monthLabel = isFbaView
     ? t('ClientFBAReport.monthLabel')
-    : t('ClientFBMReport.monthLabel');
+    : isFbmView
+      ? t('ClientFBMReport.monthLabel')
+      : t('ClientOtherReport.monthLabel');
   const currentMonthLabel = isFbaView
     ? t('ClientFBAReport.currentMonth')
-    : t('ClientFBMReport.currentMonth');
-  const qtyHeading = isFbaView ? t('activity.thead.units') : t('activity.thead.ordersUnits');
+    : isFbmView
+      ? t('ClientFBMReport.currentMonth')
+      : t('ClientOtherReport.currentMonth');
+  const qtyHeading = isFbmView
+    ? t('SupabaseClientActivity.thead.ordersUnits')
+    : t('SupabaseClientActivity.thead.units');
   const emptyState = isFbaView
     ? t('ClientFBAReport.noDataMonth')
-    : t('ClientFBMReport.noDataMonth');
+    : isFbmView
+      ? t('ClientFBMReport.noDataMonth')
+      : t('ClientOtherReport.noDataMonth');
 
   const resetActiveMonth = () => setActiveMonth(currentMonthStr());
+
+  const reportTabs = useMemo(() => ([
+    { id: 'fba', label: t('SupabaseClientActivity.fbaTitle') || 'FBA' },
+    { id: 'fbm', label: t('SupabaseClientActivity.fbmTitle') || 'FBM' },
+    { id: 'other', label: t('SupabaseClientActivity.otherTitle') || 'Other' }
+  ]), [t]);
 
   return (
   <div className="space-y-6">
@@ -264,7 +316,7 @@ export default function SupabaseClientActivity() {
               stroke="#ec4899"
               strokeWidth={2}
               dot={false}
-              name="FBA"
+              name={t('SupabaseClientActivity.fbaTitle')}
             />
             <Line
               type="monotone"
@@ -272,7 +324,15 @@ export default function SupabaseClientActivity() {
               stroke="#3b82f6"
               strokeWidth={2}
               dot={false}
-              name="FBM"
+              name={t('SupabaseClientActivity.fbmTitle')}
+            />
+            <Line
+              type="monotone"
+              dataKey="other"
+              stroke="#22c55e"
+              strokeWidth={2}
+              dot={false}
+              name={t('SupabaseClientActivity.otherTitle')}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -281,10 +341,7 @@ export default function SupabaseClientActivity() {
       <div className="bg-white rounded-xl shadow-sm p-5">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-3 mb-4">
           <div className="flex items-center gap-2">
-            {[
-              { id: 'fba', label: 'FBA' },
-              { id: 'fbm', label: 'FBM' }
-            ].map((opt) => (
+            {reportTabs.map((opt) => (
               <button
                 key={opt.id}
                 onClick={() => setActiveReport(opt.id)}
@@ -347,7 +404,9 @@ export default function SupabaseClientActivity() {
                 </tr>
               ) : (
                 activeRows.map((r) => {
-                  const qty = Number(isFbaView ? r.units || 0 : r.orders_units || 0);
+                  const qty = Number(
+                    isFbaView ? r.units || 0 : isFbmView ? r.orders_units || 0 : r.units || 0
+                  );
                   const lineTotal =
                     r.total != null
                       ? Number(r.total)

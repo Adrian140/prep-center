@@ -130,7 +130,8 @@ const ProductPhotosModal = ({
           companyId,
           uploadedByAdmin: isAdminUploader,
           uploadedCount: allowed.length,
-          stockItemName: productName
+          stockItemName: productName,
+          stockItemAsin: stockItem?.asin || null
         });
       }
     } catch (err) {

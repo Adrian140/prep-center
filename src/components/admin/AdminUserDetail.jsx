@@ -10,6 +10,7 @@ import AdminFBA from './AdminFBA';
 import AdminFBM from './AdminFBM';
 import AdminStock from './AdminStock';
 import AdminReturns from './AdminReturns';
+import AdminOther from './AdminOther';
 
 export default function AdminUserDetail({ profile, onBack }) {
   const [companyId, setCompanyId] = useState(profile?.company_id || null);
@@ -17,6 +18,7 @@ export default function AdminUserDetail({ profile, onBack }) {
 
   const [fbaRows, setFbaRows] = useState([]);
   const [fbmRows, setFbmRows] = useState([]);
+  const [otherRows, setOtherRows] = useState([]);
   const [stockRows, setStockRows] = useState([]);
   const [returnRows, setReturnRows] = useState([]);
 
@@ -24,7 +26,7 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [activePanel, setActivePanel] = useState(null);
 
   // nou: tab-urile principale din dreapta clientului
-  const [activeSection, setActiveSection] = useState('fba'); // 'fba' | 'fbm' | 'stock' | 'returns'
+  const [activeSection, setActiveSection] = useState('fba'); // 'fba' | 'fbm' | 'other' | 'stock' | 'returns'
 
   // Creează companie dacă lipsește și atașează profilul la ea
 const ensureCompany = async () => {
@@ -40,11 +42,13 @@ const ensureCompany = async () => {
    const [
   { data: fba, error: fbaErr },
   { data: fbm, error: fbmErr },
+  { data: other, error: otherErr },
   { data: stock, error: stockErr },
   { data: rets, error: retErr },
 ] = await Promise.all([
   supabase.from('fba_lines').select('*').eq('company_id', cid).order('service_date', { ascending: false }),
   supabase.from('fbm_lines').select('*').eq('company_id', cid).order('service_date', { ascending: false }),
+  supabase.from('other_lines').select('*').eq('company_id', cid).order('service_date', { ascending: false }),
   supabase.from('stock_items').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
   supabase.from('returns').select('*').eq('company_id', cid).order('return_date', { ascending: false }),
 ]);
@@ -52,6 +56,7 @@ const ensureCompany = async () => {
 setCompany({ id: cid, name: profile.company_name || profile.first_name || profile.email });
 if (!fbaErr) setFbaRows(fba || []);
 if (!fbmErr) setFbmRows(fbm || []);
+if (!otherErr) setOtherRows(other || []);
 if (!stockErr) setStockRows(stock || []);
 if (!retErr) setReturnRows(rets || []);
 
@@ -127,6 +132,13 @@ if (!retErr) setReturnRows(rets || []);
                 FBM
               </button>
               <button
+                onClick={() => setActiveSection('other')}
+                className={tabBtn(activeSection === 'other')}
+                title="Other"
+              >
+                Other
+              </button>
+              <button
                 onClick={() => setActiveSection('stock')}
                 className={tabBtn(activeSection === 'stock')}
                 title="Stoc"
@@ -166,6 +178,9 @@ if (!retErr) setReturnRows(rets || []);
       )}
       {activeSection === 'fbm' && (
         <AdminFBM rows={fbmRows} reload={loadAll} companyId={companyId} profile={profile} />
+      )}
+      {activeSection === 'other' && (
+        <AdminOther rows={otherRows} reload={loadAll} companyId={companyId} profile={profile} />
       )}
       {activeSection === 'stock' && (
         <AdminStock rows={stockRows} reload={loadAll} companyId={companyId} profile={profile} />

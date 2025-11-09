@@ -31,7 +31,7 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
       }
       setLoading(true);
 
-      const [{ data: fbaAll }, { data: fbmAll }] = await Promise.all([
+      const [{ data: fbaAll }, { data: fbmAll }, { data: otherAll }] = await Promise.all([
         supabase
           .from("fba_lines")
           .select("id, unit_price, units, total, service_date")
@@ -39,6 +39,10 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
         supabase
           .from("fbm_lines")
           .select("id, unit_price, orders_units, total, service_date")
+          .eq("company_id", companyId),
+        supabase
+          .from("other_lines")
+          .select("id, unit_price, units, total, service_date")
           .eq("company_id", companyId),
       ]);
 
@@ -50,6 +54,10 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
       const fbmSum = (fbmAll || []).reduce((s, r) => {
         const v =
           r.total != null ? num(r.total) : num(r.unit_price) * num(r.orders_units);
+        return s + (Number.isFinite(v) ? v : 0);
+      }, 0);
+      const otherSum = (otherAll || []).reduce((s, r) => {
+        const v = r.total != null ? num(r.total) : num(r.unit_price) * num(r.units);
         return s + (Number.isFinite(v) ? v : 0);
       }, 0);
 
@@ -64,13 +72,14 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
         return s + (isPaid && Number.isFinite(val) ? val : 0);
       }, 0);
 
-      const diff = fbaSum + fbmSum - paidSum;
+      const diff = fbaSum + fbmSum + otherSum - paidSum;
 
       if (DEBUG_BALANCE) {
         console.log("[BALANCE DEBUG] all-time:", {
           fbaSum: fbaSum.toFixed(2),
           fbmSum: fbmSum.toFixed(2),
-          services: (fbaSum + fbmSum).toFixed(2),
+          otherSum: otherSum.toFixed(2),
+          services: (fbaSum + fbmSum + otherSum).toFixed(2),
           paidSum: paidSum.toFixed(2),
           balance: diff.toFixed(2),
         });

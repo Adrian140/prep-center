@@ -54,7 +54,7 @@ const ensurePhotoSubscriptionLine = async (companyId) => {
   if (!companyId) return;
   const { start, next } = currentMonthWindow(new Date());
   const { data, error } = await supabase
-    .from('fba_lines')
+    .from('other_lines')
     .select('id')
     .eq('company_id', companyId)
     .eq('service', PHOTO_SUBSCRIPTION_SERVICE)
@@ -63,7 +63,7 @@ const ensurePhotoSubscriptionLine = async (companyId) => {
     .limit(1);
   if (error) return;
   if (data && data.length) return;
-  await supabase.from('fba_lines').insert({
+  await supabase.from('other_lines').insert({
     company_id: companyId,
     service: PHOTO_SUBSCRIPTION_SERVICE,
     service_date: formatSqlDate(new Date()),
@@ -78,7 +78,7 @@ const removePhotoSubscriptionLine = async (companyId) => {
   if (!companyId) return;
   const { start, next } = currentMonthWindow(new Date());
   await supabase
-    .from('fba_lines')
+    .from('other_lines')
     .delete()
     .eq('company_id', companyId)
     .eq('service', PHOTO_SUBSCRIPTION_SERVICE)
@@ -86,16 +86,20 @@ const removePhotoSubscriptionLine = async (companyId) => {
     .lt('service_date', next);
 };
 
-const insertManualPhotoCharge = async ({ companyId, sets = 1, stockItemName }) => {
-  if (!companyId || !sets) return;
-  await supabase.from('fba_lines').insert({
+const insertManualPhotoCharge = async ({ companyId, uploads = 1, stockItemName, stockItemAsin }) => {
+  if (!companyId || uploads <= 0) return;
+  await supabase.from('other_lines').insert({
     company_id: companyId,
     service: PHOTO_MANUAL_SERVICE,
     service_date: formatSqlDate(new Date()),
     unit_price: PHOTO_MANUAL_PRICE,
-    units: sets,
-    total: PHOTO_MANUAL_PRICE * sets,
-    obs_admin: stockItemName ? `Product: ${stockItemName}` : null
+    units: uploads,
+    total: PHOTO_MANUAL_PRICE * uploads,
+    obs_admin: stockItemName
+      ? `Produs: ${stockItemName}${stockItemAsin ? ` · ASIN: ${stockItemAsin}` : ''}`
+      : stockItemAsin
+        ? `ASIN: ${stockItemAsin}`
+        : null
   });
 };
 
@@ -103,13 +107,18 @@ const handlePhotoUploadBilling = async ({
   companyId,
   uploadedByAdmin,
   uploadedCount = 0,
-  stockItemName
+  stockItemName,
+  stockItemAsin
 }) => {
   if (!companyId) return;
   await ensurePhotoSubscriptionLine(companyId);
   if (uploadedByAdmin && uploadedCount > 0) {
-    const sets = Math.max(1, Math.ceil(uploadedCount / 6));
-    await insertManualPhotoCharge({ companyId, sets, stockItemName });
+    await insertManualPhotoCharge({
+      companyId,
+      uploads: 1,
+      stockItemName,
+      stockItemAsin
+    });
   }
 };
 
@@ -486,6 +495,36 @@ resetPassword: async (email) => {
       .select('*')
       .eq('company_id', companyId)
       .order('service_date', { ascending: false });
+  },
+
+  listOtherLinesByCompany: async (companyId) => {
+    return await supabase
+      .from('other_lines')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('service_date', { ascending: false });
+  },
+
+  createOtherLine: async (payload) => {
+    return await supabase
+      .from('other_lines')
+      .insert(payload)
+      .select()
+      .single();
+  },
+
+  updateOtherLine: async (id, updates) => {
+    return await supabase
+      .from('other_lines')
+      .update(updates)
+      .eq('id', id);
+  },
+
+  deleteOtherLine: async (id) => {
+    return await supabase
+      .from('other_lines')
+      .delete()
+      .eq('id', id);
   },
 
   listStockByCompany: async (companyId) => {
