@@ -22,8 +22,8 @@ const pad2 = (value) => String(value).padStart(2, '0');
 const formatSqlDate = (date = new Date()) =>
   `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 
-let supportsReceivingFbaMode = false;
-let supportsReceivingItemFbaColumns = false;
+let supportsReceivingFbaMode = true;
+let supportsReceivingItemFbaColumns = true;
 let receivingSupportPromise = null;
 
 const isMissingColumnError = (error, column) => {
@@ -59,40 +59,9 @@ const sanitizeItemPayload = (payload) => {
   return clone;
 };
 
-const checkColumnExists = async (table, column) => {
-  const { data, error } = await supabase
-    .from('information_schema.columns')
-    .select('column_name')
-    .eq('table_schema', 'public')
-    .eq('table_name', table)
-    .eq('column_name', column)
-    .maybeSingle();
-  if (error) {
-    console.warn('[supabase] Failed column check', table, column, error.message);
-    return false;
-  }
-  return Boolean(data);
-};
-
 export const ensureReceivingColumnSupport = async () => {
   if (!receivingSupportPromise) {
-    receivingSupportPromise = (async () => {
-      try {
-        supportsReceivingFbaMode = await checkColumnExists('receiving_shipments', 'fba_mode');
-      } catch (err) {
-        supportsReceivingFbaMode = false;
-      }
-      try {
-        const send = await checkColumnExists('receiving_items', 'send_to_fba');
-        const qty = await checkColumnExists('receiving_items', 'fba_qty');
-        const stockCol = await checkColumnExists('receiving_items', 'stock_item_id');
-        supportsReceivingItemFbaColumns = send && qty && stockCol;
-      } catch (err) {
-        supportsReceivingItemFbaColumns = false;
-      }
-    })().catch((err) => {
-      console.warn('[supabase] receiving support probe failed', err?.message);
-    });
+    receivingSupportPromise = Promise.resolve();
   }
   return receivingSupportPromise;
 };

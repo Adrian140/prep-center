@@ -1198,7 +1198,16 @@ const saveReqChanges = async () => {
 
     const currentIds = new Set(reqLines.filter(l => l.id).map(l => l.id));
     const toDelete = orig.filter(o => !currentIds.has(o.id));
-    const toInsert = reqLines.filter(l => !l.id && l.stock_item_id);
+    const toInsert = reqLines.filter(
+      (l) =>
+        !l.id &&
+        (
+          l.stock_item_id ||
+          (l.product_name && l.product_name.trim && l.product_name.trim()) ||
+          (l.ean && l.ean.trim()) ||
+          (l.asin && l.asin.trim())
+        )
+    );
     const toUpdate = reqLines.filter(l => l.id && origById[l.id]);
 
     for (const d of toDelete) {
@@ -1207,15 +1216,16 @@ const saveReqChanges = async () => {
     }
 
     for (const ins of toInsert) {
-   const st = rows.find(r => r.id === ins.stock_item_id) || {};   // 👈 ADD
-const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
-  stock_item_id: ins.stock_item_id,
-  ean: st.ean ?? ins.ean ?? null,                 // 👈 sigur avem ean
-  product_name: st.name ?? ins.product_name ?? null, // 👈 snapshot nume
-  asin: ins.asin,
-  sku: ins.sku,
-  units_requested: Number(ins.units_requested),
-});
+      const st = rows.find(r => r.id === ins.stock_item_id) || {};
+      const payload = {
+        stock_item_id: ins.stock_item_id || null,
+        ean: st.ean ?? ins.ean ?? null,
+        product_name: st.name ?? ins.product_name ?? null,
+        asin: ins.asin || st.asin || null,
+        sku: ins.sku || st.sku || null,
+        units_requested: Math.max(1, Number(ins.units_requested) || 0)
+      };
+      const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, payload);
       if (error) throw error;
     }
 

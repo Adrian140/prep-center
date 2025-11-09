@@ -224,7 +224,16 @@ export default function ClientPrepShipments() {
       });
       const currentIds = new Set(reqLines.filter((line) => line.id).map((line) => line.id));
       const toDelete = orig.filter((line) => !currentIds.has(line.id));
-      const toInsert = reqLines.filter((line) => !line.id && line.stock_item_id);
+      const toInsert = reqLines.filter(
+        (line) =>
+          !line.id &&
+          (
+            line.stock_item_id ||
+            (line.product_name && line.product_name.trim()) ||
+            (line.ean && line.ean.trim()) ||
+            (line.asin && line.asin.trim())
+          )
+      );
       const toUpdate = reqLines.filter((line) => line.id && origById[line.id]);
 
       for (const del of toDelete) {
@@ -232,14 +241,16 @@ export default function ClientPrepShipments() {
         if (error) throw error;
       }
       for (const ins of toInsert) {
-        const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
-          stock_item_id: ins.stock_item_id,
-          ean: ins.ean || null,
-          product_name: ins.product_name || null,
-          asin: ins.asin,
-          sku: ins.sku,
-          units_requested: Number(ins.units_requested)
-        });
+        const stockMeta = rows.find((r) => r.id === ins.stock_item_id) || {};
+        const payload = {
+          stock_item_id: ins.stock_item_id || null,
+          ean: stockMeta.ean || ins.ean || null,
+          product_name: stockMeta.name || ins.product_name || null,
+          asin: ins.asin || stockMeta.asin || null,
+          sku: ins.sku || stockMeta.sku || null,
+          units_requested: Math.max(1, Number(ins.units_requested) || 0)
+        };
+        const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, payload);
         if (error) throw error;
       }
       for (const upd of toUpdate) {

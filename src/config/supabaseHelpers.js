@@ -71,20 +71,22 @@ export const supabaseHelpers = {
   },
 
   createPrepItem: async (requestId, item) => {
-    return await supabase
+    const { data, error } = await supabase
       .from("prep_request_items")
       .insert([{ ...item, prep_request_id: requestId }])
       .select()
       .single();
+    return { data, error };
   },
 
   updatePrepItem: async (id, patch) => {
-    return await supabase
+    const { data, error } = await supabase
       .from("prep_request_items")
       .update(patch)
       .eq("id", id)
       .select()
       .single();
+    return { data, error };
   },
 
   deletePrepItem: async (id) => {
