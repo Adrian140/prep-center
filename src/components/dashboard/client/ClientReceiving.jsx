@@ -636,7 +636,6 @@ function ClientReceiving() {
                   <th className="px-4 py-3 text-left">{t('th_name')}</th>
                   <th className="px-4 py-3 text-right">{t('th_qty')}</th>
                   <th className="px-4 py-3 text-left">{t('th_sku')}</th>
-                  <th className="px-4 py-3 text-right">{t('th_price')}</th>
                   <th className="px-4 py-3 text-center">{t('th_send_to_fba')}</th>
                   <th className="px-4 py-3 text-center">{t('th_validation')}</th>
                   {editMode && (
@@ -723,32 +722,6 @@ function ClientReceiving() {
                         />
                       ) : (
                         item.sku || '—'
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {editMode ? (
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={item.purchase_price ?? ''}
-                          onChange={(e) =>
-                            setEditItems((arr) => {
-                              const copy = [...arr];
-                              const value =
-                                e.target.value === '' ? null : parseFloat(e.target.value);
-                              copy[idx] = { ...copy[idx], purchase_price: value };
-                              return copy;
-                            })
-                          }
-                          className="w-24 text-right px-2 py-1 border rounded"
-                        />
-                      ) : item.purchase_price != null ? (
-                        new Intl.NumberFormat(DATE_LOCALE, {
-                          style: 'currency',
-                          currency: 'EUR'
-                        }).format(item.purchase_price)
-                      ) : (
-                        '—'
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
