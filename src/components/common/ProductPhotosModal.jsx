@@ -13,6 +13,7 @@ const slugify = (value) =>
   || 'product';
 
 const bucket = 'product-images';
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // 4 MB per image
 
 const ProductPhotosModal = ({
   open,
@@ -20,7 +21,8 @@ const ProductPhotosModal = ({
   stockItem,
   companyId,
   canEdit = true,
-  maxPhotos = 6
+  maxPhotos = 6,
+  onPhotoCountChange
 }) => {
   const { profile } = useSupabaseAuth();
   const [images, setImages] = useState([]);
@@ -62,6 +64,11 @@ const ProductPhotosModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, stockItem?.id]);
 
+  useEffect(() => {
+    if (!stockItem?.id) return;
+    onPhotoCountChange?.(images.length);
+  }, [images.length, onPhotoCountChange, stockItem?.id]);
+
   const closeModal = () => {
     setError('');
     setImages([]);
@@ -79,6 +86,11 @@ const ProductPhotosModal = ({
     const allowed = files.slice(0, remainingSlots);
     if (!allowed.length) {
       setError('Photo limit reached. Remove an image before uploading another.');
+      return;
+    }
+    const tooLarge = allowed.find((file) => file.size > MAX_UPLOAD_BYTES);
+    if (tooLarge) {
+      setError(`"${tooLarge.name}" depășește limita de 4 MB per poză. Te rugăm să încarci fișiere mai mici.`);
       return;
     }
     setUploading(true);
@@ -169,6 +181,11 @@ const ProductPhotosModal = ({
             </h3>
             <p className="text-sm text-text-secondary">
               {images.length} / {maxPhotos} images uploaded
+            </p>
+            <p className="text-[13px] text-text-secondary mt-1 leading-relaxed">
+              Pentru stocarea pozelor pe platformă se percepe o taxă de 1 € pentru încărcarea a 6 poze per produs,
+              acoperind toate laturile. Pozele rămân stocate permanent, cu un abonament de 3 €/lună. Taxele acoperă costul
+              cloud-ului. Serviciul este opțional; pozele pot fi trimise gratuit prin WhatsApp la cerere.
             </p>
           </div>
           <button onClick={closeModal} className="text-text-secondary hover:text-text-primary">

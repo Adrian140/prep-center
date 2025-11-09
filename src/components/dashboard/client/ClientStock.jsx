@@ -652,6 +652,7 @@ const [receptionForm, setReceptionForm] = useState({
   notes: '',
 });
 const [photoItem, setPhotoItem] = useState(null);
+const [photoCounts, setPhotoCounts] = useState({});
 
   useEffect(() => {
     let mounted = true;
@@ -685,6 +686,26 @@ const [photoItem, setPhotoItem] = useState(null);
         };
       }
       setRowEdits(seed);
+
+      if (list.length > 0) {
+        try {
+          const ids = list.map((r) => r.id);
+          const { data: imgRows, error: imgErr } = await supabase
+            .from('product_images')
+            .select('stock_item_id')
+            .in('stock_item_id', ids);
+          if (imgErr) throw imgErr;
+          const counts = {};
+          (imgRows || []).forEach((img) => {
+            counts[img.stock_item_id] = (counts[img.stock_item_id] || 0) + 1;
+          });
+          setPhotoCounts(counts);
+        } catch {
+          setPhotoCounts({});
+        }
+      } else {
+        setPhotoCounts({});
+      }
 
      try {
       const { data: hData, error: hErr } = await supabase
@@ -1376,6 +1397,8 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
     {pageSlice.map((r) => {
       const checked = selectedIds.has(r.id);
       const edit = rowEdits[r.id] || {};
+      const photoCount = Number(photoCounts[r.id] || 0);
+      const hasPhotos = photoCount > 0;
       return (
         <tr key={r.id} className="border-t align-middle">
           {/* 1) Checkbox */}
@@ -1434,6 +1457,9 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
   >
     <ImageIcon className="w-3 h-3 mr-1" /> Photos
   </button>
+  <p className="text-[11px] text-gray-500 mt-1">
+    {hasPhotos ? `Photos available (${photoCount})` : 'Photos unavailable'}
+  </p>
 </td>
 
           {/* 4) Inventory breakdown */}
@@ -1717,6 +1743,13 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
         stockItem={photoItem}
         companyId={profile?.company_id}
         canEdit
+        onPhotoCountChange={(count) => {
+          if (!photoItem?.id) return;
+          setPhotoCounts((prev) => {
+            if (prev[photoItem.id] === count) return prev;
+            return { ...prev, [photoItem.id]: count };
+          });
+        }}
       />
     </div>
   );
