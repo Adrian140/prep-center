@@ -393,6 +393,29 @@ resetPassword: async (email) => {
       .eq('id', itemId);
   },
 
+  listProductImages: async (stockItemId) => {
+    return await supabase
+      .from('product_images')
+      .select('*')
+      .eq('stock_item_id', stockItemId)
+      .order('created_at');
+  },
+
+  addProductImage: async ({ stock_item_id, storage_path, uploaded_by }) => {
+    return await supabase
+      .from('product_images')
+      .insert({ stock_item_id, storage_path, uploaded_by })
+      .select()
+      .single();
+  },
+
+  deleteProductImage: async (imageId) => {
+    return await supabase
+      .from('product_images')
+      .delete()
+      .eq('id', imageId);
+  },
+
   createPrepRequestDraft: async (draftData) => {
     try {
       // 1) Insert header cu user_id + destination_country normalizat

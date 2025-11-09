@@ -1,14 +1,16 @@
 // FILE: src/components/admin/AdminStock.jsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { Trash2, Edit3, Save, X } from 'lucide-react';
+import { Trash2, Edit3, Save, X, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import Section from '../common/Section';
+import ProductPhotosModal from '../common/ProductPhotosModal';
 
 const pick = (obj, keys) => Object.fromEntries(keys.map(k => [k, obj[k]]));
 
 export default function AdminStock({ rows = [], reload, companyId, profile }) {
   const [edit, setEdit] = useState(null);
   const [localRows, setLocalRows] = useState(rows);
+  const [photoItem, setPhotoItem] = useState(null);
 
   useEffect(() => {
     setLocalRows(rows);
@@ -235,6 +237,7 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
               <th className="px-3 py-2 text-left">Produs / Amazon</th>
               <th className="px-3 py-2 text-right">Stoc Prep Center</th>
               <th className="px-3 py-2 text-left">Obs admin</th>
+              <th className="px-3 py-2 text-left">Poze</th>
               <th className="px-3 py-2 text-right">Acțiuni</th>
             </tr>
           </thead>
@@ -339,6 +342,15 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
                         />
                       ) : (l.obs_admin || '—')}
                     </td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => setPhotoItem(l)}
+                        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                      >
+                        <ImageIcon className="w-4 h-4" /> Fotografiile produsului
+                      </button>
+                    </td>
                     <td className="px-3 py-2 text-right">
                       {isEdit ? (
                         <div className="flex justify-end gap-2">
@@ -374,11 +386,18 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
               <td className="px-3 py-2 text-right">
                 {localRows.reduce((sum, r) => sum + (Number(r.qty) || 0), 0)}
               </td>
-              <td colSpan={2}></td>
+              <td colSpan={3}></td>
             </tr>
           </tfoot>
         </table>
       </div>
+      <ProductPhotosModal
+        open={!!photoItem}
+        onClose={() => setPhotoItem(null)}
+        stockItem={photoItem}
+        companyId={companyId}
+        canEdit
+      />
     </Section>
   );
 }

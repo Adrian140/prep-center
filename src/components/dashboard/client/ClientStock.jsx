@@ -1,9 +1,10 @@
 // FILE: src/components/dashboard/client/ClientStock.jsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { FileDown, Languages, Plus, X } from 'lucide-react';
+import { FileDown, Languages, Plus, X, Image as ImageIcon } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
 import { useDashboardTranslation } from '../../../translations';
+import ProductPhotosModal from '../../common/ProductPhotosModal';
 import { supabase } from '../../../config/supabase';
 
 function HelpMenuButtonStock({ section = 'stock', t, tp }) {
@@ -49,6 +50,13 @@ function HelpMenuButtonStock({ section = 'stock', t, tp }) {
           ))}
         </div>
       )}
+      <ProductPhotosModal
+        open={!!photoItem}
+        onClose={() => setPhotoItem(null)}
+        stockItem={photoItem}
+        companyId={profile?.company_id}
+        canEdit
+      />
     </div>
   );
 }
@@ -650,6 +658,7 @@ const [receptionForm, setReceptionForm] = useState({
   trackingId: '',
   notes: '',
 });
+const [photoItem, setPhotoItem] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -1425,6 +1434,13 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
       <span className="font-mono text-gray-800">{r.sku || '—'}</span>
     </div>
   </div>
+  <button
+    type="button"
+    onClick={() => setPhotoItem(r)}
+    className="mt-2 inline-flex items-center text-xs text-primary hover:underline"
+  >
+    <ImageIcon className="w-3 h-3 mr-1" /> Photos
+  </button>
 </td>
 
           {/* 4) Inventory breakdown */}
