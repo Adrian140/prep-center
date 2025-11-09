@@ -27,14 +27,56 @@ function isoLocal(d) {
   return `${y}-${m}-${day}`;
 }
 function monthKey(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
-const sumOtherLineRows = (rows = []) =>
-  rows.reduce((acc, row) => {
+const sumLineRows = (rows = [], qtyField = "units") =>
+  (rows || []).reduce((acc, row) => {
     const total =
       row?.total != null
         ? Number(row.total)
-        : Number(row?.unit_price || 0) * Number(row?.units || 0);
+        : Number(row?.unit_price || 0) * Number(row?.[qtyField] || 0);
     return acc + (Number.isFinite(total) ? total : 0);
   }, 0);
+
+const sumOtherLineRows = (rows = []) => sumLineRows(rows, "units");
+
+const sumPaidInvoices = (rows = []) =>
+  (rows || []).reduce((acc, row) => {
+    const status = String(row?.status || "").trim().toLowerCase();
+    const amount = Number(row?.amount);
+    if (status === "paid" && Number.isFinite(amount)) {
+      return acc + amount;
+    }
+    return acc;
+  }, 0);
+
+async function fetchLiveBalance(companyId) {
+  if (!companyId) return 0;
+  const [{ data: fba }, { data: fbm }, { data: other }, { data: invoices }] =
+    await Promise.all([
+      supabase
+        .from("fba_lines")
+        .select("unit_price, units, total")
+        .eq("company_id", companyId),
+      supabase
+        .from("fbm_lines")
+        .select("unit_price, orders_units, total")
+        .eq("company_id", companyId),
+      supabase
+        .from("other_lines")
+        .select("unit_price, units, total")
+        .eq("company_id", companyId),
+      supabase
+        .from("invoices")
+        .select("amount, status")
+        .eq("company_id", companyId),
+    ]);
+
+  const services =
+    sumLineRows(fba, "units") +
+    sumLineRows(fbm, "orders_units") +
+    sumLineRows(other, "units");
+  const paid = sumPaidInvoices(invoices);
+  return services - paid;
+}
 
 async function fetchOtherLineSums(companyId, startDate, endDate) {
   if (!companyId) {
@@ -184,19 +226,19 @@ export default function AdminProfiles({ onSelect }) {
         slice.map(async (p) => {
           if (!p.company_id) return [p.id, { currentSold: 0, carry: 0, diff: 0 }];
 
-          const { data, error } = await supabaseHelpers.getPeriodBalances(
-            p.id, p.company_id, start, end
-          );
-          if (error || !data) return [p.id, { currentSold: 0, carry: 0, diff: 0 }];
+          const [{ data, error }, liveBalance] = await Promise.all([
+            supabaseHelpers.getPeriodBalances(p.id, p.company_id, start, end),
+            fetchLiveBalance(p.company_id)
+          ]);
+          if (error || !data) return [p.id, { currentSold: 0, carry: 0, diff: liveBalance || 0 }];
 
           let current = Number((data.sold_current ?? data.sold_curent) ?? 0);
           let carry   = Number(data.sold_restant ?? 0);
           const otherSums = await fetchOtherLineSums(p.company_id, start, end);
           current += otherSums.monthTotal;
           carry   += otherSums.carryTotal;
-          const diff    = current + carry;
 
-          return [p.id, { currentSold: current, carry, diff }];
+          return [p.id, { currentSold: current, carry, diff: liveBalance }];
         })
       );
 
