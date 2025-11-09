@@ -50,13 +50,6 @@ function HelpMenuButtonStock({ section = 'stock', t, tp }) {
           ))}
         </div>
       )}
-      <ProductPhotosModal
-        open={!!photoItem}
-        onClose={() => setPhotoItem(null)}
-        stockItem={photoItem}
-        companyId={profile?.company_id}
-        canEdit
-      />
     </div>
   );
 }
@@ -1718,6 +1711,13 @@ const { error } = await supabaseHelpers.createPrepItem(reqHeader.id, {
     </div>
   </div>
 )}
+      <ProductPhotosModal
+        open={!!photoItem}
+        onClose={() => setPhotoItem(null)}
+        stockItem={photoItem}
+        companyId={profile?.company_id}
+        canEdit
+      />
     </div>
   );
 }
