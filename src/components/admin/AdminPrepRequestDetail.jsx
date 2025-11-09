@@ -249,11 +249,32 @@ const fallbackId = `FBA${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 const subject_id = (row?.fba_shipment_id || '').trim() || fallbackId;
 
 // compune payloadul de email
+const mailItems = (row?.prep_request_items || []).map((item) => {
+  const requested = Number(item.units_requested || 0);
+  const sent = Number(item.units_sent || 0);
+  return {
+    asin: item.asin || item.stock_item?.asin || null,
+    sku: item.sku || item.stock_item?.sku || null,
+    requested,
+    sent,
+    removed: Math.max(requested - sent, 0),
+    note: item.obs_admin || null,
+  };
+});
+
 const mailPayload = {
   ...data,                               // ceea ce întoarce RPC-ul (items, removed, etc.)
-  request_id: requestId,                 // asigură-te că e prezent
+  request_id: requestId,
+  email: row?.user_email || null,
+  client_name: row?.client_name || null,
+  company_name: row?.company_name || null,
+  note: row?.obs_admin || null,
   fba_shipment_id: row?.fba_shipment_id || null,
-  subject_id,                            // 👈 Edge Function va folosi asta în subiect
+  tracking_ids: (row?.prep_request_tracking || [])
+    .map((t) => t.tracking_id)
+    .filter(Boolean),
+  subject_id,
+  items: mailItems,
 };
 
 // 6) Trimite email
