@@ -7,7 +7,6 @@ import {
   FileText,
   Shield,
   MapPin,
-  LogOut,
   Package,
   Boxes,
   RotateCcw,
@@ -40,7 +39,7 @@ const REPORT_TABS = [
 ];
 
 function SupabaseDashboard() {
-  const { t, tp } = useDashboardTranslation();
+  const { t } = useDashboardTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -93,7 +92,7 @@ useEffect(() => {
   }
 }, [activeTab]);
 
-  const { user, profile, signOut } = useSupabaseAuth();
+  const { user, profile } = useSupabaseAuth();
   const companyId = profile?.company_id;
 
   const tabs = [
@@ -136,44 +135,20 @@ const renderTabContent = useMemo(() => {
   }
 }, [activeTab]);
 
-  const displayName =
-    profile?.first_name || user?.user_metadata?.firstName || 'User';
-
   const groups = [
     { key: 'Operations', label: t('common.groups.operations') },
     { key: 'Account',    label: t('common.groups.account') },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6">
+    <div className="min-h-screen bg-gray-50 py-4">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="text-lg font-semibold text-text-primary">
-                {tp('common.greeting', { name: displayName })}
-              </h1>
-              <p className="text-sm text-text-secondary">{t('common.subtitle')}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              {activeTab === 'activity' && (
-                <>
-                  <ClientDealsPopover companyId={companyId} />
-                  <ClientBalanceBar companyId={companyId} variant="compact" />
-                </>
-              )}
-              <button
-                onClick={signOut}
-                className="flex items-center px-3 py-2 text-sm text-text-secondary hover:text-red-600 transition-colors"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                {t('common.signOut')}
-              </button>
-            </div>
+        {activeTab === 'activity' && (
+          <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
+            <ClientDealsPopover companyId={companyId} />
+            <ClientBalanceBar companyId={companyId} variant="compact" />
           </div>
-        </div>
-
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-6 lg:gap-8">
           {/* Sidebar */}
           <div>

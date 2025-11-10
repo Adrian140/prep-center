@@ -9,7 +9,7 @@ import { useT } from '@/i18n/useT';
 function Header() {
   const t = useT();
   const location = useLocation();
-  const { isAuthenticated, user, profile } = useSupabaseAuth();
+  const { isAuthenticated, user, profile, signOut } = useSupabaseAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -35,6 +35,16 @@ function Header() {
 
   const isActive = (href) =>
     location.pathname === href || location.pathname.startsWith(href + '/');
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      console.error('Sign-out failed', err);
+    } finally {
+      setIsMenuOpen(false);
+    }
+  };
 
   return (
     <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
@@ -96,6 +106,15 @@ function Header() {
                 >
                   {t('actions.dashboard')}
                 </Link>
+              )}
+
+              {isAuthenticated && (
+                <button
+                  onClick={handleSignOut}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary border border-gray-200 hover:text-red-600 hover:border-red-300 transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  {t('actions.signOut') || 'Sign out'}
+                </button>
               )}
 
               {!isAuthenticated && (
@@ -193,6 +212,15 @@ function Header() {
                     >
                       {t('actions.dashboard')}
                     </Link>
+                  )}
+
+                  {isAuthenticated && (
+                    <button
+                      onClick={handleSignOut}
+                      className="block w-full bg-red-50 text-red-600 px-4 py-3 rounded-lg font-medium text-center border border-red-100 hover:bg-red-100 transition-colors"
+                    >
+                      {t('actions.signOut') || 'Sign out'}
+                    </button>
                   )}
 
                   {!isAuthenticated && (
