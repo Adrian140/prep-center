@@ -124,22 +124,6 @@ export default function ServicesPricing() {
           </p>
         </div>
 
-        <section className="bg-gradient-to-r from-accent to-accent-dark rounded-2xl p-8 text-white shadow-xl">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-semibold">{content.bonus_title || t('newCustomerBonus')}</h2>
-              <p className="text-base opacity-90">
-                {(content.bonus_subtitle1 || t('bonusFirstMonths'))
-                  .replace('{new_customer_rate}', fnskuPrice)
-                  .replace('{standard_rate}', standardRate)}
-              </p>
-            </div>
-            <p className="text-sm opacity-80">
-              {content.bonus_subtitle2 || t('bonusFreelabels')}
-            </p>
-          </div>
-        </section>
-
         <section className="bg-white border rounded-2xl shadow-sm p-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
