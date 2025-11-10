@@ -152,19 +152,35 @@ export default function ServicesPricing() {
     }
   };
 
-  const renderShippingRow = (row, columns) => (
-    <tr key={row.id} className="border-t">
-      <td className="px-4 py-3 font-semibold" style={{ color: row.color || undefined }}>
-        {row.provider}
-      </td>
-      {columns.map((col) => (
-        <td key={col} className="px-4 py-3 text-center">
-          {row.rates?.[col] || '—'}
+  const PROVIDER_ACCENTS = {
+    'Colissimo': '#F97316',
+    'Colis Privé': '#2563EB',
+    'UPS': '#9B5DE5',
+    'Mondial Relay': '#FACC15',
+    'Chronopost': '#4F46E5',
+    'FedEx': '#EA580C'
+  };
+
+  const renderShippingRow = (row, columns) => {
+    const accent = PROVIDER_ACCENTS[row.provider] || '#1F2937';
+    return (
+      <tr
+        key={row.id}
+        className="border-t"
+        style={{ backgroundColor: row.color || 'transparent' }}
+      >
+        <td className="px-4 py-3 font-semibold" style={{ color: accent }}>
+          {row.provider}
         </td>
-      ))}
-      <td className="px-4 py-3 text-sm text-text-secondary">{row.info || '—'}</td>
-    </tr>
-  );
+        {columns.map((col) => (
+          <td key={col} className="px-4 py-3 text-center">
+            {row.rates?.[col] || '—'}
+          </td>
+        ))}
+        <td className="px-4 py-3 text-sm text-text-secondary">{row.info || '—'}</td>
+      </tr>
+    );
+  };
 
   return (
     <div className="min-h-screen py-20 bg-gradient-to-b from-white via-gray-50 to-white">
