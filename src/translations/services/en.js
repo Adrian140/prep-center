@@ -21,11 +21,11 @@ export const servicesEn = {
     groups: {
       fba: {
         title: 'FBA Prep Services',
-        subtitle: 'Amazon FBA prep includes reception, inspection, labeling and packaging per unit.'
+        subtitle: 'Our Amazon FBA prep service includes reception, inspection, labeling, and packaging per unit.'
       },
       fbm: {
         title: 'FBM Fulfillment',
-        subtitle: 'FBM fulfillment handled in France and Europe for Amazon, eBay, Shopify and Vinted orders.'
+        subtitle: 'We manage FBM order fulfillment in France and across Europe, handling daily orders from Amazon, eBay, Shopify, Vinted, and other sales platforms.'
       },
       extra: {
         title: 'Extra Services',
