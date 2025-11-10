@@ -6,9 +6,7 @@ export const servicesIt = {
   pricingSection: {
     title: 'Tariffe aggiornate in tempo reale',
     description: 'Tariffe aggiornate in tempo reale dal nostro team operativo per la massima trasparenza.',
-    export: 'Esporta prezzi in PDF',
-    sync: 'Sincronizza sul sito',
-    syncing: 'Sincronizzazione…',
+    export: 'Scarica l’offerta completa',
     loading: 'Caricamento tariffe…',
     empty: 'Le tariffe sono in fase di configurazione. Torna presto.',
     error: 'Impossibile caricare le tariffe. Riprova.',
@@ -19,9 +17,8 @@ export const servicesIt = {
     ctaStorage: 'Contattaci per lo stoccaggio',
     ctaExtra: 'Richiedi servizio personalizzato',
     ctaResponse: 'Tempo medio di risposta: 1 h',
-    finalBadge: 'Sync immediata',
-    finalTitle: 'Ottieni subito le tariffe aggiornate.',
-    finalSubtitle: 'Esporta un PDF pronto da condividere o sincronizza i nuovi prezzi sul sito con un clic.',
+    finalTitle: 'Scarica il workbook completo dei prezzi.',
+    finalNote: 'File tabellare stile XLS, pronto per Excel o da inviare ai clienti.',
     groups: {
       fba: {
         title: 'Servizi FBA Prep',

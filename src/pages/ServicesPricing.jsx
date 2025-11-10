@@ -1,17 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Star,
-  FileDown,
-  ArrowRight,
-  RefreshCcw,
-  Tag,
-  Package,
-  Boxes,
-  Truck,
-  Archive,
-  Shield,
-  Layers
-} from 'lucide-react';
+import { Star, FileDown, ArrowRight, Tag, Package, Boxes, Truck, Archive, Shield, Layers } from 'lucide-react';
 import { supabaseHelpers } from '../config/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useServicesTranslation } from '../translations/services';
@@ -101,11 +89,26 @@ export default function ServicesPricing() {
   const [shippingLoading, setShippingLoading] = useState(true);
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingError, setPricingError] = useState('');
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [syncing, setSyncing] = useState(false);
 
   const pricingErrorMessage = t('pricingSection.error');
   const shippingFallbackMessage = t('shippingSection.domesticDisclaimer');
+
+  const getLocalizedContent = useCallback(
+    (key, translationKey) => {
+      const localizedKey = `${key}_${currentLanguage}`;
+      const englishKey = `${key}_en`;
+      const value =
+        content?.[localizedKey]?.trim() ||
+        (currentLanguage !== 'en' ? content?.[englishKey]?.trim() : '') ||
+        content?.[key]?.trim();
+      if (value) return value;
+      return translationKey ? t(translationKey) : '';
+    },
+    [content, currentLanguage, t]
+  );
+
+  const heroTitle = getLocalizedContent('services_title', 'pageTitle');
+  const heroSubtitle = getLocalizedContent('services_subtitle', 'pageSubtitle');
 
   const fetchPricing = useCallback(async () => {
     setPricingLoading(true);
@@ -114,7 +117,6 @@ export default function ServicesPricing() {
       const { data, error } = await supabaseHelpers.getPricingServices();
       if (error) throw error;
       setPricingGroups(groupPricing(data || []));
-      setLastUpdated(new Date());
     } catch (err) {
       console.error('Pricing fetch failed', err);
       setPricingError(pricingErrorMessage);
@@ -198,15 +200,6 @@ export default function ServicesPricing() {
     }
   };
 
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      await Promise.all([fetchPricing(), fetchShipping(), fetchContent()]);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const getServiceIcon = (name = '') => {
     const label = name.toLowerCase();
     if (label.includes('label')) return Tag;
@@ -270,15 +263,6 @@ export default function ServicesPricing() {
     </div>
   );
 
-  const formatDate = useCallback(
-    (value) =>
-      new Intl.DateTimeFormat(currentLanguage, {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-      }).format(value),
-    [currentLanguage]
-  );
-
   const sectionCtas = useMemo(
     () => ({
       fba: { label: t('pricingSection.ctaFba'), href: '/contact' },
@@ -303,10 +287,10 @@ export default function ServicesPricing() {
             {t('pricingSection.title')}
           </p>
           <h1 className="text-4xl md:text-5xl font-bold text-text-primary leading-tight">
-            {content.services_title || t('pageTitle')}
+            {heroTitle}
           </h1>
           <p className="text-lg text-text-secondary max-w-3xl mx-auto">
-            {content.services_subtitle || t('pageSubtitle')}
+            {heroSubtitle}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
@@ -520,16 +504,8 @@ export default function ServicesPricing() {
 
         <section className="bg-[#0B1221] text-white rounded-3xl p-8 space-y-6">
           <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-white/60">
-              {t('pricingSection.finalBadge')}
-            </p>
             <h2 className="text-3xl font-semibold">{t('pricingSection.finalTitle')}</h2>
-            <p className="text-white/80">{t('pricingSection.finalSubtitle')}</p>
-            {lastUpdated && (
-              <p className="text-xs text-white/60">
-                {t('pricingSection.updated', { date: formatDate(lastUpdated) })}
-              </p>
-            )}
+            <p className="text-white/80">{t('pricingSection.finalNote')}</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
@@ -538,14 +514,6 @@ export default function ServicesPricing() {
             >
               <FileDown className="w-4 h-4" />
               {t('pricingSection.export')}
-            </button>
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-white/60 text-white font-semibold hover:bg-white/10 disabled:opacity-60"
-            >
-              <RefreshCcw className="w-4 h-4" />
-              {syncing ? t('pricingSection.syncing') : t('pricingSection.sync')}
             </button>
           </div>
         </section>

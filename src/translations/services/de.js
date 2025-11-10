@@ -6,9 +6,7 @@ export const servicesDe = {
   pricingSection: {
     title: 'Live-Preise in Echtzeit',
     description: 'Tarife werden in Echtzeit direkt von unserem Operationsteam gepflegt – für maximale Transparenz.',
-    export: 'Preise als PDF exportieren',
-    sync: 'Auf Website synchronisieren',
-    syncing: 'Synchronisiere…',
+    export: 'Komplettes Angebot herunterladen',
     loading: 'Preise werden geladen…',
     empty: 'Die Preisstruktur wird derzeit vorbereitet. Bitte bald wieder nachsehen.',
     error: 'Preise konnten nicht geladen werden. Bitte aktualisieren.',
@@ -19,9 +17,8 @@ export const servicesDe = {
     ctaStorage: 'Kontakt zu Lageroptionen',
     ctaExtra: 'Individuellen Service anfragen',
     ctaResponse: 'Durchschnittliche Antwortzeit: 1 Std.',
-    finalBadge: 'Sofort-Sync',
-    finalTitle: 'Erhalten Sie sofort die aktualisierten Preise.',
-    finalSubtitle: 'Exportieren Sie ein teilbares PDF oder synchronisieren Sie die neuen Preise mit einem Klick auf die Website.',
+    finalTitle: 'Laden Sie das gesamte Preis-Workbook herunter.',
+    finalNote: 'Tabellarische XLS-Struktur, sofort bereit für Excel oder zur Weitergabe an Kunden.',
     groups: {
       fba: {
         title: 'FBA Prep Services',

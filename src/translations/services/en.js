@@ -6,9 +6,7 @@ export const servicesEn = {
   pricingSection: {
     title: 'Live services & pricing',
     description: 'Published in real time straight from our operations team for maximum transparency.',
-    export: 'Export pricing PDF',
-    sync: 'Sync to Website',
-    syncing: 'Syncing…',
+    export: 'Download pricing workbook',
     loading: 'Loading pricing…',
     empty: 'Pricing is being configured. Please check back soon.',
     error: 'Could not load pricing. Please refresh.',
@@ -19,9 +17,8 @@ export const servicesEn = {
     ctaStorage: 'Contact for Storage Options',
     ctaExtra: 'Request Custom Service',
     ctaResponse: 'Average response time: 1h',
-    finalBadge: 'Instant Sync',
-    finalTitle: 'Get your updated pricing instantly.',
-    finalSubtitle: 'Export a ready-to-share PDF or sync the latest rates to the website in one click.',
+    finalTitle: 'Download the complete pricing workbook.',
+    finalNote: 'Structured like an XLS offer so you can drop it into Excel or forward it to clients instantly.',
     groups: {
       fba: {
         title: 'FBA Prep Services',

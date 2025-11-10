@@ -12,6 +12,15 @@ import { supabase } from '@/config/supabase';
 import AdminPricing from './AdminPricing';
 import AdminShippingRates from './AdminShippingRates';
 
+const SERVICE_LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'fr', label: 'Français' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'es', label: 'Español' },
+  { code: 'it', label: 'Italiano' },
+  { code: 'ro', label: 'Română' }
+];
+
 import {
   Settings, DollarSign, Package, FileText, Plus, Edit, Trash2, Save, X, LogOut,
   Star, Users, BarChart3, PackageCheck, Truck
@@ -128,6 +137,7 @@ useEffect(() => {
   const [message, setMessage] = useState(''); // Changed to message
   const [reviews, setReviews] = useState([]); // Added reviews state
   const [contentData, setContentData] = useState({}); // Added contentData state
+  const [servicesLanguage, setServicesLanguage] = useState('en');
   const tabs = useMemo(() => ([
     { id: 'analytics', label: t('sidebar.analytics'), icon: BarChart3 },
     { id: 'profiles', label: t('sidebar.profiles'), icon: Users },
@@ -170,6 +180,11 @@ useEffect(() => {
     } catch (error) {
       console.error('Error fetching content data:', error);
     }
+  };
+
+  const handleLocalizedContentChange = (field, lang, value) => {
+    const key = `${field}_${lang}`;
+    setContentData((prev) => ({ ...prev, [key]: value }));
   };
 
   // Fetch reviews
@@ -695,14 +710,76 @@ const renderPricingTab = () => (
       {/* Page Header */}
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-text-primary mb-4">Antet Pagină</h3>
+        <p className="text-sm text-text-secondary mb-4">
+          Configurează titlul și subtitlul în fiecare limbă. Dacă nu completezi o limbă, se folosește
+          textul fallback sau traducerea automată.
+        </p>
+
+        <div className="flex flex-wrap gap-2 mb-4">
+          {SERVICE_LANGUAGES.map((lang) => (
+            <button
+              key={lang.code}
+              type="button"
+              onClick={() => setServicesLanguage(lang.code)}
+              className={`px-3 py-1.5 rounded-full border text-sm ${
+                servicesLanguage === lang.code
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-white text-text-primary border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              {lang.label}
+            </button>
+          ))}
+        </div>
+
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">Titlu Pagină</label>
-            <input type="text" value={contentData.services_title || ''} onChange={(e) => setContentData({ ...contentData, services_title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            <label className="block text-sm font-medium text-text-primary mb-2">
+              Titlu ({SERVICE_LANGUAGES.find((lang) => lang.code === servicesLanguage)?.label})
+            </label>
+            <input
+              type="text"
+              value={contentData[`services_title_${servicesLanguage}`] || ''}
+              onChange={(e) =>
+                handleLocalizedContentChange('services_title', servicesLanguage, e.target.value)
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
           </div>
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">Subtitlu Pagină</label>
-            <textarea value={contentData.services_subtitle || ''} onChange={(e) => setContentData({ ...contentData, services_subtitle: e.target.value })} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            <label className="block text-sm font-medium text-text-primary mb-2">
+              Subtitlu ({SERVICE_LANGUAGES.find((lang) => lang.code === servicesLanguage)?.label})
+            </label>
+            <textarea
+              rows={3}
+              value={contentData[`services_subtitle_${servicesLanguage}`] || ''}
+              onChange={(e) =>
+                handleLocalizedContentChange('services_subtitle', servicesLanguage, e.target.value)
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 pt-4 border-t space-y-4">
+          <p className="text-sm font-semibold text-text-primary">Fallback (folosit dacă nu există traducere)</p>
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-2">Titlu fallback</label>
+            <input
+              type="text"
+              value={contentData.services_title || ''}
+              onChange={(e) => setContentData({ ...contentData, services_title: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-2">Subtitlu fallback</label>
+            <textarea
+              rows={3}
+              value={contentData.services_subtitle || ''}
+              onChange={(e) => setContentData({ ...contentData, services_subtitle: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
           </div>
         </div>
       </div>

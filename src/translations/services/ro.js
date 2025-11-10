@@ -6,9 +6,7 @@ export const servicesRo = {
   pricingSection: {
     title: 'Tarife actualizate în timp real',
     description: 'Tarife actualizate în timp real de echipa operațională pentru transparență maximă.',
-    export: 'Exportă PDF cu tarife',
-    sync: 'Sincronizează pe site',
-    syncing: 'Se sincronizează…',
+    export: 'Descarcă oferta completă',
     loading: 'Încărcăm tarifele…',
     empty: 'Tarifele sunt în curs de configurare. Revino în scurt timp.',
     error: 'Nu am putut încărca tarifele. Reîncearcă.',
@@ -19,9 +17,8 @@ export const servicesRo = {
     ctaStorage: 'Contactează-ne pentru depozitare',
     ctaExtra: 'Cere serviciu personalizat',
     ctaResponse: 'Timp mediu de răspuns: 1 h',
-    finalBadge: 'Sync instant',
-    finalTitle: 'Primești tarifele actualizate instantaneu.',
-    finalSubtitle: 'Exportă un PDF gata de trimis sau sincronizează tarifele direct pe site cu un singur click.',
+    finalTitle: 'Descarci imediat oferta completă.',
+    finalNote: 'Fișier tabelar în stil XLS, gata de folosit în Excel sau de trimis clienților.',
     groups: {
       fba: {
         title: 'Servicii FBA Prep',
