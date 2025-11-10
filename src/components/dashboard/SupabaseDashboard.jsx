@@ -61,7 +61,13 @@ function SupabaseDashboard() {
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const initialTab = normalizeTab(params.get('tab'));
-    const saved = normalizeTab(localStorage.getItem('clientDashboardTab'));
+    let saved = null;
+    try {
+      saved = normalizeTab(sessionStorage.getItem('clientDashboardTab'));
+    } catch (err) {
+      // sessionStorage might be unavailable (Safari private mode); fall back silently
+      saved = null;
+    }
     if (initialTab && validTabs.includes(initialTab)) return initialTab;
     return validTabs.includes(saved) ? saved : 'activity';
   });
@@ -70,7 +76,11 @@ function SupabaseDashboard() {
   );
 
 useEffect(() => {
-  localStorage.setItem('clientDashboardTab', activeTab);
+  try {
+    sessionStorage.setItem('clientDashboardTab', activeTab);
+  } catch (err) {
+    // ignore storage errors
+  }
   const current = new URLSearchParams(location.search).get('tab');
   if (current !== activeTab) {
     navigate(`/dashboard?tab=${activeTab}`, { replace: true });

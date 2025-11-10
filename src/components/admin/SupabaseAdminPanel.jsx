@@ -51,7 +51,12 @@ useEffect(() => {
 const [activeTab, setActiveTab] = useState(() => {
   const params = new URLSearchParams(window.location.search);
   const initialTab = params.get('tab');
-  const saved = localStorage.getItem('adminDashboardTab');
+  let saved = null;
+  try {
+    saved = sessionStorage.getItem('adminDashboardTab');
+  } catch (err) {
+    saved = null;
+  }
   const validTabs = [
     'analytics', 'profiles', 'receiving', 'prep-requests', 'services',
     'pricing', 'content', 'reviews', 'services-page-content', 'user-guide', 'settings'
@@ -61,7 +66,11 @@ const [activeTab, setActiveTab] = useState(() => {
 });
 
 useEffect(() => {
-  localStorage.setItem('adminDashboardTab', activeTab);
+  try {
+    sessionStorage.setItem('adminDashboardTab', activeTab);
+  } catch (err) {
+    // ignore storage write failures
+  }
   const current = new URLSearchParams(location.search).get('tab');
   if (current !== activeTab) {
     navigate(`/admin?tab=${activeTab}`, { replace: true });
