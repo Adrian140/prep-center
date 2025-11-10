@@ -93,6 +93,12 @@ export default function ServicesPricing() {
   const pricingErrorMessage = t('pricingSection.error');
   const shippingFallbackMessage = t('shippingSection.domesticDisclaimer');
 
+  const formatPriceHt = (value) => {
+    const trimmed = (value || '').toString().trim();
+    if (!trimmed) return t('pricingSection.contact');
+    return trimmed.toUpperCase().includes('HT') ? trimmed : `${trimmed} HT`;
+  };
+
   const getLocalizedContent = useCallback(
     (key, translationKey) => {
       const localizedKey = `${key}_${currentLanguage}`;
@@ -351,8 +357,8 @@ export default function ServicesPricing() {
                                 {item.service_name}
                               </p>
                               <p className="text-sm text-text-secondary">
-                                {item.price || t('pricingSection.contact')}{' '}
-                                <span className="text-xs text-text-light">/ {item.unit}</span>
+                                {formatPriceHt(item.price)}
+                                <span className="text-xs text-text-light"> / {item.unit}</span>
                               </p>
                             </div>
                           </div>
@@ -361,18 +367,13 @@ export default function ServicesPricing() {
                     </div>
 
                     {cta && (
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                        <a
-                          href={cta.href}
-                          className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary-dark"
-                        >
-                          {cta.label}
-                          <ArrowRight className="w-4 h-4" />
-                        </a>
-                        <p className="text-sm text-text-secondary">
-                          {t('pricingSection.ctaResponse')}
-                        </p>
-                      </div>
+                      <a
+                        href={cta.href}
+                        className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary-dark self-start"
+                      >
+                        {cta.label}
+                        <ArrowRight className="w-4 h-4" />
+                      </a>
                     )}
                   </article>
                 );
