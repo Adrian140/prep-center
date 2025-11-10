@@ -1,7 +1,7 @@
 export const servicesRo = {
   // Page Header
   pageTitle: 'Servicii și Tarife Amazon FBA în Franța',
-  pageSubtitle: 'Servicii Amazon FBA profesionale în Franța. Manipulare rapidă, etichetare și depozitare pentru vânzătorii din UE. Oferim și fulfillment FBM în Franța și Europa, cu tarife transparente și fără taxe ascunse.',
+  pageSubtitle:  'Servicii profesionale Amazon FBA și fulfillment FBM în Franța și Europa. Recepție rapidă, etichetare și depozitare cu tarife transparente și timp de 24h. Ideal pentru vânzători care trimit către centre Amazon UE sau gestionează comenzi FBM directe.',
   
   pricingSection: {
     title: 'Tarife actualizate în timp real',

@@ -1,7 +1,7 @@
 export const servicesFr = {
   // Page Header
   pageTitle: 'Services et Tarifs Amazon FBA en France',
-  pageSubtitle: 'Services professionnels Amazon FBA en France : réception rapide, étiquetage et stockage pour vendeurs UE. Nous gestionnons aussi le fulfillment FBM en France et en Europe, avec des tarifs transparents sans frais cachés.',
+  pageSubtitle:  'Services professionnels Amazon FBA et fulfillment FBM en France et en Europe. Réception rapide, étiquetage et stockage avec prix transparents et délai de 24h. Idéal pour les vendeurs qui expédient vers les centres Amazon UE ou gèrent des commandes FBM directes.',
   
   pricingSection: {
     title: 'Tarifs mis à jour en temps réel',

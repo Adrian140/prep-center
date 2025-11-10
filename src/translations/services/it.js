@@ -1,7 +1,7 @@
 export const servicesIt = {
   // Page Header
   pageTitle: 'Servizi e Tariffe Amazon FBA in Francia',
-  pageSubtitle: 'Servizi Amazon FBA professionali in Francia: ricezione rapida, etichettatura e stoccaggio per i venditori UE. Gestiamo anche il fulfillment FBM in Francia e in Europa con prezzi trasparenti e senza costi nascosti.',
+  pageSubtitle:  'Servizi professionali di prep Amazon FBA e fulfillment FBM in Francia e in tutta Europa. Ricezione rapida, etichettatura e stoccaggio con prezzi trasparenti e turnaround di 24h. Ideale per chi spedisce verso i centri Amazon UE o gestisce ordini diretti via FBM.',
   
   pricingSection: {
     title: 'Tariffe aggiornate in tempo reale',

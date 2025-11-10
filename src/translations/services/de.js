@@ -1,7 +1,7 @@
 export const servicesDe = {
   // Page Header
   pageTitle: 'Amazon FBA Services & Preise in Frankreich',
-  pageSubtitle: 'Professionelle Amazon-FBA-Services in Frankreich: schnelle Annahme, Etikettierung und Lagerung für EU-Verkäufer. Wir übernehmen auch FBM-Bestellungen in Frankreich und ganz Europa – transparente Preise, keine versteckten Gebühren.',
+  pageSubtitle:  'Professionelle Amazon-FBA-Services und FBM-Fulfillment in Frankreich und ganz Europa. Schnelle Annahme, Etikettierung und Lagerung mit transparenten Preisen und 24-Stunden-Durchlaufzeit. Ideal für Verkäufer mit Versand an EU-Amazon-Fulfillment oder direktem FBM.',
   
   pricingSection: {
     title: 'Live-Preise in Echtzeit',
