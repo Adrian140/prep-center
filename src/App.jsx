@@ -29,13 +29,43 @@ import AdminAnalytics from './components/admin/AdminAnalytics';
 
 import { supabase } from './config/supabase';
 
+const LAST_PATH_KEY = 'lastPath';
+
+const setTabLastPath = (value) => {
+  try {
+    sessionStorage.setItem(LAST_PATH_KEY, value);
+  } catch (err) {
+    // sessionStorage might be unavailable (older safari/private). Ignore.
+  }
+};
+
+const getTabLastPath = () => {
+  try {
+    const value = sessionStorage.getItem(LAST_PATH_KEY);
+    if (value) return value;
+  } catch (err) {
+    // ignore
+  }
+  // migrate legacy localStorage entry if still around
+  try {
+    const legacy = localStorage.getItem(LAST_PATH_KEY);
+    if (legacy) {
+      localStorage.removeItem(LAST_PATH_KEY);
+      return legacy;
+    }
+  } catch (err) {
+    // ignore
+  }
+  return null;
+};
+
 function RoutePersistence() {
   const location = useLocation();
   React.useEffect(() => {
     const p = location.pathname;
     const skip = ['/login', '/register', '/forgot-password', '/reset-password', '/auth/callback', '/integrations/amazon/callback'];
     if (!skip.includes(p)) {
-      localStorage.setItem('lastPath', p + location.search + location.hash);
+      setTabLastPath(p + location.search + location.hash);
     }
   }, [location]);
   return null;
@@ -44,7 +74,7 @@ function RoutePersistence() {
 function StartupRedirect() {
   const navigate = useNavigate();
   React.useEffect(() => {
-    const last = localStorage.getItem('lastPath');
+    const last = getTabLastPath();
     if (window.location.pathname === '/' && last && last !== '/') {
       navigate(last, { replace: true });
     }
