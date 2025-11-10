@@ -42,13 +42,13 @@ export const ro = {
   
   // Home Page - Services
   coreServicesTitle: 'Serviciile Noastre Principale',
-  coreServicesSubtitle: 'Soluții complete de fulfillment Amazon FBA și multi-platformă',
+  coreServicesSubtitle: 'Soluții profesionale de pregătire Amazon FBA și fulfillment multi-platformă.',
   fnskuLabelingTitle: 'Abonament stocare foto',
-  fnskuLabelingDesc: 'Găzduire în cloud pentru până la 6 fotografii detaliate per SKU: 3 €/lună din momentul primei încărcări (dacă le urci tu) + 1 €/set când realizăm noi pozele.',
+  fnskuLabelingDesc: 'Stocare securizată în cloud pentru imagini de produs. Poți încărca fotografii detaliate sau solicita captură profesională pentru fiecare SKU.',
   fbmShippingTitle: 'Expediere FBM',
-  fbmShippingDesc: 'Fulfillment comenzi multi-platformă pentru Amazon, eBay, Shopify',
+  fbmShippingDesc: 'Gestionăm zilnic comenzile FBM în Franța și în toată Europa pentru Amazon, eBay, Shopify, Vinted și alte platforme, asigurând pick & pack, expediere rapidă și gestionarea retururilor.',
   storageTitle: 'Soluții de Depozitare',
-  storageDesc: 'Depozitare sigură cu gestionarea inventarului',
+  storageDesc: 'Depozitare sigură cu urmărire digitală și acces permanent. Spațiu climatizat, monitorizare 24/7 și administrare completă a inventarului.',
   perProduct: 'per produs',
   perOrder: 'per comandă',
   perPalletMonth: 'per palet/lună',

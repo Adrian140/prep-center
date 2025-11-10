@@ -42,13 +42,13 @@ export const fr = {
   
   // Home Page - Services
   coreServicesTitle: 'Nos Services Principaux',
-  coreServicesSubtitle: 'Solutions complètes de fulfillment Amazon FBA et multi-plateformes',
+  coreServicesSubtitle: 'Solutions professionnelles de préparation Amazon FBA et de fulfillment multi-plateforme.',
   fnskuLabelingTitle: 'Abonnement stockage photos',
-  fnskuLabelingDesc: 'Hébergement cloud de jusqu’à 6 photos détaillées par SKU : 3 €/mois dès la première mise en ligne (auto-upload) + 1 €/lot lorsque nous réalisons les images pour vous.',
+  fnskuLabelingDesc: 'Stockage cloud sécurisé pour les photos produits. Téléchargez vos images détaillées ou demandez une prise de vue professionnelle pour chaque SKU.',
   fbmShippingTitle: 'Expédition FBM',
-  fbmShippingDesc: 'Fulfillment de commandes multi-plateformes pour Amazon, eBay, Shopify',
+  fbmShippingDesc: 'Nous gérons quotidiennement le fulfillment FBM en France et en Europe pour Amazon, eBay, Shopify, Vinted et d\'autres plateformes, avec pick & pack, expédition rapide et gestion des retours.',
   storageTitle: 'Solutions de Stockage',
-  storageDesc: 'Stockage sécurisé en entrepôt avec gestion d\'inventaire',
+  storageDesc: 'Stockage en entrepôt sécurisé avec suivi numérique, accès permanent, espace climatisé, surveillance 24/7 et gestion complète des stocks.',
   perProduct: 'par produit',
   perOrder: 'par commande',
   perPalletMonth: 'par palette/mois',
