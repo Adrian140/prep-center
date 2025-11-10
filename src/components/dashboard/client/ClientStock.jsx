@@ -1,11 +1,12 @@
 // FILE: src/components/dashboard/client/ClientStock.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FileDown, Languages, Plus, X, Image as ImageIcon } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
 import { useDashboardTranslation } from '../../../translations';
 import ProductPhotosModal from '../../common/ProductPhotosModal';
 import { supabase } from '../../../config/supabase';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 
 function HelpMenuButtonStock({ section = 'stock', t, tp }) {
   const GUIDE_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
@@ -148,6 +149,14 @@ const ADVANCED_PRODUCT_FORM = {
   condition: 'New',
   shipTemplate: '',
   notes: ''
+};
+
+const DEFAULT_RECEPTION_FORM = {
+  carrier: 'UPS',
+  carrierOther: '',
+  trackingId: '',
+  notes: '',
+  fbaMode: 'none'
 };
 
 function CreateProductModal({ open, onClose, profile, t, onCreated }) {
@@ -610,24 +619,68 @@ export default function ClientStock() {
     return () => clearTimeout(tmr);
   }, [toast]);
 
+  const storagePrefix = useMemo(() => {
+    if (profile?.company_id) return `client-stock-${profile.company_id}`;
+    if (profile?.id) return `client-stock-user-${profile.id}`;
+    return 'client-stock';
+  }, [profile?.company_id, profile?.id]);
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [rowEdits, setRowEdits] = useState({});
 
-  const [searchField, setSearchField] = useState('EAN');
-  const [searchQuery, setSearchQuery] = useState('');
-const [stockFilter, setStockFilter] = useState('all');
-  const [productSearch, setProductSearch] = useState('');
-  const [sortMode, setSortMode] = useState('amazon');
+  const [searchField, setSearchField] = useSessionStorage(
+    `${storagePrefix}-searchField`,
+    'EAN'
+  );
+  const [searchQuery, setSearchQuery] = useSessionStorage(
+    `${storagePrefix}-searchQuery`,
+    ''
+  );
+  const [stockFilter, setStockFilter] = useSessionStorage(
+    `${storagePrefix}-stockFilter`,
+    'all'
+  );
+  const [productSearch, setProductSearch] = useSessionStorage(
+    `${storagePrefix}-productSearch`,
+    ''
+  );
+  const [sortMode, setSortMode] = useSessionStorage(
+    `${storagePrefix}-sortMode`,
+    'amazon'
+  );
 
-  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [selectedIdList, setSelectedIdList] = useSessionStorage(
+    `${storagePrefix}-selectedIds`,
+    []
+  );
+  const selectedIds = useMemo(
+    () => new Set(Array.isArray(selectedIdList) ? selectedIdList : []),
+    [selectedIdList]
+  );
+  const mutateSelectedIds = useCallback(
+    (mutator) => {
+      setSelectedIdList((prev) => {
+        const base = new Set(Array.isArray(prev) ? prev : []);
+        mutator(base);
+        return Array.from(base);
+      });
+    },
+    [setSelectedIdList]
+  );
 
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
+  const [page, setPage] = useSessionStorage(`${storagePrefix}-page`, 1);
+  const [perPage, setPerPage] = useSessionStorage(
+    `${storagePrefix}-perPage`,
+    DEFAULT_PER_PAGE
+  );
 
   const [linkEditor, setLinkEditor] = useState({ open: false, id: null, value: '' });
-const [submitType, setSubmitType] = useState('reception');
+  const [submitType, setSubmitType] = useSessionStorage(
+    `${storagePrefix}-submitType`,
+    'reception'
+  );
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
   // ===== Request Editor (history item) =====
@@ -641,19 +694,16 @@ const [adding, setAdding] = useState(false);         // UI add new line
 const [addingSel, setAddingSel] = useState('');      // stock item id (string)
 const [addingQty, setAddingQty] = useState('');      // number
 
-const [receptionForm, setReceptionForm] = useState({
-  carrier: 'UPS',
-  carrierOther: '',
-  trackingId: '',
-  notes: '',
-  fbaMode: 'none',
-});
+const [receptionForm, setReceptionForm] = useSessionStorage(
+  `${storagePrefix}-receptionForm`,
+  DEFAULT_RECEPTION_FORM
+);
 const [photoItem, setPhotoItem] = useState(null);
 const [photoCounts, setPhotoCounts] = useState({});
 
-  useEffect(() => {
-    let mounted = true;
-    async function load() {
+useEffect(() => {
+  let mounted = true;
+  async function load() {
       if (!profile?.id) {
       setRows([]);
       setLoading(false);
@@ -709,6 +759,15 @@ const [photoCounts, setPhotoCounts] = useState({});
     if (status !== 'loading') load();
     return () => { mounted = false; };
   }, [status, profile?.company_id]);
+
+  useEffect(() => {
+    const allowed = new Set(rows.map((r) => r.id));
+    setSelectedIdList((prev) => {
+      const arr = Array.isArray(prev) ? prev : [];
+      const filtered = arr.filter((id) => allowed.has(id));
+      return filtered.length === arr.length ? prev : filtered;
+    });
+  }, [rows, setSelectedIdList]);
 
   const searched = useMemo(() => {
   const q = (searchQuery || '').trim().toLowerCase();
@@ -778,20 +837,22 @@ const [photoCounts, setPhotoCounts] = useState({});
     return quickFiltered.slice(start, start + perPage);
   }, [quickFiltered, pageClamped, perPage]);
 
-  const isAllOnPageSelected = pageSlice.length > 0 && pageSlice.every(r => selectedIds.has(r.id));
+  const isAllOnPageSelected =
+    pageSlice.length > 0 && pageSlice.every((r) => selectedIds.has(r.id));
   const toggleSelectAllOnPage = () => {
-    const next = new Set(selectedIds);
-    if (isAllOnPageSelected) {
-      pageSlice.forEach(r => next.delete(r.id));
-    } else {
-      pageSlice.forEach(r => next.add(r.id));
-    }
-    setSelectedIds(next);
+    mutateSelectedIds((set) => {
+      if (isAllOnPageSelected) {
+        pageSlice.forEach((r) => set.delete(r.id));
+      } else {
+        pageSlice.forEach((r) => set.add(r.id));
+      }
+    });
   };
   const toggleSelectOne = (id) => {
-    const next = new Set(selectedIds);
-    next.has(id) ? next.delete(id) : next.add(id);
-    setSelectedIds(next);
+    mutateSelectedIds((set) => {
+      if (set.has(id)) set.delete(id);
+      else set.add(id);
+    });
   };
   const selectedRows = useMemo(
     () => rows.filter((r) => selectedIds.has(r.id)),
@@ -823,8 +884,8 @@ const [photoCounts, setPhotoCounts] = useState({});
       return { ...prev, [id]: next };
     });
   };
-const resetSelectionsAndUnits = React.useCallback(() => {
-  setSelectedIds(new Set());
+const resetSelectionsAndUnits = useCallback(() => {
+  setSelectedIdList([]);
   setRowEdits((prev) => {
     const next = { ...prev };
     rows.forEach((r) => {
@@ -832,7 +893,7 @@ const resetSelectionsAndUnits = React.useCallback(() => {
     });
     return next;
   });
-}, [rows]);
+}, [rows, setSelectedIdList]);
 
 const [savingId, setSavingId] = useState(null);
 const handleReceptionFormChange = (field, value) => {
@@ -856,13 +917,7 @@ const handleReceptionFbaModeChange = (mode) => {
   }
 };
 const resetReceptionForm = () => {
-  setReceptionForm({
-    carrier: 'UPS',
-    carrierOther: '',
-    trackingId: '',
-    notes: '',
-    fbaMode: 'none',
-  });
+  setReceptionForm(() => ({ ...DEFAULT_RECEPTION_FORM }));
 };
 
   const handleProductCreated = (item) => {
@@ -1003,7 +1058,7 @@ const openReception = async () => {
 
     setToast({ type: 'success', text: 'Reception announced successfully.' });
     resetSelectionsAndUnits();
-    setSelectedIds(new Set());
+    setSelectedIdList([]);
     resetReceptionForm();
   } catch (err) {
     console.error('Reception error:', err);
@@ -1057,7 +1112,7 @@ const openPrep = async () => {
     if (error) throw error;
     setToast({ type: 'success', text: 'Preparation request sent successfully.' });
     resetSelectionsAndUnits();
-    setSelectedIds(new Set());
+    setSelectedIdList([]);
   } catch (err) {
     console.error('Prep error:', err);
     setToast({ type: 'error', text: err.message || 'Failed to send to prep.' });
@@ -1306,15 +1361,7 @@ const saveReqChanges = async () => {
             <input
               type="checkbox"
               checked={isAllOnPageSelected}
-              onChange={() => {
-                const next = new Set(selectedIds);
-                if (isAllOnPageSelected) {
-                  pageSlice.forEach(r => next.delete(r.id));
-                } else {
-                  pageSlice.forEach(r => next.add(r.id));
-                }
-                setSelectedIds(next);
-              }}
+              onChange={toggleSelectAllOnPage}
             />
             {t('ClientStock.actions.selectAllOnPage')}
           </label>
@@ -1488,7 +1535,7 @@ const saveReqChanges = async () => {
                   : t('ClientStock.cta.announceReception')}
               </button>
               <button
-                onClick={() => setSelectedIds(new Set())}
+                onClick={() => setSelectedIdList([])}
                 className="text-sm text-gray-500 hover:text-gray-700"
               >
                 {t('common.cancel')}
@@ -1541,11 +1588,7 @@ const saveReqChanges = async () => {
             <input
               type="checkbox"
               checked={checked}
-              onChange={() => {
-                const next = new Set(selectedIds);
-                next.has(r.id) ? next.delete(r.id) : next.add(r.id);
-                setSelectedIds(next);
-              }}
+              onChange={() => toggleSelectOne(r.id)}
             />
           </td>
 
@@ -1620,11 +1663,9 @@ const saveReqChanges = async () => {
             onChange={(e) => {
               const v = e.target.value;
               updateEdit(r.id, { units_to_send: v });
-              setSelectedIds((prev) => {
-                const next = new Set(prev);
-                if (Number(v) > 0) next.add(r.id);
-                else next.delete(r.id);
-                return next;
+              mutateSelectedIds((set) => {
+                if (Number(v) > 0) set.add(r.id);
+                else set.delete(r.id);
               });
             }}
           />
