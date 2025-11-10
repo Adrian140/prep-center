@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Star, RefreshCcw, FileDown } from 'lucide-react';
+import { Star, FileDown } from 'lucide-react';
 import { supabaseHelpers } from '../config/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useServicesTranslation } from '../translations/services';
@@ -200,14 +200,6 @@ export default function ServicesPricing() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={fetchPricing}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50"
-                aria-label={t('pricingSection.sync')}
-              >
-                <RefreshCcw className="w-4 h-4" />
-                {t('pricingSection.sync')}
-              </button>
               <button
                 onClick={handleExport}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800"

@@ -174,9 +174,7 @@ export default function AdminShippingRates() {
         rates: row.rates
       }));
 
-      const invalidRow = payload.find(
-        (row) => !row.provider || Object.values(row.rates).some((v) => v === '')
-      );
+      const invalidRow = payload.find((row) => !row.provider);
       if (invalidRow) {
         setMessage({ type: 'error', text: t('adminShipping.validation') });
         setSaving(false);
