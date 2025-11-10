@@ -1,7 +1,7 @@
 export const servicesEn = {
   // Page Header
   pageTitle: 'Amazon FBA Prep Services & Pricing France',
-  pageSubtitle: 'Professional prep, labeling, storage and shipping across Europe with transparent pricing and no extra fees.',
+  pageSubtitle: 'Professional Amazon FBA prep services in France. Fast handling, labeling, and storage for EU sellers. We also provide FBM order fulfillment across Europe, with transparent pricing and no hidden fees.',
   
   pricingSection: {
     title: 'Live services & pricing',
@@ -21,11 +21,11 @@ export const servicesEn = {
     groups: {
       fba: {
         title: 'FBA Prep Services',
-        subtitle: 'Reception, labeling and protective prep per unit.'
+        subtitle: 'Amazon FBA prep includes reception, inspection, labeling and packaging per unit.'
       },
       fbm: {
         title: 'FBM Fulfillment',
-        subtitle: 'Order handling per platform and marketplace.'
+        subtitle: 'FBM fulfillment handled in France and Europe for Amazon, eBay, Shopify and Vinted orders.'
       },
       extra: {
         title: 'Extra Services',

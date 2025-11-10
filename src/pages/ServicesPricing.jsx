@@ -297,10 +297,10 @@ export default function ServicesPricing() {
     <div className="min-h-screen py-20 bg-gradient-to-b from-white via-gray-50 to-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <header className="text-center space-y-5 mx-auto max-w-lg">
-          <h1 className="text-3xl md:text-4xl font-bold text-text-primary leading-tight">
+          <h1 className="text-2xl md:text-3xl font-bold text-text-primary leading-tight">
             {heroTitle}
           </h1>
-          <p className="text-base md:text-lg text-text-secondary">
+          <p className="text-sm md:text-base text-text-secondary">
             {heroSubtitle}
           </p>
         </header>
@@ -386,6 +386,22 @@ export default function ServicesPricing() {
               })}
             </div>
           )}
+        </section>
+
+        <section className="bg-[#0B1221] text-white rounded-3xl p-8 space-y-6">
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold">{t('pricingSection.finalTitle')}</h2>
+            <p className="text-white/80 text-sm md:text-base">{t('pricingSection.finalNote')}</p>
+          </div>
+          <div>
+            <button
+              onClick={handleExport}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-gray-900 font-semibold hover:bg-gray-100"
+            >
+              <FileDown className="w-4 h-4" />
+              {t('pricingSection.export')}
+            </button>
+          </div>
         </section>
 
         <section className="space-y-12">

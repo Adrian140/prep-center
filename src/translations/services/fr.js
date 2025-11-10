@@ -1,7 +1,7 @@
 export const servicesFr = {
   // Page Header
   pageTitle: 'Services et Tarifs Amazon FBA en France',
-  pageSubtitle: 'Préparation, étiquetage, stockage et expédition dans toute l’Europe avec des tarifs transparents sans frais cachés.',
+  pageSubtitle: 'Services professionnels Amazon FBA en France : réception rapide, étiquetage et stockage pour vendeurs UE. Nous gestionnons aussi le fulfillment FBM en France et en Europe, avec des tarifs transparents sans frais cachés.',
   
   pricingSection: {
     title: 'Tarifs mis à jour en temps réel',
@@ -21,11 +21,11 @@ export const servicesFr = {
     groups: {
       fba: {
         title: 'Services FBA Prep',
-        subtitle: 'Réception, étiquetage et protection par unité.'
+        subtitle: 'Notre prep Amazon FBA inclut réception, inspection, étiquetage et emballage par unité.'
       },
       fbm: {
         title: 'Fulfillment FBM',
-        subtitle: 'Traitement par commande selon la plateforme.'
+        subtitle: 'Nous gérons le fulfillment FBM en France et en Europe pour Amazon, eBay, Shopify et Vinted.'
       },
       extra: {
         title: 'Services additionnels',

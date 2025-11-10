@@ -1,7 +1,7 @@
 export const servicesRo = {
   // Page Header
   pageTitle: 'Servicii și Tarife Amazon FBA în Franța',
-  pageSubtitle: 'Pregătire profesională, etichetare, depozitare și expediere în toată Europa cu tarife transparente fără taxe extra.',
+  pageSubtitle: 'Servicii Amazon FBA profesionale în Franța. Manipulare rapidă, etichetare și depozitare pentru vânzătorii din UE. Oferim și fulfillment FBM în Franța și Europa, cu tarife transparente și fără taxe ascunse.',
   
   pricingSection: {
     title: 'Tarife actualizate în timp real',
@@ -21,11 +21,11 @@ export const servicesRo = {
     groups: {
       fba: {
         title: 'Servicii FBA Prep',
-        subtitle: 'Recepție, etichetare și pregătire per unitate.'
+        subtitle: 'Serviciul nostru Amazon FBA include recepție, verificare, etichetare și ambalare per unitate.'
       },
       fbm: {
         title: 'Fulfillment FBM',
-        subtitle: 'Cost pe comandă pentru fiecare platformă.'
+        subtitle: 'Gestionăm fulfillment FBM în Franța și Europa pentru comenzi Amazon, eBay, Shopify și Vinted.'
       },
       extra: {
         title: 'Servicii extra',

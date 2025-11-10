@@ -1,7 +1,7 @@
 export const servicesDe = {
   // Page Header
   pageTitle: 'Amazon FBA Services & Preise in Frankreich',
-  pageSubtitle: 'Professionelle Vorbereitung, Etikettierung, Lagerung und Versand in ganz Europa mit transparenten Preisen ohne versteckte Gebühren.',
+  pageSubtitle: 'Professionelle Amazon-FBA-Services in Frankreich: schnelle Annahme, Etikettierung und Lagerung für EU-Verkäufer. Wir übernehmen auch FBM-Bestellungen in Frankreich und ganz Europa – transparente Preise, keine versteckten Gebühren.',
   
   pricingSection: {
     title: 'Live-Preise in Echtzeit',
@@ -21,11 +21,11 @@ export const servicesDe = {
     groups: {
       fba: {
         title: 'FBA Prep Services',
-        subtitle: 'Empfang, Etikettierung und Schutz pro Einheit.'
+        subtitle: 'Unser Amazon-FBA-Prep umfasst Empfang, Kontrolle, Etikettierung und Verpackung pro Einheit.'
       },
       fbm: {
         title: 'FBM Fulfillment',
-        subtitle: 'Abwicklung pro Bestellung und Plattform.'
+        subtitle: 'Wir betreuen FBM-Bestellungen in Frankreich und Europa für Amazon, eBay, Shopify und Vinted.'
       },
       extra: {
         title: 'Zusatzservices',
