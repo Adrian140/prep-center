@@ -185,20 +185,12 @@ export default function ServicesPricing() {
         </div>
 
         <section className="bg-white border rounded-2xl shadow-sm p-6 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-semibold text-text-primary">
-                {t('pricingSection.title')}
-              </h2>
-              <p className="text-sm text-text-secondary">
-                {t('pricingSection.description')}
-              </p>
-              {lastUpdated && (
-                <p className="text-xs text-text-light mt-1">
-                  {t('pricingSection.updated', { date: lastUpdated.toLocaleString() })}
-                </p>
-              )}
-            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-semibold text-text-primary">
+                  {t('pricingSection.title')}
+                </h2>
+              </div>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={handleExport}
@@ -235,9 +227,6 @@ export default function ServicesPricing() {
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-primary">
-                        {t(`pricingSection.groups.${section.key}.title`) || section.id}
-                      </p>
                       <h3
                         id={`pricing-${section.key}`}
                         className="text-2xl font-semibold text-text-primary"
