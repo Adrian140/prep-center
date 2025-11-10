@@ -328,9 +328,11 @@ export default function ServicesPricing() {
                           {t(`pricingSection.groups.${section.key}.subtitle`) || section.id}
                         </p>
                       </div>
-                      <div className="text-sm text-text-secondary max-w-lg">
-                        {t('pricingSection.description')}
-                      </div>
+                      {section.key !== 'extra' && (
+                        <div className="text-sm text-text-secondary max-w-lg">
+                          {t('pricingSection.description')}
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
