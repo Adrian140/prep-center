@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Star, FileDown, ArrowRight, Tag, Package, Boxes, Truck, Archive, Shield, Layers } from 'lucide-react';
+import { FileDown, ArrowRight, Tag, Package, Boxes, Truck, Archive, Shield, Layers } from 'lucide-react';
 import { supabaseHelpers } from '../config/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useServicesTranslation } from '../translations/services';
@@ -283,14 +283,8 @@ export default function ServicesPricing() {
 
   return (
     <div className="min-h-screen py-20 bg-gradient-to-b from-white via-gray-50 to-white">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
-        <div className="flex justify-center gap-1 mb-6 text-yellow-400">
-          {[...Array(5)].map((_, i) => (
-            <Star key={i} className="w-7 h-7 fill-current" />
-          ))}
-        </div>
-
-        <header className="text-center space-y-6 mx-auto max-w-xl">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        <header className="text-center space-y-5 mx-auto max-w-lg">
           <h1 className="text-3xl md:text-4xl font-bold text-text-primary leading-tight">
             {heroTitle}
           </h1>
