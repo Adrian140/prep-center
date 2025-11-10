@@ -124,7 +124,6 @@ useEffect(() => {
   const [editForm, setEditForm] = useState({});
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(''); // Changed to message
-  const [pricingData, setPricingData] = useState({}); // Added pricingData state
   const [reviews, setReviews] = useState([]); // Added reviews state
   const [contentData, setContentData] = useState({}); // Added contentData state
   const tabs = useMemo(() => ([
@@ -144,7 +143,6 @@ useEffect(() => {
   useEffect(() => {
      if (user) { // Changed to user
      fetchServices();
-     fetchPricingData(); // Fetch pricing data
      fetchContentData(); // Fetch content data
      fetchReviews(); // Fetch reviews
      fetchMaintenance();
@@ -158,17 +156,6 @@ useEffect(() => {
       setServices(data || []);
     } catch (error) {
       console.error('Error fetching services:', error);
-    }
-  };
-
-  // Fetch pricing data
-  const fetchPricingData = async () => {
-    try {
-      const { data, error } = await supabaseHelpers.getPricing();
-      if (error) throw error;
-      setPricingData(data || {});
-    } catch (error) {
-      console.error('Error fetching pricing data:', error);
     }
   };
 
@@ -309,20 +296,6 @@ const saveMaintenance = async (customState) => {
   const cancelEdit = () => {
     setIsEditing(null);
     setEditForm({});
-  };
-
-  // Handler for saving pricing data
-  const handlePricingSave = async () => {
-    setLoading(true);
-    setMessage('');
-    try {
-      const { error } = await supabaseHelpers.updatePricing(pricingData);
-      if (error) throw error;
-      setMessage('Prețurile au fost salvate cu succes');
-    } catch (error) {
-      setMessage(error.message || 'Eroare la salvarea prețurilor');
-    }
-    setLoading(false);
   };
 
   // Handler for saving content data
@@ -581,113 +554,7 @@ const saveMaintenance = async (customState) => {
     </div>
   );
 
-const renderPricingTab = () => (
-  <div className="space-y-6">
-    {/* Private Label */}
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-text-primary mb-4">Private Label</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">FNSKU Labeling (€/unit)</label>
-          <input
-            type="number" step="0.01"
-            value={pricingData.pl_fnsku_labeling ?? ''}
-            onChange={(e) => setPricingData({ ...pricingData, pl_fnsku_labeling: e.target.value })}
-            className="w-full px-3 py-2 border rounded-lg"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Polybagging (€/unit)</label>
-          <input
-            type="number" step="0.01"
-            value={pricingData.pl_polybagging ?? ''}
-            onChange={(e) => setPricingData({ ...pricingData, pl_polybagging: e.target.value })}
-            className="w-full px-3 py-2 border rounded-lg"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Multipack (€/set)</label>
-          <input
-            type="number" step="0.01"
-            value={pricingData.pl_multipack ?? ''}
-            onChange={(e) => setPricingData({ ...pricingData, pl_multipack: e.target.value })}
-            className="w-full px-3 py-2 border rounded-lg"
-          />
-        </div>
-      </div>
-    </div>
-
-    {/* FBM Platform Fees */}
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-text-primary mb-4">FBM Platform Fees (€/order)</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">Amazon FBM</label>
-          <input
-            type="number" step="0.01"
-            value={pricingData.fbm_amazon ?? ''}
-            onChange={(e) => setPricingData({ ...pricingData, fbm_amazon: e.target.value })}
-            className="w-full px-3 py-2 border rounded-lg"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">eBay</label>
-          <input
-            type="number" step="0.01"
-            value={pricingData.fbm_ebay ?? ''}
-            onChange={(e) => setPricingData({ ...pricingData, fbm_ebay: e.target.value })}
-            className="w-full px-3 py-2 border rounded-lg"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Shopify / Website</label>
-          <input
-            type="number" step="0.01"
-            value={pricingData.fbm_shopify ?? ''}
-            onChange={(e) => setPricingData({ ...pricingData, fbm_shopify: e.target.value })}
-            className="w-full px-3 py-2 border rounded-lg"
-          />
-        </div>
-      </div>
-    </div>
-
-    {/* Storage Pricing */}
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-text-primary mb-4">Storage Pricing</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">Pallet Storage (per month)</label>
-          <input
-            type="text"
-            value={pricingData.pallet_storage_price || ''}
-            onChange={(e) => setPricingData({ ...pricingData, pallet_storage_price: e.target.value })}
-            className="w-full px-3 py-2 border rounded-lg"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Climate Controlled (extra)</label>
-          <input
-            type="text"
-            value={pricingData.climate_controlled_price || ''}
-            onChange={(e) => setPricingData({ ...pricingData, climate_controlled_price: e.target.value })}
-            className="w-full px-3 py-2 border rounded-lg"
-          />
-        </div>
-      </div>
-    </div>
-
-    <button
-      onClick={async () => {
-        const payload = { ...pricingData, id: pricingData.id }; // ensure id is sent
-        setPricingData(payload);
-        await handlePricingSave();
-      }}
-      className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors"
-    >
-      Save All Pricing
-    </button>
-  </div>
-);
+const renderPricingTab = () => <AdminPricing />;
 
 
   const renderContentTab = () => (

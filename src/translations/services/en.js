@@ -3,6 +3,40 @@ export const servicesEn = {
   pageTitle: 'Amazon FBA Prep Services & Pricing in France – Transparent & Competitive',
   pageSubtitle: 'Clear pricing for Amazon FBA prep in France: reception, quality control, FNSKU labeling, polybagging, storage and fast shipping to EU fulfillment centers.',
   
+  pricingSection: {
+    title: 'Live services & pricing',
+    description: 'Every rate below updates instantly after you confirm it inside the admin portal.',
+    export: 'Export pricing PDF',
+    sync: 'Refresh pricing',
+    loading: 'Loading pricing…',
+    empty: 'Pricing is being configured. Please check back soon.',
+    error: 'Could not load pricing. Please refresh.',
+    contact: 'Contact us',
+    updated: 'Last refresh: {date}',
+    groups: {
+      fba: {
+        title: 'FBA Prep Services',
+        subtitle: 'Reception, labeling and protective prep per unit.'
+      },
+      fbm: {
+        title: 'FBM Fulfillment',
+        subtitle: 'Order handling per platform and marketplace.'
+      },
+      extra: {
+        title: 'Extra Services',
+        subtitle: 'Add-ons for branding, paperwork and translations.'
+      },
+      storage: {
+        title: 'Storage Solutions',
+        subtitle: 'Monthly storage plans and surcharges.'
+      },
+      custom: {
+        title: 'Additional',
+        subtitle: 'Custom categories published from the admin.'
+      }
+    }
+  },
+
   // New Customer Bonus
   newCustomerBonus: 'New Customer Bonus',
   bonusFirstMonths: 'First 2 months: {new_customer_rate}/product (instead of {standard_rate}) + Free setup consultation',

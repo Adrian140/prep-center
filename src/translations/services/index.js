@@ -14,9 +14,13 @@ export const servicesTranslations = {
   ro: servicesRo
 };
 
+const deepGet = (obj, path) =>
+  path.split('.').reduce((acc, segment) => (acc && acc[segment] !== undefined ? acc[segment] : undefined), obj);
+
 export const useServicesTranslation = (currentLanguage) => {
   const t = (key) => {
-    return servicesTranslations[currentLanguage]?.[key] || servicesTranslations.en[key] || key;
+    const locale = servicesTranslations[currentLanguage] || servicesTranslations.en;
+    return deepGet(locale, key) ?? deepGet(servicesTranslations.en, key) ?? key;
   };
 
   return { t };

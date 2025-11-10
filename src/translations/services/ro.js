@@ -3,6 +3,40 @@ export const servicesRo = {
   pageTitle: 'Servicii și Prețuri de Preparare Amazon FBA în Franța – Transparente și Competitive',
   pageSubtitle: 'Prețuri clare pentru prepararea Amazon FBA în Franța: recepție, control calitate, etichetare FNSKU, ambalare și expediere rapidă către centrele de fulfillment europene.',
   
+  pricingSection: {
+    title: 'Tarife actualizate în timp real',
+    description: 'Tarifele de mai jos se actualizează instant după ce le salvezi în portalul de administrare.',
+    export: 'Exportă PDF cu tarife',
+    sync: 'Reîmprospătează tarifele',
+    loading: 'Încărcăm tarifele…',
+    empty: 'Tarifele sunt în curs de configurare. Revino în scurt timp.',
+    error: 'Nu am putut încărca tarifele. Reîncearcă.',
+    contact: 'Solicită ofertă',
+    updated: 'Ultima reîmprospătare: {date}',
+    groups: {
+      fba: {
+        title: 'Servicii FBA Prep',
+        subtitle: 'Recepție, etichetare și pregătire per unitate.'
+      },
+      fbm: {
+        title: 'Fulfillment FBM',
+        subtitle: 'Cost pe comandă pentru fiecare platformă.'
+      },
+      extra: {
+        title: 'Servicii extra',
+        subtitle: 'Opțiuni suplimentare pentru branding și documente.'
+      },
+      storage: {
+        title: 'Depozitare',
+        subtitle: 'Planuri lunare și suprataxe pentru stoc.'
+      },
+      custom: {
+        title: 'Categorie suplimentară',
+        subtitle: 'Publicată din panoul de administrare.'
+      }
+    }
+  },
+
   // New Customer Bonus
   newCustomerBonus: 'Bonus Client Nou',
   bonusFirstMonths: 'Primele 2 luni: {new_customer_rate}/produs (în loc de {standard_rate}) + Consultanță de configurare gratuită',

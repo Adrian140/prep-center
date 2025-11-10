@@ -362,6 +362,30 @@ resetPassword: async (email) => {
       .eq('id', '00000000-0000-0000-0000-000000000001');
   },
 
+  // ===== Pricing services v2 =====
+  getPricingServices: async () => {
+    return await supabase
+      .from('pricing_services')
+      .select('*')
+      .order('category', { ascending: true })
+      .order('position', { ascending: true });
+  },
+
+  upsertPricingServices: async (rows) => {
+    return await supabase
+      .from('pricing_services')
+      .upsert(rows, { onConflict: 'id' })
+      .select();
+  },
+
+  deletePricingServices: async (ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) return { data: null, error: null };
+    return await supabase
+      .from('pricing_services')
+      .delete()
+      .in('id', ids);
+  },
+
   // ===== Services =====
   getServices: async () => {
     return await supabase

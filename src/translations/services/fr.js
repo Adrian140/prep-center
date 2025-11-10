@@ -3,6 +3,40 @@ export const servicesFr = {
   pageTitle: 'Services et Tarifs de Préparation Amazon FBA en France – Transparents et Compétitifs',
   pageSubtitle: 'Tarification claire pour la préparation Amazon FBA en France : réception, contrôle qualité, étiquetage FNSKU, emballage plastique et expédition rapide vers les centres de fulfillment européens.',
   
+  pricingSection: {
+    title: 'Tarifs mis à jour en temps réel',
+    description: 'Ces tarifs se mettent à jour instantanément dès que vous les validez dans le panneau d’administration.',
+    export: 'Exporter les tarifs en PDF',
+    sync: 'Rafraîchir les tarifs',
+    loading: 'Chargement des tarifs…',
+    empty: 'Les tarifs sont en cours de configuration. Revenez bientôt.',
+    error: 'Impossible de charger les tarifs. Merci de réessayer.',
+    contact: 'Nous contacter',
+    updated: 'Dernière actualisation : {date}',
+    groups: {
+      fba: {
+        title: 'Services FBA Prep',
+        subtitle: 'Réception, étiquetage et protection par unité.'
+      },
+      fbm: {
+        title: 'Fulfillment FBM',
+        subtitle: 'Traitement par commande selon la plateforme.'
+      },
+      extra: {
+        title: 'Services additionnels',
+        subtitle: 'Options pour branding, documents et traductions.'
+      },
+      storage: {
+        title: 'Solutions de stockage',
+        subtitle: 'Formules mensuelles et suppléments.'
+      },
+      custom: {
+        title: 'Catégorie personnalisée',
+        subtitle: 'Publiée depuis le panneau admin.'
+      }
+    }
+  },
+
   // New Customer Bonus
   newCustomerBonus: 'Bonus Nouveau Client',
   bonusFirstMonths: 'Premiers 2 mois : {new_customer_rate}/produit (au lieu de {standard_rate}) + Consultation de configuration gratuite',

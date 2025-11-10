@@ -3,6 +3,40 @@ export const servicesDe = {
   pageTitle: 'Amazon FBA Prep Services & Preise in Frankreich – Transparent & Wettbewerbsfähig',
   pageSubtitle: 'Klare Preise für Amazon FBA Prep in Frankreich: Empfang, Qualitätskontrolle, FNSKU-Etikettierung, Polyverpackung und schneller Versand zu europäischen Fulfillment-Zentren.',
   
+  pricingSection: {
+    title: 'Live-Preise in Echtzeit',
+    description: 'Alle Tarife aktualisieren sich sofort, sobald sie im Admin-Portal gespeichert werden.',
+    export: 'Preise als PDF exportieren',
+    sync: 'Preise aktualisieren',
+    loading: 'Preise werden geladen…',
+    empty: 'Die Preisstruktur wird derzeit vorbereitet. Bitte bald wieder nachsehen.',
+    error: 'Preise konnten nicht geladen werden. Bitte aktualisieren.',
+    contact: 'Kontaktieren Sie uns',
+    updated: 'Letzte Aktualisierung: {date}',
+    groups: {
+      fba: {
+        title: 'FBA Prep Services',
+        subtitle: 'Empfang, Etikettierung und Schutz pro Einheit.'
+      },
+      fbm: {
+        title: 'FBM Fulfillment',
+        subtitle: 'Abwicklung pro Bestellung und Plattform.'
+      },
+      extra: {
+        title: 'Zusatzservices',
+        subtitle: 'Branding, Dokumente und Übersetzungen.'
+      },
+      storage: {
+        title: 'Lagerlösungen',
+        subtitle: 'Monatliche Pläne und Zuschläge.'
+      },
+      custom: {
+        title: 'Zusätzliche Kategorie',
+        subtitle: 'Direkt aus dem Admin-Bereich veröffentlicht.'
+      }
+    }
+  },
+
   // New Customer Bonus
   newCustomerBonus: 'Neukunden-Bonus',
   bonusFirstMonths: 'Erste 2 Monate: {new_customer_rate}/Produkt (statt {standard_rate}) + Kostenlose Einrichtungsberatung',

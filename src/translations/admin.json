@@ -81,6 +81,51 @@
       "photoSubscription": "Photo storage subscription",
       "manualPhoto": "Manual photo capture"
     },
+    "adminPricing": {
+      "title": "Pricing manager",
+      "subtitle": "Add, edit or publish prep, FBM, extra and storage fees in one place.",
+      "sync": "Sync to website",
+      "export": "Export pricing PDF",
+      "loading": "Loading pricing…",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "addPrep": "Add new prep service",
+      "addPlatform": "Add new platform",
+      "addService": "Add new service",
+      "addStorage": "Add new storage type",
+      "fields": {
+        "service": "Service name",
+        "price": "Price",
+        "unit": "Unit"
+      },
+      "validation": "Row {index}: please fill service, price and unit.",
+      "saveSuccess": "Pricing saved successfully.",
+      "saveError": "Unable to save pricing. Please try again.",
+      "loadError": "Unable to load pricing services.",
+      "exportError": "Failed to generate PDF.",
+      "groups": {
+        "fba": {
+          "title": "FBA Prep Services",
+          "subtitle": "Inbound preparation, packaging and protective steps."
+        },
+        "fbm": {
+          "title": "FBM Fulfillment",
+          "subtitle": "Pick & pack per order for each marketplace."
+        },
+        "extra": {
+          "title": "Extra Services",
+          "subtitle": "Branding, inserts, documentation or translation fees."
+        },
+        "storage": {
+          "title": "Storage",
+          "subtitle": "Monthly storage plans and surcharges."
+        },
+        "custom": {
+          "title": "Custom category",
+          "subtitle": "Published from the admin panel."
+        }
+      }
+    },
     "receiving": {
       "title": "Reception management",
       "subtitle": "Manage client reception announcements",
@@ -229,6 +274,51 @@
       "photoSubscription": "Abonnement stockage photos",
       "manualPhoto": "Prise de photos manuelle"
     },
+    "adminPricing": {
+      "title": "Gestionnaire de tarifs",
+      "subtitle": "Ajoutez, modifiez ou publiez les tarifs FBA, FBM, extra et stockage en un seul endroit.",
+      "sync": "Synchroniser avec le site",
+      "export": "Exporter les tarifs en PDF",
+      "loading": "Chargement des tarifs…",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "addPrep": "Ajouter un service de préparation",
+      "addPlatform": "Ajouter une plateforme",
+      "addService": "Ajouter un service",
+      "addStorage": "Ajouter un type de stockage",
+      "fields": {
+        "service": "Nom du service",
+        "price": "Tarif",
+        "unit": "Unité"
+      },
+      "validation": "Ligne {index} : renseignez nom, tarif et unité.",
+      "saveSuccess": "Tarifs enregistrés avec succès.",
+      "saveError": "Impossible d’enregistrer les tarifs.",
+      "loadError": "Impossible de charger les tarifs.",
+      "exportError": "Échec de la génération du PDF.",
+      "groups": {
+        "fba": {
+          "title": "Services FBA Prep",
+          "subtitle": "Préparation inbound par unité."
+        },
+        "fbm": {
+          "title": "Fulfillment FBM",
+          "subtitle": "Traitement par commande suivant la plateforme."
+        },
+        "extra": {
+          "title": "Services additionnels",
+          "subtitle": "Branding, inserts et traductions."
+        },
+        "storage": {
+          "title": "Stockage",
+          "subtitle": "Formules mensuelles et suppléments."
+        },
+        "custom": {
+          "title": "Catégorie personnalisée",
+          "subtitle": "Publiée depuis l’admin."
+        }
+      }
+    },
     "receiving": {
       "title": "Gestion des réceptions",
       "subtitle": "Gérez les annonces de réception des clients",
@@ -376,6 +466,51 @@
     "serviceNames": {
       "photoSubscription": "Abonament stocare fotografii",
       "manualPhoto": "Fotografiere manuală"
+    },
+    "adminPricing": {
+      "title": "Manager tarife",
+      "subtitle": "Adaugă, editează sau publică tarifele FBA, FBM, Extra și depozitare dintr-un singur loc.",
+      "sync": "Sincronizează pe site",
+      "export": "Exportă tarife PDF",
+      "loading": "Se încarcă tarifele…",
+      "save": "Salvează modificările",
+      "saving": "Se salvează…",
+      "addPrep": "Adaugă serviciu de pregătire",
+      "addPlatform": "Adaugă platformă",
+      "addService": "Adaugă serviciu",
+      "addStorage": "Adaugă tip de depozitare",
+      "fields": {
+        "service": "Nume serviciu",
+        "price": "Preț",
+        "unit": "Unitate"
+      },
+      "validation": "Linia {index}: completează numele, prețul și unitatea.",
+      "saveSuccess": "Tarife salvate cu succes.",
+      "saveError": "Tarifele nu au putut fi salvate.",
+      "loadError": "Tarifele nu au putut fi încărcate.",
+      "exportError": "Nu am putut genera PDF-ul.",
+      "groups": {
+        "fba": {
+          "title": "Servicii FBA Prep",
+          "subtitle": "Recepție, etichetare și protecție per unitate."
+        },
+        "fbm": {
+          "title": "Fulfillment FBM",
+          "subtitle": "Procesare per comandă pentru fiecare platformă."
+        },
+        "extra": {
+          "title": "Servicii extra",
+          "subtitle": "Branding, materiale de inserție și traduceri."
+        },
+        "storage": {
+          "title": "Depozitare",
+          "subtitle": "Planuri lunare și suprataxe."
+        },
+        "custom": {
+          "title": "Categorie suplimentară",
+          "subtitle": "Publicată din panoul de administrare."
+        }
+      }
     },
     "receiving": {
       "title": "Gestionare recepții",
