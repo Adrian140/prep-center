@@ -1,7 +1,7 @@
 export const aboutEn = {
   // Page Header
   pageTitle: 'About Prep Center France – Amazon FBA Prep Services for European Sellers',
-  pageSubtitle: 'With over 4 years of hands-on Amazon FBA experience, Prep Center France provides fast and reliable prep services in France: reception, quality control, FNSKU labeling, polybagging and shipping to Amazon fulfillment centers across Europe.',
+  pageSubtitle: 'With over 4 years of hands-on Amazon FBA experience, Prep Center France is a professional Amazon FBA prep center in France offering fast 24h prep, labeling, and FBM order fulfillment across Europe.',
   
   // Our Story Section
   ourStory: 'Our Story',

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Helmet } from 'react-helmet';
 import { useAboutTranslation } from '../translations/about';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Award, Users, Clock, Shield } from 'lucide-react';
@@ -47,12 +48,23 @@ const images = [
     <div className="min-h-screen py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
+        <Helmet>
+          <title>
+            About Prep Center France | Amazon FBA Prep & FBM Fulfillment in Europe
+          </title>
+          <meta
+            name="description"
+            content="Learn more about Prep Center France — Amazon FBA prep and FBM fulfillment center helping EU sellers with 24h turnaround, labeling, storage, and shipping."
+          />
+        </Helmet>
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-text-primary mb-6">
             {t('pageTitle')}
           </h1>
           <p className="text-xl text-text-secondary max-w-3xl mx-auto">
-            {t('pageSubtitle')}
+            With over 4 years of hands-on Amazon FBA experience, Prep Center France
+            is a professional Amazon FBA prep center in France offering fast 24h
+            prep, labeling, and FBM order fulfillment across Europe.
           </p>
         </div>
 
@@ -62,15 +74,24 @@ const images = [
           <div>
             <h2 className="text-3xl font-bold text-text-primary mb-6">{t('ourStory')}</h2>
             <div className="space-y-4 text-text-secondary">
-              <p>
-                {t('ourStoryParagraph1')}
-              </p>
-              <p>
-                {t('ourStoryParagraph2')}
-              </p>
-              <p>
-                {t('ourStoryParagraph3')}
-              </p>
+              <p>{t('ourStoryParagraph1')}</p>
+              <p>{t('ourStoryParagraph2')}</p>
+              <p>{t('ourStoryParagraph3')}</p>
+            </div>
+          </div>
+        </div>
+
+        <section className="mb-20">
+          <h2 className="text-3xl font-bold text-text-primary mb-6">
+            Why It Matters for Sellers
+          </h2>
+          <p className="text-text-secondary text-lg">
+            Our Amazon FBA prep center in France helps sellers reduce restocking
+            delays, minimize FBA errors, and maintain full compliance with European
+            packaging and labeling standards. Each shipment includes detailed photo
+            documentation and live tracking updates. We support multiple EU
+            marketplaces and communicate daily in English, French, and Romanian.
+          </p>
             </div>
           </div>
 
