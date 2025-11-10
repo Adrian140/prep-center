@@ -45,9 +45,7 @@ const images = [
             {t('pageTitle')}
           </h1>
           <p className="text-xl text-text-secondary max-w-3xl mx-auto">
-            With over 4 years of hands-on Amazon FBA experience, Prep Center France
-            is a professional Amazon FBA prep center in France offering fast 24h
-            prep, labeling, and FBM order fulfillment across Europe.
+            {t('pageSubtitle')}
           </p>
         </div>
 
@@ -99,14 +97,8 @@ const images = [
         </div>
 
         <section className="mb-20">
-          <h2 className="text-3xl font-bold text-text-primary mb-6">Why It Matters for Sellers</h2>
-          <p className="text-text-secondary text-lg">
-            Our Amazon FBA prep center in France helps sellers reduce restocking delays, minimize
-            FBA errors, and maintain full compliance with European packaging and labeling
-            standards. Each shipment includes detailed photo documentation and live tracking
-            updates. We support multiple EU marketplaces and communicate daily in English, French,
-            and Romanian, ensuring smooth collaboration for every project.
-          </p>
+          <h2 className="text-3xl font-bold text-text-primary mb-6">{t('whyMattersTitle')}</h2>
+          <p className="text-text-secondary text-lg">{t('whyMattersParagraph')}</p>
         </section>
         
         {/* Values */}

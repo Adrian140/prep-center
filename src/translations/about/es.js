@@ -7,6 +7,9 @@ export const aboutEs = {
   ourStory: 'Nuestra Historia',
   ourStoryParagraph1: 'Prep Center France fue establecido para apoyar a vendedores Amazon y e-commerce europeos con servicios de preparación FBA rápidos, confiables y transparentes. Su ubicación en Francia proporciona un hub estratégico para distribución eficiente en toda la Unión Europea.',
   ourStoryParagraph2: 'Con más de 4 años de experiencia práctica en Amazon FBA, construí este centro logístico como respuesta directa a los desafíos que enfrentan los vendedores al preparar y enviar productos a centros de fulfillment Amazon. El objetivo es simple: entregar un servicio que combine velocidad, cumplimiento y precios justos.',
+  whyMattersTitle: 'Por qué es importante para los vendedores',
+  whyMattersParagraph: 'Nuestro centro de preparación Amazon FBA en Francia ayuda a reducir las demoras de reabastecimiento, minimizar los errores FBA y mantener el cumplimiento de las normas europeas de empaquetado y etiquetado. Cada envío incluye documentación fotográfica detallada y seguimiento en vivo. Cubrimos múltiples marketplaces de la UE y nos comunicamos a diario en inglés, francés y rumano.',
+
   ourStoryParagraph3: 'Hoy, Prep Center France procesa cientos de pedidos cada mes para plataformas como Amazon FBA/FBM, eBay, Shopify y sitios web personalizados. Nos comprometemos a cumplir tiempos de procesamiento de 24 horas mientras aseguramos que cada producto sea preparado en pleno cumplimiento con los requisitos de las plataformas.',
   
   // Stats Section
