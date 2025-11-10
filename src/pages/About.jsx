@@ -5,13 +5,6 @@ import { Award, Users, Clock, Shield } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 function About() {
-  const stats = [
-    { number: "4+", labelKey: "yearsExperience", icon: Clock },
-    { number: "100K+", labelKey: "ordersProcessed", icon: Award },
-    { number: "15+", labelKey: "happyClients", icon: Users },
-    { number: "24h", labelKey: "averageTurnaround", icon: Shield }
-  ];
-
   const { currentLanguage } = useLanguage();
   const { t } = useAboutTranslation(currentLanguage);
   
@@ -116,19 +109,6 @@ const images = [
           </p>
         </section>
         
-        {/* Stats */}
-        <section className="mb-20">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <stat.icon className="w-12 h-12 text-primary mx-auto mb-4" />
-                <div className="text-3xl font-bold text-text-primary mb-2">{stat.number}</div>
-                <div className="text-text-secondary">{t(stat.labelKey)}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
         {/* Values */}
         <section className="mb-20">
           <h2 className="text-3xl font-bold text-text-primary mb-12 text-center">{t('ourValues')}</h2>
