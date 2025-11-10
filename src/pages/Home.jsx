@@ -91,7 +91,7 @@ function Home() {
   const stats = [
     { number: "4+", label: t('yearsExperience'), icon: Clock },
     { number: "700K+", label: t('ordersProcessed'), icon: Package },
-    { number: "50+", label: t('happyClients'), icon: Users },
+    { number: "25+", label: t('happyClients'), icon: Users },
     { number: "24h", label: t('averageTurnaround'), icon: Shield }
   ];
 

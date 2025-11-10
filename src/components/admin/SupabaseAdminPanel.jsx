@@ -69,8 +69,8 @@ const [activeTab, setActiveTab] = useState(() => {
     saved = null;
   }
   const validTabs = [
-    'analytics', 'profiles', 'receiving', 'prep-requests', 'services',
-    'pricing', 'content', 'reviews', 'services-page-content', 'user-guide', 'settings'
+    'analytics', 'profiles', 'receiving', 'prep-requests',
+    'pricing', 'reviews', 'services-page-content', 'user-guide', 'settings'
   ];
   if (initialTab && validTabs.includes(initialTab)) return initialTab;
   return validTabs.includes(saved) ? saved : 'profiles';
@@ -143,9 +143,7 @@ useEffect(() => {
     { id: 'profiles', label: t('sidebar.profiles'), icon: Users },
     { id: 'receiving', label: t('sidebar.receiving'), icon: Truck },
     { id: 'prep-requests', label: t('sidebar.prepRequests'), icon: PackageCheck },
-    { id: 'services', label: t('sidebar.services'), icon: Package },
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
-    { id: 'content', label: t('sidebar.homeContent'), icon: FileText },
     { id: 'reviews', label: t('sidebar.reviews'), icon: Star },
     { id: 'services-page-content', label: t('sidebar.servicesContent'), icon: FileText },
     { id: 'user-guide', label: t('sidebar.userGuide'), icon: PlayCircle },
