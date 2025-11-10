@@ -1,11 +1,11 @@
 export const servicesDe = {
   // Page Header
   pageTitle: 'Amazon FBA Services & Preise in Frankreich',
-  pageSubtitle: 'Professionelle Vorbereitung, Etikettierung, Lagerung und Versand in ganz Europa mit transparenten Tarifen.',
+  pageSubtitle: 'Professionelle Vorbereitung, Etikettierung, Lagerung und Versand in ganz Europa mit transparenten Preisen ohne versteckte Gebühren.',
   
   pricingSection: {
     title: 'Live-Preise in Echtzeit',
-    description: 'Tarife werden in Echtzeit direkt von unserem Operationsteam gepflegt – für maximale Transparenz.',
+    description: '',
     export: 'Komplettes Angebot herunterladen',
     loading: 'Preise werden geladen…',
     empty: 'Die Preisstruktur wird derzeit vorbereitet. Bitte bald wieder nachsehen.',
@@ -16,7 +16,6 @@ export const servicesDe = {
     ctaFbm: 'FBM-Plattform hinzufügen',
     ctaStorage: 'Kontakt zu Lageroptionen',
     ctaExtra: 'Individuellen Service anfragen',
-    ctaResponse: 'Durchschnittliche Antwortzeit: 1 Std.',
     finalTitle: 'Laden Sie das gesamte Preis-Workbook herunter.',
     finalNote: 'Tabellarische XLS-Struktur, sofort bereit für Excel oder zur Weitergabe an Kunden.',
     groups: {

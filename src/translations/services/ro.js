@@ -1,11 +1,11 @@
 export const servicesRo = {
   // Page Header
   pageTitle: 'Servicii și Tarife Amazon FBA în Franța',
-  pageSubtitle: 'Pregătire profesională, etichetare, depozitare și expediere în toată Europa cu tarife transparente și actualizate.',
+  pageSubtitle: 'Pregătire profesională, etichetare, depozitare și expediere în toată Europa cu tarife transparente fără taxe extra.',
   
   pricingSection: {
     title: 'Tarife actualizate în timp real',
-    description: 'Tarife actualizate în timp real de echipa operațională pentru transparență maximă.',
+    description: '',
     export: 'Descarcă oferta completă',
     loading: 'Încărcăm tarifele…',
     empty: 'Tarifele sunt în curs de configurare. Revino în scurt timp.',
@@ -16,7 +16,6 @@ export const servicesRo = {
     ctaFbm: 'Adaugă platformă FBM',
     ctaStorage: 'Contactează-ne pentru depozitare',
     ctaExtra: 'Cere serviciu personalizat',
-    ctaResponse: 'Timp mediu de răspuns: 1 h',
     finalTitle: 'Descarci imediat oferta completă.',
     finalNote: 'Fișier tabelar în stil XLS, gata de folosit în Excel sau de trimis clienților.',
     groups: {

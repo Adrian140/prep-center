@@ -1,11 +1,11 @@
 export const servicesFr = {
   // Page Header
   pageTitle: 'Services et Tarifs Amazon FBA en France',
-  pageSubtitle: 'Préparation professionnelle, étiquetage, stockage et expédition dans toute l’Europe avec une tarification transparente.',
+  pageSubtitle: 'Préparation, étiquetage, stockage et expédition dans toute l’Europe avec des tarifs transparents sans frais cachés.',
   
   pricingSection: {
     title: 'Tarifs mis à jour en temps réel',
-    description: 'Tarifs actualisés en direct par notre équipe opérationnelle pour une transparence totale.',
+    description: '',
     export: 'Télécharger l’offre complète',
     loading: 'Chargement des tarifs…',
     empty: 'Les tarifs sont en cours de configuration. Revenez bientôt.',
@@ -16,7 +16,6 @@ export const servicesFr = {
     ctaFbm: 'Ajouter une plateforme FBM',
     ctaStorage: 'Contacter pour les options de stockage',
     ctaExtra: 'Demander un service personnalisé',
-    ctaResponse: 'Temps moyen de réponse : 1 h',
     finalTitle: 'Téléchargez le classeur complet des tarifs.',
     finalNote: 'Format tableau compatible Excel, prêt à être envoyé comme offre commerciale.',
     groups: {

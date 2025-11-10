@@ -287,6 +287,12 @@ export default function ServicesPricing() {
     [t]
   );
 
+  const translatedDescription = t('pricingSection.description');
+  const sectionDescription =
+    translatedDescription && translatedDescription !== 'pricingSection.description'
+      ? translatedDescription
+      : '';
+
   return (
     <div className="min-h-screen py-20 bg-gradient-to-b from-white via-gray-50 to-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
@@ -334,9 +340,9 @@ export default function ServicesPricing() {
                           {t(`pricingSection.groups.${section.key}.subtitle`) || section.id}
                         </p>
                       </div>
-                      {section.key !== 'extra' && (
+                      {section.key !== 'extra' && sectionDescription && (
                         <div className="text-sm text-text-secondary max-w-lg">
-                          {t('pricingSection.description')}
+                          {sectionDescription}
                         </div>
                       )}
                     </div>
