@@ -97,12 +97,20 @@ export default function ServicesPricing() {
     (key, translationKey) => {
       const localizedKey = `${key}_${currentLanguage}`;
       const englishKey = `${key}_en`;
-      const value =
-        content?.[localizedKey]?.trim() ||
-        (currentLanguage !== 'en' ? content?.[englishKey]?.trim() : '') ||
-        content?.[key]?.trim();
-      if (value) return value;
-      return translationKey ? t(translationKey) : '';
+
+      const localizedValue = content?.[localizedKey]?.trim();
+      if (localizedValue) return localizedValue;
+
+      const dictionaryValue = translationKey ? t(translationKey) : '';
+      if (dictionaryValue && dictionaryValue !== translationKey) return dictionaryValue;
+
+      const englishValue = content?.[englishKey]?.trim();
+      if (englishValue) return englishValue;
+
+      const fallbackValue = content?.[key]?.trim();
+      if (fallbackValue) return fallbackValue;
+
+      return dictionaryValue || '';
     },
     [content, currentLanguage, t]
   );
@@ -282,14 +290,14 @@ export default function ServicesPricing() {
           ))}
         </div>
 
-        <header className="text-center space-y-6 max-w-2xl mx-auto">
-          <h1 className="text-3xl md:text-4xl font-bold text-text-primary leading-tight max-w-2xl mx-auto">
+        <header className="text-center space-y-6 mx-auto max-w-xl">
+          <h1 className="text-3xl md:text-4xl font-bold text-text-primary leading-tight">
             {heroTitle}
           </h1>
-          <p className="text-base md:text-lg text-text-secondary max-w-2xl mx-auto">
+          <p className="text-base md:text-lg text-text-secondary">
             {heroSubtitle}
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
             <a
               href="/contact"
               className="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark w-full sm:w-auto"
