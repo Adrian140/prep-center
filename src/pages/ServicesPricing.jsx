@@ -282,8 +282,8 @@ export default function ServicesPricing() {
           ))}
         </div>
 
-        <header className="text-center space-y-6">
-          <h1 className="text-3xl md:text-4xl font-bold text-text-primary leading-tight max-w-3xl mx-auto">
+        <header className="text-center space-y-6 max-w-2xl mx-auto">
+          <h1 className="text-3xl md:text-4xl font-bold text-text-primary leading-tight max-w-2xl mx-auto">
             {heroTitle}
           </h1>
           <p className="text-base md:text-lg text-text-secondary max-w-2xl mx-auto">
@@ -306,7 +306,6 @@ export default function ServicesPricing() {
               {tCommon('chatWhatsApp')}
             </a>
           </div>
-          <p className="text-sm text-text-light">{t('pricingSection.ctaResponse')}</p>
         </header>
 
         <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
