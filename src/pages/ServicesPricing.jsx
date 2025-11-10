@@ -104,6 +104,9 @@ export default function ServicesPricing() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [syncing, setSyncing] = useState(false);
 
+  const pricingErrorMessage = t('pricingSection.error');
+  const shippingFallbackMessage = t('shippingSection.domesticDisclaimer');
+
   const fetchPricing = useCallback(async () => {
     setPricingLoading(true);
     setPricingError('');
@@ -114,11 +117,11 @@ export default function ServicesPricing() {
       setLastUpdated(new Date());
     } catch (err) {
       console.error('Pricing fetch failed', err);
-      setPricingError(t('pricingSection.error'));
+      setPricingError(pricingErrorMessage);
     } finally {
       setPricingLoading(false);
     }
-  }, [t]);
+  }, [pricingErrorMessage]);
 
   const fetchContent = useCallback(async () => {
     const { data, error } = await supabaseHelpers.getContent();
@@ -155,11 +158,11 @@ export default function ServicesPricing() {
       setShippingRates({ domestic, international });
     } catch (err) {
       console.error('Shipping fetch failed', err);
-      setShippingError(t('shippingSection.domesticDisclaimer'));
+      setShippingError(shippingFallbackMessage);
     } finally {
       setShippingLoading(false);
     }
-  }, [t]);
+  }, [shippingFallbackMessage]);
 
   useEffect(() => {
     fetchPricing();
