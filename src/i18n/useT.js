@@ -10,6 +10,7 @@ const translations = {
       login:'Login',
       admin:'Admin Panel',
       dashboard:'Dashboard',
+      signOut:'Sign out',
       register:'Create account',
       whatsApp:'Chat on WhatsApp',
       quote:'Get a Quote'
@@ -22,6 +23,7 @@ const translations = {
       login:'Autentificare',
       admin:'Panou Admin',
       dashboard:'Panou client',
+      signOut:'Sign out',
       register:'Creează cont',
       whatsApp:'Chat pe WhatsApp',
       quote:'Cere ofertă'
@@ -34,6 +36,7 @@ const translations = {
       login:'Connexion',
       admin:'Panneau Admin',
       dashboard:'Tableau de bord',
+      signOut:'Sign out',
       register:'Créer un compte',
       whatsApp:'Discuter sur WhatsApp',
       quote:'Obtenir un devis'
@@ -46,6 +49,7 @@ const translations = {
       login:'Anmelden',
       admin:'Adminbereich',
       dashboard:'Dashboard',
+      signOut:'Sign out',
       register:'Konto erstellen',
       whatsApp:'Auf WhatsApp chatten',
       quote:'Angebot anfordern'
@@ -58,6 +62,7 @@ const translations = {
       login:'Accedi',
       admin:'Pannello Admin',
       dashboard:'Dashboard',
+      signOut:'Sign out',
       register:'Crea account',
       whatsApp:'Chat su WhatsApp',
       quote:'Richiedi un preventivo'
@@ -70,6 +75,7 @@ const translations = {
       login:'Iniciar sesión',
       admin:'Panel de administración',
       dashboard:'Panel',
+      signOut:'Sign out',
       register:'Crear cuenta',
       whatsApp:'Chatear por WhatsApp',
       quote:'Solicitar presupuesto'
@@ -82,6 +88,7 @@ const translations = {
       login:'Zaloguj się',
       admin:'Panel administratora',
       dashboard:'Panel',
+      signOut:'Sign out',
       register:'Utwórz konto',
       whatsApp:'Czat na WhatsApp',
       quote:'Poproś o wycenę'

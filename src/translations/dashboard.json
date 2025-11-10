@@ -473,6 +473,14 @@
         "FBM": "FBM",
         "Stock": "Stock",
         "Returns": "Returns"
+      },
+      "archive": {
+        "title": "Stock reports archive (monthly)",
+        "loading": "Loading archive…",
+        "empty": "No monthly stock reports yet.",
+        "label": "Stock PrepCenter France {month} {year}",
+        "meta": "{items} items • Total: {total} € • Generated: {date}",
+        "download": "Download"
       }
     },
     "ClientBalanceBar": {
@@ -1053,6 +1061,14 @@
         "FBM": "FBM",
         "Stock": "Stoc",
         "Returns": "Retururi"
+      },
+      "archive": {
+        "title": "Arhivă rapoarte de stoc (lunar)",
+        "loading": "Încărcăm arhiva…",
+        "empty": "Nu există încă rapoarte lunare.",
+        "label": "Stoc PrepCenter France {month} {year}",
+        "meta": "{items} produse • Total: {total} € • Generat: {date}",
+        "download": "Descarcă"
       }
     },
     "ClientBalanceBar": {
@@ -1633,6 +1649,14 @@
         "FBM": "FBM",
         "Stock": "Stock",
         "Returns": "Retours"
+      },
+      "archive": {
+        "title": "Archive des rapports de stock (mensuel)",
+        "loading": "Chargement de l’archive…",
+        "empty": "Aucun rapport mensuel pour l’instant.",
+        "label": "Stock PrepCenter France {month} {year}",
+        "meta": "{items} articles • Total : {total} € • Généré le {date}",
+        "download": "Télécharger"
       }
     },
     "ClientBalanceBar": {
@@ -2213,6 +2237,14 @@
         "FBM": "FBM",
         "Stock": "Bestand",
         "Returns": "Retouren"
+      },
+      "archive": {
+        "title": "Archiv Lagerberichte (monatlich)",
+        "loading": "Archiv wird geladen…",
+        "empty": "Noch keine monatlichen Lagerberichte.",
+        "label": "Bestand PrepCenter France {month} {year}",
+        "meta": "{items} Positionen • Summe: {total} € • Erstellt am {date}",
+        "download": "Herunterladen"
       }
     },
     "ClientBalanceBar": {
@@ -2793,6 +2825,14 @@
         "FBM": "FBM",
         "Stock": "Magazzino",
         "Returns": "Resi"
+      },
+      "archive": {
+        "title": "Archivio report stock (mensile)",
+        "loading": "Caricamento archivio…",
+        "empty": "Nessun report mensile disponibile.",
+        "label": "Stock PrepCenter France {month} {year}",
+        "meta": "{items} articoli • Totale: {total} € • Generato il {date}",
+        "download": "Scarica"
       }
     },
     "ClientBalanceBar": {
@@ -3373,6 +3413,14 @@
         "FBM": "FBM",
         "Stock": "Stock",
         "Returns": "Devoluciones"
+      },
+      "archive": {
+        "title": "Archivo de reportes de stock (mensual)",
+        "loading": "Cargando archivo…",
+        "empty": "Aún no hay reportes mensuales.",
+        "label": "Stock PrepCenter France {month} {year}",
+        "meta": "{items} artículos • Total: {total} € • Generado el {date}",
+        "download": "Descargar"
       }
     },
     "ClientBalanceBar": {

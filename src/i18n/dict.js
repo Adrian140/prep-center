@@ -12,7 +12,7 @@ export default {
     nav: { home: 'Acasă', services: 'Servicii & Prețuri', about: 'Despre', contact: 'Contact' },
     actions: {
       login: 'Autentificare', register: 'Creează cont', admin: 'Panou Admin',
-      dashboard: 'Tablou de bord', signOut: 'Deconectare',
+      dashboard: 'Tablou de bord', signOut: 'Sign out',
       whatsApp: 'Chat pe WhatsApp', quote: 'Cere ofertă'
     }
   },
@@ -20,7 +20,7 @@ export default {
     nav: { home: 'Accueil', services: 'Services & Tarifs', about: 'À propos', contact: 'Contact' },
     actions: {
       login: 'Connexion', register: 'Créer un compte', admin: "Panneau d'admin",
-      dashboard: 'Tableau de bord', signOut: 'Se déconnecter',
+      dashboard: 'Tableau de bord', signOut: 'Sign out',
       whatsApp: 'Discuter sur WhatsApp', quote: 'Demander un devis'
     }
   }

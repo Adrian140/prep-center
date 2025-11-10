@@ -191,7 +191,7 @@ const KIND_META = (t) => ({
 });
 
 export default function ClientExports() {
-  const { t } = useDashboardTranslation();
+  const { t, tp } = useDashboardTranslation();
   const { profile } = useSupabaseAuth();
 
   const [kind, setKind] = useState("FBA");
@@ -388,14 +388,14 @@ export default function ClientExports() {
   return (
     <div>
       <h2 className="text-xl font-semibold text-text-primary mb-4">
-        {t("exports.title")}
+        {t("ClientExports.title")}
       </h2>
-      <p className="text-sm text-text-secondary mb-4">{t("exports.desc")}</p>
+      <p className="text-sm text-text-secondary mb-4">{t("ClientExports.desc")}</p>
       
       <div className="flex flex-col sm:flex-row gap-3 sm:items-end mb-6">
         <div className="flex flex-col">
           <label className="text-xs text-text-secondary mb-1">
-            {t("exports.reportType")}
+            {t("ClientExports.reportType")}
           </label>
           <select
             className="border rounded px-3 py-2 w-56"
@@ -412,7 +412,7 @@ export default function ClientExports() {
         {kind !== "Stock" && (
           <div className="flex flex-col">
             <label className="text-xs text-text-secondary mb-1">
-              {t("exports.from")}
+              {t("ClientExports.from")}
             </label>
             <input
               type="date"
@@ -425,7 +425,7 @@ export default function ClientExports() {
 
         <div className="flex flex-col">
           <label className="text-xs text-text-secondary mb-1">
-            {t("exports.to")}
+            {t("ClientExports.to")}
           </label>
           <input
             type="date"
@@ -442,21 +442,21 @@ export default function ClientExports() {
           className="bg-primary text-white py-2 px-4 rounded-lg font-semibold hover:bg-primary-dark transition-colors disabled:opacity-60"
         >
           {busy
-            ? t("exports.generating")
-            : t("exports.btn").replace(
+            ? t("ClientExports.generating")
+            : t("ClientExports.btn").replace(
                 "{kind}",
-                t(`exports.kinds.${kind}`)
+                t(`ClientExports.kinds.${kind}`)
               )}
         </button>
       </div>
 
-      <div className="text-xs text-text-secondary mb-6">{t("exports.footnote")}</div>
+      <div className="text-xs text-text-secondary mb-6">{t("ClientExports.footnote")}</div>
 
       {/* Stock Archive Section - Fixed to use export_files */}
       <div className="mt-8 bg-white border rounded-lg p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold">
-            Stock reports archive (monthly)
+            {t("ClientExports.archive.title")}
           </h3>
         </div>
 
@@ -471,10 +471,12 @@ export default function ClientExports() {
         )}
 
         {archLoading ? (
-          <div className="text-sm text-text-secondary">Loading archive...</div>
+          <div className="text-sm text-text-secondary">
+            {t("ClientExports.archive.loading")}
+          </div>
         ) : stockArchive.length === 0 ? (
           <div className="text-sm text-text-secondary">
-            No monthly reports yet. Use "Generate Missing" to create archive for previous months.
+            {t("ClientExports.archive.empty")}
           </div>
         ) : (
           <ul className="divide-y">
@@ -487,23 +489,25 @@ export default function ClientExports() {
                 const mo = Number(m[2]);
                 const d = new Date(y, mo - 1, 1);
                 const monthName = d.toLocaleString(undefined, { month: 'long' });
-                label = `Stock PrepCenter France ${monthName} ${y}`;
+                label = tp("ClientExports.archive.label", { month: monthName, year: y });
               }
+              const metaText = tp("ClientExports.archive.meta", {
+                items: f.rows_count ?? 0,
+                total: Number(f.totals?.value || 0).toFixed(2),
+                date: new Date(f.created_at).toLocaleDateString()
+              });
 
               return (
                 <li key={f.id} className="py-2 flex items-center justify-between">
                   <div className="flex-1">
                     <div className="font-medium text-gray-900">{label}</div>
-                    <div className="text-sm text-gray-500">
-                      {f.rows_count} items • Total: {Number(f.totals?.value || 0).toFixed(2)} € • 
-                      Generated: {new Date(f.created_at).toLocaleDateString()}
-                    </div>
+                    <div className="text-sm text-gray-500">{metaText}</div>
                   </div>
                   <button
                     className="text-sm border rounded px-3 py-1 hover:bg-gray-50"
                     onClick={() => downloadArchived(f)}
                   >
-                    Download
+                    {t("ClientExports.archive.download")}
                   </button>
                 </li>
               );
