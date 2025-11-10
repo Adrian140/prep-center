@@ -176,4 +176,18 @@ export const servicesRo = {
   additionalLabelsClientUnits: 'Etichete Adiționale (Traduceri furnizate de client) (€0.20/unitate)',
   additionalLabelsTranslationUnits: 'Etichete Adiționale (Furnizăm noi traducerea) (€5.00 + €0.20/unitate)',
   otherLabelsUnits: 'Alte Etichete (coduri de transparență, etichete de avertizare, etc.) (€0.10/unitate)'
+  ,
+  shippingSection: {
+    domesticTitle: 'Tarife FBM – livrări interne',
+    domesticSubtitle: 'Expediere internă – Franța',
+    domesticDisclaimer: 'Aceste prețuri sunt orientative și pot fi actualizate fără notificare. Pentru tarife exacte, contactează-ne.',
+    internationalTitle: 'Tarife FBM – livrări internaționale',
+    internationalSubtitle: 'Alege destinația pentru a compara transportatorii',
+    internationalDisclaimer: 'Aceste tarife internaționale sunt orientative și pot fi actualizate fără notificare. Pentru tarife exacte, contactează-ne.',
+    dropdownLabel: 'Selectează destinația',
+    table: {
+      transporter: 'Transportator',
+      info: 'Info'
+    }
+  }
 };

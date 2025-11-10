@@ -176,4 +176,18 @@ export const servicesDe = {
   additionalLabelsClientUnits: 'Zusätzliche Etiketten (Übersetzungen vom Kunden bereitgestellt) (€0.20/Einheit)',
   additionalLabelsTranslationUnits: 'Zusätzliche Etiketten (Wir stellen die Übersetzung bereit) (€5.00 + €0.20/Einheit)',
   otherLabelsUnits: 'Andere Etiketten (Transparenz-Codes, Warnhinweise, etc.) (€0.10/Einheit)'
+  ,
+  shippingSection: {
+    domesticTitle: 'FBM Paketversand – Inland',
+    domesticSubtitle: 'Lieferungen innerhalb Frankreichs',
+    domesticDisclaimer: 'Diese Preise sind Richtwerte und können sich ändern. Für exakte Tarife kontaktieren Sie uns bitte.',
+    internationalTitle: 'FBM Paketversand – International',
+    internationalSubtitle: 'Ziel auswählen und Spediteure vergleichen',
+    internationalDisclaimer: 'Diese internationalen Preise sind Richtwerte und können sich ändern. Für exakte Tarife kontaktieren Sie uns bitte.',
+    dropdownLabel: 'Ziel auswählen',
+    table: {
+      transporter: 'Transporteur',
+      info: 'Info'
+    }
+  }
 };

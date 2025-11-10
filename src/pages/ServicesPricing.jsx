@@ -12,6 +12,15 @@ const CATEGORY_ORDER = [
   { id: 'Storage', key: 'storage' }
 ];
 
+const DOMESTIC_COLUMNS = ['0.25', '0.5', '1', '20'];
+const INTERNATIONAL_COLUMNS = {
+  'Germany/Austria': ['0.5', '1', '10', '20'],
+  Spain: ['0.5', '1', '10', '20'],
+  Italy: ['0.5', '1', '10', '20'],
+  Belgium: ['0.5', '1', '10', '20'],
+  'United Kingdom': ['0.5', '1', '2', '5']
+};
+
 const groupPricing = (rows = []) => {
   const grouped = {};
   rows.forEach((row) => {
@@ -35,6 +44,10 @@ export default function ServicesPricing() {
   const { t } = useServicesTranslation(currentLanguage);
   const [content, setContent] = useState({});
   const [pricingGroups, setPricingGroups] = useState({});
+  const [shippingRates, setShippingRates] = useState({ domestic: [], international: {} });
+  const [shippingRegion, setShippingRegion] = useState('Germany/Austria');
+  const [shippingError, setShippingError] = useState('');
+  const [shippingLoading, setShippingLoading] = useState(true);
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingError, setPricingError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -64,9 +77,42 @@ export default function ServicesPricing() {
     setContent(data || {});
   };
 
+  const fetchShipping = async () => {
+    setShippingLoading(true);
+    setShippingError('');
+    try {
+      const { data, error } = await supabaseHelpers.getFbmShippingRates();
+      if (error) throw error;
+      const domestic = [];
+      const international = {};
+      (data || []).forEach((row) => {
+        const entry = {
+          id: row.id,
+          provider: row.provider,
+          info: row.info || '',
+          color: row.color || '',
+          rates: row.rates || {}
+        };
+        if (row.category === 'domestic') {
+          domestic.push(entry);
+        } else {
+          if (!international[row.region]) international[row.region] = [];
+          international[row.region].push(entry);
+        }
+      });
+      setShippingRates({ domestic, international });
+    } catch (err) {
+      console.error('Shipping fetch failed', err);
+      setShippingError(t('shippingSection.domesticDisclaimer'));
+    } finally {
+      setShippingLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchPricing();
     fetchContent();
+    fetchShipping();
   }, []);
 
   const sections = useMemo(() => {
@@ -105,6 +151,20 @@ export default function ServicesPricing() {
       setPricingError(t('pricingSection.error'));
     }
   };
+
+  const renderShippingRow = (row, columns) => (
+    <tr key={row.id} className="border-t">
+      <td className="px-4 py-3 font-semibold" style={{ color: row.color || undefined }}>
+        {row.provider}
+      </td>
+      {columns.map((col) => (
+        <td key={col} className="px-4 py-3 text-center">
+          {row.rates?.[col] || '—'}
+        </td>
+      ))}
+      <td className="px-4 py-3 text-sm text-text-secondary">{row.info || '—'}</td>
+    </tr>
+  );
 
   return (
     <div className="min-h-screen py-20 bg-gradient-to-b from-white via-gray-50 to-white">
@@ -236,6 +296,105 @@ export default function ServicesPricing() {
               ))}
             </div>
           )}
+        </section>
+
+        <section className="space-y-12">
+          <div className="bg-white border rounded-2xl shadow-sm p-6 space-y-4">
+            <div>
+              <h2 className="text-2xl font-semibold text-text-primary">
+                {t('shippingSection.domesticTitle')}
+              </h2>
+              <p className="text-text-secondary">{t('shippingSection.domesticSubtitle')}</p>
+            </div>
+            {shippingLoading ? (
+              <div className="py-10 text-center text-text-secondary">
+                {t('pricingSection.loading')}
+              </div>
+            ) : (
+              <div className="overflow-auto border rounded-xl">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 text-text-secondary">
+                    <tr>
+                      <th className="px-4 py-3 text-left">
+                        {t('shippingSection.table.transporter')}
+                      </th>
+                      {DOMESTIC_COLUMNS.map((col) => (
+                        <th key={col} className="px-4 py-3 text-center">
+                          {col === '20' ? '20 kg' : `${col} kg`}
+                        </th>
+                      ))}
+                      <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shippingRates.domestic.map((row) => renderShippingRow(row, DOMESTIC_COLUMNS))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="text-xs text-text-light">
+              {t('shippingSection.domesticDisclaimer')}
+            </p>
+          </div>
+
+          <div className="bg-white border rounded-2xl shadow-sm p-6 space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-semibold text-text-primary">
+                  {t('shippingSection.internationalTitle')}
+                </h2>
+                <p className="text-text-secondary">
+                  {t('shippingSection.internationalSubtitle')}
+                </p>
+              </div>
+              <select
+                value={shippingRegion}
+                onChange={(e) => setShippingRegion(e.target.value)}
+                className="border rounded-lg px-4 py-2"
+                aria-label={t('shippingSection.dropdownLabel')}
+              >
+                {Object.keys(INTERNATIONAL_COLUMNS).map((region) => (
+                  <option key={region} value={region}>
+                    {region}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {shippingLoading ? (
+              <div className="py-10 text-center text-text-secondary">
+                {t('pricingSection.loading')}
+              </div>
+            ) : (
+              <div className="overflow-auto border rounded-xl">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 text-text-secondary">
+                    <tr>
+                      <th className="px-4 py-3 text-left">
+                        {t('shippingSection.table.transporter')}
+                      </th>
+                      {(INTERNATIONAL_COLUMNS[shippingRegion] || []).map((col) => (
+                        <th key={col} className="px-4 py-3 text-center">
+                          {col} kg
+                        </th>
+                      ))}
+                      <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(shippingRates.international[shippingRegion] || []).map((row) =>
+                      renderShippingRow(row, INTERNATIONAL_COLUMNS[shippingRegion] || [])
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {shippingError && (
+              <div className="text-xs text-red-500">{shippingError}</div>
+            )}
+            <p className="text-xs text-text-light">
+              {t('shippingSection.internationalDisclaimer')}
+            </p>
+          </div>
         </section>
       </div>
     </div>

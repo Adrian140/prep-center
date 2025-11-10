@@ -386,6 +386,30 @@ resetPassword: async (email) => {
       .in('id', ids);
   },
 
+  getFbmShippingRates: async () => {
+    return await supabase
+      .from('fbm_shipping_rates')
+      .select('*')
+      .order('category')
+      .order('region')
+      .order('position');
+  },
+
+  upsertFbmShippingRates: async (rows) => {
+    return await supabase
+      .from('fbm_shipping_rates')
+      .upsert(rows, { onConflict: 'id' })
+      .select();
+  },
+
+  deleteFbmShippingRates: async (ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) return { data: null, error: null };
+    return await supabase
+      .from('fbm_shipping_rates')
+      .delete()
+      .in('id', ids);
+  },
+
   // ===== Services =====
   getServices: async () => {
     return await supabase

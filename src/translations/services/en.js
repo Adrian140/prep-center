@@ -176,4 +176,18 @@ export const servicesEn = {
   additionalLabelsClientUnits: 'Additional Labels (Translations provided by client) (€0.20/unit)',
   additionalLabelsTranslationUnits: 'Additional Labels (We provide translation) (€5.00 + €0.20/unit)',
   otherLabelsUnits: 'Other Labels (Transparency codes, warning labels, etc.) (€0.10/unit)'
+,
+  shippingSection: {
+    domesticTitle: 'FBM Package Shipping Rates',
+    domesticSubtitle: 'Domestic shipping – France',
+    domesticDisclaimer: 'These prices are indicative and may not always be updated in real time. For exact shipping rates, please contact us.',
+    internationalTitle: 'FBM International Shipping Rates',
+    internationalSubtitle: 'Choose destination to compare transporters',
+    internationalDisclaimer: 'These international shipping prices are indicative and may not always be updated in real time. For exact rates, please contact us.',
+    dropdownLabel: 'Select destination',
+    table: {
+      transporter: 'Transporter',
+      info: 'Info'
+    }
+  }
 };

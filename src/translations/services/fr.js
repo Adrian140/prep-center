@@ -176,4 +176,18 @@ export const servicesFr = {
   additionalLabelsClientUnits: 'Étiquettes Supplémentaires (Traductions fournies par le client) (€0.20/unité)',
   additionalLabelsTranslationUnits: 'Étiquettes Supplémentaires (Nous fournissons la traduction) (€5.00 + €0.20/unité)',
   otherLabelsUnits: 'Autres Étiquettes (codes de transparence, étiquettes d\'avertissement, etc.) (€0.10/unité)'
+  ,
+  shippingSection: {
+    domesticTitle: 'Tarifs d’expédition FBM',
+    domesticSubtitle: 'Expéditions domestiques – France',
+    domesticDisclaimer: 'Ces tarifs sont indicatifs et peuvent évoluer. Pour des tarifs exacts, contactez-nous.',
+    internationalTitle: 'Tarifs d’expédition FBM – International',
+    internationalSubtitle: 'Choisissez la destination pour comparer les transporteurs',
+    internationalDisclaimer: 'Ces tarifs internationaux sont indicatifs et peuvent évoluer. Pour des tarifs exacts, contactez-nous.',
+    dropdownLabel: 'Sélectionnez la destination',
+    table: {
+      transporter: 'Transporteur',
+      info: 'Info'
+    }
+  }
 };

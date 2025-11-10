@@ -10,6 +10,7 @@ import { PlayCircle /* ...rest */ } from 'lucide-react';
 import AdminUserGuide from './AdminUserGuide';
 import { supabase } from '@/config/supabase';
 import AdminPricing from './AdminPricing';
+import AdminShippingRates from './AdminShippingRates';
 
 import {
   Settings, DollarSign, Package, FileText, Plus, Edit, Trash2, Save, X, LogOut,
@@ -555,7 +556,12 @@ const saveMaintenance = async (customState) => {
     </div>
   );
 
-const renderPricingTab = () => <AdminPricing />;
+const renderPricingTab = () => (
+  <div className="space-y-10">
+    <AdminPricing />
+    <AdminShippingRates />
+  </div>
+);
 
 
   const renderContentTab = () => (
