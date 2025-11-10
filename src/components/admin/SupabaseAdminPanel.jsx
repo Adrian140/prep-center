@@ -9,6 +9,7 @@ import AdminReceiving from './AdminReceiving';
 import { PlayCircle /* ...rest */ } from 'lucide-react';
 import AdminUserGuide from './AdminUserGuide';
 import { supabase } from '@/config/supabase';
+import AdminPricing from './AdminPricing';
 
 import {
   Settings, DollarSign, Package, FileText, Plus, Edit, Trash2, Save, X, LogOut,
