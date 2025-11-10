@@ -64,6 +64,18 @@ const tempId = () => {
   return `tmp-${rnd}`;
 };
 
+const ensureUuid = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback UUID v4-like generator
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export default function AdminPricing() {
   const { t } = useAdminTranslation();
   const [rows, setRows] = useState(emptyGroupState);
@@ -188,6 +200,8 @@ export default function AdminPricing() {
         };
         if (item.id && !item.id.startsWith('tmp-')) {
           record.id = item.id;
+        } else if (!item.id || item.id.startsWith('tmp-')) {
+          record.id = ensureUuid();
         }
         return record;
       });
