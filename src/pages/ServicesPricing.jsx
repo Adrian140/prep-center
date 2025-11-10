@@ -291,26 +291,9 @@ export default function ServicesPricing() {
           <p className="text-base md:text-lg text-text-secondary">
             {heroSubtitle}
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
-            <a
-              href="/contact"
-              className="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark w-full sm:w-auto"
-            >
-              {tCommon('getQuote')}
-              <ArrowRight className="w-4 h-4" />
-            </a>
-            <a
-              href="https://wa.me/33675116218"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-xl bg-accent text-white font-semibold hover:bg-accent-dark w-full sm:w-auto"
-            >
-              {tCommon('chatWhatsApp')}
-            </a>
-          </div>
         </header>
 
-        <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
+        <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-6 -mt-4">
           {pricingError && (
             <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
               {pricingError}
