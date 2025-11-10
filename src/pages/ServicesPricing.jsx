@@ -190,35 +190,65 @@ export default function ServicesPricing() {
               {t('pricingSection.empty')}
             </div>
           ) : (
-            <div className="grid gap-6">
+            <div className="space-y-6">
               {sections.map((section) => (
-                <div key={section.id} className="border rounded-xl p-5 bg-white shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
+                <section
+                  key={section.id}
+                  className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6"
+                  aria-labelledby={`pricing-${section.key}`}
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                     <div>
-                      <h3 className="text-lg font-semibold text-text-primary">
+                      <p className="text-xs uppercase tracking-wide text-primary">
+                        {t(`pricingSection.groups.${section.key}.title`) || section.id}
+                      </p>
+                      <h3
+                        id={`pricing-${section.key}`}
+                        className="text-2xl font-semibold text-text-primary"
+                      >
                         {section.id}
                       </h3>
                       <p className="text-sm text-text-secondary">
                         {t(`pricingSection.groups.${section.key}.subtitle`) || section.id}
                       </p>
                     </div>
-                    <span className="text-xs uppercase tracking-wide text-text-light">
-                      {t(`pricingSection.groups.${section.key}.title`) || section.id}
-                    </span>
+                    {section.items[0] && (
+                      <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 text-sm text-text-primary max-w-sm">
+                        <p className="font-semibold">
+                          {section.items[0].service_name}
+                        </p>
+                        <p>
+                          {section.items[0].price || t('pricingSection.contact')} / {section.items[0].unit}
+                        </p>
+                        <p className="text-xs text-text-secondary">
+                          {t('pricingSection.groups.custom.subtitle')}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <ul className="divide-y">
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
                     {section.items.map((item) => (
-                      <li key={item.id} className="py-3 flex items-center justify-between">
-                        <span className="text-text-primary font-medium">
+                      <article
+                        key={item.id}
+                        className="border border-gray-100 rounded-xl px-4 py-3 hover:border-primary/40 transition-colors"
+                      >
+                        <h4 className="text-base font-semibold text-text-primary">
                           {item.service_name}
-                        </span>
-                        <span className="text-text-secondary font-semibold">
-                          {item.price || t('pricingSection.contact')} / {item.unit}
-                        </span>
-                      </li>
+                        </h4>
+                        <p className="text-sm text-text-secondary">
+                          {t(`pricingSection.groups.${section.key}.title`) || section.id}
+                        </p>
+                        <p className="mt-3 text-lg font-semibold text-text-primary">
+                          {item.price || t('pricingSection.contact')}
+                          <span className="text-sm font-normal text-text-secondary">
+                            {' '}
+                            / {item.unit}
+                          </span>
+                        </p>
+                      </article>
                     ))}
-                  </ul>
-                </div>
+                  </div>
+                </section>
               ))}
             </div>
           )}
