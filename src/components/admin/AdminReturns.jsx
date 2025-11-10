@@ -1,21 +1,28 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Trash2, Edit3, Save, X, Eye } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import Section from '../common/Section';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 
 const pick = (obj, keys) => Object.fromEntries(keys.map(k => [k, obj[k]]));
 
+const defaultFormState = () => ({
+  return_date: '',
+  asin: '',
+  qty: '',
+  return_type: '',
+  status: 'Sigilat',
+  status_note: '',
+  obs_admin: '',
+});
+
 export default function AdminReturns({ rows = [], reload, companyId, profile }) {
   const [edit, setEdit] = useState(null);
-  const [form, setForm] = useState({
-    return_date: '',
-    asin: '',
-    qty: '',
-    return_type: '',
-    status: 'Sigilat',
-    status_note: '',
-    obs_admin: '',
-  });
+  const formStorageKey = companyId
+    ? `admin-returns-form-${companyId}`
+    : `admin-returns-form-${profile?.id || 'default'}`;
+  const defaultForm = useMemo(() => defaultFormState(), [companyId, profile?.id]);
+  const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
 
   const markClientObsSeen = async (id) => {
     const { error } = await supabase.from('returns').update({ obs_client_seen: true }).eq('id', id);
@@ -43,15 +50,7 @@ export default function AdminReturns({ rows = [], reload, companyId, profile }) 
     };
     const { error } = await supabase.from('returns').insert(payload);
     if (error) return alert(error.message);
-    setForm({
-      return_date: '',
-      asin: '',
-      qty: '',
-      return_type: '',
-      status: 'Sigilat',
-      status_note: '',
-      obs_admin: '',
-    });
+    setForm(() => defaultFormState());
     reload?.();
   };
 

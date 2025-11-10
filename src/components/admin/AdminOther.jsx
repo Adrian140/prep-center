@@ -3,6 +3,7 @@ import { Edit3, Save, Trash2, X } from 'lucide-react';
 import Section from '../common/Section';
 import { supabaseHelpers } from '@/config/supabase';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 
 const todayStr = () => {
   const d = new Date();
@@ -16,7 +17,10 @@ const fmt = (value) => Number.isFinite(value) ? value.toFixed(2) : '0.00';
 export default function AdminOther({ rows = [], reload, companyId, profile }) {
   const { t } = useAdminTranslation();
   const [edit, setEdit] = useState(null);
-  const [form, setForm] = useState({
+  const formStorageKey = companyId
+    ? `admin-other-form-${companyId}`
+    : `admin-other-form-${profile?.id || 'default'}`;
+  const [form, setForm] = useSessionStorage(formStorageKey, {
     service: '',
     service_date: todayStr(),
     unit_price: '',

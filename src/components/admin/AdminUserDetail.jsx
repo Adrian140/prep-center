@@ -11,6 +11,7 @@ import AdminFBM from './AdminFBM';
 import AdminStock from './AdminStock';
 import AdminReturns from './AdminReturns';
 import AdminOther from './AdminOther';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 
 export default function AdminUserDetail({ profile, onBack }) {
   const [companyId, setCompanyId] = useState(profile?.company_id || null);
@@ -25,8 +26,11 @@ export default function AdminUserDetail({ profile, onBack }) {
   // panouri “secundare” (billing / invoices)
   const [activePanel, setActivePanel] = useState(null);
 
-  // nou: tab-urile principale din dreapta clientului
-  const [activeSection, setActiveSection] = useState('fba'); // 'fba' | 'fbm' | 'other' | 'stock' | 'returns'
+  // nou: tab-urile principale din dreapta clientului (persistate per client)
+  const sectionStorageKey = profile?.id
+    ? `admin-user-section-${profile.id}`
+    : 'admin-user-section';
+  const [activeSection, setActiveSection] = useSessionStorage(sectionStorageKey, 'fba'); // 'fba' | 'fbm' | 'other' | 'stock' | 'returns'
 
   // Creează companie dacă lipsește și atașează profilul la ea
 const ensureCompany = async () => {

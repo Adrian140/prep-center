@@ -4,6 +4,7 @@ import { Trash2, Edit3, Save, X, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import Section from '../common/Section';
 import ProductPhotosModal from '../common/ProductPhotosModal';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 
 const pick = (obj, keys) => Object.fromEntries(keys.map(k => [k, obj[k]]));
 
@@ -20,7 +21,10 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
   const [qtyInputs, setQtyInputs] = useState({}); // { [id]: { dec: '', inc: '' } }
 
   // Form de adăugare (fără product_link)
-  const [form, setForm] = useState({
+  const formStorageKey = companyId
+    ? `admin-stock-form-${companyId}`
+    : `admin-stock-form-${profile?.id || 'default'}`;
+  const [form, setForm] = useSessionStorage(formStorageKey, {
     ean: '',
     qty: '',
     name: '',

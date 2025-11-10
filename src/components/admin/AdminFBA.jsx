@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Trash2, Edit3, Save, X, Star } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import Section from '../common/Section';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 
 const pick = (obj, keys) => Object.fromEntries(keys.map(k => [k, obj[k]]));
 
@@ -11,6 +12,14 @@ const todayStr = () => {
   const day = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${m}-${day}`;
 };
+
+const createDefaultForm = () => ({
+  service: 'FNSKU Labeling',
+  service_date: todayStr(),
+  unit_price: '',
+  units: '',
+  obs_admin: '',
+});
 
 // local presets (separate cheie pentru FBA)
 const PRESET_KEY = 'fba_unit_price_presets';
@@ -29,13 +38,11 @@ export default function AdminFBA({ rows = [], reload, companyId, profile }) {
   const [edit, setEdit] = useState(null);
   const [presets, setPresets] = useState(loadPresets());
 
-  const [form, setForm] = useState({
-    service: 'FNSKU Labeling',
-    service_date: todayStr(),
-    unit_price: '',
-    units: '',
-    obs_admin: '',
-  });
+  const formStorageKey = companyId
+    ? `admin-fba-form-${companyId}`
+    : `admin-fba-form-${profile?.id || 'default'}`;
+  const defaultForm = useMemo(() => createDefaultForm(), [companyId, profile?.id]);
+  const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
 
   useEffect(() => {
     // reîncarcă preseturile dacă s-au schimbat în alt tab
@@ -64,13 +71,7 @@ export default function AdminFBA({ rows = [], reload, companyId, profile }) {
     const { error } = await supabase.from('fba_lines').insert(payload);
     if (error) return alert(error.message);
     // reset form (data rămâne azi)
-    setForm({
-      service: 'FNSKU Labeling',
-      service_date: todayStr(),
-      unit_price: '',
-      units: '',
-      obs_admin: '',
-    });
+    setForm(() => createDefaultForm());
     reload?.();
   };
 
