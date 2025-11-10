@@ -489,7 +489,7 @@ export default function SupabaseClientActivity() {
                   {t('SupabaseClientActivity.totals')}
                 </td>
                 <td className="px-3 py-2 text-right">{activeTotals.qty}</td>
-                <td className="px-3 py-2 text-right">{fmt2(activeTotals.total)}</td>
+                <td className="px-3 py-2 text-right">{fmtMoneyHT(activeTotals.total)}</td>
                 <td className="px-3 py-2"></td>
               </tr>
             </tfoot>
@@ -498,7 +498,7 @@ export default function SupabaseClientActivity() {
 
         <div className="mt-3 text-sm text-text-secondary">
           Monthly totals — {qtyHeading}: <strong>{activeTotals.qty}</strong> · Total:{' '}
-          <strong>{fmt2(activeTotals.total)} €</strong>
+          <strong>{fmtMoneyHT(activeTotals.total)}</strong>
         </div>
       </div>
 

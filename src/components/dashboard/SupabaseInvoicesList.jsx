@@ -241,7 +241,7 @@ function SupabaseInvoicesList() {
               <div className="flex flex-col md:flex-row items-start md:items-center space-y-2 md:space-y-0 md:space-x-4">
   <div className="text-right">
     <p className="text-2xl font-bold text-text-primary">
-      €{parseFloat(invoice.amount || 0).toFixed(2)}
+      {tp('invoices.card.amount', { amount: parseFloat(invoice.amount || 0).toFixed(2) })}
     </p>
     {invoice.vat_amount && (
       <p className="text-sm text-text-secondary">

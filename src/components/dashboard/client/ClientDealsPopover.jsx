@@ -82,7 +82,7 @@ export default function ClientDealsPopover({ companyId }) {
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="font-medium truncate">{deal.title}</span>
                       <span className="text-xs text-text-secondary whitespace-nowrap">
-                        {deal.amount != null ? Number(deal.amount).toFixed(2) : '—'} €
+                        {deal.amount != null ? `${Number(deal.amount).toFixed(2)} € HT` : '—'}
                       </span>
                     </div>
                   </li>

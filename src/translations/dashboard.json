@@ -98,7 +98,7 @@
         "date": "Date",
         "due": "Due",
         "vat": "VAT: €{vat}",
-        "amount": "€{amount}",
+        "amount": "€{amount} HT",
         "view": "View",
         "download": "Download",
         "noFile": "No file"
@@ -479,15 +479,15 @@
         "loading": "Loading archive…",
         "empty": "No monthly stock reports yet.",
         "label": "Stock PrepCenter France {month} {year}",
-        "meta": "{items} items • Total: {total} € • Generated: {date}",
+        "meta": "{items} items • Total: {total} € HT • Generated: {date}",
         "download": "Download"
       }
     },
     "ClientBalanceBar": {
       "title": "Balance",
-      "current": "Current balance: €{amount}",
-      "prepayment": "Prepayment: €{amount}",
-      "outstanding": "Outstanding balance: €{amount}"
+      "current": "Current balance: €{amount} HT",
+      "prepayment": "Prepayment: €{amount} HT",
+      "outstanding": "Outstanding balance: €{amount} HT"
     },
     "ClientDeals": {
       "button": "View negotiated offers",
@@ -686,7 +686,7 @@
         "date": "Data",
         "due": "Scadența",
         "vat": "TVA: €{vat}",
-        "amount": "€{amount}",
+        "amount": "€{amount} HT",
         "view": "Vezi",
         "download": "Descarcă",
         "noFile": "Fără fișier"
@@ -1067,15 +1067,15 @@
         "loading": "Încărcăm arhiva…",
         "empty": "Nu există încă rapoarte lunare.",
         "label": "Stoc PrepCenter France {month} {year}",
-        "meta": "{items} produse • Total: {total} € • Generat: {date}",
+        "meta": "{items} produse • Total: {total} € HT • Generat: {date}",
         "download": "Descarcă"
       }
     },
     "ClientBalanceBar": {
       "title": "Sold",
-      "current": "Sold curent: €{amount}",
-      "prepayment": "Avans: €{amount}",
-      "outstanding": "Restanță: €{amount}"
+      "current": "Sold curent: €{amount} HT",
+      "prepayment": "Avans: €{amount} HT",
+      "outstanding": "Restanță: €{amount} HT"
     },
     "ClientDeals": {
       "button": "Vezi ofertele negociate",
@@ -1655,7 +1655,7 @@
         "loading": "Chargement de l’archive…",
         "empty": "Aucun rapport mensuel pour l’instant.",
         "label": "Stock PrepCenter France {month} {year}",
-        "meta": "{items} articles • Total : {total} € • Généré le {date}",
+        "meta": "{items} articles • Total : {total} € HT • Généré le {date}",
         "download": "Télécharger"
       }
     },
@@ -2243,7 +2243,7 @@
         "loading": "Archiv wird geladen…",
         "empty": "Noch keine monatlichen Lagerberichte.",
         "label": "Bestand PrepCenter France {month} {year}",
-        "meta": "{items} Positionen • Summe: {total} € • Erstellt am {date}",
+        "meta": "{items} Positionen • Summe: {total} € HT • Erstellt am {date}",
         "download": "Herunterladen"
       }
     },
@@ -2831,7 +2831,7 @@
         "loading": "Caricamento archivio…",
         "empty": "Nessun report mensile disponibile.",
         "label": "Stock PrepCenter France {month} {year}",
-        "meta": "{items} articoli • Totale: {total} € • Generato il {date}",
+        "meta": "{items} articoli • Totale: {total} € HT • Generato il {date}",
         "download": "Scarica"
       }
     },
@@ -3419,7 +3419,7 @@
         "loading": "Cargando archivo…",
         "empty": "Aún no hay reportes mensuales.",
         "label": "Stock PrepCenter France {month} {year}",
-        "meta": "{items} artículos • Total: {total} € • Generado el {date}",
+        "meta": "{items} artículos • Total: {total} € HT • Generado el {date}",
         "download": "Descargar"
       }
     },
