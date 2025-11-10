@@ -1,7 +1,20 @@
 // FILE: src/components/admin/AdminClientBillingProfiles.jsx
 import React, { useEffect, useState } from 'react';
 import { supabaseHelpers } from '../../config/supabase';
-import { Pencil, Trash2, Save, X } from 'lucide-react';
+import { Pencil, Trash2, Save, X, Plus } from 'lucide-react';
+
+const EMPTY_FORM = {
+  type: 'individual',
+  first_name: '',
+  last_name: '',
+  company_name: '',
+  cui: '',
+  vat_number: '',
+  country: '',
+  address: '',
+  city: '',
+  postal_code: ''
+};
 
 export default function AdminClientBillingProfiles({ profile, hideTitles = false }) {
   const userId = profile?.id;
@@ -10,6 +23,8 @@ export default function AdminClientBillingProfiles({ profile, hideTitles = false
   const [flash, setFlash] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({});
+  const [isCreating, setIsCreating] = useState(false);
+  const [newForm, setNewForm] = useState(EMPTY_FORM);
 
   const load = async () => {
     if (!userId) { setRows([]); setLoading(false); return; }
@@ -58,13 +73,134 @@ export default function AdminClientBillingProfiles({ profile, hideTitles = false
     load();
   };
 
+  const startCreate = () => {
+    setIsCreating(true);
+    setNewForm({
+      ...EMPTY_FORM,
+      country: profile?.country || 'FR'
+    });
+  };
+
+  const cancelCreate = () => {
+    setIsCreating(false);
+    setNewForm(EMPTY_FORM);
+  };
+
+  const saveCreate = async () => {
+    if (!userId) return;
+    setFlash('');
+    const payload = { ...newForm, user_id: userId };
+    const { error } = await supabaseHelpers.createBillingProfile(payload);
+    if (error) {
+      setFlash(error.message);
+      return;
+    }
+    setFlash('Profile added.');
+    setIsCreating(false);
+    setNewForm(EMPTY_FORM);
+    load();
+  };
+
+  const renderFormFields = (state, onChange) => (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label className="block text-xs mb-1">Type</label>
+        <select
+          className="w-full border rounded px-2 py-2"
+          value={state.type}
+          onChange={(e) => onChange('type', e.target.value)}
+        >
+          <option value="individual">individual</option>
+          <option value="company">company</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs mb-1">First name</label>
+        <input
+          className="w-full border rounded px-2 py-2"
+          value={state.first_name}
+          onChange={(e) => onChange('first_name', e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="block text-xs mb-1">Last name</label>
+        <input
+          className="w-full border rounded px-2 py-2"
+          value={state.last_name}
+          onChange={(e) => onChange('last_name', e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="block text-xs mb-1">Company name</label>
+        <input
+          className="w-full border rounded px-2 py-2"
+          value={state.company_name}
+          onChange={(e) => onChange('company_name', e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="block text-xs mb-1">CUI</label>
+        <input
+          className="w-full border rounded px-2 py-2"
+          value={state.cui}
+          onChange={(e) => onChange('cui', e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="block text-xs mb-1">VAT number</label>
+        <input
+          className="w-full border rounded px-2 py-2"
+          value={state.vat_number}
+          onChange={(e) => onChange('vat_number', e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="block text-xs mb-1">Country</label>
+        <input
+          className="w-full border rounded px-2 py-2"
+          value={state.country}
+          onChange={(e) => onChange('country', e.target.value)}
+        />
+      </div>
+      <div className="md:col-span-2">
+        <label className="block text-xs mb-1">Address</label>
+        <input
+          className="w-full border rounded px-2 py-2"
+          value={state.address}
+          onChange={(e) => onChange('address', e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="block text-xs mb-1">City</label>
+        <input
+          className="w-full border rounded px-2 py-2"
+          value={state.city}
+          onChange={(e) => onChange('city', e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="block text-xs mb-1">Postal code</label>
+        <input
+          className="w-full border rounded px-2 py-2"
+          value={state.postal_code}
+          onChange={(e) => onChange('postal_code', e.target.value)}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
-      {!hideTitles && (
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Billing details</h3>
-        </div>
-      )}
+      <div className="flex items-center justify-between">
+        {!hideTitles && <h3 className="text-lg font-semibold">Billing details</h3>}
+        <button
+          onClick={startCreate}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50"
+        >
+          <Plus className="w-4 h-4" />
+          Add profile
+        </button>
+      </div>
 
       {flash && (
         <div
@@ -80,100 +216,55 @@ export default function AdminClientBillingProfiles({ profile, hideTitles = false
         </div>
       )}
 
+      {isCreating && (
+        <div className="border rounded-xl p-5 bg-white">
+          <div className="flex items-center justify-between mb-4">
+            <p className="font-semibold">Add billing profile</p>
+            <button onClick={cancelCreate} className="text-sm text-gray-500 hover:text-gray-700">
+              Cancel
+            </button>
+          </div>
+          <div className="space-y-4">
+            {renderFormFields(newForm, (field, value) =>
+              setNewForm((prev) => ({ ...prev, [field]: value }))
+            )}
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={saveCreate}
+                className="px-4 py-2 bg-green-600 text-white rounded flex items-center"
+              >
+                <Save className="w-4 h-4 mr-1" /> Save
+              </button>
+              <button
+                onClick={cancelCreate}
+                className="px-4 py-2 bg-gray-200 rounded flex items-center"
+              >
+                <X className="w-4 h-4 mr-1" /> Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="text-sm text-gray-500">Loading…</div>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-gray-500">No billing profiles saved by this user.</p>
+        <div className="text-sm text-gray-500">
+          No billing profiles saved by this user.{' '}
+          {!isCreating && (
+            <button className="text-primary underline" onClick={startCreate}>
+              Create one
+            </button>
+          )}
+        </div>
       ) : (
         rows.map((r) => (
           <div key={r.id} className="border rounded-xl p-5 bg-white">
             {editingId === r.id ? (
               <div className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs mb-1">Type</label>
-                    <select
-                      className="w-full border rounded px-2 py-2"
-                      value={form.type}
-                      onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}
-                    >
-                      <option value="individual">individual</option>
-                      <option value="company">company</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs mb-1">First name</label>
-                    <input
-                      className="w-full border rounded px-2 py-2"
-                      value={form.first_name}
-                      onChange={(e) => setForm((s) => ({ ...s, first_name: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs mb-1">Last name</label>
-                    <input
-                      className="w-full border rounded px-2 py-2"
-                      value={form.last_name}
-                      onChange={(e) => setForm((s) => ({ ...s, last_name: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs mb-1">Company name</label>
-                    <input
-                      className="w-full border rounded px-2 py-2"
-                      value={form.company_name}
-                      onChange={(e) => setForm((s) => ({ ...s, company_name: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs mb-1">CUI</label>
-                    <input
-                      className="w-full border rounded px-2 py-2"
-                      value={form.cui}
-                      onChange={(e) => setForm((s) => ({ ...s, cui: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs mb-1">VAT number</label>
-                    <input
-                      className="w-full border rounded px-2 py-2"
-                      value={form.vat_number}
-                      onChange={(e) => setForm((s) => ({ ...s, vat_number: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs mb-1">Country</label>
-                    <input
-                      className="w-full border rounded px-2 py-2"
-                      value={form.country}
-                      onChange={(e) => setForm((s) => ({ ...s, country: e.target.value }))}
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-xs mb-1">Address</label>
-                    <input
-                      className="w-full border rounded px-2 py-2"
-                      value={form.address}
-                      onChange={(e) => setForm((s) => ({ ...s, address: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs mb-1">City</label>
-                    <input
-                      className="w-full border rounded px-2 py-2"
-                      value={form.city}
-                      onChange={(e) => setForm((s) => ({ ...s, city: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs mb-1">Postal code</label>
-                    <input
-                      className="w-full border rounded px-2 py-2"
-                      value={form.postal_code}
-                      onChange={(e) => setForm((s) => ({ ...s, postal_code: e.target.value }))}
-                    />
-                  </div>
-                </div>
+                {renderFormFields(form, (field, value) =>
+                  setForm((prev) => ({ ...prev, [field]: value }))
+                )}
 
                 <div className="flex gap-2 justify-end">
                   <button
