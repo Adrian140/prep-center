@@ -1,5 +1,4 @@
 import React from 'react';
-import { Helmet } from 'react-helmet';
 import { useAboutTranslation } from '../translations/about';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Award, Users, Clock, Shield } from 'lucide-react';
@@ -48,15 +47,6 @@ const images = [
     <div className="min-h-screen py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <Helmet>
-          <title>
-            About Prep Center France | Amazon FBA Prep & FBM Fulfillment in Europe
-          </title>
-          <meta
-            name="description"
-            content="Learn more about Prep Center France — Amazon FBA prep and FBM fulfillment center helping EU sellers with 24h turnaround, labeling, storage, and shipping."
-          />
-        </Helmet>
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-text-primary mb-6">
             {t('pageTitle')}
@@ -79,56 +69,52 @@ const images = [
               <p>{t('ourStoryParagraph3')}</p>
             </div>
           </div>
+
+          {/* Warehouse Imagery */}
+          <div className="space-y-4">
+            <div className="relative rounded-xl overflow-hidden aspect-video flex items-center justify-center bg-black">
+              <img
+                src={images[currentImageIndex]}
+                alt={t('warehouseFacilityAlt')}
+                className="w-full h-full object-contain transition-opacity duration-1000 ease-in-out"
+              />
+              <div className="flex justify-center mt-4 absolute bottom-2 w-full">
+                <a
+                  href="https://www.tiktok.com/@prepcenterfrance?lang=ro-RO"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-white bg-black/60 px-3 py-2 rounded-lg hover:bg-black/80 transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-6 h-6"
+                  >
+                    <path d="M12.525 0H11.475C10.118 0 9.005 1.113 9.005 2.475v19.05c0 1.362 1.113 2.475 2.475 2.475h1.05c1.362 0 2.475-1.113 2.475-2.475V12.525c0-1.362-1.113-2.475-2.475-2.475H11.475V0zM18.525 0H17.475C16.118 0 15.005 1.113 15.005 2.475v19.05c0 1.362 1.113 2.475 2.475 2.475h1.05c1.362 0 2.475-1.113 2.475-2.475V12.525c0-1.362-1.113-2.475-2.475-2.475H17.475V0zM6.525 0H5.475C4.118 0 3.005 1.113 3.005 2.475v19.05c0 1.362 1.113 2.475 2.475 2.475h1.05c1.362 0 2.475-1.113 2.475-2.475V12.525c0-1.362-1.113-2.475-2.475-2.475H6.525V0z"></path>
+                  </svg>
+                  <span className="ml-2 font-medium">Follow us on TikTok</span>
+                </a>
+              </div>
+            </div>
+            <p className="text-text-secondary">
+              <strong>Main warehouse:</strong> 5 Rue des Enclos, 35350 La Gouesnière, France
+            </p>
+          </div>
         </div>
 
         <section className="mb-20">
-          <h2 className="text-3xl font-bold text-text-primary mb-6">
-            Why It Matters for Sellers
-          </h2>
+          <h2 className="text-3xl font-bold text-text-primary mb-6">Why It Matters for Sellers</h2>
           <p className="text-text-secondary text-lg">
-            Our Amazon FBA prep center in France helps sellers reduce restocking
-            delays, minimize FBA errors, and maintain full compliance with European
-            packaging and labeling standards. Each shipment includes detailed photo
-            documentation and live tracking updates. We support multiple EU
-            marketplaces and communicate daily in English, French, and Romanian.
+            Our Amazon FBA prep center in France helps sellers reduce restocking delays, minimize
+            FBA errors, and maintain full compliance with European packaging and labeling
+            standards. Each shipment includes detailed photo documentation and live tracking
+            updates. We support multiple EU marketplaces and communicate daily in English, French,
+            and Romanian, ensuring smooth collaboration for every project.
           </p>
-            </div>
-          </div>
-
-          {/* Image Placeholder */}
-        {/* Image Placeholder */}
-<div className="relative rounded-xl overflow-hidden aspect-video flex items-center justify-center bg-black">
-  <img
-    src={images[currentImageIndex]} 
-    alt={t('warehouseFacilityAlt')}
-    className="w-full h-full object-contain transition-opacity duration-1000 ease-in-out"
-  />
-
-  {/* TikTok Icon Sub Image */}
-  <div className="flex justify-center mt-4 absolute bottom-2 w-full">
-    <a
-      href="https://www.tiktok.com/@prepcenterfrance?lang=ro-RO"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center text-white bg-black/60 px-3 py-2 rounded-lg hover:bg-black/80 transition-colors"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="28"
-        height="28"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        className="w-6 h-6"
-      >
-        <path d="M12.525 0H11.475C10.118 0 9.005 1.113 9.005 2.475v19.05c0 1.362 1.113 2.475 2.475 2.475h1.05c1.362 0 2.475-1.113 2.475-2.475V12.525c0-1.362-1.113-2.475-2.475-2.475H11.475V0zM18.525 0H17.475C16.118 0 15.005 1.113 15.005 2.475v19.05c0 1.362 1.113 2.475 2.475 2.475h1.05c1.362 0 2.475-1.113 2.475-2.475V12.525c0-1.362-1.113-2.475-2.475-2.475H17.475V0zM6.525 0H5.475C4.118 0 3.005 1.113 3.005 2.475v19.05c0 1.362 1.113 2.475 2.475 2.475h1.05c1.362 0 2.475-1.113 2.475-2.475V12.525c0-1.362-1.113-2.475-2.475-2.475H6.525V0z"></path>
-      </svg>
-      <span className="ml-2 font-medium">Follow us on TikTok</span>
-    </a>
-  </div>
-</div>
-
-
-        </div>
+        </section>
         
         {/* Stats */}
         <section className="mb-20">
@@ -233,27 +219,26 @@ const images = [
 
         {/* CTA */}
         <section className="text-center">
-          <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl p-12">
-            <h2 className="text-3xl font-bold text-text-primary mb-6">
-              {t('readyPartner')}
-            </h2>
-            <p className="text-xl text-text-secondary mb-8">
-              {t('joinCommunity')}
+          <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl p-12 space-y-6">
+            <h2 className="text-3xl font-bold text-text-primary">Ready to Partner with Us?</h2>
+            <p className="text-xl text-text-secondary">
+              Streamline your logistics with Prep Center France — your trusted partner for Amazon
+              FBA and FBM fulfillment in Europe.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a
-              href="/contact"
-              className="bg-primary text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-primary-dark transition-colors text-center"
-            >
-                {t('getStartedToday')}
-            </a>
+              <a
+                href="https://prep-center.eu/contact"
+                className="bg-primary text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-primary-dark transition-colors text-center"
+              >
+                Get a Quote
+              </a>
               <a
                 href="https://wa.me/33675116218"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-accent text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-accent-dark transition-colors"
+                className="bg-accent text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-accent-dark transition-colors text-center"
               >
-                {t('chatWhatsApp')}
+                Chat on WhatsApp
               </a>
             </div>
           </div>
