@@ -1,18 +1,27 @@
 export const servicesFr = {
   // Page Header
-  pageTitle: 'Services et Tarifs de Préparation Amazon FBA en France – Transparents et Compétitifs',
-  pageSubtitle: 'Tarification claire pour la préparation Amazon FBA en France : réception, contrôle qualité, étiquetage FNSKU, emballage plastique et expédition rapide vers les centres de fulfillment européens.',
+  pageTitle: 'Services et Tarifs Amazon FBA en France',
+  pageSubtitle: 'Préparation professionnelle, étiquetage, stockage et expédition dans toute l’Europe avec une tarification transparente.',
   
   pricingSection: {
     title: 'Tarifs mis à jour en temps réel',
-    description: 'Ces tarifs se mettent à jour instantanément dès que vous les validez dans le panneau d’administration.',
+    description: 'Tarifs actualisés en direct par notre équipe opérationnelle pour une transparence totale.',
     export: 'Exporter les tarifs en PDF',
-    sync: 'Rafraîchir les tarifs',
+    sync: 'Synchroniser sur le site',
+    syncing: 'Synchronisation…',
     loading: 'Chargement des tarifs…',
     empty: 'Les tarifs sont en cours de configuration. Revenez bientôt.',
     error: 'Impossible de charger les tarifs. Merci de réessayer.',
     contact: 'Nous contacter',
     updated: 'Dernière actualisation : {date}',
+    ctaFba: 'Demander un devis FBA',
+    ctaFbm: 'Ajouter une plateforme FBM',
+    ctaStorage: 'Contacter pour les options de stockage',
+    ctaExtra: 'Demander un service personnalisé',
+    ctaResponse: 'Temps moyen de réponse : 1 h',
+    finalBadge: 'Synchronisation instantanée',
+    finalTitle: 'Obtenez vos tarifs mis à jour instantanément.',
+    finalSubtitle: 'Exportez un PDF prêt à partager ou synchronisez les nouveaux tarifs sur le site en un clic.',
     groups: {
       fba: {
         title: 'Services FBA Prep',

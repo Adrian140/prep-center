@@ -1,18 +1,27 @@
 export const servicesDe = {
   // Page Header
-  pageTitle: 'Amazon FBA Prep Services & Preise in Frankreich – Transparent & Wettbewerbsfähig',
-  pageSubtitle: 'Klare Preise für Amazon FBA Prep in Frankreich: Empfang, Qualitätskontrolle, FNSKU-Etikettierung, Polyverpackung und schneller Versand zu europäischen Fulfillment-Zentren.',
+  pageTitle: 'Amazon FBA Services & Preise in Frankreich',
+  pageSubtitle: 'Professionelle Vorbereitung, Etikettierung, Lagerung und Versand in ganz Europa mit transparenten Tarifen.',
   
   pricingSection: {
     title: 'Live-Preise in Echtzeit',
-    description: 'Alle Tarife aktualisieren sich sofort, sobald sie im Admin-Portal gespeichert werden.',
+    description: 'Tarife werden in Echtzeit direkt von unserem Operationsteam gepflegt – für maximale Transparenz.',
     export: 'Preise als PDF exportieren',
-    sync: 'Preise aktualisieren',
+    sync: 'Auf Website synchronisieren',
+    syncing: 'Synchronisiere…',
     loading: 'Preise werden geladen…',
     empty: 'Die Preisstruktur wird derzeit vorbereitet. Bitte bald wieder nachsehen.',
     error: 'Preise konnten nicht geladen werden. Bitte aktualisieren.',
     contact: 'Kontaktieren Sie uns',
     updated: 'Letzte Aktualisierung: {date}',
+    ctaFba: 'FBA-Angebot anfordern',
+    ctaFbm: 'FBM-Plattform hinzufügen',
+    ctaStorage: 'Kontakt zu Lageroptionen',
+    ctaExtra: 'Individuellen Service anfragen',
+    ctaResponse: 'Durchschnittliche Antwortzeit: 1 Std.',
+    finalBadge: 'Sofort-Sync',
+    finalTitle: 'Erhalten Sie sofort die aktualisierten Preise.',
+    finalSubtitle: 'Exportieren Sie ein teilbares PDF oder synchronisieren Sie die neuen Preise mit einem Klick auf die Website.',
     groups: {
       fba: {
         title: 'FBA Prep Services',

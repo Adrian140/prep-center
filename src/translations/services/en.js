@@ -1,18 +1,27 @@
 export const servicesEn = {
   // Page Header
-  pageTitle: 'Amazon FBA Prep Services & Pricing in France – Transparent & Competitive',
-  pageSubtitle: 'Clear pricing for Amazon FBA prep in France: reception, quality control, FNSKU labeling, polybagging, storage and fast shipping to EU fulfillment centers.',
+  pageTitle: 'Amazon FBA Prep Services & Pricing France',
+  pageSubtitle: 'Professional prep, labeling, storage and shipping across Europe with transparent, ready-to-scale pricing.',
   
   pricingSection: {
     title: 'Live services & pricing',
-    description: 'Every rate below updates instantly after you confirm it inside the admin portal.',
+    description: 'Published in real time straight from our operations team for maximum transparency.',
     export: 'Export pricing PDF',
-    sync: 'Refresh pricing',
+    sync: 'Sync to Website',
+    syncing: 'Syncing…',
     loading: 'Loading pricing…',
     empty: 'Pricing is being configured. Please check back soon.',
     error: 'Could not load pricing. Please refresh.',
     contact: 'Contact us',
     updated: 'Last refresh: {date}',
+    ctaFba: 'Request FBA Quote',
+    ctaFbm: 'Add FBM Platform',
+    ctaStorage: 'Contact for Storage Options',
+    ctaExtra: 'Request Custom Service',
+    ctaResponse: 'Average response time: 1h',
+    finalBadge: 'Instant Sync',
+    finalTitle: 'Get your updated pricing instantly.',
+    finalSubtitle: 'Export a ready-to-share PDF or sync the latest rates to the website in one click.',
     groups: {
       fba: {
         title: 'FBA Prep Services',

@@ -1,18 +1,27 @@
 export const servicesRo = {
   // Page Header
-  pageTitle: 'Servicii și Prețuri de Preparare Amazon FBA în Franța – Transparente și Competitive',
-  pageSubtitle: 'Prețuri clare pentru prepararea Amazon FBA în Franța: recepție, control calitate, etichetare FNSKU, ambalare și expediere rapidă către centrele de fulfillment europene.',
+  pageTitle: 'Servicii și Tarife Amazon FBA în Franța',
+  pageSubtitle: 'Pregătire profesională, etichetare, depozitare și expediere în toată Europa cu tarife transparente și actualizate.',
   
   pricingSection: {
     title: 'Tarife actualizate în timp real',
-    description: 'Tarifele de mai jos se actualizează instant după ce le salvezi în portalul de administrare.',
+    description: 'Tarife actualizate în timp real de echipa operațională pentru transparență maximă.',
     export: 'Exportă PDF cu tarife',
-    sync: 'Reîmprospătează tarifele',
+    sync: 'Sincronizează pe site',
+    syncing: 'Se sincronizează…',
     loading: 'Încărcăm tarifele…',
     empty: 'Tarifele sunt în curs de configurare. Revino în scurt timp.',
     error: 'Nu am putut încărca tarifele. Reîncearcă.',
     contact: 'Solicită ofertă',
     updated: 'Ultima reîmprospătare: {date}',
+    ctaFba: 'Solicită ofertă FBA',
+    ctaFbm: 'Adaugă platformă FBM',
+    ctaStorage: 'Contactează-ne pentru depozitare',
+    ctaExtra: 'Cere serviciu personalizat',
+    ctaResponse: 'Timp mediu de răspuns: 1 h',
+    finalBadge: 'Sync instant',
+    finalTitle: 'Primești tarifele actualizate instantaneu.',
+    finalSubtitle: 'Exportă un PDF gata de trimis sau sincronizează tarifele direct pe site cu un singur click.',
     groups: {
       fba: {
         title: 'Servicii FBA Prep',

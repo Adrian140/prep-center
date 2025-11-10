@@ -1,8 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Star, FileDown } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Star,
+  FileDown,
+  ArrowRight,
+  RefreshCcw,
+  Tag,
+  Package,
+  Boxes,
+  Truck,
+  Archive,
+  Shield,
+  Layers
+} from 'lucide-react';
 import { supabaseHelpers } from '../config/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useServicesTranslation } from '../translations/services';
+import { useTranslation } from '../translations';
 import { exportPricingPdf } from '../utils/pricingPdf';
 
 const CATEGORY_ORDER = [
@@ -19,6 +32,43 @@ const INTERNATIONAL_COLUMNS = {
   Italy: ['0.5', '1', '10', '20'],
   Belgium: ['0.5', '1', '10', '20'],
   'United Kingdom': ['0.5', '1', '2', '5']
+};
+
+const PROVIDER_BADGES = {
+  Colissimo: { bg: '#FEF3C7', text: '#92400E' },
+  'Colis Privé': { bg: '#E0F2FE', text: '#075985' },
+  UPS: { bg: '#EDE9FE', text: '#5B21B6' },
+  'Mondial Relay': { bg: '#FDE68A', text: '#92400E' },
+  Chronopost: { bg: '#DBEAFE', text: '#1D4ED8' },
+  FedEx: { bg: '#F3E8FF', text: '#6B21A8' }
+};
+
+const SECTION_STYLES = {
+  fba: {
+    wrapper: 'bg-blue-50 border-blue-100',
+    pill: 'bg-blue-100 text-blue-900',
+    icon: 'text-blue-900'
+  },
+  fbm: {
+    wrapper: 'bg-slate-50 border-slate-200',
+    pill: 'bg-slate-200 text-slate-900',
+    icon: 'text-slate-900'
+  },
+  extra: {
+    wrapper: 'bg-green-50 border-green-100',
+    pill: 'bg-green-100 text-green-900',
+    icon: 'text-green-900'
+  },
+  storage: {
+    wrapper: 'bg-gray-50 border-gray-100',
+    pill: 'bg-gray-200 text-gray-900',
+    icon: 'text-gray-900'
+  },
+  custom: {
+    wrapper: 'bg-white border-gray-100',
+    pill: 'bg-gray-100 text-gray-900',
+    icon: 'text-gray-900'
+  }
 };
 
 const groupPricing = (rows = []) => {
@@ -42,6 +92,7 @@ const groupPricing = (rows = []) => {
 export default function ServicesPricing() {
   const { currentLanguage } = useLanguage();
   const { t } = useServicesTranslation(currentLanguage);
+  const { t: tCommon } = useTranslation();
   const [content, setContent] = useState({});
   const [pricingGroups, setPricingGroups] = useState({});
   const [shippingRates, setShippingRates] = useState({ domestic: [], international: {} });
@@ -51,8 +102,9 @@ export default function ServicesPricing() {
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingError, setPricingError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [syncing, setSyncing] = useState(false);
 
-  const fetchPricing = async () => {
+  const fetchPricing = useCallback(async () => {
     setPricingLoading(true);
     setPricingError('');
     try {
@@ -66,18 +118,18 @@ export default function ServicesPricing() {
     } finally {
       setPricingLoading(false);
     }
-  };
+  }, [t]);
 
-  const fetchContent = async () => {
+  const fetchContent = useCallback(async () => {
     const { data, error } = await supabaseHelpers.getContent();
     if (error) {
       console.error('Content fetch failed', error);
       return;
     }
     setContent(data || {});
-  };
+  }, []);
 
-  const fetchShipping = async () => {
+  const fetchShipping = useCallback(async () => {
     setShippingLoading(true);
     setShippingError('');
     try {
@@ -107,18 +159,19 @@ export default function ServicesPricing() {
     } finally {
       setShippingLoading(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     fetchPricing();
     fetchContent();
     fetchShipping();
-  }, []);
+  }, [fetchPricing, fetchContent, fetchShipping]);
 
   const sections = useMemo(() => {
     const manualCategories = CATEGORY_ORDER.filter((entry) => pricingGroups[entry.id]?.length);
-    const otherCategories = Object.keys(pricingGroups)
-      .filter((category) => !CATEGORY_ORDER.some((entry) => entry.id === category));
+    const otherCategories = Object.keys(pricingGroups).filter(
+      (category) => !CATEGORY_ORDER.some((entry) => entry.id === category)
+    );
     const combined = [
       ...manualCategories,
       ...otherCategories.map((category) => ({ id: category, key: 'custom' }))
@@ -128,16 +181,6 @@ export default function ServicesPricing() {
       items: pricingGroups[entry.id] || []
     }));
   }, [pricingGroups]);
-
-  const findPrice = (category, serviceName) => {
-    const entry = (pricingGroups[category] || []).find(
-      (row) => row.service_name?.toLowerCase() === serviceName.toLowerCase()
-    );
-    return entry?.price || null;
-  };
-
-  const fnskuPrice = findPrice('FBA Prep Services', 'FNSKU Labeling') || '€0.45';
-  const standardRate = findPrice('FBA Prep Services', 'Polybagging') || '€0.50';
 
   const handleExport = async () => {
     if (!Object.keys(pricingGroups).length) {
@@ -152,24 +195,31 @@ export default function ServicesPricing() {
     }
   };
 
-  const PROVIDER_ACCENTS = {
-    'Colissimo': '#F97316',
-    'Colis Privé': '#2563EB',
-    'UPS': '#9B5DE5',
-    'Mondial Relay': '#FACC15',
-    'Chronopost': '#4F46E5',
-    'FedEx': '#EA580C'
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await Promise.all([fetchPricing(), fetchShipping(), fetchContent()]);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const getServiceIcon = (name = '') => {
+    const label = name.toLowerCase();
+    if (label.includes('label')) return Tag;
+    if (label.includes('polybag') || label.includes('pack')) return Package;
+    if (label.includes('storage') || label.includes('pallet')) return Archive;
+    if (label.includes('ship') || label.includes('fbm') || label.includes('order')) return Truck;
+    if (label.includes('insert') || label.includes('custom')) return Boxes;
+    if (label.includes('quality') || label.includes('check')) return Shield;
+    return Layers;
   };
 
   const renderShippingRow = (row, columns) => {
-    const accent = PROVIDER_ACCENTS[row.provider] || '#1F2937';
+    const palette = PROVIDER_BADGES[row.provider] || { bg: row.color || 'transparent', text: '#111827' };
     return (
-      <tr
-        key={row.id}
-        className="border-t"
-        style={{ backgroundColor: row.color || 'transparent' }}
-      >
-        <td className="px-4 py-3 font-semibold" style={{ color: accent }}>
+      <tr key={row.id} className="border-t" style={{ backgroundColor: palette.bg }}>
+        <td className="px-4 py-3 font-semibold" style={{ color: palette.text }}>
           {row.provider}
         </td>
         {columns.map((col) => (
@@ -182,43 +232,100 @@ export default function ServicesPricing() {
     );
   };
 
+  const renderShippingCards = (rows, columns) => (
+    <div className="md:hidden space-y-4">
+      {rows.map((row) => {
+        const palette = PROVIDER_BADGES[row.provider] || { bg: row.color || '#F8FAFC', text: '#111827' };
+        return (
+          <article
+            key={row.id}
+            className="rounded-2xl border shadow-sm p-4"
+            style={{ backgroundColor: palette.bg }}
+          >
+            <div className="flex items-center justify-between">
+              <p className="font-semibold" style={{ color: palette.text }}>
+                {row.provider}
+              </p>
+              <span className="text-xs uppercase text-text-light">
+                {t('shippingSection.table.transporter')}
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {columns.map((col) => (
+                <div key={col}>
+                  <p className="text-xs text-text-light">{col.includes('kg') ? col : `${col} kg`}</p>
+                  <p className="text-base font-semibold text-text-primary">
+                    {row.rates?.[col] || '—'}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {row.info && <p className="mt-3 text-sm text-text-secondary">{row.info}</p>}
+          </article>
+        );
+      })}
+    </div>
+  );
+
+  const formatDate = useCallback(
+    (value) =>
+      new Intl.DateTimeFormat(currentLanguage, {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      }).format(value),
+    [currentLanguage]
+  );
+
+  const sectionCtas = useMemo(
+    () => ({
+      fba: { label: t('pricingSection.ctaFba'), href: '/contact' },
+      fbm: { label: t('pricingSection.ctaFbm'), href: '/contact' },
+      storage: { label: t('pricingSection.ctaStorage'), href: '/contact' },
+      extra: { label: t('pricingSection.ctaExtra'), href: '/contact' }
+    }),
+    [t]
+  );
+
   return (
     <div className="min-h-screen py-20 bg-gradient-to-b from-white via-gray-50 to-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center gap-1 mb-6 text-yellow-400">
           {[...Array(5)].map((_, i) => (
-            <Star key={i} className="w-8 h-8 text-yellow-400 fill-current" />
+            <Star key={i} className="w-7 h-7 fill-current" />
           ))}
         </div>
 
-        <div className="text-center space-y-6">
-          <h1 className="text-4xl md:text-5xl font-bold text-text-primary">
+        <header className="text-center space-y-6">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
+            {t('pricingSection.title')}
+          </p>
+          <h1 className="text-4xl md:text-5xl font-bold text-text-primary leading-tight">
             {content.services_title || t('pageTitle')}
           </h1>
           <p className="text-lg text-text-secondary max-w-3xl mx-auto">
             {content.services_subtitle || t('pageSubtitle')}
           </p>
-        </div>
-
-        <section className="bg-white border rounded-2xl shadow-sm p-6 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-2xl font-semibold text-text-primary">
-                  {t('pricingSection.title')}
-                </h2>
-              </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={handleExport}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800"
-                aria-label={t('pricingSection.export')}
-              >
-                <FileDown className="w-4 h-4" />
-                {t('pricingSection.export')}
-              </button>
-            </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a
+              href="/contact"
+              className="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark w-full sm:w-auto"
+            >
+              {tCommon('getQuote')}
+              <ArrowRight className="w-4 h-4" />
+            </a>
+            <a
+              href="https://wa.me/33675116218"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-xl bg-accent text-white font-semibold hover:bg-accent-dark w-full sm:w-auto"
+            >
+              {tCommon('chatWhatsApp')}
+            </a>
           </div>
+          <p className="text-sm text-text-light">{t('pricingSection.ctaResponse')}</p>
+        </header>
 
+        <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
           {pricingError && (
             <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
               {pricingError}
@@ -234,69 +341,78 @@ export default function ServicesPricing() {
               {t('pricingSection.empty')}
             </div>
           ) : (
-            <div className="space-y-6">
-              {sections.map((section) => (
-                <section
-                  key={section.id}
-                  className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6"
-                  aria-labelledby={`pricing-${section.key}`}
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                    <div>
-                      <h3
-                        id={`pricing-${section.key}`}
-                        className="text-2xl font-semibold text-text-primary"
-                      >
-                        {section.id}
-                      </h3>
-                      <p className="text-sm text-text-secondary">
-                        {t(`pricingSection.groups.${section.key}.subtitle`) || section.id}
-                      </p>
+            <div className="space-y-8">
+              {sections.map((section) => {
+                const style = SECTION_STYLES[section.key] || SECTION_STYLES.custom;
+                const cta = sectionCtas[section.key];
+                return (
+                  <article
+                    key={section.id}
+                    className={`rounded-3xl border shadow-sm p-6 space-y-6 ${style.wrapper}`}
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                      <div>
+                        <p className={`text-xs font-semibold uppercase tracking-wide ${style.pill}`}>
+                          {t(`pricingSection.groups.${section.key}.title`) || section.id}
+                        </p>
+                        <h2 className="mt-2 text-2xl font-semibold text-text-primary">{section.id}</h2>
+                        <p className="text-sm text-text-secondary">
+                          {t(`pricingSection.groups.${section.key}.subtitle`) || section.id}
+                        </p>
+                      </div>
+                      <div className="text-sm text-text-secondary max-w-lg">
+                        {t('pricingSection.description')}
+                      </div>
                     </div>
-                    {section.items[0] && (
-                      <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 text-sm text-text-primary max-w-sm">
-                        <p className="font-semibold">
-                          {section.items[0].service_name}
-                        </p>
-                        <p>
-                          {section.items[0].price || t('pricingSection.contact')} / {section.items[0].unit}
-                        </p>
-                        <p className="text-xs text-text-secondary">
-                          {t('pricingSection.groups.custom.subtitle')}
+
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {section.items.map((item) => {
+                        const Icon = getServiceIcon(item.service_name);
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex gap-4 rounded-2xl bg-white/80 border border-white shadow-sm p-4"
+                          >
+                            <div className="shrink-0 rounded-xl bg-white p-3 shadow">
+                              <Icon className={`w-5 h-5 ${style.icon}`} />
+                            </div>
+                            <div>
+                              <p className="text-base font-semibold text-text-primary">
+                                {item.service_name}
+                              </p>
+                              <p className="text-sm text-text-secondary">
+                                {item.price || t('pricingSection.contact')}{' '}
+                                <span className="text-xs text-text-light">/ {item.unit}</span>
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {cta && (
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <a
+                          href={cta.href}
+                          className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary-dark"
+                        >
+                          {cta.label}
+                          <ArrowRight className="w-4 h-4" />
+                        </a>
+                        <p className="text-sm text-text-secondary">
+                          {t('pricingSection.ctaResponse')}
                         </p>
                       </div>
                     )}
-                  </div>
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
-                    {section.items.map((item) => (
-                      <article
-                        key={item.id}
-                        className="border border-gray-100 rounded-xl px-4 py-3 hover:border-primary/40 transition-colors"
-                      >
-                        <h4 className="text-base font-semibold text-text-primary">
-                          {item.service_name}
-                        </h4>
-                        <p className="text-sm text-text-secondary">
-                          {t(`pricingSection.groups.${section.key}.title`) || section.id}
-                        </p>
-                        <p className="mt-3 text-lg font-semibold text-text-primary">
-                          {item.price || t('pricingSection.contact')}
-                          <span className="text-sm font-normal text-text-secondary">
-                            {' '}
-                            / {item.unit}
-                          </span>
-                        </p>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
 
         <section className="space-y-12">
-          <div className="bg-white border rounded-2xl shadow-sm p-6 space-y-4">
+          <div className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
             <div>
               <h2 className="text-2xl font-semibold text-text-primary">
                 {t('shippingSection.domesticTitle')}
@@ -308,41 +424,42 @@ export default function ServicesPricing() {
                 {t('pricingSection.loading')}
               </div>
             ) : (
-              <div className="overflow-auto border rounded-xl">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-gray-50 text-text-secondary">
-                    <tr>
-                      <th className="px-4 py-3 text-left">
-                        {t('shippingSection.table.transporter')}
-                      </th>
-                      {DOMESTIC_COLUMNS.map((col) => (
-                        <th key={col} className="px-4 py-3 text-center">
-                          {col === '20' ? '20 kg' : `${col} kg`}
+              <>
+                {renderShippingCards(shippingRates.domestic, DOMESTIC_COLUMNS)}
+                <div className="hidden md:block overflow-auto border rounded-xl">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 text-text-secondary">
+                      <tr>
+                        <th className="px-4 py-3 text-left">
+                          {t('shippingSection.table.transporter')}
                         </th>
-                      ))}
-                      <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shippingRates.domestic.map((row) => renderShippingRow(row, DOMESTIC_COLUMNS))}
-                  </tbody>
-                </table>
-              </div>
+                        {DOMESTIC_COLUMNS.map((col) => (
+                          <th key={col} className="px-4 py-3 text-center">
+                            {col === '20' ? '20 kg' : `${col} kg`}
+                          </th>
+                        ))}
+                        <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shippingRates.domestic.map((row) =>
+                        renderShippingRow(row, DOMESTIC_COLUMNS)
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
-            <p className="text-xs text-text-light">
-              {t('shippingSection.domesticDisclaimer')}
-            </p>
+            <p className="text-xs text-text-light">{t('shippingSection.domesticDisclaimer')}</p>
           </div>
 
-          <div className="bg-white border rounded-2xl shadow-sm p-6 space-y-4">
+          <div className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-semibold text-text-primary">
                   {t('shippingSection.internationalTitle')}
                 </h2>
-                <p className="text-text-secondary">
-                  {t('shippingSection.internationalSubtitle')}
-                </p>
+                <p className="text-text-secondary">{t('shippingSection.internationalSubtitle')}</p>
               </div>
               <select
                 value={shippingRegion}
@@ -362,35 +479,71 @@ export default function ServicesPricing() {
                 {t('pricingSection.loading')}
               </div>
             ) : (
-              <div className="overflow-auto border rounded-xl">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-gray-50 text-text-secondary">
-                    <tr>
-                      <th className="px-4 py-3 text-left">
-                        {t('shippingSection.table.transporter')}
-                      </th>
-                      {(INTERNATIONAL_COLUMNS[shippingRegion] || []).map((col) => (
-                        <th key={col} className="px-4 py-3 text-center">
-                          {col} kg
+              <>
+                {renderShippingCards(
+                  shippingRates.international[shippingRegion] || [],
+                  INTERNATIONAL_COLUMNS[shippingRegion] || []
+                )}
+                <div className="hidden md:block overflow-auto border rounded-xl">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 text-text-secondary">
+                      <tr>
+                        <th className="px-4 py-3 text-left">
+                          {t('shippingSection.table.transporter')}
                         </th>
-                      ))}
-                      <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(shippingRates.international[shippingRegion] || []).map((row) =>
-                      renderShippingRow(row, INTERNATIONAL_COLUMNS[shippingRegion] || [])
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                        {(INTERNATIONAL_COLUMNS[shippingRegion] || []).map((col) => (
+                          <th key={col} className="px-4 py-3 text-center">
+                            {col} kg
+                          </th>
+                        ))}
+                        <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(shippingRates.international[shippingRegion] || []).map((row) =>
+                        renderShippingRow(row, INTERNATIONAL_COLUMNS[shippingRegion] || [])
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
-            {shippingError && (
-              <div className="text-xs text-red-500">{shippingError}</div>
-            )}
+            {shippingError && <div className="text-xs text-red-500">{shippingError}</div>}
             <p className="text-xs text-text-light">
               {t('shippingSection.internationalDisclaimer')}
             </p>
+          </div>
+        </section>
+
+        <section className="bg-[#0B1221] text-white rounded-3xl p-8 space-y-6">
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+              {t('pricingSection.finalBadge')}
+            </p>
+            <h2 className="text-3xl font-semibold">{t('pricingSection.finalTitle')}</h2>
+            <p className="text-white/80">{t('pricingSection.finalSubtitle')}</p>
+            {lastUpdated && (
+              <p className="text-xs text-white/60">
+                {t('pricingSection.updated', { date: formatDate(lastUpdated) })}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={handleExport}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-gray-900 font-semibold hover:bg-gray-100"
+            >
+              <FileDown className="w-4 h-4" />
+              {t('pricingSection.export')}
+            </button>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-white/60 text-white font-semibold hover:bg-white/10 disabled:opacity-60"
+            >
+              <RefreshCcw className="w-4 h-4" />
+              {syncing ? t('pricingSection.syncing') : t('pricingSection.sync')}
+            </button>
           </div>
         </section>
       </div>
