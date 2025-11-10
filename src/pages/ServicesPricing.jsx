@@ -283,13 +283,10 @@ export default function ServicesPricing() {
         </div>
 
         <header className="text-center space-y-6">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
-            {t('pricingSection.title')}
-          </p>
-          <h1 className="text-4xl md:text-5xl font-bold text-text-primary leading-tight">
+          <h1 className="text-3xl md:text-4xl font-bold text-text-primary leading-tight max-w-3xl mx-auto">
             {heroTitle}
           </h1>
-          <p className="text-lg text-text-secondary max-w-3xl mx-auto">
+          <p className="text-base md:text-lg text-text-secondary max-w-2xl mx-auto">
             {heroSubtitle}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
