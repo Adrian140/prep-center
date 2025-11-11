@@ -165,7 +165,7 @@ const SalesBreakdown = ({ stats, refreshedAt, countryLabel, t }) => {
   ];
 
   return (
-    <div className="border rounded-xl p-1.5 text-[11px] leading-5 text-gray-600 bg-white shadow-inner min-w-[150px] max-w-[200px]">
+    <div className="border rounded-xl p-1.5 text-[11px] leading-5 text-gray-600 bg-white shadow-inner min-w-[130px] max-w-[160px]">
       <div className="flex items-center justify-between text-[10px] uppercase font-semibold text-gray-500">
         <span>{t('ClientStock.sales.last30')}</span>
         <span className="text-gray-700 normal-case">{countryLabel}</span>
@@ -1866,7 +1866,7 @@ const saveReqChanges = async () => {
           />
         </div>
       </th>
-      <th className="px-2 py-2 text-left w-48 align-top">
+      <th className="px-2 py-2 text-left w-40 align-top">
         <div className="flex flex-col gap-1">
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
             {t('ClientStock.sales.heading')}
