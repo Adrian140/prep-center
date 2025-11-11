@@ -94,6 +94,22 @@ function Footer() {
                 TikTok
               </a>
             </div>
+
+            <div className="mt-8 space-y-4">
+              <div>
+                <h4 className="text-base font-semibold text-text-primary mb-2">Company information</h4>
+                <p className="text-sm text-text-secondary">Global Fulfill Hub</p>
+                <p className="text-sm text-text-secondary">SIRET : 941 373 110 00019</p>
+                <p className="text-sm text-text-secondary">VAT : FR 38 941 373 110</p>
+              </div>
+              <div>
+                <h4 className="text-base font-semibold text-text-primary mb-2">Warehouse &amp; operations</h4>
+                <p className="text-sm text-text-secondary">EcomPrep Hub</p>
+                <p className="text-sm text-text-secondary">5 Rue des Enclos, Port 7, 35350 La Gouesnière, France</p>
+                <p className="text-sm text-text-secondary">Phone : +33 6 75 11 62 18</p>
+                <p className="text-sm text-text-secondary">Email : contact@prep-center.eu</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
