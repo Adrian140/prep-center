@@ -82,8 +82,8 @@ function Home() {
       icon: Shield,
       title: t('storageTitle'),
       description: t('storageDesc'),
-      price: "€15",
-      unit: t('perPalletMonth'),
+      price: null,
+      unit: null,
       features: [t('secureStorage'), t('inventoryTracking'), t('climateControlled'), t('monitoring24h')]
     }
   ];
@@ -176,10 +176,12 @@ function Home() {
                 <service.icon className="w-16 h-16 text-primary mx-auto mb-6" />
                 <h3 className="text-xl font-bold text-text-primary mb-4">{service.title}</h3>
                 <p className="text-text-secondary mb-6">{service.description}</p>
-                <div className="mb-6">
-                  <span className="text-3xl font-bold text-primary">{service.price}</span>
-                  <span className="text-text-secondary ml-2">{service.unit}</span>
-                </div>
+                {service.price && (
+                  <div className="mb-6">
+                    <span className="text-3xl font-bold text-primary">{service.price}</span>
+                    <span className="text-text-secondary ml-2">{service.unit}</span>
+                  </div>
+                )}
                 <ul className="space-y-2 mb-6">
                   {service.features.map((feature, idx) => (
                     <li key={idx} className="flex items-center justify-center">
