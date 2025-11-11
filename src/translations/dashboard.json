@@ -398,14 +398,14 @@
         "heading": "30-day sales",
         "all": "All markets",
         "last30": "Last 30 days",
-        "total": "{total} units",
+        "total": "Total units: {total}",
         "empty": "No orders in this period.",
         "updated": "Refreshed {time}",
         "status": {
-          "payment": "Payment complete",
-          "shipped": "Shipped",
-          "pending": "Pending",
-          "refund": "Refund applied"
+          "payment": "Payment Complete",
+          "refund": "Refund applied",
+          "shipped": "Shipped (seller)",
+          "pending": "Pending / Awaiting verification"
         }
       },
       "receptionFba": {
@@ -1027,14 +1027,14 @@
         "heading": "Vânzări (30 zile)",
         "all": "Toate piețele",
         "last30": "Ultimele 30 de zile",
-        "total": "{total} unități",
+        "total": "Unități totale: {total}",
         "empty": "Nu există comenzi în această perioadă.",
         "updated": "Actualizat {time}",
         "status": {
           "payment": "Plată confirmată",
-          "shipped": "Expediate",
-          "pending": "În așteptare",
-          "refund": "Rambursate"
+          "refund": "Rambursate",
+          "shipped": "Expediate (seller)",
+          "pending": "În așteptare / verificare"
         }
       },
       "receptionFba": {
@@ -1656,14 +1656,14 @@
         "heading": "Ventes sur 30 jours",
         "all": "Tous les marchés",
         "last30": "30 derniers jours",
-        "total": "{total} unités",
+        "total": "Unités totales : {total}",
         "empty": "Aucune commande sur cette période.",
         "updated": "Actualisé {time}",
         "status": {
-          "payment": "Paiement validé",
-          "shipped": "Expédiées",
-          "pending": "En cours",
-          "refund": "Remboursées"
+          "payment": "Paiement confirmé",
+          "refund": "Remboursées",
+          "shipped": "Expédiées (vendeur)",
+          "pending": "En attente / vérification"
         }
       },
       "receptionFba": {
@@ -2285,14 +2285,14 @@
         "heading": "Verkäufe (30 Tage)",
         "all": "Alle Märkte",
         "last30": "Letzte 30 Tage",
-        "total": "{total} Einheiten",
+        "total": "Gesamteinheiten: {total}",
         "empty": "Keine Bestellungen in diesem Zeitraum.",
         "updated": "Aktualisiert {time}",
         "status": {
           "payment": "Zahlung bestätigt",
-          "shipped": "Versendet",
-          "pending": "Ausstehend",
-          "refund": "Rückerstattet"
+          "refund": "Rückerstattet",
+          "shipped": "Versendet (Seller)",
+          "pending": "Ausstehend / Prüfung"
         }
       },
       "receptionFba": {
@@ -2914,14 +2914,14 @@
         "heading": "Vendite (30 giorni)",
         "all": "Tutti i mercati",
         "last30": "Ultimi 30 giorni",
-        "total": "{total} unità",
+        "total": "Unità totali: {total}",
         "empty": "Nessun ordine in questo periodo.",
         "updated": "Aggiornato {time}",
         "status": {
           "payment": "Pagamento completato",
-          "shipped": "Spedite",
-          "pending": "In sospeso",
-          "refund": "Rimborsate"
+          "refund": "Rimborsate",
+          "shipped": "Spedite (venditore)",
+          "pending": "In attesa / verifica"
         }
       },
       "receptionFba": {
@@ -3543,14 +3543,14 @@
         "heading": "Ventas (30 días)",
         "all": "Todos los mercados",
         "last30": "Últimos 30 días",
-        "total": "{total} unidades",
+        "total": "Unidades totales: {total}",
         "empty": "No hay pedidos en este periodo.",
         "updated": "Actualizado {time}",
         "status": {
           "payment": "Pago completado",
-          "shipped": "Enviadas",
-          "pending": "Pendientes",
-          "refund": "Reembolsadas"
+          "refund": "Reembolsadas",
+          "shipped": "Enviadas (seller)",
+          "pending": "Pendientes / verificación"
         }
       },
       "receptionFba": {

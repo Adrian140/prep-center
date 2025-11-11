@@ -153,12 +153,19 @@ const InventoryBreakdown = ({ row, t }) => {
 };
 
 const SalesBreakdown = ({ stats, refreshedAt, countryLabel, t }) => {
+  const safeStats = {
+    total: stats?.total ?? 0,
+    payment: stats?.payment ?? 0,
+    shipped: stats?.shipped ?? 0,
+    pending: stats?.pending ?? 0,
+    refund: stats?.refund ?? 0
+  };
   const hasStats = Boolean(stats);
   const statusList = [
-    { key: 'payment', label: t('ClientStock.sales.status.payment'), value: stats?.payment ?? 0 },
-    { key: 'shipped', label: t('ClientStock.sales.status.shipped'), value: stats?.shipped ?? 0 },
-    { key: 'pending', label: t('ClientStock.sales.status.pending'), value: stats?.pending ?? 0 },
-    { key: 'refund', label: t('ClientStock.sales.status.refund'), value: stats?.refund ?? 0 }
+    { key: 'payment', label: t('ClientStock.sales.status.payment'), value: safeStats.payment },
+    { key: 'refund', label: t('ClientStock.sales.status.refund'), value: safeStats.refund },
+    { key: 'shipped', label: t('ClientStock.sales.status.shipped'), value: safeStats.shipped },
+    { key: 'pending', label: t('ClientStock.sales.status.pending'), value: safeStats.pending }
   ];
 
   return (
@@ -168,18 +175,19 @@ const SalesBreakdown = ({ stats, refreshedAt, countryLabel, t }) => {
         <span className="text-gray-700 normal-case">{countryLabel}</span>
       </div>
       <div className="mt-1 text-sm font-semibold text-gray-900">
-        {hasStats ? t('ClientStock.sales.total', { total: stats?.total ?? 0 }) : '—'}
+        {t('ClientStock.sales.total', { total: safeStats.total })}
       </div>
-      {hasStats ? (
-        <div className="mt-1 space-y-0.5">
-          {statusList.map((item) => (
-            <div key={item.key} className="flex items-center justify-between">
-              <span>{item.label}</span>
-              <span className="text-[#008296] font-semibold">{item.value}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
+      <div className="mt-1 space-y-0.5">
+        {statusList.map((item) => (
+          <div key={item.key} className="flex items-center justify-between">
+            <span>{item.label}</span>
+            <span className="text-[#008296] font-semibold">
+              {Number.isFinite(item.value) ? item.value : 0}
+            </span>
+          </div>
+        ))}
+      </div>
+      {!hasStats && (
         <p className="mt-1 text-gray-400">{t('ClientStock.sales.empty')}</p>
       )}
       {refreshedAt && (
