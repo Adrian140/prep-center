@@ -712,6 +712,7 @@ export default function ClientStock() {
     'reception'
   );
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   // ===== Request Editor (history item) =====
 const [reqOpen, setReqOpen] = useState(false);
@@ -1409,8 +1410,12 @@ const saveReqChanges = async () => {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setCreateModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#ffb703] text-[#4f2a00] px-3 py-1.5 text-sm font-semibold shadow hover:bg-[#ff9f00]"
+            onClick={() => setQuickAddOpen((open) => !open)}
+            className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold shadow transition-colors ${
+              quickAddOpen
+                ? 'bg-primary text-white'
+                : 'bg-[#ffb703] text-[#4f2a00] hover:bg-[#ff9f00]'
+            }`}
           >
             <Plus className="w-4 h-4" />
             {t('ClientStock.createProduct.button')}
@@ -1421,17 +1426,19 @@ const saveReqChanges = async () => {
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       </div>
 
-      <div className="mb-6">
-        <ProductQuickAdd
-          companyId={profile?.company_id || null}
-          userId={profile?.id || null}
-          createdBy={profile?.id || null}
-          existingRows={rows}
-          labels={quickAddLabels}
-          onComplete={handleQuickAddComplete}
-          onError={handleQuickAddError}
-        />
-      </div>
+      {quickAddOpen && (
+        <div className="mb-6">
+          <ProductQuickAdd
+            companyId={profile?.company_id || null}
+            userId={profile?.id || null}
+            createdBy={profile?.id || null}
+            existingRows={rows}
+            labels={quickAddLabels}
+            onComplete={handleQuickAddComplete}
+            onError={handleQuickAddError}
+          />
+        </div>
+      )}
 
       <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
