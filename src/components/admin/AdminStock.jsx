@@ -12,6 +12,7 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
   const [edit, setEdit] = useState(null);
   const [localRows, setLocalRows] = useState(rows);
   const [photoItem, setPhotoItem] = useState(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const handleQuickAddComplete = ({ inserted = [], updated = [] }) => {
     setLocalRows((prev) => {
       const updateMap = new Map(updated.map((row) => [row.id, row]));
@@ -161,17 +162,33 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
     });
   }, [localRows]);
   return (
-    <Section title="Stoc" right={null}>
-      <div className="mb-6">
-        <ProductQuickAdd
-          companyId={companyId || null}
-          userId={null}
-          createdBy={profile?.id || null}
-          existingRows={localRows}
-          onComplete={handleQuickAddComplete}
-          onError={handleQuickAddError}
-        />
-      </div>
+    <Section
+      title="Stoc"
+      right={
+        <button
+          onClick={() => setQuickAddOpen((open) => !open)}
+          className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold shadow transition-colors ${
+            quickAddOpen
+              ? 'bg-primary text-white'
+              : 'bg-[#ffb703] text-[#4f2a00] hover:bg-[#ff9f00]'
+          }`}
+        >
+          {quickAddOpen ? 'Hide form' : 'Add Product'}
+        </button>
+      }
+    >
+      {quickAddOpen && (
+        <div className="mb-6">
+          <ProductQuickAdd
+            companyId={companyId || null}
+            userId={null}
+            createdBy={profile?.id || null}
+            existingRows={localRows}
+            onComplete={handleQuickAddComplete}
+            onError={handleQuickAddError}
+          />
+        </div>
+      )}
       <div className="overflow-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50">
