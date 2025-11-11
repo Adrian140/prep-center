@@ -1437,7 +1437,7 @@ getAllReceivingShipments: async (options = {}) => {
         let itemPatch = {
           stock_item_id: stockId,
           quantity_to_stock: qtyToStock,
-          remaining_action: fbaQty > 0 ? 'direct_to_amazon' : 'store_only',
+          remaining_action: fbaQty > 0 ? 'direct_to_amazon' : 'hold_for_prep',
           send_to_fba: item.send_to_fba,
           fba_qty: fbaQty
         };

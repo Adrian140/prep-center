@@ -201,7 +201,7 @@ const processToStock = async () => {
         ...item,
         company_id: shipment.company_id,
         quantity_to_stock: toStock,
-        remaining_action: fba > 0 ? 'direct_to_amazon' : 'store_only'
+        remaining_action: fba > 0 ? 'direct_to_amazon' : 'hold_for_prep'
       };
     });
 
