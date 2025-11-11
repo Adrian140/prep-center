@@ -1708,6 +1708,10 @@ const saveReqChanges = async () => {
       <span className="font-mono text-gray-800">{r.asin || '—'}</span>
     </div>
     <div>
+      <span className="font-semibold text-gray-500 mr-1">EAN</span>
+      <span className="font-mono text-gray-800">{r.ean || '—'}</span>
+    </div>
+    <div>
       <span className="font-semibold text-gray-500 mr-1">SKU</span>
       <span className="font-mono text-gray-800">{r.sku || '—'}</span>
     </div>

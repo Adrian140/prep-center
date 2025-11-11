@@ -973,7 +973,7 @@
       },
       "quickAdd": {
         "title": "Adăugare manuală în stoc",
-        "subtitle": "Adaugă produse provizorii manual sau importă șablonul cu EAN/ASIN și nume produs. Când listingul apare din Amazon, cantitățile se sincronizează automat.",
+        "subtitle": "Adaugă produse provizorii manual sau importă șablonul cu EAN/ASIN și nume produs. Când listingul apare din Amazon, cantitățile se sincronizează automat dacă produsul are același ASIN sau EAN.",
         "manualTitle": "Adăugare manuală",
         "eanLabel": "EAN/ASIN *",
         "nameLabel": "Nume produs *",
