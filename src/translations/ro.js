@@ -52,6 +52,10 @@ export const ro = {
   perProduct: 'per produs',
   perOrder: 'per comandă',
   perPalletMonth: 'per palet/lună',
+  sixSidePhotos: 'Încărcare foto pe 6 fețe',
+  linkedToAsin: 'Legat de fiecare ASIN din contul tău',
+  secureCloudStorage: 'Stocare în cloud securizată',
+  instantDashboardAccess: 'Acces instant din panoul tău',
   
   // Home Page - How It Works
   howItWorksTitle: 'Cum Funcționează',

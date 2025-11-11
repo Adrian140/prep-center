@@ -52,6 +52,10 @@ export const en = {
   perProduct: 'per product',
   perOrder: 'per order',
   perPalletMonth: 'per pallet/month',
+  sixSidePhotos: '6-side product photo upload',
+  linkedToAsin: 'Linked to each ASIN in your account',
+  secureCloudStorage: 'Secure cloud storage',
+  instantDashboardAccess: 'Instant access from your dashboard',
   
   // Home Page - How It Works
   howItWorksTitle: 'How It Works',

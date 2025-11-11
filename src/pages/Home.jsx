@@ -66,16 +66,25 @@ function Home() {
       icon: Package,
       title: t('fnskuLabelingTitle'),
       description: t('fnskuLabelingDesc'),
-      price: "€0.50",
-      unit: t('perProduct'),
-      features: [t('receptionInspection'), t('fnskuLabeling'), t('polybagging'), t('qualityControl')]
+      price: null,
+      unit: null,
+      features: [
+        t('receptionInspection'),
+        t('fnskuLabeling'),
+        t('polybagging'),
+        t('qualityControl'),
+        t('sixSidePhotos'),
+        t('linkedToAsin'),
+        t('secureCloudStorage'),
+        t('instantDashboardAccess')
+      ]
     },
     {
       icon: Truck,
       title: t('fbmShippingTitle'),
       description: t('fbmShippingDesc'),
-      price: "€1.40",
-      unit: t('perOrder'),
+      price: null,
+      unit: null,
       features: [t('pickPack'), t('multiPlatform'), t('sameDayShipping'), t('returnsHandling')]
     },
     {

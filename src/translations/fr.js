@@ -52,6 +52,10 @@ export const fr = {
   perProduct: 'par produit',
   perOrder: 'par commande',
   perPalletMonth: 'par palette/mois',
+  sixSidePhotos: 'Téléchargement photo 6 faces',
+  linkedToAsin: 'Associé à chaque ASIN de votre compte',
+  secureCloudStorage: 'Stockage cloud sécurisé',
+  instantDashboardAccess: 'Accès instantané depuis votre tableau de bord',
   
   // Home Page - How It Works
   howItWorksTitle: 'Comment Ça Marche',
