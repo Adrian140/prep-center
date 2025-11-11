@@ -4,6 +4,9 @@
       "greeting": "Hi, {name}!",
       "subtitle": "Client portal: view reports and manage your account.",
       "signOut": "Sign out",
+      "cancel": "Cancel",
+      "accessDeniedTitle": "Access denied",
+      "accessDeniedDesc": "You do not have permission to view this section.",
       "groups": {
         "operations": "Operations",
         "account": "My account"
@@ -411,12 +414,12 @@
         }
       },
       "receptionFba": {
-        "title": "Expédier vers Amazon",
-        "none": "Ne pas envoyer pour le moment",
-        "full": "Envoyer toutes les unités vers Amazon",
-        "partial": "Envoi partiel",
-        "noSelection": "Sélectionnez des produits pour configurer l’envoi partiel.",
-        "available": "Unités annoncées : {qty}"
+        "title": "Send to Amazon",
+        "none": "Do not send now",
+        "full": "Send all units to Amazon",
+        "partial": "Partial shipment",
+        "noSelection": "Select products to configure the partial shipment.",
+        "available": "Units announced: {qty}"
       },
       "createProduct": {
         "button": "Create product",
@@ -643,7 +646,10 @@
       "calculating": "Se calculează…",
       "na": "—",
       "yes": "Da",
-      "no": "Nu"
+      "no": "Nu",
+      "cancel": "Anulează",
+      "accessDeniedTitle": "Acces interzis",
+      "accessDeniedDesc": "Nu ai permisiunea să vezi această secțiune."
     },
     "sidebar": {
       "activity": "Activitate",
@@ -1274,7 +1280,10 @@
       "calculating": "Calcul en cours…",
       "na": "N/A",
       "yes": "Oui",
-      "no": "Non"
+      "no": "Non",
+      "cancel": "Annuler",
+      "accessDeniedTitle": "Accès refusé",
+      "accessDeniedDesc": "Vous n'avez pas l’autorisation d'accéder à cette section."
     },
     "sidebar": {
       "activity": "Activité",
@@ -1673,12 +1682,12 @@
         }
       },
       "receptionFba": {
-        "title": "Zu Amazon senden",
-        "none": "Jetzt nicht senden",
-        "full": "Alle Einheiten zu Amazon senden",
-        "partial": "Teilweise Sendung",
-        "noSelection": "Wähle Produkte aus, um die Teilsendung zu konfigurieren.",
-        "available": "Gemeldete Einheiten: {qty}"
+        "title": "Expédier vers Amazon",
+        "none": "Ne pas envoyer pour le moment",
+        "full": "Envoyer toutes les unités vers Amazon",
+        "partial": "Envoi partiel",
+        "noSelection": "Sélectionnez des produits pour configurer l’envoi partiel.",
+        "available": "Unités annoncées : {qty}"
       },
       "createProduct": {
         "button": "Créer un produit",
@@ -1905,7 +1914,10 @@
       "calculating": "Wird berechnet…",
       "na": "k. A.",
       "yes": "Ja",
-      "no": "Nein"
+      "no": "Nein",
+      "cancel": "Abbrechen",
+      "accessDeniedTitle": "Zugriff verweigert",
+      "accessDeniedDesc": "Sie besitzen keine Berechtigung für diesen Bereich."
     },
     "sidebar": {
       "activity": "Aktivität",
@@ -2304,12 +2316,12 @@
         }
       },
       "receptionFba": {
-        "title": "Invia ad Amazon",
-        "none": "Non inviare ora",
-        "full": "Invia tutte le unità ad Amazon",
-        "partial": "Spedizione parziale",
-        "noSelection": "Seleziona prodotti per configurare la spedizione parziale.",
-        "available": "Unità annunciate: {qty}"
+        "title": "Zu Amazon senden",
+        "none": "Jetzt nicht senden",
+        "full": "Alle Einheiten zu Amazon senden",
+        "partial": "Teilweise Sendung",
+        "noSelection": "Wähle Produkte aus, um die Teilsendung zu konfigurieren.",
+        "available": "Gemeldete Einheiten: {qty}"
       },
       "createProduct": {
         "button": "Produkt erstellen",
@@ -2536,7 +2548,10 @@
       "calculating": "Calcolo in corso…",
       "na": "N/D",
       "yes": "Sì",
-      "no": "No"
+      "no": "No",
+      "cancel": "Annulla",
+      "accessDeniedTitle": "Accesso negato",
+      "accessDeniedDesc": "Non hai i permessi per visualizzare questa sezione."
     },
     "sidebar": {
       "activity": "Attività",
@@ -2935,12 +2950,12 @@
         }
       },
       "receptionFba": {
-        "title": "Enviar a Amazon",
-        "none": "No enviar ahora",
-        "full": "Enviar todas las unidades a Amazon",
-        "partial": "Envío parcial",
-        "noSelection": "Selecciona productos para configurar el envío parcial.",
-        "available": "Unidades anunciadas: {qty}"
+        "title": "Invia ad Amazon",
+        "none": "Non inviare ora",
+        "full": "Invia tutte le unità ad Amazon",
+        "partial": "Spedizione parziale",
+        "noSelection": "Seleziona prodotti per configurare la spedizione parziale.",
+        "available": "Unità annunciate: {qty}"
       },
       "createProduct": {
         "button": "Crea prodotto",
@@ -3167,7 +3182,10 @@
       "calculating": "Calculando…",
       "na": "N/D",
       "yes": "Sí",
-      "no": "No"
+      "no": "No",
+      "cancel": "Cancelar",
+      "accessDeniedTitle": "Acceso denegado",
+      "accessDeniedDesc": "No tienes permisos para ver esta sección."
     },
     "sidebar": {
       "activity": "Actividad",
@@ -3566,12 +3584,12 @@
         }
       },
       "receptionFba": {
-        "title": "Send to Amazon",
-        "none": "Do not send now",
-        "full": "Send everything to Amazon",
-        "partial": "Partial shipment",
-        "noSelection": "Select products to configure partial shipment.",
-        "available": "Units announced: {qty}"
+        "title": "Enviar a Amazon",
+        "none": "No enviar ahora",
+        "full": "Enviar todas las unidades a Amazon",
+        "partial": "Envío parcial",
+        "noSelection": "Selecciona productos para configurar el envío parcial.",
+        "available": "Unidades anunciadas: {qty}"
       },
       "createProduct": {
         "button": "Crear producto",
