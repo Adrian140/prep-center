@@ -1,5 +1,5 @@
 // FILE: src/components/dashboard/client/ClientStock.jsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FileDown, Languages, Plus, X, Image as ImageIcon, Check } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
@@ -235,6 +235,16 @@ const createReceptionFormState = () => ({
   notes: '',
   fbaMode: 'none'
 });
+
+const normalizeTrackingInputs = (form) => {
+  if (Array.isArray(form?.trackingIds) && form.trackingIds.length) {
+    return form.trackingIds;
+  }
+  if (form?.trackingId) {
+    return [form.trackingId];
+  }
+  return [''];
+};
 
 const normalizeCountryCode = (country) => {
   if (!country) return 'ALL';
@@ -889,7 +899,6 @@ const [receptionForm, setReceptionForm] = useSessionStorage(
 const [photoItem, setPhotoItem] = useState(null);
 const [photoCounts, setPhotoCounts] = useState({});
 const [trackingExpanded, setTrackingExpanded] = useState(false);
-const trackingRefs = useRef({});
 const handleQuickAddComplete = useCallback(
   ({ inserted = [], updated = [], count = 0 }) => {
     setRows((prev) => {
@@ -1008,11 +1017,11 @@ useEffect(() => {
     });
   }, [rows, setSelectedIdList]);
 
-  useEffect(() => {
+useEffect(() => {
     if (trackingInputs.length <= 1 && trackingExpanded) {
       setTrackingExpanded(false);
     }
-  }, [trackingInputs, trackingExpanded]);
+  }, [trackingInputs.length, trackingExpanded]);
 
   const normalize = useCallback((value) => String(value || '').toLowerCase(), []);
 
@@ -1206,30 +1215,19 @@ const handleReceptionFbaModeChange = (mode) => {
     });
   }
 };
-const trackingInputs = useMemo(() => {
-  if (Array.isArray(receptionForm.trackingIds) && receptionForm.trackingIds.length) {
-    return receptionForm.trackingIds;
-  }
-  if (receptionForm.trackingId) {
-    return [receptionForm.trackingId];
-  }
-  return [''];
-}, [receptionForm.trackingIds, receptionForm.trackingId]);
+const trackingInputs = normalizeTrackingInputs(receptionForm);
 
-const updateTrackingValue = useCallback(
-  (index, value) => {
-    setReceptionForm((prev) => {
-      const base =
-        Array.isArray(prev.trackingIds) && prev.trackingIds.length ? [...prev.trackingIds] : [''];
-      while (base.length <= index) base.push('');
-      base[index] = value;
-      return { ...prev, trackingIds: base };
-    });
-  },
-  [setReceptionForm]
-);
+const updateTrackingValue = (index, value) => {
+  setReceptionForm((prev) => {
+    const base =
+      Array.isArray(prev.trackingIds) && prev.trackingIds.length ? [...prev.trackingIds] : [''];
+    while (base.length <= index) base.push('');
+    base[index] = value;
+    return { ...prev, trackingIds: base };
+  });
+};
 
-const addTrackingEntry = useCallback(() => {
+const addTrackingEntry = () => {
   setReceptionForm((prev) => {
     const base =
       Array.isArray(prev.trackingIds) && prev.trackingIds.length ? [...prev.trackingIds] : [''];
@@ -1237,48 +1235,25 @@ const addTrackingEntry = useCallback(() => {
     return { ...prev, trackingIds: base };
   });
   setTrackingExpanded(true);
-}, [setReceptionForm, setTrackingExpanded]);
+};
 
-const removeTrackingEntry = useCallback(
-  (index) => {
-    setReceptionForm((prev) => {
-      const base =
-        Array.isArray(prev.trackingIds) && prev.trackingIds.length ? [...prev.trackingIds] : [''];
-      if (index === 0) {
-        base[0] = '';
-      } else if (base.length > index) {
-        base.splice(index, 1);
-      }
-      if (!base.length) base.push('');
-      return { ...prev, trackingIds: base };
-    });
-  },
-  [setReceptionForm]
-);
-
-const handleTrackingBadgeClick = useCallback(
-  (index) => {
-    setTrackingExpanded(true);
-    requestAnimationFrame(() => {
-      const target = trackingRefs.current[index];
-      if (target) target.focus();
-    });
-  },
-  [setTrackingExpanded]
-);
-
-const assignTrackingRef = useCallback(
-  (index) => (el) => {
-    if (el) trackingRefs.current[index] = el;
-    else delete trackingRefs.current[index];
-  },
-  []
-);
+const removeTrackingEntry = (index) => {
+  setReceptionForm((prev) => {
+    const base =
+      Array.isArray(prev.trackingIds) && prev.trackingIds.length ? [...prev.trackingIds] : [''];
+    if (index === 0) {
+      base[0] = '';
+    } else if (base.length > index) {
+      base.splice(index, 1);
+    }
+    if (!base.length) base.push('');
+    return { ...prev, trackingIds: base };
+  });
+};
 
 const resetReceptionForm = () => {
   setReceptionForm(() => createReceptionFormState());
   setTrackingExpanded(false);
-  trackingRefs.current = {};
 };
 
   const handleProductCreated = (item) => {
@@ -1822,7 +1797,6 @@ const saveReqChanges = async () => {
                         <div className="flex flex-col">
                           <span className="text-[10px] text-gray-500 font-semibold">#1</span>
                           <input
-                            ref={assignTrackingRef(0)}
                             type="text"
                             value={trackingInputs[0] || ''}
                             onChange={(e) => updateTrackingValue(0, e.target.value)}
@@ -1832,13 +1806,13 @@ const saveReqChanges = async () => {
                         </div>
                         {trackingInputs.length > 1 && !trackingExpanded && (
                           <div className="flex items-center gap-1">
-                            {trackingInputs.slice(1).map((_, idx) => (
+                            {trackingInputs.slice(1).map((value, idx) => (
                               <button
                                 type="button"
                                 key={`tracking-pill-${idx}`}
-                                onClick={() => handleTrackingBadgeClick(idx + 1)}
+                                onClick={() => setTrackingExpanded(true)}
                                 className="text-xs px-2 py-1 rounded-full border border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100"
-                                title={trackingInputs[idx + 1] || ''}
+                                title={value || ''}
                               >
                                 {`+${idx + 1}`}
                               </button>
@@ -1862,7 +1836,6 @@ const saveReqChanges = async () => {
                                   idx + 2
                                 }`}</span>
                                 <input
-                                  ref={assignTrackingRef(idx + 1)}
                                   type="text"
                                   value={value}
                                   onChange={(e) => updateTrackingValue(idx + 1, e.target.value)}
