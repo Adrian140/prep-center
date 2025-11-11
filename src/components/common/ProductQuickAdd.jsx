@@ -211,7 +211,6 @@ function ProductQuickAdd({
     const payload = {
       company_id: companyId || null,
       user_id: companyId ? null : userId || null,
-      created_by: createdBy || userId || null,
       ean: line.ean || null,
       asin: line.asin || null,
       name: line.name,
