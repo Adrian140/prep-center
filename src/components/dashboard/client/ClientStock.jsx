@@ -1,5 +1,5 @@
 // FILE: src/components/dashboard/client/ClientStock.jsx
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileDown, Languages, Plus, X, Image as ImageIcon, Check } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
@@ -228,13 +228,13 @@ const ADVANCED_PRODUCT_FORM = {
   notes: ''
 };
 
-const DEFAULT_RECEPTION_FORM = {
+const createReceptionFormState = () => ({
   carrier: 'UPS',
   carrierOther: '',
-  trackingId: '',
+  trackingIds: [''],
   notes: '',
   fbaMode: 'none'
-};
+});
 
 const normalizeCountryCode = (country) => {
   if (!country) return 'ALL';
@@ -884,10 +884,12 @@ const [addingQty, setAddingQty] = useState('');      // number
 
 const [receptionForm, setReceptionForm] = useSessionStorage(
   `${storagePrefix}-receptionForm`,
-  DEFAULT_RECEPTION_FORM
+  createReceptionFormState()
 );
 const [photoItem, setPhotoItem] = useState(null);
 const [photoCounts, setPhotoCounts] = useState({});
+const [trackingExpanded, setTrackingExpanded] = useState(false);
+const trackingRefs = useRef({});
 const handleQuickAddComplete = useCallback(
   ({ inserted = [], updated = [], count = 0 }) => {
     setRows((prev) => {
@@ -1005,6 +1007,12 @@ useEffect(() => {
       return filtered.length === arr.length ? prev : filtered;
     });
   }, [rows, setSelectedIdList]);
+
+  useEffect(() => {
+    if (trackingInputs.length <= 1 && trackingExpanded) {
+      setTrackingExpanded(false);
+    }
+  }, [trackingInputs, trackingExpanded]);
 
   const normalize = useCallback((value) => String(value || '').toLowerCase(), []);
 
@@ -1198,8 +1206,79 @@ const handleReceptionFbaModeChange = (mode) => {
     });
   }
 };
+const trackingInputs = useMemo(() => {
+  if (Array.isArray(receptionForm.trackingIds) && receptionForm.trackingIds.length) {
+    return receptionForm.trackingIds;
+  }
+  if (receptionForm.trackingId) {
+    return [receptionForm.trackingId];
+  }
+  return [''];
+}, [receptionForm.trackingIds, receptionForm.trackingId]);
+
+const updateTrackingValue = useCallback(
+  (index, value) => {
+    setReceptionForm((prev) => {
+      const base =
+        Array.isArray(prev.trackingIds) && prev.trackingIds.length ? [...prev.trackingIds] : [''];
+      while (base.length <= index) base.push('');
+      base[index] = value;
+      return { ...prev, trackingIds: base };
+    });
+  },
+  [setReceptionForm]
+);
+
+const addTrackingEntry = useCallback(() => {
+  setReceptionForm((prev) => {
+    const base =
+      Array.isArray(prev.trackingIds) && prev.trackingIds.length ? [...prev.trackingIds] : [''];
+    base.push('');
+    return { ...prev, trackingIds: base };
+  });
+  setTrackingExpanded(true);
+}, [setReceptionForm, setTrackingExpanded]);
+
+const removeTrackingEntry = useCallback(
+  (index) => {
+    setReceptionForm((prev) => {
+      const base =
+        Array.isArray(prev.trackingIds) && prev.trackingIds.length ? [...prev.trackingIds] : [''];
+      if (index === 0) {
+        base[0] = '';
+      } else if (base.length > index) {
+        base.splice(index, 1);
+      }
+      if (!base.length) base.push('');
+      return { ...prev, trackingIds: base };
+    });
+  },
+  [setReceptionForm]
+);
+
+const handleTrackingBadgeClick = useCallback(
+  (index) => {
+    setTrackingExpanded(true);
+    requestAnimationFrame(() => {
+      const target = trackingRefs.current[index];
+      if (target) target.focus();
+    });
+  },
+  [setTrackingExpanded]
+);
+
+const assignTrackingRef = useCallback(
+  (index) => (el) => {
+    if (el) trackingRefs.current[index] = el;
+    else delete trackingRefs.current[index];
+  },
+  []
+);
+
 const resetReceptionForm = () => {
-  setReceptionForm(() => ({ ...DEFAULT_RECEPTION_FORM }));
+  setReceptionForm(() => createReceptionFormState());
+  setTrackingExpanded(false);
+  trackingRefs.current = {};
 };
 
   const handleProductCreated = (item) => {
@@ -1299,15 +1378,18 @@ const openReception = async () => {
   }
 
   const carrierCode = receptionForm.carrier || 'OTHER';
-  const trackingId = (receptionForm.trackingId || '').trim();
+  const trackingValues = trackingInputs
+    .map((val) => String(val || '').trim())
+    .filter((val, idx, arr) => val && arr.indexOf(val) === idx);
+  const primaryTracking = trackingValues[0] || null;
   // Preluăm unitățile introduse în coloana “Units to Send / Receive”
   const payload = {
     company_id: profile.company_id,
     user_id: profile.id,
     carrier: carrierCode,
     carrier_other: carrierCode === 'OTHER' ? (receptionForm.carrierOther || '').trim() || null : null,
-    tracking_id: trackingId || null,
-    tracking_ids: trackingId ? [trackingId] : null,
+    tracking_id: primaryTracking,
+    tracking_ids: trackingValues.length ? trackingValues : null,
     notes: (receptionForm.notes || '').trim() || null,
     fba_mode: receptionForm.fbaMode || 'none',
     items: selectedRows.map(r => {
@@ -1732,13 +1814,81 @@ const saveReqChanges = async () => {
                         className="border rounded-md px-2 py-1 w-32 sm:w-40"
                       />
                     )}
-                    <input
-                      type="text"
-                      value={receptionForm.trackingId}
-                      onChange={(e) => handleReceptionFormChange('trackingId', e.target.value)}
-                      placeholder={t('ClientStock.receptionForm.tracking')}
-                      className="border rounded-md px-2 py-1 w-32 sm:w-44"
-                    />
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        {t('ClientStock.receptionForm.tracking')}
+                      </span>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-gray-500 font-semibold">#1</span>
+                          <input
+                            ref={assignTrackingRef(0)}
+                            type="text"
+                            value={trackingInputs[0] || ''}
+                            onChange={(e) => updateTrackingValue(0, e.target.value)}
+                            placeholder={t('ClientStock.receptionForm.tracking')}
+                            className="border rounded-md px-2 py-1 w-32 sm:w-44"
+                          />
+                        </div>
+                        {trackingInputs.length > 1 && !trackingExpanded && (
+                          <div className="flex items-center gap-1">
+                            {trackingInputs.slice(1).map((_, idx) => (
+                              <button
+                                type="button"
+                                key={`tracking-pill-${idx}`}
+                                onClick={() => handleTrackingBadgeClick(idx + 1)}
+                                className="text-xs px-2 py-1 rounded-full border border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100"
+                                title={trackingInputs[idx + 1] || ''}
+                              >
+                                {`+${idx + 1}`}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={addTrackingEntry}
+                          className="text-xs text-primary font-semibold hover:underline"
+                        >
+                          {t('ClientStock.receptionForm.trackingAdd')}
+                        </button>
+                      </div>
+                      {trackingExpanded && trackingInputs.length > 1 && (
+                        <div className="mt-2 space-y-1">
+                          {trackingInputs.slice(1).map((value, idx) => (
+                            <div key={`tracking-extra-${idx}`} className="flex items-end gap-2">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-500 font-semibold">{`#${
+                                  idx + 2
+                                }`}</span>
+                                <input
+                                  ref={assignTrackingRef(idx + 1)}
+                                  type="text"
+                                  value={value}
+                                  onChange={(e) => updateTrackingValue(idx + 1, e.target.value)}
+                                  placeholder={t('ClientStock.receptionForm.tracking')}
+                                  className="border rounded-md px-2 py-1 w-32 sm:w-44"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                className="text-xs text-red-500 hover:underline"
+                                onClick={() => removeTrackingEntry(idx + 1)}
+                              >
+                                {t('ClientStock.drawer.remove')}
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="text-xs text-gray-500 underline"
+                            onClick={() => setTrackingExpanded(false)}
+                          >
+                            {t('ClientStock.receptionForm.trackingHide')}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     <input
                       type="text"
                       value={receptionForm.notes}

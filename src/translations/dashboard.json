@@ -263,6 +263,8 @@
       "receptionForm": {
         "carrierOther": "Carrier name",
         "tracking": "Tracking ID",
+        "trackingAdd": "Add tracking ID",
+        "trackingHide": "Hide extra tracking IDs",
         "notes": "Notes"
       },
       "actions": {
@@ -384,7 +386,7 @@
         "success": "{count} placeholders added to inventory."
       },
       "copyInline": "Copy",
-      "copyBubble": "{code} copied",
+      "copyBubble": "Code copied",
       "copyError": "Unable to copy code.",
       "inventory": {
         "title": "Inventory",
@@ -892,6 +894,8 @@
       "receptionForm": {
         "carrierOther": "Numele curierului",
         "tracking": "Tracking ID",
+        "trackingAdd": "Adaugă tracking ID",
+        "trackingHide": "Ascunde ID-urile suplimentare",
         "notes": "Notițe"
       },
       "actions": {
@@ -1013,7 +1017,7 @@
         "success": "{count} produse provizorii adăugate în stoc."
       },
       "copyInline": "Copiat",
-      "copyBubble": "{code} copiat",
+      "copyBubble": "Cod copiat",
       "copyError": "Nu pot copia codul.",
       "inventory": {
         "title": "Inventar",
@@ -1521,6 +1525,8 @@
       "receptionForm": {
         "carrierOther": "Nom du transporteur",
         "tracking": "Numéro de suivi",
+        "trackingAdd": "Ajouter un numéro de suivi",
+        "trackingHide": "Masquer les numéros supplémentaires",
         "notes": "Notes"
       },
       "actions": {
@@ -1642,7 +1648,7 @@
         "success": "{count} lignes provisoires ajoutées au stock."
       },
       "copyInline": "Copié",
-      "copyBubble": "{code} copié",
+      "copyBubble": "Code copié",
       "copyError": "Impossible de copier le code.",
       "inventory": {
         "title": "Stock",
@@ -2150,6 +2156,8 @@
       "receptionForm": {
         "carrierOther": "Name des Transporteurs",
         "tracking": "Tracking-ID",
+        "trackingAdd": "Weitere Tracking-ID hinzufügen",
+        "trackingHide": "Zusätzliche IDs ausblenden",
         "notes": "Notizen"
       },
       "actions": {
@@ -2271,7 +2279,7 @@
         "success": "{count} Platzhalter zum Bestand hinzugefügt."
       },
       "copyInline": "Kopiert",
-      "copyBubble": "{code} kopiert",
+      "copyBubble": "Code kopiert",
       "copyError": "Code kann nicht kopiert werden.",
       "inventory": {
         "title": "Bestand",
@@ -2779,6 +2787,8 @@
       "receptionForm": {
         "carrierOther": "Nome del corriere",
         "tracking": "Tracking ID",
+        "trackingAdd": "Aggiungi tracking ID",
+        "trackingHide": "Nascondi le ID aggiuntive",
         "notes": "Note"
       },
       "actions": {
@@ -2900,7 +2910,7 @@
         "success": "{count} segnaposto aggiunti all'inventario."
       },
       "copyInline": "Copiato",
-      "copyBubble": "{code} copiato",
+      "copyBubble": "Codice copiato",
       "copyError": "Impossibile copiare il codice.",
       "inventory": {
         "title": "Inventario",
@@ -3408,6 +3418,8 @@
       "receptionForm": {
         "carrierOther": "Nombre del transportista",
         "tracking": "ID de seguimiento",
+        "trackingAdd": "Agregar tracking ID",
+        "trackingHide": "Ocultar IDs adicionales",
         "notes": "Notas"
       },
       "actions": {
@@ -3529,7 +3541,7 @@
         "success": "{count} placeholders añadidos al inventario."
       },
       "copyInline": "Copiado",
-      "copyBubble": "{code} copiado",
+      "copyBubble": "Código copiado",
       "copyError": "No se puede copiar el código.",
       "inventory": {
         "title": "Inventario",
