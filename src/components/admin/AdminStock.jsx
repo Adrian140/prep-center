@@ -4,7 +4,7 @@ import { Trash2, Edit3, Save, X, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import Section from '../common/Section';
 import ProductPhotosModal from '../common/ProductPhotosModal';
-import { useSessionStorage } from '@/hooks/useSessionStorage';
+import ProductQuickAdd from '../common/ProductQuickAdd';
 
 const pick = (obj, keys) => Object.fromEntries(keys.map(k => [k, obj[k]]));
 
@@ -12,6 +12,20 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
   const [edit, setEdit] = useState(null);
   const [localRows, setLocalRows] = useState(rows);
   const [photoItem, setPhotoItem] = useState(null);
+  const handleQuickAddComplete = ({ inserted = [], updated = [] }) => {
+    setLocalRows((prev) => {
+      const updateMap = new Map(updated.map((row) => [row.id, row]));
+      let next = prev.map((row) => (updateMap.has(row.id) ? { ...row, ...updateMap.get(row.id) } : row));
+      if (inserted.length) {
+        next = [...inserted, ...next];
+      }
+      return next;
+    });
+    reload?.();
+  };
+  const handleQuickAddError = (msg) => {
+    if (msg) alert(msg);
+  };
 
   useEffect(() => {
     setLocalRows(rows);
@@ -20,41 +34,10 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
   // INPUT-URI LOCALE pentru +/- pe fiecare rând
   const [qtyInputs, setQtyInputs] = useState({}); // { [id]: { dec: '', inc: '' } }
 
-  // Form de adăugare (fără product_link)
-  const formStorageKey = companyId
-    ? `admin-stock-form-${companyId}`
-    : `admin-stock-form-${profile?.id || 'default'}`;
-  const [form, setForm] = useSessionStorage(formStorageKey, {
-    ean: '',
-    qty: '',
-    name: '',
-    asin: '',
-    sku: '',
-    obs_admin: '',
-  });
-
   const confirmAndDelete = async (id) => {
     if (!window.confirm('Sigur vrei să ștergi această linie?')) return;
     const { error } = await supabase.from('stock_items').delete().eq('id', id);
     if (error) alert(error.message); else reload?.();
-  };
-
-  const handleAdd = async () => {
-    if (!companyId) return;
-    const payload = {
-      company_id: companyId,
-      ean: form.ean || null,
-      qty: form.qty === '' ? 0 : Number(form.qty),
-      name: form.name || null,
-      asin: form.asin || null,
-      sku: form.sku || null,
-      obs_admin: form.obs_admin || null,
-      created_by: profile.id,
-    };
-    const { error } = await supabase.from('stock_items').insert(payload);
-    if (error) return alert(error.message);
-    setForm({ ean: '', qty: '', name: '', asin: '', sku: '', obs_admin: '' });
-    reload?.();
   };
 
   const saveEdit = async () => {
@@ -178,61 +161,17 @@ export default function AdminStock({ rows = [], reload, companyId, profile }) {
     });
   }, [localRows]);
   return (
-    <Section
-      title="Stoc"
-      right={
-        <div className="w-full">
-          {/* -1 coloană: fără Link */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-            <input
-              placeholder="EAN (admin)"
-              className="border rounded px-2 py-1 w-full"
-              value={form.ean}
-              onChange={(e) => setForm((s) => ({ ...s, ean: e.target.value }))}
-            />
-            <input
-              placeholder="Cantitate"
-              className="border rounded px-2 py-1 w-full"
-              value={form.qty}
-              onChange={(e) => setForm((s) => ({ ...s, qty: e.target.value }))}
-            />
-            <input
-              placeholder="Product name"
-              className="border rounded px-2 py-1 w-full"
-              value={form.name}
-              onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-            />
-            <input
-              placeholder="ASIN (Amazon)"
-              className="border rounded px-2 py-1 w-full"
-              value={form.asin}
-              onChange={(e) => setForm((s) => ({ ...s, asin: e.target.value }))}
-            />
-            <input
-              placeholder="SKU (client)"
-              className="border rounded px-2 py-1 w-full"
-              value={form.sku}
-              onChange={(e) => setForm((s) => ({ ...s, sku: e.target.value }))}
-            />
-            <input
-              placeholder="Obs admin"
-              className="border rounded px-2 py-1 w-full"
-              value={form.obs_admin}
-              onChange={(e) => setForm((s) => ({ ...s, obs_admin: e.target.value }))}
-            />
-
-            <div className="col-span-2 sm:col-span-1">
-              <button
-                onClick={handleAdd}
-                className="bg-primary text-white px-3 py-2 rounded w-full lg:w-auto"
-              >
-                Adaugă
-              </button>
-            </div>
-          </div>
-        </div>
-      }
-    >
+    <Section title="Stoc" right={null}>
+      <div className="mb-6">
+        <ProductQuickAdd
+          companyId={companyId || null}
+          userId={null}
+          createdBy={profile?.id || null}
+          existingRows={localRows}
+          onComplete={handleQuickAddComplete}
+          onError={handleQuickAddError}
+        />
+      </div>
       <div className="overflow-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50">

@@ -7,6 +7,7 @@ import { useDashboardTranslation } from '../../../translations';
 import ProductPhotosModal from '../../common/ProductPhotosModal';
 import { supabase } from '../../../config/supabase';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
+import ProductQuickAdd from '@/components/common/ProductQuickAdd';
 
 function HelpMenuButtonStock({ section = 'stock', t, tp }) {
   const GUIDE_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
@@ -618,6 +619,35 @@ export default function ClientStock() {
     const tmr = setTimeout(() => setToast(null), 6000);
     return () => clearTimeout(tmr);
   }, [toast]);
+  const quickAddLabels = useMemo(
+    () => ({
+      title: t('ClientStock.quickAdd.title'),
+      subtitle: t('ClientStock.quickAdd.subtitle'),
+      manualTitle: t('ClientStock.quickAdd.manualTitle'),
+      eanLabel: t('ClientStock.quickAdd.eanLabel'),
+      nameLabel: t('ClientStock.quickAdd.nameLabel'),
+      qtyLabel: t('ClientStock.quickAdd.qtyLabel'),
+      addLine: t('ClientStock.quickAdd.addLine'),
+      uploadTitle: t('ClientStock.quickAdd.uploadTitle'),
+      uploadHint: t('ClientStock.quickAdd.uploadHint'),
+      template: t('ClientStock.quickAdd.template'),
+      previewTitle: t('ClientStock.quickAdd.previewTitle'),
+      empty: t('ClientStock.quickAdd.empty'),
+      remove: t('ClientStock.quickAdd.remove'),
+      addInventory: t('ClientStock.quickAdd.addInventory'),
+      errors: {
+        missingFields: t('ClientStock.quickAdd.errors.missingFields'),
+        invalidCode: t('ClientStock.quickAdd.errors.invalidCode'),
+        qty: t('ClientStock.quickAdd.errors.qty'),
+        fileType: t('ClientStock.quickAdd.errors.fileType'),
+        fileHeaders: t('ClientStock.quickAdd.errors.fileHeaders'),
+        fileRows: t('ClientStock.quickAdd.errors.fileRows'),
+        save: t('ClientStock.quickAdd.errors.save')
+      },
+      success: t('ClientStock.quickAdd.success')
+    }),
+    [t]
+  );
 
   const storagePrefix = useMemo(() => {
     if (profile?.company_id) return `client-stock-${profile.company_id}`;
@@ -700,6 +730,42 @@ const [receptionForm, setReceptionForm] = useSessionStorage(
 );
 const [photoItem, setPhotoItem] = useState(null);
 const [photoCounts, setPhotoCounts] = useState({});
+const handleQuickAddComplete = useCallback(
+  ({ inserted = [], updated = [], count = 0 }) => {
+    setRows((prev) => {
+      const updateMap = new Map(updated.map((row) => [row.id, row]));
+      let next = prev.map((row) => (updateMap.has(row.id) ? { ...row, ...updateMap.get(row.id) } : row));
+      if (inserted.length) {
+        next = [...inserted, ...next];
+      }
+      return next;
+    });
+    if (inserted.length) {
+      setRowEdits((prev) => {
+        const next = { ...prev };
+        inserted.forEach((row) => {
+          next[row.id] = {
+            name: row.name || '',
+            asin: row.asin || '',
+            product_link: row.product_link || '',
+            purchase_price: row.purchase_price != null ? String(row.purchase_price) : '',
+            sku: row.sku || '',
+            units_to_send: 0,
+            fba_units: 0
+          };
+        });
+        return next;
+      });
+    }
+    const msg = (quickAddLabels.success || '').replace('{count}', String(count));
+    setToast({ type: 'success', text: msg });
+  },
+  [quickAddLabels.success, setRowEdits]
+);
+const handleQuickAddError = useCallback(
+  (msg) => setToast({ type: 'error', text: msg }),
+  []
+);
 
 useEffect(() => {
   let mounted = true;
@@ -1353,6 +1419,18 @@ const saveReqChanges = async () => {
         </div>
       </div>
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      </div>
+
+      <div className="mb-6">
+        <ProductQuickAdd
+          companyId={profile?.company_id || null}
+          userId={profile?.id || null}
+          createdBy={profile?.id || null}
+          existingRows={rows}
+          labels={quickAddLabels}
+          onComplete={handleQuickAddComplete}
+          onError={handleQuickAddError}
+        />
       </div>
 
       <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
