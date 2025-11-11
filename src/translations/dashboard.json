@@ -394,6 +394,20 @@
         "unfulfillable": "Unfulfillable",
         "reserved": "Reserved"
       },
+      "sales": {
+        "heading": "30-day sales",
+        "all": "All markets",
+        "last30": "Last 30 days",
+        "total": "{total} units",
+        "empty": "No orders in this period.",
+        "updated": "Refreshed {time}",
+        "status": {
+          "payment": "Payment complete",
+          "shipped": "Shipped",
+          "pending": "Pending",
+          "refund": "Refund applied"
+        }
+      },
       "receptionFba": {
         "title": "Expédier vers Amazon",
         "none": "Ne pas envoyer pour le moment",
@@ -1008,6 +1022,20 @@
         "inbound": "În tranzit",
         "unfulfillable": "Nerealizabil",
         "reserved": "Rezervat"
+      },
+      "sales": {
+        "heading": "Vânzări (30 zile)",
+        "all": "Toate piețele",
+        "last30": "Ultimele 30 de zile",
+        "total": "{total} unități",
+        "empty": "Nu există comenzi în această perioadă.",
+        "updated": "Actualizat {time}",
+        "status": {
+          "payment": "Plată confirmată",
+          "shipped": "Expediate",
+          "pending": "În așteptare",
+          "refund": "Rambursate"
+        }
       },
       "receptionFba": {
         "title": "Trimitere către Amazon",
@@ -1624,6 +1652,20 @@
         "unfulfillable": "Non réalisable",
         "reserved": "Réservé"
       },
+      "sales": {
+        "heading": "Ventes sur 30 jours",
+        "all": "Tous les marchés",
+        "last30": "30 derniers jours",
+        "total": "{total} unités",
+        "empty": "Aucune commande sur cette période.",
+        "updated": "Actualisé {time}",
+        "status": {
+          "payment": "Paiement validé",
+          "shipped": "Expédiées",
+          "pending": "En cours",
+          "refund": "Remboursées"
+        }
+      },
       "receptionFba": {
         "title": "Zu Amazon senden",
         "none": "Jetzt nicht senden",
@@ -2238,6 +2280,20 @@
         "inbound": "Eingehend",
         "unfulfillable": "Nicht erfüllbar",
         "reserved": "Reserviert"
+      },
+      "sales": {
+        "heading": "Verkäufe (30 Tage)",
+        "all": "Alle Märkte",
+        "last30": "Letzte 30 Tage",
+        "total": "{total} Einheiten",
+        "empty": "Keine Bestellungen in diesem Zeitraum.",
+        "updated": "Aktualisiert {time}",
+        "status": {
+          "payment": "Zahlung bestätigt",
+          "shipped": "Versendet",
+          "pending": "Ausstehend",
+          "refund": "Rückerstattet"
+        }
       },
       "receptionFba": {
         "title": "Invia ad Amazon",
@@ -2854,6 +2910,20 @@
         "unfulfillable": "Non evadibile",
         "reserved": "Prenotato"
       },
+      "sales": {
+        "heading": "Vendite (30 giorni)",
+        "all": "Tutti i mercati",
+        "last30": "Ultimi 30 giorni",
+        "total": "{total} unità",
+        "empty": "Nessun ordine in questo periodo.",
+        "updated": "Aggiornato {time}",
+        "status": {
+          "payment": "Pagamento completato",
+          "shipped": "Spedite",
+          "pending": "In sospeso",
+          "refund": "Rimborsate"
+        }
+      },
       "receptionFba": {
         "title": "Enviar a Amazon",
         "none": "No enviar ahora",
@@ -3468,6 +3538,20 @@
         "inbound": "En tránsito",
         "unfulfillable": "No realizable",
         "reserved": "Reservado"
+      },
+      "sales": {
+        "heading": "Ventas (30 días)",
+        "all": "Todos los mercados",
+        "last30": "Últimos 30 días",
+        "total": "{total} unidades",
+        "empty": "No hay pedidos en este periodo.",
+        "updated": "Actualizado {time}",
+        "status": {
+          "payment": "Pago completado",
+          "shipped": "Enviadas",
+          "pending": "Pendientes",
+          "refund": "Reembolsadas"
+        }
       },
       "receptionFba": {
         "title": "Send to Amazon",

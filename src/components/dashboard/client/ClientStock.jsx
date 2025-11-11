@@ -57,6 +57,39 @@ function HelpMenuButtonStock({ section = 'stock', t, tp }) {
 }
 
 
+const SALES_COUNTRIES = [
+  { value: 'ALL', label: 'All' },
+  { value: 'BE', label: 'Belgium' },
+  { value: 'FR', label: 'France' },
+  { value: 'DE', label: 'Germany' },
+  { value: 'IE', label: 'Ireland' },
+  { value: 'IT', label: 'Italy' },
+  { value: 'NL', label: 'Netherlands' },
+  { value: 'PL', label: 'Poland' },
+  { value: 'ES', label: 'Spain' },
+  { value: 'SE', label: 'Sweden' },
+  { value: 'GB', label: 'United Kingdom' }
+];
+
+const COUNTRY_LABEL_LOOKUP = SALES_COUNTRIES.reduce((acc, item) => {
+  acc[item.value] = item.label;
+  return acc;
+}, {});
+
+const formatSalesTimestamp = (value) => {
+  if (!value) return '';
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(value));
+  } catch {
+    return String(value);
+  }
+};
+
 const DEFAULT_PER_PAGE = 50;
 const COUNTRIES = [{ code: 'FR' }, { code: 'DE' }, { code: 'IT' }, { code: 'ES' }, { code: 'RO' }];
 
@@ -119,6 +152,45 @@ const InventoryBreakdown = ({ row, t }) => {
   );
 };
 
+const SalesBreakdown = ({ stats, refreshedAt, countryLabel, t }) => {
+  const hasStats = Boolean(stats);
+  const statusList = [
+    { key: 'payment', label: t('ClientStock.sales.status.payment'), value: stats?.payment ?? 0 },
+    { key: 'shipped', label: t('ClientStock.sales.status.shipped'), value: stats?.shipped ?? 0 },
+    { key: 'pending', label: t('ClientStock.sales.status.pending'), value: stats?.pending ?? 0 },
+    { key: 'refund', label: t('ClientStock.sales.status.refund'), value: stats?.refund ?? 0 }
+  ];
+
+  return (
+    <div className="border rounded-xl p-1.5 text-[11px] leading-5 text-gray-600 bg-white shadow-inner min-w-[150px] max-w-[200px]">
+      <div className="flex items-center justify-between text-[10px] uppercase font-semibold text-gray-500">
+        <span>{t('ClientStock.sales.last30')}</span>
+        <span className="text-gray-700 normal-case">{countryLabel}</span>
+      </div>
+      <div className="mt-1 text-sm font-semibold text-gray-900">
+        {hasStats ? t('ClientStock.sales.total', { total: stats?.total ?? 0 }) : '—'}
+      </div>
+      {hasStats ? (
+        <div className="mt-1 space-y-0.5">
+          {statusList.map((item) => (
+            <div key={item.key} className="flex items-center justify-between">
+              <span>{item.label}</span>
+              <span className="text-[#008296] font-semibold">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1 text-gray-400">{t('ClientStock.sales.empty')}</p>
+      )}
+      {refreshedAt && (
+        <div className="mt-1 text-[10px] text-gray-400">
+          {t('ClientStock.sales.updated', { time: formatSalesTimestamp(refreshedAt) })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const BASE_PRODUCT_FORM = {
   name: '',
   asin: '',
@@ -158,6 +230,57 @@ const DEFAULT_RECEPTION_FORM = {
   trackingId: '',
   notes: '',
   fbaMode: 'none'
+};
+
+const normalizeCountryCode = (country) => {
+  if (!country) return 'ALL';
+  const upper = country.toUpperCase();
+  if (COUNTRY_LABEL_LOOKUP[upper]) return upper;
+  const found = SALES_COUNTRIES.find((item) => item.label.toLowerCase() === country.toLowerCase());
+  return found ? found.value : 'ALL';
+};
+
+const buildSalesSummary = (rows = []) => {
+  const map = {};
+  rows.forEach((entry) => {
+    const key = (entry.asin || entry.sku || '').toUpperCase();
+    if (!key) return;
+    const country = normalizeCountryCode(entry.country);
+    if (!map[key]) {
+      map[key] = { refreshed_at: entry.refreshed_at || null, countries: {} };
+    } else if (entry.refreshed_at) {
+      const existingDate = map[key].refreshed_at ? new Date(map[key].refreshed_at).getTime() : 0;
+      if (new Date(entry.refreshed_at).getTime() > existingDate) {
+        map[key].refreshed_at = entry.refreshed_at;
+      }
+    }
+
+    map[key].countries[country] = {
+      total: Number(entry.total_units) || 0,
+      payment: Number(entry.payment_units) || 0,
+      shipped: Number(entry.shipped_units) || 0,
+      pending: Number(entry.pending_units) || 0,
+      refund: Number(entry.refund_units) || 0
+    };
+  });
+
+  Object.keys(map).forEach((key) => {
+    const summary = map[key];
+    if (!summary.countries.ALL) {
+      const totals = { total: 0, payment: 0, shipped: 0, pending: 0, refund: 0 };
+      Object.entries(summary.countries).forEach(([country, stats]) => {
+        if (country === 'ALL') return;
+        totals.total += stats.total;
+        totals.payment += stats.payment;
+        totals.shipped += stats.shipped;
+        totals.pending += stats.pending;
+        totals.refund += stats.refund;
+      });
+      summary.countries.ALL = totals;
+    }
+  });
+
+  return map;
 };
 
 function CreateProductModal({ open, onClose, profile, t, onCreated }) {
@@ -655,10 +778,15 @@ export default function ClientStock() {
     return 'client-stock';
   }, [profile?.company_id, profile?.id]);
 
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+const [rows, setRows] = useState([]);
+const [loading, setLoading] = useState(true);
 
-  const [rowEdits, setRowEdits] = useState({});
+const [rowEdits, setRowEdits] = useState({});
+const [salesSummary, setSalesSummary] = useState({});
+const [salesCountry, setSalesCountry] = useSessionStorage(
+  `${storagePrefix}-salesCountry`,
+  'ALL'
+);
 
   const [searchField, setSearchField] = useSessionStorage(
     `${storagePrefix}-searchField`,
@@ -845,6 +973,19 @@ useEffect(() => {
         }
       } else {
         setPhotoCounts({});
+      }
+
+      try {
+        let salesQuery = supabase
+          .from('amazon_sales_30d')
+          .select('asin, sku, country, total_units, pending_units, shipped_units, payment_units, refund_units, refreshed_at');
+        if (profile?.company_id) salesQuery = salesQuery.eq('company_id', profile.company_id);
+        else salesQuery = salesQuery.eq('user_id', profile?.id || null);
+        const { data: salesRows, error: salesErr } = await salesQuery;
+        if (salesErr) throw salesErr;
+        setSalesSummary(buildSalesSummary(salesRows || []));
+      } catch {
+        setSalesSummary({});
       }
 
     }
@@ -1721,6 +1862,24 @@ const saveReqChanges = async () => {
           />
         </div>
       </th>
+      <th className="px-2 py-2 text-left w-48 align-top">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            {t('ClientStock.sales.heading')}
+          </span>
+          <select
+            className="border rounded px-2 py-1 text-xs"
+            value={salesCountry}
+            onChange={(e) => setSalesCountry(e.target.value)}
+          >
+            {SALES_COUNTRIES.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.value === 'ALL' ? t('ClientStock.sales.all') : opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </th>
       <th className="px-2 py-2 text-left w-40">
         <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           {t('ClientStock.inventory.subtitle')}
@@ -1834,18 +1993,40 @@ const saveReqChanges = async () => {
   </p>
 </td>
 
-          {/* 4) Inventory breakdown */}
+          {/* 4) 30-day sales breakdown */}
+          <td className="px-2 py-2 align-top">
+            {(() => {
+              const key = String(r.asin || r.sku || '').trim().toUpperCase();
+              const summary = key ? salesSummary[key] : null;
+              const stats =
+                summary?.countries?.[salesCountry] || summary?.countries?.ALL || null;
+              const countryLabel =
+                salesCountry === 'ALL'
+                  ? t('ClientStock.sales.all')
+                  : COUNTRY_LABEL_LOOKUP[salesCountry] || salesCountry;
+              return (
+                <SalesBreakdown
+                  stats={stats}
+                  refreshedAt={summary?.refreshed_at}
+                  countryLabel={countryLabel}
+                  t={t}
+                />
+              );
+            })()}
+          </td>
+
+          {/* 5) Inventory breakdown */}
           <td className="px-2 py-2 align-top">
             <InventoryBreakdown row={r} t={t} />
           </td>
 
-    {/* 5) PrepCenter stock — afișare (folosim direct qty din DB) */}
+    {/* 6) PrepCenter stock — afișare (folosim direct qty din DB) */}
     <td className="px-2 py-2 text-right text-gray-700">
       {r.qty != null ? r.qty : '—'}
     </td>
 
 
-          {/* 6) Units to Send / Receive — input */}
+          {/* 7) Units to Send / Receive — input */}
           <td className="px-2 py-2 text-right">
            <input
             type="number"
