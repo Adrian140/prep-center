@@ -159,12 +159,9 @@ const SalesBreakdown = ({ stats, refreshedAt, countryLabel, t }) => {
     pending: stats?.pending ?? 0,
     refund: stats?.refund ?? 0
   };
-  const computedTotal =
-    safeStats.payment + safeStats.shipped + safeStats.pending + safeStats.refund;
-  const hasStats = Boolean(stats);
+  const computedTotal = Math.max((safeStats.shipped ?? 0) - (safeStats.pending ?? 0), 0);
   const statusList = [
-    { key: 'refund', label: t('ClientStock.sales.status.refund'), value: safeStats.refund },
-    { key: 'shipped', label: t('ClientStock.sales.status.shipped'), value: safeStats.shipped }
+    { key: 'refund', label: t('ClientStock.sales.status.refund'), value: safeStats.refund }
   ];
 
   return (
@@ -189,9 +186,6 @@ const SalesBreakdown = ({ stats, refreshedAt, countryLabel, t }) => {
           </div>
         ))}
       </div>
-      {!hasStats && (
-        <p className="mt-1 text-gray-400">{t('ClientStock.sales.empty')}</p>
-      )}
       {refreshedAt && (
         <div className="mt-1 text-[10px] text-gray-400">
           {t('ClientStock.sales.updated', { time: formatSalesTimestamp(refreshedAt) })}
