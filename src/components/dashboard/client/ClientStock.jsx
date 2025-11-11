@@ -1789,9 +1789,9 @@ const saveReqChanges = async () => {
   </div>
   <div className="mt-2 text-xs text-gray-600 flex flex-col gap-1">
     <div>
-      <span className="font-semibold text-gray-500 mr-1">ASIN</span>
+      <span className="font-semibold text-gray-500 mr-1 select-none">ASIN</span>
       <span
-        className="font-mono text-gray-800 cursor-pointer"
+        className="font-mono text-gray-800 cursor-pointer select-text"
         onDoubleClick={(e) => handleCodeCopy(e, r.asin, 'ASIN')}
         title="Double-click to copy ASIN"
       >
@@ -1799,9 +1799,9 @@ const saveReqChanges = async () => {
       </span>
     </div>
     <div>
-      <span className="font-semibold text-gray-500 mr-1">EAN</span>
+      <span className="font-semibold text-gray-500 mr-1 select-none">EAN</span>
       <span
-        className="font-mono text-gray-800 cursor-pointer"
+        className="font-mono text-gray-800 cursor-pointer select-text"
         onDoubleClick={(e) => handleCodeCopy(e, r.ean, 'EAN')}
         title="Double-click to copy EAN"
       >
@@ -1809,9 +1809,9 @@ const saveReqChanges = async () => {
       </span>
     </div>
     <div>
-      <span className="font-semibold text-gray-500 mr-1">SKU</span>
+      <span className="font-semibold text-gray-500 mr-1 select-none">SKU</span>
       <span
-        className="font-mono text-gray-800 cursor-pointer"
+        className="font-mono text-gray-800 cursor-pointer select-text"
         onDoubleClick={(e) => handleCodeCopy(e, r.sku, 'SKU')}
         title="Double-click to copy SKU"
       >
