@@ -383,6 +383,8 @@
         },
         "success": "{count} placeholders added to inventory."
       },
+      "copyBubble": "{code} copied",
+      "copyError": "Unable to copy code.",
       "inventory": {
         "title": "Inventory",
         "subtitle": "Fulfillment breakdown",
@@ -995,6 +997,8 @@
         },
         "success": "{count} produse provizorii adăugate în stoc."
       },
+      "copyBubble": "{code} copiat",
+      "copyError": "Nu pot copia codul.",
       "inventory": {
         "title": "Inventar",
         "subtitle": "Detaliere fulfillment",
@@ -1607,6 +1611,8 @@
         },
         "success": "{count} lignes provisoires ajoutées au stock."
       },
+      "copyBubble": "{code} copié",
+      "copyError": "Impossible de copier le code.",
       "inventory": {
         "title": "Stock",
         "subtitle": "Répartition fulfillment",
@@ -2219,6 +2225,8 @@
         },
         "success": "{count} Platzhalter zum Bestand hinzugefügt."
       },
+      "copyBubble": "{code} kopiert",
+      "copyError": "Code kann nicht kopiert werden.",
       "inventory": {
         "title": "Bestand",
         "subtitle": "Fulfillment-Aufschlüsselung",
@@ -2831,6 +2839,8 @@
         },
         "success": "{count} segnaposto aggiunti all'inventario."
       },
+      "copyBubble": "{code} copiato",
+      "copyError": "Impossibile copiare il codice.",
       "inventory": {
         "title": "Inventario",
         "subtitle": "Ripartizione fulfillment",
@@ -3443,6 +3453,8 @@
         },
         "success": "{count} placeholders añadidos al inventario."
       },
+      "copyBubble": "{code} copiado",
+      "copyError": "No se puede copiar el código.",
       "inventory": {
         "title": "Inventario",
         "subtitle": "Desglose fulfillment",

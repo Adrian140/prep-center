@@ -728,11 +728,12 @@ export default function ClientStock() {
           document.body.removeChild(temp);
         }
         const rect = event?.currentTarget?.getBoundingClientRect();
+        const bubbleText = t('ClientStock.copyBubble', { code: label });
         if (rect) {
           const bubble = {
-            label,
-            top: rect.top + window.scrollY - 8,
-            left: rect.left + window.scrollX + rect.width + 8,
+            text: bubbleText,
+            top: rect.top + window.scrollY - 6,
+            left: rect.left + window.scrollX + rect.width + 10,
             key: Date.now()
           };
           setCopyToast(bubble);
@@ -740,13 +741,13 @@ export default function ClientStock() {
             setCopyToast((current) => (current?.key === bubble.key ? null : current));
           }, 1500);
         } else {
-          setToast({ type: 'success', text: `${label} copied to clipboard.` });
+          setToast({ type: 'success', text: bubbleText });
         }
       } catch {
-        setToast({ type: 'error', text: `Unable to copy ${label}.` });
+        setToast({ type: 'error', text: t('ClientStock.copyError') });
       }
     },
-    []
+    [t]
   );
 
   // ===== Request Editor (history item) =====
@@ -930,40 +931,47 @@ useEffect(() => {
   }, [searched, stockFilter]);
 
   const quickFiltered = useMemo(() => {
-    const term = productSearch.trim().toLowerCase();
-    const filtered = stockFiltered.map((row) => {
-      const name = String(row.name || '').toLowerCase();
-      const asin = String(row.asin || '').toLowerCase();
-      const sku = String(row.sku || '').toLowerCase();
-      const match = term
-        ? name.includes(term) || asin.includes(term) || sku.includes(term)
-        : false;
-      return { row, match };
-    });
-    let ordered = filtered;
+    const term = normalize(productSearch).trim();
     if (term) {
-      const hits = [];
-      const rest = [];
-      ordered.forEach(({ row, match }) => (match ? hits : rest).push(row));
-      ordered = [...hits, ...rest];
-    } else {
-      ordered = filtered.map((item) => item.row);
+      const tokens = term.split(/\s+/).filter(Boolean);
+      const scored = stockFiltered
+        .map((row) => {
+          const fields = [
+            normalize(row.name),
+            normalize(row.asin),
+            normalize(row.sku),
+            normalize(row.ean)
+          ];
+          const useTokens = tokens.length ? tokens : [term];
+          let total = 0;
+          for (const token of useTokens) {
+            const tokenScore = Math.max(...fields.map((field) => matchScore(field, token)));
+            if (tokenScore === 0) {
+              total = 0;
+              break;
+            }
+            total += tokenScore;
+          }
+          return { row, score: total };
+        })
+        .filter(({ score }) => score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map(({ row }) => row);
+      return scored;
     }
+
+    let ordered = [...stockFiltered];
     if (sortMode === 'prep') {
-      ordered = [...ordered].sort(
-        (a, b) => Number(b.qty || 0) - Number(a.qty || 0)
-      );
+      ordered.sort((a, b) => Number(b.qty || 0) - Number(a.qty || 0));
     } else if (sortMode === 'amazon') {
-      ordered = [...ordered].sort(
-        (a, b) => Number(b.amazon_stock || 0) - Number(a.amazon_stock || 0)
-      );
+      ordered.sort((a, b) => Number(b.amazon_stock || 0) - Number(a.amazon_stock || 0));
     }
     if (stockFilter !== 'all') return ordered;
 
     const withStock = ordered.filter((row) => Number(row.qty || 0) > 0);
     const withoutStock = ordered.filter((row) => Number(row.qty || 0) <= 0);
     return [...withStock, ...withoutStock];
-  }, [stockFiltered, productSearch, sortMode, stockFilter]);
+  }, [stockFiltered, productSearch, sortMode, stockFilter, matchScore, normalize]);
 
   const totalPages = Math.max(1, Math.ceil(quickFiltered.length / perPage));
   const pageClamped = Math.min(page, totalPages);
@@ -1463,10 +1471,10 @@ const saveReqChanges = async () => {
       )}
       {copyToast && (
         <div
-          className="fixed z-40 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow"
+          className="fixed z-50 bg-green-600 text-white text-[10px] px-2 py-1 rounded shadow"
           style={{ top: copyToast.top, left: copyToast.left }}
         >
-          {copyToast.label} copied
+          {copyToast.text}
         </div>
       )}
       {/* HEADER */}
