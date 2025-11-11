@@ -614,6 +614,7 @@ export default function ClientStock() {
   const { t, tp } = useDashboardTranslation();
   const { profile, status } = useSupabaseAuth();
   const [toast, setToast] = useState(null);
+  const [copyToast, setCopyToast] = useState(null);
   useEffect(() => {
     if (!toast) return;
     const tmr = setTimeout(() => setToast(null), 6000);
@@ -713,7 +714,7 @@ export default function ClientStock() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const handleCodeCopy = useCallback(
-    async (value, label) => {
+    async (event, value, label) => {
       if (!value) return;
       try {
         if (navigator?.clipboard?.writeText) {
@@ -726,7 +727,21 @@ export default function ClientStock() {
           document.execCommand('copy');
           document.body.removeChild(temp);
         }
-        setToast({ type: 'success', text: `${label} copied to clipboard.` });
+        const rect = event?.currentTarget?.getBoundingClientRect();
+        if (rect) {
+          const bubble = {
+            label,
+            top: rect.top + window.scrollY - 8,
+            left: rect.left + window.scrollX + rect.width + 8,
+            key: Date.now()
+          };
+          setCopyToast(bubble);
+          setTimeout(() => {
+            setCopyToast((current) => (current?.key === bubble.key ? null : current));
+          }, 1500);
+        } else {
+          setToast({ type: 'success', text: `${label} copied to clipboard.` });
+        }
       } catch {
         setToast({ type: 'error', text: `Unable to copy ${label}.` });
       }
@@ -1446,6 +1461,14 @@ const saveReqChanges = async () => {
           {toast.text}
         </div>
       )}
+      {copyToast && (
+        <div
+          className="fixed z-40 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow"
+          style={{ top: copyToast.top, left: copyToast.left }}
+        >
+          {copyToast.label} copied
+        </div>
+      )}
       {/* HEADER */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
@@ -1760,8 +1783,8 @@ const saveReqChanges = async () => {
     <div>
       <span className="font-semibold text-gray-500 mr-1">ASIN</span>
       <span
-        className="font-mono text-gray-800 cursor-pointer select-none"
-        onDoubleClick={() => handleCodeCopy(r.asin, 'ASIN')}
+        className="font-mono text-gray-800 cursor-pointer"
+        onDoubleClick={(e) => handleCodeCopy(e, r.asin, 'ASIN')}
         title="Double-click to copy ASIN"
       >
         {r.asin || '—'}
@@ -1770,8 +1793,8 @@ const saveReqChanges = async () => {
     <div>
       <span className="font-semibold text-gray-500 mr-1">EAN</span>
       <span
-        className="font-mono text-gray-800 cursor-pointer select-none"
-        onDoubleClick={() => handleCodeCopy(r.ean, 'EAN')}
+        className="font-mono text-gray-800 cursor-pointer"
+        onDoubleClick={(e) => handleCodeCopy(e, r.ean, 'EAN')}
         title="Double-click to copy EAN"
       >
         {r.ean || '—'}
@@ -1780,8 +1803,8 @@ const saveReqChanges = async () => {
     <div>
       <span className="font-semibold text-gray-500 mr-1">SKU</span>
       <span
-        className="font-mono text-gray-800 cursor-pointer select-none"
-        onDoubleClick={() => handleCodeCopy(r.sku, 'SKU')}
+        className="font-mono text-gray-800 cursor-pointer"
+        onDoubleClick={(e) => handleCodeCopy(e, r.sku, 'SKU')}
         title="Double-click to copy SKU"
       >
         {r.sku || '—'}
