@@ -714,7 +714,7 @@ export default function ClientStock() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const handleCodeCopy = useCallback(
-    async (event, value, label) => {
+    async (event, rowId, field, value) => {
       if (!value) return;
       try {
         if (navigator?.clipboard?.writeText) {
@@ -728,20 +728,18 @@ export default function ClientStock() {
           document.body.removeChild(temp);
         }
         const rect = event?.currentTarget?.getBoundingClientRect();
-        const bubbleText = t('ClientStock.copyBubble', { code: label });
         if (rect) {
           const bubble = {
-            text: bubbleText,
-            top: rect.top + window.scrollY - 6,
-            left: rect.left + window.scrollX + rect.width + 10,
+            rowId,
+            field,
+            top: rect.top + window.scrollY - 4,
+            left: rect.left + window.scrollX + rect.width + 8,
             key: Date.now()
           };
           setCopyToast(bubble);
           setTimeout(() => {
             setCopyToast((current) => (current?.key === bubble.key ? null : current));
           }, 1500);
-        } else {
-          setToast({ type: 'success', text: bubbleText });
         }
       } catch {
         setToast({ type: 'error', text: t('ClientStock.copyError') });
@@ -945,7 +943,12 @@ useEffect(() => {
           const useTokens = tokens.length ? tokens : [term];
           let total = 0;
           for (const token of useTokens) {
-            const tokenScore = Math.max(...fields.map((field) => matchScore(field, token)));
+            const tokenScore = Math.max(
+              matchScore(fields[0], token),
+              matchScore(fields[1], token) * 2,
+              matchScore(fields[2], token) * 2,
+              matchScore(fields[3], token) * 2
+            );
             if (tokenScore === 0) {
               total = 0;
               break;
