@@ -1017,12 +1017,6 @@ useEffect(() => {
     });
   }, [rows, setSelectedIdList]);
 
-useEffect(() => {
-    if (trackingInputs.length <= 1 && trackingExpanded) {
-      setTrackingExpanded(false);
-    }
-  }, [trackingInputs.length, trackingExpanded]);
-
   const normalize = useCallback((value) => String(value || '').toLowerCase(), []);
 
   const matchScore = useCallback((value, term) => {
@@ -1250,6 +1244,12 @@ const removeTrackingEntry = (index) => {
     return { ...prev, trackingIds: base };
   });
 };
+
+useEffect(() => {
+  if (trackingInputs.length <= 1 && trackingExpanded) {
+    setTrackingExpanded(false);
+  }
+}, [trackingInputs.length, trackingExpanded]);
 
 const resetReceptionForm = () => {
   setReceptionForm(() => createReceptionFormState());
