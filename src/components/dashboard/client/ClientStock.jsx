@@ -1,6 +1,6 @@
 // FILE: src/components/dashboard/client/ClientStock.jsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FileDown, Languages, Plus, X, Image as ImageIcon } from 'lucide-react';
+import { FileDown, Languages, Plus, X, Image as ImageIcon, Check } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
 import { useDashboardTranslation } from '../../../translations';
@@ -727,20 +727,11 @@ export default function ClientStock() {
           document.execCommand('copy');
           document.body.removeChild(temp);
         }
-        const rect = event?.currentTarget?.getBoundingClientRect();
-        if (rect) {
-          const bubble = {
-            rowId,
-            field,
-            top: rect.top + window.scrollY - 4,
-            left: rect.left + window.scrollX + rect.width + 8,
-            key: Date.now()
-          };
-          setCopyToast(bubble);
-          setTimeout(() => {
-            setCopyToast((current) => (current?.key === bubble.key ? null : current));
-          }, 1500);
-        }
+        const key = Date.now();
+        setCopyToast({ rowId, field, key });
+        setTimeout(() => {
+          setCopyToast((current) => (current?.key === key ? null : current));
+        }, 1500);
       } catch {
         setToast({ type: 'error', text: t('ClientStock.copyError') });
       }
@@ -1472,14 +1463,6 @@ const saveReqChanges = async () => {
           {toast.text}
         </div>
       )}
-      {copyToast && (
-        <div
-          className="fixed z-50 bg-green-600 text-white text-[10px] px-2 py-1 rounded shadow"
-          style={{ top: copyToast.top, left: copyToast.left }}
-        >
-          {copyToast.text}
-        </div>
-      )}
       {/* HEADER */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
@@ -1791,35 +1774,50 @@ const saveReqChanges = async () => {
       : '—'}
   </div>
   <div className="mt-2 text-xs text-gray-600 flex flex-col gap-1">
-    <div>
+    <div className="flex items-center text-xs">
       <span className="font-semibold text-gray-500 mr-1 select-none">ASIN</span>
       <span
         className="font-mono text-gray-800 cursor-pointer select-text"
-        onDoubleClick={(e) => handleCodeCopy(e, r.asin, 'ASIN')}
+        onDoubleClick={(e) => handleCodeCopy(e, r.id, 'ASIN', r.asin)}
         title="Double-click to copy ASIN"
       >
         {r.asin || '—'}
       </span>
+      {copyToast?.rowId === r.id && copyToast?.field === 'ASIN' && (
+        <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-green-600">
+          <Check className="w-3 h-3" /> {t('ClientStock.copyInline')}
+        </span>
+      )}
     </div>
-    <div>
+    <div className="flex items-center text-xs">
       <span className="font-semibold text-gray-500 mr-1 select-none">EAN</span>
       <span
         className="font-mono text-gray-800 cursor-pointer select-text"
-        onDoubleClick={(e) => handleCodeCopy(e, r.ean, 'EAN')}
+        onDoubleClick={(e) => handleCodeCopy(e, r.id, 'EAN', r.ean)}
         title="Double-click to copy EAN"
       >
         {r.ean || '—'}
       </span>
+      {copyToast?.rowId === r.id && copyToast?.field === 'EAN' && (
+        <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-green-600">
+          <Check className="w-3 h-3" /> {t('ClientStock.copyInline')}
+        </span>
+      )}
     </div>
-    <div>
+    <div className="flex items-center text-xs">
       <span className="font-semibold text-gray-500 mr-1 select-none">SKU</span>
       <span
         className="font-mono text-gray-800 cursor-pointer select-text"
-        onDoubleClick={(e) => handleCodeCopy(e, r.sku, 'SKU')}
+        onDoubleClick={(e) => handleCodeCopy(e, r.id, 'SKU', r.sku)}
         title="Double-click to copy SKU"
       >
         {r.sku || '—'}
       </span>
+      {copyToast?.rowId === r.id && copyToast?.field === 'SKU' && (
+        <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-green-600">
+          <Check className="w-3 h-3" /> {t('ClientStock.copyInline')}
+        </span>
+      )}
     </div>
   </div>
   <button

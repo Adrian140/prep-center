@@ -383,6 +383,7 @@
         },
         "success": "{count} placeholders added to inventory."
       },
+      "copyInline": "Copy",
       "copyBubble": "{code} copied",
       "copyError": "Unable to copy code.",
       "inventory": {
@@ -997,6 +998,7 @@
         },
         "success": "{count} produse provizorii adăugate în stoc."
       },
+      "copyInline": "Copiat",
       "copyBubble": "{code} copiat",
       "copyError": "Nu pot copia codul.",
       "inventory": {
@@ -1611,6 +1613,7 @@
         },
         "success": "{count} lignes provisoires ajoutées au stock."
       },
+      "copyInline": "Copié",
       "copyBubble": "{code} copié",
       "copyError": "Impossible de copier le code.",
       "inventory": {
@@ -2225,6 +2228,7 @@
         },
         "success": "{count} Platzhalter zum Bestand hinzugefügt."
       },
+      "copyInline": "Kopiert",
       "copyBubble": "{code} kopiert",
       "copyError": "Code kann nicht kopiert werden.",
       "inventory": {
@@ -2839,6 +2843,7 @@
         },
         "success": "{count} segnaposto aggiunti all'inventario."
       },
+      "copyInline": "Copiato",
       "copyBubble": "{code} copiato",
       "copyError": "Impossibile copiare il codice.",
       "inventory": {
@@ -3453,6 +3458,7 @@
         },
         "success": "{count} placeholders añadidos al inventario."
       },
+      "copyInline": "Copiado",
       "copyBubble": "{code} copiado",
       "copyError": "No se puede copiar el código.",
       "inventory": {
