@@ -53,6 +53,27 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
     }
   };
 
+  const deleteGuide = async (filename) => {
+    if (!filename || busy) return;
+    if (!window.confirm(`Ștergi fișierul ${filename}?`)) return;
+    setBusy(true);
+    setGuideMsg('Șterg fișierul...');
+    try {
+      const path = `${section}/${filename}`;
+      const { error } = await supabase
+        .storage
+        .from('user_guides')
+        .remove([path]);
+      if (error) throw error;
+      setGuideMsg('PDF șters ✔️');
+      await listExistingGuides();
+    } catch (e) {
+      setGuideMsg(`Eroare la ștergere: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-semibold text-text-primary flex items-center">
@@ -122,9 +143,20 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
               </div>
             <div className="flex flex-wrap gap-2">
               {existingGuides.map(name => (
-                <span key={name} className="px-2 py-1 text-xs rounded border bg-gray-50">
-                  {name}
-                </span>
+                <div
+                  key={name}
+                  className="px-2 py-1 text-xs rounded border bg-gray-50 flex items-center gap-2"
+                >
+                  <span className="select-text">{name}</span>
+                  <button
+                    type="button"
+                    className="text-red-600 hover:text-red-800"
+                    onClick={() => deleteGuide(name)}
+                    disabled={busy}
+                  >
+                    Remove
+                  </button>
+                </div>
               ))}
             </div>
           </div>
