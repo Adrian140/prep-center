@@ -712,6 +712,27 @@ export default function ClientStock() {
   );
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const handleCodeCopy = useCallback(
+    async (value, label) => {
+      if (!value) return;
+      try {
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(value);
+        } else {
+          const temp = document.createElement('textarea');
+          temp.value = value;
+          document.body.appendChild(temp);
+          temp.select();
+          document.execCommand('copy');
+          document.body.removeChild(temp);
+        }
+        setToast({ type: 'success', text: `${label} copied to clipboard.` });
+      } catch {
+        setToast({ type: 'error', text: `Unable to copy ${label}.` });
+      }
+    },
+    []
+  );
 
   // ===== Request Editor (history item) =====
 const [reqOpen, setReqOpen] = useState(false);
@@ -835,23 +856,56 @@ useEffect(() => {
     });
   }, [rows, setSelectedIdList]);
 
-  const searched = useMemo(() => {
-  const q = (searchQuery || '').trim().toLowerCase();
-  if (!q) return rows;
+  const normalize = useCallback((value) => String(value || '').toLowerCase(), []);
 
-  if (searchField === 'EAN') {
-    return rows.filter((r) => String(r.ean || '').toLowerCase().startsWith(q));
-  }
-  if (searchField === 'ASIN_SKU') {
-    const getSku = (r) => String(r.sku || r.asin || '').toLowerCase();
-    return rows.filter((r) => getSku(r).includes(q));
-  }
-  const tokens = q.split(/\s+/).filter(Boolean);
-  return rows.filter((r) => {
-    const hay = String(r.name || '').toLowerCase();
-    return tokens.every((t) => hay.includes(t));
-  });
-}, [rows, searchField, searchQuery]);
+  const matchScore = useCallback((value, term) => {
+    if (!value || !term) return 0;
+    const idx = value.indexOf(term);
+    if (idx === -1) return 0;
+    const prefixBonus = value.startsWith(term) ? 40 : 0;
+    const closeness = Math.max(0, 60 - idx * 5);
+    const lengthBonus = Math.max(0, 20 - Math.abs(value.length - term.length));
+    return prefixBonus + closeness + lengthBonus;
+  }, []);
+
+  const searched = useMemo(() => {
+    const q = normalize(searchQuery).trim();
+    if (!q) return rows;
+
+    const tokens = q.split(/\s+/).filter(Boolean);
+
+    const scored = rows
+      .map((row) => {
+        let score = 0;
+        if (searchField === 'EAN') {
+          score = matchScore(normalize(row.ean), q);
+        } else if (searchField === 'ASIN_SKU') {
+          score = Math.max(matchScore(normalize(row.asin), q), matchScore(normalize(row.sku), q));
+        } else {
+          const hay = normalize(row.name);
+          if (tokens.length === 0) {
+            score = matchScore(hay, q);
+          } else {
+            let total = 0;
+            for (const token of tokens) {
+              const tokenScore = matchScore(hay, token);
+              if (tokenScore === 0) {
+                total = 0;
+                break;
+              }
+              total += tokenScore;
+            }
+            score = total;
+          }
+        }
+        return { row, score };
+      })
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(({ row }) => row);
+
+    return scored;
+  }, [rows, searchField, searchQuery, matchScore, normalize]);
 
 
   const stockFiltered = useMemo(() => {
@@ -1705,15 +1759,33 @@ const saveReqChanges = async () => {
   <div className="mt-2 text-xs text-gray-600 flex flex-col gap-1">
     <div>
       <span className="font-semibold text-gray-500 mr-1">ASIN</span>
-      <span className="font-mono text-gray-800">{r.asin || '—'}</span>
+      <span
+        className="font-mono text-gray-800 cursor-pointer select-none"
+        onDoubleClick={() => handleCodeCopy(r.asin, 'ASIN')}
+        title="Double-click to copy ASIN"
+      >
+        {r.asin || '—'}
+      </span>
     </div>
     <div>
       <span className="font-semibold text-gray-500 mr-1">EAN</span>
-      <span className="font-mono text-gray-800">{r.ean || '—'}</span>
+      <span
+        className="font-mono text-gray-800 cursor-pointer select-none"
+        onDoubleClick={() => handleCodeCopy(r.ean, 'EAN')}
+        title="Double-click to copy EAN"
+      >
+        {r.ean || '—'}
+      </span>
     </div>
     <div>
       <span className="font-semibold text-gray-500 mr-1">SKU</span>
-      <span className="font-mono text-gray-800">{r.sku || '—'}</span>
+      <span
+        className="font-mono text-gray-800 cursor-pointer select-none"
+        onDoubleClick={() => handleCodeCopy(r.sku, 'SKU')}
+        title="Double-click to copy SKU"
+      >
+        {r.sku || '—'}
+      </span>
     </div>
   </div>
   <button
