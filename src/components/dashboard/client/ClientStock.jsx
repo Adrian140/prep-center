@@ -626,7 +626,6 @@ export default function ClientStock() {
       manualTitle: t('ClientStock.quickAdd.manualTitle'),
       eanLabel: t('ClientStock.quickAdd.eanLabel'),
       nameLabel: t('ClientStock.quickAdd.nameLabel'),
-      qtyLabel: t('ClientStock.quickAdd.qtyLabel'),
       addLine: t('ClientStock.quickAdd.addLine'),
       uploadTitle: t('ClientStock.quickAdd.uploadTitle'),
       uploadHint: t('ClientStock.quickAdd.uploadHint'),

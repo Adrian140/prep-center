@@ -5,30 +5,27 @@ import { supabase, supabaseHelpers } from '@/config/supabase';
 const defaultLabels = {
   title: 'Manual inventory intake',
   subtitle:
-    'Add each product manually or upload the Excel template with EAN/ASIN, product name and quantity received.',
+    'Add placeholders manually or upload the template with EAN/ASIN and product name. Quantities will sync automatically once Amazon sends the listing.',
   manualTitle: 'Manual entry',
   eanLabel: 'EAN/ASIN *',
   nameLabel: 'Product Name *',
-  qtyLabel: 'Quantity Received *',
   addLine: 'Add line',
   uploadTitle: 'Import from XLSX/CSV',
-  uploadHint: 'Required columns: EAN/ASIN, Product Name, Quantity Received.',
+  uploadHint: 'Required columns: EAN/ASIN and Product Name.',
   template: 'Download template',
   previewTitle: 'Pending lines',
   empty: 'No pending lines yet.',
   remove: 'Remove',
   addInventory: 'Add to inventory',
   errors: {
-    missingFields: 'Fill all required fields before adding the line.',
+    missingFields: 'Fill both fields before adding the line.',
     invalidCode: 'Enter a valid EAN or ASIN.',
-    qty: 'Quantity must be at least 1.',
     fileType: 'Please upload a .xlsx or .csv file.',
-    fileHeaders:
-      'Missing required columns. Expected headers: EAN/ASIN, Product Name, Quantity Received.',
+    fileHeaders: 'Missing required columns. Expected headers: EAN/ASIN, Product Name.',
     fileRows: 'No valid rows were detected in the file.',
     save: 'Unable to add products: {msg}'
   },
-  success: '{count} lines added to inventory.'
+  success: '{count} placeholders added to inventory.'
 };
 
 const normalizeHeader = (value) =>
@@ -42,13 +39,6 @@ const randomId = () =>
 const buildCodeKey = (code, type) => {
   if (!code) return null;
   return `${type}:${String(code).trim().toUpperCase()}`;
-};
-
-const parseQty = (value) => {
-  if (value === '' || value == null) return null;
-  const n = Number(String(value).replace(',', '.'));
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.round(n);
 };
 
 const parseCode = (raw) => {
@@ -71,9 +61,9 @@ const parseCode = (raw) => {
 
 const downloadTemplate = () => {
   const csv =
-    'EAN/ASIN,Product Name,Quantity Received\n' +
-    'B0ABC12345,Sample Amazon Listing,12\n' +
-    '1234567890123,Generic Product,24\n';
+    'EAN/ASIN,Product Name\n' +
+    'B0ABC12345,Sample Amazon Listing\n' +
+    '1234567890123,Generic Product\n';
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -104,7 +94,7 @@ function ProductQuickAdd({
   onError,
   labels = defaultLabels
 }) {
-  const [manual, setManual] = useState({ code: '', name: '', qty: '' });
+  const [manual, setManual] = useState({ code: '', name: '' });
   const [pending, setPending] = useState([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -118,7 +108,7 @@ function ProductQuickAdd({
 
   const addManualLine = () => {
     setError('');
-    const { code, name, qty } = manual;
+    const { code, name } = manual;
     if (!code.trim() || !name.trim()) {
       setError(labels.errors?.missingFields || defaultLabels.errors.missingFields);
       return;
@@ -128,19 +118,13 @@ function ProductQuickAdd({
       setError(labels.errors?.invalidCode || defaultLabels.errors.invalidCode);
       return;
     }
-    const parsedQty = parseQty(qty);
-    if (!parsedQty) {
-      setError(labels.errors?.qty || defaultLabels.errors.qty);
-      return;
-    }
     const next = {
       id: randomId(),
       name: name.trim(),
-      qty: parsedQty,
       ...parsedCode
     };
     setPending((prev) => [...prev, next]);
-    setManual({ code: '', name: '', qty: '' });
+    setManual({ code: '', name: '' });
     setMessage('');
   };
 
@@ -174,10 +158,11 @@ function ProductQuickAdd({
         return;
       }
       const headers = rows.shift().map(normalizeHeader);
-      const idxCode = headers.findIndex((h) => h.includes('ean') || h.includes('asin'));
+      const idxCode = headers.findIndex(
+        (h) => h.includes('ean') || h.includes('asin') || h.includes('sku')
+      );
       const idxName = headers.findIndex((h) => h.includes('product') && h.includes('name'));
-      const idxQty = headers.findIndex((h) => h.includes('quantity') || h.includes('qty'));
-      if (idxCode === -1 || idxName === -1 || idxQty === -1) {
+      if (idxCode === -1 || idxName === -1) {
         setError(labels.errors?.fileHeaders || defaultLabels.errors.fileHeaders);
         return;
       }
@@ -185,15 +170,12 @@ function ProductQuickAdd({
       rows.forEach((row) => {
         const code = row[idxCode];
         const name = row[idxName];
-        const qty = row[idxQty];
-        if (!code || !name || qty == null) return;
+        if (!code || !name) return;
         const parsedCode = parseCode(code);
-        const parsedQty = parseQty(qty);
-        if (!parsedCode || !parsedQty) return;
+        if (!parsedCode) return;
         parsed.push({
           id: randomId(),
           name: String(name).trim(),
-          qty: parsedQty,
           ...parsedCode
         });
       });
@@ -215,12 +197,13 @@ function ProductQuickAdd({
       : null;
     const matchedRow = key ? localIndexMap.get(key) : null;
     if (matchedRow) {
-      const newQty = (Number(matchedRow.qty) || 0) + line.qty;
-      const patch = { qty: newQty };
+      const patch = {};
       if (!matchedRow.name && line.name) patch.name = line.name;
       if (line.ean && !matchedRow.ean) patch.ean = line.ean;
       if (line.asin && !matchedRow.asin) patch.asin = line.asin;
-      await supabase.from('stock_items').update(patch).eq('id', matchedRow.id);
+      if (Object.keys(patch).length) {
+        await supabase.from('stock_items').update(patch).eq('id', matchedRow.id);
+      }
       const updated = { ...matchedRow, ...patch };
       setRowIndexKeys(localIndexMap, updated);
       return { type: 'update', row: updated };
@@ -232,7 +215,7 @@ function ProductQuickAdd({
       ean: line.ean || null,
       asin: line.asin || null,
       name: line.name,
-      qty: line.qty
+      qty: 0
     };
     const { data, error } = await supabase.from('stock_items').insert(payload).select().single();
     if (error) throw error;
@@ -310,7 +293,7 @@ function ProductQuickAdd({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-4">
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
         <div className="md:col-span-2">
           <label className="text-xs font-semibold text-text-secondary">{labels.manualTitle}</label>
           <input
@@ -321,27 +304,19 @@ function ProductQuickAdd({
           />
         </div>
         <input
-          className="mt-6 w-full rounded-lg border px-3 py-2 text-sm"
+          className="mt-6 w-full rounded-lg border px-3 py-2 text-sm md:col-span-1"
           placeholder={labels.nameLabel}
           value={manual.name}
           onChange={(e) => setManual((prev) => ({ ...prev, name: e.target.value }))}
         />
-        <div className="flex gap-2 mt-6">
-          <input
-            className="w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder={labels.qtyLabel}
-            value={manual.qty}
-            onChange={(e) => setManual((prev) => ({ ...prev, qty: e.target.value }))}
-          />
-          <button
-            type="button"
-            onClick={addManualLine}
-            className="inline-flex items-center justify-center rounded-lg border border-primary text-primary px-3 py-2 text-sm font-semibold hover:bg-primary hover:text-white transition-colors"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            {labels.addLine}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={addManualLine}
+          className="inline-flex items-center justify-center rounded-lg border border-primary text-primary px-3 py-2 text-sm font-semibold hover:bg-primary hover:text-white transition-colors md:self-end"
+        >
+          <Plus className="w-4 h-4 mr-1" />
+          {labels.addLine}
+        </button>
       </div>
 
       <p className="mt-3 text-xs text-text-secondary">{labels.uploadHint}</p>
@@ -355,16 +330,15 @@ function ProductQuickAdd({
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
               <tr>
-                <th className="px-3 py-2 w-1/4">{labels.eanLabel}</th>
+                <th className="px-3 py-2 w-1/3">{labels.eanLabel}</th>
                 <th className="px-3 py-2">{labels.nameLabel}</th>
-                <th className="px-3 py-2 w-24 text-right">{labels.qtyLabel}</th>
                 <th className="px-3 py-2 w-16 text-center"></th>
               </tr>
             </thead>
             <tbody>
               {pending.length === 0 && (
                 <tr>
-                  <td className="px-3 py-4 text-sm text-text-secondary" colSpan={4}>
+                  <td className="px-3 py-4 text-sm text-text-secondary" colSpan={3}>
                     {labels.empty}
                   </td>
                 </tr>
@@ -375,7 +349,6 @@ function ProductQuickAdd({
                     {line.ean || line.asin || '—'}
                   </td>
                   <td className="px-3 py-2">{line.name}</td>
-                  <td className="px-3 py-2 text-right font-semibold">{line.qty}</td>
                   <td className="px-3 py-2 text-center">
                     <button
                       type="button"
@@ -394,16 +367,18 @@ function ProductQuickAdd({
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-xs text-green-700">{message}</div>
-        {error && <div className="text-xs text-red-600">{error}</div>}
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={pending.length === 0 || loading}
-          className="inline-flex items-center justify-center rounded-lg bg-primary text-white px-4 py-2 text-sm font-semibold disabled:opacity-60"
-        >
-          {loading ? 'Saving…' : labels.addInventory}
-        </button>
+        <div className="flex-1 text-xs text-green-700">{message}</div>
+        {error && <div className="flex-1 text-xs text-red-600">{error}</div>}
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={pending.length === 0 || loading}
+            className="inline-flex items-center justify-center rounded-lg bg-primary text-white px-4 py-2 text-sm font-semibold disabled:opacity-60"
+          >
+            {loading ? 'Saving…' : labels.addInventory}
+          </button>
+        </div>
       </div>
     </div>
   );

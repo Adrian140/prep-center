@@ -361,29 +361,27 @@
       },
       "quickAdd": {
         "title": "Manual inventory intake",
-        "subtitle": "Add each product manually or upload the Excel template with EAN/ASIN, product name and quantity received.",
+        "subtitle": "Add placeholders manually or upload the template with EAN/ASIN and product name. When Amazon syncs the listing, the quantity will update automatically.",
         "manualTitle": "Manual entry",
         "eanLabel": "EAN/ASIN *",
         "nameLabel": "Product Name *",
-        "qtyLabel": "Quantity Received *",
         "addLine": "Add line",
         "uploadTitle": "Import from XLSX/CSV",
-        "uploadHint": "Required columns: EAN/ASIN, Product Name, Quantity Received.",
+        "uploadHint": "Required columns: EAN/ASIN and Product Name.",
         "template": "Download template",
         "previewTitle": "Pending lines",
         "empty": "No pending lines yet.",
         "remove": "Remove",
         "addInventory": "Add to inventory",
         "errors": {
-          "missingFields": "Fill all required fields before adding the line.",
+          "missingFields": "Fill both fields before adding the line.",
           "invalidCode": "Enter a valid EAN or ASIN.",
-          "qty": "Quantity must be at least 1.",
           "fileType": "Please upload a .xlsx or .csv file.",
-          "fileHeaders": "Missing required columns. Expected headers: EAN/ASIN, Product Name, Quantity Received.",
+          "fileHeaders": "Missing required columns. Expected headers: EAN/ASIN, Product Name.",
           "fileRows": "No valid rows were detected in the file.",
           "save": "Unable to add products: {msg}"
         },
-        "success": "{count} lines added to inventory."
+        "success": "{count} placeholders added to inventory."
       },
       "inventory": {
         "title": "Inventory",
@@ -975,29 +973,27 @@
       },
       "quickAdd": {
         "title": "Adăugare manuală în stoc",
-        "subtitle": "Adaugă produsele manual sau încarcă șablonul Excel cu EAN/ASIN, nume și cantitatea recepționată.",
+        "subtitle": "Adaugă produse provizorii manual sau importă șablonul cu EAN/ASIN și nume produs. Când listingul apare din Amazon, cantitățile se sincronizează automat.",
         "manualTitle": "Adăugare manuală",
         "eanLabel": "EAN/ASIN *",
         "nameLabel": "Nume produs *",
-        "qtyLabel": "Cantitate recepționată *",
         "addLine": "Adaugă linia",
         "uploadTitle": "Importă din XLSX/CSV",
-        "uploadHint": "Coloane obligatorii: EAN/ASIN, Nume produs, Cantitate recepționată.",
+        "uploadHint": "Coloane obligatorii: EAN/ASIN și Nume produs.",
         "template": "Descarcă șablonul",
         "previewTitle": "Linii în așteptare",
         "empty": "Nu există linii în așteptare.",
         "remove": "Șterge",
         "addInventory": "Adaugă în stoc",
         "errors": {
-          "missingFields": "Completează toate câmpurile obligatorii înainte de a adăuga linia.",
+          "missingFields": "Completează ambele câmpuri înainte să adaugi linia.",
           "invalidCode": "Introdu un EAN sau ASIN valid.",
-          "qty": "Cantitatea trebuie să fie cel puțin 1.",
           "fileType": "Încarcă un fișier .xlsx sau .csv.",
-          "fileHeaders": "Lipsesc coloanele obligatorii. Așteptat: EAN/ASIN, Nume produs, Cantitate recepționată.",
-          "fileRows": "Nu am găsit linii valide în fișier.",
+          "fileHeaders": "Lipsesc coloanele obligatorii: EAN/ASIN și Nume produs.",
+          "fileRows": "Nu s-au găsit linii valide în fișier.",
           "save": "Nu pot adăuga produsele: {msg}"
         },
-        "success": "{count} linii adăugate în stoc."
+        "success": "{count} produse provizorii adăugate în stoc."
       },
       "inventory": {
         "title": "Inventar",
@@ -1589,29 +1585,27 @@
       },
       "quickAdd": {
         "title": "Ajout manuel au stock",
-        "subtitle": "Ajoutez vos produits manuellement ou importez le modèle Excel avec EAN/ASIN, nom du produit et quantité reçue.",
+        "subtitle": "Ajoutez des produits provisoires manuellement ou importez le modèle avec EAN/ASIN et nom. Lorsque la fiche Amazon remonte, la quantité se synchronise automatiquement.",
         "manualTitle": "Saisie manuelle",
         "eanLabel": "EAN/ASIN *",
         "nameLabel": "Nom du produit *",
-        "qtyLabel": "Quantité reçue *",
         "addLine": "Ajouter la ligne",
         "uploadTitle": "Importer depuis XLSX/CSV",
-        "uploadHint": "Colonnes requises : EAN/ASIN, Nom du produit, Quantité reçue.",
+        "uploadHint": "Colonnes requises : EAN/ASIN et Nom du produit.",
         "template": "Télécharger le modèle",
         "previewTitle": "Lignes en attente",
         "empty": "Aucune ligne en attente pour l’instant.",
         "remove": "Supprimer",
         "addInventory": "Ajouter au stock",
         "errors": {
-          "missingFields": "Remplissez tous les champs obligatoires avant d’ajouter la ligne.",
+          "missingFields": "Remplissez les deux champs avant d’ajouter la ligne.",
           "invalidCode": "Saisissez un EAN ou ASIN valide.",
-          "qty": "La quantité doit être au moins égale à 1.",
           "fileType": "Téléversez un fichier .xlsx ou .csv.",
-          "fileHeaders": "Colonnes obligatoires manquantes. Attendu : EAN/ASIN, Nom du produit, Quantité reçue.",
+          "fileHeaders": "Colonnes obligatoires manquantes. Attendu : EAN/ASIN, Nom du produit.",
           "fileRows": "Aucune ligne valide détectée dans le fichier.",
           "save": "Impossible d’ajouter les produits : {msg}"
         },
-        "success": "{count} lignes ajoutées au stock."
+        "success": "{count} lignes provisoires ajoutées au stock."
       },
       "inventory": {
         "title": "Stock",
@@ -2203,29 +2197,27 @@
       },
       "quickAdd": {
         "title": "Manuelle Bestandsaufnahme",
-        "subtitle": "Füge Produkte manuell hinzu oder lade die Excel-Vorlage mit EAN/ASIN, Produktname und gelieferter Menge hoch.",
+        "subtitle": "Lege Platzhalter manuell an oder importiere die Vorlage mit EAN/ASIN und Produktname. Sobald Amazon den Artikel liefert, aktualisiert sich die Menge automatisch.",
         "manualTitle": "Manuelle Eingabe",
         "eanLabel": "EAN/ASIN *",
         "nameLabel": "Produktname *",
-        "qtyLabel": "Erhaltene Menge *",
         "addLine": "Zeile hinzufügen",
         "uploadTitle": "Import aus XLSX/CSV",
-        "uploadHint": "Pflichtspalten: EAN/ASIN, Produktname, Erhaltene Menge.",
+        "uploadHint": "Pflichtspalten: EAN/ASIN und Produktname.",
         "template": "Vorlage herunterladen",
         "previewTitle": "Ausstehende Zeilen",
         "empty": "Noch keine ausstehenden Zeilen.",
         "remove": "Entfernen",
         "addInventory": "Zum Bestand hinzufügen",
         "errors": {
-          "missingFields": "Bitte fülle alle Pflichtfelder aus, bevor du die Zeile hinzufügst.",
+          "missingFields": "Bitte fülle beide Felder aus, bevor du die Zeile hinzufügst.",
           "invalidCode": "Gib eine gültige EAN oder ASIN ein.",
-          "qty": "Die Menge muss mindestens 1 sein.",
           "fileType": "Bitte lade eine .xlsx- oder .csv-Datei hoch.",
-          "fileHeaders": "Pflichtspalten fehlen. Erwartet: EAN/ASIN, Produktname, Erhaltene Menge.",
+          "fileHeaders": "Pflichtspalten fehlen. Erwartet: EAN/ASIN, Produktname.",
           "fileRows": "Keine gültigen Zeilen in der Datei gefunden.",
           "save": "Produkte konnten nicht hinzugefügt werden: {msg}"
         },
-        "success": "{count} Zeilen zum Bestand hinzugefügt."
+        "success": "{count} Platzhalter zum Bestand hinzugefügt."
       },
       "inventory": {
         "title": "Bestand",
@@ -2817,29 +2809,27 @@
       },
       "quickAdd": {
         "title": "Caricamento manuale inventario",
-        "subtitle": "Aggiungi i prodotti manualmente o carica il modello Excel con EAN/ASIN, nome prodotto e quantità ricevuta.",
+        "subtitle": "Aggiungi prodotti segnaposto manualmente o importa il modello con EAN/ASIN e nome prodotto. Quando Amazon invia i dati, la quantità si aggiorna automaticamente.",
         "manualTitle": "Inserimento manuale",
         "eanLabel": "EAN/ASIN *",
         "nameLabel": "Nome prodotto *",
-        "qtyLabel": "Quantità ricevuta *",
         "addLine": "Aggiungi riga",
         "uploadTitle": "Importa da XLSX/CSV",
-        "uploadHint": "Colonne obbligatorie: EAN/ASIN, Nome prodotto, Quantità ricevuta.",
+        "uploadHint": "Colonne obbligatorie: EAN/ASIN e Nome prodotto.",
         "template": "Scarica il modello",
         "previewTitle": "Righe in attesa",
         "empty": "Nessuna riga in attesa.",
         "remove": "Rimuovi",
         "addInventory": "Aggiungi all'inventario",
         "errors": {
-          "missingFields": "Compila tutti i campi obbligatori prima di aggiungere la riga.",
+          "missingFields": "Compila entrambi i campi prima di aggiungere la riga.",
           "invalidCode": "Inserisci un EAN o ASIN valido.",
-          "qty": "La quantità deve essere almeno 1.",
           "fileType": "Carica un file .xlsx o .csv.",
-          "fileHeaders": "Mancano le colonne obbligatorie: EAN/ASIN, Nome prodotto, Quantità ricevuta.",
+          "fileHeaders": "Mancano le colonne obbligatorie: EAN/ASIN e Nome prodotto.",
           "fileRows": "Nessuna riga valida trovata nel file.",
           "save": "Impossibile aggiungere i prodotti: {msg}"
         },
-        "success": "{count} righe aggiunte all'inventario."
+        "success": "{count} segnaposto aggiunti all'inventario."
       },
       "inventory": {
         "title": "Inventario",
@@ -3431,29 +3421,27 @@
       },
       "quickAdd": {
         "title": "Carga manual de inventario",
-        "subtitle": "Añade los productos manualmente o sube la plantilla Excel con EAN/ASIN, nombre y cantidad recibida.",
+        "subtitle": "Añade productos provisionales manualmente o importa la plantilla con EAN/ASIN y nombre. Cuando Amazon sincronice el listing, la cantidad se actualizará sola.",
         "manualTitle": "Entrada manual",
         "eanLabel": "EAN/ASIN *",
         "nameLabel": "Nombre del producto *",
-        "qtyLabel": "Cantidad recibida *",
         "addLine": "Agregar línea",
         "uploadTitle": "Importar desde XLSX/CSV",
-        "uploadHint": "Columnas requeridas: EAN/ASIN, Nombre del producto, Cantidad recibida.",
+        "uploadHint": "Columnas requeridas: EAN/ASIN y Nombre del producto.",
         "template": "Descargar plantilla",
         "previewTitle": "Líneas pendientes",
         "empty": "Aún no hay líneas pendientes.",
         "remove": "Eliminar",
         "addInventory": "Agregar al inventario",
         "errors": {
-          "missingFields": "Completa todos los campos obligatorios antes de añadir la línea.",
+          "missingFields": "Completa ambos campos antes de añadir la línea.",
           "invalidCode": "Introduce un EAN o ASIN válido.",
-          "qty": "La cantidad debe ser al menos 1.",
           "fileType": "Sube un archivo .xlsx o .csv.",
-          "fileHeaders": "Faltan columnas obligatorias. Se esperan: EAN/ASIN, Nombre del producto, Cantidad recibida.",
+          "fileHeaders": "Faltan columnas obligatorias: EAN/ASIN y Nombre del producto.",
           "fileRows": "No se detectaron filas válidas en el archivo.",
           "save": "No se pudieron añadir los productos: {msg}"
         },
-        "success": "{count} líneas añadidas al inventario."
+        "success": "{count} placeholders añadidos al inventario."
       },
       "inventory": {
         "title": "Inventario",
