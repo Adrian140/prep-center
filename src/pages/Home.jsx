@@ -69,10 +69,6 @@ function Home() {
       price: null,
       unit: null,
       features: [
-        t('receptionInspection'),
-        t('fnskuLabeling'),
-        t('polybagging'),
-        t('qualityControl'),
         t('sixSidePhotos'),
         t('linkedToAsin'),
         t('secureCloudStorage'),
