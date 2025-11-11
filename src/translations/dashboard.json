@@ -398,7 +398,7 @@
         "heading": "30-day sales",
         "all": "All markets",
         "last30": "Last 30 days",
-        "total": "Total units: {total}",
+        "total": "Total units",
         "empty": "No orders in this period.",
         "updated": "Refreshed {time}",
         "status": {
@@ -1027,7 +1027,7 @@
         "heading": "Vânzări (30 zile)",
         "all": "Toate piețele",
         "last30": "Ultimele 30 de zile",
-        "total": "Unități totale: {total}",
+        "total": "Unități totale",
         "empty": "Nu există comenzi în această perioadă.",
         "updated": "Actualizat {time}",
         "status": {
@@ -1656,7 +1656,7 @@
         "heading": "Ventes sur 30 jours",
         "all": "Tous les marchés",
         "last30": "30 derniers jours",
-        "total": "Unités totales : {total}",
+        "total": "Unités totales",
         "empty": "Aucune commande sur cette période.",
         "updated": "Actualisé {time}",
         "status": {
@@ -2285,7 +2285,7 @@
         "heading": "Verkäufe (30 Tage)",
         "all": "Alle Märkte",
         "last30": "Letzte 30 Tage",
-        "total": "Gesamteinheiten: {total}",
+        "total": "Gesamteinheiten",
         "empty": "Keine Bestellungen in diesem Zeitraum.",
         "updated": "Aktualisiert {time}",
         "status": {
@@ -2914,7 +2914,7 @@
         "heading": "Vendite (30 giorni)",
         "all": "Tutti i mercati",
         "last30": "Ultimi 30 giorni",
-        "total": "Unità totali: {total}",
+        "total": "Unità totali",
         "empty": "Nessun ordine in questo periodo.",
         "updated": "Aggiornato {time}",
         "status": {
@@ -3543,7 +3543,7 @@
         "heading": "Ventas (30 días)",
         "all": "Todos los mercados",
         "last30": "Últimos 30 días",
-        "total": "Unidades totales: {total}",
+        "total": "Unidades totales",
         "empty": "No hay pedidos en este periodo.",
         "updated": "Actualizado {time}",
         "status": {

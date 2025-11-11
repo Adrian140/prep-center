@@ -154,18 +154,17 @@ const InventoryBreakdown = ({ row, t }) => {
 
 const SalesBreakdown = ({ stats, refreshedAt, countryLabel, t }) => {
   const safeStats = {
-    total: stats?.total ?? 0,
     payment: stats?.payment ?? 0,
     shipped: stats?.shipped ?? 0,
     pending: stats?.pending ?? 0,
     refund: stats?.refund ?? 0
   };
+  const computedTotal =
+    safeStats.payment + safeStats.shipped + safeStats.pending + safeStats.refund;
   const hasStats = Boolean(stats);
   const statusList = [
-    { key: 'payment', label: t('ClientStock.sales.status.payment'), value: safeStats.payment },
     { key: 'refund', label: t('ClientStock.sales.status.refund'), value: safeStats.refund },
-    { key: 'shipped', label: t('ClientStock.sales.status.shipped'), value: safeStats.shipped },
-    { key: 'pending', label: t('ClientStock.sales.status.pending'), value: safeStats.pending }
+    { key: 'shipped', label: t('ClientStock.sales.status.shipped'), value: safeStats.shipped }
   ];
 
   return (
@@ -174,8 +173,11 @@ const SalesBreakdown = ({ stats, refreshedAt, countryLabel, t }) => {
         <span>{t('ClientStock.sales.last30')}</span>
         <span className="text-gray-700 normal-case">{countryLabel}</span>
       </div>
-      <div className="mt-1 text-sm font-semibold text-gray-900">
-        {t('ClientStock.sales.total', { total: safeStats.total })}
+      <div className="mt-1 flex items-center justify-between">
+        <span className="font-semibold text-gray-900">{t('ClientStock.sales.total')}</span>
+        <span className="text-[#008296] font-semibold">
+          {Number.isFinite(computedTotal) ? computedTotal : 0}
+        </span>
       </div>
       <div className="mt-1 space-y-0.5">
         {statusList.map((item) => (
