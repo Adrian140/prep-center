@@ -106,6 +106,12 @@ if (!retErr) setReturnRows(rets || []);
             {/* Billing / Invoices */}
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setActivePanel((p) => (p === 'deals' ? null : 'deals'))}
+                className={tabBtn(activePanel === 'deals')}
+              >
+                Deals negociate
+              </button>
+              <button
                 onClick={() => setActivePanel((p) => (p === 'billing' ? null : 'billing'))}
                 className={tabBtn(activePanel === 'billing')}
               >
@@ -172,10 +178,11 @@ if (!retErr) setReturnRows(rets || []);
           </Section>
         )}
       </div>
-  {/* Deals negociate (admin) */}
-  <Section title="" right={null}>
-    <AdminDeals companyId={companyId} />
-  </Section>
+      {activePanel === 'deals' && (
+        <Section title="" right={null}>
+          <AdminDeals companyId={companyId} />
+        </Section>
+      )}
       {/* Conținut principal – afișăm DOAR tab-ul selectat */}
       {activeSection === 'fba' && (
         <AdminFBA rows={fbaRows} reload={loadAll} companyId={companyId} profile={profile} />
