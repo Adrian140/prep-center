@@ -55,8 +55,6 @@ function HelpMenuButtonStock({ section = 'stock', t, tp }) {
     </div>
   );
 }
-
-
 const SALES_COUNTRIES = [
   { value: 'ALL', label: 'All' },
   { value: 'BE', label: 'Belgium' },
@@ -747,9 +745,16 @@ function TrackingBadges({ list = [], max = 1, t }) {
   );
 }
 
-export default function ClientStock() {
+export default function ClientStock({
+  profileOverride = null,
+  statusOverride = null,
+  hideGuides = false,
+  storagePrefixOverride = null
+} = {}) {
   const { t, tp } = useDashboardTranslation();
-  const { profile, status } = useSupabaseAuth();
+  const authCtx = useSupabaseAuth();
+  const profile = profileOverride ?? authCtx.profile;
+  const status = statusOverride ?? authCtx.status;
   const [toast, setToast] = useState(null);
   const [copyToast, setCopyToast] = useState(null);
   useEffect(() => {
@@ -787,10 +792,11 @@ export default function ClientStock() {
   );
 
   const storagePrefix = useMemo(() => {
+    if (storagePrefixOverride) return storagePrefixOverride;
     if (profile?.company_id) return `client-stock-${profile.company_id}`;
     if (profile?.id) return `client-stock-user-${profile.id}`;
     return 'client-stock';
-  }, [profile?.company_id, profile?.id]);
+  }, [profile?.company_id, profile?.id, storagePrefixOverride]);
 
 const [rows, setRows] = useState([]);
 const [loading, setLoading] = useState(true);
@@ -1692,7 +1698,7 @@ const saveReqChanges = async () => {
             <Plus className="w-4 h-4" />
             {t('ClientStock.createProduct.button')}
           </button>
-          <HelpMenuButtonStock t={t} tp={tp} />
+          {!hideGuides && <HelpMenuButtonStock t={t} tp={tp} />}
         </div>
       </div>
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

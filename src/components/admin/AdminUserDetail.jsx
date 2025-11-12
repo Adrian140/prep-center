@@ -8,7 +8,7 @@ import AdminDeals from './AdminDeals';
 
 import AdminFBA from './AdminFBA';
 import AdminFBM from './AdminFBM';
-import AdminStock from './AdminStock';
+import AdminStockClientView from './AdminStockClientView';
 import AdminReturns from './AdminReturns';
 import AdminOther from './AdminOther';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
@@ -20,7 +20,6 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [fbaRows, setFbaRows] = useState([]);
   const [fbmRows, setFbmRows] = useState([]);
   const [otherRows, setOtherRows] = useState([]);
-  const [stockRows, setStockRows] = useState([]);
   const [returnRows, setReturnRows] = useState([]);
 
   // panouri “secundare” (billing / invoices)
@@ -47,13 +46,11 @@ const ensureCompany = async () => {
   { data: fba, error: fbaErr },
   { data: fbm, error: fbmErr },
   { data: other, error: otherErr },
-  { data: stock, error: stockErr },
   { data: rets, error: retErr },
 ] = await Promise.all([
   supabase.from('fba_lines').select('*').eq('company_id', cid).order('service_date', { ascending: false }),
   supabase.from('fbm_lines').select('*').eq('company_id', cid).order('service_date', { ascending: false }),
   supabase.from('other_lines').select('*').eq('company_id', cid).order('service_date', { ascending: false }),
-  supabase.from('stock_items').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
   supabase.from('returns').select('*').eq('company_id', cid).order('return_date', { ascending: false }),
 ]);
 
@@ -61,7 +58,6 @@ setCompany({ id: cid, name: profile.company_name || profile.first_name || profil
 if (!fbaErr) setFbaRows(fba || []);
 if (!fbmErr) setFbmRows(fbm || []);
 if (!otherErr) setOtherRows(other || []);
-if (!stockErr) setStockRows(stock || []);
 if (!retErr) setReturnRows(rets || []);
 
   };
@@ -194,7 +190,7 @@ if (!retErr) setReturnRows(rets || []);
         <AdminOther rows={otherRows} reload={loadAll} companyId={companyId} profile={profile} />
       )}
       {activeSection === 'stock' && (
-        <AdminStock rows={stockRows} reload={loadAll} companyId={companyId} profile={profile} />
+        <AdminStockClientView profile={profile} />
       )}
       {activeSection === 'returns' && (
         <AdminReturns rows={returnRows} reload={loadAll} companyId={companyId} profile={profile} />
