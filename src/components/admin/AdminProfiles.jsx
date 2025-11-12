@@ -112,7 +112,12 @@ function MoneyPill({ value }) {
     : value > 0
     ? "bg-red-100 text-red-800"
     : "bg-green-100 text-green-800";
-  return <span className={`px-2 py-1 rounded-md text-sm font-medium ${cls}`}>{fmt2(value)}</span>;
+  let display = "0.00";
+  if (!isZero) {
+    const abs = Math.abs(value);
+    display = value > 0 ? `-${abs.toFixed(2)}` : abs.toFixed(2);
+  }
+  return <span className={`px-2 py-1 rounded-md text-sm font-medium ${cls}`}>{display}</span>;
 }
 
 export default function AdminProfiles({ onSelect }) {
