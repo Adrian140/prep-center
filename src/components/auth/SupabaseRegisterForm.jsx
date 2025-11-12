@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, Building } from 'lucide-react';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
+import { useTranslation } from '../../translations';
 
 function SupabaseRegisterForm() {
   const [formData, setFormData] = useState({
@@ -30,6 +31,7 @@ function SupabaseRegisterForm() {
   const [success, setSuccess] = useState('');
 
   const { signUp } = useSupabaseAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const validatePassword = (password) => {
@@ -78,22 +80,50 @@ function SupabaseRegisterForm() {
             return;
           }
 
+    const metadata = {
+      // snake_case (current schema)
+      account_type: formData.accountType,
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      company_name: formData.companyName,
+      cui: formData.cui,
+      vat_number: formData.vatNumber,
+      company_address: formData.companyAddress,
+      company_city: formData.companyCity,
+      company_postal_code: formData.companyPostalCode,
+      phone: formData.phone,
+      country: formData.country,
+      language: formData.language,
+      accept_terms: formData.acceptTerms,
+      accept_marketing: formData.acceptMarketing,
+      // camelCase (legacy schema still in production)
+      accountType: formData.accountType,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      companyName: formData.companyName,
+      vatNumber: formData.vatNumber,
+      companyAddress: formData.companyAddress,
+      companyCity: formData.companyCity,
+      companyPostalCode: formData.companyPostalCode,
+      phoneNumber: formData.phone,
+      countryCode: formData.country,
+      languageCode: formData.language,
+      acceptTerms: formData.acceptTerms,
+      acceptMarketing: formData.acceptMarketing
+    };
+
           const result = await signUp(
         formData.email,
         formData.password,
-        {
-          ...formData,
-          options: {
-            emailRedirectTo: 'https://prep-center.eu/login'
-          }
-        }
+        metadata
       );
     
     if (result.success) {
       setSuccess(result.message);
       setTimeout(() => navigate('/login'), 3000);
     } else {
-      setError(result.error);
+      console.error('Signup error:', result.error);
+      setError(t('authSignupGenericError'));
     }
     
     setLoading(false);

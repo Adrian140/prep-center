@@ -21,6 +21,7 @@ export const de = {
   authResetSuccess: 'Passwort erfolgreich aktualisiert! Du wirst zur Anmeldeseite weitergeleitet.',
   authResetErrorLength: 'Das Passwort muss mindestens 8 Zeichen lang sein.',
   authResetErrorMismatch: 'Die Passwörter stimmen nicht überein.',
+  authSignupGenericError: 'Es ist ein Fehler aufgetreten. Bitte kontaktiere den Support.',
   
   // Common
   getQuote: 'Angebot Erhalten',

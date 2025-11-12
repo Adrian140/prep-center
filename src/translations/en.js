@@ -21,6 +21,7 @@ export const en = {
   authResetSuccess: 'Password updated successfully! You will be redirected to the sign-in page.',
   authResetErrorLength: 'Password must be at least 8 characters.',
   authResetErrorMismatch: 'Passwords do not match.',
+  authSignupGenericError: 'Something went wrong. Please contact support.',
   
   // Common
   getQuote: 'Get a Quote',

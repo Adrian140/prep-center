@@ -21,6 +21,7 @@ export const it = {
   authResetSuccess: 'Password aggiornata con successo! Verrai reindirizzato alla pagina di accesso.',
   authResetErrorLength: 'La password deve contenere almeno 8 caratteri.',
   authResetErrorMismatch: 'Le password non coincidono.',
+  authSignupGenericError: 'Qualcosa non ha funzionato correttamente. Contatta il supporto.',
   
   // Common
   getQuote: 'Richiedi Preventivo',

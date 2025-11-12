@@ -21,6 +21,7 @@ export const es = {
   authResetSuccess: '¡Contraseña actualizada correctamente! Serás redirigido a la página de inicio de sesión.',
   authResetErrorLength: 'La contraseña debe tener al menos 8 caracteres.',
   authResetErrorMismatch: 'Las contraseñas no coinciden.',
+  authSignupGenericError: 'Algo no funcionó correctamente. Por favor, contacta con soporte.',
   
   // Common
   getQuote: 'Obtener Cotización',

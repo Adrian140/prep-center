@@ -21,6 +21,7 @@ export const fr = {
   authResetSuccess: 'Mot de passe mis à jour avec succès ! Vous serez redirigé vers la page de connexion.',
   authResetErrorLength: 'Le mot de passe doit contenir au moins 8 caractères.',
   authResetErrorMismatch: 'Les mots de passe ne correspondent pas.',
+  authSignupGenericError: 'Une erreur s’est produite. Veuillez contacter le support.',
   
   // Common
   getQuote: 'Obtenir un Devis',

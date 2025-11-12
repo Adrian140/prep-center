@@ -21,6 +21,7 @@ export const ro = {
   authResetSuccess: 'Parola a fost actualizată! Vei fi redirecționat(ă) către pagina de autentificare.',
   authResetErrorLength: 'Parola trebuie să aibă cel puțin 8 caractere.',
   authResetErrorMismatch: 'Parolele nu coincid.',
+  authSignupGenericError: 'Ceva nu a funcționat corect. Vă rugăm să contactați suportul.',
   
   // Common
   getQuote: 'Obține Ofertă',
