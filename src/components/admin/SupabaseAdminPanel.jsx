@@ -1050,22 +1050,19 @@ if (!isAdmin) {
 
  return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-text-primary mb-2">{t('shell.title')}</h1>
-              <p className="text-text-secondary">{t('shell.subtitle')}</p>
-            </div>
-            <button
-              onClick={signOut}
-              className="flex items-center px-4 py-2 text-text-secondary hover:text-red-600 transition-colors"
-            >
-              <LogOut className="w-5 h-5 mr-2" />
-              {t('common.signOut')}
-            </button>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col gap-2 mb-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-text-primary">{t('shell.title')}</h1>
+            <p className="text-sm text-text-secondary">{t('shell.subtitle')}</p>
           </div>
+          <button
+            onClick={signOut}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm text-text-secondary border rounded-lg hover:text-red-600 hover:border-red-200 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            {t('common.signOut')}
+          </button>
         </div>
 
         {message && (
@@ -1078,22 +1075,22 @@ if (!isAdmin) {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-6 lg:gap-8">
           {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <nav className="space-y-2">
+          <div>
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <nav className="space-y-1.5">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                    className={`w-full flex items-center px-3 py-2 text-left rounded-lg text-sm transition-colors ${
                       activeTab === tab.id
                         ? 'bg-primary text-white'
                         : 'text-text-secondary hover:bg-gray-50'
                     }`}
                   >
-                    <tab.icon className="w-5 h-5 mr-3" />
+                    <tab.icon className="w-4 h-4 mr-2" />
                     {tab.label}
                   </button>
                 ))}
@@ -1102,7 +1099,7 @@ if (!isAdmin) {
           </div>
 
           {/* Main Content */}
-          <div className="lg:col-span-3">
+          <div>
            <div className="bg-white rounded-xl shadow-sm p-6 animate-fade-in">
              {loading ? (
                 <div className="flex justify-center items-center py-12">
