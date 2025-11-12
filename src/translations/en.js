@@ -11,6 +11,17 @@ export const en = {
   logout: 'Logout',
   admin: 'Admin',
   
+  // Auth reset
+  authResetTitle: 'Set a new password',
+  authResetSubtitle: 'Enter your new password below.',
+  authResetNewLabel: 'New password',
+  authResetConfirmLabel: 'Confirm new password',
+  authResetHint: 'Use at least 8 characters and mix upper/lowercase letters, numbers, and symbols for a stronger password.',
+  authResetSave: 'Save password',
+  authResetSuccess: 'Password updated successfully! You will be redirected to the sign-in page.',
+  authResetErrorLength: 'Password must be at least 8 characters.',
+  authResetErrorMismatch: 'Passwords do not match.',
+  
   // Common
   getQuote: 'Get a Quote',
   chatWhatsApp: 'Chat on WhatsApp',

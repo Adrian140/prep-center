@@ -11,6 +11,17 @@ export const ro = {
   logout: 'Deconectare',
   admin: 'Admin',
   
+  // Auth reset
+  authResetTitle: 'Setează o parolă nouă',
+  authResetSubtitle: 'Introdu noua parolă mai jos.',
+  authResetNewLabel: 'Parolă nouă',
+  authResetConfirmLabel: 'Confirmă parola nouă',
+  authResetHint: 'Folosește cel puțin 8 caractere și combină litere mari/mici, cifre și simboluri pentru o parolă mai puternică.',
+  authResetSave: 'Salvează parola',
+  authResetSuccess: 'Parola a fost actualizată! Vei fi redirecționat(ă) către pagina de autentificare.',
+  authResetErrorLength: 'Parola trebuie să aibă cel puțin 8 caractere.',
+  authResetErrorMismatch: 'Parolele nu coincid.',
+  
   // Common
   getQuote: 'Obține Ofertă',
   chatWhatsApp: 'Chat WhatsApp',

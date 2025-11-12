@@ -11,6 +11,17 @@ export const fr = {
   logout: 'Déconnexion',
   admin: 'Admin',
   
+  // Auth reset
+  authResetTitle: 'Définir un nouveau mot de passe',
+  authResetSubtitle: 'Saisissez votre nouveau mot de passe ci-dessous.',
+  authResetNewLabel: 'Nouveau mot de passe',
+  authResetConfirmLabel: 'Confirmez le nouveau mot de passe',
+  authResetHint: 'Utilisez au moins 8 caractères et mélangez lettres majuscules/minuscules, chiffres et symboles pour un mot de passe plus robuste.',
+  authResetSave: 'Enregistrer le mot de passe',
+  authResetSuccess: 'Mot de passe mis à jour avec succès ! Vous serez redirigé vers la page de connexion.',
+  authResetErrorLength: 'Le mot de passe doit contenir au moins 8 caractères.',
+  authResetErrorMismatch: 'Les mots de passe ne correspondent pas.',
+  
   // Common
   getQuote: 'Obtenir un Devis',
   chatWhatsApp: 'Chat WhatsApp',

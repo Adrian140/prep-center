@@ -11,6 +11,17 @@ export const es = {
   logout: 'Cerrar Sesión',
   admin: 'Admin',
   
+  // Auth reset
+  authResetTitle: 'Define una nueva contraseña',
+  authResetSubtitle: 'Introduce tu nueva contraseña a continuación.',
+  authResetNewLabel: 'Nueva contraseña',
+  authResetConfirmLabel: 'Confirmar nueva contraseña',
+  authResetHint: 'Utiliza al menos 8 caracteres y combina mayúsculas/minúsculas, números y símbolos para una contraseña más segura.',
+  authResetSave: 'Guardar contraseña',
+  authResetSuccess: '¡Contraseña actualizada correctamente! Serás redirigido a la página de inicio de sesión.',
+  authResetErrorLength: 'La contraseña debe tener al menos 8 caracteres.',
+  authResetErrorMismatch: 'Las contraseñas no coinciden.',
+  
   // Common
   getQuote: 'Obtener Cotización',
   chatWhatsApp: 'Chat WhatsApp',

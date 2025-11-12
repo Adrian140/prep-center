@@ -11,6 +11,17 @@ export const de = {
   logout: 'Abmelden',
   admin: 'Admin',
   
+  // Auth reset
+  authResetTitle: 'Neues Passwort festlegen',
+  authResetSubtitle: 'Gib unten dein neues Passwort ein.',
+  authResetNewLabel: 'Neues Passwort',
+  authResetConfirmLabel: 'Neues Passwort bestätigen',
+  authResetHint: 'Verwende mindestens 8 Zeichen und kombiniere Groß-/Kleinbuchstaben, Zahlen und Sonderzeichen für ein stärkeres Passwort.',
+  authResetSave: 'Passwort speichern',
+  authResetSuccess: 'Passwort erfolgreich aktualisiert! Du wirst zur Anmeldeseite weitergeleitet.',
+  authResetErrorLength: 'Das Passwort muss mindestens 8 Zeichen lang sein.',
+  authResetErrorMismatch: 'Die Passwörter stimmen nicht überein.',
+  
   // Common
   getQuote: 'Angebot Erhalten',
   chatWhatsApp: 'WhatsApp Chat',

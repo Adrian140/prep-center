@@ -11,6 +11,17 @@ export const it = {
   logout: 'Esci',
   admin: 'Admin',
   
+  // Auth reset
+  authResetTitle: 'Imposta una nuova password',
+  authResetSubtitle: 'Inserisci qui sotto la nuova password.',
+  authResetNewLabel: 'Nuova password',
+  authResetConfirmLabel: 'Conferma nuova password',
+  authResetHint: 'Usa almeno 8 caratteri e combina maiuscole/minuscole, numeri e simboli per una password più sicura.',
+  authResetSave: 'Salva password',
+  authResetSuccess: 'Password aggiornata con successo! Verrai reindirizzato alla pagina di accesso.',
+  authResetErrorLength: 'La password deve contenere almeno 8 caratteri.',
+  authResetErrorMismatch: 'Le password non coincidono.',
+  
   // Common
   getQuote: 'Richiedi Preventivo',
   chatWhatsApp: 'Chat WhatsApp',
