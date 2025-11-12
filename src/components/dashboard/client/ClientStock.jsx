@@ -2138,11 +2138,20 @@ const saveReqChanges = async () => {
               <span className="font-semibold text-gray-500 select-none">{label}</span>
               <input
                 type="text"
-                className="border rounded px-2 py-1 text-xs w-36"
+                className="border rounded px-2 py-1 text-xs w-28"
                 value={currentValue}
                 placeholder={placeholder}
                 onChange={(e) => updateEdit(r.id, { [key]: e.target.value })}
               />
+              {key === 'sku' && (
+                <button
+                  className="ml-auto px-2 py-1 text-[11px] rounded border border-primary text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
+                  disabled={!identifierDirty || savingId === r.id}
+                  onClick={() => saveRow(r)}
+                >
+                  {savingId === r.id ? t('ClientStock.table.saving') : 'Save'}
+                </button>
+              )}
             </div>
           );
         }
@@ -2176,19 +2185,33 @@ const saveReqChanges = async () => {
           </td>
 
           {/* 2) Photo */}
-          <td className="px-2 py-2">
-            {r.image_url ? (
-              <img
-                src={r.image_url}
-                alt={r.name || 'Product image'}
-                className="w-16 h-16 object-contain rounded border"
-              />
-            ) : (
-              <div className="w-16 h-16 bg-gray-100 border rounded flex items-center justify-center text-gray-400 text-xs">
-                No Img
+          <td className="px-2 py-2 align-top">
+            <div className="flex flex-col items-center gap-1">
+              {r.image_url ? (
+                <img
+                  src={r.image_url}
+                  alt={r.name || 'Product image'}
+                  className="w-16 h-16 object-contain rounded border"
+                />
+              ) : (
+                <div className="w-16 h-16 bg-gray-100 border rounded flex items-center justify-center text-gray-400 text-xs">
+                  No Img
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setPhotoItem(r)}
+                className="inline-flex items-center text-[11px] text-primary hover:underline"
+              >
+                <ImageIcon className="w-3 h-3 mr-1" /> {t('ClientStock.photos.button')}
+              </button>
+              <div className="text-[11px] text-gray-500 text-center leading-tight">
+                {hasPhotos
+                  ? tp('ClientStock.photos.statusAvailable', { count: photoCount })
+                  : t('ClientStock.photos.statusUnavailable')}
               </div>
-             )}
-           </td>
+            </div>
+          </td>
 {/* 3) Product */}
 <td className="px-2 py-2 align-top max-w-[360px]">
   <div
@@ -2205,30 +2228,7 @@ const saveReqChanges = async () => {
       {renderIdentifierField('ASIN', r.asin, 'asin', 'B0...', 'ASIN')}
       {renderIdentifierField('EAN', r.ean, 'ean', 'EAN...', 'EAN')}
       {renderIdentifierField('SKU', r.sku, 'sku', 'SKU...', 'SKU')}
-      {enableIdentifierEdit && (
-        <div className="flex items-center gap-2 pt-1">
-          <button
-            className="px-3 py-1 text-xs rounded border border-primary text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
-            disabled={!identifierDirty || savingId === r.id}
-            onClick={() => saveRow(r)}
-          >
-            {savingId === r.id ? t('ClientStock.table.saving') : 'Save'}
-          </button>
-        </div>
-      )}
     </div>
-  <button
-    type="button"
-    onClick={() => setPhotoItem(r)}
-    className="mt-2 inline-flex items-center text-xs text-primary hover:underline"
-  >
-    <ImageIcon className="w-3 h-3 mr-1" /> {t('ClientStock.photos.button')}
-  </button>
-  <p className="text-[11px] text-gray-500 mt-1">
-    {hasPhotos
-      ? tp('ClientStock.photos.statusAvailable', { count: photoCount })
-      : t('ClientStock.photos.statusUnavailable')}
-  </p>
 </td>
 
           {/* 4) 30-day sales breakdown */}
