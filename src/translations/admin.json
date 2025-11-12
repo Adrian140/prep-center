@@ -1,8 +1,8 @@
 {
   "en": {
     "shell": {
-      "title": "Admin Control Panel",
-      "subtitle": "Manage site content and settings."
+      "title": "Admin Panel",
+      "subtitle": ""
     },
     "sidebar": {
       "analytics": "Analytics",
@@ -127,52 +127,6 @@
       }
     },
     "adminShipping": {
-      "title": "Tarifs d'expédition FBM",
-      "subtitle": "Gérez les tarifs FBM domestiques et internationaux.",
-      "refresh": "Recharger les tarifs",
-      "loadError": "Impossible de charger les tarifs d'expédition.",
-      "saveError": "Impossible d'enregistrer les tarifs.",
-      "saveSuccess": "Tarifs enregistrés avec succès.",
-      "validation": "Renseignez chaque transporteur et prix avant d'enregistrer.",
-      "loading": "Chargement des tableaux d'expédition…",
-      "addProvider": "Ajouter un transporteur",
-      "save": "Enregistrer le tableau",
-      "remove": "Supprimer",
-      "domesticBadge": "National",
-      "domesticTitle": "Expéditions FBM – France",
-      "internationalBadge": "International",
-      "internationalTitle": "Expéditions FBM internationales",
-      "provider": "Transporteur",
-      "info": "Info",
-      "actions": "Actions",
-      "providerPlaceholder": "Nom du transporteur",
-      "infoPlaceholder": "Délai / notes",
-      "colorPlaceholder": "Couleur de ligne (optionnel)"
-    },
-    "adminShipping": {
-      "title": "Tarife FBM shipping",
-      "subtitle": "Gestionează tarifele de expediere FBM interne și internaționale.",
-      "refresh": "Reîncarcă tarifele",
-      "loadError": "Tarifele de shipping nu au putut fi încărcate.",
-      "saveError": "Tarifele nu au putut fi salvate.",
-      "saveSuccess": "Tarifele au fost salvate cu succes.",
-      "validation": "Completează fiecare transportator și preț înainte să salvezi.",
-      "loading": "Se încarcă tabelele de shipping…",
-      "addProvider": "Adaugă transportator",
-      "save": "Salvează tabelul",
-      "remove": "Șterge",
-      "domesticBadge": "Național",
-      "domesticTitle": "Tarife FBM interne – Franța",
-      "internationalBadge": "Internațional",
-      "internationalTitle": "Tarife FBM internaționale",
-      "provider": "Transportator",
-      "info": "Info",
-      "actions": "Acțiuni",
-      "providerPlaceholder": "Nume curier",
-      "infoPlaceholder": "Timp livrare / note",
-      "colorPlaceholder": "Culoare rând (opțional)"
-    },
-    "adminShipping": {
       "title": "FBM shipping rates",
       "subtitle": "Manage domestic and international FBM package rates.",
       "refresh": "Reload rates",
@@ -263,8 +217,8 @@
   },
   "fr": {
     "shell": {
-      "title": "Panneau d'administration",
-      "subtitle": "Gérez le contenu et les paramètres du site."
+      "title": "Panneau administrateur",
+      "subtitle": ""
     },
     "sidebar": {
       "analytics": "Analytics",
@@ -456,8 +410,8 @@
   },
   "ro": {
     "shell": {
-      "title": "Panou de Administrare",
-      "subtitle": "Gestionează conținutul și setările site-ului."
+      "title": "Panou Admin",
+      "subtitle": ""
     },
     "sidebar": {
       "analytics": "Analytics",
