@@ -1,5 +1,5 @@
 // FILE: src/components/admin/AdminProfiles.jsx
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase, supabaseHelpers } from "@/config/supabase";
 import {
   Download,
@@ -140,12 +140,6 @@ export default function AdminProfiles({ onSelect }) {
   const [calc, setCalc] = useState({});
   const [restFilter, setRestFilter] = useState("all");
 
-  // chart state (lăsate pentru viitorul grafic)
-  const [bucket, setBucket] = useState("month");
-  const [unitKind, setUnitKind] = useState("combined");
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const chartSvgRef = useRef(null);
-
   // Perioada RPC calculată (vizibilă pe pagină)
  const [rpcStart, setRpcStart] = useState(isoLocal(firstDayOfMonth(new Date())));
  const [rpcEnd, setRpcEnd]     = useState(isoLocal(lastDayOfMonth(new Date())));
@@ -250,33 +244,6 @@ export default function AdminProfiles({ onSelect }) {
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slice, selectedMonth]);
-
-  // chart export (placeholder – funcțiile rămân pentru când adaugi graficul)
-  const exportChart = async (as = "svg") => {
-    const svg = chartSvgRef.current?.querySelector("svg");
-    if (!svg) return;
-    if (as === "svg") {
-      const serializer = new XMLSerializer();
-      const blob = new Blob([serializer.serializeToString(svg)], { type: "image/svg+xml;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = "overview.svg"; a.click(); URL.revokeObjectURL(url);
-      return;
-    }
-    const serializer = new XMLSerializer();
-    const svgStr = serializer.serializeToString(svg);
-    const img = new Image();
-    const url = URL.createObjectURL(new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" }));
-    await new Promise((res) => { img.onload = res; img.src = url; });
-    const bbox = svg.getBoundingClientRect();
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(800, Math.floor(bbox.width));
-    canvas.height = Math.max(300, Math.floor(bbox.height));
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    URL.revokeObjectURL(url);
-    canvas.toBlob((blob) => { const dl = document.createElement("a"); dl.href = URL.createObjectURL(blob); dl.download = "overview.png"; dl.click(); });
-  };
 
   // >>> CSV export
   function exportCsv() {
@@ -500,17 +467,6 @@ const handleStoreChange = async (profileId, value) => {
         <button className="border rounded px-2 py-1 disabled:opacity-50" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={pageClamped >= totalPages} title={t("clients.paginationNext")}><ChevronRight className="w-4 h-4" /></button>
       </div>
 
-      {/* OVERVIEW (chart placeholder) */}
-      <div className="bg-white rounded-xl shadow-sm p-6" ref={chartSvgRef}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold text-text-primary">Overview (volum unități)</h3>
-          <div className="flex items-center gap-2">
-            <button onClick={() => exportChart("svg")} className="px-3 py-1 border rounded">Export SVG</button>
-            <button onClick={() => exportChart("png")} className="px-3 py-1 border rounded">Export PNG</button>
-          </div>
-        </div>
-        {/* Aici poți adăuga ulterior <ResponsiveContainer><LineChart>…</LineChart></ResponsiveContainer> */}
-      </div>
     </div>
   );
 }
