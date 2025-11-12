@@ -749,7 +749,9 @@ export default function ClientStock({
   profileOverride = null,
   statusOverride = null,
   hideGuides = false,
-  storagePrefixOverride = null
+  storagePrefixOverride = null,
+  enableIdentifierEdit = false,
+  enableQtyAdjust = false
 } = {}) {
   const { t, tp } = useDashboardTranslation();
   const authCtx = useSupabaseAuth();
@@ -802,6 +804,7 @@ const [rows, setRows] = useState([]);
 const [loading, setLoading] = useState(true);
 
 const [rowEdits, setRowEdits] = useState({});
+const [qtyInputs, setQtyInputs] = useState({});
 const [salesSummary, setSalesSummary] = useState({});
 const [salesCountry, setSalesCountry] = useSessionStorage(
   `${storagePrefix}-salesCountry`,
@@ -967,6 +970,7 @@ useEffect(() => {
         seed[r.id] = {
           name: r.name || '',
           asin: r.asin || '',
+          ean: r.ean || '',
           product_link: r.product_link || '',
           purchase_price: r.purchase_price != null ? String(r.purchase_price) : '',
           sku: r.sku || '',
@@ -975,6 +979,7 @@ useEffect(() => {
         };
       }
       setRowEdits(seed);
+      setQtyInputs({});
 
       if (list.length > 0) {
         try {
@@ -1157,8 +1162,12 @@ useEffect(() => {
     () => rows.filter((r) => selectedIds.has(r.id)),
     [rows, selectedIds]
   );
+  useEffect(() => {
+    if (!enableQtyAdjust) return;
+    setQtyInputs({});
+  }, [enableQtyAdjust, rows]);
 
-  const updateEdit = (id, patch) => {
+const updateEdit = (id, patch) => {
     setRowEdits((prev) => {
       const current = prev[id] || {};
       const next = { ...current, ...patch };
@@ -1257,10 +1266,74 @@ useEffect(() => {
   }
 }, [trackingInputs.length, trackingExpanded]);
 
-const resetReceptionForm = () => {
-  setReceptionForm(() => createReceptionFormState());
-  setTrackingExpanded(false);
-};
+  const resetReceptionForm = () => {
+    setReceptionForm(() => createReceptionFormState());
+    setTrackingExpanded(false);
+  };
+  const setQtyInputValue = (rowId, field, value) => {
+    setQtyInputs((prev) => {
+      const current = prev[rowId] || { dec: '', inc: '' };
+      return { ...prev, [rowId]: { ...current, [field]: value } };
+    });
+  };
+  const commitQtyAdjust = async (row, field) => {
+    const inputs = qtyInputs[row.id] || {};
+    const raw = String(inputs[field] || '').trim();
+    if (!raw) return;
+    const delta = Number(raw.replace(',', '.'));
+    if (!Number.isFinite(delta) || delta <= 0) {
+      setQtyInputValue(row.id, field, '');
+      return;
+    }
+    const current = Number(row.qty || 0);
+    const next = field === 'dec' ? Math.max(0, current - delta) : current + delta;
+    try {
+      const { error } = await supabase.from('stock_items').update({ qty: next }).eq('id', row.id);
+      if (error) throw error;
+      setRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, qty: next } : item)));
+      setQtyInputValue(row.id, field, '');
+      setToast({ type: 'success', text: 'Stock updated.' });
+    } catch (err) {
+      console.error('Adjust qty error', err);
+      setToast({ type: 'error', text: err.message || 'Failed to adjust stock.' });
+    }
+  };
+  const renderQtyCell = (row) => {
+    if (!enableQtyAdjust) {
+      return <span>{row.qty != null ? row.qty : '—'}</span>;
+    }
+    const inputs = qtyInputs[row.id] || { dec: '', inc: '' };
+    const buildInput = (field, placeholder) => (
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="\\d*"
+        className="border rounded text-right px-1.5 py-1 w-14 h-[32px] text-[13px]
+          [appearance:textfield]
+          [&::-webkit-outer-spin-button]:appearance-none
+          [&::-webkit-inner-spin-button]:appearance-none"
+        value={inputs[field] || ''}
+        placeholder={placeholder}
+        onChange={(e) => setQtyInputValue(row.id, field, e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commitQtyAdjust(row, field);
+          }
+        }}
+        onBlur={() => commitQtyAdjust(row, field)}
+      />
+    );
+    return (
+      <div className="flex items-center justify-end gap-2">
+        {buildInput('dec', '-')}
+        <div className="min-w-[3.5rem] text-center font-semibold">
+          {Number(row.qty ?? 0)}
+        </div>
+        {buildInput('inc', '+')}
+      </div>
+    );
+  };
 
   const handleProductCreated = (item) => {
     setRows((prev) => [item, ...prev]);
@@ -1281,6 +1354,7 @@ const resetReceptionForm = () => {
         patch.name = edit.name || null;
       }
       if ((edit.asin || '') !== (row.asin || '')) patch.asin = edit.asin || null;
+      if ((edit.ean || '') !== (row.ean || '')) patch.ean = edit.ean || null;
       if ((edit.product_link || '') !== (row.product_link || '')) patch.product_link = edit.product_link || null;
       if ((edit.sku || '') !== (row.sku || '')) patch.sku = edit.sku || null;
 
@@ -1314,6 +1388,23 @@ const resetReceptionForm = () => {
       setRows(prev =>
         prev.map(r => (r.id === row.id ? { ...r, ...patch } : r))
       );
+      if (enableIdentifierEdit) {
+        setRowEdits((prev) => {
+          const current = prev[row.id] || {};
+          const next = { ...current };
+          ['asin', 'ean', 'sku', 'product_link', 'name', 'purchase_price'].forEach((field) => {
+            if (Object.prototype.hasOwnProperty.call(patch, field)) {
+              next[field] =
+                patch[field] == null
+                  ? ''
+                  : typeof patch[field] === 'number'
+                  ? String(patch[field])
+                  : patch[field];
+            }
+          });
+          return { ...prev, [row.id]: next };
+        });
+      }
       setToast({ type: 'success', text: t('ClientStock.table.saved') });
     } catch (e) {
       console.error('[SAVE ERROR]', e);
@@ -2028,6 +2119,51 @@ const saveReqChanges = async () => {
       const edit = rowEdits[r.id] || {};
       const photoCount = Number(photoCounts[r.id] || 0);
       const hasPhotos = photoCount > 0;
+      const originalAsin = r.asin ?? '';
+      const originalEan = r.ean ?? '';
+      const originalSku = r.sku ?? '';
+      const asinValue = edit.asin ?? originalAsin;
+      const eanValue = edit.ean ?? originalEan;
+      const skuValue = edit.sku ?? originalSku;
+      const identifierDirty =
+        enableIdentifierEdit &&
+        ((asinValue || '') !== (r.asin || '') ||
+          (eanValue || '') !== (r.ean || '') ||
+          (skuValue || '') !== (r.sku || ''));
+      const renderIdentifierField = (label, value, key, placeholder, copyKey) => {
+        if (enableIdentifierEdit) {
+          const currentValue = (edit[key] ?? value ?? '').toString();
+          return (
+            <div className="flex items-center text-xs gap-2">
+              <span className="font-semibold text-gray-500 select-none">{label}</span>
+              <input
+                type="text"
+                className="border rounded px-2 py-1 text-xs w-36"
+                value={currentValue}
+                placeholder={placeholder}
+                onChange={(e) => updateEdit(r.id, { [key]: e.target.value })}
+              />
+            </div>
+          );
+        }
+        return (
+          <div className="flex items-center text-xs">
+            <span className="font-semibold text-gray-500 mr-1 select-none">{label}</span>
+            <span
+              className="font-mono text-gray-800 cursor-pointer select-text"
+              onDoubleClick={(e) => handleCodeCopy(e, r.id, copyKey, value)}
+              title={`Double-click to copy ${label}`}
+            >
+              {value || '—'}
+            </span>
+            {copyToast?.rowId === r.id && copyToast?.field === copyKey && (
+              <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-green-600">
+                <Check className="w-3 h-3" /> {t('ClientStock.copyInline')}
+              </span>
+            )}
+          </div>
+        );
+      };
       return (
         <tr key={r.id} className="border-t align-middle">
           {/* 1) Checkbox */}
@@ -2065,53 +2201,22 @@ const saveReqChanges = async () => {
         : r.name
       : '—'}
   </div>
-  <div className="mt-2 text-xs text-gray-600 flex flex-col gap-1">
-    <div className="flex items-center text-xs">
-      <span className="font-semibold text-gray-500 mr-1 select-none">ASIN</span>
-      <span
-        className="font-mono text-gray-800 cursor-pointer select-text"
-        onDoubleClick={(e) => handleCodeCopy(e, r.id, 'ASIN', r.asin)}
-        title="Double-click to copy ASIN"
-      >
-        {r.asin || '—'}
-      </span>
-      {copyToast?.rowId === r.id && copyToast?.field === 'ASIN' && (
-        <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-green-600">
-          <Check className="w-3 h-3" /> {t('ClientStock.copyInline')}
-        </span>
+    <div className="mt-2 text-xs text-gray-600 flex flex-col gap-1">
+      {renderIdentifierField('ASIN', r.asin, 'asin', 'B0...', 'ASIN')}
+      {renderIdentifierField('EAN', r.ean, 'ean', 'EAN...', 'EAN')}
+      {renderIdentifierField('SKU', r.sku, 'sku', 'SKU...', 'SKU')}
+      {enableIdentifierEdit && (
+        <div className="flex items-center gap-2 pt-1">
+          <button
+            className="px-3 py-1 text-xs rounded border border-primary text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
+            disabled={!identifierDirty || savingId === r.id}
+            onClick={() => saveRow(r)}
+          >
+            {savingId === r.id ? t('ClientStock.table.saving') : 'Save'}
+          </button>
+        </div>
       )}
     </div>
-    <div className="flex items-center text-xs">
-      <span className="font-semibold text-gray-500 mr-1 select-none">EAN</span>
-      <span
-        className="font-mono text-gray-800 cursor-pointer select-text"
-        onDoubleClick={(e) => handleCodeCopy(e, r.id, 'EAN', r.ean)}
-        title="Double-click to copy EAN"
-      >
-        {r.ean || '—'}
-      </span>
-      {copyToast?.rowId === r.id && copyToast?.field === 'EAN' && (
-        <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-green-600">
-          <Check className="w-3 h-3" /> {t('ClientStock.copyInline')}
-        </span>
-      )}
-    </div>
-    <div className="flex items-center text-xs">
-      <span className="font-semibold text-gray-500 mr-1 select-none">SKU</span>
-      <span
-        className="font-mono text-gray-800 cursor-pointer select-text"
-        onDoubleClick={(e) => handleCodeCopy(e, r.id, 'SKU', r.sku)}
-        title="Double-click to copy SKU"
-      >
-        {r.sku || '—'}
-      </span>
-      {copyToast?.rowId === r.id && copyToast?.field === 'SKU' && (
-        <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-green-600">
-          <Check className="w-3 h-3" /> {t('ClientStock.copyInline')}
-        </span>
-      )}
-    </div>
-  </div>
   <button
     type="button"
     onClick={() => setPhotoItem(r)}
@@ -2153,9 +2258,9 @@ const saveReqChanges = async () => {
             <InventoryBreakdown row={r} t={t} />
           </td>
 
-    {/* 6) PrepCenter stock — afișare (folosim direct qty din DB) */}
+    {/* 6) PrepCenter stock — afișare / ajustare */}
     <td className="px-2 py-2 text-right text-gray-700">
-      {r.qty != null ? r.qty : '—'}
+      {renderQtyCell(r)}
     </td>
 
 

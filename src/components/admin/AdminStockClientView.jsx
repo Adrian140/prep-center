@@ -24,6 +24,8 @@ export default function AdminStockClientView({ profile }) {
         statusOverride="ready"
         hideGuides
         storagePrefixOverride={storagePrefix}
+        enableIdentifierEdit
+        enableQtyAdjust
       />
     </div>
   );
