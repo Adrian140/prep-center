@@ -783,7 +783,7 @@ const items = (draftData.items || []).map((it) => ({
     if (allStockIds.size > 0) {
       const { data: stockData } = await supabase
         .from('stock_items')
-        .select('id, name, ean, image_url, sku, asin')
+        .select('id, name, ean, sku, asin')
         .in('id', Array.from(allStockIds));
       stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
     }
@@ -824,7 +824,7 @@ const items = (draftData.items || []).map((it) => ({
     if (itemIds.length > 0) {
       const { data: stockData } = await supabase
         .from('stock_items')
-        .select('id, name, ean, image_url, sku, asin')
+        .select('id, name, ean, sku, asin')
         .in('id', itemIds);
       stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
     }
@@ -1282,7 +1282,7 @@ getAllReceivingShipments: async (options = {}) => {
   if (allStockIds.size > 0) {
     const { data: stockData } = await supabase
       .from('stock_items')
-      .select('id, asin, name, image_url, sku')
+      .select('id, asin, name, sku')
       .in('id', Array.from(allStockIds));
     stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
   }
