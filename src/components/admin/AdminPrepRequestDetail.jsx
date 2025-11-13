@@ -1,5 +1,5 @@
 // FILE: src/components/admin/AdminPrepRequestDetail.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Save,
@@ -7,6 +7,7 @@ import {
   Trash2,
   CheckCircle2,
   Package,
+  Boxes,
 } from "lucide-react";
 import { useSupabaseAuth } from "../../contexts/SupabaseAuthContext";
 import { supabaseHelpers } from "../../config/supabase";
@@ -26,6 +27,7 @@ const StatusPill = ({ s }) => {
 
 export default function AdminPrepRequestDetail({ requestId, onBack, onChanged }) {
   const { profile } = useSupabaseAuth();
+  const storageKey = useMemo(() => `prep-request-boxes-${requestId}`, [requestId]);
 
   const [row, setRow] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +41,8 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
   const [newTracking, setNewTracking] = useState("");
 
   const [saving, setSaving] = useState(false);
+  const [boxes, setBoxes] = useState({});
+  const [showBoxSummary, setShowBoxSummary] = useState(false);
 
   // ---- helpers (afisare cod + nume)
   const codeOf = (it) => (it?.asin || it?.sku || "");
@@ -77,6 +81,66 @@ async function persistAllItemEdits() {
   );
 }
 
+  const makeBoxId = () => {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  };
+
+  const addBoxForItem = (itemId) => {
+    setBoxes((prev) => {
+      const existing = prev[itemId] || [];
+      const nextNumber =
+        existing.length > 0
+          ? Math.max(...existing.map((box) => Number(box.boxNumber) || 0)) + 1
+          : 1;
+      const entry = { id: makeBoxId(), boxNumber: nextNumber, units: "" };
+      return { ...prev, [itemId]: [...existing, entry] };
+    });
+  };
+
+  const updateBoxValue = (itemId, boxId, field, raw) => {
+    setBoxes((prev) => {
+      const existing = prev[itemId] || [];
+      const next = existing.map((box) => {
+        if (box.id !== boxId) return box;
+        if (field === "boxNumber") {
+          const value = Math.max(1, Number(raw) || 1);
+          return { ...box, boxNumber: value };
+        }
+        if (field === "units") {
+          if (raw === "") return { ...box, units: "" };
+          const value = Math.max(0, Number(raw) || 0);
+          return { ...box, units: value };
+        }
+        return box;
+      });
+      return { ...prev, [itemId]: next };
+    });
+  };
+
+  const removeBox = (itemId, boxId) => {
+    setBoxes((prev) => {
+      const existing = prev[itemId] || [];
+      const next = existing.filter((box) => box.id !== boxId);
+      const map = { ...prev };
+      if (next.length === 0) delete map[itemId];
+      else map[itemId] = next;
+      return map;
+    });
+  };
+
+  const clearBoxDraft = () => {
+    setBoxes({});
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.removeItem(storageKey);
+    } catch {
+      // ignore
+    }
+  };
+
   async function load() {
     setLoading(true);
     setFlash("");
@@ -107,6 +171,46 @@ async function persistAllItemEdits() {
     if (requestId) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.sessionStorage.getItem(storageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        setBoxes(parsed);
+      }
+    } catch {
+      // ignore
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.setItem(storageKey, JSON.stringify(boxes));
+    } catch {
+      // ignore
+    }
+  }, [boxes, storageKey]);
+
+  useEffect(() => {
+    if (!row) return;
+    setBoxes((prev) => {
+      const allowed = new Set((row.prep_request_items || []).map((it) => it.id));
+      let changed = false;
+      const next = {};
+      Object.entries(prev).forEach(([id, list]) => {
+        if (!allowed.has(id)) {
+          changed = true;
+          return;
+        }
+        next[id] = list;
+      });
+      return changed ? next : prev;
+    });
+  }, [row]);
 
   // --- header actions
   async function saveShipmentId() {
@@ -288,6 +392,7 @@ if (mailErr) {
 // reîncarcă detail + informează lista
 await load();
 onChanged?.();
+clearBoxDraft();
 
   } catch (e) {
     console.error('[CONFIRM] failed:', e);
@@ -296,6 +401,31 @@ onChanged?.();
     setSaving(false);
   }
 }
+
+  const boxSummary = useMemo(() => {
+    if (!row) return [];
+    const summary = {};
+    (row.prep_request_items || []).forEach((item) => {
+      const entries = boxes[item.id] || [];
+      entries.forEach(({ boxNumber, units }) => {
+        const qty = Number(units);
+        if (!Number.isFinite(qty) || qty <= 0) return;
+        const number = Number(boxNumber) || 1;
+        if (!summary[number]) summary[number] = [];
+        summary[number].push({
+          code: codeOf(item),
+          name: nameOf(item),
+          qty
+        });
+      });
+    });
+    return Object.keys(summary)
+      .map((num) => ({
+        boxNumber: Number(num),
+        lines: summary[num]
+      }))
+      .sort((a, b) => a.boxNumber - b.boxNumber);
+  }, [boxes, row]);
 
   if (loading) return <div>Loading…</div>;
   if (!row)
@@ -333,6 +463,14 @@ onChanged?.();
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowBoxSummary(true)}
+              className="px-4 py-2 border rounded inline-flex items-center gap-2"
+              type="button"
+            >
+              <Boxes className="w-4 h-4" />
+              Box summary
+            </button>
             <button
               onClick={confirmRequest}
               disabled={row.status !== "pending" || saving}
@@ -459,6 +597,7 @@ onChanged?.();
                   <th className="px-3 py-2 text-right">Units requested</th>
                   <th className="px-3 py-2 text-right">Units to send</th>
                   <th className="px-3 py-2 text-right">Units removed</th>
+                  <th className="px-3 py-2 text-left">Boxes</th>
                   <th className="px-3 py-2 text-left">Admin note</th>
                   <th className="px-3 py-2 text-right">Actions</th>
                 </tr>
@@ -466,7 +605,7 @@ onChanged?.();
               <tbody>
                 {(row.prep_request_items || []).length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-3 py-4 text-center text-text-secondary">
+                    <td colSpan={9} className="px-3 py-4 text-center text-text-secondary">
                       —
                     </td>
                   </tr>
@@ -476,6 +615,11 @@ onChanged?.();
                     const snd = Number(it.units_sent ?? 0);
                     const clamped = Math.min(Math.max(Number.isFinite(snd) ? snd : 0, 0), req);
                     const removed = req - clamped;
+                    const itemBoxes = boxes[it.id] || [];
+                    const assigned = itemBoxes.reduce(
+                      (sum, entry) => sum + (Number(entry.units) || 0),
+                      0
+                    );
                     const imageUrl = it.stock_item?.image_url || it.image_url || '';
 
                     return (
@@ -518,6 +662,56 @@ onChanged?.();
                         <td className="px-3 py-2 text-right">{removed}</td>
 
                         <td className="px-3 py-2">
+                          <div className="space-y-2">
+                            {itemBoxes.map((box) => (
+                              <div key={box.id} className="flex items-center gap-2 text-xs">
+                                <span className="text-text-secondary">Box</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  className="w-16 border rounded px-2 py-1 text-right"
+                                  value={box.boxNumber}
+                                  onChange={(e) =>
+                                    updateBoxValue(it.id, box.id, "boxNumber", e.target.value)
+                                  }
+                                />
+                                <span className="text-text-secondary">Units</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  className="w-20 border rounded px-2 py-1 text-right"
+                                  value={box.units}
+                                  onChange={(e) =>
+                                    updateBoxValue(it.id, box.id, "units", e.target.value)
+                                  }
+                                />
+                                <button
+                                  type="button"
+                                  className="text-red-600 text-xs"
+                                  onClick={() => removeBox(it.id, box.id)}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              className="text-xs text-primary hover:underline"
+                              onClick={() => addBoxForItem(it.id)}
+                            >
+                              + Add box
+                            </button>
+                            <div
+                              className={`text-[11px] ${
+                                assigned > clamped ? "text-red-600" : "text-text-secondary"
+                              }`}
+                            >
+                              Assigned: {assigned || 0} / {clamped || 0}
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-3 py-2">
                           <textarea
                             className="w-full border rounded p-1 min-h-[40px]"
                             placeholder="Explain what was removed (weight limit, out of stock, etc.)"
@@ -543,6 +737,41 @@ onChanged?.();
           </div>
         </div>
       </div>
+
+      {showBoxSummary && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Box shipping summary</h3>
+              <button
+                className="text-sm text-text-secondary hover:text-primary"
+                onClick={() => setShowBoxSummary(false)}
+              >
+                Close
+              </button>
+            </div>
+            {boxSummary.length === 0 ? (
+              <p className="text-sm text-text-secondary">No boxes added yet.</p>
+            ) : (
+              boxSummary.map((box) => (
+                <div key={box.boxNumber} className="border rounded-lg p-4 space-y-2">
+                  <div className="font-semibold">Box {box.boxNumber}</div>
+                  <ul className="space-y-1 text-sm">
+                    {box.lines.map((line, idx) => (
+                      <li key={`${box.boxNumber}-${idx}`} className="flex items-center justify-between">
+                        <span className="text-text-secondary">
+                          {line.code || line.name || "Item"}
+                        </span>
+                        <span className="font-semibold">{line.qty}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

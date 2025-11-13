@@ -156,6 +156,9 @@ export default function AdminProfiles({ onSelect }) {
   // per-row computed (valori direct din RPC)
   const [calc, setCalc] = useState({});
   const [restFilter, setRestFilter] = useState(persistedFilters.restFilter || "all");
+  const [editingStoreId, setEditingStoreId] = useState(null);
+  const [storeDraft, setStoreDraft] = useState("");
+  const [storeBanner, setStoreBanner] = useState("");
 
   useEffect(() => {
     setPersistedFilters({
@@ -168,6 +171,12 @@ export default function AdminProfiles({ onSelect }) {
       restFilter
     });
   }, [selectedMonth, showEmail, from, to, q, page, restFilter, setPersistedFilters]);
+
+  useEffect(() => {
+    if (!storeBanner) return;
+    const timer = setTimeout(() => setStoreBanner(""), 4000);
+    return () => clearTimeout(timer);
+  }, [storeBanner]);
 
   // Perioada RPC calculată (vizibilă pe pagină)
  const [rpcStart, setRpcStart] = useState(isoLocal(firstDayOfMonth(new Date())));
@@ -318,19 +327,33 @@ export default function AdminProfiles({ onSelect }) {
       return next;
     });
   };
-const handleStoreChange = async (profileId, value) => {
+const startEditStore = (profile) => {
+  setEditingStoreId(profile.id);
+  setStoreDraft(profile.store_name || "");
+};
+
+const cancelEditStore = () => {
+  setEditingStoreId(null);
+  setStoreDraft("");
+};
+
+const saveStoreName = async () => {
+  if (!editingStoreId) return;
   try {
+    const payload = { store_name: storeDraft.trim() || null };
     const { error } = await supabase
       .from("profiles")
-      .update({ store_name: value })
-      .eq("id", profileId);
-
+      .update(payload)
+      .eq("id", editingStoreId);
     if (error) throw error;
     setRows((prev) =>
-      prev.map((r) => (r.id === profileId ? { ...r, store_name: value } : r))
+      prev.map((r) => (r.id === editingStoreId ? { ...r, store_name: payload.store_name } : r))
     );
+    setStoreBanner("Store name saved.");
+    cancelEditStore();
   } catch (err) {
-    console.error("Eroare la actualizarea store_name:", err.message);
+    console.error("Failed to save store name:", err);
+    setStoreBanner(err?.message || "Failed to save store name.");
   }
 };
 
@@ -409,6 +432,12 @@ const handleStoreChange = async (profileId, value) => {
         </button>
       </div>
 
+      {storeBanner && (
+        <div className="px-4 py-2 rounded bg-blue-50 border border-blue-200 text-blue-700 text-sm">
+          {storeBanner}
+        </div>
+      )}
+
       {/* Info bar: Parametrii trimiși la RPC (vizibil pe pagină) */}
 <div className="text-xs text-gray-600 flex items-center gap-2">
   <InfoIcon className="w-4 h-4" />
@@ -447,14 +476,31 @@ const handleStoreChange = async (profileId, value) => {
                 return (
                   <tr key={p.id} className="border-t hover:bg-gray-50">
                     <td className="px-4 py-3">
-                        <input
-                          type="text"
-                          value={p.store_name || ""}
-                          onChange={(e) => handleStoreChange(p.id, e.target.value)}
-                          className="border border-gray-300 rounded-md px-2 py-1 w-36 text-sm"
-                          placeholder="Store..."
-                        />
-                      </td>
+                      {editingStoreId === p.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={storeDraft}
+                            onChange={(e) => setStoreDraft(e.target.value)}
+                            className="border border-gray-300 rounded-md px-2 py-1 w-40 text-sm"
+                            placeholder="Store..."
+                          />
+                          <button className="px-2 py-1 bg-primary text-white rounded text-xs" onClick={saveStoreName}>
+                            Save
+                          </button>
+                          <button className="px-2 py-1 border rounded text-xs" onClick={cancelEditStore}>
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span>{p.store_name || "—"}</span>
+                          <button className="text-xs text-primary hover:underline" onClick={() => startEditStore(p)}>
+                            {p.store_name ? "Edit" : "Add"}
+                          </button>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{name}</td>
                     <td className="px-4 py-3" title={p.company_id || ""}>{p.company_name || "—"}</td>
                     {showEmail && <td className="px-4 py-3">{p.email || "—"}</td>}
