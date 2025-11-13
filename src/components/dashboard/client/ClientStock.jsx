@@ -2113,7 +2113,7 @@ const saveReqChanges = async () => {
             <span>{t('ClientStock.priceColumn.label')}</span>
             <Info className="w-3.5 h-3.5 text-amber-500" />
             {priceColumnNote && (
-              <div className="pointer-events-none absolute right-0 top-full mt-1 hidden w-48 rounded-md border border-amber-200 bg-white p-2 text-[11px] text-gray-600 shadow-lg group-hover:block">
+              <div className="pointer-events-none absolute right-0 bottom-full mb-1 hidden w-48 rounded-md border border-amber-200 bg-white p-2 text-[11px] text-gray-600 shadow-lg group-hover:block">
                 {priceColumnNote}
               </div>
             )}
