@@ -7,6 +7,9 @@
      In a production environment, use a strong, securely generated password.
 */
 
+-- Ensure pgcrypto functions are available for crypt()/gen_salt()
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+
 -- Insert the admin user into auth.users, and update if it already exists to ensure password and email are correct.
 INSERT INTO auth.users (id, email, encrypted_password, role, aud, email_confirmed_at, raw_user_meta_data)
 VALUES (
