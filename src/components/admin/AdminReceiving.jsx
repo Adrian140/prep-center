@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabaseHelpers } from '../../config/supabase';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { supabase } from '../../config/supabase';
@@ -6,6 +6,7 @@ import {
   Search, Filter, Package, Truck, CheckCircle,
   ArrowLeft, Trash2, ChevronLeft, ChevronRight, Clock, User, Building
 } from 'lucide-react';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 
 const StatusPill = ({ status }) => {
   const statusMap = {
@@ -49,26 +50,78 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     { id: 5, code: 'GLS',        name: 'GLS' },
     { id: 6, code: 'DHL',        name: 'DHL' },
   ];
+  const storageKey = useMemo(() => `admin-receiving-detail-${shipment.id}`, [shipment.id]);
   const [items, setItems] = useState(shipment.receiving_items || []);
   const [stockMatches, setStockMatches] = useState({});
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState('');
   const [savingRow, setSavingRow] = useState(null);
   const [editMode, setEditMode] = useState(false);
-  const [editHeader, setEditHeader] = useState({
-    carrier: shipment.carrier || '',
-    carrier_other: shipment.carrier_other || '',
-    tracking_ids: shipment.tracking_ids?.length
-      ? shipment.tracking_ids
-      : shipment.tracking_id
-      ? [shipment.tracking_id]
+  const buildHeaderState = (sh) => ({
+    carrier: sh.carrier || '',
+    carrier_other: sh.carrier_other || '',
+    tracking_ids: sh.tracking_ids?.length
+      ? sh.tracking_ids
+      : sh.tracking_id
+      ? [sh.tracking_id]
       : [''],
-    fba_shipment_ids: shipment.fba_shipment_ids?.length
-      ? shipment.fba_shipment_ids
+    fba_shipment_ids: sh.fba_shipment_ids?.length
+      ? sh.fba_shipment_ids
       : [''],
-    notes: shipment.notes || '',
-    fba_mode: shipment.fba_mode || 'none'
+    notes: sh.notes || '',
+    fba_mode: sh.fba_mode || 'none'
   });
+  const [editHeader, setEditHeader] = useState(buildHeaderState(shipment));
+
+  useEffect(() => {
+    setItems(shipment.receiving_items || []);
+    setEditHeader(buildHeaderState(shipment));
+  }, [shipment]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.sessionStorage.getItem(storageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed?.items) setItems(parsed.items);
+      if (parsed?.editHeader) {
+        setEditHeader((prev) => ({ ...prev, ...parsed.editHeader }));
+      }
+    } catch {
+      // ignore corrupted drafts
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.sessionStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          items,
+          editHeader,
+          snapshot: shipment.updated_at || shipment.id
+        })
+      );
+    } catch {
+      // ignore quota issues
+    }
+  }, [storageKey, shipment.updated_at, shipment.id, items, editHeader]);
+
+  const clearDraft = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.sessionStorage.removeItem(storageKey);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleBack = () => {
+    clearDraft();
+    onBack();
+  };
 
   const updateFba = async (itemId, patch) => {
     setSavingRow(itemId);
@@ -169,7 +222,7 @@ const markAsReceived = async () => {
 
       setMessage('Reception deleted successfully.');
       onUpdate();
-      onBack();
+      handleBack();
     } catch (err) {
       setMessage(`Delete error: ${err.message}`);
     }
@@ -234,7 +287,7 @@ const processToStock = async () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <button onClick={onBack} className="flex items-center text-text-secondary hover:text-primary">
+        <button onClick={handleBack} className="flex items-center text-text-secondary hover:text-primary">
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back to list
         </button>
@@ -646,17 +699,33 @@ const processToStock = async () => {
 
 function AdminReceiving() {
   const { profile } = useSupabaseAuth();
+  const listDefaults = {
+    statusFilter: 'all',
+    searchQuery: '',
+    page: 1,
+    selectedShipmentId: null
+  };
+  const [listState, setListState] = useSessionStorage('admin-receiving-list', listDefaults);
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedShipment, setSelectedShipment] = useState(null);
   const [message, setMessage] = useState('');
 
   // Filters & Pagination
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState(listState.statusFilter ?? 'all');
+  const [searchQuery, setSearchQuery] = useState(listState.searchQuery ?? '');
+  const [page, setPage] = useState(listState.page ?? 1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedIds, setSelectedIds] = useState(new Set());
+
+  useEffect(() => {
+    setListState({
+      statusFilter,
+      searchQuery,
+      page,
+      selectedShipmentId: selectedShipment?.id || null
+    });
+  }, [statusFilter, searchQuery, page, selectedShipment, setListState]);
 
   const pageSize = 20;
 
@@ -664,6 +733,16 @@ function AdminReceiving() {
     loadShipments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, page]);
+
+  useEffect(() => {
+    const storedId = listState?.selectedShipmentId;
+    if (!storedId) return;
+    if (selectedShipment && selectedShipment.id === storedId) return;
+    const match = shipments.find((s) => s.id === storedId);
+    if (match) {
+      setSelectedShipment(match);
+    }
+  }, [shipments, listState?.selectedShipmentId]); 
 
 const loadShipments = async () => {
   setLoading(true);

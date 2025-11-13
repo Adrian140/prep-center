@@ -11,6 +11,7 @@ import {
   Info as InfoIcon,
 } from "lucide-react";
 import { useAdminTranslation } from "@/i18n/useAdminTranslation";
+import { useSessionStorage } from "@/hooks/useSessionStorage";
 
 const PER_PAGE = 20;
 const fmt2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "0.00");
@@ -120,13 +121,24 @@ function MoneyPill({ value }) {
   return <span className={`px-2 py-1 rounded-md text-sm font-medium ${cls}`}>{display}</span>;
 }
 
+const STORAGE_KEY = 'admin-clients-filters';
+
 export default function AdminProfiles({ onSelect }) {
   const { t, tp } = useAdminTranslation();
+  const [persistedFilters, setPersistedFilters] = useSessionStorage(STORAGE_KEY, {
+    selectedMonth: monthKey(new Date()),
+    showEmail: false,
+    from: isoLocal(firstDayOfMonth(new Date())),
+    to: isoLocal(lastDayOfMonth(new Date())),
+    q: '',
+    page: 1,
+    restFilter: 'all'
+  });
   // month selector
-  const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date()));
-  const [showEmail, setShowEmail] = useState(false);
-  const [from, setFrom] = useState(isoLocal(firstDayOfMonth(new Date())));
-  const [to, setTo] = useState(isoLocal(lastDayOfMonth(new Date())));
+  const [selectedMonth, setSelectedMonth] = useState(persistedFilters.selectedMonth || monthKey(new Date()));
+  const [showEmail, setShowEmail] = useState(!!persistedFilters.showEmail);
+  const [from, setFrom] = useState(persistedFilters.from || isoLocal(firstDayOfMonth(new Date())));
+  const [to, setTo] = useState(persistedFilters.to || isoLocal(lastDayOfMonth(new Date())));
   const gotoMonth = (delta) => {
     const [y, m] = selectedMonth.split("-").map(Number);
     const nd = addMonths(new Date(y, m - 1, 1), delta);
@@ -137,13 +149,25 @@ export default function AdminProfiles({ onSelect }) {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
+  const [q, setQ] = useState(persistedFilters.q || "");
+  const [page, setPage] = useState(persistedFilters.page || 1);
   const [error, setError] = useState("");
 
   // per-row computed (valori direct din RPC)
   const [calc, setCalc] = useState({});
-  const [restFilter, setRestFilter] = useState("all");
+  const [restFilter, setRestFilter] = useState(persistedFilters.restFilter || "all");
+
+  useEffect(() => {
+    setPersistedFilters({
+      selectedMonth,
+      showEmail,
+      from,
+      to,
+      q,
+      page,
+      restFilter
+    });
+  }, [selectedMonth, showEmail, from, to, q, page, restFilter, setPersistedFilters]);
 
   // Perioada RPC calculată (vizibilă pe pagină)
  const [rpcStart, setRpcStart] = useState(isoLocal(firstDayOfMonth(new Date())));
