@@ -922,14 +922,46 @@ createPrepItem: async (requestId, item) => {
 },
 
 // Șterge o linie din prep_request_items
-deletePrepItem: async (itemId) => {
-  const { data, error } = await supabase
-    .from('prep_request_items')
-    .delete()
-    .eq('id', itemId)
-    .select();
-  return { data, error };
-},
+  deletePrepItem: async (itemId) => {
+    const { data, error } = await supabase
+      .from('prep_request_items')
+      .delete()
+      .eq('id', itemId)
+      .select();
+    return { data, error };
+  },
+
+  getPrepRequestBoxes: async (itemIds = []) => {
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+      return { data: [], error: null };
+    }
+    return await supabase
+      .from('prep_request_boxes')
+      .select('id, prep_request_item_id, box_number, units')
+      .in('prep_request_item_id', itemIds);
+  },
+
+  savePrepRequestBoxes: async (itemId, boxes = []) => {
+    if (!itemId) return { error: new Error('Missing prep request item id') };
+    const { error: delErr } = await supabase
+      .from('prep_request_boxes')
+      .delete()
+      .eq('prep_request_item_id', itemId);
+    if (delErr) return { error: delErr };
+
+    if (!Array.isArray(boxes) || boxes.length === 0) {
+      return { error: null };
+    }
+
+    const payload = boxes.map((box) => ({
+      prep_request_item_id: itemId,
+      box_number: box.boxNumber,
+      units: box.units,
+    }));
+
+    const { error } = await supabase.from('prep_request_boxes').insert(payload);
+    return { error };
+  },
 
   bulkUpdatePrepItems: async (items) => {
     const updatePromises = items.map(item => 

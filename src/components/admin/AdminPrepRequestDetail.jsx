@@ -27,7 +27,6 @@ const StatusPill = ({ s }) => {
 
 export default function AdminPrepRequestDetail({ requestId, onBack, onChanged }) {
   const { profile } = useSupabaseAuth();
-  const storageKey = useMemo(() => `prep-request-boxes-${requestId}`, [requestId]);
 
   const [row, setRow] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -81,6 +80,60 @@ async function persistAllItemEdits() {
   );
 }
 
+  const mapBoxRows = (rows = []) => {
+    const grouped = {};
+    rows.forEach((row) => {
+      if (!row?.prep_request_item_id) return;
+      const entry = {
+        id: row.id || makeBoxId(),
+        boxNumber: row.box_number,
+        units: row.units,
+      };
+      if (!grouped[row.prep_request_item_id]) {
+        grouped[row.prep_request_item_id] = [];
+      }
+      grouped[row.prep_request_item_id].push(entry);
+    });
+    Object.values(grouped).forEach((list) =>
+      list.sort((a, b) => Number(a.boxNumber) - Number(b.boxNumber))
+    );
+    return grouped;
+  };
+
+  const loadBoxesFromServer = async (items = []) => {
+    const ids = (items || []).map((it) => it.id).filter(Boolean);
+    if (ids.length === 0) {
+      setBoxes({});
+      return;
+    }
+    const { data, error } = await supabaseHelpers.getPrepRequestBoxes(ids);
+    if (error) {
+      console.error("Failed to load boxes:", error);
+      return;
+    }
+    setBoxes(mapBoxRows(data || []));
+  };
+
+  const persistBoxesForItem = async (itemId) => {
+    if (!itemId) return null;
+    const entries = (boxes[itemId] || [])
+      .map((box) => ({
+        boxNumber: Math.max(1, Number(box.boxNumber) || 1),
+        units: Math.max(0, Number(box.units) || 0),
+      }))
+      .filter((box) => box.units > 0);
+    const { error } = await supabaseHelpers.savePrepRequestBoxes(itemId, entries);
+    if (error) return error;
+    const { data, error: fetchErr } = await supabaseHelpers.getPrepRequestBoxes([itemId]);
+    if (!fetchErr && data) {
+      setBoxes((prev) => ({
+        ...prev,
+        ...mapBoxRows(data),
+      }));
+    }
+    return fetchErr || null;
+  };
+
   const makeBoxId = () => {
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
       return crypto.randomUUID();
@@ -131,15 +184,6 @@ async function persistAllItemEdits() {
     });
   };
 
-  const clearBoxDraft = () => {
-    setBoxes({});
-    if (typeof window === "undefined") return;
-    try {
-      window.sessionStorage.removeItem(storageKey);
-    } catch {
-      // ignore
-    }
-  };
 
   async function load() {
     setLoading(true);
@@ -153,6 +197,7 @@ async function persistAllItemEdits() {
       setRow(data);
       setShipmentId(data?.fba_shipment_id || "");
       setHeaderNote(data?.obs_admin || "");
+      await loadBoxesFromServer(data?.prep_request_items || []);
 
       // ---- DEBUG
       window.__req = data;       // obiectul complet
@@ -172,28 +217,6 @@ async function persistAllItemEdits() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestId]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.sessionStorage.getItem(storageKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") {
-        setBoxes(parsed);
-      }
-    } catch {
-      // ignore
-    }
-  }, [storageKey]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.sessionStorage.setItem(storageKey, JSON.stringify(boxes));
-    } catch {
-      // ignore
-    }
-  }, [boxes, storageKey]);
 
   useEffect(() => {
     if (!row) return;
@@ -274,7 +297,12 @@ async function persistAllItemEdits() {
       obs_admin: item.obs_admin ?? null,
     });
     if (error) return setFlash(error.message);
-    setFlash("Item saved.");
+    const boxError = await persistBoxesForItem(item.id);
+    if (boxError) {
+      setFlash(`Item saved but boxes failed: ${boxError.message || boxError}`);
+      return;
+    }
+    setFlash("Item & boxes saved.");
     await load();
     onChanged?.();
   }
@@ -392,7 +420,6 @@ if (mailErr) {
 // reîncarcă detail + informează lista
 await load();
 onChanged?.();
-clearBoxDraft();
 
   } catch (e) {
     console.error('[CONFIRM] failed:', e);
@@ -586,6 +613,9 @@ clearBoxDraft();
               </button>
             </div>
           </div>
+          <p className="text-xs text-text-secondary mb-3">
+            Box assignments are saved when you click “Save” on each product row.
+          </p>
 
           <div className="border rounded-lg overflow-hidden">
             <table className="min-w-full text-sm">
