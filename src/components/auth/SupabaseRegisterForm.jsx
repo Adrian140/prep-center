@@ -10,6 +10,7 @@ function SupabaseRegisterForm() {
     firstName: '',
     lastName: '',
     companyName: '',
+    storeName: '',
     cui: '',
     vatNumber: '',
     companyAddress: '',
@@ -47,16 +48,25 @@ function SupabaseRegisterForm() {
     setError('');
     setSuccess('');
 
+    const trimmedFirst = formData.firstName.trim();
+    const trimmedLast = formData.lastName.trim();
+    const trimmedStore = formData.storeName.trim();
+
+    if (!trimmedFirst || !trimmedLast) {
+      setError('First name and last name are required.');
+      setLoading(false);
+      return;
+    }
+
     // Validation
-    if (formData.accountType === 'individual') {
-      if (!formData.firstName || !formData.lastName) {
-        setError('First name and last name are required for individual accounts.');
+    if (formData.accountType === 'company') {
+      if (!formData.companyName || !formData.cui || !formData.companyAddress || !formData.companyCity || !formData.companyPostalCode) {
+        setError('All fields marked with * are required for company accounts.');
         setLoading(false);
         return;
       }
-    } else if (formData.accountType === 'company') {
-      if (!formData.companyName || !formData.cui || !formData.companyAddress || !formData.companyCity || !formData.companyPostalCode) {
-        setError('All fields marked with * are required for company accounts.');
+      if (!trimmedStore) {
+        setError('Store username is required for company accounts.');
         setLoading(false);
         return;
       }
@@ -83,9 +93,10 @@ function SupabaseRegisterForm() {
     const metadata = {
       // snake_case (current schema)
       account_type: formData.accountType,
-      first_name: formData.firstName,
-      last_name: formData.lastName,
+      first_name: trimmedFirst,
+      last_name: trimmedLast,
       company_name: formData.companyName,
+      store_name: trimmedStore,
       cui: formData.cui,
       vat_number: formData.vatNumber,
       company_address: formData.companyAddress,
@@ -98,9 +109,10 @@ function SupabaseRegisterForm() {
       accept_marketing: formData.acceptMarketing,
       // camelCase (legacy schema still in production)
       accountType: formData.accountType,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
+      firstName: trimmedFirst,
+      lastName: trimmedLast,
       companyName: formData.companyName,
+      storeName: trimmedStore,
       vatNumber: formData.vatNumber,
       companyAddress: formData.companyAddress,
       companyCity: formData.companyCity,
@@ -199,45 +211,43 @@ function SupabaseRegisterForm() {
               </div>
             </div>
 
-            {/* Individual Fields */}
-            {formData.accountType === 'individual' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-text-primary mb-2">
-                    First name *
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-light w-5 h-5" />
-                    <input
-                      id="firstName"
-                      name="firstName"
-                      type="text"
-                      required
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="First name"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-text-primary mb-2">
-                    Last name *
-                  </label>
+            {/* Contact person */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="firstName" className="block text-sm font-medium text-text-primary mb-2">
+                  {formData.accountType === 'company' ? 'Contact first name *' : 'First name *'}
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-light w-5 h-5" />
                   <input
-                    id="lastName"
-                    name="lastName"
+                    id="firstName"
+                    name="firstName"
                     type="text"
                     required
-                    value={formData.lastName}
+                    value={formData.firstName}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Last name"
+                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="First name"
                   />
                 </div>
               </div>
-            )}
+              
+              <div>
+                <label htmlFor="lastName" className="block text-sm font-medium text-text-primary mb-2">
+                  {formData.accountType === 'company' ? 'Contact last name *' : 'Last name *'}
+                </label>
+                <input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  required
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Last name"
+                />
+              </div>
+            </div>
 
             {/* Company Fields */}
             {formData.accountType === 'company' && (
@@ -259,6 +269,22 @@ function SupabaseRegisterForm() {
                       placeholder="Company name"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label htmlFor="storeName" className="block text-sm font-medium text-text-primary mb-2">
+                    Store / Username *
+                  </label>
+                  <input
+                    id="storeName"
+                    name="storeName"
+                    type="text"
+                    required
+                    value={formData.storeName}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Amazon / Shopify store"
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
