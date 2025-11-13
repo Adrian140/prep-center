@@ -1811,11 +1811,6 @@ const saveReqChanges = async () => {
                 : t('ClientStock.priceColumn.show')}
             </button>
           </div>
-          {priceColumnNote && (
-            <p className="text-[11px] text-gray-500 max-w-xs sm:text-right text-left">
-              {priceColumnNote}
-            </p>
-          )}
         </div>
       </div>
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
