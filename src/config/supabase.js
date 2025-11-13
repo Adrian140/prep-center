@@ -935,10 +935,12 @@ createPrepItem: async (requestId, item) => {
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
       return { data: [], error: null };
     }
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     return await supabase
       .from('prep_request_boxes')
-      .select('id, prep_request_item_id, box_number, units')
-      .in('prep_request_item_id', itemIds);
+      .select('id, prep_request_item_id, box_number, units, updated_at')
+      .in('prep_request_item_id', itemIds)
+      .gte('updated_at', cutoff);
   },
 
   savePrepRequestBoxes: async (itemId, boxes = []) => {
@@ -960,7 +962,11 @@ createPrepItem: async (requestId, item) => {
     }));
 
     const { error } = await supabase.from('prep_request_boxes').insert(payload);
-    return { error };
+    if (error) return { error };
+
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    await supabase.from('prep_request_boxes').delete().lt('updated_at', cutoff);
+    return { error: null };
   },
 
   bulkUpdatePrepItems: async (items) => {

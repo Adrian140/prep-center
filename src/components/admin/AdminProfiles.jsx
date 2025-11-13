@@ -351,8 +351,9 @@ const saveStoreName = async () => {
       prev.map((r) => (r.id === editingStoreId ? { ...r, store_name: payload.store_name } : r))
     );
     setStoreBanner("Store name saved.");
-    await reloadProfiles();
     cancelEditStore();
+    // background refresh to keep list in sync once DB returns the new value
+    reloadProfiles();
   } catch (err) {
     console.error("Failed to save store name:", err);
     setStoreBanner(err?.message || "Failed to save store name.");
