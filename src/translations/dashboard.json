@@ -361,8 +361,16 @@
         "RO": "Romania"
       },
       "guides": {
-        "button": "Import instructions (PDF)",
+        "button": "Instructions",
         "error": "Cannot open guide ({lang}): {msg}"
+      },
+      "priceColumn": {
+        "label": "Purchase price (€)",
+        "placeholder": "0.00",
+        "show": "Show price column",
+        "hide": "Hide price column",
+        "note": "Optional column that helps stock reports include total value. Fill purchase prices only if you need it in exports.",
+        "save": "Save price"
       },
       "quickAdd": {
         "title": "Manual inventory intake",
@@ -995,8 +1003,16 @@
         "RO": "România"
       },
       "guides": {
-        "button": "Instrucțiuni import (PDF)",
+        "button": "Instrucțiuni",
         "error": "Nu pot deschide ghidul ({lang}): {msg}"
+      },
+      "priceColumn": {
+        "label": "Preț achiziție (€)",
+        "placeholder": "0.00",
+        "show": "Afișează coloana de preț",
+        "hide": "Ascunde coloana de preț",
+        "note": "Coloană opțională pentru a avea valoarea stocului în rapoarte. Completeaz-o doar dacă vrei suma în exporturi.",
+        "save": "Salvează prețul"
       },
       "quickAdd": {
         "title": "Adăugare manuală în stoc",
@@ -1629,8 +1645,16 @@
         "RO": "Roumanie"
       },
       "guides": {
-        "button": "Instructions d’import (PDF)",
+        "button": "Instructions",
         "error": "Impossible d’ouvrir le guide ({lang}) : {msg}"
+      },
+      "priceColumn": {
+        "label": "Prix d'achat (€)",
+        "placeholder": "0.00",
+        "show": "Afficher la colonne prix",
+        "hide": "Masquer la colonne prix",
+        "note": "Colonne facultative pour ajouter la valeur du stock dans les rapports. À remplir uniquement si vous souhaitez afficher le montant dans les exports.",
+        "save": "Enregistrer le prix"
       },
       "quickAdd": {
         "title": "Ajout manuel au stock",
@@ -2263,8 +2287,16 @@
         "RO": "Rumänien"
       },
       "guides": {
-        "button": "Importanleitung (PDF)",
+        "button": "Anleitungen",
         "error": "Leitfaden kann nicht geöffnet werden ({lang}): {msg}"
+      },
+      "priceColumn": {
+        "label": "Einkaufspreis (€)",
+        "placeholder": "0.00",
+        "show": "Preisspalte anzeigen",
+        "hide": "Preisspalte ausblenden",
+        "note": "Optionale Spalte, damit die Bestandsberichte eine Wertsumme enthalten. Nur ausfüllen, wenn der Betrag auch in den Exporten erscheinen soll.",
+        "save": "Preis speichern"
       },
       "quickAdd": {
         "title": "Manuelle Bestandsaufnahme",
@@ -2897,8 +2929,16 @@
         "RO": "Romania"
       },
       "guides": {
-        "button": "Istruzioni import (PDF)",
+        "button": "Istruzioni",
         "error": "Impossibile aprire la guida ({lang}): {msg}"
+      },
+      "priceColumn": {
+        "label": "Prezzo di acquisto (€)",
+        "placeholder": "0.00",
+        "show": "Mostra colonna prezzo",
+        "hide": "Nascondi colonna prezzo",
+        "note": "Colonna facoltativa per ottenere il valore di magazzino nei report. Compilala solo se vuoi che l'importo compaia negli export.",
+        "save": "Salva prezzo"
       },
       "quickAdd": {
         "title": "Caricamento manuale inventario",
@@ -3531,8 +3571,16 @@
         "RO": "Rumanía"
       },
       "guides": {
-        "button": "Instrucciones de importación (PDF)",
+        "button": "Instrucciones",
         "error": "No se puede abrir la guía ({lang}): {msg}"
+      },
+      "priceColumn": {
+        "label": "Precio de compra (€)",
+        "placeholder": "0.00",
+        "show": "Mostrar columna de precio",
+        "hide": "Ocultar columna de precio",
+        "note": "Columna opcional para que los reportes de stock incluyan el valor total. Complétala solo si quieres que el importe aparezca en los exportes.",
+        "save": "Guardar precio"
       },
       "quickAdd": {
         "title": "Carga manual de inventario",

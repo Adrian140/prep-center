@@ -29,11 +29,11 @@ function HelpMenuButtonStock({ section = 'stock', t, tp }) {
     <div className="relative inline-flex">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
+        className="inline-flex items-center gap-1 rounded-md border border-primary px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-primary hover:bg-primary hover:text-white transition-colors"
       >
-        <FileDown className="w-4 h-4 mr-2" />
+        <FileDown className="w-3 h-3" />
         {t('ClientStock.guides.button')}
-        <Languages className="w-4 h-4 ml-2 opacity-80" />
+        <Languages className="w-3 h-3 opacity-80" />
       </button>
 
       {open && (
@@ -754,6 +754,7 @@ export default function ClientStock({
   enableQtyAdjust = false
 } = {}) {
   const { t, tp } = useDashboardTranslation();
+  const priceColumnNote = t('ClientStock.priceColumn.note');
   const authCtx = useSupabaseAuth();
   const profile = profileOverride ?? authCtx.profile;
   const status = statusOverride ?? authCtx.status;
@@ -809,6 +810,10 @@ const [salesSummary, setSalesSummary] = useState({});
 const [salesCountry, setSalesCountry] = useSessionStorage(
   `${storagePrefix}-salesCountry`,
   'ALL'
+);
+const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
+  `${storagePrefix}-showPriceColumn`,
+  false
 );
 
   const [searchField, setSearchField] = useSessionStorage(
@@ -1777,19 +1782,40 @@ const saveReqChanges = async () => {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setQuickAddOpen((open) => !open)}
-            className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold shadow transition-colors ${
-              quickAddOpen
-                ? 'bg-primary text-white'
-                : 'bg-[#ffb703] text-[#4f2a00] hover:bg-[#ff9f00]'
-            }`}
-          >
-            <Plus className="w-4 h-4" />
-            {t('ClientStock.createProduct.button')}
-          </button>
-          {!hideGuides && <HelpMenuButtonStock t={t} tp={tp} />}
+        <div className="flex flex-col gap-1 items-stretch sm:items-end text-left sm:text-right">
+          <div className="flex flex-wrap items-center gap-2 justify-end">
+            <button
+              onClick={() => setQuickAddOpen((open) => !open)}
+              className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold shadow transition-colors ${
+                quickAddOpen
+                  ? 'bg-primary text-white'
+                  : 'bg-[#ffb703] text-[#4f2a00] hover:bg-[#ff9f00]'
+              }`}
+            >
+              <Plus className="w-4 h-4" />
+              {t('ClientStock.createProduct.button')}
+            </button>
+            {!hideGuides && <HelpMenuButtonStock t={t} tp={tp} />}
+            <button
+              type="button"
+              aria-pressed={showPriceColumn}
+              onClick={() => setShowPriceColumn((prev) => !prev)}
+              className={`inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                showPriceColumn
+                  ? 'bg-primary text-white border-primary'
+                  : 'text-primary border-primary hover:bg-primary/5'
+              }`}
+            >
+              {showPriceColumn
+                ? t('ClientStock.priceColumn.hide')
+                : t('ClientStock.priceColumn.show')}
+            </button>
+          </div>
+          {priceColumnNote && (
+            <p className="text-[11px] text-gray-500 max-w-xs sm:text-right text-left">
+              {priceColumnNote}
+            </p>
+          )}
         </div>
       </div>
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -2086,6 +2112,13 @@ const saveReqChanges = async () => {
           />
         </div>
       </th>
+      {showPriceColumn && (
+        <th className="px-2 py-2 text-right w-20">
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            {t('ClientStock.priceColumn.label')}
+          </div>
+        </th>
+      )}
       <th className="px-2 py-2 text-left w-40 align-top">
         <div className="flex flex-col gap-1">
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -2130,6 +2163,10 @@ const saveReqChanges = async () => {
         ((asinValue || '') !== (r.asin || '') ||
           (eanValue || '') !== (r.ean || '') ||
           (skuValue || '') !== (r.sku || ''));
+      const serverPrice = r.purchase_price == null ? '' : String(r.purchase_price);
+      const priceDraft = edit.purchase_price ?? serverPrice;
+      const priceInputValue = priceDraft == null ? '' : String(priceDraft);
+      const priceDirty = priceInputValue !== serverPrice;
       const renderIdentifierField = (label, value, key, placeholder, copyKey) => {
         if (enableIdentifierEdit) {
           const currentValue = (edit[key] ?? value ?? '').toString();
@@ -2230,6 +2267,30 @@ const saveReqChanges = async () => {
       {renderIdentifierField('SKU', r.sku, 'sku', 'SKU...', 'SKU')}
     </div>
 </td>
+{showPriceColumn && (
+  <td className="px-2 py-2 align-top text-right w-20">
+    <div className="flex flex-col items-end gap-1 text-xs">
+      <input
+        type="number"
+        step="0.01"
+        min={0}
+        inputMode="decimal"
+        className="w-20 border rounded px-2 py-1 text-right"
+        value={priceInputValue}
+        placeholder={t('ClientStock.priceColumn.placeholder')}
+        onChange={(e) => updateEdit(r.id, { purchase_price: e.target.value })}
+      />
+      <button
+        type="button"
+        className="px-2 py-1 text-[11px] rounded border border-primary text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
+        disabled={!priceDirty || savingId === r.id}
+        onClick={() => saveRow(r)}
+      >
+        {savingId === r.id ? t('ClientStock.table.saving') : t('ClientStock.priceColumn.save')}
+      </button>
+    </div>
+  </td>
+)}
 
           {/* 4) 30-day sales breakdown */}
           <td className="px-2 py-2 align-top">

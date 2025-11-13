@@ -75,9 +75,22 @@ serve(async (req) => {
       .order("created_at", { ascending: false });
     if (error) return new Response(`Query error: ${error.message}`, { status: 400, headers });
 
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const totals = safeRows.reduce(
+      (acc, row: any) => {
+        const qty = Number(row?.qty ?? 0);
+        const price = Number(row?.purchase_price ?? 0);
+        if (Number.isFinite(qty)) acc.qty += qty;
+        const value = qty * price;
+        if (Number.isFinite(value)) acc.value += value;
+        return acc;
+      },
+      { qty: 0, value: 0 }
+    );
+
     const aoa = [
       ["EAN","ASIN","Name","Qty","Purchase price","Value","Created at","Updated at","Export to"],
-      ...(rows || []).map((r: any) => [
+      ...safeRows.map((r: any) => [
         r.ean ?? "",
         r.asin ?? "",
         r.name ?? "",
@@ -89,6 +102,17 @@ serve(async (req) => {
         endISO
       ]),
     ];
+    aoa.push([
+      "",
+      "",
+      "TOTAL",
+      totals.qty,
+      "",
+      Number.isFinite(totals.value) ? Number(totals.value.toFixed(2)) : 0,
+      "",
+      "",
+      endISO
+    ]);
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Stock");
