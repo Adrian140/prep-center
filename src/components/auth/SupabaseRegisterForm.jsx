@@ -10,7 +10,6 @@ function SupabaseRegisterForm() {
     firstName: '',
     lastName: '',
     companyName: '',
-    storeName: '',
     cui: '',
     vatNumber: '',
     companyAddress: '',
@@ -50,8 +49,6 @@ function SupabaseRegisterForm() {
 
     const trimmedFirst = formData.firstName.trim();
     const trimmedLast = formData.lastName.trim();
-    const trimmedStore = formData.storeName.trim();
-
     if (!trimmedFirst || !trimmedLast) {
       setError('First name and last name are required.');
       setLoading(false);
@@ -62,11 +59,6 @@ function SupabaseRegisterForm() {
     if (formData.accountType === 'company') {
       if (!formData.companyName || !formData.cui || !formData.companyAddress || !formData.companyCity || !formData.companyPostalCode) {
         setError('All fields marked with * are required for company accounts.');
-        setLoading(false);
-        return;
-      }
-      if (!trimmedStore) {
-        setError('Store username is required for company accounts.');
         setLoading(false);
         return;
       }
@@ -96,7 +88,6 @@ function SupabaseRegisterForm() {
       first_name: trimmedFirst,
       last_name: trimmedLast,
       company_name: formData.companyName,
-      store_name: trimmedStore,
       cui: formData.cui,
       vat_number: formData.vatNumber,
       company_address: formData.companyAddress,
@@ -112,7 +103,6 @@ function SupabaseRegisterForm() {
       firstName: trimmedFirst,
       lastName: trimmedLast,
       companyName: formData.companyName,
-      storeName: trimmedStore,
       vatNumber: formData.vatNumber,
       companyAddress: formData.companyAddress,
       companyCity: formData.companyCity,
@@ -150,10 +140,10 @@ function SupabaseRegisterForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-6">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-bold text-text-primary">
+          <h2 className="mt-4 text-center text-3xl font-bold text-text-primary">
             Create account
           </h2>
           <p className="mt-2 text-center text-sm text-text-secondary">
@@ -164,27 +154,27 @@ function SupabaseRegisterForm() {
           </p>
         </div>
         
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+            <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg">
               {error}
             </div>
           )}
-          
+
           {success && (
-            <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg">
+            <div className="bg-green-50 border border-green-200 text-green-600 px-3 py-2 rounded-lg">
               {success}
             </div>
           )}
-          
-          <div className="space-y-4">
+
+          <div className="space-y-3">
             {/* Account Type Selection */}
             <div>
               <label className="block text-sm font-medium text-text-primary mb-3">
                 Account type
               </label>
-              <div className="grid grid-cols-2 gap-4">
-                <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                   <input
                     type="radio"
                     name="accountType"
@@ -196,7 +186,7 @@ function SupabaseRegisterForm() {
                   <User className="w-5 h-5 mr-2 text-text-secondary" />
                   <span>Individual</span>
                 </label>
-                <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                   <input
                     type="radio"
                     name="accountType"
@@ -212,7 +202,7 @@ function SupabaseRegisterForm() {
             </div>
 
             {/* Contact person */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="firstName" className="block text-sm font-medium text-text-primary mb-2">
                   {formData.accountType === 'company' ? 'Contact first name *' : 'First name *'}
@@ -226,7 +216,7 @@ function SupabaseRegisterForm() {
                     required
                     value={formData.firstName}
                     onChange={handleChange}
-                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="pl-9 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
                     placeholder="First name"
                   />
                 </div>
@@ -243,7 +233,7 @@ function SupabaseRegisterForm() {
                   required
                   value={formData.lastName}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
                   placeholder="Last name"
                 />
               </div>
@@ -251,7 +241,7 @@ function SupabaseRegisterForm() {
 
             {/* Company Fields */}
             {formData.accountType === 'company' && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
                   <label htmlFor="companyName" className="block text-sm font-medium text-text-primary mb-2">
                     Company name *
@@ -265,29 +255,13 @@ function SupabaseRegisterForm() {
                       required
                       value={formData.companyName}
                       onChange={handleChange}
-                      className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="pl-9 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
                       placeholder="Company name"
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label htmlFor="storeName" className="block text-sm font-medium text-text-primary mb-2">
-                    Store / Username *
-                  </label>
-                  <input
-                    id="storeName"
-                    name="storeName"
-                    type="text"
-                    required
-                    value={formData.storeName}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Amazon / Shopify store"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="cui" className="block text-sm font-medium text-text-primary mb-2">
                       Company ID (CUI) *
@@ -299,7 +273,7 @@ function SupabaseRegisterForm() {
                       required
                       value={formData.cui}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
                       placeholder="RO12345678"
                     />
                   </div>
@@ -313,7 +287,7 @@ function SupabaseRegisterForm() {
                       type="text"
                       value={formData.vatNumber}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
                       placeholder="RO12345678"
                     />
                   </div>
@@ -330,12 +304,12 @@ function SupabaseRegisterForm() {
                     required
                     value={formData.companyAddress}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
                     placeholder="Street, number"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="companyCity" className="block text-sm font-medium text-text-primary mb-2">
                       City *
@@ -347,7 +321,7 @@ function SupabaseRegisterForm() {
                       required
                       value={formData.companyCity}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
                       placeholder="City"
                     />
                   </div>
@@ -362,7 +336,7 @@ function SupabaseRegisterForm() {
                       required
                       value={formData.companyPostalCode}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
                       placeholder="010101"
                     />
                   </div>
@@ -384,7 +358,7 @@ function SupabaseRegisterForm() {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="pl-9 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
                   placeholder="your.email@example.com"
                 />
               </div>
@@ -404,7 +378,7 @@ function SupabaseRegisterForm() {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="pl-10 pr-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="pl-9 pr-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
                   placeholder="At least 8 characters, 1 uppercase, 1 number"
                 />
                 <button
@@ -430,7 +404,7 @@ function SupabaseRegisterForm() {
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="pl-10 pr-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="pl-9 pr-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
                   placeholder="Confirm password"
                 />
                 <button
@@ -483,11 +457,11 @@ function SupabaseRegisterForm() {
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-primary text-white py-3 px-4 rounded-lg font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-primary text-white py-2.5 px-4 rounded-lg font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
             {loading ? 'Creating account...' : 'Create account'}
           </button>
         </form>
