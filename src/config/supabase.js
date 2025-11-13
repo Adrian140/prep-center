@@ -1260,7 +1260,7 @@ getAllReceivingShipments: async (options = {}) => {
   if (userIds.length > 0) {
     const { data: profilesData } = await supabase
       .from('profiles')
-      .select('id, store_name, full_name, email')
+      .select('id, store_name, first_name, last_name, email')
       .in('id', userIds);
     profilesById = Object.fromEntries(
       (profilesData || []).map((p) => [p.id, p])
@@ -1305,7 +1305,11 @@ getAllReceivingShipments: async (options = {}) => {
       })),
       produits_count: items.length,
       store_name: rest.client_store_name || profileMeta.store_name || rest.client_name || null,
-      client_name: profileMeta.store_name || profileMeta.full_name || rest.client_name || null,
+      client_name:
+        profileMeta.store_name ||
+        [profileMeta.first_name, profileMeta.last_name].filter(Boolean).join(' ') ||
+        rest.client_name ||
+        null,
       client_email: profileMeta.email || rest.user_email || null,
       company_name: companies?.name || null
     };
