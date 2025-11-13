@@ -1,5 +1,5 @@
 // FILE: src/components/admin/AdminProfiles.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase, supabaseHelpers } from "@/config/supabase";
 import {
   Download,
@@ -182,27 +182,28 @@ export default function AdminProfiles({ onSelect }) {
  const [rpcStart, setRpcStart] = useState(isoLocal(firstDayOfMonth(new Date())));
  const [rpcEnd, setRpcEnd]     = useState(isoLocal(lastDayOfMonth(new Date())));
 
-  // load profiles (non-admin)
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true); setError("");
-      try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id,email,first_name,last_name,company_name,created_at,account_type,company_id,store_name")
-          .order("created_at", { ascending: false });
-        if (error) throw error;
-        const nonAdmins = (data || []).filter(r => (r.account_type||"").toLowerCase() !== "admin");
-        if (mounted) setRows(nonAdmins);
-      } catch (e) {
-        if (mounted) { setRows([]); setError(e?.message || "Failed to load clients"); }
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
+  const reloadProfiles = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,email,first_name,last_name,company_name,created_at,account_type,company_id,store_name")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const nonAdmins = (data || []).filter((r) => (r.account_type || "").toLowerCase() !== "admin");
+      setRows(nonAdmins);
+    } catch (e) {
+      setRows([]);
+      setError(e?.message || "Failed to load clients");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    reloadProfiles();
+  }, [reloadProfiles]);
 
   // search + filter
   const filtered = useMemo(() => {
@@ -327,10 +328,10 @@ export default function AdminProfiles({ onSelect }) {
       return next;
     });
   };
-const startEditStore = (profile) => {
-  setEditingStoreId(profile.id);
-  setStoreDraft(profile.store_name || "");
-};
+  const startEditStore = (profile) => {
+    setEditingStoreId(profile.id);
+    setStoreDraft(profile.store_name || "");
+  };
 
 const cancelEditStore = () => {
   setEditingStoreId(null);
@@ -350,6 +351,7 @@ const saveStoreName = async () => {
       prev.map((r) => (r.id === editingStoreId ? { ...r, store_name: payload.store_name } : r))
     );
     setStoreBanner("Store name saved.");
+    await reloadProfiles();
     cancelEditStore();
   } catch (err) {
     console.error("Failed to save store name:", err);

@@ -770,7 +770,7 @@ onChanged?.();
 
       {showBoxSummary && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 space-y-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[80vh] overflow-y-auto p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Box shipping summary</h3>
               <button
@@ -783,21 +783,21 @@ onChanged?.();
             {boxSummary.length === 0 ? (
               <p className="text-sm text-text-secondary">No boxes added yet.</p>
             ) : (
-              boxSummary.map((box) => (
-                <div key={box.boxNumber} className="border rounded-lg p-4 space-y-2">
-                  <div className="font-semibold">Box {box.boxNumber}</div>
-                  <ul className="space-y-1 text-sm">
-                    {box.lines.map((line, idx) => (
-                      <li key={`${box.boxNumber}-${idx}`} className="flex items-center justify-between">
-                        <span className="text-text-secondary">
-                          {line.code || line.name || "Item"}
+              <div className="space-y-3 text-sm">
+                {boxSummary.map((box) => (
+                  <div key={box.boxNumber} className="space-y-1">
+                    <div className="font-semibold text-text-primary">Box {box.boxNumber}</div>
+                    <div className="flex flex-wrap gap-4 pl-2 text-text-secondary">
+                      {box.lines.map((line, idx) => (
+                        <span key={`${box.boxNumber}-${idx}`} className="flex items-center gap-1">
+                          <span>{line.code || line.name || "Item"}</span>
+                          <span className="font-semibold text-text-primary">{line.qty}</span>
                         </span>
-                        <span className="font-semibold">{line.qty}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
