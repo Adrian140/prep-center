@@ -488,6 +488,68 @@ resetPassword: async (email) => {
       .delete()
       .eq('id', profileId);
   },
+  seedBillingProfilesFromSignup: async (userId) => {
+    if (!userId) return { error: new Error('Missing user id') };
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('first_name,last_name,account_type,company_name,cui,vat_number,company_address,company_city,company_postal_code,phone,country')
+      .eq('id', userId)
+      .single();
+    if (error || !profile) {
+      return { error };
+    }
+
+    const entries = [];
+    const baseAddress = {
+      country: profile.country || 'FR',
+      address: profile.company_address || null,
+      city: profile.company_city || null,
+      postal_code: profile.company_postal_code || null,
+      phone: profile.phone || null
+    };
+
+    const hasCompanyData =
+      profile.company_name ||
+      profile.cui ||
+      profile.vat_number ||
+      baseAddress.address ||
+      baseAddress.city ||
+      baseAddress.postal_code;
+
+    if (hasCompanyData) {
+      entries.push({
+        user_id: userId,
+        type: 'company',
+        company_name: profile.company_name || null,
+        vat_number: profile.vat_number || null,
+        cui: profile.cui || null,
+        first_name: profile.first_name || null,
+        last_name: profile.last_name || null,
+        ...baseAddress,
+        is_default: true
+      });
+    }
+
+    if (profile.first_name || profile.last_name) {
+      entries.push({
+        user_id: userId,
+        type: 'individual',
+        first_name: profile.first_name || null,
+        last_name: profile.last_name || null,
+        ...baseAddress,
+        is_default: entries.length === 0
+      });
+    }
+
+    if (!entries.length) {
+      return { data: [], error: null };
+    }
+
+    const { error: insertError } = await supabase
+      .from('billing_profiles')
+      .insert(entries);
+    return { error: insertError || null };
+  },
 
   // ===== Invoices =====
   getInvoices: async (userId) => {

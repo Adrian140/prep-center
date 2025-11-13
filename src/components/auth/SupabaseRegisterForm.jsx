@@ -264,7 +264,7 @@ function SupabaseRegisterForm() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="cui" className="block text-sm font-medium text-text-primary mb-2">
-                      Company ID (CUI) *
+                      Company ID *
                     </label>
                     <input
                       id="cui"

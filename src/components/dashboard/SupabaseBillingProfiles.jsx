@@ -36,13 +36,33 @@ const countries = ['FR','DE','IT','ES','RO'].map(code => ({
 
   const fetchProfiles = async () => {
     if (!user) return;
-    
+    setLoading(true);
     const { data, error } = await supabaseHelpers.getBillingProfiles(user.id);
     if (error) {
       console.error('Error fetching profiles:', error);
-    } else {
-      setProfiles(data || []);
+      setMessage(error.message || t('billing.flash.errorSave'));
+      setProfiles([]);
+      setLoading(false);
+      return;
     }
+
+    if (!data || data.length === 0) {
+      const { error: seedError } = await supabaseHelpers.seedBillingProfilesFromSignup(user.id);
+      if (seedError) {
+        console.error('Error seeding billing profiles:', seedError);
+        setMessage(seedError.message || t('billing.flash.errorSave'));
+        setProfiles([]);
+        setLoading(false);
+        return;
+      }
+      const { data: seeded } = await supabaseHelpers.getBillingProfiles(user.id);
+      setProfiles(seeded || []);
+      setLoading(false);
+      return;
+    }
+
+    setProfiles(data);
+    setLoading(false);
   };
 
   const validateVAT = async (vatNumber, country) => {
