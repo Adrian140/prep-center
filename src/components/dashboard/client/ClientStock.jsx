@@ -1,6 +1,6 @@
 // FILE: src/components/dashboard/client/ClientStock.jsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FileDown, Languages, Plus, X, Image as ImageIcon, Check } from 'lucide-react';
+import { FileDown, Languages, Plus, X, Image as ImageIcon, Check, Info } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
 import { useDashboardTranslation } from '../../../translations';
@@ -2114,18 +2114,24 @@ const saveReqChanges = async () => {
       </th>
       {showPriceColumn && (
         <th className="px-2 py-2 text-right w-20">
-          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-            {t('ClientStock.priceColumn.label')}
+          <div className="flex items-center justify-end gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500 relative group">
+            <span>{t('ClientStock.priceColumn.label')}</span>
+            <Info className="w-3.5 h-3.5 text-amber-500" />
+            {priceColumnNote && (
+              <div className="pointer-events-none absolute right-0 top-full mt-1 hidden w-48 rounded-md border border-amber-200 bg-white p-2 text-[11px] text-gray-600 shadow-lg group-hover:block">
+                {priceColumnNote}
+              </div>
+            )}
           </div>
         </th>
       )}
       <th className="px-2 py-2 text-left w-40 align-top">
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 items-center text-center">
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
             {t('ClientStock.sales.heading')}
           </span>
           <select
-            className="border rounded px-2 py-1 text-xs"
+            className="border rounded px-2 py-1 text-xs text-center"
             value={salesCountry}
             onChange={(e) => setSalesCountry(e.target.value)}
           >
@@ -2138,7 +2144,7 @@ const saveReqChanges = async () => {
         </div>
       </th>
       <th className="px-2 py-2 text-left w-40">
-        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-pre-line text-center">
           {t('ClientStock.inventory.subtitle')}
         </div>
       </th>
