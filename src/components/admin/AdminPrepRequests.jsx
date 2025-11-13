@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseHelpers } from '../../config/supabase';
 import { Search, Filter, ChevronLeft, ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
 import AdminPrepRequestDetail from './AdminPrepRequestDetail';
+
+const STORAGE_KEY = 'admin-prep-requests-state';
 
 const StatusPill = ({ s }) => {
   const map = {
@@ -13,15 +15,29 @@ const StatusPill = ({ s }) => {
 };
 
 export default function AdminPrepRequests() {
-  const [status, setStatus] = useState('all'); // all | pending | confirmed | cancelled
-  const [q, setQ] = useState('');             // căutare simplă
+  const persistedRef = useRef(null);
+  if (persistedRef.current === null && typeof window !== 'undefined') {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      persistedRef.current = raw ? JSON.parse(raw) : {};
+    } catch {
+      persistedRef.current = {};
+    }
+  }
+  const initialState = persistedRef.current || {};
+  const initialPage = Number(initialState.page) > 0 ? Number(initialState.page) : 1;
+
+  const [status, setStatus] = useState(initialState.status || 'all'); // all | pending | confirmed | cancelled
+  const [q, setQ] = useState(initialState.q || '');             // căutare simplă
   const [rows, setRows] = useState([]);
   const [count, setCount] = useState(0);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(initialPage);
   const pageSize = 10;
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null); // request row pt. detail
+  const [selectedId, setSelectedId] = useState(initialState.selectedId || null); // request id pt. detail
   const [flash, setFlash] = useState('');
+  const firstLoadRef = useRef(true);
+  const initialPageRef = useRef(initialPage);
 
  const handleDelete = async (row) => {
   const shortId = row.id?.slice(0, 8) || row.id;
@@ -68,9 +84,28 @@ export default function AdminPrepRequests() {
 };
 
   useEffect(() => {
+    load(initialPageRef.current);
+    firstLoadRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (firstLoadRef.current) return;
     load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ status, q, page, selectedId })
+      );
+    } catch {
+      // ignore storage write errors
+    }
+  }, [status, q, page, selectedId]);
 
   const filtered = useMemo(() => {
     if (!q.trim()) return rows;
@@ -91,11 +126,11 @@ export default function AdminPrepRequests() {
 
   const totalPages = Math.max(1, Math.ceil((status === 'all' ? count : filtered.length) / pageSize));
 
-  if (selected) {
+  if (selectedId) {
     return (
       <AdminPrepRequestDetail
-        requestId={selected.id}
-        onBack={() => setSelected(null)}
+        requestId={selectedId}
+        onBack={() => setSelectedId(null)}
         onChanged={() => load(page)}
       />
     );
@@ -215,7 +250,7 @@ export default function AdminPrepRequests() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
-                      onClick={() => setSelected(r)}
+                      onClick={() => setSelectedId(r.id)}
                       className="px-3 py-1 bg-primary text-white rounded"
                     >
                       Deschide
