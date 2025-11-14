@@ -182,12 +182,14 @@ export default function AdminProfiles({ onSelect }) {
  const [rpcStart, setRpcStart] = useState(isoLocal(firstDayOfMonth(new Date())));
  const [rpcEnd, setRpcEnd]     = useState(isoLocal(lastDayOfMonth(new Date())));
 
-  const enrichProfile = (profile) => {
-    const billing = Array.isArray(profile.billing_profiles) ? profile.billing_profiles : [];
-    const billingFallback = billing.find((b) => b.is_default) || billing[0] || {};
-    const firstName = profile.first_name || billingFallback.first_name || null;
-    const lastName = profile.last_name || billingFallback.last_name || null;
-    const companyName = profile.company_name || billingFallback.company_name || null;
+  const enrichProfile = (profile, billingMap) => {
+    const billingList = billingMap.get(profile.id) || [];
+    const billingFallback =
+      billingList.find((b) => b.is_default) || billingList[0] || {};
+    const firstName = profile.first_name || billingFallback?.first_name || null;
+    const lastName = profile.last_name || billingFallback?.last_name || null;
+    const companyName =
+      profile.company_name || billingFallback?.company_name || null;
     return {
       ...profile,
       display_first_name: firstName,
@@ -202,12 +204,33 @@ export default function AdminProfiles({ onSelect }) {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id,email,first_name,last_name,company_name,created_at,account_type,company_id,store_name,billing_profiles(first_name,last_name,company_name,is_default)")
+        .select("id,email,first_name,last_name,company_name,created_at,account_type,company_id,store_name")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      const nonAdmins = (data || [])
-        .filter((r) => (r.account_type || "").toLowerCase() !== "admin")
-        .map(enrichProfile);
+      const nonAdmins = (data || []).filter(
+        (r) => (r.account_type || "").toLowerCase() !== "admin"
+      );
+
+      let billingMap = new Map();
+      const ids = nonAdmins.map((r) => r.id).filter(Boolean);
+      if (ids.length) {
+        const { data: billingRows, error: billingError } = await supabase
+          .from("billing_profiles")
+          .select("user_id, first_name, last_name, company_name, is_default")
+          .in("user_id", ids);
+        if (billingError) console.error("billing_profiles load failed", billingError);
+        (billingRows || []).forEach((row) => {
+          if (!row?.user_id) return;
+          if (!billingMap.has(row.user_id)) billingMap.set(row.user_id, []);
+          billingMap.get(row.user_id).push(row);
+        });
+      }
+
+      const enriched = nonAdmins.map((profile) =>
+        enrichProfile(profile, billingMap)
+      );
+
+      setRows(enriched);
       setRows(nonAdmins);
     } catch (e) {
       setRows([]);
