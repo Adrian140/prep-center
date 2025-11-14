@@ -7,7 +7,37 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase URL and Anon Key must be defined in .env file');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const resolveTabStorage = () => {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const storage = window.sessionStorage;
+    const testKey = '__pcf_tab_storage__';
+    storage.setItem(testKey, '1');
+    storage.removeItem(testKey);
+    return storage;
+  } catch {
+    try {
+      const fallback = window.localStorage;
+      const testKey = '__pcf_local_storage__';
+      fallback.setItem(testKey, '1');
+      fallback.removeItem(testKey);
+      return fallback;
+    } catch {
+      return undefined;
+    }
+  }
+};
+
+const tabStorage = resolveTabStorage();
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: tabStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
 const SITE_URL = import.meta.env.PROD
   ? 'https://prep-center.eu'
