@@ -1524,13 +1524,58 @@ getAllReceivingShipments: async (options = {}) => {
     );
   }
 
+  const shipments = data || [];
+
+  const missingItemShipments = shipments
+    .filter((row) => !row.receiving_items || row.receiving_items.length === 0)
+    .map((row) => row.id)
+    .filter(Boolean);
+
+  const fallbackItemsMap = {};
+  if (missingItemShipments.length > 0) {
+    const { data: fallbackItems } = await supabase
+      .from('receiving_items')
+      .select('*')
+      .in('shipment_id', missingItemShipments);
+    (fallbackItems || []).forEach((item) => {
+      if (!item?.shipment_id) return;
+      (fallbackItemsMap[item.shipment_id] ||= []).push(item);
+    });
+
+    const stillMissing = missingItemShipments.filter(
+      (id) => !(fallbackItemsMap[id] && fallbackItemsMap[id].length)
+    );
+    if (stillMissing.length > 0) {
+      const { data: legacyItems } = await supabase
+        .from('receiving_shipment_items')
+        .select('*')
+        .in('shipment_id', stillMissing);
+      (legacyItems || []).forEach((item) => {
+        if (!item?.shipment_id) return;
+        (fallbackItemsMap[item.shipment_id] ||= []).push({
+          ...item,
+          quantity_received:
+            item.quantity_received ??
+            item.quantity ??
+            item.qty ??
+            item.requested ??
+            0,
+          received_units: item.received_units ?? item.quantity_received ?? item.quantity ?? 0
+        });
+      });
+    }
+  }
+
   // pregătește metadate stock
   const allStockIds = new Set();
-  (data || []).forEach((r) => {
+  shipments.forEach((r) => {
     (r.receiving_shipment_items || []).forEach((it) => {
       if (it.stock_item_id) allStockIds.add(it.stock_item_id);
     });
     (r.receiving_items || []).forEach((it) => {
+      if (it.stock_item_id) allStockIds.add(it.stock_item_id);
+    });
+    (fallbackItemsMap[r.id] || []).forEach((it) => {
       if (it.stock_item_id) allStockIds.add(it.stock_item_id);
     });
   });
@@ -1545,10 +1590,12 @@ getAllReceivingShipments: async (options = {}) => {
   }
 
   // combinăm datele din ambele tabele (receiving_shipment_items și receiving_items)
-  const processed = (data || []).map(r => {
+  const processed = shipments.map(r => {
+    const fallback = fallbackItemsMap[r.id] || [];
     const items = [
       ...(r.receiving_shipment_items || []),
-      ...(r.receiving_items || [])
+      ...(r.receiving_items || []),
+      ...fallback
     ];
 
     const { companies, receiving_shipment_items, receiving_items, ...rest } = r;
