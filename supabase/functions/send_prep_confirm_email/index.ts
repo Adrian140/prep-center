@@ -37,8 +37,8 @@ const FROM_EMAIL = Deno.env.get("PREP_FROM_EMAIL") ?? "no-reply@prep-center.eu";
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY")  ?? "";
 
 // ===== Brand assets =====
-// (folosește Legătura directă furnizată)
-const LOGO_URL = "https://i.postimg.cc/wTp2F1vd/Chat-GPT-Image-25-aug-2025-01-47-38.png";
+const LOGO_URL =
+  "https://raw.githubusercontent.com/Adrian140/prep-center/main/public/branding/fba-prep-logo.svg";
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -76,19 +76,36 @@ function renderHtml(p: Payload, subjectId: string) {
     : "";
 
   const hasTracking = Array.isArray(p.tracking_ids) && p.tracking_ids.length > 0;
-  const shipmentBlock = (p.fba_shipment_id || hasTracking) ? `
+  const infoLines = [
+    `<div style="margin-bottom:4px"><strong>Prep request ID:</strong> ${escapeHtml(subjectId)}</div>`,
+    p.subject_id
+      ? `<div style="margin-bottom:4px"><strong>Amazon order ID:</strong> ${escapeHtml(String(p.subject_id))}</div>`
+      : "",
+    p.fba_shipment_id
+      ? `<div style="margin-bottom:4px"><strong>Shipment ID:</strong> ${escapeHtml(p.fba_shipment_id)}</div>`
+      : ""
+  ].filter(Boolean).join("");
+
+  const trackingBlock = hasTracking
+    ? `
+      <div style="margin-top:6px">
+        <strong>Tracking IDs:</strong>
+        <ul style="margin:6px 0 0 18px;padding:0">
+          ${p.tracking_ids!.map(t => `<li style="margin:2px 0">${escapeHtml(String(t))}</li>`).join("")}
+        </ul>
+      </div>
+    `
+    : "";
+
+  const shipmentBlock =
+    infoLines || trackingBlock
+      ? `
     <div style="margin-top:16px;padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:#fafafa">
-      ${p.fba_shipment_id ? `<div style="margin-bottom:6px"><strong>FBA Shipment ID:</strong> ${escapeHtml(p.fba_shipment_id)}</div>` : ""}
-      ${hasTracking ? `
-        <div>
-          <strong>Tracking IDs:</strong>
-          <ul style="margin:6px 0 0 18px;padding:0">
-            ${p.tracking_ids!.map(t => `<li style="margin:2px 0">${escapeHtml(String(t))}</li>`).join("")}
-          </ul>
-        </div>
-      ` : ""}
+      ${infoLines}
+      ${trackingBlock}
     </div>
-  ` : "";
+  `
+      : "";
 
   return `
   <div style="font-family:Inter,Arial,sans-serif;color:#111;line-height:1.45">
@@ -96,7 +113,7 @@ function renderHtml(p: Payload, subjectId: string) {
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px">
       <tr>
         <td style="padding:0 0 12px 0">
-          <img src="${LOGO_URL}" alt="Prep Center" style="height:36px;display:block" />
+          <img src="${LOGO_URL}" alt="FBA Prep Logistics" style="height:46px;display:block" />
         </td>
       </tr>
     </table>

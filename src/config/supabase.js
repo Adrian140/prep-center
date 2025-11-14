@@ -1271,14 +1271,29 @@ createReceivingShipment: async (shipmentData) => {
 
 
   getClientReceivingShipments: async (companyId) => {
-    return await supabase
+    const { data, error } = await supabase
       .from('receiving_shipments')
       .select(`
         *,
-        receiving_items(*)
+        receiving_items(*),
+        receiving_shipment_items(*)
       `)
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
+    if (error) return { data: [], error };
+
+    const processed = (data || []).map((row) => {
+      const legacyItems = row.receiving_shipment_items || [];
+      const modernItems = row.receiving_items || [];
+      const merged = [...legacyItems, ...modernItems];
+      const { receiving_shipment_items, receiving_items, ...rest } = row;
+      return {
+        ...rest,
+        receiving_items: merged
+      };
+    });
+
+    return { data: processed, error: null };
   },
 
   updateReceivingShipment: async (shipmentId, updates) => {
