@@ -11,6 +11,7 @@ import AdminUserGuide from './AdminUserGuide';
 import { supabase } from '@/config/supabase';
 import AdminPricing from './AdminPricing';
 import AdminShippingRates from './AdminShippingRates';
+import { getTabId } from '@/utils/tabIdentity';
 
 const SERVICE_LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -29,6 +30,7 @@ import AdminPrepRequests from './AdminPrepRequests';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
 
 function SupabaseAdminPanel() {
+  const tabId = getTabId();
   const { user, signOut } = useSupabaseAuth();
   const { t } = useAdminTranslation();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -75,6 +77,14 @@ const [activeTab, setActiveTab] = useState(() => {
   if (initialTab && validTabs.includes(initialTab)) return initialTab;
   return validTabs.includes(saved) ? saved : 'profiles';
 });
+
+useEffect(() => {
+  const params = new URLSearchParams(location.search);
+  if (params.get('tabId') !== tabId) {
+    params.set('tabId', tabId);
+    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+  }
+}, [location.pathname, location.search, navigate, tabId]);
 
 useEffect(() => {
   try {

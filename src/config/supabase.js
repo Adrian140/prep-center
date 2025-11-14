@@ -1,5 +1,6 @@
 // FILE: src/config/supabase.js
 import { createClient } from '@supabase/supabase-js';
+import { getTabId } from '../utils/tabIdentity';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -28,7 +29,19 @@ const resolveTabStorage = () => {
   }
 };
 
-const tabStorage = resolveTabStorage();
+const createPrefixedStorage = (storage, prefix) => {
+  if (!storage || !prefix) return storage;
+  const keyOf = (key) => `${prefix}:${key}`;
+  return {
+    getItem: (key) => storage.getItem(keyOf(key)),
+    setItem: (key, value) => storage.setItem(keyOf(key), value),
+    removeItem: (key) => storage.removeItem(keyOf(key)),
+  };
+};
+
+const baseStorage = resolveTabStorage();
+const tabId = getTabId();
+const tabStorage = createPrefixedStorage(baseStorage, tabId);
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
