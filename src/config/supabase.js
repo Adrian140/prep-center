@@ -40,6 +40,100 @@ const isMissingColumnError = (error, column) => {
 const receivingItemColumnMissing = (error) =>
   ['send_to_fba', 'fba_qty', 'stock_item_id'].some((col) => isMissingColumnError(error, col));
 
+const RECEIVING_TERMINAL_STATUSES = new Set(['processed', 'cancelled']);
+
+async function syncReceivingShipmentStatus(shipmentId, receivedBy) {
+  const [{ data: items, error: itemsError }, { data: shipment, error: shipmentError }] =
+    await Promise.all([
+      supabase
+        .from('receiving_items')
+        .select('is_received')
+        .eq('shipment_id', shipmentId),
+      supabase
+        .from('receiving_shipments')
+        .select('status, received_by')
+        .eq('id', shipmentId)
+        .single()
+    ]);
+
+  if (itemsError) return { error: itemsError };
+  if (shipmentError) return { error: shipmentError };
+
+  const currentStatus = shipment?.status || 'submitted';
+  if (RECEIVING_TERMINAL_STATUSES.has(currentStatus)) {
+    return { error: null };
+  }
+
+  const allReceived = items.length > 0 && items.every((it) => it.is_received);
+  const someReceived = items.some((it) => it.is_received);
+
+  let nextStatus = currentStatus;
+  if (allReceived) {
+    nextStatus = 'received';
+  } else if (someReceived) {
+    nextStatus = 'partial';
+  } else if (currentStatus === 'partial' || currentStatus === 'received') {
+    nextStatus = 'submitted';
+  }
+
+  const patch = {};
+  if (nextStatus !== currentStatus) {
+    patch.status = nextStatus;
+  }
+  if (nextStatus === 'received') {
+    patch.received_by = receivedBy || shipment?.received_by || null;
+    patch.received_at = new Date().toISOString();
+  }
+
+  if (Object.keys(patch).length === 0) return { error: null };
+
+  const { error: updateError } = await supabase
+    .from('receiving_shipments')
+    .update(patch)
+    .eq('id', shipmentId);
+  return { error: updateError || null };
+}
+
+async function markItemsAsReceived(shipmentId, itemIds, receivedBy) {
+  if (!Array.isArray(itemIds) || itemIds.length === 0) {
+    return { error: null };
+  }
+  const timestamp = new Date().toISOString();
+  const { error } = await supabase
+    .from('receiving_items')
+    .update({
+      is_received: true,
+      received_at: timestamp,
+      received_by: receivedBy || null
+    })
+    .in('id', itemIds)
+    .eq('shipment_id', shipmentId);
+  if (error) return { error };
+  return await syncReceivingShipmentStatus(shipmentId, receivedBy);
+}
+
+async function markShipmentFullyReceived(shipmentId, receivedBy) {
+  const { data: itemRows, error } = await supabase
+    .from('receiving_items')
+    .select('id')
+    .eq('shipment_id', shipmentId);
+  if (error) return { error };
+  const ids = (itemRows || []).map((row) => row.id);
+  if (ids.length === 0) {
+    const patch = {
+      status: 'received',
+      received_at: new Date().toISOString(),
+      received_by: receivedBy || null
+    };
+    const { error: updateError } = await supabase
+      .from('receiving_shipments')
+      .update(patch)
+      .eq('id', shipmentId);
+    return { error: updateError || null };
+  }
+  return await markItemsAsReceived(shipmentId, ids, receivedBy);
+}
+
 const sanitizeShipmentUpdate = (payload) => {
   if (supportsReceivingFbaMode || !payload || typeof payload !== 'object') return payload;
   if (!Object.prototype.hasOwnProperty.call(payload, 'fba_mode')) return payload;
@@ -1418,26 +1512,18 @@ getAllReceivingShipments: async (options = {}) => {
   return { data: processed, error: null, count };
 },
 
-  markReceivingAsReceived: async (shipmentId, receivedBy) => {
-    return await supabase
-      .from('receiving_shipments')
-      .update({
-        status: 'received',
-        received_at: new Date().toISOString(),
-        received_by: receivedBy
-      })
-      .eq('id', shipmentId);
-  },
+  markReceivingItemsAsReceived: async (shipmentId, itemIds = [], receivedBy) =>
+    await markItemsAsReceived(shipmentId, itemIds, receivedBy),
 
-  markMultipleAsReceived: async (shipmentIds, receivedBy) => {
-    return await supabase
-      .from('receiving_shipments')
-      .update({
-        status: 'received',
-        received_at: new Date().toISOString(),
-        received_by: receivedBy
-      })
-      .in('id', shipmentIds);
+  markReceivingAsReceived: (shipmentId, receivedBy) =>
+    markShipmentFullyReceived(shipmentId, receivedBy),
+
+  markMultipleAsReceived: async (shipmentIds = [], receivedBy) => {
+    for (const shipmentId of shipmentIds || []) {
+      const result = await markShipmentFullyReceived(shipmentId, receivedBy);
+      if (result?.error) return result;
+    }
+    return { error: null };
   },
 
   // Process to Stock

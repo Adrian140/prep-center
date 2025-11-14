@@ -12,6 +12,7 @@ const StatusPill = ({ status }) => {
   const statusMap = {
     draft: { color: 'bg-gray-100 text-gray-800', text: 'Draft' },
     submitted: { color: 'bg-yellow-100 text-yellow-800', text: 'Submitted' },
+    partial: { color: 'bg-amber-100 text-amber-800', text: 'Partial' },
     received: { color: 'bg-blue-100 text-blue-800', text: 'Received' },
     processed: { color: 'bg-green-100 text-green-800', text: 'Processed' },
     cancelled: { color: 'bg-red-100 text-red-800', text: 'Cancelled' }
@@ -54,6 +55,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   const [items, setItems] = useState(shipment.receiving_items || []);
   const [stockMatches, setStockMatches] = useState({});
   const [processing, setProcessing] = useState(false);
+  const [markingSelected, setMarkingSelected] = useState(false);
   const [message, setMessage] = useState('');
   const [savingRow, setSavingRow] = useState(null);
   const [editMode, setEditMode] = useState(false);
@@ -72,11 +74,41 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     fba_mode: sh.fba_mode || 'none'
   });
   const [editHeader, setEditHeader] = useState(buildHeaderState(shipment));
+  const [selectedItemIds, setSelectedItemIds] = useState(new Set());
+
+  useEffect(() => {
+    setSelectedItemIds(new Set());
+  }, [shipment.id]);
 
   useEffect(() => {
     setItems(shipment.receiving_items || []);
     setEditHeader(buildHeaderState(shipment));
   }, [shipment]);
+
+  const selectableItems = useMemo(
+    () => items.filter((item) => item.id && !item.is_received),
+    [items]
+  );
+  const selectionAllowed = ['submitted', 'partial'].includes(shipment.status);
+  const allSelectableSelected =
+    selectionAllowed &&
+    selectableItems.length > 0 &&
+    selectableItems.every((item) => selectedItemIds.has(item.id));
+  const selectedCount = selectedItemIds.size;
+
+  useEffect(() => {
+    setSelectedItemIds((prev) => {
+      if (prev.size === 0) return prev;
+      const allowed = new Set(
+        items.filter((item) => item.id && !item.is_received).map((item) => item.id)
+      );
+      const next = new Set();
+      prev.forEach((id) => {
+        if (allowed.has(id)) next.add(id);
+      });
+      return next;
+    });
+  }, [items]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -121,6 +153,62 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   const handleBack = () => {
     clearDraft();
     onBack();
+  };
+
+  const toggleItemSelection = (itemId) => {
+    if (!selectionAllowed || !itemId) return;
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (checked) => {
+    if (!selectionAllowed) return;
+    if (!checked) {
+      setSelectedItemIds(new Set());
+      return;
+    }
+    const next = new Set(selectableItems.map((item) => item.id));
+    setSelectedItemIds(next);
+  };
+
+  const handleMarkSelectedReceived = async () => {
+    if (!selectionAllowed || selectedItemIds.size === 0) return;
+    if (!profile?.id) {
+      setMessage('Profile unavailable. Please try again.');
+      return;
+    }
+    setMarkingSelected(true);
+    try {
+      const { error } = await supabaseHelpers.markReceivingItemsAsReceived(
+        shipment.id,
+        Array.from(selectedItemIds),
+        profile.id
+      );
+      if (error) throw error;
+      setItems((prev) =>
+        prev.map((item) =>
+          selectedItemIds.has(item.id)
+            ? {
+                ...item,
+                is_received: true,
+                received_at: new Date().toISOString(),
+                received_by: profile.id
+              }
+            : item
+        )
+      );
+      setSelectedItemIds(new Set());
+      setMessage('Selected products marked as received.');
+      onUpdate();
+    } catch (err) {
+      setMessage(`Error: ${err.message}`);
+    } finally {
+      setMarkingSelected(false);
+    }
   };
 
   const updateFba = async (itemId, patch) => {
@@ -521,6 +609,7 @@ const processToStock = async () => {
               >
                 <option value="draft">Draft</option>
                 <option value="submitted">Submitted</option>
+                <option value="partial">Partial</option>
                 <option value="received">Received</option>
                 <option value="processed">Processed</option>
                 <option value="cancelled">Cancelled</option>
@@ -605,20 +694,47 @@ const processToStock = async () => {
           Products ({items.length})
         </h4>
 
+        {selectionAllowed && (
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <p className="text-sm text-text-secondary">
+              {selectedCount > 0
+                ? `${selectedCount} product${selectedCount === 1 ? '' : 's'} selected`
+                : 'Select the products that have arrived in the warehouse.'}
+            </p>
+            <button
+              onClick={handleMarkSelectedReceived}
+              disabled={selectedCount === 0 || markingSelected}
+              className="inline-flex items-center px-3 py-2 rounded border border-green-500 text-green-700 hover:bg-green-50 disabled:opacity-50"
+            >
+              {markingSelected ? 'Updating…' : 'Mark selected as received'}
+            </button>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
+                {selectionAllowed && (
+                  <th className="px-2 py-3 text-center w-10">
+                    <input
+                      type="checkbox"
+                      checked={allSelectableSelected}
+                      onChange={(e) => toggleSelectAll(e.target.checked)}
+                    />
+                  </th>
+                )}
                 <th className="px-4 py-3 text-left">Photo</th>
                 <th className="px-4 py-3 text-left">EAN / ASIN</th>
                 <th className="px-4 py-3 text-left">Product name</th>
                 <th className="px-4 py-3 text-right">Quantity</th>
                 <th className="px-4 py-3 text-left">SKU</th>
                 <th className="px-4 py-3 text-center">FBA</th>
+                <th className="px-4 py-3 text-left">Status</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => {
+              {items.map((item, idx) => {
                 const asin = item.asin || item.stock_item?.asin || '—';
                 const eanValue = item.ean || item.ean_asin || item.stock_item?.ean || '—';
                 const productName = item.product_name || item.stock_item?.name || '—';
@@ -631,9 +747,29 @@ const processToStock = async () => {
                   : item.remaining_action === 'direct_to_amazon'
                   ? Math.max(0, Number(item.quantity_received) || 0)
                   : 0;
-                const rowHighlight = hasDirectIntent ? 'bg-sky-50' : '';
+                const isReceived = Boolean(item.is_received);
+                const isSelectable = selectionAllowed && item.id && !isReceived;
+                const isSelected = item.id ? selectedItemIds.has(item.id) : false;
+                const receivedAt = item.received_at ? new Date(item.received_at) : null;
+                const statusPill = isReceived
+                  ? { label: 'Received', color: 'bg-green-100 text-green-800' }
+                  : { label: 'Pending', color: 'bg-amber-50 text-amber-700' };
+                const rowClasses = ['border-t', 'transition-colors'];
+                if (hasDirectIntent) rowClasses.push('bg-sky-50/70');
+                if (isReceived) rowClasses.push('bg-emerald-50');
+                else if (isSelected) rowClasses.push('bg-amber-50/40');
                 return (
-                  <tr key={item.id} className={`border-t ${rowHighlight}`}>
+                  <tr key={item.id || idx} className={rowClasses.join(' ')}>
+                    {selectionAllowed && (
+                      <td className="px-2 py-3 text-center w-10 align-middle">
+                        <input
+                          type="checkbox"
+                          disabled={!isSelectable}
+                          checked={isSelected}
+                          onChange={() => item.id && toggleItemSelection(item.id)}
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-3">
                       {imageUrl ? (
                         <img
@@ -684,6 +820,22 @@ const processToStock = async () => {
                       ) : (
                         <span className="text-text-secondary">—</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col">
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${statusPill.color}`}>
+                          {statusPill.label}
+                        </span>
+                        {isReceived ? (
+                          <span className="text-xs text-emerald-700 mt-1">
+                            {receivedAt ? `Received ${receivedAt.toLocaleDateString()}` : 'Marked as received'}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-text-secondary mt-1">
+                            Waiting for reception
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -913,6 +1065,7 @@ const filteredShipments = shipments.filter(shipment => {
             <option value="all">All statuses</option>
              <option value="draft">Draft</option>
             <option value="submitted">Submitted</option>
+            <option value="partial">Partial</option>
             <option value="received">Received</option>
             <option value="processed">Processed</option>
             <option value="cancelled">Cancelled</option>

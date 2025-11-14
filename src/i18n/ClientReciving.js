@@ -90,6 +90,7 @@ export const CLIENT_RECIVING_DICT = {
     th_qty: "Quantité",
     th_qty_req: "Quantité *",
     th_sku: "SKU",
+    th_line_status: "Statut ligne",
     th_price: "Prix d'Achat",
     th_send_to_fba: "Send to FBA",
 
@@ -101,9 +102,15 @@ export const CLIENT_RECIVING_DICT = {
     // Status badges
     status_draft: "Brouillon",
     status_submitted: "Envoyé",
+    status_partial: "Partiel",
     status_received: "Reçu",
     status_processed: "Traité",
     status_cancelled: "Annulé",
+    line_status_received: "Réceptionné",
+    line_status_received_hint: "Marqué comme reçu",
+    line_status_received_on: "Reçu le {date}",
+    line_status_pending: "En attente",
+    line_status_pending_hint: "En attente de réception",
 
     // Upload area
     drop_text: "Glissez-déposez votre fichier .csv ou .xlsx ici",
@@ -229,6 +236,7 @@ export const CLIENT_RECIVING_DICT = {
     th_qty: "Quantity",
     th_qty_req: "Quantity *",
     th_sku: "SKU",
+    th_line_status: "Line status",
     th_price: "Purchase Price",
     th_send_to_fba: "Send to FBA",
 
@@ -238,9 +246,15 @@ export const CLIENT_RECIVING_DICT = {
 
     status_draft: "Draft",
     status_submitted: "Submitted",
+    status_partial: "Partially received",
     status_received: "Received",
     status_processed: "Processed",
     status_cancelled: "Cancelled",
+    line_status_received: "Received",
+    line_status_received_hint: "Marked as received",
+    line_status_received_on: "Received on {date}",
+    line_status_pending: "Pending",
+    line_status_pending_hint: "Waiting to be received",
 
     drop_text: "Drag & drop your .csv or .xlsx file here",
 
@@ -358,6 +372,7 @@ export const CLIENT_RECIVING_DICT = {
     th_qty: "Menge",
     th_qty_req: "Menge *",
     th_sku: "SKU",
+    th_line_status: "Linienstatus",
     th_price: "Einkaufspreis",
     th_send_to_fba: "An FBA senden",
 
@@ -367,9 +382,15 @@ export const CLIENT_RECIVING_DICT = {
 
     status_draft: "Entwurf",
     status_submitted: "Gesendet",
+    status_partial: "Teilweise erhalten",
     status_received: "Eingegangen",
     status_processed: "Verarbeitet",
     status_cancelled: "Storniert",
+    line_status_received: "Erhalten",
+    line_status_received_hint: "Als erhalten markiert",
+    line_status_received_on: "Erhalten am {date}",
+    line_status_pending: "Ausstehend",
+    line_status_pending_hint: "Wartet auf Eingang",
 
     drop_text: "Ziehen Sie Ihre .csv- oder .xlsx-Datei hierher",
 
@@ -487,6 +508,7 @@ export const CLIENT_RECIVING_DICT = {
     th_qty: "Quantità",
     th_qty_req: "Quantità *",
     th_sku: "SKU",
+    th_line_status: "Stato riga",
     th_price: "Prezzo d’acquisto",
     th_send_to_fba: "Invia a FBA",
 
@@ -496,9 +518,15 @@ export const CLIENT_RECIVING_DICT = {
 
     status_draft: "Bozza",
     status_submitted: "Inviato",
+    status_partial: "Ricezione parziale",
     status_received: "Ricevuto",
     status_processed: "Elaborato",
     status_cancelled: "Annullato",
+    line_status_received: "Ricevuto",
+    line_status_received_hint: "Segnato come ricevuto",
+    line_status_received_on: "Ricevuto il {date}",
+    line_status_pending: "In attesa",
+    line_status_pending_hint: "In attesa di ricezione",
 
     drop_text: "Trascina qui il tuo file .csv o .xlsx",
 
@@ -617,6 +645,7 @@ export const CLIENT_RECIVING_DICT = {
     th_qty: "Cantidad",
     th_qty_req: "Cantidad *",
     th_sku: "SKU",
+    th_line_status: "Estado de línea",
     th_price: "Precio de compra",
     th_send_to_fba: "Enviar a FBA",
 
@@ -626,9 +655,15 @@ export const CLIENT_RECIVING_DICT = {
 
     status_draft: "Borrador",
     status_submitted: "Enviado",
+    status_partial: "Recepción parcial",
     status_received: "Recibido",
     status_processed: "Procesado",
     status_cancelled: "Cancelado",
+    line_status_received: "Recibido",
+    line_status_received_hint: "Marcado como recibido",
+    line_status_received_on: "Recibido el {date}",
+    line_status_pending: "Pendiente",
+    line_status_pending_hint: "Esperando recepción",
 
     drop_text: "Arrastra y suelta aquí tu archivo .csv o .xlsx",
 
@@ -747,6 +782,7 @@ export const CLIENT_RECIVING_DICT = {
     th_qty: "Cantitate",
     th_qty_req: "Cantitate *",
     th_sku: "SKU",
+    th_line_status: "Status linie",
     th_price: "Preț de achiziție",
     th_send_to_fba: "Trimite la FBA",
 
@@ -756,9 +792,15 @@ export const CLIENT_RECIVING_DICT = {
 
     status_draft: "Ciornă",
     status_submitted: "Trimis",
+    status_partial: "Recepție parțială",
     status_received: "Recepționat",
     status_processed: "Procesat",
     status_cancelled: "Anulat",
+    line_status_received: "Recepționat",
+    line_status_received_hint: "Marcat ca recepționat",
+    line_status_received_on: "Recepționat pe {date}",
+    line_status_pending: "În așteptare",
+    line_status_pending_hint: "Așteaptă recepția",
 
     drop_text: "Trage și plasează aici fișierul .csv sau .xlsx",
 

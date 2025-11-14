@@ -215,6 +215,7 @@ function ClientReceiving() {
     const map = {
       draft: { color: 'bg-gray-100 text-gray-800', text: t('status_draft') },
       submitted: { color: 'bg-yellow-100 text-yellow-800', text: t('status_submitted') },
+      partial: { color: 'bg-amber-100 text-amber-800', text: t('status_partial') },
       received: { color: 'bg-blue-100 text-blue-800', text: t('status_received') },
       processed: { color: 'bg-green-100 text-green-800', text: t('status_processed') },
       cancelled: { color: 'bg-red-100 text-red-800', text: t('status_cancelled') }
@@ -745,111 +746,146 @@ function ClientReceiving() {
                   <th className="px-4 py-3 text-left">{t('th_name')}</th>
                   <th className="px-4 py-3 text-right">{t('th_qty')}</th>
                   <th className="px-4 py-3 text-left">{t('th_sku')}</th>
+                  {!editMode && (
+                    <th className="px-4 py-3 text-left">{t('th_line_status')}</th>
+                  )}
                   {editMode && (
                     <th className="px-4 py-3 text-center">{t('actions')}</th>
                   )}
                 </tr>
               </thead>
               <tbody>
-                {viewItems.map((item, idx) => (
-                  <tr
-                    key={item.id || idx}
-                    className={`border-t ${
-                      item.send_to_fba && Number(item.fba_qty || 0) > 0 ? 'bg-blue-50/60' : ''
-                    }`}
-                  >
-                    <td className="px-4 py-3 font-mono">
-                      {editMode ? (
-                        <input
-                          value={item.ean_asin || ''}
-                          onChange={(e) =>
-                            setEditItems((arr) => {
-                              const copy = [...arr];
-                              copy[idx] = { ...copy[idx], ean_asin: e.target.value };
-                              return copy;
+                {viewItems.map((item, idx) => {
+                  const sendDirect = item.send_to_fba && Number(item.fba_qty || 0) > 0;
+                  const isReceived = Boolean(item.is_received);
+                  const receivedAt = item.received_at ? new Date(item.received_at) : null;
+                  const rowClasses = ['border-t', 'transition-colors'];
+                  if (sendDirect) rowClasses.push('bg-blue-50/60');
+                  if (isReceived) rowClasses.push('bg-emerald-50');
+                  const lineStatus = isReceived
+                    ? {
+                        label: t('line_status_received'),
+                        detail: receivedAt
+                          ? t('line_status_received_on', {
+                              date: receivedAt.toLocaleDateString(DATE_LOCALE)
                             })
-                          }
-                          className="w-full px-2 py-1 border rounded"
-                        />
-                      ) : (
-                        item.ean_asin
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {editMode ? (
-                        <input
-                          value={item.product_name || ''}
-                          onChange={(e) =>
-                            setEditItems((arr) => {
-                              const copy = [...arr];
-                              copy[idx] = { ...copy[idx], product_name: e.target.value };
-                              return copy;
-                            })
-                          }
-                          className="w-full px-2 py-1 border rounded"
-                        />
-                      ) : (
-                        item.product_name
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {editMode ? (
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.quantity_received || 1}
-                          onChange={(e) =>
-                            setEditItems((arr) => {
-                              const copy = [...arr];
-                              const qty = Math.max(1, parseInt(e.target.value || '1', 10));
-                              const current = { ...copy[idx], quantity_received: qty };
-                              if (current.send_to_fba && current.fba_qty != null) {
-                                current.fba_qty = Math.min(
-                                  qty,
-                                  Math.max(1, Number(current.fba_qty) || 1)
-                                );
-                              }
-                              copy[idx] = current;
-                              return copy;
-                            })
-                          }
-                          className="w-24 text-right px-2 py-1 border rounded"
-                        />
-                      ) : (
-                        item.quantity_received
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-mono">
-                      {editMode ? (
-                        <input
-                          value={item.sku || ''}
-                          onChange={(e) =>
-                            setEditItems((arr) => {
-                              const copy = [...arr];
-                              copy[idx] = { ...copy[idx], sku: e.target.value || null };
-                              return copy;
-                            })
-                          }
-                          className="w-full px-2 py-1 border rounded"
-                        />
-                      ) : (
-                        item.sku || '—'
-                      )}
-                    </td>
-                    {editMode && (
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() =>
-                            setEditItems((arr) => arr.filter((_, index) => index !== idx))
-                          }
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                          : t('line_status_received_hint'),
+                        color: 'bg-green-100 text-green-800'
+                      }
+                    : {
+                        label: t('line_status_pending'),
+                        detail: t('line_status_pending_hint'),
+                        color: 'bg-amber-50 text-amber-700'
+                      };
+                  return (
+                    <tr key={item.id || idx} className={rowClasses.join(' ')}>
+                      <td className="px-4 py-3 font-mono">
+                        {editMode ? (
+                          <input
+                            value={item.ean_asin || ''}
+                            onChange={(e) =>
+                              setEditItems((arr) => {
+                                const copy = [...arr];
+                                copy[idx] = { ...copy[idx], ean_asin: e.target.value };
+                                return copy;
+                              })
+                            }
+                            className="w-full px-2 py-1 border rounded"
+                          />
+                        ) : (
+                          item.ean_asin
+                        )}
                       </td>
-                    )}
-                  </tr>
-                ))}
+                      <td className="px-4 py-3">
+                        {editMode ? (
+                          <input
+                            value={item.product_name || ''}
+                            onChange={(e) =>
+                              setEditItems((arr) => {
+                                const copy = [...arr];
+                                copy[idx] = { ...copy[idx], product_name: e.target.value };
+                                return copy;
+                              })
+                            }
+                            className="w-full px-2 py-1 border rounded"
+                          />
+                        ) : (
+                          item.product_name
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {editMode ? (
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity_received || 1}
+                            onChange={(e) =>
+                              setEditItems((arr) => {
+                                const copy = [...arr];
+                                const qty = Math.max(1, parseInt(e.target.value || '1', 10));
+                                const current = { ...copy[idx], quantity_received: qty };
+                                if (current.send_to_fba && current.fba_qty != null) {
+                                  current.fba_qty = Math.min(
+                                    qty,
+                                    Math.max(1, Number(current.fba_qty) || 1)
+                                  );
+                                }
+                                copy[idx] = current;
+                                return copy;
+                              })
+                            }
+                            className="w-24 text-right px-2 py-1 border rounded"
+                          />
+                        ) : (
+                          item.quantity_received
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono">
+                        {editMode ? (
+                          <input
+                            value={item.sku || ''}
+                            onChange={(e) =>
+                              setEditItems((arr) => {
+                                const copy = [...arr];
+                                copy[idx] = { ...copy[idx], sku: e.target.value || null };
+                                return copy;
+                              })
+                            }
+                            className="w-full px-2 py-1 border rounded"
+                          />
+                        ) : (
+                          item.sku || '—'
+                        )}
+                      </td>
+                      {!editMode && (
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col">
+                            <span
+                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${lineStatus.color}`}
+                            >
+                              {lineStatus.label}
+                            </span>
+                            <span className="text-xs text-text-secondary mt-1">
+                              {lineStatus.detail}
+                            </span>
+                          </div>
+                        </td>
+                      )}
+                      {editMode && (
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() =>
+                              setEditItems((arr) => arr.filter((_, index) => index !== idx))
+                            }
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {editMode && (
