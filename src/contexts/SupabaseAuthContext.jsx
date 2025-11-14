@@ -53,7 +53,13 @@ export const SupabaseAuthProvider = ({ children }) => {
       const u = nextSession?.user ?? null;
       const sameUser = lastUserIdRef.current && u?.id && lastUserIdRef.current === u.id;
 
-      if (event === 'TOKEN_REFRESHED' && sameUser) {
+      const skipUpdate =
+        sameUser &&
+        (event === 'TOKEN_REFRESHED' ||
+          event === 'SIGNED_IN' ||
+          event === 'USER_UPDATED');
+
+      if (skipUpdate) {
         // doar actualizăm sesiunea/tokenul fără să rerulăm întreg flow-ul
         return;
       }
