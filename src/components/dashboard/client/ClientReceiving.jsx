@@ -754,7 +754,8 @@ function ClientReceiving() {
                 <tr>
                   <th className="px-4 py-3 text-left">{t('th_ean_asin')}</th>
                   <th className="px-4 py-3 text-left">{t('th_name')}</th>
-                  <th className="px-4 py-3 text-right">{t('th_qty')}</th>
+                  <th className="px-4 py-3 text-right">{t('th_expected_qty')}</th>
+                  <th className="px-4 py-3 text-right">{t('th_received_qty')}</th>
                   <th className="px-4 py-3 text-left">{t('th_sku')}</th>
                   {!editMode && (
                     <th className="px-4 py-3 text-left">{t('th_line_status')}</th>
@@ -780,6 +781,7 @@ function ClientReceiving() {
                     received: confirmedQty,
                     total: totalQty || confirmedQty
                   });
+                  const diff = Math.max(0, totalQty - confirmedQty);
                   const rowClasses = ['border-t', 'transition-colors'];
                   if (sendDirect) rowClasses.push('bg-blue-50/60');
                   if (isReceived) rowClasses.push('bg-emerald-50');
@@ -863,7 +865,20 @@ function ClientReceiving() {
                             className="w-24 text-right px-2 py-1 border rounded"
                           />
                         ) : (
-                          item.quantity_received
+                          totalQty
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="text-text-primary font-semibold">
+                          {confirmedQty}
+                        </div>
+                        {diff > 0 && (
+                          <div className="text-xs text-red-600 font-semibold">
+                            {t('qty_discrepancy', { count: diff })}
+                          </div>
+                        )}
+                        {!lineEditable && diff === 0 && (
+                          <div className="text-xs text-text-secondary">{t('no_discrepancy')}</div>
                         )}
                       </td>
                       <td className="px-4 py-3 font-mono">

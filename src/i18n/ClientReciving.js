@@ -88,6 +88,8 @@ export const CLIENT_RECIVING_DICT = {
     th_name: "Nom du Produit",
     th_name_req: "Nom du Produit *",
     th_qty: "Quantité",
+    th_expected_qty: "Marchandises à recevoir",
+    th_received_qty: "Marchandises réceptionnées",
     th_qty_req: "Quantité *",
     th_sku: "SKU",
     th_line_status: "Statut ligne",
@@ -112,6 +114,8 @@ export const CLIENT_RECIVING_DICT = {
     line_status_pending: "En attente",
     line_status_pending_hint: "En attente de réception",
     line_status_progress: "{received}/{total} reçus",
+    qty_discrepancy: "Écart: {count}",
+    no_discrepancy: "Aucun écart",
 
     // Upload area
     drop_text: "Glissez-déposez votre fichier .csv ou .xlsx ici",
@@ -235,6 +239,8 @@ export const CLIENT_RECIVING_DICT = {
     th_name: "Product Name",
     th_name_req: "Product Name *",
     th_qty: "Quantity",
+    th_expected_qty: "Goods expected",
+    th_received_qty: "Goods received",
     th_qty_req: "Quantity *",
     th_sku: "SKU",
     th_line_status: "Line status",
@@ -257,6 +263,8 @@ export const CLIENT_RECIVING_DICT = {
     line_status_pending: "Pending",
     line_status_pending_hint: "Waiting to be received",
     line_status_progress: "{received}/{total} received",
+    qty_discrepancy: "Discrepancy: {count}",
+    no_discrepancy: "No discrepancy",
 
     drop_text: "Drag & drop your .csv or .xlsx file here",
 
@@ -372,6 +380,8 @@ export const CLIENT_RECIVING_DICT = {
     th_name: "Produktname",
     th_name_req: "Produktname *",
     th_qty: "Menge",
+    th_expected_qty: "Wareneingang erwartet",
+    th_received_qty: "Wareneingang erhalten",
     th_qty_req: "Menge *",
     th_sku: "SKU",
     th_line_status: "Linienstatus",
@@ -394,6 +404,8 @@ export const CLIENT_RECIVING_DICT = {
     line_status_pending: "Ausstehend",
     line_status_pending_hint: "Wartet auf Eingang",
     line_status_progress: "{received}/{total} erhalten",
+    qty_discrepancy: "Abweichung: {count}",
+    no_discrepancy: "Keine Abweichung",
 
     drop_text: "Ziehen Sie Ihre .csv- oder .xlsx-Datei hierher",
 
@@ -509,6 +521,8 @@ export const CLIENT_RECIVING_DICT = {
     th_name: "Nome prodotto",
     th_name_req: "Nome prodotto *",
     th_qty: "Quantità",
+    th_expected_qty: "Merce da ricevere",
+    th_received_qty: "Merce ricevuta",
     th_qty_req: "Quantità *",
     th_sku: "SKU",
     th_line_status: "Stato riga",
@@ -531,6 +545,8 @@ export const CLIENT_RECIVING_DICT = {
     line_status_pending: "In attesa",
     line_status_pending_hint: "In attesa di ricezione",
     line_status_progress: "{received}/{total} ricevuti",
+    qty_discrepancy: "Discrepanza: {count}",
+    no_discrepancy: "Nessuna discrepanza",
 
     drop_text: "Trascina qui il tuo file .csv o .xlsx",
 
@@ -647,6 +663,8 @@ export const CLIENT_RECIVING_DICT = {
     th_name: "Nombre del producto",
     th_name_req: "Nombre del producto *",
     th_qty: "Cantidad",
+    th_expected_qty: "Mercancía a recibir",
+    th_received_qty: "Mercancía recibida",
     th_qty_req: "Cantidad *",
     th_sku: "SKU",
     th_line_status: "Estado de línea",
@@ -669,6 +687,8 @@ export const CLIENT_RECIVING_DICT = {
     line_status_pending: "Pendiente",
     line_status_pending_hint: "Esperando recepción",
     line_status_progress: "{received}/{total} recibidos",
+    qty_discrepancy: "Diferencia: {count}",
+    no_discrepancy: "Sin diferencias",
 
     drop_text: "Arrastra y suelta aquí tu archivo .csv o .xlsx",
 
@@ -785,6 +805,8 @@ export const CLIENT_RECIVING_DICT = {
     th_name: "Nume produs",
     th_name_req: "Nume produs *",
     th_qty: "Cantitate",
+    th_expected_qty: "Marfă de primit",
+    th_received_qty: "Marfă recepționată",
     th_qty_req: "Cantitate *",
     th_sku: "SKU",
     th_line_status: "Status linie",
@@ -807,6 +829,8 @@ export const CLIENT_RECIVING_DICT = {
     line_status_pending: "În așteptare",
     line_status_pending_hint: "Așteaptă recepția",
     line_status_progress: "{received}/{total} recepționate",
+    qty_discrepancy: "Diferență: {count}",
+    no_discrepancy: "Fără diferențe",
 
     drop_text: "Trage și plasează aici fișierul .csv sau .xlsx",
 
