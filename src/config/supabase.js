@@ -40,6 +40,14 @@ const isMissingColumnError = (error, column) => {
 const receivingItemColumnMissing = (error) =>
   ['send_to_fba', 'fba_qty', 'stock_item_id'].some((col) => isMissingColumnError(error, col));
 
+const isRelationMissingError = (error, relation) => {
+  if (!error || !relation) return false;
+  const rel = relation.toLowerCase();
+  return [error.message, error.details, error.hint]
+    .map((part) => String(part || '').toLowerCase())
+    .some((part) => part.includes('does not exist') && part.includes(rel));
+};
+
 const RECEIVING_TERMINAL_STATUSES = new Set(['processed', 'cancelled']);
 
 async function syncReceivingShipmentStatus(shipmentId, receivedBy) {
@@ -1001,6 +1009,23 @@ const items = (draftData.items || []).map((it) => ({
   },
 
 deletePrepRequest: async (requestId) => {
+  const { data: itemRows, error: fetchItemsErr } = await supabase
+    .from('prep_request_items')
+    .select('id')
+    .eq('prep_request_id', requestId);
+  if (fetchItemsErr) return { error: fetchItemsErr };
+  const itemIds = (itemRows || []).map((it) => it.id).filter(Boolean);
+
+  if (itemIds.length > 0) {
+    const { error: boxesErr } = await supabase
+      .from('prep_request_boxes')
+      .delete()
+      .in('prep_request_item_id', itemIds);
+    if (boxesErr && !isRelationMissingError(boxesErr, 'prep_request_boxes')) {
+      return { error: boxesErr };
+    }
+  }
+
   // fallback JS cascade (tracking -> items -> header)
   const { error: trackErr } = await supabase
     .from('prep_request_tracking')
