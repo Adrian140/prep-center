@@ -1282,10 +1282,50 @@ createReceivingShipment: async (shipmentData) => {
       .order('created_at', { ascending: false });
     if (error) return { data: [], error };
 
-    const processed = (data || []).map((row) => {
+    const shipments = data || [];
+    const missingIds = shipments
+      .filter((row) => !row.receiving_items || row.receiving_items.length === 0)
+      .map((row) => row.id)
+      .filter(Boolean);
+
+    const fallbackMap = {};
+
+    if (missingIds.length > 0) {
+      const { data: fallbackItems } = await supabase
+        .from('receiving_items')
+        .select('*')
+        .in('shipment_id', missingIds);
+      (fallbackItems || []).forEach((item) => {
+        if (!item?.shipment_id) return;
+        (fallbackMap[item.shipment_id] ||= []).push(item);
+      });
+      const stillMissing = missingIds.filter((id) => !(fallbackMap[id] && fallbackMap[id].length));
+      if (stillMissing.length > 0) {
+        const { data: legacyItems } = await supabase
+          .from('receiving_shipment_items')
+          .select('*')
+          .in('shipment_id', stillMissing);
+        (legacyItems || []).forEach((item) => {
+          if (!item?.shipment_id) return;
+          (fallbackMap[item.shipment_id] ||= []).push({
+            ...item,
+            quantity_received:
+              item.quantity_received ??
+              item.quantity ??
+              item.qty ??
+              item.requested ??
+              0,
+            received_units: item.received_units ?? item.quantity_received ?? item.quantity ?? 0
+          });
+        });
+      }
+    }
+
+    const processed = shipments.map((row) => {
       const legacyItems = row.receiving_shipment_items || [];
       const modernItems = row.receiving_items || [];
-      const merged = [...legacyItems, ...modernItems];
+      const fallbackItems = fallbackMap[row.id] || [];
+      const merged = [...legacyItems, ...modernItems, ...fallbackItems];
       const { receiving_shipment_items, receiving_items, ...rest } = row;
       return {
         ...rest,
