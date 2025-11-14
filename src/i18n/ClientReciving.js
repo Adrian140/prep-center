@@ -111,6 +111,7 @@ export const CLIENT_RECIVING_DICT = {
     line_status_received_on: "Reçu le {date}",
     line_status_pending: "En attente",
     line_status_pending_hint: "En attente de réception",
+    line_status_progress: "{received}/{total} reçus",
 
     // Upload area
     drop_text: "Glissez-déposez votre fichier .csv ou .xlsx ici",
@@ -255,6 +256,7 @@ export const CLIENT_RECIVING_DICT = {
     line_status_received_on: "Received on {date}",
     line_status_pending: "Pending",
     line_status_pending_hint: "Waiting to be received",
+    line_status_progress: "{received}/{total} received",
 
     drop_text: "Drag & drop your .csv or .xlsx file here",
 
@@ -391,6 +393,7 @@ export const CLIENT_RECIVING_DICT = {
     line_status_received_on: "Erhalten am {date}",
     line_status_pending: "Ausstehend",
     line_status_pending_hint: "Wartet auf Eingang",
+    line_status_progress: "{received}/{total} erhalten",
 
     drop_text: "Ziehen Sie Ihre .csv- oder .xlsx-Datei hierher",
 
@@ -527,6 +530,7 @@ export const CLIENT_RECIVING_DICT = {
     line_status_received_on: "Ricevuto il {date}",
     line_status_pending: "In attesa",
     line_status_pending_hint: "In attesa di ricezione",
+    line_status_progress: "{received}/{total} ricevuti",
 
     drop_text: "Trascina qui il tuo file .csv o .xlsx",
 
@@ -664,6 +668,7 @@ export const CLIENT_RECIVING_DICT = {
     line_status_received_on: "Recibido el {date}",
     line_status_pending: "Pendiente",
     line_status_pending_hint: "Esperando recepción",
+    line_status_progress: "{received}/{total} recibidos",
 
     drop_text: "Arrastra y suelta aquí tu archivo .csv o .xlsx",
 
@@ -801,6 +806,7 @@ export const CLIENT_RECIVING_DICT = {
     line_status_received_on: "Recepționat pe {date}",
     line_status_pending: "În așteptare",
     line_status_pending_hint: "Așteaptă recepția",
+    line_status_progress: "{received}/{total} recepționate",
 
     drop_text: "Trage și plasează aici fișierul .csv sau .xlsx",
 

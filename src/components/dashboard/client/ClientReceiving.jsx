@@ -258,6 +258,7 @@ function ClientReceiving() {
         ean_asin: item.ean_asin,
         product_name: item.product_name,
         quantity_received: Number(item.quantity_received) || 0,
+        received_units: Number(item.quantity_received) || 0,
         sku: item.sku || null,
         purchase_price: item.purchase_price ?? null,
         send_to_fba: !!item.send_to_fba,
@@ -389,7 +390,7 @@ function ClientReceiving() {
   }
 
   if (selectedShipment) {
-    const canEdit = ['draft', 'submitted'].includes(selectedShipment.status);
+    const canEdit = ['draft', 'submitted', 'partial'].includes(selectedShipment.status);
     const viewItems = editMode
       ? editItems
       : sortItems(selectedShipment.receiving_items || []);
@@ -672,6 +673,7 @@ function ClientReceiving() {
                   {editItems.map((item, idx) => {
                     const qty = Math.max(0, Number(item.quantity_received || 0));
                     const value = item.fba_qty ?? '';
+                    const locked = Boolean(item.is_received);
                     return (
                       <div
                         key={item.id || idx}
@@ -686,7 +688,10 @@ function ClientReceiving() {
                         <input
                           type="number"
                           min="0"
-                          className="w-20 text-right border rounded px-2 py-1"
+                          className={`w-20 text-right border rounded px-2 py-1 ${
+                            locked ? 'bg-gray-50 text-text-secondary cursor-not-allowed' : ''
+                          }`}
+                          disabled={locked}
                           value={value}
                           onChange={(e) =>
                             setEditItems((arr) => {
@@ -704,6 +709,11 @@ function ClientReceiving() {
                             })
                           }
                         />
+                        {locked && (
+                          <span className="text-xs text-text-secondary">
+                            {t('line_status_received')}
+                          </span>
+                        )}
                       </div>
                     );
                   })}
@@ -759,28 +769,44 @@ function ClientReceiving() {
                   const sendDirect = item.send_to_fba && Number(item.fba_qty || 0) > 0;
                   const isReceived = Boolean(item.is_received);
                   const receivedAt = item.received_at ? new Date(item.received_at) : null;
+                  const totalQty = Math.max(0, Number(item.quantity_received || 0));
+                  const confirmedQty = Math.max(
+                    0,
+                    Number(
+                      item.received_units != null ? item.received_units : item.quantity_received || 0
+                    )
+                  );
+                  const progressLabel = t('line_status_progress', {
+                    received: confirmedQty,
+                    total: totalQty || confirmedQty
+                  });
                   const rowClasses = ['border-t', 'transition-colors'];
                   if (sendDirect) rowClasses.push('bg-blue-50/60');
                   if (isReceived) rowClasses.push('bg-emerald-50');
                   const lineStatus = isReceived
                     ? {
                         label: t('line_status_received'),
-                        detail: receivedAt
-                          ? t('line_status_received_on', {
-                              date: receivedAt.toLocaleDateString(DATE_LOCALE)
-                            })
-                          : t('line_status_received_hint'),
+                        detail:
+                          receivedAt && confirmedQty >= totalQty
+                            ? t('line_status_received_on', {
+                                date: receivedAt.toLocaleDateString(DATE_LOCALE)
+                              })
+                            : progressLabel,
                         color: 'bg-green-100 text-green-800'
                       }
                     : {
-                        label: t('line_status_pending'),
-                        detail: t('line_status_pending_hint'),
-                        color: 'bg-amber-50 text-amber-700'
+                        label: confirmedQty > 0 ? t('status_partial') : t('line_status_pending'),
+                        detail: progressLabel,
+                        color:
+                          confirmedQty > 0
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-gray-100 text-gray-700'
                       };
+                  const lineEditable = editMode && !isReceived;
                   return (
                     <tr key={item.id || idx} className={rowClasses.join(' ')}>
                       <td className="px-4 py-3 font-mono">
-                        {editMode ? (
+                        {lineEditable ? (
                           <input
                             value={item.ean_asin || ''}
                             onChange={(e) =>
@@ -797,7 +823,7 @@ function ClientReceiving() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {editMode ? (
+                        {lineEditable ? (
                           <input
                             value={item.product_name || ''}
                             onChange={(e) =>
@@ -814,7 +840,7 @@ function ClientReceiving() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {editMode ? (
+                        {lineEditable ? (
                           <input
                             type="number"
                             min="1"
@@ -841,7 +867,7 @@ function ClientReceiving() {
                         )}
                       </td>
                       <td className="px-4 py-3 font-mono">
-                        {editMode ? (
+                        {lineEditable ? (
                           <input
                             value={item.sku || ''}
                             onChange={(e) =>
@@ -873,14 +899,20 @@ function ClientReceiving() {
                       )}
                       {editMode && (
                         <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() =>
-                              setEditItems((arr) => arr.filter((_, index) => index !== idx))
-                            }
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {lineEditable ? (
+                            <button
+                              onClick={() =>
+                                setEditItems((arr) => arr.filter((_, index) => index !== idx))
+                              }
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <span className="text-xs text-text-secondary">
+                              {t('line_status_received')}
+                            </span>
+                          )}
                         </td>
                       )}
                     </tr>

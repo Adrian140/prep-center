@@ -150,6 +150,7 @@ const sanitizeItemPayload = (payload) => {
   delete clone.stock_item_id;
   delete clone.send_to_fba;
   delete clone.fba_qty;
+  delete clone.received_units;
   return clone;
 };
 
@@ -1350,9 +1351,16 @@ createReceivingItems: async (items) => {
   }
 
   const buildPayload = () =>
-    rawRows.map((row) =>
-      supportsReceivingItemFbaColumns ? row : sanitizeItemPayload(row)
-    );
+    rawRows.map((row) => {
+      const baseRow = {
+        ...row,
+        received_units:
+          typeof row.received_units === 'number'
+            ? row.received_units
+            : row.quantity_received
+      };
+      return supportsReceivingItemFbaColumns ? baseRow : sanitizeItemPayload(baseRow);
+    });
 
   const insertRows = async (rows) => {
     const { data, error } = await supabase
@@ -1579,7 +1587,12 @@ getAllReceivingShipments: async (options = {}) => {
       };
 
       for (const item of itemsToProcess) {
-        const quantityReceived = Math.max(0, Number(item.quantity_received || 0));
+        const quantityReceived = Math.max(
+          0,
+          Number(
+            item.received_units != null ? item.received_units : item.quantity_received || 0
+          )
+        );
         const fbaQty = item.send_to_fba ? Math.max(0, Number(item.fba_qty) || 0) : 0;
         const qtyToStock = Math.max(0, quantityReceived - fbaQty);
 

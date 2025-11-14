@@ -75,9 +75,11 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   });
   const [editHeader, setEditHeader] = useState(buildHeaderState(shipment));
   const [selectedItemIds, setSelectedItemIds] = useState(new Set());
+  const [receivedDrafts, setReceivedDrafts] = useState({});
 
   useEffect(() => {
     setSelectedItemIds(new Set());
+    setReceivedDrafts({});
   }, [shipment.id]);
 
   useEffect(() => {
@@ -120,6 +122,9 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
       if (parsed?.editHeader) {
         setEditHeader((prev) => ({ ...prev, ...parsed.editHeader }));
       }
+      if (parsed?.receivedDrafts) {
+        setReceivedDrafts(parsed.receivedDrafts);
+      }
     } catch {
       // ignore corrupted drafts
     }
@@ -133,13 +138,85 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
         JSON.stringify({
           items,
           editHeader,
+          receivedDrafts,
           snapshot: shipment.updated_at || shipment.id
         })
       );
     } catch {
       // ignore quota issues
     }
-  }, [storageKey, shipment.updated_at, shipment.id, items, editHeader]);
+  }, [storageKey, shipment.updated_at, shipment.id, items, editHeader, receivedDrafts]);
+
+  const getExpectedQty = (item) =>
+    Math.max(0, Number(item?.quantity_received || 0));
+  const getConfirmedQty = (item) => {
+    if (!item) return 0;
+    const base =
+      item.received_units != null
+        ? Number(item.received_units)
+        : Number(item.quantity_received || 0);
+    return Number.isFinite(base) && base >= 0 ? base : 0;
+  };
+  const getDraftReceivedValue = (item) => {
+    if (!item?.id) return String(getConfirmedQty(item));
+    if (Object.prototype.hasOwnProperty.call(receivedDrafts, item.id)) {
+      return receivedDrafts[item.id];
+    }
+    return String(getConfirmedQty(item));
+  };
+  const handleReceivedDraftChange = (itemId, value) => {
+    if (!itemId) return;
+    setReceivedDrafts((prev) => ({ ...prev, [itemId]: value }));
+  };
+  const persistReceivedUnits = async (item) => {
+    if (!item?.id) return;
+    const draft = Object.prototype.hasOwnProperty.call(receivedDrafts, item.id)
+      ? receivedDrafts[item.id]
+      : item.received_units ?? item.quantity_received;
+    const parsed = Math.max(0, Math.floor(Number(draft) || 0));
+    const current = getConfirmedQty(item);
+    if (parsed === current) {
+      setReceivedDrafts((prev) => {
+        if (!Object.prototype.hasOwnProperty.call(prev, item.id)) return prev;
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+      return;
+    }
+
+    setSavingRow(item.id);
+    try {
+      const payload = { received_units: parsed };
+      const expected = getExpectedQty(item);
+      if (parsed < expected && item.is_received) {
+        payload.is_received = false;
+      }
+
+      await supabaseHelpers.updateReceivingItem(item.id, payload);
+      setItems((prev) =>
+        prev.map((row) =>
+          row.id === item.id
+            ? {
+                ...row,
+                received_units: parsed,
+                is_received: payload.is_received ?? row.is_received
+              }
+            : row
+        )
+      );
+      setReceivedDrafts((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+      setMessage('Received units updated successfully.');
+    } catch (error) {
+      setMessage(`Error: ${error.message}`);
+    } finally {
+      setSavingRow(null);
+    }
+  };
 
   const clearDraft = () => {
     if (typeof window === 'undefined') return;
@@ -181,6 +258,16 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
       setMessage('Profile unavailable. Please try again.');
       return;
     }
+    const invalidSelections = items.filter(
+      (item) =>
+        item.id &&
+        selectedItemIds.has(item.id) &&
+        getConfirmedQty(item) < getExpectedQty(item)
+    );
+    if (invalidSelections.length) {
+      setMessage('Please update received units to match the announced quantity before marking as received.');
+      return;
+    }
     setMarkingSelected(true);
     try {
       const { error } = await supabaseHelpers.markReceivingItemsAsReceived(
@@ -190,19 +277,27 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
       );
       if (error) throw error;
       setItems((prev) =>
-        prev.map((item) =>
-          selectedItemIds.has(item.id)
-            ? {
-                ...item,
-                is_received: true,
-                received_at: new Date().toISOString(),
-                received_by: profile.id
-              }
-            : item
-        )
+        prev.map((item) => {
+          if (!selectedItemIds.has(item.id)) return item;
+          const expected = getExpectedQty(item);
+          return {
+            ...item,
+            is_received: true,
+            received_at: new Date().toISOString(),
+            received_by: profile.id,
+            received_units: Math.max(getConfirmedQty(item), expected)
+          };
+        })
       );
+      setReceivedDrafts((prev) => {
+        const next = { ...prev };
+        selectedItemIds.forEach((id) => {
+          if (id) delete next[id];
+        });
+        return next;
+      });
       setSelectedItemIds(new Set());
-      setMessage('Selected products marked as received.');
+      setMessage('Selected products marked as received successfully.');
       onUpdate();
     } catch (err) {
       setMessage(`Error: ${err.message}`);
@@ -218,7 +313,8 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
       if (idx === -1) return;
 
       const base = items[idx];
-      const next = { 
+      const confirmed = getConfirmedQty(base);
+      const next = {
         send_to_fba: patch.send_to_fba ?? base.send_to_fba,
         fba_qty: patch.hasOwnProperty('fba_qty') 
           ? (patch.fba_qty === '' ? null : Number(patch.fba_qty)) 
@@ -227,7 +323,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
 
       if (!next.send_to_fba) next.fba_qty = null;
       if (next.send_to_fba && (next.fba_qty == null || next.fba_qty < 1)) next.fba_qty = 1;
-      if (next.send_to_fba && next.fba_qty > base.quantity_received) next.fba_qty = base.quantity_received;
+      if (next.send_to_fba && next.fba_qty > confirmed) next.fba_qty = confirmed;
 
       await supabaseHelpers.updateReceivingItem(itemId, {
         send_to_fba: next.send_to_fba,
@@ -327,7 +423,7 @@ const processToStock = async () => {
     const hasInvalidFba = items.some(it => {
       if (!it.send_to_fba) return false;
       const fba = Number(it.fba_qty || 0);
-      const rec = Number(it.quantity_received || 0);
+      const rec = getConfirmedQty(it);
       return !Number.isFinite(fba) || fba < 1 || fba > rec;
     });
     if (hasInvalidFba) {
@@ -336,8 +432,9 @@ const processToStock = async () => {
       return;
     }
     const itemsToProcess = items.map(item => {
+      const confirmedQty = getConfirmedQty(item);
       const fba = item.send_to_fba ? (Number(item.fba_qty) || 0) : 0;
-      const toStock = Math.max(0, Number(item.quantity_received) - fba);
+      const toStock = Math.max(0, confirmedQty - fba);
       return {
         ...item,
         company_id: shipment.company_id,
@@ -741,33 +838,45 @@ const processToStock = async () => {
                 const imageUrl = item.stock_item?.image_url || item.image_url || '';
                 const skuValue = item.sku || item.stock_item?.sku || '—';
                 const storedFbaQty = Math.max(0, Number(item.fba_qty) || 0);
-                const hasDirectIntent = (item.send_to_fba && storedFbaQty > 0) || item.remaining_action === 'direct_to_amazon';
-                const displayFbaQty = storedFbaQty > 0
-                  ? storedFbaQty
-                  : item.remaining_action === 'direct_to_amazon'
-                  ? Math.max(0, Number(item.quantity_received) || 0)
-                  : 0;
+                const confirmedQty = getConfirmedQty(item);
+                const expectedQty = getExpectedQty(item);
+                const hasDirectIntent =
+                  (item.send_to_fba && storedFbaQty > 0) ||
+                  item.remaining_action === 'direct_to_amazon';
+                const displayFbaQty =
+                  storedFbaQty > 0
+                    ? Math.min(storedFbaQty, confirmedQty)
+                    : item.remaining_action === 'direct_to_amazon'
+                    ? confirmedQty
+                    : 0;
                 const isReceived = Boolean(item.is_received);
+                const partialReceived = !isReceived && confirmedQty > 0;
                 const isSelectable = selectionAllowed && item.id && !isReceived;
                 const isSelected = item.id ? selectedItemIds.has(item.id) : false;
                 const receivedAt = item.received_at ? new Date(item.received_at) : null;
                 const statusPill = isReceived
                   ? { label: 'Received', color: 'bg-green-100 text-green-800' }
-                  : { label: 'Pending', color: 'bg-amber-50 text-amber-700' };
+                  : partialReceived
+                  ? { label: 'Partial', color: 'bg-amber-100 text-amber-800' }
+                  : { label: 'Pending', color: 'bg-gray-100 text-gray-700' };
                 const rowClasses = ['border-t', 'transition-colors'];
                 if (hasDirectIntent) rowClasses.push('bg-sky-50/70');
                 if (isReceived) rowClasses.push('bg-emerald-50');
+                else if (partialReceived) rowClasses.push('bg-amber-50/30');
                 else if (isSelected) rowClasses.push('bg-amber-50/40');
                 return (
                   <tr key={item.id || idx} className={rowClasses.join(' ')}>
                     {selectionAllowed && (
                       <td className="px-2 py-3 text-center w-10 align-middle">
-                        <input
-                          type="checkbox"
-                          disabled={!isSelectable}
-                          checked={isSelected}
-                          onChange={() => item.id && toggleItemSelection(item.id)}
-                        />
+                        {isSelectable ? (
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => item.id && toggleItemSelection(item.id)}
+                          />
+                        ) : (
+                          <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />
+                        )}
                       </td>
                     )}
                     <td className="px-4 py-3">
@@ -790,15 +899,40 @@ const processToStock = async () => {
                     <td className="px-4 py-3">{productName}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="font-semibold text-text-primary">
-                        {item.quantity_received}
+                        {`${expectedQty} expected`}
+                      </div>
+                      <div className="mt-2 text-left">
+                        <label className="text-xs text-text-secondary block mb-1">
+                          Received units
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            value={getDraftReceivedValue(item)}
+                            onChange={(e) => handleReceivedDraftChange(item.id, e.target.value)}
+                            onBlur={() => persistReceivedUnits(item)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                persistReceivedUnits(item);
+                              }
+                            }}
+                            disabled={savingRow === item.id}
+                            className="w-24 text-right border rounded px-2 py-1"
+                          />
+                          {savingRow === item.id && (
+                            <span className="text-xs text-text-secondary">Saving…</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-text-secondary mt-1">
+                          {`${confirmedQty} / ${expectedQty} received`}
+                        </p>
                       </div>
                       {(() => {
-                        const prepQty = Math.max(
-                          0,
-                          Number(item.quantity_received || 0) - displayFbaQty
-                        );
+                        const prepQty = Math.max(0, confirmedQty - displayFbaQty);
                         return (
-                          <div className="text-xs space-y-0.5">
+                          <div className="text-xs space-y-0.5 mt-2 text-left">
                             <div className={hasDirectIntent ? 'text-blue-700' : 'text-text-secondary'}>
                               {hasDirectIntent ? `${displayFbaQty} → Amazon` : 'Stored in prep center'}
                             </div>
@@ -832,7 +966,9 @@ const processToStock = async () => {
                           </span>
                         ) : (
                           <span className="text-xs text-text-secondary mt-1">
-                            Waiting for reception
+                            {partialReceived
+                              ? `Partially received (${confirmedQty}/${expectedQty})`
+                              : `Waiting (${confirmedQty}/${expectedQty})`}
                           </span>
                         )}
                       </div>
