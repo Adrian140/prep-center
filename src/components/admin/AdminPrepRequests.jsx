@@ -46,12 +46,17 @@ export default function AdminPrepRequests() {
     row.user_email ||
     'client';
   const basePrompt = `Sigur dorești să ștergi recepția clientului ${clientLabel}?`;
-  const msg =
+  const firstPrompt =
     row.status === 'confirmed'
       ? `${basePrompt}\nRequest ${shortId} este CONFIRMED.\nȘtergerea va elimina DEFINITIV și liniile + tracking.`
       : `${basePrompt}\nRequest ${shortId} va fi șters definitiv.`;
 
-  if (!confirm(msg)) return;
+  if (!confirm(firstPrompt)) return;
+
+  if (row.status === 'confirmed') {
+    const secondPrompt = `Confirmare suplimentară:\nRequest ${shortId} este CONFIRMED și va dispărea definitiv din istoric.\nApasă OK doar dacă ești 100% sigur.`;
+    if (!confirm(secondPrompt)) return;
+  }
 
   setFlash('');
   try {
