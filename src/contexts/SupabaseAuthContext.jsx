@@ -1,5 +1,5 @@
 // FILE: src/contexts/SupabaseAuthContext.jsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase, supabaseHelpers } from '../config/supabase';
 import { useLanguage } from './LanguageContext'; // ← folosim contextul de limbă
 
@@ -20,6 +20,7 @@ export const SupabaseAuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const lastUserIdRef = useRef(null);
 
   const status = loading ? 'loading' : 'ready';
   const isAuthenticated = !!user;
@@ -46,11 +47,19 @@ export const SupabaseAuthProvider = ({ children }) => {
       if (mounted) setLoading(false);
     }, 8000);
 
-    const handleAuthChange = async (_event, nextSession) => {
+    const handleAuthChange = async (event, nextSession) => {
       if (!mounted) return;
       setSession(nextSession);
       const u = nextSession?.user ?? null;
+      const sameUser = lastUserIdRef.current && u?.id && lastUserIdRef.current === u.id;
+
+      if (event === 'TOKEN_REFRESHED' && sameUser) {
+        // doar actualizăm sesiunea/tokenul fără să rerulăm întreg flow-ul
+        return;
+      }
+
       setUser(u);
+      lastUserIdRef.current = u?.id || null;
       setLoading(false);
 
       if (u) {
@@ -73,6 +82,7 @@ export const SupabaseAuthProvider = ({ children }) => {
       setSession(nextSession);
       const u = nextSession?.user ?? null;
       setUser(u);
+      lastUserIdRef.current = u?.id || null;
       setLoading(false);
 
       if (u) {
