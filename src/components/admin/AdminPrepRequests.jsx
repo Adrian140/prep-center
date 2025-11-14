@@ -41,10 +41,15 @@ export default function AdminPrepRequests() {
 
  const handleDelete = async (row) => {
   const shortId = row.id?.slice(0, 8) || row.id;
+  const clientLabel =
+    [row.client_name, row.company_name].filter(Boolean).join(' / ') ||
+    row.user_email ||
+    'client';
+  const basePrompt = `Sigur dorești să ștergi recepția clientului ${clientLabel}?`;
   const msg =
     row.status === 'confirmed'
-      ? `Request ${shortId} este CONFIRMED.\nȘtergerea va elimina DEFINITIV și liniile + tracking.\nEști SIGUR că vrei să continui?`
-      : `Ștergi request ${shortId}? Această acțiune nu poate fi anulată.`;
+      ? `${basePrompt}\nRequest ${shortId} este CONFIRMED.\nȘtergerea va elimina DEFINITIV și liniile + tracking.`
+      : `${basePrompt}\nRequest ${shortId} va fi șters definitiv.`;
 
   if (!confirm(msg)) return;
 
