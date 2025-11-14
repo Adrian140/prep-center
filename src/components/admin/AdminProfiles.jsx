@@ -182,16 +182,32 @@ export default function AdminProfiles({ onSelect }) {
  const [rpcStart, setRpcStart] = useState(isoLocal(firstDayOfMonth(new Date())));
  const [rpcEnd, setRpcEnd]     = useState(isoLocal(lastDayOfMonth(new Date())));
 
+  const enrichProfile = (profile) => {
+    const billing = Array.isArray(profile.billing_profiles) ? profile.billing_profiles : [];
+    const billingFallback = billing.find((b) => b.is_default) || billing[0] || {};
+    const firstName = profile.first_name || billingFallback.first_name || null;
+    const lastName = profile.last_name || billingFallback.last_name || null;
+    const companyName = profile.company_name || billingFallback.company_name || null;
+    return {
+      ...profile,
+      display_first_name: firstName,
+      display_last_name: lastName,
+      display_company_name: companyName
+    };
+  };
+
   const reloadProfiles = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id,email,first_name,last_name,company_name,created_at,account_type,company_id,store_name")
+        .select("id,email,first_name,last_name,company_name,created_at,account_type,company_id,store_name,billing_profiles(first_name,last_name,company_name,is_default)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      const nonAdmins = (data || []).filter((r) => (r.account_type || "").toLowerCase() !== "admin");
+      const nonAdmins = (data || [])
+        .filter((r) => (r.account_type || "").toLowerCase() !== "admin")
+        .map(enrichProfile);
       setRows(nonAdmins);
     } catch (e) {
       setRows([]);
@@ -209,9 +225,9 @@ export default function AdminProfiles({ onSelect }) {
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
     const base = t ? rows.filter(r =>
-      (r.first_name||"").toLowerCase().includes(t) ||
-      (r.last_name||"").toLowerCase().includes(t) ||
-      (r.company_name||"").toLowerCase().includes(t) ||
+      (r.display_first_name || r.first_name || "").toLowerCase().includes(t) ||
+      (r.display_last_name || r.last_name || "").toLowerCase().includes(t) ||
+      (r.display_company_name || r.company_name || "").toLowerCase().includes(t) ||
       (r.email||"").toLowerCase().includes(t)
     ) : rows;
 
@@ -296,11 +312,13 @@ export default function AdminProfiles({ onSelect }) {
       t("clients.csv.live"),
     ];
     const rowsCsv = slice.map((p) => {
-      const name = [p.first_name, p.last_name].filter(Boolean).join(" ") || "—";
+      const name = [p.display_first_name || p.first_name, p.display_last_name || p.last_name]
+        .filter(Boolean)
+        .join(" ") || "—";
       const c = calc[p.id] || { currentSold: 0, carry: 0, diff: 0 };
       return [
         name,
-        p.company_name || "—",
+        p.display_company_name || p.company_name || "—",
         p.email || "—",
         (p.created_at || "").slice(0,10),
         fmt2(Number(c.currentSold || 0)),
@@ -352,8 +370,7 @@ const saveStoreName = async () => {
     );
     setStoreBanner("Store name saved.");
     cancelEditStore();
-    // background refresh to keep list in sync once DB returns the new value
-    reloadProfiles();
+    await reloadProfiles();
   } catch (err) {
     console.error("Failed to save store name:", err);
     setStoreBanner(err?.message || "Failed to save store name.");
@@ -474,7 +491,9 @@ const saveStoreName = async () => {
               <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
             ) : (
               slice.map((p) => {
-                const name = [p.first_name, p.last_name].filter(Boolean).join(" ") || "—";
+                const name = [p.display_first_name || p.first_name, p.display_last_name || p.last_name]
+                  .filter(Boolean)
+                  .join(" ") || "—";
                 const c = calc[p.id] || { currentSold: 0, carry: 0, diff: 0 };
                 return (
                   <tr key={p.id} className="border-t hover:bg-gray-50">
@@ -505,7 +524,7 @@ const saveStoreName = async () => {
                       )}
                     </td>
                     <td className="px-4 py-3">{name}</td>
-                    <td className="px-4 py-3" title={p.company_id || ""}>{p.company_name || "—"}</td>
+                    <td className="px-4 py-3" title={p.company_id || ""}>{p.display_company_name || p.company_name || "—"}</td>
                     {showEmail && <td className="px-4 py-3">{p.email || "—"}</td>}
                     <td className="px-4 py-3">{p.created_at?.slice(0,10) || "—"}</td>
                     <td className="px-4 py-3">
