@@ -7,6 +7,7 @@ import {
   ArrowLeft, Trash2, ChevronLeft, ChevronRight, Clock, User, Building
 } from 'lucide-react';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { tabSessionStorage, readJSON, writeJSON } from '@/utils/tabStorage';
 
 const StatusPill = ({ status }) => {
   const statusMap = {
@@ -113,38 +114,33 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   }, [items]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
     try {
-      const raw = window.sessionStorage.getItem(storageKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (parsed?.items) setItems(parsed.items);
-      if (parsed?.editHeader) {
+      const parsed = readJSON(tabSessionStorage, storageKey, null);
+      if (!parsed) return;
+      if (parsed.snapshot && parsed.snapshot !== (shipment.updated_at || shipment.id)) {
+        tabSessionStorage.removeItem(storageKey);
+        return;
+      }
+      if (parsed.items) setItems(parsed.items);
+      if (parsed.editHeader) {
         setEditHeader((prev) => ({ ...prev, ...parsed.editHeader }));
       }
-      if (parsed?.receivedDrafts) {
+      if (parsed.receivedDrafts) {
         setReceivedDrafts(parsed.receivedDrafts);
       }
     } catch {
       // ignore corrupted drafts
     }
-  }, [storageKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey, shipment.updated_at, shipment.id]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.sessionStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          items,
-          editHeader,
-          receivedDrafts,
-          snapshot: shipment.updated_at || shipment.id
-        })
-      );
-    } catch {
-      // ignore quota issues
-    }
+    writeJSON(tabSessionStorage, storageKey, {
+      items,
+      editHeader,
+      receivedDrafts,
+      snapshot: shipment.updated_at || shipment.id
+    });
   }, [storageKey, shipment.updated_at, shipment.id, items, editHeader, receivedDrafts]);
 
   const getExpectedQty = (item) =>
@@ -219,9 +215,8 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   };
 
   const clearDraft = () => {
-    if (typeof window === 'undefined') return;
     try {
-      window.sessionStorage.removeItem(storageKey);
+      tabSessionStorage.removeItem(storageKey);
     } catch {
       // ignore
     }

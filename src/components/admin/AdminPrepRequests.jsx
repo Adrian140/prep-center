@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseHelpers } from '../../config/supabase';
 import { Search, Filter, ChevronLeft, ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
 import AdminPrepRequestDetail from './AdminPrepRequestDetail';
+import { tabSessionStorage, readJSON, writeJSON } from '@/utils/tabStorage';
 
 const STORAGE_KEY = 'admin-prep-requests-state';
 
@@ -16,13 +17,8 @@ const StatusPill = ({ s }) => {
 
 export default function AdminPrepRequests() {
   const persistedRef = useRef(null);
-  if (persistedRef.current === null && typeof window !== 'undefined') {
-    try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
-      persistedRef.current = raw ? JSON.parse(raw) : {};
-    } catch {
-      persistedRef.current = {};
-    }
+  if (persistedRef.current === null) {
+    persistedRef.current = readJSON(tabSessionStorage, STORAGE_KEY, {});
   }
   const initialState = persistedRef.current || {};
   const initialPage = Number(initialState.page) > 0 ? Number(initialState.page) : 1;
@@ -106,15 +102,7 @@ export default function AdminPrepRequests() {
   }, [status]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      sessionStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ status, q, page, selectedId })
-      );
-    } catch {
-      // ignore storage write errors
-    }
+    writeJSON(tabSessionStorage, STORAGE_KEY, { status, q, page, selectedId });
   }, [status, q, page, selectedId]);
 
   const filtered = useMemo(() => {

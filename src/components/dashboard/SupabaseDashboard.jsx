@@ -32,6 +32,7 @@ import ClientIntegrations from './client/ClientIntegrations';
 import ClientPrepShipments from './client/ClientPrepShipments';
 import ClientDealsPopover from './client/ClientDealsPopover';
 import ClientBalanceBar from './client/ClientBalanceBar';
+import { tabSessionStorage } from '@/utils/tabStorage';
 
 const REPORT_TABS = [
   { id: 'reports-shipments', labelKey: 'reportsMenu.shipments', icon: Package },
@@ -58,11 +59,15 @@ function SupabaseDashboard() {
 
   const normalizeTab = (tab) => (tab === 'receiving' ? 'reports-receiving' : tab);
   const [activeTab, setActiveTab] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams();
     const initialTab = normalizeTab(params.get('tab'));
     let saved = null;
     try {
-      saved = normalizeTab(sessionStorage.getItem('clientDashboardTab'));
+      const stored = tabSessionStorage.getItem('clientDashboardTab');
+      saved = stored ? normalizeTab(stored) : null;
     } catch (err) {
       // sessionStorage might be unavailable (Safari private mode); fall back silently
       saved = null;
@@ -76,7 +81,7 @@ function SupabaseDashboard() {
 
 useEffect(() => {
   try {
-    sessionStorage.setItem('clientDashboardTab', activeTab);
+    tabSessionStorage.setItem('clientDashboardTab', activeTab);
   } catch (err) {
     // ignore storage errors
   }

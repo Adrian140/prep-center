@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-const canAccessStorage = () => typeof window !== 'undefined' && !!window.sessionStorage;
+import { tabSessionStorage } from '@/utils/tabStorage';
 
 const readValue = (key, defaultValue) => {
-  if (!canAccessStorage()) return defaultValue;
   try {
-    const raw = window.sessionStorage.getItem(key);
-    if (raw === null) return defaultValue;
+    const raw = tabSessionStorage.getItem(key);
+    if (raw === null || raw === undefined) return defaultValue;
     return JSON.parse(raw);
   } catch {
     return defaultValue;
@@ -14,10 +12,9 @@ const readValue = (key, defaultValue) => {
 };
 
 const writeValue = (key, value) => {
-  if (!canAccessStorage()) return;
   try {
-    if (value === undefined) window.sessionStorage.removeItem(key);
-    else window.sessionStorage.setItem(key, JSON.stringify(value));
+    if (value === undefined) tabSessionStorage.removeItem(key);
+    else tabSessionStorage.setItem(key, JSON.stringify(value));
   } catch {
     // ignore quota / private mode errors
   }

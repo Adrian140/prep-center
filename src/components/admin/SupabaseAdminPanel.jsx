@@ -12,6 +12,7 @@ import { supabase } from '@/config/supabase';
 import AdminPricing from './AdminPricing';
 import AdminShippingRates from './AdminShippingRates';
 import { getTabId } from '@/utils/tabIdentity';
+import { tabSessionStorage } from '@/utils/tabStorage';
 
 const SERVICE_LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -62,11 +63,11 @@ useEffect(() => {
   const [selectedProfile, setSelectedProfile] = useState(null);
   // ✅ Save & restore last selected admin tab
 const [activeTab, setActiveTab] = useState(() => {
-  const params = new URLSearchParams(window.location.search);
+  const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const initialTab = params.get('tab');
   let saved = null;
   try {
-    saved = sessionStorage.getItem('adminDashboardTab');
+    saved = tabSessionStorage.getItem('adminDashboardTab');
   } catch (err) {
     saved = null;
   }
@@ -88,7 +89,7 @@ useEffect(() => {
 
 useEffect(() => {
   try {
-    sessionStorage.setItem('adminDashboardTab', activeTab);
+    tabSessionStorage.setItem('adminDashboardTab', activeTab);
   } catch (err) {
     // ignore storage write failures
   }

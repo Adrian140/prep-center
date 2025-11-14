@@ -3,6 +3,8 @@ import { AlertTriangle, Trash2, Edit3, Save, X, Eye, Star } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import Section from '../common/Section';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { tabLocalStorage, readJSON, writeJSON } from '@/utils/tabStorage';
+import { getTabId } from '@/utils/tabIdentity';
 
 const pick = (obj, keys) => Object.fromEntries(keys.map(k => [k, obj[k]]));
 
@@ -23,10 +25,9 @@ const createDefaultForm = () => ({
 
 // local presets pentru FBM
 const PRESET_KEY = 'fbm_unit_price_presets';
-const loadPresets = () => {
-  try { return JSON.parse(localStorage.getItem(PRESET_KEY) || '[]'); } catch { return []; }
-};
-const savePresets = (arr) => localStorage.setItem(PRESET_KEY, JSON.stringify(arr));
+const loadPresets = () => readJSON(tabLocalStorage, PRESET_KEY, []);
+const savePresets = (arr) => writeJSON(tabLocalStorage, PRESET_KEY, arr);
+const SCOPED_PRESET_KEY = typeof window !== 'undefined' ? `${getTabId()}:${PRESET_KEY}` : null;
 const addPreset = (val) => {
   const v = Number(val);
   if (!isFinite(v)) return;
@@ -45,7 +46,10 @@ export default function AdminFBM({ rows = [], reload, companyId, profile }) {
   const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
 
   useEffect(() => {
-    const onStorage = (e) => { if (e.key === PRESET_KEY) setPresets(loadPresets()); };
+    const onStorage = (e) => {
+      if (!SCOPED_PRESET_KEY) return;
+      if (e.key === SCOPED_PRESET_KEY) setPresets(loadPresets());
+    };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);

@@ -28,12 +28,13 @@ import SupabaseDashboard from './components/dashboard/SupabaseDashboard';
 import AdminAnalytics from './components/admin/AdminAnalytics';
 
 import { supabase } from './config/supabase';
+import { tabSessionStorage, tabLocalStorage } from './utils/tabStorage';
 
 const LAST_PATH_KEY = 'lastPath';
 
 const setTabLastPath = (value) => {
   try {
-    sessionStorage.setItem(LAST_PATH_KEY, value);
+    tabSessionStorage.setItem(LAST_PATH_KEY, value);
   } catch (err) {
     // sessionStorage might be unavailable (older safari/private). Ignore.
   }
@@ -41,16 +42,16 @@ const setTabLastPath = (value) => {
 
 const getTabLastPath = () => {
   try {
-    const value = sessionStorage.getItem(LAST_PATH_KEY);
+    const value = tabSessionStorage.getItem(LAST_PATH_KEY);
     if (value) return value;
   } catch (err) {
     // ignore
   }
   // migrate legacy localStorage entry if still around
   try {
-    const legacy = localStorage.getItem(LAST_PATH_KEY);
+    const legacy = tabLocalStorage.getItem(LAST_PATH_KEY) || (typeof window !== 'undefined' ? window.localStorage?.getItem(LAST_PATH_KEY) : null);
     if (legacy) {
-      localStorage.removeItem(LAST_PATH_KEY);
+      window?.localStorage?.removeItem?.(LAST_PATH_KEY);
       return legacy;
     }
   } catch (err) {

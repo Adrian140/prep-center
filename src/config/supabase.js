@@ -1,6 +1,6 @@
 // FILE: src/config/supabase.js
 import { createClient } from '@supabase/supabase-js';
-import { getTabId } from '../utils/tabIdentity';
+import { tabSessionStorage } from '../utils/tabStorage';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -8,47 +8,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase URL and Anon Key must be defined in .env file');
 }
 
-const resolveTabStorage = () => {
-  if (typeof window === 'undefined') return undefined;
-  try {
-    const storage = window.sessionStorage;
-    const testKey = '__pcf_tab_storage__';
-    storage.setItem(testKey, '1');
-    storage.removeItem(testKey);
-    return storage;
-  } catch {
-    try {
-      const fallback = window.localStorage;
-      const testKey = '__pcf_local_storage__';
-      fallback.setItem(testKey, '1');
-      fallback.removeItem(testKey);
-      return fallback;
-    } catch {
-      return undefined;
-    }
-  }
-};
-
-const createPrefixedStorage = (storage, prefix) => {
-  if (!storage || !prefix) return storage;
-  const keyOf = (key) => `${prefix}:${key}`;
-  return {
-    getItem: (key) => storage.getItem(keyOf(key)),
-    setItem: (key, value) => storage.setItem(keyOf(key), value),
-    removeItem: (key) => storage.removeItem(keyOf(key)),
-  };
-};
-
-const baseStorage = resolveTabStorage();
-const tabId = getTabId();
-const tabStorage = createPrefixedStorage(baseStorage, tabId);
-
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: tabStorage,
+    storage: tabSessionStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    multiTab: false
   }
 });
 
