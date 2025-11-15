@@ -1899,21 +1899,21 @@ const saveReqChanges = async () => {
 
         {/* AICI — bara flotantă corectă */}
         {selectedIds.size > 0 && (
-          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-white shadow-md border border-gray-200 rounded-full px-6 py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 backdrop-blur-md bg-white/90">
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-white shadow-md border border-gray-200 rounded-2xl px-6 py-4 flex flex-col gap-3 items-center backdrop-blur-md bg-white/95 w-[calc(100%-32px)] max-w-3xl">
+            <div className="flex flex-col items-center gap-3 w-full">
               <select
                 value={submitType}
                 onChange={(e) => setSubmitType(e.target.value)}
-                className="border rounded-md px-3 py-1 text-sm"
+                className="border rounded-md px-3 py-1.5 text-sm w-48 text-center"
               >
                 <option value="prep">{t('ClientStock.cta.sendToPrep')}</option>
                 <option value="reception">{t('ClientStock.cta.announceReception')}</option>
               </select>
               {submitType === 'reception' && (
-                <div className="flex flex-col gap-2 text-xs sm:text-sm w-full">
-                <div className="flex flex-col w-full gap-3 sm:flex-wrap">
-                  <div className="flex flex-col sm:flex-row sm:items-end gap-2 w-full">
-                    <div className="flex flex-col w-full sm:flex-1">
+                <div className="flex flex-col gap-3 text-xs sm:text-sm w-full items-center">
+                <div className="flex flex-col w-full gap-3 sm:max-w-2xl">
+                  <div className="flex flex-col sm:flex-row sm:items-end gap-3 w-full">
+                    <div className="flex flex-col w-full sm:w-1/2">
                       <select
                         value={receptionForm.carrier}
                         onChange={(e) => handleReceptionFormChange('carrier', e.target.value)}
@@ -1940,7 +1940,7 @@ const saveReqChanges = async () => {
                         />
                       )}
                     </div>
-                    <div className="flex flex-col gap-1 w-full sm:flex-1">
+                    <div className="flex flex-col gap-1 w-full sm:w-1/2">
                       <span className="sr-only">{t('ClientStock.receptionForm.tracking')}</span>
                       <div className="flex flex-wrap items-end gap-2">
                         <div className="flex flex-col">
