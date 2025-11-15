@@ -40,41 +40,6 @@ let supportsReceivingFbaMode = true;
 let supportsReceivingItemFbaColumns = true;
 let receivingSupportPromise = null;
 
-const probeShipmentFbaMode = async () => {
-  const { error } = await supabase
-    .from('receiving_shipments')
-    .select('fba_mode')
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    if (isMissingColumnError(error, 'fba_mode')) {
-      supportsReceivingFbaMode = false;
-      return;
-    }
-    // If we cannot probe (e.g. RLS), assume supported so we don't get stuck in fallback
-    supportsReceivingFbaMode = true;
-    return;
-  }
-  supportsReceivingFbaMode = true;
-};
-
-const probeItemFbaColumns = async () => {
-  const { error } = await supabase
-    .from('receiving_items')
-    .select('send_to_fba, fba_qty')
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    if (receivingItemColumnMissing(error)) {
-      supportsReceivingItemFbaColumns = false;
-      return;
-    }
-    supportsReceivingItemFbaColumns = true;
-    return;
-  }
-  supportsReceivingItemFbaColumns = true;
-};
-
 const isMissingColumnError = (error, column) => {
   if (!error) return false;
   const needle = column.toLowerCase();
@@ -212,18 +177,12 @@ const sanitizeItemPayload = (payload) => {
 };
 
 export const ensureReceivingColumnSupport = async () => {
-  if (receivingSupportPromise) return receivingSupportPromise;
-  const needsProbe = !supportsReceivingFbaMode || !supportsReceivingItemFbaColumns;
-  if (!needsProbe) return null;
-  receivingSupportPromise = Promise.all([probeShipmentFbaMode(), probeItemFbaColumns()])
-    .catch((error) => {
-      receivingSupportPromise = null;
-      throw error;
-    })
-    .finally(() => {
-      receivingSupportPromise = null;
-    });
-  return receivingSupportPromise;
+  // Always re-enable support before each request; if columns are truly missing,
+  // the subsequent insert/update will throw and we'll disable again.
+  supportsReceivingFbaMode = true;
+  supportsReceivingItemFbaColumns = true;
+  receivingSupportPromise = null;
+  return null;
 };
 
 export const canUseReceivingFbaMode = () => supportsReceivingFbaMode;
