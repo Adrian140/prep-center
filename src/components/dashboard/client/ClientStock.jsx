@@ -911,6 +911,7 @@ const [receptionForm, setReceptionForm] = useSessionStorage(
 const [photoItem, setPhotoItem] = useState(null);
 const [photoCounts, setPhotoCounts] = useState({});
 const [trackingExpanded, setTrackingExpanded] = useState(false);
+const [trackingSummaryTarget, setTrackingSummaryTarget] = useState(null);
 const handleQuickAddComplete = useCallback(
   ({ inserted = [], updated = [], count = 0 }) => {
     setRows((prev) => {
@@ -1271,6 +1272,7 @@ const addTrackingEntry = () => {
     return { ...prev, trackingIds: base };
   });
   setTrackingExpanded(true);
+  setTrackingSummaryTarget(trackingInputs.length);
 };
 
 const removeTrackingEntry = (index) => {
@@ -1285,18 +1287,26 @@ const removeTrackingEntry = (index) => {
     if (!base.length) base.push('');
     return { ...prev, trackingIds: base };
   });
+  setTrackingSummaryTarget((current) => {
+    if (current == null) return null;
+    if (current === index) return null;
+    if (current > index) return current - 1;
+    return current;
+  });
 };
 
 useEffect(() => {
   if (trackingInputs.length <= 1 && trackingExpanded) {
     setTrackingExpanded(false);
+    setTrackingSummaryTarget(null);
   }
 }, [trackingInputs.length, trackingExpanded]);
 
-  const resetReceptionForm = () => {
-    setReceptionForm(() => createReceptionFormState());
-    setTrackingExpanded(false);
-  };
+const resetReceptionForm = () => {
+  setReceptionForm(() => createReceptionFormState());
+  setTrackingExpanded(false);
+  setTrackingSummaryTarget(null);
+};
   const setQtyInputValue = (rowId, field, value) => {
     setQtyInputs((prev) => {
       const current = prev[rowId] || { dec: '', inc: '' };
@@ -1899,21 +1909,20 @@ const saveReqChanges = async () => {
 
         {/* AICI — bara flotantă corectă */}
         {selectedIds.size > 0 && (
-          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-white shadow-md border border-gray-200 rounded-2xl px-6 py-4 flex flex-col gap-3 items-center backdrop-blur-md bg-white/95 w-[calc(100%-32px)] max-w-3xl">
+          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-white shadow-md border border-gray-200 rounded-[48px] px-6 py-3 flex flex-col gap-3 items-center backdrop-blur-md bg-white/95 w-auto max-w-full">
             <div className="flex flex-col items-center gap-3 w-full">
               <select
                 value={submitType}
                 onChange={(e) => setSubmitType(e.target.value)}
-                className="border rounded-md px-3 py-1.5 text-sm w-48 text-center"
+                className="border rounded-md px-3 py-1.5 text-sm min-w-[220px] text-center"
               >
                 <option value="prep">{t('ClientStock.cta.sendToPrep')}</option>
                 <option value="reception">{t('ClientStock.cta.announceReception')}</option>
               </select>
               {submitType === 'reception' && (
                 <div className="flex flex-col gap-3 text-xs sm:text-sm w-full items-center">
-                <div className="flex flex-col w-full gap-3 sm:max-w-2xl">
-                  <div className="flex flex-col sm:flex-row sm:items-end gap-3 w-full">
-                    <div className="flex flex-col w-full sm:w-1/2">
+                  <div className="flex flex-col w-full gap-2 sm:flex-row sm:items-end sm:justify-center sm:gap-4">
+                    <div className="flex flex-col w-full sm:w-auto sm:min-w-[260px]">
                       <select
                         value={receptionForm.carrier}
                         onChange={(e) => handleReceptionFormChange('carrier', e.target.value)}
@@ -1940,10 +1949,38 @@ const saveReqChanges = async () => {
                         />
                       )}
                     </div>
-                    <div className="flex flex-col gap-1 w-full sm:w-1/2">
+                    <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[260px]">
                       <span className="sr-only">{t('ClientStock.receptionForm.tracking')}</span>
-                      <div className="flex flex-wrap items-end gap-2">
+                      <div className="flex flex-col gap-1">
                         <div className="flex flex-col">
+                          {trackingInputs.length > 1 && !trackingExpanded && (
+                            <div className="flex flex-wrap items-center gap-1 mb-1">
+                              {trackingInputs.slice(1).map((value, idx) => (
+                                <button
+                                  type="button"
+                                  key={`tracking-chip-${idx}`}
+                                  onClick={() => {
+                                    setTrackingSummaryTarget(idx + 1);
+                                    setTrackingExpanded(true);
+                                  }}
+                                  className="px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-xs text-gray-600 hover:bg-gray-100"
+                                  title={value || ''}
+                                >
+                                  {`+${idx + 2}`}
+                                </button>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTrackingSummaryTarget(null);
+                                  setTrackingExpanded(true);
+                                }}
+                                className="text-[11px] text-primary underline"
+                              >
+                                {t('ClientStock.receptionForm.trackingManage')}
+                              </button>
+                            </div>
+                          )}
                           <span className="text-[10px] text-gray-500 font-semibold">#1</span>
                           <div className="relative">
                             <input
@@ -1965,21 +2002,6 @@ const saveReqChanges = async () => {
                             )}
                           </div>
                         </div>
-                        {trackingInputs.length > 1 && !trackingExpanded && (
-                          <div className="flex items-center gap-1">
-                            {trackingInputs.slice(1).map((value, idx) => (
-                              <button
-                                type="button"
-                                key={`tracking-pill-${idx}`}
-                                onClick={() => setTrackingExpanded(true)}
-                                className="text-xs px-2 py-1 rounded-full border border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100"
-                                title={value || ''}
-                              >
-                                {`+${idx + 1}`}
-                              </button>
-                            ))}
-                          </div>
-                        )}
                       </div>
                       {trackingExpanded && trackingInputs.length > 1 && (
                         <div className="mt-2 space-y-1">
@@ -1996,6 +2018,7 @@ const saveReqChanges = async () => {
                                   onChange={(e) => updateTrackingValue(idx + 1, e.target.value)}
                                   placeholder={t('ClientStock.receptionForm.tracking')}
                                   className="border rounded-md px-2 py-1 w-full sm:w-48 pr-6"
+                                  autoFocus={trackingSummaryTarget === idx + 1}
                                 />
                                 {idx === trackingInputs.length - 2 && (
                                   <button
@@ -2021,16 +2044,18 @@ const saveReqChanges = async () => {
                         <button
                           type="button"
                           className="text-xs text-gray-500 underline"
-                          onClick={() => setTrackingExpanded(false)}
+                          onClick={() => {
+                            setTrackingExpanded(false);
+                            setTrackingSummaryTarget(null);
+                          }}
                         >
                           {t('ClientStock.receptionForm.trackingHide')}
                         </button>
                       </div>
                     )}
                   </div>
-                  </div>
                 </div>
-                  <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1">
                     <span className="font-semibold text-text-secondary">
                       {t('ClientStock.receptionFba.title')}
                     </span>

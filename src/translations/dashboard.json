@@ -270,6 +270,7 @@
         "tracking": "Tracking ID",
         "trackingAdd": "Add tracking ID",
         "trackingHide": "Hide extra tracking IDs",
+        "trackingManage": "Manage all",
         "notes": "Notes"
       },
       "actions": {
@@ -916,6 +917,7 @@
         "tracking": "Tracking ID",
         "trackingAdd": "Adaugă tracking ID",
         "trackingHide": "Ascunde ID-urile suplimentare",
+        "trackingManage": "Gestionează toate",
         "notes": "Notițe"
       },
       "actions": {
@@ -1562,6 +1564,7 @@
         "tracking": "Numéro de suivi",
         "trackingAdd": "Ajouter un numéro de suivi",
         "trackingHide": "Masquer les numéros supplémentaires",
+        "trackingManage": "Gérer tous les numéros",
         "notes": "Notes"
       },
       "actions": {
@@ -2208,6 +2211,7 @@
         "tracking": "Tracking-ID",
         "trackingAdd": "Weitere Tracking-ID hinzufügen",
         "trackingHide": "Zusätzliche IDs ausblenden",
+        "trackingManage": "Alle verwalten",
         "notes": "Notizen"
       },
       "actions": {
@@ -2854,6 +2858,7 @@
         "tracking": "Tracking ID",
         "trackingAdd": "Aggiungi tracking ID",
         "trackingHide": "Nascondi le ID aggiuntive",
+        "trackingManage": "Gestisci tutte",
         "notes": "Note"
       },
       "actions": {
@@ -3500,6 +3505,7 @@
         "tracking": "ID de seguimiento",
         "trackingAdd": "Agregar tracking ID",
         "trackingHide": "Ocultar IDs adicionales",
+        "trackingManage": "Gestionar todos",
         "notes": "Notas"
       },
       "actions": {
