@@ -105,12 +105,14 @@ async function fetchOtherLineSums(companyId, startDate, endDate) {
 
 // --- UI
 function MoneyPill({ value }) {
-  const isZero = !Number.isFinite(value) || Math.abs(value) < 1e-9;
-  const cls = isZero
-    ? "bg-gray-100 text-gray-700"
-    : value > 0
-    ? "bg-red-100 text-red-800"
-    : "bg-green-100 text-green-800";
+  const state = getBalanceState(Number(value));
+  const isZero = state === "neutral";
+  const cls =
+    state === "advance"
+      ? "bg-green-100 text-green-800"
+      : state === "overdue"
+      ? "bg-red-100 text-red-800"
+      : "bg-gray-100 text-gray-700";
   let display = "0.00";
   if (!isZero) {
     const abs = Math.abs(value);
@@ -118,6 +120,11 @@ function MoneyPill({ value }) {
   }
   return <span className={`px-2 py-1 rounded-md text-sm font-medium ${cls}`}>{display}</span>;
 }
+
+const getBalanceState = (value) => {
+  if (!Number.isFinite(value) || Math.abs(value) < 1e-9) return "neutral";
+  return value > 0 ? "overdue" : "advance";
+};
 
 const STORAGE_KEY = 'admin-clients-filters';
 const BALANCE_FILTERS = ["all", "advance", "overdue"];
@@ -237,7 +244,7 @@ export default function AdminProfiles({ onSelect }) {
       );
 
       setRows(enriched);
-      setRows(nonAdmins);
+      setCalc({});
     } catch (e) {
       setRows([]);
       setError(e?.message || "Failed to load clients");
@@ -250,52 +257,53 @@ export default function AdminProfiles({ onSelect }) {
     reloadProfiles();
   }, [reloadProfiles]);
 
-  // search + filter
-  const filtered = useMemo(() => {
+  // search results (without live balance filters)
+  const searchedRows = useMemo(() => {
     const t = q.trim().toLowerCase();
-    const base = t ? rows.filter(r =>
+    return t ? rows.filter(r =>
       (r.display_first_name || r.first_name || "").toLowerCase().includes(t) ||
       (r.display_last_name || r.last_name || "").toLowerCase().includes(t) ||
       (r.display_company_name || r.company_name || "").toLowerCase().includes(t) ||
       (r.email||"").toLowerCase().includes(t)
     ) : rows;
+  }, [rows, q]);
 
-    if (restFilter === "all") return base;
-    return base.filter((r) => {
-      const liveBalance = Number(calc[r.id]?.diff ?? 0);
-      if (restFilter === "advance") return liveBalance < 0;
-      if (restFilter === "overdue") return liveBalance > 0;
-      return true;
-    });
-  }, [rows, q, calc, restFilter]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(searchedRows.length / PER_PAGE));
   const pageClamped = Math.min(page, totalPages);
-  const slice = useMemo(() => {
+  const pageRows = useMemo(() => {
     const start = (pageClamped - 1) * PER_PAGE;
-    return filtered.slice(start, start + PER_PAGE);
-  }, [filtered, pageClamped]);
+    return searchedRows.slice(start, start + PER_PAGE);
+  }, [searchedRows, pageClamped]);
+
+  const displayRows = useMemo(() => {
+    if (restFilter === "all") return pageRows;
+    const hasAllBalances = pageRows.every((row) => calc[row.id]);
+    if (!hasAllBalances) return pageRows;
+    return pageRows.filter((row) => {
+      const liveBalance = Number(calc[row.id]?.diff ?? 0);
+      return getBalanceState(liveBalance) === restFilter;
+    });
+  }, [pageRows, restFilter, calc]);
 
   const tableTotals = useMemo(() => {
-    const totCurrent = slice.reduce((sum, p) => sum + Number(calc[p.id]?.currentSold ?? 0), 0);
-    const totCarry = slice.reduce((sum, p) => sum + Number(calc[p.id]?.carry ?? 0), 0);
+    const totCurrent = displayRows.reduce((sum, p) => sum + Number(calc[p.id]?.currentSold ?? 0), 0);
+    const totCarry = displayRows.reduce((sum, p) => sum + Number(calc[p.id]?.carry ?? 0), 0);
     return { totCurrent, totCarry };
-  }, [slice, calc]);
+  }, [displayRows, calc]);
 
   // compute balances per row (STRICT din RPC; fără calcule în React)
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      if (slice.length === 0) { if (mounted) setCalc({}); return; }
+      if (pageRows.length === 0) return;
 
       const [y, m] = selectedMonth.split("-").map(Number);
       const start = isoLocal(new Date(y, m - 1, 1));        // inclusiv
        const end   = isoLocal(new Date(y, m, 0));            // inclusiv (ultima zi a lunii)
 
-      // păstrăm pe state ca să le afișăm explicit în UI
       const entries = await Promise.all(
-        slice.map(async (p) => {
+        pageRows.map(async (p) => {
           if (!p.company_id) return [p.id, { currentSold: 0, carry: 0, diff: 0 }];
 
           const [{ data, error }, liveBalance] = await Promise.all([
@@ -314,12 +322,20 @@ export default function AdminProfiles({ onSelect }) {
         })
       );
 
-      if (mounted) setCalc(Object.fromEntries(entries));
+      if (mounted) {
+        setCalc((prev) => {
+          const next = { ...prev };
+          entries.forEach(([id, values]) => {
+            if (id) next[id] = values;
+          });
+          return next;
+        });
+      }
     })();
 
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slice, selectedMonth]);
+  }, [pageRows, selectedMonth]);
 
   const toggleClient = (id) => {
     setSelectedIds((prev) => {
@@ -462,10 +478,12 @@ const saveStoreName = async () => {
               <tr><td colSpan={showEmail ? 9 : 8} className="px-4 py-6 text-center text-gray-400">{t("common.loading")}</td></tr>
             ) : error ? (
               <tr><td colSpan={showEmail ? 9 : 8} className="px-4 py-6 text-center text-red-600">{error}</td></tr>
-            ) : slice.length === 0 ? (
+            ) : searchedRows.length === 0 ? (
+              <tr><td colSpan={showEmail ? 9 : 8} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
+            ) : displayRows.length === 0 ? (
               <tr><td colSpan={showEmail ? 9 : 8} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
             ) : (
-              slice.map((p) => {
+              displayRows.map((p) => {
                 const name = [p.display_first_name || p.first_name, p.display_last_name || p.last_name]
                   .filter(Boolean)
                   .join(" ") || "—";
@@ -518,7 +536,7 @@ const saveStoreName = async () => {
             )}
           </tbody>
 
-          {!loading && slice.length > 0 && (
+          {!loading && displayRows.length > 0 && (
             <tfoot>
               <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
                 <td className="px-4 py-3">{t("clients.csv.footer")}</td>
