@@ -26,13 +26,20 @@ function Footer() {
   const warehouseName = withFallback(content.warehouse_name, 'EcomPrep Hub');
   const warehouseAddress = withFallback(
     content.warehouse_address,
-    '5 Rue des Enclos, Zone B, Cellule 7, 35350 La Gouesnière, France'
+    '5 Rue des Enclos, Zone B, Cellule 7\n35350 La Gouesnière\nFrance'
   );
   const warehousePhone = withFallback(content.warehouse_phone, '+33 6 75 11 62 18');
   const warehouseEmail = withFallback(content.warehouse_email, 'contact@prep-center.eu');
   const contactEmail = withFallback(content.contact_email, warehouseEmail);
   const contactPhone = withFallback(content.contact_phone, warehousePhone);
-  const contactAddress = withFallback(content.contact_address, '35350 La Gouesnière, France');
+  const contactAddress = withFallback(content.contact_address, '35350 La Gouesnière\nFrance');
+
+  const renderAddress = (text) =>
+    text.split(/\r?\n/).map((line, idx) => (
+      <span key={`${line}-${idx}`} className="block">
+        {line.trim()}
+      </span>
+    ));
 
   return (
     <footer className="bg-gray-50 border-t">
@@ -81,7 +88,9 @@ function Footer() {
           <div className="space-y-2">
             <h3 className="text-lg font-semibold text-text-primary mb-2">Warehouse &amp; operations</h3>
             <p className="text-sm text-text-secondary">{warehouseName}</p>
-            <p className="text-sm text-text-secondary">{warehouseAddress}</p>
+            <p className="text-sm text-text-secondary">
+              {renderAddress(warehouseAddress)}
+            </p>
             <p className="text-sm text-text-secondary">Phone : {warehousePhone}</p>
             <p className="text-sm text-text-secondary">Email : {warehouseEmail}</p>
           </div>
@@ -101,7 +110,7 @@ function Footer() {
               <div className="flex items-start space-x-2">
                 <MapPin className="w-4 h-4 text-text-secondary mt-1" />
                 <span className="text-text-secondary">
-                  {contactAddress}
+                  {renderAddress(contactAddress)}
                 </span>
               </div>
             </div>
