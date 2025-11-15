@@ -229,19 +229,16 @@ const ADVANCED_PRODUCT_FORM = {
 const createReceptionFormState = () => ({
   carrier: '',
   carrierOther: '',
-  trackingIds: [''],
+  trackingIds: [],
   notes: '',
   fbaMode: 'none'
 });
 
-const normalizeTrackingInputs = (form) => {
-  if (Array.isArray(form?.trackingIds) && form.trackingIds.length) {
-    return form.trackingIds;
-  }
-  if (form?.trackingId) {
-    return [form.trackingId];
-  }
-  return [''];
+const sanitizeTrackingValues = (source) => {
+  if (!Array.isArray(source)) return [];
+  return source
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .filter((value) => value.length > 0);
 };
 
 const normalizeCountryCode = (country) => {
@@ -910,7 +907,8 @@ const [receptionForm, setReceptionForm] = useSessionStorage(
 );
 const [photoItem, setPhotoItem] = useState(null);
 const [photoCounts, setPhotoCounts] = useState({});
-const [trackingExpanded, setTrackingExpanded] = useState(false);
+const [trackingDraft, setTrackingDraft] = useState('');
+const [trackingPanelOpen, setTrackingPanelOpen] = useState(false);
 const [trackingSummaryTarget, setTrackingSummaryTarget] = useState(null);
 const handleQuickAddComplete = useCallback(
   ({ inserted = [], updated = [], count = 0 }) => {
@@ -1252,60 +1250,43 @@ const handleReceptionFbaModeChange = (mode) => {
     });
   }
 };
-const trackingInputs = normalizeTrackingInputs(receptionForm);
+const trackingList = useMemo(
+  () => sanitizeTrackingValues(receptionForm.trackingIds || []),
+  [receptionForm.trackingIds]
+);
 
-const updateTrackingValue = (index, value) => {
+const handleTrackingDraftChange = (value) => setTrackingDraft(value);
+
+const handleTrackingAdd = () => {
+  const value = trackingDraft.trim();
+  if (!value) return;
   setReceptionForm((prev) => {
-    const base =
-      Array.isArray(prev.trackingIds) && prev.trackingIds.length ? [...prev.trackingIds] : [''];
-    while (base.length <= index) base.push('');
-    base[index] = value;
-    return { ...prev, trackingIds: base };
+    const base = sanitizeTrackingValues(prev.trackingIds || []);
+    if (base.includes(value)) return prev;
+    return { ...prev, trackingIds: [...base, value] };
   });
+  setTrackingDraft('');
+  setTrackingPanelOpen(true);
 };
 
-const addTrackingEntry = () => {
+const handleTrackingRemove = (index) => {
   setReceptionForm((prev) => {
-    const base =
-      Array.isArray(prev.trackingIds) && prev.trackingIds.length ? [...prev.trackingIds] : [''];
-    base.push('');
-    return { ...prev, trackingIds: base };
-  });
-  setTrackingExpanded(true);
-  setTrackingSummaryTarget(trackingInputs.length);
-};
-
-const removeTrackingEntry = (index) => {
-  setReceptionForm((prev) => {
-    const base =
-      Array.isArray(prev.trackingIds) && prev.trackingIds.length ? [...prev.trackingIds] : [''];
-    if (index === 0) {
-      base[0] = '';
-    } else if (base.length > index) {
-      base.splice(index, 1);
-    }
-    if (!base.length) base.push('');
-    return { ...prev, trackingIds: base };
-  });
-  setTrackingSummaryTarget((current) => {
-    if (current == null) return null;
-    if (current === index) return null;
-    if (current > index) return current - 1;
-    return current;
+    const base = sanitizeTrackingValues(prev.trackingIds || []);
+    const filtered = base.filter((_, idx) => idx !== index);
+    return { ...prev, trackingIds: filtered };
   });
 };
 
 useEffect(() => {
-  if (trackingInputs.length <= 1 && trackingExpanded) {
-    setTrackingExpanded(false);
-    setTrackingSummaryTarget(null);
+  if (trackingList.length === 0) {
+    setTrackingPanelOpen(false);
   }
-}, [trackingInputs.length, trackingExpanded]);
+}, [trackingList.length]);
 
 const resetReceptionForm = () => {
   setReceptionForm(() => createReceptionFormState());
-  setTrackingExpanded(false);
-  setTrackingSummaryTarget(null);
+  setTrackingPanelOpen(false);
+  setTrackingDraft('');
 };
   const setQtyInputValue = (rowId, field, value) => {
     setQtyInputs((prev) => {
@@ -1487,9 +1468,9 @@ const openReception = async () => {
   }
 
   const carrierCode = receptionForm.carrier || null;
-  const trackingValues = trackingInputs
-    .map((val) => String(val || '').trim())
-    .filter((val, idx, arr) => val && arr.indexOf(val) === idx);
+  const trackingValues = trackingList.filter(
+    (val, idx, arr) => val && arr.indexOf(val) === idx
+  );
   const primaryTracking = trackingValues[0] || null;
   // Preluăm unitățile introduse în coloana “Units to Send / Receive”
   const payload = {
