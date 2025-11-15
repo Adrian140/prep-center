@@ -7,7 +7,6 @@ import {
   Calendar as CalendarIcon,
   Filter,
   Search,
-  Info as InfoIcon,
 } from "lucide-react";
 import { useAdminTranslation } from "@/i18n/useAdminTranslation";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
@@ -121,6 +120,7 @@ function MoneyPill({ value }) {
 }
 
 const STORAGE_KEY = 'admin-clients-filters';
+const BALANCE_FILTERS = ["all", "advance", "overdue"];
 
 export default function AdminProfiles({ onSelect }) {
   const { t, tp } = useAdminTranslation();
@@ -162,7 +162,9 @@ export default function AdminProfiles({ onSelect }) {
 
   // per-row computed (valori direct din RPC)
   const [calc, setCalc] = useState({});
-  const [restFilter, setRestFilter] = useState(persistedFilters.restFilter || "all");
+  const [restFilter, setRestFilter] = useState(
+    BALANCE_FILTERS.includes(persistedFilters.restFilter) ? persistedFilters.restFilter : "all"
+  );
   const [editingStoreId, setEditingStoreId] = useState(null);
   const [storeDraft, setStoreDraft] = useState("");
   const [storeBanner, setStoreBanner] = useState("");
@@ -186,9 +188,6 @@ export default function AdminProfiles({ onSelect }) {
   }, [storeBanner]);
 
   // Perioada RPC calculată (vizibilă pe pagină)
- const [rpcStart, setRpcStart] = useState(isoLocal(firstDayOfMonth(new Date())));
- const [rpcEnd, setRpcEnd]     = useState(isoLocal(lastDayOfMonth(new Date())));
-
   const enrichProfile = (profile, billingMap) => {
     const billingList = billingMap.get(profile.id) || [];
     const billingFallback =
@@ -262,14 +261,11 @@ export default function AdminProfiles({ onSelect }) {
     ) : rows;
 
     if (restFilter === "all") return base;
-    return base.filter(r => {
-      const c = calc[r.id];
-      if (!c) return true;
-      const hasRest = c.diff < 0;
-      const hasAdvance = c.diff > 0;
-      if (restFilter === "with") return hasRest;
-      if (restFilter === "advance") return hasAdvance;
-      return !hasRest;
+    return base.filter((r) => {
+      const liveBalance = Number(calc[r.id]?.diff ?? 0);
+      if (restFilter === "advance") return liveBalance < 0;
+      if (restFilter === "overdue") return liveBalance > 0;
+      return true;
     });
   }, [rows, q, calc, restFilter]);
 
@@ -298,9 +294,6 @@ export default function AdminProfiles({ onSelect }) {
        const end   = isoLocal(new Date(y, m, 0));            // inclusiv (ultima zi a lunii)
 
       // păstrăm pe state ca să le afișăm explicit în UI
-     setRpcStart(start);
-     setRpcEnd(end);
-
       const entries = await Promise.all(
         slice.map(async (p) => {
           if (!p.company_id) return [p.id, { currentSold: 0, carry: 0, diff: 0 }];
@@ -370,15 +363,15 @@ const saveStoreName = async () => {
   return (
     <div className="space-y-4">
       {/* Filters bar */}
-      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,320px)_minmax(0,220px)_minmax(0,320px)_auto]">
+      <div className="bg-white border rounded-xl shadow-sm p-3 space-y-3 max-w-4xl">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,260px)_minmax(0,180px)_minmax(0,260px)_auto] text-xs">
           {/* Month selector */}
-          <div className="flex flex-col">
-            <label className="text-xs text-text-secondary mb-1">{t("clients.filters.month")}</label>
-            <div className="flex items-center gap-2">
-              <button className="border rounded p-2" onClick={() => gotoMonth(-1)} title={t("clients.filters.prevMonth")}><ChevronLeft className="w-4 h-4" /></button>
-              <div className="relative flex-1 min-w-[180px]">
-                <CalendarIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-text-secondary">{t("clients.filters.month")}</label>
+            <div className="flex items-center gap-1.5">
+              <button className="border rounded px-2 py-1" onClick={() => gotoMonth(-1)} title={t("clients.filters.prevMonth")}><ChevronLeft className="w-3 h-3" /></button>
+              <div className="relative flex-1 min-w-[150px]">
+                <CalendarIcon className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light" />
                 <input
                   type="month"
                   value={selectedMonth}
@@ -390,50 +383,49 @@ const saveStoreName = async () => {
                     setTo(isoLocal(lastDayOfMonth(d)));
                     setPage(1);
                   }}
-                  className="pl-9 pr-3 py-2 border rounded w-full"
+                  className="pl-7 pr-2 py-1.5 border rounded w-full text-xs"
                 />
               </div>
-              <button className="border rounded p-2" onClick={() => gotoMonth(1)} title={t("clients.filters.nextMonth")}><ChevronRight className="w-4 h-4" /></button>
+              <button className="border rounded px-2 py-1" onClick={() => gotoMonth(1)} title={t("clients.filters.nextMonth")}><ChevronRight className="w-3 h-3" /></button>
             </div>
-            <div className="text-xs text-text-secondary mt-2 space-y-0.5">
-              <div className="font-medium text-text-primary capitalize">{monthDisplay}</div>
-              <div className="text-[11px] text-gray-500">{from} → {to}</div>
+            <div className="text-[11px] text-text-secondary space-y-0.5">
+              <div className="font-semibold text-text-primary capitalize">{monthDisplay}</div>
+              <div className="text-[10px] text-gray-500">{from} → {to}</div>
             </div>
           </div>
 
           {/* Balance filter */}
-          <div className="flex flex-col">
-            <label className="text-xs text-text-secondary mb-1">{t("clients.filters.balance")}</label>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-text-secondary">{t("clients.filters.balance")}</label>
             <div className="relative">
-              <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
-              <select value={restFilter} onChange={(e)=>setRestFilter(e.target.value)} className="pl-9 pr-3 py-2 border rounded w-full">
+              <Filter className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light" />
+              <select value={restFilter} onChange={(e)=>setRestFilter(e.target.value)} className="pl-7 pr-2 py-1.5 border rounded w-full text-xs">
                 <option value="all">{t("clients.balanceFilters.all")}</option>
-                <option value="with">{t("clients.balanceFilters.with")}</option>
                 <option value="advance">{t("clients.balanceFilters.advance")}</option>
-                <option value="without">{t("clients.balanceFilters.without")}</option>
+                <option value="overdue">{t("clients.balanceFilters.overdue")}</option>
               </select>
             </div>
           </div>
 
           {/* Search */}
-          <div className="flex flex-col">
-            <label className="text-xs text-text-secondary mb-1">{t("clients.filters.search")}</label>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-text-secondary">{t("clients.filters.search")}</label>
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light" />
               <input
                 value={q}
                 onChange={(e) => { setQ(e.target.value); setPage(1); }}
                 placeholder={t("clients.filters.searchPlaceholder")}
-                className="pl-9 pr-3 py-2 w-full border rounded"
+                className="pl-7 pr-2 py-1.5 w-full border rounded text-xs placeholder:text-[11px]"
               />
             </div>
           </div>
 
-          <div className="flex flex-col">
-            <label className="text-xs text-text-secondary mb-1">{t("clients.table.email")}</label>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-text-secondary">{t("clients.table.email")}</label>
             <button
               onClick={() => setShowEmail(!showEmail)}
-              className="inline-flex items-center justify-center gap-2 px-3 py-2 border rounded shadow-sm w-full"
+              className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm w-full text-xs"
               title={t("clients.buttons.toggleEmail")}
             >
               {showEmail ? t("clients.buttons.hideEmail") : t("clients.buttons.showEmail")}
@@ -441,10 +433,6 @@ const saveStoreName = async () => {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-          <InfoIcon className="w-4 h-4" />
-          <span>{tp("clients.rpcRange", { start: rpcStart, end: rpcEnd })}</span>
-        </div>
       </div>
 
       {storeBanner && (

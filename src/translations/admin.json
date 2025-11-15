@@ -39,9 +39,8 @@
       },
       "balanceFilters": {
         "all": "All",
-        "with": "With outstanding",
-        "advance": "With advance",
-        "without": "No outstanding"
+        "advance": "Advance credit",
+        "overdue": "Past due"
       },
       "buttons": {
         "exportCsv": "Export CSV",
@@ -255,9 +254,8 @@
       },
       "balanceFilters": {
         "all": "Tous",
-        "with": "Avec restant",
         "advance": "Avec avance",
-        "without": "Sans restant"
+        "overdue": "En retard"
       },
       "buttons": {
         "exportCsv": "Exporter CSV",
@@ -448,9 +446,8 @@
       },
       "balanceFilters": {
         "all": "Toate",
-        "with": "Cu restanță",
         "advance": "Cu avans",
-        "without": "Fără restanță"
+        "overdue": "Cu termen depășit"
       },
       "buttons": {
         "exportCsv": "Export CSV",
