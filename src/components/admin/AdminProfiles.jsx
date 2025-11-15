@@ -458,7 +458,7 @@ const saveStoreName = async () => {
       )}
 
       {/* TABLE */}
-      <div className="border rounded-lg overflow-hidden bg-white">
+      <div className="border rounded-lg bg-white overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-text-secondary">
             <tr>
