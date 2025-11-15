@@ -892,6 +892,116 @@ const renderSettingsTab = () => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-text-primary">Setări Generale</h2>
 
+      {/* Company / Warehouse / Contact cards */}
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-text-primary mb-4">Company / Warehouse / Contact</h3>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-wide text-text-secondary">Company information</p>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">Company name</label>
+              <input
+                type="text"
+                value={contentData.company_info_name || ''}
+                onChange={(e) => setContentData({ ...contentData, company_info_name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">SIRET</label>
+              <input
+                type="text"
+                value={contentData.company_info_siret || ''}
+                onChange={(e) => setContentData({ ...contentData, company_info_siret: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">VAT</label>
+              <input
+                type="text"
+                value={contentData.company_info_vat || ''}
+                onChange={(e) => setContentData({ ...contentData, company_info_vat: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-wide text-text-secondary">Warehouse & operations</p>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">Hub name</label>
+              <input
+                type="text"
+                value={contentData.warehouse_name || ''}
+                onChange={(e) => setContentData({ ...contentData, warehouse_name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">Address</label>
+              <textarea
+                rows={3}
+                value={contentData.warehouse_address || ''}
+                onChange={(e) => setContentData({ ...contentData, warehouse_address: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-1">Phone</label>
+                <input
+                  type="text"
+                  value={contentData.warehouse_phone || ''}
+                  onChange={(e) => setContentData({ ...contentData, warehouse_phone: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-1">Email</label>
+                <input
+                  type="email"
+                  value={contentData.warehouse_email || ''}
+                  onChange={(e) => setContentData({ ...contentData, warehouse_email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-wide text-text-secondary">Contact</p>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">Primary email</label>
+              <input
+                type="email"
+                value={contentData.contact_email || ''}
+                onChange={(e) => setContentData({ ...contentData, contact_email: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">Primary phone</label>
+              <input
+                type="text"
+                value={contentData.contact_phone || ''}
+                onChange={(e) => setContentData({ ...contentData, contact_phone: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">Address</label>
+              <textarea
+                rows={3}
+                value={contentData.contact_address || ''}
+                onChange={(e) => setContentData({ ...contentData, contact_address: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-text-primary mb-4">Mentenanță Site</h3>
         <div className="space-y-4">
