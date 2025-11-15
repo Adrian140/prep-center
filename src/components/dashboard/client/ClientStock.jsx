@@ -2044,78 +2044,85 @@ const saveReqChanges = async () => {
                       </label>
                     </div>
                     {receptionForm.fbaMode === 'partial' && (
-                      <div className="border rounded-md p-2 bg-white max-h-48 overflow-y-auto">
-                        {selectedRows.length === 0 && (
+                      <div className="border rounded-md p-2 bg-white max-h-64 overflow-y-auto">
+                        {selectedRows.length === 0 ? (
                           <p className="text-text-secondary">
                             {t('ClientStock.receptionFba.noSelection')}
                           </p>
-                        )}
-                        {selectedRows.map((row) => {
-                          const edits = rowEdits[row.id] || {};
-                          const units = Math.max(0, Number(edits.units_to_send || 0));
-                          const image = row.image_url || row.photo_url || '';
-                          const asin = row.asin || '';
-                          const amazonLabel = t('ClientStock.receptionFba.toAmazonLabel');
-                          const rawFba = edits.fba_units;
-                          const displayFba =
-                            rawFba === undefined || rawFba === null || rawFba === ''
-                              ? units
-                              : rawFba;
-                          return (
-                            <div
-                              key={row.id}
-                              className="py-2 text-xs sm:text-sm border-b last:border-b-0"
-                            >
-                              <div className="flex items-start gap-3">
-                                {image ? (
-                                  <img
-                                    src={image}
-                                    alt={row.name || row.asin || 'Product'}
-                                    className="w-10 h-10 rounded border object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-10 h-10 rounded border bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
-                                    N/A
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-text-primary truncate">
-                                    {row.name || row.asin || row.ean || '—'}
-                                  </p>
-                                  {asin && (
-                                    <p className="text-[11px] text-gray-500 font-mono truncate">
-                                      ASIN: {asin}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="flex flex-col">
-                                  <span className="text-[10px] uppercase tracking-wide text-gray-500">
-                                    {tp('ClientStock.receptionFba.availableLabel')}
-                                  </span>
-                                  <span className="text-base font-semibold text-text-primary">
-                                    {units}
-                                  </span>
-                                </div>
-                                <div className="flex flex-col items-start sm:items-end gap-1">
-                                  <span className="text-[10px] uppercase tracking-wide text-gray-500">
-                                    {amazonLabel}
-                                  </span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    className="w-20 text-right border rounded px-2 py-1"
-                                    value={displayFba}
-                                    onChange={(e) =>
-                                      updateEdit(row.id, { fba_units: e.target.value })
-                                    }
-                                  />
-                                </div>
-                              </div>
+                        ) : (
+                          <>
+                            <div className="hidden sm:grid sm:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr] text-[11px] uppercase tracking-wide text-gray-500 px-2 pb-1">
+                              <span />
+                              <span>{tp('ClientStock.receptionFba.availableLabel')}</span>
+                              <span className="text-right">{t('ClientStock.receptionFba.toAmazonLabel')}</span>
                             </div>
-                          );
-                        })}
+                            {selectedRows.map((row) => {
+                              const edits = rowEdits[row.id] || {};
+                              const units = Math.max(0, Number(edits.units_to_send || 0));
+                              const image = row.image_url || row.photo_url || '';
+                              const asin = row.asin || '';
+                              const rawFba = edits.fba_units;
+                              const displayFba =
+                                rawFba === undefined || rawFba === null || rawFba === ''
+                                  ? units
+                                  : rawFba;
+                              return (
+                                <div
+                                  key={row.id}
+                                  className="py-2 border-b last:border-b-0"
+                                >
+                                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr] sm:items-center">
+                                    <div className="flex items-start gap-3">
+                                      {image ? (
+                                        <img
+                                          src={image}
+                                          alt={row.name || row.asin || 'Product'}
+                                          className="w-10 h-10 rounded border object-cover"
+                                        />
+                                      ) : (
+                                        <div className="w-10 h-10 rounded border bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
+                                          N/A
+                                        </div>
+                                      )}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-text-primary truncate">
+                                          {row.name || row.asin || row.ean || '—'}
+                                        </p>
+                                        {asin && (
+                                          <p className="text-[11px] text-gray-500 font-mono truncate">
+                                            ASIN: {asin}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col text-xs sm:text-sm">
+                                      <span className="sm:hidden text-[10px] uppercase tracking-wide text-gray-500">
+                                        {tp('ClientStock.receptionFba.availableLabel')}
+                                      </span>
+                                      <span className="text-base font-semibold text-text-primary">
+                                        {units}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col items-start sm:items-end gap-1 text-xs sm:text-sm">
+                                      <span className="sm:hidden text-[10px] uppercase tracking-wide text-gray-500">
+                                        {t('ClientStock.receptionFba.toAmazonLabel')}
+                                      </span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        className="w-20 text-right border rounded px-2 py-1"
+                                        value={displayFba}
+                                        onChange={(e) =>
+                                          updateEdit(row.id, { fba_units: e.target.value })
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
