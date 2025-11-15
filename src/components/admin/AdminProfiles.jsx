@@ -507,11 +507,11 @@ const saveStoreName = async () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400">{t("common.loading")}</td></tr>
+              <tr><td colSpan={showEmail ? 9 : 8} className="px-4 py-6 text-center text-gray-400">{t("common.loading")}</td></tr>
             ) : error ? (
-              <tr><td colSpan={8} className="px-4 py-6 text-center text-red-600">{error}</td></tr>
+              <tr><td colSpan={showEmail ? 9 : 8} className="px-4 py-6 text-center text-red-600">{error}</td></tr>
             ) : slice.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
+              <tr><td colSpan={showEmail ? 9 : 8} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
             ) : (
               slice.map((p) => {
                 const name = [p.display_first_name || p.first_name, p.display_last_name || p.last_name]
@@ -569,7 +569,8 @@ const saveStoreName = async () => {
           {!loading && slice.length > 0 && (
             <tfoot>
               <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
-                <td className="px-4 py-3" colSpan={showEmail ? 9 : 8}>{t("clients.csv.footer")}</td>
+                <td className="px-4 py-3" colSpan={showEmail ? 5 : 4} />
+                <td className="px-4 py-3">{t("clients.csv.footer")}</td>
                 <td className="px-4 py-3">{fmt2(tableTotals.totCurrent)}</td>
                 <td className="px-4 py-3">{fmt2(tableTotals.totCarry)}</td>
                 <td className="px-4 py-3">{fmt2(tableTotals.totDiff)}</td>
