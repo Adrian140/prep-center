@@ -38,7 +38,7 @@ export default function AdminPrepRequests() {
  const handleDelete = async (row) => {
   const shortId = row.id?.slice(0, 8) || row.id;
   const clientLabel =
-    [row.client_name, row.company_name].filter(Boolean).join(' / ') ||
+    [row.client_company_name, row.client_name, row.company_name].filter(Boolean).join(' / ') ||
     row.user_email ||
     'client';
   const basePrompt = `Sigur dorești să ștergi recepția clientului ${clientLabel}?`;
@@ -118,7 +118,8 @@ export default function AdminPrepRequests() {
       const email = (r.user_email || '').toLowerCase();
       const comp = (r.company_name || '').toLowerCase();
       const cname = (r.client_name || '').toLowerCase();
-      return hitItem || email.includes(s) || comp.includes(s) || cname.includes(s);
+      const clientCompany = (r.client_company_name || '').toLowerCase();
+      return hitItem || email.includes(s) || comp.includes(s) || cname.includes(s) || clientCompany.includes(s);
     });
   }, [rows, q]);
 
@@ -204,7 +205,12 @@ export default function AdminPrepRequests() {
                 <tr key={r.id} className="border-t align-top">
                   <td className="px-4 py-3">{new Date(r.created_at).toLocaleString()}</td>
                   <td className="px-4 py-3">
-                    {r.client_name ? <b>{r.client_name}</b> : '—'}
+                    <div className="font-semibold">
+                      {r.client_company_name || r.company_name || r.client_name || '—'}
+                    </div>
+                    {r.client_name && r.client_name !== r.client_company_name && (
+                      <div className="text-xs text-text-secondary">{r.client_name}</div>
+                    )}
                     <div className="text-xs text-text-secondary">{r.user_email || '—'}</div>
                   </td>
                   <td className="px-4 py-3">{r.company_name || r.store_name || '—'}</td>

@@ -966,17 +966,25 @@ const items = (draftData.items || []).map((it) => ({
       stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
     }
 
-    const processed = (data || []).map(r => ({
-      ...r,
-      prep_request_items: (r.prep_request_items || []).map((it) => ({
-        ...it,
-        stock_item: stockMap[it.stock_item_id] || null,
-      })),
-      client_name: [r.profiles?.first_name, r.profiles?.last_name].filter(Boolean).join(' '),
-      user_email: r.profiles?.email,
-      company_name: r.profiles?.store_name || r.companies?.name || r.profiles?.company_name,
-      store_name: r.profiles?.store_name || null
-    }));
+    const processed = (data || []).map((r) => {
+      const profileFirstName = r.profiles?.first_name || '';
+      const profileLastName = r.profiles?.last_name || '';
+      const profileCompany = r.profiles?.company_name || null;
+      const profileStore = r.profiles?.store_name || null;
+      const companyFallback = r.companies?.name || null;
+      return {
+        ...r,
+        prep_request_items: (r.prep_request_items || []).map((it) => ({
+          ...it,
+          stock_item: stockMap[it.stock_item_id] || null,
+        })),
+        client_name: [profileFirstName, profileLastName].filter(Boolean).join(' ').trim(),
+        user_email: r.profiles?.email,
+        client_company_name: profileCompany || companyFallback || null,
+        company_name: profileStore || companyFallback || profileCompany || null,
+        store_name: profileStore || null,
+      };
+    });
 
     return { data: processed, error: null, count };
   },
