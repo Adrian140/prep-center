@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { tabSessionStorage, readJSON, writeJSON } from '@/utils/tabStorage';
+import { encodeRemainingAction, resolveFbaIntent } from '@/utils/receivingFba';
 
 const StatusPill = ({ status }) => {
   const statusMap = {
@@ -415,11 +416,17 @@ const processToStock = async () => {
   if (!confirm('Process this reception into stock? This cannot be undone.')) return;
   setProcessing(true);
   try {
-    const hasInvalidFba = items.some(it => {
-      if (!it.send_to_fba) return false;
-      const fba = Number(it.fba_qty || 0);
-      const rec = getConfirmedQty(it);
-      return !Number.isFinite(fba) || fba < 1 || fba > rec;
+    const hasInvalidFba = items.some((item) => {
+      const confirmed = getConfirmedQty(item);
+      const intent = resolveFbaIntent(item);
+      if (!(intent.hasIntent || intent.directFromAction)) return false;
+      const desired =
+        intent.qty > 0
+          ? intent.qty
+          : intent.directFromAction
+          ? confirmed
+          : 0;
+      return !Number.isFinite(desired) || desired < 1 || desired > confirmed;
     });
     if (hasInvalidFba) {
       setMessage('Please double-check the FBA quantities for each product.');
@@ -428,17 +435,26 @@ const processToStock = async () => {
     }
     const itemsToProcess = items.map(item => {
       const confirmedQty = getConfirmedQty(item);
-      const fba = item.send_to_fba ? (Number(item.fba_qty) || 0) : 0;
+      const intent = resolveFbaIntent(item);
+      let fba = intent.qty > 0
+        ? intent.qty
+        : intent.directFromAction
+        ? confirmedQty
+        : 0;
+      fba = Math.max(0, Math.min(fba, confirmedQty));
       const toStock = Math.max(0, confirmedQty - fba);
       const asinValue = item.asin || item.stock_item?.asin || null;
       const skuValue = item.sku || item.stock_item?.sku || null;
+      const sendDirect = (intent.hasIntent || intent.directFromAction) && fba > 0;
       return {
         ...item,
         asin: asinValue,
         sku: skuValue,
         company_id: shipment.company_id,
         quantity_to_stock: toStock,
-        remaining_action: fba > 0 ? 'direct_to_amazon' : 'hold_for_prep'
+        remaining_action: encodeRemainingAction(sendDirect, fba || intent.qtyHint || confirmedQty),
+        send_to_fba: sendDirect,
+        fba_qty: fba
       };
     });
 
@@ -460,11 +476,10 @@ const processToStock = async () => {
 
   const fbaModeValue = editHeader.fba_mode || shipment.fba_mode || 'none';
   const fbaMeta = getFbaModeMeta(fbaModeValue);
-  const hasFbaLines = items.some(
-    (item) =>
-      (item.send_to_fba && Number(item.fba_qty || 0) > 0) ||
-      item.remaining_action === 'direct_to_amazon'
-  );
+  const hasFbaLines = items.some((item) => {
+    const intent = resolveFbaIntent(item);
+    return intent.hasIntent || intent.directFromAction;
+  });
   const showFbaInfo = fbaModeValue !== 'none' || hasFbaLines;
   const messageSuccess = typeof message === 'string' && message.toLowerCase().includes('success');
 
@@ -836,20 +851,19 @@ const processToStock = async () => {
                 const productName = item.product_name || item.stock_item?.name || '—';
                 const imageUrl = item.stock_item?.image_url || item.image_url || '';
                 const skuValue = item.sku || item.stock_item?.sku || '—';
-                const storedFbaQty = Math.max(0, Number(item.fba_qty) || 0);
+                const intent = resolveFbaIntent(item);
                 const confirmedQty = getConfirmedQty(item);
                 const expectedQty = getExpectedQty(item);
-                const directFallback = item.remaining_action === 'direct_to_amazon';
-                const plannedFbaQty = storedFbaQty > 0
-                  ? storedFbaQty
-                  : directFallback
-                  ? expectedQty
-                  : 0;
+                let plannedFbaQty = intent.qty > 0 ? intent.qty : 0;
+                if (plannedFbaQty === 0 && intent.directFromAction) {
+                  plannedFbaQty = expectedQty;
+                }
+                plannedFbaQty = Math.min(plannedFbaQty, expectedQty);
                 const sentToAmazon = confirmedQty > 0
                   ? Math.min(plannedFbaQty || confirmedQty, confirmedQty)
                   : 0;
                 const pendingFba = Math.max(0, plannedFbaQty - sentToAmazon);
-                const hasDirectIntent = plannedFbaQty > 0;
+                const hasDirectIntent = intent.hasIntent || intent.directFromAction;
                 const isReceived = Boolean(item.is_received);
                 const partialReceived = !isReceived && confirmedQty > 0;
                 const isSelectable = selectionAllowed && item.id && !isReceived;
@@ -1270,8 +1284,8 @@ const filteredShipments = shipments.filter(shipment => {
                 const hasFbaIntent =
                   (shipment.fba_mode && shipment.fba_mode !== 'none') ||
                   (shipment.receiving_items || []).some((item) => {
-                    const qty = Number(item.fba_qty || 0);
-                    return (item.send_to_fba && qty > 0) || item.remaining_action === 'direct_to_amazon';
+                    const intent = resolveFbaIntent(item);
+                    return intent.hasIntent || intent.directFromAction;
                   });
                 const totals = (shipment.receiving_items || []).reduce(
                   (acc, item) => {

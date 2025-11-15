@@ -2,6 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { tabSessionStorage } from '../utils/tabStorage';
 import { getTabId } from '../utils/tabIdentity';
+import { encodeRemainingAction, resolveFbaIntent } from '../utils/receivingFba';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -1775,7 +1776,14 @@ getAllReceivingShipments: async (options = {}) => {
             item.received_units != null ? item.received_units : item.quantity_received || 0
           )
         );
-        const fbaQty = item.send_to_fba ? Math.max(0, Number(item.fba_qty) || 0) : 0;
+        const intent = resolveFbaIntent(item);
+        let fbaQty = intent.hasIntent ? Math.max(0, Number(intent.qty) || 0) : 0;
+        if (intent.hasIntent && fbaQty === 0 && intent.directFromAction) {
+          fbaQty = quantityReceived;
+        }
+        if (fbaQty > quantityReceived) {
+          fbaQty = quantityReceived;
+        }
         const qtyToStock = Math.max(0, quantityReceived - fbaQty);
 
         const stockRow = await ensureStockItem(item);
@@ -1824,11 +1832,12 @@ getAllReceivingShipments: async (options = {}) => {
           if (error) throw error;
         };
 
+        const sendDirect = intent.hasIntent && fbaQty > 0;
         let itemPatch = {
           stock_item_id: stockId,
           quantity_to_stock: qtyToStock,
-          remaining_action: fbaQty > 0 ? 'direct_to_amazon' : 'hold_for_prep',
-          send_to_fba: item.send_to_fba,
+          remaining_action: encodeRemainingAction(sendDirect, fbaQty || intent.qtyHint),
+          send_to_fba: sendDirect,
           fba_qty: fbaQty
         };
 
@@ -1846,7 +1855,7 @@ getAllReceivingShipments: async (options = {}) => {
           }
         }
 
-        if (fbaQty > 0 && stockId) {
+        if (sendDirect && stockId) {
           fbaLines.push({
             stock_item_id: stockId,
             ean: stockRow?.ean || item.ean_asin || null,
