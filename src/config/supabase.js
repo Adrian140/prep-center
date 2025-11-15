@@ -43,8 +43,9 @@ let receivingSupportPromise = null;
 const probeShipmentFbaMode = async () => {
   const { error } = await supabase
     .from('receiving_shipments')
-    .select('fba_mode', { head: true, count: 'exact' })
-    .limit(1);
+    .select('fba_mode')
+    .limit(1)
+    .maybeSingle();
   if (error) {
     if (isMissingColumnError(error, 'fba_mode')) {
       supportsReceivingFbaMode = false;
@@ -57,8 +58,9 @@ const probeShipmentFbaMode = async () => {
 const probeItemFbaColumns = async () => {
   const { error } = await supabase
     .from('receiving_items')
-    .select('send_to_fba, fba_qty', { head: true, count: 'exact' })
-    .limit(1);
+    .select('send_to_fba, fba_qty')
+    .limit(1)
+    .maybeSingle();
   if (error) {
     if (receivingItemColumnMissing(error)) {
       supportsReceivingItemFbaColumns = false;
