@@ -2,7 +2,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase, supabaseHelpers } from "@/config/supabase";
 import {
-  Download,
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
@@ -147,6 +146,14 @@ export default function AdminProfiles({ onSelect }) {
     setTo(isoLocal(lastDayOfMonth(nd)));
   };
 
+  const monthDisplay = useMemo(() => {
+    if (!selectedMonth) return "";
+    const [yy, mm] = selectedMonth.split("-").map(Number);
+    if (!Number.isFinite(yy) || !Number.isFinite(mm)) return selectedMonth;
+    const date = new Date(yy, mm - 1, 1);
+    return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  }, [selectedMonth]);
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState(persistedFilters.q || "");
@@ -273,6 +280,12 @@ export default function AdminProfiles({ onSelect }) {
     return filtered.slice(start, start + PER_PAGE);
   }, [filtered, pageClamped]);
 
+  const tableTotals = useMemo(() => {
+    const totCurrent = slice.reduce((sum, p) => sum + Number(calc[p.id]?.currentSold ?? 0), 0);
+    const totCarry = slice.reduce((sum, p) => sum + Number(calc[p.id]?.carry ?? 0), 0);
+    return { totCurrent, totCarry };
+  }, [slice, calc]);
+
   // compute balances per row (STRICT din RPC; fără calcule în React)
   useEffect(() => {
     let mounted = true;
@@ -314,40 +327,6 @@ export default function AdminProfiles({ onSelect }) {
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slice, selectedMonth]);
-
-  // >>> CSV export
-  function exportCsv() {
-    const headers = [
-      t("clients.csv.name"),
-      t("clients.csv.company"),
-      t("clients.csv.email"),
-      t("clients.csv.createdAt"),
-      t("clients.csv.current"),
-      t("clients.csv.carry"),
-      t("clients.csv.live"),
-    ];
-    const rowsCsv = slice.map((p) => {
-      const name = [p.display_first_name || p.first_name, p.display_last_name || p.last_name]
-        .filter(Boolean)
-        .join(" ") || "—";
-      const c = calc[p.id] || { currentSold: 0, carry: 0, diff: 0 };
-      return [
-        name,
-        p.display_company_name || p.company_name || "—",
-        p.email || "—",
-        (p.created_at || "").slice(0,10),
-        fmt2(Number(c.currentSold || 0)),
-        fmt2(Number(c.carry || 0)),
-        fmt2(Number(c.diff || 0)),
-      ].join(",");
-    });
-    const csv = [headers.join(","), ...rowsCsv].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `clients-${selectedMonth}.csv`; a.click();
-    URL.revokeObjectURL(url);
-  }
 
   const toggleClient = (id) => {
     setSelectedIds((prev) => {
@@ -391,75 +370,81 @@ const saveStoreName = async () => {
   return (
     <div className="space-y-4">
       {/* Filters bar */}
-      <div className="flex flex-wrap items-end gap-3">
-        {/* Month selector */}
-        <div className="flex flex-col">
-          <label className="text-xs text-text-secondary mb-1">{t("clients.filters.month")}</label>
-          <div className="flex items-center gap-2">
-            <button className="border rounded p-2" onClick={() => gotoMonth(-1)} title={t("clients.filters.prevMonth")}><ChevronLeft className="w-4 h-4" /></button>
+      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,320px)_minmax(0,220px)_minmax(0,320px)_auto]">
+          {/* Month selector */}
+          <div className="flex flex-col">
+            <label className="text-xs text-text-secondary mb-1">{t("clients.filters.month")}</label>
+            <div className="flex items-center gap-2">
+              <button className="border rounded p-2" onClick={() => gotoMonth(-1)} title={t("clients.filters.prevMonth")}><ChevronLeft className="w-4 h-4" /></button>
+              <div className="relative flex-1 min-w-[180px]">
+                <CalendarIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    const mk = e.target.value; setSelectedMonth(mk);
+                    const [yy, mm] = mk.split("-").map(Number);
+                    const d = new Date(yy, mm - 1, 1);
+                    setFrom(isoLocal(firstDayOfMonth(d)));
+                    setTo(isoLocal(lastDayOfMonth(d)));
+                    setPage(1);
+                  }}
+                  className="pl-9 pr-3 py-2 border rounded w-full"
+                />
+              </div>
+              <button className="border rounded p-2" onClick={() => gotoMonth(1)} title={t("clients.filters.nextMonth")}><ChevronRight className="w-4 h-4" /></button>
+            </div>
+            <div className="text-xs text-text-secondary mt-2 space-y-0.5">
+              <div className="font-medium text-text-primary capitalize">{monthDisplay}</div>
+              <div className="text-[11px] text-gray-500">{from} → {to}</div>
+            </div>
+          </div>
+
+          {/* Balance filter */}
+          <div className="flex flex-col">
+            <label className="text-xs text-text-secondary mb-1">{t("clients.filters.balance")}</label>
             <div className="relative">
-              <CalendarIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
+              <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
+              <select value={restFilter} onChange={(e)=>setRestFilter(e.target.value)} className="pl-9 pr-3 py-2 border rounded w-full">
+                <option value="all">{t("clients.balanceFilters.all")}</option>
+                <option value="with">{t("clients.balanceFilters.with")}</option>
+                <option value="advance">{t("clients.balanceFilters.advance")}</option>
+                <option value="without">{t("clients.balanceFilters.without")}</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="flex flex-col">
+            <label className="text-xs text-text-secondary mb-1">{t("clients.filters.search")}</label>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
               <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => {
-                  const mk = e.target.value; setSelectedMonth(mk);
-                  const [yy, mm] = mk.split("-").map(Number);
-                  const d = new Date(yy, mm - 1, 1);
-                  setFrom(isoLocal(firstDayOfMonth(d)));
-                  setTo(isoLocal(lastDayOfMonth(d)));
-                  setPage(1);
-                }}
-                className="pl-9 pr-3 py-2 border rounded w-44"
+                value={q}
+                onChange={(e) => { setQ(e.target.value); setPage(1); }}
+                placeholder={t("clients.filters.searchPlaceholder")}
+                className="pl-9 pr-3 py-2 w-full border rounded"
               />
             </div>
-            <button className="border rounded p-2" onClick={() => gotoMonth(1)} title={t("clients.filters.nextMonth")}><ChevronRight className="w-4 h-4" /></button>
           </div>
-          <div className="text-[11px] text-gray-500 mt-1">{from} → {to}</div>
-        </div>
 
-        {/* Balance filter */}
-        <div className="flex flex-col">
-          <label className="text-xs text-text-secondary mb-1">{t("clients.filters.balance")}</label>
-          <div className="relative">
-            <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
-            <select value={restFilter} onChange={(e)=>setRestFilter(e.target.value)} className="pl-9 pr-3 py-2 border rounded w-48">
-              <option value="all">{t("clients.balanceFilters.all")}</option>
-              <option value="with">{t("clients.balanceFilters.with")}</option>
-              <option value="advance">{t("clients.balanceFilters.advance")}</option>
-              <option value="without">{t("clients.balanceFilters.without")}</option>
-            </select>
+          <div className="flex flex-col">
+            <label className="text-xs text-text-secondary mb-1">{t("clients.table.email")}</label>
+            <button
+              onClick={() => setShowEmail(!showEmail)}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 border rounded shadow-sm w-full"
+              title={t("clients.buttons.toggleEmail")}
+            >
+              {showEmail ? t("clients.buttons.hideEmail") : t("clients.buttons.showEmail")}
+            </button>
           </div>
         </div>
 
-        {/* Search */}
-        <div className="flex-1 min-w-[280px]">
-          <label className="text-xs text-text-secondary mb-1">{t("clients.filters.search")}</label>
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
-            <input
-              value={q}
-              onChange={(e) => { setQ(e.target.value); setPage(1); }}
-              placeholder={t("clients.filters.searchPlaceholder")}
-              className="pl-9 pr-3 py-2 w-full border rounded"
-            />
-          </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+          <InfoIcon className="w-4 h-4" />
+          <span>{tp("clients.rpcRange", { start: rpcStart, end: rpcEnd })}</span>
         </div>
-
-        <button
-          onClick={exportCsv}
-          className="inline-flex items-center gap-2 px-3 py-2 border rounded shadow-sm"
-          title={t("clients.buttons.exportCsv")}
-        >
-          <Download className="w-4 h-4" /> {t("clients.buttons.exportCsv")}
-        </button>
-        <button
-          onClick={() => setShowEmail(!showEmail)}
-          className="inline-flex items-center gap-2 px-3 py-2 border rounded shadow-sm"
-          title={t("clients.buttons.toggleEmail")}
-        >
-          {showEmail ? t("clients.buttons.hideEmail") : t("clients.buttons.showEmail")}
-        </button>
       </div>
 
       {storeBanner && (
@@ -467,14 +452,6 @@ const saveStoreName = async () => {
           {storeBanner}
         </div>
       )}
-
-      {/* Info bar: Parametrii trimiși la RPC (vizibil pe pagină) */}
-<div className="text-xs text-gray-600 flex items-center gap-2">
-  <InfoIcon className="w-4 h-4" />
-  <span>
-    {tp("clients.rpcRange", { start: rpcStart, end: rpcEnd })}
-  </span>
-</div>
 
       {/* TABLE */}
       <div className="border rounded-lg overflow-hidden bg-white">
@@ -552,6 +529,19 @@ const saveStoreName = async () => {
               })
             )}
           </tbody>
+
+          {!loading && slice.length > 0 && (
+            <tfoot>
+              <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
+                <td className="px-4 py-3">{t("clients.csv.footer")}</td>
+                <td className="px-4 py-3" colSpan={showEmail ? 4 : 3} />
+                <td className="px-4 py-3">{fmt2(tableTotals.totCurrent)}</td>
+                <td className="px-4 py-3">{fmt2(tableTotals.totCarry)}</td>
+                <td className="px-4 py-3" />
+                <td className="px-4 py-3" />
+              </tr>
+            </tfoot>
+          )}
 
         </table>
       </div>

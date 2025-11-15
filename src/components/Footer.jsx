@@ -59,7 +59,7 @@ function Footer() {
           <div className="space-y-2">
             <h3 className="text-lg font-semibold text-text-primary mb-2">Warehouse &amp; operations</h3>
             <p className="text-sm text-text-secondary">EcomPrep Hub</p>
-            <p className="text-sm text-text-secondary">5 Rue des Enclos, Port 7, 35350 La Gouesnière, France</p>
+            <p className="text-sm text-text-secondary">5 Rue des Enclos, Zone B, Celule 7, 35350 La Gouesnière, France</p>
             <p className="text-sm text-text-secondary">Phone : +33 6 75 11 62 18</p>
             <p className="text-sm text-text-secondary">Email : contact@prep-center.eu</p>
           </div>
