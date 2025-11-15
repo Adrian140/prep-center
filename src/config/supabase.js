@@ -40,6 +40,34 @@ let supportsReceivingFbaMode = true;
 let supportsReceivingItemFbaColumns = true;
 let receivingSupportPromise = null;
 
+const probeShipmentFbaMode = async () => {
+  const { error } = await supabase
+    .from('receiving_shipments')
+    .select('fba_mode', { head: true, count: 'exact' })
+    .limit(1);
+  if (error) {
+    if (isMissingColumnError(error, 'fba_mode')) {
+      supportsReceivingFbaMode = false;
+    }
+    return;
+  }
+  supportsReceivingFbaMode = true;
+};
+
+const probeItemFbaColumns = async () => {
+  const { error } = await supabase
+    .from('receiving_items')
+    .select('send_to_fba, fba_qty', { head: true, count: 'exact' })
+    .limit(1);
+  if (error) {
+    if (receivingItemColumnMissing(error)) {
+      supportsReceivingItemFbaColumns = false;
+    }
+    return;
+  }
+  supportsReceivingItemFbaColumns = true;
+};
+
 const isMissingColumnError = (error, column) => {
   if (!error) return false;
   const needle = column.toLowerCase();
@@ -177,8 +205,18 @@ const sanitizeItemPayload = (payload) => {
 };
 
 export const ensureReceivingColumnSupport = async () => {
-  if (!receivingSupportPromise) {
-    receivingSupportPromise = Promise.resolve();
+  const needsProbe = !receivingSupportPromise || !supportsReceivingFbaMode || !supportsReceivingItemFbaColumns;
+  if (needsProbe) {
+    receivingSupportPromise = (async () => {
+      await Promise.all([probeShipmentFbaMode(), probeItemFbaColumns()]);
+    })()
+      .catch((error) => {
+        receivingSupportPromise = null;
+        throw error;
+      })
+      .finally(() => {
+        receivingSupportPromise = null;
+      });
   }
   return receivingSupportPromise;
 };
