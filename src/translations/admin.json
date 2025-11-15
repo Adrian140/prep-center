@@ -13,7 +13,6 @@
       "pricing": "Pricing",
       "homeContent": "Homepage Content",
       "reviews": "Reviews",
-      "servicesContent": "Services Content",
       "userGuide": "User Guide",
       "settings": "Settings"
     },
@@ -228,7 +227,6 @@
       "pricing": "Tarifs",
       "homeContent": "Contenu d'accueil",
       "reviews": "Avis",
-      "servicesContent": "Contenu services",
       "userGuide": "Guide utilisateur",
       "settings": "Paramètres"
     },
@@ -420,7 +418,6 @@
       "pricing": "Prețuri",
       "homeContent": "Conținut Homepage",
       "reviews": "Recenzii",
-      "servicesContent": "Conținut Servicii",
       "userGuide": "Ghid utilizator",
       "settings": "Setări"
     },

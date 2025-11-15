@@ -73,7 +73,7 @@ const [activeTab, setActiveTab] = useState(() => {
   }
   const validTabs = [
     'analytics', 'profiles', 'receiving', 'prep-requests',
-    'pricing', 'reviews', 'services-page-content', 'user-guide', 'settings'
+    'pricing', 'reviews', 'user-guide', 'settings'
   ];
   if (initialTab && validTabs.includes(initialTab)) return initialTab;
   return validTabs.includes(saved) ? saved : 'profiles';
@@ -156,7 +156,6 @@ useEffect(() => {
     { id: 'prep-requests', label: t('sidebar.prepRequests'), icon: PackageCheck },
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
     { id: 'reviews', label: t('sidebar.reviews'), icon: Star },
-    { id: 'services-page-content', label: t('sidebar.servicesContent'), icon: FileText },
     { id: 'user-guide', label: t('sidebar.userGuide'), icon: PlayCircle },
     { id: 'settings', label: t('sidebar.settings'), icon: Settings }
   ]), [t]);
@@ -1022,9 +1021,7 @@ const renderTabContent = () => {
     case 'prep-requests': return <AdminPrepRequests />;
     case 'services': return renderServicesTab();
     case 'pricing': return renderPricingTab();
-    case 'content': return renderContentTab();
     case 'reviews': return renderReviewsTab();
-    case 'services-page-content': return renderServicesPageContentTab();
     case 'user-guide': return <AdminUserGuide />;
     case 'settings': return renderSettingsTab();
     default:
