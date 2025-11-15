@@ -227,7 +227,7 @@ const ADVANCED_PRODUCT_FORM = {
 };
 
 const createReceptionFormState = () => ({
-  carrier: 'UPS',
+  carrier: '',
   carrierOther: '',
   trackingIds: [''],
   notes: '',
@@ -1476,7 +1476,7 @@ const openReception = async () => {
     return;
   }
 
-  const carrierCode = receptionForm.carrier || 'OTHER';
+  const carrierCode = receptionForm.carrier || null;
   const trackingValues = trackingInputs
     .map((val) => String(val || '').trim())
     .filter((val, idx, arr) => val && arr.indexOf(val) === idx);
@@ -1486,7 +1486,10 @@ const openReception = async () => {
     company_id: profile.company_id,
     user_id: profile.id,
     carrier: carrierCode,
-    carrier_other: carrierCode === 'OTHER' ? (receptionForm.carrierOther || '').trim() || null : null,
+    carrier_other:
+      carrierCode === 'OTHER'
+        ? (receptionForm.carrierOther || '').trim() || null
+        : null,
     tracking_id: primaryTracking,
     tracking_ids: trackingValues.length ? trackingValues : null,
     notes: (receptionForm.notes || '').trim() || null,
@@ -1914,7 +1917,9 @@ const saveReqChanges = async () => {
                       <select
                         value={receptionForm.carrier}
                         onChange={(e) => handleReceptionFormChange('carrier', e.target.value)}
-                        className={`border rounded-md px-2 py-1 w-full ${receptionForm.carrier ? 'text-text-primary' : 'text-gray-400'}`}
+                        className={`border rounded-md px-2 py-1 w-full ${
+                          receptionForm.carrier ? 'text-text-primary' : 'text-gray-400'
+                        }`}
                       >
                         <option value="">{t('ClientStock.receptionForm.carrierPlaceholder')}</option>
                         {CARRIERS.map((c) => (
@@ -2148,23 +2153,25 @@ const saveReqChanges = async () => {
                   </div>
                 </div>
               )}
-              <button
-                onClick={() => {
-                  if (submitType === 'prep') openPrep();
-                  else openReception();
-                }}
-                className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-4 py-1 rounded-md"
-              >
-                {submitType === 'prep'
-                  ? t('ClientStock.cta.sendToPrep')
-                  : t('ClientStock.cta.announceReception')}
-              </button>
-              <button
-                onClick={() => setSelectedIdList([])}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                {t('common.cancel')}
-              </button>
+              <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-3 w-full">
+                <button
+                  onClick={() => {
+                    if (submitType === 'prep') openPrep();
+                    else openReception();
+                  }}
+                  className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-6 py-2 rounded-md w-full sm:w-auto text-center"
+                >
+                  {submitType === 'prep'
+                    ? t('ClientStock.cta.sendToPrep')
+                    : t('ClientStock.cta.announceReception')}
+                </button>
+                <button
+                  onClick={() => setSelectedIdList([])}
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
             </div>
           </div>
         )}
