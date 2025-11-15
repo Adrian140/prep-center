@@ -1686,6 +1686,8 @@ getAllReceivingShipments: async (options = {}) => {
       if (shipmentFetchError) throw shipmentFetchError;
 
       const fbaLines = [];
+      const normalizeCode = (value) =>
+        typeof value === 'string' ? value.trim() : value ?? null;
 
       const ensureStockItem = async (item) => {
         if (item.stock_item_id) {
@@ -1707,11 +1709,34 @@ getAllReceivingShipments: async (options = {}) => {
           if (data) return data;
         }
 
+        const normalizedAsin = normalizeCode(item.asin);
+        if (normalizedAsin) {
+          const { data } = await supabase
+            .from('stock_items')
+            .select('*')
+            .eq('company_id', item.company_id)
+            .eq('asin', normalizedAsin)
+            .maybeSingle();
+          if (data) return data;
+        }
+
+        const normalizedSku = normalizeCode(item.sku);
+        if (normalizedSku) {
+          const { data } = await supabase
+            .from('stock_items')
+            .select('*')
+            .eq('company_id', item.company_id)
+            .eq('sku', normalizedSku)
+            .maybeSingle();
+          if (data) return data;
+        }
+
         const insertPayload = {
           company_id: item.company_id,
           ean: item.ean_asin,
           name: item.product_name,
-          asin: item.sku,
+          asin: normalizedAsin,
+          sku: normalizedSku,
           qty: 0,
           purchase_price: item.purchase_price,
           created_by: processedBy
@@ -1737,6 +1762,8 @@ getAllReceivingShipments: async (options = {}) => {
         const qtyToStock = Math.max(0, quantityReceived - fbaQty);
 
         const stockRow = await ensureStockItem(item);
+        const normalizedAsin = normalizeCode(item.asin);
+        const normalizedSku = normalizeCode(item.sku);
         const stockId = stockRow?.id || null;
 
         if (qtyToStock > 0 && stockRow) {
@@ -1749,8 +1776,11 @@ getAllReceivingShipments: async (options = {}) => {
           if (item.product_name && item.product_name !== stockRow.name) {
             updates.name = item.product_name;
           }
-          if (item.sku && item.sku !== stockRow.asin) {
-            updates.asin = item.sku;
+          if (normalizedAsin && normalizedAsin !== stockRow.asin) {
+            updates.asin = normalizedAsin;
+          }
+          if (normalizedSku && normalizedSku !== stockRow.sku) {
+            updates.sku = normalizedSku;
           }
 
           await supabase
@@ -1804,8 +1834,8 @@ getAllReceivingShipments: async (options = {}) => {
             stock_item_id: stockId,
             ean: stockRow?.ean || item.ean_asin || null,
             product_name: stockRow?.name || item.product_name || null,
-            asin: stockRow?.asin || item.sku || null,
-            sku: item.sku || null,
+            asin: stockRow?.asin || normalizedAsin || null,
+            sku: stockRow?.sku || normalizedSku || null,
             units_requested: fbaQty
           });
         }

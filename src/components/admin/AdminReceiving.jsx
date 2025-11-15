@@ -430,8 +430,12 @@ const processToStock = async () => {
       const confirmedQty = getConfirmedQty(item);
       const fba = item.send_to_fba ? (Number(item.fba_qty) || 0) : 0;
       const toStock = Math.max(0, confirmedQty - fba);
+      const asinValue = item.asin || item.stock_item?.asin || null;
+      const skuValue = item.sku || item.stock_item?.sku || null;
       return {
         ...item,
+        asin: asinValue,
+        sku: skuValue,
         company_id: shipment.company_id,
         quantity_to_stock: toStock,
         remaining_action: fba > 0 ? 'direct_to_amazon' : 'hold_for_prep'
