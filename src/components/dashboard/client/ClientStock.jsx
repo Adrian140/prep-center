@@ -2044,6 +2044,11 @@ const saveReqChanges = async () => {
                       </label>
                     </div>
                     {receptionForm.fbaMode === 'partial' && (
+                      <div className="mt-2">
+                        <div className="flex justify-between text-[11px] uppercase tracking-wide text-gray-500 px-1 mb-1">
+                          <span>{tp('ClientStock.receptionFba.availableLabel')}</span>
+                          <span>{t('ClientStock.receptionFba.toAmazonLabel')}</span>
+                        </div>
                       <div className="border rounded-md p-2 bg-white max-h-64 overflow-y-auto">
                         {selectedRows.length === 0 ? (
                           <p className="text-text-secondary">
@@ -2123,6 +2128,7 @@ const saveReqChanges = async () => {
                             })}
                           </>
                         )}
+                      </div>
                       </div>
                     )}
                   </div>
