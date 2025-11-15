@@ -1239,6 +1239,8 @@ const filteredShipments = shipments.filter(shipment => {
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-left">Products</th>
               <th className="px-4 py-3 text-center">Lines</th>
+              <th className="px-4 py-3 text-center">Units</th>
+              <th className="px-4 py-3 text-center">To Amazon</th>
               <th className="px-4 py-3 text-left">Date</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -1246,13 +1248,13 @@ const filteredShipments = shipments.filter(shipment => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center">
+                <td colSpan={11} className="px-4 py-12 text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                 </td>
               </tr>
             ) : filteredShipments.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center">
+                <td colSpan={11} className="px-4 py-12 text-center">
                   <Truck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-text-secondary">No receptions found</p>
                 </td>
@@ -1267,6 +1269,31 @@ const filteredShipments = shipments.filter(shipment => {
                     const qty = Number(item.fba_qty || 0);
                     return (item.send_to_fba && qty > 0) || item.remaining_action === 'direct_to_amazon';
                   });
+                const totals = (shipment.receiving_items || []).reduce(
+                  (acc, item) => {
+                    const announced = Math.max(
+                      0,
+                      Number(
+                        item.quantity_received ??
+                          item.units_requested ??
+                          item.qty ??
+                          item.quantity ??
+                          item.requested ??
+                          0
+                      ) || 0
+                    );
+                    acc.announced += announced;
+                    if (item.send_to_fba || item.remaining_action === 'direct_to_amazon') {
+                      let amazonQty = Math.max(0, Number(item.fba_qty) || 0);
+                      if (amazonQty === 0) {
+                        amazonQty = announced;
+                      }
+                      acc.amazon += Math.min(amazonQty, announced);
+                    }
+                    return acc;
+                  },
+                  { announced: 0, amazon: 0 }
+                );
                 const rowClass = hasFbaIntent
                   ? 'border-t bg-sky-50 hover:bg-sky-100/60'
                   : 'border-t hover:bg-gray-50';
@@ -1358,6 +1385,20 @@ const filteredShipments = shipments.filter(shipment => {
                     <span className="text-text-primary font-semibold">
                       {shipment.receiving_items?.length || 0}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <p className="font-semibold text-text-primary">{totals.announced || '—'}</p>
+                    <p className="text-[11px] uppercase tracking-wide text-text-secondary">Announced</p>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <p
+                      className={`font-semibold ${
+                        totals.amazon > 0 ? 'text-emerald-600' : 'text-text-primary'
+                      }`}
+                    >
+                      {totals.amazon > 0 ? totals.amazon : '—'}
+                    </p>
+                    <p className="text-[11px] uppercase tracking-wide text-text-secondary">To Amazon</p>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center text-text-secondary">

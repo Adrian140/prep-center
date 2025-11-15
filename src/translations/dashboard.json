@@ -428,7 +428,8 @@
         "full": "Send all units to Amazon",
         "partial": "Partial shipment",
         "noSelection": "Select products to configure the partial shipment.",
-        "available": "Units announced: {qty}"
+        "available": "Units announced: {qty}",
+        "toAmazonLabel": "Units to send to Amazon"
       },
       "createProduct": {
         "button": "Create product",
@@ -1071,7 +1072,8 @@
         "full": "Trimit toate unitățile în Amazon",
         "partial": "Trimitere parțială",
         "noSelection": "Selectează produse pentru a configura cantitățile parțiale.",
-        "available": "Unități anunțate: {qty}"
+        "available": "Unități anunțate: {qty}",
+        "toAmazonLabel": "Unități către Amazon"
       },
       "createProduct": {
         "button": "Creează produs",
@@ -1714,7 +1716,8 @@
         "full": "Envoyer toutes les unités vers Amazon",
         "partial": "Envoi partiel",
         "noSelection": "Sélectionnez des produits pour configurer l’envoi partiel.",
-        "available": "Unités annoncées : {qty}"
+        "available": "Unités annoncées : {qty}",
+        "toAmazonLabel": "Unités vers Amazon"
       },
       "createProduct": {
         "button": "Créer un produit",
@@ -2357,7 +2360,8 @@
         "full": "Alle Einheiten zu Amazon senden",
         "partial": "Teilweise Sendung",
         "noSelection": "Wähle Produkte aus, um die Teilsendung zu konfigurieren.",
-        "available": "Gemeldete Einheiten: {qty}"
+        "available": "Gemeldete Einheiten: {qty}",
+        "toAmazonLabel": "Einheiten für Amazon"
       },
       "createProduct": {
         "button": "Produkt erstellen",
@@ -3000,7 +3004,8 @@
         "full": "Invia tutte le unità ad Amazon",
         "partial": "Spedizione parziale",
         "noSelection": "Seleziona prodotti per configurare la spedizione parziale.",
-        "available": "Unità annunciate: {qty}"
+        "available": "Unità annunciate: {qty}",
+        "toAmazonLabel": "Unità da inviare ad Amazon"
       },
       "createProduct": {
         "button": "Crea prodotto",
@@ -3643,7 +3648,8 @@
         "full": "Enviar todas las unidades a Amazon",
         "partial": "Envío parcial",
         "noSelection": "Selecciona productos para configurar el envío parcial.",
-        "available": "Unidades anunciadas: {qty}"
+        "available": "Unidades anunciadas: {qty}",
+        "toAmazonLabel": "Unidades para Amazon"
       },
       "createProduct": {
         "button": "Crear producto",

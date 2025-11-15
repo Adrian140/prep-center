@@ -1884,11 +1884,11 @@ const saveReqChanges = async () => {
               </select>
               {submitType === 'reception' && (
                 <div className="flex flex-col gap-2 text-xs sm:text-sm w-full">
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-col w-full gap-3 sm:flex-wrap sm:flex-row sm:items-center">
                     <select
                       value={receptionForm.carrier}
                       onChange={(e) => handleReceptionFormChange('carrier', e.target.value)}
-                      className="border rounded-md px-2 py-1"
+                      className="border rounded-md px-2 py-1 w-full sm:w-auto"
                     >
                       {CARRIERS.map((c) => (
                         <option key={c.code} value={c.code}>
@@ -1902,11 +1902,11 @@ const saveReqChanges = async () => {
                         value={receptionForm.carrierOther}
                         onChange={(e) => handleReceptionFormChange('carrierOther', e.target.value)}
                         placeholder={t('ClientStock.receptionForm.carrierOther')}
-                        className="border rounded-md px-2 py-1 w-32 sm:w-40"
+                        className="border rounded-md px-2 py-1 w-full sm:w-40"
                       />
                     )}
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <div className="flex flex-col gap-1 w-full">
+                      <span className="sr-only">
                         {t('ClientStock.receptionForm.tracking')}
                       </span>
                       <div className="flex flex-wrap items-end gap-2">
@@ -1917,7 +1917,7 @@ const saveReqChanges = async () => {
                             value={trackingInputs[0] || ''}
                             onChange={(e) => updateTrackingValue(0, e.target.value)}
                             placeholder={t('ClientStock.receptionForm.tracking')}
-                            className="border rounded-md px-2 py-1 w-32 sm:w-44"
+                            className="border rounded-md px-2 py-1 w-full sm:w-44"
                           />
                         </div>
                         {trackingInputs.length > 1 && !trackingExpanded && (
@@ -1956,7 +1956,7 @@ const saveReqChanges = async () => {
                                   value={value}
                                   onChange={(e) => updateTrackingValue(idx + 1, e.target.value)}
                                   placeholder={t('ClientStock.receptionForm.tracking')}
-                                  className="border rounded-md px-2 py-1 w-32 sm:w-44"
+                                  className="border rounded-md px-2 py-1 w-full sm:w-44"
                                 />
                               </div>
                               <button
@@ -1983,7 +1983,7 @@ const saveReqChanges = async () => {
                       value={receptionForm.notes}
                       onChange={(e) => handleReceptionFormChange('notes', e.target.value)}
                       placeholder={t('ClientStock.receptionForm.notes')}
-                      className="border rounded-md px-2 py-1 w-40 sm:w-56"
+                      className="border rounded-md px-2 py-1 w-full sm:w-56"
                     />
                   </div>
                   <div className="flex flex-col gap-1">
@@ -2032,28 +2032,35 @@ const saveReqChanges = async () => {
                         {selectedRows.map((row) => {
                           const edits = rowEdits[row.id] || {};
                           const units = Number(edits.units_to_send || 0);
+                          const announcedLabel = t('ClientStock.receptionFba.available', {
+                            qty: units,
+                          });
+                          const amazonLabel = t('ClientStock.receptionFba.toAmazonLabel');
                           return (
                             <div
                               key={row.id}
-                              className="flex items-center justify-between gap-2 py-1 text-xs sm:text-sm border-b last:border-b-0"
+                              className="flex flex-col gap-2 py-1 text-xs sm:text-sm border-b last:border-b-0 sm:flex-row sm:items-center"
                             >
-                              <div className="truncate">
+                              <div className="flex-1 min-w-0">
                                 <p className="font-medium text-text-primary truncate">
                                   {row.name || row.asin || row.ean || '—'}
                                 </p>
-                                <p className="text-text-secondary">
-                                  {t('ClientStock.receptionFba.available', { qty: units })}
-                                </p>
+                                <p className="text-text-secondary">{announcedLabel}</p>
                               </div>
-                              <input
-                                type="number"
-                                min="0"
-                                className="w-16 text-right border rounded px-2 py-1"
-                                value={edits.fba_units ?? ''}
-                                onChange={(e) =>
-                                  updateEdit(row.id, { fba_units: e.target.value })
-                                }
-                              />
+                              <div className="flex flex-col items-start sm:items-end gap-1">
+                                <span className="text-[10px] uppercase tracking-wide text-gray-500">
+                                  {amazonLabel}
+                                </span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className="w-20 text-right border rounded px-2 py-1"
+                                  value={edits.fba_units ?? ''}
+                                  onChange={(e) =>
+                                    updateEdit(row.id, { fba_units: e.target.value })
+                                  }
+                                />
+                              </div>
                             </div>
                           );
                         })}
