@@ -401,6 +401,17 @@ function ClientReceiving() {
     );
     const fbaValues = buildDisplayList(selectedShipment.fba_shipment_ids);
     const headerState = editHeader || buildHeaderState(selectedShipment);
+    const hasPartialLines = !editMode
+      ? viewItems.some((item) => {
+          const expected = Math.max(0, Number(item.quantity_received || 0));
+          const received = Math.max(
+            0,
+            Number(item.received_units ?? item.quantity_received ?? 0)
+          );
+          return expected > 0 && received < expected;
+        })
+      : false;
+    const displayStatus = hasPartialLines ? 'partial' : selectedShipment.status;
 
     return (
       <div className="space-y-6">
@@ -458,7 +469,7 @@ function ClientReceiving() {
               </div>
             )}
             <div className="flex items-center space-x-4">
-              {getStatusBadge(selectedShipment.status)}
+              {getStatusBadge(displayStatus)}
               <span className="text-text-secondary">
                 {new Date(selectedShipment.created_at).toLocaleDateString(DATE_LOCALE)}
               </span>
@@ -769,43 +780,48 @@ function ClientReceiving() {
               <tbody>
                 {viewItems.map((item, idx) => {
                   const sendDirect = item.send_to_fba && Number(item.fba_qty || 0) > 0;
-                  const isReceived = Boolean(item.is_received);
                   const receivedAt = item.received_at ? new Date(item.received_at) : null;
-                  const totalQty = Math.max(0, Number(item.quantity_received || 0));
+                  const expectedQty = Math.max(0, Number(item.quantity_received || 0));
                   const confirmedQty = Math.max(
                     0,
                     Number(
                       item.received_units != null ? item.received_units : item.quantity_received || 0
                     )
                   );
+                  const diff = Math.max(0, expectedQty - confirmedQty);
+                  const fullyReceived = expectedQty > 0 && diff === 0 && confirmedQty > 0;
+                  const partiallyReceived = confirmedQty > 0 && diff > 0;
                   const progressLabel = t('line_status_progress', {
                     received: confirmedQty,
-                    total: totalQty || confirmedQty
+                    total: expectedQty || confirmedQty
                   });
-                  const diff = Math.max(0, totalQty - confirmedQty);
                   const rowClasses = ['border-t', 'transition-colors'];
-                  if (sendDirect) rowClasses.push('bg-blue-50/60');
-                  if (isReceived) rowClasses.push('bg-emerald-50');
-                  const lineStatus = isReceived
+                  if (fullyReceived) rowClasses.push('bg-emerald-50');
+                  else if (partiallyReceived) rowClasses.push('bg-rose-50/70');
+                  else if (sendDirect) rowClasses.push('bg-blue-50/60');
+                  const lineStatus = fullyReceived
                     ? {
                         label: t('line_status_received'),
                         detail:
-                          receivedAt && confirmedQty >= totalQty
+                          receivedAt
                             ? t('line_status_received_on', {
                                 date: receivedAt.toLocaleDateString(DATE_LOCALE)
                               })
                             : progressLabel,
                         color: 'bg-green-100 text-green-800'
                       }
+                    : partiallyReceived
+                    ? {
+                        label: t('status_partial'),
+                        detail: t('qty_discrepancy', { count: diff }),
+                        color: 'bg-rose-100 text-rose-800'
+                      }
                     : {
-                        label: confirmedQty > 0 ? t('status_partial') : t('line_status_pending'),
+                        label: t('line_status_pending'),
                         detail: progressLabel,
-                        color:
-                          confirmedQty > 0
-                            ? 'bg-amber-50 text-amber-700'
-                            : 'bg-gray-100 text-gray-700'
+                        color: 'bg-gray-100 text-gray-700'
                       };
-                  const lineEditable = editMode && !isReceived;
+                  const lineEditable = editMode && !fullyReceived;
                   return (
                     <tr key={item.id || idx} className={rowClasses.join(' ')}>
                       <td className="px-4 py-3 font-mono">

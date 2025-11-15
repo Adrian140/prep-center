@@ -271,6 +271,8 @@
         "trackingAdd": "Add tracking ID",
         "trackingHide": "Hide extra tracking IDs",
         "trackingManage": "Manage all",
+        "trackingCount": "{count} tracking ID(s)",
+        "trackingNone": "No tracking IDs yet",
         "notes": "Notes"
       },
       "actions": {
@@ -918,6 +920,8 @@
         "trackingAdd": "Adaugă tracking ID",
         "trackingHide": "Ascunde ID-urile suplimentare",
         "trackingManage": "Gestionează toate",
+        "trackingCount": "{count} coduri tracking",
+        "trackingNone": "Fără coduri tracking",
         "notes": "Notițe"
       },
       "actions": {
@@ -1565,6 +1569,8 @@
         "trackingAdd": "Ajouter un numéro de suivi",
         "trackingHide": "Masquer les numéros supplémentaires",
         "trackingManage": "Gérer tous les numéros",
+        "trackingCount": "{count} numéros de suivi",
+        "trackingNone": "Aucun numéro de suivi",
         "notes": "Notes"
       },
       "actions": {
@@ -2209,9 +2215,11 @@
         "carrierOther": "Name des Transporteurs",
         "carrierPlaceholder": "Versanddienst wählen",
         "tracking": "Tracking-ID",
-        "trackingAdd": "Weitere Tracking-ID hinzufügen",
+        "trackingAdd": "Tracking-ID hinzufügen",
         "trackingHide": "Zusätzliche IDs ausblenden",
         "trackingManage": "Alle verwalten",
+        "trackingCount": "{count} Tracking-IDs",
+        "trackingNone": "Keine Tracking-IDs",
         "notes": "Notizen"
       },
       "actions": {
@@ -2859,6 +2867,8 @@
         "trackingAdd": "Aggiungi tracking ID",
         "trackingHide": "Nascondi le ID aggiuntive",
         "trackingManage": "Gestisci tutte",
+        "trackingCount": "{count} codici tracking",
+        "trackingNone": "Nessun codice tracking",
         "notes": "Note"
       },
       "actions": {
@@ -3506,6 +3516,8 @@
         "trackingAdd": "Agregar tracking ID",
         "trackingHide": "Ocultar IDs adicionales",
         "trackingManage": "Gestionar todos",
+        "trackingCount": "{count} identificadores de seguimiento",
+        "trackingNone": "Sin identificadores de seguimiento",
         "notes": "Notas"
       },
       "actions": {

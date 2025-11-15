@@ -909,7 +909,6 @@ const [photoItem, setPhotoItem] = useState(null);
 const [photoCounts, setPhotoCounts] = useState({});
 const [trackingDraft, setTrackingDraft] = useState('');
 const [trackingPanelOpen, setTrackingPanelOpen] = useState(false);
-const [trackingSummaryTarget, setTrackingSummaryTarget] = useState(null);
 const handleQuickAddComplete = useCallback(
   ({ inserted = [], updated = [], count = 0 }) => {
     setRows((prev) => {
@@ -1931,112 +1930,73 @@ const saveReqChanges = async () => {
                       )}
                     </div>
                     <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[260px]">
-                      <span className="sr-only">{t('ClientStock.receptionForm.tracking')}</span>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex flex-col">
-                          {trackingInputs.length > 1 && !trackingExpanded && (
-                            <div className="flex flex-wrap items-center gap-1 mb-1">
-                              {trackingInputs.slice(1).map((value, idx) => (
-                                <button
-                                  type="button"
-                                  key={`tracking-chip-${idx}`}
-                                  onClick={() => {
-                                    setTrackingSummaryTarget(idx + 1);
-                                    setTrackingExpanded(true);
-                                  }}
-                                  className="px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-xs text-gray-600 hover:bg-gray-100"
-                                  title={value || ''}
-                                >
-                                  {`+${idx + 2}`}
-                                </button>
-                              ))}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setTrackingSummaryTarget(null);
-                                  setTrackingExpanded(true);
-                                }}
-                                className="text-[11px] text-primary underline"
-                              >
-                                {t('ClientStock.receptionForm.trackingManage')}
-                              </button>
-                            </div>
-                          )}
-                          <span className="text-[10px] text-gray-500 font-semibold">#1</span>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={trackingInputs[0] || ''}
-                              onChange={(e) => updateTrackingValue(0, e.target.value)}
-                              placeholder={t('ClientStock.receptionForm.tracking')}
-                              className="border rounded-md px-2 py-1 w-full sm:w-48 pr-6"
-                            />
-                            {trackingInputs.length === 1 && (
-                              <button
-                                type="button"
-                                onClick={addTrackingEntry}
-                                className="absolute right-1 top-1/2 -translate-y-1/2 text-primary font-semibold"
-                                title={t('ClientStock.receptionForm.trackingAdd')}
-                              >
-                                +
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      {trackingExpanded && trackingInputs.length > 1 && (
-                        <div className="mt-2 space-y-1">
-                        {trackingInputs.slice(1).map((value, idx) => (
-                          <div key={`tracking-extra-${idx}`} className="flex items-end gap-2">
-                            <div className="flex flex-col">
-                              <span className="text-[10px] text-gray-500 font-semibold">{`#${
-                                idx + 2
-                              }`}</span>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={value}
-                                  onChange={(e) => updateTrackingValue(idx + 1, e.target.value)}
-                                  placeholder={t('ClientStock.receptionForm.tracking')}
-                                  className="border rounded-md px-2 py-1 w-full sm:w-48 pr-6"
-                                  autoFocus={trackingSummaryTarget === idx + 1}
-                                />
-                                {idx === trackingInputs.length - 2 && (
-                                  <button
-                                    type="button"
-                                    onClick={addTrackingEntry}
-                                    className="absolute right-1 top-1/2 -translate-y-1/2 text-primary font-semibold"
-                                    title={t('ClientStock.receptionForm.trackingAdd')}
-                                  >
-                                    +
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              className="text-xs text-red-500 hover:underline"
-                              onClick={() => removeTrackingEntry(idx + 1)}
-                            >
-                              {t('ClientStock.drawer.remove')}
-                            </button>
-                          </div>
-                        ))}
+                      <span className="text-[10px] text-gray-500 font-semibold">
+                        {t('ClientStock.receptionForm.tracking')}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={trackingDraft}
+                          onChange={(e) => handleTrackingDraftChange(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleTrackingAdd();
+                            }
+                          }}
+                          placeholder={t('ClientStock.receptionForm.tracking')}
+                          className="border rounded-md px-2 py-1 w-full sm:w-48"
+                        />
                         <button
                           type="button"
-                          className="text-xs text-gray-500 underline"
-                          onClick={() => {
-                            setTrackingExpanded(false);
-                            setTrackingSummaryTarget(null);
-                          }}
+                          onClick={handleTrackingAdd}
+                          className="px-3 py-1 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary-dark"
                         >
-                          {t('ClientStock.receptionForm.trackingHide')}
+                          {t('ClientStock.receptionForm.trackingAdd')}
                         </button>
                       </div>
-                    )}
+                      <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
+                        <span>
+                          {trackingList.length > 0
+                            ? t('ClientStock.receptionForm.trackingCount', {
+                                count: trackingList.length
+                              })
+                            : t('ClientStock.receptionForm.trackingNone')}
+                        </span>
+                        {trackingList.length > 1 && (
+                          <button
+                            type="button"
+                            className="text-primary font-semibold"
+                            onClick={() => setTrackingPanelOpen((prev) => !prev)}
+                          >
+                            {trackingPanelOpen
+                              ? t('ClientStock.receptionForm.trackingHide')
+                              : t('ClientStock.receptionForm.trackingManage')}
+                          </button>
+                        )}
+                      </div>
+                      {trackingPanelOpen && trackingList.length > 0 && (
+                        <div className="mt-1 border rounded-md bg-white shadow-inner max-h-16 overflow-y-auto w-full sm:min-w-[260px]">
+                          {trackingList.map((value, idx) => (
+                            <div
+                              key={`${value}-${idx}`}
+                              className="flex items-center justify-between px-2 py-1 text-xs"
+                            >
+                              <span className="truncate">{value}</span>
+                              <button
+                                type="button"
+                                className="text-red-500 text-[11px] hover:underline"
+                                onClick={() => handleTrackingRemove(idx)}
+                              >
+                                {t('ClientStock.drawer.remove')}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1 w-full sm:max-w-3xl">
                     <span className="font-semibold text-text-secondary">
                       {t('ClientStock.receptionFba.title')}
                     </span>
@@ -2079,81 +2039,81 @@ const saveReqChanges = async () => {
                           <span>{tp('ClientStock.receptionFba.availableLabel')}</span>
                           <span className="text-right">{t('ClientStock.receptionFba.toAmazonLabel')}</span>
                         </div>
-                      <div className="border rounded-md p-2 bg-white max-h-64 overflow-y-auto">
-                        {selectedRows.length === 0 ? (
-                          <p className="text-text-secondary">
-                            {t('ClientStock.receptionFba.noSelection')}
-                          </p>
-                        ) : (
-                          <>
-                            {selectedRows.map((row) => {
-                              const edits = rowEdits[row.id] || {};
-                              const units = Math.max(0, Number(edits.units_to_send || 0));
-                              const image = row.image_url || row.photo_url || '';
-                              const asin = row.asin || '';
-                              const rawFba = edits.fba_units;
-                              const displayFba =
-                                rawFba === undefined || rawFba === null || rawFba === ''
-                                  ? units
-                                  : rawFba;
-                              return (
-                                <div
-                                  key={row.id}
-                                  className="py-2 border-b last:border-b-0"
-                                >
-                                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr] sm:items-center">
-                                    <div className="flex items-start gap-3">
-                                      {image ? (
-                                        <img
-                                          src={image}
-                                          alt={row.name || row.asin || 'Product'}
-                                          className="w-10 h-10 rounded border object-cover"
-                                        />
-                                      ) : (
-                                        <div className="w-10 h-10 rounded border bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
-                                          N/A
-                                        </div>
-                                      )}
-                                      <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-text-primary truncate">
-                                          {row.name || row.asin || row.ean || '—'}
-                                        </p>
-                                        {asin && (
-                                          <p className="text-[11px] text-gray-500 font-mono truncate">
-                                            ASIN: {asin}
-                                          </p>
+                        <div className="border rounded-md p-2 bg-white max-h-64 overflow-y-auto">
+                          {selectedRows.length === 0 ? (
+                            <p className="text-text-secondary">
+                              {t('ClientStock.receptionFba.noSelection')}
+                            </p>
+                          ) : (
+                            <>
+                              {selectedRows.map((row) => {
+                                const edits = rowEdits[row.id] || {};
+                                const units = Math.max(0, Number(edits.units_to_send || 0));
+                                const image = row.image_url || row.photo_url || '';
+                                const asin = row.asin || '';
+                                const rawFba = edits.fba_units;
+                                const displayFba =
+                                  rawFba === undefined || rawFba === null || rawFba === ''
+                                    ? units
+                                    : rawFba;
+                                return (
+                                  <div
+                                    key={row.id}
+                                    className="py-2 border-b last:border-b-0"
+                                  >
+                                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr] sm:items-center">
+                                      <div className="flex items-start gap-3">
+                                        {image ? (
+                                          <img
+                                            src={image}
+                                            alt={row.name || row.asin || 'Product'}
+                                            className="w-10 h-10 rounded border object-cover"
+                                          />
+                                        ) : (
+                                          <div className="w-10 h-10 rounded border bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
+                                            N/A
+                                          </div>
                                         )}
+                                        <div className="flex-1 min-w-0">
+                                          <p className="font-medium text-text-primary truncate">
+                                            {row.name || row.asin || row.ean || '—'}
+                                          </p>
+                                          {asin && (
+                                            <p className="text-[11px] text-gray-500 font-mono truncate">
+                                              ASIN: {asin}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-col text-xs sm:text-sm">
+                                        <span className="sm:hidden text-[10px] uppercase tracking-wide text-gray-500">
+                                          {tp('ClientStock.receptionFba.availableLabel')}
+                                        </span>
+                                        <span className="text-base font-semibold text-text-primary">
+                                          {units}
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-col items-start sm:items-end gap-1 text-xs sm:text-sm">
+                                        <span className="sm:hidden text-[10px] uppercase tracking-wide text-gray-500">
+                                          {t('ClientStock.receptionFba.toAmazonLabel')}
+                                        </span>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          className="w-20 text-right border rounded px-2 py-1"
+                                          value={displayFba}
+                                          onChange={(e) =>
+                                            updateEdit(row.id, { fba_units: e.target.value })
+                                          }
+                                        />
                                       </div>
                                     </div>
-                                    <div className="flex flex-col text-xs sm:text-sm">
-                                      <span className="sm:hidden text-[10px] uppercase tracking-wide text-gray-500">
-                                        {tp('ClientStock.receptionFba.availableLabel')}
-                                      </span>
-                                      <span className="text-base font-semibold text-text-primary">
-                                        {units}
-                                      </span>
-                                    </div>
-                                    <div className="flex flex-col items-start sm:items-end gap-1 text-xs sm:text-sm">
-                                      <span className="sm:hidden text-[10px] uppercase tracking-wide text-gray-500">
-                                        {t('ClientStock.receptionFba.toAmazonLabel')}
-                                      </span>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        className="w-20 text-right border rounded px-2 py-1"
-                                        value={displayFba}
-                                        onChange={(e) =>
-                                          updateEdit(row.id, { fba_units: e.target.value })
-                                        }
-                                      />
-                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </>
-                        )}
-                      </div>
+                                );
+                              })}
+                            </>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
