@@ -233,11 +233,16 @@ function ClientReceiving() {
 
       const trackingValues = sanitizeList(editHeader.tracking_ids);
       const fbaValues = sanitizeList(editHeader.fba_shipment_ids);
+      const primaryTracking =
+        trackingValues.length > 0
+          ? trackingValues[0]
+          : toNull(selectedShipment?.tracking_id) || null;
 
       const payloadHeader = {
         carrier: toNull(editHeader.carrier),
         carrier_other:
           editHeader.carrier === 'OTHER' ? toNull(editHeader.carrier_other) : null,
+        tracking_id: primaryTracking,
         tracking_ids: trackingValues.length ? trackingValues : null,
         fba_shipment_ids: fbaValues.length ? fbaValues : null,
         notes: toNull(editHeader.notes),
@@ -253,6 +258,7 @@ function ClientReceiving() {
         if (delErr) throw delErr;
       }
 
+      let lineCounter = 1;
       const itemsPayload = (editItems || []).map((item) => ({
         shipment_id: shipmentId,
         stock_item_id: item.stock_item_id || null,
@@ -263,7 +269,8 @@ function ClientReceiving() {
         sku: item.sku || null,
         purchase_price: item.purchase_price ?? null,
         send_to_fba: !!item.send_to_fba,
-        fba_qty: item.send_to_fba ? Math.max(0, Number(item.fba_qty) || 0) : 0
+        fba_qty: item.send_to_fba ? Math.max(0, Number(item.fba_qty) || 0) : 0,
+        line_number: Number(item.line_number) || lineCounter++
       }));
 
       if (itemsPayload.length) {

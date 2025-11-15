@@ -38,6 +38,7 @@ const formatSqlDate = (date = new Date()) =>
 
 let supportsReceivingFbaMode = true;
 let supportsReceivingItemFbaColumns = true;
+let supportsReceivingShipmentArrays = true;
 let receivingSupportPromise = null;
 
 const isMissingColumnError = (error, column) => {
@@ -53,6 +54,9 @@ const isMissingColumnError = (error, column) => {
 
 const receivingItemColumnMissing = (error) =>
   ['send_to_fba', 'fba_qty', 'stock_item_id'].some((col) => isMissingColumnError(error, col));
+
+const receivingShipmentArrayColumnMissing = (error) =>
+  ['tracking_ids', 'fba_shipment_ids'].some((col) => isMissingColumnError(error, col));
 
 const isRelationMissingError = (error, relation) => {
   if (!error || !relation) return false;
@@ -156,12 +160,23 @@ async function markShipmentFullyReceived(shipmentId, receivedBy) {
   return await markItemsAsReceived(shipmentId, ids, receivedBy);
 }
 
-const sanitizeShipmentUpdate = (payload) => {
-  if (supportsReceivingFbaMode || !payload || typeof payload !== 'object') return payload;
-  if (!Object.prototype.hasOwnProperty.call(payload, 'fba_mode')) return payload;
+const sanitizeShipmentPayload = (payload) => {
+  if (!payload || typeof payload !== 'object') return payload;
+  let changed = false;
   const clone = { ...payload };
-  delete clone.fba_mode;
-  return clone;
+  if (!supportsReceivingFbaMode && Object.prototype.hasOwnProperty.call(clone, 'fba_mode')) {
+    delete clone.fba_mode;
+    changed = true;
+  }
+  if (!supportsReceivingShipmentArrays) {
+    ['tracking_ids', 'fba_shipment_ids'].forEach((col) => {
+      if (Object.prototype.hasOwnProperty.call(clone, col)) {
+        delete clone[col];
+        changed = true;
+      }
+    });
+  }
+  return changed ? clone : payload;
 };
 
 const sanitizeItemPayload = (payload) => {
@@ -181,18 +196,24 @@ export const ensureReceivingColumnSupport = async () => {
   // the subsequent insert/update will throw and we'll disable again.
   supportsReceivingFbaMode = true;
   supportsReceivingItemFbaColumns = true;
+  supportsReceivingShipmentArrays = true;
   receivingSupportPromise = null;
   return null;
 };
 
 export const canUseReceivingFbaMode = () => supportsReceivingFbaMode;
 export const canUseReceivingItemFbaColumns = () => supportsReceivingItemFbaColumns;
+export const canUseReceivingShipmentArrays = () => supportsReceivingShipmentArrays;
 export const disableReceivingFbaModeSupport = () => {
   supportsReceivingFbaMode = false;
   receivingSupportPromise = null;
 };
 export const disableReceivingItemFbaSupport = () => {
   supportsReceivingItemFbaColumns = false;
+  receivingSupportPromise = null;
+};
+export const disableReceivingShipmentArraySupport = () => {
+  supportsReceivingShipmentArrays = false;
   receivingSupportPromise = null;
 };
 
@@ -1404,17 +1425,22 @@ createReceivingShipment: async (shipmentData) => {
       if (error) throw error;
     };
 
-    let patch = { ...updates };
-    if (!supportsReceivingFbaMode) patch = sanitizeShipmentUpdate(patch);
+    const basePatch = { ...updates };
 
-    try {
-      await executeUpdate(patch);
-    } catch (error) {
-      if (supportsReceivingFbaMode && isMissingColumnError(error, 'fba_mode')) {
-        disableReceivingFbaModeSupport();
-        patch = sanitizeShipmentUpdate(patch);
+    while (true) {
+      const patch = sanitizeShipmentPayload(basePatch);
+      try {
         await executeUpdate(patch);
-      } else {
+        break;
+      } catch (error) {
+        if (supportsReceivingFbaMode && isMissingColumnError(error, 'fba_mode')) {
+          disableReceivingFbaModeSupport();
+          continue;
+        }
+        if (receivingShipmentArrayColumnMissing(error)) {
+          disableReceivingShipmentArraySupport();
+          continue;
+        }
         throw error;
       }
     }

@@ -3,8 +3,10 @@ import {
   ensureReceivingColumnSupport,
   canUseReceivingFbaMode,
   canUseReceivingItemFbaColumns,
+  canUseReceivingShipmentArrays,
   disableReceivingFbaModeSupport,
-  disableReceivingItemFbaSupport
+  disableReceivingItemFbaSupport,
+  disableReceivingShipmentArraySupport
 } from "./supabase";
 import { encodeRemainingAction } from "../utils/receivingFba";
 
@@ -19,6 +21,9 @@ const isMissingColumnError = (error, column) => {
 
 const receivingItemColumnMissing = (error) =>
   ['send_to_fba', 'fba_qty', 'stock_item_id'].some((col) => isMissingColumnError(error, col));
+
+const receivingShipmentArrayColumnMissing = (error) =>
+  ['tracking_ids', 'fba_shipment_ids'].some((col) => isMissingColumnError(error, col));
 
 export const supabaseHelpers = {
   /* =========================
@@ -104,6 +109,7 @@ createReceptionRequest: async (data) => {
   await ensureReceivingColumnSupport();
   let useShipmentFba = canUseReceivingFbaMode();
   let useItemsFba = canUseReceivingItemFbaColumns();
+  let useShipmentArrays = canUseReceivingShipmentArrays();
 
   const trackingIds =
     Array.isArray(data.tracking_ids) && data.tracking_ids.length > 0
@@ -113,6 +119,7 @@ createReceptionRequest: async (data) => {
     Array.isArray(data.fba_shipment_ids) && data.fba_shipment_ids.length > 0
       ? data.fba_shipment_ids
       : null;
+  const primaryTrackingId = data.tracking_id || (trackingIds?.[0] || null);
 
   let storeName = data.store_name || null;
   if (!storeName && data.user_id) {
@@ -124,20 +131,20 @@ createReceptionRequest: async (data) => {
     storeName = profileData?.store_name || null;
   }
 
-  const buildHeaderPayload = (withFbaMode) => {
+  const buildHeaderPayload = (withFbaMode, withArrays) => {
     const payload = {
-    user_id: data.user_id,
-    company_id: data.company_id,
-    status: data.status || "submitted",
-    created_at: new Date().toISOString(),
-    carrier: data.carrier || null,
-    carrier_other: data.carrier_other || null,
-    tracking_id: data.tracking_id || null,
-    tracking_ids: trackingIds,
-    fba_shipment_ids: fbaShipmentIds,
-    notes: data.notes || null,
-    client_store_name: storeName
-  };
+      user_id: data.user_id,
+      company_id: data.company_id,
+      status: data.status || "submitted",
+      created_at: new Date().toISOString(),
+      carrier: data.carrier || null,
+      carrier_other: data.carrier_other || null,
+      tracking_id: primaryTrackingId,
+      tracking_ids: withArrays ? trackingIds : null,
+      fba_shipment_ids: withArrays ? fbaShipmentIds : null,
+      notes: data.notes || null,
+      client_store_name: storeName
+    };
     if (withFbaMode) {
       payload.fba_mode = data.fba_mode || 'none';
     }
@@ -154,18 +161,23 @@ createReceptionRequest: async (data) => {
     return data;
   };
 
-  let headerPayload = buildHeaderPayload(useShipmentFba);
-
   let header;
-  try {
-    header = await insertHeader(headerPayload);
-  } catch (error) {
-    if (useShipmentFba && isMissingColumnError(error, 'fba_mode')) {
-      disableReceivingFbaModeSupport();
-      useShipmentFba = false;
-      headerPayload = buildHeaderPayload(false);
+  while (true) {
+    const headerPayload = buildHeaderPayload(useShipmentFba, useShipmentArrays);
+    try {
       header = await insertHeader(headerPayload);
-    } else {
+      break;
+    } catch (error) {
+      if (useShipmentFba && isMissingColumnError(error, 'fba_mode')) {
+        disableReceivingFbaModeSupport();
+        useShipmentFba = false;
+        continue;
+      }
+      if (useShipmentArrays && receivingShipmentArrayColumnMissing(error)) {
+        disableReceivingShipmentArraySupport();
+        useShipmentArrays = false;
+        continue;
+      }
       throw error;
     }
   }
