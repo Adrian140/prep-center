@@ -839,15 +839,13 @@ const processToStock = async () => {
                 const storedFbaQty = Math.max(0, Number(item.fba_qty) || 0);
                 const confirmedQty = getConfirmedQty(item);
                 const expectedQty = getExpectedQty(item);
-                const hasDirectIntent =
-                  (item.send_to_fba && storedFbaQty > 0) ||
-                  item.remaining_action === 'direct_to_amazon';
-                const displayFbaQty =
-                  storedFbaQty > 0
-                    ? Math.min(storedFbaQty, confirmedQty)
-                    : item.remaining_action === 'direct_to_amazon'
-                    ? confirmedQty
-                    : 0;
+                const directFallback = item.remaining_action === 'direct_to_amazon';
+                const displayFbaQty = storedFbaQty > 0
+                  ? Math.min(storedFbaQty, (confirmedQty || expectedQty || storedFbaQty))
+                  : directFallback
+                  ? expectedQty
+                  : 0;
+                const hasDirectIntent = displayFbaQty > 0;
                 const isReceived = Boolean(item.is_received);
                 const partialReceived = !isReceived && confirmedQty > 0;
                 const isSelectable = selectionAllowed && item.id && !isReceived;
@@ -1283,13 +1281,14 @@ const filteredShipments = shipments.filter(shipment => {
                       ) || 0
                     );
                     acc.announced += announced;
-                    if (item.send_to_fba || item.remaining_action === 'direct_to_amazon') {
-                      let amazonQty = Math.max(0, Number(item.fba_qty) || 0);
-                      if (amazonQty === 0) {
-                        amazonQty = announced;
-                      }
-                      acc.amazon += Math.min(amazonQty, announced);
-                    }
+
+                    const rawFba = Math.max(0, Number(item.fba_qty) || 0);
+                    const toAmazon = rawFba > 0
+                      ? Math.min(rawFba, announced || rawFba)
+                      : item.remaining_action === 'direct_to_amazon'
+                      ? announced
+                      : 0;
+                    acc.amazon += toAmazon;
                     return acc;
                   },
                   { announced: 0, amazon: 0 }
