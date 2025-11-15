@@ -887,15 +887,14 @@ const renderPricingTab = () => (
     </div>
   );
 
-const renderSettingsTab = () => (
-  <div className="space-y-6">
-    <h2 className="text-2xl font-bold text-text-primary">Setări Generale</h2>
+const renderSettingsTab = () => {
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-text-primary">Setări Generale</h2>
 
-      {/* Mentenanță Site */}
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-text-primary mb-4">Mentenanță Site</h3>
         <div className="space-y-4">
-          {/* Buton vizual roșu / verde */}
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-text-primary">
               Stare mentenanță:
@@ -913,13 +912,10 @@ const renderSettingsTab = () => (
                   : 'bg-green-600 hover:bg-green-700'
               }`}
             >
-              {maintenance.enabled
-                ? 'Mentenanță activă'
-                : 'Mentenanță dezactivată'}
+              {maintenance.enabled ? 'Mentenanță activă' : 'Mentenanță dezactivată'}
             </button>
           </div>
 
-          {/* Mesaj afișat */}
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">
               Mesaj afișat către clienți
@@ -927,14 +923,11 @@ const renderSettingsTab = () => (
             <textarea
               rows={3}
               value={maintenance.message}
-              onChange={(e) =>
-                setMaintenance((m) => ({ ...m, message: e.target.value }))
-              }
+              onChange={(e) => setMaintenance((m) => ({ ...m, message: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>
 
-          {/* Buton Salvare Manuală */}
           <button
             onClick={() => saveMaintenance(maintenance)}
             className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors"
@@ -943,6 +936,7 @@ const renderSettingsTab = () => (
           </button>
         </div>
       </div>
+
       <button
         onClick={handleContentSave}
         className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors"
@@ -950,8 +944,8 @@ const renderSettingsTab = () => (
         Salvează Setările
       </button>
     </div>
-  </div>
-);
+  );
+};
 
 const renderTabContent = () => {
   switch (activeTab) {
