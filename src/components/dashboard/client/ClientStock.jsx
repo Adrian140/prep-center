@@ -1180,8 +1180,15 @@ const updateEdit = (id, patch) => {
         if (receptionForm.fbaMode === 'full') {
           next.fba_units = units;
         } else if (receptionForm.fbaMode === 'partial') {
-          const currentFba = Number(next.fba_units || 0);
-          if (currentFba > units) next.fba_units = units;
+          const prevUnits = Math.max(0, Number(current.units_to_send || 0));
+          const hasFba = Object.prototype.hasOwnProperty.call(current, 'fba_units');
+          const currentFba = Math.max(0, Number(current.fba_units || 0));
+          const shouldSync = !hasFba || currentFba === prevUnits;
+          if (shouldSync) {
+            next.fba_units = units;
+          } else if (currentFba > units) {
+            next.fba_units = units;
+          }
         } else {
           next.fba_units = 0;
         }
@@ -1221,6 +1228,23 @@ const handleReceptionFbaModeChange = (mode) => {
         next[row.id] = {
           ...current,
           fba_units: mode === 'full' ? units : 0,
+        };
+      });
+      return next;
+    });
+  } else if (mode === 'partial') {
+    setRowEdits((prev) => {
+      const next = { ...prev };
+      selectedRows.forEach((row) => {
+        const current = next[row.id] || {};
+        const units = Math.max(0, Number(current.units_to_send || 0));
+        next[row.id] = {
+          ...current,
+          fba_units:
+            Object.prototype.hasOwnProperty.call(current, 'fba_units') &&
+            Number(current.fba_units || 0) !== 0
+              ? Math.min(Number(current.fba_units || 0), units)
+              : units,
         };
       });
       return next;
@@ -1884,31 +1908,34 @@ const saveReqChanges = async () => {
               </select>
               {submitType === 'reception' && (
                 <div className="flex flex-col gap-2 text-xs sm:text-sm w-full">
-                  <div className="flex flex-col w-full gap-3 sm:flex-wrap sm:flex-row sm:items-center">
-                    <select
-                      value={receptionForm.carrier}
-                      onChange={(e) => handleReceptionFormChange('carrier', e.target.value)}
-                      className="border rounded-md px-2 py-1 w-full sm:w-auto"
-                    >
-                      {CARRIERS.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
-                    {receptionForm.carrier === 'OTHER' && (
-                      <input
-                        type="text"
-                        value={receptionForm.carrierOther}
-                        onChange={(e) => handleReceptionFormChange('carrierOther', e.target.value)}
-                        placeholder={t('ClientStock.receptionForm.carrierOther')}
-                        className="border rounded-md px-2 py-1 w-full sm:w-40"
-                      />
-                    )}
-                    <div className="flex flex-col gap-1 w-full">
-                      <span className="sr-only">
-                        {t('ClientStock.receptionForm.tracking')}
-                      </span>
+                <div className="flex flex-col w-full gap-3 sm:flex-wrap">
+                  <div className="flex flex-col sm:flex-row sm:items-end gap-2 w-full">
+                    <div className="flex flex-col w-full sm:flex-1">
+                      <select
+                        value={receptionForm.carrier}
+                        onChange={(e) => handleReceptionFormChange('carrier', e.target.value)}
+                        className="border rounded-md px-2 py-1 w-full"
+                      >
+                        {CARRIERS.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                      {receptionForm.carrier === 'OTHER' && (
+                        <input
+                          type="text"
+                          value={receptionForm.carrierOther}
+                          onChange={(e) =>
+                            handleReceptionFormChange('carrierOther', e.target.value)
+                          }
+                          placeholder={t('ClientStock.receptionForm.carrierOther')}
+                          className="border rounded-md px-2 py-1 mt-2 w-full"
+                        />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1 w-full sm:flex-1">
+                      <span className="sr-only">{t('ClientStock.receptionForm.tracking')}</span>
                       <div className="flex flex-wrap items-end gap-2">
                         <div className="flex flex-col">
                           <span className="text-[10px] text-gray-500 font-semibold">#1</span>
@@ -1917,7 +1944,7 @@ const saveReqChanges = async () => {
                             value={trackingInputs[0] || ''}
                             onChange={(e) => updateTrackingValue(0, e.target.value)}
                             placeholder={t('ClientStock.receptionForm.tracking')}
-                            className="border rounded-md px-2 py-1 w-full sm:w-44"
+                            className="border rounded-md px-2 py-1 w-full sm:w-48"
                           />
                         </div>
                         {trackingInputs.length > 1 && !trackingExpanded && (
@@ -1956,7 +1983,7 @@ const saveReqChanges = async () => {
                                   value={value}
                                   onChange={(e) => updateTrackingValue(idx + 1, e.target.value)}
                                   placeholder={t('ClientStock.receptionForm.tracking')}
-                                  className="border rounded-md px-2 py-1 w-full sm:w-44"
+                                  className="border rounded-md px-2 py-1 w-full sm:w-48"
                                 />
                               </div>
                               <button
@@ -1978,14 +2005,8 @@ const saveReqChanges = async () => {
                         </div>
                       )}
                     </div>
-                    <input
-                      type="text"
-                      value={receptionForm.notes}
-                      onChange={(e) => handleReceptionFormChange('notes', e.target.value)}
-                      placeholder={t('ClientStock.receptionForm.notes')}
-                      className="border rounded-md px-2 py-1 w-full sm:w-56"
-                    />
                   </div>
+                </div>
                   <div className="flex flex-col gap-1">
                     <span className="font-semibold text-text-secondary">
                       {t('ClientStock.receptionFba.title')}
@@ -2031,35 +2052,66 @@ const saveReqChanges = async () => {
                         )}
                         {selectedRows.map((row) => {
                           const edits = rowEdits[row.id] || {};
-                          const units = Number(edits.units_to_send || 0);
-                          const announcedLabel = t('ClientStock.receptionFba.available', {
-                            qty: units,
-                          });
+                          const units = Math.max(0, Number(edits.units_to_send || 0));
+                          const image = row.image_url || row.photo_url || '';
+                          const asin = row.asin || '';
                           const amazonLabel = t('ClientStock.receptionFba.toAmazonLabel');
+                          const rawFba = edits.fba_units;
+                          const displayFba =
+                            rawFba === undefined || rawFba === null || rawFba === ''
+                              ? units
+                              : rawFba;
                           return (
                             <div
                               key={row.id}
-                              className="flex flex-col gap-2 py-1 text-xs sm:text-sm border-b last:border-b-0 sm:flex-row sm:items-center"
+                              className="py-2 text-xs sm:text-sm border-b last:border-b-0"
                             >
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-text-primary truncate">
-                                  {row.name || row.asin || row.ean || '—'}
-                                </p>
-                                <p className="text-text-secondary">{announcedLabel}</p>
+                              <div className="flex items-start gap-3">
+                                {image ? (
+                                  <img
+                                    src={image}
+                                    alt={row.name || row.asin || 'Product'}
+                                    className="w-10 h-10 rounded border object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded border bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
+                                    N/A
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-text-primary truncate">
+                                    {row.name || row.asin || row.ean || '—'}
+                                  </p>
+                                  {asin && (
+                                    <p className="text-[11px] text-gray-500 font-mono truncate">
+                                      ASIN: {asin}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                              <div className="flex flex-col items-start sm:items-end gap-1">
-                                <span className="text-[10px] uppercase tracking-wide text-gray-500">
-                                  {amazonLabel}
-                                </span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  className="w-20 text-right border rounded px-2 py-1"
-                                  value={edits.fba_units ?? ''}
-                                  onChange={(e) =>
-                                    updateEdit(row.id, { fba_units: e.target.value })
-                                  }
-                                />
+                              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] uppercase tracking-wide text-gray-500">
+                                    {tp('ClientStock.receptionFba.availableLabel')}
+                                  </span>
+                                  <span className="text-base font-semibold text-text-primary">
+                                    {units}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col items-start sm:items-end gap-1">
+                                  <span className="text-[10px] uppercase tracking-wide text-gray-500">
+                                    {amazonLabel}
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="w-20 text-right border rounded px-2 py-1"
+                                    value={displayFba}
+                                    onChange={(e) =>
+                                      updateEdit(row.id, { fba_units: e.target.value })
+                                    }
+                                  />
+                                </div>
                               </div>
                             </div>
                           );

@@ -429,6 +429,7 @@
         "partial": "Partial shipment",
         "noSelection": "Select products to configure the partial shipment.",
         "available": "Units announced: {qty}",
+        "availableLabel": "Units announced",
         "toAmazonLabel": "Units to send to Amazon"
       },
       "createProduct": {
@@ -1073,6 +1074,7 @@
         "partial": "Trimitere parțială",
         "noSelection": "Selectează produse pentru a configura cantitățile parțiale.",
         "available": "Unități anunțate: {qty}",
+        "availableLabel": "Unități anunțate",
         "toAmazonLabel": "Unități către Amazon"
       },
       "createProduct": {
@@ -1717,6 +1719,7 @@
         "partial": "Envoi partiel",
         "noSelection": "Sélectionnez des produits pour configurer l’envoi partiel.",
         "available": "Unités annoncées : {qty}",
+        "availableLabel": "Unités annoncées",
         "toAmazonLabel": "Unités vers Amazon"
       },
       "createProduct": {
@@ -2361,6 +2364,7 @@
         "partial": "Teilweise Sendung",
         "noSelection": "Wähle Produkte aus, um die Teilsendung zu konfigurieren.",
         "available": "Gemeldete Einheiten: {qty}",
+        "availableLabel": "Gemeldete Einheiten",
         "toAmazonLabel": "Einheiten für Amazon"
       },
       "createProduct": {
@@ -3005,6 +3009,7 @@
         "partial": "Spedizione parziale",
         "noSelection": "Seleziona prodotti per configurare la spedizione parziale.",
         "available": "Unità annunciate: {qty}",
+        "availableLabel": "Unità annunciate",
         "toAmazonLabel": "Unità da inviare ad Amazon"
       },
       "createProduct": {
@@ -3649,6 +3654,7 @@
         "partial": "Envío parcial",
         "noSelection": "Selecciona productos para configurar el envío parcial.",
         "available": "Unidades anunciadas: {qty}",
+        "availableLabel": "Unidades anunciadas",
         "toAmazonLabel": "Unidades para Amazon"
       },
       "createProduct": {
