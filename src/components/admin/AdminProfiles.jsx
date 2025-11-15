@@ -569,8 +569,8 @@ const saveStoreName = async () => {
           {!loading && slice.length > 0 && (
             <tfoot>
               <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
-                <td className="px-4 py-3" colSpan={showEmail ? 5 : 4} />
                 <td className="px-4 py-3">{t("clients.csv.footer")}</td>
+                <td className="px-4 py-3" colSpan={showEmail ? 4 : 3} />
                 <td className="px-4 py-3">{fmt2(tableTotals.totCurrent)}</td>
                 <td className="px-4 py-3">{fmt2(tableTotals.totCarry)}</td>
                 <td className="px-4 py-3">{fmt2(tableTotals.totDiff)}</td>
