@@ -266,6 +266,7 @@
       },
       "receptionForm": {
         "carrierOther": "Carrier name",
+        "carrierPlaceholder": "Select carrier",
         "tracking": "Tracking ID",
         "trackingAdd": "Add tracking ID",
         "trackingHide": "Hide extra tracking IDs",
@@ -911,6 +912,7 @@
       },
       "receptionForm": {
         "carrierOther": "Numele curierului",
+        "carrierPlaceholder": "Selectează curierul",
         "tracking": "Tracking ID",
         "trackingAdd": "Adaugă tracking ID",
         "trackingHide": "Ascunde ID-urile suplimentare",
@@ -1556,6 +1558,7 @@
       },
       "receptionForm": {
         "carrierOther": "Nom du transporteur",
+        "carrierPlaceholder": "Sélectionner le transporteur",
         "tracking": "Numéro de suivi",
         "trackingAdd": "Ajouter un numéro de suivi",
         "trackingHide": "Masquer les numéros supplémentaires",
@@ -2201,6 +2204,7 @@
       },
       "receptionForm": {
         "carrierOther": "Name des Transporteurs",
+        "carrierPlaceholder": "Versanddienst wählen",
         "tracking": "Tracking-ID",
         "trackingAdd": "Weitere Tracking-ID hinzufügen",
         "trackingHide": "Zusätzliche IDs ausblenden",
@@ -2846,6 +2850,7 @@
       },
       "receptionForm": {
         "carrierOther": "Nome del corriere",
+        "carrierPlaceholder": "Seleziona il corriere",
         "tracking": "Tracking ID",
         "trackingAdd": "Aggiungi tracking ID",
         "trackingHide": "Nascondi le ID aggiuntive",
@@ -3491,6 +3496,7 @@
       },
       "receptionForm": {
         "carrierOther": "Nombre del transportista",
+        "carrierPlaceholder": "Selecciona el transportista",
         "tracking": "ID de seguimiento",
         "trackingAdd": "Agregar tracking ID",
         "trackingHide": "Ocultar IDs adicionales",

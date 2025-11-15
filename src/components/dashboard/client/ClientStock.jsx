@@ -1914,8 +1914,9 @@ const saveReqChanges = async () => {
                       <select
                         value={receptionForm.carrier}
                         onChange={(e) => handleReceptionFormChange('carrier', e.target.value)}
-                        className="border rounded-md px-2 py-1 w-full"
+                        className={`border rounded-md px-2 py-1 w-full ${receptionForm.carrier ? 'text-text-primary' : 'text-gray-400'}`}
                       >
+                        <option value="">{t('ClientStock.receptionForm.carrierPlaceholder')}</option>
                         {CARRIERS.map((c) => (
                           <option key={c.code} value={c.code}>
                             {c.label}
@@ -1939,13 +1940,25 @@ const saveReqChanges = async () => {
                       <div className="flex flex-wrap items-end gap-2">
                         <div className="flex flex-col">
                           <span className="text-[10px] text-gray-500 font-semibold">#1</span>
-                          <input
-                            type="text"
-                            value={trackingInputs[0] || ''}
-                            onChange={(e) => updateTrackingValue(0, e.target.value)}
-                            placeholder={t('ClientStock.receptionForm.tracking')}
-                            className="border rounded-md px-2 py-1 w-full sm:w-48"
-                          />
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={trackingInputs[0] || ''}
+                              onChange={(e) => updateTrackingValue(0, e.target.value)}
+                              placeholder={t('ClientStock.receptionForm.tracking')}
+                              className="border rounded-md px-2 py-1 w-full sm:w-48 pr-6"
+                            />
+                            {trackingInputs.length === 1 && (
+                              <button
+                                type="button"
+                                onClick={addTrackingEntry}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 text-primary font-semibold"
+                                title={t('ClientStock.receptionForm.trackingAdd')}
+                              >
+                                +
+                              </button>
+                            )}
+                          </div>
                         </div>
                         {trackingInputs.length > 1 && !trackingExpanded && (
                           <div className="flex items-center gap-1">
@@ -1962,13 +1975,6 @@ const saveReqChanges = async () => {
                             ))}
                           </div>
                         )}
-                        <button
-                          type="button"
-                          onClick={addTrackingEntry}
-                          className="text-xs text-primary font-semibold hover:underline"
-                        >
-                          {t('ClientStock.receptionForm.trackingAdd')}
-                        </button>
                       </div>
                       {trackingExpanded && trackingInputs.length > 1 && (
                         <div className="mt-2 space-y-1">
