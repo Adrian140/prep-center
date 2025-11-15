@@ -1972,39 +1972,51 @@ const saveReqChanges = async () => {
                       </div>
                       {trackingExpanded && trackingInputs.length > 1 && (
                         <div className="mt-2 space-y-1">
-                          {trackingInputs.slice(1).map((value, idx) => (
-                            <div key={`tracking-extra-${idx}`} className="flex items-end gap-2">
-                              <div className="flex flex-col">
-                                <span className="text-[10px] text-gray-500 font-semibold">{`#${
-                                  idx + 2
-                                }`}</span>
+                        {trackingInputs.slice(1).map((value, idx) => (
+                          <div key={`tracking-extra-${idx}`} className="flex items-end gap-2">
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-gray-500 font-semibold">{`#${
+                                idx + 2
+                              }`}</span>
+                              <div className="relative">
                                 <input
                                   type="text"
                                   value={value}
                                   onChange={(e) => updateTrackingValue(idx + 1, e.target.value)}
                                   placeholder={t('ClientStock.receptionForm.tracking')}
-                                  className="border rounded-md px-2 py-1 w-full sm:w-48"
+                                  className="border rounded-md px-2 py-1 w-full sm:w-48 pr-6"
                                 />
+                                {idx === trackingInputs.length - 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={addTrackingEntry}
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 text-primary font-semibold"
+                                    title={t('ClientStock.receptionForm.trackingAdd')}
+                                  >
+                                    +
+                                  </button>
+                                )}
                               </div>
-                              <button
-                                type="button"
-                                className="text-xs text-red-500 hover:underline"
-                                onClick={() => removeTrackingEntry(idx + 1)}
-                              >
-                                {t('ClientStock.drawer.remove')}
-                              </button>
                             </div>
-                          ))}
-                          <button
-                            type="button"
-                            className="text-xs text-gray-500 underline"
-                            onClick={() => setTrackingExpanded(false)}
-                          >
-                            {t('ClientStock.receptionForm.trackingHide')}
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                            <button
+                              type="button"
+                              className="text-xs text-red-500 hover:underline"
+                              onClick={() => removeTrackingEntry(idx + 1)}
+                            >
+                              {t('ClientStock.drawer.remove')}
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          className="text-xs text-gray-500 underline"
+                          onClick={() => setTrackingExpanded(false)}
+                        >
+                          {t('ClientStock.receptionForm.trackingHide')}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   </div>
                 </div>
                   <div className="flex flex-col gap-1">
@@ -2045,9 +2057,10 @@ const saveReqChanges = async () => {
                     </div>
                     {receptionForm.fbaMode === 'partial' && (
                       <div className="mt-2">
-                        <div className="flex justify-between text-[11px] uppercase tracking-wide text-gray-500 px-1 mb-1">
+                        <div className="hidden sm:grid sm:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr] text-[11px] uppercase tracking-wide text-gray-500 px-2 mb-1">
+                          <span />
                           <span>{tp('ClientStock.receptionFba.availableLabel')}</span>
-                          <span>{t('ClientStock.receptionFba.toAmazonLabel')}</span>
+                          <span className="text-right">{t('ClientStock.receptionFba.toAmazonLabel')}</span>
                         </div>
                       <div className="border rounded-md p-2 bg-white max-h-64 overflow-y-auto">
                         {selectedRows.length === 0 ? (
@@ -2056,11 +2069,6 @@ const saveReqChanges = async () => {
                           </p>
                         ) : (
                           <>
-                            <div className="hidden sm:grid sm:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr] text-[11px] uppercase tracking-wide text-gray-500 px-2 pb-1">
-                              <span />
-                              <span>{tp('ClientStock.receptionFba.availableLabel')}</span>
-                              <span className="text-right">{t('ClientStock.receptionFba.toAmazonLabel')}</span>
-                            </div>
                             {selectedRows.map((row) => {
                               const edits = rowEdits[row.id] || {};
                               const units = Math.max(0, Number(edits.units_to_send || 0));
