@@ -49,7 +49,10 @@ const probeShipmentFbaMode = async () => {
   if (error) {
     if (isMissingColumnError(error, 'fba_mode')) {
       supportsReceivingFbaMode = false;
+      return;
     }
+    // If we cannot probe (e.g. RLS), assume supported so we don't get stuck in fallback
+    supportsReceivingFbaMode = true;
     return;
   }
   supportsReceivingFbaMode = true;
@@ -64,7 +67,9 @@ const probeItemFbaColumns = async () => {
   if (error) {
     if (receivingItemColumnMissing(error)) {
       supportsReceivingItemFbaColumns = false;
+      return;
     }
+    supportsReceivingItemFbaColumns = true;
     return;
   }
   supportsReceivingItemFbaColumns = true;
@@ -207,19 +212,17 @@ const sanitizeItemPayload = (payload) => {
 };
 
 export const ensureReceivingColumnSupport = async () => {
-  const needsProbe = !receivingSupportPromise || !supportsReceivingFbaMode || !supportsReceivingItemFbaColumns;
-  if (needsProbe) {
-    receivingSupportPromise = (async () => {
-      await Promise.all([probeShipmentFbaMode(), probeItemFbaColumns()]);
-    })()
-      .catch((error) => {
-        receivingSupportPromise = null;
-        throw error;
-      })
-      .finally(() => {
-        receivingSupportPromise = null;
-      });
-  }
+  if (receivingSupportPromise) return receivingSupportPromise;
+  const needsProbe = !supportsReceivingFbaMode || !supportsReceivingItemFbaColumns;
+  if (!needsProbe) return null;
+  receivingSupportPromise = Promise.all([probeShipmentFbaMode(), probeItemFbaColumns()])
+    .catch((error) => {
+      receivingSupportPromise = null;
+      throw error;
+    })
+    .finally(() => {
+      receivingSupportPromise = null;
+    });
   return receivingSupportPromise;
 };
 
