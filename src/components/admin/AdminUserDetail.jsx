@@ -33,9 +33,9 @@ export default function AdminUserDetail({ profile, onBack }) {
 
   // Creează companie dacă lipsește și atașează profilul la ea
 const ensureCompany = async () => {
-  // fiecare utilizator este propria companie
-  setCompanyId(profile.id);
-  return profile.id;
+  const cid = profile?.company_id || profile?.id || null;
+  setCompanyId(cid);
+  return cid;
 };
 
   const loadAll = async () => {
