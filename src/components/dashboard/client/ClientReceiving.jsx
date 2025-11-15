@@ -858,12 +858,12 @@ function ClientReceiving() {
                           item.product_name
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        {lineEditable ? (
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity_received || 1}
+                    <td className="px-4 py-3 text-right">
+                      {lineEditable ? (
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.quantity_received || 1}
                             onChange={(e) =>
                               setEditItems((arr) => {
                                 const copy = [...arr];
@@ -882,9 +882,9 @@ function ClientReceiving() {
                             className="w-24 text-right px-2 py-1 border rounded"
                           />
                         ) : (
-                          totalQty
+                          expectedQty
                         )}
-                      </td>
+                    </td>
                       <td className="px-4 py-3 text-right">
                         <div className="text-text-primary font-semibold">
                           {confirmedQty}
