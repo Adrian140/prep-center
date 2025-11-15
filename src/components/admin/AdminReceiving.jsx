@@ -840,12 +840,16 @@ const processToStock = async () => {
                 const confirmedQty = getConfirmedQty(item);
                 const expectedQty = getExpectedQty(item);
                 const directFallback = item.remaining_action === 'direct_to_amazon';
-                const displayFbaQty = storedFbaQty > 0
-                  ? Math.min(storedFbaQty, (confirmedQty || expectedQty || storedFbaQty))
+                const plannedFbaQty = storedFbaQty > 0
+                  ? storedFbaQty
                   : directFallback
                   ? expectedQty
                   : 0;
-                const hasDirectIntent = displayFbaQty > 0;
+                const sentToAmazon = confirmedQty > 0
+                  ? Math.min(plannedFbaQty || confirmedQty, confirmedQty)
+                  : 0;
+                const pendingFba = Math.max(0, plannedFbaQty - sentToAmazon);
+                const hasDirectIntent = plannedFbaQty > 0;
                 const isReceived = Boolean(item.is_received);
                 const partialReceived = !isReceived && confirmedQty > 0;
                 const isSelectable = selectionAllowed && item.id && !isReceived;
@@ -926,28 +930,32 @@ const processToStock = async () => {
                           {`${confirmedQty} / ${expectedQty} received`}
                         </p>
                       </div>
-                      {(() => {
-                        const prepQty = Math.max(0, confirmedQty - displayFbaQty);
-                        return (
-                          <div className="text-xs space-y-0.5 mt-2 text-left">
-                            <div className={hasDirectIntent ? 'text-blue-700' : 'text-text-secondary'}>
-                              {hasDirectIntent ? `${displayFbaQty} → Amazon` : 'Stored in prep center'}
+                      <div className="text-xs space-y-0.5 mt-2 text-left">
+                        {hasDirectIntent ? (
+                          <>
+                            <div className="text-blue-700 font-semibold">
+                              {`Client request: ${plannedFbaQty} → Amazon`}
                             </div>
-                            {hasDirectIntent && (
-                              <div className="text-text-secondary">
-                                {prepQty} kept in prep center
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
+                            <div className="text-text-secondary">
+                              {sentToAmazon > 0
+                                ? pendingFba > 0
+                                  ? `${sentToAmazon} sent, ${pendingFba} pending`
+                                  : `${sentToAmazon} sent to Amazon`
+                                : 'Pending reception'}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-text-secondary">Stored in prep center</div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 font-mono">{skuValue}</td>
                     <td className="px-4 py-3 text-center">
                       {hasDirectIntent ? (
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
-                          {displayFbaQty || '→'}
-                        </span>
+                        <div className="inline-flex flex-col px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs font-semibold">
+                          <span>{plannedFbaQty}</span>
+                          <span className="text-[10px] text-blue-500">planned</span>
+                        </div>
                       ) : (
                         <span className="text-text-secondary">—</span>
                       )}
@@ -1237,8 +1245,6 @@ const filteredShipments = shipments.filter(shipment => {
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-left">Products</th>
               <th className="px-4 py-3 text-center">Lines</th>
-              <th className="px-4 py-3 text-center">Units</th>
-              <th className="px-4 py-3 text-center">To Amazon</th>
               <th className="px-4 py-3 text-left">Date</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -1281,17 +1287,9 @@ const filteredShipments = shipments.filter(shipment => {
                       ) || 0
                     );
                     acc.announced += announced;
-
-                    const rawFba = Math.max(0, Number(item.fba_qty) || 0);
-                    const toAmazon = rawFba > 0
-                      ? Math.min(rawFba, announced || rawFba)
-                      : item.remaining_action === 'direct_to_amazon'
-                      ? announced
-                      : 0;
-                    acc.amazon += toAmazon;
                     return acc;
                   },
-                  { announced: 0, amazon: 0 }
+                  { announced: 0 }
                 );
                 const rowClass = hasFbaIntent
                   ? 'border-t bg-sky-50 hover:bg-sky-100/60'
@@ -1384,20 +1382,7 @@ const filteredShipments = shipments.filter(shipment => {
                     <span className="text-text-primary font-semibold">
                       {shipment.receiving_items?.length || 0}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <p className="font-semibold text-text-primary">{totals.announced || '—'}</p>
-                    <p className="text-[11px] uppercase tracking-wide text-text-secondary">Announced</p>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <p
-                      className={`font-semibold ${
-                        totals.amazon > 0 ? 'text-emerald-600' : 'text-text-primary'
-                      }`}
-                    >
-                      {totals.amazon > 0 ? totals.amazon : '—'}
-                    </p>
-                    <p className="text-[11px] uppercase tracking-wide text-text-secondary">To Amazon</p>
+                    <p className="text-[11px] uppercase tracking-wide text-text-secondary">Lines</p>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center text-text-secondary">
