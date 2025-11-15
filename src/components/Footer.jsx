@@ -4,6 +4,13 @@ import { supabaseHelpers } from '../config/supabase';
 
 function Footer() {
   const [content, setContent] = useState({});
+  const withFallback = (value, fallback) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length ? trimmed : fallback;
+    }
+    return fallback;
+  };
 
   useEffect(() => {
     const fetchContent = async () => {
@@ -12,6 +19,21 @@ function Footer() {
     };
     fetchContent();
   }, []);
+
+  const companyInfoName = withFallback(content.company_info_name, 'Global Fulfill Hub');
+  const companyInfoSiret = withFallback(content.company_info_siret, '941 373 110 00019');
+  const companyInfoVat = withFallback(content.company_info_vat, 'FR 38 941 373 110');
+  const warehouseName = withFallback(content.warehouse_name, 'EcomPrep Hub');
+  const warehouseAddress = withFallback(
+    content.warehouse_address,
+    '5 Rue des Enclos, Zone B, Cellule 7, 35350 La Gouesnière, France'
+  );
+  const warehousePhone = withFallback(content.warehouse_phone, '+33 6 75 11 62 18');
+  const warehouseEmail = withFallback(content.warehouse_email, 'contact@prep-center.eu');
+  const contactEmail = withFallback(content.contact_email, warehouseEmail);
+  const contactPhone = withFallback(content.contact_phone, warehousePhone);
+  const contactAddress = withFallback(content.contact_address, '35350 La Gouesnière, France');
+
   return (
     <footer className="bg-gray-50 border-t">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -51,17 +73,17 @@ function Footer() {
 
           <div className="space-y-2">
             <h3 className="text-lg font-semibold text-text-primary mb-2">Company information</h3>
-            <p className="text-sm text-text-secondary">Global Fulfill Hub</p>
-            <p className="text-sm text-text-secondary">SIRET : 941 373 110 00019</p>
-            <p className="text-sm text-text-secondary">VAT : FR 38 941 373 110</p>
+            <p className="text-sm text-text-secondary">{companyInfoName}</p>
+            <p className="text-sm text-text-secondary">SIRET : {companyInfoSiret}</p>
+            <p className="text-sm text-text-secondary">VAT : {companyInfoVat}</p>
           </div>
 
           <div className="space-y-2">
             <h3 className="text-lg font-semibold text-text-primary mb-2">Warehouse &amp; operations</h3>
-            <p className="text-sm text-text-secondary">EcomPrep Hub</p>
-            <p className="text-sm text-text-secondary">5 Rue des Enclos, Zone B, Cellule 7, 35350 La Gouesnière, France</p>
-            <p className="text-sm text-text-secondary">Phone : +33 6 75 11 62 18</p>
-            <p className="text-sm text-text-secondary">Email : contact@prep-center.eu</p>
+            <p className="text-sm text-text-secondary">{warehouseName}</p>
+            <p className="text-sm text-text-secondary">{warehouseAddress}</p>
+            <p className="text-sm text-text-secondary">Phone : {warehousePhone}</p>
+            <p className="text-sm text-text-secondary">Email : {warehouseEmail}</p>
           </div>
 
           {/* Contact Info */}
@@ -70,16 +92,16 @@ function Footer() {
             <div className="space-y-3 text-sm">
               <div className="flex items-center space-x-2">
                 <Mail className="w-4 h-4 text-text-secondary" />
-                <span className="text-text-secondary">contact@prep-center.eu</span>
+                <span className="text-text-secondary">{contactEmail}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Phone className="w-4 h-4 text-text-secondary" />
-                <span className="text-text-secondary">+33 6 75 11 62 18</span>
+                <span className="text-text-secondary">{contactPhone}</span>
               </div>
               <div className="flex items-start space-x-2">
                 <MapPin className="w-4 h-4 text-text-secondary mt-1" />
                 <span className="text-text-secondary">
-                  35350 La Gouesnière, France
+                  {contactAddress}
                 </span>
               </div>
             </div>
