@@ -273,14 +273,6 @@ export default function AdminProfiles({ onSelect }) {
     return filtered.slice(start, start + PER_PAGE);
   }, [filtered, pageClamped]);
 
-  // totals (footer)
-  const tableTotals = useMemo(() => {
-    const totCurrent = slice.reduce((s,p)=>s+Number(calc[p.id]?.currentSold ?? 0),0);
-    const totCarry   = slice.reduce((s,p)=>s+Number(calc[p.id]?.carry ?? 0),0);
-    const totDiff    = slice.reduce((s,p)=>s+Number(calc[p.id]?.diff ?? 0),0);
-    return { totCurrent, totCarry, totDiff };
-  }, [slice, calc]);
-
   // compute balances per row (STRICT din RPC; fără calcule în React)
   useEffect(() => {
     let mounted = true;
@@ -349,12 +341,7 @@ export default function AdminProfiles({ onSelect }) {
         fmt2(Number(c.diff || 0)),
       ].join(",");
     });
-    const footer = ["","","",t("clients.csv.footer"),
-      fmt2(tableTotals.totCurrent),
-      fmt2(tableTotals.totCarry),
-      fmt2(tableTotals.totDiff),
-    ].join(",");
-    const csv = [headers.join(","), ...rowsCsv, footer].join("\n");
+    const csv = [headers.join(","), ...rowsCsv].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -566,18 +553,6 @@ const saveStoreName = async () => {
             )}
           </tbody>
 
-          {!loading && slice.length > 0 && (
-            <tfoot>
-              <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
-                <td className="px-4 py-3">{t("clients.csv.footer")}</td>
-                <td className="px-4 py-3" colSpan={showEmail ? 4 : 3} />
-                <td className="px-4 py-3">{fmt2(tableTotals.totCurrent)}</td>
-                <td className="px-4 py-3">{fmt2(tableTotals.totCarry)}</td>
-                <td className="px-4 py-3">{fmt2(tableTotals.totDiff)}</td>
-                <td className="px-4 py-3" />
-              </tr>
-            </tfoot>
-          )}
         </table>
       </div>
 
