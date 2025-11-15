@@ -1453,7 +1453,10 @@ const getReceptionFbaForRow = (rowId, units) => {
   if (receptionForm.fbaMode === 'partial') {
     const edits = rowEdits[rowId] || {};
     const requested = Math.max(0, Number(units) || 0);
-    let partial = Math.max(0, Number(edits.fba_units || 0));
+    const hasCustomFba = Object.prototype.hasOwnProperty.call(edits, 'fba_units');
+    let partial = hasCustomFba
+      ? Math.max(0, Number(edits.fba_units) || 0)
+      : requested;
     if (partial > requested) partial = requested;
     return { send_to_fba: partial > 0, fba_qty: partial };
   }

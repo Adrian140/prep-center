@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS receiving_items (
 CREATE TABLE IF NOT EXISTS receiving_to_stock_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   receiving_item_id UUID REFERENCES receiving_items(id) ON DELETE CASCADE,
-  stock_item_id UUID REFERENCES stock_items(id) ON DELETE CASCADE,
+  stock_item_id BIGINT REFERENCES stock_items(id) ON DELETE CASCADE,
   quantity_moved INTEGER NOT NULL CHECK (quantity_moved > 0),
   moved_at TIMESTAMPTZ DEFAULT NOW(),
   moved_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
