@@ -163,7 +163,7 @@ export const CLIENT_RECIVING_DICT = {
   en: {
     page_title: "Prep-center receiving",
     page_subtitle: "Review inbound shipments created from the Products tab.",
-    report_hint: "Create receivings from Products ▸ Announce Reception; you can adjust tracking and quantities here until staff confirms them.",
+    report_hint: "Create receivings from Products ▸ Notify incoming goods; you can adjust tracking and quantities here until staff confirms them.",
     or: "or",
 
     guide_video: "📹 Video Guide",
@@ -214,7 +214,7 @@ export const CLIENT_RECIVING_DICT = {
     list_date: "Date",
 
     empty_list_title: "No receivings",
-    empty_list_desc: "Create receivings from Products ▸ Announce Reception, then review them here.",
+    empty_list_desc: "Create receivings from Products ▸ Notify incoming goods, then review them here.",
     empty_products_title: "No products added",
     empty_products_desc: "Use the Excel template or add rows manually",
 

@@ -262,7 +262,7 @@
       "productSearchPlaceholder": "Search by name / ASIN / SKU",
       "cta": {
         "sendToPrep": "Send to Prep (Amazon)",
-        "announceReception": "Announce Reception"
+        "announceReception": "Notify incoming goods"
       },
       "receptionForm": {
         "carrierOther": "Carrier name",
