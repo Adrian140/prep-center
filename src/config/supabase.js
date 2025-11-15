@@ -1030,6 +1030,16 @@ const items = (draftData.items || []).map((it) => ({
   },
 
 deletePrepRequest: async (requestId) => {
+  // Prefer the RPC helper when available
+  const { error: rpcError } = await supabase.rpc('admin_delete_prep_request', {
+    p_request_id: requestId
+  });
+  if (!rpcError) return { error: null };
+  // If the RPC is missing (older deployments), fall back to the manual cascade
+  const missingFn =
+    rpcError?.message && rpcError.message.toLowerCase().includes('admin_delete_prep_request');
+  if (!missingFn) return { error: rpcError };
+
   const { data: itemRows, error: fetchItemsErr } = await supabase
     .from('prep_request_items')
     .select('id')
@@ -1047,7 +1057,6 @@ deletePrepRequest: async (requestId) => {
     }
   }
 
-  // fallback JS cascade (tracking -> items -> header)
   const { error: trackErr } = await supabase
     .from('prep_request_tracking')
     .delete()

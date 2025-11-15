@@ -58,8 +58,8 @@ export default function AdminPrepRequests() {
   try {
     const { error } = await supabaseHelpers.deletePrepRequest(row.id);
     if (error) throw error;
-    setFlash('Request deleted.');
     await load(1); // sau load(page) dacă preferi să rămâi pe pagină
+    setFlash('Request deleted.');
   } catch (e) {
     setFlash(e?.message || 'Delete failed.');
   }
