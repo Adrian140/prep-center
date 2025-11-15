@@ -16,8 +16,19 @@ begin
     select id from prep_request_items where prep_request_id = p_request_id
   );
 
-  delete from prep_request_tracking
-  where request_id = p_request_id;
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'prep_request_tracking'
+      and column_name = 'request_id'
+  ) then
+    delete from prep_request_tracking
+    where request_id = p_request_id;
+  else
+    delete from prep_request_tracking
+    where prep_request_id = p_request_id;
+  end if;
 
   delete from prep_request_items
   where prep_request_id = p_request_id;

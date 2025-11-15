@@ -21,7 +21,7 @@ function HelpMenuButtonStock({ section = 'stock', t, tp }) {
       window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
       setOpen(false);
     } catch (e) {
-      alert(tp('ClientStock.guides.error', { lang: lang.toUpperCase(), msg: e.message }));
+      alert(tp('ClientStock.guides.error', { lang: lang.toUpperCase(), msg: supportError }));
     }
   };
 
@@ -379,17 +379,14 @@ function CreateProductModal({ open, onClose, profile, t, onCreated }) {
           });
         } catch (blueprintErr) {
           console.error(blueprintErr);
-          setError(
-            blueprintErr?.message ||
-              'Product saved, but advanced details could not be stored (run latest migration?).'
-          );
+          setError(supportError);
         }
       }
 
       onCreated(created);
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to create product.');
+      setError(supportError);
     } finally {
       setSaving(false);
     }
@@ -754,6 +751,7 @@ export default function ClientStock({
   enableQtyAdjust = false
 } = {}) {
   const { t, tp } = useDashboardTranslation();
+  const supportError = t('common.supportError');
   const priceColumnNote = t('ClientStock.priceColumn.note');
   const authCtx = useSupabaseAuth();
   const profile = profileOverride ?? authCtx.profile;
@@ -1300,7 +1298,7 @@ useEffect(() => {
       setToast({ type: 'success', text: 'Stock updated.' });
     } catch (err) {
       console.error('Adjust qty error', err);
-      setToast({ type: 'error', text: err.message || 'Failed to adjust stock.' });
+      setToast({ type: 'error', text: supportError });
     }
   };
   const renderQtyCell = (row) => {
@@ -1413,7 +1411,7 @@ useEffect(() => {
       setToast({ type: 'success', text: t('ClientStock.table.saved') });
     } catch (e) {
       console.error('[SAVE ERROR]', e);
-      setToast({ type: 'error', text: e?.message || 'Failed to save row' });
+      setToast({ type: 'error', text: supportError });
     } finally {
       setSavingId(null);
     }
@@ -1503,7 +1501,7 @@ const openReception = async () => {
     resetReceptionForm();
   } catch (err) {
     console.error('Reception error:', err);
-    setToast({ type: 'error', text: err.message || 'Failed to announce reception.' });
+    setToast({ type: 'error', text: supportError });
   }
 };
 
@@ -1556,7 +1554,7 @@ const openPrep = async () => {
     setSelectedIdList([]);
   } catch (err) {
     console.error('Prep error:', err);
-    setToast({ type: 'error', text: err.message || 'Failed to send to prep.' });
+    setToast({ type: 'error', text: supportError });
   }
 };
 
@@ -1589,7 +1587,7 @@ const openReqEditor = async (requestId) => {
 
     setReqEditable((data.status || 'pending') === 'pending');
   } catch (e) {
-    setReqErrors([e?.message || 'Failed to load request']);
+    setReqErrors([supportError]);
   } finally {
     setReqLoading(false);
   }
@@ -1748,7 +1746,7 @@ const saveReqChanges = async () => {
 
     setToast({ type: 'success', text: 'Saved changes.' });
   } catch (e) {
-    setReqErrors([e?.message || 'Failed to save changes.']);
+    setReqErrors([supportError]);
   } finally {
     setReqLoading(false);
   }

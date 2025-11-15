@@ -192,6 +192,7 @@ const KIND_META = (t) => ({
 
 export default function ClientExports() {
   const { t, tp } = useDashboardTranslation();
+  const supportError = t('common.supportError');
   const { profile } = useSupabaseAuth();
 
   const [kind, setKind] = useState("FBA");
@@ -278,10 +279,10 @@ export default function ClientExports() {
           window.location.reload();
         }, 2000);
       } else {
-        setTriggerMessage(`❌ Error: ${result.error}`);
+        setTriggerMessage(`❌ ${supportError}`);
       }
     } catch (error) {
-      setTriggerMessage(`❌ Failed to trigger generation: ${error.message}`);
+      setTriggerMessage(`❌ ${supportError}`);
     } finally {
       setTriggerLoading(false);
     }

@@ -15,7 +15,8 @@
       "calculating": "Calculating…",
       "na": "N/A",
       "yes": "Yes",
-      "no": "No"
+      "no": "No",
+      "supportError": "Something went wrong. Please contact support."
     },
     "sidebar": {
       "activity": "Activity",
@@ -655,6 +656,7 @@
       "na": "—",
       "yes": "Da",
       "no": "Nu",
+      "supportError": "A apărut o eroare. Te rugăm să contactezi suportul.",
       "cancel": "Anulează",
       "accessDeniedTitle": "Acces interzis",
       "accessDeniedDesc": "Nu ai permisiunea să vezi această secțiune."
@@ -1297,6 +1299,7 @@
       "na": "N/A",
       "yes": "Oui",
       "no": "Non",
+      "supportError": "Une erreur est survenue. Merci de contacter le support.",
       "cancel": "Annuler",
       "accessDeniedTitle": "Accès refusé",
       "accessDeniedDesc": "Vous n'avez pas l’autorisation d'accéder à cette section."
@@ -1939,6 +1942,7 @@
       "na": "k. A.",
       "yes": "Ja",
       "no": "Nein",
+      "supportError": "Es ist ein Fehler aufgetreten. Bitte kontaktiere den Support.",
       "cancel": "Abbrechen",
       "accessDeniedTitle": "Zugriff verweigert",
       "accessDeniedDesc": "Sie besitzen keine Berechtigung für diesen Bereich."
@@ -2581,6 +2585,7 @@
       "na": "N/D",
       "yes": "Sì",
       "no": "No",
+      "supportError": "Si è verificato un errore. Contatta il supporto.",
       "cancel": "Annulla",
       "accessDeniedTitle": "Accesso negato",
       "accessDeniedDesc": "Non hai i permessi per visualizzare questa sezione."
@@ -3223,6 +3228,7 @@
       "na": "N/D",
       "yes": "Sí",
       "no": "No",
+      "supportError": "Ha ocurrido un error. Ponte en contacto con soporte.",
       "cancel": "Cancelar",
       "accessDeniedTitle": "Acceso denegado",
       "accessDeniedDesc": "No tienes permisos para ver esta sección."

@@ -35,6 +35,7 @@ function StatusBadge({ status, t }) {
 export default function ClientIntegrations() {
   const { user, profile } = useSupabaseAuth();
   const { t, tp } = useDashboardTranslation();
+  const supportError = t('common.supportError');
   const [region, setRegion] = useState('eu');
   const [stateToken] = useState(() => Math.random().toString(36).slice(2) + Date.now().toString(36));
   const [rows, setRows] = useState([]);
@@ -82,7 +83,7 @@ export default function ClientIntegrations() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
     if (error) {
-      setFlash(error.message);
+      setFlash(supportError);
       setRows([]);
     } else {
       setFlash('');
@@ -102,7 +103,7 @@ export default function ClientIntegrations() {
     setFlash('');
     const { error } = await supabase.from('amazon_integrations').delete().eq('id', id);
     if (error) {
-      setFlash(error.message);
+      setFlash(supportError);
     } else {
       setFlash(t('ClientIntegrations.flashRemoved'));
       loadIntegrations();
@@ -203,7 +204,7 @@ export default function ClientIntegrations() {
                   </div>
                   {row.last_error && (
                     <div className="text-xs text-red-600 mt-1">
-                      {t('ClientIntegrations.fields.lastError')} {row.last_error}
+                      {t('ClientIntegrations.fields.lastError')} {supportError}
                     </div>
                   )}
                 </div>

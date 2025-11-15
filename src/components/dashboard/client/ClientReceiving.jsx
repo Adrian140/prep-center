@@ -59,6 +59,7 @@ function ClientReceiving() {
 
   const t = (key, params) =>
     params ? tp(`ClientReceiving.${key}`, params) : baseT(`ClientReceiving.${key}`);
+  const supportError = baseT('common.supportError');
 
   const DATE_LOCALE = DATE_LOCALE_MAP[currentLanguage] || 'en-US';
 
@@ -139,7 +140,7 @@ function ClientReceiving() {
       return nextShipments;
     } catch (error) {
       setShipments([]);
-      setMessage(`${t('load_error_prefix')}: ${error.message}`);
+      setMessage(supportError);
       setMessageType('error');
       return [];
     } finally {
@@ -173,7 +174,7 @@ function ClientReceiving() {
       if (error) throw error;
       window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
     } catch (e) {
-      setMessage(`${t('guide_download_error_prefix')} (${lang.toUpperCase()}): ${e.message}`);
+      setMessage(supportError);
       setMessageType('error');
     }
   };
@@ -283,7 +284,7 @@ function ClientReceiving() {
       setMessage(t('changes_saved'));
       setMessageType('success');
     } catch (e) {
-      setMessage(`${t('generic_error_prefix')}: ${e.message}`);
+      setMessage(supportError);
       setMessageType('error');
     } finally {
       setSavingEdits(false);
@@ -315,7 +316,7 @@ function ClientReceiving() {
       setMessage(t('reception_sent'));
       setMessageType('success');
     } catch (err) {
-      setMessage(`${t('generic_error_prefix')}: ${err.message}`);
+      setMessage(supportError);
       setMessageType('error');
     }
   };

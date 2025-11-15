@@ -21,6 +21,7 @@ const createClientUid = () =>
 export default function ClientPrepShipments() {
   const { profile } = useSupabaseAuth();
   const { t } = useDashboardTranslation();
+  const supportError = t('common.supportError');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -185,7 +186,7 @@ export default function ClientPrepShipments() {
       );
       setReqEditable((data.status || 'pending') === 'pending');
     } catch (e) {
-      setReqErrors([e?.message || 'Failed to load request.']);
+      setReqErrors([supportError]);
       setReqEditable(false);
     } finally {
       setReqLoading(false);
@@ -273,7 +274,7 @@ export default function ClientPrepShipments() {
       setReqErrors([]);
       setReqOpen(false);
     } catch (e) {
-      setReqErrors([e?.message || 'Failed to save changes.']);
+      setReqErrors([supportError]);
     } finally {
       setReqLoading(false);
     }
@@ -301,7 +302,7 @@ export default function ClientPrepShipments() {
 
       if (!active) return;
       if (prepRes.error) {
-        setError(prepRes.error.message);
+        setError(supportError);
         setRows([]);
       } else {
         setError('');
