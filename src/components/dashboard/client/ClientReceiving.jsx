@@ -456,10 +456,7 @@ function ClientReceiving() {
     const hasPartialLines = !editMode
       ? viewItems.some((item) => {
           const expected = Math.max(0, Number(item.quantity_received || 0));
-          const received = Math.max(
-            0,
-            Number(item.received_units ?? item.quantity_received ?? 0)
-          );
+          const received = Math.max(0, Number(item.received_units || 0));
           return expected > 0 && received < expected;
         })
       : false;
@@ -729,62 +726,82 @@ function ClientReceiving() {
                   </label>
                 ))}
               </div>
-              {editMode && headerState.fba_mode === 'partial' && (
+              {headerState.fba_mode === 'partial' && (
                 <div className="mt-2 border rounded-md bg-white max-h-64 overflow-y-auto divide-y">
-                  {editItems.length === 0 && (
-                    <p className="text-text-secondary text-sm">{t('fba_mode_hint')}</p>
-                  )}
-                  {editItems.length > 0 && (
-                    <div className="px-4 py-2 grid grid-cols-[minmax(0,1.4fr)_0.8fr] text-[11px] font-semibold text-text-secondary border-b bg-gray-50/60">
-                      <span>{t('fba_units_announced') || 'Units announced'}</span>
-                      <span className="text-right">
-                        {t('fba_units_to_amazon') || 'Units to send to Amazon'}
-                      </span>
-                    </div>
-                  )}
-                  {editItems.map((item, idx) => {
-                    const qty = Math.max(0, Number(item.quantity_received || 0));
-                    const value = item.fba_qty ?? '';
-                    const locked = Boolean(item.is_received);
-                    return (
-                      <div
-                        key={item.id || idx}
-                        className="py-2 px-4 grid grid-cols-[minmax(0,1.4fr)_0.8fr] items-center gap-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-medium text-text-primary truncate">
-                            {item.product_name}
-                          </p>
-                        </div>
-                        <div className="flex justify-end">
-                          <input
-                            type="number"
-                            min="0"
-                            className={`w-24 text-right border rounded px-2 py-1 ${
-                              locked ? 'bg-gray-50 text-text-secondary cursor-not-allowed' : ''
-                            }`}
-                            disabled={locked}
-                            value={value}
-                            onChange={(e) =>
-                              setEditItems((arr) => {
-                                const next = [...arr];
-                                const desired = Math.min(
-                                  qty,
-                                  Math.max(0, Number(e.target.value) || 0)
-                                );
-                                next[idx] = {
-                                  ...next[idx],
-                                  send_to_fba: desired > 0,
-                                  fba_qty: desired
-                                };
-                                return next;
-                              })
-                            }
-                          />
-                        </div>
+                  {(editMode ? editItems : viewItems).length === 0 ? (
+                    <p className="text-text-secondary text-sm px-4 py-3">
+                      {t('fba_mode_hint')}
+                    </p>
+                  ) : (
+                    <>
+                      <div className="px-4 py-2 grid grid-cols-[minmax(0,1.4fr)_0.8fr] text-[11px] font-semibold text-red-600 border-b bg-red-50/50 uppercase tracking-wide">
+                        <span>{t('fba_units_announced') || 'Units announced'}</span>
+                        <span className="text-right">
+                          {t('fba_units_to_amazon') || 'Units to send to Amazon'}
+                        </span>
                       </div>
-                    );
-                  })}
+                      {(editMode ? editItems : viewItems).map((item, idx) => {
+                        const qty = Math.max(0, Number(item.quantity_received || 0));
+                        const locked = editMode ? Boolean(item.is_received) : false;
+                        const value = editMode
+                          ? item.fba_qty ?? ''
+                          : Math.max(0, Number(item.fba_qty || 0));
+                        return (
+                          <div
+                            key={item.id || idx}
+                            className="py-3 px-4 grid grid-cols-[minmax(0,1.4fr)_0.8fr] items-center gap-3"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-medium text-text-primary truncate">
+                                {item.product_name}
+                              </p>
+                              <p
+                                className={`mt-1 text-lg font-semibold ${
+                                  locked ? 'text-text-secondary' : 'text-red-600'
+                                }`}
+                              >
+                                {qty}
+                              </p>
+                            </div>
+                            <div className="flex justify-end">
+                              {editMode ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className={`w-28 text-right border rounded px-2 py-1 text-lg font-semibold ${
+                                    locked
+                                      ? 'bg-gray-50 text-text-secondary cursor-not-allowed'
+                                      : 'text-red-600'
+                                  }`}
+                                  disabled={locked}
+                                  value={value}
+                                  onChange={(e) =>
+                                    setEditItems((arr) => {
+                                      const next = [...arr];
+                                      const desired = Math.min(
+                                        qty,
+                                        Math.max(0, Number(e.target.value) || 0)
+                                      );
+                                      next[idx] = {
+                                        ...next[idx],
+                                        send_to_fba: desired > 0,
+                                        fba_qty: desired
+                                      };
+                                      return next;
+                                    })
+                                  }
+                                />
+                              ) : (
+                                <span className="text-lg font-semibold text-red-600">
+                                  {value}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
                 </div>
               )}
               {!editMode && headerState.fba_mode !== 'none' && (
@@ -837,12 +854,7 @@ function ClientReceiving() {
                   const sendDirect = item.send_to_fba && Number(item.fba_qty || 0) > 0;
                   const receivedAt = item.received_at ? new Date(item.received_at) : null;
                   const expectedQty = Math.max(0, Number(item.quantity_received || 0));
-                  const confirmedQty = Math.max(
-                    0,
-                    Number(
-                      item.received_units != null ? item.received_units : item.quantity_received || 0
-                    )
-                  );
+                  const confirmedQty = Math.max(0, Number(item.received_units || 0));
                   const diff = Math.max(0, expectedQty - confirmedQty);
                   const fullyReceived = expectedQty > 0 && diff === 0 && confirmedQty > 0;
                   const partiallyReceived = confirmedQty > 0 && diff > 0;
