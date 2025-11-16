@@ -310,7 +310,11 @@ export default function ClientExports() {
 
       const { data, error } = await query;
       if (error) throw error;
-      const rows = Array.isArray(data) ? data : [];
+      const rowsRaw = Array.isArray(data) ? data : [];
+      const rows =
+        kind === 'Stock'
+          ? rowsRaw.filter((r) => Number(r.qty || 0) > 0)
+          : rowsRaw;
 
       // 2) Construim sheet-ul ca AOA
       const aoa = [];
