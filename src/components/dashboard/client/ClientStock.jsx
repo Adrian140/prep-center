@@ -2186,16 +2186,31 @@ const saveReqChanges = async () => {
       <th className="px-2 py-2 text-left">
         <div className="flex flex-col gap-1">
           <span>{t('ClientStock.thead.name')}</span>
-          <input
-            type="text"
-            value={productSearch}
-            onChange={(e) => {
-              setProductSearch(e.target.value);
-              setPage(1);
-            }}
-            placeholder={t('ClientStock.productSearchPlaceholder')}
-            className="border rounded px-2 py-1 text-xs"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={productSearch}
+              onChange={(e) => {
+                setProductSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder={t('ClientStock.productSearchPlaceholder')}
+              className="border rounded px-2 py-1 pr-7 text-xs w-full"
+            />
+            {productSearch && (
+              <button
+                type="button"
+                onClick={() => {
+                  setProductSearch('');
+                  setPage(1);
+                }}
+                className="absolute inset-y-0 right-1 flex items-center justify-center text-gray-400 hover:text-gray-600"
+                aria-label={t('common.cancel')}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
         </div>
       </th>
       {showPriceColumn && (

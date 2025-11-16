@@ -4,7 +4,7 @@ import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { supabase } from '../../config/supabase';
 import {
   Search, Filter, Package, Truck, CheckCircle,
-  ArrowLeft, Trash2, ChevronLeft, ChevronRight, Clock, User, Building
+  ArrowLeft, Trash2, ChevronLeft, ChevronRight, Clock, User, Building, X
 } from 'lucide-react';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { tabSessionStorage, readJSON, writeJSON } from '@/utils/tabStorage';
@@ -1225,13 +1225,25 @@ const filteredShipments = shipments.filter(shipment => {
 
         <div className="flex items-center space-x-2 flex-1 max-w-md">
           <Search className="w-4 h-4 text-text-secondary" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by tracking number, client, or email..."
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
-          />
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by tracking number, client, or email..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-8"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-2 flex items-center text-gray-400 hover:text-gray-600"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
