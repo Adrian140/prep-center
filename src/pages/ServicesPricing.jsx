@@ -127,7 +127,6 @@ export default function ServicesPricing() {
   const [shippingLoading, setShippingLoading] = useState(true);
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingError, setPricingError] = useState('');
-  const [serviceSearch, setServiceSearch] = useState('');
   const [serviceSelection, setServiceSelection] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState(PERIOD_OPTIONS[0].id);
   const [estimateItems, setEstimateItems] = useState([]);
@@ -267,34 +266,22 @@ export default function ServicesPricing() {
     return lookup;
   }, [calculatorSections]);
 
-  const visibleServiceGroups = useMemo(() => {
-    const query = serviceSearch.trim().toLowerCase();
-    const groups = calculatorSections.map((section) => {
-      const items = query
-        ? section.items.filter((item) => item.normalizedName.includes(query))
-        : section.items;
-      return { ...section, items };
-    });
-    if (query) {
-      return groups.filter((section) => section.items.length > 0);
-    }
-    return groups;
-  }, [calculatorSections, serviceSearch]);
-
-  const hasServiceResults = visibleServiceGroups.some((section) => section.items.length > 0);
+  const visibleServiceGroups = calculatorSections;
 
   useEffect(() => {
-    if (!hasServiceResults) {
+    const firstSection = visibleServiceGroups.find((section) => section.items.length > 0);
+    if (!firstSection) {
       setServiceSelection('');
       return;
     }
+    let defaultServiceId = firstSection.items[0]?.id || '';
     setServiceSelection((prev) => {
       const exists = visibleServiceGroups.some((section) =>
         section.items.some((item) => item.id === prev)
       );
-      return exists ? prev : '';
+      return exists ? prev : firstSection.items[0].id;
     });
-  }, [visibleServiceGroups, hasServiceResults]);
+  }, [visibleServiceGroups]);
 
   const selectedServiceDetails = serviceSelection ? serviceLookup[serviceSelection] : null;
 
@@ -755,16 +742,6 @@ export default function ServicesPricing() {
                         <option value="">{t('calculator.noResults')}</option>
                       )}
                     </select>
-                    <div className="relative">
-                      <Search className="w-4 h-4 text-text-light absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="search"
-                        value={serviceSearch}
-                        onChange={(e) => setServiceSearch(e.target.value)}
-                        placeholder={t('calculator.serviceSearchPlaceholder')}
-                        className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
-                      />
-                    </div>
                   </div>
                   {shouldShowPeriodControls && (
                     <div className="space-y-3">
