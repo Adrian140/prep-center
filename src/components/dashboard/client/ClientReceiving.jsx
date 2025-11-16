@@ -484,15 +484,6 @@ function ClientReceiving() {
     );
     const fbaValues = buildDisplayList(selectedShipment.fba_shipment_ids);
     const headerState = editHeader || buildHeaderState(selectedShipment);
-    const hasPartialLines = !editMode
-      ? viewItems.some((item) => {
-          const expected = Math.max(0, Number(item.quantity_received || 0));
-          const received = Math.max(0, Number(item.received_units || 0));
-          return expected > 0 && received < expected;
-        })
-      : false;
-    const displayStatus = hasPartialLines ? 'partial' : selectedShipment.status;
-
     return (
       <div className="space-y-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -548,12 +539,9 @@ function ClientReceiving() {
                 </button>
               </div>
             )}
-            <div className="flex items-center space-x-4">
-              {getStatusBadge(displayStatus)}
-              <span className="text-text-secondary">
-                {new Date(selectedShipment.created_at).toLocaleDateString(DATE_LOCALE)}
-              </span>
-            </div>
+            <span className="text-text-secondary">
+              {new Date(selectedShipment.created_at).toLocaleDateString(DATE_LOCALE)}
+            </span>
           </div>
         </div>
 
