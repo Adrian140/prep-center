@@ -203,6 +203,11 @@ export const servicesEs = {
     priceUnavailable: 'Precio bajo solicitud',
     quantity: 'Cant.',
     totalLabel: 'Total estimado (sin IVA)',
-    note: 'Importe orientativo; la cotización final puede variar según el producto y el volumen.'
+    note: 'Importe orientativo; la cotización final puede variar según el producto y el volumen.',
+    searchPlaceholder: 'Busca un servicio…',
+    noResults: 'No hay servicios que coincidan con los filtros.',
+    selectedLabel: 'servicios',
+    clearAll: 'Limpiar selección',
+    emptySelection: 'Selecciona servicios de la lista para generar tu presupuesto.'
   }
 };

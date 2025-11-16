@@ -203,6 +203,11 @@ export const servicesEn = {
     priceUnavailable: 'Contact us for pricing',
     quantity: 'Qty',
     totalLabel: 'Estimated total (HT)',
-    note: 'This is an estimate only. Final quotes may differ based on product specifics and volumes.'
+    note: 'This is an estimate only. Final quotes may differ based on product specifics and volumes.',
+    searchPlaceholder: 'Search a service…',
+    noResults: 'No services match your filters.',
+    selectedLabel: 'services',
+    clearAll: 'Clear all',
+    emptySelection: 'Select services on the left to build your quote.'
   }
 };

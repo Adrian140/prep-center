@@ -203,6 +203,11 @@ export const servicesFr = {
     priceUnavailable: 'Sur devis',
     quantity: 'Qté',
     totalLabel: 'Total estimé (HT)',
-    note: 'Estimation indicative : le devis final peut varier selon vos produits et volumes.'
+    note: 'Estimation indicative : le devis final peut varier selon vos produits et volumes.',
+    searchPlaceholder: 'Rechercher un service…',
+    noResults: 'Aucun service ne correspond à vos filtres.',
+    selectedLabel: 'services',
+    clearAll: 'Tout effacer',
+    emptySelection: 'Sélectionnez des services dans la liste pour créer votre devis.'
   }
 };

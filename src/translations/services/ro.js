@@ -203,6 +203,11 @@ export const servicesRo = {
     priceUnavailable: 'Preț la cerere',
     quantity: 'Cant.',
     totalLabel: 'Total estimativ (fără TVA)',
-    note: 'Suma este orientativă. Oferta finală poate varia în funcție de specificațiile produselor și volume.'
+    note: 'Suma este orientativă. Oferta finală poate varia în funcție de specificațiile produselor și volume.',
+    searchPlaceholder: 'Caută serviciu…',
+    noResults: 'Nu există servicii care să corespundă căutării.',
+    selectedLabel: 'servicii',
+    clearAll: 'Resetează selecția',
+    emptySelection: 'Alege serviciile din listă pentru a genera oferta.'
   }
 };

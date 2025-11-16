@@ -203,6 +203,11 @@ export const servicesIt = {
     priceUnavailable: 'Prezzo su richiesta',
     quantity: 'Qtà',
     totalLabel: 'Totale stimato (IVA esclusa)',
-    note: 'Valore indicativo: il preventivo finale può variare in base al prodotto e ai volumi.'
+    note: 'Valore indicativo: il preventivo finale può variare in base al prodotto e ai volumi.',
+    searchPlaceholder: 'Cerca un servizio…',
+    noResults: 'Nessun servizio corrisponde ai filtri.',
+    selectedLabel: 'servizi',
+    clearAll: 'Azzera tutto',
+    emptySelection: 'Scegli i servizi dall’elenco per comporre il preventivo.'
   }
 };

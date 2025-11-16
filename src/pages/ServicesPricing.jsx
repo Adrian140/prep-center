@@ -1,5 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FileDown, ArrowRight, Tag, Package, Boxes, Truck, Archive, Shield, Layers } from 'lucide-react';
+import {
+  FileDown,
+  ArrowRight,
+  Tag,
+  Package,
+  Boxes,
+  Truck,
+  Archive,
+  Shield,
+  Layers,
+  Search
+} from 'lucide-react';
 import { supabaseHelpers } from '../config/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useServicesTranslation } from '../translations/services';
@@ -110,6 +121,7 @@ export default function ServicesPricing() {
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingError, setPricingError] = useState('');
   const [calculatorState, setCalculatorState] = useState({});
+  const [calculatorSearch, setCalculatorSearch] = useState('');
 
   const pricingErrorMessage = t('pricingSection.error');
   const shippingFallbackMessage = t('shippingSection.domesticDisclaimer');
@@ -228,6 +240,7 @@ export default function ServicesPricing() {
         ...section,
         items: section.items.map((item) => ({
           ...item,
+          normalizedName: (item.service_name || '').toLowerCase(),
           numericPrice: parsePriceToNumber(item.price)
         }))
       })),
@@ -242,11 +255,27 @@ export default function ServicesPricing() {
           price: item.numericPrice,
           unit: item.unit,
           service_name: item.service_name,
+          normalizedName: item.normalizedName,
           sectionId: section.id
         }))
       ),
     [calculatorSections]
   );
+
+  const filteredCalculatorSections = useMemo(() => {
+    const query = calculatorSearch.trim().toLowerCase();
+    if (!query) return calculatorSections;
+    return calculatorSections
+      .map((section) => ({
+        ...section,
+        items: section.items.filter(
+          (item) =>
+            item.normalizedName.includes(query) ||
+            section.id.toLowerCase().includes(query)
+        )
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [calculatorSections, calculatorSearch]);
 
   useEffect(() => {
     setCalculatorState((prev) => {
@@ -297,6 +326,31 @@ export default function ServicesPricing() {
       return sum + service.price * (entry.qty || 1);
     }, 0);
   }, [flatCalculatorServices, calculatorState]);
+
+  const selectedServices = useMemo(
+    () =>
+      flatCalculatorServices
+        .filter((service) => calculatorState[service.id]?.checked)
+        .map((service) => ({
+          ...service,
+          qty: calculatorState[service.id]?.qty || 1,
+          lineTotal:
+            service.price == null
+              ? null
+              : service.price * (calculatorState[service.id]?.qty || 1)
+        })),
+    [flatCalculatorServices, calculatorState]
+  );
+
+  const handleClearCalculator = () => {
+    setCalculatorState((prev) => {
+      const next = {};
+      Object.keys(prev).forEach((key) => {
+        next[key] = { checked: false, qty: 1 };
+      });
+      return next;
+    });
+  };
 
   const handleExport = async () => {
     if (!Object.keys(pricingGroups).length) {
@@ -606,78 +660,142 @@ export default function ServicesPricing() {
         </section>
 
         <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-semibold text-text-primary">
-                {t('calculator.title')}
-              </h2>
-              <p className="text-text-secondary text-sm md:text-base">{t('calculator.subtitle')}</p>
+              <p className="text-xs uppercase text-text-light tracking-wide">{t('calculator.title')}</p>
+              <h2 className="text-2xl font-semibold text-text-primary">{t('calculator.subtitle')}</h2>
             </div>
-            <div className="text-right">
+            <div className="text-left lg:text-right">
               <p className="text-xs uppercase text-text-light">{t('calculator.totalLabel')}</p>
-              <p className="text-2xl font-bold text-primary">
+              <p className="text-3xl font-bold text-primary">
                 {currencyFormatter.format(calculatorTotal || 0)}
               </p>
             </div>
           </div>
           {calculatorSections.length === 0 ? (
-            <div className="py-10 text-center text-text-secondary">{t('calculator.empty')}</div>
+            <div className="py-12 text-center text-text-secondary">{t('calculator.empty')}</div>
           ) : (
-            <div className="space-y-6">
-              {calculatorSections.map((section) => (
-                <div key={section.id} className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-text-light">
-                    {section.id}
-                  </p>
-                  <div className="space-y-3">
-                    {section.items.map((item) => {
-                      const selection = calculatorState[item.id] || { checked: false, qty: 1 };
-                      const disabled = item.numericPrice == null;
-                      return (
-                        <div
-                          key={item.id}
-                          className="flex flex-col md:flex-row md:items-center gap-4 border rounded-2xl p-4"
-                        >
-                          <label className="flex items-start gap-3 flex-1">
-                            <input
-                              type="checkbox"
-                              className="mt-1 h-4 w-4 text-primary border-gray-300 rounded"
-                              disabled={disabled}
-                              checked={!disabled && selection.checked}
-                              onChange={() => handleToggleService(item.id)}
-                            />
-                            <div>
-                              <p className="font-semibold text-text-primary">{item.service_name}</p>
-                              <p className="text-sm text-text-secondary">
-                                {disabled
-                                  ? t('calculator.priceUnavailable')
-                                  : `${formatPriceHt(item.price)} / ${item.unit}`}
-                              </p>
-                            </div>
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <label className="text-sm text-text-secondary" htmlFor={`qty-${item.id}`}>
-                              {t('calculator.quantity')}
-                            </label>
-                            <input
-                              id={`qty-${item.id}`}
-                              type="number"
-                              min="1"
-                              value={selection.qty}
-                              onChange={(e) => handleQtyChange(item.id, e.target.value)}
-                              disabled={!selection.checked || disabled}
-                              className="w-20 border rounded-lg px-3 py-1 text-sm disabled:bg-gray-100"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
+            <div className="grid lg:grid-cols-[2fr,1fr] gap-6">
+              <div className="space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div className="relative w-full md:max-w-sm">
+                    <Search className="w-4 h-4 text-text-light absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="search"
+                      value={calculatorSearch}
+                      onChange={(e) => setCalculatorSearch(e.target.value)}
+                      placeholder={t('calculator.searchPlaceholder')}
+                      className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                    />
                   </div>
+                  <p className="text-xs text-text-light">{t('calculator.note')}</p>
                 </div>
-              ))}
+                {filteredCalculatorSections.length === 0 ? (
+                  <div className="py-10 text-center text-text-secondary border rounded-2xl">
+                    {t('calculator.noResults')}
+                  </div>
+                ) : (
+                  filteredCalculatorSections.map((section) => (
+                    <div key={section.id} className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-text-light">
+                          {section.id}
+                        </p>
+                        <span className="text-xs text-text-secondary">
+                          {section.items.length} {t('calculator.selectedLabel')}
+                        </span>
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {section.items.map((item) => {
+                          const selection = calculatorState[item.id] || { checked: false, qty: 1 };
+                          const disabled = item.numericPrice == null;
+                          return (
+                            <div
+                              key={item.id}
+                              className="rounded-2xl border p-4 space-y-3 shadow-sm hover:shadow-md transition-shadow bg-white"
+                            >
+                              <div className="flex items-start gap-3">
+                                <input
+                                  type="checkbox"
+                                  className="mt-1 h-4 w-4 text-primary border-gray-300 rounded"
+                                  disabled={disabled}
+                                  checked={!disabled && selection.checked}
+                                  onChange={() => handleToggleService(item.id)}
+                                />
+                                <div>
+                                  <p className="font-semibold text-text-primary">{item.service_name}</p>
+                                  <p className="text-sm text-text-secondary">
+                                    {disabled
+                                      ? t('calculator.priceUnavailable')
+                                      : `${formatPriceHt(item.price)} / ${item.unit}`}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <label className="text-xs uppercase text-text-light" htmlFor={`qty-${item.id}`}>
+                                  {t('calculator.quantity')}
+                                </label>
+                                <input
+                                  id={`qty-${item.id}`}
+                                  type="number"
+                                  min="1"
+                                  value={selection.qty}
+                                  onChange={(e) => handleQtyChange(item.id, e.target.value)}
+                                  disabled={!selection.checked || disabled}
+                                  className="w-24 border rounded-lg px-3 py-1 text-sm text-center disabled:bg-gray-100"
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <aside className="bg-[#0B1221] text-white rounded-3xl p-5 space-y-4 shadow-xl lg:sticky lg:top-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase text-white/50">{t('calculator.totalLabel')}</p>
+                    <p className="text-2xl font-semibold">
+                      {currencyFormatter.format(calculatorTotal || 0)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearCalculator}
+                    className="text-xs underline decoration-dotted text-white/80 hover:text-white"
+                  >
+                    {t('calculator.clearAll')}
+                  </button>
+                </div>
+                <div className="space-y-3 max-h-[360px] overflow-auto pr-1">
+                  {selectedServices.length === 0 ? (
+                    <p className="text-sm text-white/70">{t('calculator.emptySelection')}</p>
+                  ) : (
+                    selectedServices.map((item) => (
+                      <div key={item.id} className="rounded-2xl bg-white/5 p-3 space-y-1">
+                        <div className="flex items-center justify-between text-sm font-semibold">
+                          <span>{item.service_name}</span>
+                          <span>
+                            {item.lineTotal == null
+                              ? t('calculator.priceUnavailable')
+                              : currencyFormatter.format(item.lineTotal)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-white/70">
+                          {item.qty} ×{' '}
+                          {item.price == null ? t('calculator.priceUnavailable') : formatPriceHt(item.price)} ·{' '}
+                          {item.unit}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <p className="text-xs text-white/70">{t('calculator.note')}</p>
+              </aside>
             </div>
           )}
-          <p className="text-xs text-text-light">{t('calculator.note')}</p>
         </section>
      </div>
    </div>

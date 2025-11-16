@@ -203,6 +203,11 @@ export const servicesDe = {
     priceUnavailable: 'Preis auf Anfrage',
     quantity: 'Menge',
     totalLabel: 'Geschätzte Summe (zzgl. MwSt.)',
-    note: 'Unverbindliche Schätzung – das finale Angebot kann je nach Produktdetails und Mengen variieren.'
+    note: 'Unverbindliche Schätzung – das finale Angebot kann je nach Produktdetails und Mengen variieren.',
+    searchPlaceholder: 'Service suchen…',
+    noResults: 'Keine Services entsprechen den Filtern.',
+    selectedLabel: 'Services',
+    clearAll: 'Alles zurücksetzen',
+    emptySelection: 'Wählen Sie links Services aus, um Ihr Angebot zu erstellen.'
   }
 };
