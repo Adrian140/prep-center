@@ -969,30 +969,30 @@ function ClientReceiving() {
                                 'No img'
                               )}
                             </div>
-                            <div className="text-[11px] leading-tight text-text-secondary space-y-1">
-                              <div>
-                                <span className="text-[9px] uppercase tracking-wide text-text-tertiary">
+                            <div className="text-[10px] text-text-secondary space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[8px] uppercase tracking-wide text-text-tertiary">
                                   ASIN
                                 </span>
-                                <div className="font-mono text-xs text-text-primary">
+                                <span className="font-mono text-[10px] text-text-primary">
                                   {identifiers.asin}
-                                </div>
+                                </span>
                               </div>
-                              <div>
-                                <span className="text-[9px] uppercase tracking-wide text-text-tertiary">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[8px] uppercase tracking-wide text-text-tertiary">
                                   SKU
                                 </span>
-                                <div className="font-mono text-xs text-text-primary">
+                                <span className="font-mono text-[10px] text-text-primary">
                                   {identifiers.sku}
-                                </div>
+                                </span>
                               </div>
-                              <div>
-                                <span className="text-[9px] uppercase tracking-wide text-text-tertiary">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[8px] uppercase tracking-wide text-text-tertiary">
                                   EAN
                                 </span>
-                                <div className="font-mono text-xs text-text-primary">
+                                <span className="font-mono text-[10px] text-text-primary">
                                   {identifiers.ean}
-                                </div>
+                                </span>
                               </div>
                             </div>
                           </div>
