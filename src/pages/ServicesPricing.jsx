@@ -1,16 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  FileDown,
-  ArrowRight,
-  Tag,
-  Package,
-  Boxes,
-  Truck,
-  Archive,
-  Shield,
-  Layers,
-  Search
-} from 'lucide-react';
+import { FileDown, ArrowRight, Tag, Package, Boxes, Truck, Archive, Shield, Layers } from 'lucide-react';
 import { supabaseHelpers } from '../config/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useServicesTranslation } from '../translations/services';
@@ -128,7 +117,6 @@ export default function ServicesPricing() {
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingError, setPricingError] = useState('');
   const [serviceSelection, setServiceSelection] = useState('');
-  const [selectedPeriod, setSelectedPeriod] = useState(PERIOD_OPTIONS[0].id);
   const [estimateItems, setEstimateItems] = useState([]);
 
   const pricingErrorMessage = t('pricingSection.error');
@@ -267,6 +255,7 @@ export default function ServicesPricing() {
   }, [calculatorSections]);
 
   const visibleServiceGroups = calculatorSections;
+  const hasServiceResults = visibleServiceGroups.some((section) => section.items.length > 0);
 
   useEffect(() => {
     const firstSection = visibleServiceGroups.find((section) => section.items.length > 0);
@@ -274,16 +263,13 @@ export default function ServicesPricing() {
       setServiceSelection('');
       return;
     }
-    let defaultServiceId = firstSection.items[0]?.id || '';
     setServiceSelection((prev) => {
       const exists = visibleServiceGroups.some((section) =>
         section.items.some((item) => item.id === prev)
       );
-      return exists ? prev : firstSection.items[0].id;
+      return exists ? prev : firstSection.items[0]?.id || '';
     });
   }, [visibleServiceGroups]);
-
-  const selectedServiceDetails = serviceSelection ? serviceLookup[serviceSelection] : null;
 
   const periodMap = useMemo(
     () =>
@@ -294,28 +280,38 @@ export default function ServicesPricing() {
     []
   );
 
-  const addServiceToEstimate = useCallback((serviceId, periodId) => {
-    if (!serviceId || !periodId) return;
-    setEstimateItems((prev) => {
-      const next = [...prev];
-      const existingIndex = next.findIndex(
-        (entry) => entry.serviceId === serviceId && entry.periodId === periodId
-      );
-      if (existingIndex >= 0) {
-        next[existingIndex] = {
-          ...next[existingIndex],
-          qty: (next[existingIndex].qty || 1) + 1
-        };
-      } else {
-        next.push({ serviceId, periodId, qty: 1 });
-      }
-      return next;
-    });
+  const defaultPeriodForService = useCallback((service) => {
+    if (service?.sectionId === 'Storage') return PERIOD_OPTIONS[0]?.id || '1m';
+    return '1m';
   }, []);
+
+  const addServiceToEstimate = useCallback(
+    (serviceId, overridePeriodId = null) => {
+      if (!serviceId) return;
+      const service = serviceLookup[serviceId];
+      const periodId = overridePeriodId || defaultPeriodForService(service);
+      setEstimateItems((prev) => {
+        const next = [...prev];
+        const existingIndex = next.findIndex(
+          (entry) => entry.serviceId === serviceId && entry.periodId === periodId
+        );
+        if (existingIndex >= 0) {
+          next[existingIndex] = {
+            ...next[existingIndex],
+            qty: (next[existingIndex].qty || 1) + 1
+          };
+        } else {
+          next.push({ serviceId, periodId, qty: 1 });
+        }
+        return next;
+      });
+    },
+    [serviceLookup, defaultPeriodForService]
+  );
 
   const handleServiceSelection = (serviceId) => {
     if (!serviceId) return;
-    addServiceToEstimate(serviceId, selectedPeriod);
+    addServiceToEstimate(serviceId);
     setServiceSelection('');
   };
 
@@ -337,14 +333,6 @@ export default function ServicesPricing() {
     [estimateItems, serviceLookup, periodMap]
   );
 
-  const hasStorageEstimate = useMemo(
-    () => estimateSummary.some((item) => item.service.sectionId === 'Storage'),
-    [estimateSummary]
-  );
-
-  const shouldShowPeriodControls =
-    (selectedServiceDetails && selectedServiceDetails.sectionId === 'Storage') || hasStorageEstimate;
-
   const calculatorTotal = useMemo(
     () =>
       estimateSummary.reduce((sum, item) => {
@@ -361,6 +349,31 @@ export default function ServicesPricing() {
         entry.serviceId === serviceId && entry.periodId === periodId ? { ...entry, qty: numeric } : entry
       )
     );
+  };
+
+  const handleEstimatePeriodChange = (serviceId, currentPeriodId, nextPeriodId) => {
+    if (!nextPeriodId || currentPeriodId === nextPeriodId) return;
+    setEstimateItems((prev) => {
+      const currentIndex = prev.findIndex(
+        (entry) => entry.serviceId === serviceId && entry.periodId === currentPeriodId
+      );
+      if (currentIndex === -1) return prev;
+      const next = [...prev];
+      const duplicateIndex = next.findIndex(
+        (entry, idx) =>
+          idx !== currentIndex && entry.serviceId === serviceId && entry.periodId === nextPeriodId
+      );
+      if (duplicateIndex >= 0) {
+        next[duplicateIndex] = {
+          ...next[duplicateIndex],
+          qty: (next[duplicateIndex].qty || 1) + (next[currentIndex].qty || 1)
+        };
+        next.splice(currentIndex, 1);
+      } else {
+        next[currentIndex] = { ...next[currentIndex], periodId: nextPeriodId };
+      }
+      return next;
+    });
   };
 
   const handleRemoveEstimateLine = (serviceId, periodId) => {
@@ -743,33 +756,6 @@ export default function ServicesPricing() {
                       )}
                     </select>
                   </div>
-                  {shouldShowPeriodControls && (
-                    <div className="space-y-3">
-                      <label className="text-xs uppercase text-text-light">
-                        {t('calculator.periodLabel')}
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {PERIOD_OPTIONS.map((option) => {
-                          const isActive = selectedPeriod === option.id;
-                          return (
-                            <button
-                              type="button"
-                              key={option.id}
-                              onClick={() => setSelectedPeriod(option.id)}
-                              className={`px-3 py-1.5 rounded-full text-sm border transition ${
-                                isActive
-                                  ? 'bg-primary text-white border-primary'
-                                  : 'bg-white text-text-secondary border-gray-200 hover:border-primary'
-                              }`}
-                            >
-                              {t(`calculator.periodOptions.${option.labelKey}`)}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="text-xs text-text-light">{t('calculator.periodHelper')}</p>
-                    </div>
-                  )}
                 </div>
                 <div className="space-y-2">
                   {estimateSummary.length === 0 ? (
@@ -781,7 +767,7 @@ export default function ServicesPricing() {
                       {estimateSummary.map((item) => (
                         <div
                           key={`${item.service.id}-${item.period.id}`}
-                          className="relative rounded-2xl border bg-white p-3 text-xs shadow-sm flex flex-col gap-2 min-h-[120px]"
+                          className="relative rounded-2xl border bg-white p-3 text-xs shadow-sm flex flex-col gap-2 min-h-[140px]"
                         >
                           <button
                             type="button"
@@ -804,6 +790,29 @@ export default function ServicesPricing() {
                                 : `${formatPriceHt(item.service.price)} · ${item.service.unit}`}
                             </p>
                           </div>
+                          {item.service.sectionId === 'Storage' && (
+                            <div className="flex flex-wrap gap-1">
+                              {PERIOD_OPTIONS.map((option) => {
+                                const isActive = item.period.id === option.id;
+                                return (
+                                  <button
+                                    type="button"
+                                    key={option.id}
+                                    onClick={() =>
+                                      handleEstimatePeriodChange(item.service.id, item.period.id, option.id)
+                                    }
+                                    className={`px-2 py-1 rounded-full text-[11px] border transition ${
+                                      isActive
+                                        ? 'bg-primary text-white border-primary'
+                                        : 'bg-white text-text-secondary border-gray-200 hover:border-primary'
+                                    }`}
+                                  >
+                                    {t(`calculator.periodOptions.${option.labelKey}`)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                           <div className="flex items-center justify-between gap-2 mt-auto">
                             <span className="text-[10px] uppercase text-text-light">
                               {t('calculator.quantity')}
