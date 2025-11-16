@@ -59,7 +59,6 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   const storageKey = useMemo(() => `admin-receiving-detail-${shipment.id}`, [shipment.id]);
   const [items, setItems] = useState(shipment.receiving_items || []);
   const [stockMatches, setStockMatches] = useState({});
-  const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState('');
   const [savingRow, setSavingRow] = useState(null);
   const [editMode, setEditMode] = useState(false);
@@ -193,22 +192,52 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
       return;
     }
 
+    const delta = parsed - current;
+
     setSavingRow(item.id);
     try {
+      if (!profile?.id) throw new Error('Profile unavailable');
       const payload = { received_units: parsed };
       const expected = getExpectedQty(item);
-      if (parsed < expected && item.is_received) {
-        payload.is_received = false;
-      }
+      payload.is_received = parsed >= expected;
+      const fbaReserve = Math.max(
+        0,
+        Math.min(parsed, Number(item.fba_qty || 0))
+      );
+      const qtyToStock = Math.max(0, parsed - fbaReserve);
+      payload.quantity_to_stock = qtyToStock;
+      const intent = resolveFbaIntent(item);
+      payload.remaining_action = encodeRemainingAction(
+        fbaReserve > 0,
+        fbaReserve || intent.qtyHint || parsed
+      );
 
       await supabaseHelpers.updateReceivingItem(item.id, payload);
+      if (delta !== 0) {
+        const { error: stockError, stock_item_id } =
+          await supabaseHelpers.adjustInventoryForReceiving(
+            {
+              ...item,
+              company_id: shipment.company_id,
+              stock_item: item.stock_item
+            },
+            delta,
+            profile.id
+          );
+        if (stockError) throw stockError;
+        if (stock_item_id && !item.stock_item_id) {
+          item.stock_item_id = stock_item_id;
+        }
+      }
       setItems((prev) =>
         prev.map((row) =>
           row.id === item.id
             ? {
                 ...row,
                 received_units: parsed,
-                is_received: payload.is_received ?? row.is_received
+                is_received: payload.is_received,
+                quantity_to_stock: payload.quantity_to_stock,
+                stock_item_id: item.stock_item_id || row.stock_item_id
               }
             : row
         )
@@ -421,22 +450,6 @@ const checkStockMatches = async () => {
   setStockMatches(map);
 };
 
-const markAsReceived = async () => {
-  if (!profile?.id) {
-    setMessage('Profile unavailable. Please try again.');
-    return;
-  }
-  if (!confirm('Mark this reception as received?')) return;
-  try {
-    const { error } = await supabaseHelpers.markReceivingAsReceived(shipment.id, profile.id);
-    if (error) throw error;
-    setMessage('Reception marked as received.');
-    onUpdate();
-  } catch (err) {
-    setMessage(`Error: ${err.message}`);
-  }
-};
-
   const deleteThisShipment = async () => {
     if (!confirm('Delete this reception? This action cannot be undone.')) return;
     try {
@@ -462,72 +475,6 @@ const markAsReceived = async () => {
       setMessage(`Delete error: ${err.message}`);
     }
   };
-
-const processToStock = async () => {
-  if (!profile?.id) {
-    setMessage('Profile unavailable. Please try again.');
-    return;
-  }
-  if (!confirm('Process this reception into stock? This cannot be undone.')) return;
-  setProcessing(true);
-  try {
-    const hasInvalidFba = items.some((item) => {
-      const confirmed = getConfirmedQty(item);
-      const intent = resolveFbaIntent(item);
-      if (!(intent.hasIntent || intent.directFromAction)) return false;
-      const desired =
-        intent.qty > 0
-          ? intent.qty
-          : intent.directFromAction
-          ? confirmed
-          : 0;
-      return !Number.isFinite(desired) || desired < 1 || desired > confirmed;
-    });
-    if (hasInvalidFba) {
-      setMessage('Please double-check the FBA quantities for each product.');
-      setProcessing(false);
-      return;
-    }
-    const itemsToProcess = items.map(item => {
-      const confirmedQty = getConfirmedQty(item);
-      const intent = resolveFbaIntent(item);
-      let fba = intent.qty > 0
-        ? intent.qty
-        : intent.directFromAction
-        ? confirmedQty
-        : 0;
-      fba = Math.max(0, Math.min(fba, confirmedQty));
-      const toStock = Math.max(0, confirmedQty - fba);
-      const asinValue = item.asin || item.stock_item?.asin || null;
-      const skuValue = item.sku || item.stock_item?.sku || null;
-      const sendDirect = (intent.hasIntent || intent.directFromAction) && fba > 0;
-      return {
-        ...item,
-        asin: asinValue,
-        sku: skuValue,
-        company_id: shipment.company_id,
-        quantity_to_stock: toStock,
-        remaining_action: encodeRemainingAction(sendDirect, fba || intent.qtyHint || confirmedQty),
-        send_to_fba: sendDirect,
-        fba_qty: fba
-      };
-    });
-
-    const { error } = await supabaseHelpers.processReceivingToStock(
-      shipment.id,
-      profile.id,
-      itemsToProcess
-    );
-    if (error) throw error;
-
-    setMessage('Reception processed to stock successfully.');
-    onUpdate();
-  } catch (error) {
-    setMessage(`Processing error: ${error.message}`);
-  } finally {
-    setProcessing(false);
-  }
-};
 
   const fbaModeValue = editHeader.fba_mode || shipment.fba_mode || 'none';
   const fbaMeta = getFbaModeMeta(fbaModeValue);
@@ -825,32 +772,12 @@ const processToStock = async () => {
         {/* Actions (în interiorul cardului) */}
         <div className="flex justify-end space-x-3">
           {shipment.status === 'submitted' && (
-            <>
-              <button
-                onClick={markAsReceived}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Mark as received
-              </button>
-              <button
-                onClick={deleteThisShipment}
-                className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </button>
-            </>
-          )}
-
-          {shipment.status === 'received' && (
             <button
-              onClick={processToStock}
-              disabled={processing}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              onClick={deleteThisShipment}
+              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
-              <Package className="w-4 h-4 mr-2" />
-              {processing ? 'Processing…' : 'Process to stock'}
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
             </button>
           )}
         </div>

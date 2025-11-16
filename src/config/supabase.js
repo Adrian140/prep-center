@@ -60,6 +60,97 @@ const receivingItemColumnMissing = (error) =>
 const receivingShipmentArrayColumnMissing = (error) =>
   ['tracking_ids', 'fba_shipment_ids'].some((col) => isMissingColumnError(error, col));
 
+const normalizeCode = (value) => (typeof value === 'string' ? value.trim() : value ?? null);
+
+const ensureStockItemForReceiving = async (item, processedBy) => {
+  if (item.stock_item_id) {
+    const { data } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('id', item.stock_item_id)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  if (item.ean_asin) {
+    const { data } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('company_id', item.company_id)
+      .eq('ean', item.ean_asin)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  const normalizedAsin = normalizeCode(item.asin);
+  if (normalizedAsin) {
+    const { data } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('company_id', item.company_id)
+      .eq('asin', normalizedAsin)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  const normalizedSku = normalizeCode(item.sku);
+  if (normalizedSku) {
+    const { data } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('company_id', item.company_id)
+      .eq('sku', normalizedSku)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  const insertPayload = {
+    company_id: item.company_id,
+    ean: item.ean_asin,
+    name: item.product_name,
+    asin: normalizedAsin,
+    sku: normalizedSku,
+    qty: 0,
+    purchase_price: item.purchase_price,
+    created_by: processedBy
+  };
+
+  const { data: created, error } = await supabase
+    .from('stock_items')
+    .insert(insertPayload)
+    .select()
+    .single();
+  if (error) throw error;
+  return created;
+};
+
+const adjustStockForReceivingDelta = async (item, delta, processedBy) => {
+  if (!delta) return { error: null };
+  const stockRow = await ensureStockItemForReceiving(item, processedBy);
+  if (!stockRow) return { error: new Error('Unable to resolve stock item') };
+  const currentQty = Number(stockRow.qty || 0);
+  const nextQty = Math.max(0, currentQty + delta);
+  const { error: stockError } = await supabase
+    .from('stock_items')
+    .update({ qty: nextQty })
+    .eq('id', stockRow.id);
+  if (stockError) return { error: stockError };
+
+  const note = delta >= 0 ? 'Auto sync from receiving' : 'Auto sync correction';
+  const { error: logError } = await supabase
+    .from('receiving_to_stock_log')
+    .insert({
+      receiving_item_id: item.id,
+      stock_item_id: stockRow.id,
+      quantity_moved: Math.abs(delta),
+      moved_by: processedBy,
+      notes: note
+    });
+  if (logError) return { error: logError };
+
+  return { error: null, stock_item_id: stockRow.id };
+};
+
 const isRelationMissingError = (error, relation) => {
   if (!error || !relation) return false;
   const rel = relation.toLowerCase();
@@ -365,6 +456,8 @@ async function getUserGuideSignedUrl(path, expiresIn = 3600) {
 }
 
 export const supabaseHelpers = {
+  adjustInventoryForReceiving: async (item, delta, processedBy) =>
+    adjustStockForReceivingDelta(item, delta, processedBy),
   uploadUserGuideVideo,
   getUserGuideSignedUrl,
 
@@ -1733,72 +1826,12 @@ getAllReceivingShipments: async (options = {}) => {
       if (shipmentFetchError) throw shipmentFetchError;
 
       const fbaLines = [];
-      const normalizeCode = (value) =>
-        typeof value === 'string' ? value.trim() : value ?? null;
 
-      const ensureStockItem = async (item) => {
-        if (item.stock_item_id) {
-          const { data } = await supabase
-            .from('stock_items')
-            .select('*')
-            .eq('id', item.stock_item_id)
-            .maybeSingle();
-          if (data) return data;
-        }
-
-        if (item.ean_asin) {
-          const { data } = await supabase
-            .from('stock_items')
-            .select('*')
-            .eq('company_id', item.company_id)
-            .eq('ean', item.ean_asin)
-            .maybeSingle();
-          if (data) return data;
-        }
-
-        const normalizedAsin = normalizeCode(item.asin);
-        if (normalizedAsin) {
-          const { data } = await supabase
-            .from('stock_items')
-            .select('*')
-            .eq('company_id', item.company_id)
-            .eq('asin', normalizedAsin)
-            .maybeSingle();
-          if (data) return data;
-        }
-
-        const normalizedSku = normalizeCode(item.sku);
-        if (normalizedSku) {
-          const { data } = await supabase
-            .from('stock_items')
-            .select('*')
-            .eq('company_id', item.company_id)
-            .eq('sku', normalizedSku)
-            .maybeSingle();
-          if (data) return data;
-        }
-
-        const insertPayload = {
-          company_id: item.company_id,
-          ean: item.ean_asin,
-          name: item.product_name,
-          asin: normalizedAsin,
-          sku: normalizedSku,
-          qty: 0,
-          purchase_price: item.purchase_price,
-          created_by: processedBy
+      for (const sourceItem of itemsToProcess) {
+        const item = {
+          ...sourceItem,
+          company_id: sourceItem.company_id || shipment.company_id
         };
-
-        const { data: created, error } = await supabase
-          .from('stock_items')
-          .insert(insertPayload)
-          .select()
-          .single();
-        if (error) throw error;
-        return created;
-      };
-
-      for (const item of itemsToProcess) {
         const quantityReceived = Math.max(
           0,
           Number(
@@ -1815,7 +1848,7 @@ getAllReceivingShipments: async (options = {}) => {
         }
         const qtyToStock = Math.max(0, quantityReceived - fbaQty);
 
-        const stockRow = await ensureStockItem(item);
+        const stockRow = await ensureStockItemForReceiving(item, processedBy);
         const normalizedAsin = normalizeCode(item.asin);
         const normalizedSku = normalizeCode(item.sku);
         const stockId = stockRow?.id || null;
