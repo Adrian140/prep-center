@@ -207,16 +207,26 @@ createReceptionRequest: async (data) => {
 
         const unitsRequested = Math.max(1, Number(it.units_requested) || 0);
 
+        const normalizedPrice = (() => {
+          if (
+            it.purchase_price === undefined ||
+            it.purchase_price === null ||
+            it.purchase_price === ''
+          )
+            return null;
+          const raw = String(it.purchase_price).replace(',', '.');
+          const num = Number(raw);
+          if (!Number.isFinite(num)) return null;
+          return Number(num.toFixed(2));
+        })();
+
         const base = {
           shipment_id: header.id,
           line_number: lineCounter++,
           ean_asin: safeEanAsin,
           product_name: safeName,
           sku: rawSku || null,
-          purchase_price:
-            it.purchase_price == null || it.purchase_price === ''
-              ? null
-              : it.purchase_price,
+          purchase_price: normalizedPrice,
           quantity_received: unitsRequested,
           remaining_action: encodeRemainingAction(
             !!it.send_to_fba,
