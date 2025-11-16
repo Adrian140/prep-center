@@ -717,16 +717,6 @@ export default function ServicesPricing() {
                     <label className="text-xs uppercase text-text-light">
                       {t('calculator.categoryLabel')}
                     </label>
-                    <div className="relative">
-                      <Search className="w-4 h-4 text-text-light absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="search"
-                        value={serviceSearch}
-                        onChange={(e) => setServiceSearch(e.target.value)}
-                        placeholder={t('calculator.serviceSearchPlaceholder')}
-                        className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
-                      />
-                    </div>
                     <select
                       value={serviceSelection}
                       onChange={(e) => handleServiceSelection(e.target.value)}
@@ -755,6 +745,16 @@ export default function ServicesPricing() {
                         <option value="">{t('calculator.noResults')}</option>
                       )}
                     </select>
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-text-light absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="search"
+                        value={serviceSearch}
+                        onChange={(e) => setServiceSearch(e.target.value)}
+                        placeholder={t('calculator.serviceSearchPlaceholder')}
+                        className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-3">
                     <label className="text-xs uppercase text-text-light">
@@ -782,7 +782,7 @@ export default function ServicesPricing() {
                     <p className="text-xs text-text-light">{t('calculator.periodHelper')}</p>
                   </div>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {estimateSummary.length === 0 ? (
                     <div className="rounded-2xl border border-dashed bg-white p-6 text-sm text-text-secondary text-center">
                       {t('calculator.emptySelection')}
@@ -791,18 +791,18 @@ export default function ServicesPricing() {
                     estimateSummary.map((item) => (
                       <div
                         key={`${item.service.id}-${item.period.id}`}
-                        className="rounded-2xl border bg-white p-4 space-y-3 shadow-sm"
+                        className="rounded-2xl border bg-white p-3 space-y-2 shadow-sm"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-text-primary">
+                            <p className="font-semibold text-text-primary text-sm">
                               {item.service.service_name}
                             </p>
-                            <p className="text-xs text-text-light">
+                            <p className="text-[11px] text-text-light">
                               {item.service.sectionId} ·{' '}
                               {t(`calculator.periodOptions.${item.period.labelKey}`)}
                             </p>
-                            <p className="text-xs text-text-secondary">
+                            <p className="text-[11px] text-text-secondary">
                               {formatPriceHt(item.service.price)} · {item.service.unit}
                             </p>
                           </div>
@@ -814,9 +814,9 @@ export default function ServicesPricing() {
                             {t('calculator.remove')}
                           </button>
                         </div>
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center justify-between gap-2">
                           <label
-                            className="text-xs uppercase text-text-light"
+                            className="text-[11px] uppercase text-text-light"
                             htmlFor={`qty-inline-${item.service.id}-${item.period.id}`}
                           >
                             {t('calculator.quantity')}
@@ -829,7 +829,7 @@ export default function ServicesPricing() {
                             onChange={(e) =>
                               handleEstimateQtyChange(item.service.id, item.period.id, e.target.value)
                             }
-                            className="w-24 rounded-lg border px-3 py-1.5 text-sm"
+                            className="w-20 rounded-lg border px-2 py-1 text-sm"
                           />
                         </div>
                       </div>
