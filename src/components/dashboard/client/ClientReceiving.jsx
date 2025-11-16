@@ -755,9 +755,6 @@ function ClientReceiving() {
                           <p className="font-medium text-text-primary truncate">
                             {item.product_name}
                           </p>
-                          <p className="text-xs text-text-secondary">
-                            {(t('fba_units_announced_label') || 'Units announced:') + ' ' + qty}
-                          </p>
                         </div>
                         <div className="flex justify-end">
                           <input
