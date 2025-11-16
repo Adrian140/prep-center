@@ -23,9 +23,9 @@ export const CLIENT_RECIVING_DICT = {
   fba_mode_available: "Unités annoncées : {qty}",
   fba_mode_summary_full: "Le client a demandé que toutes les unités soient envoyées directement à Amazon.",
   fba_mode_summary_partial: "Le client a demandé un envoi partiel vers Amazon.",
-  fba_units_announced: "Unités annoncées",
+    fba_units_announced: "Marchandises à recevoir",
   fba_units_to_amazon: "Unités à envoyer à Amazon",
-  fba_units_announced_label: "Unités annoncées :",
+    fba_units_announced_label: "Marchandises à recevoir :",
 
     // Buttons (generic)
     
@@ -184,9 +184,9 @@ export const CLIENT_RECIVING_DICT = {
     fba_mode_available: "Units announced: {qty}",
     fba_mode_summary_full: "Client requested all units to be shipped directly to Amazon.",
     fba_mode_summary_partial: "Client requested a partial shipment to Amazon.",
-    fba_units_announced: "Units announced",
+    fba_units_announced: "Goods expected",
     fba_units_to_amazon: "Units to send to Amazon",
-    fba_units_announced_label: "Units announced:",
+    fba_units_announced_label: "Goods expected:",
     template_filename: "receiving_template.csv",
 
     new_receipt: "New receiving",
@@ -328,9 +328,9 @@ export const CLIENT_RECIVING_DICT = {
     fba_mode_available: "Gemeldete Einheiten: {qty}",
     fba_mode_summary_full: "Der Kunde hat angefordert, dass alle Einheiten direkt an Amazon gesendet werden.",
     fba_mode_summary_partial: "Der Kunde hat eine teilweise Sendung zu Amazon angefordert.",
-    fba_units_announced: "Gemeldete Einheiten",
+    fba_units_announced: "Wareneingang erwartet",
     fba_units_to_amazon: "Einheiten für Amazon",
-    fba_units_announced_label: "Gemeldete Einheiten:",
+    fba_units_announced_label: "Wareneingang erwartet:",
     template_filename: "vorlage_wareneingang.csv", 
 
     new_receipt: "Neuer Wareneingang",
