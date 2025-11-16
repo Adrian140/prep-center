@@ -1721,12 +1721,13 @@ getAllReceivingShipments: async (options = {}) => {
   },
 
   // Process to Stock
-  processReceivingToStock: async (shipmentId, processedBy, itemsToProcess) => {
+  processReceivingToStock: async (shipmentId, processedBy, itemsToProcess, options = {}) => {
     try {
+      const opts = options || {};
       await ensureReceivingColumnSupport();
       const { data: shipment, error: shipmentFetchError } = await supabase
         .from('receiving_shipments')
-        .select('id, company_id, user_id')
+        .select('id, company_id, user_id, destination_country')
         .eq('id', shipmentId)
         .single();
       if (shipmentFetchError) throw shipmentFetchError;
@@ -1895,28 +1896,29 @@ getAllReceivingShipments: async (options = {}) => {
         }
       }
 
-      if (fbaLines.length) {
+      if (fbaLines.length && opts.createPrepRequest !== false) {
         await supabaseHelpers.createPrepRequest({
           company_id: shipment.company_id,
           user_id: shipment.user_id || processedBy,
           status: 'pending',
-          destination_country: 'FR',
+          destination_country: shipment.destination_country || 'FR',
           items: fbaLines
         });
       }
 
-      const { error: shipmentError } = await supabase
-        .from('receiving_shipments')
-        .update({
-          status: 'processed',
-          processed_at: new Date().toISOString(),
-          processed_by: processedBy
-        })
-        .eq('id', shipmentId);
+      if (!opts.skipShipmentUpdate) {
+        const { error: shipmentError } = await supabase
+          .from('receiving_shipments')
+          .update({
+            status: 'processed',
+            processed_at: new Date().toISOString(),
+            processed_by: processedBy
+          })
+          .eq('id', shipmentId);
+        if (shipmentError) throw shipmentError;
+      }
 
-      if (shipmentError) throw shipmentError;
-
-      return { error: null };
+      return { error: null, fbaLines };
     } catch (error) {
       return { error };
     }

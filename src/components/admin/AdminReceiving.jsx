@@ -60,7 +60,6 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   const [items, setItems] = useState(shipment.receiving_items || []);
   const [stockMatches, setStockMatches] = useState({});
   const [processing, setProcessing] = useState(false);
-  const [markingSelected, setMarkingSelected] = useState(false);
   const [message, setMessage] = useState('');
   const [savingRow, setSavingRow] = useState(null);
   const [editMode, setEditMode] = useState(false);
@@ -79,13 +78,11 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     fba_mode: sh.fba_mode || 'none'
   });
   const [editHeader, setEditHeader] = useState(buildHeaderState(shipment));
-  const [selectedItemIds, setSelectedItemIds] = useState(new Set());
   const [selectedPrepIds, setSelectedPrepIds] = useState(new Set());
   const [creatingPrep, setCreatingPrep] = useState(false);
   const [receivedDrafts, setReceivedDrafts] = useState({});
 
   useEffect(() => {
-    setSelectedItemIds(new Set());
     setSelectedPrepIds(new Set());
     setReceivedDrafts({});
   }, [shipment.id]);
@@ -98,51 +95,18 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   const isPrepEligible = (item) => {
     if (!item?.id || !isUuid(String(item.id))) return false;
     const fbaQty = Math.max(0, Number(item.fba_qty || 0));
-    const receivedUnits = Math.max(0, Number(item.received_units || 0));
-    return (
-      Boolean(item.is_received) &&
-      (Boolean(item.send_to_fba) || fbaQty > 0) &&
-      fbaQty > 0 &&
-      receivedUnits >= fbaQty
-    );
+    if (fbaQty === 0) return false;
+    const receivedUnits = getConfirmedQty(item);
+    return receivedUnits >= fbaQty;
   };
 
-  const selectableItems = useMemo(
-    () =>
-      items.filter(
-        (item) => item.id && isUuid(String(item.id)) && !item.is_received
-      ),
-    [items]
-  );
   const prepSelectableItems = useMemo(
     () => items.filter((item) => isPrepEligible(item) && !item.prep_request_created),
     [items]
   );
-  const selectionAllowed = ['submitted', 'partial'].includes(shipment.status);
-  const allSelectableSelected =
-    selectionAllowed &&
-    selectableItems.length > 0 &&
-    selectableItems.every((item) => selectedItemIds.has(item.id));
-  const selectedCount = selectedItemIds.size;
   const allPrepSelected =
     prepSelectableItems.length > 0 &&
     prepSelectableItems.every((item) => selectedPrepIds.has(item.id));
-
-  useEffect(() => {
-    setSelectedItemIds((prev) => {
-      if (prev.size === 0) return prev;
-      const allowed = new Set(
-        items
-          .filter((item) => item.id && isUuid(String(item.id)) && !item.is_received)
-          .map((item) => item.id)
-      );
-      const next = new Set();
-      prev.forEach((id) => {
-        if (allowed.has(id)) next.add(id);
-      });
-      return next;
-    });
-  }, [items]);
 
   useEffect(() => {
     setSelectedPrepIds((prev) => {
@@ -261,6 +225,20 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     }
   };
 
+  const derivedStatus = useMemo(() => {
+    if (['cancelled', 'processed'].includes(shipment.status)) return shipment.status;
+    if (!items || items.length === 0) return shipment.status || 'submitted';
+    const allReceived = items.every((item) => {
+      const expected = getExpectedQty(item);
+      if (expected <= 0) return true;
+      return getConfirmedQty(item) >= expected;
+    });
+    const anyReceived = items.some((item) => getConfirmedQty(item) > 0);
+    if (allReceived && anyReceived) return 'received';
+    if (anyReceived) return 'partial';
+    return 'submitted';
+  }, [items, shipment.status]);
+
   const clearDraft = () => {
     try {
       tabSessionStorage.removeItem(storageKey);
@@ -274,16 +252,6 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     onBack();
   };
 
-  const toggleItemSelection = (itemId) => {
-    if (!selectionAllowed || !itemId || !isUuid(String(itemId))) return;
-    setSelectedItemIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(itemId)) next.delete(itemId);
-      else next.add(itemId);
-      return next;
-    });
-  };
-
   const togglePrepSelection = (itemId) => {
     if (!itemId || !isUuid(String(itemId))) return;
     setSelectedPrepIds((prev) => {
@@ -292,16 +260,6 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
       else next.add(itemId);
       return next;
     });
-  };
-
-  const toggleSelectAll = (checked) => {
-    if (!selectionAllowed) return;
-    if (!checked) {
-      setSelectedItemIds(new Set());
-      return;
-    }
-    const next = new Set(selectableItems.map((item) => item.id));
-    setSelectedItemIds(next);
   };
 
   const toggleSelectAllPrep = (checked) => {
@@ -317,113 +275,79 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     setSelectedPrepIds(next);
   };
 
-  const handleMarkSelectedReceived = async () => {
-    if (!selectionAllowed || selectedItemIds.size === 0) return;
+  const handleCreatePrepRequest = async () => {
+    if (selectedPrepIds.size === 0) return;
     if (!profile?.id) {
       setMessage('Profile unavailable. Please try again.');
       return;
     }
-    const validSelectedIds = Array.from(selectedItemIds).filter((id) =>
-      isUuid(String(id))
-    );
-    if (validSelectedIds.length === 0) {
-      setMessage('Please select at least one valid product.');
-      return;
-    }
-    const validSet = new Set(validSelectedIds);
-    const invalidSelections = items.filter(
-      (item) =>
-        item.id &&
-        validSet.has(item.id) &&
-        getConfirmedQty(item) < getExpectedQty(item)
-    );
-    if (invalidSelections.length) {
-      setMessage('Please update received units to match the announced quantity before marking as received.');
-      return;
-    }
-    setMarkingSelected(true);
-    try {
-      const { error } = await supabaseHelpers.markReceivingItemsAsReceived(
-        shipment.id,
-        validSelectedIds,
-        profile.id
-      );
-      if (error) throw error;
-      setItems((prev) =>
-        prev.map((item) => {
-          if (!validSet.has(item.id)) return item;
-          const expected = getExpectedQty(item);
-          return {
-            ...item,
-            is_received: true,
-            received_at: new Date().toISOString(),
-            received_by: profile.id,
-            received_units: Math.max(getConfirmedQty(item), expected)
-          };
-        })
-      );
-      setReceivedDrafts((prev) => {
-        const next = { ...prev };
-        validSelectedIds.forEach((id) => {
-          if (id) delete next[id];
-        });
-        return next;
-      });
-      setSelectedItemIds((prev) => {
-        const next = new Set(prev);
-        validSelectedIds.forEach((id) => next.delete(id));
-        return next;
-      });
-      setMessage('Selected products marked as received successfully.');
-      onUpdate();
-    } catch (err) {
-      setMessage(`Error: ${err.message}`);
-    } finally {
-      setMarkingSelected(false);
-    }
-  };
-
-  const handleCreatePrepRequest = async () => {
-    if (selectedPrepIds.size === 0) return;
     const prepIds = Array.from(selectedPrepIds);
     const lines = items.filter((item) => item.id && prepIds.includes(item.id));
     const invalid = lines.filter((item) => !isPrepEligible(item));
     if (invalid.length > 0) {
-      setMessage('Select only lines that are fully received and have units for Amazon.');
+      setMessage('Select only lines where received units cover the FBA quantity.');
       return;
     }
-    const payload = {
-      company_id: shipment.company_id,
-      user_id: shipment.user_id || shipment.created_by || profile?.id || null,
-      destination_country: shipment.destination_country || 'FR',
-      status: 'pending',
-      items: lines.map((item) => ({
-        stock_item_id: item.stock_item_id || item.stock_item?.id || null,
-        ean: item.stock_item?.ean || item.ean_asin || null,
-        product_name: item.product_name || item.stock_item?.name || 'Product',
-        asin: item.stock_item?.asin || item.asin || null,
-        sku: item.stock_item?.sku || item.sku || null,
-        units_requested: Math.max(0, Number(item.fba_qty || 0))
-      }))
-    };
-    const zeroLines = payload.items.filter((it) => it.units_requested <= 0);
-    if (zeroLines.length > 0) {
-      setMessage('Some selected lines do not have any units to send to Amazon.');
-      return;
-    }
+
+    const itemsToProcess = lines.map((item) => {
+      const confirmedQty = getConfirmedQty(item);
+      const fbaValue = Math.max(0, Math.min(confirmedQty, Number(item.fba_qty || 0)));
+      const toStock = Math.max(0, confirmedQty - fbaValue);
+      const asinValue = item.asin || item.stock_item?.asin || null;
+      const skuValue = item.sku || item.stock_item?.sku || null;
+      const sendDirect = fbaValue > 0;
+      return {
+        ...item,
+        asin: asinValue,
+        sku: skuValue,
+        company_id: shipment.company_id,
+        quantity_to_stock: toStock,
+        remaining_action: encodeRemainingAction(sendDirect, fbaValue || confirmedQty),
+        send_to_fba: sendDirect,
+        fba_qty: fbaValue
+      };
+    });
+
     try {
       setCreatingPrep(true);
-      await supabaseHelpers.createPrepRequest(payload);
+      const { error, fbaLines } = await supabaseHelpers.processReceivingToStock(
+        shipment.id,
+        profile.id,
+        itemsToProcess,
+        { skipShipmentUpdate: true, createPrepRequest: false }
+      );
+      if (error) throw error;
+      if (!fbaLines || fbaLines.length === 0) {
+        throw new Error('No units ready to send to prep.');
+      }
+      await supabaseHelpers.createPrepRequest({
+        company_id: shipment.company_id,
+        user_id: shipment.user_id || shipment.created_by || profile.id,
+        destination_country: shipment.destination_country || 'FR',
+        status: 'pending',
+        items: fbaLines
+      });
+      await supabase
+        .from('receiving_items')
+        .update({ fba_qty: 0 })
+        .in('id', prepIds);
       const updated = new Set(prepIds);
       setItems((prev) =>
-        prev.map((item) =>
-          updated.has(item.id)
-            ? { ...item, prep_request_created: true }
-            : item
-        )
+        prev.map((item) => {
+          if (!updated.has(item.id)) return item;
+          const confirmedQty = getConfirmedQty(item);
+          const fbaValue = Math.max(0, Math.min(confirmedQty, Number(item.fba_qty || 0)));
+          return {
+            ...item,
+            fba_qty: 0,
+            quantity_to_stock: Math.max(0, confirmedQty - fbaValue),
+            send_to_fba: false,
+            prep_request_created: true
+          };
+        })
       );
       setSelectedPrepIds(new Set());
-      setMessage('Prep request created successfully.');
+      setMessage('Send to prep successful.');
     } catch (error) {
       console.error('create prep request failed', error);
       setMessage(error?.message || 'Failed to create prep request.');
@@ -631,7 +555,7 @@ const processToStock = async () => {
           </button>
         )}
         <div className="flex items-center space-x-4">
-          <StatusPill status={shipment.status} />
+          <StatusPill status={derivedStatus} />
           <span className="text-text-secondary">
             {new Date(shipment.created_at).toLocaleDateString()}
           </span>
@@ -935,62 +859,38 @@ const processToStock = async () => {
           Products ({items.length})
         </h4>
 
-        {selectionAllowed && (
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <p className="text-sm text-text-secondary">
-              {selectedCount > 0
-                ? `${selectedCount} product${selectedCount === 1 ? '' : 's'} selected`
-                : 'Select the products that have arrived in the warehouse.'}
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <p className="text-sm text-text-secondary">
+            {prepSelectableItems.length === 0
+              ? 'No lines are ready for Amazon yet.'
+              : selectedPrepIds.size > 0
+              ? `${selectedPrepIds.size} line${selectedPrepIds.size === 1 ? '' : 's'} ready to send to Amazon`
+              : 'Select received lines to create a prep request.'}
+          </p>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-text-secondary">
+              <input
+                type="checkbox"
+                checked={prepSelectableItems.length > 0 && allPrepSelected}
+                onChange={(e) => toggleSelectAllPrep(e.target.checked)}
+                disabled={prepSelectableItems.length === 0}
+              />
+              Select all ready
+            </label>
             <button
-              onClick={handleMarkSelectedReceived}
-              disabled={selectedCount === 0 || markingSelected}
-              className="inline-flex items-center px-3 py-2 rounded border border-green-500 text-green-700 hover:bg-green-50 disabled:opacity-50"
+              onClick={handleCreatePrepRequest}
+              disabled={selectedPrepIds.size === 0 || creatingPrep}
+              className="inline-flex items-center px-3 py-2 rounded border border-blue-500 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
             >
-              {markingSelected ? 'Updating…' : 'Mark selected as received'}
+              {creatingPrep ? 'Sending…' : 'Send to prep'}
             </button>
           </div>
-        )}
-        {prepSelectableItems.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <p className="text-sm text-text-secondary">
-              {selectedPrepIds.size > 0
-                ? `${selectedPrepIds.size} line${selectedPrepIds.size === 1 ? '' : 's'} ready to send to Amazon`
-                : 'Select received lines to create a prep request.'}
-            </p>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-text-secondary">
-                <input
-                  type="checkbox"
-                  checked={allPrepSelected}
-                  onChange={(e) => toggleSelectAllPrep(e.target.checked)}
-                />
-                Select all ready
-              </label>
-              <button
-                onClick={handleCreatePrepRequest}
-                disabled={selectedPrepIds.size === 0 || creatingPrep}
-                className="inline-flex items-center px-3 py-2 rounded border border-blue-500 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
-              >
-                {creatingPrep ? 'Creating…' : 'Create prep request'}
-              </button>
-            </div>
-          </div>
-        )}
+        </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                {selectionAllowed && (
-                  <th className="px-2 py-3 text-center w-10">
-                    <input
-                      type="checkbox"
-                      checked={allSelectableSelected}
-                      onChange={(e) => toggleSelectAll(e.target.checked)}
-                    />
-                  </th>
-                )}
                 <th className="px-4 py-3 text-left">Photo</th>
                 <th className="px-4 py-3 text-left">EAN / ASIN</th>
                 <th className="px-4 py-3 text-left">Product name</th>
@@ -1021,37 +921,40 @@ const processToStock = async () => {
                   : 0;
                 const pendingFba = Math.max(0, plannedFbaQty - sentToAmazon);
                 const hasDirectIntent = intent.hasIntent || intent.directFromAction;
-                const isReceived = Boolean(item.is_received);
-                const partialReceived = !isReceived && confirmedQty > 0;
-                const isSelectable =
-                  selectionAllowed && item.id && isUuid(String(item.id)) && !isReceived;
-                const isSelected = item.id ? selectedItemIds.has(item.id) : false;
                 const receivedAt = item.received_at ? new Date(item.received_at) : null;
-                const statusPill = isReceived
-                  ? { label: 'Received', color: 'bg-green-100 text-green-800' }
-                  : partialReceived
-                  ? { label: 'Partial', color: 'bg-amber-100 text-amber-800' }
-                  : { label: 'Pending', color: 'bg-gray-100 text-gray-700' };
+                let lineStatus;
+                if (expectedQty <= 0 && confirmedQty <= 0) {
+                  lineStatus = {
+                    label: 'Pending',
+                    detail: '0 received',
+                    color: 'bg-gray-100 text-gray-700'
+                  };
+                } else if (confirmedQty <= 0) {
+                  lineStatus = {
+                    label: 'Pending',
+                    detail: `0/${expectedQty} received`,
+                    color: 'bg-gray-100 text-gray-700'
+                  };
+                } else if (confirmedQty >= expectedQty) {
+                  lineStatus = {
+                    label: 'Received',
+                    detail: `${confirmedQty}/${expectedQty} received`,
+                    color: 'bg-green-100 text-green-800'
+                  };
+                } else {
+                  const diff = Math.max(0, expectedQty - confirmedQty);
+                  lineStatus = {
+                    label: 'Partial',
+                    detail: `${confirmedQty}/${expectedQty} received, ${diff} pending`,
+                    color: 'bg-amber-100 text-amber-800'
+                  };
+                }
                 const rowClasses = ['border-t', 'transition-colors'];
                 if (hasDirectIntent) rowClasses.push('bg-sky-50/70');
-                if (isReceived) rowClasses.push('bg-emerald-50');
-                else if (partialReceived) rowClasses.push('bg-amber-50/30');
-                else if (isSelected) rowClasses.push('bg-amber-50/40');
+                if (lineStatus.label === 'Received') rowClasses.push('bg-emerald-50');
+                else if (lineStatus.label === 'Partial') rowClasses.push('bg-amber-50/30');
                 return (
                   <tr key={item.id || idx} className={rowClasses.join(' ')}>
-                    {selectionAllowed && (
-                      <td className="px-2 py-3 text-center w-10 align-middle">
-                        {isSelectable ? (
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => item.id && toggleItemSelection(item.id)}
-                          />
-                        ) : (
-                          <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />
-                        )}
-                      </td>
-                    )}
                     <td className="px-4 py-3">
                       {imageUrl ? (
                         <img
@@ -1147,20 +1050,14 @@ const processToStock = async () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col">
-                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${statusPill.color}`}>
-                          {statusPill.label}
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${lineStatus.color}`}>
+                          {lineStatus.label}
                         </span>
-                        {isReceived ? (
-                          <span className="text-xs text-emerald-700 mt-1">
-                            {receivedAt ? `Received ${receivedAt.toLocaleDateString()}` : 'Marked as received'}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-text-secondary mt-1">
-                            {partialReceived
-                              ? `Partially received (${confirmedQty}/${expectedQty})`
-                              : `Waiting (${confirmedQty}/${expectedQty})`}
-                          </span>
-                        )}
+                        <span className="text-xs text-text-secondary mt-1">
+                          {lineStatus.label === 'Received' && receivedAt
+                            ? `Received ${receivedAt.toLocaleDateString()}`
+                            : lineStatus.detail}
+                        </span>
                       </div>
                     </td>
                   </tr>
