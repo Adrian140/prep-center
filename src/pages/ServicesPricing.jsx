@@ -258,8 +258,7 @@ export default function ServicesPricing() {
   const hasServiceResults = visibleServiceGroups.some((section) => section.items.length > 0);
 
   useEffect(() => {
-    const firstSection = visibleServiceGroups.find((section) => section.items.length > 0);
-    if (!firstSection) {
+    if (!hasServiceResults) {
       setServiceSelection('');
       return;
     }
@@ -267,9 +266,9 @@ export default function ServicesPricing() {
       const exists = visibleServiceGroups.some((section) =>
         section.items.some((item) => item.id === prev)
       );
-      return exists ? prev : firstSection.items[0]?.id || '';
+      return exists ? prev : '';
     });
-  }, [visibleServiceGroups]);
+  }, [visibleServiceGroups, hasServiceResults]);
 
   const periodMap = useMemo(
     () =>
