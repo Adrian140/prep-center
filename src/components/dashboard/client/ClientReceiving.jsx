@@ -251,30 +251,62 @@ function ClientReceiving() {
 
       await supabaseHelpers.updateReceivingShipment(shipmentId, payloadHeader);
 
-      if (typeof supabaseHelpers.deleteReceivingItemsByShipment === 'function') {
-        const { error: delErr } = await supabaseHelpers.deleteReceivingItemsByShipment(
-          shipmentId
-        );
-        if (delErr) throw delErr;
+      const existingItems = sortItems(selectedShipment?.receiving_items || []);
+      const existingById = {};
+      existingItems.forEach((it) => {
+        if (it.id) existingById[it.id] = it;
+      });
+
+      const current = editItems || [];
+      const currentIds = new Set(current.filter((it) => it.id).map((it) => it.id));
+
+      const toDeleteIds = Object.keys(existingById).filter((id) => !currentIds.has(id));
+      const toUpdate = current.filter((item) => item.id && existingById[item.id]);
+      const toInsert = current.filter((item) => !item.id);
+
+      const buildItemPayload = (item, fallbackLineNumber) => {
+        const baseLine =
+          Number(item.line_number) ||
+          Number(existingById[item.id || '']?.line_number) ||
+          fallbackLineNumber ||
+          1;
+        return {
+          stock_item_id: item.stock_item_id || null,
+          ean_asin: item.ean_asin,
+          product_name: item.product_name,
+          quantity_received: Number(item.quantity_received) || 0,
+          received_units: Number(item.quantity_received) || 0,
+          sku: item.sku || null,
+          purchase_price: item.purchase_price ?? null,
+          send_to_fba: !!item.send_to_fba,
+          fba_qty: item.send_to_fba ? Math.max(0, Number(item.fba_qty) || 0) : 0,
+          line_number: baseLine
+        };
+      };
+
+      for (const id of toDeleteIds) {
+        await supabaseHelpers.deleteReceivingItem(id);
       }
 
-      let lineCounter = 1;
-      const itemsPayload = (editItems || []).map((item) => ({
-        shipment_id: shipmentId,
-        stock_item_id: item.stock_item_id || null,
-        ean_asin: item.ean_asin,
-        product_name: item.product_name,
-        quantity_received: Number(item.quantity_received) || 0,
-        received_units: Number(item.quantity_received) || 0,
-        sku: item.sku || null,
-        purchase_price: item.purchase_price ?? null,
-        send_to_fba: !!item.send_to_fba,
-        fba_qty: item.send_to_fba ? Math.max(0, Number(item.fba_qty) || 0) : 0,
-        line_number: Number(item.line_number) || lineCounter++
-      }));
+      for (const item of toUpdate) {
+        const payload = buildItemPayload(item);
+        await supabaseHelpers.updateReceivingItem(item.id, payload);
+      }
 
-      if (itemsPayload.length) {
-        await supabaseHelpers.createReceivingItems(itemsPayload);
+      if (toInsert.length) {
+        let lineCounter =
+          existingItems.reduce(
+            (max, it) => Math.max(max, Number(it.line_number) || 0),
+            0
+          ) || 0;
+        const insertPayload = toInsert.map((item) => {
+          lineCounter += 1;
+          return {
+            shipment_id: shipmentId,
+            ...buildItemPayload(item, lineCounter)
+          };
+        });
+        await supabaseHelpers.createReceivingItems(insertPayload);
       }
 
       const refreshed = await loadData();
