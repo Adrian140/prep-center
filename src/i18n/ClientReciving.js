@@ -86,8 +86,8 @@ export const CLIENT_RECIVING_DICT = {
     date_created: "Date de création",
 
     // Table headers
-    th_ean_asin: "EAN/ASIN",
-    th_ean_asin_req: "EAN/ASIN *",
+    th_ean_asin: "ASIN / SKU / EAN",
+    th_ean_asin_req: "ASIN / SKU / EAN *",
     th_name: "Nom du Produit",
     th_name_req: "Nom du Produit *",
     th_qty: "Quantité",
@@ -240,8 +240,8 @@ export const CLIENT_RECIVING_DICT = {
     notes_ph: "Additional notes…",
     date_created: "Created at",
 
-    th_ean_asin: "EAN/ASIN",
-    th_ean_asin_req: "EAN/ASIN *",
+    th_ean_asin: "ASIN / SKU / EAN",
+    th_ean_asin_req: "ASIN / SKU / EAN *",
     th_name: "Product Name",
     th_name_req: "Product Name *",
     th_qty: "Quantity",
@@ -384,8 +384,8 @@ export const CLIENT_RECIVING_DICT = {
     notes_ph: "Zusätzliche Notizen…",
     date_created: "Erstellt am",
 
-    th_ean_asin: "EAN/ASIN",
-    th_ean_asin_req: "EAN/ASIN *",
+    th_ean_asin: "ASIN / SKU / EAN",
+    th_ean_asin_req: "ASIN / SKU / EAN *",
     th_name: "Produktname",
     th_name_req: "Produktname *",
     th_qty: "Menge",
@@ -525,8 +525,8 @@ export const CLIENT_RECIVING_DICT = {
     notes_ph: "Note aggiuntive…",
     date_created: "Data creazione",
 
-    th_ean_asin: "EAN/ASIN",
-    th_ean_asin_req: "EAN/ASIN *",
+    th_ean_asin: "ASIN / SKU / EAN",
+    th_ean_asin_req: "ASIN / SKU / EAN *",
     th_name: "Nome prodotto",
     th_name_req: "Nome prodotto *",
     th_qty: "Quantità",
@@ -667,8 +667,8 @@ export const CLIENT_RECIVING_DICT = {
     notes_ph: "Notas adicionales…",
     date_created: "Fecha de creación",
 
-    th_ean_asin: "EAN/ASIN",
-    th_ean_asin_req: "EAN/ASIN *",
+    th_ean_asin: "ASIN / SKU / EAN",
+    th_ean_asin_req: "ASIN / SKU / EAN *",
     th_name: "Nombre del producto",
     th_name_req: "Nombre del producto *",
     th_qty: "Cantidad",
@@ -809,8 +809,8 @@ export const CLIENT_RECIVING_DICT = {
     notes_ph: "Note suplimentare…",
     date_created: "Data creării",
 
-    th_ean_asin: "EAN/ASIN",
-    th_ean_asin_req: "EAN/ASIN *",
+    th_ean_asin: "ASIN / SKU / EAN",
+    th_ean_asin_req: "ASIN / SKU / EAN *",
     th_name: "Nume produs",
     th_name_req: "Nume produs *",
     th_qty: "Cantitate",

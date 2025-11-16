@@ -1356,7 +1356,7 @@ createReceivingShipment: async (shipmentData) => {
       .from('receiving_shipments')
       .select(`
         *,
-        receiving_items(*),
+        receiving_items(*, stock_item:stock_items(*)),
         receiving_shipment_items(*)
       `)
       .eq('company_id', companyId)

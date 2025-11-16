@@ -38,6 +38,37 @@ const sanitizeList = (values) =>
 
 const cloneItems = (items = []) => items.map((item) => ({ ...item }));
 
+const cleanCode = (value) => (typeof value === 'string' ? value.trim() : '');
+const ASIN_REGEX = /^[A-Z0-9]{10}$/;
+const EAN_REGEX = /^\d{8,14}$/;
+const looksLikeAsin = (value) => {
+  const code = cleanCode(value).toUpperCase();
+  return ASIN_REGEX.test(code) && /[A-Z]/.test(code);
+};
+const looksLikeEan = (value) => EAN_REGEX.test(cleanCode(value));
+
+const resolveIdentifiers = (item) => {
+  const stock = item?.stock_item || {};
+  const rawEanAsin = cleanCode(item?.ean_asin);
+  const asin =
+    cleanCode(item?.asin) ||
+    cleanCode(stock.asin) ||
+    (looksLikeAsin(rawEanAsin) ? rawEanAsin : '');
+  const sku = cleanCode(item?.sku) || cleanCode(stock.sku);
+  const ean =
+    cleanCode(item?.ean) ||
+    cleanCode(stock.ean) ||
+    (!looksLikeAsin(rawEanAsin) && looksLikeEan(rawEanAsin) ? rawEanAsin : '');
+  return {
+    asin: asin || '—',
+    sku: sku || '—',
+    ean: ean || '—'
+  };
+};
+
+const resolveImageUrl = (item) =>
+  cleanCode(item?.image_url) || cleanCode(item?.stock_item?.image_url) || '';
+
 const sortItems = (items = []) =>
   [...items].sort((a, b) => (a.line_number ?? 0) - (b.line_number ?? 0));
 
@@ -894,6 +925,8 @@ function ClientReceiving() {
                         color: 'bg-gray-100 text-gray-700'
                       };
                   const lineEditable = editMode && !fullyReceived;
+                  const imageUrl = resolveImageUrl(item);
+                  const identifiers = resolveIdentifiers(item);
                   return (
                     <tr key={item.id || idx} className={rowClasses.join(' ')}>
                       <td className="px-4 py-3">
@@ -924,15 +957,44 @@ function ClientReceiving() {
                             />
                           </div>
                         ) : (
-                          <div className="text-xs text-text-secondary">
-                            <div className="font-mono text-sm text-text-primary">
-                              {item.ean_asin || '—'}
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded border bg-gray-50 flex items-center justify-center overflow-hidden text-[9px] text-text-secondary flex-shrink-0">
+                              {imageUrl ? (
+                                <img
+                                  src={imageUrl}
+                                  alt={item.product_name || 'Product photo'}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                'No img'
+                              )}
                             </div>
-                            {item.sku && (
-                              <div className="font-mono text-[11px] text-text-secondary">
-                                {item.sku}
+                            <div className="text-[11px] leading-tight text-text-secondary space-y-1">
+                              <div>
+                                <span className="text-[9px] uppercase tracking-wide text-text-tertiary">
+                                  ASIN
+                                </span>
+                                <div className="font-mono text-xs text-text-primary">
+                                  {identifiers.asin}
+                                </div>
                               </div>
-                            )}
+                              <div>
+                                <span className="text-[9px] uppercase tracking-wide text-text-tertiary">
+                                  SKU
+                                </span>
+                                <div className="font-mono text-xs text-text-primary">
+                                  {identifiers.sku}
+                                </div>
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase tracking-wide text-text-tertiary">
+                                  EAN
+                                </span>
+                                <div className="font-mono text-xs text-text-primary">
+                                  {identifiers.ean}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </td>
