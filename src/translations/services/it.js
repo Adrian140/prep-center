@@ -194,5 +194,15 @@ export const servicesIt = {
       transporter: 'Vettore',
       info: 'Info'
     }
+  },
+
+  calculator: {
+    title: 'Calcolatore di preventivo',
+    subtitle: 'Seleziona i servizi e le quantità per ottenere subito una stima (prezzi IVA esclusa).',
+    empty: 'Il listino è ancora in caricamento. Riprova tra qualche istante.',
+    priceUnavailable: 'Prezzo su richiesta',
+    quantity: 'Qtà',
+    totalLabel: 'Totale stimato (IVA esclusa)',
+    note: 'Valore indicativo: il preventivo finale può variare in base al prodotto e ai volumi.'
   }
 };

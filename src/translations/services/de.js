@@ -194,5 +194,15 @@ export const servicesDe = {
       transporter: 'Transporteur',
       info: 'Info'
     }
+  },
+
+  calculator: {
+    title: 'Budgetrechner',
+    subtitle: 'Wählen Sie die gewünschten Services und Mengen, um sofort eine Schätzung zu erhalten (Preise zzgl. MwSt.).',
+    empty: 'Die Preisliste wird noch geladen. Bitte versuchen Sie es in Kürze erneut.',
+    priceUnavailable: 'Preis auf Anfrage',
+    quantity: 'Menge',
+    totalLabel: 'Geschätzte Summe (zzgl. MwSt.)',
+    note: 'Unverbindliche Schätzung – das finale Angebot kann je nach Produktdetails und Mengen variieren.'
   }
 };

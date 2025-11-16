@@ -194,5 +194,15 @@ export const servicesEn = {
       transporter: 'Transporter',
       info: 'Info'
     }
+  },
+
+  calculator: {
+    title: 'Estimate your prep budget',
+    subtitle: 'Select the services and quantities you need to build an instant estimate (prices shown exclude VAT).',
+    empty: 'Pricing is still loading. Please try again in a few moments.',
+    priceUnavailable: 'Contact us for pricing',
+    quantity: 'Qty',
+    totalLabel: 'Estimated total (HT)',
+    note: 'This is an estimate only. Final quotes may differ based on product specifics and volumes.'
   }
 };

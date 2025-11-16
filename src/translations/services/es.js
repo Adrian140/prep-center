@@ -194,5 +194,15 @@ export const servicesEs = {
       transporter: 'Transportista',
       info: 'Info'
     }
+  },
+
+  calculator: {
+    title: 'Calculadora de presupuesto',
+    subtitle: 'Marca los servicios y las cantidades que necesitas para obtener una estimación instantánea (precios sin IVA).',
+    empty: 'La lista de servicios aún se está cargando. Inténtalo de nuevo en unos instantes.',
+    priceUnavailable: 'Precio bajo solicitud',
+    quantity: 'Cant.',
+    totalLabel: 'Total estimado (sin IVA)',
+    note: 'Importe orientativo; la cotización final puede variar según el producto y el volumen.'
   }
 };

@@ -194,5 +194,15 @@ export const servicesFr = {
       transporter: 'Transporteur',
       info: 'Info'
     }
+  },
+
+  calculator: {
+    title: 'Estimez votre budget',
+    subtitle: 'Sélectionnez les services et les quantités souhaitées pour obtenir une estimation instantanée (prix affichés hors TVA).',
+    empty: 'La grille tarifaire se charge encore. Merci de réessayer dans quelques instants.',
+    priceUnavailable: 'Sur devis',
+    quantity: 'Qté',
+    totalLabel: 'Total estimé (HT)',
+    note: 'Estimation indicative : le devis final peut varier selon vos produits et volumes.'
   }
 };

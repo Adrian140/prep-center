@@ -194,5 +194,15 @@ export const servicesRo = {
       transporter: 'Transportator',
       info: 'Info'
     }
+  },
+
+  calculator: {
+    title: 'Calculează bugetul',
+    subtitle: 'Bifează serviciile și cantitățile necesare pentru a vedea instant o estimare (prețuri afișate fără TVA).',
+    empty: 'Lista de servicii se încarcă încă. Încearcă din nou peste câteva momente.',
+    priceUnavailable: 'Preț la cerere',
+    quantity: 'Cant.',
+    totalLabel: 'Total estimativ (fără TVA)',
+    note: 'Suma este orientativă. Oferta finală poate varia în funcție de specificațiile produselor și volume.'
   }
 };

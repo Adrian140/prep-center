@@ -59,6 +59,26 @@ const SECTION_STYLES = {
   }
 };
 
+const localeMap = {
+  fr: 'fr-FR',
+  en: 'en-US',
+  de: 'de-DE',
+  it: 'it-IT',
+  es: 'es-ES',
+  ro: 'ro-RO'
+};
+
+const parsePriceToNumber = (rawPrice) => {
+  if (rawPrice == null) return null;
+  const cleaned = String(rawPrice)
+    .replace(/[^0-9,.\-]/g, '')
+    .replace(',', '.')
+    .trim();
+  if (!cleaned) return null;
+  const value = Number(cleaned);
+  return Number.isFinite(value) ? value : null;
+};
+
 const groupPricing = (rows = []) => {
   const grouped = {};
   rows.forEach((row) => {
@@ -89,6 +109,7 @@ export default function ServicesPricing() {
   const [shippingLoading, setShippingLoading] = useState(true);
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingError, setPricingError] = useState('');
+  const [calculatorState, setCalculatorState] = useState({});
 
   const pricingErrorMessage = t('pricingSection.error');
   const shippingFallbackMessage = t('shippingSection.domesticDisclaimer');
@@ -200,6 +221,82 @@ export default function ServicesPricing() {
       items: pricingGroups[entry.id] || []
     }));
   }, [pricingGroups]);
+
+  const calculatorSections = useMemo(
+    () =>
+      sections.map((section) => ({
+        ...section,
+        items: section.items.map((item) => ({
+          ...item,
+          numericPrice: parsePriceToNumber(item.price)
+        }))
+      })),
+    [sections]
+  );
+
+  const flatCalculatorServices = useMemo(
+    () =>
+      calculatorSections.flatMap((section) =>
+        section.items.map((item) => ({
+          id: item.id,
+          price: item.numericPrice,
+          unit: item.unit,
+          service_name: item.service_name,
+          sectionId: section.id
+        }))
+      ),
+    [calculatorSections]
+  );
+
+  useEffect(() => {
+    setCalculatorState((prev) => {
+      const nextState = {};
+      flatCalculatorServices.forEach((service) => {
+        const existing = prev[service.id];
+        nextState[service.id] = existing || { checked: false, qty: 1 };
+      });
+      return nextState;
+    });
+  }, [flatCalculatorServices]);
+
+  const handleToggleService = (serviceId) => {
+    setCalculatorState((prev) => {
+      const current = prev[serviceId] || { checked: false, qty: 1 };
+      return {
+        ...prev,
+        [serviceId]: { ...current, checked: !current.checked }
+      };
+    });
+  };
+
+  const handleQtyChange = (serviceId, value) => {
+    setCalculatorState((prev) => {
+      const current = prev[serviceId] || { checked: false, qty: 1 };
+      const numeric = Math.max(1, Number(value) || 1);
+      return {
+        ...prev,
+        [serviceId]: { ...current, qty: numeric }
+      };
+    });
+  };
+
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(localeMap[currentLanguage] || 'en-US', {
+        style: 'currency',
+        currency: 'EUR',
+        maximumFractionDigits: 2
+      }),
+    [currentLanguage]
+  );
+
+  const calculatorTotal = useMemo(() => {
+    return flatCalculatorServices.reduce((sum, service) => {
+      const entry = calculatorState[service.id];
+      if (!entry?.checked || service.price == null) return sum;
+      return sum + service.price * (entry.qty || 1);
+    }, 0);
+  }, [flatCalculatorServices, calculatorState]);
 
   const handleExport = async () => {
     if (!Object.keys(pricingGroups).length) {
@@ -506,6 +603,81 @@ export default function ServicesPricing() {
               {t('shippingSection.internationalDisclaimer')}
             </p>
           </div>
+        </section>
+
+        <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-semibold text-text-primary">
+                {t('calculator.title')}
+              </h2>
+              <p className="text-text-secondary text-sm md:text-base">{t('calculator.subtitle')}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs uppercase text-text-light">{t('calculator.totalLabel')}</p>
+              <p className="text-2xl font-bold text-primary">
+                {currencyFormatter.format(calculatorTotal || 0)}
+              </p>
+            </div>
+          </div>
+          {calculatorSections.length === 0 ? (
+            <div className="py-10 text-center text-text-secondary">{t('calculator.empty')}</div>
+          ) : (
+            <div className="space-y-6">
+              {calculatorSections.map((section) => (
+                <div key={section.id} className="space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-light">
+                    {section.id}
+                  </p>
+                  <div className="space-y-3">
+                    {section.items.map((item) => {
+                      const selection = calculatorState[item.id] || { checked: false, qty: 1 };
+                      const disabled = item.numericPrice == null;
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex flex-col md:flex-row md:items-center gap-4 border rounded-2xl p-4"
+                        >
+                          <label className="flex items-start gap-3 flex-1">
+                            <input
+                              type="checkbox"
+                              className="mt-1 h-4 w-4 text-primary border-gray-300 rounded"
+                              disabled={disabled}
+                              checked={!disabled && selection.checked}
+                              onChange={() => handleToggleService(item.id)}
+                            />
+                            <div>
+                              <p className="font-semibold text-text-primary">{item.service_name}</p>
+                              <p className="text-sm text-text-secondary">
+                                {disabled
+                                  ? t('calculator.priceUnavailable')
+                                  : `${formatPriceHt(item.price)} / ${item.unit}`}
+                              </p>
+                            </div>
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <label className="text-sm text-text-secondary" htmlFor={`qty-${item.id}`}>
+                              {t('calculator.quantity')}
+                            </label>
+                            <input
+                              id={`qty-${item.id}`}
+                              type="number"
+                              min="1"
+                              value={selection.qty}
+                              onChange={(e) => handleQtyChange(item.id, e.target.value)}
+                              disabled={!selection.checked || disabled}
+                              className="w-20 border rounded-lg px-3 py-1 text-sm disabled:bg-gray-100"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-text-light">{t('calculator.note')}</p>
         </section>
 
         <section className="bg-[#0B1221] text-white rounded-3xl p-8 space-y-6">
