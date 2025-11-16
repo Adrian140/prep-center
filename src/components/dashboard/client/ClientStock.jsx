@@ -1339,7 +1339,7 @@ const resetReceptionForm = () => {
       quantity: item.units_requested || null,
     }));
 
-    const { error } = await supabase.functions.invoke('send_reception_admin_email', {
+    const { error } = await supabase.functions.invoke('send_inbound_confirm_email', {
       body: {
         shipment_id: header?.id || null,
         client_email: clientEmail,
