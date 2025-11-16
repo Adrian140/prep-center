@@ -9,7 +9,7 @@ const defaultLabels = {
   manualTitle: 'Manual entry',
   eanLabel: 'EAN/ASIN *',
   nameLabel: 'Product Name *',
-  priceLabel: 'Purchase price (€)',
+  priceLabel: 'Purchase price (€) *',
   addLine: 'Add line',
   uploadTitle: 'Import from XLSX/CSV',
   uploadHint: 'Required columns: EAN/ASIN, Product Name and Purchase price.',
@@ -19,11 +19,11 @@ const defaultLabels = {
   remove: 'Remove',
   addInventory: 'Add to inventory',
   errors: {
-    missingFields: 'Fill both fields before adding the line.',
+    missingFields: 'Fill code, product name and price before adding the line.',
     invalidCode: 'Enter a valid EAN or ASIN.',
     invalidPrice: 'Enter a valid price (e.g. 12.50).',
     fileType: 'Please upload a .xlsx or .csv file.',
-    fileHeaders: 'Missing required columns. Expected headers: EAN/ASIN, Product Name.',
+    fileHeaders: 'Missing required columns. Expected headers: EAN/ASIN, Product Name, Price.',
     fileRows: 'No valid rows were detected in the file.',
     save: 'Unable to add products: {msg}'
   },
@@ -72,9 +72,7 @@ const parsePriceValue = (raw) => {
 const downloadTemplate = async (labels = defaultLabels) => {
   const XLSX = await import('xlsx');
   const sheet = XLSX.utils.aoa_to_sheet([
-    [labels.eanLabel.replace(' *', ''), labels.nameLabel.replace(' *', ''), labels.priceLabel],
-    ['B0ABC12345', 'Sample Amazon Listing', '12.50'],
-    ['1234567890123', 'Generic Product', '24.99']
+    [labels.eanLabel.replace(' *', ''), labels.nameLabel.replace(' *', ''), labels.priceLabel.replace(' *', '')]
   ]);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, 'Template');
@@ -124,7 +122,7 @@ function ProductQuickAdd({
   const addManualLine = () => {
     setError('');
     const { code, name, price } = manual;
-    if (!code.trim() || !name.trim()) {
+    if (!code.trim() || !name.trim() || !price.trim()) {
       setError(labels.errors?.missingFields || defaultLabels.errors.missingFields);
       return;
     }
@@ -133,13 +131,10 @@ function ProductQuickAdd({
       setError(labels.errors?.invalidCode || defaultLabels.errors.invalidCode);
       return;
     }
-    let parsedPrice = null;
-    if (price.trim()) {
-      parsedPrice = parsePriceValue(price);
-      if (parsedPrice == null) {
-        setError(labels.errors?.invalidPrice || defaultLabels.errors.invalidPrice);
-        return;
-      }
+    const parsedPrice = parsePriceValue(price);
+    if (parsedPrice == null) {
+      setError(labels.errors?.invalidPrice || defaultLabels.errors.invalidPrice);
+      return;
     }
     const next = {
       id: randomId(),
@@ -187,7 +182,7 @@ function ProductQuickAdd({
       );
       const idxName = headers.findIndex((h) => h.includes('product') && h.includes('name'));
       const idxPrice = headers.findIndex((h) => h.includes('price'));
-      if (idxCode === -1 || idxName === -1) {
+      if (idxCode === -1 || idxName === -1 || idxPrice === -1) {
         setError(labels.errors?.fileHeaders || defaultLabels.errors.fileHeaders);
         return;
       }
@@ -195,19 +190,16 @@ function ProductQuickAdd({
       rows.forEach((row) => {
         const code = row[idxCode];
         const name = row[idxName];
-        if (!code || !name) return;
+        if (!code || !name || row[idxPrice] == null) return;
         const parsedCode = parseCode(code);
         if (!parsedCode) return;
-        let parsedPrice = null;
-        if (idxPrice !== -1 && row[idxPrice] != null) {
-          const priceValue = parsePriceValue(row[idxPrice]);
-          if (priceValue != null) parsedPrice = priceValue;
-        }
+        const priceValue = parsePriceValue(row[idxPrice]);
+        if (priceValue == null) return;
         parsed.push({
           id: randomId(),
           name: String(name).trim(),
           ...parsedCode,
-          price: parsedPrice
+          price: priceValue
         });
       });
       ingestRows(parsed);
@@ -330,42 +322,45 @@ function ProductQuickAdd({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 [grid-template-columns:1fr] md:[grid-template-columns:1.1fr_1.8fr_1.1fr_auto] md:items-end">
-        <div>
-          <label className="text-xs font-semibold text-text-secondary">{labels.manualTitle}</label>
-          <input
-            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder={labels.eanLabel}
-            value={manual.code}
-            onChange={(e) => setManual((prev) => ({ ...prev, code: e.target.value }))}
-          />
+      <div className="mt-4 space-y-2">
+        <p className="text-xs font-semibold text-text-secondary">{labels.manualTitle}</p>
+        <div className="grid gap-3 [grid-template-columns:1fr] md:[grid-template-columns:1.1fr_1.8fr_1.1fr_auto] md:items-end">
+          <div>
+            <label className="text-xs font-semibold text-text-secondary">{labels.eanLabel}</label>
+            <input
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+              placeholder={labels.eanLabel}
+              value={manual.code}
+              onChange={(e) => setManual((prev) => ({ ...prev, code: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-secondary">{labels.nameLabel}</label>
+            <input
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+              placeholder={labels.nameLabel}
+              value={manual.name}
+              onChange={(e) => setManual((prev) => ({ ...prev, name: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-secondary">{labels.priceLabel}</label>
+            <input
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+              placeholder={labels.priceLabel}
+              value={manual.price}
+              onChange={(e) => setManual((prev) => ({ ...prev, price: e.target.value }))}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={addManualLine}
+            className="inline-flex items-center justify-center rounded-lg border border-primary text-primary px-3 py-2 text-sm font-semibold hover:bg-primary hover:text-white transition-colors md:self-end"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            {labels.addLine}
+          </button>
         </div>
-        <div>
-          <label className="text-xs font-semibold text-text-secondary">{labels.nameLabel}</label>
-          <input
-            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder={labels.nameLabel}
-            value={manual.name}
-            onChange={(e) => setManual((prev) => ({ ...prev, name: e.target.value }))}
-          />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-text-secondary">{labels.priceLabel}</label>
-          <input
-            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder={labels.priceLabel}
-            value={manual.price}
-            onChange={(e) => setManual((prev) => ({ ...prev, price: e.target.value }))}
-          />
-        </div>
-        <button
-          type="button"
-          onClick={addManualLine}
-          className="inline-flex items-center justify-center rounded-lg border border-primary text-primary px-3 py-2 text-sm font-semibold hover:bg-primary hover:text-white transition-colors md:self-end"
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          {labels.addLine}
-        </button>
       </div>
 
       <p className="mt-3 text-xs text-text-secondary">{labels.uploadHint}</p>
