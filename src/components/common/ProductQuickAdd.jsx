@@ -69,10 +69,15 @@ const parsePriceValue = (raw) => {
   return Number(normalized.toFixed(2));
 };
 
-const downloadTemplate = async (labels = defaultLabels) => {
+const downloadTemplate = async (labelsInput = defaultLabels) => {
+  const safeLabels = {
+    ...defaultLabels,
+    ...labelsInput
+  };
+  const sanitize = (value) => String(value || '').replace(' *', '');
   const XLSX = await import('xlsx');
   const sheet = XLSX.utils.aoa_to_sheet([
-    [labels.eanLabel.replace(' *', ''), labels.nameLabel.replace(' *', ''), labels.priceLabel.replace(' *', '')]
+    [sanitize(safeLabels.eanLabel), sanitize(safeLabels.nameLabel), sanitize(safeLabels.priceLabel)]
   ]);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, 'Template');
@@ -105,8 +110,19 @@ function ProductQuickAdd({
   existingRows = [],
   onComplete,
   onError,
-  labels = defaultLabels
+  labels: labelsProp = defaultLabels
 }) {
+  const labels = useMemo(
+    () => ({
+      ...defaultLabels,
+      ...labelsProp,
+      errors: {
+        ...defaultLabels.errors,
+        ...(labelsProp?.errors || {})
+      }
+    }),
+    [labelsProp]
+  );
   const [manual, setManual] = useState({ code: '', name: '', price: '' });
   const [pending, setPending] = useState([]);
   const [message, setMessage] = useState('');

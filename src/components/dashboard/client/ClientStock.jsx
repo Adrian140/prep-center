@@ -796,6 +796,7 @@ export default function ClientStock({
       manualTitle: t('ClientStock.quickAdd.manualTitle'),
       eanLabel: t('ClientStock.quickAdd.eanLabel'),
       nameLabel: t('ClientStock.quickAdd.nameLabel'),
+      priceLabel: t('ClientStock.quickAdd.priceLabel'),
       addLine: t('ClientStock.quickAdd.addLine'),
       uploadTitle: t('ClientStock.quickAdd.uploadTitle'),
       uploadHint: t('ClientStock.quickAdd.uploadHint'),
@@ -807,6 +808,7 @@ export default function ClientStock({
       errors: {
         missingFields: t('ClientStock.quickAdd.errors.missingFields'),
         invalidCode: t('ClientStock.quickAdd.errors.invalidCode'),
+        invalidPrice: t('ClientStock.quickAdd.errors.invalidPrice'),
         qty: t('ClientStock.quickAdd.errors.qty'),
         fileType: t('ClientStock.quickAdd.errors.fileType'),
         fileHeaders: t('ClientStock.quickAdd.errors.fileHeaders'),
