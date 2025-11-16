@@ -127,10 +127,8 @@ export default function ServicesPricing() {
   const [shippingLoading, setShippingLoading] = useState(true);
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingError, setPricingError] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedServiceId, setSelectedServiceId] = useState('');
-  const [serviceFilter, setServiceFilter] = useState('');
-  const [selectedQty, setSelectedQty] = useState(1);
+  const [serviceSearch, setServiceSearch] = useState('');
+  const [serviceSelection, setServiceSelection] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState(PERIOD_OPTIONS[0].id);
   const [estimateItems, setEstimateItems] = useState([]);
 
@@ -269,42 +267,34 @@ export default function ServicesPricing() {
     return lookup;
   }, [calculatorSections]);
 
-  useEffect(() => {
-    if (!selectedCategory && calculatorSections.length > 0) {
-      setSelectedCategory(calculatorSections[0].id);
+  const visibleServiceGroups = useMemo(() => {
+    const query = serviceSearch.trim().toLowerCase();
+    const groups = calculatorSections.map((section) => {
+      const items = query
+        ? section.items.filter((item) => item.normalizedName.includes(query))
+        : section.items;
+      return { ...section, items };
+    });
+    if (query) {
+      return groups.filter((section) => section.items.length > 0);
     }
-  }, [calculatorSections, selectedCategory]);
+    return groups;
+  }, [calculatorSections, serviceSearch]);
+
+  const hasServiceResults = visibleServiceGroups.some((section) => section.items.length > 0);
 
   useEffect(() => {
-    setServiceFilter('');
-  }, [selectedCategory]);
-
-  const selectedCategoryServices = useMemo(() => {
-    if (!selectedCategory) return [];
-    const section = calculatorSections.find((entry) => entry.id === selectedCategory);
-    return section ? section.items : [];
-  }, [calculatorSections, selectedCategory]);
-
-  const filteredServices = useMemo(() => {
-    const query = serviceFilter.trim().toLowerCase();
-    if (!query) return selectedCategoryServices;
-    return selectedCategoryServices.filter((service) => service.normalizedName.includes(query));
-  }, [selectedCategoryServices, serviceFilter]);
-
-  useEffect(() => {
-    if (!filteredServices.length) {
-      setSelectedServiceId('');
+    if (!hasServiceResults) {
+      setServiceSelection('');
       return;
     }
-    if (!filteredServices.some((service) => service.id === selectedServiceId)) {
-      setSelectedServiceId(filteredServices[0].id);
-    }
-  }, [filteredServices, selectedServiceId]);
-
-  const selectedService =
-    filteredServices.find((service) => service.id === selectedServiceId) ||
-    selectedCategoryServices.find((service) => service.id === selectedServiceId) ||
-    null;
+    setServiceSelection((prev) => {
+      const exists = visibleServiceGroups.some((section) =>
+        section.items.some((item) => item.id === prev)
+      );
+      return exists ? prev : '';
+    });
+  }, [visibleServiceGroups, hasServiceResults]);
 
   const periodMap = useMemo(
     () =>
@@ -314,6 +304,31 @@ export default function ServicesPricing() {
       }, {}),
     []
   );
+
+  const addServiceToEstimate = useCallback((serviceId, periodId) => {
+    if (!serviceId || !periodId) return;
+    setEstimateItems((prev) => {
+      const next = [...prev];
+      const existingIndex = next.findIndex(
+        (entry) => entry.serviceId === serviceId && entry.periodId === periodId
+      );
+      if (existingIndex >= 0) {
+        next[existingIndex] = {
+          ...next[existingIndex],
+          qty: (next[existingIndex].qty || 1) + 1
+        };
+      } else {
+        next.push({ serviceId, periodId, qty: 1 });
+      }
+      return next;
+    });
+  }, []);
+
+  const handleServiceSelection = (serviceId) => {
+    if (!serviceId) return;
+    addServiceToEstimate(serviceId, selectedPeriod);
+    setServiceSelection('');
+  };
 
   const estimateSummary = useMemo(
     () =>
@@ -342,31 +357,6 @@ export default function ServicesPricing() {
     [estimateSummary]
   );
 
-  const handleQtyInput = (value) => {
-    const numeric = Math.max(1, Number(value) || 1);
-    setSelectedQty(numeric);
-  };
-
-  const handleAddEstimateLine = () => {
-    if (!selectedServiceId) return;
-    setEstimateItems((prev) => {
-      const next = [...prev];
-      const existingIndex = next.findIndex(
-        (entry) => entry.serviceId === selectedServiceId && entry.periodId === selectedPeriod
-      );
-      if (existingIndex >= 0) {
-        next[existingIndex] = {
-          ...next[existingIndex],
-          qty: (next[existingIndex].qty || 1) + selectedQty
-        };
-      } else {
-        next.push({ serviceId: selectedServiceId, periodId: selectedPeriod, qty: selectedQty });
-      }
-      return next;
-    });
-    setSelectedQty(1);
-  };
-
   const handleEstimateQtyChange = (serviceId, periodId, value) => {
     const numeric = Math.max(1, Number(value) || 1);
     setEstimateItems((prev) =>
@@ -394,7 +384,6 @@ export default function ServicesPricing() {
 
   const handleClearCalculator = () => {
     setEstimateItems([]);
-    setSelectedQty(1);
   };
 
   const handleExport = async () => {
@@ -724,54 +713,48 @@ export default function ServicesPricing() {
             <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
               <div className="space-y-5">
                 <div className="rounded-3xl border bg-gray-50/80 p-5 space-y-5 shadow-inner">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-xs uppercase text-text-light">
-                        {t('calculator.categoryLabel')}
-                      </label>
-                      <select
-                        value={selectedCategory}
-                        onChange={(e) => setSelectedCategory(e.target.value)}
-                        className="w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
-                      >
-                        {calculatorSections.map((section) => (
-                          <option key={section.id} value={section.id}>
-                            {section.id}
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase text-text-light">
+                      {t('calculator.categoryLabel')}
+                    </label>
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-text-light absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="search"
+                        value={serviceSearch}
+                        onChange={(e) => setServiceSearch(e.target.value)}
+                        placeholder={t('calculator.serviceSearchPlaceholder')}
+                        className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                      />
+                    </div>
+                    <select
+                      value={serviceSelection}
+                      onChange={(e) => handleServiceSelection(e.target.value)}
+                      disabled={!hasServiceResults}
+                      className="w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-100"
+                    >
+                      {hasServiceResults ? (
+                        <>
+                          <option value="" disabled>
+                            {t('calculator.pickerPlaceholder')}
                           </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs uppercase text-text-light">
-                        {t('calculator.serviceLabel')}
-                      </label>
-                      <div className="relative">
-                        <Search className="w-4 h-4 text-text-light absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="search"
-                          value={serviceFilter}
-                          onChange={(e) => setServiceFilter(e.target.value)}
-                          placeholder={t('calculator.serviceSearchPlaceholder')}
-                          className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
-                        />
-                      </div>
-                      <select
-                        value={selectedServiceId}
-                        onChange={(e) => setSelectedServiceId(e.target.value)}
-                        disabled={filteredServices.length === 0}
-                        className="w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-100"
-                      >
-                        {filteredServices.length === 0 ? (
-                          <option value="">{t('calculator.noResults')}</option>
-                        ) : (
-                          filteredServices.map((service) => (
-                            <option key={service.id} value={service.id}>
-                              {service.service_name}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                    </div>
+                          {visibleServiceGroups.map((section) => (
+                            <optgroup
+                              key={section.id}
+                              label={t(`pricingSection.groups.${section.key}.title`) || section.id}
+                            >
+                              {section.items.map((service) => (
+                                <option key={service.id} value={service.id}>
+                                  {service.service_name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </>
+                      ) : (
+                        <option value="">{t('calculator.noResults')}</option>
+                      )}
+                    </select>
                   </div>
                   <div className="space-y-3">
                     <label className="text-xs uppercase text-text-light">
@@ -798,55 +781,61 @@ export default function ServicesPricing() {
                     </div>
                     <p className="text-xs text-text-light">{t('calculator.periodHelper')}</p>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] items-end">
-                    <div className="space-y-2">
-                      <label className="text-xs uppercase text-text-light">
-                        {t('calculator.quantity')}
-                      </label>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="number"
-                          min="1"
-                          value={selectedQty}
-                          onChange={(e) => handleQtyInput(e.target.value)}
-                          className="w-24 rounded-lg border px-3 py-2 text-sm"
-                        />
-                        {selectedService && (
-                          <span className="text-xs text-text-secondary">
-                            {formatPriceHt(selectedService.price)} · {selectedService.unit}
-                          </span>
-                        )}
-                      </div>
+                </div>
+                <div className="space-y-3">
+                  {estimateSummary.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed bg-white p-6 text-sm text-text-secondary text-center">
+                      {t('calculator.emptySelection')}
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleAddEstimateLine}
-                      disabled={!selectedServiceId}
-                      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-semibold ${
-                        selectedServiceId
-                          ? 'bg-primary text-white hover:bg-primary-dark'
-                          : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      {t('calculator.addButton')}
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                  {filteredServices.length === 0 && (
-                    <p className="text-xs text-red-500">{t('calculator.noResults')}</p>
+                  ) : (
+                    estimateSummary.map((item) => (
+                      <div
+                        key={`${item.service.id}-${item.period.id}`}
+                        className="rounded-2xl border bg-white p-4 space-y-3 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-text-primary">
+                              {item.service.service_name}
+                            </p>
+                            <p className="text-xs text-text-light">
+                              {item.service.sectionId} ·{' '}
+                              {t(`calculator.periodOptions.${item.period.labelKey}`)}
+                            </p>
+                            <p className="text-xs text-text-secondary">
+                              {formatPriceHt(item.service.price)} · {item.service.unit}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveEstimateLine(item.service.id, item.period.id)}
+                            className="text-xs text-primary hover:text-primary-dark"
+                          >
+                            {t('calculator.remove')}
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <label
+                            className="text-xs uppercase text-text-light"
+                            htmlFor={`qty-inline-${item.service.id}-${item.period.id}`}
+                          >
+                            {t('calculator.quantity')}
+                          </label>
+                          <input
+                            id={`qty-inline-${item.service.id}-${item.period.id}`}
+                            type="number"
+                            min="1"
+                            value={item.qty}
+                            onChange={(e) =>
+                              handleEstimateQtyChange(item.service.id, item.period.id, e.target.value)
+                            }
+                            className="w-24 rounded-lg border px-3 py-1.5 text-sm"
+                          />
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
-                {selectedService && (
-                  <div className="rounded-3xl border bg-white shadow-sm p-5 space-y-2">
-                    <p className="text-xs uppercase text-text-light">{selectedService.sectionId}</p>
-                    <h3 className="text-lg font-semibold text-text-primary">
-                      {selectedService.service_name}
-                    </h3>
-                    <p className="text-sm text-text-secondary">
-                      {formatPriceHt(selectedService.price)} · {selectedService.unit}
-                    </p>
-                  </div>
-                )}
               </div>
               <aside className="bg-[#0B1221] text-white rounded-3xl p-5 space-y-4 shadow-xl lg:sticky lg:top-6">
                 <div className="flex items-center justify-between gap-3">
@@ -866,52 +855,32 @@ export default function ServicesPricing() {
                     </button>
                   )}
                 </div>
-                <div className="space-y-3 max-h-[360px] overflow-auto pr-1">
+                <div className="space-y-2 max-h-[360px] overflow-auto pr-1">
                   {estimateSummary.length === 0 ? (
                     <p className="text-sm text-white/70">{t('calculator.emptySelection')}</p>
                   ) : (
                     estimateSummary.map((item) => (
                       <div
                         key={`${item.service.id}-${item.period.id}`}
-                        className="rounded-2xl bg-white/5 p-4 space-y-2"
+                        className="flex items-start justify-between gap-3 border-b border-white/10 pb-2"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold">{item.service.service_name}</p>
-                            <p className="text-xs text-white/60">
-                              {item.service.sectionId} ·{' '}
-                              {t(`calculator.periodOptions.${item.period.labelKey}`)}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveEstimateLine(item.service.id, item.period.id)}
-                            className="text-xs text-white/70 hover:text-white"
-                          >
-                            {t('calculator.remove')}
-                          </button>
-                        </div>
-                        <div className="flex items-center justify-between text-sm gap-3">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.qty}
-                              onChange={(e) =>
-                                handleEstimateQtyChange(item.service.id, item.period.id, e.target.value)
-                              }
-                              className="w-20 rounded-lg border border-white/30 bg-transparent px-2 py-1 text-white focus:border-white"
-                            />
-                            <span className="text-xs text-white/70">
-                              × {formatPriceHt(item.service.price)} · {item.service.unit}
-                            </span>
-                          </div>
-                          <span className="font-semibold">
-                            {item.lineTotal == null
+                        <div>
+                          <p className="text-sm font-semibold">{item.service.service_name}</p>
+                          <p className="text-[11px] text-white/60">
+                            {item.service.sectionId} · {t(`calculator.periodOptions.${item.period.labelKey}`)}
+                          </p>
+                          <p className="text-[11px] text-white/60">
+                            {item.qty} ×{' '}
+                            {item.service.price == null
                               ? t('calculator.priceUnavailable')
-                              : currencyFormatter.format(item.lineTotal)}
-                          </span>
+                              : `${formatPriceHt(item.service.price)} · ${item.service.unit}`}
+                          </p>
                         </div>
+                        <p className="text-sm font-semibold">
+                          {item.lineTotal == null
+                            ? t('calculator.priceUnavailable')
+                            : currencyFormatter.format(item.lineTotal)}
+                        </p>
                       </div>
                     ))
                   )}

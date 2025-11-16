@@ -218,6 +218,7 @@ export const servicesFr = {
     },
     addButton: 'Ajouter au devis',
     remove: 'Retirer',
+    pickerPlaceholder: 'Choisissez un service',
     noServices: 'Aucun service disponible dans ce groupe.',
     noResults: 'Aucun service ne correspond à vos filtres.',
     selectedLabel: 'services',

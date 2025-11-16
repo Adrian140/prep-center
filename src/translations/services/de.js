@@ -218,6 +218,7 @@ export const servicesDe = {
     },
     addButton: 'Zur Schätzung hinzufügen',
     remove: 'Entfernen',
+    pickerPlaceholder: 'Service auswählen',
     noServices: 'In dieser Gruppe sind noch keine Services verfügbar.',
     noResults: 'Keine Services entsprechen den Filtern.',
     selectedLabel: 'Services',

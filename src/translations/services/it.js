@@ -218,6 +218,7 @@ export const servicesIt = {
     },
     addButton: 'Aggiungi al preventivo',
     remove: 'Rimuovi',
+    pickerPlaceholder: 'Seleziona un servizio',
     noServices: 'Nessun servizio disponibile in questo gruppo.',
     noResults: 'Nessun servizio corrisponde ai filtri.',
     selectedLabel: 'servizi',

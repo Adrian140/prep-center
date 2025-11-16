@@ -218,6 +218,7 @@ export const servicesEn = {
     },
     addButton: 'Add to estimate',
     remove: 'Remove',
+    pickerPlaceholder: 'Select a service',
     noServices: 'No services available in this group.',
     noResults: 'No services match your filters.',
     selectedLabel: 'services',

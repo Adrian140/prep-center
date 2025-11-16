@@ -218,6 +218,7 @@ export const servicesRo = {
     },
     addButton: 'Adaugă în estimare',
     remove: 'Șterge',
+    pickerPlaceholder: 'Selectează un serviciu',
     noServices: 'Nu există servicii în acest grup.',
     noResults: 'Nu există servicii care să corespundă căutării.',
     selectedLabel: 'servicii',

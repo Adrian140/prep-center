@@ -218,6 +218,7 @@ export const servicesEs = {
     },
     addButton: 'Añadir a la estimación',
     remove: 'Eliminar',
+    pickerPlaceholder: 'Selecciona un servicio',
     noServices: 'No hay servicios disponibles en este grupo.',
     noResults: 'No hay servicios que coincidan con los filtros.',
     selectedLabel: 'servicios',
