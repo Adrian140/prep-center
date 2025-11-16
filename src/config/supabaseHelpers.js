@@ -186,22 +186,44 @@ createReceptionRequest: async (data) => {
     const buildItemsPayload = (withFbaFields) => {
       let lineCounter = 1;
       return data.items.map((it) => {
+        const rawEan = (it.ean || '').trim();
+        const rawAsin = (it.asin || '').trim();
+        const rawName = (it.product_name || '').trim();
+        const rawSku = (it.sku || '').trim();
+
+        const safeEanAsin =
+          rawEan ||
+          rawAsin ||
+          rawSku ||
+          'UNKNOWN';
+        const safeName =
+          rawName ||
+          rawSku ||
+          rawAsin ||
+          rawEan ||
+          'Unknown product';
+
+        const unitsRequested = Math.max(1, Number(it.units_requested) || 0);
+
         const base = {
           shipment_id: header.id,
           line_number: lineCounter++,
-          ean_asin: it.ean || it.asin || null,
-          product_name: it.product_name || null,
-          sku: it.sku || null,
-          purchase_price: it.purchase_price || null,
-          quantity_received: it.units_requested || 0,
+          ean_asin: safeEanAsin,
+          product_name: safeName,
+          sku: rawSku || null,
+          purchase_price:
+            it.purchase_price == null || it.purchase_price === ''
+              ? null
+              : it.purchase_price,
+          quantity_received: unitsRequested,
           remaining_action: encodeRemainingAction(
             !!it.send_to_fba,
-            it.fba_qty ?? it.units_requested
+            it.fba_qty ?? unitsRequested
           )
         };
         if (withFbaFields) {
           base.stock_item_id = it.stock_item_id || null;
-          const units = Math.max(0, Number(it.fba_qty ?? it.units_requested) || 0);
+          const units = Math.max(0, Number(it.fba_qty ?? unitsRequested) || 0);
           const sendToFba = !!it.send_to_fba && units > 0;
           base.send_to_fba = sendToFba;
           base.fba_qty = sendToFba ? Math.max(0, Number(it.fba_qty) || 0) : 0;
