@@ -92,6 +92,17 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     setEditHeader(buildHeaderState(shipment));
   }, [shipment]);
 
+  const getExpectedQty = (item) =>
+    Math.max(0, Number(item?.quantity_received || 0));
+  const getConfirmedQty = (item) => {
+    if (!item) return 0;
+    const base =
+      item.received_units != null
+        ? Number(item.received_units)
+        : Number(item.quantity_received || 0);
+    return Number.isFinite(base) && base >= 0 ? base : 0;
+  };
+
   const isPrepEligible = (item) => {
     if (!item?.id || !isUuid(String(item.id))) return false;
     const fbaQty = Math.max(0, Number(item.fba_qty || 0));
@@ -154,16 +165,6 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     });
   }, [storageKey, shipment.updated_at, shipment.id, items, editHeader, receivedDrafts]);
 
-  const getExpectedQty = (item) =>
-    Math.max(0, Number(item?.quantity_received || 0));
-  const getConfirmedQty = (item) => {
-    if (!item) return 0;
-    const base =
-      item.received_units != null
-        ? Number(item.received_units)
-        : Number(item.quantity_received || 0);
-    return Number.isFinite(base) && base >= 0 ? base : 0;
-  };
   const getDraftReceivedValue = (item) => {
     if (!item?.id) return String(getConfirmedQty(item));
     if (Object.prototype.hasOwnProperty.call(receivedDrafts, item.id)) {
