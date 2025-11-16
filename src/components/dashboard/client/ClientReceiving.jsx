@@ -734,12 +734,6 @@ function ClientReceiving() {
                     </p>
                   ) : (
                     <>
-                      <div className="px-4 py-2 grid grid-cols-[minmax(0,1.4fr)_0.8fr] text-[11px] font-semibold text-red-600 border-b bg-red-50/50 uppercase tracking-wide">
-                        <span>{t('fba_units_announced') || 'Units announced'}</span>
-                        <span className="text-right">
-                          {t('fba_units_to_amazon') || 'Units to send to Amazon'}
-                        </span>
-                      </div>
                       {(editMode ? editItems : viewItems).map((item, idx) => {
                         const qty = Math.max(0, Number(item.quantity_received || 0));
                         const locked = editMode ? Boolean(item.is_received) : false;
@@ -749,9 +743,12 @@ function ClientReceiving() {
                         return (
                           <div
                             key={item.id || idx}
-                            className="py-3 px-4 grid grid-cols-[minmax(0,1.4fr)_0.8fr] items-center gap-3"
+                            className="py-3 px-4 grid grid-cols-[minmax(0,1.4fr)_0.8fr] items-center gap-3 border-t first:border-t-0"
                           >
                             <div className="min-w-0">
+                              <p className="text-[11px] uppercase tracking-wide text-red-600 font-semibold">
+                                {t('fba_units_announced') || 'Units announced'}
+                              </p>
                               <p className="font-medium text-text-primary truncate">
                                 {item.product_name}
                               </p>
@@ -763,7 +760,10 @@ function ClientReceiving() {
                                 {qty}
                               </p>
                             </div>
-                            <div className="flex justify-end">
+                            <div className="flex flex-col items-end gap-1">
+                              <p className="text-[11px] uppercase tracking-wide text-red-600 font-semibold">
+                                {t('fba_units_to_amazon') || 'Units to send to Amazon'}
+                              </p>
                               {editMode ? (
                                 <input
                                   type="number"
