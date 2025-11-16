@@ -745,7 +745,7 @@ export default function ServicesPricing() {
                             >
                               {section.items.map((service) => (
                                 <option key={service.id} value={service.id}>
-                                  {service.service_name}
+                                  {`${service.service_name} — ${service.price ?? t('calculator.priceUnavailable')} · ${service.unit}`}
                                 </option>
                               ))}
                             </optgroup>
