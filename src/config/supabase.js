@@ -1406,11 +1406,16 @@ createReceivingShipment: async (shipmentData) => {
       const legacyItems = row.receiving_shipment_items || [];
       const modernItems = row.receiving_items || [];
       const fallbackItems = fallbackMap[row.id] || [];
-      const merged = [...legacyItems, ...modernItems, ...fallbackItems];
+      const resolvedItems =
+        modernItems.length > 0
+          ? modernItems
+          : fallbackItems.length > 0
+          ? fallbackItems
+          : legacyItems;
       const { receiving_shipment_items, receiving_items, ...rest } = row;
       return {
         ...rest,
-        receiving_items: merged
+        receiving_items: resolvedItems
       };
     });
 
