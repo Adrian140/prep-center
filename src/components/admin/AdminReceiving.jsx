@@ -80,10 +80,13 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   });
   const [editHeader, setEditHeader] = useState(buildHeaderState(shipment));
   const [selectedItemIds, setSelectedItemIds] = useState(new Set());
+  const [selectedPrepIds, setSelectedPrepIds] = useState(new Set());
+  const [creatingPrep, setCreatingPrep] = useState(false);
   const [receivedDrafts, setReceivedDrafts] = useState({});
 
   useEffect(() => {
     setSelectedItemIds(new Set());
+    setSelectedPrepIds(new Set());
     setReceivedDrafts({});
   }, [shipment.id]);
 
@@ -92,11 +95,27 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     setEditHeader(buildHeaderState(shipment));
   }, [shipment]);
 
+  const isPrepEligible = (item) => {
+    if (!item?.id || !isUuid(String(item.id))) return false;
+    const fbaQty = Math.max(0, Number(item.fba_qty || 0));
+    const receivedUnits = Math.max(0, Number(item.received_units || 0));
+    return (
+      Boolean(item.is_received) &&
+      (Boolean(item.send_to_fba) || fbaQty > 0) &&
+      fbaQty > 0 &&
+      receivedUnits >= fbaQty
+    );
+  };
+
   const selectableItems = useMemo(
     () =>
       items.filter(
         (item) => item.id && isUuid(String(item.id)) && !item.is_received
       ),
+    [items]
+  );
+  const prepSelectableItems = useMemo(
+    () => items.filter((item) => isPrepEligible(item) && !item.prep_request_created),
     [items]
   );
   const selectionAllowed = ['submitted', 'partial'].includes(shipment.status);
@@ -105,6 +124,9 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     selectableItems.length > 0 &&
     selectableItems.every((item) => selectedItemIds.has(item.id));
   const selectedCount = selectedItemIds.size;
+  const allPrepSelected =
+    prepSelectableItems.length > 0 &&
+    prepSelectableItems.every((item) => selectedPrepIds.has(item.id));
 
   useEffect(() => {
     setSelectedItemIds((prev) => {
@@ -112,6 +134,22 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
       const allowed = new Set(
         items
           .filter((item) => item.id && isUuid(String(item.id)) && !item.is_received)
+          .map((item) => item.id)
+      );
+      const next = new Set();
+      prev.forEach((id) => {
+        if (allowed.has(id)) next.add(id);
+      });
+      return next;
+    });
+  }, [items]);
+
+  useEffect(() => {
+    setSelectedPrepIds((prev) => {
+      if (prev.size === 0) return prev;
+      const allowed = new Set(
+        items
+          .filter((item) => isPrepEligible(item) && !item.prep_request_created)
           .map((item) => item.id)
       );
       const next = new Set();
@@ -246,6 +284,16 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     });
   };
 
+  const togglePrepSelection = (itemId) => {
+    if (!itemId || !isUuid(String(itemId))) return;
+    setSelectedPrepIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
   const toggleSelectAll = (checked) => {
     if (!selectionAllowed) return;
     if (!checked) {
@@ -254,6 +302,19 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     }
     const next = new Set(selectableItems.map((item) => item.id));
     setSelectedItemIds(next);
+  };
+
+  const toggleSelectAllPrep = (checked) => {
+    if (!checked) {
+      setSelectedPrepIds(new Set());
+      return;
+    }
+    const next = new Set(
+      items
+        .filter((item) => isPrepEligible(item) && !item.prep_request_created)
+        .map((item) => item.id)
+    );
+    setSelectedPrepIds(next);
   };
 
   const handleMarkSelectedReceived = async () => {
@@ -319,6 +380,55 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
       setMessage(`Error: ${err.message}`);
     } finally {
       setMarkingSelected(false);
+    }
+  };
+
+  const handleCreatePrepRequest = async () => {
+    if (selectedPrepIds.size === 0) return;
+    const prepIds = Array.from(selectedPrepIds);
+    const lines = items.filter((item) => item.id && prepIds.includes(item.id));
+    const invalid = lines.filter((item) => !isPrepEligible(item));
+    if (invalid.length > 0) {
+      setMessage('Select only lines that are fully received and have units for Amazon.');
+      return;
+    }
+    const payload = {
+      company_id: shipment.company_id,
+      user_id: shipment.user_id || shipment.created_by || profile?.id || null,
+      destination_country: shipment.destination_country || 'FR',
+      status: 'pending',
+      items: lines.map((item) => ({
+        stock_item_id: item.stock_item_id || item.stock_item?.id || null,
+        ean: item.stock_item?.ean || item.ean_asin || null,
+        product_name: item.product_name || item.stock_item?.name || 'Product',
+        asin: item.stock_item?.asin || item.asin || null,
+        sku: item.stock_item?.sku || item.sku || null,
+        units_requested: Math.max(0, Number(item.fba_qty || 0))
+      }))
+    };
+    const zeroLines = payload.items.filter((it) => it.units_requested <= 0);
+    if (zeroLines.length > 0) {
+      setMessage('Some selected lines do not have any units to send to Amazon.');
+      return;
+    }
+    try {
+      setCreatingPrep(true);
+      await supabaseHelpers.createPrepRequest(payload);
+      const updated = new Set(prepIds);
+      setItems((prev) =>
+        prev.map((item) =>
+          updated.has(item.id)
+            ? { ...item, prep_request_created: true }
+            : item
+        )
+      );
+      setSelectedPrepIds(new Set());
+      setMessage('Prep request created successfully.');
+    } catch (error) {
+      console.error('create prep request failed', error);
+      setMessage(error?.message || 'Failed to create prep request.');
+    } finally {
+      setCreatingPrep(false);
     }
   };
 
@@ -841,6 +951,32 @@ const processToStock = async () => {
             </button>
           </div>
         )}
+        {prepSelectableItems.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <p className="text-sm text-text-secondary">
+              {selectedPrepIds.size > 0
+                ? `${selectedPrepIds.size} line${selectedPrepIds.size === 1 ? '' : 's'} ready to send to Amazon`
+                : 'Select received lines to create a prep request.'}
+            </p>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={allPrepSelected}
+                  onChange={(e) => toggleSelectAllPrep(e.target.checked)}
+                />
+                Select all ready
+              </label>
+              <button
+                onClick={handleCreatePrepRequest}
+                disabled={selectedPrepIds.size === 0 || creatingPrep}
+                className="inline-flex items-center px-3 py-2 rounded border border-blue-500 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+              >
+                {creatingPrep ? 'Creating…' : 'Create prep request'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -861,6 +997,7 @@ const processToStock = async () => {
                 <th className="px-4 py-3 text-right">Quantity</th>
                 <th className="px-4 py-3 text-left">SKU</th>
                 <th className="px-4 py-3 text-center">FBA</th>
+                <th className="px-4 py-3 text-center">Prep</th>
                 <th className="px-4 py-3 text-left">Status</th>
               </tr>
             </thead>
@@ -993,6 +1130,19 @@ const processToStock = async () => {
                         </div>
                       ) : (
                         <span className="text-text-secondary">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {isPrepEligible(item) && !item.prep_request_created ? (
+                        <input
+                          type="checkbox"
+                          checked={item.id ? selectedPrepIds.has(item.id) : false}
+                          onChange={() => item.id && togglePrepSelection(item.id)}
+                        />
+                      ) : item.prep_request_created ? (
+                        <span className="text-xs text-green-700 font-semibold">Queued</span>
+                      ) : (
+                        <span className="text-text-secondary text-xs">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
