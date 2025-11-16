@@ -7,7 +7,10 @@ const corsHeaders = {
 };
 
 const ADMIN_EMAIL = Deno.env.get("PREP_ADMIN_EMAIL") ?? "contact@prep-center.eu";
-const FROM_EMAIL = Deno.env.get("PREP_FROM_EMAIL") ?? "no-reply@prep-center.eu";
+const FROM_EMAIL =
+  Deno.env.get("PREP_FROM_EMAIL") && Deno.env.get("PREP_FROM_EMAIL")!.trim() !== ""
+    ? Deno.env.get("PREP_FROM_EMAIL")!
+    : "onboarding@resend.dev";
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 
 interface ItemPayload {

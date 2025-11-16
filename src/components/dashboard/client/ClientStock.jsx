@@ -1319,7 +1319,7 @@ const resetReceptionForm = () => {
   setTrackingDraft('');
 };
 
-  const notifyPrepCenterAboutReception = (header, basePayload) => {
+  const notifyPrepCenterAboutReception = async (header, basePayload) => {
     const trackIds = Array.isArray(basePayload.tracking_ids)
       ? basePayload.tracking_ids
       : [];
@@ -1339,24 +1339,24 @@ const resetReceptionForm = () => {
       quantity: item.units_requested || null,
     }));
 
-    supabase.functions
-      .invoke('send_reception_admin_email', {
-        body: {
-          shipment_id: header?.id || null,
-          client_email: clientEmail,
-          client_name: clientName,
-          company_name: profile?.company_name || profile?.store_name || null,
-          store_name: profile?.store_name || null,
-          tracking_ids: allTracking,
-          carrier: basePayload.carrier || null,
-          notes: basePayload.notes || null,
-          fba_mode: basePayload.fba_mode || null,
-          items,
-        },
-      })
-      .catch((err) => {
-        console.error('Failed to notify prep center about receiving', err);
-      });
+    const { error } = await supabase.functions.invoke('send_reception_admin_email', {
+      body: {
+        shipment_id: header?.id || null,
+        client_email: clientEmail,
+        client_name: clientName,
+        company_name: profile?.company_name || profile?.store_name || null,
+        store_name: profile?.store_name || null,
+        tracking_ids: allTracking,
+        carrier: basePayload.carrier || null,
+        notes: basePayload.notes || null,
+        fba_mode: basePayload.fba_mode || null,
+        items,
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
   };
   const setQtyInputValue = (rowId, field, value) => {
     setQtyInputs((prev) => {
@@ -1593,7 +1593,9 @@ const openReception = async () => {
     setSelectedIdList([]);
     resetReceptionForm();
 
-    notifyPrepCenterAboutReception(header, payload);
+    notifyPrepCenterAboutReception(header, payload).catch((err) => {
+      console.error('notifyPrepCenterAboutReception failed', err);
+    });
   } catch (err) {
     console.error('Reception error:', err);
     setToast({ type: 'error', text: supportError });
