@@ -95,12 +95,12 @@ const KIND_META = (t) => ({
     table: "stock_items",
     dateCol: "created_at",
     headers: [
-      `${t("stock.thead.ean")} (admin only)`, // 0
-      t("stock.thead.qty"),                   // 1
-      t("stock.thead.name"),                  // 2
-      t("stock.thead.asinSku"),               // 3
-      t("stock.thead.purchasePrice"),         // 4
-      t("stock.thead.value"),                 // 5
+      "EAN",                  // 0
+      "Stock",                // 1
+      "ASIN",                 // 2
+      "Product name",         // 3
+      "Purchase price (€)",   // 4
+      "Total value",          // 5
     ],
     numFmt: { 1: "0", 4: "0.00", 5: "0.00" },
     mapRow: (r) => {
@@ -111,10 +111,10 @@ const KIND_META = (t) => ({
           ? Number(r.stock_value)
           : Number(r.qty || 0) * Number(r.purchase_price || 0);
       return [
-        r.ean || "",
+        r.ean || "-",
         qty,
+        r.asin || r.sku || "-",
         r.name || "",
-        r.asin || r.sku || "",
         price,
         Number.isFinite(value) ? value : "",
       ];
