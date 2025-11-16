@@ -53,7 +53,7 @@ const isMissingColumnError = (error, column) => {
 };
 
 const receivingItemColumnMissing = (error) =>
-  ['send_to_fba', 'fba_qty', 'stock_item_id', 'received_units'].some((col) =>
+  ['send_to_fba', 'fba_qty', 'stock_item_id'].some((col) =>
     isMissingColumnError(error, col)
   );
 
@@ -1492,16 +1492,9 @@ createReceivingItems: async (items) => {
   }
 
   const buildPayload = () =>
-    rawRows.map((row) => {
-      const baseRow = {
-        ...row,
-        received_units:
-          typeof row.received_units === 'number'
-            ? row.received_units
-            : row.quantity_received
-      };
-      return supportsReceivingItemFbaColumns ? baseRow : sanitizeItemPayload(baseRow);
-    });
+    rawRows.map((row) =>
+      supportsReceivingItemFbaColumns ? row : sanitizeItemPayload(row)
+    );
 
   const insertRows = async (rows) => {
     const { data, error } = await supabase

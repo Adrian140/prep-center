@@ -3,6 +3,7 @@ import { Languages, FileDown, Plus, Edit, Trash2, Send } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '../../../config/supabase';
 import { supabase } from '../../../config/supabase';
+import { encodeRemainingAction } from '@/utils/receivingFba';
 import { useDashboardTranslation } from '@/translations';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -275,7 +276,6 @@ function ClientReceiving() {
           ean_asin: item.ean_asin,
           product_name: item.product_name,
           quantity_received: Number(item.quantity_received) || 0,
-          received_units: Number(item.quantity_received) || 0,
           sku: item.sku || null,
           purchase_price: item.purchase_price ?? null,
           send_to_fba: !!item.send_to_fba,
@@ -307,6 +307,19 @@ function ClientReceiving() {
           };
         });
         await supabaseHelpers.createReceivingItems(insertPayload);
+      }
+
+      // Ensure FBA intent is always persisted, even if a previous helper
+      // stripped optional columns in degraded mode.
+      const fbaUpdates = (editItems || []).filter((item) => item.id);
+      for (const item of fbaUpdates) {
+        const send = !!item.send_to_fba && Number(item.fba_qty || 0) > 0;
+        const qty = send ? Math.max(0, Number(item.fba_qty) || 0) : null;
+        await supabaseHelpers.updateReceivingItem(item.id, {
+          send_to_fba: send,
+          fba_qty: qty,
+          remaining_action: encodeRemainingAction(send)
+        });
       }
 
       const refreshed = await loadData();
@@ -807,7 +820,6 @@ function ClientReceiving() {
                   <th className="px-4 py-3 text-left">{t('th_name')}</th>
                   <th className="px-4 py-3 text-right">{t('th_expected_qty')}</th>
                   <th className="px-4 py-3 text-right">{t('th_received_qty')}</th>
-                  <th className="px-4 py-3 text-left">{t('th_sku')}</th>
                   {!editMode && (
                     <th className="px-4 py-3 text-left">{t('th_line_status')}</th>
                   )}
@@ -863,21 +875,44 @@ function ClientReceiving() {
                   const lineEditable = editMode && !fullyReceived;
                   return (
                     <tr key={item.id || idx} className={rowClasses.join(' ')}>
-                      <td className="px-4 py-3 font-mono">
+                      <td className="px-4 py-3">
                         {lineEditable ? (
-                          <input
-                            value={item.ean_asin || ''}
-                            onChange={(e) =>
-                              setEditItems((arr) => {
-                                const copy = [...arr];
-                                copy[idx] = { ...copy[idx], ean_asin: e.target.value };
-                                return copy;
-                              })
-                            }
-                            className="w-full px-2 py-1 border rounded"
-                          />
+                          <div className="space-y-1">
+                            <input
+                              value={item.ean_asin || ''}
+                              onChange={(e) =>
+                                setEditItems((arr) => {
+                                  const copy = [...arr];
+                                  copy[idx] = { ...copy[idx], ean_asin: e.target.value };
+                                  return copy;
+                                })
+                              }
+                              className="w-full px-2 py-1 border rounded font-mono"
+                            />
+                            <input
+                              value={item.sku || ''}
+                              onChange={(e) =>
+                                setEditItems((arr) => {
+                                  const copy = [...arr];
+                                  copy[idx] = { ...copy[idx], sku: e.target.value || null };
+                                  return copy;
+                                })
+                              }
+                              className="w-full px-2 py-1 border rounded font-mono text-xs text-text-secondary"
+                              placeholder="SKU"
+                            />
+                          </div>
                         ) : (
-                          item.ean_asin
+                          <div className="text-xs text-text-secondary">
+                            <div className="font-mono text-sm text-text-primary">
+                              {item.ean_asin || '—'}
+                            </div>
+                            {item.sku && (
+                              <div className="font-mono text-[11px] text-text-secondary">
+                                {item.sku}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -935,23 +970,6 @@ function ClientReceiving() {
                         )}
                         {!lineEditable && diff === 0 && (
                           <div className="text-xs text-text-secondary">{t('no_discrepancy')}</div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-mono">
-                        {lineEditable ? (
-                          <input
-                            value={item.sku || ''}
-                            onChange={(e) =>
-                              setEditItems((arr) => {
-                                const copy = [...arr];
-                                copy[idx] = { ...copy[idx], sku: e.target.value || null };
-                                return copy;
-                              })
-                            }
-                            className="w-full px-2 py-1 border rounded"
-                          />
-                        ) : (
-                          item.sku || '—'
                         )}
                       </td>
                       {!editMode && (
