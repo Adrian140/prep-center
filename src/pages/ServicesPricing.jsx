@@ -296,6 +296,8 @@ export default function ServicesPricing() {
     });
   }, [visibleServiceGroups, hasServiceResults]);
 
+  const selectedServiceDetails = serviceSelection ? serviceLookup[serviceSelection] : null;
+
   const periodMap = useMemo(
     () =>
       PERIOD_OPTIONS.reduce((acc, option) => {
@@ -347,6 +349,14 @@ export default function ServicesPricing() {
         .filter(Boolean),
     [estimateItems, serviceLookup, periodMap]
   );
+
+  const hasStorageEstimate = useMemo(
+    () => estimateSummary.some((item) => item.service.sectionId === 'Storage'),
+    [estimateSummary]
+  );
+
+  const shouldShowPeriodControls =
+    (selectedServiceDetails && selectedServiceDetails.sectionId === 'Storage') || hasStorageEstimate;
 
   const calculatorTotal = useMemo(
     () =>
@@ -756,31 +766,33 @@ export default function ServicesPricing() {
                       />
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-xs uppercase text-text-light">
-                      {t('calculator.periodLabel')}
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {PERIOD_OPTIONS.map((option) => {
-                        const isActive = selectedPeriod === option.id;
-                        return (
-                          <button
-                            type="button"
-                            key={option.id}
-                            onClick={() => setSelectedPeriod(option.id)}
-                            className={`px-3 py-1.5 rounded-full text-sm border transition ${
-                              isActive
-                                ? 'bg-primary text-white border-primary'
-                                : 'bg-white text-text-secondary border-gray-200 hover:border-primary'
-                            }`}
-                          >
-                            {t(`calculator.periodOptions.${option.labelKey}`)}
-                          </button>
-                        );
-                      })}
+                  {shouldShowPeriodControls && (
+                    <div className="space-y-3">
+                      <label className="text-xs uppercase text-text-light">
+                        {t('calculator.periodLabel')}
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {PERIOD_OPTIONS.map((option) => {
+                          const isActive = selectedPeriod === option.id;
+                          return (
+                            <button
+                              type="button"
+                              key={option.id}
+                              onClick={() => setSelectedPeriod(option.id)}
+                              className={`px-3 py-1.5 rounded-full text-sm border transition ${
+                                isActive
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'bg-white text-text-secondary border-gray-200 hover:border-primary'
+                              }`}
+                            >
+                              {t(`calculator.periodOptions.${option.labelKey}`)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-text-light">{t('calculator.periodHelper')}</p>
                     </div>
-                    <p className="text-xs text-text-light">{t('calculator.periodHelper')}</p>
-                  </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   {estimateSummary.length === 0 ? (
@@ -788,52 +800,51 @@ export default function ServicesPricing() {
                       {t('calculator.emptySelection')}
                     </div>
                   ) : (
-                    estimateSummary.map((item) => (
-                      <div
-                        key={`${item.service.id}-${item.period.id}`}
-                        className="rounded-2xl border bg-white p-3 space-y-2 shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-text-primary text-sm">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {estimateSummary.map((item) => (
+                        <div
+                          key={`${item.service.id}-${item.period.id}`}
+                          className="relative rounded-2xl border bg-white p-3 text-xs shadow-sm flex flex-col gap-2 min-h-[120px]"
+                        >
+                          <button
+                            type="button"
+                            aria-label={t('calculator.remove')}
+                            onClick={() => handleRemoveEstimateLine(item.service.id, item.period.id)}
+                            className="absolute top-2 right-2 text-text-light hover:text-text-primary text-sm"
+                          >
+                            ×
+                          </button>
+                          <div className="space-y-1 pr-4">
+                            <p className="font-semibold text-text-primary text-sm leading-tight">
                               {item.service.service_name}
                             </p>
                             <p className="text-[11px] text-text-light">
-                              {item.service.sectionId} ·{' '}
-                              {t(`calculator.periodOptions.${item.period.labelKey}`)}
+                              {item.service.sectionId} · {t(`calculator.periodOptions.${item.period.labelKey}`)}
                             </p>
                             <p className="text-[11px] text-text-secondary">
-                              {formatPriceHt(item.service.price)} · {item.service.unit}
+                              {item.service.price == null
+                                ? t('calculator.priceUnavailable')
+                                : `${formatPriceHt(item.service.price)} · ${item.service.unit}`}
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveEstimateLine(item.service.id, item.period.id)}
-                            className="text-xs text-primary hover:text-primary-dark"
-                          >
-                            {t('calculator.remove')}
-                          </button>
+                          <div className="flex items-center justify-between gap-2 mt-auto">
+                            <span className="text-[10px] uppercase text-text-light">
+                              {t('calculator.quantity')}
+                            </span>
+                            <input
+                              id={`qty-inline-${item.service.id}-${item.period.id}`}
+                              type="number"
+                              min="1"
+                              value={item.qty}
+                              onChange={(e) =>
+                                handleEstimateQtyChange(item.service.id, item.period.id, e.target.value)
+                              }
+                              className="w-14 rounded-lg border px-2 py-1 text-xs text-center"
+                            />
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <label
-                            className="text-[11px] uppercase text-text-light"
-                            htmlFor={`qty-inline-${item.service.id}-${item.period.id}`}
-                          >
-                            {t('calculator.quantity')}
-                          </label>
-                          <input
-                            id={`qty-inline-${item.service.id}-${item.period.id}`}
-                            type="number"
-                            min="1"
-                            value={item.qty}
-                            onChange={(e) =>
-                              handleEstimateQtyChange(item.service.id, item.period.id, e.target.value)
-                            }
-                            className="w-20 rounded-lg border px-2 py-1 text-sm"
-                          />
-                        </div>
-                      </div>
-                    ))
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
