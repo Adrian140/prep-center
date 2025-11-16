@@ -679,23 +679,7 @@ export default function ServicesPricing() {
           )}
           <p className="text-xs text-text-light">{t('calculator.note')}</p>
         </section>
-
-        <section className="bg-[#0B1221] text-white rounded-3xl p-8 space-y-6">
-          <div className="space-y-3">
-            <h2 className="text-3xl font-semibold">{t('pricingSection.finalTitle')}</h2>
-            <p className="text-white/80">{t('pricingSection.finalNote')}</p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={handleExport}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-gray-900 font-semibold hover:bg-gray-100"
-            >
-              <FileDown className="w-4 h-4" />
-              {t('pricingSection.export')}
-            </button>
-          </div>
-        </section>
-      </div>
-    </div>
-  );
+     </div>
+   </div>
+ );
 }
