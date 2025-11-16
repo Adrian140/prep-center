@@ -5,14 +5,14 @@ import { supabase, supabaseHelpers } from '@/config/supabase';
 const defaultLabels = {
   title: 'Manual inventory intake',
   subtitle:
-    'Add placeholders manually or upload the template with EAN/ASIN and product name. Quantities will sync automatically once Amazon sends the listing.',
+    'Add placeholders manually or upload the template with EAN/ASIN, product name and purchase price. Quantities will sync automatically once Amazon sends the listing.',
   manualTitle: 'Manual entry',
   eanLabel: 'EAN/ASIN *',
   nameLabel: 'Product Name *',
   priceLabel: 'Purchase price (€)',
   addLine: 'Add line',
   uploadTitle: 'Import from XLSX/CSV',
-  uploadHint: 'Required columns: EAN/ASIN and Product Name.',
+  uploadHint: 'Required columns: EAN/ASIN, Product Name and Purchase price.',
   template: 'Download template',
   previewTitle: 'Pending lines',
   empty: 'No pending lines yet.',
@@ -69,16 +69,21 @@ const parsePriceValue = (raw) => {
   return Number(normalized.toFixed(2));
 };
 
-const downloadTemplate = () => {
-  const csv =
-    'EAN/ASIN,Product Name\n' +
-    'B0ABC12345,Sample Amazon Listing\n' +
-    '1234567890123,Generic Product\n';
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+const downloadTemplate = async (labels = defaultLabels) => {
+  const XLSX = await import('xlsx');
+  const sheet = XLSX.utils.aoa_to_sheet([
+    [labels.eanLabel.replace(' *', ''), labels.nameLabel.replace(' *', ''), labels.priceLabel],
+    ['B0ABC12345', 'Sample Amazon Listing', '12.50'],
+    ['1234567890123', 'Generic Product', '24.99']
+  ]);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Template');
+  const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'product-intake-template.csv';
+  link.download = 'product-intake-template.xlsx';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -181,6 +186,7 @@ function ProductQuickAdd({
         (h) => h.includes('ean') || h.includes('asin') || h.includes('sku')
       );
       const idxName = headers.findIndex((h) => h.includes('product') && h.includes('name'));
+      const idxPrice = headers.findIndex((h) => h.includes('price'));
       if (idxCode === -1 || idxName === -1) {
         setError(labels.errors?.fileHeaders || defaultLabels.errors.fileHeaders);
         return;
@@ -192,10 +198,16 @@ function ProductQuickAdd({
         if (!code || !name) return;
         const parsedCode = parseCode(code);
         if (!parsedCode) return;
+        let parsedPrice = null;
+        if (idxPrice !== -1 && row[idxPrice] != null) {
+          const priceValue = parsePriceValue(row[idxPrice]);
+          if (priceValue != null) parsedPrice = priceValue;
+        }
         parsed.push({
           id: randomId(),
           name: String(name).trim(),
-          ...parsedCode
+          ...parsedCode,
+          price: parsedPrice
         });
       });
       ingestRows(parsed);
@@ -299,7 +311,7 @@ function ProductQuickAdd({
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={downloadTemplate}
+            onClick={() => downloadTemplate(labels)}
             className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-text-primary hover:bg-gray-50"
           >
             <FileSpreadsheet className="w-4 h-4" />
