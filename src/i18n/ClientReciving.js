@@ -473,6 +473,9 @@ export const CLIENT_RECIVING_DICT = {
     fba_mode_available: "Unità annunciate: {qty}",
     fba_mode_summary_full: "Il cliente ha richiesto di inviare tutte le unità direttamente ad Amazon.",
     fba_mode_summary_partial: "Il cliente ha richiesto una spedizione parziale verso Amazon.",
+    fba_units_announced: "Merce da ricevere",
+    fba_units_to_amazon: "Unità da inviare ad Amazon",
+    fba_units_announced_label: "Merce da ricevere:",
 
     new_receipt: "Nuova ricezione",
     view_details: "Vedi dettagli",
@@ -615,6 +618,9 @@ export const CLIENT_RECIVING_DICT = {
     fba_mode_available: "Unidades anunciadas: {qty}",
     fba_mode_summary_full: "El cliente solicitó enviar todas las unidades directamente a Amazon.",
     fba_mode_summary_partial: "El cliente solicitó un envío parcial hacia Amazon.",
+    fba_units_announced: "Mercancía a recibir",
+    fba_units_to_amazon: "Unidades para enviar a Amazon",
+    fba_units_announced_label: "Mercancía a recibir:",
 
     new_receipt: "Nueva recepción",
     view_details: "Ver detalles",
@@ -757,6 +763,9 @@ export const CLIENT_RECIVING_DICT = {
   fba_mode_available: "Unități anunțate: {qty}",
   fba_mode_summary_full: "Clientul a cerut ca toate unitățile să fie expediate direct în Amazon.",
   fba_mode_summary_partial: "Clientul a cerut o expediere parțială în Amazon.",
+  fba_units_announced: "Marfă de primit",
+  fba_units_to_amazon: "Unități pentru Amazon",
+  fba_units_announced_label: "Marfă de primit:",
 
     new_receipt: "Recepție nouă",
     view_details: "Vezi detalii",
