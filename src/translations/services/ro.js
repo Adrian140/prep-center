@@ -214,7 +214,8 @@ export const servicesRo = {
       oneMonth: '1 lună',
       threeMonths: '3 luni',
       sixMonths: '6 luni',
-      twelveMonths: '12 luni'
+      twelveMonths: '12 luni',
+      other: 'Altă perioadă'
     },
     addButton: 'Adaugă în estimare',
     remove: 'Șterge',
@@ -223,6 +224,9 @@ export const servicesRo = {
     noResults: 'Nu există servicii care să corespundă căutării.',
     selectedLabel: 'servicii',
     clearAll: 'Resetează selecția',
-    emptySelection: 'Alege serviciile din listă pentru a genera oferta.'
+    emptySelection: 'Alege serviciile din listă pentru a genera oferta.',
+    customPeriodLabel: '{months} luni',
+    customPeriodPlaceholder: 'Introdu numărul de luni…',
+    customPeriodHint: 'Durată personalizată'
   }
 };

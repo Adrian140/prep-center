@@ -214,7 +214,8 @@ export const servicesIt = {
       oneMonth: '1 mese',
       threeMonths: '3 mesi',
       sixMonths: '6 mesi',
-      twelveMonths: '12 mesi'
+      twelveMonths: '12 mesi',
+      other: 'Altro'
     },
     addButton: 'Aggiungi al preventivo',
     remove: 'Rimuovi',
@@ -223,6 +224,9 @@ export const servicesIt = {
     noResults: 'Nessun servizio corrisponde ai filtri.',
     selectedLabel: 'servizi',
     clearAll: 'Azzera tutto',
-    emptySelection: 'Scegli i servizi dall’elenco per comporre il preventivo.'
+    emptySelection: 'Scegli i servizi dall’elenco per comporre il preventivo.',
+    customPeriodLabel: '{months} mesi',
+    customPeriodPlaceholder: 'Inserisci il numero di mesi…',
+    customPeriodHint: 'Durata personalizzata'
   }
 };

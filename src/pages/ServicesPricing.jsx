@@ -320,16 +320,33 @@ export default function ServicesPricing() {
         .map((item) => {
           const service = serviceLookup[item.serviceId];
           if (!service) return null;
-          const period = periodMap[item.periodId] || PERIOD_OPTIONS[0];
           const qty = Math.max(1, Number(item.qty) || 1);
+          const isStorage = service.sectionId === 'Storage';
+          const isCustom = isStorage && item.periodId === 'custom';
+          const periodOption = periodMap[item.periodId] || periodMap['1m'];
+          const customMonths = isCustom ? Math.max(1, Number(item.customPeriodMonths) || 1) : null;
+          const multiplier = customMonths ?? periodOption?.multiplier ?? 1;
+          const displayLabel = isCustom
+            ? t('calculator.customPeriodLabel', { months: multiplier })
+            : t(`calculator.periodOptions.${periodOption?.labelKey || 'oneMonth'}`);
           const lineTotal =
-            service.numericPrice == null
-              ? null
-              : service.numericPrice * qty * (period?.multiplier || 1);
-          return { ...item, qty, service, period, lineTotal };
+            service.numericPrice == null ? null : service.numericPrice * qty * multiplier;
+          return {
+            ...item,
+            qty,
+            service,
+            period: {
+              id: isCustom ? 'custom' : periodOption?.id || '1m',
+              labelKey: isCustom ? 'other' : periodOption?.labelKey || 'oneMonth',
+              multiplier,
+              displayLabel
+            },
+            customPeriodMonths: customMonths,
+            lineTotal
+          };
         })
         .filter(Boolean),
-    [estimateItems, serviceLookup, periodMap]
+    [estimateItems, serviceLookup, periodMap, t]
   );
 
   const calculatorTotal = useMemo(
@@ -369,10 +386,32 @@ export default function ServicesPricing() {
         };
         next.splice(currentIndex, 1);
       } else {
-        next[currentIndex] = { ...next[currentIndex], periodId: nextPeriodId };
+        next[currentIndex] = { ...next[currentIndex], periodId: nextPeriodId, customPeriodMonths: null };
       }
       return next;
     });
+  };
+
+  const handleActivateCustomPeriod = (serviceId, currentPeriodId, months = 12) => {
+    const numeric = Math.max(1, Number(months) || 1);
+    setEstimateItems((prev) =>
+      prev.map((entry) =>
+        entry.serviceId === serviceId && entry.periodId === currentPeriodId
+          ? { ...entry, periodId: 'custom', customPeriodMonths: numeric }
+          : entry
+      )
+    );
+  };
+
+  const handleCustomPeriodMonthsChange = (serviceId, value) => {
+    const numeric = Math.max(1, Number(value) || 1);
+    setEstimateItems((prev) =>
+      prev.map((entry) =>
+        entry.serviceId === serviceId && entry.periodId === 'custom'
+          ? { ...entry, customPeriodMonths: numeric }
+          : entry
+      )
+    );
   };
 
   const handleRemoveEstimateLine = (serviceId, periodId) => {
@@ -781,7 +820,7 @@ export default function ServicesPricing() {
                               {item.service.service_name}
                             </p>
                             <p className="text-[11px] text-text-light">
-                              {item.service.sectionId} · {t(`calculator.periodOptions.${item.period.labelKey}`)}
+                              {item.service.sectionId} · {item.period.displayLabel}
                             </p>
                             <p className="text-[11px] text-text-secondary">
                               {item.service.price == null
@@ -790,26 +829,56 @@ export default function ServicesPricing() {
                             </p>
                           </div>
                           {item.service.sectionId === 'Storage' && (
-                            <div className="flex flex-wrap gap-1">
-                              {PERIOD_OPTIONS.map((option) => {
-                                const isActive = item.period.id === option.id;
-                                return (
-                                  <button
-                                    type="button"
-                                    key={option.id}
-                                    onClick={() =>
-                                      handleEstimatePeriodChange(item.service.id, item.period.id, option.id)
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap gap-1">
+                                {PERIOD_OPTIONS.map((option) => {
+                                  const isActive = item.period.id === option.id;
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={option.id}
+                                      onClick={() =>
+                                        handleEstimatePeriodChange(item.service.id, item.period.id, option.id)
+                                      }
+                                      className={`px-2 py-1 rounded-full text-[11px] border transition ${
+                                        isActive
+                                          ? 'bg-primary text-white border-primary'
+                                          : 'bg-white text-text-secondary border-gray-200 hover:border-primary'
+                                      }`}
+                                    >
+                                      {t(`calculator.periodOptions.${option.labelKey}`)}
+                                    </button>
+                                  );
+                                })}
+                                <button
+                                  type="button"
+                                  onClick={() => handleActivateCustomPeriod(item.service.id, item.period.id)}
+                                  className={`px-2 py-1 rounded-full text-[11px] border transition ${
+                                    item.period.id === 'custom'
+                                      ? 'bg-primary text-white border-primary'
+                                      : 'bg-white text-text-secondary border-gray-200 hover:border-primary'
+                                  }`}
+                                >
+                                  {t('calculator.periodOptions.other')}
+                                </button>
+                              </div>
+                              {item.period.id === 'custom' && (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={item.customPeriodMonths || ''}
+                                    onChange={(e) =>
+                                      handleCustomPeriodMonthsChange(item.service.id, e.target.value)
                                     }
-                                    className={`px-2 py-1 rounded-full text-[11px] border transition ${
-                                      isActive
-                                        ? 'bg-primary text-white border-primary'
-                                        : 'bg-white text-text-secondary border-gray-200 hover:border-primary'
-                                    }`}
-                                  >
-                                    {t(`calculator.periodOptions.${option.labelKey}`)}
-                                  </button>
-                                );
-                              })}
+                                    className="w-20 rounded-lg border px-2 py-1 text-xs"
+                                    placeholder={t('calculator.customPeriodPlaceholder')}
+                                  />
+                                  <span className="text-[11px] text-text-light">
+                                    {t('calculator.customPeriodHint')}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           )}
                           <div className="flex items-center justify-between gap-2 mt-auto">
@@ -863,7 +932,7 @@ export default function ServicesPricing() {
                         <div>
                           <p className="text-sm font-semibold">{item.service.service_name}</p>
                           <p className="text-[11px] text-white/60">
-                            {item.service.sectionId} · {t(`calculator.periodOptions.${item.period.labelKey}`)}
+                            {item.service.sectionId} · {item.period.displayLabel}
                           </p>
                           <p className="text-[11px] text-white/60">
                             {item.qty} ×{' '}

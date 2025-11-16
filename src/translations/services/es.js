@@ -214,7 +214,8 @@ export const servicesEs = {
       oneMonth: '1 mes',
       threeMonths: '3 meses',
       sixMonths: '6 meses',
-      twelveMonths: '12 meses'
+      twelveMonths: '12 meses',
+      other: 'Otro'
     },
     addButton: 'Añadir a la estimación',
     remove: 'Eliminar',
@@ -223,6 +224,9 @@ export const servicesEs = {
     noResults: 'No hay servicios que coincidan con los filtros.',
     selectedLabel: 'servicios',
     clearAll: 'Limpiar selección',
-    emptySelection: 'Selecciona servicios de la lista para generar tu presupuesto.'
+    emptySelection: 'Selecciona servicios de la lista para generar tu presupuesto.',
+    customPeriodLabel: '{months} meses',
+    customPeriodPlaceholder: 'Introduce los meses…',
+    customPeriodHint: 'Duración personalizada'
   }
 };

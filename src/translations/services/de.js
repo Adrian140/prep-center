@@ -214,7 +214,8 @@ export const servicesDe = {
       oneMonth: '1 Monat',
       threeMonths: '3 Monate',
       sixMonths: '6 Monate',
-      twelveMonths: '12 Monate'
+      twelveMonths: '12 Monate',
+      other: 'Andere'
     },
     addButton: 'Zur Schätzung hinzufügen',
     remove: 'Entfernen',
@@ -223,6 +224,9 @@ export const servicesDe = {
     noResults: 'Keine Services entsprechen den Filtern.',
     selectedLabel: 'Services',
     clearAll: 'Alles zurücksetzen',
-    emptySelection: 'Wählen Sie links Services aus, um Ihr Angebot zu erstellen.'
+    emptySelection: 'Wählen Sie links Services aus, um Ihr Angebot zu erstellen.',
+    customPeriodLabel: '{months} Monate',
+    customPeriodPlaceholder: 'Anzahl Monate eingeben…',
+    customPeriodHint: 'Individuelle Laufzeit'
   }
 };

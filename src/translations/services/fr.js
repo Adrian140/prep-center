@@ -214,7 +214,8 @@ export const servicesFr = {
       oneMonth: '1 mois',
       threeMonths: '3 mois',
       sixMonths: '6 mois',
-      twelveMonths: '12 mois'
+      twelveMonths: '12 mois',
+      other: 'Autre'
     },
     addButton: 'Ajouter au devis',
     remove: 'Retirer',
@@ -223,6 +224,9 @@ export const servicesFr = {
     noResults: 'Aucun service ne correspond à vos filtres.',
     selectedLabel: 'services',
     clearAll: 'Tout effacer',
-    emptySelection: 'Sélectionnez des services dans la liste pour créer votre devis.'
+    emptySelection: 'Sélectionnez des services dans la liste pour créer votre devis.',
+    customPeriodLabel: '{months} mois',
+    customPeriodPlaceholder: 'Indiquez le nombre de mois…',
+    customPeriodHint: 'Durée personnalisée'
   }
 };

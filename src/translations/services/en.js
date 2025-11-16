@@ -214,7 +214,8 @@ export const servicesEn = {
       oneMonth: '1 month',
       threeMonths: '3 months',
       sixMonths: '6 months',
-      twelveMonths: '12 months'
+      twelveMonths: '12 months',
+      other: 'Other'
     },
     addButton: 'Add to estimate',
     remove: 'Remove',
@@ -223,6 +224,9 @@ export const servicesEn = {
     noResults: 'No services match your filters.',
     selectedLabel: 'services',
     clearAll: 'Clear all',
-    emptySelection: 'Select services on the left to build your quote.'
+    emptySelection: 'Select services on the left to build your quote.',
+    customPeriodLabel: '{months} months',
+    customPeriodPlaceholder: 'Enter months…',
+    customPeriodHint: 'Custom duration'
   }
 };
