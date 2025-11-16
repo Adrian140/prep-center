@@ -5,25 +5,25 @@ import { supabase, supabaseHelpers } from '@/config/supabase';
 const defaultLabels = {
   title: 'Manual inventory intake',
   subtitle:
-    'Add placeholders manually or upload the template with EAN/ASIN, product name and purchase price. Quantities will sync automatically once Amazon sends the listing.',
+    'Add placeholders manually or upload the template with EAN/ASIN, product name and (optional) purchase price. Quantities will sync automatically once Amazon sends the listing.',
   manualTitle: 'Manual entry',
   eanLabel: 'EAN/ASIN *',
   nameLabel: 'Product Name *',
-  priceLabel: 'Purchase price (€) *',
+  priceLabel: 'Purchase price (€)',
   addLine: 'Add line',
   uploadTitle: 'Import from XLSX/CSV',
-  uploadHint: 'Required columns: EAN/ASIN, Product Name and Purchase price.',
+  uploadHint: 'Required columns: EAN/ASIN and Product Name. Purchase price is optional.',
   template: 'Download template',
   previewTitle: 'Pending lines',
   empty: 'No pending lines yet.',
   remove: 'Remove',
   addInventory: 'Add to inventory',
   errors: {
-    missingFields: 'Fill code, product name and price before adding the line.',
+    missingFields: 'Fill code and product name before adding the line.',
     invalidCode: 'Enter a valid EAN or ASIN.',
     invalidPrice: 'Enter a valid price (e.g. 12.50).',
     fileType: 'Please upload a .xlsx or .csv file.',
-    fileHeaders: 'Missing required columns. Expected headers: EAN/ASIN, Product Name, Price.',
+    fileHeaders: 'Missing required columns. Expected headers: EAN/ASIN and Product Name.',
     fileRows: 'No valid rows were detected in the file.',
     save: 'Unable to add products: {msg}'
   },
@@ -138,7 +138,7 @@ function ProductQuickAdd({
   const addManualLine = () => {
     setError('');
     const { code, name, price } = manual;
-    if (!code.trim() || !name.trim() || !price.trim()) {
+    if (!code.trim() || !name.trim()) {
       setError(labels.errors?.missingFields || defaultLabels.errors.missingFields);
       return;
     }
@@ -147,10 +147,13 @@ function ProductQuickAdd({
       setError(labels.errors?.invalidCode || defaultLabels.errors.invalidCode);
       return;
     }
-    const parsedPrice = parsePriceValue(price);
-    if (parsedPrice == null) {
-      setError(labels.errors?.invalidPrice || defaultLabels.errors.invalidPrice);
-      return;
+    let parsedPrice = null;
+    if (price.trim()) {
+      parsedPrice = parsePriceValue(price);
+      if (parsedPrice == null) {
+        setError(labels.errors?.invalidPrice || defaultLabels.errors.invalidPrice);
+        return;
+      }
     }
     const next = {
       id: randomId(),
@@ -198,7 +201,7 @@ function ProductQuickAdd({
       );
       const idxName = headers.findIndex((h) => h.includes('product') && h.includes('name'));
       const idxPrice = headers.findIndex((h) => h.includes('price'));
-      if (idxCode === -1 || idxName === -1 || idxPrice === -1) {
+      if (idxCode === -1 || idxName === -1) {
         setError(labels.errors?.fileHeaders || defaultLabels.errors.fileHeaders);
         return;
       }
@@ -206,11 +209,21 @@ function ProductQuickAdd({
       rows.forEach((row) => {
         const code = row[idxCode];
         const name = row[idxName];
-        if (!code || !name || row[idxPrice] == null) return;
+        if (!code || !name) return;
         const parsedCode = parseCode(code);
         if (!parsedCode) return;
-        const priceValue = parsePriceValue(row[idxPrice]);
-        if (priceValue == null) return;
+        let priceValue = null;
+        if (idxPrice !== -1) {
+          const rawPrice = row[idxPrice];
+          if (rawPrice != null && String(rawPrice).trim()) {
+            priceValue = parsePriceValue(rawPrice);
+            if (priceValue == null) {
+              setError(labels.errors?.invalidPrice || defaultLabels.errors.invalidPrice);
+              priceValue = null;
+              return;
+            }
+          }
+        }
         parsed.push({
           id: randomId(),
           name: String(name).trim(),
