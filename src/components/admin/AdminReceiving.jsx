@@ -10,6 +10,9 @@ import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { tabSessionStorage, readJSON, writeJSON } from '@/utils/tabStorage';
 import { encodeRemainingAction, resolveFbaIntent } from '@/utils/receivingFba';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (value) => typeof value === 'string' && UUID_REGEX.test(value);
+
 const StatusPill = ({ status }) => {
   const statusMap = {
     draft: { color: 'bg-gray-100 text-gray-800', text: 'Draft' },
@@ -90,7 +93,10 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   }, [shipment]);
 
   const selectableItems = useMemo(
-    () => items.filter((item) => item.id && !item.is_received),
+    () =>
+      items.filter(
+        (item) => item.id && isUuid(String(item.id)) && !item.is_received
+      ),
     [items]
   );
   const selectionAllowed = ['submitted', 'partial'].includes(shipment.status);
@@ -104,7 +110,9 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     setSelectedItemIds((prev) => {
       if (prev.size === 0) return prev;
       const allowed = new Set(
-        items.filter((item) => item.id && !item.is_received).map((item) => item.id)
+        items
+          .filter((item) => item.id && isUuid(String(item.id)) && !item.is_received)
+          .map((item) => item.id)
       );
       const next = new Set();
       prev.forEach((id) => {
@@ -229,7 +237,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   };
 
   const toggleItemSelection = (itemId) => {
-    if (!selectionAllowed || !itemId) return;
+    if (!selectionAllowed || !itemId || !isUuid(String(itemId))) return;
     setSelectedItemIds((prev) => {
       const next = new Set(prev);
       if (next.has(itemId)) next.delete(itemId);
@@ -254,10 +262,18 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
       setMessage('Profile unavailable. Please try again.');
       return;
     }
+    const validSelectedIds = Array.from(selectedItemIds).filter((id) =>
+      isUuid(String(id))
+    );
+    if (validSelectedIds.length === 0) {
+      setMessage('Please select at least one valid product.');
+      return;
+    }
+    const validSet = new Set(validSelectedIds);
     const invalidSelections = items.filter(
       (item) =>
         item.id &&
-        selectedItemIds.has(item.id) &&
+        validSet.has(item.id) &&
         getConfirmedQty(item) < getExpectedQty(item)
     );
     if (invalidSelections.length) {
@@ -268,13 +284,13 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
     try {
       const { error } = await supabaseHelpers.markReceivingItemsAsReceived(
         shipment.id,
-        Array.from(selectedItemIds),
+        validSelectedIds,
         profile.id
       );
       if (error) throw error;
       setItems((prev) =>
         prev.map((item) => {
-          if (!selectedItemIds.has(item.id)) return item;
+          if (!validSet.has(item.id)) return item;
           const expected = getExpectedQty(item);
           return {
             ...item,
@@ -287,12 +303,16 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
       );
       setReceivedDrafts((prev) => {
         const next = { ...prev };
-        selectedItemIds.forEach((id) => {
+        validSelectedIds.forEach((id) => {
           if (id) delete next[id];
         });
         return next;
       });
-      setSelectedItemIds(new Set());
+      setSelectedItemIds((prev) => {
+        const next = new Set(prev);
+        validSelectedIds.forEach((id) => next.delete(id));
+        return next;
+      });
       setMessage('Selected products marked as received successfully.');
       onUpdate();
     } catch (err) {
@@ -866,7 +886,8 @@ const processToStock = async () => {
                 const hasDirectIntent = intent.hasIntent || intent.directFromAction;
                 const isReceived = Boolean(item.is_received);
                 const partialReceived = !isReceived && confirmedQty > 0;
-                const isSelectable = selectionAllowed && item.id && !isReceived;
+                const isSelectable =
+                  selectionAllowed && item.id && isUuid(String(item.id)) && !isReceived;
                 const isSelected = item.id ? selectedItemIds.has(item.id) : false;
                 const receivedAt = item.received_at ? new Date(item.received_at) : null;
                 const statusPill = isReceived
