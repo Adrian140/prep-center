@@ -734,6 +734,15 @@ function ClientReceiving() {
                     </p>
                   ) : (
                     <>
+                      <div className="px-4 py-2 grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.55fr)_minmax(0,0.55fr)] text-[11px] font-semibold uppercase tracking-wide border-b bg-red-50/60">
+                        <span className="text-text-secondary">{t('th_name') || 'Product name'}</span>
+                        <span className="text-red-600 text-right">
+                          {t('fba_units_announced') || 'Units announced'}
+                        </span>
+                        <span className="text-red-600 text-right">
+                          {t('fba_units_to_amazon') || 'Units to send to Amazon'}
+                        </span>
+                      </div>
                       {(editMode ? editItems : viewItems).map((item, idx) => {
                         const qty = Math.max(0, Number(item.quantity_received || 0));
                         const locked = editMode ? Boolean(item.is_received) : false;
@@ -743,17 +752,16 @@ function ClientReceiving() {
                         return (
                           <div
                             key={item.id || idx}
-                            className="py-3 px-4 grid grid-cols-[minmax(0,1.4fr)_0.8fr] items-center gap-3 border-t first:border-t-0"
+                            className="py-3 px-4 grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.55fr)_minmax(0,0.55fr)] items-center gap-4 border-t first:border-t-0"
                           >
                             <div className="min-w-0">
-                              <p className="text-[11px] uppercase tracking-wide text-red-600 font-semibold">
-                                {t('fba_units_announced') || 'Units announced'}
-                              </p>
                               <p className="font-medium text-text-primary truncate">
                                 {item.product_name}
                               </p>
+                            </div>
+                            <div className="text-right">
                               <p
-                                className={`mt-1 text-lg font-semibold ${
+                                className={`text-lg font-semibold ${
                                   locked ? 'text-text-secondary' : 'text-red-600'
                                 }`}
                               >
@@ -761,14 +769,11 @@ function ClientReceiving() {
                               </p>
                             </div>
                             <div className="flex flex-col items-end gap-1">
-                              <p className="text-[11px] uppercase tracking-wide text-red-600 font-semibold">
-                                {t('fba_units_to_amazon') || 'Units to send to Amazon'}
-                              </p>
                               {editMode ? (
                                 <input
                                   type="number"
                                   min="0"
-                                  className={`w-28 text-right border rounded px-2 py-1 text-lg font-semibold ${
+                                  className={`w-24 text-right border rounded px-2 py-1 text-lg font-semibold ${
                                     locked
                                       ? 'bg-gray-50 text-text-secondary cursor-not-allowed'
                                       : 'text-red-600'
