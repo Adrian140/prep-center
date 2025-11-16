@@ -1318,6 +1318,46 @@ const resetReceptionForm = () => {
   setTrackingPanelOpen(false);
   setTrackingDraft('');
 };
+
+  const notifyPrepCenterAboutReception = (header, basePayload) => {
+    const trackIds = Array.isArray(basePayload.tracking_ids)
+      ? basePayload.tracking_ids
+      : [];
+    const altTracking = basePayload.tracking_id ? [basePayload.tracking_id] : [];
+    const allTracking = trackIds.length ? trackIds : altTracking;
+    const clientName =
+      profile?.full_name ||
+      [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() ||
+      profile?.store_name ||
+      null;
+    const clientEmail = authCtx?.user?.email || profile?.email || null;
+    const items = (basePayload.items || []).map((item) => ({
+      asin: item.asin || null,
+      ean: item.ean || null,
+      sku: item.sku || null,
+      product_name: item.product_name || null,
+      quantity: item.units_requested || null,
+    }));
+
+    supabase.functions
+      .invoke('send_reception_admin_email', {
+        body: {
+          shipment_id: header?.id || null,
+          client_email: clientEmail,
+          client_name: clientName,
+          company_name: profile?.company_name || profile?.store_name || null,
+          store_name: profile?.store_name || null,
+          tracking_ids: allTracking,
+          carrier: basePayload.carrier || null,
+          notes: basePayload.notes || null,
+          fba_mode: basePayload.fba_mode || null,
+          items,
+        },
+      })
+      .catch((err) => {
+        console.error('Failed to notify prep center about receiving', err);
+      });
+  };
   const setQtyInputValue = (rowId, field, value) => {
     setQtyInputs((prev) => {
       const current = prev[rowId] || { dec: '', inc: '' };
@@ -1543,13 +1583,17 @@ const openReception = async () => {
   }
 
   try {
-    const { error } = await supabaseHelpers.createReceptionRequest(payload);
-    if (error) throw error;
+    const header = await supabaseHelpers.createReceptionRequest(payload);
+    if (!header?.id) {
+      throw new Error('Missing receiving reference');
+    }
 
     setToast({ type: 'success', text: 'Reception announced successfully.' });
     resetSelectionsAndUnits();
     setSelectedIdList([]);
     resetReceptionForm();
+
+    notifyPrepCenterAboutReception(header, payload);
   } catch (err) {
     console.error('Reception error:', err);
     setToast({ type: 'error', text: supportError });
