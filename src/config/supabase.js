@@ -53,7 +53,9 @@ const isMissingColumnError = (error, column) => {
 };
 
 const receivingItemColumnMissing = (error) =>
-  ['send_to_fba', 'fba_qty', 'stock_item_id'].some((col) => isMissingColumnError(error, col));
+  ['send_to_fba', 'fba_qty', 'stock_item_id', 'received_units'].some((col) =>
+    isMissingColumnError(error, col)
+  );
 
 const receivingShipmentArrayColumnMissing = (error) =>
   ['tracking_ids', 'fba_shipment_ids'].some((col) => isMissingColumnError(error, col));
