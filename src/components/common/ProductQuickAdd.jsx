@@ -9,6 +9,7 @@ const defaultLabels = {
   manualTitle: 'Manual entry',
   eanLabel: 'EAN/ASIN *',
   nameLabel: 'Product Name *',
+  priceLabel: 'Purchase price (€)',
   addLine: 'Add line',
   uploadTitle: 'Import from XLSX/CSV',
   uploadHint: 'Required columns: EAN/ASIN and Product Name.',
@@ -20,6 +21,7 @@ const defaultLabels = {
   errors: {
     missingFields: 'Fill both fields before adding the line.',
     invalidCode: 'Enter a valid EAN or ASIN.',
+    invalidPrice: 'Enter a valid price (e.g. 12.50).',
     fileType: 'Please upload a .xlsx or .csv file.',
     fileHeaders: 'Missing required columns. Expected headers: EAN/ASIN, Product Name.',
     fileRows: 'No valid rows were detected in the file.',
@@ -59,6 +61,14 @@ const parseCode = (raw) => {
   return { ean: value };
 };
 
+const parsePriceValue = (raw) => {
+  const value = String(raw || '').trim();
+  if (!value) return null;
+  const normalized = Number(value.replace(',', '.'));
+  if (!Number.isFinite(normalized)) return null;
+  return Number(normalized.toFixed(2));
+};
+
 const downloadTemplate = () => {
   const csv =
     'EAN/ASIN,Product Name\n' +
@@ -94,7 +104,7 @@ function ProductQuickAdd({
   onError,
   labels = defaultLabels
 }) {
-  const [manual, setManual] = useState({ code: '', name: '' });
+  const [manual, setManual] = useState({ code: '', name: '', price: '' });
   const [pending, setPending] = useState([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -108,7 +118,7 @@ function ProductQuickAdd({
 
   const addManualLine = () => {
     setError('');
-    const { code, name } = manual;
+    const { code, name, price } = manual;
     if (!code.trim() || !name.trim()) {
       setError(labels.errors?.missingFields || defaultLabels.errors.missingFields);
       return;
@@ -118,13 +128,22 @@ function ProductQuickAdd({
       setError(labels.errors?.invalidCode || defaultLabels.errors.invalidCode);
       return;
     }
+    let parsedPrice = null;
+    if (price.trim()) {
+      parsedPrice = parsePriceValue(price);
+      if (parsedPrice == null) {
+        setError(labels.errors?.invalidPrice || defaultLabels.errors.invalidPrice);
+        return;
+      }
+    }
     const next = {
       id: randomId(),
       name: name.trim(),
-      ...parsedCode
+      ...parsedCode,
+      price: parsedPrice
     };
     setPending((prev) => [...prev, next]);
-    setManual({ code: '', name: '' });
+    setManual({ code: '', name: '', price: '' });
     setMessage('');
   };
 
@@ -201,6 +220,12 @@ function ProductQuickAdd({
       if (!matchedRow.name && line.name) patch.name = line.name;
       if (line.ean && !matchedRow.ean) patch.ean = line.ean;
       if (line.asin && !matchedRow.asin) patch.asin = line.asin;
+      if (
+        line.price != null &&
+        Number(line.price) !== Number(matchedRow.purchase_price ?? null)
+      ) {
+        patch.purchase_price = line.price;
+      }
       if (Object.keys(patch).length) {
         await supabase.from('stock_items').update(patch).eq('id', matchedRow.id);
       }
@@ -214,7 +239,8 @@ function ProductQuickAdd({
       ean: line.ean || null,
       asin: line.asin || null,
       name: line.name,
-      qty: 0
+      qty: 0,
+      purchase_price: line.price ?? null
     };
     const { data, error } = await supabase.from('stock_items').insert(payload).select().single();
     if (error) throw error;
@@ -292,8 +318,8 @@ function ProductQuickAdd({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <div className="md:col-span-2">
+      <div className="mt-4 grid gap-3 [grid-template-columns:1fr] md:[grid-template-columns:1.1fr_1.8fr_1.1fr_auto] md:items-end">
+        <div>
           <label className="text-xs font-semibold text-text-secondary">{labels.manualTitle}</label>
           <input
             className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
@@ -302,12 +328,24 @@ function ProductQuickAdd({
             onChange={(e) => setManual((prev) => ({ ...prev, code: e.target.value }))}
           />
         </div>
-        <input
-          className="mt-6 w-full rounded-lg border px-3 py-2 text-sm md:col-span-1"
-          placeholder={labels.nameLabel}
-          value={manual.name}
-          onChange={(e) => setManual((prev) => ({ ...prev, name: e.target.value }))}
-        />
+        <div>
+          <label className="text-xs font-semibold text-text-secondary">{labels.nameLabel}</label>
+          <input
+            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+            placeholder={labels.nameLabel}
+            value={manual.name}
+            onChange={(e) => setManual((prev) => ({ ...prev, name: e.target.value }))}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-text-secondary">{labels.priceLabel}</label>
+          <input
+            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+            placeholder={labels.priceLabel}
+            value={manual.price}
+            onChange={(e) => setManual((prev) => ({ ...prev, price: e.target.value }))}
+          />
+        </div>
         <button
           type="button"
           onClick={addManualLine}
@@ -329,15 +367,16 @@ function ProductQuickAdd({
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
               <tr>
-                <th className="px-3 py-2 w-1/3">{labels.eanLabel}</th>
+                <th className="px-3 py-2 w-1/4">{labels.eanLabel}</th>
                 <th className="px-3 py-2">{labels.nameLabel}</th>
+                <th className="px-3 py-2 text-right w-32">{labels.priceLabel}</th>
                 <th className="px-3 py-2 w-16 text-center"></th>
               </tr>
             </thead>
             <tbody>
               {pending.length === 0 && (
                 <tr>
-                  <td className="px-3 py-4 text-sm text-text-secondary" colSpan={3}>
+                  <td className="px-3 py-4 text-sm text-text-secondary" colSpan={4}>
                     {labels.empty}
                   </td>
                 </tr>
@@ -348,6 +387,9 @@ function ProductQuickAdd({
                     {line.ean || line.asin || '—'}
                   </td>
                   <td className="px-3 py-2">{line.name}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {line.price != null ? line.price.toFixed(2) : '—'}
+                  </td>
                   <td className="px-3 py-2 text-center">
                     <button
                       type="button"

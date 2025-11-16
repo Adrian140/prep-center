@@ -318,6 +318,33 @@ function CreateProductModal({ open, onClose, profile, t, onCreated }) {
   };
 
   const updateBase = handleChange(setBaseForm);
+
+  const normalizeBaseCodeValue = (value) => {
+    const validator = supabaseHelpers?.validateEAN;
+    const raw = String(value || '').trim();
+    if (!raw || typeof validator !== 'function') return null;
+    const result = validator(raw);
+    if (!result?.valid) return null;
+    if (result.type === 'ASIN') {
+      return { target: 'asin', value: result.formatted };
+    }
+    return { target: 'ean', value: result.formatted };
+  };
+
+  const handleBaseCodeBlur = (field) => {
+    setBaseForm((prev) => {
+      const raw = prev[field];
+      if (!raw) return prev;
+      const normalized = normalizeBaseCodeValue(raw);
+      if (!normalized) return prev;
+      const next = { ...prev };
+      next[normalized.target] = normalized.value;
+      if (normalized.target !== field) {
+        next[field] = '';
+      }
+      return next;
+    });
+  };
   const updateAdvanced = handleChange(setAdvancedForm);
 
   const parseNumber = (value, allowNull = true) => {
@@ -439,6 +466,7 @@ function CreateProductModal({ open, onClose, profile, t, onCreated }) {
                 type="text"
                 value={baseForm.asin}
                 onChange={(e) => updateBase('asin', e.target.value)}
+                onBlur={() => handleBaseCodeBlur('asin')}
                 className="w-full border rounded-lg px-3 py-2"
                 placeholder="B0..."
               />
@@ -459,6 +487,7 @@ function CreateProductModal({ open, onClose, profile, t, onCreated }) {
                 type="text"
                 value={baseForm.ean}
                 onChange={(e) => updateBase('ean', e.target.value)}
+                onBlur={() => handleBaseCodeBlur('ean')}
                 className="w-full border rounded-lg px-3 py-2"
                 placeholder="EAN / UPC"
               />
