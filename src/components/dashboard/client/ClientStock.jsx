@@ -90,6 +90,7 @@ const formatSalesTimestamp = (value) => {
 
 const DEFAULT_PER_PAGE = 50;
 const COUNTRIES = [{ code: 'FR' }, { code: 'DE' }, { code: 'IT' }, { code: 'ES' }, { code: 'RO' }];
+const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
 
 const CARRIERS = [
   { code: 'UPS', label: 'UPS' },
@@ -227,6 +228,7 @@ const ADVANCED_PRODUCT_FORM = {
 };
 
 const createReceptionFormState = () => ({
+  destinationCountry: 'FR',
   carrier: '',
   carrierOther: '',
   trackingIds: [],
@@ -1246,6 +1248,11 @@ const [savingId, setSavingId] = useState(null);
 const handleReceptionFormChange = (field, value) => {
   setReceptionForm((prev) => ({ ...prev, [field]: value }));
 };
+useEffect(() => {
+  if (!receptionForm?.destinationCountry) {
+    setReceptionForm((prev) => ({ ...prev, destinationCountry: 'FR' }));
+  }
+}, [receptionForm?.destinationCountry, setReceptionForm]);
 const handleReceptionFbaModeChange = (mode) => {
   setReceptionForm((prev) => ({ ...prev, fbaMode: mode }));
   if (mode === 'full' || mode === 'none') {
@@ -1343,16 +1350,17 @@ const resetReceptionForm = () => {
       body: {
         shipment_id: header?.id || null,
         client_email: clientEmail,
-        client_name: clientName,
-        company_name: profile?.company_name || profile?.store_name || null,
-        store_name: profile?.store_name || null,
-        tracking_ids: allTracking,
-        carrier: basePayload.carrier || null,
-        notes: basePayload.notes || null,
-        fba_mode: basePayload.fba_mode || null,
-        items,
-      },
-    });
+      client_name: clientName,
+      company_name: profile?.company_name || profile?.store_name || null,
+      store_name: profile?.store_name || null,
+      tracking_ids: allTracking,
+      carrier: basePayload.carrier || null,
+      notes: basePayload.notes || null,
+      fba_mode: basePayload.fba_mode || null,
+      destination_country: basePayload.destination_country || 'FR',
+      items,
+    },
+  });
 
     if (error) {
       throw error;
@@ -1549,6 +1557,7 @@ const openReception = async () => {
   const payload = {
     company_id: profile.company_id,
     user_id: profile.id,
+    destination_country: (receptionForm.destinationCountry || 'FR').toUpperCase(),
     carrier: carrierCode,
     carrier_other:
       carrierCode === 'OTHER'
@@ -1625,7 +1634,7 @@ const openPrep = async () => {
   const payload = {
     company_id: profile.company_id,
     user_id: profile.id,
-    destination_country: 'FR',
+    destination_country: (receptionForm.destinationCountry || 'FR').toUpperCase(),
     items: selectedRows.map(r => ({
       stock_item_id: r.id,
       ean: r.ean || null,
@@ -1979,6 +1988,25 @@ const saveReqChanges = async () => {
                 <option value="prep">{t('ClientStock.cta.sendToPrep')}</option>
                 <option value="reception">{t('ClientStock.cta.announceReception')}</option>
               </select>
+              <div className="w-full text-xs sm:text-sm">
+                <label className="block text-[11px] uppercase text-text-light mb-1">
+                  {t('ClientStock.receptionForm.destinationLabel')}
+                </label>
+                <select
+                  value={receptionForm.destinationCountry || 'FR'}
+                  onChange={(e) => handleReceptionFormChange('destinationCountry', e.target.value)}
+                  className="w-full border rounded-md px-3 py-1.5 text-sm"
+                >
+                  {DESTINATION_COUNTRIES.map((code) => (
+                    <option key={code} value={code}>
+                      {t(`ClientStock.countries.${code}`)}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-text-secondary mt-1">
+                  {t('ClientStock.receptionForm.destinationHint')}
+                </p>
+              </div>
               {submitType === 'reception' && (
                 <div className="flex flex-col gap-3 text-xs sm:text-sm w-full items-center">
                   <div className="flex flex-col w-full gap-2 sm:flex-row sm:items-end sm:justify-center sm:gap-4">
@@ -2561,7 +2589,15 @@ const saveReqChanges = async () => {
           {/* Header read-only */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 text-sm px-6 pt-4">
             <div><span className="text-text-secondary">Date:</span> {reqHeader?.created_at?.slice(0,10) || '—'}</div>
-            <div><span className="text-text-secondary">Country:</span> {t(`ClientStock.countries.${reqHeader?.destination_country || 'RO'}`)}</div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-text-secondary">Country:</span>
+              <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 uppercase">
+                {(reqHeader?.destination_country || 'FR').toUpperCase()}
+              </span>
+              <span className="text-sm text-text-secondary">
+                {t(`ClientStock.countries.${reqHeader?.destination_country || 'FR'}`)}
+              </span>
+            </div>
             <div><span className="text-text-secondary">Status:</span> {reqHeader?.status || 'pending'}</div>
             <div><span className="text-text-secondary">FBA Shipment ID:</span> {reqHeader?.fba_shipment_id || '—'}</div>
           </div>

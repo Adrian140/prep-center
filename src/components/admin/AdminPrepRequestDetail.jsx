@@ -9,6 +9,7 @@ import {
   Package,
   Boxes,
 } from "lucide-react";
+import DestinationBadge from '@/components/common/DestinationBadge';
 import { useSupabaseAuth } from "../../contexts/SupabaseAuthContext";
 import { supabaseHelpers } from "../../config/supabase";
 
@@ -484,8 +485,11 @@ onChanged?.();
               {row.client_name ? <b>{row.client_name}</b> : "—"} ({row.user_email || "—"}) ·
               Company: <b>{row.company_name || "—"}</b>
             </div>
-            <div className="mt-1 text-sm">
-              Country: <b>{row.destination_country}</b> · Status: <StatusPill s={row.status} />
+            <div className="mt-1 text-sm flex flex-wrap items-center gap-2">
+              <DestinationBadge code={row.destination_country || 'FR'} variant="loud" />
+              <span className="text-text-secondary flex items-center gap-1">
+                Status: <StatusPill s={row.status} />
+              </span>
             </div>
           </div>
 
@@ -772,7 +776,10 @@ onChanged?.();
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[80vh] overflow-y-auto p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Box shipping summary</h3>
+              <div className="flex items-center gap-3">
+                <DestinationBadge code={row.destination_country || 'FR'} variant="loud" />
+                <h3 className="text-lg font-semibold">Box shipping summary</h3>
+              </div>
               <button
                 className="text-sm text-text-secondary hover:text-primary"
                 onClick={() => setShowBoxSummary(false)}

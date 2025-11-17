@@ -112,6 +112,7 @@ createReceptionRequest: async (data) => {
   let useShipmentFba = canUseReceivingFbaMode();
   let useItemsFba = canUseReceivingItemFbaColumns();
   let useShipmentArrays = canUseReceivingShipmentArrays();
+  const destinationCountry = (data.destination_country || 'FR').toUpperCase();
 
   const trackingIds =
     Array.isArray(data.tracking_ids) && data.tracking_ids.length > 0
@@ -139,6 +140,7 @@ createReceptionRequest: async (data) => {
       company_id: data.company_id,
       status: data.status || "submitted",
       created_at: new Date().toISOString(),
+      destination_country: destinationCountry,
       carrier: data.carrier || null,
       carrier_other: data.carrier_other || null,
       tracking_id: primaryTrackingId,

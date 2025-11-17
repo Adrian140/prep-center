@@ -6,6 +6,7 @@ import {
   Search, Filter, Package, Truck, CheckCircle,
   ArrowLeft, Trash2, ChevronLeft, ChevronRight, Clock, User, Building, X
 } from 'lucide-react';
+import DestinationBadge from '@/components/common/DestinationBadge';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { tabSessionStorage, readJSON, writeJSON } from '@/utils/tabStorage';
 import { encodeRemainingAction, resolveFbaIntent } from '@/utils/receivingFba';
@@ -503,6 +504,7 @@ const checkStockMatches = async () => {
           </button>
         )}
         <div className="flex items-center space-x-4">
+          <DestinationBadge code={shipment.destination_country || 'FR'} variant="hero" />
           <StatusPill status={derivedStatus} />
           <span className="text-text-secondary">
             {new Date(shipment.created_at).toLocaleDateString()}
@@ -541,6 +543,10 @@ const checkStockMatches = async () => {
               <br />
               <span className="text-sm text-text-secondary">{shipment.client_email || shipment.user_email || '—'}</span>
             </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary">Destination</label>
+            <DestinationBadge code={shipment.destination_country || 'FR'} variant="loud" />
           </div>
            <div>
           <label className="block text-sm font-medium text-text-secondary">Carrier</label>
@@ -1264,6 +1270,7 @@ const filteredShipments = shipments.filter(shipment => {
               <th className="px-4 py-3 text-left">Client</th>
               <th className="px-4 py-3 text-left">Carrier</th>
               <th className="px-4 py-3 text-left">Tracking</th>
+              <th className="px-4 py-3 text-left">Destination</th>
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-left">Products</th>
               <th className="px-4 py-3 text-center">Lines</th>
@@ -1274,13 +1281,13 @@ const filteredShipments = shipments.filter(shipment => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={11} className="px-4 py-12 text-center">
+                <td colSpan={10} className="px-4 py-12 text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                 </td>
               </tr>
             ) : filteredShipments.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-4 py-12 text-center">
+                <td colSpan={10} className="px-4 py-12 text-center">
                   <Truck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-text-secondary">No receptions found</p>
                 </td>
@@ -1358,6 +1365,9 @@ const filteredShipments = shipments.filter(shipment => {
                         <p key={i} className="font-mono">{id}</p>
                       ))}
                     </td>
+                  <td className="px-4 py-3">
+                    <DestinationBadge code={shipment.destination_country || 'FR'} variant="subtle" />
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <StatusPill status={shipment.status} />

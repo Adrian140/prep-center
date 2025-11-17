@@ -370,10 +370,17 @@ export default function ClientPrepShipments() {
                   ? row.prep_request_tracking.map((trk) => trk.tracking_id).join(', ')
                   : '—';
                 const pending = status === 'pending';
+                const destCode = (row.destination_country || 'FR').toUpperCase();
+                const destLabel = t(`ClientStock.countries.${destCode}`) || destCode;
                 return (
                   <tr key={row.id} className="border-t">
                     <td className="px-4 py-2">{toIsoDate(row.created_at)}</td>
-                    <td className="px-4 py-2">{row.destination_country || '—'}</td>
+                    <td className="px-4 py-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 uppercase">
+                        {destCode}
+                        <span className="normal-case text-[11px] text-rose-700">{destLabel}</span>
+                      </span>
+                    </td>
                     <td className="px-4 py-2 font-mono text-xs">{row.fba_shipment_id || '—'}</td>
                     <td className="px-4 py-2">{tracks}</td>
                     <td className="px-4 py-2">
@@ -418,7 +425,15 @@ export default function ClientPrepShipments() {
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 text-sm px-6 pt-4">
                   <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.date')}:</span> {reqHeader?.created_at?.slice(0,10) || '—'}</div>
-                  <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.country')}:</span> {t(`ClientStock.countries.${reqHeader?.destination_country || 'FR'}`)}</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-text-secondary">{t('ClientPrepShipments.drawer.country')}:</span>
+                    <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 uppercase">
+                      {(reqHeader?.destination_country || 'FR').toUpperCase()}
+                    </span>
+                    <span className="text-sm text-text-secondary">
+                      {t(`ClientStock.countries.${reqHeader?.destination_country || 'FR'}`)}
+                    </span>
+                  </div>
                   <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.status')}:</span> {reqHeader?.status || 'pending'}</div>
                   <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.shipment')}:</span> {reqHeader?.fba_shipment_id || '—'}</div>
                 </div>

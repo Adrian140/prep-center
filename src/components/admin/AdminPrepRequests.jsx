@@ -3,6 +3,7 @@ import { supabaseHelpers } from '../../config/supabase';
 import { Search, Filter, ChevronLeft, ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
 import AdminPrepRequestDetail from './AdminPrepRequestDetail';
 import { tabSessionStorage, readJSON, writeJSON } from '@/utils/tabStorage';
+import DestinationBadge from '@/components/common/DestinationBadge';
 
 const STORAGE_KEY = 'admin-prep-requests-state';
 
@@ -214,7 +215,9 @@ export default function AdminPrepRequests() {
                     <div className="text-xs text-text-secondary">{r.user_email || '—'}</div>
                   </td>
                   <td className="px-4 py-3">{r.company_name || r.store_name || '—'}</td>
-                  <td className="px-4 py-3">{r.destination_country}</td>
+                  <td className="px-4 py-3">
+                    <DestinationBadge code={r.destination_country || 'FR'} variant="subtle" />
+                  </td>
                   <td className="px-4 py-3">
                     <StatusPill s={r.status} />
                   </td>
