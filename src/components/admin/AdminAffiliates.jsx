@@ -284,7 +284,7 @@ export default function AdminAffiliates() {
               <select
                 value={form.owner_profile_id}
                 onChange={(e) => setForm((prev) => ({ ...prev, owner_profile_id: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2"
+                className="block w-full border rounded-lg px-3 py-2"
               >
                 <option value="">{t('affiliates.ownerPlaceholder')}</option>
                 {ownerChoices.map((client) => {
@@ -323,7 +323,7 @@ export default function AdminAffiliates() {
               <select
                 value={form.payout_type}
                 onChange={(e) => setForm((prev) => ({ ...prev, payout_type: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2"
+                className="block w-full border rounded-lg px-3 py-2"
               >
                 <option value="percentage">{t('affiliates.modePercent')}</option>
                 <option value="threshold">{t('affiliates.modeThreshold')}</option>

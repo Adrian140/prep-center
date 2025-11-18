@@ -769,7 +769,7 @@ export default function ServicesPricing() {
                       value={serviceSelection}
                       onChange={(e) => handleServiceSelection(e.target.value)}
                       disabled={!hasServiceResults}
-                      className="w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-100"
+                      className="block w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-100"
                     >
                       {hasServiceResults ? (
                         <>
