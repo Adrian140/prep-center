@@ -475,7 +475,7 @@ createReceptionRequest: async (data) => {
         .select('company_id, total_amount, amount, status')
         .in('company_id', companyIds);
       (invoices || [])
-        .filter((inv) => String(inv.status || '').toLowerCase() === 'paid')
+        .filter((inv) => String(inv.status || '').trim().toLowerCase() === 'paid')
         .forEach((inv) => {
           const amount = Number(
             inv.total_amount != null ? inv.total_amount : inv.amount != null ? inv.amount : 0
@@ -553,7 +553,7 @@ createReceptionRequest: async (data) => {
         .select('company_id, total_amount, amount, status')
         .in('company_id', companyIds);
       (invoices || [])
-        .filter((invoice) => String(invoice.status || '').toLowerCase() === 'paid')
+        .filter((invoice) => String(invoice.status || '').trim().toLowerCase() === 'paid')
         .forEach((invoice) => {
           const amount = Number(
             invoice.total_amount != null ? invoice.total_amount : invoice.amount != null ? invoice.amount : 0
