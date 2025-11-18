@@ -24,6 +24,25 @@ export const translations = { en, fr, de, it, es, ro };
 const deepGet = (obj, path) =>
   path.split('.').reduce((a, k) => (a && a[k] != null ? a[k] : null), obj);
 
+const mergeDeep = (base = {}, override = {}) => {
+  const result = Array.isArray(base) ? base.slice() : { ...base };
+  Object.entries(override || {}).forEach(([key, value]) => {
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      base &&
+      typeof base[key] === 'object' &&
+      !Array.isArray(base[key])
+    ) {
+      result[key] = mergeDeep(base[key], value);
+    } else {
+      result[key] = value;
+    }
+  });
+  return result;
+};
+
 // FR implicit doar la inițializare; la selectarea unei limbi fără traduceri → EN
 const pickLocale = (bundle, lang) => {
   if (bundle[lang]) return bundle[lang];
@@ -72,11 +91,21 @@ const EXTRA_DICTIONARIES = [CLIENT_EXPORTS_DICT, CLIENT_RECIVING_DICT];
 export const useDashboardTranslation = () => {
   const { currentLanguage } = useLanguage();
 
-  // 1) ia pachetul principal (dashboard.json) în limba curentă
-  const base = pickLocale(dashboardDict, currentLanguage);
+  const fallbackBase = dashboardDict.en || {};
+  const requestedBase = pickLocale(dashboardDict, currentLanguage) || {};
+  const base =
+    currentLanguage === 'en'
+      ? fallbackBase
+      : mergeDeep(fallbackBase, requestedBase);
+
   // 2) merget extra dicționare (ClientExports, ClientReceiving, etc.)
-  const extra = EXTRA_DICTIONARIES.reduce((acc, bundle, index) => {
-    const fragment = pickLocale(bundle, currentLanguage) || {};
+  const extra = EXTRA_DICTIONARIES.reduce((acc, bundle) => {
+    const fallbackFragment = bundle.en || {};
+    const requestedFragment = pickLocale(bundle, currentLanguage) || {};
+    const fragment =
+      currentLanguage === 'en'
+        ? fallbackFragment
+        : mergeDeep(fallbackFragment, requestedFragment);
     if (bundle === CLIENT_RECIVING_DICT) {
       // namespace pentru ClientReceiving
       acc.ClientReceiving = fragment;

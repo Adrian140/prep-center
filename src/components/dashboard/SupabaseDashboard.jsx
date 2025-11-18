@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   User,
+  Users,
   CreditCard,
   FileText,
   Shield,
@@ -32,6 +33,7 @@ import ClientIntegrations from './client/ClientIntegrations';
 import ClientPrepShipments from './client/ClientPrepShipments';
 import ClientDealsPopover from './client/ClientDealsPopover';
 import ClientBalanceBar from './client/ClientBalanceBar';
+import ClientAffiliates from './client/ClientAffiliates';
 import { tabSessionStorage } from '@/utils/tabStorage';
 
 const REPORT_TABS = [
@@ -53,6 +55,7 @@ function SupabaseDashboard() {
     'billing',
     'invoices',
     'integrations',
+    'affiliates',
     'security',
     ...REPORT_TABS.map((rt) => rt.id)
   ];
@@ -112,6 +115,7 @@ useEffect(() => {
     { id: 'billing', label: t('sidebar.billing'), icon: CreditCard, group: 'Account' },
     { id: 'invoices', label: t('sidebar.invoices'), icon: FileText, group: 'Account' },
     { id: 'integrations', label: 'Integrations', icon: Link2, group: 'Account' },
+    { id: 'affiliates', label: t('sidebar.affiliates'), icon: Users, group: 'Account' },
     { id: 'security', label: t('sidebar.security'), icon: Shield, group: 'Account' }
   ];
 
@@ -128,6 +132,7 @@ const renderTabContent = useMemo(() => {
     case 'billing':   return <SupabaseBillingProfiles />;
     case 'invoices':  return <SupabaseInvoicesList />;
     case 'integrations': return <ClientIntegrations />;
+    case 'affiliates': return <ClientAffiliates />;
     case 'security':  return <SupabaseSecuritySettings />;
 
     default:

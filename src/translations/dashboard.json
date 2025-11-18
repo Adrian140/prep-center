@@ -29,6 +29,7 @@
       "billing": "Billing details",
       "invoices": "My invoices",
       "integrations": "Integrations",
+      "affiliates": "Affiliates",
       "security": "Security",
       "reports": "Reports"
     },
@@ -599,6 +600,65 @@
         "marketplaceAlt": "Marketplace: {id}"
       }
     },
+    "ClientAffiliates": {
+      "title": "Affiliate program",
+      "subtitle": "Invite other sellers and earn the commission configured by our team.",
+      "actions": {
+        "refresh": "Refresh"
+      },
+      "flash": {
+        "requestSent": "Request sent successfully. We'll reply soon.",
+        "requestError": "Could not send the request. Please try again."
+      },
+      "codeCard": {
+        "title": "Your affiliate code",
+        "copy": "Copy code",
+        "copied": "Copied!",
+        "active": "Active",
+        "inactive": "Paused"
+      },
+      "rules": {
+        "title": "Payout rules",
+        "percent": "You earn {percent}% from every invoice paid by your referrals.",
+        "threshold": "Below {threshold}: {below}%. Above: {above}%.",
+        "fixed": "Once a referred client reaches {threshold}, you receive {amount} once.",
+        "missing": "We are preparing the payout rules."
+      },
+      "stats": {
+        "title": "Performance",
+        "clients": "Affiliated clients",
+        "billed": "Billed total",
+        "payout": "Estimated payout"
+      },
+      "members": {
+        "title": "Clients linked to your code",
+        "empty": "No one has used your code yet.",
+        "billed": "Billed",
+        "payout": "Your share",
+        "hint": "The list updates automatically when we assign or remove clients."
+      },
+      "request": {
+        "title": "Request your affiliate code",
+        "desc": "Tell us how you plan to promote Prep Center. We review each request manually.",
+        "preferred": "Preferred code",
+        "preferredPh": "E.g. ADRIAN10",
+        "generate": "Suggest code",
+        "preferredHint": "Optional. Leave blank if you want us to generate a short code.",
+        "notes": "Message to our team",
+        "notesPh": "Share details about your audience or community…",
+        "submitting": "Sending…",
+        "submit": "Send request",
+        "footer": "We reply by email within 1-2 business days.",
+        "pendingTitle": "Your request is being reviewed",
+        "details": "Preferred code: {code}"
+      },
+      "status": {
+        "pending": "Your request is under review. We'll email you once it's approved.",
+        "review": "We are validating your request. Expect feedback soon.",
+        "approved": "Approved. We will activate your code shortly.",
+        "needCode": "Request an affiliate code to start earning commissions."
+      }
+    },
     "reportsMenu": {
       "shipments": "Prep-center shipments",
       "receiving": "Prep-center receiving"
@@ -684,6 +744,7 @@
       "billing": "Date de facturare",
       "invoices": "Facturile mele",
       "integrations": "Integrări",
+      "affiliates": "Afiliați",
       "security": "Securitate",
       "reports": "Rapoarte"
     },
@@ -1254,6 +1315,65 @@
         "marketplaceAlt": "Marketplace: {id}"
       }
     },
+    "ClientAffiliates": {
+      "title": "Program de afiliere",
+      "subtitle": "Invită alți selleri și câștigă comisionul stabilit de echipa noastră.",
+      "actions": {
+        "refresh": "Actualizează"
+      },
+      "flash": {
+        "requestSent": "Cererea a fost trimisă. Revenim curând.",
+        "requestError": "Nu am putut trimite cererea. Încearcă din nou."
+      },
+      "codeCard": {
+        "title": "Codul tău de afiliat",
+        "copy": "Copiază codul",
+        "copied": "Copiat!",
+        "active": "Activ",
+        "inactive": "Pauzat"
+      },
+      "rules": {
+        "title": "Reguli de plată",
+        "percent": "Primești {percent}% din fiecare factură plătită de recomandările tale.",
+        "threshold": "Sub {threshold}: {below}%. Peste: {above}%.",
+        "fixed": "Când un client recomandat ajunge la {threshold}, primești {amount} o singură dată.",
+        "missing": "Regulile de plată vor fi adăugate în curând."
+      },
+      "stats": {
+        "title": "Performanță",
+        "clients": "Clienți afiliați",
+        "billed": "Total facturat",
+        "payout": "Estimare comision"
+      },
+      "members": {
+        "title": "Clienți legați de codul tău",
+        "empty": "Încă nu a folosit nimeni codul tău.",
+        "billed": "Facturat",
+        "payout": "Partea ta",
+        "hint": "Lista se actualizează automat când asignăm sau eliminăm clienți."
+      },
+      "request": {
+        "title": "Solicită codul tău de afiliat",
+        "desc": "Spune-ne cum vrei să promovezi Prep Center. Fiecare cerere este analizată manual.",
+        "preferred": "Cod preferat",
+        "preferredPh": "Ex: ADRIAN10",
+        "generate": "Propune cod",
+        "preferredHint": "Opțional. Lasă gol dacă vrei să generăm noi un cod scurt.",
+        "notes": "Mesaj pentru echipă",
+        "notesPh": "Scrie câteva detalii despre audiență / comunitate…",
+        "submitting": "Se trimite…",
+        "submit": "Trimite cererea",
+        "footer": "Revenim prin email în 1-2 zile lucrătoare.",
+        "pendingTitle": "Cererea ta este în analiză",
+        "details": "Cod preferat: {code}"
+      },
+      "status": {
+        "pending": "Cererea este în analiză. Te anunțăm pe email când este aprobată.",
+        "review": "Verificăm cererea ta. Primești feedback în scurt timp.",
+        "approved": "Aprobată. Îți activăm codul în curând.",
+        "needCode": "Solicită un cod de afiliat ca să începi să câștigi comisioane."
+      }
+    },
     "reportsMenu": {
       "shipments": "Expedieri prep-center",
       "receiving": "Recepții prep-center"
@@ -1339,6 +1459,7 @@
       "billing": "Coordonnées de facturation",
       "invoices": "Mes factures",
       "integrations": "Intégrations",
+      "affiliates": "Affiliés",
       "security": "Sécurité",
       "reports": "Rapports"
     },
@@ -1994,6 +2115,7 @@
       "billing": "Rechnungsdaten",
       "invoices": "Meine Rechnungen",
       "integrations": "Integrationen",
+      "affiliates": "Affiliates",
       "security": "Sicherheit",
       "reports": "Berichte"
     },
@@ -2649,6 +2771,7 @@
       "billing": "Dati di fatturazione",
       "invoices": "Le mie fatture",
       "integrations": "Integrazioni",
+      "affiliates": "Affiliazioni",
       "security": "Sicurezza",
       "reports": "Report"
     },
@@ -3304,6 +3427,7 @@
       "billing": "Datos de facturación",
       "invoices": "Mis facturas",
       "integrations": "Integraciones",
+      "affiliates": "Afiliados",
       "security": "Seguridad",
       "reports": "Reportes"
     },

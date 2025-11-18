@@ -1,8 +1,8 @@
 /*
-  # Affiliate Codes & Tracking
-  * Adds affiliate_codes table for managing referral codes
-  * Extends profiles schema with affiliate fields
-  * Updates handle_new_user() to capture affiliate code input
+  # Affiliate codes & requests
+  - Creates affiliate_codes table (owner, payout rules)
+  - Tracks affiliate code requests from clients
+  - Extends profiles with affiliate columns and updates handle_new_user
 */
 
 BEGIN;
@@ -12,7 +12,11 @@ CREATE TABLE IF NOT EXISTS public.affiliate_codes (
   code TEXT NOT NULL UNIQUE,
   label TEXT NOT NULL,
   description TEXT,
-  discount_percent NUMERIC(5,2),
+  payout_type TEXT NOT NULL DEFAULT 'percentage',
+  percent_below_threshold NUMERIC(5,2),
+  percent_above_threshold NUMERIC(5,2),
+  threshold_amount NUMERIC(10,2),
+  fixed_amount NUMERIC(10,2),
   active BOOLEAN NOT NULL DEFAULT TRUE,
   owner_profile_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -33,27 +37,56 @@ CREATE TRIGGER trg_affiliate_codes_updated
   FOR EACH ROW
   EXECUTE FUNCTION public.touch_affiliate_code_updated_at();
 
+CREATE TABLE IF NOT EXISTS public.affiliate_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  preferred_code TEXT,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  admin_note TEXT,
+  affiliate_code_id UUID REFERENCES public.affiliate_codes(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.affiliate_requests ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Own affiliate requests" ON public.affiliate_requests;
+DROP POLICY IF EXISTS "Admins manage affiliate requests" ON public.affiliate_requests;
+
+CREATE POLICY "Own affiliate requests"
+  ON public.affiliate_requests
+  FOR ALL
+  USING (auth.uid() = profile_id)
+  WITH CHECK (auth.uid() = profile_id);
+
+CREATE POLICY "Admins manage affiliate requests"
+  ON public.affiliate_requests
+  FOR ALL
+  USING (is_admin())
+  WITH CHECK (is_admin());
+
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS affiliate_code_input TEXT,
   ADD COLUMN IF NOT EXISTS affiliate_code_id UUID REFERENCES public.affiliate_codes(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS affiliate_notes TEXT;
 
--- Allow anyone (even anon) to read active codes for validation, admins manage everything
 ALTER TABLE public.affiliate_codes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public select affiliate codes" ON public.affiliate_codes;
 DROP POLICY IF EXISTS "Admins manage affiliate codes" ON public.affiliate_codes;
 
 CREATE POLICY "Public select affiliate codes"
-  ON public.affiliate_codes FOR SELECT
+  ON public.affiliate_codes
+  FOR SELECT
   USING (active = true);
 
 CREATE POLICY "Admins manage affiliate codes"
-  ON public.affiliate_codes FOR ALL
+  ON public.affiliate_codes
+  FOR ALL
   USING (is_admin())
   WITH CHECK (is_admin());
 
--- Refresh handle_new_user to capture affiliate metadata
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -132,7 +165,6 @@ BEGIN
     NOW()
   );
 
-  -- Auto-create company billing profile
   IF account_type = 'company' AND company_name IS NOT NULL THEN
     INSERT INTO public.billing_profiles (
       user_id,
@@ -167,7 +199,6 @@ BEGIN
     ON CONFLICT DO NOTHING;
   END IF;
 
-  -- Auto-create personal billing profile
   IF fn IS NOT NULL OR ln IS NOT NULL THEN
     INSERT INTO public.billing_profiles (
       user_id,

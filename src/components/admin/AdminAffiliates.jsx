@@ -1,118 +1,169 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
-import { Tag, Percent, Users, RefreshCw, Link2, UserPlus, Shield } from 'lucide-react';
+import {
+  Tag,
+  Percent,
+  Users,
+  RefreshCw,
+  Shield,
+  Check,
+  X,
+  UserPlus
+} from 'lucide-react';
 
-const initialForm = { code: '', label: '', discount: '', description: '' };
+const initialCodeForm = {
+  owner_profile_id: '',
+  code: '',
+  label: '',
+  description: '',
+  payout_type: 'percentage',
+  percent_below_threshold: '',
+  percent_above_threshold: '',
+  threshold_amount: '',
+  fixed_amount: ''
+};
 
-const formatName = (profile) => {
-  const bits = [profile?.first_name, profile?.last_name].filter(Boolean);
-  if (bits.length === 0 && profile?.company_name) return profile.company_name;
-  if (bits.length === 0 && profile?.store_name) return profile.store_name;
-  return bits.join(' ') || '—';
+const formatClientName = (client) => {
+  const bits = [client?.first_name, client?.last_name].filter(Boolean);
+  if (bits.length) return bits.join(' ');
+  if (client?.company_name) return client.company_name;
+  if (client?.store_name) return client.store_name;
+  return '—';
 };
 
 export default function AdminAffiliates() {
   const { t } = useAdminTranslation();
+  const [requests, setRequests] = useState([]);
   const [codes, setCodes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
-  const [form, setForm] = useState(initialForm);
-  const [creating, setCreating] = useState(false);
   const [selectedCode, setSelectedCode] = useState(null);
   const [members, setMembers] = useState({ assigned: [], candidates: [] });
-  const [membersLoading, setMembersLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [ownersLoading, setOwnersLoading] = useState(true);
+  const [busyMembers, setBusyMembers] = useState(false);
+  const [message, setMessage] = useState('');
+  const [form, setForm] = useState(initialCodeForm);
+  const [creating, setCreating] = useState(false);
+  const [ownerOptions, setOwnerOptions] = useState([]);
 
-  const loadCodes = async () => {
+  const loadData = async () => {
     setLoading(true);
-    const { data, error } = await supabaseHelpers.listAffiliateCodes();
-    if (error) {
-      console.error('listAffiliateCodes', error);
-      setMessage(error.message || 'Failed to load codes');
-    } else {
-      setCodes(data || []);
+    setOwnersLoading(true);
+    try {
+      const [{ data: reqData }, { data: codeData }, { data: ownerData }] = await Promise.all([
+        supabaseHelpers.listAffiliateRequests(),
+        supabaseHelpers.listAffiliateCodes(),
+        supabaseHelpers.listAffiliateOwnerOptions()
+      ]);
+      setRequests(reqData || []);
+      setCodes(codeData || []);
+      setOwnerOptions(ownerData || []);
+    } finally {
+      setLoading(false);
+      setOwnersLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
-    loadCodes();
+    loadData();
   }, []);
 
-  const resetForm = () => setForm(initialForm);
-
-  const handleCreate = async (e) => {
+  const handleCreateCode = async (e) => {
     e.preventDefault();
-    if (!form.code || !form.label) {
-      setMessage('Code and label are required');
+    if (!form.owner_profile_id || !form.code) {
+      setMessage(t('affiliates.formError'));
       return;
     }
     setCreating(true);
-    const payload = {
-      code: form.code.trim().toUpperCase(),
-      label: form.label.trim(),
-      description: form.description.trim() || null,
-      discount_percent: form.discount ? Number(form.discount) : null,
-    };
-    const { error } = await supabaseHelpers.createAffiliateCode(payload);
-    if (error) {
-      console.error('createAffiliateCode', error);
-      setMessage(error.message || 'Failed to create code');
-    } else {
-      resetForm();
+    try {
+      const payload = {
+        owner_profile_id: form.owner_profile_id,
+        code: form.code.trim().toUpperCase(),
+        label: form.label || formatClientName(
+          codes.find((c) => c.owner_profile_id === form.owner_profile_id)?.owner || {}
+        ) || 'Affiliate',
+        description: form.description || null,
+        payout_type: form.payout_type,
+        percent_below_threshold: form.percent_below_threshold || null,
+        percent_above_threshold: form.percent_above_threshold || null,
+        threshold_amount: form.threshold_amount || null,
+        fixed_amount: form.fixed_amount || null
+      };
+      await supabaseHelpers.createAffiliateCode(payload);
+      setForm(initialCodeForm);
       setMessage(t('affiliates.createSuccess'));
-      loadCodes();
+      loadData();
+    } catch (err) {
+      console.error('createAffiliateCode', err);
+      setMessage(err.message || 'Failed to create code');
+    } finally {
+      setCreating(false);
     }
-    setCreating(false);
   };
 
-  const openCode = async (code) => {
+  const openMembers = async (code) => {
     setSelectedCode(code);
-    setMembersLoading(true);
-    const { assigned, candidates, error } = await supabaseHelpers.getAffiliateCodeMembers(code.id, code.code);
-    if (error) {
-      console.error('getAffiliateCodeMembers', error);
-      setMessage(error.message || 'Failed to load clients');
-    }
+    setBusyMembers(true);
+    const { assigned, candidates } = await supabaseHelpers.getAffiliateCodeMembers(code.id, code.code);
     setMembers({ assigned, candidates });
-    setMembersLoading(false);
+    setBusyMembers(false);
   };
 
-  const assignClient = async (profileId) => {
+  const assignClient = async (clientId) => {
     if (!selectedCode) return;
-    setMembersLoading(true);
-    await supabaseHelpers.assignAffiliateCodeToProfile(profileId, selectedCode.id);
-    await openCode(selectedCode);
-    loadCodes();
+    setBusyMembers(true);
+    await supabaseHelpers.assignAffiliateCodeToProfile(clientId, selectedCode.id);
+    await openMembers(selectedCode);
   };
 
-  const removeClient = async (profileId) => {
-    setMembersLoading(true);
-    await supabaseHelpers.removeAffiliateCodeFromProfile(profileId);
-    await openCode(selectedCode);
-    loadCodes();
+  const removeClient = async (clientId) => {
+    setBusyMembers(true);
+    await supabaseHelpers.removeAffiliateCodeFromProfile(clientId);
+    await openMembers(selectedCode);
   };
 
-  const toggleActive = async (code) => {
+  const handleToggleCode = async (code) => {
     await supabaseHelpers.updateAffiliateCode(code.id, { active: !code.active });
-    loadCodes();
-    if (selectedCode?.id === code.id) {
-      setSelectedCode({ ...code, active: !code.active });
+    loadData();
+  };
+
+  const handleRequestAction = async (req, action) => {
+    if (action === 'reject') {
+      await supabaseHelpers.respondAffiliateRequest(req.id, { status: 'rejected' });
+      loadData();
+      return;
     }
+    if (req.profile) {
+      setOwnerOptions((prev) => {
+        if (prev.some((p) => p.id === req.profile_id)) return prev;
+        return [...prev, req.profile];
+      });
+    }
+    setForm((prev) => ({
+      ...prev,
+      owner_profile_id: req.profile_id,
+      code: req.preferred_code ? req.preferred_code.toUpperCase() : '',
+      label: formatClientName(req.profile)
+    }));
   };
 
-  const setOwner = async (profileId) => {
-    if (!selectedCode) return;
-    await supabaseHelpers.updateAffiliateCode(selectedCode.id, { owner_profile_id: profileId });
-    await openCode(selectedCode);
-    loadCodes();
-  };
-
-  const selectedOwnerName = useMemo(() => {
-    if (!selectedCode?.owner_profile_id) return null;
-    const entry = members.assigned.find((m) => m.id === selectedCode.owner_profile_id);
-    return entry ? formatName(entry) : null;
-  }, [members.assigned, selectedCode]);
+  const requestCards = useMemo(() => requests.filter((r) => r.status === 'pending'), [requests]);
+  const takenOwnerIds = useMemo(
+    () => new Set((codes || []).map((c) => c.owner_profile_id).filter(Boolean)),
+    [codes]
+  );
+  const ownerChoices = useMemo(() => {
+    const registry = new Map();
+    ownerOptions.forEach((profile) => {
+      if (profile?.id) registry.set(profile.id, profile);
+    });
+    requestCards.forEach((req) => {
+      if (req.profile?.id) registry.set(req.profile_id, req.profile);
+    });
+    return Array.from(registry.values()).sort((a, b) =>
+      formatClientName(a).localeCompare(formatClientName(b))
+    );
+  }, [ownerOptions, requestCards]);
 
   return (
     <div className="space-y-6">
@@ -121,149 +172,231 @@ export default function AdminAffiliates() {
         <p className="text-text-secondary text-sm">{t('affiliates.subtitle')}</p>
       </div>
 
-      <form onSubmit={handleCreate} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-        <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+      <div className="bg-white border rounded-xl p-6 space-y-4">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
           <Tag className="w-4 h-4" /> {t('affiliates.createTitle')}
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="text-sm font-medium text-text-secondary mb-1 block">{t('affiliates.codeLabel')}</label>
-            <input
-              type="text"
-              value={form.code}
-              onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
-              className="w-full border rounded-lg px-3 py-2 uppercase"
-              placeholder="AF001"
-              required
-            />
+        <form onSubmit={handleCreateCode} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm text-text-secondary mb-1 block">{t('affiliates.ownerSelect')}</label>
+              <select
+                value={form.owner_profile_id}
+                onChange={(e) => setForm((prev) => ({ ...prev, owner_profile_id: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2"
+              >
+                <option value="">{t('affiliates.ownerPlaceholder')}</option>
+                {ownerChoices.map((client) => {
+                  const disabled =
+                    takenOwnerIds.has(client.id) && form.owner_profile_id !== client.id;
+                  return (
+                    <option key={client.id} value={client.id} disabled={disabled}>
+                      {formatClientName(client)} (
+                      {client.company_name || client.store_name || '—'}
+                      {disabled ? ` · ${t('affiliates.ownerHasCode')}` : ''}
+                      )
+                    </option>
+                  );
+                })}
+              </select>
+              {ownersLoading && (
+                <p className="text-xs text-text-secondary mt-1 flex items-center gap-1">
+                  <RefreshCw className="w-3 h-3 animate-spin" /> {t('affiliates.ownerLoading')}
+                </p>
+              )}
+              {!ownersLoading && ownerChoices.length === 0 && (
+                <p className="text-xs text-text-secondary mt-1">{t('affiliates.ownerEmpty')}</p>
+              )}
+            </div>
+            <div>
+              <label className="text-sm text-text-secondary mb-1 block">{t('affiliates.codeLabel')}</label>
+              <input
+                value={form.code}
+                onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                className="w-full border rounded-lg px-3 py-2 uppercase"
+                placeholder="AF001"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-text-secondary mb-1 block">{t('affiliates.payoutType')}</label>
+              <select
+                value={form.payout_type}
+                onChange={(e) => setForm((prev) => ({ ...prev, payout_type: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2"
+              >
+                <option value="percentage">{t('affiliates.modePercent')}</option>
+                <option value="threshold">{t('affiliates.modeThreshold')}</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="text-sm font-medium text-text-secondary mb-1 block">{t('affiliates.labelLabel')}</label>
-            <input
-              type="text"
-              value={form.label}
-              onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))}
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder="Influencer name"
-              required
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-text-secondary mb-1 block">{t('affiliates.discountLabel')}</label>
-            <div className="relative">
-              <Percent className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-light" />
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="text-sm text-text-secondary mb-1 block">{t('affiliates.labelLabel')}</label>
+              <input
+                value={form.label}
+                onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-text-secondary mb-1 block flex items-center gap-1">
+                <Percent className="w-3 h-3" /> {t('affiliates.percentBelow')}
+              </label>
               <input
                 type="number"
                 step="0.1"
-                value={form.discount}
-                onChange={(e) => setForm((prev) => ({ ...prev, discount: e.target.value }))}
-                className="w-full border rounded-lg pl-9 pr-2 py-2"
-                placeholder="5"
+                value={form.percent_below_threshold}
+                onChange={(e) => setForm((prev) => ({ ...prev, percent_below_threshold: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2"
               />
             </div>
-            <p className="text-[11px] text-text-secondary mt-1">{t('affiliates.discountHint')}</p>
+            <div>
+              <label className="text-sm text-text-secondary mb-1 block flex items-center gap-1">
+                <Percent className="w-3 h-3" /> {t('affiliates.percentAbove')}
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={form.percent_above_threshold}
+                onChange={(e) => setForm((prev) => ({ ...prev, percent_above_threshold: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-text-secondary mb-1 block">{t('affiliates.threshold')}</label>
+              <input
+                type="number"
+                step="10"
+                value={form.threshold_amount}
+                onChange={(e) => setForm((prev) => ({ ...prev, threshold_amount: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-sm font-medium text-text-secondary mb-1 block">{t('affiliates.descriptionLabel')}</label>
-            <input
-              type="text"
-              value={form.description}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder={t('affiliates.descriptionPlaceholder')}
-            />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-text-secondary mb-1 block">{t('affiliates.fixedAmount')}</label>
+              <input
+                type="number"
+                step="10"
+                value={form.fixed_amount}
+                onChange={(e) => setForm((prev) => ({ ...prev, fixed_amount: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-text-secondary mb-1 block">{t('affiliates.descriptionLabel')}</label>
+              <input
+                value={form.description}
+                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder={t('affiliates.descriptionPlaceholder')}
+              />
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={creating}
-            className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
-          >
-            {creating ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                {t('common.loading')}
-              </>
-            ) : (
-              <>{t('affiliates.createBtn')}</>
-            )}
-          </button>
-          {message && <span className="text-sm text-text-secondary">{message}</span>}
-        </div>
-      </form>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={creating}
+              className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
+            >
+              {creating ? t('common.loading') : t('affiliates.createBtn')}
+            </button>
+            {message && <span className="text-sm text-text-secondary">{message}</span>}
+          </div>
+        </form>
+      </div>
 
       <div className="grid gap-4">
         {loading ? (
           <div className="text-sm text-text-secondary flex items-center gap-2">
             <RefreshCw className="w-4 h-4 animate-spin" /> {t('common.loading')}
           </div>
-        ) : codes.length === 0 ? (
-          <p className="text-sm text-text-secondary">{t('affiliates.empty')}</p>
         ) : (
-          codes.map((code) => (
-            <div key={code.id} className={`border rounded-xl bg-white p-4 ${selectedCode?.id === code.id ? 'ring-2 ring-primary' : ''}`}>
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl font-mono font-semibold">{code.code}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${code.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {code.active ? t('affiliates.statusActive') : t('affiliates.statusInactive')}
-                    </span>
-                  </div>
-                  <p className="text-text-primary font-semibold">{code.label}</p>
-                  {code.description && <p className="text-text-secondary text-sm">{code.description}</p>}
-                  <p className="text-sm text-text-secondary mt-1">
-                    {t('affiliates.discountLabel')}: {code.discount_percent ? `${code.discount_percent}%` : t('affiliates.noDiscount')}
-                  </p>
-                  {code.owner_profile_id && (
-                    <p className="text-xs text-text-secondary">
-                      <Shield className="inline w-3 h-3 mr-1" />
-                      {t('affiliates.ownerLabel')}: {selectedCode?.id === code.id ? selectedOwnerName || t('affiliates.pendingOwner') : t('affiliates.ownerHint')}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleActive(code)}
-                    className="px-3 py-1 border rounded text-sm"
-                  >
-                    {code.active ? t('affiliates.disable') : t('affiliates.enable')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openCode(code)}
-                    className="px-3 py-1 border rounded text-sm bg-gray-50"
-                  >
-                    {selectedCode?.id === code.id ? t('affiliates.refreshMembers') : t('affiliates.viewMembers')}
-                  </button>
-                </div>
-              </div>
-
-              {selectedCode?.id === code.id && (
-                <div className="mt-4">
-                  {membersLoading ? (
-                    <div className="text-sm text-text-secondary flex items-center gap-2">
-                      <RefreshCw className="w-4 h-4 animate-spin" /> {t('common.loading')}
+          <>
+            {requestCards.length > 0 && (
+              <div className="bg-white border rounded-xl p-4 space-y-3">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Shield className="w-4 h-4" /> {t('affiliates.requestsTitle')}
+                </h3>
+                {requestCards.map((req) => (
+                  <div key={req.id} className="flex flex-col md:flex-row md:items-center md:justify-between border rounded-lg p-3 gap-2">
+                    <div>
+                      <p className="font-semibold">{formatClientName(req.profile)}</p>
+                      <p className="text-xs text-text-secondary">{req.notes || t('affiliates.noNotes')}</p>
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="text-sm font-semibold text-text-primary mb-2 flex items-center gap-2">
-                          <Users className="w-4 h-4" /> {t('affiliates.assignedTitle')}
-                        </h4>
-                        {members.assigned.length === 0 ? (
-                          <p className="text-xs text-text-secondary">{t('affiliates.noAssigned')}</p>
-                        ) : (
-                          <ul className="space-y-2">
-                            {members.assigned.map((client) => (
-                              <li key={client.id} className="flex items-center justify-between text-sm border rounded px-3 py-2">
-                                <div>
-                                  <p className="font-semibold">{formatName(client)}</p>
-                                  <p className="text-xs text-text-secondary uppercase">{client.id}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="px-3 py-1 text-sm border rounded text-green-700 border-green-200"
+                        onClick={() => handleRequestAction(req, 'approve')}
+                      >
+                        <Check className="w-4 h-4 inline mr-1" /> {t('affiliates.requestApprove')}
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 py-1 text-sm border rounded text-red-600 border-red-200"
+                        onClick={() => handleRequestAction(req, 'reject')}
+                      >
+                        <X className="w-4 h-4 inline mr-1" /> {t('affiliates.requestReject')}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {codes.map((code) => (
+              <div key={code.id} className={`bg-white border rounded-xl p-4 ${selectedCode?.id === code.id ? 'ring-2 ring-primary' : ''}`}>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <p className="text-xl font-mono">{code.code}</p>
+                    <p className="text-text-primary font-semibold">{code.label}</p>
+                    {code.description && <p className="text-sm text-text-secondary">{code.description}</p>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="px-3 py-1 text-sm border rounded"
+                      onClick={() => handleToggleCode(code)}
+                    >
+                      {code.active ? t('affiliates.disable') : t('affiliates.enable')}
+                    </button>
+                    <button
+                      type="button"
+                      className="px-3 py-1 text-sm border rounded bg-gray-50"
+                      onClick={() => openMembers(code)}
+                    >
+                      {t('affiliates.viewMembers')}
+                    </button>
+                  </div>
+                </div>
+
+                {selectedCode?.id === code.id && (
+                  <div className="mt-4">
+                    {busyMembers ? (
+                      <div className="text-sm text-text-secondary flex items-center gap-2">
+                        <RefreshCw className="w-4 h-4 animate-spin" /> {t('common.loading')}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="text-sm font-semibold mb-2 flex items-center gap-1">
+                            <Users className="w-4 h-4" /> {t('affiliates.assignedTitle')}
+                          </h4>
+                          {members.assigned.length === 0 ? (
+                            <p className="text-xs text-text-secondary">{t('affiliates.noAssigned')}</p>
+                          ) : (
+                            <ul className="space-y-2">
+                              {members.assigned.map((client) => (
+                                <li key={client.id} className="flex items-center justify-between text-sm border rounded px-3 py-2">
+                                  <div>
+                                    <p className="font-semibold">{formatClientName(client)}</p>
+                                    <p className="text-xs text-text-secondary uppercase">{client.id}</p>
+                                  </div>
                                   <button
                                     type="button"
                                     className="text-xs text-red-600"
@@ -271,51 +404,46 @@ export default function AdminAffiliates() {
                                   >
                                     {t('affiliates.remove')}
                                   </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-semibold mb-2 flex items-center gap-1">
+                            <UserPlus className="w-4 h-4" /> {t('affiliates.candidatesTitle')}
+                          </h4>
+                          {members.candidates.length === 0 ? (
+                            <p className="text-xs text-text-secondary">{t('affiliates.noCandidates')}</p>
+                          ) : (
+                            <ul className="space-y-2">
+                              {members.candidates.map((client) => (
+                                <li key={client.id} className="flex items-center justify-between text-sm border rounded px-3 py-2">
+                                  <div>
+                                    <p className="font-semibold">{formatClientName(client)}</p>
+                                    <p className="text-xs text-text-secondary">
+                                      {client.affiliate_code_input || '-'}
+                                    </p>
+                                  </div>
                                   <button
                                     type="button"
                                     className="text-xs text-primary"
-                                    onClick={() => setOwner(client.id)}
+                                    onClick={() => assignClient(client.id)}
                                   >
-                                    {t('affiliates.setOwner')}
+                                    {t('affiliates.assign')}
                                   </button>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-text-primary mb-2 flex items-center gap-2">
-                          <UserPlus className="w-4 h-4" /> {t('affiliates.candidatesTitle')}
-                        </h4>
-                        {members.candidates.length === 0 ? (
-                          <p className="text-xs text-text-secondary">{t('affiliates.noCandidates')}</p>
-                        ) : (
-                          <ul className="space-y-2">
-                            {members.candidates.map((client) => (
-                              <li key={client.id} className="flex items-center justify-between text-sm border rounded px-3 py-2">
-                                <div>
-                                  <p className="font-semibold">{formatName(client)}</p>
-                                  <p className="text-xs text-text-secondary">{client.affiliate_code_input || '-'}</p>
-                                </div>
-                                <button
-                                  type="button"
-                                  className="text-xs text-primary"
-                                  onClick={() => assignClient(client.id)}
-                                >
-                                  {t('affiliates.assign')}
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </>
         )}
       </div>
     </div>

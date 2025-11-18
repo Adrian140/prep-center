@@ -361,6 +361,57 @@ createReceptionRequest: async (data) => {
     return data;
   },
 
+  listAffiliateRequests: async () => {
+    return await supabase
+      .from('affiliate_requests')
+      .select(`
+        *,
+        profile:profiles!inner (
+          id,
+          first_name,
+          last_name,
+          company_name,
+          store_name,
+          country
+        )
+      `)
+      .order('created_at', { ascending: false });
+  },
+
+  createAffiliateRequest: async ({ profile_id, preferred_code, notes } = {}) => {
+    return await supabase
+      .from('affiliate_requests')
+      .insert([{
+        profile_id,
+        preferred_code: preferred_code ? preferred_code.trim().toUpperCase() : null,
+        notes: notes || null,
+        status: 'pending'
+      }])
+      .select('*')
+      .single();
+  },
+
+  cancelAffiliateRequest: async (id) => {
+    return await supabase.from('affiliate_requests').delete().eq('id', id);
+  },
+
+  listAffiliateOwnerOptions: async () => {
+    return await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, company_name, store_name, affiliate_code_input, affiliate_code_id, updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(500);
+  },
+
+  respondAffiliateRequest: async (requestId, patch = {}) => {
+    return await supabase
+      .from('affiliate_requests')
+      .update(patch)
+      .eq('id', requestId)
+      .select()
+      .single();
+  },
+
   lookupAffiliateCode: async (code) => {
     const trimmed = (code || '').trim().toUpperCase();
     if (!trimmed) return { data: null, error: null };
@@ -379,7 +430,7 @@ createReceptionRequest: async (data) => {
       .order('created_at', { ascending: false });
   },
 
-  createAffiliateCode: async (payload) => {
+  createAffiliateCode: async (payload = {}) => {
     return await supabase
       .from('affiliate_codes')
       .insert([payload])
@@ -387,7 +438,7 @@ createReceptionRequest: async (data) => {
       .single();
   },
 
-  updateAffiliateCode: async (id, patch) => {
+  updateAffiliateCode: async (id, patch = {}) => {
     return await supabase
       .from('affiliate_codes')
       .update(patch)
@@ -398,6 +449,78 @@ createReceptionRequest: async (data) => {
 
   deleteAffiliateCode: async (id) => {
     return await supabase.from('affiliate_codes').delete().eq('id', id);
+  },
+
+  getAffiliateOwnerSnapshot: async (profileId) => {
+    const { data: code, error } = await supabase
+      .from('affiliate_codes')
+      .select('*')
+      .eq('owner_profile_id', profileId)
+      .maybeSingle();
+    if (error || !code) return { data: null, error };
+
+    const { data: assigned } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, company_name, store_name, company_id, country')
+      .eq('affiliate_code_id', code.id);
+
+    const companyIds = (assigned || [])
+      .map((client) => client.company_id)
+      .filter(Boolean);
+
+    let totals = {};
+    if (companyIds.length > 0) {
+      const { data: invoices } = await supabase
+        .from('invoices')
+        .select('company_id, total_amount')
+        .in('company_id', companyIds);
+      (invoices || []).forEach((inv) => {
+        const amount = Number(inv.total_amount || 0);
+        totals[inv.company_id] = (totals[inv.company_id] || 0) + amount;
+      });
+    }
+
+    return {
+      data: {
+        code,
+        members: (assigned || []).map((client) => ({
+          ...client,
+          billing_total: client.company_id ? totals[client.company_id] || 0 : 0
+        }))
+      },
+      error: null
+    };
+  },
+
+  getAffiliateClientStatus: async (profileId) => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('affiliate_code_id, affiliate_code_input')
+      .eq('id', profileId)
+      .single();
+
+    const { data: request } = await supabase
+      .from('affiliate_requests')
+      .select('*')
+      .eq('profile_id', profileId)
+      .in('status', ['pending', 'review'])
+      .order('created_at', { ascending: false })
+      .maybeSingle();
+
+    if (profile?.affiliate_code_id) {
+      const { data: code } = await supabase
+        .from('affiliate_codes')
+        .select('*')
+        .eq('id', profile.affiliate_code_id)
+        .maybeSingle();
+      const { data: members } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, company_name, store_name')
+        .eq('affiliate_code_id', profile.affiliate_code_id);
+      return { profile, code, members: members || [], request: request || null };
+    }
+
+    return { profile, code: null, members: [], request: request || null };
   },
 
   getAffiliateCodeMembers: async (codeId, codeValue) => {
