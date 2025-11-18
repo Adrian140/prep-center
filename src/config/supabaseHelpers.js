@@ -472,8 +472,9 @@ createReceptionRequest: async (data) => {
     if (companyIds.length > 0) {
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, total_amount, amount')
-        .in('company_id', companyIds);
+        .select('company_id, total_amount, amount, status')
+        .in('company_id', companyIds)
+        .eq('status', 'paid');
       (invoices || []).forEach((inv) => {
         const amount = Number(
           inv.total_amount != null ? inv.total_amount : inv.amount != null ? inv.amount : 0
@@ -548,8 +549,9 @@ createReceptionRequest: async (data) => {
     if (companyIds.length > 0) {
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, total_amount, amount')
-        .in('company_id', companyIds);
+        .select('company_id, total_amount, amount, status')
+        .in('company_id', companyIds)
+        .eq('status', 'paid');
       (invoices || []).forEach((invoice) => {
         const amount = Number(
           invoice.total_amount != null ? invoice.total_amount : invoice.amount != null ? invoice.amount : 0
