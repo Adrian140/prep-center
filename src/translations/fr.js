@@ -22,6 +22,10 @@ export const fr = {
   authResetErrorLength: 'Le mot de passe doit contenir au moins 8 caractères.',
   authResetErrorMismatch: 'Les mots de passe ne correspondent pas.',
   authSignupGenericError: 'Une erreur s’est produite. Veuillez contacter le support.',
+  authAffiliateLabel: 'Code affilié (optionnel)',
+  authAffiliateHint: 'Si vous avez reçu un code partenaire, saisissez-le ici.',
+  authAffiliateInvalid: 'Code affilié introuvable.',
+  authAffiliateValid: 'Code reconnu : {label}',
   
   // Common
   getQuote: 'Obtenir un Devis',

@@ -14,7 +14,8 @@
       "homeContent": "Homepage Content",
       "reviews": "Reviews",
       "userGuide": "User Guide",
-      "settings": "Settings"
+      "settings": "Settings",
+      "affiliates": "Affiliates"
     },
     "common": {
       "loading": "Loading…",
@@ -211,6 +212,38 @@
         },
         "products": "Products"
       }
+    },
+    "affiliates": {
+      "title": "Affiliate codes",
+      "subtitle": "Create referral codes and connect clients to them.",
+      "createTitle": "Create new code",
+      "codeLabel": "Code",
+      "labelLabel": "Label",
+      "discountLabel": "Discount (%)",
+      "discountHint": "Optional percentage discount applied to orders.",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Internal note",
+      "createBtn": "Create code",
+      "createSuccess": "Affiliate code created.",
+      "empty": "No affiliate codes yet.",
+      "statusActive": "Active",
+      "statusInactive": "Disabled",
+      "viewMembers": "View clients",
+      "refreshMembers": "Refresh",
+      "assignedTitle": "Assigned clients",
+      "candidatesTitle": "Clients that entered this code",
+      "noAssigned": "No clients assigned yet.",
+      "noCandidates": "No pending clients found.",
+      "assign": "Assign",
+      "remove": "Remove",
+      "setOwner": "Set owner",
+      "ownerLabel": "Owner",
+      "ownerHint": "Owner outside current list",
+      "pendingOwner": "Owner pending sync",
+      "disable": "Disable",
+      "enable": "Enable",
+      "discountPlaceholder": "5",
+      "noDiscount": "No default discount"
     }
   },
   "fr": {
@@ -228,7 +261,8 @@
       "homeContent": "Contenu d'accueil",
       "reviews": "Avis",
       "userGuide": "Guide utilisateur",
-      "settings": "Paramètres"
+      "settings": "Paramètres",
+      "affiliates": "Affiliés"
     },
     "common": {
       "loading": "Chargement…",
@@ -402,6 +436,38 @@
         },
         "products": "Produits"
       }
+    },
+    "affiliates": {
+      "title": "Codes affiliés",
+      "subtitle": "Créez des codes de parrainage et associez les clients.",
+      "createTitle": "Créer un code",
+      "codeLabel": "Code",
+      "labelLabel": "Nom",
+      "discountLabel": "Remise (%)",
+      "discountHint": "Optionnel, remise appliquée automatiquement.",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Note interne",
+      "createBtn": "Ajouter",
+      "createSuccess": "Code créé.",
+      "empty": "Aucun code affilié.",
+      "statusActive": "Actif",
+      "statusInactive": "Inactif",
+      "viewMembers": "Voir clients",
+      "refreshMembers": "Rafraîchir",
+      "assignedTitle": "Clients assignés",
+      "candidatesTitle": "Clients ayant saisi ce code",
+      "noAssigned": "Aucun client assigné.",
+      "noCandidates": "Aucun client en attente.",
+      "assign": "Assigner",
+      "remove": "Retirer",
+      "setOwner": "Définir propriétaire",
+      "ownerLabel": "Propriétaire",
+      "ownerHint": "En dehors de la liste",
+      "pendingOwner": "Non synchronisé",
+      "disable": "Désactiver",
+      "enable": "Activer",
+      "discountPlaceholder": "5",
+      "noDiscount": "Pas de remise"
     }
   },
   "ro": {
@@ -419,7 +485,8 @@
       "homeContent": "Conținut Homepage",
       "reviews": "Recenzii",
       "userGuide": "Ghid utilizator",
-      "settings": "Setări"
+      "settings": "Setări",
+      "affiliates": "Afiliați"
     },
     "common": {
       "loading": "Se încarcă…",
@@ -593,6 +660,38 @@
         },
         "products": "Produse"
       }
+    },
+    "affiliates": {
+      "title": "Coduri de afiliat",
+      "subtitle": "Generează coduri și leagă-le de clienții potriviți.",
+      "createTitle": "Creează cod",
+      "codeLabel": "Cod",
+      "labelLabel": "Etichetă",
+      "discountLabel": "Reducere (%)",
+      "discountHint": "Opțional – procent aplicat pe comenzi.",
+      "descriptionLabel": "Descriere",
+      "descriptionPlaceholder": "Notă internă",
+      "createBtn": "Adaugă cod",
+      "createSuccess": "Cod creat.",
+      "empty": "Nu există coduri încă.",
+      "statusActive": "Activ",
+      "statusInactive": "Inactiv",
+      "viewMembers": "Vezi clienți",
+      "refreshMembers": "Reîncarcă",
+      "assignedTitle": "Clienți asignați",
+      "candidatesTitle": "Clienți care au introdus codul",
+      "noAssigned": "Niciun client asignat.",
+      "noCandidates": "Nu sunt clienți în așteptare.",
+      "assign": "Asignează",
+      "remove": "Șterge",
+      "setOwner": "Setează owner",
+      "ownerLabel": "Owner",
+      "ownerHint": "Nu apare în listă",
+      "pendingOwner": "Nesincronizat",
+      "disable": "Dezactivează",
+      "enable": "Activează",
+      "discountPlaceholder": "5",
+      "noDiscount": "Fără reducere"
     }
   }
 }

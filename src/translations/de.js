@@ -22,6 +22,10 @@ export const de = {
   authResetErrorLength: 'Das Passwort muss mindestens 8 Zeichen lang sein.',
   authResetErrorMismatch: 'Die Passwörter stimmen nicht überein.',
   authSignupGenericError: 'Es ist ein Fehler aufgetreten. Bitte kontaktiere den Support.',
+  authAffiliateLabel: 'Affiliate-Code (optional)',
+  authAffiliateHint: 'Wenn du einen Referral-Code hast, gib ihn hier ein.',
+  authAffiliateInvalid: 'Affiliate-Code nicht gefunden.',
+  authAffiliateValid: 'Code erkannt: {label}',
   
   // Common
   getQuote: 'Angebot Erhalten',

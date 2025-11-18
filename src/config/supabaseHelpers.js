@@ -360,4 +360,83 @@ createReceptionRequest: async (data) => {
     if (error) throw error;
     return data;
   },
+
+  lookupAffiliateCode: async (code) => {
+    const trimmed = (code || '').trim().toUpperCase();
+    if (!trimmed) return { data: null, error: null };
+    return await supabase
+      .from('affiliate_codes')
+      .select('*')
+      .eq('code', trimmed)
+      .eq('active', true)
+      .maybeSingle();
+  },
+
+  listAffiliateCodes: async () => {
+    return await supabase
+      .from('affiliate_codes')
+      .select('*, owner:profiles!affiliate_codes_owner_profile_id_fkey(id, first_name, last_name, company_name, store_name)')
+      .order('created_at', { ascending: false });
+  },
+
+  createAffiliateCode: async (payload) => {
+    return await supabase
+      .from('affiliate_codes')
+      .insert([payload])
+      .select('*')
+      .single();
+  },
+
+  updateAffiliateCode: async (id, patch) => {
+    return await supabase
+      .from('affiliate_codes')
+      .update(patch)
+      .eq('id', id)
+      .select('*')
+      .single();
+  },
+
+  deleteAffiliateCode: async (id) => {
+    return await supabase.from('affiliate_codes').delete().eq('id', id);
+  },
+
+  getAffiliateCodeMembers: async (codeId, codeValue) => {
+    const assignedPromise = supabase
+      .from('profiles')
+      .select('id, first_name, last_name, company_name, store_name, country, affiliate_code_input, affiliate_code_id, updated_at')
+      .eq('affiliate_code_id', codeId)
+      .order('updated_at', { ascending: true });
+    const candidatesPromise = supabase
+      .from('profiles')
+      .select('id, first_name, last_name, company_name, store_name, country, affiliate_code_input, updated_at')
+      .is('affiliate_code_id', null)
+      .eq('affiliate_code_input', (codeValue || '').toUpperCase())
+      .order('updated_at', { ascending: true })
+      .limit(50);
+    const [{ data: assigned, error: assignedErr }, { data: candidates, error: cErr }] =
+      await Promise.all([assignedPromise, candidatesPromise]);
+    return {
+      assigned: assignedErr ? [] : assigned || [],
+      candidates: cErr ? [] : candidates || [],
+      error: assignedErr || cErr || null
+    };
+  },
+
+  assignAffiliateCodeToProfile: async (profileId, codeId) => {
+    return await supabase
+      .from('profiles')
+      .update({ affiliate_code_id: codeId })
+      .eq('id', profileId)
+      .select('id')
+      .single();
+  },
+
+  removeAffiliateCodeFromProfile: async (profileId) => {
+    return await supabase
+      .from('profiles')
+      .update({ affiliate_code_id: null })
+      .eq('id', profileId)
+      .select('id')
+      .single();
+  }
 };

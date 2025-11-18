@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock, User, Building } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Building, Tag } from 'lucide-react';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { useTranslation } from '../../translations';
+import { supabaseHelpers } from '@/config/supabaseHelpers';
 
 function SupabaseRegisterForm() {
   const [formData, setFormData] = useState({
@@ -21,6 +22,7 @@ function SupabaseRegisterForm() {
     phone: '',
     country: 'FR',
     language: 'en',
+    affiliateCode: '',
     acceptTerms: false,
     acceptMarketing: false
   });
@@ -29,6 +31,7 @@ function SupabaseRegisterForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [affiliateStatus, setAffiliateStatus] = useState({ state: 'idle' });
 
   const { signUp } = useSupabaseAuth();
   const { t } = useTranslation();
@@ -39,6 +42,26 @@ function SupabaseRegisterForm() {
     const hasUpperCase = /[A-Z]/.test(password);
     const hasNumber = /\d/.test(password);
     return minLength && hasUpperCase && hasNumber;
+  };
+
+  const checkAffiliateCode = async (code) => {
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed) {
+      setAffiliateStatus({ state: 'idle' });
+      return { valid: true, data: null };
+    }
+    setAffiliateStatus({ state: 'loading' });
+    const { data, error } = await supabaseHelpers.lookupAffiliateCode(trimmed);
+    if (error) {
+      setAffiliateStatus({ state: 'error', message: error.message });
+      return { valid: false };
+    }
+    if (!data) {
+      setAffiliateStatus({ state: 'invalid' });
+      return { valid: false };
+    }
+    setAffiliateStatus({ state: 'valid', data });
+    return { valid: true, data };
   };
 
   const handleSubmit = async (e) => {
@@ -77,10 +100,19 @@ function SupabaseRegisterForm() {
     }
 
     if (!formData.acceptTerms) {
-            setError('You must accept the Terms and Conditions.');
-            setLoading(false);
-            return;
-          }
+      setError('You must accept the Terms and Conditions.');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.affiliateCode.trim()) {
+      const affiliateCheck = await checkAffiliateCode(formData.affiliateCode);
+      if (!affiliateCheck.valid) {
+        setError(t('authAffiliateInvalid'));
+        setLoading(false);
+        return;
+      }
+    }
 
     const metadata = {
       // snake_case (current schema)
@@ -98,6 +130,8 @@ function SupabaseRegisterForm() {
       language: formData.language,
       accept_terms: formData.acceptTerms,
       accept_marketing: formData.acceptMarketing,
+      affiliate_code: formData.affiliateCode.trim(),
+      affiliate_code_input: formData.affiliateCode.trim(),
       // camelCase (legacy schema still in production)
       accountType: formData.accountType,
       firstName: trimmedFirst,
@@ -111,7 +145,8 @@ function SupabaseRegisterForm() {
       countryCode: formData.country,
       languageCode: formData.language,
       acceptTerms: formData.acceptTerms,
-      acceptMarketing: formData.acceptMarketing
+      acceptMarketing: formData.acceptMarketing,
+      affiliateCode: formData.affiliateCode.trim()
     };
 
           const result = await signUp(
@@ -416,6 +451,39 @@ function SupabaseRegisterForm() {
                 </button>
               </div>
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="affiliateCode" className="block text-sm font-medium text-text-primary mb-2">
+              {t('authAffiliateLabel')}
+            </label>
+            <div className="relative">
+              <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-light w-5 h-5" />
+              <input
+                id="affiliateCode"
+                name="affiliateCode"
+                type="text"
+                value={formData.affiliateCode}
+                onChange={handleChange}
+                onBlur={() => checkAffiliateCode(formData.affiliateCode)}
+                className="pl-9 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary uppercase"
+                placeholder="AF123"
+              />
+            </div>
+            <p className="text-xs text-text-secondary mt-1">{t('authAffiliateHint')}</p>
+            {affiliateStatus.state === 'loading' && (
+              <p className="text-xs text-text-secondary mt-1">{t('common.loading')}</p>
+            )}
+            {affiliateStatus.state === 'invalid' && (
+              <p className="text-xs text-red-600 mt-1">{t('authAffiliateInvalid')}</p>
+            )}
+            {affiliateStatus.state === 'valid' && (
+              <p className="text-xs text-green-600 mt-1">
+                {t('authAffiliateValid', {
+                  label: affiliateStatus.data?.label || affiliateStatus.data?.code
+                })}
+              </p>
+            )}
           </div>
 
           <div className="space-y-3">

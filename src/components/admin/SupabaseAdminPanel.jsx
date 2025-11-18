@@ -8,6 +8,7 @@ import AdminUserDetail from './AdminUserDetail';
 import AdminReceiving from './AdminReceiving';
 import { PlayCircle /* ...rest */ } from 'lucide-react';
 import AdminUserGuide from './AdminUserGuide';
+import AdminAffiliates from './AdminAffiliates';
 import { supabase } from '@/config/supabase';
 import AdminPricing from './AdminPricing';
 import AdminShippingRates from './AdminShippingRates';
@@ -157,6 +158,7 @@ useEffect(() => {
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
     { id: 'reviews', label: t('sidebar.reviews'), icon: Star },
     { id: 'user-guide', label: t('sidebar.userGuide'), icon: PlayCircle },
+    { id: 'affiliates', label: t('sidebar.affiliates'), icon: Users },
     { id: 'settings', label: t('sidebar.settings'), icon: Settings }
   ]), [t]);
 
@@ -1069,6 +1071,7 @@ const renderTabContent = () => {
     case 'pricing': return renderPricingTab();
     case 'reviews': return renderReviewsTab();
     case 'user-guide': return <AdminUserGuide />;
+    case 'affiliates': return <AdminAffiliates />;
     case 'settings': return renderSettingsTab();
     default:
       return (
