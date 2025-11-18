@@ -187,7 +187,7 @@ async function syncReceivingShipmentStatus(shipmentId, receivedBy) {
 
   let nextStatus = currentStatus;
   if (allReceived) {
-    nextStatus = 'received';
+    nextStatus = 'processed';
   } else if (someReceived) {
     nextStatus = 'partial';
   } else if (currentStatus === 'partial' || currentStatus === 'received') {
@@ -198,9 +198,15 @@ async function syncReceivingShipmentStatus(shipmentId, receivedBy) {
   if (nextStatus !== currentStatus) {
     patch.status = nextStatus;
   }
-  if (nextStatus === 'received') {
-    patch.received_by = receivedBy || shipment?.received_by || null;
-    patch.received_at = new Date().toISOString();
+  if (nextStatus === 'processed') {
+    const nowIso = new Date().toISOString();
+    const handler = receivedBy || shipment?.received_by || shipment?.processed_by || null;
+    if (!shipment?.received_at) {
+      patch.received_at = nowIso;
+    }
+    patch.received_by = handler;
+    patch.processed_by = handler;
+    patch.processed_at = nowIso;
   }
 
   if (Object.keys(patch).length === 0) return { error: null };
@@ -238,10 +244,13 @@ async function markShipmentFullyReceived(shipmentId, receivedBy) {
   if (error) return { error };
   const ids = (itemRows || []).map((row) => row.id);
   if (ids.length === 0) {
+    const handler = receivedBy || null;
     const patch = {
-      status: 'received',
+      status: 'processed',
       received_at: new Date().toISOString(),
-      received_by: receivedBy || null
+      received_by: handler,
+      processed_at: new Date().toISOString(),
+      processed_by: handler
     };
     const { error: updateError } = await supabase
       .from('receiving_shipments')

@@ -18,7 +18,7 @@ const StatusPill = ({ status }) => {
   const statusMap = {
     draft: { color: 'bg-gray-100 text-gray-800', text: 'Draft' },
     submitted: { color: 'bg-yellow-100 text-yellow-800', text: 'Submitted' },
-    partial: { color: 'bg-amber-100 text-amber-800', text: 'Partial' },
+    partial: { color: 'bg-amber-100 text-amber-800', text: 'Partial processed' },
     received: { color: 'bg-blue-100 text-blue-800', text: 'Received' },
     processed: { color: 'bg-green-100 text-green-800', text: 'Processed' },
     cancelled: { color: 'bg-red-100 text-red-800', text: 'Cancelled' }
@@ -265,7 +265,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
       return getConfirmedQty(item) >= expected;
     });
     const anyReceived = items.some((item) => getConfirmedQty(item) > 0);
-    if (allReceived && anyReceived) return 'received';
+    if (allReceived && anyReceived) return 'processed';
     if (anyReceived) return 'partial';
     return 'submitted';
   }, [items, shipment.status]);
