@@ -106,22 +106,40 @@ export default function AdminPrepRequests() {
     writeJSON(tabSessionStorage, STORAGE_KEY, { status, q, page, selectedId });
   }, [status, q, page, selectedId]);
 
+  const STATUS_PRIORITY = { pending: 0, confirmed: 1, cancelled: 2 };
+
   const filtered = useMemo(() => {
-    if (!q.trim()) return rows;
-    const s = q.toLowerCase();
-    return rows.filter((r) => {
-      const items = r.prep_request_items || [];
-      const hitItem = items.some(
-        (it) =>
-          (it.asin || '').toLowerCase().includes(s) ||
-          (it.sku || '').toLowerCase().includes(s)
-      );
-      const email = (r.user_email || '').toLowerCase();
-      const comp = (r.company_name || '').toLowerCase();
-      const cname = (r.client_name || '').toLowerCase();
-      const clientCompany = (r.client_company_name || '').toLowerCase();
-      return hitItem || email.includes(s) || comp.includes(s) || cname.includes(s) || clientCompany.includes(s);
-    });
+    const search = q.trim().toLowerCase();
+    const base = !search
+      ? rows.slice()
+      : rows.filter((r) => {
+        const items = r.prep_request_items || [];
+        const hitItem = items.some(
+          (it) =>
+            (it.asin || '').toLowerCase().includes(search) ||
+            (it.sku || '').toLowerCase().includes(search)
+        );
+        const email = (r.user_email || '').toLowerCase();
+        const comp = (r.company_name || '').toLowerCase();
+        const cname = (r.client_name || '').toLowerCase();
+        const clientCompany = (r.client_company_name || '').toLowerCase();
+        return (
+          hitItem ||
+          email.includes(search) ||
+          comp.includes(search) ||
+          cname.includes(search) ||
+          clientCompany.includes(search)
+        );
+      });
+
+    return base
+      .slice()
+      .sort((a, b) => {
+        const pa = STATUS_PRIORITY[a.status] ?? 99;
+        const pb = STATUS_PRIORITY[b.status] ?? 99;
+        if (pa !== pb) return pa - pb;
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
   }, [rows, q]);
 
   const totalPages = Math.max(1, Math.ceil((status === 'all' ? count : filtered.length) / pageSize));
