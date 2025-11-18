@@ -111,8 +111,7 @@ const ensureStockItemForReceiving = async (item, processedBy) => {
     asin: normalizedAsin,
     sku: normalizedSku,
     qty: 0,
-    purchase_price: item.purchase_price,
-    created_by: processedBy
+    purchase_price: item.purchase_price
   };
 
   const { data: created, error } = await supabase

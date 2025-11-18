@@ -299,7 +299,6 @@ createReceptionRequest: async (data) => {
       sku: item.sku || null,
       product_link: item.product_link || null,
       purchase_price: item.purchase_price || null,
-      created_by: profile.id,
       created_at: new Date().toISOString(),
       name: item.name || null,
     };
