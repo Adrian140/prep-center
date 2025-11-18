@@ -14,6 +14,15 @@ import { encodeRemainingAction, resolveFbaIntent } from '@/utils/receivingFba';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (value) => typeof value === 'string' && UUID_REGEX.test(value);
 
+const STATUS_PRIORITY = {
+  draft: 1,
+  submitted: 1,
+  partial: 1,
+  received: 2,
+  processed: 2,
+  cancelled: 3
+};
+
 const StatusPill = ({ status }) => {
   const statusMap = {
     draft: { color: 'bg-gray-100 text-gray-800', text: 'Draft' },
@@ -1078,21 +1087,28 @@ const loadShipments = async () => {
 
 const [totalCount, setTotalCount] = useState(0);
 // în AdminReceiving, înlocuiește const filteredShipments = ...
-const filteredShipments = shipments.filter(shipment => {
-  if (!searchQuery) return true;
-  const q = String(searchQuery).toLowerCase();
+const filteredShipments = shipments
+  .filter((shipment) => {
+    if (!searchQuery) return true;
+    const q = String(searchQuery).toLowerCase();
 
-  const hasTracking = Array.isArray(shipment.tracking_ids)
-    ? shipment.tracking_ids.some(id => String(id || '').toLowerCase().includes(q))
-    : String(shipment.tracking_id || '').toLowerCase().includes(q);
+    const hasTracking = Array.isArray(shipment.tracking_ids)
+      ? shipment.tracking_ids.some((id) => String(id || '').toLowerCase().includes(q))
+      : String(shipment.tracking_id || '').toLowerCase().includes(q);
 
-  return (
-    hasTracking ||
-    String(shipment.client_name || '').toLowerCase().includes(q) ||
-    String(shipment.user_email || '').toLowerCase().includes(q) ||
-    String(shipment.company_name || '').toLowerCase().includes(q)
-  );
-});
+    return (
+      hasTracking ||
+      String(shipment.client_name || '').toLowerCase().includes(q) ||
+      String(shipment.user_email || '').toLowerCase().includes(q) ||
+      String(shipment.company_name || '').toLowerCase().includes(q)
+    );
+  })
+  .sort((a, b) => {
+    const pa = STATUS_PRIORITY[a.status] ?? 99;
+    const pb = STATUS_PRIORITY[b.status] ?? 99;
+    if (pa !== pb) return pa - pb;
+    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+  });
 
   const handleBulkReceived = async () => {
     if (selectedIds.size === 0) {
@@ -1272,7 +1288,6 @@ const filteredShipments = shipments.filter(shipment => {
               <th className="px-4 py-3 text-left">Tracking</th>
               <th className="px-4 py-3 text-left">Destination</th>
               <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">Products</th>
               <th className="px-4 py-3 text-center">Lines</th>
               <th className="px-4 py-3 text-left">Date</th>
               <th className="px-4 py-3 text-right">Actions</th>
@@ -1374,38 +1389,6 @@ const filteredShipments = shipments.filter(shipment => {
                       {hasFbaIntent && (
                         <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
                           FBA
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <div className="flex flex-col gap-2">
-                      {(shipment.receiving_items || []).slice(0, 3).map((item, idx) => {
-                        const thumb =
-                          item.stock_item?.image_url ||
-                          item.image_url ||
-                          '';
-                        const title = item.product_name || item.stock_item?.name || `Line ${idx + 1}`;
-                        return thumb ? (
-                          <img
-                            key={`${shipment.id}-${item.id || idx}`}
-                            src={thumb}
-                            alt={title}
-                            className="w-12 h-12 rounded border object-cover"
-                          />
-                        ) : (
-                          <div
-                            key={`${shipment.id}-${item.id || idx}-ph`}
-                            className="w-12 h-12 rounded border bg-gray-100 flex items-center justify-center text-[10px] text-gray-400"
-                            title={title}
-                          >
-                            N/A
-                          </div>
-                        );
-                      })}
-                      {(shipment.receiving_items?.length || 0) > 3 && (
-                        <span className="text-xs text-text-secondary">
-                          +{(shipment.receiving_items?.length || 0) - 3} more
                         </span>
                       )}
                     </div>
