@@ -249,7 +249,17 @@
       "noCandidates": "No pending clients.",
       "assign": "Assign",
       "remove": "Remove",
-      "requestsEmpty": "No affiliate requests yet."
+      "requestsEmpty": "No affiliate requests yet.",
+      "editCode": "Edit",
+      "saveChanges": "Save changes",
+      "cancelEdit": "Cancel",
+      "updateSuccess": "Affiliate code updated.",
+      "updateError": "Could not save changes.",
+      "offerPercent": "{percent}% on all turnover",
+      "offerThreshold": "{below}% below {threshold}, {above}% above",
+      "offerFixed": "One-time bonus {amount} after {threshold}",
+      "offerNone": "No payout settings",
+      "memberBilling": "{billed} billed · share {commission}"
     }
   },
   "fr": {
@@ -479,7 +489,17 @@
       "noCandidates": "No pending clients.",
       "assign": "Assign",
       "remove": "Remove",
-      "requestsEmpty": "No affiliate requests yet."
+      "requestsEmpty": "No affiliate requests yet.",
+      "editCode": "Edit",
+      "saveChanges": "Save changes",
+      "cancelEdit": "Cancel",
+      "updateSuccess": "Affiliate code updated.",
+      "updateError": "Could not save changes.",
+      "offerPercent": "{percent}% on all turnover",
+      "offerThreshold": "{below}% below {threshold}, {above}% above",
+      "offerFixed": "One-time bonus {amount} after {threshold}",
+      "offerNone": "No payout settings",
+      "memberBilling": "{billed} billed · share {commission}"
     }
   },
   "ro": {
@@ -709,7 +729,17 @@
       "noCandidates": "Nu sunt clienți în așteptare.",
       "assign": "Asignează",
       "remove": "Șterge",
-      "requestsEmpty": "Nu există cereri de afiliere."
+      "requestsEmpty": "Nu există cereri de afiliere.",
+      "editCode": "Editează",
+      "saveChanges": "Salvează modificările",
+      "cancelEdit": "Anulează",
+      "updateSuccess": "Codul de afiliat a fost actualizat.",
+      "updateError": "Nu am putut salva modificările.",
+      "offerPercent": "{percent}% din toate facturile",
+      "offerThreshold": "{below}% sub {threshold}, {above}% peste",
+      "offerFixed": "Bonus unic {amount} după {threshold}",
+      "offerNone": "Nu există reguli de comision",
+      "memberBilling": "{billed} facturat · comision {commission}"
     }
   }
 }

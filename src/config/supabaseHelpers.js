@@ -526,7 +526,7 @@ createReceptionRequest: async (data) => {
   getAffiliateCodeMembers: async (codeId, codeValue) => {
     const assignedPromise = supabase
       .from('profiles')
-      .select('id, first_name, last_name, company_name, store_name, country, affiliate_code_input, affiliate_code_id, updated_at')
+      .select('id, first_name, last_name, company_name, store_name, country, company_id, affiliate_code_input, affiliate_code_id, updated_at')
       .eq('affiliate_code_id', codeId)
       .order('updated_at', { ascending: true });
     const candidatesPromise = supabase
@@ -538,8 +538,28 @@ createReceptionRequest: async (data) => {
       .limit(50);
     const [{ data: assigned, error: assignedErr }, { data: candidates, error: cErr }] =
       await Promise.all([assignedPromise, candidatesPromise]);
+
+    let totals = {};
+    const companyIds = (assigned || [])
+      .map((client) => client.company_id)
+      .filter(Boolean);
+    if (companyIds.length > 0) {
+      const { data: invoices } = await supabase
+        .from('invoices')
+        .select('company_id, total_amount')
+        .in('company_id', companyIds);
+      (invoices || []).forEach((invoice) => {
+        const amount = Number(invoice.total_amount || 0);
+        totals[invoice.company_id] = (totals[invoice.company_id] || 0) + amount;
+      });
+    }
+
+    const assignedWithTotals = (assigned || []).map((client) => ({
+      ...client,
+      billing_total: client.company_id ? totals[client.company_id] || 0 : 0
+    }));
     return {
-      assigned: assignedErr ? [] : assigned || [],
+      assigned: assignedErr ? [] : assignedWithTotals,
       candidates: cErr ? [] : candidates || [],
       error: assignedErr || cErr || null
     };

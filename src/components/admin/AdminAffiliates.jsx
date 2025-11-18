@@ -32,6 +32,25 @@ const formatClientName = (client) => {
   return '—';
 };
 
+const computeCommission = (amount, code) => {
+  const total = Number(amount || 0);
+  if (total <= 0 || !code) return 0;
+  const type = code.payout_type || 'percentage';
+  if (type === 'threshold') {
+    const threshold = Number(code.threshold_amount || 0);
+    const below = Number(code.percent_below_threshold || 0);
+    const above = Number(code.percent_above_threshold || below);
+    const percent = threshold && total >= threshold ? above : below;
+    let payout = (total * percent) / 100;
+    if (threshold && total >= threshold && code.fixed_amount) {
+      payout += Number(code.fixed_amount || 0);
+    }
+    return payout;
+  }
+  const percent = Number(code.percent_below_threshold || code.percent_above_threshold || 0);
+  return (total * percent) / 100;
+};
+
 export default function AdminAffiliates() {
   const { t } = useAdminTranslation();
   const [requests, setRequests] = useState([]);
@@ -45,6 +64,50 @@ export default function AdminAffiliates() {
   const [form, setForm] = useState(initialCodeForm);
   const [creating, setCreating] = useState(false);
   const [ownerOptions, setOwnerOptions] = useState([]);
+  const [editingCodeId, setEditingCodeId] = useState(null);
+  const [editForm, setEditForm] = useState(initialCodeForm);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: 'EUR',
+        maximumFractionDigits: 2
+      }),
+    []
+  );
+
+  const payoutSummary = useMemo(() => ({
+    percent: (percent) => t('affiliates.offerPercent', { percent }),
+    threshold: (threshold, below, above) =>
+      t('affiliates.offerThreshold', {
+        threshold: currencyFormatter.format(Number(threshold || 0)),
+        below,
+        above
+      }),
+    fixed: (threshold, amount) =>
+      t('affiliates.offerFixed', {
+        threshold: currencyFormatter.format(Number(threshold || 0)),
+        amount: currencyFormatter.format(Number(amount || 0))
+      })
+  }), [t, currencyFormatter]);
+
+  const describePayout = (code) => {
+    if (!code) return t('affiliates.offerNone');
+    if (code.payout_type === 'threshold') {
+      const threshold = Number(code.threshold_amount || 0);
+      const below = Number(code.percent_below_threshold || 0);
+      const above = Number(code.percent_above_threshold || below);
+      const summaryText = payoutSummary.threshold(threshold, below, above);
+      if (code.fixed_amount) {
+        return `${summaryText} · ${payoutSummary.fixed(threshold, code.fixed_amount)}`;
+      }
+      return summaryText;
+    }
+    const percent = Number(code.percent_below_threshold || code.percent_above_threshold || 0);
+    return payoutSummary.percent(percent);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -125,6 +188,52 @@ export default function AdminAffiliates() {
   const handleToggleCode = async (code) => {
     await supabaseHelpers.updateAffiliateCode(code.id, { active: !code.active });
     loadData();
+  };
+
+  const openEditForm = (code) => {
+    setEditingCodeId(code.id);
+    setEditForm({
+      owner_profile_id: code.owner_profile_id,
+      code: code.code || '',
+      label: code.label || '',
+      description: code.description || '',
+      payout_type: code.payout_type || 'percentage',
+      percent_below_threshold: code.percent_below_threshold ?? '',
+      percent_above_threshold: code.percent_above_threshold ?? '',
+      threshold_amount: code.threshold_amount ?? '',
+      fixed_amount: code.fixed_amount ?? ''
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingCodeId(null);
+    setEditForm(initialCodeForm);
+    setSavingEdit(false);
+  };
+
+  const saveEdit = async () => {
+    if (!editingCodeId) return;
+    setSavingEdit(true);
+    try {
+      await supabaseHelpers.updateAffiliateCode(editingCodeId, {
+        code: editForm.code?.trim().toUpperCase(),
+        label: editForm.label || null,
+        description: editForm.description || null,
+        payout_type: editForm.payout_type,
+        percent_below_threshold: editForm.percent_below_threshold || null,
+        percent_above_threshold: editForm.percent_above_threshold || null,
+        threshold_amount: editForm.threshold_amount || null,
+        fixed_amount: editForm.fixed_amount || null
+      });
+      cancelEdit();
+      loadData();
+      setMessage(t('affiliates.updateSuccess'));
+    } catch (err) {
+      console.error('updateAffiliateCode', err);
+      setMessage(err.message || t('affiliates.updateError'));
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const handleRequestAction = async (req, action) => {
@@ -349,13 +458,18 @@ export default function AdminAffiliates() {
               </div>
             )}
 
-            {codes.map((code) => (
+            {codes.map((code) => {
+              const ownerName = formatClientName(code.owner || {});
+              const displayLabel = code.label?.trim() || ownerName || '—';
+              return (
               <div key={code.id} className={`bg-white border rounded-xl p-4 ${selectedCode?.id === code.id ? 'ring-2 ring-primary' : ''}`}>
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
                     <p className="text-xl font-mono">{code.code}</p>
-                    <p className="text-text-primary font-semibold">{code.label}</p>
-                    {code.description && <p className="text-sm text-text-secondary">{code.description}</p>}
+                    <p className="text-text-primary font-semibold">{displayLabel}</p>
+                    <p className="text-xs text-text-secondary">{ownerName}</p>
+                    <p className="text-sm text-text-secondary mt-1">{describePayout(code)}</p>
+                    {code.description && <p className="text-sm text-text-secondary mt-1">{code.description}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -372,8 +486,119 @@ export default function AdminAffiliates() {
                     >
                       {t('affiliates.viewMembers')}
                     </button>
+                    <button
+                      type="button"
+                      className="px-3 py-1 text-sm border rounded bg-white"
+                      onClick={() => openEditForm(code)}
+                    >
+                      {t('affiliates.editCode')}
+                    </button>
                   </div>
                 </div>
+                {editingCodeId === code.id && (
+                  <div className="mt-4 border-t pt-4 space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs uppercase text-text-secondary block mb-1">{t('affiliates.codeLabel')}</label>
+                        <input
+                          className="w-full border rounded-lg px-3 py-2 uppercase"
+                          value={editForm.code}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, code: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs uppercase text-text-secondary block mb-1">{t('affiliates.labelLabel')}</label>
+                        <input
+                          className="w-full border rounded-lg px-3 py-2"
+                          value={editForm.label}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, label: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase text-text-secondary block mb-1">{t('affiliates.descriptionLabel')}</label>
+                      <textarea
+                        className="w-full border rounded-lg px-3 py-2"
+                        rows={2}
+                        value={editForm.description}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-xs uppercase text-text-secondary block mb-1">{t('affiliates.payoutType')}</label>
+                        <select
+                          className="w-full border rounded-lg px-3 py-2"
+                          value={editForm.payout_type}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, payout_type: e.target.value }))}
+                        >
+                          <option value="percentage">{t('affiliates.modePercent')}</option>
+                          <option value="threshold">{t('affiliates.modeThreshold')}</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs uppercase text-text-secondary block mb-1">% {t('affiliates.percentBelow')}</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full border rounded-lg px-3 py-2"
+                          value={editForm.percent_below_threshold}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, percent_below_threshold: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs uppercase text-text-secondary block mb-1">% {t('affiliates.percentAbove')}</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full border rounded-lg px-3 py-2"
+                          value={editForm.percent_above_threshold}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, percent_above_threshold: e.target.value }))}
+                          disabled={editForm.payout_type !== 'threshold'}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-xs uppercase text-text-secondary block mb-1">{t('affiliates.threshold')}</label>
+                        <input
+                          type="number"
+                          className="w-full border rounded-lg px-3 py-2"
+                          value={editForm.threshold_amount}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, threshold_amount: e.target.value }))}
+                          disabled={editForm.payout_type !== 'threshold'}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs uppercase text-text-secondary block mb-1">{t('affiliates.fixedAmount')}</label>
+                        <input
+                          type="number"
+                          className="w-full border rounded-lg px-3 py-2"
+                          value={editForm.fixed_amount}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, fixed_amount: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
+                        onClick={saveEdit}
+                        disabled={savingEdit}
+                      >
+                        {savingEdit ? t('common.loading') : t('affiliates.saveChanges')}
+                      </button>
+                      <button
+                        type="button"
+                        className="px-4 py-2 border rounded-lg"
+                        onClick={cancelEdit}
+                        disabled={savingEdit}
+                      >
+                        {t('affiliates.cancelEdit')}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {selectedCode?.id === code.id && (
                   <div className="mt-4">
@@ -396,6 +621,12 @@ export default function AdminAffiliates() {
                                   <div>
                                     <p className="font-semibold">{formatClientName(client)}</p>
                                     <p className="text-xs text-text-secondary uppercase">{client.id}</p>
+                                    <p className="text-xs text-text-secondary mt-1">
+                                      {t('affiliates.memberBilling', {
+                                        billed: currencyFormatter.format(client.billing_total || 0),
+                                        commission: currencyFormatter.format(computeCommission(client.billing_total, code))
+                                      })}
+                                    </p>
                                   </div>
                                   <button
                                     type="button"
@@ -442,7 +673,8 @@ export default function AdminAffiliates() {
                   </div>
                 )}
               </div>
-            ))}
+            );
+          })}
           </>
         )}
       </div>

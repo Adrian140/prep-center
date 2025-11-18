@@ -1072,6 +1072,7 @@ const renderTabContent = () => {
     case 'reviews': return renderReviewsTab();
     case 'user-guide': return <AdminUserGuide />;
     case 'affiliates': return <AdminAffiliates />;
+    case 'affiliates': return <AdminAffiliates />;
     case 'settings': return renderSettingsTab();
     default:
       return (
