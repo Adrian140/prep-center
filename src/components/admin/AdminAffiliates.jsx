@@ -52,7 +52,7 @@ const computeCommission = (amount, code) => {
 };
 
 export default function AdminAffiliates() {
-  const { t } = useAdminTranslation();
+  const { t, tp } = useAdminTranslation();
   const [requests, setRequests] = useState([]);
   const [codes, setCodes] = useState([]);
   const [selectedCode, setSelectedCode] = useState(null);
@@ -78,35 +78,27 @@ export default function AdminAffiliates() {
     []
   );
 
-  const payoutSummary = useMemo(() => ({
-    percent: (percent) => t('affiliates.offerPercent', { percent }),
-    threshold: (threshold, below, above) =>
-      t('affiliates.offerThreshold', {
-        threshold: currencyFormatter.format(Number(threshold || 0)),
-        below,
-        above
-      }),
-    fixed: (threshold, amount) =>
-      t('affiliates.offerFixed', {
-        threshold: currencyFormatter.format(Number(threshold || 0)),
-        amount: currencyFormatter.format(Number(amount || 0))
-      })
-  }), [t, currencyFormatter]);
-
   const describePayout = (code) => {
     if (!code) return t('affiliates.offerNone');
     if (code.payout_type === 'threshold') {
       const threshold = Number(code.threshold_amount || 0);
       const below = Number(code.percent_below_threshold || 0);
       const above = Number(code.percent_above_threshold || below);
-      const summaryText = payoutSummary.threshold(threshold, below, above);
+      const summaryText = tp('affiliates.offerThreshold', {
+        threshold: currencyFormatter.format(threshold),
+        below,
+        above
+      });
       if (code.fixed_amount) {
-        return `${summaryText} · ${payoutSummary.fixed(threshold, code.fixed_amount)}`;
+        return `${summaryText} · ${tp('affiliates.offerFixed', {
+          threshold: currencyFormatter.format(threshold),
+          amount: currencyFormatter.format(Number(code.fixed_amount || 0))
+        })}`;
       }
       return summaryText;
     }
     const percent = Number(code.percent_below_threshold || code.percent_above_threshold || 0);
-    return payoutSummary.percent(percent);
+    return tp('affiliates.offerPercent', { percent });
   };
 
   const loadData = async () => {
@@ -622,9 +614,11 @@ export default function AdminAffiliates() {
                                     <p className="font-semibold">{formatClientName(client)}</p>
                                     <p className="text-xs text-text-secondary uppercase">{client.id}</p>
                                     <p className="text-xs text-text-secondary mt-1">
-                                      {t('affiliates.memberBilling', {
+                                      {tp('affiliates.memberBilling', {
                                         billed: currencyFormatter.format(client.billing_total || 0),
-                                        commission: currencyFormatter.format(computeCommission(client.billing_total, code))
+                                        commission: currencyFormatter.format(
+                                          computeCommission(client.billing_total, code)
+                                        )
                                       })}
                                     </p>
                                   </div>
