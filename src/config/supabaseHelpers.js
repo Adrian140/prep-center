@@ -470,13 +470,11 @@ createReceptionRequest: async (data) => {
 
     let totals = {};
     if (companyIds.length > 0) {
-      let invoicesQuery = supabase
+      const inList = `(${companyIds.map((id) => `"${id}"`).join(',')})`;
+      const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, total_amount, amount, status');
-      invoicesQuery = companyIds.length > 1
-        ? invoicesQuery.in('company_id', companyIds)
-        : invoicesQuery.eq('company_id', companyIds[0]);
-      const { data: invoices } = await invoicesQuery;
+        .select('company_id, total_amount, amount, status')
+        .filter('company_id', 'in', inList);
       (invoices || [])
         .filter((inv) => String(inv.status || '').trim().toLowerCase() === 'paid')
         .forEach((inv) => {
@@ -551,13 +549,11 @@ createReceptionRequest: async (data) => {
       .map((client) => client.company_id)
       .filter(Boolean);
     if (companyIds.length > 0) {
-      let invoicesQuery = supabase
+      const inList = `(${companyIds.map((id) => `"${id}"`).join(',')})`;
+      const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, total_amount, amount, status');
-      invoicesQuery = companyIds.length > 1
-        ? invoicesQuery.in('company_id', companyIds)
-        : invoicesQuery.eq('company_id', companyIds[0]);
-      const { data: invoices } = await invoicesQuery;
+        .select('company_id, total_amount, amount, status')
+        .filter('company_id', 'in', inList);
       (invoices || [])
         .filter((invoice) => String(invoice.status || '').trim().toLowerCase() === 'paid')
         .forEach((invoice) => {
