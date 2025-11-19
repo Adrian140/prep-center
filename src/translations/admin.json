@@ -269,7 +269,11 @@
       "offerThreshold": "{below}% below {threshold}, {above}% above",
       "offerFixed": "One-time bonus {amount} after {threshold}",
       "offerNone": "No payout settings",
-      "memberBilling": "{billed} billed · share {commission}"
+      "memberBilling": "{billed} billed · share {commission}",
+      "deleteCode": "Delete affiliate code",
+      "deleteConfirm": "Delete this affiliate code? Assigned clients will lose the link.",
+      "deleteSuccess": "Affiliate code deleted.",
+      "deleteError": "Unable to delete affiliate code."
     }
   },
   "fr": {
@@ -511,7 +515,11 @@
       "offerThreshold": "{below}% below {threshold}, {above}% above",
       "offerFixed": "One-time bonus {amount} after {threshold}",
       "offerNone": "No payout settings",
-      "memberBilling": "{billed} billed · share {commission}"
+      "memberBilling": "{billed} billed · share {commission}",
+      "deleteCode": "Delete affiliate code",
+      "deleteConfirm": "Delete this affiliate code? Assigned clients will lose the link.",
+      "deleteSuccess": "Affiliate code deleted.",
+      "deleteError": "Unable to delete affiliate code."
     }
   },
   "ro": {
@@ -760,7 +768,11 @@
       "offerThreshold": "{below}% sub {threshold}, {above}% peste",
       "offerFixed": "Bonus unic {amount} după {threshold}",
       "offerNone": "Nu există reguli de comision",
-      "memberBilling": "{billed} facturat · comision {commission}"
+      "memberBilling": "{billed} facturat · comision {commission}",
+      "deleteCode": "Șterge codul de afiliat",
+      "deleteConfirm": "Ștergi acest cod? Clienții asignați vor pierde legătura.",
+      "deleteSuccess": "Codul de afiliat a fost șters.",
+      "deleteError": "Nu am putut șterge codul."
     }
   }
 }

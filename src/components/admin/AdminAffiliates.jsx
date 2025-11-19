@@ -94,6 +94,7 @@ export default function AdminAffiliates() {
   const [editingCodeId, setEditingCodeId] = useState(null);
   const [editForm, setEditForm] = useState(initialCodeForm);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingCodeId, setDeletingCodeId] = useState(null);
 
   const currencyFormatter = useMemo(
     () =>
@@ -215,6 +216,26 @@ export default function AdminAffiliates() {
     setBusyMembers(true);
     await supabaseHelpers.removeAffiliateCodeFromProfile(clientId);
     await openMembers(selectedCode);
+  };
+
+  const handleDeleteCode = async (code) => {
+    if (!code?.id) return;
+    if (!window.confirm(t('affiliates.deleteConfirm'))) return;
+    setDeletingCodeId(code.id);
+    try {
+      await supabaseHelpers.deleteAffiliateCode(code.id);
+      if (selectedCode?.id === code.id) {
+        setSelectedCode(null);
+        setMembers({ assigned: [], candidates: [] });
+      }
+      setMessage(t('affiliates.deleteSuccess'));
+      await loadData();
+    } catch (err) {
+      console.error('deleteAffiliateCode', err);
+      setMessage(err?.message || t('affiliates.deleteError'));
+    } finally {
+      setDeletingCodeId(null);
+    }
   };
 
   const handleToggleCode = async (code) => {
@@ -870,6 +891,16 @@ export default function AdminAffiliates() {
                         </div>
                       </div>
                     )}
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        type="button"
+                        className="text-xs text-red-500 hover:text-red-600 underline decoration-dotted"
+                        onClick={() => handleDeleteCode(code)}
+                        disabled={deletingCodeId === code.id}
+                      >
+                        {deletingCodeId === code.id ? t('common.loading') : t('affiliates.deleteCode')}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
