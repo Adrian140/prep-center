@@ -278,20 +278,20 @@ export default function AdminProfiles({ onSelect }) {
 
   const sortedPageRows = useMemo(() => {
     const rowsWithFallback = [...pageRows];
-    const getDiff = (row) => {
-      const diffVal = calc[row.id]?.diff;
-      return Number.isFinite(diffVal) ? Number(diffVal) : null;
+    const getSolde = (row) => {
+      const soldeVal = calc[row.id]?.currentSold;
+      return Number.isFinite(soldeVal) ? Number(soldeVal) : null;
     };
     rowsWithFallback.sort((a, b) => {
-      const diffA = getDiff(a);
-      const diffB = getDiff(b);
-      if (diffA === null && diffB === null) {
+      const soldeA = getSolde(a);
+      const soldeB = getSolde(b);
+      if (soldeA === null && soldeB === null) {
         return (a._order ?? 0) - (b._order ?? 0);
       }
-      if (diffA === null) return 1;
-      if (diffB === null) return -1;
-      if (diffB === diffA) return (a._order ?? 0) - (b._order ?? 0);
-      return diffB - diffA;
+      if (soldeA === null) return 1;
+      if (soldeB === null) return -1;
+      if (soldeB === soldeA) return (a._order ?? 0) - (b._order ?? 0);
+      return soldeB - soldeA;
     });
     return rowsWithFallback;
   }, [pageRows, calc]);
