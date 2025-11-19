@@ -478,12 +478,17 @@ const saveStoreName = async () => {
         </div>
       )}
 
+      <div className="flex items-center justify-between text-xs text-text-secondary mb-2">
+        <span>{tp("clients.totalLabel", { count: rows.length })}</span>
+      </div>
+
       {/* TABLE */}
       <div className="border rounded-lg bg-white overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-text-secondary">
             <tr>
-            <th className="px-4 py-3 text-left">{t("clients.table.store")}</th>
+              <th className="px-4 py-3 text-left w-12">{t("clients.table.index")}</th>
+              <th className="px-4 py-3 text-left">{t("clients.table.store")}</th>
               <th className="px-4 py-3 text-left">{t("clients.table.name")}</th>
               <th className="px-4 py-3 text-left">{t("clients.table.company")}</th>
               {showEmail && <th className="px-4 py-3 text-left">{t("clients.table.email")}</th>}
@@ -496,21 +501,23 @@ const saveStoreName = async () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={showEmail ? 9 : 8} className="px-4 py-6 text-center text-gray-400">{t("common.loading")}</td></tr>
+              <tr><td colSpan={showEmail ? 10 : 9} className="px-4 py-6 text-center text-gray-400">{t("common.loading")}</td></tr>
             ) : error ? (
-              <tr><td colSpan={showEmail ? 9 : 8} className="px-4 py-6 text-center text-red-600">{error}</td></tr>
+              <tr><td colSpan={showEmail ? 10 : 9} className="px-4 py-6 text-center text-red-600">{error}</td></tr>
             ) : searchedRows.length === 0 ? (
-              <tr><td colSpan={showEmail ? 9 : 8} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
+              <tr><td colSpan={showEmail ? 10 : 9} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
             ) : displayRows.length === 0 ? (
-              <tr><td colSpan={showEmail ? 9 : 8} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
+              <tr><td colSpan={showEmail ? 10 : 9} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
             ) : (
-              displayRows.map((p) => {
+              displayRows.map((p, idx) => {
+                const rowNumber = (pageClamped - 1) * PER_PAGE + idx + 1;
                 const name = [p.display_first_name || p.first_name, p.display_last_name || p.last_name]
                   .filter(Boolean)
                   .join(" ") || "—";
                 const c = calc[p.id] || { currentSold: 0, carry: 0, diff: 0 };
                 return (
                   <tr key={p.id} className="border-t hover:bg-gray-50">
+                    <td className="px-4 py-3 text-xs text-gray-500">{rowNumber}</td>
                     <td className="px-4 py-3">
                       {editingStoreId === p.id ? (
                         <div className="flex items-center gap-2">
@@ -561,6 +568,7 @@ const saveStoreName = async () => {
             <tfoot>
               <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
                 <td className="px-4 py-3">{t("clients.csv.footer")}</td>
+                <td className="px-4 py-3" />
                 <td className="px-4 py-3" colSpan={showEmail ? 4 : 3} />
                 <td className="px-4 py-3">{fmt2(tableTotals.totCurrent)}</td>
                 <td className="px-4 py-3">{fmt2(tableTotals.totCarry)}</td>

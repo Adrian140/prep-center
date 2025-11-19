@@ -50,6 +50,7 @@
       },
       "rpcRange": "RPC period: {start} (inclusive) → {end} (inclusive)",
       "table": {
+        "index": "#",
         "store": "Store",
         "name": "Name",
         "company": "Company",
@@ -72,6 +73,7 @@
         "footer": "Current page total"
       },
       "empty": "No clients found.",
+      "totalLabel": "Total clients: {count}",
       "pagination": "Page {page} / {total}",
       "paginationPrev": "Previous page",
       "paginationNext": "Next page"
@@ -321,6 +323,7 @@
       },
       "rpcRange": "Période RPC : {start} (inclus) → {end} (inclus)",
       "table": {
+        "index": "N°",
         "store": "Store",
         "name": "Nom",
         "company": "Société",
@@ -343,6 +346,7 @@
         "footer": "Total page courante"
       },
       "empty": "Aucun client trouvé.",
+      "totalLabel": "Nombre de clients : {count}",
       "pagination": "Page {page} / {total}",
       "paginationPrev": "Page précédente",
       "paginationNext": "Page suivante"
@@ -561,6 +565,7 @@
       },
       "rpcRange": "Perioadă RPC: {start} (inclusiv) → {end} (inclusiv)",
       "table": {
+        "index": "Nr.",
         "store": "Store",
         "name": "Nume",
         "company": "Companie",
@@ -583,6 +588,7 @@
         "footer": "Total pagină curentă"
       },
       "empty": "Niciun client găsit.",
+      "totalLabel": "Număr clienți: {count}",
       "pagination": "Pagina {page} / {total}",
       "paginationPrev": "Pagina anterioară",
       "paginationNext": "Pagina următoare"
