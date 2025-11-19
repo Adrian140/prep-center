@@ -239,9 +239,10 @@ export default function AdminProfiles({ onSelect }) {
         });
       }
 
-      const enriched = nonAdmins.map((profile) =>
-        enrichProfile(profile, billingMap)
-      );
+      const enriched = nonAdmins.map((profile, idx) => ({
+        ...enrichProfile(profile, billingMap),
+        _order: idx
+      }));
 
       setRows(enriched);
       setCalc({});
@@ -275,15 +276,35 @@ export default function AdminProfiles({ onSelect }) {
     return searchedRows.slice(start, start + PER_PAGE);
   }, [searchedRows, pageClamped]);
 
+  const sortedPageRows = useMemo(() => {
+    const rowsWithFallback = [...pageRows];
+    const getDiff = (row) => {
+      const diffVal = calc[row.id]?.diff;
+      return Number.isFinite(diffVal) ? Number(diffVal) : null;
+    };
+    rowsWithFallback.sort((a, b) => {
+      const diffA = getDiff(a);
+      const diffB = getDiff(b);
+      if (diffA === null && diffB === null) {
+        return (a._order ?? 0) - (b._order ?? 0);
+      }
+      if (diffA === null) return 1;
+      if (diffB === null) return -1;
+      if (diffB === diffA) return (a._order ?? 0) - (b._order ?? 0);
+      return diffB - diffA;
+    });
+    return rowsWithFallback;
+  }, [pageRows, calc]);
+
   const displayRows = useMemo(() => {
-    if (restFilter === "all") return pageRows;
-    const hasAllBalances = pageRows.every((row) => calc[row.id]);
-    if (!hasAllBalances) return pageRows;
-    return pageRows.filter((row) => {
+    if (restFilter === "all") return sortedPageRows;
+    const hasAllBalances = sortedPageRows.every((row) => calc[row.id]);
+    if (!hasAllBalances) return sortedPageRows;
+    return sortedPageRows.filter((row) => {
       const liveBalance = Number(calc[row.id]?.diff ?? 0);
       return getBalanceState(liveBalance) === restFilter;
     });
-  }, [pageRows, restFilter, calc]);
+  }, [sortedPageRows, restFilter, calc]);
 
   const tableTotals = useMemo(() => {
     const totCurrent = displayRows.reduce((sum, p) => sum + Number(calc[p.id]?.currentSold ?? 0), 0);
