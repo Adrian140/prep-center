@@ -54,7 +54,7 @@ const normalizeTiers = (tiers) => {
 
 export default function ClientAffiliates() {
   const { profile } = useSupabaseAuth();
-  const { t } = useDashboardTranslation();
+  const { t, tp } = useDashboardTranslation();
   const [status, setStatus] = useState('loading');
   const [clientStatus, setClientStatus] = useState(null);
   const [ownerSnapshot, setOwnerSnapshot] = useState(null);
@@ -342,13 +342,13 @@ export default function ClientAffiliates() {
                       {payoutType === 'threshold' ? (
                         member.thresholdMeta?.reached ? (
                           <span className="text-text-primary font-semibold">
-                            {t('ClientAffiliates.members.thresholdReached', {
+                            {tp('ClientAffiliates.members.thresholdReached', {
                               payout: euroFormatter.format(member.payout || Number(payoutCode?.fixed_amount || 0))
                             })}
                           </span>
                         ) : member.thresholdMeta?.threshold ? (
                           <span>
-                            {t('ClientAffiliates.members.thresholdProgress', {
+                            {tp('ClientAffiliates.members.thresholdProgress', {
                               billed: euroFormatter.format(member.billing_total),
                               threshold: euroFormatter.format(member.thresholdMeta.threshold)
                             })}
@@ -356,7 +356,7 @@ export default function ClientAffiliates() {
                         ) : null
                       ) : (
                         <span>
-                          {t('ClientAffiliates.members.payoutPercent', {
+                          {tp('ClientAffiliates.members.payoutPercent', {
                             percent: member.percent || 0
                           })}{' '}
                           <strong className="text-text-primary">
@@ -387,7 +387,7 @@ export default function ClientAffiliates() {
           </div>
           <div className="text-sm text-text-secondary">
             <p>
-              {t('ClientAffiliates.request.details', {
+              {tp('ClientAffiliates.request.details', {
                 code: pendingRequest.preferred_code || '—'
               })}
             </p>
@@ -469,7 +469,7 @@ export default function ClientAffiliates() {
 }
 
 const PayoutSummary = ({ code }) => {
-  const { t } = useDashboardTranslation();
+  const { t, tp } = useDashboardTranslation();
   if (!code) {
     return <p className="text-sm text-text-secondary">{t('ClientAffiliates.rules.missing')}</p>;
   }
@@ -477,7 +477,7 @@ const PayoutSummary = ({ code }) => {
   if (payoutType === 'threshold') {
     return (
       <p className="text-sm text-text-secondary">
-        {t('ClientAffiliates.rules.fixed', {
+        {tp('ClientAffiliates.rules.fixed', {
           threshold: euroFormatter.format(Number(code.threshold_amount || 0)),
           amount: euroFormatter.format(Number(code.fixed_amount || 0))
         })}
@@ -490,7 +490,7 @@ const PayoutSummary = ({ code }) => {
       <ul className="text-xs text-text-secondary space-y-1">
         {tiers.map((tier, index) => (
           <li key={index}>
-            {t('ClientAffiliates.rules.tier', {
+            {tp('ClientAffiliates.rules.tier', {
               amount: euroFormatter.format(tier.min_amount),
               percent: tier.percent
             })}
@@ -501,7 +501,7 @@ const PayoutSummary = ({ code }) => {
   }
   return (
     <p className="text-sm text-text-secondary">
-      {t('ClientAffiliates.rules.percent', {
+      {tp('ClientAffiliates.rules.percent', {
         percent: Number(code.percent_below_threshold || code.percent_above_threshold || 0)
       })}
     </p>
