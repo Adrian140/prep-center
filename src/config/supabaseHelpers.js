@@ -469,17 +469,18 @@ createReceptionRequest: async (data) => {
 
     let totals = {};
     if (companyIds.length > 0) {
-      const inList = `(${companyIds.map((id) => `"${id}"`).join(',')})`;
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, total_amount, amount, status')
-        .filter('company_id', 'in', inList);
+        .select('company_id, amount, vat_amount, status')
+        .in('company_id', companyIds);
       (invoices || [])
         .filter((inv) => String(inv.status || '').trim().toLowerCase() === 'paid')
         .forEach((inv) => {
-          const amount = Number(
-            inv.total_amount != null ? inv.total_amount : inv.amount != null ? inv.amount : 0
-          );
+          const baseAmount = Number(inv.amount ?? 0);
+          const vat = Number(inv.vat_amount ?? 0);
+          const total = Number(inv.total_amount ?? baseAmount + vat);
+          const amount = Number.isFinite(total) ? total : baseAmount;
+          if (!inv.company_id) return;
           totals[inv.company_id] = (totals[inv.company_id] || 0) + amount;
         });
     }
@@ -548,17 +549,18 @@ createReceptionRequest: async (data) => {
       .map((client) => client.company_id)
       .filter(Boolean);
     if (companyIds.length > 0) {
-      const inList = `(${companyIds.map((id) => `"${id}"`).join(',')})`;
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, total_amount, amount, status')
-        .filter('company_id', 'in', inList);
+        .select('company_id, amount, vat_amount, status')
+        .in('company_id', companyIds);
       (invoices || [])
         .filter((invoice) => String(invoice.status || '').trim().toLowerCase() === 'paid')
         .forEach((invoice) => {
-          const amount = Number(
-            invoice.total_amount != null ? invoice.total_amount : invoice.amount != null ? invoice.amount : 0
-          );
+          const baseAmount = Number(invoice.amount ?? 0);
+          const vat = Number(invoice.vat_amount ?? 0);
+          const total = Number(invoice.total_amount ?? baseAmount + vat);
+          const amount = Number.isFinite(total) ? total : baseAmount;
+          if (!invoice.company_id) return;
           totals[invoice.company_id] = (totals[invoice.company_id] || 0) + amount;
         });
     }
