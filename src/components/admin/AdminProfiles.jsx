@@ -153,14 +153,6 @@ export default function AdminProfiles({ onSelect }) {
     setTo(isoLocal(lastDayOfMonth(nd)));
   };
 
-  const monthDisplay = useMemo(() => {
-    if (!selectedMonth) return "";
-    const [yy, mm] = selectedMonth.split("-").map(Number);
-    if (!Number.isFinite(yy) || !Number.isFinite(mm)) return selectedMonth;
-    const date = new Date(yy, mm - 1, 1);
-    return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  }, [selectedMonth]);
-
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState(persistedFilters.q || "");
@@ -400,66 +392,52 @@ const saveStoreName = async () => {
   return (
     <div className="space-y-4">
       {/* Filters bar */}
-      <div className="bg-white border rounded-xl shadow-sm p-3 space-y-3 max-w-4xl">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,260px)_minmax(0,180px)_minmax(0,260px)_auto] text-xs">
+      <div className="bg-white border rounded-xl shadow-sm p-2 max-w-4xl">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,260px)_minmax(0,180px)_minmax(0,260px)_auto] text-xs items-center">
           {/* Month selector */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] text-text-secondary">{t("clients.filters.month")}</label>
-            <div className="flex items-center gap-1.5">
-              <button className="border rounded px-2 py-1" onClick={() => gotoMonth(-1)} title={t("clients.filters.prevMonth")}><ChevronLeft className="w-3 h-3" /></button>
-              <div className="relative flex-1 min-w-[150px]">
-                <CalendarIcon className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light" />
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={(e) => {
-                    const mk = e.target.value; setSelectedMonth(mk);
-                    const [yy, mm] = mk.split("-").map(Number);
-                    const d = new Date(yy, mm - 1, 1);
-                    setFrom(isoLocal(firstDayOfMonth(d)));
-                    setTo(isoLocal(lastDayOfMonth(d)));
-                    setPage(1);
-                  }}
-                  className="pl-7 pr-2 py-1.5 border rounded w-full text-xs"
-                />
-              </div>
-              <button className="border rounded px-2 py-1" onClick={() => gotoMonth(1)} title={t("clients.filters.nextMonth")}><ChevronRight className="w-3 h-3" /></button>
+          <div className="flex items-center gap-1.5">
+            <button className="border rounded px-2 py-1" onClick={() => gotoMonth(-1)} title={t("clients.filters.prevMonth")}><ChevronLeft className="w-3 h-3" /></button>
+            <div className="relative flex-1 min-w-[150px]">
+              <CalendarIcon className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light" />
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  const mk = e.target.value; setSelectedMonth(mk);
+                  const [yy, mm] = mk.split("-").map(Number);
+                  const d = new Date(yy, mm - 1, 1);
+                  setFrom(isoLocal(firstDayOfMonth(d)));
+                  setTo(isoLocal(lastDayOfMonth(d)));
+                  setPage(1);
+                }}
+                className="pl-7 pr-2 py-1.5 border rounded w-full text-xs"
+              />
             </div>
-            <div className="text-[11px] text-text-secondary space-y-0.5">
-              <div className="font-semibold text-text-primary capitalize">{monthDisplay}</div>
-              <div className="text-[10px] text-gray-500">{from} → {to}</div>
-            </div>
+            <button className="border rounded px-2 py-1" onClick={() => gotoMonth(1)} title={t("clients.filters.nextMonth")}><ChevronRight className="w-3 h-3" /></button>
           </div>
 
           {/* Balance filter */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] text-text-secondary">{t("clients.filters.balance")}</label>
-            <div className="relative">
-              <Filter className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light" />
-              <select value={restFilter} onChange={(e)=>setRestFilter(e.target.value)} className="pl-7 pr-2 py-1.5 border rounded w-full text-xs">
-                <option value="all">{t("clients.balanceFilters.all")}</option>
-                <option value="advance">{t("clients.balanceFilters.advance")}</option>
-                <option value="overdue">{t("clients.balanceFilters.overdue")}</option>
-              </select>
-            </div>
+          <div className="relative">
+            <Filter className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light" />
+            <select value={restFilter} onChange={(e)=>setRestFilter(e.target.value)} className="pl-7 pr-2 py-1.5 border rounded w-full text-xs">
+              <option value="all">{t("clients.balanceFilters.all")}</option>
+              <option value="advance">{t("clients.balanceFilters.advance")}</option>
+              <option value="overdue">{t("clients.balanceFilters.overdue")}</option>
+            </select>
           </div>
 
           {/* Search */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] text-text-secondary">{t("clients.filters.search")}</label>
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light" />
-              <input
-                value={q}
-                onChange={(e) => { setQ(e.target.value); setPage(1); }}
-                placeholder={t("clients.filters.searchPlaceholder")}
-                className="pl-7 pr-2 py-1.5 w-full border rounded text-xs placeholder:text-[11px]"
-              />
-            </div>
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light" />
+            <input
+              value={q}
+              onChange={(e) => { setQ(e.target.value); setPage(1); }}
+              placeholder={t("clients.filters.searchPlaceholder")}
+              className="pl-7 pr-2 py-1.5 w-full border rounded text-xs placeholder:text-[11px]"
+            />
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] text-text-secondary">{t("clients.table.email")}</label>
+          <div>
             <button
               onClick={() => setShowEmail(!showEmail)}
               className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm w-full text-xs"
