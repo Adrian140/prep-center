@@ -105,7 +105,23 @@ DECLARE
   billing_postal TEXT := NULLIF(meta->>'company_postal_code', '');
   billing_phone TEXT := NULLIF(meta->>'phone', '');
   affiliate_input TEXT := NULLIF(meta->>'affiliate_code', '');
+  affiliate_code_uuid UUID;
+  affiliate_value TEXT;
 BEGIN
+  affiliate_value := UPPER(COALESCE(NULLIF(meta->>'affiliate_code_input', ''), affiliate_input));
+  IF affiliate_value IS NOT NULL THEN
+    BEGIN
+      SELECT id
+        INTO affiliate_code_uuid
+        FROM public.affiliate_codes
+        WHERE code = affiliate_value
+          AND active = true
+        LIMIT 1;
+    EXCEPTION WHEN others THEN
+      affiliate_code_uuid := NULL;
+    END;
+  END IF;
+
   company_uuid := COALESCE(
     NULLIF(meta->>'company_id', '')::UUID,
     NEW.id
@@ -141,6 +157,7 @@ BEGIN
     language,
     store_name,
     affiliate_code_input,
+    affiliate_code_id,
     created_at,
     updated_at
   )
@@ -160,7 +177,8 @@ BEGIN
     billing_country,
     meta->>'language',
     meta->>'store_name',
-    UPPER(COALESCE(NULLIF(meta->>'affiliate_code_input', ''), affiliate_input)),
+    affiliate_value,
+    affiliate_code_uuid,
     NOW(),
     NOW()
   );

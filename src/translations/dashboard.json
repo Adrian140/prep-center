@@ -622,6 +622,7 @@
         "percent": "You earn {percent}% from every invoice paid by your referrals.",
         "threshold": "Below {threshold}: {below}%. Above: {above}%.",
         "fixed": "Once a referred client reaches {threshold}, you receive {amount} once.",
+        "tier": "≥ {amount}: {percent}%",
         "missing": "We are preparing the payout rules."
       },
       "stats": {
@@ -635,6 +636,9 @@
         "empty": "No one has used your code yet.",
         "billed": "Billed",
         "payout": "Your share",
+        "payoutPercent": "{percent}% →",
+        "thresholdReached": "Bonus unlocked: {payout}",
+        "thresholdProgress": "{billed} / {threshold} to unlock",
         "hint": "The list updates automatically when we assign or remove clients."
       },
       "request": {
@@ -1337,6 +1341,7 @@
         "percent": "Primești {percent}% din fiecare factură plătită de recomandările tale.",
         "threshold": "Sub {threshold}: {below}%. Peste: {above}%.",
         "fixed": "Când un client recomandat ajunge la {threshold}, primești {amount} o singură dată.",
+        "tier": "≥ {amount}: {percent}%",
         "missing": "Regulile de plată vor fi adăugate în curând."
       },
       "stats": {
@@ -1350,6 +1355,9 @@
         "empty": "Încă nu a folosit nimeni codul tău.",
         "billed": "Facturat",
         "payout": "Partea ta",
+        "payoutPercent": "{percent}% →",
+        "thresholdReached": "Bonus deblocat: {payout}",
+        "thresholdProgress": "{billed} / {threshold} până la bonus",
         "hint": "Lista se actualizează automat când asignăm sau eliminăm clienți."
       },
       "request": {

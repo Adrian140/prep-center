@@ -31,26 +31,25 @@ const randomCode = () => {
   return `AF-${chunk()}${chunk()}-${Math.floor(Math.random() * 90 + 10)}`;
 };
 
-const computeCommission = (amount, code) => {
-  if (!code) return 0;
-  const value = Number(amount || 0);
-  if (value <= 0) return 0;
-  const payoutType = code.payout_type || 'percentage';
-  if (payoutType === 'fixed') {
-    const threshold = Number(code.threshold_amount || 0);
-    if (!code.fixed_amount) return 0;
-    return threshold && value < threshold ? 0 : Number(code.fixed_amount);
-  }
-  if (payoutType === 'threshold') {
-    const threshold = Number(code.threshold_amount || 0);
-    const below = Number(code.percent_below_threshold || 0);
-    const above = Number(code.percent_above_threshold || below);
-    const percent = threshold && value >= threshold ? above : below;
-    return (value * percent) / 100;
-  }
-  const percent =
-    Number(code.percent_below_threshold || 0) || Number(code.percent_above_threshold || 0);
-  return (value * percent) / 100;
+const normalizeTiers = (tiers) => {
+  if (!Array.isArray(tiers)) return [];
+  return tiers
+    .map((tier) => ({
+      min_amount: Number(
+        typeof tier.min_amount === 'string' ? tier.min_amount.replace(',', '.') : tier.min_amount
+      ),
+      percent: Number(
+        typeof tier.percent === 'string' ? tier.percent.replace(',', '.') : tier.percent
+      )
+    }))
+    .filter(
+      (tier) =>
+        Number.isFinite(tier.min_amount) &&
+        tier.min_amount >= 0 &&
+        Number.isFinite(tier.percent) &&
+        tier.percent >= 0
+    )
+    .sort((a, b) => a.min_amount - b.min_amount);
 };
 
 export default function ClientAffiliates() {
@@ -65,31 +64,68 @@ export default function ClientAffiliates() {
   const [flash, setFlash] = useState(null);
   const [copied, setCopied] = useState(false);
 
+  const payoutCode = ownerSnapshot?.code || null;
+  const payoutTiers = useMemo(
+    () => normalizeTiers(payoutCode?.payout_tiers || []),
+    [payoutCode?.payout_tiers]
+  );
+
   const hasCode = !!ownerSnapshot?.code;
+  const payoutType = payoutCode?.payout_type || 'percentage';
   const pendingRequest = clientStatus?.request || null;
 
+  const resolvePercent = (amount) => {
+    const base =
+      Number(payoutCode?.percent_below_threshold || 0) ||
+      Number(payoutCode?.percent_above_threshold || 0) ||
+      0;
+    if (payoutTiers.length === 0) return base;
+    let percent = base;
+    payoutTiers.forEach((tier) => {
+      if (amount >= tier.min_amount) {
+        percent = tier.percent;
+      }
+    });
+    return percent;
+  };
+
   const members = useMemo(() => {
-    if (!ownerSnapshot?.members) return [];
+    if (!ownerSnapshot?.members || !payoutCode) return [];
+    const type = payoutCode.payout_type || 'percentage';
     return ownerSnapshot.members.map((member) => {
       const billed = Number(member.billing_total || 0);
-      const commission = computeCommission(billed, ownerSnapshot.code);
+      let payout = 0;
+      let percent = 0;
+      let thresholdMeta = null;
+      if (type === 'threshold') {
+        const threshold = Number(payoutCode.threshold_amount || 0);
+        const fixed = Number(payoutCode.fixed_amount || 0);
+        const reached = threshold > 0 && billed >= threshold;
+        payout = reached ? fixed : 0;
+        thresholdMeta = { threshold, fixed, reached };
+      } else {
+        percent = resolvePercent(billed);
+        payout = (billed * percent) / 100;
+      }
       return {
         ...member,
         billing_total: billed,
-        commission
+        payout,
+        percent,
+        thresholdMeta
       };
     });
-  }, [ownerSnapshot]);
+  }, [ownerSnapshot, payoutCode, payoutTiers]);
 
   const totals = useMemo(() => {
     return members.reduce(
       (acc, member) => {
         acc.billed += member.billing_total;
-        acc.commission += member.commission;
+        acc.payout += member.payout || 0;
         acc.count += 1;
         return acc;
       },
-      { billed: 0, commission: 0, count: 0 }
+      { billed: 0, payout: 0, count: 0 }
     );
   }, [members]);
 
@@ -267,7 +303,7 @@ export default function ClientAffiliates() {
                 <div className="flex items-center justify-between">
                   <span>{t('ClientAffiliates.stats.payout')}</span>
                   <strong className="text-text-primary">
-                    {euroFormatter.format(totals.commission)}
+                    {euroFormatter.format(totals.payout)}
                   </strong>
                 </div>
               </div>
@@ -303,12 +339,31 @@ export default function ClientAffiliates() {
                           {euroFormatter.format(member.billing_total)}
                         </strong>
                       </span>
-                      <span>
-                        {t('ClientAffiliates.members.payout')}:{' '}
-                        <strong className="text-text-primary">
-                          {euroFormatter.format(member.commission)}
-                        </strong>
-                      </span>
+                      {payoutType === 'threshold' ? (
+                        member.thresholdMeta?.reached ? (
+                          <span className="text-text-primary font-semibold">
+                            {t('ClientAffiliates.members.thresholdReached', {
+                              payout: euroFormatter.format(member.payout || Number(payoutCode?.fixed_amount || 0))
+                            })}
+                          </span>
+                        ) : member.thresholdMeta?.threshold ? (
+                          <span>
+                            {t('ClientAffiliates.members.thresholdProgress', {
+                              billed: euroFormatter.format(member.billing_total),
+                              threshold: euroFormatter.format(member.thresholdMeta.threshold)
+                            })}
+                          </span>
+                        ) : null
+                      ) : (
+                        <span>
+                          {t('ClientAffiliates.members.payoutPercent', {
+                            percent: member.percent || 0
+                          })}{' '}
+                          <strong className="text-text-primary">
+                            {euroFormatter.format(member.payout || 0)}
+                          </strong>
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -419,7 +474,7 @@ const PayoutSummary = ({ code }) => {
     return <p className="text-sm text-text-secondary">{t('ClientAffiliates.rules.missing')}</p>;
   }
   const payoutType = code.payout_type || 'percentage';
-  if (payoutType === 'fixed') {
+  if (payoutType === 'threshold') {
     return (
       <p className="text-sm text-text-secondary">
         {t('ClientAffiliates.rules.fixed', {
@@ -429,15 +484,19 @@ const PayoutSummary = ({ code }) => {
       </p>
     );
   }
-  if (payoutType === 'threshold') {
+  const tiers = normalizeTiers(code.payout_tiers || []);
+  if (tiers.length > 0) {
     return (
-      <p className="text-sm text-text-secondary">
-        {t('ClientAffiliates.rules.threshold', {
-          threshold: euroFormatter.format(Number(code.threshold_amount || 0)),
-          below: Number(code.percent_below_threshold || 0),
-          above: Number(code.percent_above_threshold || 0)
-        })}
-      </p>
+      <ul className="text-xs text-text-secondary space-y-1">
+        {tiers.map((tier, index) => (
+          <li key={index}>
+            {t('ClientAffiliates.rules.tier', {
+              amount: euroFormatter.format(tier.min_amount),
+              percent: tier.percent
+            })}
+          </li>
+        ))}
+      </ul>
     );
   }
   return (

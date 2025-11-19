@@ -21,7 +21,8 @@ const initialCodeForm = {
   percent_below_threshold: '',
   percent_above_threshold: '',
   threshold_amount: '',
-  fixed_amount: ''
+  fixed_amount: '',
+  payout_tiers: []
 };
 
 const formatClientName = (client) => {
@@ -32,22 +33,48 @@ const formatClientName = (client) => {
   return '—';
 };
 
+const sanitizeTiers = (tiers = []) => {
+  if (!Array.isArray(tiers)) return [];
+  return tiers
+    .map((tier) => ({
+      min_amount: Number(
+        typeof tier.min_amount === 'string' ? tier.min_amount.replace(',', '.') : tier.min_amount
+      ),
+      percent: Number(
+        typeof tier.percent === 'string' ? tier.percent.replace(',', '.') : tier.percent
+      )
+    }))
+    .filter(
+      (tier) =>
+        Number.isFinite(tier.min_amount) &&
+        tier.min_amount >= 0 &&
+        Number.isFinite(tier.percent) &&
+        tier.percent >= 0
+    )
+    .sort((a, b) => a.min_amount - b.min_amount);
+};
+
 const computeCommission = (amount, code) => {
   const total = Number(amount || 0);
   if (total <= 0 || !code) return 0;
   const type = code.payout_type || 'percentage';
   if (type === 'threshold') {
     const threshold = Number(code.threshold_amount || 0);
-    const below = Number(code.percent_below_threshold || 0);
-    const above = Number(code.percent_above_threshold || below);
-    const percent = threshold && total >= threshold ? above : below;
-    let payout = (total * percent) / 100;
+    const percentBase = Number(code.percent_below_threshold || 0);
+    const percentBonus = Number(code.percent_above_threshold || percentBase);
+    const baseCommission = (total * (threshold && total >= threshold ? percentBonus : percentBase)) / 100;
     if (threshold && total >= threshold && code.fixed_amount) {
-      payout += Number(code.fixed_amount || 0);
+      return baseCommission + Number(code.fixed_amount || 0);
     }
-    return payout;
+    return baseCommission;
   }
-  const percent = Number(code.percent_below_threshold || code.percent_above_threshold || 0);
+  const tiers = sanitizeTiers(code.payout_tiers);
+  let percent = Number(code.percent_below_threshold || code.percent_above_threshold || 0);
+  tiers.forEach((tier) => {
+    if (total >= tier.min_amount) {
+      percent = tier.percent;
+    }
+  });
   return (total * percent) / 100;
 };
 
@@ -97,6 +124,17 @@ export default function AdminAffiliates() {
       }
       return summaryText;
     }
+    const tiers = sanitizeTiers(code.payout_tiers);
+    if (tiers.length > 0) {
+      return tiers
+        .map((tier) =>
+          tp('affiliates.offerTier', {
+            amount: currencyFormatter.format(tier.min_amount),
+            percent: tier.percent
+          })
+        )
+        .join(' • ');
+    }
     const percent = Number(code.percent_below_threshold || code.percent_above_threshold || 0);
     return tp('affiliates.offerPercent', { percent });
   };
@@ -131,6 +169,7 @@ export default function AdminAffiliates() {
     }
     setCreating(true);
     try {
+      const tiersPayload = sanitizeTiers(form.payout_tiers);
       const payload = {
         owner_profile_id: form.owner_profile_id,
         code: form.code.trim().toUpperCase(),
@@ -142,7 +181,8 @@ export default function AdminAffiliates() {
         percent_below_threshold: form.percent_below_threshold || null,
         percent_above_threshold: form.percent_above_threshold || null,
         threshold_amount: form.threshold_amount || null,
-        fixed_amount: form.fixed_amount || null
+        fixed_amount: form.fixed_amount || null,
+        payout_tiers: tiersPayload
       };
       await supabaseHelpers.createAffiliateCode(payload);
       setForm(initialCodeForm);
@@ -193,7 +233,8 @@ export default function AdminAffiliates() {
       percent_below_threshold: code.percent_below_threshold ?? '',
       percent_above_threshold: code.percent_above_threshold ?? '',
       threshold_amount: code.threshold_amount ?? '',
-      fixed_amount: code.fixed_amount ?? ''
+      fixed_amount: code.fixed_amount ?? '',
+      payout_tiers: Array.isArray(code.payout_tiers) ? code.payout_tiers : []
     });
   };
 
@@ -207,6 +248,7 @@ export default function AdminAffiliates() {
     if (!editingCodeId) return;
     setSavingEdit(true);
     try {
+      const tiersPayload = sanitizeTiers(editForm.payout_tiers);
       await supabaseHelpers.updateAffiliateCode(editingCodeId, {
         code: editForm.code?.trim().toUpperCase(),
         label: editForm.label || null,
@@ -215,7 +257,8 @@ export default function AdminAffiliates() {
         percent_below_threshold: editForm.percent_below_threshold || null,
         percent_above_threshold: editForm.percent_above_threshold || null,
         threshold_amount: editForm.threshold_amount || null,
-        fixed_amount: editForm.fixed_amount || null
+        fixed_amount: editForm.fixed_amount || null,
+        payout_tiers: tiersPayload
       });
       cancelEdit();
       loadData();
@@ -398,6 +441,88 @@ export default function AdminAffiliates() {
             </div>
           </div>
 
+          {form.payout_type === 'percentage' && (
+            <div className="space-y-2">
+              <label className="text-sm text-text-secondary mb-1 block">
+                {t('affiliates.tiersTitle')}
+              </label>
+              {form.payout_tiers.length === 0 && (
+                <p className="text-xs text-text-secondary">{t('affiliates.tiersEmpty')}</p>
+              )}
+              <div className="space-y-2">
+                {form.payout_tiers.map((tier, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs uppercase text-text-secondary block mb-1">
+                        {t('affiliates.tiersMin')}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="50"
+                        className="w-full border rounded-lg px-3 py-2"
+                        value={tier.min_amount}
+                        onChange={(e) =>
+                          setForm((prev) => {
+                            const tiers = [...prev.payout_tiers];
+                            tiers[index] = { ...tiers[index], min_amount: e.target.value };
+                            return { ...prev, payout_tiers: tiers };
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <label className="text-xs uppercase text-text-secondary block mb-1">
+                          {t('affiliates.tiersPercent')}
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          className="w-full border rounded-lg px-3 py-2"
+                          value={tier.percent}
+                          onChange={(e) =>
+                            setForm((prev) => {
+                              const tiers = [...prev.payout_tiers];
+                              tiers[index] = { ...tiers[index], percent: e.target.value };
+                              return { ...prev, payout_tiers: tiers };
+                            })
+                          }
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="text-xs text-red-600"
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            payout_tiers: prev.payout_tiers.filter((_, idx) => idx !== index)
+                          }))
+                        }
+                      >
+                        {t('affiliates.remove')}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="px-3 py-1 text-sm border rounded bg-gray-50"
+                onClick={() =>
+                  setForm((prev) => ({
+                    ...prev,
+                    payout_tiers: [...prev.payout_tiers, { min_amount: '', percent: '' }]
+                  }))
+                }
+              >
+                {t('affiliates.tiersAdd')}
+              </button>
+              <p className="text-xs text-text-secondary">{t('affiliates.tiersHint')}</p>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             <button
               type="submit"
@@ -571,6 +696,87 @@ export default function AdminAffiliates() {
                         />
                       </div>
                     </div>
+                    {editForm.payout_type === 'percentage' && (
+                      <div className="space-y-2">
+                        <label className="text-xs uppercase text-text-secondary block">
+                          {t('affiliates.tiersTitle')}
+                        </label>
+                        {editForm.payout_tiers.length === 0 && (
+                          <p className="text-xs text-text-secondary">{t('affiliates.tiersEmpty')}</p>
+                        )}
+                        <div className="space-y-2">
+                          {editForm.payout_tiers.map((tier, index) => (
+                            <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-xs uppercase text-text-secondary block mb-1">
+                                  {t('affiliates.tiersMin')}
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="50"
+                                  className="w-full border rounded-lg px-3 py-2"
+                                  value={tier.min_amount}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => {
+                                      const tiers = [...prev.payout_tiers];
+                                      tiers[index] = { ...tiers[index], min_amount: e.target.value };
+                                      return { ...prev, payout_tiers: tiers };
+                                    })
+                                  }
+                                />
+                              </div>
+                              <div className="flex items-end gap-2">
+                                <div className="flex-1">
+                                  <label className="text-xs uppercase text-text-secondary block mb-1">
+                                    {t('affiliates.tiersPercent')}
+                                  </label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    className="w-full border rounded-lg px-3 py-2"
+                                    value={tier.percent}
+                                    onChange={(e) =>
+                                      setEditForm((prev) => {
+                                        const tiers = [...prev.payout_tiers];
+                                        tiers[index] = { ...tiers[index], percent: e.target.value };
+                                        return { ...prev, payout_tiers: tiers };
+                                      })
+                                    }
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  className="text-xs text-red-600"
+                                  onClick={() =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      payout_tiers: prev.payout_tiers.filter((_, idx) => idx !== index)
+                                    }))
+                                  }
+                                >
+                                  {t('affiliates.remove')}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          className="px-3 py-1 text-sm border rounded bg-gray-50"
+                          onClick={() =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              payout_tiers: [...prev.payout_tiers, { min_amount: '', percent: '' }]
+                            }))
+                          }
+                        >
+                          {t('affiliates.tiersAdd')}
+                        </button>
+                        <p className="text-xs text-text-secondary">{t('affiliates.tiersHint')}</p>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3">
                       <button
                         type="button"

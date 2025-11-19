@@ -37,6 +37,17 @@ CREATE POLICY "Users can view their own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
 
+CREATE POLICY "Affiliate owners can view affiliate members"
+  ON public.profiles FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.affiliate_codes ac
+      WHERE ac.owner_profile_id = auth.uid()
+        AND ac.id = public.profiles.affiliate_code_id
+    )
+  );
+
 CREATE POLICY "Users can update their own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id)
