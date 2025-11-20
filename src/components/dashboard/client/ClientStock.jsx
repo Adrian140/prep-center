@@ -8,6 +8,7 @@ import ProductPhotosModal from '../../common/ProductPhotosModal';
 import { supabase } from '../../../config/supabase';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import ProductQuickAdd from '@/components/common/ProductQuickAdd';
+import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
 
 function HelpMenuButtonStock({ section = 'stock', t, tp }) {
   const GUIDE_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
@@ -91,16 +92,6 @@ const formatSalesTimestamp = (value) => {
 const DEFAULT_PER_PAGE = 50;
 const COUNTRIES = [{ code: 'FR' }, { code: 'DE' }, { code: 'IT' }, { code: 'ES' }, { code: 'RO' }];
 const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
-
-const CARRIERS = [
-  { code: 'UPS', label: 'UPS' },
-  { code: 'DHL', label: 'DHL' },
-  { code: 'GLS', label: 'GLS' },
-  { code: 'CHRONOPOST', label: 'Chronopost' },
-  { code: 'COLISSIMO', label: 'Colissimo' },
-  { code: 'DPD', label: 'DPD' },
-  { code: 'OTHER', label: 'Other' }
-];
 
 function StockGuideGrid({ t, tp }) {
   return (
@@ -831,6 +822,23 @@ export default function ClientStock({
 
 const [rows, setRows] = useState([]);
 const [loading, setLoading] = useState(true);
+const [carrierOptions, setCarrierOptions] = useState(FALLBACK_CARRIERS);
+
+useEffect(() => {
+  let cancelled = false;
+  (async () => {
+    const { data, error } = await supabaseHelpers.getCarriers();
+    if (cancelled) return;
+    if (!error && Array.isArray(data) && data.length) {
+      setCarrierOptions(normalizeCarriers(data));
+    } else {
+      setCarrierOptions(FALLBACK_CARRIERS);
+    }
+  })();
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
 const [rowEdits, setRowEdits] = useState({});
 const [qtyInputs, setQtyInputs] = useState({});
@@ -2019,9 +2027,9 @@ const saveReqChanges = async () => {
                         }`}
                       >
                         <option value="">{t('ClientStock.receptionForm.carrierPlaceholder')}</option>
-                        {CARRIERS.map((c) => (
+                        {carrierOptions.map((c) => (
                           <option key={c.code} value={c.code}>
-                            {c.label}
+                            {c.code === 'OTHER' ? t('other') : c.label}
                           </option>
                         ))}
                       </select>

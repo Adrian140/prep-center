@@ -10,6 +10,7 @@ import DestinationBadge from '@/components/common/DestinationBadge';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { tabSessionStorage, readJSON, writeJSON } from '@/utils/tabStorage';
 import { encodeRemainingAction, resolveFbaIntent } from '@/utils/receivingFba';
+import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (value) => typeof value === 'string' && UUID_REGEX.test(value);
@@ -56,20 +57,9 @@ const FBA_MODE_META = {
 
 const getFbaModeMeta = (mode = 'none') => FBA_MODE_META[mode] || FBA_MODE_META.none;
 
-function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
+function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
   const { profile } = useSupabaseAuth();
-  const carriers = [
-    { id: 1, code: 'UPS',         name: 'UPS' },
-    { id: 2, code: 'COLISSIMO',   name: 'Colissimo' },
-    { id: 3, code: 'CHRONOPOST',  name: 'Chronopost' },
-    { id: 4, code: 'DPD',         name: 'DPD' },
-    { id: 5, code: 'GLS',         name: 'GLS' },
-    { id: 6, code: 'DHL',         name: 'DHL' },
-    { id: 7, code: 'COLISPRIVE',  name: 'ColisPrive' },
-    { id: 8, code: 'AMAZON',      name: 'Amazon' },
-    { id: 9, code: 'ELOGISTICS',  name: 'eLogistics' },
-    { id: 999, code: 'OTHER',     name: 'Other' }
-  ];
+  const carrierOptions = carriers?.length ? carriers : FALLBACK_CARRIERS;
   const storageKey = useMemo(() => `admin-receiving-detail-${shipment.id}`, [shipment.id]);
   const [items, setItems] = useState(shipment.receiving_items || []);
   const [stockMatches, setStockMatches] = useState({});
@@ -571,10 +561,9 @@ const checkStockMatches = async () => {
         className="border rounded px-2 py-1 w-full mb-2"
       >
         <option value="">Select carrier</option>
-        {carriers.map(c => (
-          <option key={c.code} value={c.code}>{c.name}</option>
+        {carrierOptions.map(c => (
+          <option key={c.code} value={c.code}>{c.label}</option>
         ))}
-        <option value="OTHER">Other</option>
       </select>
 
       {editHeader.carrier === 'OTHER' && (
@@ -1039,6 +1028,23 @@ function AdminReceiving() {
   const [page, setPage] = useState(listState.page ?? 1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [carrierOptions, setCarrierOptions] = useState(FALLBACK_CARRIERS);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabaseHelpers.getCarriers();
+      if (cancelled) return;
+      if (!error && Array.isArray(data) && data.length) {
+        setCarrierOptions(normalizeCarriers(data));
+      } else {
+        setCarrierOptions(FALLBACK_CARRIERS);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setListState({
@@ -1182,6 +1188,7 @@ const filteredShipments = shipments
     return (
       <AdminReceivingDetail
         shipment={selectedShipment}
+        carriers={carrierOptions}
         onBack={() => setSelectedShipment(null)}
         onUpdate={() => {
           loadShipments();

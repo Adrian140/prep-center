@@ -6,6 +6,7 @@ import { supabase } from '../../../config/supabase';
 import { encodeRemainingAction } from '@/utils/receivingFba';
 import { useDashboardTranslation } from '@/translations';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
 
 const GUIDE_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
 
@@ -96,7 +97,7 @@ function ClientReceiving() {
   const DATE_LOCALE = DATE_LOCALE_MAP[currentLanguage] || 'en-US';
 
   const [shipments, setShipments] = useState([]);
-  const [carriers, setCarriers] = useState([]);
+  const [carriers, setCarriers] = useState(FALLBACK_CARRIERS);
   const [loading, setLoading] = useState(true);
   const [selectedShipment, setSelectedShipment] = useState(null);
   const [message, setMessage] = useState('');
@@ -167,7 +168,7 @@ function ClientReceiving() {
 
       const nextShipments = Array.isArray(shipmentsRes.data) ? shipmentsRes.data : [];
       setShipments(nextShipments);
-      setCarriers(carriersRes.data || []);
+      setCarriers(normalizeCarriers(carriersRes.data || []));
       setStock(Array.isArray(stockRes?.data) ? stockRes.data : []);
       return nextShipments;
     } catch (error) {
@@ -577,11 +578,10 @@ function ClientReceiving() {
                   >
                     <option value="">{t('select_carrier')}</option>
                     {carriers.map((c) => (
-                      <option key={c.id} value={c.code}>
-                        {c.name}
+                      <option key={c.code} value={c.code}>
+                        {c.code === 'OTHER' ? t('other') : c.label}
                       </option>
                     ))}
-                    <option value="OTHER">{t('other')}</option>
                   </select>
                   {headerState.carrier === 'OTHER' && (
                     <input
