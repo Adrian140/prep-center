@@ -1997,75 +1997,80 @@ const saveReqChanges = async () => {
                 <option value="reception">{t('ClientStock.cta.announceReception')}</option>
               </select>
               <div className="w-full flex justify-end text-xs sm:text-sm">
-                <select
-                  value={receptionForm.destinationCountry || 'FR'}
-                  onChange={(e) => handleReceptionFormChange('destinationCountry', e.target.value)}
-                  className="w-36 border rounded-md px-2 py-1 text-sm"
-                  title={t('ClientStock.receptionForm.destinationLabel')}
-                >
-                  {DESTINATION_COUNTRIES.map((code) => (
-                    <option key={code} value={code}>
-                      {t(`ClientStock.countries.${code}`)}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex flex-col items-start">
+                  <span className="text-[10px] uppercase text-text-light mb-1">
+                    {t('ClientStock.receptionForm.destinationLabel')}
+                  </span>
+                  <select
+                    value={receptionForm.destinationCountry || 'FR'}
+                    onChange={(e) => handleReceptionFormChange('destinationCountry', e.target.value)}
+                    className="w-36 border rounded-md px-2 py-1 text-sm"
+                  >
+                    {DESTINATION_COUNTRIES.map((code) => (
+                      <option key={code} value={code}>
+                        {t(`ClientStock.countries.${code}`)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               {submitType === 'reception' && (
                 <div className="flex flex-col gap-3 text-xs sm:text-sm w-full items-center">
                   <div className="flex flex-col w-full gap-2 sm:flex-row sm:items-end sm:justify-center sm:gap-4">
-                    <div className="flex flex-col w-full sm:w-auto sm:min-w-[260px]">
-                      <select
-                        value={receptionForm.carrier}
-                        onChange={(e) => handleReceptionFormChange('carrier', e.target.value)}
-                        className={`border rounded-md px-2 py-1 w-full ${
-                          receptionForm.carrier ? 'text-text-primary' : 'text-gray-400'
-                        }`}
-                      >
-                        <option value="">{t('ClientStock.receptionForm.carrierPlaceholder')}</option>
-                        {carrierOptions.map((c) => (
-                          <option key={c.code} value={c.code}>
-                            {c.code === 'OTHER' ? t('other') : c.label}
-                          </option>
-                        ))}
-                      </select>
-                      {receptionForm.carrier === 'OTHER' && (
-                        <input
-                          type="text"
-                          value={receptionForm.carrierOther}
-                          onChange={(e) =>
-                            handleReceptionFormChange('carrierOther', e.target.value)
-                          }
-                          placeholder={t('ClientStock.receptionForm.carrierOther')}
-                          className="border rounded-md px-2 py-1 mt-2 w-full"
-                        />
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[260px]">
-                      <span className="text-[10px] text-gray-500 font-semibold">
-                        {t('ClientStock.receptionForm.tracking')}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={trackingDraft}
-                          onChange={(e) => handleTrackingDraftChange(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleTrackingAdd();
-                            }
-                          }}
-                          placeholder={t('ClientStock.receptionForm.tracking')}
-                          className="border rounded-md px-2 py-1 w-full sm:w-48"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleTrackingAdd}
-                          className="px-3 py-1 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary-dark"
+                    <div className="flex items-end gap-2 w-full sm:w-auto sm:min-w-[260px]">
+                      <div className="flex flex-col w-full sm:w-auto sm:min-w-[180px]">
+                        <select
+                          value={receptionForm.carrier}
+                          onChange={(e) => handleReceptionFormChange('carrier', e.target.value)}
+                          className={`border rounded-md px-2 py-1 w-full ${
+                            receptionForm.carrier ? 'text-text-primary' : 'text-gray-400'
+                          }`}
                         >
-                          {t('ClientStock.receptionForm.trackingAdd')}
-                        </button>
+                          <option value="">{t('ClientStock.receptionForm.carrierPlaceholder')}</option>
+                          {carrierOptions.map((c) => (
+                            <option key{c.code} value={c.code}>
+                              {c.code === 'OTHER' ? t('other') : c.label}
+                            </option>
+                          ))}
+                        </select>
+                        {receptionForm.carrier === 'OTHER' && (
+                          <input
+                            type="text"
+                            value={receptionForm.carrierOther}
+                            onChange={(e) =>
+                              handleReceptionFormChange('carrierOther', e.target.value)
+                            }
+                            placeholder={t('ClientStock.receptionForm.carrierOther')}
+                            className="border rounded-md px-2 py-1 mt-2 w-full"
+                          />
+                        )}
                       </div>
+                      <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[220px]">
+                        <span className="text-[10px] text-gray-500 font-semibold">
+                          {t('ClientStock.receptionForm.tracking')}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={trackingDraft}
+                            onChange={(e) => handleTrackingDraftChange(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleTrackingAdd();
+                              }
+                            }}
+                            placeholder={t('ClientStock.receptionForm.tracking')}
+                            className="border rounded-md px-2 py-1 w-full sm:w-48"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleTrackingAdd}
+                            className="px-2 py-1 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary-dark"
+                          >
+                            {t('ClientStock.receptionForm.trackingAddShort') ?? 'Add'}
+                          </button>
+                        </div>
                       <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
                         <span>
                           {trackingList.length > 0
