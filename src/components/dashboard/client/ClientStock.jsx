@@ -1996,14 +1996,12 @@ const saveReqChanges = async () => {
                 <option value="prep">{t('ClientStock.cta.sendToPrep')}</option>
                 <option value="reception">{t('ClientStock.cta.announceReception')}</option>
               </select>
-              <div className="w-full text-xs sm:text-sm">
-                <label className="block text-[11px] uppercase text-text-light mb-1">
-                  {t('ClientStock.receptionForm.destinationLabel')}
-                </label>
+              <div className="w-full flex justify-end text-xs sm:text-sm">
                 <select
                   value={receptionForm.destinationCountry || 'FR'}
                   onChange={(e) => handleReceptionFormChange('destinationCountry', e.target.value)}
-                  className="w-full border rounded-md px-3 py-1.5 text-sm"
+                  className="w-36 border rounded-md px-2 py-1 text-sm"
+                  title={t('ClientStock.receptionForm.destinationLabel')}
                 >
                   {DESTINATION_COUNTRIES.map((code) => (
                     <option key={code} value={code}>
@@ -2011,9 +2009,6 @@ const saveReqChanges = async () => {
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-text-secondary mt-1">
-                  {t('ClientStock.receptionForm.destinationHint')}
-                </p>
               </div>
               {submitType === 'reception' && (
                 <div className="flex flex-col gap-3 text-xs sm:text-sm w-full items-center">
