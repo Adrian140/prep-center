@@ -300,7 +300,7 @@ const mapBoxRows = (rows = []) => {
   useEffect(() => {
     if (!inventoryOpen || (!row?.company_id && !row?.user_id)) return;
     let cancelled = false;
-    const columns = 'id, name, asin, sku, ean, qty, image_url, purchase_price';
+    const columns = 'id, name, asin, sku, ean, qty, purchase_price';
 
     const fetchInventory = async () => {
       setInventoryLoading(true);
