@@ -28,6 +28,9 @@ const receivingShipmentArrayColumnMissing = (error) =>
   ['tracking_ids', 'fba_shipment_ids'].some((col) => isMissingColumnError(error, col));
 
 export const supabaseHelpers = {
+  getCarriers: async () => {
+    return await supabase.getCarriers();
+  },
   /* =========================
      Prep Requests Management
      ========================= */
