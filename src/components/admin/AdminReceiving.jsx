@@ -59,12 +59,16 @@ const getFbaModeMeta = (mode = 'none') => FBA_MODE_META[mode] || FBA_MODE_META.n
 function AdminReceivingDetail({ shipment, onBack, onUpdate }) {
   const { profile } = useSupabaseAuth();
   const carriers = [
-    { id: 1, code: 'UPS',        name: 'UPS' },
-    { id: 2, code: 'COLISSIMO',  name: 'Colissimo' },
-    { id: 3, code: 'CHRONOPOST', name: 'Chronopost' },
-    { id: 4, code: 'DPD',        name: 'DPD' },
-    { id: 5, code: 'GLS',        name: 'GLS' },
-    { id: 6, code: 'DHL',        name: 'DHL' },
+    { id: 1, code: 'UPS',         name: 'UPS' },
+    { id: 2, code: 'COLISSIMO',   name: 'Colissimo' },
+    { id: 3, code: 'CHRONOPOST',  name: 'Chronopost' },
+    { id: 4, code: 'DPD',         name: 'DPD' },
+    { id: 5, code: 'GLS',         name: 'GLS' },
+    { id: 6, code: 'DHL',         name: 'DHL' },
+    { id: 7, code: 'COLISPRIVE',  name: 'ColisPrive' },
+    { id: 8, code: 'AMAZON',      name: 'Amazon' },
+    { id: 9, code: 'ELOGISTICS',  name: 'eLogistics' },
+    { id: 999, code: 'OTHER',     name: 'Other' }
   ];
   const storageKey = useMemo(() => `admin-receiving-detail-${shipment.id}`, [shipment.id]);
   const [items, setItems] = useState(shipment.receiving_items || []);
