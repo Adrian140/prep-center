@@ -575,7 +575,7 @@ onChanged?.();
     const summary = {};
     (row.prep_request_items || []).forEach((item) => {
       const entries = boxes[item.id] || [];
-      entries.forEach(({ boxNumber, units, weightKg, lengthCm, widthCm, heightCm }) => {
+      entries.forEach(({ boxNumber, units, weightKg, lengthCm, widthCm, heightCm, id }) => {
         const qty = Number(units);
         if (!Number.isFinite(qty) || qty <= 0) return;
         const number = Number(boxNumber) || 1;
@@ -587,9 +587,11 @@ onChanged?.();
               lengthCm: null,
               widthCm: null,
               heightCm: null
-            }
+            },
+            targets: []
           };
         }
+        summary[number].targets.push({ itemId: item.id, boxId: id });
         const meta = summary[number].meta;
         const assignMeta = (field, value) => {
           if (meta[field] != null) return;
@@ -612,10 +614,30 @@ onChanged?.();
       .map((num) => ({
         boxNumber: Number(num),
         lines: summary[num].lines,
-        meta: summary[num].meta
+        meta: summary[num].meta,
+        targets: summary[num].targets
       }))
       .sort((a, b) => a.boxNumber - b.boxNumber);
   }, [boxes, row]);
+
+  const updateSummaryBoxValue = (targets, field, raw) => {
+    const sanitized = raw === "" ? "" : Math.max(0, Number(raw) || 0);
+    const affected = new Set();
+    setBoxes((prev) => {
+      const next = { ...prev };
+      targets.forEach(({ itemId, boxId }) => {
+        const list = next[itemId];
+        if (!list) return;
+        next[itemId] = list.map((box) => {
+          if (box.id !== boxId) return box;
+          affected.add(itemId);
+          return { ...box, [field]: sanitized };
+        });
+      });
+      return next;
+    });
+    affected.forEach((itemId) => scheduleBoxPersist(itemId));
+  };
 
   if (loading) return <div>Loading…</div>;
   if (!row)
@@ -938,7 +960,7 @@ onChanged?.();
                         <td className="px-3 py-2">
                           <div className="space-y-2">
                             {itemBoxes.map((box) => (
-                              <div key={box.id} className="flex flex-wrap items-center gap-2 text-xs">
+                              <div key={box.id} className="flex items-center gap-2 text-xs flex-wrap">
                                 <span className="text-text-secondary">Box</span>
                                 <input
                                   type="number"
@@ -957,50 +979,6 @@ onChanged?.();
                                   value={box.units}
                                   onChange={(e) =>
                                     updateBoxValue(it.id, box.id, "units", e.target.value)
-                                  }
-                                />
-                                <span className="text-text-secondary">Kg</span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step="0.1"
-                                  className="w-20 border rounded px-2 py-1 text-right"
-                                  value={box.weightKg}
-                                  onChange={(e) =>
-                                    updateBoxValue(it.id, box.id, "weightKg", e.target.value)
-                                  }
-                                />
-                                <span className="text-text-secondary">L (cm)</span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step="0.1"
-                                  className="w-20 border rounded px-2 py-1 text-right"
-                                  value={box.lengthCm}
-                                  onChange={(e) =>
-                                    updateBoxValue(it.id, box.id, "lengthCm", e.target.value)
-                                  }
-                                />
-                                <span className="text-text-secondary">W</span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step="0.1"
-                                  className="w-20 border rounded px-2 py-1 text-right"
-                                  value={box.widthCm}
-                                  onChange={(e) =>
-                                    updateBoxValue(it.id, box.id, "widthCm", e.target.value)
-                                  }
-                                />
-                                <span className="text-text-secondary">H</span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step="0.1"
-                                  className="w-20 border rounded px-2 py-1 text-right"
-                                  value={box.heightCm}
-                                  onChange={(e) =>
-                                    updateBoxValue(it.id, box.id, "heightCm", e.target.value)
                                   }
                                 />
                                 <button
@@ -1078,11 +1056,51 @@ onChanged?.();
                 {boxSummary.map((box) => (
                   <div key={box.boxNumber} className="space-y-1">
                     <div className="font-semibold text-text-primary">Box {box.boxNumber}</div>
-                    <div className="flex flex-wrap gap-4 text-xs text-text-secondary pl-2">
-                      <span>Kg: {box.meta?.weightKg ?? '—'}</span>
-                      <span>L: {box.meta?.lengthCm ?? '—'} cm</span>
-                      <span>W: {box.meta?.widthCm ?? '—'} cm</span>
-                      <span>H: {box.meta?.heightCm ?? '—'} cm</span>
+                    <div className="flex flex-wrap gap-3 text-xs text-text-secondary pl-2">
+                      <label className="flex items-center gap-1">
+                        Kg
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          className="w-20 border rounded px-2 py-1 text-right text-sm"
+                          value={box.meta?.weightKg ?? ''}
+                          onChange={(e) => updateSummaryBoxValue(box.targets, 'weightKg', e.target.value)}
+                        />
+                      </label>
+                      <label className="flex items-center gap-1">
+                        L (cm)
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          className="w-20 border rounded px-2 py-1 text-right text-sm"
+                          value={box.meta?.lengthCm ?? ''}
+                          onChange={(e) => updateSummaryBoxValue(box.targets, 'lengthCm', e.target.value)}
+                        />
+                      </label>
+                      <label className="flex items-center gap-1">
+                        W
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          className="w-20 border rounded px-2 py-1 text-right text-sm"
+                          value={box.meta?.widthCm ?? ''}
+                          onChange={(e) => updateSummaryBoxValue(box.targets, 'widthCm', e.target.value)}
+                        />
+                      </label>
+                      <label className="flex items-center gap-1">
+                        H
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          className="w-20 border rounded px-2 py-1 text-right text-sm"
+                          value={box.meta?.heightCm ?? ''}
+                          onChange={(e) => updateSummaryBoxValue(box.targets, 'heightCm', e.target.value)}
+                        />
+                      </label>
                     </div>
                     <div className="flex flex-wrap gap-4 pl-2 text-text-secondary">
                       {box.lines.map((line, idx) => (
