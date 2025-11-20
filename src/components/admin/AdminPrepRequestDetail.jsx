@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import DestinationBadge from '@/components/common/DestinationBadge';
 import { useSupabaseAuth } from "../../contexts/SupabaseAuthContext";
-import { supabaseHelpers } from "../../config/supabase";
+import { supabase, supabaseHelpers } from "../../config/supabase";
 
 const StatusPill = ({ s }) => {
   const map = {
@@ -43,6 +43,11 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
   const [saving, setSaving] = useState(false);
   const [boxes, setBoxes] = useState({});
   const [showBoxSummary, setShowBoxSummary] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventory, setInventory] = useState([]);
+  const [inventorySearch, setInventorySearch] = useState("");
+  const [inventoryDraftQty, setInventoryDraftQty] = useState({});
 
   // ---- helpers (afisare cod + nume)
   const codeOf = (it) => (it?.asin || it?.sku || "");
@@ -235,6 +240,51 @@ async function persistAllItemEdits() {
       return changed ? next : prev;
     });
   }, [row]);
+
+  useEffect(() => {
+    if (!inventoryOpen || !row?.company_id) return;
+    let cancelled = false;
+    setInventoryLoading(true);
+    supabase
+      .from('stock_items')
+      .select('id, name, asin, sku, ean, qty, image_url, purchase_price')
+      .eq('company_id', row.company_id)
+      .order('updated_at', { ascending: false })
+      .limit(200)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error('Inventory load failed', error);
+          setFlash(error.message || 'Failed to load inventory.');
+          setInventory([]);
+        } else {
+          setInventory(data || []);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setInventoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [inventoryOpen, row?.company_id]);
+
+  useEffect(() => {
+    if (!inventoryOpen) {
+      setInventorySearch("");
+      setInventoryDraftQty({});
+    }
+  }, [inventoryOpen]);
+
+  const filteredInventory = useMemo(() => {
+    const term = inventorySearch.trim().toLowerCase();
+    if (!term) return inventory;
+    return inventory.filter((item) => {
+      const haystack = `${item.name || ''} ${item.asin || ''} ${item.sku || ''} ${item.ean || ''}`
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [inventory, inventorySearch]);
 
   // --- header actions
   async function saveShipmentId() {
@@ -615,11 +665,89 @@ onChanged?.();
               <button onClick={setAllToZero} className="px-3 py-1 border rounded">
                 Set all = 0
               </button>
+              <button
+                onClick={() => setInventoryOpen((prev) => !prev)}
+                className="inline-flex items-center gap-2 px-3 py-1 border rounded text-primary border-primary hover:bg-primary hover:text-white"
+              >
+                <Plus className="w-4 h-4" />
+                {inventoryOpen ? "Hide inventory" : "Add from inventory"}
+              </button>
             </div>
           </div>
           <p className="text-xs text-text-secondary mb-3">
             Box assignments are saved when you click “Save” on each product row.
           </p>
+
+          {inventoryOpen && (
+            <div className="mb-4 border rounded-lg bg-gray-50 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <input
+                  type="text"
+                  className="w-full border rounded px-3 py-2"
+                  placeholder="Search inventory by name / SKU / ASIN / EAN"
+                  value={inventorySearch}
+                  onChange={(e) => setInventorySearch(e.target.value)}
+                />
+                <span className="text-sm text-text-secondary">
+                  Showing {filteredInventory.length} item(s)
+                </span>
+              </div>
+              {inventoryLoading ? (
+                <div className="py-6 text-center text-text-secondary text-sm">Loading inventory…</div>
+              ) : filteredInventory.length === 0 ? (
+                <div className="py-6 text-center text-text-secondary text-sm">
+                  No inventory items match this search.
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {filteredInventory.map((item) => (
+                    <div key={item.id} className="bg-white border rounded-lg p-3 flex flex-col gap-2">
+                      <div className="flex items-start gap-3">
+                        {item.image_url ? (
+                          <img
+                            src={item.image_url}
+                            alt={item.name || item.sku || item.asin || 'Product'}
+                            className="w-12 h-12 rounded border object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded border bg-gray-100 text-[10px] text-text-secondary flex items-center justify-center">
+                            No Img
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-text-primary truncate">
+                            {item.name || item.sku || item.asin || '—'}
+                          </p>
+                          <p className="text-xs text-text-secondary">
+                            ASIN: {item.asin || '—'} · SKU: {item.sku || '—'}
+                          </p>
+                          <p className="text-xs text-text-secondary">In stock: {item.qty ?? 0}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          className="w-28 border rounded px-2 py-1 text-sm"
+                          value={inventoryDraftQty[item.id] ?? ""}
+                          placeholder="Qty"
+                          onChange={(e) => handleInventoryQtyChange(item.id, e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddInventoryItem(item)}
+                          className="px-3 py-1 bg-primary text-white rounded text-sm disabled:opacity-50"
+                          disabled={saving}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="border rounded-lg overflow-hidden">
             <table className="min-w-full text-sm">
@@ -812,3 +940,45 @@ onChanged?.();
     </div>
   );
 }
+  const handleInventoryQtyChange = (stockId, value) => {
+    setInventoryDraftQty((prev) => ({
+      ...prev,
+      [stockId]: value
+    }));
+  };
+
+  const handleAddInventoryItem = async (stockItem) => {
+    if (!stockItem?.id) return;
+    const raw = inventoryDraftQty[stockItem.id];
+    const qty = Math.max(1, Number(raw) || 0);
+    if (!qty) {
+      setFlash("Enter a quantity before adding the product.");
+      return;
+    }
+    if (!requestId) {
+      setFlash("Request not ready yet.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        stock_item_id: stockItem.id,
+        ean: stockItem.ean || null,
+        product_name: stockItem.name || stockItem.title || null,
+        asin: stockItem.asin || null,
+        sku: stockItem.sku || null,
+        units_requested: qty
+      };
+      const { error } = await supabaseHelpers.createPrepItem(requestId, payload);
+      if (error) throw error;
+      setFlash("Product added from inventory.");
+      setInventoryDraftQty((prev) => ({ ...prev, [stockItem.id]: "" }));
+      await load();
+      onChanged?.();
+    } catch (error) {
+      console.error('Add inventory item failed', error);
+      setFlash(error.message || "Failed to add product.");
+    } finally {
+      setSaving(false);
+    }
+  };

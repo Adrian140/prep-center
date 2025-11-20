@@ -28,7 +28,7 @@ const StatusPill = ({ status }) => {
   const statusMap = {
     draft: { color: 'bg-gray-100 text-gray-800', text: 'Draft' },
     submitted: { color: 'bg-yellow-100 text-yellow-800', text: 'Submitted' },
-    partial: { color: 'bg-amber-100 text-amber-800', text: 'Partial processed' },
+    partial: { color: 'bg-amber-100 text-amber-800', text: 'Partial received' },
     received: { color: 'bg-blue-100 text-blue-800', text: 'Received' },
     processed: { color: 'bg-green-100 text-green-800', text: 'Processed' },
     cancelled: { color: 'bg-red-100 text-red-800', text: 'Cancelled' }
@@ -81,6 +81,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
     fba_mode: sh.fba_mode || 'none'
   });
   const [editHeader, setEditHeader] = useState(buildHeaderState(shipment));
+  const [syncedStatus, setSyncedStatus] = useState(shipment.status || 'submitted');
   const [selectedPrepIds, setSelectedPrepIds] = useState(new Set());
   const [creatingPrep, setCreatingPrep] = useState(false);
   const [receivedDrafts, setReceivedDrafts] = useState({});
@@ -93,6 +94,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
   useEffect(() => {
     setItems(shipment.receiving_items || []);
     setEditHeader(buildHeaderState(shipment));
+    setSyncedStatus(shipment.status || 'submitted');
   }, [shipment]);
 
   const getExpectedQty = (item) =>
@@ -260,18 +262,43 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
   };
 
   const derivedStatus = useMemo(() => {
-    if (['cancelled', 'processed'].includes(shipment.status)) return shipment.status;
-    if (!items || items.length === 0) return shipment.status || 'submitted';
+    if (['cancelled', 'processed'].includes(syncedStatus)) return syncedStatus;
+    if (!items || items.length === 0) return 'submitted';
     const allReceived = items.every((item) => {
       const expected = getExpectedQty(item);
       if (expected <= 0) return true;
       return getConfirmedQty(item) >= expected;
     });
     const anyReceived = items.some((item) => getConfirmedQty(item) > 0);
-    if (allReceived && anyReceived) return 'processed';
+    if (allReceived && anyReceived) return 'received';
     if (anyReceived) return 'partial';
     return 'submitted';
-  }, [items, shipment.status]);
+  }, [items, syncedStatus]);
+
+  useEffect(() => {
+    if (!shipment?.id) return;
+    if (['cancelled', 'processed'].includes(syncedStatus)) return;
+    if (!derivedStatus || derivedStatus === syncedStatus) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await supabaseHelpers.updateReceivingShipment(shipment.id, {
+          status: derivedStatus
+        });
+        if (!cancelled) {
+          setSyncedStatus(derivedStatus);
+          onUpdate?.();
+        }
+      } catch (error) {
+        console.error('Auto status sync failed', error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [derivedStatus, syncedStatus, shipment?.id, onUpdate]);
 
   const clearDraft = () => {
     try {
@@ -721,23 +748,8 @@ const checkStockMatches = async () => {
             )}
           </div>
             <div>
-            <label className="block text-sm font-medium text-text-secondary">Statut</label>
-            {editMode ? (
-              <select
-                value={editHeader.status || shipment.status || 'draft'}
-                onChange={(e) => setEditHeader(h => ({ ...h, status: e.target.value }))}
-                className="border rounded px-2 py-1 w-full"
-              >
-                <option value="draft">Draft</option>
-                <option value="submitted">Submitted</option>
-                <option value="partial">Partial</option>
-                <option value="received">Received</option>
-                <option value="processed">Processed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            ) : (
-              <StatusPill status={shipment.status} />
-            )}
+            <label className="block text-sm font-medium text-text-secondary">Status</label>
+            <StatusPill status={derivedStatus} />
           </div>
         </div>
 
@@ -759,7 +771,6 @@ const checkStockMatches = async () => {
               tracking_ids: cleanTracking.length > 0 ? cleanTracking : [],
               fba_shipment_ids: cleanFBA.length > 0 ? cleanFBA : [],
               notes: editHeader.notes?.trim() || null,
-              status: editHeader.status || shipment.status,
               fba_mode: editHeader.fba_mode || shipment.fba_mode || 'none'
             });
                 setEditMode(false);

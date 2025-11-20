@@ -85,6 +85,36 @@ const DATE_LOCALE_MAP = {
   pl: 'pl-PL'
 };
 
+const getExpectedQty = (item) => Math.max(0, Number(item?.quantity_received || 0));
+const getConfirmedQty = (item) => {
+  if (!item) return 0;
+  const base =
+    item.received_units != null
+      ? Number(item.received_units)
+      : Number(item.quantity_received || 0);
+  return Number.isFinite(base) && base >= 0 ? base : 0;
+};
+
+const deriveReceivingStatus = (shipment) => {
+  if (!shipment) return 'submitted';
+  const base = shipment.status || 'submitted';
+  if (['cancelled', 'processed'].includes(base)) return base;
+  const lines = shipment.receiving_items || [];
+  if (lines.length === 0) return base;
+  const allReceived = lines.every((item) => {
+    const expected = getExpectedQty(item);
+    if (expected <= 0) return true;
+    return getConfirmedQty(item) >= expected;
+  });
+  const anyReceived = lines.some((item) => getConfirmedQty(item) > 0);
+  if (allReceived && anyReceived) return 'received';
+  if (anyReceived) return 'partial';
+  return 'submitted';
+};
+
+const decorateShipment = (shipment) =>
+  shipment ? { ...shipment, derived_status: deriveReceivingStatus(shipment) } : shipment;
+
 function ClientReceiving() {
   const { t: baseT, tp } = useDashboardTranslation();
   const { currentLanguage } = useLanguage();
@@ -129,12 +159,13 @@ function ClientReceiving() {
   });
 
   const handleSelectShipment = (shipment) => {
-    setSelectedShipment(shipment);
+    const decorated = decorateShipment(shipment);
+    setSelectedShipment(decorated);
     setEditMode(false);
     setMessage('');
     setMessageType(null);
-    setEditHeader(buildHeaderState(shipment));
-    setEditItems(cloneItems(sortItems(shipment?.receiving_items)));
+    setEditHeader(buildHeaderState(decorated));
+    setEditItems(cloneItems(sortItems(decorated?.receiving_items)));
     setInventoryOpen(false);
     setInventorySearch('');
     setInventoryDraftQty({});
@@ -166,7 +197,9 @@ function ClientReceiving() {
         console.error('Failed to load inventory', stockRes.error);
       }
 
-      const nextShipments = Array.isArray(shipmentsRes.data) ? shipmentsRes.data : [];
+      const nextShipments = Array.isArray(shipmentsRes.data)
+        ? shipmentsRes.data.map((row) => decorateShipment(row))
+        : [];
       setShipments(nextShipments);
       setCarriers(normalizeCarriers(carriersRes.data || []));
       setStock(Array.isArray(stockRes?.data) ? stockRes.data : []);
@@ -390,12 +423,12 @@ function ClientReceiving() {
       if (error) throw error;
 
       setSelectedShipment((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'submitted'
-            }
-          : prev
+        prev ? decorateShipment({ ...prev, status: 'submitted' }) : prev
+      );
+      setShipments((prev) =>
+        prev.map((row) =>
+          row.id === shipment.id ? decorateShipment({ ...row, status: 'submitted' }) : row
+        )
       );
       setMessage(t('reception_sent'));
       setMessageType('success');
@@ -475,6 +508,7 @@ function ClientReceiving() {
   }
 
   if (selectedShipment) {
+    const currentStatus = selectedShipment.derived_status || deriveReceivingStatus(selectedShipment);
     const canEdit = ['draft', 'submitted', 'partial'].includes(selectedShipment.status);
     const viewItems = editMode
       ? editItems
@@ -540,9 +574,10 @@ function ClientReceiving() {
                 </button>
               </div>
             )}
-            <span className="text-text-secondary">
-              {new Date(selectedShipment.created_at).toLocaleDateString(DATE_LOCALE)}
-            </span>
+            <div className="flex items-center gap-2 text-text-secondary">
+              {getStatusBadge(currentStatus)}
+              <span>{new Date(selectedShipment.created_at).toLocaleDateString(DATE_LOCALE)}</span>
+            </div>
           </div>
         </div>
 
@@ -1285,7 +1320,7 @@ function ClientReceiving() {
                       ))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(shipment.status)}
+                      {getStatusBadge(shipment.derived_status || shipment.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-text-primary">
