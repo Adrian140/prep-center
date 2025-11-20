@@ -1,5 +1,5 @@
 // FILE: src/components/admin/AdminPrepRequestDetail.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
   ArrowLeft,
   Save,
@@ -42,7 +42,9 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
 
   const [saving, setSaving] = useState(false);
   const [boxes, setBoxes] = useState({});
+  const boxesRef = useRef({});
   const [showBoxSummary, setShowBoxSummary] = useState(false);
+  const boxSaveTimers = useRef({});
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventory, setInventory] = useState([]);
@@ -86,17 +88,21 @@ async function persistAllItemEdits() {
   );
 }
 
-  const mapBoxRows = (rows = []) => {
-    const grouped = {};
-    rows.forEach((row) => {
-      if (!row?.prep_request_item_id) return;
-      const entry = {
-        id: row.id || makeBoxId(),
-        boxNumber: row.box_number,
-        units: row.units,
-      };
-      if (!grouped[row.prep_request_item_id]) {
-        grouped[row.prep_request_item_id] = [];
+const mapBoxRows = (rows = []) => {
+  const grouped = {};
+  rows.forEach((row) => {
+    if (!row?.prep_request_item_id) return;
+    const entry = {
+      id: row.id || makeBoxId(),
+      boxNumber: row.box_number,
+      units: row.units,
+      weightKg: row.weight_kg ?? '',
+      lengthCm: row.length_cm ?? '',
+      widthCm: row.width_cm ?? '',
+      heightCm: row.height_cm ?? ''
+    };
+    if (!grouped[row.prep_request_item_id]) {
+      grouped[row.prep_request_item_id] = [];
       }
       grouped[row.prep_request_item_id].push(entry);
     });
@@ -120,14 +126,28 @@ async function persistAllItemEdits() {
     setBoxes(mapBoxRows(data || []));
   };
 
-  const persistBoxesForItem = async (itemId) => {
+  useEffect(() => {
+    boxesRef.current = boxes;
+  }, [boxes]);
+
+  const persistBoxesForItem = useCallback(async (itemId) => {
     if (!itemId) return null;
-    const entries = (boxes[itemId] || [])
+    const toPositive = (value, min = 0) => {
+      if (value === '' || value === null || value === undefined) return null;
+      const num = Number(value);
+      if (!Number.isFinite(num)) return null;
+      return Math.max(min, Number(num.toFixed(2)));
+    };
+    const entries = (boxesRef.current[itemId] || [])
       .map((box) => ({
         boxNumber: Math.max(1, Number(box.boxNumber) || 1),
         units: Math.max(0, Number(box.units) || 0),
+        weightKg: toPositive(box.weightKg),
+        lengthCm: toPositive(box.lengthCm),
+        widthCm: toPositive(box.widthCm),
+        heightCm: toPositive(box.heightCm)
       }))
-      .filter((box) => box.units > 0);
+      .filter((box) => box.units > 0 || box.weightKg != null || box.lengthCm != null || box.widthCm != null || box.heightCm != null);
     const { error } = await supabaseHelpers.savePrepRequestBoxes(itemId, entries);
     if (error) return error;
     const { data, error: fetchErr } = await supabaseHelpers.getPrepRequestBoxes([itemId]);
@@ -138,7 +158,27 @@ async function persistAllItemEdits() {
       }));
     }
     return fetchErr || null;
-  };
+  }, []);
+
+  const scheduleBoxPersist = useCallback((itemId) => {
+    if (!itemId) return;
+    if (boxSaveTimers.current[itemId]) {
+      clearTimeout(boxSaveTimers.current[itemId]);
+    }
+    boxSaveTimers.current[itemId] = setTimeout(async () => {
+      delete boxSaveTimers.current[itemId];
+      const err = await persistBoxesForItem(itemId);
+      if (err) {
+        setFlash(`Box save failed: ${err.message || err}`);
+      }
+    }, 700);
+  }, [persistBoxesForItem]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(boxSaveTimers.current).forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
 
   const makeBoxId = () => {
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -154,9 +194,18 @@ async function persistAllItemEdits() {
         existing.length > 0
           ? Math.max(...existing.map((box) => Number(box.boxNumber) || 0)) + 1
           : 1;
-      const entry = { id: makeBoxId(), boxNumber: nextNumber, units: "" };
+      const entry = {
+        id: makeBoxId(),
+        boxNumber: nextNumber,
+        units: "",
+        weightKg: "",
+        lengthCm: "",
+        widthCm: "",
+        heightCm: ""
+      };
       return { ...prev, [itemId]: [...existing, entry] };
     });
+    scheduleBoxPersist(itemId);
   };
 
   const updateBoxValue = (itemId, boxId, field, raw) => {
@@ -173,10 +222,16 @@ async function persistAllItemEdits() {
           const value = Math.max(0, Number(raw) || 0);
           return { ...box, units: value };
         }
+        if (['weightKg', 'lengthCm', 'widthCm', 'heightCm'].includes(field)) {
+          if (raw === "") return { ...box, [field]: "" };
+          const value = Math.max(0, Number(raw) || 0);
+          return { ...box, [field]: value };
+        }
         return box;
       });
       return { ...prev, [itemId]: next };
     });
+    scheduleBoxPersist(itemId);
   };
 
   const removeBox = (itemId, boxId) => {
@@ -188,6 +243,7 @@ async function persistAllItemEdits() {
       else map[itemId] = next;
       return map;
     });
+    scheduleBoxPersist(itemId);
   };
 
 
@@ -242,32 +298,66 @@ async function persistAllItemEdits() {
   }, [row]);
 
   useEffect(() => {
-    if (!inventoryOpen || !row?.company_id) return;
+    if (!inventoryOpen || (!row?.company_id && !row?.user_id)) return;
     let cancelled = false;
-    setInventoryLoading(true);
-    supabase
-      .from('stock_items')
-      .select('id, name, asin, sku, ean, qty, image_url, purchase_price')
-      .eq('company_id', row.company_id)
-      .order('updated_at', { ascending: false })
-      .limit(200)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error('Inventory load failed', error);
-          setFlash(error.message || 'Failed to load inventory.');
-          setInventory([]);
-        } else {
-          setInventory(data || []);
+    const columns = 'id, name, asin, sku, ean, qty, image_url, purchase_price';
+
+    const fetchInventory = async () => {
+      setInventoryLoading(true);
+      try {
+        let results = [];
+        let errorMessage = null;
+
+        if (row?.company_id) {
+          const { data, error } = await supabase
+            .from('stock_items')
+            .select(columns)
+            .eq('company_id', row.company_id)
+            .order('updated_at', { ascending: false })
+            .limit(200);
+          if (error) {
+            errorMessage = error.message;
+          } else {
+            results = data || [];
+          }
         }
-      })
-      .finally(() => {
+
+        if ((!results || results.length === 0) && row?.user_id) {
+          const { data, error } = await supabase
+            .from('stock_items')
+            .select(columns)
+            .eq('user_id', row.user_id)
+            .order('updated_at', { ascending: false })
+            .limit(200);
+          if (error) {
+            errorMessage = error.message;
+          } else {
+            results = data || [];
+          }
+        }
+
+        if (cancelled) return;
+        setInventory(results || []);
+        if (errorMessage && (!results || results.length === 0)) {
+          setFlash(errorMessage || 'Failed to load inventory.');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Inventory load failed', err);
+          setInventory([]);
+          setFlash(err.message || 'Failed to load inventory.');
+        }
+      } finally {
         if (!cancelled) setInventoryLoading(false);
-      });
+      }
+    };
+
+    fetchInventory();
+
     return () => {
       cancelled = true;
     };
-  }, [inventoryOpen, row?.company_id]);
+  }, [inventoryOpen, row?.company_id, row?.user_id]);
 
   useEffect(() => {
     if (!inventoryOpen) {
@@ -485,12 +575,33 @@ onChanged?.();
     const summary = {};
     (row.prep_request_items || []).forEach((item) => {
       const entries = boxes[item.id] || [];
-      entries.forEach(({ boxNumber, units }) => {
+      entries.forEach(({ boxNumber, units, weightKg, lengthCm, widthCm, heightCm }) => {
         const qty = Number(units);
         if (!Number.isFinite(qty) || qty <= 0) return;
         const number = Number(boxNumber) || 1;
-        if (!summary[number]) summary[number] = [];
-        summary[number].push({
+        if (!summary[number]) {
+          summary[number] = {
+            lines: [],
+            meta: {
+              weightKg: null,
+              lengthCm: null,
+              widthCm: null,
+              heightCm: null
+            }
+          };
+        }
+        const meta = summary[number].meta;
+        const assignMeta = (field, value) => {
+          if (meta[field] != null) return;
+          const num = Number(value);
+          if (!Number.isFinite(num) || num <= 0) return;
+          meta[field] = num;
+        };
+        assignMeta('weightKg', weightKg);
+        assignMeta('lengthCm', lengthCm);
+        assignMeta('widthCm', widthCm);
+        assignMeta('heightCm', heightCm);
+        summary[number].lines.push({
           code: codeOf(item),
           name: nameOf(item),
           qty
@@ -500,7 +611,8 @@ onChanged?.();
     return Object.keys(summary)
       .map((num) => ({
         boxNumber: Number(num),
-        lines: summary[num]
+        lines: summary[num].lines,
+        meta: summary[num].meta
       }))
       .sort((a, b) => a.boxNumber - b.boxNumber);
   }, [boxes, row]);
@@ -826,7 +938,7 @@ onChanged?.();
                         <td className="px-3 py-2">
                           <div className="space-y-2">
                             {itemBoxes.map((box) => (
-                              <div key={box.id} className="flex items-center gap-2 text-xs">
+                              <div key={box.id} className="flex flex-wrap items-center gap-2 text-xs">
                                 <span className="text-text-secondary">Box</span>
                                 <input
                                   type="number"
@@ -845,6 +957,50 @@ onChanged?.();
                                   value={box.units}
                                   onChange={(e) =>
                                     updateBoxValue(it.id, box.id, "units", e.target.value)
+                                  }
+                                />
+                                <span className="text-text-secondary">Kg</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.1"
+                                  className="w-20 border rounded px-2 py-1 text-right"
+                                  value={box.weightKg}
+                                  onChange={(e) =>
+                                    updateBoxValue(it.id, box.id, "weightKg", e.target.value)
+                                  }
+                                />
+                                <span className="text-text-secondary">L (cm)</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.1"
+                                  className="w-20 border rounded px-2 py-1 text-right"
+                                  value={box.lengthCm}
+                                  onChange={(e) =>
+                                    updateBoxValue(it.id, box.id, "lengthCm", e.target.value)
+                                  }
+                                />
+                                <span className="text-text-secondary">W</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.1"
+                                  className="w-20 border rounded px-2 py-1 text-right"
+                                  value={box.widthCm}
+                                  onChange={(e) =>
+                                    updateBoxValue(it.id, box.id, "widthCm", e.target.value)
+                                  }
+                                />
+                                <span className="text-text-secondary">H</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.1"
+                                  className="w-20 border rounded px-2 py-1 text-right"
+                                  value={box.heightCm}
+                                  onChange={(e) =>
+                                    updateBoxValue(it.id, box.id, "heightCm", e.target.value)
                                   }
                                 />
                                 <button
@@ -922,6 +1078,12 @@ onChanged?.();
                 {boxSummary.map((box) => (
                   <div key={box.boxNumber} className="space-y-1">
                     <div className="font-semibold text-text-primary">Box {box.boxNumber}</div>
+                    <div className="flex flex-wrap gap-4 text-xs text-text-secondary pl-2">
+                      <span>Kg: {box.meta?.weightKg ?? '—'}</span>
+                      <span>L: {box.meta?.lengthCm ?? '—'} cm</span>
+                      <span>W: {box.meta?.widthCm ?? '—'} cm</span>
+                      <span>H: {box.meta?.heightCm ?? '—'} cm</span>
+                    </div>
                     <div className="flex flex-wrap gap-4 pl-2 text-text-secondary">
                       {box.lines.map((line, idx) => (
                         <span key={`${box.boxNumber}-${idx}`} className="flex items-center gap-1">

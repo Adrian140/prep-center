@@ -1277,7 +1277,7 @@ createPrepItem: async (requestId, item) => {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     return await supabase
       .from('prep_request_boxes')
-      .select('id, prep_request_item_id, box_number, units, updated_at')
+      .select('id, prep_request_item_id, box_number, units, weight_kg, length_cm, width_cm, height_cm, updated_at')
       .in('prep_request_item_id', itemIds)
       .gte('updated_at', cutoff);
   },
@@ -1294,10 +1294,21 @@ createPrepItem: async (requestId, item) => {
       return { error: null };
     }
 
+    const normalizeNumber = (value) => {
+      if (value === '' || value === null || value === undefined) return null;
+      const num = Number(value);
+      if (!Number.isFinite(num)) return null;
+      return Number(num.toFixed(2));
+    };
+
     const payload = boxes.map((box) => ({
       prep_request_item_id: itemId,
       box_number: box.boxNumber,
       units: box.units,
+      weight_kg: normalizeNumber(box.weightKg),
+      length_cm: normalizeNumber(box.lengthCm),
+      width_cm: normalizeNumber(box.widthCm),
+      height_cm: normalizeNumber(box.heightCm)
     }));
 
     const { error } = await supabase.from('prep_request_boxes').insert(payload);
