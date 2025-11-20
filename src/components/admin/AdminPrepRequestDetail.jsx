@@ -376,6 +376,49 @@ const mapBoxRows = (rows = []) => {
     });
   }, [inventory, inventorySearch]);
 
+  const handleInventoryQtyChange = (stockId, value) => {
+    setInventoryDraftQty((prev) => ({
+      ...prev,
+      [stockId]: value
+    }));
+  };
+
+  const handleAddInventoryItem = async (stockItem) => {
+    if (!stockItem?.id) return;
+    const raw = inventoryDraftQty[stockItem.id];
+    const qty = Math.max(1, Number(raw) || 0);
+    if (!qty) {
+      setFlash("Enter a quantity before adding the product.");
+      return;
+    }
+    if (!requestId) {
+      setFlash("Request not ready yet.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        stock_item_id: stockItem.id,
+        ean: stockItem.ean || null,
+        product_name: stockItem.name || stockItem.title || null,
+        asin: stockItem.asin || null,
+        sku: stockItem.sku || null,
+        units_requested: qty
+      };
+      const { error } = await supabaseHelpers.createPrepItem(requestId, payload);
+      if (error) throw error;
+      setFlash("Product added from inventory.");
+      setInventoryDraftQty((prev) => ({ ...prev, [stockItem.id]: "" }));
+      await load();
+      onChanged?.();
+    } catch (error) {
+      console.error('Add inventory item failed', error);
+      setFlash(error.message || "Failed to add product.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // --- header actions
   async function saveShipmentId() {
     setSaving(true);
@@ -1120,45 +1163,3 @@ onChanged?.();
     </div>
   );
 }
-  const handleInventoryQtyChange = (stockId, value) => {
-    setInventoryDraftQty((prev) => ({
-      ...prev,
-      [stockId]: value
-    }));
-  };
-
-  const handleAddInventoryItem = async (stockItem) => {
-    if (!stockItem?.id) return;
-    const raw = inventoryDraftQty[stockItem.id];
-    const qty = Math.max(1, Number(raw) || 0);
-    if (!qty) {
-      setFlash("Enter a quantity before adding the product.");
-      return;
-    }
-    if (!requestId) {
-      setFlash("Request not ready yet.");
-      return;
-    }
-    setSaving(true);
-    try {
-      const payload = {
-        stock_item_id: stockItem.id,
-        ean: stockItem.ean || null,
-        product_name: stockItem.name || stockItem.title || null,
-        asin: stockItem.asin || null,
-        sku: stockItem.sku || null,
-        units_requested: qty
-      };
-      const { error } = await supabaseHelpers.createPrepItem(requestId, payload);
-      if (error) throw error;
-      setFlash("Product added from inventory.");
-      setInventoryDraftQty((prev) => ({ ...prev, [stockItem.id]: "" }));
-      await load();
-      onChanged?.();
-    } catch (error) {
-      console.error('Add inventory item failed', error);
-      setFlash(error.message || "Failed to add product.");
-    } finally {
-      setSaving(false);
-    }
-  };
