@@ -9,6 +9,7 @@ import { supabase } from '../../../config/supabase';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import ProductQuickAdd from '@/components/common/ProductQuickAdd';
 import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
+import ClientStockSelectionBar from './ClientStockSelectionBar';
 
 function HelpMenuButtonStock({ section = 'stock', t, tp }) {
   const GUIDE_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
@@ -1984,279 +1985,31 @@ const saveReqChanges = async () => {
         </div>
       </div>
 
-        {/* AICI — bara flotantă corectă */}
-        {selectedIds.size > 0 && (
-          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-white shadow-md border border-gray-200 rounded-[48px] px-6 py-3 flex flex-col gap-3 items-center backdrop-blur-md bg-white/95 w-auto max-w-full">
-            <div className="flex flex-col items-center gap-3 w-full">
-              <select
-                value={submitType}
-                onChange={(e) => setSubmitType(e.target.value)}
-                className="border rounded-md px-3 py-1.5 text-sm min-w-[220px] text-center"
-              >
-                <option value="prep">{t('ClientStock.cta.sendToPrep')}</option>
-                <option value="reception">{t('ClientStock.cta.announceReception')}</option>
-              </select>
-              <div className="w-full flex justify-end text-xs sm:text-sm">
-                <div className="flex flex-col items-start">
-                  <span className="text-[10px] uppercase text-text-light mb-1">
-                    {t('ClientStock.receptionForm.destinationLabel')}
-                  </span>
-                  <select
-                    value={receptionForm.destinationCountry || 'FR'}
-                    onChange={(e) => handleReceptionFormChange('destinationCountry', e.target.value)}
-                    className="w-36 border rounded-md px-2 py-1 text-sm"
-                  >
-                    {DESTINATION_COUNTRIES.map((code) => (
-                      <option key={code} value={code}>
-                        {t(`ClientStock.countries.${code}`)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {submitType === 'reception' && (
-                <div className="flex flex-col gap-3 text-xs sm:text-sm w-full items-center">
-                  <div className="flex flex-col w-full gap-2 sm:flex-row sm:items-end sm:justify-center sm:gap-4">
-                    <div className="flex items-end gap-2 w-full sm:w-auto sm:min-w-[260px]">
-                      <div className="flex flex-col w-full sm:w-auto sm:min-w-[180px]">
-                        <select
-                          value={receptionForm.carrier}
-                          onChange={(e) => handleReceptionFormChange('carrier', e.target.value)}
-                          className={`border rounded-md px-2 py-1 w-full ${
-                            receptionForm.carrier ? 'text-text-primary' : 'text-gray-400'
-                          }`}
-                        >
-                          <option value="">{t('ClientStock.receptionForm.carrierPlaceholder')}</option>
-                        {carrierOptions.map((c) => (
-                          <option key={c.code} value={c.code}>
-                            {c.code === 'OTHER' ? t('other') : c.label}
-                          </option>
-                        ))}
-                        </select>
-                        {receptionForm.carrier === 'OTHER' && (
-                          <input
-                            type="text"
-                            value={receptionForm.carrierOther}
-                            onChange={(e) =>
-                              handleReceptionFormChange('carrierOther', e.target.value)
-                            }
-                            placeholder={t('ClientStock.receptionForm.carrierOther')}
-                            className="border rounded-md px-2 py-1 mt-2 w-full"
-                          />
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[220px]">
-                        <span className="text-[10px] text-gray-500 font-semibold">
-                          {t('ClientStock.receptionForm.tracking')}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={trackingDraft}
-                            onChange={(e) => handleTrackingDraftChange(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleTrackingAdd();
-                              }
-                            }}
-                            placeholder={t('ClientStock.receptionForm.tracking')}
-                            className="border rounded-md px-2 py-1 w-full sm:w-48"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleTrackingAdd}
-                            className="px-2 py-1 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary-dark"
-                          >
-                            {t('ClientStock.receptionForm.trackingAddShort') ?? 'Add'}
-                          </button>
-                        </div>
-                      <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
-                        <span>
-                          {trackingList.length > 0
-                            ? t('ClientStock.receptionForm.trackingCount', {
-                                count: trackingList.length
-                              })
-                            : t('ClientStock.receptionForm.trackingNone')}
-                        </span>
-                        {trackingList.length > 1 && (
-                          <button
-                            type="button"
-                            className="text-primary font-semibold"
-                            onClick={() => setTrackingPanelOpen((prev) => !prev)}
-                          >
-                            {trackingPanelOpen
-                              ? t('ClientStock.receptionForm.trackingHide')
-                              : t('ClientStock.receptionForm.trackingManage')}
-                          </button>
-                        )}
-                      </div>
-                      {trackingPanelOpen && trackingList.length > 0 && (
-                        <div className="mt-1 border rounded-md bg-white shadow-inner max-h-16 overflow-y-auto w-full sm:min-w-[260px]">
-                          {trackingList.map((value, idx) => (
-                            <div
-                              key={`${value}-${idx}`}
-                              className="flex items-center justify-between px-2 py-1 text-xs"
-                            >
-                              <span className="truncate">{value}</span>
-                              <button
-                                type="button"
-                                className="text-red-500 text-[11px] hover:underline"
-                                onClick={() => handleTrackingRemove(idx)}
-                              >
-                                {t('ClientStock.drawer.remove')}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1 w-full sm:max-w-3xl">
-                    <span className="font-semibold text-text-secondary">
-                      {t('ClientStock.receptionFba.title')}
-                    </span>
-                    <div className="flex flex-wrap gap-4">
-                      <label className="inline-flex items-center gap-1">
-                        <input
-                          type="radio"
-                          name="reception-fba-mode"
-                          value="none"
-                          checked={receptionForm.fbaMode === 'none'}
-                          onChange={() => handleReceptionFbaModeChange('none')}
-                        />
-                        {t('ClientStock.receptionFba.none')}
-                      </label>
-                      <label className="inline-flex items-center gap-1">
-                        <input
-                          type="radio"
-                          name="reception-fba-mode"
-                          value="full"
-                          checked={receptionForm.fbaMode === 'full'}
-                          onChange={() => handleReceptionFbaModeChange('full')}
-                        />
-                        {t('ClientStock.receptionFba.full')}
-                      </label>
-                      <label className="inline-flex items-center gap-1">
-                        <input
-                          type="radio"
-                          name="reception-fba-mode"
-                          value="partial"
-                          checked={receptionForm.fbaMode === 'partial'}
-                          onChange={() => handleReceptionFbaModeChange('partial')}
-                        />
-                        {t('ClientStock.receptionFba.partial')}
-                      </label>
-                    </div>
-                    {receptionForm.fbaMode === 'partial' && (
-                      <div className="mt-2">
-                        <div className="hidden sm:grid sm:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr] text-[11px] uppercase tracking-wide text-gray-500 px-2 mb-1">
-                          <span />
-                          <span>{tp('ClientStock.receptionFba.availableLabel')}</span>
-                          <span className="text-right">{t('ClientStock.receptionFba.toAmazonLabel')}</span>
-                        </div>
-                        <div className="border rounded-md p-2 bg-white max-h-64 overflow-y-auto">
-                          {selectedRows.length === 0 ? (
-                            <p className="text-text-secondary">
-                              {t('ClientStock.receptionFba.noSelection')}
-                            </p>
-                          ) : (
-                            <>
-                              {selectedRows.map((row) => {
-                                const edits = rowEdits[row.id] || {};
-                                const units = Math.max(0, Number(edits.units_to_send || 0));
-                                const image = row.image_url || row.photo_url || '';
-                                const asin = row.asin || '';
-                                const rawFba = edits.fba_units;
-                                const displayFba =
-                                  rawFba === undefined || rawFba === null || rawFba === ''
-                                    ? units
-                                    : rawFba;
-                                return (
-                                  <div
-                                    key={row.id}
-                                    className="py-2 border-b last:border-b-0"
-                                  >
-                                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr] sm:items-center">
-                                      <div className="flex items-start gap-3">
-                                        {image ? (
-                                          <img
-                                            src={image}
-                                            alt={row.name || row.asin || 'Product'}
-                                            className="w-10 h-10 rounded border object-cover"
-                                          />
-                                        ) : (
-                                          <div className="w-10 h-10 rounded border bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
-                                            N/A
-                                          </div>
-                                        )}
-                                        <div className="flex-1 min-w-0">
-                                          <p className="font-medium text-text-primary truncate">
-                                            {row.name || row.asin || row.ean || '—'}
-                                          </p>
-                                          {asin && (
-                                            <p className="text-[11px] text-gray-500 font-mono truncate">
-                                              ASIN: {asin}
-                                            </p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="flex flex-col text-xs sm:text-sm">
-                                        <span className="sm:hidden text-[10px] uppercase tracking-wide text-gray-500">
-                                          {tp('ClientStock.receptionFba.availableLabel')}
-                                        </span>
-                                        <span className="text-base font-semibold text-text-primary">
-                                          {units}
-                                        </span>
-                                      </div>
-                                      <div className="flex flex-col items-start sm:items-end gap-1 text-xs sm:text-sm">
-                                        <span className="sm:hidden text-[10px] uppercase tracking-wide text-gray-500">
-                                          {t('ClientStock.receptionFba.toAmazonLabel')}
-                                        </span>
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          className="w-20 text-right border rounded px-2 py-1"
-                                          value={displayFba}
-                                          onChange={(e) =>
-                                            updateEdit(row.id, { fba_units: e.target.value })
-                                          }
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-3 w-full">
-                <button
-                  onClick={() => {
-                    if (submitType === 'prep') openPrep();
-                    else openReception();
-                  }}
-                  className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-6 py-2 rounded-md w-full sm:w-auto text-center"
-                >
-                  {submitType === 'prep'
-                    ? t('ClientStock.cta.sendToPrep')
-                    : t('ClientStock.cta.announceReception')}
-                </button>
-                <button
-                  onClick={() => setSelectedIdList([])}
-                  className="text-sm text-gray-500 hover:text-gray-700"
-                >
-                  {t('common.cancel')}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+      <ClientStockSelectionBar
+        t={t}
+        tp={tp}
+        selectedIds={selectedIds}
+        submitType={submitType}
+        setSubmitType={setSubmitType}
+        receptionForm={receptionForm}
+        onReceptionFormChange={handleReceptionFormChange}
+        destinationCountries={DESTINATION_COUNTRIES}
+        carrierOptions={carrierOptions}
+        trackingDraft={trackingDraft}
+        onTrackingDraftChange={handleTrackingDraftChange}
+        onTrackingAdd={handleTrackingAdd}
+        trackingList={trackingList}
+        trackingPanelOpen={trackingPanelOpen}
+        onToggleTrackingPanel={() => setTrackingPanelOpen((prev) => !prev)}
+        onTrackingRemove={handleTrackingRemove}
+        onReceptionFbaModeChange={handleReceptionFbaModeChange}
+        selectedRows={selectedRows}
+        rowEdits={rowEdits}
+        updateEdit={updateEdit}
+        openPrep={openPrep}
+        openReception={openReception}
+        clearSelection={() => setSelectedIdList([])}
+      />
 
       <div className="border rounded-lg overflow-hidden mt-2">
         <div className="w-full overflow-x-auto">

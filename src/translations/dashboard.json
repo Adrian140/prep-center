@@ -276,6 +276,7 @@
         "trackingCount": "{count} tracking ID(s)",
         "trackingNone": "No tracking IDs yet",
         "notes": "Notes",
+        "countryTag": "Country",
         "destinationLabel": "Amazon destination country",
         "destinationHint": "Use this country for prep requests and receptions."
       },
@@ -996,6 +997,7 @@
         "trackingCount": "{count} coduri tracking",
         "trackingNone": "Fără coduri tracking",
         "notes": "Notițe",
+        "countryTag": "Țară",
         "destinationLabel": "Țara de destinație Amazon",
         "destinationHint": "Vom folosi această țară pentru recepții și cereri de prep."
       },
@@ -1716,6 +1718,7 @@
         "trackingCount": "{count} numéros de suivi",
         "trackingNone": "Aucun numéro de suivi",
         "notes": "Notes",
+        "countryTag": "Pays",
         "destinationLabel": "Pays de destination Amazon",
         "destinationHint": "Nous utiliserons ce pays pour les demandes et réceptions."
       },
@@ -2373,6 +2376,7 @@
         "trackingCount": "{count} Tracking-IDs",
         "trackingNone": "Keine Tracking-IDs",
         "notes": "Notizen",
+        "countryTag": "Land",
         "destinationLabel": "Amazon-Zielland",
         "destinationHint": "Wir verwenden dieses Land für Anlieferungen und Prep-Anfragen."
       },
@@ -3030,6 +3034,7 @@
         "trackingCount": "{count} codici tracking",
         "trackingNone": "Nessun codice tracking",
         "notes": "Note",
+        "countryTag": "Paese",
         "destinationLabel": "Paese di destinazione Amazon",
         "destinationHint": "Useremo questo paese per le richieste e le ricezioni."
       },
@@ -3687,6 +3692,7 @@
         "trackingCount": "{count} identificadores de seguimiento",
         "trackingNone": "Sin identificadores de seguimiento",
         "notes": "Notas",
+        "countryTag": "País",
         "destinationLabel": "País de destino en Amazon",
         "destinationHint": "Usaremos este país para las solicitudes y recepciones."
       },
