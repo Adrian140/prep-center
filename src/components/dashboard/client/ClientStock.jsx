@@ -2027,11 +2027,11 @@ const saveReqChanges = async () => {
                           }`}
                         >
                           <option value="">{t('ClientStock.receptionForm.carrierPlaceholder')}</option>
-                          {carrierOptions.map((c) => (
-                            <option key{c.code} value={c.code}>
-                              {c.code === 'OTHER' ? t('other') : c.label}
-                            </option>
-                          ))}
+                        {carrierOptions.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.code === 'OTHER' ? t('other') : c.label}
+                          </option>
+                        ))}
                         </select>
                         {receptionForm.carrier === 'OTHER' && (
                           <input
