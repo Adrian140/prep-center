@@ -313,7 +313,7 @@ const mapBoxRows = (rows = []) => {
             .from('stock_items')
             .select(columns)
             .eq('company_id', row.company_id)
-            .order('updated_at', { ascending: false })
+            .order('created_at', { ascending: false })
             .limit(200);
           if (error) {
             errorMessage = error.message;
@@ -327,7 +327,7 @@ const mapBoxRows = (rows = []) => {
             .from('stock_items')
             .select(columns)
             .eq('user_id', row.user_id)
-            .order('updated_at', { ascending: false })
+            .order('created_at', { ascending: false })
             .limit(200);
           if (error) {
             errorMessage = error.message;
