@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Package,
   Boxes,
+  Unlock,
 } from "lucide-react";
 import DestinationBadge from '@/components/common/DestinationBadge';
 import { useSupabaseAuth } from "../../contexts/SupabaseAuthContext";
@@ -511,6 +512,30 @@ const mapBoxRows = (rows = []) => {
     }));
   }
 
+  async function reopenRequest() {
+    if (row?.status !== "confirmed") return;
+    if (
+      !confirm(
+        "This will move the request back to Pending so you can edit it. Make sure to adjust stock manually if needed. Continue?"
+      )
+    )
+      return;
+    setSaving(true);
+    setFlash("");
+    try {
+      const { error } = await supabaseHelpers.setPrepStatus(requestId, "pending");
+      if (error) throw error;
+      setFlash("Request unlocked. Update the lines and confirm again when ready.");
+      await load();
+      onChanged?.();
+    } catch (e) {
+      console.error("Failed to reopen request:", e);
+      setFlash(e?.message || "Unable to reopen request.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
 async function confirmRequest() {
   if (row?.status !== "pending") {
     return setFlash("Only pending requests can be confirmed.");
@@ -729,6 +754,18 @@ onChanged?.();
               <Boxes className="w-4 h-4" />
               Box summary
             </button>
+            {row.status === "confirmed" && (
+              <button
+                onClick={reopenRequest}
+                disabled={saving}
+                className="px-4 py-2 border border-amber-500 text-amber-700 rounded inline-flex items-center gap-2 disabled:opacity-50"
+                type="button"
+                title="Move back to pending so you can edit and confirm again"
+              >
+                <Unlock className="w-4 h-4" />
+                Reopen for edits
+              </button>
+            )}
             <button
               onClick={confirmRequest}
               disabled={row.status !== "pending" || saving}
