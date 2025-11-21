@@ -525,6 +525,7 @@ const mapBoxRows = (rows = []) => {
     try {
       const { error } = await supabaseHelpers.setPrepStatus(requestId, "pending");
       if (error) throw error;
+      setRow((prev) => (prev ? { ...prev, status: "pending" } : prev));
       setFlash("Request unlocked. Update the lines and confirm again when ready.");
       await load();
       onChanged?.();
