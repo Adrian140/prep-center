@@ -79,6 +79,13 @@ function SupabaseRegisterForm() {
     }
 
     // Validation
+    const trimmedPhone = formData.phone.trim();
+    if (!trimmedPhone) {
+      setError('Phone number is required.');
+      setLoading(false);
+      return;
+    }
+
     if (formData.accountType === 'company') {
       if (!formData.companyName || !formData.cui || !formData.companyAddress || !formData.companyCity || !formData.companyPostalCode) {
         setError('All fields marked with * are required for company accounts.');
@@ -125,7 +132,7 @@ function SupabaseRegisterForm() {
       company_address: formData.companyAddress,
       company_city: formData.companyCity,
       company_postal_code: formData.companyPostalCode,
-      phone: formData.phone,
+      phone: trimmedPhone,
       country: formData.country,
       language: formData.language,
       accept_terms: formData.acceptTerms,
@@ -141,7 +148,7 @@ function SupabaseRegisterForm() {
       companyAddress: formData.companyAddress,
       companyCity: formData.companyCity,
       companyPostalCode: formData.companyPostalCode,
-      phoneNumber: formData.phone,
+      phoneNumber: trimmedPhone,
       countryCode: formData.country,
       languageCode: formData.language,
       acceptTerms: formData.acceptTerms,
@@ -271,12 +278,28 @@ function SupabaseRegisterForm() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
                   placeholder="Last name"
                 />
-              </div>
             </div>
+          </div>
 
-            {/* Company Fields */}
-            {formData.accountType === 'company' && (
-              <div className="space-y-3">
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-text-primary mb-2">
+              Phone number *
+            </label>
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              required
+              value={formData.phone}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
+              placeholder="+33 6 12 34 56 78"
+            />
+          </div>
+
+          {/* Company Fields */}
+          {formData.accountType === 'company' && (
+            <div className="space-y-3">
                 <div>
                   <label htmlFor="companyName" className="block text-sm font-medium text-text-primary mb-2">
                     Company name *
