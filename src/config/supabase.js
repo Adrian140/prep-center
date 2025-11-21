@@ -1234,13 +1234,11 @@ addTrackingId: async (requestId, trackingId) => {
   },
 
   updatePrepItem: async (itemId, updates) => {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('prep_request_items')
       .update(updates)
-      .eq('id', itemId)
-      .select()
-      .single();
-    return { data, error };
+      .eq('id', itemId);
+    return { error };
   },
 // Creează o linie nouă în prep_request_items
 createPrepItem: async (requestId, item) => {
