@@ -35,7 +35,7 @@
         "nextMonth": "Next month",
         "balance": "Balance filter",
         "search": "Search",
-        "searchPlaceholder": "Name / company / email…"
+        "searchPlaceholder": "Name / company / email / phone…"
       },
       "balanceFilters": {
         "all": "All",
@@ -46,7 +46,10 @@
         "exportCsv": "Export CSV",
         "showEmail": "Show Email",
         "hideEmail": "Hide Email",
-        "toggleEmail": "Show/Hide email column"
+        "toggleEmail": "Show/Hide email column",
+        "showPhone": "Show Phone",
+        "hidePhone": "Hide Phone",
+        "togglePhone": "Show/Hide phone column"
       },
       "rpcRange": "RPC period: {start} (inclusive) → {end} (inclusive)",
       "table": {
@@ -55,6 +58,7 @@
         "name": "Name",
         "company": "Company",
         "email": "Email",
+        "phone": "Phone",
         "createdAt": "Created",
         "currentBalance": "Balance",
         "carryBalance": "Outstanding / Advance",
@@ -312,7 +316,7 @@
         "nextMonth": "Mois suivant",
         "balance": "Filtre solde",
         "search": "Recherche",
-        "searchPlaceholder": "Nom / société / email…"
+        "searchPlaceholder": "Nom / société / email / téléphone…"
       },
       "balanceFilters": {
         "all": "Tous",
@@ -323,7 +327,10 @@
         "exportCsv": "Exporter CSV",
         "showEmail": "Afficher l'email",
         "hideEmail": "Masquer l'email",
-        "toggleEmail": "Afficher / masquer la colonne email"
+        "toggleEmail": "Afficher / masquer la colonne email",
+        "showPhone": "Afficher le téléphone",
+        "hidePhone": "Masquer le téléphone",
+        "togglePhone": "Afficher / masquer la colonne téléphone"
       },
       "rpcRange": "Période RPC : {start} (inclus) → {end} (inclus)",
       "table": {
@@ -332,6 +339,7 @@
         "name": "Nom",
         "company": "Société",
         "email": "Email",
+        "phone": "Téléphone",
         "createdAt": "Créé le",
         "currentBalance": "Solde",
         "carryBalance": "Solde restant / avance",
@@ -558,7 +566,7 @@
         "nextMonth": "Luna următoare",
         "balance": "Filtru sold",
         "search": "Căutare",
-        "searchPlaceholder": "Nume / companie / email…"
+        "searchPlaceholder": "Nume / companie / email / telefon…"
       },
       "balanceFilters": {
         "all": "Toate",
@@ -569,7 +577,10 @@
         "exportCsv": "Export CSV",
         "showEmail": "Afișează email",
         "hideEmail": "Ascunde email",
-        "toggleEmail": "Afișează/ascunde coloana email"
+        "toggleEmail": "Afișează/ascunde coloana email",
+        "showPhone": "Afișează telefon",
+        "hidePhone": "Ascunde telefon",
+        "togglePhone": "Afișează/ascunde coloana telefon"
       },
       "rpcRange": "Perioadă RPC: {start} (inclusiv) → {end} (inclusiv)",
       "table": {
@@ -578,6 +589,7 @@
         "name": "Nume",
         "company": "Companie",
         "email": "Email",
+        "phone": "Telefon",
         "createdAt": "Creat la",
         "currentBalance": "Sold",
         "carryBalance": "Sold restant / avans",

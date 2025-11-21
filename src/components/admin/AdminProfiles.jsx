@@ -11,7 +11,7 @@ import {
 import { useAdminTranslation } from "@/i18n/useAdminTranslation";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 
-const PER_PAGE = 20;
+const PER_PAGE = 50;
 const fmt2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "0.00");
 
 // --- date helpers (LOCAL, fără UTC drift)
@@ -134,6 +134,7 @@ export default function AdminProfiles({ onSelect }) {
   const [persistedFilters, setPersistedFilters] = useSessionStorage(STORAGE_KEY, {
     selectedMonth: monthKey(new Date()),
     showEmail: false,
+    showPhone: false,
     from: isoLocal(firstDayOfMonth(new Date())),
     to: isoLocal(lastDayOfMonth(new Date())),
     q: '',
@@ -143,6 +144,7 @@ export default function AdminProfiles({ onSelect }) {
   // month selector
   const [selectedMonth, setSelectedMonth] = useState(persistedFilters.selectedMonth || monthKey(new Date()));
   const [showEmail, setShowEmail] = useState(!!persistedFilters.showEmail);
+  const [showPhone, setShowPhone] = useState(!!persistedFilters.showPhone);
   const [from, setFrom] = useState(persistedFilters.from || isoLocal(firstDayOfMonth(new Date())));
   const [to, setTo] = useState(persistedFilters.to || isoLocal(lastDayOfMonth(new Date())));
   const gotoMonth = (delta) => {
@@ -172,13 +174,14 @@ export default function AdminProfiles({ onSelect }) {
     setPersistedFilters({
       selectedMonth,
       showEmail,
+      showPhone,
       from,
       to,
       q,
       page,
       restFilter
     });
-  }, [selectedMonth, showEmail, from, to, q, page, restFilter, setPersistedFilters]);
+  }, [selectedMonth, showEmail, showPhone, from, to, q, page, restFilter, setPersistedFilters]);
 
   useEffect(() => {
     if (!storeBanner) return;
@@ -209,7 +212,7 @@ export default function AdminProfiles({ onSelect }) {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id,email,first_name,last_name,company_name,created_at,account_type,company_id,store_name")
+        .select("id,email,phone,first_name,last_name,company_name,created_at,account_type,company_id,store_name")
         .order("created_at", { ascending: false });
       if (error) throw error;
       const nonAdmins = (data || []).filter(
@@ -252,13 +255,27 @@ export default function AdminProfiles({ onSelect }) {
 
   // search results (without live balance filters)
   const searchedRows = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    return t ? rows.filter(r =>
-      (r.display_first_name || r.first_name || "").toLowerCase().includes(t) ||
-      (r.display_last_name || r.last_name || "").toLowerCase().includes(t) ||
-      (r.display_company_name || r.company_name || "").toLowerCase().includes(t) ||
-      (r.email||"").toLowerCase().includes(t)
-    ) : rows;
+    const term = q.trim().toLowerCase();
+    if (!term) return rows;
+    const phoneTerm = term.replace(/[^0-9+]/g, "");
+    return rows.filter((r) => {
+      const nameFields = [
+        r.display_first_name || r.first_name || "",
+        r.display_last_name || r.last_name || "",
+        r.display_company_name || r.company_name || "",
+        r.store_name || "",
+        r.company_id || "",
+        r.email || ""
+      ];
+      if (nameFields.some((value) => value.toLowerCase().includes(term))) return true;
+      const phoneValue = r.phone || "";
+      if (phoneValue.toLowerCase().includes(term)) return true;
+      if (phoneTerm) {
+        const digits = phoneValue.replace(/[^0-9+]/g, "");
+        if (digits.includes(phoneTerm)) return true;
+      }
+      return false;
+    });
   }, [rows, q]);
 
   const totalPages = Math.max(1, Math.ceil(searchedRows.length / PER_PAGE));
@@ -298,11 +315,14 @@ export default function AdminProfiles({ onSelect }) {
     });
   }, [sortedPageRows, restFilter, calc]);
 
-  const tableTotals = useMemo(() => {
-    const totCurrent = displayRows.reduce((sum, p) => sum + Number(calc[p.id]?.currentSold ?? 0), 0);
-    const totCarry = displayRows.reduce((sum, p) => sum + Number(calc[p.id]?.carry ?? 0), 0);
-    return { totCurrent, totCarry };
-  }, [displayRows, calc]);
+const tableTotals = useMemo(() => {
+  const totCurrent = displayRows.reduce((sum, p) => sum + Number(calc[p.id]?.currentSold ?? 0), 0);
+  const totCarry = displayRows.reduce((sum, p) => sum + Number(calc[p.id]?.carry ?? 0), 0);
+  return { totCurrent, totCarry };
+}, [displayRows, calc]);
+
+  const columnCount = 9 + (showEmail ? 1 : 0) + (showPhone ? 1 : 0);
+  const summaryDetailSpan = 3 + (showEmail ? 1 : 0) + (showPhone ? 1 : 0);
 
   // compute balances per row (STRICT din RPC; fără calcule în React)
   useEffect(() => {
@@ -437,16 +457,23 @@ const saveStoreName = async () => {
             />
           </div>
 
-          <div>
-            <button
-              onClick={() => setShowEmail(!showEmail)}
-              className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm w-full text-xs"
-              title={t("clients.buttons.toggleEmail")}
-            >
-              {showEmail ? t("clients.buttons.hideEmail") : t("clients.buttons.showEmail")}
-            </button>
-          </div>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => setShowEmail(!showEmail)}
+            className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm w-full text-xs"
+            title={t("clients.buttons.toggleEmail")}
+          >
+            {showEmail ? t("clients.buttons.hideEmail") : t("clients.buttons.showEmail")}
+          </button>
+          <button
+            onClick={() => setShowPhone(!showPhone)}
+            className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm w-full text-xs"
+            title={t("clients.buttons.togglePhone")}
+          >
+            {showPhone ? t("clients.buttons.hidePhone") : t("clients.buttons.showPhone")}
+          </button>
         </div>
+      </div>
 
       </div>
 
@@ -470,6 +497,7 @@ const saveStoreName = async () => {
               <th className="px-4 py-3 text-left">{t("clients.table.name")}</th>
               <th className="px-4 py-3 text-left">{t("clients.table.company")}</th>
               {showEmail && <th className="px-4 py-3 text-left">{t("clients.table.email")}</th>}
+              {showPhone && <th className="px-4 py-3 text-left">{t("clients.table.phone")}</th>}
               <th className="px-4 py-3 text-left">{t("clients.table.createdAt")}</th>
               <th className="px-4 py-3 text-left whitespace-pre-line">{t("clients.table.currentBalance")}</th>
               <th className="px-4 py-3 text-left">{t("clients.table.carryBalance")}</th>
@@ -479,13 +507,13 @@ const saveStoreName = async () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={showEmail ? 10 : 9} className="px-4 py-6 text-center text-gray-400">{t("common.loading")}</td></tr>
+              <tr><td colSpan={columnCount} className="px-4 py-6 text-center text-gray-400">{t("common.loading")}</td></tr>
             ) : error ? (
-              <tr><td colSpan={showEmail ? 10 : 9} className="px-4 py-6 text-center text-red-600">{error}</td></tr>
+              <tr><td colSpan={columnCount} className="px-4 py-6 text-center text-red-600">{error}</td></tr>
             ) : searchedRows.length === 0 ? (
-              <tr><td colSpan={showEmail ? 10 : 9} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
+              <tr><td colSpan={columnCount} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
             ) : displayRows.length === 0 ? (
-              <tr><td colSpan={showEmail ? 10 : 9} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
+              <tr><td colSpan={columnCount} className="px-4 py-6 text-center text-gray-400">{t("clients.empty")}</td></tr>
             ) : (
               displayRows.map((p, idx) => {
                 const rowNumber = (pageClamped - 1) * PER_PAGE + idx + 1;
@@ -525,6 +553,7 @@ const saveStoreName = async () => {
                     <td className="px-4 py-3">{name}</td>
                     <td className="px-4 py-3" title={p.company_id || ""}>{p.display_company_name || p.company_name || "—"}</td>
                     {showEmail && <td className="px-4 py-3">{p.email || "—"}</td>}
+                    {showPhone && <td className="px-4 py-3">{p.phone || "—"}</td>}
                     <td className="px-4 py-3">{p.created_at?.slice(0,10) || "—"}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-1 rounded-md text-sm font-medium bg-gray-100 text-gray-900">
@@ -547,7 +576,7 @@ const saveStoreName = async () => {
               <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
                 <td className="px-4 py-3">{t("clients.csv.footer")}</td>
                 <td className="px-4 py-3" />
-                <td className="px-4 py-3" colSpan={showEmail ? 4 : 3} />
+                <td className="px-4 py-3" colSpan={summaryDetailSpan} />
                 <td className="px-4 py-3">{fmt2(tableTotals.totCurrent)}</td>
                 <td className="px-4 py-3">{fmt2(tableTotals.totCarry)}</td>
                 <td className="px-4 py-3" />
