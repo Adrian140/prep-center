@@ -48,10 +48,33 @@ async function fetchActiveIntegrations() {
   if (single) return single;
   const { data, error } = await supabase
     .from('amazon_integrations')
-    .select('id, user_id, company_id, marketplace_id, region, refresh_token, status')
+    .select('id, user_id, company_id, marketplace_id, region, selling_partner_id, refresh_token, status')
     .eq('status', 'active');
   if (error) throw error;
-  return data || [];
+  const integrations = data || [];
+  const sellerIds = integrations
+    .map((row) => row.selling_partner_id)
+    .filter((id) => typeof id === 'string' && id.length > 0);
+  const tokenMap = new Map();
+  if (sellerIds.length) {
+    const { data: tokens, error: tokensError } = await supabase
+      .from('seller_tokens')
+      .select('seller_id, refresh_token')
+      .in('seller_id', sellerIds);
+    if (tokensError) throw tokensError;
+    (tokens || []).forEach((t) => {
+      if (t.seller_id && t.refresh_token) {
+        tokenMap.set(t.seller_id, t.refresh_token);
+      }
+    });
+  }
+  return integrations
+    .map((row) => ({
+      ...row,
+      refresh_token:
+        tokenMap.get(row.selling_partner_id) || row.refresh_token || process.env.SPAPI_REFRESH_TOKEN || null
+    }))
+    .filter((row) => !!row.refresh_token);
 }
 
 async function fetchInventorySummaries(spClient, marketplaceId) {

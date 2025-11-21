@@ -110,6 +110,10 @@ serve(async (req) => {
     if (!refreshToken) {
       return new Response("Missing refresh_token in response", { status: 502, headers: corsHeaders });
     }
+    const accessToken = tokenJson.access_token as string | undefined;
+    const accessExpiresIn = typeof tokenJson.expires_in === "number" ? Number(tokenJson.expires_in) : null;
+    const accessTokenExpiresAt =
+      accessExpiresIn != null ? new Date(Date.now() + accessExpiresIn * 1000).toISOString() : null;
 
     const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -141,6 +145,30 @@ serve(async (req) => {
 
     if (upsertError) {
       return new Response(upsertError.message, { status: 500, headers: corsHeaders });
+    }
+
+    const sellerId = sellingPartnerId || companyId || user.id;
+    const { data: existingSellerToken } = await serviceClient
+      .from("seller_tokens")
+      .select("marketplace_ids")
+      .eq("seller_id", sellerId)
+      .maybeSingle();
+    const mergedMarketplaces = Array.from(
+      new Set([...(existingSellerToken?.marketplace_ids || []), marketplaceId].filter(Boolean))
+    );
+    const sellerTokenRecord = {
+      seller_id: sellerId,
+      refresh_token: refreshToken,
+      access_token: accessToken || null,
+      access_token_expires_at: accessTokenExpiresAt,
+      marketplace_ids: mergedMarketplaces,
+      updated_at: new Date().toISOString()
+    };
+    const { error: sellerTokenError } = await serviceClient
+      .from("seller_tokens")
+      .upsert(sellerTokenRecord, { onConflict: "seller_id" });
+    if (sellerTokenError) {
+      return new Response(sellerTokenError.message, { status: 500, headers: corsHeaders });
     }
 
     return new Response(JSON.stringify({ ok: true }), {
