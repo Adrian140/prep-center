@@ -282,6 +282,10 @@ export default function ClientAffiliates() {
               <p className="text-xs uppercase tracking-wide text-text-secondary">
                 {t('ClientAffiliates.rules.title')}
               </p>
+              <p className="text-sm text-text-secondary mt-1">
+                Dacă aduci un client nou prin codul tău și acesta ajunge la facturi de 1000&nbsp;€ în primele 3 luni,
+                primești 100&nbsp;€ bonus. Clientul recomandat primește 25&nbsp;€ reducere la următoarea factură.
+              </p>
               <PayoutSummary code={ownerSnapshot.code} />
             </div>
 
