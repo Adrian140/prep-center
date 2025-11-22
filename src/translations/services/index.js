@@ -4,16 +4,13 @@ import { servicesDe } from './de';
 import { servicesIt } from './it';
 import { servicesEs } from './es';
 import { servicesRo } from './ro';
-import { servicesAr } from './ar';
-
 export const servicesTranslations = {
   en: servicesEn,
   fr: servicesFr,
   de: servicesDe,
   it: servicesIt,
   es: servicesEs,
-  ro: servicesRo,
-  ar: servicesAr
+  ro: servicesRo
 };
 
 const deepGet = (obj, path) =>

@@ -4108,48 +4108,5 @@
         "manualPhoto": "Captura manual de fotos"
       }
     }
-  },
-  "ar": {
-    "common": {
-      "greeting": "مرحبًا، {name}!",
-      "subtitle": "بوابة العملاء: اعرض تقاريرك وأدر حسابك.",
-      "signOut": "تسجيل الخروج",
-      "groups": {
-        "operations": "العمليات",
-        "account": "حسابي"
-      },
-      "loading": "جارٍ التحميل...",
-      "calculating": "جارٍ الحساب...",
-      "na": "غير متوفر",
-      "yes": "نعم",
-      "no": "لا",
-      "supportError": "حدث خطأ. يرجى التواصل مع الدعم.",
-      "cancel": "إلغاء",
-      "accessDeniedTitle": "تم الرفض",
-      "accessDeniedDesc": "لا تملك صلاحية الوصول إلى هذا القسم."
-    },
-    "sidebar": {
-      "activity": "النشاط",
-      "fba": "FBA",
-      "fbm": "FBM",
-      "stock": "المنتجات",
-      "returns": "المرتجعات",
-      "exports": "التقارير",
-      "profile": "الملف الشخصي",
-      "billing": "بيانات الفوترة",
-      "invoices": "فواتيري",
-      "integrations": "التكاملات",
-      "affiliates": "الإحالات",
-      "security": "الأمان",
-      "reports": "التقارير"
-    },
-    "ClientAffiliates": {
-      "rules": {
-        "bonus": "إذا أحضرت عميلًا جديدًا ووصل إلى فواتير بقيمة 1000 € خلال أول 3 أشهر، تحصل على مكافأة 100 €. العميل المُحال يحصل على خصم 25 € على الفاتورة التالية."
-      },
-      "request": {
-        "applyCta": "لا تملك رمزًا بعد؟ اطلبه الآن وابدأ الربح من الإحالات."
-      }
-    }
   }
 }
