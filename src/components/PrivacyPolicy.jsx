@@ -64,7 +64,7 @@ export default function PrivacyPolicy() {
             </section>
           ))}
 
-          {['security','retention'].map((key) => (
+          {['spapi_data','spapi_usage','security','retention'].map((key) => (
             <section key={key}>
               <h2 className="text-2xl font-bold text-text-primary mb-4">{t(`sections.${key}_h`)}</h2>
               <ul className="list-disc list-inside text-text-secondary space-y-1">

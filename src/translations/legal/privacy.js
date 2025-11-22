@@ -2,7 +2,7 @@
 export const privacy = {
   fr: {
     title: "Politique de Confidentialité",
-    lastUpdated: "Dernière mise à jour : 27.09.2025",
+    lastUpdated: "Dernière mise à jour : 22.11.2025",
     sections: {
       intro_h: "1. Introduction",
       intro_p:
@@ -34,6 +34,22 @@ export const privacy = {
       transfers_h: "5. Transferts",
       transfers_p: "Si des transferts hors UE/EEE sont nécessaires, nous appliquons des garanties appropriées (clauses types, etc.).",
 
+      spapi_data_h: "5 bis. Données SP-API Amazon",
+      spapi_data_list: [
+        "Identifiants d’autorisation (refresh/access tokens) chiffrés et stockés côté serveur ; pas exposés au front-end",
+        "Identifiants de compte vendeur, marketplaces, ASIN/SKU, intégrations Amazon",
+        "Données d’inventaire et de stock (quantités, statut, logs techniques)",
+        "Commandes / items : uniquement données opérationnelles non PII ; pas de stockage d’adresses complètes, noms ou numéros de téléphone des acheteurs",
+        "Journaux d’erreurs techniques pouvant contenir IDs Amazon (SellerId, MarketplaceId) mais pas PII",
+      ],
+
+      spapi_usage_h: "5 ter. Finalité SP-API",
+      spapi_usage_list: [
+        "Synchronisation inventar/stock pentru conturile proprii sau conectate prin consimțământ",
+        "Nu vindem, nu cedăm și nu combinăm date Amazon cu terți fără consimțământ",
+        "Acces limitat la rolurile declarate (Inventaire, Fulfillment, Listings/Orders non-PII)",
+      ],
+
       security_h: "6. Sécurité",
       security_list: [
         "Chiffrement en transit et au repos lorsque approprié",
@@ -41,6 +57,8 @@ export const privacy = {
         "Accès au moindre privilège",
         "Surveillance et audits réguliers",
         "Sauvegardes et plans de reprise",
+        "Clés SP-API/Supabase et tokens Amazon stockés în seifuri/secrets, cu rotație și acces limitat",
+        "Journalisation și alertare pentru acces neautorizat; revocare token la deconectare",
       ],
 
       retention_h: "7. Conservation",
@@ -48,6 +66,7 @@ export const privacy = {
         "Comptes : tant que le compte est actif ou conforme aux obligations légales (min. 5 ans)",
         "Facturation : 10 ans",
         "Marketing : jusqu’au retrait du consentement ou max. 3 ans après la dernière interaction",
+        "Tokens SP-API: șterse/invalidées la revocare sau la închiderea contului; jurnale tehnice ≤ 90 zile",
       ],
 
       rights_h: "8. Vos Droits",
@@ -77,7 +96,7 @@ export const privacy = {
 
   en: {
     title: "Privacy Policy",
-    lastUpdated: "Last updated: 27.09.2025",
+    lastUpdated: "Last updated: 22.11.2025",
     sections: {
       intro_h: "1. Introduction",
       intro_p:
@@ -109,6 +128,22 @@ export const privacy = {
       transfers_p:
         "If transfers outside the EU/EEA are required, we apply appropriate safeguards (e.g., SCCs).",
 
+      spapi_data_h: "5 bis. Amazon SP-API Data",
+      spapi_data_list: [
+        "Auth identifiers (refresh/access tokens) encrypted and stored server-side; never exposed to the front-end",
+        "Seller account IDs, marketplaces, ASIN/SKU, Amazon integration metadata",
+        "Inventory/stock data (quantities, status, technical logs)",
+        "Orders/items: only operational, non-PII fields; we do not store full buyer names, phone numbers, or full addresses",
+        "Error logs may contain Amazon IDs (SellerId, MarketplaceId), no buyer PII",
+      ],
+
+      spapi_usage_h: "5 ter. SP-API Purpose",
+      spapi_usage_list: [
+        "Inventory sync for our own/authorized seller accounts",
+        "No selling or sharing Amazon data with third parties without consent",
+        "Access limited to declared roles (Inventory, Fulfillment, Listings/Orders non-PII)",
+      ],
+
       security_h: "6. Security",
       security_list: [
         "Encryption in transit and, where appropriate, at rest",
@@ -116,6 +151,8 @@ export const privacy = {
         "Least-privilege access",
         "Regular monitoring & audits",
         "Backups and recovery plans",
+        "SP-API/Supabase keys and Amazon tokens kept in secrets vaults with rotation and restricted access",
+        "Logging and alerting for unauthorized access; token revocation on disconnect",
       ],
 
       retention_h: "7. Retention",
@@ -123,6 +160,7 @@ export const privacy = {
         "Account data: while the account is active or as legally required (min. 5 years)",
         "Billing data: 10 years",
         "Marketing data: until consent is withdrawn or up to 3 years after the last interaction",
+        "SP-API tokens: removed/invalidated on revoke or account closure; technical logs retained ≤ 90 days",
       ],
 
       rights_h: "8. Your Rights",
@@ -152,7 +190,7 @@ export const privacy = {
 
   ro: {
     title: "Politica de Confidențialitate",
-    lastUpdated: "Ultima actualizare: 27.09.2025",
+    lastUpdated: "Ultima actualizare: 22.11.2025",
     sections: {
       intro_h: "1. Introducere",
       intro_p:
@@ -184,6 +222,22 @@ export const privacy = {
       transfers_p:
         "Dacă sunt necesare transferuri în afara UE/SEE, aplicăm garanții adecvate (de ex., SCC).",
 
+      spapi_data_h: "5 bis. Date Amazon SP-API",
+      spapi_data_list: [
+        "Identificatori de autorizare (refresh/access tokens) criptate și stocate doar server-side; nu sunt expuse în front-end",
+        "ID cont vânzător, marketplaces, ASIN/SKU, metadate ale integrării Amazon",
+        "Date de inventar/stock (cantități, stare, log-uri tehnice)",
+        "Comenzi/items: doar câmpuri operaționale non-PII; nu stocăm nume complete, telefoane sau adrese complete ale cumpărătorilor",
+        "Log-uri de erori pot conține IDs Amazon (SellerId, MarketplaceId), nu PII cumpărător",
+      ],
+
+      spapi_usage_h: "5 ter. Scop utilizare SP-API",
+      spapi_usage_list: [
+        "Sync inventar pentru conturile proprii sau autorizate explicit",
+        "Nu vindem și nu partajăm date Amazon cu terți fără consimțământ",
+        "Acces limitat la rolurile declarate (Inventory, Fulfillment, Listings/Orders non-PII)",
+      ],
+
       security_h: "6. Securitate",
       security_list: [
         "Criptare în tranzit și, după caz, în repaus",
@@ -191,6 +245,8 @@ export const privacy = {
         "Acces minim necesar (least privilege)",
         "Monitorizare și audit periodic",
         "Backup-uri și planuri de recuperare",
+        "Chei SP-API/Supabase și token-uri Amazon păstrate în seifuri/secrets, cu rotație și acces limitat",
+        "Logare și alertare pentru acces neautorizat; revocare token la deconectare",
       ],
 
       retention_h: "7. Păstrare",
@@ -198,6 +254,7 @@ export const privacy = {
         "Date de cont: cât timp contul este activ sau min. 5 ani conform legii",
         "Date de facturare: 10 ani",
         "Date de marketing: până la retragerea consimțământului sau max. 3 ani de la ultima interacțiune",
+        "Token-uri SP-API: șterse/invalidated la revocare sau închiderea contului; log-uri tehnice ≤ 90 zile",
       ],
 
       rights_h: "8. Drepturile Dvs.",
