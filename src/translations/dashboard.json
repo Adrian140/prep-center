@@ -644,10 +644,10 @@
         "thresholdProgress": "{billed} / {threshold} to unlock",
         "hint": "The list updates automatically when we assign or remove clients."
       },
-      "request": {
-        "title": "Request your affiliate code",
-        "desc": "Tell us how you plan to promote Prep Center. We review each request manually.",
-        "applyCta": "Don't have a code yet? Apply now and start earning from referrals.",
+        "request": {
+          "title": "Request your affiliate code",
+          "desc": "Tell us how you plan to promote Prep Center. We review each request manually.",
+          "applyCta": "Don't have a code yet? Apply now and start earning from referrals.",
         "preferred": "Preferred code",
         "preferredPh": "E.g. ADRIAN10",
         "generate": "Suggest code",
@@ -1367,10 +1367,10 @@
         "thresholdProgress": "{billed} / {threshold} până la bonus",
         "hint": "Lista se actualizează automat când asignăm sau eliminăm clienți."
       },
-      "request": {
-        "title": "Solicită codul tău de afiliat",
-        "desc": "Spune-ne cum vrei să promovezi Prep Center. Fiecare cerere este analizată manual.",
-        "applyCta": "Nu ai încă un cod? Aplică acum și câștigă din recomandări.",
+        "request": {
+          "title": "Solicită codul tău de afiliat",
+          "desc": "Spune-ne cum vrei să promovezi Prep Center. Fiecare cerere este analizată manual.",
+          "applyCta": "Nu ai încă un cod? Aplică acum și câștigă din recomandări.",
         "preferred": "Cod preferat",
         "preferredPh": "Ex: ADRIAN10",
         "generate": "Propune cod",
@@ -1478,6 +1478,14 @@
       "affiliates": "Affiliés",
       "security": "Sécurité",
       "reports": "Rapports"
+    },
+    "ClientAffiliates": {
+      "rules": {
+        "bonus": "Si vous parrainez un client qui atteint 1 000 € facturés dans les 3 premiers mois, vous gagnez un bonus de 100 €. Le client parrainé reçoit 25 € de réduction sur la prochaine facture."
+      },
+      "request": {
+        "applyCta": "Pas encore de code ? Demandez-le et commencez à gagner avec vos parrainages."
+      }
     },
     "billing": {
       "title": "Coordonnées de facturation",
@@ -2137,6 +2145,14 @@
       "security": "Sicherheit",
       "reports": "Berichte"
     },
+    "ClientAffiliates": {
+      "rules": {
+        "bonus": "Wenn ein geworbener Kunde in den ersten 3 Monaten 1.000 € Umsatz erreicht, erhältst du 100 € Bonus. Der geworbene Kunde bekommt 25 € Rabatt auf die nächste Rechnung."
+      },
+      "request": {
+        "applyCta": "Noch keinen Code? Jetzt beantragen und mit Empfehlungen verdienen."
+      }
+    },
     "billing": {
       "title": "Rechnungsdaten",
       "addProfile": "Profil hinzufügen",
@@ -2795,6 +2811,14 @@
       "security": "Sicurezza",
       "reports": "Report"
     },
+    "ClientAffiliates": {
+      "rules": {
+        "bonus": "Se un cliente che porti raggiunge 1.000 € di fatturato nei primi 3 mesi, ricevi 100 € di bonus. Il cliente invitato ottiene 25 € di sconto sulla prossima fattura."
+      },
+      "request": {
+        "applyCta": "Non hai ancora un codice? Richiedilo ora e inizia a guadagnare dalle tue segnalazioni."
+      }
+    },
     "billing": {
       "title": "Dati di fatturazione",
       "addProfile": "Aggiungi profilo",
@@ -3452,6 +3476,14 @@
       "affiliates": "Afiliados",
       "security": "Seguridad",
       "reports": "Reportes"
+    },
+    "ClientAffiliates": {
+      "rules": {
+        "bonus": "Si un cliente referido alcanza 1.000 € facturados en los primeros 3 meses, ganas un bono de 100 €. El cliente recomendado recibe 25 € de descuento en la siguiente factura."
+      },
+      "request": {
+        "applyCta": "¿Aún no tienes código? Solicítalo y empieza a ganar con tus referidos."
+      }
     },
     "billing": {
       "title": "Datos de facturación",
