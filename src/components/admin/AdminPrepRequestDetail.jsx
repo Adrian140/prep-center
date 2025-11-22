@@ -206,7 +206,6 @@ const mapBoxRows = (rows = []) => {
       };
       return { ...prev, [itemId]: [...existing, entry] };
     });
-    scheduleBoxPersist(itemId);
   };
 
   const updateBoxValue = (itemId, boxId, field, raw) => {
@@ -1041,7 +1040,7 @@ onChanged?.();
                         <td className="px-3 py-2">
                           <div className="space-y-2">
                             {itemBoxes.map((box) => (
-                              <div key={box.id} className="flex items-center gap-2 text-xs flex-wrap">
+                              <div key={box.id} className="flex items-center gap-2 text-xs whitespace-nowrap">
                                 <span className="text-text-secondary">Box</span>
                                 <input
                                   type="number"
