@@ -10,6 +10,7 @@ import { de } from './de';
 import { it } from './it';
 import { es } from './es';
 import { ro } from './ro';
+import { ar } from './ar';
 
 // (nou – dashboard)
 import dashboardDict from './dashboard.json';
@@ -18,7 +19,7 @@ import dashboardDict from './dashboard.json';
 import { terms as TERMS_I18N } from './legal/terms';
 import { privacy as PRIVACY_I18N } from './legal/privacy';
 
-export const translations = { en, fr, de, it, es, ro };
+export const translations = { en, fr, de, it, es, ro, ar };
 
 // ===== helper comun =====
 const deepGet = (obj, path) =>
