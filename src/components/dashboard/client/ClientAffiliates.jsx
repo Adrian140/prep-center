@@ -240,8 +240,7 @@ export default function ClientAffiliates() {
       </div>
 
       <div className="p-3 border rounded-xl bg-blue-50/80 text-sm text-text-secondary">
-        Dacă aduci un client nou prin codul tău și acesta ajunge la facturi de 1000&nbsp;€ în primele 3 luni,
-        primești 100&nbsp;€ bonus. Clientul recomandat primește 25&nbsp;€ reducere la următoarea factură.
+        {t('ClientAffiliates.rules.bonus')}
       </div>
 
       {flash && (
@@ -412,6 +411,7 @@ export default function ClientAffiliates() {
             <div>
               <h3 className="font-semibold">{t('ClientAffiliates.request.title')}</h3>
               <p className="text-sm text-text-secondary">{t('ClientAffiliates.request.desc')}</p>
+              <p className="text-xs text-text-secondary mt-1">{t('ClientAffiliates.request.applyCta')}</p>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-4">

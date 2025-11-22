@@ -621,6 +621,7 @@
       },
       "rules": {
         "title": "Payout rules",
+        "bonus": "If you refer a client and they reach €1000 billed in the first 3 months, you earn a €100 bonus. The referred client gets €25 off their next invoice.",
         "percent": "You earn {percent}% from every invoice paid by your referrals.",
         "threshold": "Below {threshold}: {below}%. Above: {above}%.",
         "fixed": "Once a referred client reaches {threshold}, you receive {amount} once.",
@@ -646,6 +647,7 @@
       "request": {
         "title": "Request your affiliate code",
         "desc": "Tell us how you plan to promote Prep Center. We review each request manually.",
+        "applyCta": "Don't have a code yet? Apply now and start earning from referrals.",
         "preferred": "Preferred code",
         "preferredPh": "E.g. ADRIAN10",
         "generate": "Suggest code",
@@ -1342,6 +1344,7 @@
       },
       "rules": {
         "title": "Reguli de plată",
+        "bonus": "Dacă aduci un client nou și acesta ajunge la facturi de 1000 € în primele 3 luni, primești 100 € bonus. Clientul recomandat primește 25 € reducere la următoarea factură.",
         "percent": "Primești {percent}% din fiecare factură plătită de recomandările tale.",
         "threshold": "Sub {threshold}: {below}%. Peste: {above}%.",
         "fixed": "Când un client recomandat ajunge la {threshold}, primești {amount} o singură dată.",
@@ -1367,6 +1370,7 @@
       "request": {
         "title": "Solicită codul tău de afiliat",
         "desc": "Spune-ne cum vrei să promovezi Prep Center. Fiecare cerere este analizată manual.",
+        "applyCta": "Nu ai încă un cod? Aplică acum și câștigă din recomandări.",
         "preferred": "Cod preferat",
         "preferredPh": "Ex: ADRIAN10",
         "generate": "Propune cod",
