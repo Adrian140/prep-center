@@ -4,6 +4,7 @@ import { servicesDe } from './de';
 import { servicesIt } from './it';
 import { servicesEs } from './es';
 import { servicesRo } from './ro';
+import { servicesAr } from './ar';
 
 export const servicesTranslations = {
   en: servicesEn,
@@ -11,7 +12,8 @@ export const servicesTranslations = {
   de: servicesDe,
   it: servicesIt,
   es: servicesEs,
-  ro: servicesRo
+  ro: servicesRo,
+  ar: servicesAr
 };
 
 const deepGet = (obj, path) =>

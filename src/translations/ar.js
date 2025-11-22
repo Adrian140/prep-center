@@ -1,33 +1,163 @@
-// Arabic bundle – partial; falls back to EN for missing keys
 export const ar = {
   // Navigation
-  home: 'الرئيسية',
-  services: 'الخدمات والأسعار',
-  about: 'من نحن',
-  contact: 'تواصل معنا',
-  blog: 'المدونة',
-  login: 'تسجيل الدخول',
-  register: 'إنشاء حساب',
-  dashboard: 'لوحة التحكم',
-  logout: 'تسجيل الخروج',
-  admin: 'المسؤول',
-
-  // Common CTAs
-  getQuote: 'احصل على عرض سعر',
-  chatWhatsApp: 'دردشة واتساب',
-  bookZoom: 'حجز مكالمة Zoom',
-  readMore: 'اقرأ المزيد',
-  learnMore: 'اعرف المزيد',
-
-  // Home hero (short)
-  heroTitle: 'مركز تجهيز أمازون FBA في فرنسا – شحن سريع وتغليف وملصقات',
-  heroSubtitle: 'تجهيز خلال 24 ساعة، فحص الجودة، ملصقات FNSKU وتغليف وشحن سريع إلى مراكز أمازون في أوروبا',
-
-  // Auth basics
-  authResetTitle: 'تعيين كلمة مرور جديدة',
-  authResetSubtitle: 'أدخل كلمة المرور الجديدة أدناه.',
-  authResetNewLabel: 'كلمة المرور الجديدة',
-  authResetConfirmLabel: 'تأكيد كلمة المرور',
-  authResetSave: 'حفظ كلمة المرور',
-  authSignupGenericError: 'حدث خطأ. يرجى التواصل مع الدعم.'
+  home: 'Home',
+  services: 'Services & Pricing',
+  about: 'About',
+  contact: 'Contact',
+  blog: 'Blog',
+  login: 'Login',
+  register: 'Register',
+  dashboard: 'Dashboard',
+  logout: 'Logout',
+  admin: 'Admin',
+  
+  // Auth reset
+  authResetTitle: 'Set a new password',
+  authResetSubtitle: 'Enter your new password below.',
+  authResetNewLabel: 'New password',
+  authResetConfirmLabel: 'Confirm new password',
+  authResetHint: 'Use at least 8 characters and mix upper/lowercase letters, numbers, and symbols for a stronger password.',
+  authResetSave: 'Save password',
+  authResetSuccess: 'Password updated successfully! You will be redirected to the sign-in page.',
+  authResetErrorLength: 'Password must be at least 8 characters.',
+  authResetErrorMismatch: 'Passwords do not match.',
+  authSignupGenericError: 'Something went wrong. Please contact support.',
+  authAffiliateLabel: 'Affiliate code (optional)',
+  authAffiliateHint: 'If you received a referral code, enter it here.',
+  authAffiliateInvalid: 'Affiliate code not found.',
+  authAffiliateValid: 'Code accepted: {label}',
+  
+  // Common
+  getQuote: 'Get a Quote',
+  chatWhatsApp: 'Chat on WhatsApp',
+  bookZoom: 'Book Zoom',
+  readMore: 'Read More',
+  learnMore: 'Learn More',
+  
+  // Home Page - Hero Section
+  heroTitle: 'Amazon FBA Prep Center France – 24h Prep, Labeling & Shipping to EU',
+  heroSubtitle: '24h turnaround, quality control, FNSKU labeling, polybagging & fast shipping to Amazon fulfillment centers in Europe',
+  
+  // Home Page - Stats
+  yearsExperience: 'Years Experience',
+  ordersProcessed: 'Orders Processed',
+  happyClients: 'Happy Clients',
+  averageTurnaround: 'Average Turnaround',
+  
+  // Home Page - Why Choose Us
+  whyChooseTitle: 'Why Choose Prep Center France for Amazon FBA Prep',
+  whyChooseSubtitle: 'Professional Amazon FBA prep services in France designed for European sellers',
+  turnaroundTitle: '24h Turnaround',
+  turnaroundDesc: 'Fast processing of your products to Amazon FBA fulfillment centers',
+  transparentPricingTitle: 'Transparent FBA prep pricing',
+  transparentPricingDesc: 'No hidden fees, competitive rates for all Amazon FBA prep services in France',
+  strategicLocationTitle: 'Strategic prep center location in France',
+  strategicLocationDesc: 'Optimal position for EU-wide Amazon fulfillment center distribution and fast shipping',
+  amazonReadyTitle: 'Amazon FBA-ready packaging',
+  amazonReadyDesc: 'Expert knowledge of European Amazon FBA requirements and compliance standards',
+  
+  // Home Page - Services
+  coreServicesTitle: 'Our Core Services',
+  coreServicesSubtitle: 'Professional Amazon FBA prep and multi-platform fulfillment solutions.',
+  fnskuLabelingTitle: 'Photo Storage Subscription',
+  fnskuLabelingDesc: 'Cloud storage for product images linked to each ASIN. Upload up to six photos per product directly on the platform, one for each side, stored securely and accessible anytime.',
+  fbmShippingTitle: 'FBM Shipping',
+  fbmShippingDesc: 'We handle daily orders from Amazon, eBay, Shopify, Vinted, and other platforms. Includes pick & pack, fast shipping, and returns management.',
+  storageTitle: 'Storage Solutions',
+  storageDesc: 'Secure warehouse storage with digital tracking, permanent access, climate control, 24/7 monitoring, and complete inventory management.',
+  perProduct: 'per product',
+  perOrder: 'per order',
+  perPalletMonth: 'per pallet/month',
+  sixSidePhotos: '6-side product photo upload',
+  linkedToAsin: 'Linked to each ASIN in your account',
+  secureCloudStorage: 'Secure cloud storage',
+  instantDashboardAccess: 'Instant access from your dashboard',
+  
+  // Home Page - How It Works
+  howItWorksTitle: 'How It Works',
+  howItWorksSubtitle: 'Simple 6-step process from arrival to Amazon FC',
+  receptionStep: 'Reception',
+  receptionDesc: 'Your products arrive at our facility',
+  qualityControlStep: 'Quality Control',
+  qualityControlDesc: 'Quality control and inspection process',
+  labelingStep: 'Labeling',
+  labelingDesc: 'FNSKU/EAN labeling application',
+  polybaggingStep: 'Polybagging',
+  polybaggingDesc: 'Polybagging and protective packaging',
+  shippingStep: 'Shipping',
+  shippingDesc: 'Fast dispatch to Amazon FCs',
+  confirmStep: 'Confirm',
+  confirmDesc: 'Delivery confirmation and reporting',
+  
+  // Home Page - Benefits
+  benefitsTitle: 'Why European Sellers Choose Us',
+  benefitsSubtitle: 'Advantages that make the difference for your Amazon FBA business',
+  euDistributionTitle: 'EU-Wide Distribution',
+  euDistributionDesc: 'Strategic location in France for fast shipping to all European Amazon fulfillment centers',
+  complianceTitle: 'Compliance Expertise',
+  complianceDesc: 'Deep knowledge of Amazon FBA requirements and European regulations',
+  qualityAssuranceTitle: 'Quality Assurance',
+  qualityAssuranceDesc: 'Rigorous quality control process with photo documentation',
+  transparentPricingBenefitTitle: 'Transparent Pricing',
+  transparentPricingBenefitDesc: 'No hidden fees, competitive rates with clear pricing structure',
+  
+  // Home Page - Testimonials
+  testimonialsTitle: 'What Our Clients Say',
+  testimonialsSubtitle: 'Trusted by global Amazon sellers',
+  testimonial1Text: 'Prep Center France transformed our FBA operations. 24h turnaround is incredible!',
+  testimonial1Name: 'Marcus Weber',
+  testimonial1Company: 'Weber Electronics',
+  testimonial2Text: 'Professional service, transparent pricing. Our go-to prep center in Europe.',
+  testimonial2Name: 'Sophie Martin',
+  testimonial2Company: 'Martin Home & Garden',
+  testimonial3Text: 'Excellent quality control and fast processing. Highly recommended for EU sellers.',
+  testimonial3Name: 'Alessandro Rossi',
+  testimonial3Company: 'Rossi Fashion',
+  
+  // Home Page - Carriers
+  carriersTitle: 'Trusted Shipping Partners',
+  carriersSubtitle: 'We work with leading carriers for reliable delivery',
+  
+  // Home Page - Private Label
+  privateLabelTitle: 'Private Label & Multi-Platform Services',
+  privateLabelSubtitle: 'Complete fulfillment solutions for your brand across all platforms',
+  privateLabelPartnershipTitle: 'Private Label Partnership',
+  customPackaging: 'Custom packaging and branding',
+  productSourcing: 'Product sourcing consultation',
+  qualityCompliance: 'Quality control and compliance',
+  endToEndFulfillment: 'End-to-end fulfillment solutions',
+  multiPlatformTitle: 'Multi-Platform FBM',
+  amazonFbmFulfillment: 'Amazon FBM fulfillment',
+  ebayProcessing: 'eBay order processing',
+  shopifyIntegration: 'Shopify integration',
+  customWebsiteFulfillment: 'Custom website fulfillment',
+  
+  // Home Page - Contact
+  getStartedTitle: 'Get Started Today',
+  getStartedSubtitle: 'Contact us for a personalized quote and consultation',
+  callUsTitle: 'Call Us',
+  callUsDesc: 'Speak directly with our team',
+  whatsappTitle: 'WhatsApp',
+  whatsappDesc: 'Quick chat for instant answers',
+  emailTitle: 'Email',
+  emailDesc: 'Send us your requirements',
+  startChat: 'Start Chat',
+  
+  // Home Page - CTA
+  ctaTitle: 'Ready to Streamline Your Amazon FBA Operations in Europe?',
+  ctaSubtitle: 'Get started with professional Amazon FBA prep services in France. 24h turnaround times, quality control, FNSKU labeling and fast shipping to European Amazon fulfillment centers.',
+  
+  // Service Features
+  receptionInspection: 'Reception & inspection',
+  fnskuLabeling: 'Photo storage subscription',
+  polybagging: 'Polybagging',
+  qualityControl: 'Quality control',
+  pickPack: 'Pick & pack',
+  multiPlatform: 'Multi-platform',
+  sameDayShipping: 'Same-day shipping',
+  returnsHandling: 'Returns handling',
+  secureStorage: 'Secure storage',
+  inventoryTracking: 'Inventory tracking',
+  climateControlled: 'Climate controlled',
+  monitoring24h: '24/7 monitoring'
 };

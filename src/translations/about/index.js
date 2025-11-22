@@ -4,6 +4,7 @@ import { aboutDe } from './de';
 import { aboutIt } from './it';
 import { aboutEs } from './es';
 import { aboutRo } from './ro';
+import { aboutAr } from './ar';
 
 export const aboutTranslations = {
   en: aboutEn,
@@ -11,7 +12,8 @@ export const aboutTranslations = {
   de: aboutDe,
   it: aboutIt,
   es: aboutEs,
-  ro: aboutRo
+  ro: aboutRo,
+  ar: aboutAr
 };
 
 export const useAboutTranslation = (currentLanguage) => {
