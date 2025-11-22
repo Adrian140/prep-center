@@ -1371,17 +1371,20 @@ createPrepItem: async (requestId, item) => {
   },
 
   // ===== Analytics =====
-trackVisit: async (visitData) => {
-  try {
-    const payload = {
-      path: visitData?.path || window?.location?.pathname || '/',
-      referrer: visitData?.referrer || document?.referrer || null
-    };
-    await supabase.from('analytics_visits').insert(payload);
-  } catch (error) {
-    console.error('Analytics error:', error);
-  }
-},
+  trackVisit: async (visitData) => {
+    try {
+      const payload = {
+        path: visitData?.path || window?.location?.pathname || '/',
+        referrer: visitData?.referrer || document?.referrer || null,
+        visitor_id: visitData?.userId || visitData?.visitorId || null,
+        locale: visitData?.locale || null,
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
+      };
+      await supabase.from('analytics_visits').insert(payload);
+    } catch (error) {
+      console.error('Analytics error:', error);
+    }
+  },
 
   getAnalytics: async (options = {}) => {
     try {
@@ -1389,29 +1392,75 @@ trackVisit: async (visitData) => {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - days);
 
-      const [byDayRes, pathRes, refRes] = await Promise.all([
-        supabase
-          .from('analytics_visits')
-          .select('created_at')
-          .gte('created_at', cutoff.toISOString()),
-        supabase
-          .from('analytics_visits')
-          .select('path')
-          .gte('created_at', cutoff.toISOString()),
-        supabase
-          .from('analytics_visits')
-          .select('referrer')
-          .gte('created_at', cutoff.toISOString())
-      ]);
+      const { data, error } = await supabase
+        .from('analytics_visits')
+        .select('id, created_at, path, referrer, visitor_id')
+        .gte('created_at', cutoff.toISOString())
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        return { byDay: [], topPaths: [], topReferrers: [], totals: {}, error };
+      }
+
+      const visits = data || [];
+      const visitorCounts = new Map();
+      const perDay = new Map();
+
+      visits.forEach((v, idx) => {
+        const date = new Date(v.created_at);
+        const dayKey = date.toISOString().slice(0, 10);
+        const visitorKey = v.visitor_id || v.id || `unknown-${idx}`;
+
+        const day = perDay.get(dayKey) || {
+          date: dayKey,
+          visits: 0,
+          uniqueVisitors: new Set(),
+          returningVisitors: new Set()
+        };
+
+        day.visits += 1;
+        day.uniqueVisitors.add(visitorKey);
+
+        const prev = visitorCounts.get(visitorKey) || 0;
+        visitorCounts.set(visitorKey, prev + 1);
+        if (prev > 0) day.returningVisitors.add(visitorKey);
+
+        perDay.set(dayKey, day);
+      });
+
+      const totals = {
+        visits: visits.length,
+        uniqueVisitors: visitorCounts.size,
+        returningVisitors: Array.from(visitorCounts.values()).filter((c) => c > 1).length
+      };
+
+      const byDay = Array.from(perDay.values())
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((d) => ({
+          date: d.date,
+          visits: d.visits,
+          uniqueVisitors: d.uniqueVisitors.size,
+          returningVisitors: d.returningVisitors.size
+        }));
+
+      const aggregateCounts = (key, fallbackLabel = '') => {
+        const map = new Map();
+        visits.forEach((v) => {
+          const k = (v[key] || fallbackLabel).trim() || fallbackLabel;
+          map.set(k, (map.get(k) || 0) + 1);
+        });
+        return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      };
 
       return {
-        byDay: byDayRes.data || [],
-        topPaths: pathRes.data || [],
-        topReferrers: refRes.data || [],
-        error: byDayRes.error || pathRes.error || refRes.error
+        byDay,
+        topPaths: aggregateCounts('path', '/'),
+        topReferrers: aggregateCounts('referrer', '(direct)'),
+        totals,
+        error: null
       };
     } catch (error) {
-      return { byDay: [], topPaths: [], topReferrers: [], error };
+      return { byDay: [], topPaths: [], topReferrers: [], totals: {}, error };
     }
   },
 // ===== Analytics / Balances =====

@@ -1,75 +1,80 @@
 // FILE: src/components/admin/AdminAnalytics.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { BarChart3, Users, Activity } from "lucide-react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+import { supabaseHelpers } from "../../config/supabase";
+import { BarChart3, Globe2, Link2 } from "lucide-react";
 
 export default function AdminAnalytics() {
   const [range, setRange] = useState(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [daily, setDaily] = useState([]);
-  const [topPages, setTopPages] = useState([]);
+  const [rows, setRows] = useState({
+    byDay: [],
+    topPaths: [],
+    topReferrers: [],
+    totals: { visits: 0, uniqueVisitors: 0, returningVisitors: 0 },
+  });
 
   useEffect(() => {
     let cancelled = false;
-    const fetchGa = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/functions/v1/ga-report", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ days: range }),
+    setLoading(true);
+    setError(null);
+    (async () => {
+      const { byDay, topPaths, topReferrers, totals, error } = await supabaseHelpers.getAnalytics({ days: range });
+      if (cancelled) return;
+      if (error) setError(error);
+      else {
+        setRows({
+          byDay: byDay || [],
+          topPaths: topPaths || [],
+          topReferrers: topReferrers || [],
+          totals: totals || { visits: 0, uniqueVisitors: 0, returningVisitors: 0 },
         });
-        if (!res.ok) throw new Error(`GA fetch failed: ${res.status}`);
-        const data = await res.json();
-        if (cancelled) return;
-        setDaily(data.daily || []);
-        setTopPages(data.topPages || []);
-      } catch (err) {
-        if (!cancelled) setError(err);
-      } finally {
-        if (!cancelled) setLoading(false);
       }
-    };
-    fetchGa();
+      setLoading(false);
+    })();
     return () => { cancelled = true; };
   }, [range]);
 
-  // normalize daily rows into chart data
-  const dailyChart = useMemo(() => {
-    const arr = (daily || []).map((row) => {
-      const date = row.dimensionValues?.[0]?.value || "";
-      const metrics = row.metricValues || [];
-      return {
-        date,
-        users: Number(metrics[0]?.value || 0),
-        sessions: Number(metrics[1]?.value || 0),
-        events: Number(metrics[2]?.value || 0),
-      };
-    }).sort((a, b) => a.date.localeCompare(b.date));
-    const maxSessions = Math.max(1, ...arr.map((x) => x.sessions));
-    return { arr, maxSessions };
-  }, [daily]);
+  const dailyStats = rows.byDay || [];
+  const chartData = useMemo(
+    () =>
+      dailyStats.map((d) => ({
+        date: d.date,
+        total: d.visits,
+        returning: d.returningVisitors,
+        uniques: d.uniqueVisitors,
+      })),
+    [dailyStats]
+  );
 
-  const totals = useMemo(() => {
-    return dailyChart.arr.reduce(
-      (acc, cur) => {
-        acc.users += cur.users;
-        acc.sessions += cur.sessions;
-        acc.events += cur.events;
-        return acc;
-      },
-      { users: 0, sessions: 0, events: 0 }
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload || payload.length === 0) return null;
+    const point = payload.reduce(
+      (acc, cur) => ({ ...acc, [cur.dataKey]: cur.value }),
+      {}
     );
-  }, [dailyChart]);
+    return (
+      <div className="bg-white border shadow-sm rounded-md px-3 py-2 text-xs text-text-secondary">
+        <div className="font-semibold text-text-primary mb-1">{label}</div>
+        <div>Total: {point.total ?? 0}</div>
+        <div>Unici: {point.uniques ?? 0}</div>
+        <div>Reveniți: {point.returning ?? 0}</div>
+      </div>
+    );
+  };
 
-  const topPagesList = useMemo(() => {
-    return (topPages || []).map((row) => {
-      const path = row.dimensionValues?.[0]?.value || "(unknown)";
-      const sessions = Number(row.metricValues?.[0]?.value || 0);
-      return { path, sessions };
-    }).slice(0, 10);
-  }, [topPages]);
+  const topPaths = rows.topPaths || [];
+  const topReferrers = rows.topReferrers || [];
 
   return (
     <div className="space-y-6">
@@ -98,71 +103,110 @@ export default function AdminAnalytics() {
 
       {!loading && !error && (
         <>
-          {/* KPI cards */}
+          {/* Summary */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl border p-4 flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-sm text-text-secondary">Users</div>
-                <div className="text-xl font-semibold">{totals.users}</div>
-              </div>
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="text-sm text-text-secondary mb-1">Vizite totale</div>
+              <div className="text-2xl font-bold text-text-primary">{rows.totals.visits || 0}</div>
+              <div className="text-xs text-text-secondary">Evenimente de vizită în intervalul selectat.</div>
             </div>
-            <div className="bg-white rounded-xl border p-4 flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                <BarChart3 className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-sm text-text-secondary">Sessions</div>
-                <div className="text-xl font-semibold">{totals.sessions}</div>
-              </div>
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="text-sm text-text-secondary mb-1">Vizitatori unici</div>
+              <div className="text-2xl font-bold text-text-primary">{rows.totals.uniqueVisitors || 0}</div>
+              <div className="text-xs text-text-secondary">Utilizatori unici care au intrat cel puțin o dată.</div>
             </div>
-            <div className="bg-white rounded-xl border p-4 flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                <Activity className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-sm text-text-secondary">Events</div>
-                <div className="text-xl font-semibold">{totals.events}</div>
-              </div>
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="text-sm text-text-secondary mb-1">Au revenit</div>
+              <div className="text-2xl font-bold text-text-primary">{rows.totals.returningVisitors || 0}</div>
+              <div className="text-xs text-text-secondary">Vizitatori cu minim 2 vizite în interval.</div>
             </div>
           </div>
 
           {/* Visits per day */}
           <div className="bg-gray-50 rounded-xl p-4">
-            <div className="text-sm text-text-secondary mb-3">Trafic pe zi (GA4)</div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {dailyChart.arr.map((row) => (
-                <div key={row.date} className="flex items-center gap-3">
-                  <div className="w-24 text-sm text-text-secondary">{row.date}</div>
-                  <div className="flex-1 h-3 bg-white rounded-md overflow-hidden border">
-                    <div
-                      className="h-full bg-primary"
-                      style={{ width: `${(row.sessions / dailyChart.maxSessions) * 100}%` }}
-                    />
-                  </div>
-                  <div className="w-14 text-right text-sm">{row.sessions} sess</div>
-                </div>
-              ))}
-              {dailyChart.arr.length === 0 && (
-                <div className="text-text-secondary">Nicio vizită în interval.</div>
-              )}
+            <div className="flex items-center justify-between mb-3 text-sm text-text-secondary">
+              <span>Trend vizite (total vs reveniți) — stil linie</span>
+              <div className="flex items-center gap-4 text-xs">
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-4 h-1 rounded-full bg-primary inline-block" />
+                  Total
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-4 h-1 rounded-full bg-emerald-500 inline-block" />
+                  Reveniți
+                </span>
+              </div>
             </div>
+            {chartData.length >= 2 ? (
+              <div className="w-full h-72 bg-white border rounded-lg overflow-hidden px-2 py-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(value) => value.slice(5)}
+                      tick={{ fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="total"
+                      stroke="#2563eb"
+                      strokeWidth={1.5}
+                      dot={{ r: 2 }}
+                      activeDot={{ r: 4 }}
+                      name="Total"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="returning"
+                      stroke="#10b981"
+                      strokeWidth={1.5}
+                      dot={{ r: 2 }}
+                      activeDot={{ r: 4 }}
+                      name="Reveniți"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="text-text-secondary text-sm">Ai nevoie de cel puțin 2 zile de date pentru grafic.</div>
+            )}
           </div>
 
           {/* Top lists */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-gray-50 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3 text-sm text-text-secondary">Pagini top (GA4)</div>
+              <div className="flex items-center gap-2 mb-3 text-sm text-text-secondary">
+                <Link2 className="w-4 h-4" /> Pagini top
+              </div>
               <ul className="space-y-2">
-                {topPagesList.map((row) => (
-                  <li key={row.path} className="flex justify-between gap-3">
-                    <span className="truncate">{row.path}</span>
-                    <span className="font-semibold">{row.sessions}</span>
+                {topPaths.map(([p, c]) => (
+                  <li key={p} className="flex justify-between gap-3">
+                    <span className="truncate">{p}</span>
+                    <span className="font-semibold">{c}</span>
                   </li>
                 ))}
-                {topPagesList.length === 0 && <li className="text-text-secondary">—</li>}
+                {topPaths.length === 0 && <li className="text-text-secondary">—</li>}
+              </ul>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3 text-sm text-text-secondary">
+                <Globe2 className="w-4 h-4" /> Referrers
+              </div>
+              <ul className="space-y-2">
+                {topReferrers.map(([r, c]) => (
+                  <li key={r} className="flex justify-between gap-3">
+                    <span className="truncate">{r}</span>
+                    <span className="font-semibold">{c}</span>
+                  </li>
+                ))}
+                {topReferrers.length === 0 && <li className="text-text-secondary">—</li>}
               </ul>
             </div>
           </div>
