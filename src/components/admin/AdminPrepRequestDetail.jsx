@@ -1132,62 +1132,74 @@ onChanged?.();
             {boxSummary.length === 0 ? (
               <p className="text-sm text-text-secondary">No boxes added yet.</p>
             ) : (
-              <div className="space-y-3 text-sm">
+              <div className="flex flex-wrap gap-3 text-sm">
                 {boxSummary.map((box) => (
-                  <div key={box.boxNumber} className="space-y-1">
-                    <div className="font-semibold text-text-primary">Box {box.boxNumber}</div>
-                    <div className="flex flex-wrap gap-3 text-xs text-text-secondary pl-2">
-                      <label className="flex items-center gap-1">
-                        Kg
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.1"
-                          className="w-20 border rounded px-2 py-1 text-right text-sm"
-                          value={box.meta?.weightKg ?? ''}
-                          onChange={(e) => updateSummaryBoxValue(box.targets, 'weightKg', e.target.value)}
-                        />
-                      </label>
-                      <label className="flex items-center gap-1">
-                        L (cm)
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.1"
-                          className="w-20 border rounded px-2 py-1 text-right text-sm"
-                          value={box.meta?.lengthCm ?? ''}
-                          onChange={(e) => updateSummaryBoxValue(box.targets, 'lengthCm', e.target.value)}
-                        />
-                      </label>
-                      <label className="flex items-center gap-1">
-                        W
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.1"
-                          className="w-20 border rounded px-2 py-1 text-right text-sm"
-                          value={box.meta?.widthCm ?? ''}
-                          onChange={(e) => updateSummaryBoxValue(box.targets, 'widthCm', e.target.value)}
-                        />
-                      </label>
-                      <label className="flex items-center gap-1">
-                        H
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.1"
-                          className="w-20 border rounded px-2 py-1 text-right text-sm"
-                          value={box.meta?.heightCm ?? ''}
-                          onChange={(e) => updateSummaryBoxValue(box.targets, 'heightCm', e.target.value)}
-                        />
-                      </label>
+                  <div
+                    key={box.boxNumber}
+                    className="flex-1 min-w-[220px] max-w-[260px] rounded-2xl border shadow-sm p-3 space-y-3 bg-white"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-text-secondary">Box</div>
+                        <div className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                          {box.boxNumber}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[11px] text-text-secondary">
+                        <label className="flex items-center gap-1">
+                          Kg
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            className="w-14 border rounded px-2 py-1 text-right text-xs"
+                            value={box.meta?.weightKg ?? ''}
+                            onChange={(e) => updateSummaryBoxValue(box.targets, 'weightKg', e.target.value)}
+                          />
+                        </label>
+                        <label className="flex items-center gap-1">
+                          L
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            className="w-12 border rounded px-2 py-1 text-right text-xs"
+                            value={box.meta?.lengthCm ?? ''}
+                            onChange={(e) => updateSummaryBoxValue(box.targets, 'lengthCm', e.target.value)}
+                          />
+                        </label>
+                        <label className="flex items-center gap-1">
+                          W
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            className="w-12 border rounded px-2 py-1 text-right text-xs"
+                            value={box.meta?.widthCm ?? ''}
+                            onChange={(e) => updateSummaryBoxValue(box.targets, 'widthCm', e.target.value)}
+                          />
+                        </label>
+                        <label className="flex items-center gap-1">
+                          H
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            className="w-12 border rounded px-2 py-1 text-right text-xs"
+                            value={box.meta?.heightCm ?? ''}
+                            onChange={(e) => updateSummaryBoxValue(box.targets, 'heightCm', e.target.value)}
+                          />
+                        </label>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-4 pl-2 text-text-secondary">
+                    <div className="space-y-1 text-xs text-text-secondary">
                       {box.lines.map((line, idx) => (
-                        <span key={`${box.boxNumber}-${idx}`} className="flex items-center gap-1">
-                          <span>{line.code || line.name || "Item"}</span>
-                          <span className="font-semibold text-text-primary">{line.qty}</span>
-                        </span>
+                        <div key={`${box.boxNumber}-${idx}`} className="flex items-center justify-between">
+                          <span className="truncate" title={line.code || line.name}>
+                            {line.code || line.name || "Item"}
+                          </span>
+                          <span className="font-semibold text-text-primary">{line.qty} u</span>
+                        </div>
                       ))}
                     </div>
                   </div>
