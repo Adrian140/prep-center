@@ -239,6 +239,11 @@ export default function ClientAffiliates() {
         </button>
       </div>
 
+      <div className="p-3 border rounded-xl bg-blue-50/80 text-sm text-text-secondary">
+        Dacă aduci un client nou prin codul tău și acesta ajunge la facturi de 1000&nbsp;€ în primele 3 luni,
+        primești 100&nbsp;€ bonus. Clientul recomandat primește 25&nbsp;€ reducere la următoarea factură.
+      </div>
+
       {flash && (
         <div
           className={`rounded-lg border px-4 py-2 text-sm ${
