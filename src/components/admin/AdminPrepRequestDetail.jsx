@@ -720,6 +720,16 @@ onChanged?.();
 
   return (
     <div className="space-y-6">
+      <style>{`
+        input.no-spin::-webkit-outer-spin-button,
+        input.no-spin::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input.no-spin {
+          -moz-appearance: textfield;
+        }
+      `}</style>
       <button onClick={onBack} className="inline-flex items-center text-sm">
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to list
       </button>
@@ -1136,60 +1146,59 @@ onChanged?.();
                 {boxSummary.map((box) => (
                   <div
                     key={box.boxNumber}
-                    className="flex-1 min-w-[220px] max-w-[260px] rounded-2xl border shadow-sm p-3 space-y-3 bg-white"
+                    className="flex-1 min-w-[260px] max-w-[320px] rounded-2xl border shadow-sm p-3 space-y-3 bg-white"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="text-xs uppercase tracking-wide text-text-secondary">Box</div>
-                        <div className="text-lg font-semibold text-text-primary flex items-center gap-2">
-                          {box.boxNumber}
-                        </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex flex-col items-start min-w-[52px]">
+                        <div className="text-xs uppercase tracking-wide text-text-secondary leading-tight">Box</div>
+                        <div className="text-2xl font-semibold text-text-primary leading-none">{box.boxNumber}</div>
                       </div>
-                      <div className="flex flex-wrap gap-2 text-[11px] text-text-secondary">
+                      <div className="flex-1 flex items-center gap-2 text-[11px] text-text-secondary">
                         <label className="flex items-center gap-1">
-                          Kg
+                          <span>Kg</span>
                           <input
                             type="number"
                             min={0}
                             step="0.1"
-                            className="w-14 border rounded px-2 py-1 text-right text-xs"
+                            inputMode="decimal"
+                            className="no-spin w-14 h-8 border rounded px-2 text-right text-xs appearance-none [appearance:textfield] [-moz-appearance:textfield] bg-blue-50 border-blue-200"
                             value={box.meta?.weightKg ?? ''}
                             onChange={(e) => updateSummaryBoxValue(box.targets, 'weightKg', e.target.value)}
                           />
                         </label>
-                        <label className="flex items-center gap-1">
-                          L
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.1"
-                            className="w-12 border rounded px-2 py-1 text-right text-xs"
-                            value={box.meta?.lengthCm ?? ''}
-                            onChange={(e) => updateSummaryBoxValue(box.targets, 'lengthCm', e.target.value)}
-                          />
-                        </label>
-                        <label className="flex items-center gap-1">
-                          W
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.1"
-                            className="w-12 border rounded px-2 py-1 text-right text-xs"
-                            value={box.meta?.widthCm ?? ''}
-                            onChange={(e) => updateSummaryBoxValue(box.targets, 'widthCm', e.target.value)}
-                          />
-                        </label>
-                        <label className="flex items-center gap-1">
-                          H
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.1"
-                            className="w-12 border rounded px-2 py-1 text-right text-xs"
-                            value={box.meta?.heightCm ?? ''}
-                            onChange={(e) => updateSummaryBoxValue(box.targets, 'heightCm', e.target.value)}
-                          />
-                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          inputMode="decimal"
+                          placeholder="L"
+                          aria-label="Length"
+                          className="no-spin w-12 h-8 border rounded px-2 text-right text-xs appearance-none [appearance:textfield] [-moz-appearance:textfield]"
+                          value={box.meta?.lengthCm ?? ''}
+                          onChange={(e) => updateSummaryBoxValue(box.targets, 'lengthCm', e.target.value)}
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          inputMode="decimal"
+                          placeholder="W"
+                          aria-label="Width"
+                          className="no-spin w-12 h-8 border rounded px-2 text-right text-xs appearance-none [appearance:textfield] [-moz-appearance:textfield]"
+                          value={box.meta?.widthCm ?? ''}
+                          onChange={(e) => updateSummaryBoxValue(box.targets, 'widthCm', e.target.value)}
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          inputMode="decimal"
+                          placeholder="H"
+                          aria-label="Height"
+                          className="no-spin w-12 h-8 border rounded px-2 text-right text-xs appearance-none [appearance:textfield] [-moz-appearance:textfield]"
+                          value={box.meta?.heightCm ?? ''}
+                          onChange={(e) => updateSummaryBoxValue(box.targets, 'heightCm', e.target.value)}
+                        />
                       </div>
                     </div>
                     <div className="space-y-1 text-xs text-text-secondary">
