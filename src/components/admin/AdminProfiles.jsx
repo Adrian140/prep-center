@@ -299,7 +299,20 @@ export default function AdminProfiles({ onSelect }) {
       }
       if (soldeA === null) return 1;
       if (soldeB === null) return -1;
-      if (soldeB === soldeA) return (a._order ?? 0) - (b._order ?? 0);
+
+      if (soldeA === soldeB) {
+        return (a._order ?? 0) - (b._order ?? 0);
+      }
+
+      const bucket = (value) => {
+        if (value > 0) return 0;
+        if (value < 0) return 1;
+        return 2; // zero balances sit after negatives
+      };
+
+      const bucketDiff = bucket(soldeA) - bucket(soldeB);
+      if (bucketDiff !== 0) return bucketDiff;
+
       return soldeB - soldeA;
     });
     return rowsWithFallback;
