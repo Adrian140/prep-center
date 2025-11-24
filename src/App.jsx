@@ -64,7 +64,7 @@ function RoutePersistence() {
   const location = useLocation();
   React.useEffect(() => {
     const p = location.pathname;
-    const skip = ['/login', '/register', '/forgot-password', '/reset-password', '/auth/callback', '/integrations/amazon/callback'];
+    const skip = ['/login', '/register', '/forgot-password', '/reset-password', '/auth/callback', '/auth/amazon/callback'];
     if (!skip.includes(p)) {
       setTabLastPath(p + location.search + location.hash);
     }
@@ -196,7 +196,7 @@ export default function App() {
             }
           />
           <Route
-            path="/integrations/amazon/callback"
+            path="/auth/amazon/callback"
             element={
               <MaintenanceGate>
                 <ClientRoute>

@@ -44,8 +44,9 @@ export default function ClientIntegrations() {
   const [refreshing, setRefreshing] = useState(false);
 
   const clientId = import.meta.env.VITE_SPAPI_CLIENT_ID || '';
+  const applicationId = import.meta.env.VITE_AMZ_APP_ID || clientId || '';
   const redirectUri =
-    import.meta.env.VITE_SPAPI_REDIRECT_URI || `${window.location.origin}/integrations/amazon/callback`;
+    import.meta.env.VITE_SPAPI_REDIRECT_URI || `${window.location.origin}/auth/amazon/callback`;
 
   const statePayload = useMemo(() => {
     if (!user?.id) return '';
@@ -62,17 +63,17 @@ export default function ClientIntegrations() {
   }, [user?.id, profile?.company_id, region, stateToken, redirectUri]);
 
   const authorizeUrl = useMemo(() => {
-    if (!clientId || !redirectUri || !statePayload) return '';
+    if (!applicationId || !redirectUri || !statePayload) return '';
     const regionConfig = AMAZON_REGIONS.find((r) => r.id === region);
     if (!regionConfig) return '';
     const params = new URLSearchParams({
-      application_id: clientId,
+      application_id: applicationId,
       state: statePayload,
       version: 'beta',
       redirect_uri: redirectUri
     });
     return `${regionConfig.consentUrl}?${params.toString()}`;
-  }, [clientId, redirectUri, region, statePayload]);
+  }, [applicationId, redirectUri, region, statePayload]);
 
   const loadIntegrations = async () => {
     if (!user?.id) return;
@@ -122,10 +123,10 @@ export default function ClientIntegrations() {
         </div>
       </header>
 
-      {!clientId && (
+      {(!clientId || !applicationId) && (
         <div className="p-4 rounded-lg border border-amber-300 bg-amber-50 text-sm text-amber-900">
           {tp('ClientIntegrations.notice', {
-            clientId: 'VITE_SPAPI_CLIENT_ID',
+            clientId: 'VITE_SPAPI_CLIENT_ID / VITE_AMZ_APP_ID',
             redirect: 'VITE_SPAPI_REDIRECT_URI'
           })}
         </div>
