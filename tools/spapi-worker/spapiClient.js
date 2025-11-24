@@ -11,6 +11,7 @@ export function createSpClient({ refreshToken, region }) {
       AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
       AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
       AWS_SELLING_PARTNER_ROLE: process.env.SPAPI_ROLE_ARN
+    },
     options: {
       use_role: true
     }
