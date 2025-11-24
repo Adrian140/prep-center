@@ -33,8 +33,18 @@ export default function AmazonIntegrationCallback() {
       });
 
       if (error || data?.ok === false) {
+        let extra = '';
+        if (error?.context?.response) {
+          try {
+            extra = await error.context.response.text();
+          } catch (_err) {
+            // ignore
+          }
+        }
+        const fallback = error?.message || data?.error || 'Unable to save integration.';
         setStatus('error');
-        setMessage(error?.message || data?.error || 'Unable to save integration.');
+        setMessage(extra ? `${fallback}: ${extra}` : fallback);
+        if (extra) console.error('amazon_oauth_callback error:', extra);
         return;
       }
 
