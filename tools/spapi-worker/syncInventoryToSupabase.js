@@ -1,12 +1,25 @@
 import 'dotenv/config';
+import { createDecipheriv } from 'crypto';
+import { gunzipSync } from 'zlib';
 import { createSpClient } from './spapiClient.js';
 import { supabase } from './supabaseClient.js';
 
-const SHOULD_FETCH_TITLES =
-  process.env.SPAPI_FETCH_TITLES === 'true' || process.env.SPAPI_FETCH_TITLES === '1';
-const TITLE_LOOKUP_LIMIT = Number(process.env.SPAPI_TITLE_LOOKUPS || 20);
-const TITLE_LOOKUP_DELAY = Number(process.env.SPAPI_TITLE_DELAY_MS || 350);
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
+const REPORT_TYPE = 'GET_FBA_MYI_ALL_INVENTORY_DATA';
+const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 4000);
+const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 60);
+
+export const sanitizeText = (value) => {
+  if (!value) return value;
+  return String(value)
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function assertBaseEnv() {
   const missing = [];
@@ -46,15 +59,19 @@ function singleModeIntegration() {
 async function fetchActiveIntegrations() {
   const single = singleModeIntegration();
   if (single) return single;
+
   const { data, error } = await supabase
     .from('amazon_integrations')
     .select('id, user_id, company_id, marketplace_id, region, selling_partner_id, refresh_token, status')
     .eq('status', 'active');
+
   if (error) throw error;
+
   const integrations = data || [];
   const sellerIds = integrations
     .map((row) => row.selling_partner_id)
     .filter((id) => typeof id === 'string' && id.length > 0);
+
   const tokenMap = new Map();
   if (sellerIds.length) {
     const { data: tokens, error: tokensError } = await supabase
@@ -68,6 +85,7 @@ async function fetchActiveIntegrations() {
       }
     });
   }
+
   return integrations
     .map((row) => ({
       ...row,
@@ -77,133 +95,153 @@ async function fetchActiveIntegrations() {
     .filter((row) => !!row.refresh_token);
 }
 
-async function fetchInventorySummaries(spClient, marketplaceId) {
-  const chunks = [];
-  let nextToken = null;
-  const market = marketplaceId || DEFAULT_MARKETPLACE;
+async function createInventoryReport(spClient, marketplaceId) {
+  const body = {
+    reportType: REPORT_TYPE,
+    marketplaceIds: [marketplaceId],
+    reportOptions: {
+      detailed: 'true'
+    }
+  };
 
-  do {
-    const query = nextToken
-      ? { nextToken }
-      : {
-          marketplaceId: market,
-          granularityType: 'Marketplace',
-          granularityId: market,
-          details: true
-        };
+  const response = await spClient.callAPI({
+    operation: 'createReport',
+    endpoint: 'reports',
+    body
+  });
 
-    const res = await spClient.callAPI({
-      operation: 'getInventorySummaries',
-      endpoint: 'fbaInventory',
-      query
+  if (!response?.reportId) {
+    throw new Error('Failed to create inventory report');
+  }
+
+  return response.reportId;
+}
+
+async function waitForReport(spClient, reportId) {
+  for (let attempt = 0; attempt < REPORT_POLL_LIMIT; attempt += 1) {
+    const report = await spClient.callAPI({
+      operation: 'getReport',
+      endpoint: 'reports',
+      path: { reportId }
     });
 
-    if (!res) {
-      throw new Error('Empty response from getInventorySummaries');
+    if (!report) throw new Error('Empty response when polling report status');
+
+    switch (report.processingStatus) {
+      case 'DONE':
+        return report.reportDocumentId;
+      case 'FATAL':
+      case 'CANCELLED':
+        throw new Error(`Amazon report failed with status ${report.processingStatus}`);
+      case 'DONE_NO_DATA':
+        throw new Error('Amazon report completed without data');
+      default:
+        await delay(REPORT_POLL_INTERVAL);
     }
-
-    chunks.push(...(res.inventorySummaries || []));
-    nextToken = res.nextToken ?? null;
-  } while (nextToken);
-
-  return chunks;
+  }
+  throw new Error('Timed out waiting for Amazon report to finish');
 }
 
-function normalizeInventory(raw = []) {
-  const map = new Map();
+async function downloadReportDocument(spClient, reportDocumentId) {
+  const document = await spClient.callAPI({
+    operation: 'getReportDocument',
+    endpoint: 'reports',
+    path: { reportDocumentId }
+  });
 
-  for (const summary of raw) {
-    const sku = (summary.sellerSku || summary.sku || '').trim();
-    const asin = (summary.asin || '').trim();
-    const key = (sku || asin).toLowerCase();
-    if (!key) continue;
+  if (!document?.url) throw new Error('Report document missing download URL');
 
-    const details = summary.inventoryDetails || {};
-    const fulfillable = Number(details.fulfillableQuantity ?? 0);
+  const fetchImpl =
+    globalThis.fetch ||
+    (await import('node-fetch').then((mod) => mod.default));
+  const response = await fetchImpl(document.url);
+  if (!response.ok) {
+    throw new Error(`Failed to download report document (${response.status})`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  let buffer = Buffer.from(arrayBuffer);
+
+  if (document.encryptionDetails) {
+    buffer = decryptDocument(buffer, document.encryptionDetails);
+  }
+
+  if (document.compressionAlgorithm === 'GZIP') {
+    buffer = gunzipSync(buffer);
+  }
+
+  return buffer.toString('utf-8');
+}
+
+function decryptDocument(buffer, encryptionDetails) {
+  const key = Buffer.from(encryptionDetails.key, 'base64');
+  const iv = Buffer.from(encryptionDetails.initializationVector, 'base64');
+  const decipher = createDecipheriv('aes-256-cbc', key, iv);
+  const decrypted = Buffer.concat([decipher.update(buffer), decipher.final()]);
+  return decrypted;
+}
+
+const COLUMN_ALIASES = new Map([
+  ['seller-sku', 'sku'],
+  ['sku', 'sku'],
+  ['asin', 'asin'],
+  ['product-name', 'name'],
+  ['afn-fulfillable-quantity', 'fulfillable'],
+  ['afn-inbound-working-quantity', 'inboundWorking'],
+  ['afn-inbound-shipped-quantity', 'inboundShipped'],
+  ['afn-inbound-receiving-quantity', 'inboundReceiving'],
+  ['afn-reserved-quantity', 'reserved'],
+  ['afn-unsellable-quantity', 'unsellable']
+]);
+
+function parseInventoryRows(tsvText) {
+  const lines = tsvText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) return [];
+
+  const headers = lines
+    .shift()
+    .split('\t')
+    .map((header) => COLUMN_ALIASES.get(header.trim().toLowerCase()) || header.trim().toLowerCase());
+
+  return lines.map((line) => {
+    const cols = line.split('\t');
+    const row = {};
+    headers.forEach((header, idx) => {
+      row[header] = cols[idx];
+    });
+    return row;
+  });
+}
+
+function normalizeInventory(rawRows = []) {
+  const normalized = [];
+  for (const row of rawRows) {
+    const sku = (row.sku || '').trim();
+    const asin = (row.asin || '').trim();
+    if (!sku && !asin) continue;
+
+    const fulfillable = Number(row.fulfillable ?? 0);
     const inboundTotal =
-      Number(details.inboundWorkingQuantity ?? 0) +
-      Number(details.inboundShippedQuantity ?? 0) +
-      Number(details.inboundReceivedQuantity ?? 0);
-    const reserved = (() => {
-      if (details.reservedQuantity == null) return 0;
-      if (typeof details.reservedQuantity === 'number') return Number(details.reservedQuantity);
-      if (typeof details.reservedQuantity === 'object') {
-        return Number(
-          details.reservedQuantity.totalReservedQuantity ??
-            details.reservedQuantity.reservedQuantity ??
-            details.reservedQuantity.total ??
-            0
-        );
-      }
-      return 0;
-    })();
-    const unfulfillable = Number(details.unfulfillableQuantity ?? details.totalUnfulfillableQuantity ?? 0);
+      Number(row.inboundWorking ?? 0) +
+      Number(row.inboundShipped ?? 0) +
+      Number(row.inboundReceiving ?? 0);
+    const reserved = Number(row.reserved ?? 0);
+    const unfulfillable = Number(row.unsellable ?? 0);
 
-    const baseline = map.get(key) || {
-      key,
-      asin: asin || null,
+    normalized.push({
+      key: (sku || asin).toLowerCase(),
       sku: sku || null,
-      fnsku: summary.fnSku || null,
-      amazon_stock: 0,
-      amazon_inbound: 0,
-      amazon_reserved: 0,
-      amazon_unfulfillable: 0,
-      name: summary.productName || null
-    };
-
-    baseline.amazon_stock += fulfillable;
-    baseline.amazon_inbound += inboundTotal;
-    baseline.amazon_reserved += reserved;
-    baseline.amazon_unfulfillable += unfulfillable;
-    if (!baseline.asin && asin) baseline.asin = asin;
-    if (!baseline.sku && sku) baseline.sku = sku;
-    if (!baseline.fnsku && summary.fnSku) baseline.fnsku = summary.fnSku;
-
-    map.set(key, baseline);
+      asin: asin || null,
+      amazon_stock: fulfillable,
+      amazon_inbound: inboundTotal,
+      amazon_reserved: reserved,
+      amazon_unfulfillable: unfulfillable,
+      name: sanitizeText(row.name) || null
+    });
   }
-
-  return Array.from(map.values());
-}
-
-async function fetchCatalogTitles(spClient, marketplaceId, asins) {
-  if (!SHOULD_FETCH_TITLES) return new Map();
-  const unique = [...new Set(asins.filter(Boolean).map((a) => a.toLowerCase()))];
-  const limited = unique.slice(0, Math.max(0, TITLE_LOOKUP_LIMIT));
-
-  const titles = new Map();
-  for (const asin of limited) {
-    try {
-      const res = await spClient.callAPI({
-        operation: 'getCatalogItem',
-        endpoint: 'catalogItemsV20220401',
-        path: { asin },
-        query: { marketplaceIds: [marketplaceId || DEFAULT_MARKETPLACE] }
-      });
-
-      const title = extractCatalogTitle(res);
-      if (title) titles.set(asin, title);
-    } catch (err) {
-      console.warn(`Catalog lookup failed for ${asin}:`, err?.message || err);
-    }
-    if (limited.length > 1) {
-      await delay(TITLE_LOOKUP_DELAY);
-    }
-  }
-  return titles;
-}
-
-function extractCatalogTitle(payload) {
-  const attributes = payload?.attributes;
-  if (attributes?.item_name?.length) {
-    const first = attributes.item_name[0];
-    if (first?.value) return first.value;
-  }
-
-  const summary = payload?.summaries?.[0];
-  if (summary?.itemName) return summary.itemName;
-  if (summary?.displayName) return summary.displayName;
-
-  return null;
+  return normalized;
 }
 
 function keyFromRow(row) {
@@ -222,9 +260,9 @@ async function upsertStockRows(rows) {
   }
 }
 
-async function syncToSupabase({ items, companyId, userId, spClient, marketplaceId }) {
+async function syncToSupabase({ items, companyId, userId }) {
   if (items.length === 0) {
-    console.log('Amazon returned no inventory summaries. Nothing to sync.');
+    console.log('Amazon returned no inventory rows. Nothing to sync.');
     return { affected: 0, zeroed: 0 };
   }
 
@@ -242,7 +280,6 @@ async function syncToSupabase({ items, companyId, userId, spClient, marketplaceI
 
   const seenKeys = new Set();
   const insertsOrUpdates = [];
-  const catalogTargets = [];
 
   for (const item of items) {
     const key = item.key;
@@ -251,17 +288,14 @@ async function syncToSupabase({ items, companyId, userId, spClient, marketplaceI
     const row = existingByKey.get(key);
 
     if (row) {
-      const patch = {
+      insertsOrUpdates.push({
         id: row.id,
         amazon_stock: item.amazon_stock,
         amazon_inbound: item.amazon_inbound,
         amazon_reserved: item.amazon_reserved,
-        amazon_unfulfillable: item.amazon_unfulfillable
-      };
-      if (!row.asin && item.asin) patch.asin = item.asin;
-      if (!row.sku && item.sku) patch.sku = item.sku;
-      if ((!row.name || !row.name.trim()) && item.name) patch.name = item.name;
-      insertsOrUpdates.push(patch);
+        amazon_unfulfillable: item.amazon_unfulfillable,
+        name: row.name && row.name.trim() ? row.name : item.name || row.name
+      });
     } else {
       insertsOrUpdates.push({
         company_id: companyId,
@@ -275,7 +309,6 @@ async function syncToSupabase({ items, companyId, userId, spClient, marketplaceI
         amazon_unfulfillable: item.amazon_unfulfillable,
         qty: 0
       });
-      catalogTargets.push(item.asin);
     }
   }
 
@@ -288,25 +321,39 @@ async function syncToSupabase({ items, companyId, userId, spClient, marketplaceI
     insertsOrUpdates.push({ id: row.id, amazon_stock: 0 });
   });
 
-  if (catalogTargets.length) {
-    const titleMap = await fetchCatalogTitles(spClient, marketplaceId, catalogTargets);
-    if (titleMap.size) {
-      insertsOrUpdates.forEach((record) => {
-        if (record.id) return;
-        if (record.name && record.name !== record.asin && record.name !== record.sku) return;
-        const asin = record.asin ? record.asin.toLowerCase() : null;
-        if (asin && titleMap.has(asin)) {
-          record.name = titleMap.get(asin);
-        }
-      });
-    }
-  }
-
   await upsertStockRows(insertsOrUpdates);
   return { affected: insertsOrUpdates.length, zeroed: missing.length };
 }
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+async function fetchInventoryRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
+  const reportId = await createInventoryReport(spClient, marketplaceId);
+  const documentId = await waitForReport(spClient, reportId);
+  const documentText = await downloadReportDocument(spClient, documentId);
+  return parseInventoryRows(documentText);
+}
+
+async function fetchInventorySummaries(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
+  const res = await spClient.callAPI({
+    operation: 'listInventorySummaries',
+    endpoint: 'fbaInventory',
+    query: {
+      details: true,
+      marketplaceIds: [marketplaceId]
+    }
+  });
+  if (!res?.inventorySummaries) return [];
+  return res.inventorySummaries.map((row) => ({
+    sku: row.sellerSku || row.sku || null,
+    asin: row.asin || null,
+    fulfillable: Number(row.inStockSupplyQuantity ?? 0),
+    inboundWorking: Number(row.inboundWorkingQuantity ?? 0),
+    inboundShipped: Number(row.inboundShippedQuantity ?? 0),
+    inboundReceiving: Number(row.inboundReceivingQuantity ?? 0),
+    reserved: Number(row.reservedQuantity ?? 0),
+    unsellable: Number(row.unfulfillableQuantity ?? 0),
+    name: sanitizeText(row.productName) || null
+  }));
+}
 
 async function syncIntegration(integration) {
   const spClient = createSpClient({
@@ -319,14 +366,21 @@ async function syncIntegration(integration) {
   );
 
   try {
-    const raw = await fetchInventorySummaries(spClient, integration.marketplace_id);
-    const normalized = normalizeInventory(raw);
+    let normalized = [];
+    try {
+      const rawRows = await fetchInventoryRows(spClient, integration.marketplace_id || DEFAULT_MARKETPLACE);
+      normalized = normalizeInventory(rawRows);
+    } catch (err) {
+      console.error(`Report inventory failed for ${integration.id}:`, err?.message || err);
+      // fallback to Inventory Summaries API
+      const summaries = await fetchInventorySummaries(spClient, integration.marketplace_id || DEFAULT_MARKETPLACE);
+      normalized = normalizeInventory(summaries);
+    }
+
     const stats = await syncToSupabase({
       items: normalized,
       companyId: integration.company_id,
-      userId: integration.user_id,
-      spClient,
-      marketplaceId: integration.marketplace_id
+      userId: integration.user_id
     });
 
     await supabase
