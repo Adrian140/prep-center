@@ -353,33 +353,47 @@ async function fetchInventoryRows(spClient, marketplaceId = DEFAULT_MARKETPLACE)
 }
 
 async function fetchInventorySummaries(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
-  const res = await spClient.callAPI({
-    operation: 'getInventorySummaries',
-    endpoint: 'fbaInventory',
-    query: {
-      details: true,
-      marketplaceIds: [marketplaceId],
-      granularityType: 'Marketplace',
-      granularityId: marketplaceId
+  const all = [];
+  let nextToken = null;
+  do {
+    const res = await spClient.callAPI({
+      operation: 'getInventorySummaries',
+      endpoint: 'fbaInventory',
+      query: {
+        details: true,
+        marketplaceIds: [marketplaceId],
+        granularityType: 'Marketplace',
+        granularityId: marketplaceId,
+        maxResults: 200,
+        nextToken
+      }
+    });
+
+    const summaries =
+      res?.payload?.inventorySummaries ||
+      res?.inventorySummaries ||
+      res?.payload ||
+      [];
+    if (Array.isArray(summaries)) {
+      all.push(
+        ...summaries.map((row) => ({
+          sku: row.sellerSku || row.sku || null,
+          asin: row.asin || null,
+          fulfillable: Number(row.inStockSupplyQuantity ?? 0),
+          inboundWorking: Number(row.inboundWorkingQuantity ?? 0),
+          inboundShipped: Number(row.inboundShippedQuantity ?? 0),
+          inboundReceiving: Number(row.inboundReceivingQuantity ?? 0),
+          reserved: Number(row.reservedQuantity ?? 0),
+          unsellable: Number(row.unfulfillableQuantity ?? 0),
+          name: sanitizeText(row.productName) || null
+        }))
+      );
     }
-  });
-  const summaries =
-    res?.payload?.inventorySummaries ||
-    res?.inventorySummaries ||
-    res?.payload ||
-    [];
-  if (!Array.isArray(summaries)) return [];
-  return summaries.map((row) => ({
-    sku: row.sellerSku || row.sku || null,
-    asin: row.asin || null,
-    fulfillable: Number(row.inStockSupplyQuantity ?? 0),
-    inboundWorking: Number(row.inboundWorkingQuantity ?? 0),
-    inboundShipped: Number(row.inboundShippedQuantity ?? 0),
-    inboundReceiving: Number(row.inboundReceivingQuantity ?? 0),
-    reserved: Number(row.reservedQuantity ?? 0),
-    unsellable: Number(row.unfulfillableQuantity ?? 0),
-    name: sanitizeText(row.productName) || null
-  }));
+
+    nextToken = res?.payload?.nextToken || res?.nextToken || null;
+  } while (nextToken);
+
+  return all;
 }
 
 async function syncIntegration(integration) {
