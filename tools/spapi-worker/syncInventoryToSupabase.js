@@ -254,7 +254,10 @@ async function upsertStockRows(rows) {
   if (!rows.length) return;
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
-    const chunk = rows.slice(i, i + chunkSize);
+    const chunk = rows.slice(i, i + chunkSize).map((row) => {
+      const { key, ...rest } = row;
+      return rest;
+    });
     const { error } = await supabase.from('stock_items').upsert(chunk);
     if (error) throw error;
   }
