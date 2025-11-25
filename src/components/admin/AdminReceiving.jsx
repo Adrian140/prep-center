@@ -839,7 +839,7 @@ const checkStockMatches = async () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left">Photo</th>
-                <th className="px-4 py-3 text-left">EAN / ASIN</th>
+                <th className="px-4 py-3 text-left">ASIN / SKU</th>
                 <th className="px-4 py-3 text-left">Product name</th>
                 <th className="px-4 py-3 text-right">Quantity</th>
                 <th className="px-4 py-3 text-left">SKU</th>

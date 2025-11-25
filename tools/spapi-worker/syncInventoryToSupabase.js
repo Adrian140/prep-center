@@ -267,6 +267,16 @@ async function upsertStockRows(rows) {
   }
 }
 
+async function cleanupInvalidRows(companyId) {
+  // Șterge rândurile fără ASIN și SKU pentru compania curentă.
+  await supabase
+    .from('stock_items')
+    .delete()
+    .eq('company_id', companyId)
+    .is('asin', null)
+    .is('sku', null);
+}
+
 async function syncToSupabase({ items, companyId, userId }) {
   if (items.length === 0) {
     console.log('Amazon returned no inventory rows. Nothing to sync.');
@@ -330,6 +340,7 @@ async function syncToSupabase({ items, companyId, userId }) {
     insertsOrUpdates.push({ id: row.id, amazon_stock: 0 });
   });
 
+  await cleanupInvalidRows(companyId);
   await upsertStockRows(insertsOrUpdates);
   return { affected: insertsOrUpdates.length, zeroed: missing.length };
 }
