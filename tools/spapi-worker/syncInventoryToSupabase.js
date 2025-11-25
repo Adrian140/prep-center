@@ -6,8 +6,10 @@ import { supabase } from './supabaseClient.js';
 
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
 const REPORT_TYPE = 'GET_FBA_MYI_ALL_INVENTORY_DATA';
+const LISTING_REPORT_TYPE = 'GET_MERCHANT_LISTINGS_ALL_DATA';
 const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 4000);
 const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 60);
+const ALLOWED_FBA_CHANNELS = new Set(['AMAZON_NA', 'AMAZON_EU', 'AFN']);
 
 export const sanitizeText = (value) => {
   if (!value) return value;
@@ -193,6 +195,17 @@ const COLUMN_ALIASES = new Map([
   ['afn-unsellable-quantity', 'unsellable']
 ]);
 
+const LISTING_COLUMN_ALIASES = new Map([
+  ['seller-sku', 'sku'],
+  ['sku', 'sku'],
+  ['asin', 'asin'],
+  ['asin1', 'asin'],
+  ['item-name', 'name'],
+  ['status', 'status'],
+  ['item-status', 'status'],
+  ['fulfillment-channel', 'fulfillmentChannel']
+]);
+
 function parseInventoryRows(tsvText) {
   const lines = tsvText
     .split(/\r?\n/)
@@ -204,6 +217,28 @@ function parseInventoryRows(tsvText) {
     .shift()
     .split('\t')
     .map((header) => COLUMN_ALIASES.get(header.trim().toLowerCase()) || header.trim().toLowerCase());
+
+  return lines.map((line) => {
+    const cols = line.split('\t');
+    const row = {};
+    headers.forEach((header, idx) => {
+      row[header] = cols[idx];
+    });
+    return row;
+  });
+}
+
+function parseListingRows(tsvText) {
+  const lines = tsvText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) return [];
+
+  const headers = lines
+    .shift()
+    .split('\t')
+    .map((header) => LISTING_COLUMN_ALIASES.get(header.trim().toLowerCase()) || header.trim().toLowerCase());
 
   return lines.map((line) => {
     const cols = line.split('\t');
@@ -244,6 +279,35 @@ function normalizeInventory(rawRows = []) {
   return normalized;
 }
 
+function normalizeListings(rawRows = []) {
+  const normalized = [];
+  for (const row of rawRows) {
+    const sku = (row.sku || '').trim();
+    const asin = (row.asin || '').trim();
+    if (!sku && !asin) continue;
+
+    normalized.push({
+      key: (sku || asin).toLowerCase(),
+      sku: sku || null,
+      asin: asin || null,
+      name: sanitizeText(row.name) || null,
+      status: (row.status || '').trim(),
+      fulfillmentChannel: (row.fulfillmentChannel || '').trim()
+    });
+  }
+  return normalized;
+}
+
+function filterListings(listings = []) {
+  return listings.filter((row) => {
+    const status = (row.status || '').toLowerCase();
+    const channel = row.fulfillmentChannel || '';
+    const wantedStatus = status.startsWith('active') || status.includes('out of stock');
+    const isFba = channel ? ALLOWED_FBA_CHANNELS.has(channel) : true; // if missing channel, keep it
+    return wantedStatus && isFba;
+  });
+}
+
 function keyFromRow(row) {
   const sku = row?.sku ? String(row.sku).toLowerCase() : '';
   const asin = row?.asin ? String(row.asin).toLowerCase() : '';
@@ -254,14 +318,17 @@ async function upsertStockRows(rows) {
   if (!rows.length) return;
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
-    const chunk = rows.slice(i, i + chunkSize).map((row) => {
+    const chunk = rows.slice(i, i + chunkSize).reduce((acc, row) => {
+      if (!row.asin && !row.sku) return acc;
       const { key, id, ...rest } = row;
       const payload = { ...rest };
       if (id !== undefined && id !== null) {
         payload.id = id;
       }
-      return payload;
-    });
+      acc.push(payload);
+      return acc;
+    }, []);
+    if (!chunk.length) continue;
     const { error } = await supabase.from('stock_items').upsert(chunk, { defaultToNull: false });
     if (error) throw error;
   }
@@ -269,12 +336,8 @@ async function upsertStockRows(rows) {
 
 async function cleanupInvalidRows(companyId) {
   // Șterge rândurile fără ASIN și SKU pentru compania curentă.
-  await supabase
-    .from('stock_items')
-    .delete()
-    .eq('company_id', companyId)
-    .is('asin', null)
-    .is('sku', null);
+  await supabase.from('stock_items').delete().eq('company_id', companyId).is('asin', null).is('sku', null);
+  await supabase.from('stock_items').delete().eq('company_id', companyId).eq('asin', '').eq('sku', '');
 }
 
 async function syncToSupabase({ items, companyId, userId }) {
@@ -309,6 +372,8 @@ async function syncToSupabase({ items, companyId, userId }) {
         id: row.id,
         company_id: row.company_id || companyId,
         user_id: row.user_id || userId,
+        asin: row.asin || item.asin || null,
+        sku: row.sku || item.sku || null,
         amazon_stock: item.amazon_stock,
         amazon_inbound: item.amazon_inbound,
         amazon_reserved: item.amazon_reserved,
@@ -396,6 +461,32 @@ async function fetchInventorySummaries(spClient, marketplaceId = DEFAULT_MARKETP
   return all;
 }
 
+async function createListingReport(spClient, marketplaceId) {
+  const body = {
+    reportType: LISTING_REPORT_TYPE,
+    marketplaceIds: [marketplaceId]
+  };
+
+  const response = await spClient.callAPI({
+    operation: 'createReport',
+    endpoint: 'reports',
+    body
+  });
+
+  if (!response?.reportId) {
+    throw new Error('Failed to create listing report');
+  }
+
+  return response.reportId;
+}
+
+async function fetchListingRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
+  const reportId = await createListingReport(spClient, marketplaceId);
+  const documentId = await waitForReport(spClient, reportId);
+  const documentText = await downloadReportDocument(spClient, documentId);
+  return parseListingRows(documentText);
+}
+
 async function syncIntegration(integration) {
   const spClient = createSpClient({
     refreshToken: integration.refresh_token,
@@ -408,6 +499,7 @@ async function syncIntegration(integration) {
 
   try {
     let normalized = [];
+    let listingRows = [];
     try {
       const rawRows = await fetchInventoryRows(spClient, integration.marketplace_id || DEFAULT_MARKETPLACE);
       normalized = normalizeInventory(rawRows);
@@ -416,6 +508,39 @@ async function syncIntegration(integration) {
       // fallback to Inventory Summaries API
       const summaries = await fetchInventorySummaries(spClient, integration.marketplace_id || DEFAULT_MARKETPLACE);
       normalized = normalizeInventory(summaries);
+    }
+
+    try {
+      const listingRaw = await fetchListingRows(spClient, integration.marketplace_id || DEFAULT_MARKETPLACE);
+      listingRows = filterListings(normalizeListings(listingRaw));
+    } catch (err) {
+      console.error(`Listing report failed for ${integration.id}:`, err?.message || err);
+    }
+
+    if (listingRows.length) {
+      const stockByKey = new Map();
+      normalized.forEach((item) => {
+        if (item.key) stockByKey.set(item.key, item);
+      });
+
+      const merged = [];
+      const seen = new Set();
+      for (const listing of listingRows) {
+        if (!listing.key || seen.has(listing.key)) continue;
+        seen.add(listing.key);
+        const inv = stockByKey.get(listing.key);
+        merged.push({
+          key: listing.key,
+          asin: listing.asin || inv?.asin || null,
+          sku: listing.sku || inv?.sku || null,
+          name: listing.name || inv?.name || null,
+          amazon_stock: inv?.amazon_stock ?? 0,
+          amazon_inbound: inv?.amazon_inbound ?? 0,
+          amazon_reserved: inv?.amazon_reserved ?? 0,
+          amazon_unfulfillable: inv?.amazon_unfulfillable ?? 0
+        });
+      }
+      normalized = merged;
     }
 
     const stats = await syncToSupabase({
@@ -430,7 +555,7 @@ async function syncIntegration(integration) {
       .eq('id', integration.id);
 
     console.log(
-      `Integration ${integration.id} synced (${normalized.length} items, ${stats.affected} rows, ${stats.zeroed} zeroed).`
+      `Integration ${integration.id} synced (${normalized.length} items, ${stats.affected} rows, ${stats.zeroed} zeroed). Listings filter: ${listingRows.length}.`
     );
   } catch (err) {
     console.error(`Sync failed for integration ${integration.id}:`, err?.response?.data || err);
