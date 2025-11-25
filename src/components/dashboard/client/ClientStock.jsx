@@ -12,6 +12,12 @@ import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
 import ClientStockSelectionBar from './ClientStockSelectionBar';
 import { getKeepaMainImage } from '@/utils/keepaClient';
 
+const isBadImageUrl = (url) => {
+  if (!url) return true;
+  const value = String(url).toLowerCase();
+  return value.includes('[object') || value.includes('object%20object') || value.endsWith('._slundefined_.jpg');
+};
+
 function HelpMenuButtonStock({ section = 'stock', t, tp }) {
   const GUIDE_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
   const [open, setOpen] = useState(false);
@@ -1125,7 +1131,9 @@ useEffect(() => {
     let added = false;
     const queue = keepaQueueRef.current;
     rows.forEach((row) => {
-      if (!row?.id || row.image_url || !row.asin) return;
+      if (!row?.id || !row.asin) return;
+      const hasGoodImage = row.image_url && !isBadImageUrl(row.image_url);
+      if (hasGoodImage) return;
       if (!queue.has(row.id)) {
         queue.add(row.id);
         added = true;
