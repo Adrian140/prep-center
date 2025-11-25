@@ -29,7 +29,11 @@ const receivingShipmentArrayColumnMissing = (error) =>
 
 export const supabaseHelpers = {
   getCarriers: async () => {
-    return await supabase.getCarriers();
+    return await supabase
+      .from('carriers')
+      .select('*')
+      .eq('active', true)
+      .order('sort_order');
   },
   /* =========================
      Prep Requests Management

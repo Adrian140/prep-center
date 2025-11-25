@@ -72,6 +72,10 @@ const fetchProductPayload = async (asin, attempt = 0) => {
     return fetchProductPayload(asin, attempt + 1);
   }
 
+  if (response.status === 400) {
+    return { product: null, tokensLeft: null };
+  }
+
   if (!response.ok) {
     throw new Error(`Keepa API error (${response.status})`);
   }

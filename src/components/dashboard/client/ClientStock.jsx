@@ -975,7 +975,7 @@ const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
         console.error('[Keepa image]', err);
         const msg = String(err?.message || err || '');
         if (!keepaWarnedRef.current && !unmountedRef.current) {
-          setToast({ type: 'error', text: 'Nu am putut prelua poza din Keepa (cheie/limită?).' });
+          setToast({ type: 'error', text: supportError });
           keepaWarnedRef.current = true;
         }
         if (/tokens? low/i.test(msg) || /missing keepa api key/i.test(msg)) {
