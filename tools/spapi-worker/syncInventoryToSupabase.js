@@ -255,8 +255,12 @@ async function upsertStockRows(rows) {
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize).map((row) => {
-      const { key, ...rest } = row;
-      return rest;
+      const { key, id, ...rest } = row;
+      const payload = { ...rest };
+      if (id !== undefined && id !== null) {
+        payload.id = id;
+      }
+      return payload;
     });
     const { error } = await supabase.from('stock_items').upsert(chunk);
     if (error) throw error;
@@ -271,7 +275,7 @@ async function syncToSupabase({ items, companyId, userId }) {
 
   const { data: existing, error } = await supabase
     .from('stock_items')
-    .select('id, sku, asin, name, amazon_stock')
+    .select('id, company_id, user_id, sku, asin, name, amazon_stock')
     .eq('company_id', companyId);
   if (error) throw error;
 
