@@ -12,7 +12,7 @@ Configurare curentă:
 - `VITE_KEEPA_IMAGE_SIZE` – default `1500` (acceptă `500`, `1000`, `1500`, `original`).
 - `VITE_KEEPA_MAIN_IMAGE_ONLY` – `true`/`false` (default `true`).
 - `VITE_KEEPA_TOKENS_PER_MINUTE` – default `1`.
-- `VITE_KEEPA_TOKEN_SAFETY_REMAINING` – default `20` (dacă `tokensLeft` < prag, clientul aruncă eroare și se oprește).
+- `VITE_KEEPA_TOKEN_SAFETY_REMAINING` – default `0` (setează >0 doar dacă vrei un prag de siguranță; dacă `tokensLeft` < prag, clientul se oprește).
 
 ### Utilizare în cod
 ```js

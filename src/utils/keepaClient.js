@@ -7,7 +7,10 @@ const DEFAULT_IMAGE_SIZE = Number(import.meta.env.VITE_KEEPA_IMAGE_SIZE || 1500)
 const MAIN_IMAGE_ONLY =
   String(import.meta.env.VITE_KEEPA_MAIN_IMAGE_ONLY || 'true').toLowerCase() === 'true';
 const TOKENS_PER_MINUTE = Math.max(1, Number(import.meta.env.VITE_KEEPA_TOKENS_PER_MINUTE || 1));
-const TOKEN_SAFETY_REMAINING = Number(import.meta.env.VITE_KEEPA_TOKEN_SAFETY_REMAINING || 20);
+const TOKEN_SAFETY_REMAINING = Math.max(
+  0,
+  Number(import.meta.env.VITE_KEEPA_TOKEN_SAFETY_REMAINING || 0)
+);
 const MIN_INTERVAL_MS = Math.ceil(60000 / TOKENS_PER_MINUTE);
 
 const imageCache = new Map();
@@ -83,7 +86,11 @@ const fetchProductPayload = async (asin, attempt = 0) => {
   const payload = await response.json();
   const { tokensLeft } = payload || {};
 
-  if (typeof tokensLeft === 'number' && tokensLeft < TOKEN_SAFETY_REMAINING) {
+  if (
+    TOKEN_SAFETY_REMAINING > 0 &&
+    typeof tokensLeft === 'number' &&
+    tokensLeft < TOKEN_SAFETY_REMAINING
+  ) {
     throw new Error(`Keepa tokens low: ${tokensLeft} remaining (safety floor ${TOKEN_SAFETY_REMAINING})`);
   }
 
