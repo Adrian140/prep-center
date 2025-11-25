@@ -972,7 +972,10 @@ const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
         const { error } = await supabaseHelpers.updateStockItem(nextId, { image_url: image });
         if (error) throw error;
       } catch (err) {
-        console.error('[Keepa image]', err);
+        if (!import.meta.env.PROD) {
+          // Avoid zgomot în producție; logăm doar în dev.
+          console.warn('[Keepa image]', err);
+        }
         const msg = String(err?.message || err || '');
         if (!keepaWarnedRef.current && !unmountedRef.current) {
           setToast({ type: 'error', text: supportError });
