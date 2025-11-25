@@ -29,7 +29,7 @@ await getKeepaMainImage({ asin: 'B00TEST123', forceRefresh: true });
 ```
 
 ### Cum funcționează clientul (`src/utils/keepaClient.js`)
-- Apelează endpoint-ul minim: `product?stats=0&offers=0&update=0&history=0&buybox=0`.
+- Apelează endpoint-ul minim: `product?stats=0&offers=0&update=0&history=0`.
 - Respectă 1 token/min (`rateLimit` + backoff la 429/503).
 - Verifică `tokensLeft`: dacă e sub prag, aruncă eroare și nu mai continuă.
 - Construiește URL-ul: `https://images-na.ssl-images-amazon.com/images/I/<IMAGE_ID>._SL{size}_.jpg` (pentru original, scoate sufixul).
