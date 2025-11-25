@@ -68,8 +68,8 @@ const maybeBackoff = async (response, attempt) => {
 
 const fetchProductPayload = async (asin, attempt = 0) => {
   await rateLimit();
-  // Minimal payload; avoid unsupported params that trigger 400 (invalidParameter).
-  const url = `https://api.keepa.com/product?key=${KEEPA_API_KEY}&domain=${KEEPA_DOMAIN}&asin=${asin}&stats=0&offers=0&update=0&history=0`;
+  // Minimal payload; some flags (offers=0/history=0/buybox=0) trigger 400 invalidParameter on certain subscriptions.
+  const url = `https://api.keepa.com/product?key=${KEEPA_API_KEY}&domain=${KEEPA_DOMAIN}&asin=${asin}`;
   const response = await fetch(url);
 
   if (await maybeBackoff(response, attempt)) {
