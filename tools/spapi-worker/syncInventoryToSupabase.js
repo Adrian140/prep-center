@@ -334,15 +334,20 @@ async function fetchInventoryRows(spClient, marketplaceId = DEFAULT_MARKETPLACE)
 
 async function fetchInventorySummaries(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
   const res = await spClient.callAPI({
-    operation: 'listInventorySummaries',
+    operation: 'getInventorySummaries',
     endpoint: 'fbaInventory',
     query: {
       details: true,
       marketplaceIds: [marketplaceId]
     }
   });
-  if (!res?.inventorySummaries) return [];
-  return res.inventorySummaries.map((row) => ({
+  const summaries =
+    res?.payload?.inventorySummaries ||
+    res?.inventorySummaries ||
+    res?.payload ||
+    [];
+  if (!Array.isArray(summaries)) return [];
+  return summaries.map((row) => ({
     sku: row.sellerSku || row.sku || null,
     asin: row.asin || null,
     fulfillable: Number(row.inStockSupplyQuantity ?? 0),
