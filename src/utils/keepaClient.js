@@ -41,19 +41,38 @@ const rateLimit = async () => {
 
 const buildImageUrl = (imageId, size) => {
   if (!imageId) return null;
-  if (String(size).toLowerCase() === 'original') {
-    return `https://images-na.ssl-images-amazon.com/images/I/${imageId}.jpg`;
+  const id = String(imageId).trim();
+  if (!id) return null;
+
+  const sizeIsOriginal = String(size).toLowerCase() === 'original';
+  const hasExt = id.toLowerCase().endsWith('.jpg');
+  const base = hasExt ? id.slice(0, -4) : id;
+  const ext = hasExt ? '.jpg' : '.jpg';
+
+  if (sizeIsOriginal) {
+    return `https://images-na.ssl-images-amazon.com/images/I/${base}${ext}`;
   }
-  return `https://images-na.ssl-images-amazon.com/images/I/${imageId}._SL${size}_.jpg`;
+  return `https://images-na.ssl-images-amazon.com/images/I/${base}._SL${size}_${ext}`;
 };
 
 const extractImageIds = (product) => {
   if (!product) return [];
-  if (Array.isArray(product.images) && product.images.length) {
-    return product.images;
-  }
+  // Prefer CSV if present (already plain strings).
   if (typeof product.imagesCSV === 'string' && product.imagesCSV.trim().length) {
     return product.imagesCSV.split(',').map((part) => part.trim()).filter(Boolean);
+  }
+  if (Array.isArray(product.images) && product.images.length) {
+    return product.images
+      .map((entry) => {
+        if (!entry) return null;
+        if (typeof entry === 'string') return entry;
+        if (entry && typeof entry === 'object') {
+          // Keepa returns { l: 'hires.jpg', m: 'thumb.jpg', ... }
+          return entry.l || entry.m || null;
+        }
+        return null;
+      })
+      .filter(Boolean);
   }
   return [];
 };
