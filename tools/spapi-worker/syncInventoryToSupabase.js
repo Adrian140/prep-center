@@ -293,6 +293,8 @@ async function syncToSupabase({ items, companyId, userId }) {
     if (row) {
       insertsOrUpdates.push({
         id: row.id,
+        company_id: row.company_id,
+        user_id: row.user_id,
         amazon_stock: item.amazon_stock,
         amazon_inbound: item.amazon_inbound,
         amazon_reserved: item.amazon_reserved,
