@@ -6,7 +6,6 @@
   "scripts": {
     "refresh-token": "node authRefreshAndStore.js",
     "sync-inventory": "node syncInventoryToSupabase.js",
-    "sync-sales": "node syncSalesToSupabase.js",
     "list-listing": "node listListings.js"
   },
   "dependencies": {
