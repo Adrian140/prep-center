@@ -262,7 +262,7 @@ async function upsertStockRows(rows) {
       }
       return payload;
     });
-    const { error } = await supabase.from('stock_items').upsert(chunk);
+    const { error } = await supabase.from('stock_items').upsert(chunk, { defaultToNull: false });
     if (error) throw error;
   }
 }
