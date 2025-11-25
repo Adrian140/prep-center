@@ -1,5 +1,5 @@
 // FILE: src/components/dashboard/client/ClientStock.jsx
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileDown, Languages, Plus, X, Image as ImageIcon, Check, Info } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
@@ -10,6 +10,7 @@ import { useSessionStorage } from '@/hooks/useSessionStorage';
 import ProductQuickAdd from '@/components/common/ProductQuickAdd';
 import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
 import ClientStockSelectionBar from './ClientStockSelectionBar';
+import { getKeepaMainImage } from '@/utils/keepaClient';
 
 function HelpMenuButtonStock({ section = 'stock', t, tp }) {
   const GUIDE_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
@@ -899,6 +900,21 @@ const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
     DEFAULT_PER_PAGE
   );
 
+  const keepaQueueRef = useRef(new Set());
+  const keepaBusyRef = useRef(false);
+  const keepaDisabledRef = useRef(false);
+  const keepaWarnedRef = useRef(false);
+  const rowsRef = useRef([]);
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
+  useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
+
   const [linkEditor, setLinkEditor] = useState({ open: false, id: null, value: '' });
   const [submitType, setSubmitType] = useSessionStorage(
     `${storagePrefix}-submitType`,
@@ -931,6 +947,45 @@ const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
     },
     [t]
   );
+
+  const processKeepaQueue = useCallback(async () => {
+    if (keepaBusyRef.current || keepaDisabledRef.current || unmountedRef.current) return;
+    keepaBusyRef.current = true;
+    while (keepaQueueRef.current.size && !keepaDisabledRef.current) {
+      const iterator = keepaQueueRef.current.values().next();
+      if (iterator.done) break;
+      const nextId = iterator.value;
+      keepaQueueRef.current.delete(nextId);
+
+      if (unmountedRef.current) break;
+      const row = rowsRef.current.find((item) => item.id === nextId);
+      if (!row || row.image_url || !row.asin) {
+        continue;
+      }
+
+      try {
+        const { image } = await getKeepaMainImage({ asin: row.asin });
+        if (!image) continue;
+
+        if (unmountedRef.current) break;
+        setRows((prev) => prev.map((r) => (r.id === nextId ? { ...r, image_url: image } : r)));
+        const { error } = await supabaseHelpers.updateStockItem(nextId, { image_url: image });
+        if (error) throw error;
+      } catch (err) {
+        console.error('[Keepa image]', err);
+        const msg = String(err?.message || err || '');
+        if (!keepaWarnedRef.current && !unmountedRef.current) {
+          setToast({ type: 'error', text: 'Nu am putut prelua poza din Keepa (cheie/limită?).' });
+          keepaWarnedRef.current = true;
+        }
+        if (/tokens? low/i.test(msg) || /missing keepa api key/i.test(msg)) {
+          keepaDisabledRef.current = true;
+          break;
+        }
+      }
+    }
+    keepaBusyRef.current = false;
+  }, [setRows, setToast]);
 
   // ===== Request Editor (history item) =====
 const [reqOpen, setReqOpen] = useState(false);
@@ -1061,6 +1116,22 @@ useEffect(() => {
     if (status !== 'loading') load();
     return () => { mounted = false; };
   }, [status, profile?.company_id]);
+
+  useEffect(() => {
+    if (keepaDisabledRef.current) return;
+    let added = false;
+    const queue = keepaQueueRef.current;
+    rows.forEach((row) => {
+      if (!row?.id || row.image_url || !row.asin) return;
+      if (!queue.has(row.id)) {
+        queue.add(row.id);
+        added = true;
+      }
+    });
+    if (added && !keepaBusyRef.current) {
+      processKeepaQueue();
+    }
+  }, [rows, processKeepaQueue]);
 
   useEffect(() => {
     const allowed = new Set(rows.map((r) => r.id));
