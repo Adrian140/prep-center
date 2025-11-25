@@ -338,7 +338,9 @@ async function fetchInventorySummaries(spClient, marketplaceId = DEFAULT_MARKETP
     endpoint: 'fbaInventory',
     query: {
       details: true,
-      marketplaceIds: [marketplaceId]
+      marketplaceIds: [marketplaceId],
+      granularityType: 'Marketplace',
+      granularityId: marketplaceId
     }
   });
   const summaries =
