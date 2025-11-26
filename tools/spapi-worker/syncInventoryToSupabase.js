@@ -268,9 +268,10 @@ function normalizeInventory(rawRows = []) {
 
     const fulfillable = Number(row.fulfillable ?? 0);
     const inboundTotal =
-      Number(row.inboundWorking ?? 0) +
-      Number(row.inboundShipped ?? 0) +
-      Number(row.inboundReceiving ?? 0);
+      Number(row.inboundTotal ?? 0) ||
+      (Number(row.inboundWorking ?? 0) +
+        Number(row.inboundShipped ?? 0) +
+        Number(row.inboundReceiving ?? 0));
     const reserved = Number(row.reserved ?? 0);
     const unfulfillable = Number(row.unsellable ?? 0);
 
@@ -453,19 +454,34 @@ async function fetchInventorySummaries(spClient, marketplaceId = DEFAULT_MARKETP
       [];
     if (Array.isArray(summaries)) {
       all.push(
-        ...summaries.map((row) => ({
-          sku: row.sellerSku || row.sku || null,
-          asin: row.asin || null,
-          fulfillable: Number(
-            row.inStockSupplyQuantity ?? row.totalSupplyQuantity ?? row.totalQuantity ?? 0
-          ),
-          inboundWorking: Number(row.inboundWorkingQuantity ?? 0),
-          inboundShipped: Number(row.inboundShippedQuantity ?? 0),
-          inboundReceiving: Number(row.inboundReceivingQuantity ?? 0),
-          reserved: Number(row.reservedQuantity ?? row.afnReservedQuantity ?? 0),
-          unsellable: Number(row.unfulfillableQuantity ?? 0),
-          name: sanitizeText(row.productName) || null
-        }))
+        ...summaries.map((row) => {
+          const reserved = Number(row.reservedQuantity ?? row.afnReservedQuantity ?? 0);
+          const inboundWorking = Number(row.inboundWorkingQuantity ?? 0);
+          const inboundShipped = Number(row.inboundShippedQuantity ?? 0);
+          const inboundReceiving = Number(row.inboundReceivingQuantity ?? 0);
+          const inboundTotal = inboundWorking + inboundShipped + inboundReceiving;
+          // Fallbacks: prefer inStockSupplyQuantity. Dacă nu există, folosim totalSupplyQuantity/totalQuantity
+          // dar scădem reserved pentru a nu umfla Available (FBA).
+          const rawSupply =
+            row.inStockSupplyQuantity ??
+            row.totalSupplyQuantity ??
+            row.totalQuantity ??
+            0;
+          const fulfillable = Math.max(0, Number(rawSupply) - reserved);
+
+          return {
+            sku: row.sellerSku || row.sku || null,
+            asin: row.asin || null,
+            fulfillable,
+            inboundWorking,
+            inboundShipped,
+            inboundReceiving,
+            inboundTotal,
+            reserved,
+            unsellable: Number(row.unfulfillableQuantity ?? 0),
+            name: sanitizeText(row.productName) || null
+          };
+        })
       );
     }
 
