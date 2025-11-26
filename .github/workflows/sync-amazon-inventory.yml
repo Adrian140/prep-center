@@ -2,8 +2,11 @@ name: Sync Amazon Inventory
 
 on:
   schedule:
-    - cron: "0 * * * *" # every hour
+    - cron: "*/40 * * * *" # every 40 minutes
   workflow_dispatch:
+concurrency:
+  group: sync-amazon-inventory
+  cancel-in-progress: false
 
 jobs:
   sync:
