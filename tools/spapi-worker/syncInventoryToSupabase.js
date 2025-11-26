@@ -302,6 +302,8 @@ function filterListings(listings = []) {
   return listings.filter((row) => {
     const status = (row.status || '').toLowerCase();
     const channel = row.fulfillmentChannel || '';
+    const denyList = ['blocked', 'suppressed', 'closed', 'deleted', 'stranded'];
+    if (denyList.some((token) => status.includes(token))) return false;
     const wantedStatus = status.startsWith('active') || status.includes('out of stock');
     const isFba = channel ? ALLOWED_FBA_CHANNELS.has(channel) : true; // if missing channel, keep it
     return wantedStatus && isFba;
@@ -529,8 +531,6 @@ async function syncIntegration(integration) {
         if (!listing.key || seen.has(listing.key)) continue;
         seen.add(listing.key);
         const inv = stockByKey.get(listing.key);
-        // Dacă există inventar pentru cheia asta, păstrăm; altfel ignorăm ca să nu reapară listinguri șterse.
-        if (stockByKey.size > 0 && !inv) continue;
         merged.push({
           key: listing.key,
           asin: listing.asin || inv?.asin || null,
