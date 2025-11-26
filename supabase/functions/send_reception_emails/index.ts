@@ -19,9 +19,16 @@ type ProfileRow = {
 };
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const FROM_EMAIL = Deno.env.get("RESEND_FROM") ?? Deno.env.get("FROM_EMAIL") ?? "";
+// Prefer cheile existente: PREP_FROM_EMAIL, apoi RESEND_FROM/FROM_EMAIL
+const FROM_EMAIL =
+  Deno.env.get("PREP_FROM_EMAIL") ??
+  Deno.env.get("RESEND_FROM") ??
+  Deno.env.get("FROM_EMAIL") ??
+  "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE") ?? "";
+// Prefer cheile existente: SUPABASE_SERVICE_ROLE_KEY, apoi SUPABASE_SERVICE_ROLE
+const SUPABASE_SERVICE_ROLE =
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
   global: { headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE}` } },
