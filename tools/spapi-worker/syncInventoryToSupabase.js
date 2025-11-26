@@ -304,7 +304,10 @@ function filterListings(listings = []) {
     const channel = row.fulfillmentChannel || '';
     const denyList = ['blocked', 'suppressed', 'closed', 'deleted', 'stranded'];
     if (denyList.some((token) => status.includes(token))) return false;
-    const wantedStatus = status.startsWith('active') || status.includes('out of stock');
+    const wantedStatus =
+      status.startsWith('active') ||
+      status.includes('out of stock') ||
+      status.includes('inactive');
     const isFba = channel ? ALLOWED_FBA_CHANNELS.has(channel) : true; // if missing channel, keep it
     return wantedStatus && isFba;
   });
