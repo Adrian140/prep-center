@@ -171,7 +171,16 @@ async function downloadReportDocument(spClient, reportDocumentId) {
     buffer = gunzipSync(buffer);
   }
 
-  return buffer.toString('utf-8');
+  // Majoritatea rapoartelor sunt UTF-8, dar unele vin Latin-1 și apar �.
+  const utf8 = buffer.toString('utf-8');
+  if (utf8.includes('�')) {
+    try {
+      return buffer.toString('latin1');
+    } catch (e) {
+      return utf8;
+    }
+  }
+  return utf8;
 }
 
 function decryptDocument(buffer, encryptionDetails) {
