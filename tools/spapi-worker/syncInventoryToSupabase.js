@@ -529,6 +529,8 @@ async function syncIntegration(integration) {
         if (!listing.key || seen.has(listing.key)) continue;
         seen.add(listing.key);
         const inv = stockByKey.get(listing.key);
+        // Dacă există inventar pentru cheia asta, păstrăm; altfel ignorăm ca să nu reapară listinguri șterse.
+        if (stockByKey.size > 0 && !inv) continue;
         merged.push({
           key: listing.key,
           asin: listing.asin || inv?.asin || null,
