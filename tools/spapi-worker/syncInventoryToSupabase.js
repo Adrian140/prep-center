@@ -447,11 +447,11 @@ async function fetchInventorySummaries(spClient, marketplaceId = DEFAULT_MARKETP
         ...summaries.map((row) => ({
           sku: row.sellerSku || row.sku || null,
           asin: row.asin || null,
-          fulfillable: Number(row.inStockSupplyQuantity ?? 0),
+          fulfillable: Number(row.inStockSupplyQuantity ?? row.totalSupplyQuantity ?? 0),
           inboundWorking: Number(row.inboundWorkingQuantity ?? 0),
           inboundShipped: Number(row.inboundShippedQuantity ?? 0),
           inboundReceiving: Number(row.inboundReceivingQuantity ?? 0),
-          reserved: Number(row.reservedQuantity ?? 0),
+          reserved: Number(row.reservedQuantity ?? row.afnReservedQuantity ?? 0),
           unsellable: Number(row.unfulfillableQuantity ?? 0),
           name: sanitizeText(row.productName) || null
         }))
