@@ -2035,6 +2035,7 @@ const saveReqChanges = async () => {
             />
             {t('ClientStock.actions.selectAllOnPage')}
           </label>
+          <span className="text-xs text-text-secondary">Total: {rows.length}</span>
         </div>
         <div className="flex items-center gap-2 text-xs">
           <span className="text-text-secondary">{t('ClientStock.quickSort.label')}</span>
