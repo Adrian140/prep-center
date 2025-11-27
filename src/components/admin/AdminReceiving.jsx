@@ -842,7 +842,6 @@ const checkStockMatches = async () => {
                 <th className="px-4 py-3 text-left">ASIN / SKU</th>
                 <th className="px-4 py-3 text-left">Product name</th>
                 <th className="px-4 py-3 text-right">Quantity</th>
-                <th className="px-4 py-3 text-left">SKU</th>
                 <th className="px-4 py-3 text-center">FBA</th>
                 <th className="px-4 py-3 text-center">Prep</th>
                 <th className="px-4 py-3 text-left">Status</th>
@@ -850,11 +849,18 @@ const checkStockMatches = async () => {
             </thead>
             <tbody>
               {items.map((item, idx) => {
-                const asin = item.asin || item.stock_item?.asin || '—';
-                const eanValue = item.ean || item.ean_asin || item.stock_item?.ean || '—';
+                const rawAsin =
+                  item.asin ||
+                  item.stock_item?.asin ||
+                  item.ean ||
+                  item.ean_asin ||
+                  null;
+                const skuValue = item.sku || item.stock_item?.sku || null;
+                const primaryCode = rawAsin || skuValue || '—';
+                const secondaryCode =
+                  rawAsin && skuValue && skuValue !== rawAsin ? skuValue : null;
                 const productName = item.product_name || item.stock_item?.name || '—';
                 const imageUrl = item.stock_item?.image_url || item.image_url || '';
-                const skuValue = item.sku || item.stock_item?.sku || '—';
                 const intent = resolveFbaIntent(item);
                 const confirmedQty = getConfirmedQty(item);
                 const expectedQty = getExpectedQty(item);
@@ -916,8 +922,10 @@ const checkStockMatches = async () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-text-secondary">
-                      <div className="font-mono text-sm text-text-primary">{asin || '—'}</div>
-                      <div className="font-mono text-text-secondary">{skuValue || ''}</div>
+                      <div className="font-mono text-sm text-text-primary">{primaryCode}</div>
+                      {secondaryCode && (
+                        <div className="font-mono text-text-secondary">{secondaryCode}</div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-semibold text-text-primary">{productName}</div>
@@ -973,7 +981,6 @@ const checkStockMatches = async () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-mono">{skuValue}</td>
                     <td className="px-4 py-3 text-center">
                       {hasDirectIntent ? (
                         <div className="inline-flex flex-col px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs font-semibold">
