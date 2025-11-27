@@ -1824,12 +1824,24 @@ getAllReceivingShipments: async (options = {}) => {
   });
 
   let stockMap = {};
+  let stockByAsin = {};
+  let stockBySku = {};
   if (allStockIds.size > 0) {
     const { data: stockData } = await supabase
       .from('stock_items')
       .select('id, asin, name, sku, image_url')
       .in('id', Array.from(allStockIds));
     stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
+    stockByAsin = Object.fromEntries(
+      (stockData || [])
+        .filter((s) => s.asin)
+        .map((s) => [s.asin, s])
+    );
+    stockBySku = Object.fromEntries(
+      (stockData || [])
+        .filter((s) => s.sku)
+        .map((s) => [s.sku, s])
+    );
   }
 
   // combinăm datele din ambele tabele (receiving_shipment_items și receiving_items)
@@ -1848,7 +1860,11 @@ getAllReceivingShipments: async (options = {}) => {
       ...rest,
       receiving_items: items.map((it) => ({
         ...it,
-        stock_item: stockMap[it.stock_item_id] || null,
+        stock_item:
+          stockMap[it.stock_item_id] ||
+          (it.asin && stockByAsin[it.asin]) ||
+          (it.sku && stockBySku[it.sku]) ||
+          null,
       })),
       produits_count: items.length,
       store_name: rest.client_store_name || profileMeta.store_name || rest.client_name || null,
