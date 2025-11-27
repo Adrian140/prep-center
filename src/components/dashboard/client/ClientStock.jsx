@@ -263,10 +263,13 @@ const normalizeCountryCode = (country) => {
   return found ? found.value : 'ALL';
 };
 
+const makeSalesKey = (asin, sku) =>
+  `${(asin || '').toUpperCase()}::${(sku || '').toUpperCase()}`;
+
 const buildSalesSummary = (rows = []) => {
   const map = {};
   rows.forEach((entry) => {
-    const key = (entry.asin || entry.sku || '').toUpperCase();
+    const key = makeSalesKey(entry.asin, entry.sku);
     if (!key) return;
     const country = normalizeCountryCode(entry.country);
     if (!map[key]) {
@@ -1270,7 +1273,7 @@ useEffect(() => {
     let ordered = [...stockFiltered];
 
     const getSalesTotal = (row) => {
-      const key = String(row.asin || row.sku || '').trim().toUpperCase();
+      const key = makeSalesKey(row.asin, row.sku);
       if (!key) return 0;
       const summary = salesSummary[key];
       if (!summary) return 0;
@@ -2405,7 +2408,7 @@ const saveReqChanges = async () => {
           {/* 4) 30-day sales breakdown */}
           <td className="px-2 py-2 align-top">
             {(() => {
-              const key = String(r.asin || r.sku || '').trim().toUpperCase();
+              const key = makeSalesKey(r.asin, r.sku);
               const summary = key ? salesSummary[key] : null;
               let stats = null;
               if (summary?.countries) {
