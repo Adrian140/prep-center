@@ -275,12 +275,20 @@ const buildSalesSummary = (rows = []) => {
       }
     }
 
+    const prev = map[key].countries[country] || {
+      total: 0,
+      payment: 0,
+      shipped: 0,
+      pending: 0,
+      refund: 0
+    };
+
     map[key].countries[country] = {
-      total: Number(entry.total_units) || 0,
-      payment: Number(entry.payment_units) || 0,
-      shipped: Number(entry.shipped_units) || 0,
-      pending: Number(entry.pending_units) || 0,
-      refund: Number(entry.refund_units) || 0
+      total: prev.total + (Number(entry.total_units) || 0),
+      payment: prev.payment + (Number(entry.payment_units) || 0),
+      shipped: prev.shipped + (Number(entry.shipped_units) || 0),
+      pending: prev.pending + (Number(entry.pending_units) || 0),
+      refund: prev.refund + (Number(entry.refund_units) || 0)
     };
   });
 
