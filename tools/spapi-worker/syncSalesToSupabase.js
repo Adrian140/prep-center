@@ -1,14 +1,24 @@
 import 'dotenv/config';
 import { subDays } from 'date-fns';
-import { createDecipheriv } from 'crypto';
-import { gunzipSync } from 'zlib';
 import { supabase } from './supabaseClient.js';
 import { createSpClient } from './spapiClient.js';
 
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
+const ORDERS_PAGE_SIZE = 100;
 const ORDER_WINDOW_DAYS = Number(process.env.SPAPI_ORDER_WINDOW_DAYS || 30);
-const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 4000);
-const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 60);
+
+// Lăsăm SP‑API să ne dea toate statusurile relevante și filtrăm noi în cod.
+// Totuși, setăm o listă explicită pentru claritate.
+const ORDER_STATUSES = [
+  'PendingAvailability',
+  'Pending',
+  'Unshipped',
+  'PartiallyShipped',
+  'Shipped',
+  'InvoiceUnconfirmed',
+  'Unfulfillable',
+  'Canceled'
+];
 
 const MARKETPLACE_COUNTRY = {
   A13V1IB3VIYZZH: 'FR',
@@ -25,6 +35,14 @@ function isoDateDaysAgo(days) {
   return subDays(new Date(), days).toISOString();
 }
 
+// Cheie strictă ASIN+SKU pentru a nu amesteca produsele.
+function keyFromItem(item) {
+  const asin = (item?.ASIN || '').toUpperCase();
+  const sku = (item?.SellerSKU || '').toUpperCase();
+  if (!asin && !sku) return null;
+  return `${asin}::${sku}`;
+}
+
 function mapMarketplaceToCountry(marketplaceId) {
   return MARKETPLACE_COUNTRY[marketplaceId] || marketplaceId || null;
 }
@@ -38,176 +56,133 @@ async function fetchActiveIntegrations() {
   return data || [];
 }
 
-// === Helpers pentru rapoarte (Sales & Traffic) ===
+async function listAllOrders(spClient, marketplaceId) {
+  const createdAfter = isoDateDaysAgo(ORDER_WINDOW_DAYS);
+  const orders = [];
+  let nextToken = null;
 
-async function waitForReport(spClient, reportId) {
-  for (let attempt = 0; attempt < REPORT_POLL_LIMIT; attempt += 1) {
-    const report = await spClient.callAPI({
-      operation: 'getReport',
-      endpoint: 'reports',
-      path: { reportId }
+  do {
+    const baseQuery = nextToken
+      ? { NextToken: nextToken }
+      : {
+          MarketplaceIds: [marketplaceId || DEFAULT_MARKETPLACE],
+          CreatedAfter: createdAfter,
+          OrderStatuses: ORDER_STATUSES,
+          MaxResultsPerPage: ORDERS_PAGE_SIZE
+        };
+
+    const res = await spClient.callAPI({
+      operation: 'getOrders',
+      endpoint: 'orders',
+      query: baseQuery
     });
 
-    if (!report) throw new Error('Empty response when polling sales report status');
-
-    switch (report.processingStatus) {
-      case 'DONE':
-        return report.reportDocumentId;
-      case 'FATAL':
-      case 'CANCELLED':
-        throw new Error(`Sales report failed with status ${report.processingStatus}`);
-      case 'DONE_NO_DATA':
-        // raport valid dar fără date – îl tratăm ca "niciun rând"
-        return null;
-      default:
-        await new Promise((resolve) => setTimeout(resolve, REPORT_POLL_INTERVAL));
-    }
-  }
-  throw new Error('Timed out waiting for sales report to finish');
-}
-
-function decryptDocument(buffer, encryptionDetails) {
-  const key = Buffer.from(encryptionDetails.key, 'base64');
-  const iv = Buffer.from(encryptionDetails.initializationVector, 'base64');
-  const decipher = createDecipheriv('aes-256-cbc', key, iv);
-  const decrypted = Buffer.concat([decipher.update(buffer), decipher.final()]);
-  return decrypted;
-}
-
-async function downloadReportDocument(spClient, reportDocumentId) {
-  if (!reportDocumentId) return '';
-
-  const document = await spClient.callAPI({
-    operation: 'getReportDocument',
-    endpoint: 'reports',
-    path: { reportDocumentId }
-  });
-
-  if (!document?.url) throw new Error('Sales report document missing download URL');
-
-  const fetchImpl =
-    globalThis.fetch ||
-    (await import('node-fetch').then((mod) => mod.default));
-  const response = await fetchImpl(document.url);
-  if (!response.ok) {
-    throw new Error(`Failed to download sales report document (${response.status})`);
-  }
-  const arrayBuffer = await response.arrayBuffer();
-  let buffer = Buffer.from(arrayBuffer);
-
-  if (document.encryptionDetails) {
-    buffer = decryptDocument(buffer, document.encryptionDetails);
-  }
-
-  if (document.compressionAlgorithm === 'GZIP') {
-    buffer = gunzipSync(buffer);
-  }
-
-  return buffer.toString('utf-8');
-}
-
-function parseSalesRows(jsonText) {
-  if (!jsonText) return [];
-  let data;
-  try {
-    data = JSON.parse(jsonText);
-  } catch (e) {
-    console.error('Failed to parse sales report JSON', e);
-    return [];
-  }
-
-  const byAsin = Array.isArray(data?.salesAndTrafficByAsin)
-    ? data.salesAndTrafficByAsin
-    : [];
-
-  const rows = [];
-  for (const entry of byAsin) {
-    const asin = entry.childAsin || entry.parentAsin || null;
-    const sku = entry.sku || null;
-    if (!asin && !sku) continue;
-    const units =
-      Number(entry?.salesByAsin?.unitsOrdered?.value ?? 0) ||
-      Number(entry?.salesByAsin?.unitsShipped?.value ?? 0) ||
-      0;
-    if (!Number.isFinite(units) || units <= 0) continue;
-    rows.push({ asin, sku, units });
-  }
-
-  return rows;
-}
-
-async function fetchSalesRows(spClient, marketplaceId) {
-  const end = new Date();
-  const start = subDays(end, ORDER_WINDOW_DAYS);
-
-  const body = {
-    reportType: 'GET_SALES_AND_TRAFFIC_REPORT',
-    marketplaceIds: [marketplaceId || DEFAULT_MARKETPLACE],
-    dataStartTime: start.toISOString(),
-    dataEndTime: end.toISOString(),
-    reportOptions: {
-      dateGranularity: 'DAY',
-      asinGranularity: 'CHILD'
-    }
-  };
-
-  const response = await spClient.callAPI({
-    operation: 'createReport',
-    endpoint: 'reports',
-    body
-  });
-
-  if (!response?.reportId) {
-    throw new Error('Failed to create sales report');
-  }
-
-  const documentId = await waitForReport(
-    spClient,
-    response.reportId
-  );
-  if (!documentId) {
-    // DONE_NO_DATA
-    return [];
-  }
-  const jsonText = await downloadReportDocument(spClient, documentId);
-  return parseSalesRows(jsonText);
-}
-
-function aggregateSalesFromReport(rows = [], integration) {
-  if (!rows.length) return [];
-  const country = mapMarketplaceToCountry(
-    integration.marketplace_id || DEFAULT_MARKETPLACE
-  );
-
-  const map = new Map();
-  for (const row of rows) {
-    const asin = (row.asin || '').toUpperCase();
-    const sku = (row.sku || '').toUpperCase();
-    if (!asin && !sku) continue;
-    const key = `${asin}::${sku}`;
-    const units = Number(row.units || 0) || 0;
-    if (units <= 0) continue;
-
-    if (!map.has(key)) {
-      map.set(key, {
-        asin: row.asin || null,
-        sku: row.sku || null,
-        country,
-        total_units: 0,
-        pending_units: 0,
-        shipped_units: 0,
-        refund_units: 0,
-        payment_units: 0
-      });
+    const pageOrders =
+      (res && (res.Orders || res.payload?.Orders)) || [];
+    if (Array.isArray(pageOrders)) {
+      orders.push(...pageOrders);
     }
 
-    const agg = map.get(key);
-    agg.total_units += units;
-    // Considerăm totul ca "shipped" (Business Reports nu separă pending)
-    agg.shipped_units += units;
+    nextToken =
+      res?.payload?.NextToken ||
+      res?.payload?.nextToken ||
+      res?.NextToken ||
+      res?.nextToken ||
+      null;
+  } while (nextToken);
+
+  return orders;
+}
+
+async function listOrderItems(spClient, amazonOrderId) {
+  const items = [];
+  let nextToken = null;
+  do {
+    const res = await spClient.callAPI({
+      operation: 'getOrderItems',
+      endpoint: 'orders',
+      path: { orderId: amazonOrderId },
+      query: nextToken ? { NextToken: nextToken } : undefined
+    });
+    const pageItems =
+      (res && (res.OrderItems || res.payload?.OrderItems)) || [];
+    if (Array.isArray(pageItems)) {
+      items.push(...pageItems);
+    }
+    nextToken =
+      res?.payload?.NextToken ||
+      res?.payload?.nextToken ||
+      res?.NextToken ||
+      res?.nextToken ||
+      null;
+  } while (nextToken);
+  return items;
+}
+
+async function aggregateSales(spClient, integration) {
+  const orders = await listAllOrders(spClient, integration.marketplace_id || DEFAULT_MARKETPLACE);
+  if (!orders.length) return [];
+
+  const aggregates = new Map();
+  const country = mapMarketplaceToCountry(integration.marketplace_id || DEFAULT_MARKETPLACE);
+
+  for (const order of orders) {
+    const amazonOrderId = order.AmazonOrderId;
+    if (!amazonOrderId) continue;
+
+    const status = String(order.OrderStatus || '').replace(/\s+/g, '').toLowerCase();
+    const isCanceled = status === 'canceled';
+    const isUnfulfillable = status === 'unfulfillable';
+    const isPendingLike =
+      status === 'pending' ||
+      status === 'pendingavailability' ||
+      status === 'unshipped';
+    const isShippedLike =
+      status === 'shipped' ||
+      status === 'partiallyshipped' ||
+      status === 'invoiceunconfirmed';
+
+    if (isCanceled || isUnfulfillable) {
+      // Nu le includem în volum; le vom trata separat ca refunduri/failuri când
+      // vom integra Finances API.
+      continue;
+    }
+
+    const items = await listOrderItems(spClient, amazonOrderId);
+    for (const item of items) {
+      const key = keyFromItem(item);
+      if (!key) continue;
+      const qtyOrdered = Number(item.QuantityOrdered ?? 0) || 0;
+      const qtyShipped = Number(item.QuantityShipped ?? 0) || 0;
+      const qtyCanceled = Number(item.QuantityCanceled ?? 0) || 0;
+
+      if (!aggregates.has(key)) {
+        aggregates.set(key, {
+          asin: (item.ASIN || null),
+          sku: (item.SellerSKU || null),
+          country,
+          total_units: 0,
+          pending_units: 0,
+          shipped_units: 0,
+          refund_units: 0,
+          payment_units: 0
+        });
+      }
+
+      const agg = aggregates.get(key);
+      if (isShippedLike) {
+        agg.shipped_units += qtyOrdered || qtyShipped;
+      } else if (isPendingLike) {
+        agg.pending_units += qtyOrdered;
+      }
+
+      // total_units = shipped + pending (pending e vizibil în UI, dar păstrăm și aici).
+      agg.total_units = agg.shipped_units + agg.pending_units;
+      agg.refund_units += qtyCanceled > 0 ? qtyCanceled : 0;
+    }
   }
 
-  return Array.from(map.values());
+  return Array.from(aggregates.values());
 }
 
 async function upsertSales({ rows, companyId, userId }) {
