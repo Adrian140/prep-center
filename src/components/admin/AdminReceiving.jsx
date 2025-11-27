@@ -916,10 +916,13 @@ const checkStockMatches = async () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-text-secondary">
-                      <div className="font-mono text-sm text-text-primary">{eanValue}</div>
-                      <div className="font-mono">{asin}</div>
+                      <div className="font-mono text-sm text-text-primary">{asin}</div>
+                      <div className="font-mono">SKU: {skuValue}</div>
                     </td>
-                    <td className="px-4 py-3">{productName}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-text-primary">{productName}</div>
+                      <div className="text-xs text-text-secondary">SKU: {skuValue}</div>
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="font-semibold text-text-primary">
                         {`${expectedQty} expected`}
