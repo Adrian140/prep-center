@@ -1834,31 +1834,37 @@ getAllReceivingShipments: async (options = {}) => {
   let stockMap = {};
   let stockByAsin = {};
   let stockBySku = {};
-  if (allStockIds.size > 0 || asinSet.size > 0 || skuSet.size > 0) {
-    let stockQuery = supabase.from('stock_items').select('id, asin, name, sku, image_url');
-    if (allStockIds.size > 0) {
-      stockQuery = stockQuery.in('id', Array.from(allStockIds));
-    }
-    if (asinSet.size > 0) {
-      stockQuery = stockQuery.or(`asin.in.(${Array.from(asinSet).map((v) => `"${v}"`).join(',')})`);
-    }
-    if (skuSet.size > 0) {
-      const skuFilter = Array.from(skuSet).map((v) => `"${v}"`).join(',');
-      stockQuery = stockQuery.or(`sku.in.(${skuFilter})`);
-    }
+  const collected = [];
 
-    const { data: stockData } = await stockQuery;
-    stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
-    stockByAsin = Object.fromEntries(
-      (stockData || [])
-        .filter((s) => s.asin)
-        .map((s) => [s.asin, s])
-    );
-    stockBySku = Object.fromEntries(
-      (stockData || [])
-        .filter((s) => s.sku)
-        .map((s) => [s.sku, s])
-    );
+  const addStockRows = (rows = []) => {
+    rows.forEach((s) => {
+      if (!s) return;
+      stockMap[s.id] = s;
+      if (s.asin) stockByAsin[s.asin] = s;
+      if (s.sku) stockBySku[s.sku] = s;
+    });
+  };
+
+  if (allStockIds.size > 0) {
+    const { data: stockData } = await supabase
+      .from('stock_items')
+      .select('id, asin, name, sku, image_url')
+      .in('id', Array.from(allStockIds));
+    addStockRows(stockData);
+  }
+  if (asinSet.size > 0) {
+    const { data: stockData } = await supabase
+      .from('stock_items')
+      .select('id, asin, name, sku, image_url')
+      .in('asin', Array.from(asinSet));
+    addStockRows(stockData);
+  }
+  if (skuSet.size > 0) {
+    const { data: stockData } = await supabase
+      .from('stock_items')
+      .select('id, asin, name, sku, image_url')
+      .in('sku', Array.from(skuSet));
+    addStockRows(stockData);
   }
 
   // combinăm datele din ambele tabele (receiving_shipment_items și receiving_items)
