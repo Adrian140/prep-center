@@ -1312,6 +1312,12 @@ useEffect(() => {
     }
     if (stockFilter !== 'all') return ordered;
 
+    // Dacă sortăm după vânzări pe 30 de zile, nu mai
+    // regrupăm după stoc în prep‑center; vrem ordonare pură după vânzări.
+    if (salesSortDirection !== 'none') {
+      return ordered;
+    }
+
     const withStock = ordered.filter((row) => Number(row.qty || 0) > 0);
     const withoutStock = ordered.filter((row) => Number(row.qty || 0) <= 0);
     return [...withStock, ...withoutStock];
