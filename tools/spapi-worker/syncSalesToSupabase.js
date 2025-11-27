@@ -166,6 +166,9 @@ async function aggregateSales(spClient, integration) {
 
 async function upsertSales({ rows, companyId, userId }) {
   if (!rows.length) return;
+  // Curățăm valorile vechi pentru companie înainte de a scrie din nou
+  await supabase.from('amazon_sales_30d').delete().eq('company_id', companyId);
+
   const chunkSize = 500;
   const now = new Date().toISOString();
   for (let i = 0; i < rows.length; i += chunkSize) {
