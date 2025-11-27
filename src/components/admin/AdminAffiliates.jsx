@@ -95,6 +95,8 @@ export default function AdminAffiliates() {
   const [editForm, setEditForm] = useState(initialCodeForm);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingCodeId, setDeletingCodeId] = useState(null);
+  const [discountAmount, setDiscountAmount] = useState('');
+  const [discountLoading, setDiscountLoading] = useState(false);
 
   const currencyFormatter = useMemo(
     () =>
@@ -241,6 +243,40 @@ export default function AdminAffiliates() {
   const handleToggleCode = async (code) => {
     await supabaseHelpers.updateAffiliateCode(code.id, { active: !code.active });
     loadData();
+  };
+
+  const handleApplyDiscount = async (code) => {
+    if (!code?.id) return;
+    const raw = String(discountAmount || '').replace(',', '.');
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value <= 0) {
+      setMessage('Introdu un discount pozitiv (ex: 10 pentru -10€).');
+      return;
+    }
+    setDiscountLoading(true);
+    setMessage('');
+    try {
+      const { data, error } = await supabaseHelpers.applyAffiliateDiscountForCode({
+        codeId: code.id,
+        codeValue: code.code,
+        amount: value,
+        serviceLabel: 'Réduction pour les affiliés'
+      });
+      if (error) {
+        setMessage(error.message || 'Failed to apply discount.');
+      } else {
+        const count = Array.isArray(data) ? data.length : 0;
+        if (count > 0) {
+          setMessage(`Reducere aplicată la ${count} companie(i).`);
+        } else {
+          setMessage('Toți clienții acestui cod au deja reducerea.');
+        }
+      }
+    } catch (err) {
+      setMessage(err.message || 'Failed to apply discount.');
+    } finally {
+      setDiscountLoading(false);
+    }
   };
 
   const openEditForm = (code) => {
@@ -633,6 +669,39 @@ export default function AdminAffiliates() {
                     </button>
                   </div>
                 </div>
+                {selectedCode?.id === code.id && (
+                  <div className="mt-3 flex flex-wrap items-end gap-3">
+                    <div>
+                      <label className="block text-xs uppercase text-text-secondary mb-1">
+                        Discount per client (EUR)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="border rounded px-2 py-1 w-28 text-right"
+                        value={discountAmount}
+                        onChange={(e) => setDiscountAmount(e.target.value)}
+                        placeholder="10"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyDiscount(code)}
+                      disabled={discountLoading}
+                      className="px-3 py-1.5 rounded bg-primary text-white text-xs font-semibold disabled:opacity-50"
+                    >
+                      {discountLoading
+                        ? t('common.loading')
+                        : 'Aplică reducere tuturor clienților'}
+                    </button>
+                    <p className="text-xs text-text-secondary">
+                      Creează în tab-ul Other la fiecare client o linie
+                      &nbsp;<strong>“Réduction pour les affiliés”</strong> cu preț/unit&nbsp;
+                      <strong>-{discountAmount || '0'}</strong> și obs admin cu codul {code.code}.
+                    </p>
+                  </div>
+                )}
                 {editingCodeId === code.id && (
                   <div className="mt-4 border-t pt-4 space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

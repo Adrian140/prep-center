@@ -583,6 +583,76 @@ createReceptionRequest: async (data) => {
     };
   },
 
+  applyAffiliateDiscountForCode: async ({ codeId, codeValue, amount, serviceLabel }) => {
+    const value = Number(
+      typeof amount === 'string' ? amount.replace(',', '.') : amount
+    );
+    if (!codeId || !Number.isFinite(value) || value <= 0) {
+      return { data: [], error: new Error('Invalid discount amount') };
+    }
+
+    const discount = -Math.abs(value);
+    const normalizedCode = String(codeValue || '').trim().toUpperCase();
+    const service =
+      serviceLabel && serviceLabel.trim()
+        ? serviceLabel.trim()
+        : 'Réduction pour les affiliés';
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { data: members, error: membersError } = await supabase
+      .from('profiles')
+      .select('id, company_id')
+      .eq('affiliate_code_id', codeId)
+      .not('company_id', 'is', null);
+    if (membersError) {
+      return { data: [], error: membersError };
+    }
+
+    const companyIds = Array.from(
+      new Set((members || []).map((m) => m.company_id).filter(Boolean))
+    );
+    if (!companyIds.length) {
+      return { data: [], error: null };
+    }
+
+    const { data: existing, error: existingError } = await supabase
+      .from('other_lines')
+      .select('company_id')
+      .eq('service', service)
+      .in('company_id', companyIds)
+      .ilike('obs_admin', `%${normalizedCode}%`);
+    if (existingError) {
+      return { data: [], error: existingError };
+    }
+
+    const alreadyDiscounted = new Set(
+      (existing || []).map((row) => row.company_id)
+    );
+
+    const payloads = companyIds
+      .filter((cid) => !alreadyDiscounted.has(cid))
+      .map((cid) => ({
+        company_id: cid,
+        service,
+        service_date: today,
+        unit_price: discount,
+        units: 1,
+        total: discount,
+        obs_admin: normalizedCode || null
+      }));
+
+    if (!payloads.length) {
+      return { data: [], error: null };
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('other_lines')
+      .insert(payloads)
+      .select('*');
+
+    return { data: inserted || [], error: insertError || null };
+  },
+
   assignAffiliateCodeToProfile: async (profileId, codeId) => {
     return await supabase
       .from('profiles')
