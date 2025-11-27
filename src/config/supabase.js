@@ -1088,7 +1088,7 @@ const items = (draftData.items || []).map((it) => ({
     if (allStockIds.size > 0) {
       const { data: stockData } = await supabase
         .from('stock_items')
-        .select('id, name, ean, sku, asin')
+        .select('id, name, ean, sku, asin, image_url')
         .in('id', Array.from(allStockIds));
       stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
     }
@@ -1137,7 +1137,7 @@ const items = (draftData.items || []).map((it) => ({
     if (itemIds.length > 0) {
       const { data: stockData } = await supabase
         .from('stock_items')
-        .select('id, name, ean, sku, asin')
+        .select('id, name, ean, sku, asin, image_url')
         .in('id', itemIds);
       stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
     }
@@ -1463,11 +1463,11 @@ createPrepItem: async (requestId, item) => {
       return { byDay: [], topPaths: [], topReferrers: [], totals: {}, error };
     }
   },
-// ===== Analytics / Balances =====
-getPeriodBalances: async (...args) => {
-  // compatibilitate: acceptă atât (companyId, startDate, endDate)
-  // cât și (userId, companyId, startDate, endDate)
-  let companyId, startDate, endDate;
+  // ===== Analytics / Balances =====
+  getPeriodBalances: async (...args) => {
+    // compatibilitate: acceptă atât (companyId, startDate, endDate)
+    // cât și (userId, companyId, startDate, endDate)
+    let companyId, startDate, endDate;
   if (args.length === 4) {
     [, companyId, startDate, endDate] = args; // apel vechi
   } else {
@@ -1827,7 +1827,7 @@ getAllReceivingShipments: async (options = {}) => {
   if (allStockIds.size > 0) {
     const { data: stockData } = await supabase
       .from('stock_items')
-      .select('id, asin, name, sku')
+      .select('id, asin, name, sku, image_url')
       .in('id', Array.from(allStockIds));
     stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
   }
