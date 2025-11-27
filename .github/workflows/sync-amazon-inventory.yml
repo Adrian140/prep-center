@@ -2,7 +2,7 @@ name: Sync Amazon Inventory
 
 on:
   schedule:
-    - cron: "*/40 * * * *" # every 40 minutes
+    - cron: "0 * * * *" # every 60 minutes
   workflow_dispatch:
 concurrency:
   group: sync-amazon-inventory
@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   sync:
-    timeout-minutes: 45
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
