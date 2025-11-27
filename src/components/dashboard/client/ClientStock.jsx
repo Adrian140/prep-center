@@ -1,6 +1,16 @@
 // FILE: src/components/dashboard/client/ClientStock.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileDown, Languages, Plus, X, Image as ImageIcon, Check, Info } from 'lucide-react';
+import {
+  FileDown,
+  Languages,
+  Plus,
+  X,
+  Image as ImageIcon,
+  Check,
+  Info,
+  ChevronUp,
+  ChevronDown
+} from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
 import { useDashboardTranslation } from '../../../translations';
@@ -855,6 +865,10 @@ const [salesCountry, setSalesCountry] = useSessionStorage(
   `${storagePrefix}-salesCountry`,
   'ALL'
 );
+const [salesSortDirection, setSalesSortDirection] = useSessionStorage(
+  `${storagePrefix}-salesSortDirection`,
+  'none'
+);
 const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
   `${storagePrefix}-showPriceColumn`,
   false
@@ -1243,7 +1257,28 @@ useEffect(() => {
     }
 
     let ordered = [...stockFiltered];
-    if (sortMode === 'prep') {
+
+    const getSalesTotal = (row) => {
+      const key = String(row.asin || row.sku || '').trim().toUpperCase();
+      if (!key) return 0;
+      const summary = salesSummary[key];
+      if (!summary) return 0;
+      const stats =
+        summary.countries?.[salesCountry] || summary.countries?.ALL || null;
+      if (!stats) return 0;
+      const shipped = Number(stats.shipped ?? 0);
+      const pending = Number(stats.pending ?? 0);
+      const computedTotal = Math.max(shipped - pending, 0);
+      return Number.isFinite(computedTotal) ? computedTotal : 0;
+    };
+
+    if (salesSortDirection !== 'none') {
+      ordered.sort((a, b) => {
+        const ta = getSalesTotal(a);
+        const tb = getSalesTotal(b);
+        return salesSortDirection === 'asc' ? ta - tb : tb - ta;
+      });
+    } else if (sortMode === 'prep') {
       ordered.sort((a, b) => Number(b.qty || 0) - Number(a.qty || 0));
     } else if (sortMode === 'amazon') {
       ordered.sort((a, b) => Number(b.amazon_stock || 0) - Number(a.amazon_stock || 0));
@@ -1253,7 +1288,17 @@ useEffect(() => {
     const withStock = ordered.filter((row) => Number(row.qty || 0) > 0);
     const withoutStock = ordered.filter((row) => Number(row.qty || 0) <= 0);
     return [...withStock, ...withoutStock];
-  }, [stockFiltered, productSearch, sortMode, stockFilter, matchScore, normalize]);
+  }, [
+    stockFiltered,
+    productSearch,
+    sortMode,
+    stockFilter,
+    matchScore,
+    normalize,
+    salesSummary,
+    salesCountry,
+    salesSortDirection
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(quickFiltered.length / perPage));
   const pageClamped = Math.min(page, totalPages);
@@ -1273,6 +1318,15 @@ useEffect(() => {
       }
     });
   };
+
+  const toggleSalesSortDirection = useCallback(() => {
+    setSalesSortDirection((prev) => {
+      if (prev === 'none') return 'desc';
+      if (prev === 'desc') return 'asc';
+      return 'none';
+    });
+    setPage(1);
+  }, [setSalesSortDirection, setPage]);
   const toggleSelectOne = (id) => {
     mutateSelectedIds((set) => {
       if (set.has(id)) set.delete(id);
@@ -2142,9 +2196,27 @@ const saveReqChanges = async () => {
       )}
       <th className="px-2 py-2 text-left w-40 align-top">
         <div className="flex flex-col gap-1 items-center text-center">
-          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-            {t('ClientStock.sales.heading')}
-          </span>
+          <button
+            type="button"
+            onClick={toggleSalesSortDirection}
+            className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-primary"
+          >
+            <span>{t('ClientStock.sales.heading')}</span>
+            <span className="inline-flex flex-col leading-none">
+              {salesSortDirection === 'asc' && (
+                <ChevronUp className="w-3 h-3" />
+              )}
+              {salesSortDirection === 'desc' && (
+                <ChevronDown className="w-3 h-3" />
+              )}
+              {salesSortDirection === 'none' && (
+                <>
+                  <ChevronUp className="w-3 h-2 opacity-40" />
+                  <ChevronDown className="w-3 h-2 -mt-1 opacity-40" />
+                </>
+              )}
+            </span>
+          </button>
           <select
             className="border rounded px-2 py-1 text-xs text-center"
             value={salesCountry}
