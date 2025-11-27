@@ -1813,27 +1813,32 @@ getAllReceivingShipments: async (options = {}) => {
   const allStockIds = new Set();
   const asinSet = new Set();
   const skuSet = new Set();
+  const eanSet = new Set();
   shipments.forEach((r) => {
     (r.receiving_shipment_items || []).forEach((it) => {
       if (it.stock_item_id) allStockIds.add(it.stock_item_id);
       if (it.asin) asinSet.add(it.asin);
       if (it.sku) skuSet.add(it.sku);
+      if (it.ean) eanSet.add(it.ean);
     });
     (r.receiving_items || []).forEach((it) => {
       if (it.stock_item_id) allStockIds.add(it.stock_item_id);
       if (it.asin) asinSet.add(it.asin);
       if (it.sku) skuSet.add(it.sku);
+      if (it.ean_asin) eanSet.add(it.ean_asin);
     });
     (fallbackItemsMap[r.id] || []).forEach((it) => {
       if (it.stock_item_id) allStockIds.add(it.stock_item_id);
       if (it.asin) asinSet.add(it.asin);
       if (it.sku) skuSet.add(it.sku);
+      if (it.ean_asin || it.ean) eanSet.add(it.ean_asin || it.ean);
     });
   });
 
   let stockMap = {};
   let stockByAsin = {};
   let stockBySku = {};
+  let stockByEan = {};
   const collected = [];
 
   const addStockRows = (rows = []) => {
@@ -1842,28 +1847,36 @@ getAllReceivingShipments: async (options = {}) => {
       stockMap[s.id] = s;
       if (s.asin) stockByAsin[s.asin] = s;
       if (s.sku) stockBySku[s.sku] = s;
+      if (s.ean) stockByEan[s.ean] = s;
     });
   };
 
   if (allStockIds.size > 0) {
     const { data: stockData } = await supabase
       .from('stock_items')
-      .select('id, asin, name, sku, image_url')
+      .select('id, asin, name, sku, ean, image_url')
       .in('id', Array.from(allStockIds));
     addStockRows(stockData);
   }
   if (asinSet.size > 0) {
     const { data: stockData } = await supabase
       .from('stock_items')
-      .select('id, asin, name, sku, image_url')
+      .select('id, asin, name, sku, ean, image_url')
       .in('asin', Array.from(asinSet));
     addStockRows(stockData);
   }
   if (skuSet.size > 0) {
     const { data: stockData } = await supabase
       .from('stock_items')
-      .select('id, asin, name, sku, image_url')
+      .select('id, asin, name, sku, ean, image_url')
       .in('sku', Array.from(skuSet));
+    addStockRows(stockData);
+  }
+  if (eanSet.size > 0) {
+    const { data: stockData } = await supabase
+      .from('stock_items')
+      .select('id, asin, name, sku, ean, image_url')
+      .in('ean', Array.from(eanSet));
     addStockRows(stockData);
   }
 
@@ -1887,6 +1900,8 @@ getAllReceivingShipments: async (options = {}) => {
           stockMap[it.stock_item_id] ||
           (it.asin && stockByAsin[it.asin]) ||
           (it.sku && stockBySku[it.sku]) ||
+          ((it.ean_asin || it.ean) &&
+            (stockByAsin[it.ean_asin || it.ean] || stockByEan[it.ean_asin || it.ean])) ||
           null,
       })),
       produits_count: items.length,
