@@ -53,13 +53,22 @@ async function fetchActiveIntegrations() {
   const single = singleModeIntegration();
   if (single) return single;
 
-  const { data, error } = await supabase
+  const filterMarketplace = process.env.SPAPI_LISTING_MARKETPLACE_ID || null;
+
+  let query = supabase
     .from('amazon_integrations')
     .select(
       'id, user_id, company_id, marketplace_id, region, selling_partner_id, refresh_token, status, last_synced_at'
     )
-    .eq('status', 'active')
-    .order('last_synced_at', { ascending: true });
+    .eq('status', 'active');
+
+  if (filterMarketplace) {
+    query = query.eq('marketplace_id', filterMarketplace);
+  }
+
+  const { data, error } = await query.order('last_synced_at', {
+    ascending: true
+  });
 
   if (error) throw error;
 
@@ -379,4 +388,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(1);
   });
 }
-
