@@ -1,16 +1,17 @@
-name: Sync Amazon Inventory
+name: Sync Amazon Listings
 
 on:
   schedule:
-    - cron: "0 */12 * * *" # every 12 hours
+    - cron: "*/30 * * * *" # every 30 minutes
   workflow_dispatch:
+
 concurrency:
-  group: sync-amazon-inventory
+  group: sync-amazon-listings
   cancel-in-progress: false
 
 jobs:
   sync:
-    timeout-minutes: 90
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,7 +26,7 @@ jobs:
         working-directory: tools/spapi-worker
         run: npm ci
 
-      - name: Run sync inventory for all active integrations
+      - name: Run listings sync for active integrations
         working-directory: tools/spapi-worker
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -38,4 +39,6 @@ jobs:
           SPAPI_REGION: ${{ secrets.SPAPI_REGION || 'eu' }}
           SPAPI_MARKETPLACE_ID: ${{ secrets.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH' }}
           SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
-        run: npm run sync-inventory
+          SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN: ${{ secrets.SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN || '20' }}
+        run: npm run sync-listings
+

@@ -7,6 +7,7 @@
     "refresh-token": "node authRefreshAndStore.js",
     "sync-inventory": "node syncInventoryToSupabase.js",
     "list-listing": "node listListings.js",
+    "sync-listings": "node syncListingsToSupabase.js",
     "sync-keepa-images": "node syncKeepaImages.js"
   },
   "dependencies": {
