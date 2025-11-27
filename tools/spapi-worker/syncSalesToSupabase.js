@@ -69,11 +69,13 @@ async function listAllOrders(spClient, marketplaceId) {
       query
     });
 
-    if (Array.isArray(res?.Orders)) {
-      orders.push(...res.Orders);
+    const pageOrders =
+      (res && (res.Orders || res.payload?.Orders)) || [];
+    if (Array.isArray(pageOrders)) {
+      orders.push(...pageOrders);
     }
 
-    nextToken = res?.NextToken || null;
+    nextToken = res?.NextToken || res?.payload?.NextToken || null;
   } while (nextToken);
 
   return orders;
@@ -89,10 +91,12 @@ async function listOrderItems(spClient, amazonOrderId) {
       path: { orderId: amazonOrderId },
       query: nextToken ? { NextToken: nextToken } : undefined
     });
-    if (Array.isArray(res?.OrderItems)) {
-      items.push(...res.OrderItems);
+    const pageItems =
+      (res && (res.OrderItems || res.payload?.OrderItems)) || [];
+    if (Array.isArray(pageItems)) {
+      items.push(...pageItems);
     }
-    nextToken = res?.NextToken || null;
+    nextToken = res?.NextToken || res?.payload?.NextToken || null;
   } while (nextToken);
   return items;
 }
