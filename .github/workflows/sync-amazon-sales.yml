@@ -2,7 +2,7 @@ name: Sync Amazon 30-day Sales
 
 on:
   schedule:
-    - cron: "0 2 * * *" # once per day at 02:00 UTC
+    - cron: "0 */6 * * *" # every 6 hours
   workflow_dispatch:
 
 concurrency:
@@ -41,4 +41,3 @@ jobs:
           SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
           SPAPI_ORDER_WINDOW_DAYS: ${{ secrets.SPAPI_ORDER_WINDOW_DAYS || '30' }}
         run: npm run sync-sales
-
