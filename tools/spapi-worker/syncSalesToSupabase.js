@@ -112,14 +112,28 @@ async function aggregateSales(spClient, integration) {
     const amazonOrderId = order.AmazonOrderId;
     if (!amazonOrderId) continue;
 
+    const status = String(order.OrderStatus || '').toLowerCase();
+    const isCanceled = status === 'canceled';
+    const isPendingLike =
+      status === 'pending' ||
+      status === 'pendingavailability' ||
+      status === 'unshipped' ||
+      status === 'partiallyshipped';
+    const isShippedLike = status === 'shipped';
+
+    if (isCanceled) {
+      // nu le includem în volum; le vom trata separat ca refunduri reale când
+      // vom integra Finances API.
+      continue;
+    }
+
     const items = await listOrderItems(spClient, amazonOrderId);
     for (const item of items) {
       const key = keyFromItem(item);
       if (!key) continue;
-
-      const qtyShipped = Number(item.QuantityShipped ?? 0);
-      const qtyUnshipped = Number(item.QuantityOrdered ?? 0) - qtyShipped;
-      const qtyCanceled = Number(item.QuantityCanceled ?? 0);
+      const qtyOrdered = Number(item.QuantityOrdered ?? 0) || 0;
+      const qtyShipped = Number(item.QuantityShipped ?? 0) || 0;
+      const qtyCanceled = Number(item.QuantityCanceled ?? 0) || 0;
 
       if (!aggregates.has(key)) {
         aggregates.set(key, {
@@ -135,9 +149,14 @@ async function aggregateSales(spClient, integration) {
       }
 
       const agg = aggregates.get(key);
-      agg.total_units += qtyShipped;
-      agg.shipped_units += qtyShipped;
-      agg.pending_units += qtyUnshipped > 0 ? qtyUnshipped : 0;
+      if (isShippedLike) {
+        agg.shipped_units += qtyOrdered || qtyShipped;
+      } else if (isPendingLike) {
+        agg.pending_units += qtyOrdered;
+      }
+
+      // total_units rămâne doar shipped; UI va adăuga pending separat.
+      agg.total_units = agg.shipped_units;
       agg.refund_units += qtyCanceled > 0 ? qtyCanceled : 0;
     }
   }
