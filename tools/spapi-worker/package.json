@@ -6,7 +6,8 @@
   "scripts": {
     "refresh-token": "node authRefreshAndStore.js",
     "sync-inventory": "node syncInventoryToSupabase.js",
-    "list-listing": "node listListings.js"
+    "list-listing": "node listListings.js",
+    "sync-keepa-images": "node syncKeepaImages.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

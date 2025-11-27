@@ -1,0 +1,39 @@
+name: Sync Keepa Images
+
+on:
+  schedule:
+    - cron: "0 * * * *" # every hour
+  workflow_dispatch:
+
+concurrency:
+  group: sync-keepa-images
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    timeout-minutes: 50
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies (spapi-worker)
+        working-directory: tools/spapi-worker
+        run: npm ci
+
+      - name: Run Keepa image sync
+        working-directory: tools/spapi-worker
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
+          KEEPA_API_KEY: ${{ secrets.KEEPA_API_KEY }}
+          KEEPA_DOMAIN: ${{ secrets.KEEPA_DOMAIN || '4' }}
+          KEEPA_TOKENS_PER_MINUTE: ${{ secrets.KEEPA_TOKENS_PER_MINUTE || '1' }}
+          KEEPA_TOKEN_SAFETY_REMAINING: ${{ secrets.KEEPA_TOKEN_SAFETY_REMAINING || '0' }}
+        run: npm run sync-keepa-images
+
