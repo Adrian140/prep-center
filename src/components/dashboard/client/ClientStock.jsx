@@ -1263,8 +1263,14 @@ useEffect(() => {
       if (!key) return 0;
       const summary = salesSummary[key];
       if (!summary) return 0;
-      const stats =
-        summary.countries?.[salesCountry] || summary.countries?.ALL || null;
+      let stats = null;
+      if (summary.countries) {
+        if (salesCountry === 'ALL') {
+          stats = summary.countries.ALL || null;
+        } else {
+          stats = summary.countries[salesCountry] || null;
+        }
+      }
       if (!stats) return 0;
       const shipped = Number(stats.shipped ?? 0);
       const pending = Number(stats.pending ?? 0);
@@ -2389,8 +2395,14 @@ const saveReqChanges = async () => {
             {(() => {
               const key = String(r.asin || r.sku || '').trim().toUpperCase();
               const summary = key ? salesSummary[key] : null;
-              const stats =
-                summary?.countries?.[salesCountry] || summary?.countries?.ALL || null;
+              let stats = null;
+              if (summary?.countries) {
+                if (salesCountry === 'ALL') {
+                  stats = summary.countries.ALL || null;
+                } else {
+                  stats = summary.countries[salesCountry] || null;
+                }
+              }
               const countryLabel =
                 salesCountry === 'ALL'
                   ? t('ClientStock.sales.all')
