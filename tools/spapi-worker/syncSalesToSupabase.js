@@ -7,19 +7,6 @@ const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH'
 const ORDERS_PAGE_SIZE = 100;
 const ORDER_WINDOW_DAYS = Number(process.env.SPAPI_ORDER_WINDOW_DAYS || 30);
 
-// Lăsăm SP‑API să ne dea toate statusurile relevante și filtrăm noi în cod.
-// Totuși, setăm o listă explicită pentru claritate.
-const ORDER_STATUSES = [
-  'PendingAvailability',
-  'Pending',
-  'Unshipped',
-  'PartiallyShipped',
-  'Shipped',
-  'InvoiceUnconfirmed',
-  'Unfulfillable',
-  'Canceled'
-];
-
 const MARKETPLACE_COUNTRY = {
   A13V1IB3VIYZZH: 'FR',
   ATVPDKIKX0DER: 'US',
@@ -67,7 +54,6 @@ async function listAllOrders(spClient, marketplaceId) {
       : {
           MarketplaceIds: [marketplaceId || DEFAULT_MARKETPLACE],
           CreatedAfter: createdAfter,
-          OrderStatuses: ORDER_STATUSES,
           MaxResultsPerPage: ORDERS_PAGE_SIZE
         };
 
@@ -90,6 +76,10 @@ async function listAllOrders(spClient, marketplaceId) {
       res?.nextToken ||
       null;
   } while (nextToken);
+
+  console.log(
+    `Fetched ${orders.length} orders since ${createdAfter} for marketplace ${marketplaceId || DEFAULT_MARKETPLACE}`
+  );
 
   return orders;
 }
