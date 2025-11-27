@@ -1234,6 +1234,26 @@ useEffect(() => {
 
   const quickFiltered = useMemo(() => {
     const term = normalize(productSearch).trim();
+    const getSalesTotal = (row) => {
+      const key = makeSalesKey(row.asin, row.sku);
+      if (!key) return 0;
+      const summary = salesSummary[key];
+      if (!summary) return 0;
+      let stats = null;
+      if (summary.countries) {
+        if (salesCountry === 'ALL') {
+          stats = summary.countries.ALL || null;
+        } else {
+          stats = summary.countries[salesCountry] || null;
+        }
+      }
+      if (!stats) return 0;
+      const shipped = Number(stats.shipped ?? 0);
+      const pending = Number(stats.pending ?? 0);
+      const computedTotal = shipped + pending;
+      return Number.isFinite(computedTotal) ? computedTotal : 0;
+    };
+
     if (term) {
       const tokens = term.split(/\s+/).filter(Boolean);
       const scored = stockFiltered
@@ -1262,32 +1282,22 @@ useEffect(() => {
           return { row, score: total };
         })
         .filter(({ score }) => score > 0)
-        .sort((a, b) => b.score - a.score)
-        .map(({ row }) => row);
-      return scored;
+        .sort((a, b) => b.score - a.score);
+
+      let result = scored.map(({ row }) => row);
+
+      if (salesSortDirection !== 'none') {
+        result = [...result].sort((a, b) => {
+          const ta = getSalesTotal(a);
+          const tb = getSalesTotal(b);
+          return salesSortDirection === 'asc' ? ta - tb : tb - ta;
+        });
+      }
+
+      return result;
     }
 
     let ordered = [...stockFiltered];
-
-    const getSalesTotal = (row) => {
-      const key = makeSalesKey(row.asin, row.sku);
-      if (!key) return 0;
-      const summary = salesSummary[key];
-      if (!summary) return 0;
-      let stats = null;
-      if (summary.countries) {
-        if (salesCountry === 'ALL') {
-          stats = summary.countries.ALL || null;
-        } else {
-          stats = summary.countries[salesCountry] || null;
-        }
-      }
-      if (!stats) return 0;
-      const shipped = Number(stats.shipped ?? 0);
-      const pending = Number(stats.pending ?? 0);
-      const computedTotal = shipped + pending;
-      return Number.isFinite(computedTotal) ? computedTotal : 0;
-    };
 
     if (salesSortDirection !== 'none') {
       ordered.sort((a, b) => {
