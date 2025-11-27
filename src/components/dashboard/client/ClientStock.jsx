@@ -167,10 +167,7 @@ const SalesBreakdown = ({ stats, refreshedAt, countryLabel, t }) => {
     pending: stats?.pending ?? 0,
     refund: stats?.refund ?? 0
   };
-  const computedTotal =
-    (safeStats.shipped ?? 0) +
-    (safeStats.pending ?? 0) +
-    (safeStats.refund ?? 0);
+  const computedTotal = (safeStats.shipped ?? 0) + (safeStats.pending ?? 0);
   const statusList = [
     { key: 'refund', label: t('ClientStock.sales.status.refund'), value: safeStats.refund }
   ];
@@ -1288,8 +1285,7 @@ useEffect(() => {
       if (!stats) return 0;
       const shipped = Number(stats.shipped ?? 0);
       const pending = Number(stats.pending ?? 0);
-      const refund = Number(stats.refund ?? 0);
-      const computedTotal = shipped + pending + refund;
+      const computedTotal = shipped + pending;
       return Number.isFinite(computedTotal) ? computedTotal : 0;
     };
 
