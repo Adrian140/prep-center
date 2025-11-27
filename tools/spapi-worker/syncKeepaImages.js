@@ -31,9 +31,11 @@ function assertEnv() {
 
 async function fetchActiveCompanyIds() {
   const { data, error } = await supabase
-    .from('amazon_integrations')
-    .select('company_id, status')
-    .eq('status', 'active');
+    .from('stock_items')
+    .select('company_id')
+    .not('company_id', 'is', null)
+    .is('image_url', null)
+    .limit(10000);
   if (error) throw error;
 
   const ids = new Set();
@@ -130,4 +132,3 @@ syncKeepaImages().catch((err) => {
   console.error('[Keepa sync] Unhandled error:', err);
   process.exit(1);
 });
-
