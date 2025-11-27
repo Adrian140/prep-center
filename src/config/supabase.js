@@ -1811,26 +1811,43 @@ getAllReceivingShipments: async (options = {}) => {
 
   // pregătește metadate stock
   const allStockIds = new Set();
+  const asinSet = new Set();
+  const skuSet = new Set();
   shipments.forEach((r) => {
     (r.receiving_shipment_items || []).forEach((it) => {
       if (it.stock_item_id) allStockIds.add(it.stock_item_id);
+      if (it.asin) asinSet.add(it.asin);
+      if (it.sku) skuSet.add(it.sku);
     });
     (r.receiving_items || []).forEach((it) => {
       if (it.stock_item_id) allStockIds.add(it.stock_item_id);
+      if (it.asin) asinSet.add(it.asin);
+      if (it.sku) skuSet.add(it.sku);
     });
     (fallbackItemsMap[r.id] || []).forEach((it) => {
       if (it.stock_item_id) allStockIds.add(it.stock_item_id);
+      if (it.asin) asinSet.add(it.asin);
+      if (it.sku) skuSet.add(it.sku);
     });
   });
 
   let stockMap = {};
   let stockByAsin = {};
   let stockBySku = {};
-  if (allStockIds.size > 0) {
-    const { data: stockData } = await supabase
-      .from('stock_items')
-      .select('id, asin, name, sku, image_url')
-      .in('id', Array.from(allStockIds));
+  if (allStockIds.size > 0 || asinSet.size > 0 || skuSet.size > 0) {
+    let stockQuery = supabase.from('stock_items').select('id, asin, name, sku, image_url');
+    if (allStockIds.size > 0) {
+      stockQuery = stockQuery.in('id', Array.from(allStockIds));
+    }
+    if (asinSet.size > 0) {
+      stockQuery = stockQuery.or(`asin.in.(${Array.from(asinSet).map((v) => `"${v}"`).join(',')})`);
+    }
+    if (skuSet.size > 0) {
+      const skuFilter = Array.from(skuSet).map((v) => `"${v}"`).join(',');
+      stockQuery = stockQuery.or(`sku.in.(${skuFilter})`);
+    }
+
+    const { data: stockData } = await stockQuery;
     stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
     stockByAsin = Object.fromEntries(
       (stockData || [])
