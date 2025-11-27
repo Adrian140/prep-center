@@ -35,5 +35,8 @@ jobs:
           KEEPA_DOMAIN: ${{ secrets.KEEPA_DOMAIN || '4' }}
           KEEPA_TOKENS_PER_MINUTE: ${{ secrets.KEEPA_TOKENS_PER_MINUTE || '1' }}
           KEEPA_TOKEN_SAFETY_REMAINING: ${{ secrets.KEEPA_TOKEN_SAFETY_REMAINING || '0' }}
+          # Maxim aproximativ cu 1 token/min, job de 50 minute:
+          # până la ~50 produse / oră, max 20 per client.
+          KEEPA_ITEMS_PER_RUN: ${{ secrets.KEEPA_ITEMS_PER_RUN || '50' }}
+          KEEPA_ITEMS_PER_COMPANY: ${{ secrets.KEEPA_ITEMS_PER_COMPANY || '20' }}
         run: npm run sync-keepa-images
-
