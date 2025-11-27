@@ -113,9 +113,9 @@ async function syncKeepaImages() {
         console.error(
           `[Keepa sync] Failed for company=${companyId}, stock_item=${row.id}, asin=${row.asin}: ${message}`
         );
-        if (/tokens? low/i.test(message)) {
+        if (/tokens? low/i.test(message) || /keepa api error \(429\)/i.test(message)) {
           console.warn(
-            '[Keepa sync] Keepa tokens low – stopping sync run early.'
+            '[Keepa sync] Keepa tokens low or rate limited (429) – stopping sync run early.'
           );
           return;
         }
