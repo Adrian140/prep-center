@@ -162,9 +162,9 @@ const ClientStockSelectionBar = ({
                   </div>
                 )}
               </div>
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
 
         {showReceptionFields && (
           <div className="flex flex-col gap-1 w-full sm:max-w-3xl">
