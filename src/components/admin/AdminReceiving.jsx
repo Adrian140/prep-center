@@ -1075,7 +1075,7 @@ function AdminReceiving() {
     });
   }, [statusFilter, searchQuery, page, selectedShipment, setListState]);
 
-  const pageSize = 20;
+  const pageSize = 50;
 
   useEffect(() => {
     loadShipments();
@@ -1104,7 +1104,21 @@ const loadShipments = async () => {
     const { data, error, count } = await supabaseHelpers.getAllReceivingShipments(options);
     if (error) throw error;
 
-    setShipments(data || []);
+    const sorted = (data || []).slice().sort((a, b) => {
+      const priorityA = STATUS_PRIORITY[a.status] ?? 4;
+      const priorityB = STATUS_PRIORITY[b.status] ?? 4;
+
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+
+      const dateKey = priorityA === 2 ? 'updated_at' : 'created_at';
+      const dateA = new Date(a[dateKey] || a.created_at || 0).getTime();
+      const dateB = new Date(b[dateKey] || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+
+    setShipments(sorted);
     setTotalCount(count || 0);
     setTotalPages(Math.ceil((count || 0) / pageSize));
   } catch (error) {
