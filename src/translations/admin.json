@@ -108,6 +108,18 @@
       "saveError": "Unable to save pricing. Please try again.",
       "loadError": "Unable to load pricing services.",
       "exportError": "Failed to generate PDF.",
+      "quickEditor": {
+        "title": "Website pricing quick editor",
+        "subtitle": "Select a service and adjust only the price that appears on the public pricing page.",
+        "note": "FBA shows prep services, FBM only the fulfillment platforms for that category.",
+        "select": "Service",
+        "noService": "Choose a service",
+        "priceLabel": "Price",
+        "placeholder": "Current storefront price",
+        "save": "Update price",
+        "success": "Website price updated successfully.",
+        "error": "Unable to update website price."
+      },
       "groups": {
         "fba": {
           "title": "FBA Prep Services",

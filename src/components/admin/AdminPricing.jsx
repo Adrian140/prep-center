@@ -64,6 +64,11 @@ const tempId = () => {
   return `tmp-${rnd}`;
 };
 
+const QUICK_SECTIONS = [
+  { category: 'FBA Prep Services', stateKey: 'fba', titlePath: 'adminPricing.groups.fba.title' },
+  { category: 'FBM Fulfillment', stateKey: 'fbm', titlePath: 'adminPricing.groups.fbm.title' }
+];
+
 const ensureUuid = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -86,6 +91,9 @@ export default function AdminPricing() {
   const [expanded, setExpanded] = useState(() =>
     GROUP_CONFIG.reduce((acc, g) => ({ ...acc, [g.id]: true }), {})
   );
+  const [quickSelection, setQuickSelection] = useState({ fba: '', fbm: '' });
+  const [quickPrices, setQuickPrices] = useState({ fba: {}, fbm: {} });
+  const [quickSaving, setQuickSaving] = useState({ fba: false, fbm: false });
 
   const groupedData = useMemo(() => rows, [rows]);
 
@@ -123,11 +131,79 @@ export default function AdminPricing() {
       });
       setRows(grouped);
       setDeleteQueue({});
+      updateQuickDefaults(grouped);
     } catch (err) {
       console.error('Failed to load pricing services', err);
       setMessage({ type: 'error', text: t('adminPricing.loadError') });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const buildPriceMap = (list = []) =>
+    list.reduce((acc, item) => {
+      acc[item.id] = item.price ?? '';
+      return acc;
+    }, {});
+
+  const ensureSelection = (currentId, list = []) => {
+    if (!list.length) return '';
+    if (currentId && list.some((item) => item.id === currentId)) return currentId;
+    return list[0].id;
+  };
+
+  const updateQuickDefaults = (grouped) => {
+    const nextQuickPrices = {};
+    const nextQuickSelection = {};
+    QUICK_SECTIONS.forEach(({ category, stateKey }) => {
+      const list = grouped[category] || [];
+      nextQuickPrices[stateKey] = buildPriceMap(list);
+      nextQuickSelection[stateKey] = ensureSelection(quickSelection[stateKey], list);
+    });
+    setQuickPrices(nextQuickPrices);
+    setQuickSelection((prev) => ({
+      fba: nextQuickSelection.fba || prev.fba,
+      fbm: nextQuickSelection.fbm || prev.fbm
+    }));
+  };
+
+  const handleQuickSelectionChange = (stateKey, value) => {
+    setQuickSelection((prev) => ({ ...prev, [stateKey]: value }));
+  };
+
+  const handleQuickPriceInputChange = (stateKey, id, value) => {
+    if (!id) return;
+    setQuickPrices((prev) => ({
+      ...prev,
+      [stateKey]: { ...(prev[stateKey] || {}), [id]: value }
+    }));
+  };
+
+  const handleQuickSave = async (stateKey) => {
+    const section = QUICK_SECTIONS.find((entry) => entry.stateKey === stateKey);
+    if (!section) return;
+    const list = rows[section.category] || [];
+    const selectedId = quickSelection[stateKey];
+    if (!selectedId) return;
+    const row = list.find((item) => item.id === selectedId);
+    if (!row) return;
+    const priceValue = (quickPrices[stateKey] || {})[selectedId] ?? '';
+    if (!priceValue.toString().trim()) {
+      setMessage({ type: 'error', text: t('adminPricing.quickEditor.error') });
+      return;
+    }
+    setQuickSaving((prev) => ({ ...prev, [stateKey]: true }));
+    try {
+      const payload = [{ ...row, price: priceValue }];
+      const { error } = await supabaseHelpers.upsertPricingServices(payload);
+      if (error) throw error;
+      setMessage({ type: 'success', text: t('adminPricing.quickEditor.success') });
+      await loadData();
+    } catch (err) {
+      console.error('Failed to update website price', err);
+      setMessage({ type: 'error', text: t('adminPricing.quickEditor.error') });
+    } finally {
+      setQuickSaving((prev) => ({ ...prev, [stateKey]: false }));
     }
   };
 
@@ -328,6 +404,74 @@ export default function AdminPricing() {
       </div>
     );
   };
+
+  const renderQuickPricingEditor = () => (
+    <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-text-primary">
+            {t('adminPricing.quickEditor.title')}
+          </h3>
+          <p className="text-sm text-text-secondary">
+            {t('adminPricing.quickEditor.subtitle')}
+          </p>
+        </div>
+        <p className="text-xs text-text-secondary">{t('adminPricing.quickEditor.note')}</p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {QUICK_SECTIONS.map(({ category, stateKey, titlePath }) => {
+          const categoryRows = rows[category] || [];
+          const selectedId = quickSelection[stateKey] || categoryRows[0]?.id || '';
+          const fallbackRow = categoryRows.find((item) => item.id === selectedId);
+          const priceValue =
+            (quickPrices[stateKey] || {})[selectedId] ?? fallbackRow?.price ?? '';
+          return (
+            <div key={category} className="border border-gray-100 rounded-xl p-4 space-y-3 shadow-sm">
+              <h4 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
+                {t(titlePath)}
+              </h4>
+              <label className="text-xs uppercase tracking-wide text-text-secondary">
+                {t('adminPricing.quickEditor.select')}
+              </label>
+              <select
+                value={selectedId}
+                onChange={(e) => handleQuickSelectionChange(stateKey, e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary"
+              >
+                <option value="">{t('adminPricing.quickEditor.noService')}</option>
+                {categoryRows.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.service_name}
+                  </option>
+                ))}
+              </select>
+              <label className="text-xs uppercase tracking-wide text-text-secondary">
+                {t('adminPricing.quickEditor.priceLabel')}
+              </label>
+              <input
+                type="text"
+                value={priceValue}
+                placeholder={t('adminPricing.quickEditor.placeholder')}
+                onChange={(e) => handleQuickPriceInputChange(stateKey, selectedId, e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary"
+              />
+              <button
+                onClick={() => handleQuickSave(stateKey)}
+                disabled={
+                  quickSaving[stateKey] ||
+                  !selectedId ||
+                  !priceValue.toString().trim()
+                }
+                className="w-full inline-flex justify-center items-center gap-2 px-3 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-dark disabled:opacity-60"
+              >
+                {quickSaving[stateKey] ? t('adminPricing.saving') : t('adminPricing.quickEditor.save')}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
