@@ -203,7 +203,34 @@ async function mergeRefundRows(companyId) {
   return map;
 }
 
+function accumulateSalesRows(map, rows) {
+  const toNumber = (value) => Number(value ?? 0) || 0;
+  for (const row of rows) {
+    const key = `${row.asin || ''}::${row.sku || ''}::${row.country || ''}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.total_units += toNumber(row.total_units);
+      existing.pending_units += toNumber(row.pending_units);
+      existing.shipped_units += toNumber(row.shipped_units);
+      existing.refund_units += toNumber(row.refund_units);
+      existing.payment_units += toNumber(row.payment_units);
+    } else {
+      map.set(key, {
+        asin: row.asin,
+        sku: row.sku,
+        country: row.country,
+        total_units: toNumber(row.total_units),
+        pending_units: toNumber(row.pending_units),
+        shipped_units: toNumber(row.shipped_units),
+        refund_units: toNumber(row.refund_units),
+        payment_units: toNumber(row.payment_units)
+      });
+    }
+  }
+}
+
 async function upsertSales({ rows, companyId, userId }) {
+  await supabase.from('amazon_sales_30d').delete().eq('company_id', companyId);
   if (!rows.length) return;
   const now = new Date().toISOString();
   if (REFUND_ONLY) {
@@ -232,7 +259,6 @@ async function upsertSales({ rows, companyId, userId }) {
 
   // Curățăm valorile vechi pentru companie înainte de a scrie din nou
   await supabase.from('amazon_sales_30d').delete().eq('company_id', companyId);
-
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize).map((row) => ({
@@ -266,17 +292,16 @@ async function syncIntegration(integration) {
 
   // Folosim implementarea existentă bazată pe Orders API,
   // care agregează vânzările pe ultimele ORDER_WINDOW_DAYS.
-  const sales = await aggregateSales(spClient, integration);
-  await upsertSales({ rows: sales, companyId: integration.company_id, userId: integration.user_id });
-
   await supabase
     .from('amazon_integrations')
     .update({ last_error: null, last_synced_at: new Date().toISOString() })
     .eq('id', integration.id);
 
   console.log(
-    `Done sales sync for integration ${integration.id}: ${sales.length} ASIN/SKU rows upserted.`
+    `Done sales sync for integration ${integration.id}: ${sales.length} ASIN/SKU rows returned.`
   );
+
+  return sales;
 }
 
 async function main() {
@@ -286,16 +311,36 @@ async function main() {
     return;
   }
 
+  const salesByCompany = new Map();
+
   for (const integration of integrations) {
+    let sales = [];
     try {
-      await syncIntegration(integration);
+      sales = await syncIntegration(integration);
     } catch (err) {
       console.error(`Sales sync failed for integration ${integration.id}`, err);
       await supabase
         .from('amazon_integrations')
         .update({ last_error: String(err?.message || err) })
         .eq('id', integration.id);
+      continue;
     }
+
+    const companyId = integration.company_id;
+    if (!salesByCompany.has(companyId)) {
+      salesByCompany.set(companyId, { userId: integration.user_id, rows: new Map() });
+    }
+    const group = salesByCompany.get(companyId);
+    if (!group.userId && integration.user_id) {
+      group.userId = integration.user_id;
+    }
+
+    accumulateSalesRows(group.rows, sales || []);
+  }
+
+  for (const [companyId, group] of salesByCompany.entries()) {
+    const aggregatedRows = Array.from(group.rows.values());
+    await upsertSales({ rows: aggregatedRows, companyId, userId: group.userId });
   }
 }
 
