@@ -11,6 +11,12 @@ const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 4000);
 const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 60);
 const ALLOWED_FBA_CHANNELS = new Set(['AMAZON_NA', 'AMAZON_EU', 'AFN']);
 
+const normalizeIdentifier = (value) => {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text.length ? text.toUpperCase() : null;
+};
+
 export const sanitizeText = (value) => {
   if (!value) return value;
   return String(value)
@@ -351,7 +357,9 @@ async function upsertStockRows(rows) {
       return acc;
     }, []);
     if (!chunk.length) continue;
-    const { error } = await supabase.from('stock_items').upsert(chunk, { defaultToNull: false });
+    const { error } = await supabase
+      .from('stock_items')
+      .upsert(chunk, { defaultToNull: false, onConflict: 'company_id,sku,asin' });
     if (error) throw error;
   }
 }
@@ -385,7 +393,9 @@ async function syncToSupabase({ items, companyId, userId }) {
     if (!row) return false;
     const qty = Number(row.qty ?? 0);
     if (!Number.isFinite(qty) || qty <= 0) return false;
-    return Boolean(row.sku) && Boolean(row.asin);
+    const hasIdentifier =
+      Boolean(row.sku && String(row.sku).trim()) || Boolean(row.asin && String(row.asin).trim());
+    return hasIdentifier;
   };
   const insertsOrUpdates = [];
 
@@ -394,6 +404,8 @@ async function syncToSupabase({ items, companyId, userId }) {
     if (!key) continue;
     seenKeys.add(key);
     const row = existingByKey.get(key);
+    const sanitizedSku = normalizeIdentifier(item.sku);
+    const sanitizedAsin = normalizeIdentifier(item.asin);
 
     if (row) {
       seenKeys.add(key);
@@ -405,8 +417,8 @@ async function syncToSupabase({ items, companyId, userId }) {
         id: row.id,
         company_id: row.company_id || companyId,
         user_id: row.user_id || userId,
-        asin: row.asin || item.asin || null,
-        sku: row.sku || item.sku || null,
+        asin: normalizeIdentifier(row.asin) || sanitizedAsin,
+        sku: normalizeIdentifier(row.sku) || sanitizedSku,
         amazon_stock: item.amazon_stock,
         amazon_inbound: item.amazon_inbound,
         amazon_reserved: item.amazon_reserved,
@@ -418,8 +430,8 @@ async function syncToSupabase({ items, companyId, userId }) {
       insertsOrUpdates.push({
         company_id: companyId,
         user_id: userId,
-        asin: item.asin,
-        sku: item.sku,
+        asin: sanitizedAsin,
+        sku: sanitizedSku,
         name: item.name || item.asin || item.sku,
         amazon_stock: item.amazon_stock,
         amazon_inbound: item.amazon_inbound,
