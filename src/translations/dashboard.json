@@ -263,7 +263,10 @@
       "productSearchPlaceholder": "Search by name / ASIN / SKU",
       "cta": {
         "sendToPrep": "Send to Prep (Amazon)",
-        "announceReception": "Notify incoming goods"
+        "announceReception": "Notify incoming goods",
+        "deleteListing": "Delete listings",
+        "deleteListingConfirm": "Delete the selected listing(s)?",
+        "deleteListingSuccess": "Listings deleted successfully."
       },
       "receptionForm": {
         "carrierOther": "Carrier name",
@@ -986,7 +989,10 @@
       "productSearchPlaceholder": "Caută după nume / ASIN / SKU",
       "cta": {
         "sendToPrep": "Trimite în Prep (Amazon)",
-        "announceReception": "Anunță recepția"
+        "announceReception": "Anunță recepția",
+        "deleteListing": "Șterge listingurile",
+        "deleteListingConfirm": "Ești sigur că vrei să ștergi listingurile selectate?",
+        "deleteListingSuccess": "Listingurile au fost șterse cu succes."
       },
       "receptionForm": {
         "carrierOther": "Numele curierului",
@@ -1717,7 +1723,10 @@
       "productSearchPlaceholder": "Rechercher par nom / ASIN / SKU",
       "cta": {
         "sendToPrep": "Envoyer en préparation (Amazon)",
-        "announceReception": "Annoncer une réception"
+        "announceReception": "Annoncer une réception",
+        "deleteListing": "Supprimer les annonces",
+        "deleteListingConfirm": "Supprimer les annonces sélectionnées ?",
+        "deleteListingSuccess": "Annonces supprimées avec succès."
       },
       "receptionForm": {
         "carrierOther": "Nom du transporteur",
@@ -2383,7 +2392,10 @@
       "productSearchPlaceholder": "Nach Name / ASIN / SKU suchen",
       "cta": {
         "sendToPrep": "An Prep-Center senden (Amazon)",
-        "announceReception": "Wareneingang ankündigen"
+        "announceReception": "Wareneingang ankündigen",
+        "deleteListing": "Listings löschen",
+        "deleteListingConfirm": "Möchtest du die ausgewählten Listings wirklich löschen?",
+        "deleteListingSuccess": "Listings erfolgreich gelöscht."
       },
       "receptionForm": {
         "carrierOther": "Name des Transporteurs",
@@ -3049,7 +3061,10 @@
       "productSearchPlaceholder": "Cerca per nome / ASIN / SKU",
       "cta": {
         "sendToPrep": "Invia al Prep (Amazon)",
-        "announceReception": "Annuncia una ricezione"
+        "announceReception": "Annuncia una ricezione",
+        "deleteListing": "Elimina inserzioni",
+        "deleteListingConfirm": "Eliminare le inserzioni selezionate?",
+        "deleteListingSuccess": "Inserzioni eliminate con successo."
       },
       "receptionForm": {
         "carrierOther": "Nome del corriere",
@@ -3715,7 +3730,10 @@
       "productSearchPlaceholder": "Buscar por nombre / ASIN / SKU",
       "cta": {
         "sendToPrep": "Enviar al Prep (Amazon)",
-        "announceReception": "Anunciar recepción"
+        "announceReception": "Anunciar recepción",
+        "deleteListing": "Eliminar listings",
+        "deleteListingConfirm": "¿Eliminar los listings seleccionados?",
+        "deleteListingSuccess": "Listings eliminados."
       },
       "receptionForm": {
         "carrierOther": "Nombre del transportista",

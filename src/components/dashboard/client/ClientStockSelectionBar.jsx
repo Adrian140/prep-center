@@ -24,6 +24,8 @@ const ClientStockSelectionBar = ({
   openPrep,
   openReception,
   clearSelection
+  , onDelete,
+  deleteInProgress
 }) => {
   if (!selectedIds?.size) return null;
 
@@ -47,6 +49,7 @@ const ClientStockSelectionBar = ({
         >
           <option value="prep">{t('ClientStock.cta.sendToPrep')}</option>
           <option value="reception">{t('ClientStock.cta.announceReception')}</option>
+          <option value="delete">{t('ClientStock.cta.deleteListing')}</option>
         </select>
 
         <div
@@ -288,13 +291,21 @@ const ClientStockSelectionBar = ({
           <button
             onClick={() => {
               if (submitType === 'prep') openPrep();
-              else openReception();
+              else if (submitType === 'reception') openReception();
+              else if (submitType === 'delete') onDelete?.();
             }}
-            className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-6 py-2 rounded-md w-full sm:w-auto text-center"
+            disabled={submitType === 'delete' ? deleteInProgress : false}
+            className={`${
+              submitType === 'delete'
+                ? 'bg-red-500 hover:bg-red-600'
+                : 'bg-blue-500 hover:bg-blue-600'
+            } text-white text-sm px-6 py-2 rounded-md w-full sm:w-auto text-center disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {submitType === 'prep'
               ? t('ClientStock.cta.sendToPrep')
-              : t('ClientStock.cta.announceReception')}
+              : submitType === 'reception'
+              ? t('ClientStock.cta.announceReception')
+              : t('ClientStock.cta.deleteListing')}
           </button>
           <button onClick={clearSelection} className="text-sm text-gray-500 hover:text-gray-700">
             {t('common.cancel')}

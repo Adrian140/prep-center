@@ -367,6 +367,12 @@ createReceptionRequest: async (data) => {
     return data;
   },
 
+  deleteStockItems: async (ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    const { error } = await supabase.from("stock_items").delete().in("id", ids);
+    if (error) throw error;
+  },
+
   listAffiliateRequests: async () => {
     return await supabase
       .from('affiliate_requests')

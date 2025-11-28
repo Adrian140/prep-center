@@ -409,11 +409,8 @@ async function syncToSupabase({ items, companyId, userId }) {
 
     if (row) {
       seenKeys.add(key);
-      if (hasManualPrepStock(row)) {
-        continue;
-      }
-
-      insertsOrUpdates.push({
+      const manualQty = Number(row.qty ?? 0);
+      const payload = {
         id: row.id,
         company_id: row.company_id || companyId,
         user_id: row.user_id || userId,
@@ -424,7 +421,17 @@ async function syncToSupabase({ items, companyId, userId }) {
         amazon_reserved: item.amazon_reserved,
         amazon_unfulfillable: item.amazon_unfulfillable,
         name: row.name && row.name.trim() ? row.name : item.name || row.name
-      });
+      };
+      if (manualQty > 0) {
+        payload.qty = manualQty;
+      }
+      if (hasManualPrepStock(row)) {
+        // keep manual qty but refresh Amazon fields
+        insertsOrUpdates.push(payload);
+        continue;
+      }
+
+      insertsOrUpdates.push(payload);
     } else {
       seenKeys.add(key);
       insertsOrUpdates.push({

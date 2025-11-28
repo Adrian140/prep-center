@@ -789,6 +789,7 @@ export default function ClientStock({
 } = {}) {
   const { t, tp } = useDashboardTranslation();
   const supportError = t('common.supportError');
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
   const priceColumnNote = t('ClientStock.priceColumn.note');
   const authCtx = useSupabaseAuth();
   const profile = profileOverride ?? authCtx.profile;
@@ -1062,79 +1063,97 @@ const handleQuickAddError = useCallback(
   []
 );
 
+const refreshStockData = useCallback(async () => {
+  if (!profile?.id) {
+    setRows([]);
+    setLoading(false);
+    setRowEdits({});
+    setQtyInputs({});
+    setPhotoCounts({});
+    setSalesSummary({});
+    return;
+  }
+
+  setLoading(true);
+
+  let query = supabase.from('stock_items').select('*');
+  if (profile?.company_id) query = query.eq('company_id', profile.company_id);
+  else query = query.eq('user_id', profile.id);
+
+  const { data, error } = await query.order('created_at', { ascending: false });
+  const list = error ? [] : Array.isArray(data) ? data : [];
+
+  if (unmountedRef.current) {
+    setLoading(false);
+    return;
+  }
+
+  setRows(list);
+  setLoading(false);
+
+  const seed = {};
+  for (const r of list) {
+    seed[r.id] = {
+      name: r.name || '',
+      asin: r.asin || '',
+      ean: r.ean || '',
+      product_link: r.product_link || '',
+      purchase_price: r.purchase_price != null ? String(r.purchase_price) : '',
+      sku: r.sku || '',
+      units_to_send: 0,
+      fba_units: 0
+    };
+  }
+  setRowEdits(seed);
+  setQtyInputs({});
+
+  if (list.length > 0) {
+    try {
+      const ids = list.map((r) => r.id);
+      const { data: imgRows, error: imgErr } = await supabase
+        .from('product_images')
+        .select('stock_item_id')
+        .in('stock_item_id', ids);
+      if (imgErr) throw imgErr;
+      const counts = {};
+      (imgRows || []).forEach((img) => {
+        counts[img.stock_item_id] = (counts[img.stock_item_id] || 0) + 1;
+      });
+      setPhotoCounts(counts);
+    } catch {
+      setPhotoCounts({});
+    }
+  } else {
+    setPhotoCounts({});
+  }
+
+  try {
+    let salesQuery = supabase
+      .from('amazon_sales_30d')
+      .select('asin, sku, country, total_units, pending_units, shipped_units, payment_units, refund_units, refreshed_at');
+    if (profile?.company_id) salesQuery = salesQuery.eq('company_id', profile.company_id);
+    else salesQuery = salesQuery.eq('user_id', profile?.id || null);
+    const { data: salesRows, error: salesErr } = await salesQuery;
+    if (salesErr) throw salesErr;
+    setSalesSummary(buildSalesSummary(salesRows || []));
+  } catch {
+    setSalesSummary({});
+  }
+}, [
+  profile?.company_id,
+  profile?.id,
+  setRowEdits,
+  setQtyInputs,
+  setPhotoCounts,
+  setSalesSummary,
+  setRows,
+  setLoading
+]);
+
 useEffect(() => {
-  let mounted = true;
-  async function load() {
-      if (!profile?.id) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    let query = supabase.from('stock_items').select('*');
-    if (profile?.company_id) query = query.eq('company_id', profile.company_id);
-    else query = query.eq('user_id', profile.id);
-    const { data, error } = await query.order('created_at', { ascending: false });
-
-      if (!mounted) return;
-
-      const list = error ? [] : Array.isArray(data) ? data : [];
-      setRows(list);
-      setLoading(false);
-
-      const seed = {};
-      for (const r of list) {
-        seed[r.id] = {
-          name: r.name || '',
-          asin: r.asin || '',
-          ean: r.ean || '',
-          product_link: r.product_link || '',
-          purchase_price: r.purchase_price != null ? String(r.purchase_price) : '',
-          sku: r.sku || '',
-          units_to_send: 0,
-          fba_units: 0,
-        };
-      }
-      setRowEdits(seed);
-      setQtyInputs({});
-
-      if (list.length > 0) {
-        try {
-          const ids = list.map((r) => r.id);
-          const { data: imgRows, error: imgErr } = await supabase
-            .from('product_images')
-            .select('stock_item_id')
-            .in('stock_item_id', ids);
-          if (imgErr) throw imgErr;
-          const counts = {};
-          (imgRows || []).forEach((img) => {
-            counts[img.stock_item_id] = (counts[img.stock_item_id] || 0) + 1;
-          });
-          setPhotoCounts(counts);
-        } catch {
-          setPhotoCounts({});
-        }
-      } else {
-        setPhotoCounts({});
-      }
-
-      try {
-        let salesQuery = supabase
-          .from('amazon_sales_30d')
-          .select('asin, sku, country, total_units, pending_units, shipped_units, payment_units, refund_units, refreshed_at');
-        if (profile?.company_id) salesQuery = salesQuery.eq('company_id', profile.company_id);
-        else salesQuery = salesQuery.eq('user_id', profile?.id || null);
-        const { data: salesRows, error: salesErr } = await salesQuery;
-        if (salesErr) throw salesErr;
-        setSalesSummary(buildSalesSummary(salesRows || []));
-      } catch {
-        setSalesSummary({});
-      }
-
-    }
-    if (status !== 'loading') load();
-    return () => { mounted = false; };
-  }, [status, profile?.company_id]);
+  if (status === 'loading') return;
+  refreshStockData();
+}, [status, refreshStockData]);
 
   useEffect(() => {
     if (keepaDisabledRef.current) return;
@@ -1359,6 +1378,28 @@ useEffect(() => {
     () => rows.filter((r) => selectedIds.has(r.id)),
     [rows, selectedIds]
   );
+  const openDeleteListings = useCallback(async () => {
+    if (selectedRows.length === 0) {
+      setToast({ type: 'error', text: t('ClientStock.actions.needSelection') });
+      return;
+    }
+    if (!window.confirm(t('ClientStock.cta.deleteListingConfirm'))) {
+      return;
+    }
+
+    setDeleteInProgress(true);
+    try {
+      await supabaseHelpers.deleteStockItems(selectedRows.map((row) => row.id));
+      setToast({ type: 'success', text: t('ClientStock.cta.deleteListingSuccess') });
+      setSelectedIdList([]);
+      await refreshStockData();
+    } catch (err) {
+      console.error('Delete listings error', err);
+      setToast({ type: 'error', text: supportError });
+    } finally {
+      setDeleteInProgress(false);
+    }
+  }, [selectedRows, refreshStockData, setSelectedIdList, t, supportError]);
   useEffect(() => {
     if (!enableQtyAdjust) return;
     setQtyInputs({});
@@ -2163,6 +2204,8 @@ const saveReqChanges = async () => {
         updateEdit={updateEdit}
         openPrep={openPrep}
         openReception={openReception}
+        onDelete={openDeleteListings}
+        deleteInProgress={deleteInProgress}
         clearSelection={() => setSelectedIdList([])}
       />
 
