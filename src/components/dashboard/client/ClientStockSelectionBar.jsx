@@ -38,9 +38,30 @@ const ClientStockSelectionBar = ({
           count: trackingList.length
         })
       : t('ClientStock.receptionForm.trackingNone');
+  const normalizedDestinationCountries = Array.isArray(destinationCountries)
+    ? destinationCountries
+    : [];
+  const showDestinationNearPrep = submitType === 'prep';
+
+  const renderDestinationSelector = (className = 'w-full sm:max-w-[140px]') => (
+    <div className={`flex flex-col gap-1 ${className}`}>
+      <span className="text-[10px] uppercase text-text-light">{destinationLabel}</span>
+      <select
+        value={receptionForm.destinationCountry || 'FR'}
+        onChange={(e) => onReceptionFormChange('destinationCountry', e.target.value)}
+        className="border rounded-md px-2 py-1 text-sm w-full"
+      >
+        {normalizedDestinationCountries.map((code) => (
+          <option key={code} value={code}>
+            {t(`ClientStock.countries.${code}`)}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-white shadow-md border border-gray-200 rounded-[48px] px-6 py-3 flex flex-col gap-3 items-center backdrop-blur-md bg-white/95 w-auto max-w-full">
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-white shadow-md border border-gray-200 rounded-[48px] px-6 py-3 flex flex-col gap-3 items-center backdrop-blur-md bg-white/95 w-[min(95vw,640px)] max-w-full sm:px-8">
       <div className="flex flex-col items-center gap-3 w-full">
         <select
           value={submitType}
@@ -52,35 +73,14 @@ const ClientStockSelectionBar = ({
           <option value="delete">{t('ClientStock.cta.deleteListing')}</option>
         </select>
 
-        <div
-          className={`w-full flex flex-col gap-3 ${
-            showReceptionFields
-              ? 'sm:flex-row sm:items-end sm:justify-between sm:gap-4'
-              : 'sm:flex-row sm:items-end sm:justify-end'
-          }`}
-        >
-          <div className="flex flex-col w-full sm:max-w-[140px]">
-            <span className="text-[10px] uppercase text-text-light mb-1">{destinationLabel}</span>
-            <select
-              value={receptionForm.destinationCountry || 'FR'}
-              onChange={(e) => onReceptionFormChange('destinationCountry', e.target.value)}
-              className="border rounded-md px-2 py-1 text-sm w-full"
-            >
-              {destinationCountries.map((code) => (
-                <option key={code} value={code}>
-                  {t(`ClientStock.countries.${code}`)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {showReceptionFields && (
-            <>
-              <div className="flex flex-col flex-1 min-w-[200px]">
-                <select
-                  value={receptionForm.carrier}
-                  onChange={(e) => onReceptionFormChange('carrier', e.target.value)}
-                  className={`border rounded-md px-2 py-1 w-full ${
+        {showReceptionFields && (
+          <div className="w-full flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+            {renderDestinationSelector()}
+            <div className="flex flex-col flex-1 min-w-[200px]">
+              <select
+                value={receptionForm.carrier}
+                onChange={(e) => onReceptionFormChange('carrier', e.target.value)}
+                className={`border rounded-md px-2 py-1 w-full ${
                     receptionForm.carrier ? 'text-text-primary' : 'text-gray-400'
                   }`}
                 >
@@ -288,25 +288,28 @@ const ClientStockSelectionBar = ({
         )}
 
         <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-3 w-full">
-          <button
-            onClick={() => {
-              if (submitType === 'prep') openPrep();
-              else if (submitType === 'reception') openReception();
-              else if (submitType === 'delete') onDelete?.();
-            }}
-            disabled={submitType === 'delete' ? deleteInProgress : false}
-            className={`${
-              submitType === 'delete'
-                ? 'bg-red-500 hover:bg-red-600'
-                : 'bg-blue-500 hover:bg-blue-600'
-            } text-white text-sm px-6 py-2 rounded-md w-full sm:w-auto text-center disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {submitType === 'prep'
-              ? t('ClientStock.cta.sendToPrep')
-              : submitType === 'reception'
-              ? t('ClientStock.cta.announceReception')
-              : t('ClientStock.cta.deleteListing')}
-          </button>
+          <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-center sm:gap-3">
+            <button
+              onClick={() => {
+                if (submitType === 'prep') openPrep();
+                else if (submitType === 'reception') openReception();
+                else if (submitType === 'delete') onDelete?.();
+              }}
+              disabled={submitType === 'delete' ? deleteInProgress : false}
+              className={`${
+                submitType === 'delete'
+                  ? 'bg-red-500 hover:bg-red-600'
+                  : 'bg-blue-500 hover:bg-blue-600'
+              } text-white text-sm px-6 py-2 rounded-md w-full sm:w-auto text-center disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {submitType === 'prep'
+                ? t('ClientStock.cta.sendToPrep')
+                : submitType === 'reception'
+                ? t('ClientStock.cta.announceReception')
+                : t('ClientStock.cta.deleteListing')}
+            </button>
+            {showDestinationNearPrep && renderDestinationSelector('w-full sm:w-[190px] sm:min-w-[170px]')}
+          </div>
           <button onClick={clearSelection} className="text-sm text-gray-500 hover:text-gray-700">
             {t('common.cancel')}
           </button>
