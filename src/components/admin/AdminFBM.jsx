@@ -38,12 +38,45 @@ const addPreset = (val) => {
 export default function AdminFBM({ rows = [], reload, companyId, profile }) {
   const [edit, setEdit] = useState(null);
   const [presets, setPresets] = useState(loadPresets());
+  const [serviceOptions, setServiceOptions] = useState([]);
 
   const formStorageKey = companyId
     ? `admin-fbm-form-${companyId}`
     : `admin-fbm-form-${profile?.id || 'default'}`;
   const defaultForm = useMemo(() => createDefaultForm(), [companyId, profile?.id]);
   const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      const { data, error } = await supabase
+        .from('pricing_services')
+        .select('id, service_name, price')
+        .eq('category', 'FBM Fulfillment')
+        .order('position', { ascending: true });
+      if (error) {
+        console.error('Failed to load FBM pricing services', error);
+        return;
+      }
+      setServiceOptions(data || []);
+    };
+    fetchServices();
+  }, []);
+
+  useEffect(() => {
+    if (!serviceOptions.length) return;
+    setForm((prev) => {
+      const exists = serviceOptions.some((opt) => opt.service_name === prev.service);
+      if (exists) return prev;
+      const fallback = serviceOptions[0];
+      if (!fallback) return prev;
+      const nextUnitPrice = fallback.price ?? prev.unit_price;
+      return {
+        ...prev,
+        service: fallback.service_name,
+        unit_price: nextUnitPrice
+      };
+    });
+  }, [serviceOptions, setForm]);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -65,38 +98,38 @@ export default function AdminFBM({ rows = [], reload, companyId, profile }) {
     if (error) alert(error.message); else reload?.();
   };
 
- const handleAdd = async () => {
-  if (!companyId) return;
+  const handleAdd = async () => {
+    if (!companyId) return;
 
-  // normalizez data & prețul (2 zecimale ca să evit 1.5 vs 1.50)
-  const service = form.service || 'FBM Order';
-  const service_date = form.service_date || todayStr();
-  const unit_price = Number(Number(form.unit_price || 0).toFixed(2));
-  const unitsToAdd = Number(form.orders_units || 0);
+    // normalizez data & prețul (2 zecimale ca să evit 1.5 vs 1.50)
+    const service = form.service || 'FBM Order';
+    const service_date = form.service_date || todayStr();
+    const unit_price = Number(Number(form.unit_price || 0).toFixed(2));
+    const unitsToAdd = Number(form.orders_units || 0);
 
-  if (!isFinite(unit_price) || !isFinite(unitsToAdd) || unitsToAdd <= 0) {
-    alert('Setează un preț și un număr de unități valide.');
-    return;
-  }
+    if (!isFinite(unit_price) || !isFinite(unitsToAdd) || unitsToAdd <= 0) {
+      alert('Setează un preț și un număr de unități valide.');
+      return;
+    }
 
-  // 1) Caută o linie existentă cu aceeași cheie (company_id + date + price + service)
-  const { data: existing, error: findErr } = await supabase
-    .from('fbm_lines')
-    .select('id, orders_units')
-    .eq('company_id', companyId)
-    .eq('service_date', service_date)
-    .eq('service', service)
-    .eq('unit_price', unit_price)
-    .order('id', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    // 1) Caută o linie existentă cu aceeași cheie (company_id + date + price + service)
+    const { data: existing, error: findErr } = await supabase
+      .from('fbm_lines')
+      .select('id, orders_units')
+      .eq('company_id', companyId)
+      .eq('service_date', service_date)
+      .eq('service', service)
+      .eq('unit_price', unit_price)
+      .order('id', { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
-  if (findErr) {
-    alert(findErr.message);
-    return;
-  }
+    if (findErr) {
+      alert(findErr.message);
+      return;
+    }
 
-  if (existing?.id) {
+    if (existing?.id) {
     // 2) Găsit: adunăm unitățile pe linia existentă
     const newQty = Number(existing.orders_units || 0) + unitsToAdd;
 
@@ -133,6 +166,14 @@ export default function AdminFBM({ rows = [], reload, companyId, profile }) {
   reload?.();
 };
 
+  const handleServiceSelect = (value) => {
+    const option = serviceOptions.find((item) => item.service_name === value);
+    setForm((prev) => ({
+      ...prev,
+      service: value,
+      unit_price: option?.price ?? prev.unit_price
+    }));
+  };
 
   const saveEdit = async () => {
     if (!edit) return;
@@ -156,6 +197,21 @@ export default function AdminFBM({ rows = [], reload, companyId, profile }) {
             value={form.service_date}
             onChange={(e) => setForm((s) => ({ ...s, service_date: e.target.value }))}
           />
+          <select
+            className="border rounded px-2 py-1"
+            value={form.service}
+            onChange={(e) => handleServiceSelect(e.target.value)}
+          >
+            {serviceOptions.length === 0 ? (
+              <option value={form.service}>{form.service}</option>
+            ) : (
+              serviceOptions.map((option) => (
+                <option key={option.id || option.service_name} value={option.service_name}>
+                  {option.service_name}
+                </option>
+              ))
+            )}
+          </select>
 
           {/* Preț cu datalist și buton Save */}
           <div className="flex items-center gap-2">

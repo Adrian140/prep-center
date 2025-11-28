@@ -38,12 +38,45 @@ const addPreset = (val) => {
 export default function AdminFBA({ rows = [], reload, companyId, profile }) {
   const [edit, setEdit] = useState(null);
   const [presets, setPresets] = useState(loadPresets());
+  const [serviceOptions, setServiceOptions] = useState([]);
 
   const formStorageKey = companyId
     ? `admin-fba-form-${companyId}`
     : `admin-fba-form-${profile?.id || 'default'}`;
   const defaultForm = useMemo(() => createDefaultForm(), [companyId, profile?.id]);
   const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      const { data, error } = await supabase
+        .from('pricing_services')
+        .select('id, service_name, price')
+        .eq('category', 'FBA Prep Services')
+        .order('position', { ascending: true });
+      if (error) {
+        console.error('Failed to load FBA pricing services', error);
+        return;
+      }
+      setServiceOptions(data || []);
+    };
+    fetchServices();
+  }, []);
+
+  useEffect(() => {
+    if (!serviceOptions.length) return;
+    setForm((prev) => {
+      const exists = serviceOptions.some((opt) => opt.service_name === prev.service);
+      if (exists) return prev;
+      const fallback = serviceOptions[0];
+      if (!fallback) return prev;
+      const nextUnitPrice = fallback.price ?? prev.unit_price;
+      return {
+        ...prev,
+        service: fallback.service_name,
+        unit_price: nextUnitPrice
+      };
+    });
+  }, [serviceOptions, setForm]);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -56,13 +89,13 @@ export default function AdminFBA({ rows = [], reload, companyId, profile }) {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  const confirmAndDelete = async (id) => {
+const confirmAndDelete = async (id) => {
     if (!window.confirm('Sigur vrei să ștergi această linie?')) return;
     const { error } = await supabase.from('fba_lines').delete().eq('id', id);
     if (error) alert(error.message); else reload?.();
   };
 
-  const handleAdd = async () => {
+const handleAdd = async () => {
     if (!companyId) return;
     const payload = {
       company_id: companyId,
@@ -75,9 +108,18 @@ export default function AdminFBA({ rows = [], reload, companyId, profile }) {
     };
     const { error } = await supabase.from('fba_lines').insert(payload);
     if (error) return alert(error.message);
-    // reset form (data rămâne azi)
-    setForm(() => createDefaultForm());
-    reload?.();
+  // reset form (data rămâne azi)
+  setForm(() => createDefaultForm());
+  reload?.();
+};
+
+  const handleServiceSelect = (value) => {
+    const option = serviceOptions.find((item) => item.service_name === value);
+    setForm((prev) => ({
+      ...prev,
+      service: value,
+      unit_price: option?.price ?? prev.unit_price
+    }));
   };
 
   const saveEdit = async () => {
@@ -102,6 +144,21 @@ export default function AdminFBA({ rows = [], reload, companyId, profile }) {
             value={form.service_date}
             onChange={(e) => setForm((s) => ({ ...s, service_date: e.target.value }))}
           />
+          <select
+            className="border rounded px-2 py-1"
+            value={form.service}
+            onChange={(e) => handleServiceSelect(e.target.value)}
+          >
+            {serviceOptions.length === 0 ? (
+              <option value={form.service}>{form.service}</option>
+            ) : (
+              serviceOptions.map((option) => (
+                <option key={option.id || option.service_name} value={option.service_name}>
+                  {option.service_name}
+                </option>
+              ))
+            )}
+          </select>
 
           {/* Preț cu datalist (presets) */}
           <div className="flex items-center gap-2">
