@@ -316,6 +316,12 @@ function filterListings(listings = []) {
     const status = (row.status || '').toLowerCase();
     const denyList = ['blocked', 'suppressed', 'closed', 'deleted', 'stranded'];
     if (denyList.some((token) => status.includes(token))) return false;
+
+    // Păstrăm doar listările FBA; FBM sunt cele care vin de obicei fără ASIN
+    // și cu titluri „stricate”, nu ne interesează în coloana de stoc.
+    const fc = String(row.fulfillmentChannel || '').toUpperCase();
+    if (fc && !ALLOWED_FBA_CHANNELS.has(fc)) return false;
+
     const wantedStatus =
       status.startsWith('active') ||
       status.includes('out of stock') ||
