@@ -222,11 +222,9 @@ async function syncIntegration(integration) {
     `Syncing 30d sales for integration ${integration.id} (company ${integration.company_id}, marketplace ${integration.marketplace_id})`
   );
 
-  const rawRows = await fetchSalesRows(
-    spClient,
-    integration.marketplace_id || DEFAULT_MARKETPLACE
-  );
-  const sales = aggregateSalesFromReport(rawRows, integration);
+  // Folosim implementarea existentă bazată pe Orders API,
+  // care agregează vânzările pe ultimele ORDER_WINDOW_DAYS.
+  const sales = await aggregateSales(spClient, integration);
   await upsertSales({ rows: sales, companyId: integration.company_id, userId: integration.user_id });
 
   await supabase

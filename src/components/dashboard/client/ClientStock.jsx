@@ -169,6 +169,9 @@ const SalesBreakdown = ({ stats, refreshedAt, countryLabel, t }) => {
   };
   const computedTotal = (safeStats.shipped ?? 0) + (safeStats.pending ?? 0);
   const statusList = [
+    { key: 'payment', label: t('ClientStock.sales.status.payment'), value: safeStats.payment },
+    { key: 'shipped', label: t('ClientStock.sales.status.shipped'), value: safeStats.shipped },
+    { key: 'pending', label: t('ClientStock.sales.status.pending'), value: safeStats.pending },
     { key: 'refund', label: t('ClientStock.sales.status.refund'), value: safeStats.refund }
   ];
 
