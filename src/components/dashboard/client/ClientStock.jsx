@@ -160,17 +160,9 @@ const InventoryBreakdown = ({ row, t }) => {
   );
 };
 
-const SalesBreakdown = ({ stats, globalRefund, refreshedAt, countryLabel, t }) => {
-  const safeStats = {
-    payment: stats?.payment ?? 0,
-    pending: stats?.pending ?? 0,
-    shipped: stats?.shipped ?? 0
-  };
-  const pendingTotal = (safeStats.pending ?? 0) + (safeStats.shipped ?? 0);
-  const computedTotal = pendingTotal;
+const SalesBreakdown = ({ totalUnits, globalRefund, refreshedAt, countryLabel, t }) => {
+  const computedTotal = totalUnits ?? 0;
   const statusList = [
-    { key: 'payment', label: t('ClientStock.sales.status.payment'), value: safeStats.payment },
-    { key: 'pending', label: t('ClientStock.sales.status.pending'), value: pendingTotal },
     { key: 'refund', label: t('ClientStock.sales.status.refund'), value: globalRefund ?? 0 }
   ];
 
@@ -2433,7 +2425,7 @@ const saveReqChanges = async () => {
                   : COUNTRY_LABEL_LOOKUP[salesCountry] || salesCountry;
               return (
                 <SalesBreakdown
-                  stats={stats}
+                  totalUnits={summary?.countries?.ALL?.total ?? 0}
                   globalRefund={summary?.countries?.ALL?.refund ?? 0}
                   refreshedAt={summary?.refreshed_at}
                   countryLabel={countryLabel}
