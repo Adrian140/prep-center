@@ -76,11 +76,12 @@ const ClientStockSelectionBar = ({
         {showReceptionFields && (
           <div className="w-full flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
             {renderDestinationSelector()}
-            <div className="flex flex-col flex-1 min-w-[200px]">
-              <select
-                value={receptionForm.carrier}
-                onChange={(e) => onReceptionFormChange('carrier', e.target.value)}
-                className={`border rounded-md px-2 py-1 w-full ${
+            <div className="flex flex-col flex-1 min-w-[200px] gap-3">
+              <div>
+                <select
+                  value={receptionForm.carrier}
+                  onChange={(e) => onReceptionFormChange('carrier', e.target.value)}
+                  className={`border rounded-md px-2 py-1 w-full ${
                     receptionForm.carrier ? 'text-text-primary' : 'text-gray-400'
                   }`}
                 >
