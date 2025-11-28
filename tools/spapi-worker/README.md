@@ -39,7 +39,7 @@ Optional knobs for the inventory sync:
 | Command | Description |
 | --- | --- |
 | `npm run refresh-token` | Calls `authRefreshAndStore.js` and writes a fresh access token to the `amazon_tokens` table |
-| `npm run sync-inventory` | Runs `syncInventoryToSupabase.js`, downloads Amazon FBA inventory and upserts `stock_items` pentru toate intrările din `amazon_integrations` (actualizează `amazon_stock`, inserează SKUs lipsă și resetează produsele dispărute) |
+| `npm run sync-inventory` | Runs `syncInventoryToSupabase.js`, downloads Amazon FBA inventory and upserts `stock_items` pentru toate intrările din `amazon_integrations` (actualizează `amazon_stock`, inserează SKUs lipsă și resetează produsele dispărute). Acum se adună cheile per companie și se curăță doar după ce toate integrările au fost procesate, ca rulările FR/IT/ES/DE să nu se rescrie reciproc; dacă o linie are `ASIN` + `SKU` și `qty > 0`, nu este modificată, ca stocul manual din PrepCenter să rămână intact. |
 | `node printEnvDebug.js` | Quick helper that prints/masks the loaded env vars |
 
 ### `syncInventoryToSupabase.js` flow
@@ -47,7 +47,7 @@ Optional knobs for the inventory sync:
 1. Citește toate integrările active din tabela `amazon_integrations` (sau folosește perechea din `.env` dacă rulezi în modul single-company).
 2. Pentru fiecare integrare schimbă refresh token-ul pe access token și apelează `getInventorySummaries` (endpoint `fbaInventory`).
 3. Normalizează răspunsul (SKU/ASIN + cantitatea disponibilă) și îl scrie în `stock_items` pentru `company_id`/`user_id` respectivi.
-4. Resetează la `0` produsele care nu mai apar în Amazon și actualizează `last_synced_at` / `last_error` în `amazon_integrations`.
+4. După ce toate integrațiile unei companii au rulat, resetează la `0` doar produsele care nu au apărut în niciun raport Amazon, iar liniile care au `ASIN` + `SKU` și `qty > 0` rămân nemodificate astfel încât stocul manual din PrepCenter să fie păstrat. 
 5. Opțional, îmbogățește produsele noi cu titluri din Catalog API.
 
 Because the script uses the service-role key, treat the `.env` with the same

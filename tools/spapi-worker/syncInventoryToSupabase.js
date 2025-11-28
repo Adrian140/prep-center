@@ -365,7 +365,7 @@ async function cleanupInvalidRows(companyId) {
 async function syncToSupabase({ items, companyId, userId }) {
   if (items.length === 0) {
     console.log('Amazon returned no inventory rows. Nothing to sync.');
-    return { affected: 0, zeroed: 0 };
+    return { affected: 0, seenKeys: new Set() };
   }
 
   const { data: existing, error } = await supabase
@@ -381,6 +381,12 @@ async function syncToSupabase({ items, companyId, userId }) {
   });
 
   const seenKeys = new Set();
+  const hasManualPrepStock = (row) => {
+    if (!row) return false;
+    const qty = Number(row.qty ?? 0);
+    if (!Number.isFinite(qty) || qty <= 0) return false;
+    return Boolean(row.sku) && Boolean(row.asin);
+  };
   const insertsOrUpdates = [];
 
   for (const item of items) {
@@ -390,6 +396,11 @@ async function syncToSupabase({ items, companyId, userId }) {
     const row = existingByKey.get(key);
 
     if (row) {
+      seenKeys.add(key);
+      if (hasManualPrepStock(row)) {
+        continue;
+      }
+
       insertsOrUpdates.push({
         id: row.id,
         company_id: row.company_id || companyId,
@@ -403,6 +414,7 @@ async function syncToSupabase({ items, companyId, userId }) {
         name: row.name && row.name.trim() ? row.name : item.name || row.name
       });
     } else {
+      seenKeys.add(key);
       insertsOrUpdates.push({
         company_id: companyId,
         user_id: userId,
@@ -418,18 +430,9 @@ async function syncToSupabase({ items, companyId, userId }) {
     }
   }
 
-  const missing = (existing || []).filter((row) => {
-    if (row.amazon_stock == null) return false;
-    const key = keyFromRow(row);
-    return key && !seenKeys.has(key) && Number(row.amazon_stock) !== 0;
-  });
-  missing.forEach((row) => {
-    insertsOrUpdates.push({ id: row.id, amazon_stock: 0 });
-  });
-
   await cleanupInvalidRows(companyId);
   await upsertStockRows(insertsOrUpdates);
-  return { affected: insertsOrUpdates.length, zeroed: missing.length };
+  return { affected: insertsOrUpdates.length, seenKeys };
 }
 
 async function fetchInventoryRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
@@ -594,15 +597,36 @@ async function syncIntegration(integration) {
       .eq('id', integration.id);
 
     console.log(
-      `Integration ${integration.id} synced (${normalized.length} items, ${stats.affected} rows, ${stats.zeroed} zeroed). Listings filter: ${listingRows.length}.`
+      `Integration ${integration.id} synced (${normalized.length} items, ${stats.affected} rows). Listings filter: ${listingRows.length}.`
     );
+    return { companyId: integration.company_id, seenKeys: stats.seenKeys };
   } catch (err) {
     console.error(`Sync failed for integration ${integration.id}:`, err?.response?.data || err);
     await supabase
       .from('amazon_integrations')
       .update({ last_error: err?.message || String(err) })
       .eq('id', integration.id);
+    return { companyId: integration.company_id, seenKeys: new Set() };
   }
+}
+
+async function zeroAmazonStockForCompany(companyId, seenKeys = new Set()) {
+  if (!companyId) return 0;
+  const { data, error } = await supabase
+    .from('stock_items')
+    .select('id, sku, asin, amazon_stock')
+    .eq('company_id', companyId)
+    .neq('amazon_stock', 0);
+  if (error) throw error;
+
+  const rowsToZero = (data || []).filter((row) => {
+    const key = keyFromRow(row);
+    return key && !seenKeys.has(key);
+  });
+  if (!rowsToZero.length) return 0;
+
+  await upsertStockRows(rowsToZero.map((row) => ({ id: row.id, amazon_stock: 0 })));
+  return rowsToZero.length;
 }
 
 async function main() {
@@ -613,8 +637,24 @@ async function main() {
     return;
   }
 
+  const companySeenKeys = new Map();
   for (const integration of integrations) {
-    await syncIntegration(integration);
+    const result = await syncIntegration(integration);
+    if (!result || !result.companyId) continue;
+    const aggregated = companySeenKeys.get(result.companyId) || new Set();
+    result.seenKeys.forEach((key) => aggregated.add(key));
+    companySeenKeys.set(result.companyId, aggregated);
+  }
+
+  for (const [companyId, seenKeys] of companySeenKeys.entries()) {
+    if (!seenKeys.size) {
+      console.log(`Company ${companyId} had no Amazon inventory rows this run; skipping zeroing.`);
+      continue;
+    }
+    const zeroed = await zeroAmazonStockForCompany(companyId, seenKeys);
+    if (zeroed > 0) {
+      console.log(`Company ${companyId} zeroed ${zeroed} Amazon rows missing from all integrations.`);
+    }
   }
 
   console.log('All integrations processed ✅');
