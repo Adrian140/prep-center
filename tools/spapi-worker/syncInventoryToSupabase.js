@@ -294,7 +294,10 @@ function normalizeListings(rawRows = []) {
   for (const row of rawRows) {
     const sku = (row.sku || '').trim();
     const asin = (row.asin || '').trim();
-    if (!sku && !asin) continue;
+    // Pentru coloana de stoc avem nevoie de un ASIN real.
+    // Dacă raportul nu furnizează ASIN (sau e gol), nu mai adăugăm rândul;
+    // astfel evităm produse doar cu SKU și ASIN lipsă în UI.
+    if (!asin) continue;
 
     normalized.push({
       key: (sku || asin).toLowerCase(),
