@@ -197,11 +197,6 @@ const SalesBreakdown = ({ stats, refreshedAt, countryLabel, t }) => {
           </div>
         ))}
       </div>
-      {refreshedAt && (
-        <div className="mt-1 text-[10px] text-gray-400">
-          {t('ClientStock.sales.updated', { time: formatSalesTimestamp(refreshedAt) })}
-        </div>
-      )}
     </div>
   );
 };
