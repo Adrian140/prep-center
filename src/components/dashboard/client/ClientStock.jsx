@@ -163,15 +163,15 @@ const InventoryBreakdown = ({ row, t }) => {
 const SalesBreakdown = ({ stats, refreshedAt, countryLabel, t }) => {
   const safeStats = {
     payment: stats?.payment ?? 0,
-    shipped: stats?.shipped ?? 0,
     pending: stats?.pending ?? 0,
+    shipped: stats?.shipped ?? 0,
     refund: stats?.refund ?? 0
   };
-  const computedTotal = (safeStats.shipped ?? 0) + (safeStats.pending ?? 0);
+  const pendingTotal = (safeStats.pending ?? 0) + (safeStats.shipped ?? 0);
+  const computedTotal = pendingTotal;
   const statusList = [
     { key: 'payment', label: t('ClientStock.sales.status.payment'), value: safeStats.payment },
-    { key: 'shipped', label: t('ClientStock.sales.status.shipped'), value: safeStats.shipped },
-    { key: 'pending', label: t('ClientStock.sales.status.pending'), value: safeStats.pending },
+    { key: 'pending', label: t('ClientStock.sales.status.pending'), value: pendingTotal },
     { key: 'refund', label: t('ClientStock.sales.status.refund'), value: safeStats.refund }
   ];
 
