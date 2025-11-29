@@ -90,14 +90,27 @@ async function syncKeepaImages() {
       if (processed >= ITEMS_PER_RUN) break;
 
       try {
-        console.log(
-          `[Keepa sync] Fetching image for company=${companyId}, stock_item=${row.id}, asin=${row.asin}`
-        );
-        const { image } = await getKeepaMainImage({ asin: row.asin });
+        // Înainte să chemăm Keepa, încercăm cache-ul central asin_assets
+        const { data: cache } = await supabase
+          .from('asin_assets')
+          .select('image_urls')
+          .eq('asin', row.asin)
+          .maybeSingle();
+        let imageFromCache = null;
+        const urls = cache?.image_urls;
+        if (Array.isArray(urls) && urls.length) {
+          imageFromCache = urls.find((u) => typeof u === 'string' && u.trim().length > 0) || null;
+        }
+        let image = imageFromCache;
         if (!image) {
           console.log(
-            `[Keepa sync] No image returned for asin=${row.asin}, skipping.`
+            `[Keepa sync] Fetching image for company=${companyId}, stock_item=${row.id}, asin=${row.asin}`
           );
+          const res = await getKeepaMainImage({ asin: row.asin });
+          image = res?.image || null;
+        }
+        if (!image) {
+          console.log(`[Keepa sync] No image returned for asin=${row.asin}, skipping.`);
           continue;
         }
 
@@ -106,6 +119,18 @@ async function syncKeepaImages() {
           .update({ image_url: image })
           .eq('id', row.id);
         if (updateError) throw updateError;
+        // Upsert în cache pentru reutilizare imediată
+        const { error: cacheError } = await supabase
+          .from('asin_assets')
+          .upsert({
+            asin: row.asin,
+            image_urls: [image],
+            source: 'keepa',
+            fetched_at: new Date().toISOString()
+          });
+        if (cacheError) {
+          console.warn(`[Keepa sync] Cache upsert failed for asin=${row.asin}: ${cacheError.message}`);
+        }
 
         processed += 1;
       } catch (err) {
