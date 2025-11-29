@@ -438,6 +438,17 @@ async function syncToSupabase({ items, companyId, userId }) {
       Boolean(row.sku && String(row.sku).trim()) || Boolean(row.asin && String(row.asin).trim());
     return hasIdentifier;
   };
+  const shouldUpdateName = (current, incoming, row) => {
+    if (!incoming || !String(incoming).trim()) return false;
+    if (!current || !String(current).trim()) return true;
+    const cur = String(current).trim();
+    const inc = String(incoming).trim();
+    if (cur === inc) return false;
+    const asin = String(row?.asin || '').trim();
+    const sku = String(row?.sku || '').trim();
+    // dacă numele actual este doar ASIN/SKU, îl înlocuim cu cel nou
+    return cur === asin || cur === sku;
+  };
   const insertsOrUpdates = [];
   const asinToPayloadWithSku = new Map(); // asin -> payload target (cu SKU)
 
@@ -464,6 +475,9 @@ async function syncToSupabase({ items, companyId, userId }) {
         amazon_reserved: item.amazon_reserved,
         amazon_unfulfillable: item.amazon_unfulfillable
       };
+      if (shouldUpdateName(row.name, item.name, row)) {
+        payload.name = item.name;
+      }
       if (manualQty > 0) {
         payload.qty = manualQty;
       }
