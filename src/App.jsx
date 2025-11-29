@@ -83,10 +83,16 @@ function StartupRedirect() {
   return null;
 }
 
-function MaintenanceGate({ children }) {
+function MaintenanceGate({ children, skipPaths = [] }) {
+  const location = useLocation();
+  const shouldSkip = React.useMemo(
+    () => skipPaths.some((prefix) => location.pathname.startsWith(prefix)),
+    [location.pathname, skipPaths]
+  );
   const [state, setState] = React.useState({ loading: true, enabled: false, message: '' });
 
   React.useEffect(() => {
+    if (shouldSkip) return;
     let cancelled = false;
     const load = async () => {
       const { data, error } = await supabase
@@ -107,7 +113,11 @@ function MaintenanceGate({ children }) {
     };
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [shouldSkip]);
+
+  if (shouldSkip) {
+    return <>{children}</>;
+  }
 
   if (state.loading) {
     return (
@@ -144,100 +154,102 @@ export default function App() {
     <div className="min-h-screen bg-white">
       <Header />
       <main>
-        <RoutePersistence />
-        <StartupRedirect />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/services-pricing" element={<ServicesPricing />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<TermsOfService />} />
+        <MaintenanceGate skipPaths={['/admin', '/admin-login', '/admin-info']}>
+          <RoutePersistence />
+          <StartupRedirect />
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/services-pricing" element={<ServicesPricing />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
 
-          {/* ✅ Portal Client - protejat de mentenanță */}
-          <Route
-            path="/register"
-            element={
-              <MaintenanceGate>
-                <SupabaseRegisterForm />
-              </MaintenanceGate>
-            }
-          />
-          <Route
-            path="/login"
-            element={
-              <MaintenanceGate>
-                <SupabaseLoginForm />
-              </MaintenanceGate>
-            }
-          />
-          <Route
-            path="/forgot-password"
-            element={
-              <MaintenanceGate>
-                <ForgotPasswordForm />
-              </MaintenanceGate>
-            }
-          />
-          <Route
-            path="/reset-password"
-            element={
-              <MaintenanceGate>
-                <UpdatePasswordForm />
-              </MaintenanceGate>
-            }
-          />
-          <Route
-            path="/auth/callback"
-            element={
-              <MaintenanceGate>
-                <AuthCallback />
-              </MaintenanceGate>
-            }
-          />
-          <Route
-            path="/auth/amazon/callback"
-            element={
-              <MaintenanceGate>
-                <ClientRoute>
-                  <AmazonIntegrationCallback />
-                </ClientRoute>
-              </MaintenanceGate>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <MaintenanceGate>
-                <ClientRoute>
-                  <SupabaseDashboard />
-                </ClientRoute>
-              </MaintenanceGate>
-            }
-          />
+            {/* ✅ Portal Client - protejat de mentenanță */}
+            <Route
+              path="/register"
+              element={
+                <MaintenanceGate>
+                  <SupabaseRegisterForm />
+                </MaintenanceGate>
+              }
+            />
+            <Route
+              path="/login"
+              element={
+                <MaintenanceGate>
+                  <SupabaseLoginForm />
+                </MaintenanceGate>
+              }
+            />
+            <Route
+              path="/forgot-password"
+              element={
+                <MaintenanceGate>
+                  <ForgotPasswordForm />
+                </MaintenanceGate>
+              }
+            />
+            <Route
+              path="/reset-password"
+              element={
+                <MaintenanceGate>
+                  <UpdatePasswordForm />
+                </MaintenanceGate>
+              }
+            />
+            <Route
+              path="/auth/callback"
+              element={
+                <MaintenanceGate>
+                  <AuthCallback />
+                </MaintenanceGate>
+              }
+            />
+            <Route
+              path="/auth/amazon/callback"
+              element={
+                <MaintenanceGate>
+                  <ClientRoute>
+                    <AmazonIntegrationCallback />
+                  </ClientRoute>
+                </MaintenanceGate>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <MaintenanceGate>
+                  <ClientRoute>
+                    <SupabaseDashboard />
+                  </ClientRoute>
+                </MaintenanceGate>
+              }
+            />
 
-          {/* ✅ Admin Panel - neprotejat, acces complet */}
-          <Route path="/admin-login" element={<SupabaseLoginForm />} />
-          <Route path="/admin-info" element={<AdminLoginInfo />} />
-          <Route
-            path="/admin"
-            element={
-              <AdminRoute>
-                <SupabaseAdminPanel />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/analytics"
-            element={
-              <AdminRoute>
-                <AdminAnalytics />
-              </AdminRoute>
-            }
-          />
+            {/* ✅ Admin Panel - neprotejat, acces complet */}
+            <Route path="/admin-login" element={<SupabaseLoginForm />} />
+            <Route path="/admin-info" element={<AdminLoginInfo />} />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <SupabaseAdminPanel />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/analytics"
+              element={
+                <AdminRoute>
+                  <AdminAnalytics />
+                </AdminRoute>
+              }
+            />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </MaintenanceGate>
       </main>
       <Footer />
       <CookieBanner />
