@@ -217,7 +217,8 @@ function normalizeListings(rawRows = []) {
   for (const row of rawRows) {
     const sku = (row.sku || '').trim();
     const asin = (row.asin || '').trim();
-    if (!sku && !asin) continue;
+    // cerință: listările Amazon trebuie să aibă și ASIN, și SKU
+    if (!sku || !asin) continue;
 
     normalized.push({
       key: (sku || asin).toLowerCase(),

@@ -270,7 +270,8 @@ function normalizeInventory(rawRows = []) {
   for (const row of rawRows) {
     const sku = (row.sku || '').trim();
     const asin = (row.asin || '').trim();
-    if (!sku && !asin) continue;
+    // cerință: nu importăm în inventar nimic fără ASIN + SKU
+    if (!sku || !asin) continue;
 
     const fulfillable = Number(row.fulfillable ?? 0);
     const inboundTotal =
@@ -300,10 +301,9 @@ function normalizeListings(rawRows = []) {
   for (const row of rawRows) {
     const sku = (row.sku || '').trim();
     const asin = (row.asin || '').trim();
-    // Pentru coloana de stoc avem nevoie de un ASIN real.
-    // Dacă raportul nu furnizează ASIN (sau e gol), nu mai adăugăm rândul;
-    // astfel evităm produse doar cu SKU și ASIN lipsă în UI.
-    if (!asin) continue;
+    // Pentru coloana de stoc avem nevoie de un ASIN real și un SKU.
+    // Dacă lipsește oricare, nu mai adăugăm rândul; evităm SKU-uri fără ASIN în inventar.
+    if (!asin || !sku) continue;
 
     normalized.push({
       key: (sku || asin).toLowerCase(),
@@ -347,7 +347,7 @@ async function upsertStockRows(rows) {
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize).reduce((acc, row) => {
-      if (!row.asin && !row.sku) return acc;
+      if (!row.asin || !row.sku) return acc;
       const { key, id, ...rest } = row;
       const payload = { ...rest };
       if (id !== undefined && id !== null) {
@@ -365,22 +365,34 @@ async function upsertStockRows(rows) {
 }
 
 async function cleanupInvalidRows(companyId) {
-  // Șterge rândurile fără ASIN și SKU pentru compania curentă,
-  // dar păstrează liniile care au qty manual (>0).
-  await supabase
+  // Șterge rândurile fără ASIN sau fără SKU (cerință nouă),
+  // dar păstrează liniile cu stoc manual (>0).
+  const { data: invalidRows, error } = await supabase
     .from('stock_items')
-    .delete()
+    .select('id, asin, sku, qty')
     .eq('company_id', companyId)
-    .is('asin', null)
-    .is('sku', null)
-    .or('qty IS NULL OR qty = 0');
-  await supabase
-    .from('stock_items')
-    .delete()
-    .eq('company_id', companyId)
-    .eq('asin', '')
-    .eq('sku', '')
-    .or('qty IS NULL OR qty = 0');
+    .or('asin.is.null,asin.eq.,sku.is.null,sku.eq.');
+
+  if (error) throw error;
+
+  const idsToDelete =
+    invalidRows
+      ?.filter((row) => {
+        const asin = (row.asin || '').trim();
+        const sku = (row.sku || '').trim();
+        const qty = Number(row.qty ?? 0);
+        const hasManualQty = Number.isFinite(qty) && qty > 0;
+        return (!asin || !sku) && !hasManualQty;
+      })
+      .map((row) => row.id) || [];
+
+  if (idsToDelete.length) {
+    const { error: delError } = await supabase
+      .from('stock_items')
+      .delete()
+      .in('id', idsToDelete);
+    if (delError) throw delError;
+  }
 }
 
 async function syncToSupabase({ items, companyId, userId }) {
