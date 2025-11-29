@@ -1080,7 +1080,9 @@ const refreshStockData = useCallback(async () => {
   if (profile?.company_id) query = query.eq('company_id', profile.company_id);
   else query = query.eq('user_id', profile.id);
 
-  const { data, error } = await query.order('created_at', { ascending: false });
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .range(0, 99999); // ridicăm limita la 100k rânduri pentru listările clientului
   const list = error ? [] : Array.isArray(data) ? data : [];
 
   if (unmountedRef.current) {
