@@ -21,6 +21,7 @@ const createDefaultForm = () => ({
   unit_price: '',
   units: '',
   obs_admin: '',
+  custom_service: ''
 });
 
 // local presets (separate cheie pentru FBA)
@@ -47,11 +48,11 @@ export default function AdminFBA({ rows = [], reload, companyId, profile }) {
   const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
 
   useEffect(() => {
-    const fetchServices = async () => {
+  const fetchServices = async () => {
       const { data, error } = await supabase
         .from('pricing_services')
-        .select('id, service_name, price')
-        .eq('category', 'FBA Prep Services')
+        .select('id, service_name, price, category')
+        .in('category', ['FBA Prep Services', 'Extra Services'])
         .order('position', { ascending: true });
       if (error) {
         console.error('Failed to load FBA pricing services', error);
@@ -66,14 +67,20 @@ export default function AdminFBA({ rows = [], reload, companyId, profile }) {
     if (!serviceOptions.length) return;
     setForm((prev) => {
       const exists = serviceOptions.some((opt) => opt.service_name === prev.service);
-      if (exists) return prev;
+      if (exists) {
+        return {
+          ...prev,
+          custom_service: prev.service === 'Other' ? prev.custom_service : ''
+        };
+      }
       const fallback = serviceOptions[0];
       if (!fallback) return prev;
       const nextUnitPrice = fallback.price ?? prev.unit_price;
       return {
         ...prev,
         service: fallback.service_name,
-        unit_price: nextUnitPrice
+        unit_price: nextUnitPrice,
+        custom_service: ''
       };
     });
   }, [serviceOptions, setForm]);
@@ -97,9 +104,13 @@ const confirmAndDelete = async (id) => {
 
 const handleAdd = async () => {
     if (!companyId) return;
+    const selectedService =
+      form.service === 'Other'
+        ? (form.custom_service && form.custom_service.trim()) || 'Other'
+        : form.service;
     const payload = {
       company_id: companyId,
-      service: form.service,
+      service: selectedService,
       service_date: form.service_date || todayStr(),
       unit_price: Number(form.unit_price || 0),
       units: Number(form.units || 0),
@@ -118,7 +129,8 @@ const handleAdd = async () => {
     setForm((prev) => ({
       ...prev,
       service: value,
-      unit_price: option?.price ?? prev.unit_price
+      unit_price: option?.price ?? prev.unit_price,
+      custom_service: value === 'Other' ? prev.custom_service : ''
     }));
   };
 
@@ -134,6 +146,7 @@ const handleAdd = async () => {
   };
 
   return (
+  return (
     <Section
       title="FBA"
       right={
@@ -144,23 +157,53 @@ const handleAdd = async () => {
             value={form.service_date}
             onChange={(e) => setForm((s) => ({ ...s, service_date: e.target.value }))}
           />
-          <select
-            className="border rounded px-2 py-1"
-            value={form.service}
-            onChange={(e) => handleServiceSelect(e.target.value)}
-          >
-            {serviceOptions.length === 0 ? (
-              <option value={form.service}>{form.service}</option>
-            ) : (
-              serviceOptions.map((option) => (
-                <option key={option.id || option.service_name} value={option.service_name}>
-                  {option.service_name}
-                </option>
-              ))
+          <div className="flex items-center gap-2">
+            <select
+              className="border rounded px-2 py-1"
+              value={form.service}
+              onChange={(e) => handleServiceSelect(e.target.value)}
+            >
+              {serviceOptions.length > 0 ? (
+                <>
+                  {['FBA Prep Services', 'Extra Services'].map((category) => {
+                    const optionsForCategory = serviceOptions.filter(
+                      (option) => option.category === category
+                    );
+                    if (!optionsForCategory.length) return null;
+                    return (
+                      <optgroup
+                        key={category}
+                        label={
+                          category === 'FBA Prep Services' ? 'FBA Prep' : 'Extra Services'
+                        }
+                      >
+                        {optionsForCategory.map((option) => (
+                          <option
+                            key={option.id || option.service_name}
+                            value={option.service_name}
+                          >
+                            {option.service_name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
+                </>
+              ) : (
+                <option value={form.service}>{form.service}</option>
+              )}
+              <option value="Other">Other</option>
+            </select>
+            {form.service === 'Other' && (
+              <input
+                placeholder="Alt serviciu"
+                className="border rounded px-2 py-1 w-40"
+                value={form.custom_service}
+                onChange={(e) => setForm((s) => ({ ...s, custom_service: e.target.value }))}
+              />
             )}
-          </select>
+          </div>
 
-          {/* Preț cu datalist (presets) */}
           <div className="flex items-center gap-2">
             <input
               placeholder="Preț/unit"
@@ -179,7 +222,10 @@ const handleAdd = async () => {
               type="button"
               title="Salvează prețul în preseturi"
               className="px-2 py-1 border rounded inline-flex items-center gap-1"
-              onClick={() => { addPreset(form.unit_price); setPresets(loadPresets()); }}
+              onClick={() => {
+                addPreset(form.unit_price);
+                setPresets(loadPresets());
+              }}
             >
               <Star className="w-4 h-4" /> Save
             </button>
