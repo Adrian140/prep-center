@@ -257,7 +257,7 @@ async function fetchListingRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
   return parseListingRows(documentText);
 }
 
-async function upsertListingRows(rows) {
+async function insertListingRows(rows) {
   if (!rows.length) return;
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
@@ -268,7 +268,7 @@ async function upsertListingRows(rows) {
     if (!chunk.length) continue;
     const { error } = await supabase
       .from('stock_items')
-      .upsert(chunk, { defaultToNull: false });
+      .insert(chunk, { defaultToNull: false });
     if (error) throw error;
   }
 }
@@ -314,7 +314,7 @@ async function syncListingsIntegration(integration) {
     });
 
     const seen = new Set();
-    const upserts = [];
+    const inserts = [];
 
     for (const listing of listingRows) {
       if (!listing.key || seen.has(listing.key)) continue;
@@ -322,30 +322,19 @@ async function syncListingsIntegration(integration) {
 
       const row = existingByKey.get(listing.key);
       if (row) {
-        upserts.push({
-          id: row.id,
-          company_id: row.company_id || integration.company_id,
-          user_id: row.user_id || integration.user_id,
-          asin: row.asin || listing.asin || null,
-          sku: row.sku || listing.sku || null,
-          name:
-            (row.name && row.name.trim().length ? row.name : null) ||
-            listing.name ||
-            row.name
-        });
-      } else {
-        upserts.push({
-          company_id: integration.company_id,
-          user_id: integration.user_id,
-          asin: listing.asin || null,
-          sku: listing.sku || null,
-          name: listing.name || listing.asin || listing.sku,
-          qty: 0
-        });
+        continue;
       }
+      inserts.push({
+        company_id: integration.company_id,
+        user_id: integration.user_id,
+        asin: listing.asin || null,
+        sku: listing.sku || null,
+        name: listing.name || listing.asin || listing.sku,
+        qty: 0
+      });
     }
 
-    await upsertListingRows(upserts);
+    await insertListingRows(inserts);
 
     await supabase
       .from('amazon_integrations')
@@ -353,7 +342,7 @@ async function syncListingsIntegration(integration) {
       .eq('id', integration.id);
 
     console.log(
-      `Listings integration ${integration.id} synced (${upserts.length} rows from ${listingRows.length} listing rows).`
+      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows).`
     );
   } catch (err) {
     console.error(

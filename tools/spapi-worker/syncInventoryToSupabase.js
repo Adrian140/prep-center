@@ -423,6 +423,7 @@ async function syncToSupabase({ items, companyId, userId }) {
     if (row) {
       seenKeys.add(key);
       const manualQty = Number(row.qty ?? 0);
+      // Keep existing row metadata intact; refresh only the Amazon stock fields.
       const payload = {
         id: row.id,
         company_id: row.company_id || companyId,
@@ -432,8 +433,7 @@ async function syncToSupabase({ items, companyId, userId }) {
         amazon_stock: item.amazon_stock,
         amazon_inbound: item.amazon_inbound,
         amazon_reserved: item.amazon_reserved,
-        amazon_unfulfillable: item.amazon_unfulfillable,
-        name: row.name && row.name.trim() ? row.name : item.name || row.name
+        amazon_unfulfillable: item.amazon_unfulfillable
       };
       if (manualQty > 0) {
         payload.qty = manualQty;
