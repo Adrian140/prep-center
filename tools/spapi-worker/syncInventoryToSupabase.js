@@ -365,12 +365,12 @@ async function upsertStockRows(rows) {
 }
 
 async function cleanupInvalidRows(companyId) {
-  // Șterge rândurile fără ASIN sau fără SKU (indiferent de qty, cerință strictă).
+  // Șterge doar rândurile complet invalide (fără ASIN și fără SKU, null sau string gol).
   const { error } = await supabase
     .from('stock_items')
     .delete()
     .eq('company_id', companyId)
-    .or('asin.is.null,asin.eq.,sku.is.null,sku.eq.');
+    .or('and(asin.is.null,sku.is.null),and(asin.eq.,sku.eq.)');
   if (error) throw error;
 }
 
@@ -382,14 +382,28 @@ async function syncToSupabase({ items, companyId, userId }) {
 
   const { data: existing, error } = await supabase
     .from('stock_items')
-    .select('id, company_id, user_id, sku, asin, name, amazon_stock')
+    .select('id, company_id, user_id, sku, asin, name, amazon_stock, amazon_inbound, amazon_reserved, amazon_unfulfillable, qty')
     .eq('company_id', companyId);
   if (error) throw error;
 
   const existingByKey = new Map();
+  const asinToExistingWithSku = new Map(); // pentru migrare manual -> automat
+  const manualAsinOnly = [];
   (existing || []).forEach((row) => {
     const key = keyFromRow(row);
     if (key) existingByKey.set(key, row);
+    const asinKey = row?.asin ? String(row.asin).toUpperCase() : null;
+    if (row?.sku && asinKey) {
+      if (!asinToExistingWithSku.has(asinKey)) {
+        asinToExistingWithSku.set(asinKey, row);
+      }
+    }
+    const hasQty = Number(row.qty ?? 0) > 0;
+    const hasSku = Boolean(row.sku && String(row.sku).trim());
+    const hasAsin = Boolean(row.asin && String(row.asin).trim());
+    if (!hasSku && hasAsin && hasQty) {
+      manualAsinOnly.push(row);
+    }
   });
 
   const seenKeys = new Set();
@@ -402,6 +416,7 @@ async function syncToSupabase({ items, companyId, userId }) {
     return hasIdentifier;
   };
   const insertsOrUpdates = [];
+  const asinToPayloadWithSku = new Map(); // asin -> payload target (cu SKU)
 
   for (const item of items) {
     const key = item.key;
@@ -432,10 +447,16 @@ async function syncToSupabase({ items, companyId, userId }) {
       if (hasManualPrepStock(row)) {
         // keep manual qty but refresh Amazon fields
         insertsOrUpdates.push(payload);
+        if (payload.asin && row.sku) {
+          asinToPayloadWithSku.set(payload.asin, payload);
+        }
         continue;
       }
 
       insertsOrUpdates.push(payload);
+      if (payload.asin && row.sku) {
+        asinToPayloadWithSku.set(payload.asin, payload);
+      }
     } else {
       seenKeys.add(key);
       insertsOrUpdates.push({
@@ -450,11 +471,61 @@ async function syncToSupabase({ items, companyId, userId }) {
         amazon_unfulfillable: item.amazon_unfulfillable,
         qty: 0
       });
+      if (sanitizedAsin && sanitizedSku) {
+        asinToPayloadWithSku.set(sanitizedAsin, insertsOrUpdates[insertsOrUpdates.length - 1]);
+      }
     }
+  }
+
+  // Migrare: mută qty din rândurile manuale fără SKU către rândurile cu SKU (aceeași ASIN).
+  const idsToDelete = [];
+  for (const manualRow of manualAsinOnly) {
+    const asinKey = normalizeIdentifier(manualRow.asin);
+    if (!asinKey) continue;
+    const manualQty = Number(manualRow.qty ?? 0);
+    if (!Number.isFinite(manualQty) || manualQty <= 0) continue;
+
+    // Caut payload deja pregătit cu SKU.
+    let targetPayload = asinToPayloadWithSku.get(asinKey);
+
+    // Dacă nu există payload, verific rând existent cu SKU pentru acest ASIN.
+    if (!targetPayload) {
+      const existingSkuRow = asinToExistingWithSku.get(asinKey);
+      if (existingSkuRow) {
+        targetPayload = {
+          id: existingSkuRow.id,
+          company_id: existingSkuRow.company_id || companyId,
+          user_id: existingSkuRow.user_id || userId,
+          asin: normalizeIdentifier(existingSkuRow.asin),
+          sku: normalizeIdentifier(existingSkuRow.sku),
+          qty: Number(existingSkuRow.qty ?? 0)
+        };
+        insertsOrUpdates.push(targetPayload);
+        asinToPayloadWithSku.set(asinKey, targetPayload);
+      }
+    }
+
+    if (!targetPayload) {
+      // Nu există încă SKU pentru acest ASIN; păstrăm rândul manual.
+      continue;
+    }
+
+    const currentQty = Number(targetPayload.qty ?? 0);
+    const nextQty = Number.isFinite(currentQty) ? currentQty + manualQty : manualQty;
+    targetPayload.qty = nextQty;
+    idsToDelete.push(manualRow.id);
   }
 
   await cleanupInvalidRows(companyId);
   await upsertStockRows(insertsOrUpdates);
+  if (idsToDelete.length) {
+    const { error: deleteError } = await supabase
+      .from('stock_items')
+      .delete()
+      .eq('company_id', companyId)
+      .in('id', idsToDelete);
+    if (deleteError) throw deleteError;
+  }
   return { affected: insertsOrUpdates.length, seenKeys };
 }
 
