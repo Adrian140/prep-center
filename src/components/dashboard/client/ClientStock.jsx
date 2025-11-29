@@ -1213,29 +1213,37 @@ useEffect(() => {
 
     const tokens = q.split(/\s+/).filter(Boolean);
 
+    const computeNameScore = (rowValue) => {
+      const hay = normalize(rowValue);
+      if (!hay) return 0;
+      const useTokens = tokens.length ? tokens : [q];
+      let total = 0;
+      for (const token of useTokens) {
+        const tokenScore = matchScore(hay, token);
+        if (tokenScore === 0) {
+          total = 0;
+          break;
+        }
+        total += tokenScore;
+      }
+      return total;
+    };
+
     const scored = rows
       .map((row) => {
         let score = 0;
         if (searchField === 'EAN') {
           score = matchScore(normalize(row.ean), q);
+          if (score === 0) {
+            score = computeNameScore(row.name);
+          }
         } else if (searchField === 'ASIN_SKU') {
           score = Math.max(matchScore(normalize(row.asin), q), matchScore(normalize(row.sku), q));
-        } else {
-          const hay = normalize(row.name);
-          if (tokens.length === 0) {
-            score = matchScore(hay, q);
-          } else {
-            let total = 0;
-            for (const token of tokens) {
-              const tokenScore = matchScore(hay, token);
-              if (tokenScore === 0) {
-                total = 0;
-                break;
-              }
-              total += tokenScore;
-            }
-            score = total;
+          if (score === 0) {
+            score = computeNameScore(row.name);
           }
+        } else {
+          score = computeNameScore(row.name);
         }
         return { row, score };
       })
