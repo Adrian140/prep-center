@@ -283,6 +283,26 @@ createReceptionRequest: async (data) => {
   /* =========================
      Stock Management
      ========================= */
+
+  _fetchAllStockItems: async (companyId, pageSize = 1000) => {
+    const rows = [];
+    let from = 0;
+    let to = pageSize - 1;
+    while (true) {
+      const { data, error } = await supabase
+        .from("stock_items")
+        .select("*")
+        .eq("company_id", companyId)
+        .range(from, to);
+      if (error) throw error;
+      if (data && data.length) rows.push(...data);
+      if (!data || data.length < pageSize) break;
+      from += pageSize;
+      to += pageSize;
+    }
+    return rows;
+  },
+
   updateStockItem: async (id, patch) => {
     return await supabase
       .from("stock_items")
@@ -359,12 +379,7 @@ createReceptionRequest: async (data) => {
   },
 
   getClientStock: async (companyId) => {
-    const { data, error } = await supabase
-      .from("stock_items")
-      .select("*")
-      .eq("company_id", companyId);
-    if (error) throw error;
-    return data;
+    return await supabaseHelpers._fetchAllStockItems(companyId);
   },
 
   deleteStockItems: async (ids) => {
