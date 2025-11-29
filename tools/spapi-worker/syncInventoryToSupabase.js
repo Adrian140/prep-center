@@ -365,34 +365,13 @@ async function upsertStockRows(rows) {
 }
 
 async function cleanupInvalidRows(companyId) {
-  // Șterge rândurile fără ASIN sau fără SKU (cerință nouă),
-  // dar păstrează liniile cu stoc manual (>0).
-  const { data: invalidRows, error } = await supabase
+  // Șterge rândurile fără ASIN sau fără SKU (indiferent de qty, cerință strictă).
+  const { error } = await supabase
     .from('stock_items')
-    .select('id, asin, sku, qty')
+    .delete()
     .eq('company_id', companyId)
     .or('asin.is.null,asin.eq.,sku.is.null,sku.eq.');
-
   if (error) throw error;
-
-  const idsToDelete =
-    invalidRows
-      ?.filter((row) => {
-        const asin = (row.asin || '').trim();
-        const sku = (row.sku || '').trim();
-        const qty = Number(row.qty ?? 0);
-        const hasManualQty = Number.isFinite(qty) && qty > 0;
-        return (!asin || !sku) && !hasManualQty;
-      })
-      .map((row) => row.id) || [];
-
-  if (idsToDelete.length) {
-    const { error: delError } = await supabase
-      .from('stock_items')
-      .delete()
-      .in('id', idsToDelete);
-    if (delError) throw delError;
-  }
 }
 
 async function syncToSupabase({ items, companyId, userId }) {
