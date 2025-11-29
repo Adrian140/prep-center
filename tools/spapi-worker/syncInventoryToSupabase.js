@@ -326,7 +326,7 @@ function filterListings(listings = []) {
     // Păstrăm doar listările FBA; FBM sunt cele care vin de obicei fără ASIN
     // și cu titluri „stricate”, nu ne interesează în coloana de stoc.
     const fc = String(row.fulfillmentChannel || '').toUpperCase();
-    if (fc && !ALLOWED_FBA_CHANNELS.has(fc)) return false;
+    if (!fc || !ALLOWED_FBA_CHANNELS.has(fc)) return false;
 
     const wantedStatus =
       status.startsWith('active') ||
@@ -365,9 +365,22 @@ async function upsertStockRows(rows) {
 }
 
 async function cleanupInvalidRows(companyId) {
-  // Șterge rândurile fără ASIN și SKU pentru compania curentă.
-  await supabase.from('stock_items').delete().eq('company_id', companyId).is('asin', null).is('sku', null);
-  await supabase.from('stock_items').delete().eq('company_id', companyId).eq('asin', '').eq('sku', '');
+  // Șterge rândurile fără ASIN și SKU pentru compania curentă,
+  // dar păstrează liniile care au qty manual (>0).
+  await supabase
+    .from('stock_items')
+    .delete()
+    .eq('company_id', companyId)
+    .is('asin', null)
+    .is('sku', null)
+    .or('qty IS NULL OR qty = 0');
+  await supabase
+    .from('stock_items')
+    .delete()
+    .eq('company_id', companyId)
+    .eq('asin', '')
+    .eq('sku', '')
+    .or('qty IS NULL OR qty = 0');
 }
 
 async function syncToSupabase({ items, companyId, userId }) {
