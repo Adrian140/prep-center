@@ -314,6 +314,29 @@ async function syncListingsIntegration(integration) {
       if (key) existingByKey.set(key, row);
     });
 
+    // Cache imagini din asin_assets pentru atașare instant la insert
+    const asinSet = new Set();
+    listingRows.forEach((row) => {
+      const asin = row.asin ? row.asin.trim() : '';
+      if (asin) asinSet.add(asin.toUpperCase());
+    });
+    const asinImageCache = new Map();
+    if (asinSet.size) {
+      const { data: cached, error: cacheError } = await supabase
+        .from('asin_assets')
+        .select('asin, image_urls')
+        .in('asin', Array.from(asinSet));
+      if (cacheError) {
+        console.warn(`[Listings sync] asin_assets cache failed: ${cacheError.message}`);
+      } else {
+        (cached || []).forEach((row) => {
+          const urls = Array.isArray(row.image_urls) ? row.image_urls : [];
+          const first = urls.find((u) => typeof u === 'string' && u.trim().length > 0);
+          if (first) asinImageCache.set((row.asin || '').toUpperCase(), first);
+        });
+      }
+    }
+
     const seen = new Set();
     const inserts = [];
     // Regula: dacă există deja ASIN+SKU în stock_items, nu rescriem nimic.
@@ -330,7 +353,10 @@ async function syncListingsIntegration(integration) {
         asin: listing.asin || null,
         sku: listing.sku || null,
         name: listing.name || listing.asin || listing.sku,
-        qty: 0
+        qty: 0,
+        image_url: listing.asin
+          ? asinImageCache.get(listing.asin.trim().toUpperCase()) || null
+          : null
       });
     }
 
