@@ -594,6 +594,8 @@ async function syncIntegration(integration) {
         if (!listing.key || seen.has(listing.key)) continue;
         seen.add(listing.key);
         const inv = stockByKey.get(listing.key);
+        // Păstrăm doar listingurile care apar și în inventarul FBA (raport sau summaries).
+        if (!inv) continue;
         merged.push({
           key: listing.key,
           asin: listing.asin || inv?.asin || null,
