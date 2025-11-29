@@ -6,8 +6,8 @@
   "scripts": {
     "refresh-token": "node authRefreshAndStore.js",
     "sync-inventory": "node syncInventoryToSupabase.js",
-    "list-listing": "node listListings.js",
-    "sync-listings": "node syncListingsToSupabase.js",
+    "sync-fulfilled-qty": "node syncInventoryToSupabase.js",
+    "sync-products": "node syncListingsToSupabase.js",
     "sync-keepa-images": "node syncKeepaImages.js",
     "sync-sales": "node syncSalesToSupabase.js"
   },

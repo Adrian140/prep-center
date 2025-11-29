@@ -1,4 +1,4 @@
-name: Sync Amazon Listings
+name: Sync Amazon Listings (ASIN/SKU+Titlu)
 
 on:
   schedule:
@@ -41,4 +41,3 @@ jobs:
           SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
           SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN: ${{ secrets.SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN || '20' }}
         run: npm run sync-listings
-

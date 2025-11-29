@@ -316,6 +316,19 @@ async function syncListingsIntegration(integration) {
 
     const seen = new Set();
     const inserts = [];
+    const updates = [];
+
+    const shouldUpdateName = (current, incoming, row) => {
+      const inc = sanitizeText(incoming);
+      if (!inc) return false;
+      const cur = current ? String(current).trim() : '';
+      if (!cur) return true;
+      if (cur === inc) return false;
+      const asin = String(row?.asin || '').trim();
+      const sku = String(row?.sku || '').trim();
+      // dacă numele actual este doar ASIN/SKU, îl înlocuim cu cel nou
+      return cur === asin || cur === sku;
+    };
 
     for (const listing of listingRows) {
       if (!listing.key || seen.has(listing.key)) continue;
@@ -323,6 +336,12 @@ async function syncListingsIntegration(integration) {
 
       const row = existingByKey.get(listing.key);
       if (row) {
+        if (shouldUpdateName(row.name, listing.name, row)) {
+          updates.push({
+            id: row.id,
+            name: sanitizeText(listing.name) || listing.asin || listing.sku
+          });
+        }
         continue;
       }
       inserts.push({
@@ -336,6 +355,16 @@ async function syncListingsIntegration(integration) {
     }
 
     await insertListingRows(inserts);
+    if (updates.length) {
+      const chunkSize = 500;
+      for (let i = 0; i < updates.length; i += chunkSize) {
+        const chunk = updates.slice(i, i + chunkSize);
+        const { error: updateError } = await supabase
+          .from('stock_items')
+          .upsert(chunk, { defaultToNull: false });
+        if (updateError) throw updateError;
+      }
+    }
 
     await supabase
       .from('amazon_integrations')
