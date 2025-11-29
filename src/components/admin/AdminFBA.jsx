@@ -146,7 +146,6 @@ const handleAdd = async () => {
   };
 
   return (
-  return (
     <Section
       title="FBA"
       right={
