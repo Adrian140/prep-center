@@ -1088,7 +1088,20 @@ const refreshStockData = useCallback(async () => {
     return;
   }
 
-  setRows(list);
+  const moveNoAsinRowsToEnd = (items) => {
+    const withAsin = [];
+    const withoutAsin = [];
+    (items || []).forEach((item) => {
+      const hasAsin = Boolean((item?.asin || '').toString().trim());
+      if (hasAsin) {
+        withAsin.push(item);
+      } else {
+        withoutAsin.push(item);
+      }
+    });
+    return [...withAsin, ...withoutAsin];
+  };
+  setRows(moveNoAsinRowsToEnd(list));
   setLoading(false);
 
   const seed = {};
@@ -1389,7 +1402,34 @@ useEffect(() => {
 
     setDeleteInProgress(true);
     try {
-      await supabaseHelpers.deleteStockItems(selectedRows.map((row) => row.id));
+      const normalizeKey = (value = '') => String(value || '').trim();
+      const normalizeName = (value = '') => String(value || '').trim().toLowerCase();
+      const matchSets = {
+        asins: new Set(),
+        skus: new Set(),
+        eans: new Set(),
+        names: new Set()
+      };
+      selectedRows.forEach((row) => {
+        if (row.asin) matchSets.asins.add(normalizeKey(row.asin).toUpperCase());
+        if (row.sku) matchSets.skus.add(normalizeKey(row.sku).toUpperCase());
+        if (row.ean) matchSets.eans.add(normalizeKey(row.ean).toUpperCase());
+        if (row.name) matchSets.names.add(normalizeName(row.name));
+      });
+
+      const idsToDelete = new Set(selectedRows.map((row) => row.id));
+      rows.forEach((row) => {
+        if (row.asin) return;
+        if (
+          (row.sku && matchSets.skus.has(normalizeKey(row.sku).toUpperCase())) ||
+          (row.ean && matchSets.eans.has(normalizeKey(row.ean).toUpperCase())) ||
+          (row.name && matchSets.names.has(normalizeName(row.name)))
+        ) {
+          idsToDelete.add(row.id);
+        }
+      });
+
+      await supabaseHelpers.deleteStockItems(Array.from(idsToDelete));
       setToast({ type: 'success', text: t('ClientStock.cta.deleteListingSuccess') });
       setSelectedIdList([]);
       await refreshStockData();
@@ -1399,7 +1439,7 @@ useEffect(() => {
     } finally {
       setDeleteInProgress(false);
     }
-  }, [selectedRows, refreshStockData, setSelectedIdList, t, supportError]);
+  }, [rows, selectedRows, refreshStockData, setSelectedIdList, t, supportError]);
   useEffect(() => {
     if (!enableQtyAdjust) return;
     setQtyInputs({});
