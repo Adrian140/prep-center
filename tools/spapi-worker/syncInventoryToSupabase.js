@@ -374,22 +374,45 @@ async function cleanupInvalidRows(companyId) {
   if (error) throw error;
 }
 
+async function fetchAllStockItems(companyId, { filter } = {}) {
+  const pageSize = 1000;
+  let from = 0;
+  let to = pageSize - 1;
+  const rows = [];
+
+  while (true) {
+    const query = supabase
+      .from('stock_items')
+      .select(
+        'id, company_id, user_id, sku, asin, name, amazon_stock, amazon_inbound, amazon_reserved, amazon_unfulfillable, qty'
+      )
+      .eq('company_id', companyId)
+      .range(from, to);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    const page = Array.isArray(data) ? (filter ? data.filter(filter) : data) : [];
+    rows.push(...page);
+
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+    to += pageSize;
+  }
+
+  return rows;
+}
+
 async function syncToSupabase({ items, companyId, userId }) {
   if (items.length === 0) {
     console.log('Amazon returned no inventory rows. Nothing to sync.');
     return { affected: 0, seenKeys: new Set() };
   }
 
-  const { data: existing, error } = await supabase
-    .from('stock_items')
-    .select('id, company_id, user_id, sku, asin, name, amazon_stock, amazon_inbound, amazon_reserved, amazon_unfulfillable, qty')
-    .eq('company_id', companyId);
-  if (error) throw error;
-
+  const existing = await fetchAllStockItems(companyId);
   const existingByKey = new Map();
   const asinToExistingWithSku = new Map(); // pentru migrare manual -> automat
   const manualAsinOnly = [];
-  (existing || []).forEach((row) => {
+  existing.forEach((row) => {
     const key = keyFromRow(row);
     if (key) existingByKey.set(key, row);
     const asinKey = row?.asin ? String(row.asin).toUpperCase() : null;
@@ -708,14 +731,9 @@ async function syncIntegration(integration) {
 
 async function zeroAmazonStockForCompany(companyId, seenKeys = new Set()) {
   if (!companyId) return 0;
-  const { data, error } = await supabase
-    .from('stock_items')
-    .select('id, sku, asin, amazon_stock')
-    .eq('company_id', companyId)
-    .neq('amazon_stock', 0);
-  if (error) throw error;
+  const data = await fetchAllStockItems(companyId, { filter: (row) => Number(row.amazon_stock ?? 0) !== 0 });
 
-  const rowsToZero = (data || []).filter((row) => {
+  const rowsToZero = data.filter((row) => {
     const key = keyFromRow(row);
     return key && !seenKeys.has(key);
   });
