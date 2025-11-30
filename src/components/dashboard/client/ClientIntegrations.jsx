@@ -45,6 +45,10 @@ export default function ClientIntegrations() {
   const supportError = t('common.supportError');
   const [region, setRegion] = useState('eu');
   const [packlinkPortal, setPacklinkPortal] = useState('fr');
+  const [packlinkKey, setPacklinkKey] = useState('');
+  const [packlinkKeySavedAt, setPacklinkKeySavedAt] = useState('');
+  const [packlinkSaving, setPacklinkSaving] = useState(false);
+  const [packlinkMsg, setPacklinkMsg] = useState('');
   const [stateToken] = useState(() => Math.random().toString(36).slice(2) + Date.now().toString(36));
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -109,6 +113,44 @@ export default function ClientIntegrations() {
     loadIntegrations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  useEffect(() => {
+    const loadPacklinkKey = async () => {
+      if (!user?.id) return;
+      const { data, error } = await supabase
+        .from('packlink_credentials')
+        .select('api_key, updated_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!error && data?.api_key) {
+        setPacklinkKey(data.api_key);
+        setPacklinkKeySavedAt(data.updated_at || '');
+      }
+    };
+    loadPacklinkKey();
+  }, [user?.id]);
+
+  const savePacklinkKey = async () => {
+    if (!user?.id) return;
+    if (!packlinkKey.trim()) {
+      setPacklinkMsg('Add your Packlink API key first.');
+      return;
+    }
+    setPacklinkSaving(true);
+    setPacklinkMsg('');
+    const { error, data } = await supabase
+      .from('packlink_credentials')
+      .upsert({ user_id: user.id, api_key: packlinkKey.trim() })
+      .select('updated_at')
+      .maybeSingle();
+    if (error) {
+      setPacklinkMsg('Could not save key. Please retry.');
+    } else {
+      setPacklinkMsg('Packlink key saved.');
+      setPacklinkKeySavedAt(data?.updated_at || new Date().toISOString());
+    }
+    setPacklinkSaving(false);
+  };
 
   const removeIntegration = async (id) => {
     if (!window.confirm(t('ClientIntegrations.confirmDisconnect'))) return;
@@ -213,8 +255,41 @@ export default function ClientIntegrations() {
             </button>
           </div>
           <p className="text-xs text-text-light">
-            The Packlink API key lives server-side; no extra OAuth needed.
+            Use your own Packlink API key (Settings → Packlink PRO API key) to book labels from your account.
           </p>
+        </div>
+        <div className="border rounded-lg p-4 bg-gray-50/70 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold text-text-primary">Your Packlink API key</div>
+              <p className="text-xs text-text-secondary">
+                Paste the key from Packlink: Settings → Packlink PRO API key.
+              </p>
+            </div>
+            {packlinkKeySavedAt && (
+              <span className="text-[11px] text-text-light">
+                Saved: {new Date(packlinkKeySavedAt).toLocaleString()}
+              </span>
+            )}
+          </div>
+          <input
+            type="text"
+            value={packlinkKey}
+            onChange={(e) => setPacklinkKey(e.target.value)}
+            placeholder="pk_live_..."
+            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={savePacklinkKey}
+              disabled={packlinkSaving}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+            >
+              {packlinkSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+              Save key
+            </button>
+            {packlinkMsg && <span className="text-xs text-text-secondary">{packlinkMsg}</span>}
+          </div>
         </div>
       </section>
 

@@ -50,6 +50,19 @@ async function requireUser(req: Request): Promise<{ user?: User; error?: Respons
   return { user };
 }
 
+async function getUserPacklinkKey(userId: string): Promise<string | null> {
+  const { data, error } = await serviceClient
+    .from("packlink_credentials")
+    .select("api_key")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("Packlink get user key error", error);
+    return null;
+  }
+  return data?.api_key || null;
+}
+
 async function callPacklink(path: string, method: "GET" | "POST", body?: unknown) {
   if (!PACKLINK_API_KEY) return { ok: false, status: 500, data: null, message: "Missing PACKLINK_API_KEY" };
   const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
@@ -142,12 +155,14 @@ function extractPacklinkId(payload: any) {
 async function handleServices(req: Request, _url: URL) {
   const { user, error } = await requireUser(req);
   if (error) return error;
-  if (!PACKLINK_API_KEY) return missingPacklinkKey();
 
   const payload = await req.json().catch(() => null);
   if (!payload || typeof payload !== "object") {
     return json({ error: "Invalid payload" }, 400);
   }
+
+  const userKey = (await getUserPacklinkKey(user.id)) || PACKLINK_API_KEY;
+  if (!userKey) return missingPacklinkKey();
 
   const packlinkRes = await callPacklink("services", "POST", payload);
   if (!packlinkRes.ok) {
@@ -163,7 +178,6 @@ async function handleServices(req: Request, _url: URL) {
 async function handleCreateShipment(req: Request, _url: URL) {
   const { user, error } = await requireUser(req);
   if (error) return error;
-  if (!PACKLINK_API_KEY) return missingPacklinkKey();
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {
@@ -177,6 +191,9 @@ async function handleCreateShipment(req: Request, _url: URL) {
 
   const packlinkPayload = { ...body };
   delete (packlinkPayload as any).user_id;
+
+  const userKey = (await getUserPacklinkKey(user.id)) || PACKLINK_API_KEY;
+  if (!userKey) return missingPacklinkKey();
 
   const packlinkRes = await callPacklink("shipments", "POST", packlinkPayload);
   if (!packlinkRes.ok) {
