@@ -297,7 +297,12 @@ async function syncListingsIntegration(integration) {
       spClient,
       integration.marketplace_id || DEFAULT_MARKETPLACE
     );
-    const listingRows = filterListings(normalizeListings(listingRaw));
+    const normalized = normalizeListings(listingRaw);
+    const listingRows = filterListings(normalized);
+
+    console.log(
+      `[Listings sync] ${integration.id} raw=${listingRaw.length} normalized=${normalized.length} filtered=${listingRows.length}`
+    );
 
     if (!listingRows.length) {
       console.log(
