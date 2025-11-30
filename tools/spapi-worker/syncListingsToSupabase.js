@@ -234,8 +234,8 @@ function normalizeListings(rawRows = []) {
         asin = String(row.productId).trim();
       }
     }
-    // cerință: listările Amazon trebuie să aibă și ASIN, și SKU
-    if (!sku || !asin) continue;
+    // cerință: trebuie să existe ASIN; SKU poate lipsi (folosim ASIN pentru completare titlu)
+    if (!asin) continue;
 
     normalized.push({
       key: (sku || asin).toLowerCase(),
@@ -333,9 +333,15 @@ async function syncListingsIntegration(integration) {
     if (error) throw error;
 
     const existingByKey = new Map();
+    const existingByAsin = new Map(); // pentru completare titlu/poza pe toate SKU-urile cu același ASIN
     (existing || []).forEach((row) => {
       const key = keyFromRow(row);
       if (key) existingByKey.set(key, row);
+      const asinKey = row?.asin ? String(row.asin).toUpperCase() : '';
+      if (asinKey) {
+        if (!existingByAsin.has(asinKey)) existingByAsin.set(asinKey, []);
+        existingByAsin.get(asinKey).push(row);
+      }
     });
 
     // Cache imagini din asin_assets pentru atașare instant la insert
@@ -391,17 +397,43 @@ async function syncListingsIntegration(integration) {
         if (shouldPatch) updates.push(patch);
         continue;
       }
-      inserts.push({
-        company_id: integration.company_id,
-        user_id: integration.user_id,
-        asin: listing.asin || null,
-        sku: listing.sku || null,
-        name: listing.name || listing.asin || listing.sku,
-        qty: 0,
-        image_url: listing.asin
-          ? asinImageCache.get(listing.asin.trim().toUpperCase()) || null
-          : null
-      });
+      // Dacă nu găsim pereche ASIN+SKU, dar există rânduri cu același ASIN și nume lipsă, completăm titlul lor.
+      const asinKey = listing.asin ? listing.asin.trim().toUpperCase() : '';
+      if (asinKey && existingByAsin.has(asinKey)) {
+        const rowsForAsin = existingByAsin.get(asinKey) || [];
+        rowsForAsin.forEach((r) => {
+          const hasExistingName = r.name && String(r.name).trim().length > 0;
+          const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
+          const hasExistingImage = r.image_url && String(r.image_url).trim().length > 0;
+          const cachedImage = asinImageCache.get(asinKey) || null;
+          const patch = { id: r.id };
+          let shouldPatch = false;
+          if (!hasExistingName && hasIncomingName) {
+            patch.name = listing.name;
+            shouldPatch = true;
+          }
+          if (!hasExistingImage && cachedImage) {
+            patch.image_url = cachedImage;
+            shouldPatch = true;
+          }
+          if (shouldPatch) updates.push(patch);
+        });
+      } else {
+        // Inserăm doar dacă avem și ASIN, și SKU
+        if (listing.asin && listing.sku) {
+          inserts.push({
+            company_id: integration.company_id,
+            user_id: integration.user_id,
+            asin: listing.asin || null,
+            sku: listing.sku || null,
+            name: listing.name || listing.asin || listing.sku,
+            qty: 0,
+            image_url: listing.asin
+              ? asinImageCache.get(listing.asin.trim().toUpperCase()) || null
+              : null
+          });
+        }
+      }
     }
 
     await insertListingRows(inserts);
