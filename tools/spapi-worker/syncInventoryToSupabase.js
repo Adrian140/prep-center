@@ -506,26 +506,9 @@ async function syncToSupabase({ items, companyId, userId }) {
         });
       }
     } else {
+      // Nu creăm rânduri noi din inventar; doar marcăm ca văzut pentru zeroing.
       seenKeys.add(key);
-      const payload = {
-        company_id: companyId,
-        user_id: userId,
-        asin: sanitizedAsin,
-        sku: sanitizedSku,
-        name: item.name || item.asin || item.sku,
-        amazon_stock: item.amazon_stock,
-        amazon_inbound: item.amazon_inbound,
-        amazon_reserved: item.amazon_reserved,
-        amazon_unfulfillable: item.amazon_unfulfillable,
-        qty: 0
-      };
-      if (sanitizedAsin && asinCache.has(sanitizedAsin)) {
-        payload.image_url = asinCache.get(sanitizedAsin);
-      }
-      insertsOrUpdates.push(payload);
-      if (sanitizedAsin && sanitizedSku) {
-        asinToPayloadWithSku.set(sanitizedAsin, insertsOrUpdates[insertsOrUpdates.length - 1]);
-      }
+      continue;
     }
   }
 
