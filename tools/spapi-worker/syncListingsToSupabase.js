@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { createSpClient } from './spapiClient.js';
 import { supabase } from './supabaseClient.js';
 import { sanitizeText } from './syncInventoryToSupabase.js';
+import { gunzipSync } from 'zlib';
 
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
 const LISTING_REPORT_TYPE = 'GET_MERCHANT_LISTINGS_ALL_DATA';
@@ -172,7 +173,14 @@ async function downloadReportDocument(spClient, reportDocumentId) {
     throw new Error(`Failed to download listing report document (${response.status})`);
   }
   const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer).toString('utf-8');
+  const buffer = Buffer.from(arrayBuffer);
+
+  // Amazon poate furniza documentul GZIP; decomprimăm dacă este cazul.
+  if (document.compressionAlgorithm === 'GZIP') {
+    return gunzipSync(buffer).toString('utf-8');
+  }
+
+  return buffer.toString('utf-8');
 }
 
 const LISTING_COLUMN_ALIASES = new Map([
