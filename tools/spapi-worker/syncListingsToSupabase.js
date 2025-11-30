@@ -191,7 +191,9 @@ const LISTING_COLUMN_ALIASES = new Map([
   ['item-name', 'name'],
   ['status', 'status'],
   ['item-status', 'status'],
-  ['fulfillment-channel', 'fulfillmentChannel']
+  ['fulfillment-channel', 'fulfillmentChannel'],
+  ['product-id', 'productId'],
+  ['product-id-type', 'productIdType']
 ]);
 
 function parseListingRows(tsvText) {
@@ -224,7 +226,14 @@ function normalizeListings(rawRows = []) {
   const normalized = [];
   for (const row of rawRows) {
     const sku = (row.sku || '').trim();
-    const asin = (row.asin || '').trim();
+    let asin = (row.asin || '').trim();
+    // fallback: dacă ASIN lipsește, încearcă product-id când tipul este ASIN
+    if (!asin && row.productId) {
+      const type = String(row.productIdType || '').trim();
+      if (!type || type.toUpperCase() === 'ASIN' || type === '1') {
+        asin = String(row.productId).trim();
+      }
+    }
     // cerință: listările Amazon trebuie să aibă și ASIN, și SKU
     if (!sku || !asin) continue;
 
@@ -300,8 +309,10 @@ async function syncListingsIntegration(integration) {
     const normalized = normalizeListings(listingRaw);
     const listingRows = filterListings(normalized);
 
+    const emptySku = listingRaw.filter((r) => !String(r.sku || '').trim()).length;
+    const emptyAsin = listingRaw.filter((r) => !String(r.asin || '').trim() && !String(r.productId || '').trim()).length;
     console.log(
-      `[Listings sync] ${integration.id} raw=${listingRaw.length} normalized=${normalized.length} filtered=${listingRows.length}`
+      `[Listings sync] ${integration.id} raw=${listingRaw.length} normalized=${normalized.length} filtered=${listingRows.length} emptySku=${emptySku} emptyAsin=${emptyAsin}`
     );
 
     if (!listingRows.length) {
