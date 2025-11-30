@@ -167,8 +167,17 @@ async function handleServices(req: Request, _url: URL) {
 
   const packlinkRes = await callPacklink("services", "POST", payload, userKey);
   if (!packlinkRes.ok) {
+    console.error("Packlink services error", {
+      status: packlinkRes.status,
+      message: packlinkRes.message,
+      data: packlinkRes.data
+    });
     return json(
-      { error: "Packlink services failed", details: packlinkRes.data ?? packlinkRes.message },
+      {
+        error: "Packlink services failed",
+        status: packlinkRes.status,
+        details: packlinkRes.data ?? packlinkRes.message
+      },
       packlinkRes.status || 502
     );
   }
@@ -198,8 +207,17 @@ async function handleCreateShipment(req: Request, _url: URL) {
 
   const packlinkRes = await callPacklink("shipments", "POST", packlinkPayload, userKey);
   if (!packlinkRes.ok) {
+    console.error("Packlink create shipment error", {
+      status: packlinkRes.status,
+      message: packlinkRes.message,
+      data: packlinkRes.data
+    });
     return json(
-      { error: "Packlink create shipment failed", details: packlinkRes.data ?? packlinkRes.message },
+      {
+        error: "Packlink create shipment failed",
+        status: packlinkRes.status,
+        details: packlinkRes.data ?? packlinkRes.message
+      },
       packlinkRes.status || 502
     );
   }
