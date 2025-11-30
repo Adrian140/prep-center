@@ -50,6 +50,7 @@ export default function ClientIntegrations() {
   const redirectUri =
     import.meta.env.VITE_SPAPI_REDIRECT_URI || `${window.location.origin}/auth/amazon/callback`;
   const packlinkPath = '/dashboard?tab=packlink';
+  const packlinkPortalUrl = 'https://pro.packlink.com/private/user/api-key';
 
   const statePayload = useMemo(() => {
     if (!user?.id) return '';
@@ -184,6 +185,12 @@ export default function ClientIntegrations() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white"
           >
             <ExternalLink className="w-4 h-4" /> Open Packlink tab
+          </button>
+          <button
+            onClick={() => window.open(packlinkPortalUrl, '_blank', 'noopener')}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-primary text-primary"
+          >
+            <ExternalLink className="w-4 h-4" /> Open Packlink portal
           </button>
           <p className="text-xs text-text-light">
             The Packlink API key lives server-side; no extra OAuth needed.
