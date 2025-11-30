@@ -389,18 +389,13 @@ async function handleReports(req: Request, url: URL) {
 }
 
 function parsePath(url: URL) {
-  // Normalize incoming paths:
-  // - /functions/v1/packlink/...
-  // - /packlink/...
-  // - /api/packlink/...
-  const raw = url.pathname;
-  let pathname = raw
-    .replace(/^\/?functions\/v1\/packlink/, "")
-    .replace(/^\/?packlink/, "")
-    .replace(/^\/?api\/packlink/, "");
-  if (!pathname.startsWith("/")) pathname = "/" + pathname;
-  if (pathname !== "/" && pathname.endsWith("/")) pathname = pathname.slice(0, -1);
-  return pathname || "/";
+  // Normalize incoming paths robustly by segment
+  // Accepts: /functions/v1/packlink/..., /packlink/..., /api/packlink/...
+  const segments = url.pathname.split("/").filter(Boolean);
+  const idx = segments.indexOf("packlink");
+  const tail = idx >= 0 ? segments.slice(idx + 1) : segments;
+  const pathname = "/" + tail.join("/");
+  return pathname === "/" ? "/" : pathname.replace(/\/+$/, "");
 }
 
 serve(async (req) => {
