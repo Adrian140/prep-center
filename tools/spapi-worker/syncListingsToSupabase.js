@@ -277,6 +277,11 @@ function keyFromRow(row) {
   return sku || asin || null;
 }
 
+const isCorruptedName = (name) => {
+  if (!name) return false;
+  return String(name).includes('\uFFFD');
+};
+
 async function fetchListingRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
   const reportId = await createListingReport(spClient, marketplaceId);
   const documentId = await waitForReport(spClient, reportId);
@@ -396,7 +401,8 @@ async function syncListingsIntegration(integration) {
         let shouldPatch = false;
         const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
         const hasExistingName = row.name && String(row.name).trim().length > 0;
-        if (!hasExistingName && hasIncomingName) {
+        const needsNameReplace = isCorruptedName(row.name);
+        if ((!hasExistingName || needsNameReplace) && hasIncomingName) {
           patch.name = listing.name;
           shouldPatch = true;
         }
