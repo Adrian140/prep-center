@@ -11,6 +11,11 @@ const AMAZON_REGIONS = [
   { id: 'jp', consentUrl: 'https://sellercentral-japan.amazon.com/apps/authorize/consent', marketplaceId: 'A1VC38T7YXB528' }
 ];
 
+const PACKLINK_PORTALS = [
+  { id: 'fr', label: 'Packlink PRO France', url: 'https://auth.packlink.com/fr-FR/pro/login?tenant_id=PACKLINKPROFR' },
+  { id: 'com', label: 'Packlink PRO .com', url: 'https://auth.packlink.com/en-GB/pro/login?tenant_id=PACKLINKPRO' }
+];
+
 function StatusBadge({ status, t }) {
   if (status === 'active') {
     return (
@@ -39,6 +44,7 @@ export default function ClientIntegrations() {
   const navigate = useNavigate();
   const supportError = t('common.supportError');
   const [region, setRegion] = useState('eu');
+  const [packlinkPortal, setPacklinkPortal] = useState('fr');
   const [stateToken] = useState(() => Math.random().toString(36).slice(2) + Date.now().toString(36));
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +56,8 @@ export default function ClientIntegrations() {
   const redirectUri =
     import.meta.env.VITE_SPAPI_REDIRECT_URI || `${window.location.origin}/auth/amazon/callback`;
   const packlinkPath = '/dashboard?tab=packlink';
-  const packlinkPortalUrl = 'https://pro.packlink.com/private/user/api-key';
+  const packlinkPortalUrl =
+    PACKLINK_PORTALS.find((p) => p.id === packlinkPortal)?.url || PACKLINK_PORTALS[0].url;
 
   const statePayload = useMemo(() => {
     if (!user?.id) return '';
@@ -186,12 +193,25 @@ export default function ClientIntegrations() {
           >
             <ExternalLink className="w-4 h-4" /> Open Packlink tab
           </button>
-          <button
-            onClick={() => window.open(packlinkPortalUrl, '_blank', 'noopener')}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-primary text-primary"
-          >
-            <ExternalLink className="w-4 h-4" /> Open Packlink portal
-          </button>
+          <div className="flex items-center gap-2">
+            <select
+              value={packlinkPortal}
+              onChange={(e) => setPacklinkPortal(e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm"
+            >
+              {PACKLINK_PORTALS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => window.open(packlinkPortalUrl, '_blank', 'noopener')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-primary text-primary"
+            >
+              <ExternalLink className="w-4 h-4" /> Open Packlink portal
+            </button>
+          </div>
           <p className="text-xs text-text-light">
             The Packlink API key lives server-side; no extra OAuth needed.
           </p>
