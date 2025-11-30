@@ -378,7 +378,12 @@ async function syncListingsIntegration(integration) {
 
       const row = existingByKey.get(listing.key);
       if (row) {
-        const patch = { id: row.id };
+        const patch = {
+          id: row.id,
+          company_id: row.company_id,
+          sku: row.sku,
+          asin: row.asin
+        };
         let shouldPatch = false;
         const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
         const hasExistingName = row.name && String(row.name).trim().length > 0;
@@ -406,7 +411,12 @@ async function syncListingsIntegration(integration) {
           const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
           const hasExistingImage = r.image_url && String(r.image_url).trim().length > 0;
           const cachedImage = asinImageCache.get(asinKey) || null;
-          const patch = { id: r.id };
+          const patch = {
+            id: r.id,
+            company_id: r.company_id,
+            sku: r.sku,
+            asin: r.asin
+          };
           let shouldPatch = false;
           if (!hasExistingName && hasIncomingName) {
             patch.name = listing.name;
@@ -444,7 +454,7 @@ async function syncListingsIntegration(integration) {
         const chunk = updates.slice(i, i + chunkSize);
         const { error: updateError } = await supabase
           .from('stock_items')
-          .upsert(chunk, { defaultToNull: false });
+          .upsert(chunk, { defaultToNull: false, onConflict: 'company_id,sku,asin' });
         if (updateError) throw updateError;
       }
     }
