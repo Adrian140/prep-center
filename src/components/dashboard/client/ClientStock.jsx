@@ -1076,14 +1076,26 @@ const refreshStockData = useCallback(async () => {
 
   setLoading(true);
 
-  let query = supabase.from('stock_items').select('*');
-  if (profile?.company_id) query = query.eq('company_id', profile.company_id);
-  else query = query.eq('user_id', profile.id);
+  const pageSize = 1000;
+  let from = 0;
+  let to = pageSize - 1;
+  let all = [];
 
-  const { data, error } = await query
-    .order('created_at', { ascending: false })
-    .range(0, 99999); // ridicăm limita la 100k rânduri pentru listările clientului
-  const list = error ? [] : Array.isArray(data) ? data : [];
+  while (true) {
+    let query = supabase.from('stock_items').select('*');
+    if (profile?.company_id) query = query.eq('company_id', profile.company_id);
+    else query = query.eq('user_id', profile.id);
+
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    const page = error ? [] : Array.isArray(data) ? data : [];
+    all = all.concat(page);
+
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+    to += pageSize;
+  }
 
   if (unmountedRef.current) {
     setLoading(false);
@@ -1103,11 +1115,11 @@ const refreshStockData = useCallback(async () => {
     });
     return [...withAsin, ...withoutAsin];
   };
-  setRows(moveNoAsinRowsToEnd(list));
+  setRows(moveNoAsinRowsToEnd(all));
   setLoading(false);
 
   const seed = {};
-  for (const r of list) {
+  for (const r of all) {
     seed[r.id] = {
       name: r.name || '',
       asin: r.asin || '',
@@ -1122,9 +1134,9 @@ const refreshStockData = useCallback(async () => {
   setRowEdits(seed);
   setQtyInputs({});
 
-  if (list.length > 0) {
+  if (all.length > 0) {
     try {
-      const ids = list.map((r) => r.id);
+      const ids = all.map((r) => r.id);
       const { data: imgRows, error: imgErr } = await supabase
         .from('product_images')
         .select('stock_item_id')
