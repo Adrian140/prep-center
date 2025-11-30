@@ -304,7 +304,7 @@ async function syncListingsIntegration(integration) {
 
     const { data: existing, error } = await supabase
       .from('stock_items')
-      .select('id, company_id, user_id, sku, asin, name')
+      .select('id, company_id, user_id, sku, asin, name, image_url')
       .eq('company_id', integration.company_id);
     if (error) throw error;
 
@@ -339,14 +339,34 @@ async function syncListingsIntegration(integration) {
 
     const seen = new Set();
     const inserts = [];
-    // Regula: dacă există deja ASIN+SKU în stock_items, nu rescriem nimic.
+    const updates = [];
+    // Regula: nu rescriem rândurile existente, dar completăm titlul/poza dacă lipsesc.
 
     for (const listing of listingRows) {
       if (!listing.key || seen.has(listing.key)) continue;
       seen.add(listing.key);
 
       const row = existingByKey.get(listing.key);
-      if (row) continue;
+      if (row) {
+        const patch = { id: row.id };
+        let shouldPatch = false;
+        const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
+        const hasExistingName = row.name && String(row.name).trim().length > 0;
+        if (!hasExistingName && hasIncomingName) {
+          patch.name = listing.name;
+          shouldPatch = true;
+        }
+        const cachedImage = listing.asin
+          ? asinImageCache.get(listing.asin.trim().toUpperCase()) || null
+          : null;
+        const hasExistingImage = row.image_url && String(row.image_url).trim().length > 0;
+        if (!hasExistingImage && cachedImage) {
+          patch.image_url = cachedImage;
+          shouldPatch = true;
+        }
+        if (shouldPatch) updates.push(patch);
+        continue;
+      }
       inserts.push({
         company_id: integration.company_id,
         user_id: integration.user_id,
@@ -361,6 +381,17 @@ async function syncListingsIntegration(integration) {
     }
 
     await insertListingRows(inserts);
+
+    if (updates.length) {
+      const chunkSize = 500;
+      for (let i = 0; i < updates.length; i += chunkSize) {
+        const chunk = updates.slice(i, i + chunkSize);
+        const { error: updateError } = await supabase
+          .from('stock_items')
+          .upsert(chunk, { defaultToNull: false });
+        if (updateError) throw updateError;
+      }
+    }
 
     await supabase
       .from('amazon_integrations')
