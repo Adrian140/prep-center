@@ -34,6 +34,7 @@ import ClientPrepShipments from './client/ClientPrepShipments';
 import ClientDealsPopover from './client/ClientDealsPopover';
 import ClientBalanceBar from './client/ClientBalanceBar';
 import ClientAffiliates from './client/ClientAffiliates';
+import ClientPacklink from './client/ClientPacklink';
 import { tabSessionStorage } from '@/utils/tabStorage';
 
 const REPORT_TABS = [
@@ -51,6 +52,7 @@ function SupabaseDashboard() {
     'stock',
     'returns',
     'exports',
+    'packlink',
     'profile',
     'billing',
     'invoices',
@@ -109,6 +111,7 @@ useEffect(() => {
     { id: 'stock', label: t('sidebar.stock'), icon: Boxes, group: 'Operations' },
     { id: 'returns', label: t('sidebar.returns'), icon: RotateCcw, group: 'Operations' },
     { id: 'exports', label: t('sidebar.exports'), icon: Download, group: 'Operations' },
+    { id: 'packlink', label: 'Packlink', icon: Truck, group: 'Operations' },
 
     // Account
     { id: 'profile', label: t('sidebar.profile'), icon: User, group: 'Account' },
@@ -125,6 +128,7 @@ const renderTabContent = useMemo(() => {
     case 'stock':     return <ClientStock />;
     case 'returns':   return <ClientReturns />;
     case 'exports':   return <ClientExports />;
+    case 'packlink':  return <ClientPacklink />;
     case 'reports-shipments': return <ClientPrepShipments />;
     case 'reports-receiving': return <ClientReceiving />;
 

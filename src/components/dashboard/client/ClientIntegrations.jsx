@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link2, ExternalLink, CheckCircle, AlertTriangle, Loader2, RefreshCw, Unplug } from 'lucide-react';
+import { Link2, ExternalLink, CheckCircle, AlertTriangle, Loader2, RefreshCw, Unplug, Truck } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
@@ -47,6 +47,7 @@ export default function ClientIntegrations() {
   const applicationId = import.meta.env.VITE_AMZ_APP_ID || clientId || '';
   const redirectUri =
     import.meta.env.VITE_SPAPI_REDIRECT_URI || `${window.location.origin}/auth/amazon/callback`;
+  const packlinkUrl = `${window.location.origin}/dashboard?tab=packlink`;
 
   const statePayload = useMemo(() => {
     if (!user?.id) return '';
@@ -161,6 +162,31 @@ export default function ClientIntegrations() {
           </button>
         </div>
         <p className="text-xs text-text-light">{t('ClientIntegrations.instructions')}</p>
+      </section>
+
+      <section className="bg-white border rounded-xl p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-full bg-blue-50 text-blue-700">
+            <Truck className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">Packlink PRO</h2>
+            <p className="text-sm text-text-secondary">
+              Book labels, compare services și urmărește AWB-urile direct din tab-ul Packlink.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => (window.location.href = packlinkUrl)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white"
+          >
+            <ExternalLink className="w-4 h-4" /> Deschide tab-ul Packlink
+          </button>
+          <p className="text-xs text-text-light">
+            Cheia Packlink este citită din server; nu e nevoie de OAuth separat.
+          </p>
+        </div>
       </section>
 
       <section className="bg-white border rounded-xl p-5 space-y-4">
