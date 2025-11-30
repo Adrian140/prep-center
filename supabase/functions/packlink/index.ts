@@ -407,8 +407,14 @@ serve(async (req) => {
   const url = new URL(req.url);
   const path = parsePath(url);
 
-  // Lightweight trace for debugging paths
-  console.log("packlink request", { method: req.method, raw: url.pathname, parsed: path });
+  // Lightweight trace for debugging paths and headers we care about
+  console.log("packlink request", {
+    method: req.method,
+    raw: url.pathname,
+    parsed: path,
+    hasAuth: !!req.headers.get("authorization"),
+    hasApikey: !!req.headers.get("apikey")
+  });
 
   try {
     if (req.method === "POST" && path === "/services") {
