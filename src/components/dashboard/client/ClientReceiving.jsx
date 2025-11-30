@@ -1259,9 +1259,6 @@ function ClientReceiving() {
                 {t('list_tracking')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
-                FBA Shipment ID(s)
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                 {t('list_status')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
@@ -1278,7 +1275,7 @@ function ClientReceiving() {
           <tbody>
             {shipments.length === 0 ? (
               <tr className="border-t">
-                <td colSpan={7} className="px-6 py-8 text-center text-text-secondary">
+                <td colSpan={6} className="px-6 py-8 text-center text-text-secondary">
                   <div className="font-medium">{t('empty_list_title')}</div>
                   <div className="text-sm text-text-light">{t('empty_list_desc')}</div>
                 </td>
@@ -1289,7 +1286,6 @@ function ClientReceiving() {
                   shipment.tracking_ids,
                   shipment.tracking_id
                 );
-                const fbaList = buildDisplayList(shipment.fba_shipment_ids);
 
                 return (
                   <tr key={shipment.id} className="border-t">
@@ -1308,14 +1304,6 @@ function ClientReceiving() {
                       {trackingList.map((tid) => (
                         <p key={tid} className="font-mono text-xs">
                           {tid}
-                        </p>
-                      ))}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {fbaList.length === 0 && <span className="text-text-secondary">—</span>}
-                      {fbaList.map((id) => (
-                        <p key={id} className="font-mono text-blue-600 text-xs">
-                          {id}
                         </p>
                       ))}
                     </td>

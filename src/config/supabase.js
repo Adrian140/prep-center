@@ -493,6 +493,88 @@ export const supabaseHelpers = {
   async deleteUserGuide(section) {
     return await supabase.from('user_guides').delete().eq('section', section);
   },
+  async getIntegrationPageContent(lang = 'ro') {
+    const { data, error } = await supabase
+      .from('integration_page_content')
+      .select('*')
+      .eq('lang', lang)
+      .maybeSingle();
+    if (error && error.code !== 'PGRST116') return { data: null, error };
+    return { data: data || null, error: null };
+  },
+  async upsertIntegrationPageContent(lang, content = {}) {
+    if (!lang) return { data: null, error: new Error('lang is required') };
+    return await supabase
+      .from('integration_page_content')
+      .upsert(
+        { lang, ...content, updated_at: new Date().toISOString() },
+        { onConflict: 'lang' }
+      );
+  },
+  async getIntegrationMedia(lang = 'ro') {
+    const { data, error } = await supabase
+      .from('integration_media')
+      .select('card_key, image_url')
+      .eq('lang', lang);
+    if (error) return { data: null, error };
+    return { data: data || [], error: null };
+  },
+  async upsertIntegrationMedia({ lang, card_key, image_url }) {
+    if (!lang || !card_key) {
+      return { data: null, error: new Error('lang și card_key sunt obligatorii') };
+    }
+    if (!image_url) {
+      return await supabase
+        .from('integration_media')
+        .delete()
+        .eq('lang', lang)
+        .eq('card_key', card_key);
+    }
+    return await supabase
+      .from('integration_media')
+      .upsert(
+        { lang, card_key, image_url, updated_at: new Date().toISOString() },
+        { onConflict: 'lang,card_key' }
+      );
+  },
+  async uploadIntegrationMediaFile({ lang, card_key, file }) {
+    if (!lang || !card_key || !file) {
+      return { data: null, error: new Error('lang, card_key și fișierul sunt obligatorii') };
+    }
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+    const basePath = `${lang}/${card_key}`;
+    // curăță fișierele vechi din folder
+    const { data: existing } = await supabase.storage.from('integration-media').list(basePath);
+    if (existing && existing.length) {
+      const pathsToRemove = existing.map((f) => `${basePath}/${f.name}`);
+      await supabase.storage.from('integration-media').remove(pathsToRemove);
+    }
+    const path = `${basePath}/image.${ext}`;
+    const { error: upErr } = await supabase
+      .storage
+      .from('integration-media')
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+    if (upErr) return { data: null, error: upErr };
+
+    const { data: pub } = supabase
+      .storage
+      .from('integration-media')
+      .getPublicUrl(path);
+    const publicUrl = pub?.publicUrl;
+
+    if (publicUrl) {
+      await supabase
+        .from('integration_media')
+        .upsert(
+          { lang, card_key, image_url: publicUrl, updated_at: new Date().toISOString() },
+          { onConflict: 'lang,card_key' }
+        );
+    }
+    return { data: { publicUrl }, error: null };
+  },
   
   signUp: async (email, password, userData) => {
     const redirectTo = `${SITE_URL}/auth/callback?next=/admin-login`;
@@ -587,6 +669,7 @@ resetPassword: async (email) => {
       .update(contentData)
       .eq('id', '00000000-0000-0000-0000-000000000001');
   },
+
 
   // ===== Pricing =====
   getPricing: async () => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { supabase } from '@/config/supabase';
+import { supabase, supabaseHelpers } from '@/config/supabase';
 import { Upload, FileText } from 'lucide-react';
 
 export default function AdminUserGuide() {
@@ -11,6 +11,21 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
   const [guideMsg, setGuideMsg]   = React.useState('');
   const [existingGuides, setExistingGuides] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
+  const [integrationLang, setIntegrationLang] = React.useState('ro');
+  const [integrationBusy, setIntegrationBusy] = React.useState(false);
+  const [uploadCardKey, setUploadCardKey] = React.useState('import');
+  const [uploadFile, setUploadFile] = React.useState(null);
+  const [uploadBusy, setUploadBusy] = React.useState(false);
+  const [uploadMsg, setUploadMsg] = React.useState('');
+
+  const INTEGRATION_CARDS = React.useMemo(() => ([
+    { key: 'import', label: 'Import complet al listingurilor Amazon' },
+    { key: 'notify', label: 'Notify incoming goods' },
+    { key: 'prep', label: 'Stoc deja în PrepCenter (Send to Prep)' },
+    { key: 'report-send', label: 'Rapoarte · Send to Amazon' },
+    { key: 'report-incoming', label: 'Rapoarte · Incoming goods' },
+    { key: 'report-email', label: 'Rapoarte · Raport final & email' }
+  ]), []);
 
   const listExistingGuides = React.useCallback(async () => {
     try {
@@ -72,6 +87,28 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
     } finally {
       setBusy(false);
     }
+  };
+
+  const uploadIntegrationImage = async () => {
+    if (!uploadFile) { setUploadMsg('Alege o poză (png/jpg).'); return; }
+    if (!uploadCardKey) { setUploadMsg('Alege cardul.'); return; }
+    setUploadBusy(true);
+    setUploadMsg('Se încarcă...');
+    const { error, data } = await supabaseHelpers.uploadIntegrationMediaFile({
+      lang: integrationLang,
+      card_key: uploadCardKey,
+      file: uploadFile
+    });
+    if (error) {
+      setUploadMsg(`Eroare la upload: ${error.message}`);
+    } else {
+      setUploadMsg('Încărcat ✔️');
+      setUploadFile(null);
+      if (data?.publicUrl) {
+        setIntegrationImages((prev) => ({ ...prev, [uploadCardKey]: data.publicUrl }));
+      }
+    }
+    setUploadBusy(false);
   };
 
   return (
@@ -161,6 +198,73 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
             </div>
           </div>
         )}
+    </div>
+
+      {/* Integrations images per card */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-text-primary">Integrations – imagini carduri</h3>
+            <p className="text-sm text-text-secondary">Setează URL-urile imaginilor pentru fiecare card, per limbă.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-text-secondary">Limbă</label>
+            <select
+              value={integrationLang}
+              onChange={(e) => setIntegrationLang(e.target.value)}
+              className="border rounded-lg px-3 py-2"
+              disabled={integrationBusy}
+            >
+              {GUIDE_LANGS.map((lg) => (
+                <option key={lg} value={lg}>{lg.toUpperCase()}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="border rounded-lg p-4 space-y-3 bg-gray-50">
+          <p className="text-sm font-medium text-text-primary">Upload capturi de ecran (stocat în Supabase Storage)</p>
+          <div className="grid md:grid-cols-4 gap-3 items-end">
+            <div>
+              <label className="block text-sm text-text-secondary mb-1">Card</label>
+              <select
+                value={uploadCardKey}
+                onChange={(e) => setUploadCardKey(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                disabled={uploadBusy}
+              >
+                {INTEGRATION_CARDS.map((c) => (
+                  <option key={c.key} value={c.key}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm text-text-secondary mb-1">Fișier imagine</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                disabled={uploadBusy}
+              />
+            </div>
+            <div>
+              <button
+                type="button"
+                onClick={uploadIntegrationImage}
+                className="w-full inline-flex items-center justify-center px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-60"
+                disabled={uploadBusy || !uploadFile}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload / Replace
+              </button>
+            </div>
+          </div>
+          {uploadMsg && (
+            <div className="px-4 py-2 rounded bg-white border text-sm">{uploadMsg}</div>
+          )}
+        </div>
+
       </div>
     </div>
   );

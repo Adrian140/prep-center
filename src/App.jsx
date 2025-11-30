@@ -13,6 +13,7 @@ import Contact from './pages/Contact';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import AuthCallback from './pages/AuthCallback';
 import AmazonIntegrationCallback from './pages/AmazonIntegrationCallback';
+import Integrations from './pages/Integrations';
 
 import AdminLoginInfo from './components/AdminLoginInfo';
 import SupabaseAdminPanel from './components/admin/SupabaseAdminPanel';
@@ -159,8 +160,9 @@ export default function App() {
           <StartupRedirect />
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/services-pricing" element={<ServicesPricing />} />
-            <Route path="/about" element={<About />} />
+          <Route path="/services-pricing" element={<ServicesPricing />} />
+          <Route path="/integrations" element={<Integrations />} />
+          <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />

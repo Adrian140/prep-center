@@ -27,6 +27,7 @@ function Header() {
     () => [
       { name: t('nav.home'),     href: '/' },
       { name: t('nav.services'), href: '/services-pricing' },
+      { name: 'Integrations', href: '/integrations' },
       { name: t('nav.about'),    href: '/about' },
       { name: t('nav.contact'),  href: '/contact' },
     ],

@@ -150,6 +150,8 @@ useEffect(() => {
   const [reviews, setReviews] = useState([]); // Added reviews state
   const [contentData, setContentData] = useState({}); // Added contentData state
   const [servicesLanguage, setServicesLanguage] = useState('en');
+  const [integrationLang, setIntegrationLang] = useState('ro');
+  const [integrationContent, setIntegrationContent] = useState({});
   const tabs = useMemo(() => ([
     { id: 'analytics', label: t('sidebar.analytics'), icon: BarChart3 },
     { id: 'profiles', label: t('sidebar.profiles'), icon: Users },
@@ -167,9 +169,10 @@ useEffect(() => {
      fetchServices();
      fetchContentData(); // Fetch content data
      fetchReviews(); // Fetch reviews
+     fetchIntegrationContent(integrationLang);
      fetchMaintenance();
     }
-   }, [user]); // Changed to user
+   }, [user, integrationLang]); // Changed to user
 
   const fetchServices = async () => {
     try {
@@ -205,6 +208,15 @@ useEffect(() => {
       setReviews(data || []);
     } catch (error) {
       console.error('Error fetching reviews:', error);
+    }
+  };
+  const fetchIntegrationContent = async (lang = 'ro') => {
+    try {
+      const { data, error } = await supabaseHelpers.getIntegrationPageContent(lang);
+      if (error) throw error;
+      setIntegrationContent(data || {});
+    } catch (error) {
+      console.error('Error fetching integration content:', error);
     }
   };
   const fetchMaintenance = async () => {
@@ -266,6 +278,20 @@ const saveMaintenance = async (customState) => {
     }
 
     setLoading(false);
+  };
+
+  const handleIntegrationSave = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabaseHelpers.upsertIntegrationPageContent(integrationLang, integrationContent);
+      if (error) throw error;
+      setMessage('Conținutul paginii Integrations a fost salvat.');
+    } catch (error) {
+      console.error('Error saving integration content:', error);
+      setMessage('Eroare la salvarea conținutului Integrations.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle saving review
@@ -877,6 +903,201 @@ const renderPricingTab = () => (
             <input type="text" placeholder="Cartoane Expediere" value={contentData.shipping_cartons_label || ''} onChange={(e) => setContentData({ ...contentData, shipping_cartons_label: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
           </div>
 
+        </div>
+      </div>
+
+      {/* Pagina Integrations */}
+      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <h3 className="text-lg font-semibold text-text-primary">Pagina “Integrations”</h3>
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-text-secondary">Limba</label>
+            <select
+              value={integrationLang}
+              onChange={(e) => setIntegrationLang(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="ro">Română</option>
+              <option value="fr">Français</option>
+              <option value="en">English</option>
+              <option value="es">Español</option>
+              <option value="de">Deutsch</option>
+              <option value="it">Italiano</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => fetchIntegrationContent(integrationLang)}
+              className="px-3 py-2 text-sm bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200"
+            >
+              Reîncarcă
+            </button>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">Hero title</label>
+            <input
+              type="text"
+              value={integrationContent.hero_title || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, hero_title: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">Hero subtitle</label>
+            <textarea
+              rows={2}
+              value={integrationContent.hero_subtitle || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, hero_subtitle: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+
+        {[1, 2, 3].map((n) => (
+          <div key={n} className="grid md:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">Feature {n} titlu</label>
+              <input
+                type="text"
+                value={integrationContent[`feature${n}_title`] || ''}
+                onChange={(e) => setIntegrationContent({ ...integrationContent, [`feature${n}_title`]: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">Feature {n} descriere</label>
+              <textarea
+                rows={2}
+                value={integrationContent[`feature${n}_body`] || ''}
+                onChange={(e) => setIntegrationContent({ ...integrationContent, [`feature${n}_body`]: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+          </div>
+        ))}
+
+        <div className="grid md:grid-cols-2 gap-2">
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">Flow titlu</label>
+            <input
+              type="text"
+              value={integrationContent.flow_title || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, flow_title: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">Flow Pas 1</label>
+            <input
+              type="text"
+              value={integrationContent.flow_step1 || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, flow_step1: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">Flow Pas 2</label>
+            <input
+              type="text"
+              value={integrationContent.flow_step2 || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, flow_step2: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">Flow Pas 3</label>
+            <input
+              type="text"
+              value={integrationContent.flow_step3 || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, flow_step3: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-2">
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">Screenshot 1 URL</label>
+            <input
+              type="url"
+              value={integrationContent.screenshot1_url || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, screenshot1_url: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">Screenshot 2 URL</label>
+            <input
+              type="url"
+              value={integrationContent.screenshot2_url || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, screenshot2_url: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-2">
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">FAQ Titlu</label>
+            <input
+              type="text"
+              value={integrationContent.faq_title || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, faq_title: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">FAQ Întrebare</label>
+            <input
+              type="text"
+              value={integrationContent.faq_q1 || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, faq_q1: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-text-primary mb-1">FAQ Răspuns</label>
+            <textarea
+              rows={2}
+              value={integrationContent.faq_a1 || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, faq_a1: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-2">
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">CTA Titlu</label>
+            <input
+              type="text"
+              value={integrationContent.cta_title || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, cta_title: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">CTA Subtitlu</label>
+            <textarea
+              rows={2}
+              value={integrationContent.cta_subtitle || ''}
+              onChange={(e) => setIntegrationContent({ ...integrationContent, cta_subtitle: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            onClick={handleIntegrationSave}
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark"
+            disabled={loading}
+          >
+            {loading ? 'Se salvează...' : 'Salvează conținut Integrations'}
+          </button>
         </div>
       </div>
 
