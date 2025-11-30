@@ -45,28 +45,28 @@ export const privacy = {
 
       spapi_usage_h: "5 ter. Finalité SP-API",
       spapi_usage_list: [
-        "Synchronisation inventar/stock pentru conturile proprii sau conectate prin consimțământ",
-        "Nu vindem, nu cedăm și nu combinăm date Amazon cu terți fără consimțământ",
-        "Acces limitat la rolurile declarate (Inventaire, Fulfillment, Listings/Orders non-PII)",
+        "Synchronisation de l’inventaire/stock pour nos comptes ou ceux connectés avec consentement",
+        "Aucune vente/partage des données Amazon à des tiers sans consentement",
+        "Accès limité aux rôles déclarés (Inventory, Fulfillment, Listings/Orders sans PII)",
       ],
 
       security_h: "6. Sécurité",
       security_list: [
-        "Chiffrement en transit et au repos lorsque approprié",
+        "Chiffrement en transit et, lorsque approprié, au repos",
         "Authentification à deux facteurs",
         "Accès au moindre privilège",
         "Surveillance et audits réguliers",
         "Sauvegardes et plans de reprise",
-        "Clés SP-API/Supabase et tokens Amazon stockés în seifuri/secrets, cu rotație și acces limitat",
-        "Journalisation și alertare pentru acces neautorizat; revocare token la deconectare",
+        "Clés SP-API/Supabase et tokens Amazon stockés dans des coffres/« secrets », avec rotation et accès restreint",
+        "Journalisation et alertes en cas d’accès non autorisé ; révocation des tokens à la déconnexion",
       ],
 
       retention_h: "7. Conservation",
       retention_list: [
-        "Comptes : tant que le compte est actif ou conforme aux obligations légales (min. 5 ans)",
+        "Comptes : tant que le compte est actif ou selon obligations légales (min. 5 ans)",
         "Facturation : 10 ans",
         "Marketing : jusqu’au retrait du consentement ou max. 3 ans après la dernière interaction",
-        "Tokens SP-API: șterse/invalidées la revocare sau la închiderea contului; jurnale tehnice ≤ 90 zile",
+        "Tokens SP-API : supprimés/invalidés à la révocation ou à la clôture ; logs techniques ≤ 90 jours",
       ],
 
       rights_h: "8. Vos Droits",
@@ -316,6 +316,22 @@ export const privacy = {
       transfers_p:
         "Bei Übermittlungen außerhalb der EU/des EWR wenden wir geeignete Garantien an (z. B. Standardvertragsklauseln).",
 
+      spapi_data_h: "5 bis. Amazon SP-API Daten",
+      spapi_data_list: [
+        "Auth-Identifikatoren (Refresh/Access Tokens) verschlüsselt und serverseitig gespeichert; nicht im Frontend sichtbar",
+        "Seller-Account-IDs, Marktplätze, ASIN/SKU, Metadaten der Amazon-Integration",
+        "Inventar-/Bestandsdaten (Mengen, Status, technische Logs)",
+        "Bestellungen/Artikel: nur operative, nicht-PII-Felder; keine Speicherung vollständiger Käufernamen, Telefonnummern oder Adressen",
+        "Error-Logs können Amazon-IDs (SellerId, MarketplaceId) enthalten, keine Käufer-PII",
+      ],
+
+      spapi_usage_h: "5 ter. SP-API Zweck",
+      spapi_usage_list: [
+        "Bestandssync für eigene bzw. autorisierte Verkäuferkonten",
+        "Kein Verkauf/Weitergabe von Amazon-Daten an Dritte ohne Einwilligung",
+        "Zugriff beschränkt auf deklarierte Rollen (Inventory, Fulfillment, Listings/Orders ohne PII)",
+      ],
+
       security_h: "6. Sicherheit",
       security_list: [
         "Verschlüsselung bei Übertragung und ggf. im Ruhezustand",
@@ -323,6 +339,8 @@ export const privacy = {
         "Least-Privilege-Zugriffsprinzip",
         "Regelmäßiges Monitoring & Audits",
         "Backups und Wiederherstellungspläne",
+        "SP-API/Supabase Keys und Amazon Tokens in Secret-Vaults mit Rotation und eingeschränktem Zugriff",
+        "Logging & Alerts bei unbefugtem Zugriff; Token-Widerruf bei Disconnect",
       ],
 
       retention_h: "7. Aufbewahrung",
@@ -330,6 +348,7 @@ export const privacy = {
         "Kontodaten: solange das Konto aktiv ist oder mind. 5 Jahre gesetzlich vorgeschrieben",
         "Abrechnungsdaten: 10 Jahre",
         "Marketingdaten: bis zum Widerruf der Einwilligung oder max. 3 Jahre nach der letzten Interaktion",
+        "SP-API Tokens: gelöscht/invalidiert bei Widerruf oder Kontoschließung; technische Logs ≤ 90 Tage",
       ],
 
       rights_h: "8. Ihre Rechte",
@@ -391,6 +410,22 @@ export const privacy = {
       transfers_p:
         "Se necessari trasferimenti fuori da UE/SEE, applichiamo garanzie adeguate (es. SCC).",
 
+      spapi_data_h: "5 bis. Dati Amazon SP-API",
+      spapi_data_list: [
+        "Identificativi di autorizzazione (refresh/access token) crittografati e conservati lato server; non esposti al front-end",
+        "ID account venditore, marketplace, ASIN/SKU, metadati di integrazione Amazon",
+        "Dati di inventario/stock (quantità, stato, log tecnici)",
+        "Ordini/articoli: solo campi operativi non PII; non memorizziamo nomi completi, telefoni o indirizzi completi degli acquirenti",
+        "Log di errore possono contenere ID Amazon (SellerId, MarketplaceId), nessuna PII acquirente",
+      ],
+
+      spapi_usage_h: "5 ter. Scopo SP-API",
+      spapi_usage_list: [
+        "Sync inventario per account propri o autorizzati",
+        "Nessuna vendita/condivisione di dati Amazon a terzi senza consenso",
+        "Accesso limitato ai ruoli dichiarati (Inventory, Fulfillment, Listings/Orders senza PII)",
+      ],
+
       security_h: "6. Sicurezza",
       security_list: [
         "Crittografia in transito e, ove opportuno, a riposo",
@@ -398,6 +433,8 @@ export const privacy = {
         "Accesso secondo il principio del minimo privilegio",
         "Monitoraggio e audit regolari",
         "Backup e piani di ripristino",
+        "Chiavi SP-API/Supabase e token Amazon conservati in vault/secret, con rotazione e accesso limitato",
+        "Log e alert per accessi non autorizzati; revoca token alla disconnessione",
       ],
 
       retention_h: "7. Conservazione",
@@ -405,6 +442,7 @@ export const privacy = {
         "Dati account: finché l’account è attivo o minimo 5 anni secondo legge",
         "Dati di fatturazione: 10 anni",
         "Dati marketing: fino alla revoca del consenso o max. 3 anni dall’ultima interazione",
+        "Token SP-API: rimossi/invalidati a revoca o chiusura account; log tecnici ≤ 90 giorni",
       ],
 
       rights_h: "8. Diritti dell’interessato",
@@ -466,6 +504,22 @@ export const privacy = {
       transfers_p:
         "Si se requieren transferencias fuera de la UE/EEE, aplicamos garantías adecuadas (p. ej., SCC).",
 
+      spapi_data_h: "5 bis. Datos de Amazon SP-API",
+      spapi_data_list: [
+        "Identificadores de autorización (tokens refresh/access) cifrados y guardados en el servidor; no se exponen en el front-end",
+        "IDs de cuenta de vendedor, marketplaces, ASIN/SKU, metadatos de integración Amazon",
+        "Datos de inventario/stock (cantidades, estado, logs técnicos)",
+        "Pedidos/artículos: solo campos operativos no PII; no almacenamos nombres completos, teléfonos o direcciones completas de compradores",
+        "Logs de error pueden contener IDs Amazon (SellerId, MarketplaceId), no PII de compradores",
+      ],
+
+      spapi_usage_h: "5 ter. Finalidad SP-API",
+      spapi_usage_list: [
+        "Sincronización de inventario/stock para nuestras cuentas o cuentas autorizadas",
+        "No vendemos ni compartimos datos de Amazon con terceros sin consentimiento",
+        "Acceso limitado a los roles declarados (Inventory, Fulfillment, Listings/Orders sin PII)",
+      ],
+
       security_h: "6. Seguridad",
       security_list: [
         "Cifrado en tránsito y, cuando proceda, en reposo",
@@ -473,6 +527,8 @@ export const privacy = {
         "Acceso con mínimo privilegio",
         "Supervisión y auditorías periódicas",
         "Copias de seguridad y planes de recuperación",
+        "Claves SP-API/Supabase y tokens de Amazon en vault/secret con rotación y acceso restringido",
+        "Registro y alertas ante acceso no autorizado; revocación de tokens al desconectar",
       ],
 
       retention_h: "7. Conservación",
@@ -480,6 +536,7 @@ export const privacy = {
         "Datos de cuenta: mientras la cuenta esté activa o mínimo 5 años según ley",
         "Datos de facturación: 10 años",
         "Datos de marketing: hasta retirar el consentimiento o máx. 3 años desde la última interacción",
+        "Tokens SP-API: eliminados/invalidado al revocar o cerrar la cuenta; logs técnicos ≤ 90 días",
       ],
 
       rights_h: "8. Sus derechos",
