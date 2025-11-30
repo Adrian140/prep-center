@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link2, ExternalLink, CheckCircle, AlertTriangle, Loader2, RefreshCw, Unplug, Truck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
@@ -35,6 +36,7 @@ function StatusBadge({ status, t }) {
 export default function ClientIntegrations() {
   const { user, profile } = useSupabaseAuth();
   const { t, tp } = useDashboardTranslation();
+  const navigate = useNavigate();
   const supportError = t('common.supportError');
   const [region, setRegion] = useState('eu');
   const [stateToken] = useState(() => Math.random().toString(36).slice(2) + Date.now().toString(36));
@@ -47,7 +49,7 @@ export default function ClientIntegrations() {
   const applicationId = import.meta.env.VITE_AMZ_APP_ID || clientId || '';
   const redirectUri =
     import.meta.env.VITE_SPAPI_REDIRECT_URI || `${window.location.origin}/auth/amazon/callback`;
-  const packlinkUrl = `${window.location.origin}/dashboard?tab=packlink`;
+  const packlinkPath = '/dashboard?tab=packlink';
 
   const statePayload = useMemo(() => {
     if (!user?.id) return '';
@@ -172,19 +174,19 @@ export default function ClientIntegrations() {
           <div>
             <h2 className="text-lg font-semibold text-text-primary">Packlink PRO</h2>
             <p className="text-sm text-text-secondary">
-              Book labels, compare services și urmărește AWB-urile direct din tab-ul Packlink.
+              Book labels, compare services, and track shipments directly in the Packlink tab.
             </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => (window.location.href = packlinkUrl)}
+            onClick={() => navigate(packlinkPath)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white"
           >
-            <ExternalLink className="w-4 h-4" /> Deschide tab-ul Packlink
+            <ExternalLink className="w-4 h-4" /> Open Packlink tab
           </button>
           <p className="text-xs text-text-light">
-            Cheia Packlink este citită din server; nu e nevoie de OAuth separat.
+            The Packlink API key lives server-side; no extra OAuth needed.
           </p>
         </div>
       </section>
