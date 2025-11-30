@@ -389,16 +389,17 @@ async function handleReports(req: Request, url: URL) {
 }
 
 function parsePath(url: URL) {
-  // Robust prefix stripping: works for /functions/v1/packlink/... or any path containing /packlink
-  const marker = "/packlink";
+  // Normalize incoming paths:
+  // - /functions/v1/packlink/...
+  // - /packlink/...
+  // - /api/packlink/...
   const raw = url.pathname;
-  const idx = raw.indexOf(marker);
-  let pathname = idx >= 0 ? raw.slice(idx + marker.length) : raw;
+  let pathname = raw
+    .replace(/^\/?functions\/v1\/packlink/, "")
+    .replace(/^\/?packlink/, "")
+    .replace(/^\/?api\/packlink/, "");
   if (!pathname.startsWith("/")) pathname = "/" + pathname;
   if (pathname !== "/" && pathname.endsWith("/")) pathname = pathname.slice(0, -1);
-  if (pathname.startsWith("/api/packlink")) {
-    pathname = pathname.replace("/api/packlink", "") || "/";
-  }
   return pathname || "/";
 }
 
