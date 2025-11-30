@@ -63,14 +63,15 @@ async function getUserPacklinkKey(userId: string): Promise<string | null> {
   return data?.api_key || null;
 }
 
-async function callPacklink(path: string, method: "GET" | "POST", body?: unknown) {
-  if (!PACKLINK_API_KEY) return { ok: false, status: 500, data: null, message: "Missing PACKLINK_API_KEY" };
+async function callPacklink(path: string, method: "GET" | "POST", body: unknown, apiKey?: string) {
+  const key = apiKey || PACKLINK_API_KEY;
+  if (!key) return { ok: false, status: 500, data: null, message: "Missing PACKLINK_API_KEY" };
   const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
   const url = `${PACKLINK_BASE_URL}${normalizedPath}`;
   const res = await fetch(url, {
     method,
     headers: {
-      Authorization: `Bearer ${PACKLINK_API_KEY}`,
+      Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
       Accept: "application/json"
     },
@@ -164,7 +165,7 @@ async function handleServices(req: Request, _url: URL) {
   const userKey = (await getUserPacklinkKey(user.id)) || PACKLINK_API_KEY;
   if (!userKey) return missingPacklinkKey();
 
-  const packlinkRes = await callPacklink("services", "POST", payload);
+  const packlinkRes = await callPacklink("services", "POST", payload, userKey);
   if (!packlinkRes.ok) {
     return json(
       { error: "Packlink services failed", details: packlinkRes.data ?? packlinkRes.message },
@@ -195,7 +196,7 @@ async function handleCreateShipment(req: Request, _url: URL) {
   const userKey = (await getUserPacklinkKey(user.id)) || PACKLINK_API_KEY;
   if (!userKey) return missingPacklinkKey();
 
-  const packlinkRes = await callPacklink("shipments", "POST", packlinkPayload);
+  const packlinkRes = await callPacklink("shipments", "POST", packlinkPayload, userKey);
   if (!packlinkRes.ok) {
     return json(
       { error: "Packlink create shipment failed", details: packlinkRes.data ?? packlinkRes.message },
@@ -405,6 +406,9 @@ serve(async (req) => {
 
   const url = new URL(req.url);
   const path = parsePath(url);
+
+  // Lightweight trace for debugging paths
+  console.log("packlink request", { method: req.method, raw: url.pathname, parsed: path });
 
   try {
     if (req.method === "POST" && path === "/services") {
