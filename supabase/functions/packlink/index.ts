@@ -372,8 +372,13 @@ async function handleReports(req: Request, url: URL) {
 }
 
 function parsePath(url: URL) {
-  const base = "/functions/v1/packlink";
-  let pathname = url.pathname.startsWith(base) ? url.pathname.slice(base.length) : url.pathname;
+  // Robust prefix stripping: works for /functions/v1/packlink/... or any path containing /packlink
+  const marker = "/packlink";
+  const raw = url.pathname;
+  const idx = raw.indexOf(marker);
+  let pathname = idx >= 0 ? raw.slice(idx + marker.length) : raw;
+  if (!pathname.startsWith("/")) pathname = "/" + pathname;
+  if (pathname !== "/" && pathname.endsWith("/")) pathname = pathname.slice(0, -1);
   if (pathname.startsWith("/api/packlink")) {
     pathname = pathname.replace("/api/packlink", "") || "/";
   }
