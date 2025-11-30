@@ -490,40 +490,20 @@ async function syncToSupabase({ items, companyId, userId }) {
 
     if (row) {
       seenKeys.add(key);
-      const manualQty = Number(row.qty ?? 0);
-      // Keep existing row metadata intact; refresh only the Amazon stock fields.
-      const payload = {
+      // Pentru rânduri existente: actualizăm doar stocurile Amazon. Titlu/poza se gestionează în alte sync-uri.
+      const patch = {
         id: row.id,
-        company_id: row.company_id || companyId,
-        user_id: row.user_id || userId,
-        asin: normalizeIdentifier(row.asin) || sanitizedAsin,
-        sku: normalizeIdentifier(row.sku) || sanitizedSku,
         amazon_stock: item.amazon_stock,
         amazon_inbound: item.amazon_inbound,
         amazon_reserved: item.amazon_reserved,
         amazon_unfulfillable: item.amazon_unfulfillable
       };
-      if (shouldUpdateName(row.name, item.name, row)) {
-        payload.name = item.name;
-      }
-      if (!row.image_url && payload.asin && asinCache.has(payload.asin)) {
-        payload.image_url = asinCache.get(payload.asin);
-      }
-      if (manualQty > 0) {
-        payload.qty = manualQty;
-      }
-      if (hasManualPrepStock(row)) {
-        // keep manual qty but refresh Amazon fields
-        insertsOrUpdates.push(payload);
-        if (payload.asin && row.sku) {
-          asinToPayloadWithSku.set(payload.asin, payload);
-        }
-        continue;
-      }
-
-      insertsOrUpdates.push(payload);
-      if (payload.asin && row.sku) {
-        asinToPayloadWithSku.set(payload.asin, payload);
+      insertsOrUpdates.push(patch);
+      if (row.asin && row.sku) {
+        asinToPayloadWithSku.set(normalizeIdentifier(row.asin), {
+          id: row.id,
+          qty: Number(row.qty ?? 0)
+        });
       }
     } else {
       seenKeys.add(key);
