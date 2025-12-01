@@ -258,34 +258,6 @@ function ClientReceiving() {
     }
   }, [editMode]);
 
-  const filteredShipments = useMemo(() => {
-    const term = shipmentsSearch.trim().toLowerCase();
-    if (!term) return shipments;
-    return shipments.filter((shipment) => {
-      const haystack = [
-        shipment.carrier,
-        shipment.tracking_id,
-        ...(Array.isArray(shipment.tracking_ids) ? shipment.tracking_ids : []),
-        shipment.status,
-        shipment.notes
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      const items = Array.isArray(shipment.receiving_items) ? shipment.receiving_items : [];
-      const matchItem = items.some((it) => {
-        const parts = [it.asin, it.sku, it.product_name, it.ean_asin, it.ean]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
-        return parts.includes(term);
-      });
-
-      return haystack.includes(term) || matchItem;
-    });
-  }, [shipments, shipmentsSearch]);
-
   const downloadImportGuide = async (lang) => {
     try {
       const path = `receiving/${lang}.pdf`;
