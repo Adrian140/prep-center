@@ -275,13 +275,7 @@ function ClientReceiving() {
 
       const items = Array.isArray(shipment.receiving_items) ? shipment.receiving_items : [];
       const matchItem = items.some((it) => {
-        const parts = [
-          it.asin,
-          it.sku,
-          it.product_name,
-          it.ean_asin,
-          it.ean
-        ]
+        const parts = [it.asin, it.sku, it.product_name, it.ean_asin, it.ean]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
