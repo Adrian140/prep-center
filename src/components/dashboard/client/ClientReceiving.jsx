@@ -140,6 +140,7 @@ function ClientReceiving() {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryDraftQty, setInventoryDraftQty] = useState({});
+  const [shipmentsSearch, setShipmentsSearch] = useState('');
   const filteredInventory = useMemo(() => {
     const term = inventorySearch.trim().toLowerCase();
     if (!term) return stock;
@@ -148,6 +149,32 @@ function ClientReceiving() {
       return hay.includes(term);
     });
   }, [stock, inventorySearch]);
+
+  const filteredShipments = useMemo(() => {
+    const term = shipmentsSearch.trim().toLowerCase();
+    if (!term) return shipments;
+    return shipments.filter((shipment) => {
+      const haystack = [
+        shipment.carrier,
+        shipment.tracking_id,
+        ...(Array.isArray(shipment.tracking_ids) ? shipment.tracking_ids : []),
+        shipment.status,
+        shipment.notes
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      const items = Array.isArray(shipment.receiving_items) ? shipment.receiving_items : [];
+      const matchItem = items.some((it) => {
+        const parts = [it.asin, it.sku, it.product_name, it.ean_asin, it.ean]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return parts.includes(term);
+      });
+      return haystack.includes(term) || matchItem;
+    });
+  }, [shipments, shipmentsSearch]);
 
   const buildHeaderState = (shipment) => ({
     carrier: shipment?.carrier || '',
@@ -230,6 +257,40 @@ function ClientReceiving() {
       setInventoryDraftQty({});
     }
   }, [editMode]);
+
+  const filteredShipments = useMemo(() => {
+    const term = shipmentsSearch.trim().toLowerCase();
+    if (!term) return shipments;
+    return shipments.filter((shipment) => {
+      const haystack = [
+        shipment.carrier,
+        shipment.tracking_id,
+        ...(Array.isArray(shipment.tracking_ids) ? shipment.tracking_ids : []),
+        shipment.status,
+        shipment.notes
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      const items = Array.isArray(shipment.receiving_items) ? shipment.receiving_items : [];
+      const matchItem = items.some((it) => {
+        const parts = [
+          it.asin,
+          it.sku,
+          it.product_name,
+          it.ean_asin,
+          it.ean
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return parts.includes(term);
+      });
+
+      return haystack.includes(term) || matchItem;
+    });
+  }, [shipments, shipmentsSearch]);
 
   const downloadImportGuide = async (lang) => {
     try {
@@ -1249,6 +1310,18 @@ function ClientReceiving() {
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 pt-4">
+          <div className="text-sm text-text-secondary">
+            Search receptions by client/tracking or product (SKU, ASIN, title).
+          </div>
+          <input
+            type="text"
+            value={shipmentsSearch}
+            onChange={(e) => setShipmentsSearch(e.target.value)}
+            placeholder="Search receptions..."
+            className="w-full sm:w-80 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary"
+          />
+        </div>
         <table className="w-full min-w-[900px]">
           <thead className="bg-gray-50">
             <tr>
@@ -1273,7 +1346,7 @@ function ClientReceiving() {
             </tr>
           </thead>
           <tbody>
-            {shipments.length === 0 ? (
+            {filteredShipments.length === 0 ? (
               <tr className="border-t">
                 <td colSpan={6} className="px-6 py-8 text-center text-text-secondary">
                   <div className="font-medium">{t('empty_list_title')}</div>
@@ -1281,7 +1354,7 @@ function ClientReceiving() {
                 </td>
               </tr>
             ) : (
-              shipments.map((shipment) => {
+              filteredShipments.map((shipment) => {
                 const trackingList = buildDisplayList(
                   shipment.tracking_ids,
                   shipment.tracking_id
