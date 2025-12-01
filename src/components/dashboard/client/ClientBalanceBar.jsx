@@ -21,6 +21,9 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
 
   useEffect(() => {
     let mounted = true;
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
     (async () => {
       if (!companyId) {
         if (mounted) {
@@ -35,15 +38,21 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
         supabase
           .from("fba_lines")
           .select("id, unit_price, units, total, service_date")
-          .eq("company_id", companyId),
+          .eq("company_id", companyId)
+          .gte("service_date", monthStart)
+          .lt("service_date", monthEnd),
         supabase
           .from("fbm_lines")
           .select("id, unit_price, orders_units, total, service_date")
-          .eq("company_id", companyId),
+          .eq("company_id", companyId)
+          .gte("service_date", monthStart)
+          .lt("service_date", monthEnd),
         supabase
           .from("other_lines")
           .select("id, unit_price, units, total, service_date")
-          .eq("company_id", companyId),
+          .eq("company_id", companyId)
+          .gte("service_date", monthStart)
+          .lt("service_date", monthEnd),
       ]);
 
       const fbaSum = (fbaAll || []).reduce((s, r) => {
@@ -64,7 +73,9 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
       const { data: invoicesAll } = await supabase
         .from("invoices")
         .select("id, amount, status, issue_date, company_id")
-        .eq("company_id", companyId);
+        .eq("company_id", companyId)
+        .gte("issue_date", monthStart)
+        .lt("issue_date", monthEnd);
 
       const paidSum = (invoicesAll || []).reduce((s, r) => {
         const isPaid = normStatus(r.status) === "paid";
