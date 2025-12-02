@@ -109,7 +109,17 @@ const ClientStockSelectionBar = ({
                   className="border rounded-md px-2 py-1 mt-2 w-full"
                 />
               )}
-          </div>
+              {selectedCount > 0 && (
+                <div className="mt-2 flex items-center">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-[10px] font-semibold text-blue-700">
+                    {selectedCount} {itemsLabel}
+                    {selectedUnits > 0 && (
+                      <span className="text-blue-500">· {selectedUnits} {unitsLabel}</span>
+                    )}
+                  </span>
+                </div>
+              )}
+            </div>
 
           <div className="flex flex-col flex-[1.2] min-w-[220px]">
             <div className="flex items-center gap-2">
