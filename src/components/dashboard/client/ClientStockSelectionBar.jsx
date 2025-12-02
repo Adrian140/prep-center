@@ -64,7 +64,7 @@ const ClientStockSelectionBar = ({
   );
 
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-white shadow-md border border-gray-200 rounded-[36px] px-6 py-2 flex flex-col gap-2 items-center backdrop-blur-md bg-white/95 w-[min(95vw,640px)] max-w-full sm:px-8">
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-white shadow-md border border-gray-200 rounded-[36px] px-6 py-2 flex flex-col gap-2 items-center backdrop-blur-md bg-white/95 w-full max-w-[640px] sm:px-8">
       <div className="flex flex-col sm:flex-row items-center gap-2 w-full justify-between">
         <select
           value={submitType}
@@ -79,97 +79,97 @@ const ClientStockSelectionBar = ({
         {showDestinationNearPrep && !showReceptionFields && renderDestinationSelector('w-full sm:w-48', false)}
       </div>
 
-        {showReceptionFields && (
-          <div className="w-full flex flex-col gap-2">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:gap-4">
-              <div className="flex-1 min-w-[200px]">
-                <select
-                  value={receptionForm.carrier}
-                  onChange={(e) => onReceptionFormChange('carrier', e.target.value)}
-                  className={`border rounded-md px-2 py-1 w-full ${
-                    receptionForm.carrier ? 'text-text-primary' : 'text-gray-400'
-                  }`}
-                >
-                  <option value="">{t('ClientStock.receptionForm.carrierPlaceholder')}</option>
-                  {carrierOptions.map((carrier) => (
-                    <option key={carrier.code} value={carrier.code}>
-                      {carrier.code === 'OTHER' ? t('other') : carrier.label}
-                    </option>
-                  ))}
-                </select>
-                {showCarrierOther && (
-                  <input
-                    type="text"
-                    value={receptionForm.carrierOther}
-                    onChange={(e) => onReceptionFormChange('carrierOther', e.target.value)}
-                    placeholder={t('ClientStock.receptionForm.carrierOther')}
-                    className="border rounded-md px-2 py-1 mt-2 w-full"
-                  />
-                )}
-              </div>
+      {showReceptionFields && (
+        <div className="w-full flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <select
+                value={receptionForm.carrier}
+                onChange={(e) => onReceptionFormChange('carrier', e.target.value)}
+                className={`border rounded-md px-2 py-1 w-full ${
+                  receptionForm.carrier ? 'text-text-primary' : 'text-gray-400'
+                }`}
+              >
+                <option value="">{t('ClientStock.receptionForm.carrierPlaceholder')}</option>
+                {carrierOptions.map((carrier) => (
+                  <option key={carrier.code} value={carrier.code}>
+                    {carrier.code === 'OTHER' ? t('other') : carrier.label}
+                  </option>
+                ))}
+              </select>
+              {showCarrierOther && (
+                <input
+                  type="text"
+                  value={receptionForm.carrierOther}
+                  onChange={(e) => onReceptionFormChange('carrierOther', e.target.value)}
+                  placeholder={t('ClientStock.receptionForm.carrierOther')}
+                  className="border rounded-md px-2 py-1 mt-2 w-full"
+                />
+              )}
+            </div>
 
-              <div className="flex flex-col flex-[1.2] min-w-[220px]">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={trackingDraft}
-                    onChange={(e) => onTrackingDraftChange(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        onTrackingAdd();
-                      }
-                    }}
-                    placeholder={t('ClientStock.receptionForm.tracking')}
-                    className="border rounded-md px-2 py-1 w-full"
-                  />
+            <div className="flex flex-col flex-[1.2] min-w-[220px]">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={trackingDraft}
+                  onChange={(e) => onTrackingDraftChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      onTrackingAdd();
+                    }
+                  }}
+                  placeholder={t('ClientStock.receptionForm.tracking')}
+                  className="border rounded-md px-2 py-1 w-full"
+                />
+                <button
+                  type="button"
+                  onClick={onTrackingAdd}
+                  className="px-3 py-1 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary-dark whitespace-nowrap"
+                >
+                  {t('ClientStock.receptionForm.trackingAddShort') ?? 'Add'}
+                </button>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
+                <span className="font-semibold">
+                  {trackingList.length > 0 ? `${trackingList.length} added` : trackingSummary}
+                </span>
+                {trackingList.length > 0 && (
                   <button
                     type="button"
-                    onClick={onTrackingAdd}
-                    className="px-3 py-1 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary-dark whitespace-nowrap"
+                    className="text-primary font-semibold"
+                    onClick={onToggleTrackingPanel}
                   >
-                    {t('ClientStock.receptionForm.trackingAddShort') ?? 'Add'}
+                    {trackingPanelOpen
+                      ? t('ClientStock.receptionForm.trackingHide')
+                      : t('ClientStock.receptionForm.trackingManage')}
                   </button>
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
-                  <span className="font-semibold">
-                    {trackingList.length > 0 ? `${trackingList.length} added` : trackingSummary}
-                  </span>
-                  {trackingList.length > 0 && (
-                    <button
-                      type="button"
-                      className="text-primary font-semibold"
-                      onClick={onToggleTrackingPanel}
-                    >
-                      {trackingPanelOpen
-                        ? t('ClientStock.receptionForm.trackingHide')
-                        : t('ClientStock.receptionForm.trackingManage')}
-                    </button>
-                  )}
-                </div>
-                {trackingPanelOpen && trackingList.length > 0 && (
-                  <div className="mt-1 border rounded-md bg-white shadow-inner max-h-16 overflow-y-auto w-full">
-                    {trackingList.map((value, idx) => (
-                      <div
-                        key={`${value}-${idx}`}
-                        className="flex items-center justify-between px-2 py-1 text-xs"
-                      >
-                        <span className="truncate">{value}</span>
-                        <button
-                          type="button"
-                          className="text-red-500 text-[11px] hover:underline"
-                          onClick={() => onTrackingRemove(idx)}
-                        >
-                          {t('ClientStock.drawer.remove')}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
                 )}
               </div>
+              {trackingPanelOpen && trackingList.length > 0 && (
+                <div className="mt-1 border rounded-md bg-white shadow-inner max-h-16 overflow-y-auto w-full">
+                  {trackingList.map((value, idx) => (
+                    <div
+                      key={`${value}-${idx}`}
+                      className="flex items-center justify-between px-2 py-1 text-xs"
+                    >
+                      <span className="truncate">{value}</span>
+                      <button
+                        type="button"
+                        className="text-red-500 text-[11px] hover:underline"
+                        onClick={() => onTrackingRemove(idx)}
+                      >
+                        {t('ClientStock.drawer.remove')}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {showReceptionFields && (
           <div className="flex flex-col gap-1 w-full sm:max-w-3xl">
