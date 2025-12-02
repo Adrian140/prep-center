@@ -175,6 +175,16 @@ const mapBoxRows = (rows = []) => {
     }, 700);
   }, [persistBoxesForItem]);
 
+  const persistImmediately = useCallback(
+    (itemId) => {
+      if (!itemId) return;
+      setTimeout(() => {
+        persistBoxesForItem(itemId);
+      }, 40);
+    },
+    [persistBoxesForItem]
+  );
+
   useEffect(() => {
     return () => {
       Object.values(boxSaveTimers.current).forEach((timer) => clearTimeout(timer));
@@ -238,6 +248,7 @@ const mapBoxRows = (rows = []) => {
       return { ...prev, [itemId]: next };
     });
     scheduleBoxPersist(itemId);
+    persistImmediately(itemId);
   };
 
   const removeBox = (itemId, boxId) => {
@@ -694,6 +705,23 @@ onChanged?.();
       .sort((a, b) => a.boxNumber - b.boxNumber);
   }, [boxes, row]);
 
+  const persistAllBoxes = async () => {
+    const itemIds = Object.keys(boxes || {});
+    if (!itemIds.length) return;
+    setSaving(true);
+    let lastError = null;
+    for (const itemId of itemIds) {
+      const err = await persistBoxesForItem(itemId);
+      if (err) lastError = err;
+    }
+    if (lastError) {
+      setFlash(`Box save failed: ${lastError.message || lastError}`);
+    } else {
+      setFlash('Box data saved.');
+    }
+    setSaving(false);
+  };
+
   const updateSummaryBoxValue = (targets, field, raw) => {
     const norm = (val) => {
       if (val === "" || val === null || val === undefined) return "";
@@ -716,7 +744,10 @@ onChanged?.();
       });
       return next;
     });
-    affected.forEach((itemId) => scheduleBoxPersist(itemId));
+    affected.forEach((itemId) => {
+      scheduleBoxPersist(itemId);
+      persistImmediately(itemId);
+    });
   };
 
   if (loading) return <div>Loading…</div>;
@@ -1150,6 +1181,17 @@ onChanged?.();
               >
                 Close
               </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50"
+                onClick={persistAllBoxes}
+                disabled={saving}
+              >
+                <Save className="w-4 h-4" />
+                {saving ? 'Saving…' : 'Save boxes'}
+              </button>
+              {flash && <span className="text-xs text-text-secondary">{flash}</span>}
             </div>
             {boxSummary.length === 0 ? (
               <p className="text-sm text-text-secondary">No boxes added yet.</p>
