@@ -168,7 +168,7 @@ const ClientStockSelectionBar = ({
       {showFbaControls && (
         <div className="w-full flex flex-col gap-2">
           <div className="flex flex-col gap-2 border rounded-lg bg-white/70 p-3">
-            <div className="flex flex-wrap items-center gap-4 text-sm text-text-primary">
+            <div className="flex flex-wrap items-center gap-3 text-[13px] sm:text-sm text-text-primary">
               {['none', 'full', 'partial'].map((mode) => (
                 <label key={mode} className="inline-flex items-center gap-2">
                   <input
