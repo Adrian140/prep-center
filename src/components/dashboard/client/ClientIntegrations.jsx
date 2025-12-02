@@ -43,6 +43,8 @@ export default function ClientIntegrations() {
   const { t, tp } = useDashboardTranslation();
   const navigate = useNavigate();
   const supportError = t('common.supportError');
+  const isIndividualAccount =
+    (profile?.account_type || profile?.accountType || profile?.type) === 'individual';
   const [region, setRegion] = useState('eu');
   const [packlinkPortal, setPacklinkPortal] = useState('fr');
   const [packlinkKey, setPacklinkKey] = useState('');
@@ -89,6 +91,16 @@ export default function ClientIntegrations() {
     });
     return `${regionConfig.consentUrl}?${params.toString()}`;
   }, [applicationId, redirectUri, region, statePayload]);
+
+  const handleAmazonConnect = () => {
+    if (isIndividualAccount) {
+      setFlash(t('ClientIntegrations.individualBlocked'));
+      return;
+    }
+    if (authorizeUrl) {
+      window.open(authorizeUrl, '_blank', 'noopener');
+    }
+  };
 
   const loadIntegrations = async () => {
     if (!user?.id) return;
@@ -206,13 +218,16 @@ export default function ClientIntegrations() {
             </select>
           </div>
           <button
-            onClick={() => authorizeUrl && window.open(authorizeUrl, '_blank', 'noopener')}
+            onClick={handleAmazonConnect}
             disabled={!authorizeUrl}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
           >
             <ExternalLink className="w-4 h-4" /> {t('ClientIntegrations.connectButton')}
           </button>
         </div>
+        {isIndividualAccount && (
+          <p className="text-sm text-red-600">{t('ClientIntegrations.individualBlocked')}</p>
+        )}
         <p className="text-xs text-text-light">{t('ClientIntegrations.instructions')}</p>
       </section>
 

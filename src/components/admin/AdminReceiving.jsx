@@ -94,7 +94,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
   useEffect(() => {
     setItems(shipment.receiving_items || []);
     setEditHeader(buildHeaderState(shipment));
-    setSyncedStatus(shipment.status || 'submitted');
+      setSyncedStatus(shipment.status || 'submitted');
   }, [shipment]);
 
   const getExpectedQty = (item) =>
@@ -288,7 +288,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
         });
         if (!cancelled) {
           setSyncedStatus(derivedStatus);
-          onUpdate?.();
+          onUpdate?.(shipment.id);
         }
       } catch (error) {
         console.error('Auto status sync failed', error);
@@ -500,7 +500,7 @@ const checkStockMatches = async () => {
       if (error) throw error;
 
       setMessage('Reception deleted successfully.');
-      onUpdate();
+      onUpdate?.(shipment.id);
       handleBack();
     } catch (err) {
       setMessage(`Delete error: ${err.message}`);
@@ -774,7 +774,7 @@ const checkStockMatches = async () => {
               fba_mode: editHeader.fba_mode || shipment.fba_mode || 'none'
             });
                 setEditMode(false);
-               onUpdate();
+      onUpdate?.(shipment.id);
               }}
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
             >
@@ -1121,9 +1121,11 @@ const loadShipments = async () => {
     setShipments(sorted);
     setTotalCount(count || 0);
     setTotalPages(Math.ceil((count || 0) / pageSize));
+    return sorted;
   } catch (error) {
     setMessage(`Erreur de chargement: ${error.message}`);
     setShipments([]);
+    return [];
   } finally {
     setLoading(false);
   }
@@ -1218,16 +1220,34 @@ const filteredShipments = shipments
     }
   };
 
+  const handleStayOnDetailRefresh = async (updatedId) => {
+    const targetId = updatedId || selectedShipment?.id;
+    const data = await loadShipments();
+    if (targetId) {
+      const match = (data || []).find((s) => s.id === targetId);
+      if (match) {
+        setSelectedShipment(match);
+        return;
+      }
+    }
+    // fallback: keep previous selection if still present in state
+    if (selectedShipment) {
+      const match = (shipments || []).find((s) => s.id === selectedShipment.id);
+      if (match) {
+        setSelectedShipment(match);
+        return;
+      }
+    }
+    setSelectedShipment(null);
+  };
+
   if (selectedShipment) {
     return (
       <AdminReceivingDetail
         shipment={selectedShipment}
         carriers={carrierOptions}
         onBack={() => setSelectedShipment(null)}
-        onUpdate={() => {
-          loadShipments();
-          setSelectedShipment(null);
-        }}
+        onUpdate={handleStayOnDetailRefresh}
       />
     );
   }
