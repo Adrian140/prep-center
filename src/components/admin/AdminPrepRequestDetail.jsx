@@ -135,7 +135,7 @@ const mapBoxRows = (rows = []) => {
     if (!itemId) return null;
     const toPositive = (value, min = 0) => {
       if (value === '' || value === null || value === undefined) return null;
-      const num = Number(value);
+      const num = Number(String(value).replace(",", "."));
       if (!Number.isFinite(num)) return null;
       return Math.max(min, Number(num.toFixed(2)));
     };
@@ -209,6 +209,11 @@ const mapBoxRows = (rows = []) => {
   };
 
   const updateBoxValue = (itemId, boxId, field, raw) => {
+    const norm = (val) => {
+      if (val === "" || val === null || val === undefined) return "";
+      const num = Number(String(val).replace(",", "."));
+      return Number.isFinite(num) ? num : "";
+    };
     setBoxes((prev) => {
       const existing = prev[itemId] || [];
       const next = existing.map((box) => {
@@ -223,8 +228,9 @@ const mapBoxRows = (rows = []) => {
           return { ...box, units: value };
         }
         if (['weightKg', 'lengthCm', 'widthCm', 'heightCm'].includes(field)) {
-          if (raw === "") return { ...box, [field]: "" };
-          const value = Math.max(0, Number(raw) || 0);
+          const parsed = norm(raw);
+          if (parsed === "") return { ...box, [field]: "" };
+          const value = Math.max(0, parsed);
           return { ...box, [field]: value };
         }
         return box;
@@ -689,7 +695,13 @@ onChanged?.();
   }, [boxes, row]);
 
   const updateSummaryBoxValue = (targets, field, raw) => {
-    const sanitized = raw === "" ? "" : Math.max(0, Number(raw) || 0);
+    const norm = (val) => {
+      if (val === "" || val === null || val === undefined) return "";
+      const num = Number(String(val).replace(",", "."));
+      if (!Number.isFinite(num)) return "";
+      return Math.max(0, num);
+    };
+    const sanitized = norm(raw);
     const affected = new Set();
     setBoxes((prev) => {
       const next = { ...prev };
