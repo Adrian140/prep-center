@@ -57,7 +57,7 @@ const ClientStockSelectionBar = ({
   );
 
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-white shadow-md border border-gray-200 rounded-[36px] px-6 py-2 flex flex-col gap-2 items-center backdrop-blur-md bg-white/95 w-full max-w-[640px] sm:px-8">
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 shadow-md border border-gray-200 rounded-[36px] px-6 py-2 flex flex-col gap-2 items-center backdrop-blur-md bg-white/80 w-full max-w-[640px] sm:px-8">
       <div className="flex flex-col sm:flex-row items-center gap-2 w-full justify-between">
         <select
           value={submitType}
