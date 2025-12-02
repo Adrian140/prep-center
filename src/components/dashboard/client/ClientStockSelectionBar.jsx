@@ -134,20 +134,20 @@ const ClientStockSelectionBar = ({
                   {t('ClientStock.receptionForm.trackingAddShort') ?? 'Add'}
                 </button>
               </div>
-              {selectedCount > 0 && (
-                <div className="flex items-center text-[11px] text-gray-600 mt-1">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[10px] font-semibold text-gray-700">
-                    {selectedCount} {itemsLabel}
-                    {selectedUnits > 0 && (
-                      <span className="text-gray-500">· {selectedUnits} {unitsLabel}</span>
-                    )}
+              <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
+                <div className="flex items-center gap-2">
+                  {selectedCount > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-[10px] font-semibold text-blue-700">
+                      {selectedCount} {itemsLabel}
+                      {selectedUnits > 0 && (
+                        <span className="text-blue-500">· {selectedUnits} {unitsLabel}</span>
+                      )}
+                    </span>
+                  )}
+                  <span className="font-semibold">
+                    {trackingList.length > 0 ? `${trackingList.length} added` : trackingSummary}
                   </span>
                 </div>
-              )}
-              <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
-                <span className="font-semibold">
-                  {trackingList.length > 0 ? `${trackingList.length} added` : trackingSummary}
-                </span>
                 {trackingList.length > 0 && (
                   <button
                     type="button"
