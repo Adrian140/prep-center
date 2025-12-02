@@ -17,7 +17,7 @@ const ClientStockSelectionBar = ({
   trackingPanelOpen,
   onToggleTrackingPanel,
   onTrackingRemove,
-  onReceptionFbaModeChange,
+  onReceptionFbaModeChange, // kept for compatibility, not used
   selectedRows,
   rowEdits,
   updateEdit,
@@ -33,22 +33,15 @@ const ClientStockSelectionBar = ({
   const showCarrierOther = receptionForm.carrier === 'OTHER';
   const trackingSummary =
     trackingList.length > 0
-      ? t('ClientStock.receptionForm.trackingCount', {
-          count: trackingList.length
-        })
+      ? t('ClientStock.receptionForm.trackingCount', { count: trackingList.length })
       : t('ClientStock.receptionForm.trackingNone');
   const normalizedDestinationCountries = Array.isArray(destinationCountries)
     ? destinationCountries
     : [];
   const showDestinationNearPrep = submitType === 'prep';
 
-  const renderDestinationSelector = (className = 'w-full sm:w-48', showLabel = false) => (
+  const renderDestinationSelector = (className = 'w-full sm:w-48') => (
     <div className={`flex flex-col gap-1 ${className}`}>
-      {showLabel && (
-        <span className="text-[10px] uppercase text-text-light">
-          {t('ClientStock.receptionForm.countryTag') || 'Country'}
-        </span>
-      )}
       <select
         value={receptionForm.destinationCountry || 'FR'}
         onChange={(e) => onReceptionFormChange('destinationCountry', e.target.value)}
@@ -75,8 +68,8 @@ const ClientStockSelectionBar = ({
           <option value="reception">{t('ClientStock.cta.announceReception')}</option>
           <option value="delete">{t('ClientStock.cta.deleteListing')}</option>
         </select>
-        {showReceptionFields && renderDestinationSelector('w-full sm:w-48', false)}
-        {showDestinationNearPrep && !showReceptionFields && renderDestinationSelector('w-full sm:w-48', false)}
+        {showReceptionFields && renderDestinationSelector()}
+        {showDestinationNearPrep && !showReceptionFields && renderDestinationSelector()}
       </div>
 
       {showReceptionFields && (
@@ -171,33 +164,32 @@ const ClientStockSelectionBar = ({
         </div>
       )}
 
-        <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-3 w-full">
-          <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-center sm:gap-3">
-            <button
-              onClick={() => {
-                if (submitType === 'prep') openPrep();
-                else if (submitType === 'reception') openReception();
-                else if (submitType === 'delete') onDelete?.();
-              }}
-              disabled={submitType === 'delete' ? deleteInProgress : false}
-              className={`${
-                submitType === 'delete'
-                  ? 'bg-red-500 hover:bg-red-600'
-                  : 'bg-blue-500 hover:bg-blue-600'
-              } text-white text-sm px-6 py-2 rounded-md w-full sm:w-auto text-center disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {submitType === 'prep'
-                ? t('ClientStock.cta.sendToPrep')
-                : submitType === 'reception'
-                ? t('ClientStock.cta.announceReception')
-                : t('ClientStock.cta.deleteListing')}
-            </button>
-            {showDestinationNearPrep && renderDestinationSelector('w-full sm:w-[190px] sm:min-w-[170px]')}
-          </div>
-          <button onClick={clearSelection} className="text-sm text-gray-500 hover:text-gray-700">
-            {t('common.cancel')}
+      <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-3 w-full">
+        <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-center sm:gap-3">
+          <button
+            onClick={() => {
+              if (submitType === 'prep') openPrep();
+              else if (submitType === 'reception') openReception();
+              else if (submitType === 'delete') onDelete?.();
+            }}
+            disabled={submitType === 'delete' ? deleteInProgress : false}
+            className={`${
+              submitType === 'delete'
+                ? 'bg-red-500 hover:bg-red-600'
+                : 'bg-blue-500 hover:bg-blue-600'
+            } text-white text-sm px-6 py-2 rounded-md w-full sm:w-auto text-center disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {submitType === 'prep'
+              ? t('ClientStock.cta.sendToPrep')
+              : submitType === 'reception'
+              ? t('ClientStock.cta.announceReception')
+              : t('ClientStock.cta.deleteListing')}
           </button>
+          {showDestinationNearPrep && renderDestinationSelector('w-full sm:w-[190px] sm:min-w-[170px]')}
         </div>
+        <button onClick={clearSelection} className="text-sm text-gray-500 hover:text-gray-700">
+          {t('common.cancel')}
+        </button>
       </div>
     </div>
   );
