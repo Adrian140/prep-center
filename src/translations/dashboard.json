@@ -18,6 +18,9 @@
       "no": "No",
       "supportError": "Something went wrong. Please contact support."
     },
+    "fba_mode_none": "Do not send now",
+    "fba_mode_full": "Send all units to Amazon",
+    "fba_mode_partial": "Partial shipment",
     "sidebar": {
       "activity": "Activity",
       "fba": "FBA",
@@ -648,10 +651,10 @@
         "thresholdProgress": "{billed} / {threshold} to unlock",
         "hint": "The list updates automatically when we assign or remove clients."
       },
-        "request": {
-          "title": "Request your affiliate code",
-          "desc": "Tell us how you plan to promote Prep Center. We review each request manually.",
-          "applyCta": "Don't have a code yet? Apply now and start earning from referrals.",
+      "request": {
+        "title": "Request your affiliate code",
+        "desc": "Tell us how you plan to promote Prep Center. We review each request manually.",
+        "applyCta": "Don't have a code yet? Apply now and start earning from referrals.",
         "preferred": "Preferred code",
         "preferredPh": "E.g. ADRIAN10",
         "generate": "Suggest code",
@@ -1375,10 +1378,10 @@
         "thresholdProgress": "{billed} / {threshold} până la bonus",
         "hint": "Lista se actualizează automat când asignăm sau eliminăm clienți."
       },
-        "request": {
-          "title": "Solicită codul tău de afiliat",
-          "desc": "Spune-ne cum vrei să promovezi Prep Center. Fiecare cerere este analizată manual.",
-          "applyCta": "Nu ai încă un cod? Aplică acum și câștigă din recomandări.",
+      "request": {
+        "title": "Solicită codul tău de afiliat",
+        "desc": "Spune-ne cum vrei să promovezi Prep Center. Fiecare cerere este analizată manual.",
+        "applyCta": "Nu ai încă un cod? Aplică acum și câștigă din recomandări.",
         "preferred": "Cod preferat",
         "preferredPh": "Ex: ADRIAN10",
         "generate": "Propune cod",
@@ -1451,7 +1454,10 @@
         "photoSubscription": "Abonament stocare fotografii",
         "manualPhoto": "Fotografiere manuală"
       }
-    }
+    },
+    "fba_mode_none": "Nu trimit acum",
+    "fba_mode_full": "Trimit toate unitățile în Amazon",
+    "fba_mode_partial": "Trimitere parțială"
   },
   "fr": {
     "common": {
@@ -2121,7 +2127,10 @@
         "photoSubscription": "Abonnement stockage photos",
         "manualPhoto": "Prise de photos manuelle"
       }
-    }
+    },
+    "fba_mode_none": "Ne pas envoyer maintenant",
+    "fba_mode_full": "Envoyer toutes les unités vers Amazon",
+    "fba_mode_partial": "Expédition partielle"
   },
   "de": {
     "common": {
@@ -2791,7 +2800,10 @@
         "photoSubscription": "Foto-Speicher-Abonnement",
         "manualPhoto": "Manuelle Produktfotografie"
       }
-    }
+    },
+    "fba_mode_none": "Jetzt nicht senden",
+    "fba_mode_full": "Alle Einheiten zu Amazon senden",
+    "fba_mode_partial": "Teillieferung"
   },
   "it": {
     "common": {
@@ -3461,7 +3473,10 @@
         "photoSubscription": "Abbonamento archiviazione foto",
         "manualPhoto": "Servizio foto manuale"
       }
-    }
+    },
+    "fba_mode_none": "Non inviare ora",
+    "fba_mode_full": "Invia tutte le unità ad Amazon",
+    "fba_mode_partial": "Spedizione parziale"
   },
   "es": {
     "common": {
@@ -4131,6 +4146,9 @@
         "photoSubscription": "Suscripción almacenamiento de fotos",
         "manualPhoto": "Captura manual de fotos"
       }
-    }
+    },
+    "fba_mode_none": "No enviar ahora",
+    "fba_mode_full": "Enviar todas las unidades a Amazon",
+    "fba_mode_partial": "Envío parcial"
   }
 }
