@@ -168,9 +168,6 @@ const ClientStockSelectionBar = ({
       {showFbaControls && (
         <div className="w-full flex flex-col gap-2">
           <div className="flex flex-col gap-2 border rounded-lg bg-white/70 p-3">
-            <div className="text-sm font-semibold text-text-primary">
-              {t('fba_mode_title') || 'Send to Amazon'}
-            </div>
             <div className="flex flex-wrap items-center gap-4 text-sm text-text-primary">
               {['none', 'full', 'partial'].map((mode) => (
                 <label key={mode} className="inline-flex items-center gap-2">
@@ -182,10 +179,10 @@ const ClientStockSelectionBar = ({
                     onChange={() => onReceptionFbaModeChange?.(mode)}
                   />
                   {mode === 'none'
-                    ? t('fba_mode_none') || 'Do not send now'
+                    ? t('fba_mode_none', 'Do not send now')
                     : mode === 'full'
-                    ? t('fba_mode_full') || 'Send all units to Amazon'
-                    : t('fba_mode_partial') || 'Partial shipment'}
+                    ? t('fba_mode_full', 'Send all units to Amazon')
+                    : t('fba_mode_partial', 'Partial shipment')}
                 </label>
               ))}
             </div>
