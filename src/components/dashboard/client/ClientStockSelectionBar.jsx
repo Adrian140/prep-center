@@ -179,10 +179,10 @@ const ClientStockSelectionBar = ({
                     onChange={() => onReceptionFbaModeChange?.(mode)}
                   />
                   {mode === 'none'
-                    ? t('fba_mode_none', 'Do not send now')
+                    ? t('fba_mode_none') || 'Do not send now'
                     : mode === 'full'
-                    ? t('fba_mode_full', 'Send all units to Amazon')
-                    : t('fba_mode_partial', 'Partial shipment')}
+                    ? t('fba_mode_full') || 'Send all units to Amazon'
+                    : t('fba_mode_partial') || 'Partial shipment'}
                 </label>
               ))}
             </div>
