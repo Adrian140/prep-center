@@ -29,7 +29,6 @@ const ClientStockSelectionBar = ({
 }) => {
   if (!selectedIds?.size) return null;
 
-  const destinationLabel = t('ClientStock.receptionForm.countryTag') || 'Country';
   const showReceptionFields = submitType === 'reception';
   const showCarrierOther = receptionForm.carrier === 'OTHER';
   const trackingSummary =
@@ -43,9 +42,13 @@ const ClientStockSelectionBar = ({
     : [];
   const showDestinationNearPrep = submitType === 'prep';
 
-  const renderDestinationSelector = (className = 'w-full sm:max-w-[140px]') => (
+  const renderDestinationSelector = (className = 'w-full sm:max-w-[140px]', showLabel = true) => (
     <div className={`flex flex-col gap-1 ${className}`}>
-      <span className="text-[10px] uppercase text-text-light">{destinationLabel}</span>
+      {showLabel && (
+        <span className="text-[10px] uppercase text-text-light">
+          {t('ClientStock.receptionForm.countryTag') || 'Country'}
+        </span>
+      )}
       <select
         value={receptionForm.destinationCountry || 'FR'}
         onChange={(e) => onReceptionFormChange('destinationCountry', e.target.value)}
@@ -74,10 +77,15 @@ const ClientStockSelectionBar = ({
         </select>
 
         {showReceptionFields && (
-          <div className="w-full flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-            {renderDestinationSelector()}
-            <div className="flex flex-col flex-1 min-w-[200px] gap-3">
-              <div>
+          <div className="w-full flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="text-sm font-semibold text-text-primary">
+                {t('ClientStock.cta.announceReception')}
+              </div>
+              {renderDestinationSelector('w-full sm:w-52', false)}
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:gap-4">
+              <div className="flex-1 min-w-[200px]">
                 <select
                   value={receptionForm.carrier}
                   onChange={(e) => onReceptionFormChange('carrier', e.target.value)}
@@ -104,9 +112,6 @@ const ClientStockSelectionBar = ({
               </div>
 
               <div className="flex flex-col flex-[1.2] min-w-[220px]">
-                <span className="text-[10px] text-gray-500 font-semibold">
-                  {t('ClientStock.receptionForm.tracking')}
-                </span>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -130,8 +135,10 @@ const ClientStockSelectionBar = ({
                   </button>
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
-                  <span>{trackingSummary}</span>
-                  {trackingList.length > 1 && (
+                  <span className="font-semibold">
+                    {trackingList.length > 0 ? `${trackingList.length} added` : trackingSummary}
+                  </span>
+                  {trackingList.length > 0 && (
                     <button
                       type="button"
                       className="text-primary font-semibold"
