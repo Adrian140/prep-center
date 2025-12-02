@@ -40,6 +40,13 @@ const ClientStockSelectionBar = ({
     : [];
   const showDestinationNearPrep = submitType === 'prep';
   const showFbaControls = showReceptionFields;
+  const selectedCount = Array.isArray(selectedRows) ? selectedRows.length : 0;
+  const selectedUnits = Array.isArray(selectedRows)
+    ? selectedRows.reduce((acc, row) => {
+        const units = Math.max(0, Number(rowEdits?.[row.id]?.units_to_send || 0));
+        return acc + units;
+      }, 0)
+    : 0;
 
   const renderDestinationSelector = (className = 'w-full sm:w-48') => (
     <div className={`flex flex-col gap-1 ${className}`}>
@@ -126,9 +133,17 @@ const ClientStockSelectionBar = ({
                 </button>
               </div>
               <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
-                <span className="font-semibold">
-                  {trackingList.length > 0 ? `${trackingList.length} added` : trackingSummary}
-                </span>
+                <div className="flex items-center gap-2">
+                  {selectedCount > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[10px] font-semibold text-gray-700">
+                      {selectedCount} {selectedCount === 1 ? 'item' : 'items'}
+                      {selectedUnits > 0 && <span className="text-gray-500">· {selectedUnits}u</span>}
+                    </span>
+                  )}
+                  <span className="font-semibold">
+                    {trackingList.length > 0 ? `${trackingList.length} added` : trackingSummary}
+                  </span>
+                </div>
                 {trackingList.length > 0 && (
                   <button
                     type="button"
