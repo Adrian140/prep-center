@@ -23,8 +23,8 @@ const ClientStockSelectionBar = ({
   updateEdit,
   openPrep,
   openReception,
-  clearSelection
-  , onDelete,
+  clearSelection,
+  onDelete,
   deleteInProgress
 }) => {
   if (!selectedIds?.size) return null;
@@ -42,7 +42,7 @@ const ClientStockSelectionBar = ({
     : [];
   const showDestinationNearPrep = submitType === 'prep';
 
-  const renderDestinationSelector = (className = 'w-full sm:max-w-[140px]', showLabel = true) => (
+  const renderDestinationSelector = (className = 'w-full sm:w-48', showLabel = false) => (
     <div className={`flex flex-col gap-1 ${className}`}>
       {showLabel && (
         <span className="text-[10px] uppercase text-text-light">
@@ -64,8 +64,8 @@ const ClientStockSelectionBar = ({
   );
 
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-white shadow-md border border-gray-200 rounded-[48px] px-6 py-3 flex flex-col gap-3 items-center backdrop-blur-md bg-white/95 w-[min(95vw,640px)] max-w-full sm:px-8">
-      <div className="flex flex-col items-center gap-3 w-full">
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-white shadow-md border border-gray-200 rounded-[36px] px-6 py-2 flex flex-col gap-2 items-center backdrop-blur-md bg-white/95 w-[min(95vw,640px)] max-w-full sm:px-8">
+      <div className="flex flex-col sm:flex-row items-center gap-2 w-full justify-between">
         <select
           value={submitType}
           onChange={(e) => setSubmitType(e.target.value)}
@@ -75,15 +75,12 @@ const ClientStockSelectionBar = ({
           <option value="reception">{t('ClientStock.cta.announceReception')}</option>
           <option value="delete">{t('ClientStock.cta.deleteListing')}</option>
         </select>
+        {showReceptionFields && renderDestinationSelector('w-full sm:w-48', false)}
+        {showDestinationNearPrep && !showReceptionFields && renderDestinationSelector('w-full sm:w-48', false)}
+      </div>
 
         {showReceptionFields && (
-          <div className="w-full flex flex-col gap-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="text-sm font-semibold text-text-primary">
-                {t('ClientStock.cta.announceReception')}
-              </div>
-              {renderDestinationSelector('w-full sm:w-52', false)}
-            </div>
+          <div className="w-full flex flex-col gap-2">
             <div className="flex flex-col sm:flex-row sm:items-start sm:gap-4">
               <div className="flex-1 min-w-[200px]">
                 <select
