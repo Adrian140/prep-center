@@ -39,6 +39,7 @@ const ClientStockSelectionBar = ({
     ? destinationCountries
     : [];
   const showDestinationNearPrep = submitType === 'prep';
+  const showFbaControls = showReceptionFields;
 
   const renderDestinationSelector = (className = 'w-full sm:w-48') => (
     <div className={`flex flex-col gap-1 ${className}`}>
@@ -160,6 +161,80 @@ const ClientStockSelectionBar = ({
                 </div>
               )}
             </div>
+        </div>
+        </div>
+      )}
+
+      {showFbaControls && (
+        <div className="w-full flex flex-col gap-2">
+          <div className="flex flex-col gap-2 border rounded-lg bg-white/70 p-3">
+            <div className="text-sm font-semibold text-text-primary">
+              {t('fba_mode_title') || 'Send to Amazon'}
+            </div>
+            <div className="flex flex-wrap items-center gap-4 text-sm text-text-primary">
+              {['none', 'full', 'partial'].map((mode) => (
+                <label key={mode} className="inline-flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="fba-mode"
+                    value={mode}
+                    checked={(receptionForm.fbaMode || 'none') === mode}
+                    onChange={() => onReceptionFbaModeChange?.(mode)}
+                  />
+                  {mode === 'none'
+                    ? t('fba_mode_none') || 'Do not send now'
+                    : mode === 'full'
+                    ? t('fba_mode_full') || 'Send all units to Amazon'
+                    : t('fba_mode_partial') || 'Partial shipment'}
+                </label>
+              ))}
+            </div>
+
+            {receptionForm.fbaMode === 'partial' && (
+              <div className="mt-2 border rounded-md bg-white max-h-40 overflow-y-auto divide-y">
+                {selectedRows.length === 0 ? (
+                  <p className="text-xs text-text-secondary px-3 py-2">
+                    {t('fba_mode_hint') || 'Adjust quantities to send to Amazon.'}
+                  </p>
+                ) : (
+                  <>
+                    <div className="px-3 py-2 grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.6fr)_minmax(0,0.7fr)] text-[11px] font-semibold uppercase tracking-wide border-b bg-gray-50">
+                      <span className="text-text-secondary">{t('th_name') || 'Product'}</span>
+                      <span className="text-text-secondary text-right">
+                        {t('fba_units_announced') || 'Units to send'}
+                      </span>
+                      <span className="text-text-secondary text-right">
+                        {t('fba_units_to_amazon') || 'Units to Amazon'}
+                      </span>
+                    </div>
+                    {selectedRows.map((row) => {
+                      const edit = rowEdits[row.id] || {};
+                      const units = Math.max(0, Number(edit.units_to_send || 0));
+                      const fba = Math.max(0, Math.min(units, Number(edit.fba_units || 0)));
+                      return (
+                        <div
+                          key={row.id}
+                          className="px-3 py-2 grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.6fr)_minmax(0,0.7fr)] items-center gap-2"
+                        >
+                          <span className="truncate text-sm text-text-primary" title={row.name || row.asin || row.sku}>
+                            {row.name || row.asin || row.sku || row.ean || 'Item'}
+                          </span>
+                          <span className="text-right text-sm font-semibold text-text-secondary">{units}</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={units}
+                            className="w-24 text-right border rounded px-2 py-1 text-sm"
+                            value={fba}
+                            onChange={(e) => updateEdit(row.id, { fba_units: e.target.value })}
+                          />
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
