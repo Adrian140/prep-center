@@ -206,10 +206,11 @@ const LISTING_COLUMN_ALIASES = new Map([
 ]);
 
 function parseListingRows(tsvText) {
-  const lines = tsvText
+  const cleanText = (tsvText || '').replace(/^\uFEFF/, '');
+  const lines = cleanText
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+    .map((line) => line.replace(/\uFEFF/g, ''))
+    .filter((line) => line.trim() !== '');
   if (!lines.length) return [];
 
   const headers = lines
@@ -243,8 +244,8 @@ function normalizeListings(rawRows = []) {
         asin = String(row.productId).trim();
       }
     }
-    // cerință: trebuie să existe ASIN; SKU poate lipsi (folosim ASIN pentru completare titlu)
-    if (!asin) continue;
+    // cerință: trebuie să existe cel puțin un identificator (SKU sau ASIN)
+    if (!sku && !asin) continue;
 
     normalized.push({
       key: (sku || asin).toLowerCase(),
