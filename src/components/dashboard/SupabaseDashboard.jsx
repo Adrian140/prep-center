@@ -353,32 +353,32 @@ const renderTabContent = useMemo(() => {
                   <Star className="w-5 h-5" />
                 </div>
                 <div className="flex-1">
-                  <div className="font-semibold">Ești cu noi de peste 2 luni. Ne lași o scurtă recenzie internă?</div>
-                  <div className="text-text-secondary text-xs">O folosim doar intern; opțional o putem afișa anonim pe prima pagină.</div>
+                  <div className="font-semibold">{t('reviewPrompt.title')}</div>
+                  <div className="text-text-secondary text-xs">{t('reviewPrompt.subtitle')}</div>
                   <div className="flex flex-wrap gap-2 mt-2">
                     <button
                       onClick={() => setReviewModal(true)}
                       className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm"
                     >
-                      Scrie recenzie
+                      {t('reviewPrompt.ctaNow')}
                     </button>
                     <button
                       onClick={() => snoozePrompt(30)}
                       className="px-3 py-1.5 rounded-lg border text-sm"
                     >
-                      Mai târziu (30 zile)
+                      {t('reviewPrompt.snooze30')}
                     </button>
                     <button
                       onClick={() => snoozePrompt(60)}
                       className="px-3 py-1.5 rounded-lg border text-sm"
                     >
-                      Mai târziu (60 zile)
+                      {t('reviewPrompt.snooze60')}
                     </button>
                     <button
                       onClick={dismissPrompt}
                       className="px-3 py-1.5 rounded-lg border text-sm text-text-secondary"
                     >
-                      Nu acum
+                      {t('reviewPrompt.dismiss')}
                     </button>
                   </div>
                 </div>
@@ -401,7 +401,7 @@ const renderTabContent = useMemo(() => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-text-primary">
                 <Star className="w-5 h-5 text-amber-500" />
-                <span className="font-semibold">Lasă o recenzie internă</span>
+                <span className="font-semibold">{t('reviewPrompt.modalTitle')}</span>
               </div>
               <button onClick={() => setReviewModal(false)} className="text-text-secondary hover:text-text-primary">
                 <X className="w-4 h-4" />
@@ -423,7 +423,7 @@ const renderTabContent = useMemo(() => {
             <textarea
               className="w-full border rounded-lg px-3 py-2 text-sm"
               rows={4}
-              placeholder="Scrie câteva cuvinte despre experiența ta..."
+              placeholder={t('reviewPrompt.modalPlaceholder')}
               value={reviewForm.text}
               onChange={(e) => setReviewForm((f) => ({ ...f, text: e.target.value }))}
             />
@@ -432,14 +432,14 @@ const renderTabContent = useMemo(() => {
                 onClick={() => setReviewModal(false)}
                 className="px-3 py-1.5 rounded-lg border text-sm text-text-secondary"
               >
-                Închide
+                {t('reviewPrompt.modalCancel')}
               </button>
               <button
                 onClick={submitReview}
                 disabled={reviewSubmitting}
                 className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm disabled:opacity-60"
               >
-                {reviewSubmitting ? 'Se trimite…' : 'Trimite recenzia'}
+                {reviewSubmitting ? t('reviewPrompt.modalSubmitting') : t('reviewPrompt.modalSubmit')}
               </button>
             </div>
           </div>

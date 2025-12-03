@@ -727,6 +727,19 @@
         "photoSubscription": "Photo storage subscription",
         "manualPhoto": "Manual photo capture"
       }
+    },
+    "reviewPrompt": {
+      "title": "You've been with us for over 2 months. Leave a quick internal review?",
+      "subtitle": "We use it internally; optionally we can show it anonymously on the homepage.",
+      "ctaNow": "Write review",
+      "snooze30": "Later (30 days)",
+      "snooze60": "Later (60 days)",
+      "dismiss": "Not now",
+      "modalTitle": "Leave an internal review",
+      "modalPlaceholder": "Share a few words about your experience...",
+      "modalCancel": "Close",
+      "modalSubmit": "Submit review",
+      "modalSubmitting": "Submitting…"
     }
   },
   "ro": {
@@ -1457,7 +1470,20 @@
     },
     "fba_mode_none": "Nu trimit acum",
     "fba_mode_full": "Trimit toate unitățile în Amazon",
-    "fba_mode_partial": "Trimitere parțială"
+    "fba_mode_partial": "Trimitere parțială",
+    "reviewPrompt": {
+      "title": "Ești cu noi de peste 2 luni. Ne lași o scurtă recenzie internă?",
+      "subtitle": "O folosim doar intern; opțional o putem afișa anonim pe prima pagină.",
+      "ctaNow": "Scrie recenzie",
+      "snooze30": "Mai târziu (30 zile)",
+      "snooze60": "Mai târziu (60 zile)",
+      "dismiss": "Nu acum",
+      "modalTitle": "Lasă o recenzie internă",
+      "modalPlaceholder": "Scrie câteva cuvinte despre experiența ta...",
+      "modalCancel": "Închide",
+      "modalSubmit": "Trimite recenzia",
+      "modalSubmitting": "Se trimite…"
+    }
   },
   "fr": {
     "common": {
@@ -2130,7 +2156,20 @@
     },
     "fba_mode_none": "Ne pas envoyer maintenant",
     "fba_mode_full": "Envoyer toutes les unités vers Amazon",
-    "fba_mode_partial": "Expédition partielle"
+    "fba_mode_partial": "Expédition partielle",
+    "reviewPrompt": {
+      "title": "Avec nous depuis plus de 2 mois. Laisse-nous un bref avis interne ?",
+      "subtitle": "Utilisé uniquement en interne ; optionnellement, on peut l'afficher anonymement en page d'accueil.",
+      "ctaNow": "Laisser un avis",
+      "snooze30": "Plus tard (30 jours)",
+      "snooze60": "Plus tard (60 jours)",
+      "dismiss": "Pas maintenant",
+      "modalTitle": "Laisse un avis interne",
+      "modalPlaceholder": "Écris quelques mots sur ton expérience...",
+      "modalCancel": "Fermer",
+      "modalSubmit": "Envoyer l’avis",
+      "modalSubmitting": "Envoi…"
+    }
   },
   "de": {
     "common": {
@@ -2803,7 +2842,20 @@
     },
     "fba_mode_none": "Jetzt nicht senden",
     "fba_mode_full": "Alle Einheiten zu Amazon senden",
-    "fba_mode_partial": "Teillieferung"
+    "fba_mode_partial": "Teillieferung",
+    "reviewPrompt": {
+      "title": "Schon über 2 Monate dabei. Hinterlasse ein kurzes internes Feedback?",
+      "subtitle": "Wir nutzen es intern; optional anonym auf der Startseite.",
+      "ctaNow": "Feedback schreiben",
+      "snooze30": "Später (30 Tage)",
+      "snooze60": "Später (60 Tage)",
+      "dismiss": "Nicht jetzt",
+      "modalTitle": "Internes Feedback abgeben",
+      "modalPlaceholder": "Schreib ein paar Worte zu deiner Erfahrung...",
+      "modalCancel": "Schließen",
+      "modalSubmit": "Feedback senden",
+      "modalSubmitting": "Wird gesendet…"
+    }
   },
   "it": {
     "common": {
@@ -3476,7 +3528,20 @@
     },
     "fba_mode_none": "Non inviare ora",
     "fba_mode_full": "Invia tutte le unità ad Amazon",
-    "fba_mode_partial": "Spedizione parziale"
+    "fba_mode_partial": "Spedizione parziale",
+    "reviewPrompt": {
+      "title": "Con noi da oltre 2 mesi. Lasci un breve feedback interno?",
+      "subtitle": "Lo usiamo internamente; opzionalmente in home in forma anonima.",
+      "ctaNow": "Scrivi recensione",
+      "snooze30": "Più tardi (30 giorni)",
+      "snooze60": "Più tardi (60 giorni)",
+      "dismiss": "Non ora",
+      "modalTitle": "Lascia una recensione interna",
+      "modalPlaceholder": "Scrivi qualche parola sulla tua esperienza...",
+      "modalCancel": "Chiudi",
+      "modalSubmit": "Invia recensione",
+      "modalSubmitting": "Invio…"
+    }
   },
   "es": {
     "common": {
@@ -4149,6 +4214,19 @@
     },
     "fba_mode_none": "No enviar ahora",
     "fba_mode_full": "Enviar todas las unidades a Amazon",
-    "fba_mode_partial": "Envío parcial"
+    "fba_mode_partial": "Envío parcial",
+    "reviewPrompt": {
+      "title": "Llevas más de 2 meses con nosotros. ¿Dejas una breve reseña interna?",
+      "subtitle": "La usamos internamente; opcionalmente se puede mostrar anónima en la portada.",
+      "ctaNow": "Escribir reseña",
+      "snooze30": "Más tarde (30 días)",
+      "snooze60": "Más tarde (60 días)",
+      "dismiss": "Ahora no",
+      "modalTitle": "Deja una reseña interna",
+      "modalPlaceholder": "Escribe unas palabras sobre tu experiencia...",
+      "modalCancel": "Cerrar",
+      "modalSubmit": "Enviar reseña",
+      "modalSubmitting": "Enviando…"
+    }
   }
 }
