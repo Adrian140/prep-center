@@ -331,6 +331,11 @@ async function syncListingsIntegration(integration) {
     );
 
     if (!listingRows.length) {
+      if (listingRaw.length) {
+        const sample = listingRaw.slice(0, 3);
+        console.log('[Listings sync] sample headers', Object.keys(listingRaw[0] || {}));
+        console.log('[Listings sync] sample rows', sample);
+      }
       console.log(
         `No listing rows returned for integration ${integration.id}. Nothing to do.`
       );
