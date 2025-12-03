@@ -779,6 +779,27 @@ resetPassword: async (email) => {
       .insert(reviewData);
   },
 
+  getUserReviewByName: async (reviewerName) => {
+    if (!reviewerName) return { data: null, error: null };
+    return await supabase
+      .from('reviews')
+      .select('id, created_at')
+      .eq('reviewer_name', reviewerName)
+      .maybeSingle();
+  },
+
+  getFirstReceptionDate: async (userId) => {
+    if (!userId) return { data: null, error: null };
+    const { data, error } = await supabase
+      .from('receiving_shipments')
+      .select('created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
+    return { data: data?.created_at || null, error };
+  },
+
   deleteReview: async (reviewId) => {
     return await supabase
       .from('reviews')

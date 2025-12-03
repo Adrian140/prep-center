@@ -36,6 +36,8 @@ import ClientBalanceBar from './client/ClientBalanceBar';
 import ClientAffiliates from './client/ClientAffiliates';
 import ClientPacklink from './client/ClientPacklink';
 import { tabSessionStorage } from '@/utils/tabStorage';
+import { supabaseHelpers } from '@/config/supabase';
+import { Star, X } from 'lucide-react';
 
 const REPORT_TABS = [
   { id: 'reports-shipments', labelKey: 'reportsMenu.shipments', icon: Package },
@@ -104,6 +106,15 @@ useEffect(() => {
 
   const { user, profile } = useSupabaseAuth();
   const companyId = profile?.company_id;
+  const [reviewPrompt, setReviewPrompt] = useState({
+    loading: true,
+    eligible: false,
+    hasReview: false,
+    show: false
+  });
+  const [reviewModal, setReviewModal] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, text: '' });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   const tabs = [
     // Operations
@@ -121,6 +132,106 @@ useEffect(() => {
     { id: 'affiliates', label: t('sidebar.affiliates'), icon: Users, group: 'Account' },
     { id: 'security', label: t('sidebar.security'), icon: Shield, group: 'Account' }
   ];
+
+  // Review prompt pentru clienți (>60 zile de la prima recepție/prep)
+  useEffect(() => {
+    let mounted = true;
+    const loadPrompt = async () => {
+      if (!profile?.id) {
+        if (mounted) setReviewPrompt((p) => ({ ...p, loading: false, show: false }));
+        return;
+      }
+      const storageKey = `reviewPrompt:${profile.id}`;
+      let snoozeUntil = null;
+      let dismissed = false;
+      try {
+        const cached = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        snoozeUntil = cached.snoozeUntil ? new Date(cached.snoozeUntil) : null;
+        dismissed = cached.dismissed || false;
+      } catch {}
+
+      const now = new Date();
+      if (dismissed || (snoozeUntil && snoozeUntil > now)) {
+        if (mounted) setReviewPrompt((p) => ({ ...p, loading: false, show: false }));
+        return;
+      }
+
+      const { data: firstReception } = await supabaseHelpers.getFirstReceptionDate(profile.id);
+      const firstDate = firstReception ? new Date(firstReception) : null;
+      const diffDays = firstDate ? (now - firstDate) / (1000 * 60 * 60 * 24) : 0;
+      const eligible = firstDate && diffDays >= 60;
+
+      let hasReview = false;
+      const reviewerName =
+        profile.store_name ||
+        [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim() ||
+        profile.email ||
+        user?.email;
+      if (reviewerName) {
+        const { data: existing } = await supabaseHelpers.getUserReviewByName(reviewerName);
+        hasReview = !!existing;
+      }
+
+      if (mounted) {
+        setReviewPrompt({
+          loading: false,
+          eligible: !!eligible,
+          hasReview,
+          show: !!eligible && !hasReview
+        });
+      }
+    };
+    loadPrompt();
+    return () => {
+      mounted = false;
+    };
+  }, [profile?.id, profile?.store_name, profile?.first_name, profile?.last_name, profile?.email, user?.email]);
+
+  const persistPromptState = (data) => {
+    if (!profile?.id) return;
+    const storageKey = `reviewPrompt:${profile.id}`;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(data));
+    } catch {}
+  };
+
+  const snoozePrompt = (days) => {
+    const until = new Date();
+    until.setDate(until.getDate() + days);
+    persistPromptState({ snoozeUntil: until, dismissed: false });
+    setReviewPrompt((p) => ({ ...p, show: false }));
+  };
+
+  const dismissPrompt = () => {
+    persistPromptState({ dismissed: true });
+    setReviewPrompt((p) => ({ ...p, show: false }));
+  };
+
+  const submitReview = async () => {
+    if (!profile?.id) return;
+    setReviewSubmitting(true);
+    const reviewerName =
+      profile.store_name ||
+      [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim() ||
+      profile.email ||
+      user?.email ||
+      'Client PrepCenter';
+    try {
+      await supabaseHelpers.createReview({
+        reviewer_name: reviewerName,
+        rating: reviewForm.rating || 5,
+        review_text: reviewForm.text || 'Feedback intern',
+        review_link: null
+      });
+      persistPromptState({ dismissed: true });
+      setReviewPrompt((p) => ({ ...p, show: false, hasReview: true }));
+      setReviewModal(false);
+    } catch (e) {
+      console.error('submit review failed', e);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
 
 const renderTabContent = useMemo(() => {
   switch (activeTab) {
@@ -155,6 +266,7 @@ const renderTabContent = useMemo(() => {
   ];
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50 py-4">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
         {activeTab === 'activity' && (
@@ -235,6 +347,46 @@ const renderTabContent = useMemo(() => {
 
           {/* Main Content */}
           <div>
+            {reviewPrompt.show && (
+              <div className="mb-4 flex items-center gap-4 p-4 rounded-xl border bg-blue-50/70 text-sm text-text-primary">
+                <div className="p-2 rounded-full bg-blue-100 text-blue-700">
+                  <Star className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold">Ești cu noi de peste 2 luni. Ne lași o scurtă recenzie internă?</div>
+                  <div className="text-text-secondary text-xs">O folosim doar intern; opțional o putem afișa anonim pe prima pagină.</div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <button
+                      onClick={() => setReviewModal(true)}
+                      className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm"
+                    >
+                      Scrie recenzie
+                    </button>
+                    <button
+                      onClick={() => snoozePrompt(30)}
+                      className="px-3 py-1.5 rounded-lg border text-sm"
+                    >
+                      Mai târziu (30 zile)
+                    </button>
+                    <button
+                      onClick={() => snoozePrompt(60)}
+                      className="px-3 py-1.5 rounded-lg border text-sm"
+                    >
+                      Mai târziu (60 zile)
+                    </button>
+                    <button
+                      onClick={dismissPrompt}
+                      className="px-3 py-1.5 rounded-lg border text-sm text-text-secondary"
+                    >
+                      Nu acum
+                    </button>
+                  </div>
+                </div>
+                <button onClick={dismissPrompt} className="text-text-secondary hover:text-text-primary">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
             <div className="bg-white rounded-xl shadow-sm p-5 animate-fade-in">
               {renderTabContent}
             </div>
@@ -242,6 +394,58 @@ const renderTabContent = useMemo(() => {
         </div>
       </div>
     </div>
+
+    {reviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-text-primary">
+                <Star className="w-5 h-5 text-amber-500" />
+                <span className="font-semibold">Lasă o recenzie internă</span>
+              </div>
+              <button onClick={() => setReviewModal(false)} className="text-text-secondary hover:text-text-primary">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              {[1,2,3,4,5].map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setReviewForm((f) => ({ ...f, rating: r }))}
+                  className={`w-9 h-9 rounded-full border flex items-center justify-center ${
+                    reviewForm.rating === r ? 'bg-amber-100 border-amber-400 text-amber-600' : 'bg-white'
+                  }`}
+                >
+                  {r}★
+                </button>
+              ))}
+            </div>
+            <textarea
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+              rows={4}
+              placeholder="Scrie câteva cuvinte despre experiența ta..."
+              value={reviewForm.text}
+              onChange={(e) => setReviewForm((f) => ({ ...f, text: e.target.value }))}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setReviewModal(false)}
+                className="px-3 py-1.5 rounded-lg border text-sm text-text-secondary"
+              >
+                Închide
+              </button>
+              <button
+                onClick={submitReview}
+                disabled={reviewSubmitting}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm disabled:opacity-60"
+              >
+                {reviewSubmitting ? 'Se trimite…' : 'Trimite recenzia'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
