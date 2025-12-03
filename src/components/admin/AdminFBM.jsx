@@ -112,54 +112,68 @@ export default function AdminFBM({ rows = [], reload, companyId, profile }) {
       return;
     }
 
-    // 1) Caută o linie existentă cu aceeași cheie (company_id + date + price + service)
-    const { data: existing, error: findErr } = await supabase
+    // 1) Caută toate liniile existente cu aceeași cheie (company_id + date + price + service)
+    const { data: existingRows, error: findErr } = await supabase
       .from('fbm_lines')
       .select('id, orders_units')
       .eq('company_id', companyId)
       .eq('service_date', service_date)
       .eq('service', service)
       .eq('unit_price', unit_price)
-      .order('id', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .order('id', { ascending: true });
 
     if (findErr) {
       alert(findErr.message);
       return;
     }
 
-    if (existing?.id) {
-    // 2) Găsit: adunăm unitățile pe linia existentă
-    const newQty = Number(existing.orders_units || 0) + unitsToAdd;
+    if (existingRows && existingRows.length > 0) {
+      // 2) Găsit: adunăm unitățile pe prima linie, restul le eliminăm (pentru a evita duplicatele)
+      const totalExisting = existingRows.reduce(
+        (sum, row) => sum + Number(row.orders_units || 0),
+        0
+      );
+      const newQty = totalExisting + unitsToAdd;
+      const keeper = existingRows[0];
+      const duplicates = existingRows.slice(1).map((r) => r.id);
 
-    const { error: updErr } = await supabase
-      .from('fbm_lines')
-      .update({ orders_units: newQty })
-      .eq('id', existing.id);
+      const { error: updErr } = await supabase
+        .from('fbm_lines')
+        .update({ orders_units: newQty })
+        .eq('id', keeper.id);
+      if (updErr) {
+        alert(updErr.message);
+        return;
+      }
 
-    if (updErr) {
-      alert(updErr.message);
-      return;
+      if (duplicates.length) {
+        const { error: delErr } = await supabase
+          .from('fbm_lines')
+          .delete()
+          .in('id', duplicates);
+        if (delErr) {
+          alert(delErr.message);
+          return;
+        }
+      }
+    } else {
+      // 3) Nu există: inserăm linie nouă
+      const payload = {
+        company_id: companyId,
+        service,
+        service_date,
+        unit_price,
+        orders_units: unitsToAdd,
+        obs_admin: form.obs_admin || null,
+        created_by: profile.id,
+      };
+
+      const { error: insErr } = await supabase.from('fbm_lines').insert(payload);
+      if (insErr) {
+        alert(insErr.message);
+        return;
+      }
     }
-  } else {
-    // 3) Nu există: inserăm linie nouă
-    const payload = {
-      company_id: companyId,
-      service,
-      service_date,
-      unit_price,
-      orders_units: unitsToAdd,
-      obs_admin: form.obs_admin || null,
-      created_by: profile.id,
-    };
-
-    const { error: insErr } = await supabase.from('fbm_lines').insert(payload);
-    if (insErr) {
-      alert(insErr.message);
-      return;
-    }
-  }
 
   // reset form & refresh
   setForm(() => createDefaultForm());
