@@ -636,10 +636,10 @@ createReceptionRequest: async (data) => {
       return { data: [], error: null };
     }
 
+    // Verificăm dacă reducerea a mai fost aplicată pentru acest cod, indiferent de denumirea serviciului.
     const { data: existing, error: existingError } = await supabase
       .from('other_lines')
       .select('company_id')
-      .eq('service', service)
       .in('company_id', companyIds)
       .ilike('obs_admin', `%${normalizedCode}%`);
     if (existingError) {
