@@ -213,17 +213,31 @@ function parseListingRows(tsvText) {
     .filter((line) => line.trim() !== '');
   if (!lines.length) return [];
 
-  const headers = lines
-    .shift()
-    .split('\t')
-    .map(
-      (header) =>
-        LISTING_COLUMN_ALIASES.get(header.trim().toLowerCase()) ||
-        header.trim().toLowerCase()
-    );
+  const headerLine = lines.shift();
+  const guessDelimiter = (line) => {
+    if (line.includes('\t')) return '\t';
+    if (line.includes(';')) return ';';
+    return ','; // fallback CSV
+  };
+  const delimiter = guessDelimiter(headerLine);
+  const splitColumns = (line) => {
+    const regex =
+      delimiter === '\t'
+        ? /\t(?=(?:(?:[^"]*"){2})*[^"]*$)/
+        : delimiter === ';'
+        ? /;(?=(?:(?:[^"]*"){2})*[^"]*$)/
+        : /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+    return line.split(regex).map((part) => part.replace(/^"|"$/g, '').trim());
+  };
+
+  const headers = splitColumns(headerLine).map(
+    (header) =>
+      LISTING_COLUMN_ALIASES.get(header.trim().toLowerCase()) ||
+      header.trim().toLowerCase()
+  );
 
   return lines.map((line) => {
-    const cols = line.split('\t');
+    const cols = splitColumns(line);
     const row = {};
     headers.forEach((header, idx) => {
       row[header] = cols[idx];
