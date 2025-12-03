@@ -194,15 +194,23 @@ async function downloadReportDocument(spClient, reportDocumentId) {
 
 const LISTING_COLUMN_ALIASES = new Map([
   ['seller-sku', 'sku'],
+  ['sku-vendeur', 'sku'],
+  ['sku-vend***r', 'sku'],
   ['sku', 'sku'],
   ['asin', 'asin'],
   ['asin1', 'asin'],
   ['item-name', 'name'],
+  ['nom-produit', 'name'],
   ['status', 'status'],
   ['item-status', 'status'],
+  ['état', 'status'],
+  ['etat', 'status'],
   ['fulfillment-channel', 'fulfillmentChannel'],
+  ['canal-traitement', 'fulfillmentChannel'],
   ['product-id', 'productId'],
-  ['product-id-type', 'productIdType']
+  ['id-produit', 'productId'],
+  ['product-id-type', 'productIdType'],
+  ['type-id-produit', 'productIdType']
 ]);
 
 function parseListingRows(tsvText) {
