@@ -466,8 +466,18 @@ const saveStoreName = async () => {
               value={q}
               onChange={(e) => { setQ(e.target.value); setPage(1); }}
               placeholder={t("clients.filters.searchPlaceholder")}
-              className="pl-7 pr-2 py-1.5 w-full border rounded text-xs placeholder:text-[11px]"
+              className="pl-7 pr-8 py-1.5 w-full border rounded text-xs placeholder:text-[11px]"
             />
+            {q.trim().length > 0 && (
+              <button
+                type="button"
+                onClick={() => { setQ(''); setPage(1); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm font-semibold"
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
           </div>
 
         <div className="flex flex-col gap-2">
