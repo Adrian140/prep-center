@@ -2,12 +2,12 @@ name: Sync Amazon Listings (ASIN/SKU+Titlu)
 
 on:
   schedule:
-    - cron: "*/30 * * * *" # every 30 minutes
+    - cron: "0 * * * *" # every hour (at minute 0)
   workflow_dispatch:
 
 concurrency:
   group: sync-amazon-listings
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   sync:
