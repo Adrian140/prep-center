@@ -2,7 +2,7 @@ name: Sync Amazon Listings FR (ASIN/SKU+Titlu)
 
 on:
   schedule:
-    - cron: "0 * * * *" # every hour (at minute 0)
+    - cron: "*/50 * * * *" # every 50 minutes
   workflow_dispatch:
 
 concurrency:
