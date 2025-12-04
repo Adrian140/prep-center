@@ -1,12 +1,12 @@
-name: Sync Amazon Listings FR (ASIN/SKU+Titlu)
+name: Sync Amazon Listings ES (ASIN/SKU+Titlu)
 
 on:
   schedule:
-    - cron: "0 * * * *" # every hour (at minute 0)
+    - cron: "30 * * * *" # every hour at minute 30
   workflow_dispatch:
 
 concurrency:
-  group: sync-amazon-listings-fr
+  group: sync-amazon-listings-es
   cancel-in-progress: true
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
         working-directory: tools/spapi-worker
         run: npm ci
 
-      - name: Run listings sync for FR integrations
+      - name: Run listings sync for ES integrations
         working-directory: tools/spapi-worker
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -37,8 +37,8 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           SPAPI_ROLE_ARN: ${{ secrets.SPAPI_ROLE_ARN }}
           SPAPI_REGION: ${{ secrets.SPAPI_REGION || 'eu' }}
-          SPAPI_MARKETPLACE_ID: A13V1IB3VIYZZH
-          SPAPI_LISTING_MARKETPLACE_ID: A13V1IB3VIYZZH
+          SPAPI_MARKETPLACE_ID: A1RKKUPIHCS9HS
+          SPAPI_LISTING_MARKETPLACE_ID: A1RKKUPIHCS9HS
           SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
           SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN: ${{ secrets.SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN || '20' }}
         run: npm run sync-products
