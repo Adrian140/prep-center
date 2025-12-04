@@ -283,7 +283,14 @@ export default function ClientPacklink() {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative">
+      {/* Coming soon badge */}
+      <div className="pointer-events-none fixed inset-0 z-20 flex items-start justify-center">
+        <div className="mt-8 sm:mt-10 bg-orange-500/70 text-white font-semibold text-2xl sm:text-3xl px-6 py-3 rounded-full shadow-lg">
+          Coming soon
+        </div>
+      </div>
+
       {heroBanner}
 
       {error && (
