@@ -323,7 +323,8 @@ async function insertListingRows(rows) {
     if (!chunk.length) continue;
     const { error } = await supabase
       .from('stock_items')
-      .insert(chunk, { defaultToNull: false });
+      // upsert pe company_id+sku+asin ca să evităm duplicatele
+      .upsert(chunk, { defaultToNull: false, onConflict: 'company_id,sku,asin' });
     if (error) throw error;
   }
 }
