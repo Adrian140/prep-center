@@ -450,6 +450,7 @@ async function syncListingsIntegration(integration) {
       if (asinKey && existingByAsin.has(asinKey)) {
         const rowsForAsin = existingByAsin.get(asinKey) || [];
         rowsForAsin.forEach((r) => {
+          const incomingSku = listing.sku && String(listing.sku).trim();
           const hasExistingName = r.name && String(r.name).trim().length > 0;
           const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
           const hasExistingImage = r.image_url && String(r.image_url).trim().length > 0;
@@ -461,6 +462,11 @@ async function syncListingsIntegration(integration) {
             asin: r.asin
           };
           let shouldPatch = false;
+          // Dacă rândul din stoc nu are SKU, dar raportul Amazon îl are, îl completăm.
+          if ((!r.sku || !String(r.sku).trim()) && incomingSku) {
+            patch.sku = incomingSku;
+            shouldPatch = true;
+          }
           if (!hasExistingName && hasIncomingName) {
             patch.name = listing.name;
             shouldPatch = true;
