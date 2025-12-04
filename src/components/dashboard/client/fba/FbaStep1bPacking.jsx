@@ -1,7 +1,9 @@
 import React from 'react';
 import { AlertTriangle, Box, CheckCircle } from 'lucide-react';
 
-export default function FbaStep1bPacking({ packGroups, onUpdateGroup, onNext, onBack }) {
+export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateGroup, onNext, onBack }) {
+  const isEmpty = !loading && (!Array.isArray(packGroups) || packGroups.length === 0);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
@@ -12,7 +14,21 @@ export default function FbaStep1bPacking({ packGroups, onUpdateGroup, onNext, on
 
       <div className="px-6 py-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          {packGroups.map((group) => (
+          {loading && (
+            <div className="px-4 py-6 text-slate-600 text-sm">Loading pack groups from Amazon…</div>
+          )}
+
+          {error && !loading && (
+            <div className="px-4 py-3 mb-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded">
+              {error}
+            </div>
+          )}
+
+          {isEmpty && (
+            <div className="px-4 py-6 text-slate-600 text-sm">No pack groups received yet. Once we fetch the Amazon plan, groups will appear here.</div>
+          )}
+
+          {(packGroups || []).map((group) => (
             <div key={group.id} className="border border-slate-200 rounded-lg overflow-hidden mb-4">
               <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
                 <Box className="w-5 h-5 text-slate-500" />

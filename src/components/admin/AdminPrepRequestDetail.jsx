@@ -96,6 +96,15 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
     }));
   }, [row]);
 
+  const fetchPlanFromEdge = useCallback(async () => {
+    if (!row?.id) throw new Error('Missing request id');
+    const { data, error } = await supabase.functions.invoke('fba-plan', {
+      body: { request_id: row.id }
+    });
+    if (error) throw error;
+    return data?.plan;
+  }, [row?.id]);
+
   const wizardShipments = useMemo(() => {
     if (!row) return [];
     const totalUnits = (row.prep_request_items || []).reduce(
@@ -851,6 +860,8 @@ onChanged?.();
           initialShipmentList={wizardShipments}
           initialTrackingList={[]}
           showLegacyToggle={false}
+          autoLoadPlan={true}
+          fetchPlan={fetchPlanFromEdge}
         />
       </div>
     );

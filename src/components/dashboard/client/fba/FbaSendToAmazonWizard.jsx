@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ToggleLeft, ToggleRight } from 'lucide-react';
 import FbaStep1Inventory from './FbaStep1Inventory';
 import FbaStep1bPacking from './FbaStep1bPacking';
@@ -72,7 +72,9 @@ export default function FbaSendToAmazonWizard({
   initialShipmentMode = { method: 'SPD', deliveryDate: '01/12/2025', carrier: { partnered: false, name: 'UPS (non-partnered)' } },
   initialShipmentList = initialShipments,
   initialTrackingList = initialTracking,
-  showLegacyToggle = true
+  showLegacyToggle = true,
+  autoLoadPlan = false,
+  fetchPlan // optional async () => ({ shipFrom, marketplace, skus, packGroups, shipments })
 }) {
   const [step, setStep] = useState(1);
   const [legacy, setLegacy] = useState(false);
@@ -82,6 +84,35 @@ export default function FbaSendToAmazonWizard({
   const [shipments, setShipments] = useState(initialShipmentList);
   const [labelFormat, setLabelFormat] = useState('letter');
   const [tracking, setTracking] = useState(initialTrackingList);
+  const [loadingPlan, setLoadingPlan] = useState(false);
+  const [planError, setPlanError] = useState('');
+
+  useEffect(() => {
+    if (!autoLoadPlan && !fetchPlan) return;
+    let cancelled = false;
+    const loadPlan = async () => {
+      setLoadingPlan(true);
+      setPlanError('');
+      try {
+        const response = fetchPlan ? await fetchPlan() : null;
+        if (cancelled || !response) return;
+        const { shipFrom: pFrom, marketplace: pMarket, skus: pSkus, packGroups: pGroups, shipments: pShipments } = response;
+        if (pFrom && pMarket && Array.isArray(pSkus)) {
+          setPlan({ shipFrom: pFrom, marketplace: pMarket, skus: pSkus });
+        }
+        if (Array.isArray(pGroups) && pGroups.length) setPackGroups(pGroups);
+        if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
+      } catch (e) {
+        if (!cancelled) setPlanError(e?.message || 'Failed to load Amazon plan.');
+      } finally {
+        if (!cancelled) setLoadingPlan(false);
+      }
+    };
+    loadPlan();
+    return () => {
+      cancelled = true;
+    };
+  }, [autoLoadPlan, fetchPlan]);
 
   const warning = useMemo(
     () =>
@@ -144,6 +175,8 @@ export default function FbaSendToAmazonWizard({
       return (
         <FbaStep1bPacking
           packGroups={packGroups}
+          loading={loadingPlan}
+          error={planError}
           onUpdateGroup={handlePackGroupUpdate}
           onNext={() => setStep(2)}
           onBack={() => setStep(1)}
@@ -179,14 +212,14 @@ export default function FbaSendToAmazonWizard({
       );
     }
     return (
-      <FbaStep4Tracking
-        tracking={tracking}
-        onUpdateTracking={handleTrackingChange}
-        onBack={() => setStep(3)}
-        onFinish={() => setStep(4)}
-      />
-    );
-  };
+        <FbaStep4Tracking
+          tracking={tracking}
+          onUpdateTracking={handleTrackingChange}
+          onBack={() => setStep(3)}
+          onFinish={() => setStep(4)}
+        />
+      );
+    };
 
   return (
     <div className="w-full mx-auto max-w-5xl space-y-4">
