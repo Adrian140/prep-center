@@ -66,15 +66,22 @@ const initialTracking = [
   }
 ];
 
-export default function FbaSendToAmazonWizard() {
+export default function FbaSendToAmazonWizard({
+  initialPlan = initialData,
+  initialPacking = initialPackGroups,
+  initialShipmentMode = { method: 'SPD', deliveryDate: '01/12/2025', carrier: { partnered: false, name: 'UPS (non-partnered)' } },
+  initialShipmentList = initialShipments,
+  initialTrackingList = initialTracking,
+  showLegacyToggle = true
+}) {
   const [step, setStep] = useState(1);
   const [legacy, setLegacy] = useState(false);
-  const [plan, setPlan] = useState(initialData);
-  const [packGroups, setPackGroups] = useState(initialPackGroups);
-  const [shipmentMode, setShipmentMode] = useState({ method: 'SPD', deliveryDate: '01/12/2025', carrier: { partnered: false, name: 'UPS (non-partnered)' } });
-  const [shipments, setShipments] = useState(initialShipments);
+  const [plan, setPlan] = useState(initialPlan);
+  const [packGroups, setPackGroups] = useState(initialPacking);
+  const [shipmentMode, setShipmentMode] = useState(initialShipmentMode);
+  const [shipments, setShipments] = useState(initialShipmentList);
   const [labelFormat, setLabelFormat] = useState('letter');
-  const [tracking, setTracking] = useState(initialTracking);
+  const [tracking, setTracking] = useState(initialTrackingList);
 
   const warning = useMemo(
     () =>
@@ -188,13 +195,15 @@ export default function FbaSendToAmazonWizard() {
           Send to Amazon (beta)
           <span className="text-xs text-slate-500 font-normal">Mock UI aligned to Amazon steps</span>
         </div>
-        <button
-          onClick={() => setLegacy((prev) => !prev)}
-          className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-800"
-        >
-          {legacy ? <ToggleLeft className="w-5 h-5" /> : <ToggleRight className="w-5 h-5" />}
-          {legacy ? 'Use legacy flow' : 'Use new Send to Amazon'}
-        </button>
+        {showLegacyToggle && (
+          <button
+            onClick={() => setLegacy((prev) => !prev)}
+            className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-800"
+          >
+            {legacy ? <ToggleLeft className="w-5 h-5" /> : <ToggleRight className="w-5 h-5" />}
+            {legacy ? 'Use legacy flow' : 'Use new Send to Amazon'}
+          </button>
+        )}
       </div>
 
       {renderStep()}

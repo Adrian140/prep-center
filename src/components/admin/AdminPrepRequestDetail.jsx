@@ -13,6 +13,7 @@ import {
 import DestinationBadge from '@/components/common/DestinationBadge';
 import { useSupabaseAuth } from "../../contexts/SupabaseAuthContext";
 import { supabase, supabaseHelpers } from "../../config/supabase";
+import FbaSendToAmazonWizard from '@/components/dashboard/client/fba/FbaSendToAmazonWizard';
 
 const StatusPill = ({ s }) => {
   const map = {
@@ -51,6 +52,77 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
   const [inventory, setInventory] = useState([]);
   const [inventorySearch, setInventorySearch] = useState("");
   const [inventoryDraftQty, setInventoryDraftQty] = useState({});
+  const [useNewFlow, setUseNewFlow] = useState(false);
+
+  const placeholderImg =
+    'https://images.unsplash.com/photo-1582456891925-054d52d43a9c?auto=format&fit=crop&w=80&q=60';
+
+  const wizardPlan = useMemo(() => {
+    if (!row) return null;
+    const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
+    return {
+      shipFrom: {
+        name: row.client_name || 'Prep Center',
+        address: row.destination_country || '—'
+      },
+      marketplace: row.destination_country || 'France',
+      skus: items.map((it, idx) => ({
+        id: it.id || `sku-${idx}`,
+        title: it.product_name || it.stock_item?.name || `SKU ${idx + 1}`,
+        sku: it.sku || it.stock_item?.sku || '—',
+        asin: it.asin || it.stock_item?.asin || '—',
+        storageType: 'Standard-size',
+        packing: 'individual',
+        units: Number(it.units_sent ?? it.units_requested ?? 0),
+        expiry: '',
+        prepRequired: false,
+        readyToPack: true
+      }))
+    };
+  }, [row]);
+
+  const wizardPackGroups = useMemo(() => {
+    if (!row) return [];
+    const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
+    return items.map((it, idx) => ({
+      id: it.id || `pack-${idx}`,
+      title: `Pack group ${idx + 1}`,
+      skuCount: 1,
+      units: Number(it.units_sent ?? it.units_requested ?? 0),
+      boxes: 1,
+      packMode: 'single',
+      warning: null,
+      image: it.stock_item?.image_url || placeholderImg
+    }));
+  }, [row]);
+
+  const wizardShipments = useMemo(() => {
+    if (!row) return [];
+    const totalUnits = (row.prep_request_items || []).reduce(
+      (sum, it) => sum + Number(it.units_sent ?? it.units_requested ?? 0),
+      0
+    );
+    return [
+      {
+        id: row.id?.slice(0, 6) || '1',
+        name: `Shipment #${row.id?.slice(0, 6) || 1}`,
+        from: row.destination_country || 'FR',
+        to: row.destination_country || 'FR',
+        boxes: Math.max(1, (row.prep_request_items || []).length),
+        skuCount: (row.prep_request_items || []).length || 1,
+        units: totalUnits || 0
+      }
+    ];
+  }, [row]);
+
+  const wizardShipmentMode = useMemo(
+    () => ({
+      method: 'SPD',
+      deliveryDate: row?.created_at ? new Date(row.created_at).toLocaleDateString() : '—',
+      carrier: { partnered: false, name: 'UPS (non-partnered)' }
+    }),
+    [row]
+  );
 
   // ---- helpers (afisare cod + nume)
   const codeOf = (it) => (it?.asin || it?.sku || "");
@@ -761,6 +833,29 @@ onChanged?.();
       </div>
     );
 
+  if (useNewFlow && wizardPlan) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <button onClick={() => setUseNewFlow(false)} className="inline-flex items-center text-sm">
+            <ArrowLeft className="w-4 h-4 mr-1" /> Înapoi la varianta veche
+          </button>
+          <button onClick={onBack} className="text-sm text-blue-700 hover:underline">
+            Înapoi la listă
+          </button>
+        </div>
+        <FbaSendToAmazonWizard
+          initialPlan={wizardPlan}
+          initialPacking={wizardPackGroups}
+          initialShipmentMode={wizardShipmentMode}
+          initialShipmentList={wizardShipments}
+          initialTrackingList={[]}
+          showLegacyToggle={false}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <style>{`
@@ -799,6 +894,13 @@ onChanged?.();
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setUseNewFlow(true)}
+              className="px-4 py-2 border border-blue-500 text-blue-700 rounded inline-flex items-center gap-2 hover:bg-blue-50"
+              type="button"
+            >
+              Try new Send to Amazon (beta)
+            </button>
             <button
               onClick={() => setShowBoxSummary(true)}
               className="px-4 py-2 border rounded inline-flex items-center gap-2"
