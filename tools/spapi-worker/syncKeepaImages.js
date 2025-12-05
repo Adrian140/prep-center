@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import fs from 'node:fs';
 import { supabase } from './supabaseClient.js';
 import { getKeepaMainImage } from './keepaClient.js';
 
@@ -67,6 +68,7 @@ async function syncKeepaImages() {
   const companyIds = await fetchActiveCompanyIds();
   if (!companyIds.length) {
     console.log('[Keepa sync] No active companies with integrations.');
+    writeOutputs({ processed: 0, limitReached: false });
     return;
   }
 
@@ -142,6 +144,7 @@ async function syncKeepaImages() {
           console.warn(
             '[Keepa sync] Keepa tokens low or rate limited (429) – stopping sync run early.'
           );
+          writeOutputs({ processed, limitReached: processed >= ITEMS_PER_RUN });
           return;
         }
       }
@@ -151,9 +154,23 @@ async function syncKeepaImages() {
   console.log(
     `[Keepa sync] Completed run. Images updated for ${processed} stock items.`
   );
+  writeOutputs({ processed, limitReached: processed >= ITEMS_PER_RUN });
 }
 
 syncKeepaImages().catch((err) => {
   console.error('[Keepa sync] Unhandled error:', err);
+  writeOutputs({ processed: 0, limitReached: false });
   process.exit(1);
 });
+
+function writeOutputs({ processed, limitReached }) {
+  if (!process.env.GITHUB_OUTPUT) return;
+  try {
+    fs.appendFileSync(
+      process.env.GITHUB_OUTPUT,
+      `processed=${processed}\nlimit_reached=${limitReached ? 'true' : 'false'}\n`
+    );
+  } catch (err) {
+    console.warn('[Keepa sync] Failed to write step outputs:', err?.message || err);
+  }
+}

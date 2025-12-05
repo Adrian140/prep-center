@@ -18,10 +18,12 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const branch = context.ref.replace('refs/heads/', '');
+            // API needs workflow_id (file name or numeric ID)
+            const workflowId = 'sync-keepa-images.yml';
             const { data } = await github.rest.actions.listWorkflowRuns({
               owner,
               repo,
-              workflow_id: context.workflow,
+              workflow_id: workflowId,
               status: 'in_progress',
               branch,
               per_page: 20,
@@ -56,6 +58,7 @@ jobs:
         run: npm ci
 
       - name: Run Keepa image sync
+        id: keepa
         if: steps.skip-if-running.outputs.cancelled != 'true'
         working-directory: tools/spapi-worker
         env:
@@ -67,6 +70,28 @@ jobs:
           KEEPA_TOKEN_SAFETY_REMAINING: ${{ secrets.KEEPA_TOKEN_SAFETY_REMAINING || '0' }}
           # Maxim aproximativ cu 1 token/min, job de 50 minute:
           # până la ~50 produse / oră, max 20 per client.
-          KEEPA_ITEMS_PER_RUN: ${{ secrets.KEEPA_ITEMS_PER_RUN || '50' }}
+          KEEPA_ITEMS_PER_RUN: ${{ secrets.KEEPA_ITEMS_PER_RUN || '60' }}
           KEEPA_ITEMS_PER_COMPANY: ${{ secrets.KEEPA_ITEMS_PER_COMPANY || '20' }}
         run: npm run sync-keepa-images
+
+      - name: Așteaptă 5 minute și pornește următorul run dacă am atins limita
+        if: steps.skip-if-running.outputs.cancelled != 'true' && steps.keepa.outputs.limit_reached == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const waitMs = 5 * 60 * 1000;
+            core.info(`Limită atinsă – aștept ${waitMs / 1000}s înainte să pornesc următorul run.`);
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
+
+            const { owner, repo } = context.repo;
+            const ref = context.ref.startsWith('refs/heads/')
+              ? context.ref.slice('refs/heads/'.length)
+              : context.ref;
+            await github.rest.actions.createWorkflowDispatch({
+              owner,
+              repo,
+              workflow_id: 'sync-keepa-images.yml',
+              ref,
+            });
+            core.info('Run nou trimis prin workflow_dispatch.');
