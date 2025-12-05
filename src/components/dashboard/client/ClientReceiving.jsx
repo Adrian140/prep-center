@@ -1389,13 +1389,22 @@ function ClientReceiving() {
                     <td className="px-6 py-4 whitespace-nowrap text-text-secondary">
                       {new Date(shipment.created_at).toLocaleDateString(DATE_LOCALE)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <td className="px-6 py-4 whitespace-nowrap text-right space-x-3">
                       <button
                         onClick={() => handleSelectShipment(shipment)}
                         className="text-primary hover:text-primary-dark"
                       >
                         {t('view_details')}
                       </button>
+                      {!['processed', 'cancelled'].includes(shipment.status) && (
+                        <button
+                          onClick={() => handleDeleteShipment(shipment.id)}
+                          disabled={deletingShipment}
+                          className="text-red-600 hover:text-red-700 disabled:opacity-50"
+                        >
+                          {deletingShipment ? t('deleting') : t('delete')}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
