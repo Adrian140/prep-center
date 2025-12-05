@@ -16,7 +16,9 @@
       "na": "N/A",
       "yes": "Yes",
       "no": "No",
-      "supportError": "Something went wrong. Please contact support."
+      "supportError": "Something went wrong. Please contact support.",
+      "delete": "Delete",
+      "deleting": "Deleting..."
     },
     "fba_mode_none": "Do not send now",
     "fba_mode_full": "Send all units to Amazon",
@@ -759,7 +761,9 @@
       "supportError": "A apărut o eroare. Te rugăm să contactezi suportul.",
       "cancel": "Anulează",
       "accessDeniedTitle": "Acces interzis",
-      "accessDeniedDesc": "Nu ai permisiunea să vezi această secțiune."
+      "accessDeniedDesc": "Nu ai permisiunea să vezi această secțiune.",
+      "delete": "Șterge",
+      "deleting": "Se șterge..."
     },
     "sidebar": {
       "activity": "Activitate",
@@ -1500,6 +1504,8 @@
       "yes": "Oui",
       "no": "Non",
       "supportError": "Une erreur est survenue. Merci de contacter le support.",
+      "delete": "Supprimer",
+      "deleting": "Suppression...",
       "cancel": "Annuler",
       "accessDeniedTitle": "Accès refusé",
       "accessDeniedDesc": "Vous n'avez pas l’autorisation d'accéder à cette section."
@@ -2186,6 +2192,8 @@
       "yes": "Ja",
       "no": "Nein",
       "supportError": "Es ist ein Fehler aufgetreten. Bitte kontaktiere den Support.",
+      "delete": "Löschen",
+      "deleting": "Wird gelöscht...",
       "cancel": "Abbrechen",
       "accessDeniedTitle": "Zugriff verweigert",
       "accessDeniedDesc": "Sie besitzen keine Berechtigung für diesen Bereich."
@@ -2872,6 +2880,8 @@
       "yes": "Sì",
       "no": "No",
       "supportError": "Si è verificato un errore. Contatta il supporto.",
+      "delete": "Elimina",
+      "deleting": "Eliminazione...",
       "cancel": "Annulla",
       "accessDeniedTitle": "Accesso negato",
       "accessDeniedDesc": "Non hai i permessi per visualizzare questa sezione."
@@ -3558,6 +3568,8 @@
       "yes": "Sí",
       "no": "No",
       "supportError": "Ha ocurrido un error. Ponte en contacto con soporte.",
+      "delete": "Eliminar",
+      "deleting": "Eliminando...",
       "cancel": "Cancelar",
       "accessDeniedTitle": "Acceso denegado",
       "accessDeniedDesc": "No tienes permisos para ver esta sección."
