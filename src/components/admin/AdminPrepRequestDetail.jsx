@@ -50,6 +50,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventory, setInventory] = useState([]);
+  const [inventoryRemote, setInventoryRemote] = useState([]);
   const [inventorySearch, setInventorySearch] = useState("");
   const [inventoryDraftQty, setInventoryDraftQty] = useState({});
   const [useNewFlow, setUseNewFlow] = useState(false);
@@ -461,18 +462,68 @@ const mapBoxRows = (rows = []) => {
     if (!inventoryOpen) {
       setInventorySearch("");
       setInventoryDraftQty({});
+      setInventoryRemote([]);
     }
   }, [inventoryOpen]);
 
   const filteredInventory = useMemo(() => {
     const term = inventorySearch.trim().toLowerCase();
-    if (!term) return inventory;
-    return inventory.filter((item) => {
+    const base = [...inventory, ...inventoryRemote];
+    const unique = Array.from(new Map(base.map((it) => [it.id, it])).values());
+    if (!term) return unique;
+    return unique.filter((item) => {
       const haystack = `${item.name || ''} ${item.asin || ''} ${item.sku || ''} ${item.ean || ''}`
         .toLowerCase();
       return haystack.includes(term);
     });
-  }, [inventory, inventorySearch]);
+  }, [inventory, inventoryRemote, inventorySearch]);
+
+  // Remote search fallback to catch items not in initial load
+  useEffect(() => {
+    const term = inventorySearch.trim();
+    if (!inventoryOpen || term.length < 2) {
+      setInventoryRemote([]);
+      return;
+    }
+    const companyId = row?.company_id || row?.profiles?.company_id || null;
+    const userId = row?.user_id || row?.profiles?.id || null;
+    if (!companyId && !userId) return;
+    let cancelled = false;
+    const search = async () => {
+      try {
+        const or = [
+          `asin.ilike.%${term}%`,
+          `sku.ilike.%${term}%`,
+          `ean.ilike.%${term}%`,
+          `name.ilike.%${term}%`
+        ].join(',');
+        let query = supabase
+          .from('stock_items')
+          .select('id, name, asin, sku, ean, qty, purchase_price, company_id, user_id')
+          .order('created_at', { ascending: false })
+          .limit(200);
+        if (companyId) query = query.eq('company_id', companyId);
+        if (!companyId && userId) query = query.eq('user_id', userId);
+        const { data, error } = await query.or(or);
+        if (cancelled) return;
+        if (error) {
+          console.warn('Inventory search failed', error.message);
+          setInventoryRemote([]);
+          return;
+        }
+        setInventoryRemote(data || []);
+      } catch (err) {
+        if (!cancelled) {
+          console.warn('Inventory search error', err?.message || err);
+          setInventoryRemote([]);
+        }
+      }
+    };
+    search();
+    return () => {
+      cancelled = true;
+    };
+  }, [inventoryOpen, inventorySearch, row?.company_id, row?.user_id, row?.profiles?.company_id, row?.profiles?.id]);
 
   const handleInventoryQtyChange = (stockId, value) => {
     setInventoryDraftQty((prev) => ({
