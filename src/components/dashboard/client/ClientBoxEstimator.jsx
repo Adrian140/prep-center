@@ -22,7 +22,7 @@ const volume = (l, w, h) => Math.max(0, Number(l) || 0) * Math.max(0, Number(w) 
 
 export default function ClientBoxEstimator() {
   const { profile } = useSupabaseAuth();
-  const { t } = useDashboardTranslation();
+  const { t, tp } = useDashboardTranslation();
   const [inventory, setInventory] = useState([]);
   const [search, setSearch] = useState('');
   const [dimsDraft, setDimsDraft] = useState({});
@@ -308,7 +308,9 @@ export default function ClientBoxEstimator() {
           <div className="space-y-1 text-sm">
             {results.map((r, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="font-semibold">{t('BoxEstimator.summaryLine', { count: r.count, name: r.name, l: r.l, w: r.w, h: r.h, kg: r.kg })}</span>
+                <span className="font-semibold">
+                  {tp('BoxEstimator.summaryLine', { count: r.count, name: r.name, l: r.l, w: r.w, h: r.h, kg: r.kg })}
+                </span>
               </div>
             ))}
           </div>
