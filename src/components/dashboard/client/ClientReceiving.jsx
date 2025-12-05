@@ -601,7 +601,7 @@ function ClientReceiving() {
                 disabled={deletingShipment}
                 className="inline-flex items-center px-3 py-2 border border-red-500 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
               >
-                {deletingShipment ? t('deleting') || 'Deleting...' : t('delete') || 'Delete'}
+                {deletingShipment ? (t('deleting') || 'Deleting...') : (t('delete') || 'Delete')}
               </button>
             )}
             {selectedShipment.status === 'draft' && (
@@ -1402,7 +1402,7 @@ function ClientReceiving() {
                           disabled={deletingShipment}
                           className="text-red-600 hover:text-red-700 disabled:opacity-50"
                         >
-                          {deletingShipment ? t('deleting') : t('delete')}
+                          {deletingShipment ? (t('deleting') || 'Deleting...') : (t('delete') || 'Delete')}
                         </button>
                       )}
                     </td>
