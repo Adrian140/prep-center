@@ -18,7 +18,7 @@ export default function AdminBoxes() {
     setMessage('');
     const { data, error } = await supabase
       .from('boxes')
-      .select('id, name, length_cm, width_cm, height_cm, max_kg, created_at')
+      .select('id, name, length_cm, width_cm, height_cm, max_kg, tag, created_at')
       .order('created_at', { ascending: false });
     if (error) {
       setMessage(error.message || 'Failed to load boxes.');
@@ -35,7 +35,7 @@ export default function AdminBoxes() {
 
   const addRow = () => {
     setRows((prev) => [
-      { id: `tmp-${Date.now()}`, name: 'New box', length_cm: null, width_cm: null, height_cm: null, max_kg: null, isNew: true },
+      { id: `tmp-${Date.now()}`, name: 'New box', length_cm: null, width_cm: null, height_cm: null, max_kg: null, tag: 'standard', isNew: true },
       ...prev,
     ]);
   };
@@ -51,6 +51,7 @@ export default function AdminBoxes() {
       width_cm: toNum(row.width_cm),
       height_cm: toNum(row.height_cm),
       max_kg: toNum(row.max_kg),
+      tag: row.tag || 'standard',
     };
     setSavingId(row.id);
     setMessage('');
@@ -123,6 +124,7 @@ export default function AdminBoxes() {
               <th className="px-3 py-2 text-right">W (cm)</th>
               <th className="px-3 py-2 text-right">H (cm)</th>
               <th className="px-3 py-2 text-right">Max kg</th>
+              <th className="px-3 py-2 text-right">Tag</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
@@ -172,6 +174,16 @@ export default function AdminBoxes() {
                       value={row.max_kg ?? ''}
                       onChange={(e) => updateRow(row.id, { max_kg: e.target.value })}
                     />
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <select
+                      className="w-28 border rounded px-2 py-1 text-sm"
+                      value={row.tag || 'standard'}
+                      onChange={(e) => updateRow(row.id, { tag: e.target.value })}
+                    >
+                      <option value="standard">Standard</option>
+                      <option value="dg">DG (hazardous)</option>
+                    </select>
                   </td>
                   <td className="px-3 py-2 text-right space-x-2">
                     <button

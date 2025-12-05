@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Boxes, Calculator, Save } from 'lucide-react';
+import { Boxes, Calculator, Save, ShieldAlert, Box } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '@/translations';
@@ -27,6 +27,7 @@ export default function ClientBoxEstimator() {
   const [dimsDraft, setDimsDraft] = useState({});
   const [selection, setSelection] = useState({});
   const [boxes, setBoxes] = useState(defaultBoxes);
+  const [mode, setMode] = useState('standard'); // 'standard' | 'dg'
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
@@ -55,7 +56,7 @@ export default function ClientBoxEstimator() {
       try {
         const { data: boxData, error: boxError } = await supabase
           .from('boxes')
-          .select('id, name, length_cm, width_cm, height_cm, max_kg')
+          .select('id, name, length_cm, width_cm, height_cm, max_kg, tag')
           .order('name', { ascending: true });
         if (!boxError && Array.isArray(boxData) && boxData.length) {
           setBoxes(boxData);
@@ -148,7 +149,9 @@ export default function ClientBoxEstimator() {
     }
 
     const packings = [];
-    const boxDefs = boxes;
+    const boxDefs = (boxes || []).filter((b) =>
+      mode === 'dg' ? (b.tag === 'dg') : (b.tag !== 'dg')
+    );
 
     selected.forEach((product) => {
       for (let i = 0; i < product.qty; i++) {
@@ -208,21 +211,44 @@ export default function ClientBoxEstimator() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-text-secondary flex items-center gap-1">
+          <ShieldAlert className="w-4 h-4 text-amber-600" /> Mode:
+        </span>
+        <button
+          onClick={() => setMode('standard')}
+          className={`px-3 py-1 rounded border text-xs ${mode === 'standard' ? 'bg-primary text-white border-primary' : 'border-gray-300 text-text-primary'}`}
+        >
+          Non-DG
+        </button>
+        <button
+          onClick={() => setMode('dg')}
+          className={`px-3 py-1 rounded border text-xs ${mode === 'dg' ? 'bg-amber-600 text-white border-amber-600' : 'border-gray-300 text-text-primary'}`}
+        >
+          DG
+        </button>
+      </div>
+
       <div className="border rounded-lg p-3 space-y-2">
         <div className="flex items-center gap-2">
           <Calculator className="w-4 h-4 text-primary" />
           <span className="text-sm font-semibold text-text-primary">Boxes</span>
         </div>
         <div className="grid gap-2 md:grid-cols-2">
-          {boxes.map((b) => (
-            <div key={b.id} className="grid grid-cols-5 gap-2 items-center text-xs border rounded p-2 bg-gray-50">
-              <div className="col-span-2 font-semibold text-text-primary truncate">{b.name}</div>
-              <div className="text-center">{b.length_cm}</div>
-              <div className="text-center">{b.width_cm}</div>
-              <div className="text-center">{b.height_cm}</div>
-              <div className="text-center">{b.max_kg ?? '—'} kg</div>
-            </div>
-          ))}
+          {boxes
+            .filter((b) => mode === 'dg' ? b.tag === 'dg' : b.tag !== 'dg')
+            .map((b) => (
+              <div key={b.id} className="grid grid-cols-5 gap-2 items-center text-xs border rounded p-2 bg-gray-50">
+                <div className="col-span-2 font-semibold text-text-primary truncate flex items-center gap-1">
+                  <Box className="w-3 h-3" />
+                  {b.name}
+                </div>
+                <div className="text-center">{b.length_cm}</div>
+                <div className="text-center">{b.width_cm}</div>
+                <div className="text-center">{b.height_cm}</div>
+                <div className="text-center">{b.max_kg ?? '—'} kg</div>
+              </div>
+            ))}
         </div>
       </div>
 
