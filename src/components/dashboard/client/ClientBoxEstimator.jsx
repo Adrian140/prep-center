@@ -6,7 +6,8 @@ import { useDashboardTranslation } from '@/translations';
 
 const defaultBoxes = [
   { id: 'box-60', name: 'Box 60×40×40', length_cm: 60, width_cm: 40, height_cm: 40, max_kg: 25, tag: 'standard' },
-  { id: 'box-42', name: 'Box 42×42×42', length_cm: 42, width_cm: 42, height_cm: 42, max_kg: 20, tag: 'standard' }
+  { id: 'box-42', name: 'Box 42×42×42', length_cm: 42, width_cm: 42, height_cm: 42, max_kg: 20, tag: 'standard' },
+  { id: 'box-30', name: 'Box 30×30×30', length_cm: 30, width_cm: 30, height_cm: 30, max_kg: 20, tag: 'standard' }
 ];
 
 const sortDims = (a, b) => b - a;
@@ -29,6 +30,7 @@ export default function ClientBoxEstimator() {
   const [boxes, setBoxes] = useState([]);
   const [mode, setMode] = useState('standard'); // 'standard' | 'dg'
   const [results, setResults] = useState([]);
+  const [warnings, setWarnings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
   const [message, setMessage] = useState('');
@@ -125,6 +127,16 @@ export default function ClientBoxEstimator() {
   };
 
   const runEstimate = () => {
+    const normalizedBoxes = (boxes || []).map((b) => ({
+      ...b,
+      tag: String(b.tag || '').toLowerCase().includes('dg') ? 'dg' : 'standard',
+      vol: volume(b.length_cm, b.width_cm, b.height_cm)
+    })).sort((a, b) => a.vol - b.vol);
+
+    const filteredBoxes = normalizedBoxes.filter((b) =>
+      mode === 'dg' ? b.tag === 'dg' : b.tag !== 'dg'
+    );
+
     const selected = inventory
       .filter((it) => (selection[it.id] || 0) > 0)
       .map((it) => ({
@@ -136,65 +148,103 @@ export default function ClientBoxEstimator() {
           h: Number(it.height_cm || dimsDraft[it.id]?.height_cm || 0),
           kg: Number(it.weight_kg || dimsDraft[it.id]?.weight_kg || 0)
         }
-      }));
+      }))
+      .filter((p) => p.qty > 0);
 
     const missing = selected.filter(
       (p) => !p.dims.l || !p.dims.w || !p.dims.h || !p.dims.kg
     );
-    if (missing.length) {
-      setResults([
-        { warning: `Missing dimensions/weight for ${missing.length} product(s). Please fill them.` }
-      ]);
+    const warns = [];
+    if (missing.length) warns.push(t('BoxEstimator.errorMissingDims'));
+    if (!filteredBoxes.length) warns.push(t('BoxEstimator.errorNoBoxes'));
+    setWarnings(warns);
+    if (warns.length > 0 || selected.length === 0) {
+      setResults([]);
       return;
     }
 
-    const packings = [];
-    const boxDefs = (boxes || []).filter((b) =>
-      mode === 'dg' ? (b.tag === 'dg') : (b.tag !== 'dg')
-    );
+    // First-fit decreasing, combinat SKU, de la cutii mici la mari
+    const items = [];
+    selected.forEach((p) => {
+      const vol = volume(p.dims.l, p.dims.w, p.dims.h);
+      for (let i = 0; i < p.qty; i++) {
+        items.push({
+          sku: p.sku || p.asin || p.name,
+          name: p.name,
+          dims: p.dims,
+          vol,
+          kg: p.dims.kg
+        });
+      }
+    });
+    items.sort((a, b) => b.vol - a.vol);
 
-    selected.forEach((product) => {
-      for (let i = 0; i < product.qty; i++) {
-        const candidateBox = boxDefs.find(
-          (b) =>
-            canFit(product.dims, b) &&
-            product.dims.kg <= (b.max_kg || 999)
-        );
-        if (!candidateBox) {
-          packings.push({
-            error: `Item ${product.asin || product.sku || product.name} does not fit any box.`
-          });
-          continue;
+    const boxesUsed = [];
+
+    const fitsInState = (it, def, state) => {
+      if (!canFit(it.dims, def)) return false;
+      return state.volRemaining - it.vol >= 0 && state.kgRemaining - it.kg >= 0;
+    };
+
+    const makeState = (def) => ({
+      boxType: def.id,
+      name: def.name,
+      l: def.length_cm,
+      w: def.width_cm,
+      h: def.height_cm,
+      maxKg: def.max_kg || 999,
+      volRemaining: def.vol,
+      kgRemaining: def.max_kg || 999,
+      items: []
+    });
+
+    items.forEach((it) => {
+      let placed = false;
+      // încercăm cutiile de la mic la mare
+      for (const def of filteredBoxes) {
+        // întâi cutiile existente de acest tip
+        const openBox = boxesUsed.find((b) => b.boxType === def.id && fitsInState(it, def, b));
+        if (openBox) {
+          openBox.items.push(it);
+          openBox.volRemaining -= it.vol;
+          openBox.kgRemaining -= it.kg;
+          placed = true;
+          break;
         }
-        let placed = false;
-        for (const box of packings) {
-          if (box.boxId !== candidateBox.id) continue;
-          const volRemaining = box.volumeRemaining - volume(product.dims.l, product.dims.w, product.dims.h);
-          const weightRemaining = (box.maxKg || 999) - (box.kgUsed || 0) - product.dims.kg;
-          if (volRemaining >= 0 && weightRemaining >= 0) {
-            box.items.push(product.asin || product.sku || product.name);
-            box.volumeRemaining = volRemaining;
-            box.kgUsed = (box.kgUsed || 0) + product.dims.kg;
-            placed = true;
-            break;
-          }
+        // dacă nu există, deschidem una nouă dacă încape
+        if (canFit(it.dims, def) && it.kg <= (def.max_kg || 999)) {
+          const nb = makeState(def);
+          nb.items.push(it);
+          nb.volRemaining -= it.vol;
+          nb.kgRemaining -= it.kg;
+          boxesUsed.push(nb);
+          placed = true;
+          break;
         }
-        if (!placed) {
-          packings.push({
-            boxId: candidateBox.id,
-            boxName: candidateBox.name,
-            maxKg: candidateBox.max_kg || 999,
-            kgUsed: product.dims.kg,
-            volumeRemaining:
-              volume(candidateBox.length_cm, candidateBox.width_cm, candidateBox.height_cm) -
-              volume(product.dims.l, product.dims.w, product.dims.h),
-            items: [product.asin || product.sku || product.name]
-          });
+      }
+      if (!placed) {
+        // fallback: nu ar trebui să se întâmple dacă există cutii compatibile
+        const largest = filteredBoxes[filteredBoxes.length - 1];
+        if (largest && canFit(it.dims, largest)) {
+          const nb = makeState(largest);
+          nb.items.push(it);
+          nb.volRemaining -= it.vol;
+          nb.kgRemaining -= it.kg;
+          boxesUsed.push(nb);
         }
       }
     });
 
-    setResults(packings);
+    const summaryMap = new Map();
+    boxesUsed.forEach((b) => {
+      const key = b.boxType;
+      if (!summaryMap.has(key)) {
+        summaryMap.set(key, { name: b.name, l: b.l, w: b.w, h: b.h, kg: b.maxKg, count: 0 });
+      }
+      summaryMap.get(key).count += 1;
+    });
+    const summary = Array.from(summaryMap.values()).sort((a, b) => (a.l * a.w * a.h) - (b.l * b.w * b.h));
+    setResults(summary);
   };
 
   return (
@@ -251,6 +301,21 @@ export default function ClientBoxEstimator() {
       </div>
 
       <div className="border rounded-lg p-3">
+        <h3 className="text-sm font-semibold text-text-primary mb-2">{t('BoxEstimator.summaryTitle')}</h3>
+        {results.length === 0 ? (
+          <p className="text-sm text-text-secondary">{t('BoxEstimator.summaryNone')}</p>
+        ) : (
+          <div className="space-y-1 text-sm">
+            {results.map((r, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <span className="font-semibold">{t('BoxEstimator.summaryLine', { count: r.count, name: r.name, l: r.l, w: r.w, h: r.h, kg: r.kg })}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="border rounded-lg p-3">
         <div className="flex items-center gap-2 mb-2">
           <input
             type="text"
@@ -267,6 +332,11 @@ export default function ClientBoxEstimator() {
           </button>
         </div>
 
+        {warnings.length > 0 && (
+          <div className="text-sm text-red-600 mb-2">
+            {warnings.map((w, i) => <div key={i}>• {w}</div>)}
+          </div>
+        )}
         {message && <div className="text-sm text-primary mb-2">{message}</div>}
 
         <div className="overflow-x-auto">
