@@ -392,6 +392,10 @@
         "note": "Optional column that helps stock reports include total value. Fill purchase prices only if you need it in exports.",
         "save": "Save price"
       },
+      "salesColumn": {
+        "show": "Show 30-day sales",
+        "hide": "Hide 30-day sales"
+      },
       "quickAdd": {
         "title": "Manual inventory intake",
         "subtitle": "Add placeholders manually or upload the template with EAN/ASIN, product name and optional purchase price. When Amazon syncs the listing, the quantity will update automatically.",

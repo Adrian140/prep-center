@@ -870,6 +870,10 @@ const [salesSortDirection, setSalesSortDirection] = useSessionStorage(
   `${storagePrefix}-salesSortDirection`,
   'none'
 );
+const [showSalesColumn, setShowSalesColumn] = useSessionStorage(
+  `${storagePrefix}-showSalesColumn`,
+  false
+);
 const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
   `${storagePrefix}-showPriceColumn`,
   false
@@ -2170,7 +2174,7 @@ const saveReqChanges = async () => {
               type="button"
               aria-pressed={showPriceColumn}
               onClick={() => setShowPriceColumn((prev) => !prev)}
-              className={`inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                 showPriceColumn
                   ? 'bg-primary text-white border-primary'
                   : 'text-primary border-primary hover:bg-primary/5'
@@ -2179,6 +2183,20 @@ const saveReqChanges = async () => {
               {showPriceColumn
                 ? t('ClientStock.priceColumn.hide')
                 : t('ClientStock.priceColumn.show')}
+            </button>
+            <button
+              type="button"
+              aria-pressed={showSalesColumn}
+              onClick={() => setShowSalesColumn((prev) => !prev)}
+              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                showSalesColumn
+                  ? 'bg-primary text-white border-primary'
+                  : 'text-primary border-primary hover:bg-primary/5'
+              }`}
+            >
+              {showSalesColumn
+                ? t('ClientStock.salesColumn.hide')
+                : t('ClientStock.salesColumn.show')}
             </button>
           </div>
         </div>
@@ -2321,6 +2339,7 @@ const saveReqChanges = async () => {
           </div>
         </th>
       )}
+      {showSalesColumn && (
       <th className="px-2 py-2 text-left w-40 align-top">
         <div className="flex flex-col gap-1 items-center text-center">
           <button
@@ -2357,6 +2376,7 @@ const saveReqChanges = async () => {
           </select>
         </div>
       </th>
+      )}
       <th className="px-2 py-2 text-left w-40">
         <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-pre-line text-center">
           {t('ClientStock.inventory.subtitle')}
@@ -2512,6 +2532,7 @@ const saveReqChanges = async () => {
 )}
 
           {/* 4) 30-day sales breakdown */}
+          {showSalesColumn && (
           <td className="px-2 py-2 align-top">
             {(() => {
               const key = makeSalesKey(r.asin, r.sku);
@@ -2539,6 +2560,7 @@ const saveReqChanges = async () => {
               );
             })()}
           </td>
+          )}
 
           {/* 5) Inventory breakdown */}
           <td className="px-2 py-2 align-top">
