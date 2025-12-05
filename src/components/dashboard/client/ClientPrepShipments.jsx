@@ -32,6 +32,7 @@ export default function ClientPrepShipments() {
   const [reqOpen, setReqOpen] = useState(false);
   const [reqLoading, setReqLoading] = useState(false);
   const [reqEditable, setReqEditable] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [reqHeader, setReqHeader] = useState(null);
   const [reqLines, setReqLines] = useState([]);
   const [reqErrors, setReqErrors] = useState([]);
@@ -101,6 +102,27 @@ export default function ClientPrepShipments() {
     ]);
     setReqErrors([]);
     cancelAddItem();
+  };
+
+  const handleDeleteRequest = async (requestId) => {
+    if (!requestId) return;
+    const ok = window.confirm(t('common.confirmDelete') || 'Delete this request?');
+    if (!ok) return;
+    setDeletingId(requestId);
+    try {
+      const { error } = await supabaseHelpers.deletePrepRequest(requestId);
+      if (error) throw error;
+      setRows((prev) => prev.filter((r) => r.id !== requestId));
+      if (reqHeader?.id === requestId) {
+        setReqOpen(false);
+        setReqHeader(null);
+        setReqLines([]);
+      }
+    } catch (e) {
+      setReqErrors([supportError]);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const updateReqLine = (key, patch) => {
@@ -390,7 +412,7 @@ export default function ClientPrepShipments() {
                         {status}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-right">
+                    <td className="px-4 py-2 text-right space-x-3">
                       <button
                         className="text-primary text-sm hover:underline disabled:opacity-50"
                         disabled={!row.id}
@@ -398,6 +420,15 @@ export default function ClientPrepShipments() {
                       >
                         {pending ? t('ClientPrepShipments.table.edit') : t('ClientPrepShipments.table.view')}
                       </button>
+                      {pending && (
+                        <button
+                          className="text-red-600 text-sm hover:underline disabled:opacity-50"
+                          disabled={deletingId === row.id}
+                          onClick={() => handleDeleteRequest(row.id)}
+                        >
+                          {deletingId === row.id ? t('common.deleting') || 'Deleting...' : t('common.delete') || 'Delete'}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

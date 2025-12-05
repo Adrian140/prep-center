@@ -136,6 +136,7 @@ function ClientReceiving() {
   const [editHeader, setEditHeader] = useState(null);
   const [editItems, setEditItems] = useState([]);
   const [savingEdits, setSavingEdits] = useState(false);
+  const [deletingShipment, setDeletingShipment] = useState(false);
   const [stock, setStock] = useState([]);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [inventorySearch, setInventorySearch] = useState('');
@@ -435,6 +436,28 @@ function ClientReceiving() {
     }
   };
 
+  const handleDeleteShipment = async (shipmentId) => {
+    if (!shipmentId) return;
+    const ok = window.confirm(t('confirm_delete') || 'Delete this reception?');
+    if (!ok) return;
+    setDeletingShipment(true);
+    try {
+      const { error } = await supabaseHelpers.deleteReceivingShipment(shipmentId);
+      if (error) throw error;
+      const refreshed = await loadData();
+      setSelectedShipment(null);
+      if (!refreshed.some((r) => r.id === shipmentId)) {
+        setMessage(t('delete_success') || 'Reception deleted.');
+        setMessageType('success');
+      }
+    } catch (error) {
+      setMessage(error?.message || supportError);
+      setMessageType('error');
+    } finally {
+      setDeletingShipment(false);
+    }
+  };
+
   const handleStatusSubmit = async (shipment) => {
     try {
       const confirmSend = confirm(t('confirm_send'));
@@ -570,6 +593,15 @@ function ClientReceiving() {
                 className="inline-flex items-center px-3 py-2 border rounded-lg text-primary border-primary hover:bg-primary hover:text-white"
               >
                 <Edit className="w-4 h-4 mr-2" /> {t('edit')}
+              </button>
+            )}
+            {canEdit && !editMode && (
+              <button
+                onClick={() => handleDeleteShipment(selectedShipment.id)}
+                disabled={deletingShipment}
+                className="inline-flex items-center px-3 py-2 border border-red-500 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+              >
+                {deletingShipment ? t('deleting') || 'Deleting...' : t('delete') || 'Delete'}
               </button>
             )}
             {selectedShipment.status === 'draft' && (
