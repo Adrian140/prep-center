@@ -5,8 +5,8 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '@/translations';
 
 const defaultBoxes = [
-  { id: 'box-60', name: 'Box 60×40×40', length_cm: 60, width_cm: 40, height_cm: 40, max_kg: 25 },
-  { id: 'box-42', name: 'Box 42×42×42', length_cm: 42, width_cm: 42, height_cm: 42, max_kg: 20 }
+  { id: 'box-60', name: 'Box 60×40×40', length_cm: 60, width_cm: 40, height_cm: 40, max_kg: 25, tag: 'standard' },
+  { id: 'box-42', name: 'Box 42×42×42', length_cm: 42, width_cm: 42, height_cm: 42, max_kg: 20, tag: 'standard' }
 ];
 
 const sortDims = (a, b) => b - a;
@@ -26,7 +26,7 @@ export default function ClientBoxEstimator() {
   const [search, setSearch] = useState('');
   const [dimsDraft, setDimsDraft] = useState({});
   const [selection, setSelection] = useState({});
-  const [boxes, setBoxes] = useState(defaultBoxes);
+  const [boxes, setBoxes] = useState([]);
   const [mode, setMode] = useState('standard'); // 'standard' | 'dg'
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,9 +60,9 @@ export default function ClientBoxEstimator() {
           .order('name', { ascending: true });
         if (!boxError && Array.isArray(boxData) && boxData.length) {
           setBoxes(boxData);
-        } else if (boxError) {
-          // keep default boxes if table missing/no access
-          console.warn('Boxes fetch skipped:', boxError.message);
+        } else {
+          if (boxError) console.warn('Boxes fetch skipped:', boxError.message);
+          setBoxes(defaultBoxes);
         }
       } catch (err) {
         console.warn('Boxes fetch failed:', err?.message || err);
@@ -234,19 +234,17 @@ export default function ClientBoxEstimator() {
           <Calculator className="w-4 h-4 text-primary" />
           <span className="text-sm font-semibold text-text-primary">Boxes</span>
         </div>
-        <div className="grid gap-2 md:grid-cols-2">
+        <div className="grid gap-2 md:grid-cols-3">
           {boxes
             .filter((b) => mode === 'dg' ? b.tag === 'dg' : b.tag !== 'dg')
             .map((b) => (
-              <div key={b.id} className="grid grid-cols-5 gap-2 items-center text-xs border rounded p-2 bg-gray-50">
-                <div className="col-span-2 font-semibold text-text-primary truncate flex items-center gap-1">
-                  <Box className="w-3 h-3" />
-                  {b.name}
+              <div key={b.id} className="border rounded-md p-2 flex flex-col gap-1 text-xs bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <Box className="w-3 h-3 text-primary" />
+                  <span className="font-semibold text-text-primary truncate">{b.name}</span>
                 </div>
-                <div className="text-center">{b.length_cm}</div>
-                <div className="text-center">{b.width_cm}</div>
-                <div className="text-center">{b.height_cm}</div>
-                <div className="text-center">{b.max_kg ?? '—'} kg</div>
+                <div className="text-[11px] text-text-secondary">max {b.max_kg ?? '—'} kg</div>
+                <div className="text-sm font-medium text-text-primary">{b.length_cm} × {b.width_cm} × {b.height_cm}</div>
               </div>
             ))}
         </div>
