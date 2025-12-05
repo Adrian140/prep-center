@@ -719,6 +719,12 @@
         "locked": "Request is no longer editable (status changed)."
       }
     },
+    "ClientReceiving": {
+      "delete": "Delete",
+      "deleting": "Deleting...",
+      "confirm_delete": "Delete this reception?",
+      "delete_success": "Reception deleted."
+    },
     "ClientOtherReport": {
       "title": "Other services",
       "readonly": "Read-only view of additional services.",
@@ -1461,6 +1467,12 @@
         "locked": "Cererea nu mai poate fi editată."
       }
     },
+    "ClientReceiving": {
+      "delete": "Șterge",
+      "deleting": "Se șterge...",
+      "confirm_delete": "Ștergi această recepție?",
+      "delete_success": "Recepția a fost ștearsă."
+    },
     "ClientOtherReport": {
       "title": "Servicii diverse",
       "readonly": "Vizualizare doar pentru citire a taxelor suplimentare.",
@@ -2148,6 +2160,12 @@
         "empty": "Nu există articole în această cerere.",
         "locked": "Cererea nu mai poate fi editată."
       }
+    },
+    "ClientReceiving": {
+      "delete": "Supprimer",
+      "deleting": "Suppression...",
+      "confirm_delete": "Supprimer cette réception ?",
+      "delete_success": "Réception supprimée."
     },
     "ClientOtherReport": {
       "title": "Autres services",
@@ -2837,6 +2855,12 @@
         "locked": "Anfrage kann nicht mehr bearbeitet werden."
       }
     },
+    "ClientReceiving": {
+      "delete": "Löschen",
+      "deleting": "Wird gelöscht...",
+      "confirm_delete": "Diese Wareneingangsmeldung löschen?",
+      "delete_success": "Wareneingang gelöscht."
+    },
     "ClientOtherReport": {
       "title": "Weitere Leistungen",
       "readonly": "Nur-Lese-Ansicht der zusätzlichen Leistungen.",
@@ -3525,6 +3549,12 @@
         "locked": "La richiesta non è più modificabile."
       }
     },
+    "ClientReceiving": {
+      "delete": "Elimina",
+      "deleting": "Eliminazione...",
+      "confirm_delete": "Eliminare questa ricezione?",
+      "delete_success": "Ricezione eliminata."
+    },
     "ClientOtherReport": {
       "title": "Altri servizi",
       "readonly": "Vista in sola lettura dei servizi aggiuntivi.",
@@ -4212,6 +4242,12 @@
         "empty": "No hay artículos en esta solicitud.",
         "locked": "La solicitud ya no se puede editar."
       }
+    },
+    "ClientReceiving": {
+      "delete": "Eliminar",
+      "deleting": "Eliminando...",
+      "confirm_delete": "¿Eliminar esta recepción?",
+      "delete_success": "Recepción eliminada."
     },
     "ClientOtherReport": {
       "title": "Otros servicios",
