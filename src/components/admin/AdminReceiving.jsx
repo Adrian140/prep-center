@@ -57,6 +57,47 @@ const FBA_MODE_META = {
 
 const getFbaModeMeta = (mode = 'none') => FBA_MODE_META[mode] || FBA_MODE_META.none;
 
+const computeShipmentStatus = (shipment = {}) => {
+  const baseStatus = shipment.status || 'submitted';
+  if (['cancelled', 'processed'].includes(baseStatus)) return baseStatus;
+
+  const items = Array.isArray(shipment.receiving_items) ? shipment.receiving_items : [];
+  if (items.length === 0) return baseStatus;
+
+  const getExpected = (item) =>
+    Math.max(
+      0,
+      Number(
+        item?.quantity_received ??
+          item?.units_requested ??
+          item?.qty ??
+          item?.quantity ??
+          item?.requested ??
+          0
+      ) || 0
+    );
+  const getConfirmed = (item) => {
+    const base =
+      item?.received_units != null
+        ? item.received_units
+        : item?.quantity_received != null
+        ? item.quantity_received
+        : item?.quantity ?? item?.qty ?? 0;
+    const val = Number(base);
+    return Number.isFinite(val) && val >= 0 ? val : 0;
+  };
+
+  const allReceived = items.every((item) => {
+    const expected = getExpected(item);
+    if (expected <= 0) return true;
+    return getConfirmed(item) >= expected;
+  });
+  const anyReceived = items.some((item) => getConfirmed(item) > 0);
+  if (allReceived && anyReceived) return 'received';
+  if (anyReceived) return 'partial';
+  return 'submitted';
+};
+
 function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
   const { profile } = useSupabaseAuth();
   const carrierOptions = carriers?.length ? carriers : FALLBACK_CARRIERS;
@@ -1104,9 +1145,16 @@ const loadShipments = async () => {
     const { data, error, count } = await supabaseHelpers.getAllReceivingShipments(options);
     if (error) throw error;
 
-    const sorted = (data || []).slice().sort((a, b) => {
-      const priorityA = STATUS_PRIORITY[a.status] ?? 4;
-      const priorityB = STATUS_PRIORITY[b.status] ?? 4;
+    const enriched = (data || []).map((row) => ({
+      ...row,
+      computed_status: computeShipmentStatus(row)
+    }));
+
+    const sorted = enriched.slice().sort((a, b) => {
+      const statusA = a.computed_status || a.status;
+      const statusB = b.computed_status || b.status;
+      const priorityA = STATUS_PRIORITY[statusA] ?? 4;
+      const priorityB = STATUS_PRIORITY[statusB] ?? 4;
 
       if (priorityA !== priorityB) {
         return priorityA - priorityB;
@@ -1134,15 +1182,30 @@ const loadShipments = async () => {
 const [totalCount, setTotalCount] = useState(0);
 // în AdminReceiving, înlocuiește const filteredShipments = ...
 const filteredShipments = shipments
+  .map((shipment) => ({
+    ...shipment,
+    computed_status: shipment.computed_status || computeShipmentStatus(shipment),
+  }))
   .filter((shipment) => {
     if (!searchQuery) return true;
-    const q = String(searchQuery).toLowerCase();
+    const qRaw = String(searchQuery).toLowerCase();
+    const q = qRaw.startsWith('#') ? qRaw.slice(1) : qRaw;
+    const cleanQ = q.replace(/\s+/g, '');
 
     const hasTracking = Array.isArray(shipment.tracking_ids)
-      ? shipment.tracking_ids.some((id) => String(id || '').toLowerCase().includes(q))
-      : String(shipment.tracking_id || '').toLowerCase().includes(q);
+      ? shipment.tracking_ids.some((id) => String(id || '').toLowerCase().includes(cleanQ))
+      : String(shipment.tracking_id || '').toLowerCase().includes(cleanQ);
+
+    const idLower = String(shipment.id || '').toLowerCase();
+    const idCompact = idLower.replace(/-/g, '');
+    const matchesReceptionId =
+      idLower.startsWith(cleanQ) ||
+      idCompact.startsWith(cleanQ) ||
+      idLower.includes(cleanQ) ||
+      idCompact.includes(cleanQ);
 
     return (
+      matchesReceptionId ||
       hasTracking ||
       String(shipment.client_name || '').toLowerCase().includes(q) ||
       String(shipment.user_email || '').toLowerCase().includes(q) ||
@@ -1150,8 +1213,10 @@ const filteredShipments = shipments
     );
   })
   .sort((a, b) => {
-    const pa = STATUS_PRIORITY[a.status] ?? 99;
-    const pb = STATUS_PRIORITY[b.status] ?? 99;
+    const statusA = a.computed_status || a.status;
+    const statusB = b.computed_status || b.status;
+    const pa = STATUS_PRIORITY[statusA] ?? 99;
+    const pb = STATUS_PRIORITY[statusB] ?? 99;
     if (pa !== pb) return pa - pb;
     return new Date(b.created_at || 0) - new Date(a.created_at || 0);
   });
@@ -1317,7 +1382,7 @@ const filteredShipments = shipments
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by tracking number, client, or email..."
+              placeholder="Search by reception #, tracking number, client, or email..."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-8"
             />
             {searchQuery && (
@@ -1450,7 +1515,7 @@ const filteredShipments = shipments
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <StatusPill status={shipment.status} />
+                      <StatusPill status={shipment.computed_status || shipment.status} />
                       {hasFbaIntent && (
                         <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
                           FBA
