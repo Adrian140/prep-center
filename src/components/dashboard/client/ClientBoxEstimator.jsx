@@ -163,103 +163,81 @@ export default function ClientBoxEstimator() {
       return;
     }
 
-    // Încercăm pe rând fiecare tip de cutie (de la mic la mare) să împachetăm TOT setul
-    const makeItems = () => {
-      const arr = [];
-      selected.forEach((p) => {
-        const vol = volume(p.dims.l, p.dims.w, p.dims.h);
-        for (let i = 0; i < p.qty; i++) {
-          arr.push({
-            sku: p.sku || p.asin || p.name,
-            name: p.name,
-            dims: p.dims,
-            vol,
-            kg: p.dims.kg
-          });
-        }
-      });
-      // sortăm descrescător pe volum pentru a umple mai bine
-      arr.sort((a, b) => b.vol - a.vol);
-      return arr;
-    };
-
-    const tryPackWithBox = (def) => {
-      // dacă vreun item nu încape dim/greutate singur, eșec
-      const invalid = selected.some((p) => !canFit(p.dims, def) || p.dims.kg > (def.max_kg || 999));
-      if (invalid) return null;
-
-      const boxesUsed = [];
-      const items = makeItems();
-
-      const fits = (it, state) =>
-        state.volRemaining - it.vol >= 0 &&
-        state.kgRemaining - it.kg >= 0 &&
-        canFit(it.dims, def);
-
-      const newState = () => ({
-        boxType: def.id,
-        name: def.name,
-        l: def.length_cm,
-        w: def.width_cm,
-        h: def.height_cm,
-        kg: def.max_kg || 999,
-        volRemaining: def.vol,
-        kgRemaining: def.max_kg || 999,
-        items: []
-      });
-
-      items.forEach((it) => {
-        let placed = false;
-        for (const bx of boxesUsed) {
-          if (fits(it, bx)) {
-            bx.items.push(it);
-            bx.volRemaining -= it.vol;
-            bx.kgRemaining -= it.kg;
-            placed = true;
-            break;
-          }
-        }
-        if (!placed) {
-          const bx = newState();
-          if (!fits(it, bx)) {
-            // nu ar trebui să se întâmple (deja am verificat dim/greutate), dar protejăm
-            placed = false;
-          } else {
-            bx.items.push(it);
-            bx.volRemaining -= it.vol;
-            bx.kgRemaining -= it.kg;
-            boxesUsed.push(bx);
-            placed = true;
-          }
-        }
-      });
-
-      return boxesUsed;
-    };
-
-    let chosen = null;
-    for (const def of filteredBoxes) {
-      const pack = tryPackWithBox(def);
-      if (pack && pack.length > 0) {
-        chosen = pack;
-        break;
+    const items = [];
+    selected.forEach((p) => {
+      const vol = volume(p.dims.l, p.dims.w, p.dims.h);
+      for (let i = 0; i < p.qty; i++) {
+        items.push({
+          sku: p.sku || p.asin || p.name,
+          name: p.name,
+          dims: p.dims,
+          vol,
+          kg: p.dims.kg
+        });
       }
-    }
+    });
+    items.sort((a, b) => b.vol - a.vol);
 
-    // fallback: dacă nu a reușit niciuna (ar trebui să existe totuși), ia ultima cutie
-    if (!chosen && filteredBoxes.length) {
-      const last = filteredBoxes[filteredBoxes.length - 1];
-      chosen = tryPackWithBox(last) || [];
+    const largest = filteredBoxes[filteredBoxes.length - 1];
+    const anyTooBig = items.some((it) => !canFit(it.dims, largest) || it.kg > (largest.max_kg || 999));
+    if (anyTooBig) {
+      setWarnings([t('BoxEstimator.errorNoBoxes')]);
+      setResults([]);
+      return;
     }
 
     const summaryMap = new Map();
-    (chosen || []).forEach((b) => {
-      const key = b.boxType;
+
+    const totalVol = (arr) => arr.reduce((s, it) => s + it.vol, 0);
+    const totalKg = (arr) => arr.reduce((s, it) => s + it.kg, 0);
+
+    const allFitInOne = (box, arr) => {
+      if (arr.some((it) => !canFit(it.dims, box) || it.kg > (box.max_kg || 999))) return false;
+      return totalVol(arr) <= box.vol && totalKg(arr) <= (box.max_kg || 999);
+    };
+
+    const addSummary = (box, count) => {
+      const key = box.id;
       if (!summaryMap.has(key)) {
-        summaryMap.set(key, { name: b.name, l: b.l, w: b.w, h: b.h, kg: b.kg, count: 0 });
+        summaryMap.set(key, { name: box.name, l: box.length_cm, w: box.width_cm, h: box.height_cm, kg: box.max_kg || 999, count: 0 });
       }
-      summaryMap.get(key).count += 1;
-    });
+      summaryMap.get(key).count += count;
+    };
+
+    let remaining = items;
+
+    while (remaining.length > 0) {
+      let packedAll = false;
+
+      // încearcă pe rând cutiile (de la mic la mare) să vezi dacă TOT setul încape în 1 cutie
+      for (const box of filteredBoxes) {
+        if (allFitInOne(box, remaining)) {
+          addSummary(box, 1);
+          remaining = [];
+          packedAll = true;
+          break;
+        }
+      }
+      if (packedAll) break;
+
+      // nu încape tot într-o singură cutie -> folosește cutia cea mai mare, pune cât încape și reia
+      const maxBox = largest;
+      let boxVol = maxBox.vol;
+      let boxKg = maxBox.max_kg || 999;
+      const keep = [];
+      remaining.forEach((it) => {
+        const fits = canFit(it.dims, maxBox) && it.kg <= boxKg && it.vol <= boxVol;
+        if (fits) {
+          boxVol -= it.vol;
+          boxKg -= it.kg;
+        } else {
+          keep.push(it);
+        }
+      });
+      addSummary(maxBox, 1);
+      remaining = keep;
+    }
+
     const summary = Array.from(summaryMap.values()).sort((a, b) => (a.l * a.w * a.h) - (b.l * b.w * b.h));
     setResults(summary);
   };
