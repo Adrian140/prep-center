@@ -10,6 +10,7 @@ import { PlayCircle /* ...rest */ } from 'lucide-react';
 import AdminUserGuide from './AdminUserGuide';
 import AdminAffiliates from './AdminAffiliates';
 import { supabase } from '@/config/supabase';
+import AdminBoxes from './AdminBoxes';
 import AdminPricing from './AdminPricing';
 import AdminShippingRates from './AdminShippingRates';
 import { getTabId } from '@/utils/tabIdentity';
@@ -74,7 +75,7 @@ const [activeTab, setActiveTab] = useState(() => {
   }
   const validTabs = [
     'analytics', 'profiles', 'receiving', 'prep-requests',
-    'pricing', 'reviews', 'user-guide', 'settings'
+    'pricing', 'boxes', 'reviews', 'user-guide', 'settings'
   ];
   if (initialTab && validTabs.includes(initialTab)) return initialTab;
   return validTabs.includes(saved) ? saved : 'profiles';
@@ -158,6 +159,7 @@ useEffect(() => {
     { id: 'receiving', label: t('sidebar.receiving'), icon: Truck },
     { id: 'prep-requests', label: t('sidebar.prepRequests'), icon: PackageCheck },
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
+    { id: 'boxes', label: 'Boxes', icon: Boxes },
     { id: 'reviews', label: t('sidebar.reviews'), icon: Star },
     { id: 'user-guide', label: t('sidebar.userGuide'), icon: PlayCircle },
     { id: 'affiliates', label: t('sidebar.affiliates'), icon: Users },
@@ -1290,6 +1292,7 @@ const renderTabContent = () => {
     case 'prep-requests': return <AdminPrepRequests />;
     case 'services': return renderServicesTab();
     case 'pricing': return renderPricingTab();
+    case 'boxes': return <AdminBoxes />;
     case 'reviews': return renderReviewsTab();
     case 'user-guide': return <AdminUserGuide />;
       case 'affiliates': return <AdminAffiliates />;

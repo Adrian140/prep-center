@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Boxes, Calculator, Plus, Save } from 'lucide-react';
+import { Boxes, Calculator, Save } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '@/translations';
@@ -38,19 +38,34 @@ export default function ClientBoxEstimator() {
       setLoading(true);
       const { data: companyItems } = await supabase
         .from('stock_items')
-        .select('id, name, asin, sku, qty, length_cm, width_cm, height_cm, weight_kg')
+        .select('id, name, asin, sku, qty, image_url, length_cm, width_cm, height_cm, weight_kg')
         .eq('company_id', profile.company_id)
         .order('created_at', { ascending: false })
         .limit(5000);
       const { data: userItems } = await supabase
         .from('stock_items')
-        .select('id, name, asin, sku, qty, length_cm, width_cm, height_cm, weight_kg')
+        .select('id, name, asin, sku, qty, image_url, length_cm, width_cm, height_cm, weight_kg')
         .eq('user_id', profile.id)
         .order('created_at', { ascending: false })
         .limit(5000);
       const merged = [...(companyItems || []), ...(userItems || [])].filter(Boolean);
       const deduped = Array.from(new Map(merged.map((it) => [it.id, it])).values());
       setInventory(deduped);
+      // Fetch box definitions set by admin (optional table)
+      try {
+        const { data: boxData, error: boxError } = await supabase
+          .from('boxes')
+          .select('id, name, length_cm, width_cm, height_cm, max_kg')
+          .order('name', { ascending: true });
+        if (!boxError && Array.isArray(boxData) && boxData.length) {
+          setBoxes(boxData);
+        } else if (boxError) {
+          // keep default boxes if table missing/no access
+          console.warn('Boxes fetch skipped:', boxError.message);
+        }
+      } catch (err) {
+        console.warn('Boxes fetch failed:', err?.message || err);
+      }
       setLoading(false);
     };
     load();
@@ -179,11 +194,6 @@ export default function ClientBoxEstimator() {
     setResults(packings);
   };
 
-  const addBox = () => {
-    const id = `box-${boxes.length + 1}-${Date.now()}`;
-    setBoxes((prev) => [...prev, { id, name: `Custom box ${prev.length + 1}`, length_cm: 40, width_cm: 40, height_cm: 40, max_kg: 20 }]);
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -202,58 +212,15 @@ export default function ClientBoxEstimator() {
         <div className="flex items-center gap-2">
           <Calculator className="w-4 h-4 text-primary" />
           <span className="text-sm font-semibold text-text-primary">Boxes</span>
-          <button onClick={addBox} className="text-xs px-2 py-1 border rounded hover:bg-gray-50">
-            <Plus className="w-3 h-3 inline" /> Add box
-          </button>
         </div>
         <div className="grid gap-2 md:grid-cols-2">
-          {boxes.map((b, idx) => (
-            <div key={b.id} className="grid grid-cols-5 gap-2 items-center text-xs">
-              <input
-                className="col-span-2 border rounded px-2 py-1"
-                value={b.name}
-                onChange={(e) =>
-                  setBoxes((prev) =>
-                    prev.map((box) => (box.id === b.id ? { ...box, name: e.target.value } : box))
-                  )
-                }
-              />
-              <input
-                className="border rounded px-2 py-1"
-                value={b.length_cm}
-                onChange={(e) =>
-                  setBoxes((prev) =>
-                    prev.map((box) => (box.id === b.id ? { ...box, length_cm: e.target.value } : box))
-                  )
-                }
-              />
-              <input
-                className="border rounded px-2 py-1"
-                value={b.width_cm}
-                onChange={(e) =>
-                  setBoxes((prev) =>
-                    prev.map((box) => (box.id === b.id ? { ...box, width_cm: e.target.value } : box))
-                  )
-                }
-              />
-              <input
-                className="border rounded px-2 py-1"
-                value={b.height_cm}
-                onChange={(e) =>
-                  setBoxes((prev) =>
-                    prev.map((box) => (box.id === b.id ? { ...box, height_cm: e.target.value } : box))
-                  )
-                }
-              />
-              <input
-                className="border rounded px-2 py-1"
-                value={b.max_kg}
-                onChange={(e) =>
-                  setBoxes((prev) =>
-                    prev.map((box) => (box.id === b.id ? { ...box, max_kg: e.target.value } : box))
-                  )
-                }
-              />
+          {boxes.map((b) => (
+            <div key={b.id} className="grid grid-cols-5 gap-2 items-center text-xs border rounded p-2 bg-gray-50">
+              <div className="col-span-2 font-semibold text-text-primary truncate">{b.name}</div>
+              <div className="text-center">{b.length_cm}</div>
+              <div className="text-center">{b.width_cm}</div>
+              <div className="text-center">{b.height_cm}</div>
+              <div className="text-center">{b.max_kg ?? '—'} kg</div>
             </div>
           ))}
         </div>
@@ -282,6 +249,7 @@ export default function ClientBoxEstimator() {
           <table className="min-w-full text-xs">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-2 py-2 text-left">Photo</th>
                 <th className="px-2 py-2 text-left">ASIN / SKU</th>
                 <th className="px-2 py-2 text-left">Name</th>
                 <th className="px-2 py-2 text-right">Qty</th>
@@ -302,6 +270,19 @@ export default function ClientBoxEstimator() {
                   const draft = dimsDraft[item.id] || {};
                   return (
                     <tr key={item.id} className="border-t">
+                      <td className="px-2 py-2">
+                        {item.image_url ? (
+                          <img
+                            src={item.image_url}
+                            alt={item.name || item.asin || item.sku || 'Product'}
+                            className="w-12 h-12 rounded border object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded border bg-gray-100 text-[10px] text-text-secondary flex items-center justify-center">
+                            No Img
+                          </div>
+                        )}
+                      </td>
                       <td className="px-2 py-2 font-mono">{item.asin || item.sku || '—'}</td>
                       <td className="px-2 py-2">{item.name || '—'}</td>
                       <td className="px-2 py-2 text-right">
