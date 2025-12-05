@@ -209,7 +209,7 @@ function ClientReceiving() {
 
     setLoading(true);
     try {
-      const [shipmentsRes, carriersRes, stockRes] = await Promise.all([
+      const [shipmentsRes, carriersRes, stockResCompany, stockResUser] = await Promise.all([
         supabaseHelpers.getClientReceivingShipments(profile.company_id),
         supabaseHelpers.getCarriers(),
         supabase
@@ -217,21 +217,35 @@ function ClientReceiving() {
           .select('*')
           .eq('company_id', profile.company_id)
           .order('created_at', { ascending: false })
+          .limit(5000),
+        supabase
+          .from('stock_items')
+          .select('*')
+          .eq('user_id', profile.id)
+          .order('created_at', { ascending: false })
           .limit(5000)
       ]);
 
       if (shipmentsRes.error) throw shipmentsRes.error;
       if (carriersRes.error) throw carriersRes.error;
-      if (stockRes?.error) {
-        console.error('Failed to load inventory', stockRes.error);
+      if (stockResCompany?.error) {
+        console.error('Failed to load inventory (company)', stockResCompany.error);
+      }
+      if (stockResUser?.error) {
+        console.error('Failed to load inventory (user)', stockResUser.error);
       }
 
       const nextShipments = Array.isArray(shipmentsRes.data)
         ? shipmentsRes.data.map((row) => decorateShipment(row))
         : [];
+      const companyItems = Array.isArray(stockResCompany?.data) ? stockResCompany.data : [];
+      const userItems = Array.isArray(stockResUser?.data) ? stockResUser.data : [];
+      const merged = [...companyItems, ...userItems].filter(Boolean);
+      const deduped = Array.from(new Map(merged.map((it) => [it.id, it])).values());
+
       setShipments(nextShipments);
       setCarriers(normalizeCarriers(carriersRes.data || []));
-      setStock(Array.isArray(stockRes?.data) ? stockRes.data : []);
+      setStock(deduped);
       return nextShipments;
     } catch (error) {
       setShipments([]);

@@ -403,7 +403,8 @@ const mapBoxRows = (rows = []) => {
     const fetchInventory = async () => {
       setInventoryLoading(true);
       try {
-        let results = [];
+        let companyItems = [];
+        let userItems = [];
         let errorMessage = null;
 
         if (row?.company_id) {
@@ -413,30 +414,26 @@ const mapBoxRows = (rows = []) => {
             .eq('company_id', row.company_id)
             .order('created_at', { ascending: false })
             .limit(5000);
-          if (error) {
-            errorMessage = error.message;
-          } else {
-            results = data || [];
-          }
+          if (error) errorMessage = error.message;
+          companyItems = data || [];
         }
 
-        if ((!results || results.length === 0) && row?.user_id) {
+        if (row?.user_id) {
           const { data, error } = await supabase
             .from('stock_items')
             .select(columns)
             .eq('user_id', row.user_id)
             .order('created_at', { ascending: false })
             .limit(5000);
-          if (error) {
-            errorMessage = error.message;
-          } else {
-            results = data || [];
-          }
+          if (error) errorMessage = error.message;
+          userItems = data || [];
         }
 
         if (cancelled) return;
-        setInventory(results || []);
-        if (errorMessage && (!results || results.length === 0)) {
+        const merged = [...companyItems, ...userItems].filter(Boolean);
+        const deduped = Array.from(new Map(merged.map((it) => [it.id, it])).values());
+        setInventory(deduped);
+        if (errorMessage && deduped.length === 0) {
           setFlash(errorMessage || 'Failed to load inventory.');
         }
       } catch (err) {

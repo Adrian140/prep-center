@@ -308,7 +308,7 @@ export default function ClientPrepShipments() {
 
     const load = async () => {
       setLoading(true);
-      const [prepRes, stockRes] = await Promise.all([
+      const [prepRes, stockResCompany, stockResUser] = await Promise.all([
         supabase
           .from('prep_requests')
           .select('id, destination_country, created_at, status, fba_shipment_id, prep_request_tracking(tracking_id)')
@@ -319,6 +319,12 @@ export default function ClientPrepShipments() {
           .from('stock_items')
           .select('*')
           .eq('company_id', profile.company_id)
+          .order('created_at', { ascending: false })
+          .limit(5000),
+        supabase
+          .from('stock_items')
+          .select('*')
+          .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
           .limit(5000)
       ]);
@@ -331,7 +337,11 @@ export default function ClientPrepShipments() {
         setError('');
         setRows(Array.isArray(prepRes.data) ? prepRes.data : []);
       }
-      setStock(Array.isArray(stockRes.data) ? stockRes.data : []);
+      const companyItems = Array.isArray(stockResCompany.data) ? stockResCompany.data : [];
+      const userItems = Array.isArray(stockResUser.data) ? stockResUser.data : [];
+      const merged = [...companyItems, ...userItems].filter(Boolean);
+      const deduped = Array.from(new Map(merged.map((it) => [it.id, it])).values());
+      setStock(deduped);
       setLoading(false);
     };
 
