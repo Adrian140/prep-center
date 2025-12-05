@@ -35,6 +35,7 @@ import ClientDealsPopover from './client/ClientDealsPopover';
 import ClientBalanceBar from './client/ClientBalanceBar';
 import ClientAffiliates from './client/ClientAffiliates';
 import ClientPacklink from './client/ClientPacklink';
+import ClientBoxEstimator from './client/ClientBoxEstimator';
 import { tabSessionStorage } from '@/utils/tabStorage';
 import { supabaseHelpers } from '@/config/supabase';
 import { Star, X } from 'lucide-react';
@@ -123,6 +124,7 @@ useEffect(() => {
     { id: 'returns', label: t('sidebar.returns'), icon: RotateCcw, group: 'Operations' },
     { id: 'exports', label: t('sidebar.exports'), icon: Download, group: 'Operations' },
     { id: 'packlink', label: 'Packlink', icon: Truck, group: 'Operations' },
+    { id: 'box-estimator', label: 'Box Estimator', icon: Truck, group: 'Operations' },
 
     // Account
     { id: 'profile', label: t('sidebar.profile'), icon: User, group: 'Account' },
@@ -240,6 +242,7 @@ const renderTabContent = useMemo(() => {
     case 'returns':   return <ClientReturns />;
     case 'exports':   return <ClientExports />;
     case 'packlink':  return <ClientPacklink />;
+    case 'box-estimator': return <ClientBoxEstimator />;
     case 'reports-shipments': return <ClientPrepShipments />;
     case 'reports-receiving': return <ClientReceiving />;
 
