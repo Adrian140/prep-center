@@ -61,6 +61,17 @@ async function fetchMissingImageRows(companyId, limit) {
 async function syncKeepaImages() {
   assertEnv();
 
+  try {
+    await runSync();
+  } catch (err) {
+    const message = String(err?.message || err || '');
+    console.error('[Keepa sync] Unhandled error inside run:', message);
+    writeOutputs({ processed: 0, limitReached: false });
+  }
+}
+
+async function runSync() {
+
   console.log(
     `[Keepa sync] Starting run with max ${ITEMS_PER_RUN} items (per company ${ITEMS_PER_COMPANY}).`
   );
@@ -109,6 +120,11 @@ async function syncKeepaImages() {
             `[Keepa sync] Fetching image for company=${companyId}, stock_item=${row.id}, asin=${row.asin}`
           );
           const res = await getKeepaMainImage({ asin: row.asin });
+          if (res?.error) {
+            console.warn(
+              `[Keepa sync] Keepa error for asin=${row.asin}: ${res.error}`
+            );
+          }
           image = res?.image || null;
         }
         if (!image) {
@@ -147,6 +163,8 @@ async function syncKeepaImages() {
           writeOutputs({ processed, limitReached: processed >= ITEMS_PER_RUN });
           return;
         }
+        // Pentru orice alt 5xx / HTML / Cloudflare, continuăm fără să oprim jobul.
+        continue;
       }
     }
   }

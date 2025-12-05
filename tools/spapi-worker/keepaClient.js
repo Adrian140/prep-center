@@ -184,7 +184,16 @@ export const getKeepaImages = async ({
     };
   }
 
-  const { product, tokensLeft } = await fetchProductPayload(normalizedAsin);
+  let product = null;
+  let tokensLeft = null;
+  try {
+    const res = await fetchProductPayload(normalizedAsin);
+    product = res?.product || null;
+    tokensLeft = res?.tokensLeft ?? null;
+  } catch (err) {
+    const msg = err?.message || err;
+    return { images: [], fromCache: false, tokensLeft, error: String(msg || '') };
+  }
 
   if (!product) {
     return { images: [], fromCache: false, tokensLeft };
@@ -210,7 +219,7 @@ export const getKeepaMainImage = async (options = {}) => {
   return {
     image: res.images[0] || null,
     tokensLeft: res.tokensLeft,
-    fromCache: res.fromCache
+    fromCache: res.fromCache,
+    error: res.error || null
   };
 };
-
