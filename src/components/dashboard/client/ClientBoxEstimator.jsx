@@ -163,83 +163,100 @@ export default function ClientBoxEstimator() {
       return;
     }
 
-    // First-fit decreasing, combinat SKU, de la cutii mici la mari
-    const items = [];
-    selected.forEach((p) => {
-      const vol = volume(p.dims.l, p.dims.w, p.dims.h);
-      for (let i = 0; i < p.qty; i++) {
-        items.push({
-          sku: p.sku || p.asin || p.name,
-          name: p.name,
-          dims: p.dims,
-          vol,
-          kg: p.dims.kg
-        });
-      }
-    });
-    items.sort((a, b) => b.vol - a.vol);
-
-    const boxesUsed = [];
-
-    const fitsInState = (it, def, state) => {
-      if (!canFit(it.dims, def)) return false;
-      return state.volRemaining - it.vol >= 0 && state.kgRemaining - it.kg >= 0;
+    // Încercăm pe rând fiecare tip de cutie (de la mic la mare) să împachetăm TOT setul
+    const makeItems = () => {
+      const arr = [];
+      selected.forEach((p) => {
+        const vol = volume(p.dims.l, p.dims.w, p.dims.h);
+        for (let i = 0; i < p.qty; i++) {
+          arr.push({
+            sku: p.sku || p.asin || p.name,
+            name: p.name,
+            dims: p.dims,
+            vol,
+            kg: p.dims.kg
+          });
+        }
+      });
+      // sortăm descrescător pe volum pentru a umple mai bine
+      arr.sort((a, b) => b.vol - a.vol);
+      return arr;
     };
 
-    const makeState = (def) => ({
-      boxType: def.id,
-      name: def.name,
-      l: def.length_cm,
-      w: def.width_cm,
-      h: def.height_cm,
-      maxKg: def.max_kg || 999,
-      volRemaining: def.vol,
-      kgRemaining: def.max_kg || 999,
-      items: []
-    });
+    const tryPackWithBox = (def) => {
+      // dacă vreun item nu încape dim/greutate singur, eșec
+      const invalid = selected.some((p) => !canFit(p.dims, def) || p.dims.kg > (def.max_kg || 999));
+      if (invalid) return null;
 
-    items.forEach((it) => {
-      let placed = false;
-      // încercăm cutiile de la mic la mare
-      for (const def of filteredBoxes) {
-        // întâi cutiile existente de acest tip
-        const openBox = boxesUsed.find((b) => b.boxType === def.id && fitsInState(it, def, b));
-        if (openBox) {
-          openBox.items.push(it);
-          openBox.volRemaining -= it.vol;
-          openBox.kgRemaining -= it.kg;
-          placed = true;
-          break;
+      const boxesUsed = [];
+      const items = makeItems();
+
+      const fits = (it, state) =>
+        state.volRemaining - it.vol >= 0 &&
+        state.kgRemaining - it.kg >= 0 &&
+        canFit(it.dims, def);
+
+      const newState = () => ({
+        boxType: def.id,
+        name: def.name,
+        l: def.length_cm,
+        w: def.width_cm,
+        h: def.height_cm,
+        kg: def.max_kg || 999,
+        volRemaining: def.vol,
+        kgRemaining: def.max_kg || 999,
+        items: []
+      });
+
+      items.forEach((it) => {
+        let placed = false;
+        for (const bx of boxesUsed) {
+          if (fits(it, bx)) {
+            bx.items.push(it);
+            bx.volRemaining -= it.vol;
+            bx.kgRemaining -= it.kg;
+            placed = true;
+            break;
+          }
         }
-        // dacă nu există, deschidem una nouă dacă încape
-        if (canFit(it.dims, def) && it.kg <= (def.max_kg || 999)) {
-          const nb = makeState(def);
-          nb.items.push(it);
-          nb.volRemaining -= it.vol;
-          nb.kgRemaining -= it.kg;
-          boxesUsed.push(nb);
-          placed = true;
-          break;
+        if (!placed) {
+          const bx = newState();
+          if (!fits(it, bx)) {
+            // nu ar trebui să se întâmple (deja am verificat dim/greutate), dar protejăm
+            placed = false;
+          } else {
+            bx.items.push(it);
+            bx.volRemaining -= it.vol;
+            bx.kgRemaining -= it.kg;
+            boxesUsed.push(bx);
+            placed = true;
+          }
         }
+      });
+
+      return boxesUsed;
+    };
+
+    let chosen = null;
+    for (const def of filteredBoxes) {
+      const pack = tryPackWithBox(def);
+      if (pack && pack.length > 0) {
+        chosen = pack;
+        break;
       }
-      if (!placed) {
-        // fallback: nu ar trebui să se întâmple dacă există cutii compatibile
-        const largest = filteredBoxes[filteredBoxes.length - 1];
-        if (largest && canFit(it.dims, largest)) {
-          const nb = makeState(largest);
-          nb.items.push(it);
-          nb.volRemaining -= it.vol;
-          nb.kgRemaining -= it.kg;
-          boxesUsed.push(nb);
-        }
-      }
-    });
+    }
+
+    // fallback: dacă nu a reușit niciuna (ar trebui să existe totuși), ia ultima cutie
+    if (!chosen && filteredBoxes.length) {
+      const last = filteredBoxes[filteredBoxes.length - 1];
+      chosen = tryPackWithBox(last) || [];
+    }
 
     const summaryMap = new Map();
-    boxesUsed.forEach((b) => {
+    (chosen || []).forEach((b) => {
       const key = b.boxType;
       if (!summaryMap.has(key)) {
-        summaryMap.set(key, { name: b.name, l: b.l, w: b.w, h: b.h, kg: b.maxKg, count: 0 });
+        summaryMap.set(key, { name: b.name, l: b.l, w: b.w, h: b.h, kg: b.kg, count: 0 });
       }
       summaryMap.get(key).count += 1;
     });
