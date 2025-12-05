@@ -412,7 +412,7 @@ const mapBoxRows = (rows = []) => {
             .select(columns)
             .eq('company_id', row.company_id)
             .order('created_at', { ascending: false })
-            .limit(200);
+            .limit(5000);
           if (error) {
             errorMessage = error.message;
           } else {
@@ -426,7 +426,7 @@ const mapBoxRows = (rows = []) => {
             .select(columns)
             .eq('user_id', row.user_id)
             .order('created_at', { ascending: false })
-            .limit(200);
+            .limit(5000);
           if (error) {
             errorMessage = error.message;
           } else {

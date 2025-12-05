@@ -215,8 +215,9 @@ function ClientReceiving() {
         supabase
           .from('stock_items')
           .select('*')
-          .eq('user_id', profile.id)
+          .eq('company_id', profile.company_id)
           .order('created_at', { ascending: false })
+          .limit(5000)
       ]);
 
       if (shipmentsRes.error) throw shipmentsRes.error;

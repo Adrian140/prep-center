@@ -320,6 +320,7 @@ export default function ClientPrepShipments() {
           .select('*')
           .eq('company_id', profile.company_id)
           .order('created_at', { ascending: false })
+          .limit(5000)
       ]);
 
       if (!active) return;
