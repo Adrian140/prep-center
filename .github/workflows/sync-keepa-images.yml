@@ -5,28 +5,58 @@ on:
     - cron: "0 * * * *" # every hour
   workflow_dispatch:
 
-concurrency:
-  group: sync-keepa-images
-  cancel-in-progress: false
-
 jobs:
   sync:
     timeout-minutes: 90
     runs-on: ubuntu-latest
     steps:
+      - name: Skip if a run is already in progress
+        id: skip-if-running
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const branch = context.ref.replace('refs/heads/', '');
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id: context.workflow,
+              status: 'in_progress',
+              branch,
+              per_page: 20,
+            });
+
+            const otherRun = data.workflow_runs.find(
+              (run) => run.id !== context.runId && run.run_number < context.runNumber
+            );
+
+            if (otherRun) {
+              core.info(`Another sync is running: ${otherRun.html_url}. Cancelling this run to avoid overlap.`);
+              await github.rest.actions.cancelWorkflowRun({ owner, repo, run_id: context.runId });
+              core.setOutput('cancelled', 'true');
+              return;
+            }
+
+            core.setOutput('cancelled', 'false');
+
       - name: Checkout
+        if: steps.skip-if-running.outputs.cancelled != 'true'
         uses: actions/checkout@v4
 
       - name: Setup Node.js
+        if: steps.skip-if-running.outputs.cancelled != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
       - name: Install dependencies (spapi-worker)
+        if: steps.skip-if-running.outputs.cancelled != 'true'
         working-directory: tools/spapi-worker
         run: npm ci
 
       - name: Run Keepa image sync
+        if: steps.skip-if-running.outputs.cancelled != 'true'
         working-directory: tools/spapi-worker
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
