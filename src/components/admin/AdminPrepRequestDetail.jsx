@@ -407,22 +407,25 @@ const mapBoxRows = (rows = []) => {
         let userItems = [];
         let errorMessage = null;
 
-        if (row?.company_id) {
+        const companyId = row?.company_id || row?.profiles?.company_id || null;
+        const userId = row?.user_id || row?.profiles?.id || null;
+
+        if (companyId) {
           const { data, error } = await supabase
             .from('stock_items')
             .select(columns)
-            .eq('company_id', row.company_id)
+            .eq('company_id', companyId)
             .order('created_at', { ascending: false })
             .limit(5000);
           if (error) errorMessage = error.message;
           companyItems = data || [];
         }
 
-        if (row?.user_id) {
+        if (userId) {
           const { data, error } = await supabase
             .from('stock_items')
             .select(columns)
-            .eq('user_id', row.user_id)
+            .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .limit(5000);
           if (error) errorMessage = error.message;
