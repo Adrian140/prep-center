@@ -798,7 +798,7 @@ export default function ClientStock({
   const [copyToast, setCopyToast] = useState(null);
   useEffect(() => {
     if (!toast) return;
-    const tmr = setTimeout(() => setToast(null), 6000);
+    const tmr = setTimeout(() => setToast(null), 10000);
     return () => clearTimeout(tmr);
   }, [toast]);
   const quickAddLabels = useMemo(

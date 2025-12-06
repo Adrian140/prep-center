@@ -107,8 +107,9 @@ export const useDashboardTranslation = () => {
         ? fallbackFragment
         : mergeDeep(fallbackFragment, requestedFragment);
     if (bundle === CLIENT_RECIVING_DICT) {
-      // namespace pentru ClientReceiving
-      acc.ClientReceiving = fragment;
+      // namespace pentru ClientReceiving – completăm peste textele din dashboard.json,
+      // nu le suprascriem (ca să nu pierdem chei precum "delete"/"deleting").
+      acc.ClientReceiving = mergeDeep(base.ClientReceiving || {}, fragment);
       return acc;
     }
     return { ...acc, ...fragment };
