@@ -1150,14 +1150,27 @@ function ClientReceiving() {
                           key={item.id}
                           className="py-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
                         >
-                          <div>
-                            <p className="font-semibold text-text-primary">
-                              {item.name || '—'}
-                            </p>
-                            <p className="text-xs text-text-secondary">
-                              {(item.ean || item.asin || '—')}{' '}
-                              · {t('inventory_in_stock', { qty: item.qty ?? 0 })}
-                            </p>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded border bg-gray-50 flex items-center justify-center overflow-hidden text-[9px] text-text-secondary flex-shrink-0">
+                              {item.image_url ? (
+                                <img
+                                  src={item.image_url}
+                                  alt={item.name || 'Product photo'}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                'No img'
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-text-primary">
+                                {item.name || '—'}
+                              </p>
+                              <p className="text-xs text-text-secondary">
+                                {(item.ean || item.asin || '—')}{' '}
+                                · {t('inventory_in_stock', { qty: item.qty ?? 0 })}
+                              </p>
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <input
