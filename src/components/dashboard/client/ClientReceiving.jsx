@@ -551,7 +551,9 @@ function ClientReceiving() {
         sku: stockItem.sku || null,
         purchase_price: stockItem.purchase_price ?? null,
         send_to_fba: false,
-        fba_qty: null
+        fba_qty: null,
+        image_url: stockItem.image_url ?? null,
+        stock_item: stockItem
       }
     ]);
     setInventoryDraftQty((prev) => ({ ...prev, [stockId]: '' }));
@@ -976,65 +978,37 @@ function ClientReceiving() {
                   return (
                     <tr key={item.id || idx} className={rowClasses.join(' ')}>
                       <td className="px-4 py-3">
-                        {lineEditable ? (
-                          <div className="space-y-1">
-                            <input
-                              value={item.ean_asin || ''}
-                              onChange={(e) =>
-                                setEditItems((arr) => {
-                                  const copy = [...arr];
-                                  copy[idx] = { ...copy[idx], ean_asin: e.target.value };
-                                  return copy;
-                                })
-                              }
-                              className="w-full px-2 py-1 border rounded font-mono"
-                            />
-                            <input
-                              value={item.sku || ''}
-                              onChange={(e) =>
-                                setEditItems((arr) => {
-                                  const copy = [...arr];
-                                  copy[idx] = { ...copy[idx], sku: e.target.value || null };
-                                  return copy;
-                                })
-                              }
-                              className="w-full px-2 py-1 border rounded font-mono text-xs text-text-secondary"
-                              placeholder="SKU"
-                            />
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded border bg-gray-50 flex items-center justify-center overflow-hidden text-[9px] text-text-secondary flex-shrink-0">
+                            {imageUrl ? (
+                              <img
+                                src={imageUrl}
+                                alt={item.product_name || 'Product photo'}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              'No img'
+                            )}
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded border bg-gray-50 flex items-center justify-center overflow-hidden text-[9px] text-text-secondary flex-shrink-0">
-                              {imageUrl ? (
-                                <img
-                                  src={imageUrl}
-                                  alt={item.product_name || 'Product photo'}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                'No img'
-                              )}
+                          <div className="text-[10px] text-text-secondary space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[8px] uppercase tracking-wide text-text-tertiary">
+                                ASIN
+                              </span>
+                              <span className="font-mono text-[10px] text-text-primary">
+                                {identifiers.asin}
+                              </span>
                             </div>
-                            <div className="text-[10px] text-text-secondary space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[8px] uppercase tracking-wide text-text-tertiary">
-                                  ASIN
-                                </span>
-                                <span className="font-mono text-[10px] text-text-primary">
-                                  {identifiers.asin}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[8px] uppercase tracking-wide text-text-tertiary">
-                                  SKU
-                                </span>
-                                <span className="font-mono text-[10px] text-text-primary">
-                                  {identifiers.sku}
-                                </span>
-                              </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[8px] uppercase tracking-wide text-text-tertiary">
+                                SKU
+                              </span>
+                              <span className="font-mono text-[10px] text-text-primary">
+                                {identifiers.sku}
+                              </span>
                             </div>
                           </div>
-                        )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         {item.product_name}
