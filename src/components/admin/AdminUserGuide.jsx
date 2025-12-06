@@ -11,6 +11,9 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
   const [guideMsg, setGuideMsg]   = React.useState('');
   const [existingGuides, setExistingGuides] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
+  const [videoUrl, setVideoUrl] = React.useState('');
+  const [videoMsg, setVideoMsg] = React.useState('');
+  const [videoBusy, setVideoBusy] = React.useState(false);
   const [integrationLang, setIntegrationLang] = React.useState('ro');
   const [integrationBusy, setIntegrationBusy] = React.useState(false);
   const [uploadCardKey, setUploadCardKey] = React.useState('import');
@@ -46,6 +49,26 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
  }, [section]);
 
  React.useEffect(() => { listExistingGuides(); }, [listExistingGuides, section]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabaseHelpers.getUserGuideBySection(section);
+        if (error || cancelled) return;
+        setVideoUrl(data?.video_url || '');
+        setVideoMsg('');
+      } catch {
+        if (!cancelled) {
+          setVideoUrl('');
+          setVideoMsg('');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [section]);
 
   const uploadGuide = async () => {
     if (!guideFile) { setGuideMsg('Selectează un fișier video.'); return; }
@@ -127,7 +150,7 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
         User guides (video) – {section === 'receiving' ? 'Receiving' : 'Stock'}
       </h2>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
         {/* SUB LINIA ASTA ADAUGĂ ASTA — primul col din grid */}
           <div>
@@ -181,6 +204,55 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
         {guideMsg && (
           <div className="px-4 py-2 rounded bg-gray-50 border text-sm">{guideMsg}</div>
         )}
+
+        <div className="border rounded-lg p-4 space-y-3 bg-gray-50">
+          <p className="text-sm font-medium text-text-primary">
+            Link video (YouTube sau URL direct)
+          </p>
+          <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-end">
+            <input
+              type="text"
+              placeholder="https://youtu.be/… sau https://example.com/video.mp4"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              className="flex-1 border rounded-lg px-3 py-2 text-sm"
+              disabled={videoBusy}
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                const trimmed = (videoUrl || '').trim();
+                if (!trimmed) {
+                  setVideoMsg('Introdu un link video înainte de a salva.');
+                  return;
+                }
+                setVideoBusy(true);
+                setVideoMsg('Se salvează linkul…');
+                try {
+                  const { error } = await supabaseHelpers.upsertUserGuide({
+                    section,
+                    video_url: trimmed
+                  });
+                  if (error) throw error;
+                  setVideoMsg('Link video salvat ✔️');
+                } catch (e) {
+                  setVideoMsg(`Eroare la salvare: ${e.message}`);
+                } finally {
+                  setVideoBusy(false);
+                }
+              }}
+              className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-60"
+              disabled={videoBusy}
+            >
+              Salvează link video
+            </button>
+          </div>
+          {videoMsg && (
+            <div className="px-3 py-2 rounded bg-white border text-xs text-text-secondary">
+              {videoMsg}
+            </div>
+          )}
+        </div>
 
         {existingGuides.length > 0 && (
           <div>
