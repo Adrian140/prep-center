@@ -584,7 +584,6 @@ function ClientReceiving() {
     return (
       <div className="space-y-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <HelpMenuButton />
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => {

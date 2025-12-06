@@ -11,7 +11,7 @@ export const CLIENT_RECIVING_DICT = {
     // Player titles
     guide_video: "📹 Guide vidéo",
     guide_tutorial: "📹 Tutoriel : Guide utilisateur",
-    import_instructions_pdf: "Instructions d’import (PDF)",
+    import_instructions_pdf: "Guide vidéo import",
     stock_send_to_prep_instructions_sub: "Consignes d’envoi en préparation",
   guide_download_error_prefix: "Impossible de télécharger le guide",
   direct_with_qty: "Direct (Qté : {qty})",
@@ -171,7 +171,7 @@ export const CLIENT_RECIVING_DICT = {
 
     guide_video: "📹 Video Guide",
     guide_tutorial: "📹 Tutorial: User Guide",
-    import_instructions_pdf: "Import Instructions (PDF)",
+    import_instructions_pdf: "Import video guide",
     preparation_request_guide_pdf: "Preparation request guide PDF",
     stock_send_to_prep_instructions_sub: "Send to preparation instructions",
     guide_download_error_prefix: "Can't download the guide",
@@ -314,7 +314,7 @@ export const CLIENT_RECIVING_DICT = {
 
     guide_video: "📹 Videoanleitung",
     guide_tutorial: "📹 Tutorial: Benutzerhandbuch",
-    import_instructions_pdf: "Import-Anleitung (PDF)",
+    import_instructions_pdf: "Import-Videoanleitung",
     preparation_request_guide_pdf: "Vorbereitungsanforderungsleitfaden PDF",
 
     stock_send_to_prep_instructions_sub: "Anleitung zum Vorbereitungsversand",
@@ -459,7 +459,7 @@ export const CLIENT_RECIVING_DICT = {
     or: "oppure",
     guide_video: "📹 Guida video",
     
-    import_instructions_pdf: "Istruzioni di importazione (PDF)",
+    import_instructions_pdf: "Video guida import",
     preparation_request_guide_pdf: "Guida alla richiesta di preparazione PDF",
 
     stock_send_to_prep_instructions_sub: "Istruzioni per invio a preparazione",
@@ -604,7 +604,7 @@ export const CLIENT_RECIVING_DICT = {
 
     guide_video: "📹 Guía en video",
     guide_tutorial: "📹 Tutorial: Guía de usuario",
-    import_instructions_pdf: "Instrucciones de importación (PDF)",
+    import_instructions_pdf: "Guía de vídeo de importación",
     preparation_request_guide_pdf: "Guía de solicitud de preparación PDF",
 
     stock_send_to_prep_instructions_sub: "Instrucciones para envío a preparación",
@@ -749,7 +749,7 @@ export const CLIENT_RECIVING_DICT = {
 
     guide_video: "📹 Tutorial: Ghid utilizator",
   guide_tutorial: "📹 Tutorial: Ghid utilizator",
-  import_instructions_pdf: "Instrucțiuni import (PDF)",
+  import_instructions_pdf: "Ghid video import",
   preparation_request_guide_pdf: "Ghid cerere de pregătire PDF",
 
   stock_send_to_prep_instructions_sub: "Instrucțiuni pentru trimitere la pregătire",
