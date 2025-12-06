@@ -56,14 +56,9 @@ const resolveIdentifiers = (item) => {
     cleanCode(stock.asin) ||
     (looksLikeAsin(rawEanAsin) ? rawEanAsin : '');
   const sku = cleanCode(item?.sku) || cleanCode(stock.sku);
-  const ean =
-    cleanCode(item?.ean) ||
-    cleanCode(stock.ean) ||
-    (!looksLikeAsin(rawEanAsin) && looksLikeEan(rawEanAsin) ? rawEanAsin : '');
   return {
     asin: asin || '—',
-    sku: sku || '—',
-    ean: ean || '—'
+    sku: sku || '—'
   };
 };
 
@@ -769,65 +764,7 @@ function ClientReceiving() {
               )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">
-                FBA Shipment ID(s)
-              </label>
-              {editMode ? (
-                <>
-                  {(headerState.fba_shipment_ids || ['']).map((id, index) => (
-                    <div key={index} className="flex items-center gap-2 mb-2">
-                      <input
-                        type="text"
-                        value={id}
-                        onChange={(e) => {
-                          const updated = [...(headerState.fba_shipment_ids || [])];
-                          updated[index] = e.target.value;
-                          setEditHeader((prev) => ({ ...prev, fba_shipment_ids: updated }));
-                        }}
-                        className="flex-1 px-3 py-2 border rounded-lg font-mono"
-                        placeholder="Ex: FBA15L104JZW"
-                      />
-                      {(headerState.fba_shipment_ids?.length ?? 0) > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const updated = headerState.fba_shipment_ids.filter(
-                              (_, i) => i !== index
-                            );
-                            setEditHeader((prev) => ({ ...prev, fba_shipment_ids: updated }));
-                          }}
-                          className="text-red-500 font-bold text-lg"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditHeader((prev) => ({
-                        ...prev,
-                        fba_shipment_ids: [...(prev?.fba_shipment_ids || []), '']
-                      }))
-                    }
-                    className="text-primary hover:underline text-sm"
-                  >
-                    {t('add_fba_id') || 'Add FBA Shipment ID'}
-                  </button>
-                </>
-              ) : (
-                <>
-                  {fbaValues.length === 0 && <p className="text-text-secondary">—</p>}
-                  {fbaValues.map((id, idx) => (
-                    <p key={idx} className="text-blue-600 font-mono">
-                      {id}
-                    </p>
-                  ))}
-                </>
-              )}
-            </div>
+            {/* FBA Shipment IDs hidden on Receiving page; kept only on Prep-center shipments */}
           </div>
 
           <div className="border rounded-lg p-4 md:col-span-2">
@@ -1083,34 +1020,12 @@ function ClientReceiving() {
                                   {identifiers.sku}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[8px] uppercase tracking-wide text-text-tertiary">
-                                  EAN
-                                </span>
-                                <span className="font-mono text-[10px] text-text-primary">
-                                  {identifiers.ean}
-                                </span>
-                              </div>
                             </div>
                           </div>
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {lineEditable ? (
-                          <input
-                            value={item.product_name || ''}
-                            onChange={(e) =>
-                              setEditItems((arr) => {
-                                const copy = [...arr];
-                                copy[idx] = { ...copy[idx], product_name: e.target.value };
-                                return copy;
-                              })
-                            }
-                            className="w-full px-2 py-1 border rounded"
-                          />
-                        ) : (
-                          item.product_name
-                        )}
+                        {item.product_name}
                       </td>
                     <td className="px-4 py-3 text-right">
                       {lineEditable ? (

@@ -54,6 +54,7 @@ export default function ClientPrepShipments() {
     return {
       ean: (line?.ean || st?.ean || '') || '',
       name: st?.name || line?.product_name || '',
+      image_url: st?.image_url || null,
     };
   };
 
@@ -491,6 +492,7 @@ export default function ClientPrepShipments() {
                     <table className="min-w-full text-sm">
                       <thead className="bg-gray-50 text-text-secondary">
                         <tr>
+                          <th className="px-2 py-2 text-left w-16">Photo</th>
                           <th className="px-2 py-2 text-left">{t('ClientPrepShipments.drawer.product')}</th>
                           <th className="px-2 py-2 text-left">ASIN / SKU</th>
                           <th className="px-2 py-2 text-right">{t('ClientPrepShipments.drawer.units')}</th>
@@ -512,6 +514,19 @@ export default function ClientPrepShipments() {
                           const sku = String(line.sku || '').trim();
                           return (
                             <tr key={lineKey || line.stock_item_id} className="border-t">
+                              <td className="px-2 py-2">
+                                {meta.image_url ? (
+                                  <img
+                                    src={meta.image_url}
+                                    alt={meta.name || ''}
+                                    className="w-10 h-10 rounded object-cover border"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
+                                    N/A
+                                  </div>
+                                )}
+                              </td>
                               <td className="px-2 py-2">{meta.name || '—'}</td>
                               <td className="px-2 py-2">
                                 <div className="text-xs">
@@ -619,10 +634,23 @@ export default function ClientPrepShipments() {
                       <div className="max-h-64 overflow-y-auto divide-y">
                         {filteredInventory.map((item) => (
                           <div key={item.id} className="py-2 flex items-center justify-between text-sm">
-                            <div>
-                              <div className="font-semibold text-text-primary">{item.name || '—'}</div>
-                              <div className="text-xs text-text-secondary">
-                                {item.ean || 'EAN —'} · {t('ClientPrepShipments.drawer.inStock', { qty: item.qty ?? 0 })}
+                            <div className="flex items-center gap-3">
+                              {item.image_url ? (
+                                <img
+                                  src={item.image_url}
+                                  alt={item.name || ''}
+                                  className="w-10 h-10 rounded object-cover border"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
+                                  N/A
+                                </div>
+                              )}
+                              <div>
+                                <div className="font-semibold text-text-primary">{item.name || '—'}</div>
+                                <div className="text-xs text-text-secondary">
+                                  {item.ean || 'EAN —'} · {t('ClientPrepShipments.drawer.inStock', { qty: item.qty ?? 0 })}
+                                </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">

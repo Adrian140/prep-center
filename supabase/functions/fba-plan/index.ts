@@ -16,6 +16,7 @@ const LWA_CLIENT_SECRET = Deno.env.get("SPAPI_LWA_CLIENT_SECRET") || "";
 const AWS_ACCESS_KEY_ID = Deno.env.get("AWS_ACCESS_KEY_ID") || "";
 const AWS_SECRET_ACCESS_KEY = Deno.env.get("AWS_SECRET_ACCESS_KEY") || "";
 const AWS_SESSION_TOKEN = Deno.env.get("AWS_SESSION_TOKEN") || null;
+const SPAPI_ROLE_ARN = Deno.env.get("SPAPI_ROLE_ARN") || "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -155,6 +156,53 @@ function regionHost(region: string) {
   }
 }
 
+async function assumeRole(roleArn: string) {
+  // STS is global; sign in us-east-1
+  const host = "sts.amazonaws.com";
+  const method = "POST";
+  const service = "sts";
+  const path = "/";
+  const query = "";
+  const body =
+    "Action=AssumeRole&RoleSessionName=spapi-session&Version=2011-06-15&RoleArn=" +
+    encodeURIComponent(roleArn);
+
+  const sigHeaders = await signRequest({
+    method,
+    service,
+    region: "us-east-1",
+    host,
+    path,
+    query,
+    payload: body,
+    accessKey: AWS_ACCESS_KEY_ID,
+    secretKey: AWS_SECRET_ACCESS_KEY,
+    sessionToken: AWS_SESSION_TOKEN
+  });
+
+  const res = await fetch(`https://${host}${path}`, {
+    method,
+    headers: {
+      ...sigHeaders,
+      "content-type": "application/x-www-form-urlencoded"
+    },
+    body
+  });
+  if (!res.ok) throw new Error(`STS assumeRole failed: ${res.status} ${await res.text()}`);
+  const xml = await res.text();
+  const get = (tag: string) => {
+    const m = xml.match(new RegExp(`<${tag}>([^<]+)</${tag}>`));
+    return m ? m[1] : "";
+  };
+  const accessKeyId = get("AccessKeyId");
+  const secretAccessKey = get("SecretAccessKey");
+  const sessionToken = get("SessionToken");
+  if (!accessKeyId || !secretAccessKey || !sessionToken) {
+    throw new Error("STS assumeRole missing credentials in response");
+  }
+  return { accessKeyId, secretAccessKey, sessionToken };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -170,7 +218,7 @@ serve(async (req) => {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error("Missing Supabase configuration");
     }
-    if (!LWA_CLIENT_ID || !LWA_CLIENT_SECRET || !AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
+    if (!LWA_CLIENT_ID || !LWA_CLIENT_SECRET || !AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY || !SPAPI_ROLE_ARN) {
       throw new Error("Missing SP-API environment variables");
     }
 
@@ -200,60 +248,75 @@ serve(async (req) => {
     }
 
     // Fetch amazon integration for this user/company
-    const { data: integ, error: integErr } = await supabase
+    const { data: integRows, error: integErr } = await supabase
       .from("amazon_integrations")
-      .select("refresh_token, marketplace_id, region")
+      .select("refresh_token, marketplace_id, region, updated_at")
       .eq("company_id", reqData.company_id)
       .eq("status", "active")
-      .maybeSingle();
+      .order("updated_at", { ascending: false })
+      .limit(1);
     if (integErr) throw integErr;
+    const integ = integRows?.[0];
     if (!integ?.refresh_token) {
       throw new Error("No active Amazon integration found for this company");
     }
 
     const refreshToken = integ.refresh_token;
     const marketplaceId = integ.marketplace_id || "A13V1IB3VIYZZH";
-    const region = integ.region || "eu";
-    const host = regionHost(region);
+    const regionCode = (integ.region || "eu").toLowerCase();
+    const awsRegion = regionCode === "na" ? "us-east-1" : regionCode === "fe" ? "us-west-2" : "eu-west-1";
+    const host = regionHost(regionCode);
+
+    // Get temp creds via STS AssumeRole
+    const tempCreds = await assumeRole(SPAPI_ROLE_ARN);
 
     const lwaAccessToken = await getLwaAccessToken(refreshToken);
 
-    const items: PrepRequestItem[] = Array.isArray(reqData.prep_request_items)
-      ? reqData.prep_request_items
-      : [];
+    const items: PrepRequestItem[] = (Array.isArray(reqData.prep_request_items) ? reqData.prep_request_items : []).filter(
+      (it) => Number(it.units_sent ?? it.units_requested ?? 0) > 0
+    );
     if (!items.length) {
-      throw new Error("No items in request");
+      throw new Error("No items in request with quantity > 0");
     }
 
+    // Ship-from: use destination_country for country; rest fallback defaults
+    const shipFromCountry = reqData.destination_country || "FR";
+    // Fulfillment Inbound v2024-03-20 createInboundPlan
     const planBody = {
-      ShipFromAddress: {
-        Name: "Prep Center",
-        AddressLine1: "Address",
-        City: "City",
-        CountryCode: reqData.destination_country || "FR"
+      shipFromAddress: {
+        name: "Prep Center",
+        addressLine1: "5 Rue des Enclos, Zone B, Cellule 7",
+        city: "La Gouesnière",
+        stateOrProvinceCode: "",
+        postalCode: "35350",
+        countryCode: shipFromCountry,
+        phoneNumber: "0675116218"
       },
-      InboundShipmentPlanRequestItems: items.map((it) => ({
-        SellerSKU: it.sku || "",
-        Quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0
-      })),
-      LabelPrepPreference: "SELLER_LABEL"
+      destinationMarketplaces: [marketplaceId],
+      labelPrepPreference: "SELLER_LABEL",
+      items: items.map((it) => ({
+        msku: it.sku || "",
+        quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+        prepOwner: "SELLER",
+        labelOwner: "SELLER"
+      }))
     };
 
     const payload = JSON.stringify(planBody);
-    const path = "/fba/inbound/v0/plans";
-    const query = marketplaceId ? `MarketplaceId=${encodeURIComponent(marketplaceId)}` : "";
+    const path = "/fba/inbound/2024-03-20/inboundPlans";
+    const query = "";
 
     const sigHeaders = await signRequest({
       method: "POST",
       service: "execute-api",
-      region,
+      region: awsRegion,
       host,
       path,
       query,
       payload,
-      accessKey: AWS_ACCESS_KEY_ID,
-      secretKey: AWS_SECRET_ACCESS_KEY,
-      sessionToken: AWS_SESSION_TOKEN
+      accessKey: tempCreds.accessKeyId,
+      secretKey: tempCreds.secretAccessKey,
+      sessionToken: tempCreds.sessionToken
     });
 
     const res = await fetch(`https://${host}${path}${query ? `?${query}` : ""}`, {
@@ -270,24 +333,25 @@ serve(async (req) => {
       throw new Error(`Amazon plan error ${res.status}: ${text}`);
     }
     const amazonJson = text ? JSON.parse(text) : {};
-    const plans = amazonJson?.payload?.InboundShipmentPlans || [];
+    const plans = amazonJson?.payload?.inboundPlan?.inboundShipmentPlans || amazonJson?.payload?.InboundShipmentPlans || [];
 
     // Map to UI format
     const packGroups = plans.map((p: any, idx: number) => {
-      const totalUnits = (p.Items || []).reduce((s: number, it: any) => s + (Number(it.Quantity) || 0), 0);
+      const itemsList = p.items || p.Items || [];
+      const totalUnits = itemsList.reduce((s: number, it: any) => s + (Number(it.quantity || it.Quantity) || 0), 0);
       return {
         id: p.ShipmentId || `plan-${idx + 1}`,
         title: `Pack group ${idx + 1}`,
-        skuCount: (p.Items || []).length,
+        skuCount: itemsList.length,
         units: totalUnits,
         boxes: 1,
         packMode: "single",
         warning: null,
         image: null,
-        skus: (p.Items || []).map((it: any, j: number) => ({
-          id: it.SellerSKU || `sku-${j + 1}`,
-          qty: Number(it.Quantity) || 0,
-          fnsku: it.FulfillmentNetworkSKU || null
+        skus: itemsList.map((it: any, j: number) => ({
+          id: it.msku || it.SellerSKU || `sku-${j + 1}`,
+          qty: Number(it.quantity || it.Quantity) || 0,
+          fnsku: it.fulfillmentNetworkSku || it.FulfillmentNetworkSKU || null
         }))
       };
     });
@@ -295,11 +359,11 @@ serve(async (req) => {
     const shipments = plans.map((p: any, idx: number) => ({
       id: p.ShipmentId || `shipment-${idx + 1}`,
       name: `Shipment ${p.ShipmentId || idx + 1}`,
-      destinationFc: p.DestinationFulfillmentCenterId || null,
-      items: (p.Items || []).map((it: any) => ({
-        sellerSKU: it.SellerSKU,
-        fnsku: it.FulfillmentNetworkSKU,
-        quantity: it.Quantity
+      destinationFc: p.destinationFulfillmentCenterId || p.DestinationFulfillmentCenterId || null,
+      items: (p.items || p.Items || []).map((it: any) => ({
+        sellerSKU: it.msku || it.SellerSKU,
+        fnsku: it.fulfillmentNetworkSku || it.FulfillmentNetworkSKU,
+        quantity: it.quantity || it.Quantity
       }))
     }));
 
@@ -321,7 +385,7 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error("fba-plan error", e);
-    return new Response(JSON.stringify({ error: e?.message || "Server error" }), {
+    return new Response(JSON.stringify({ error: e?.message || "Server error", detail: `${e}` }), {
       status: 500,
       headers: { ...corsHeaders, "content-type": "application/json" }
     });
