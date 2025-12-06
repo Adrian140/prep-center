@@ -491,7 +491,6 @@ export default function ClientPrepShipments() {
                     <table className="min-w-full text-sm">
                       <thead className="bg-gray-50 text-text-secondary">
                         <tr>
-                          <th className="px-2 py-2 text-left">EAN</th>
                           <th className="px-2 py-2 text-left">{t('ClientPrepShipments.drawer.product')}</th>
                           <th className="px-2 py-2 text-left">ASIN / SKU</th>
                           <th className="px-2 py-2 text-right">{t('ClientPrepShipments.drawer.units')}</th>
@@ -501,7 +500,7 @@ export default function ClientPrepShipments() {
                       <tbody>
                         {reqLines.length === 0 && (
                           <tr>
-                            <td colSpan={reqEditable ? 5 : 4} className="px-3 py-6 text-center text-text-secondary">
+                            <td colSpan={reqEditable ? 4 : 3} className="px-3 py-6 text-center text-text-secondary">
                               {t('ClientPrepShipments.drawer.empty')}
                             </td>
                           </tr>
@@ -509,21 +508,22 @@ export default function ClientPrepShipments() {
                         {reqLines.map((line) => {
                           const lineKey = line.id ?? line.client_uid;
                           const meta = getStockMeta(line);
-                          const code = String(line.asin || '').trim() || String(line.sku || '').trim() || '—';
+                          const asin = String(line.asin || '').trim();
+                          const sku = String(line.sku || '').trim();
                           return (
                             <tr key={lineKey || line.stock_item_id} className="border-t">
-                              <td className="px-2 py-2 font-mono text-xs">{meta.ean || line.ean || '—'}</td>
                               <td className="px-2 py-2">{meta.name || '—'}</td>
                               <td className="px-2 py-2">
-                                {reqEditable ? (
-                                  <input
-                                    className="border rounded px-2 py-1 w-full"
-                                    value={code}
-                                    onChange={(e) => setAsinOrSku(lineKey, e.target.value)}
-                                  />
-                                ) : (
-                                  code
-                                )}
+                                <div className="text-xs">
+                                  <div className="font-mono">
+                                    {asin || '—'}
+                                  </div>
+                                  {sku && (
+                                    <div className="font-mono text-[11px] text-text-secondary">
+                                      SKU: {sku}
+                                    </div>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-2 py-2 text-right">
                                 {reqEditable ? (
