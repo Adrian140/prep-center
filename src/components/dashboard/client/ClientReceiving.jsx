@@ -814,12 +814,24 @@ function ClientReceiving() {
                         const value = editMode
                           ? item.fba_qty ?? ''
                           : Math.max(0, Number(item.fba_qty || 0));
+                        const imgUrl = resolveImageUrl(item);
                         return (
                           <div
                             key={item.id || idx}
                             className="py-3 px-4 grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.55fr)_minmax(0,0.55fr)] items-center gap-4 border-t first:border-t-0"
                           >
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex items-center gap-3">
+                              <div className="w-10 h-10 rounded border bg-gray-50 flex items-center justify-center overflow-hidden text-[9px] text-text-secondary flex-shrink-0">
+                                {imgUrl ? (
+                                  <img
+                                    src={imgUrl}
+                                    alt={item.product_name || 'Product photo'}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  'No img'
+                                )}
+                              </div>
                               <p className="font-medium text-text-primary truncate">
                                 {item.product_name}
                               </p>
