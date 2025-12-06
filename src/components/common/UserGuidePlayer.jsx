@@ -10,9 +10,21 @@ export default function UserGuidePlayer({ section, title = 'User Guide' }) {
   useEffect(() => {
     let mounted = true;
     (async () => {
+      const resolveGuide = async (targetSection) => {
+        const result = await supabaseHelpers.getUserGuideBySection(targetSection);
+        return result?.data || null;
+      };
+
       try {
         setLoading(true);
-        const { data } = await supabaseHelpers.getUserGuideBySection(section);
+        // Încearcă mai întâi secțiunea cerută (ex. "stock").
+        // Dacă nu găsește nimic și este "stock", încearcă să folosească ghidul de "receiving"
+        // ca fallback, ca să nu fie nevoie să dublezi manual linkul.
+        let data = await resolveGuide(section);
+
+        if (!data && section === 'stock') {
+          data = await resolveGuide('receiving');
+        }
 
         if (!mounted) return;
 
