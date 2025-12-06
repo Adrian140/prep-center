@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Languages, FileDown, Plus, Edit, Trash2, Send } from 'lucide-react';
+import { Plus, Edit, Trash2, Send } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '../../../config/supabase';
 import { supabase } from '../../../config/supabase';
@@ -268,53 +268,6 @@ function ClientReceiving() {
       setInventoryDraftQty({});
     }
   }, [editMode]);
-
-  const downloadImportGuide = async (lang) => {
-    try {
-      const path = `receiving/${lang}.pdf`;
-      const { data, error } = await supabase.storage
-        .from('user_guides')
-        .createSignedUrl(path, 60);
-      if (error) throw error;
-      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
-    } catch (e) {
-      setMessage(supportError);
-      setMessageType('error');
-    }
-  };
-
-  const HelpMenuButton = () => {
-    const [open, setOpen] = useState(false);
-    return (
-      <div className="relative">
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="flex items-center px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
-        >
-          <FileDown className="w-4 h-4 mr-2" />
-          {t('import_instructions_pdf')}
-          <Languages className="w-4 h-4 ml-2 opacity-80" />
-        </button>
-
-        {open && (
-          <div className="absolute z-10 right-0 mt-2 w-44 bg-white border rounded-lg shadow-lg">
-            {GUIDE_LANGS.map((lg) => (
-              <button
-                key={lg}
-                onClick={async () => {
-                  await downloadImportGuide(lg);
-                  setOpen(false);
-                }}
-                className="w-full text-left px-3 py-2 hover:bg-gray-50"
-              >
-                {lg.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
 
   const getStatusBadge = (status) => {
     const map = {
@@ -1198,7 +1151,6 @@ function ClientReceiving() {
           <p className="text-text-secondary">{t('page_subtitle')}</p>
           <p className="text-xs text-text-light">{t('report_hint')}</p>
         </div>
-        <HelpMenuButton />
       </div>
 
       {message && (
