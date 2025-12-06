@@ -49,7 +49,7 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
 
   const uploadGuide = async () => {
     if (!guideFile) { setGuideMsg('Selectează un fișier video.'); return; }
-    if (!/^video\\//.test(guideFile.type || '')) {
+    if (!(guideFile.type || '').startsWith('video/')) {
       setGuideMsg('Te rog încarcă un fișier video (ex. .mp4).');
       return;
     }
