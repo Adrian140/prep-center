@@ -371,6 +371,12 @@
           "showLess": "show less"
         }
       },
+      "errors": {
+        "noPrepStock": "Some selected products have no Prep Center stock available: {products}"
+      },
+      "errors": {
+        "noPrepStock": "Some selected products have no Prep Center stock available: {products}"
+      },
       "countries": {
         "FR": "France",
         "DE": "Germany",
@@ -1265,6 +1271,9 @@
         "availableLabel": "Unități anunțate",
         "toAmazonLabel": "Unități către Amazon"
       },
+      "errors": {
+        "noPrepStock": "Unele produse selectate nu au stoc în Prep Center: {products}"
+      },
       "createProduct": {
         "button": "Creează produs",
         "title": "Creează produs",
@@ -2024,6 +2033,9 @@
         "availableLabel": "Unités annoncées",
         "toAmazonLabel": "Unités vers Amazon"
       },
+      "errors": {
+        "noPrepStock": "Certains produits sélectionnés n'ont pas de stock disponible au Prep Center : {products}"
+      },
       "createProduct": {
         "button": "Créer un produit",
         "title": "Créer un produit",
@@ -2717,6 +2729,9 @@
         "available": "Gemeldete Einheiten: {qty}",
         "availableLabel": "Gemeldete Einheiten",
         "toAmazonLabel": "Einheiten für Amazon"
+      },
+      "errors": {
+        "noPrepStock": "Einige ausgewählte Produkte haben keinen Bestand im Prep-Center: {products}"
       },
       "createProduct": {
         "button": "Produkt erstellen",
@@ -3412,6 +3427,9 @@
         "availableLabel": "Unità annunciate",
         "toAmazonLabel": "Unità da inviare ad Amazon"
       },
+      "errors": {
+        "noPrepStock": "Alcuni prodotti selezionati non hanno stock disponibile nel Prep Center: {products}"
+      },
       "createProduct": {
         "button": "Crea prodotto",
         "title": "Crea prodotto",
@@ -4105,6 +4123,9 @@
         "available": "Unidades anunciadas: {qty}",
         "availableLabel": "Unidades anunciadas",
         "toAmazonLabel": "Unidades para Amazon"
+      },
+      "errors": {
+        "noPrepStock": "Algunos productos seleccionados no tienen stock disponible en el Prep Center: {products}"
       },
       "createProduct": {
         "button": "Crear producto",

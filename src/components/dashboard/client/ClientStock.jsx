@@ -1885,7 +1885,7 @@ const openPrep = async () => {
   const selectedRows = rows.filter(r => selectedIds.has(r.id));
 
   if (selectedRows.length === 0) {
-    setToast({ type: 'error', text: 'Select products to send to prep.' });
+    setToast({ type: 'error', text: t('ClientStock.actions.needSelection') });
     return;
   }
 
@@ -1894,9 +1894,11 @@ const openPrep = async () => {
   if (noPrepStock.length > 0) {
     setToast({
       type: 'error',
-      text: `Some selected products have no Prep Center stock available: ${noPrepStock
-        .map(r => r.name || r.asin || r.sku || r.ean || 'Unknown')
-        .join(', ')}`,
+      text: tp('ClientStock.errors.noPrepStock', {
+        products: noPrepStock
+          .map(r => r.name || r.asin || r.sku || r.ean || 'Unknown')
+          .join(', ')
+      }),
     });
     return;
   }
