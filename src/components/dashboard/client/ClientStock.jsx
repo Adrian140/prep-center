@@ -1,8 +1,6 @@
 // FILE: src/components/dashboard/client/ClientStock.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FileDown,
-  Languages,
   Plus,
   X,
   Image as ImageIcon,
@@ -21,100 +19,13 @@ import ProductQuickAdd from '@/components/common/ProductQuickAdd';
 import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
 import ClientStockSelectionBar from './ClientStockSelectionBar';
 import { getKeepaMainImage } from '@/utils/keepaClient';
+import UserGuidePlayer from '@/components/common/UserGuidePlayer';
 
 const isBadImageUrl = (url) => {
   if (!url) return true;
   const value = String(url).toLowerCase();
   return value.includes('[object') || value.includes('object%20object') || value.endsWith('._slundefined_.jpg');
 };
-
-function HelpMenuButtonStock({ section = 'stock', t, tp }) {
-  const ALL_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
-  const [open, setOpen] = useState(false);
-  const [guidesByLang, setGuidesByLang] = useState({});
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const { data, error } = await supabase.storage
-          .from('user_guides')
-          .list(section, { limit: 100, offset: 0 });
-        if (error || !data || cancelled) return;
-        const map = {};
-        (data || []).forEach((file) => {
-          const name = file?.name || '';
-          const base = name.split('.')[0]?.toLowerCase();
-          if (!base) return;
-          if (!ALL_LANGS.includes(base)) return;
-          map[base] = name;
-        });
-        if (!cancelled) setGuidesByLang(map);
-      } catch {
-        // silent – no guides available
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [section]);
-
-  const availableLangs = Object.keys(guidesByLang);
-  if (!availableLangs.length) return null;
-
-  const downloadGuide = async (lang) => {
-    const filename = guidesByLang[lang];
-    if (!filename) return;
-    try {
-      const path = `${section}/${filename}`;
-      const { data, error } = await supabase.storage
-        .from('user_guides')
-        .createSignedUrl(path, 60);
-      if (error) throw error;
-      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
-      setOpen(false);
-    } catch (e) {
-      alert(tp('ClientStock.guides.error', { lang: lang.toUpperCase(), msg: supportError }));
-    }
-  };
-
-  return (
-    <div className="relative inline-flex">
-      <button
-        onClick={() => {
-          if (availableLangs.length === 1) {
-            downloadGuide(availableLangs[0]);
-          } else {
-            setOpen((v) => !v);
-          }
-        }}
-        className="inline-flex items-center gap-1 rounded-md border border-primary px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-primary hover:bg-primary hover:text-white transition-colors"
-      >
-        <FileDown className="w-3 h-3" />
-        {t('ClientStock.guides.button')}
-        {availableLangs.length > 1 && <Languages className="w-3 h-3 opacity-80" />}
-      </button>
-
-      {open && availableLangs.length > 1 && (
-        <div className="absolute z-10 right-0 mt-2 w-44 bg-white border rounded-lg shadow-lg">
-          {availableLangs.map((lg) => (
-            <button
-              key={lg}
-              onClick={async () => {
-                await downloadGuide(lg);
-                setOpen(false);
-              }}
-              className="w-full text-left px-3 py-2 hover:bg-gray-50"
-            >
-              {lg.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 const SALES_COUNTRIES = [
   { value: 'ALL', label: 'All' },
   { value: 'BE', label: 'Belgium' },
@@ -152,13 +63,7 @@ const DEFAULT_PER_PAGE = 50;
 const COUNTRIES = [{ code: 'FR' }, { code: 'DE' }, { code: 'IT' }, { code: 'ES' }, { code: 'RO' }];
 const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
 
-function StockGuideGrid({ t, tp }) {
-  return (
-    <div className="mt-3">
-      <HelpMenuButtonStock t={t} tp={tp} />
-    </div>
-  );
-}
+// Stock guides are now handled via the generic UserGuidePlayer component.
 
 const toNum = (v) => {
   if (v === '' || v == null) return 0;
@@ -2212,7 +2117,9 @@ const saveReqChanges = async () => {
               <Plus className="w-4 h-4" />
               {t('ClientStock.createProduct.button')}
             </button>
-            {!hideGuides && <HelpMenuButtonStock t={t} tp={tp} />}
+            {!hideGuides && (
+              <UserGuidePlayer section="stock" title={t('ClientStock.guides.button')} />
+            )}
             <button
               type="button"
               aria-pressed={showPriceColumn}
