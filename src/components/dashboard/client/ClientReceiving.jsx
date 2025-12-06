@@ -1094,26 +1094,6 @@ function ClientReceiving() {
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     onClick={() =>
-                      setEditItems((arr) => [
-                        ...arr,
-                        {
-                          id: undefined,
-                          ean_asin: '',
-                          product_name: '',
-                          quantity_received: 1,
-                          sku: null,
-                          purchase_price: null,
-                          send_to_fba: false,
-                          fba_qty: null
-                        }
-                      ])
-                    }
-                    className="flex items-center px-3 py-2 text-primary border border-primary rounded-lg hover:bg-primary hover:text-white"
-                  >
-                    <Plus className="w-4 h-4 mr-1" /> {t('add_row')}
-                  </button>
-                  <button
-                    onClick={() =>
                       setInventoryOpen((prev) => {
                         const next = !prev;
                         if (!next) {

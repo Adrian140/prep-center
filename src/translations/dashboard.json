@@ -387,7 +387,7 @@
         "UK": "United Kingdom"
       },
       "guides": {
-        "button": "Instructions",
+        "button": "Video guide",
         "error": "Cannot open guide ({lang}): {msg}"
       },
       "priceColumn": {
@@ -1199,7 +1199,7 @@
         "UK": "Regatul Unit"
       },
       "guides": {
-        "button": "Instrucțiuni",
+        "button": "Ghid video",
         "error": "Nu pot deschide ghidul ({lang}): {msg}"
       },
       "priceColumn": {
@@ -1961,7 +1961,7 @@
         "UK": "Royaume-Uni"
       },
       "guides": {
-        "button": "Instructions",
+        "button": "Guide vidéo",
         "error": "Impossible d’ouvrir le guide ({lang}) : {msg}"
       },
       "priceColumn": {
@@ -2658,7 +2658,7 @@
         "UK": "Vereinigtes Königreich"
       },
       "guides": {
-        "button": "Anleitungen",
+        "button": "Videoanleitung",
         "error": "Leitfaden kann nicht geöffnet werden ({lang}): {msg}"
       },
       "priceColumn": {
@@ -3355,7 +3355,7 @@
         "UK": "Regno Unito"
       },
       "guides": {
-        "button": "Istruzioni",
+        "button": "Guida video",
         "error": "Impossibile aprire la guida ({lang}): {msg}"
       },
       "priceColumn": {
@@ -4052,7 +4052,7 @@
         "UK": "Reino Unido"
       },
       "guides": {
-        "button": "Instrucciones",
+        "button": "Guía en vídeo",
         "error": "No se puede abrir la guía ({lang}): {msg}"
       },
       "priceColumn": {

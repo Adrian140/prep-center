@@ -34,7 +34,12 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
         .from('user_guides')
         .list(section, { limit: 100, offset: 0 });
       if (error) throw error;
-      setExistingGuides((data || []).filter(f => f?.name?.endsWith('.pdf')).map(f => f.name));
+      const allowedExt = /\.(mp4|mov|webm|m4v|avi|mkv)$/i;
+      setExistingGuides(
+        (data || [])
+          .filter((f) => allowedExt.test(f?.name || ''))
+          .map((f) => f.name)
+      );
     } catch {
       // non-blocking
     }
@@ -43,22 +48,26 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
  React.useEffect(() => { listExistingGuides(); }, [listExistingGuides, section]);
 
   const uploadGuide = async () => {
-    if (!guideFile) { setGuideMsg('Selectează un fișier PDF.'); return; }
-    if (!/\.pdf$/i.test(guideFile.name)) { setGuideMsg('Te rog încarcă un fișier .pdf.'); return; }
+    if (!guideFile) { setGuideMsg('Selectează un fișier video.'); return; }
+    if (!/^video\\//.test(guideFile.type || '')) {
+      setGuideMsg('Te rog încarcă un fișier video (ex. .mp4).');
+      return;
+    }
     setBusy(true);
     setGuideMsg('Se încarcă...');
     try {
-      const path = `${section}/${guideLang}.pdf`;
+      const ext = guideFile.name.split('.').pop()?.toLowerCase() || 'mp4';
+      const path = `${section}/${guideLang}.${ext}`;
       const { error } = await supabase
         .storage
         .from('user_guides')
         .upload(path, guideFile, {
           upsert: true,
           cacheControl: '3600',
-          contentType: 'application/pdf'
+          contentType: guideFile.type || 'video/mp4'
         });
       if (error) throw error;
-      setGuideMsg('PDF încărcat ✔️');
+      setGuideMsg('Video încărcat ✔️');
       setGuideFile(null);
       await listExistingGuides();
     } catch (e) {
@@ -80,7 +89,7 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
         .from('user_guides')
         .remove([path]);
       if (error) throw error;
-      setGuideMsg('PDF șters ✔️');
+      setGuideMsg('Video șters ✔️');
       await listExistingGuides();
     } catch (e) {
       setGuideMsg(`Eroare la ștergere: ${e.message}`);
@@ -115,7 +124,7 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
     <div className="space-y-6">
       <h2 className="text-2xl font-semibold text-text-primary flex items-center">
         <FileText className="w-5 h-5 mr-2" />
-        Import Instructions (PDF) – {section === 'receiving' ? 'Receiving' : 'Stock'}
+        User guides (video) – {section === 'receiving' ? 'Receiving' : 'Stock'}
       </h2>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
@@ -147,10 +156,10 @@ const GUIDE_LANGS = ['fr','en','de','it','es','ro'];
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">Fișier PDF</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">Fișier video</label>
             <input
               type="file"
-              accept="application/pdf"
+              accept="video/*"
               onChange={(e) => setGuideFile(e.target.files?.[0] || null)}
               className="w-full border rounded-lg px-3 py-2"
               disabled={busy}

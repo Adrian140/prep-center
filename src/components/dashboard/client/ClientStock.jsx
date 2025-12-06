@@ -29,13 +29,48 @@ const isBadImageUrl = (url) => {
 };
 
 function HelpMenuButtonStock({ section = 'stock', t, tp }) {
-  const GUIDE_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
+  const ALL_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
   const [open, setOpen] = useState(false);
+  const [guidesByLang, setGuidesByLang] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const { data, error } = await supabase.storage
+          .from('user_guides')
+          .list(section, { limit: 100, offset: 0 });
+        if (error || !data || cancelled) return;
+        const map = {};
+        (data || []).forEach((file) => {
+          const name = file?.name || '';
+          const base = name.split('.')[0]?.toLowerCase();
+          if (!base) return;
+          if (!ALL_LANGS.includes(base)) return;
+          map[base] = name;
+        });
+        if (!cancelled) setGuidesByLang(map);
+      } catch {
+        // silent – no guides available
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [section]);
+
+  const availableLangs = Object.keys(guidesByLang);
+  if (!availableLangs.length) return null;
 
   const downloadGuide = async (lang) => {
+    const filename = guidesByLang[lang];
+    if (!filename) return;
     try {
-      const path = `${section}/${lang}.pdf`;
-      const { data, error } = await supabase.storage.from('user_guides').createSignedUrl(path, 60);
+      const path = `${section}/${filename}`;
+      const { data, error } = await supabase.storage
+        .from('user_guides')
+        .createSignedUrl(path, 60);
       if (error) throw error;
       window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
       setOpen(false);
@@ -47,17 +82,23 @@ function HelpMenuButtonStock({ section = 'stock', t, tp }) {
   return (
     <div className="relative inline-flex">
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (availableLangs.length === 1) {
+            downloadGuide(availableLangs[0]);
+          } else {
+            setOpen((v) => !v);
+          }
+        }}
         className="inline-flex items-center gap-1 rounded-md border border-primary px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-primary hover:bg-primary hover:text-white transition-colors"
       >
         <FileDown className="w-3 h-3" />
         {t('ClientStock.guides.button')}
-        <Languages className="w-3 h-3 opacity-80" />
+        {availableLangs.length > 1 && <Languages className="w-3 h-3 opacity-80" />}
       </button>
 
-      {open && (
+      {open && availableLangs.length > 1 && (
         <div className="absolute z-10 right-0 mt-2 w-44 bg-white border rounded-lg shadow-lg">
-          {GUIDE_LANGS.map((lg) => (
+          {availableLangs.map((lg) => (
             <button
               key={lg}
               onClick={async () => {
