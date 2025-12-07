@@ -22,14 +22,18 @@ const ORDER_STATUSES = [
 ];
 
 const MARKETPLACE_COUNTRY = {
-  A13V1IB3VIYZZH: 'FR',
-  ATVPDKIKX0DER: 'US',
-  A1PA6795UKMFR9: 'DE',
-  A1RKKUPIHCS9HS: 'ES',
-  A1F83G8C2ARO7P: 'GB',
-  APJ6JRA9NG5V4: 'IT',
-  A21TJRUUN4KGV: 'IN',
-  A1VC38T7YXB528: 'JP'
+  A13V1IB3VIYZZH: 'FR', // France
+  ATVPDKIKX0DER: 'US', // United States
+  A1PA6795UKMFR9: 'DE', // Germany
+  A1RKKUPIHCS9HS: 'ES', // Spain
+  A1F83G8C2ARO7P: 'GB', // United Kingdom
+  APJ6JRA9NG5V4: 'IT', // Italy
+  A21TJRUUN4KGV: 'IN', // India
+  A1VC38T7YXB528: 'JP', // Japan
+  AMEN7PMS3EDWL: 'BE', // Belgium
+  A1805IZSGTT6HS: 'NL', // Netherlands
+  A2NODRKZP88ZB9: 'SE', // Sweden
+  A1C3SOZRARQ6R3: 'PL' // Poland
 };
 
 function isoDateDaysAgo(days) {
@@ -57,16 +61,33 @@ async function fetchActiveIntegrations() {
   return data || [];
 }
 
-async function listAllOrders(spClient, marketplaceId) {
+function resolveMarketplaceIds(integration) {
+  const fromEnv = process.env.SPAPI_MARKETPLACE_IDS;
+  if (fromEnv && typeof fromEnv === 'string') {
+    const list = fromEnv
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (list.length) return list;
+  }
+  // fallback: un singur marketplace, ca înainte
+  return [integration.marketplace_id || DEFAULT_MARKETPLACE];
+}
+
+async function listAllOrders(spClient, marketplaceIds) {
   const createdAfter = isoDateDaysAgo(ORDER_WINDOW_DAYS);
   const orders = [];
   let nextToken = null;
+
+  const ids = Array.isArray(marketplaceIds) && marketplaceIds.length
+    ? marketplaceIds
+    : [DEFAULT_MARKETPLACE];
 
   do {
     const baseQuery = nextToken
       ? { NextToken: nextToken }
       : {
-          MarketplaceIds: [marketplaceId || DEFAULT_MARKETPLACE],
+          MarketplaceIds: ids,
           CreatedAfter: createdAfter,
           OrderStatuses: ORDER_STATUSES,
           MaxResultsPerPage: ORDERS_PAGE_SIZE
@@ -121,15 +142,18 @@ async function listOrderItems(spClient, amazonOrderId) {
 }
 
 async function aggregateSales(spClient, integration) {
-  const orders = await listAllOrders(spClient, integration.marketplace_id || DEFAULT_MARKETPLACE);
+  const marketplaceIds = resolveMarketplaceIds(integration);
+  const orders = await listAllOrders(spClient, marketplaceIds);
   if (!orders.length) return [];
 
   const aggregates = new Map();
-  const country = mapMarketplaceToCountry(integration.marketplace_id || DEFAULT_MARKETPLACE);
 
   for (const order of orders) {
     const amazonOrderId = order.AmazonOrderId;
     if (!amazonOrderId) continue;
+
+    const marketplaceId = order.MarketplaceId || integration.marketplace_id || DEFAULT_MARKETPLACE;
+    const country = mapMarketplaceToCountry(marketplaceId);
 
     const status = String(order.OrderStatus || '').replace(/\s+/g, '').toLowerCase();
     const isCanceled = status === 'canceled';
@@ -150,8 +174,9 @@ async function aggregateSales(spClient, integration) {
 
     const items = await listOrderItems(spClient, amazonOrderId);
     for (const item of items) {
-      const key = keyFromItem(item);
-      if (!key) continue;
+      const asinSkuKey = keyFromItem(item);
+      if (!asinSkuKey) continue;
+      const key = `${asinSkuKey}::${country}`;
       const qtyOrdered = Number(item.QuantityOrdered ?? 0) || 0;
       const qtyShipped = Number(item.QuantityShipped ?? 0) || 0;
       const qtyCanceled = Number(item.QuantityCanceled ?? 0) || 0;

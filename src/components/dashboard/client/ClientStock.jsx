@@ -2501,8 +2501,8 @@ const saveReqChanges = async () => {
                   : COUNTRY_LABEL_LOOKUP[salesCountry] || salesCountry;
               return (
                 <SalesBreakdown
-                  totalUnits={summary?.countries?.ALL?.total ?? 0}
-                  globalRefund={summary?.countries?.ALL?.refund ?? 0}
+                  totalUnits={stats?.total ?? 0}
+                  globalRefund={stats?.refund ?? 0}
                   refreshedAt={summary?.refreshed_at}
                   countryLabel={countryLabel}
                   t={t}
