@@ -17,6 +17,15 @@ const MAX_KEEPA_RETRIES = Number(
 const KEEPA_RETRY_DELAY_MS = Number(
   process.env.KEEPA_RETRY_DELAY_MS || process.env.VITE_KEEPA_RETRY_DELAY_MS || 5000
 );
+const KEEPA_BACKOFF_MS = Number(
+  process.env.KEEPA_BACKOFF_MS || process.env.VITE_KEEPA_BACKOFF_MS || 60 * 60 * 1000
+);
+const MAX_KEEPA_RETRIES = Number(
+  process.env.KEEPA_MAX_RETRIES || process.env.VITE_KEEPA_MAX_RETRIES || 3
+);
+const KEEPA_RETRY_DELAY_MS = Number(
+  process.env.KEEPA_RETRY_DELAY_MS || process.env.VITE_KEEPA_RETRY_DELAY_MS || 5000
+);
 
 function assertEnv() {
   const missing = [];
@@ -53,11 +62,13 @@ async function fetchActiveCompanyIds() {
 }
 
 async function fetchMissingImageRows(companyId, limit) {
+  const nowIso = new Date().toISOString();
   const { data, error } = await supabase
     .from('stock_items')
     .select('id, asin')
     .eq('company_id', companyId)
     .is('image_url', null)
+    .or(`keepa_retry_at.is.null,keepa_retry_at.lte.${nowIso}`)
     .order('id', { ascending: true })
     .limit(limit);
   if (error) throw error;
@@ -99,6 +110,22 @@ async function fetchKeepaImageWithRetries(asin) {
     return res?.image || null;
   }
   return null;
+}
+
+async function backoffRows(companyId, rowIds) {
+  if (!rowIds.length) return;
+  const lockUntil = new Date(Date.now() + KEEPA_BACKOFF_MS).toISOString();
+  const { error } = await supabase
+    .from('stock_items')
+    .update({ keepa_retry_at: lockUntil })
+    .in('id', rowIds)
+    .eq('company_id', companyId)
+    .is('image_url', null);
+  if (error) {
+    console.warn(
+      `[Keepa sync] Failed to mark rows for backoff company=${companyId}: ${error.message}`
+    );
+  }
 }
 
 async function runSync() {
@@ -143,11 +170,13 @@ async function runSync() {
       );
 
       let fetchedImagesThisBatch = 0;
+      const attemptedRowIds = [];
 
       for (const row of rows) {
         if (processed >= ITEMS_PER_RUN || processedForCompany >= companyLimit) {
           break;
         }
+        attemptedRowIds.push(row.id);
 
         try {
           const { data: cache } = await supabase
@@ -216,12 +245,13 @@ async function runSync() {
           }
           continue;
         }
-      }
+        }
 
-      if (fetchedImagesThisBatch === 0) {
+      if (fetchedImagesThisBatch === 0 && attemptedRowIds.length) {
         console.log(
           `[Keepa sync] Company ${companyId} returned no images in this batch – skipping to next company.`
         );
+        await backoffRows(companyId, attemptedRowIds);
         skipCompany = true;
         break;
       }
