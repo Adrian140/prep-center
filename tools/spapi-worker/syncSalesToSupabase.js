@@ -290,8 +290,10 @@ async function syncIntegration(integration) {
     `Syncing 30d sales for integration ${integration.id} (company ${integration.company_id}, marketplace ${integration.marketplace_id})`
   );
 
-  // Folosim implementarea existentă bazată pe Orders API,
+  // Folosim implementarea bazată pe Orders API,
   // care agregează vânzările pe ultimele ORDER_WINDOW_DAYS.
+  const sales = await aggregateSales(spClient, integration);
+
   await supabase
     .from('amazon_integrations')
     .update({ last_error: null, last_synced_at: new Date().toISOString() })
