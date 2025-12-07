@@ -6,7 +6,6 @@ import { createSpClient } from './spapiClient.js';
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
 const ORDERS_PAGE_SIZE = 100;
 const ORDER_WINDOW_DAYS = Number(process.env.SPAPI_ORDER_WINDOW_DAYS || 30);
-const REFUND_ONLY = process.env.SYNC_REFUNDS_ONLY === 'true';
 
 // Lăsăm SP‑API să ne dea toate statusurile relevante și filtrăm noi în cod.
 // Totuși, setăm o listă explicită pentru claritate.
@@ -167,7 +166,7 @@ async function aggregateSales(spClient, integration) {
       status === 'partiallyshipped' ||
       status === 'invoiceunconfirmed';
 
-    const shouldProcessOrder = REFUND_ONLY || (!isCanceled && !isUnfulfillable);
+    const shouldProcessOrder = !isCanceled && !isUnfulfillable;
     if (!shouldProcessOrder) {
       continue;
     }
@@ -179,7 +178,6 @@ async function aggregateSales(spClient, integration) {
       const key = `${asinSkuKey}::${country}`;
       const qtyOrdered = Number(item.QuantityOrdered ?? 0) || 0;
       const qtyShipped = Number(item.QuantityShipped ?? 0) || 0;
-      const qtyCanceled = Number(item.QuantityCanceled ?? 0) || 0;
 
       if (!aggregates.has(key)) {
         aggregates.set(key, {
@@ -195,12 +193,6 @@ async function aggregateSales(spClient, integration) {
       }
 
       const agg = aggregates.get(key);
-      if (qtyCanceled > 0) {
-        agg.refund_units += qtyCanceled;
-      }
-      if (REFUND_ONLY) {
-        continue;
-      }
       if (isShippedLike) {
         agg.shipped_units += qtyOrdered || qtyShipped;
       } else if (isPendingLike) {
@@ -213,19 +205,6 @@ async function aggregateSales(spClient, integration) {
   }
 
   return Array.from(aggregates.values());
-}
-
-async function mergeRefundRows(companyId) {
-  const { data } = await supabase
-    .from('amazon_sales_30d')
-    .select('id, company_id, user_id, asin, sku, country, total_units, pending_units, shipped_units, payment_units')
-    .eq('company_id', companyId);
-  const map = new Map();
-  (data || []).forEach((row) => {
-    const key = `${row.asin || ''}::${row.sku || ''}::${row.country || ''}`;
-    map.set(key, row);
-  });
-  return map;
 }
 
 function accumulateSalesRows(map, rows) {
@@ -255,33 +234,8 @@ function accumulateSalesRows(map, rows) {
 }
 
 async function upsertSales({ rows, companyId, userId }) {
-  await supabase.from('amazon_sales_30d').delete().eq('company_id', companyId);
   if (!rows.length) return;
   const now = new Date().toISOString();
-  if (REFUND_ONLY) {
-    const existing = await mergeRefundRows(companyId);
-    for (const row of rows) {
-      const key = `${row.asin || ''}::${row.sku || ''}::${row.country || ''}`;
-      const prev = existing.get(key);
-      const payload = {
-        company_id: companyId,
-        user_id: userId,
-        asin: row.asin,
-        sku: row.sku,
-        country: row.country,
-        total_units: prev?.total_units ?? 0,
-        pending_units: prev?.pending_units ?? 0,
-        shipped_units: prev?.shipped_units ?? 0,
-        payment_units: prev?.payment_units ?? 0,
-        refund_units: row.refund_units,
-        refreshed_at: now
-      };
-      const { error } = await supabase.from('amazon_sales_30d').upsert(payload);
-      if (error) throw error;
-    }
-    return;
-  }
-
   // Curățăm valorile vechi pentru companie înainte de a scrie din nou
   await supabase.from('amazon_sales_30d').delete().eq('company_id', companyId);
   const chunkSize = 500;
