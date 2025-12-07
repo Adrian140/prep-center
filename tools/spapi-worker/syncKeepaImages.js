@@ -72,8 +72,10 @@ async function syncKeepaImages() {
 
 async function runSync() {
 
+  const companyLimitDescriptor =
+    ITEMS_PER_COMPANY > 0 ? `${ITEMS_PER_COMPANY}` : 'no explicit limit (run cap applies)';
   console.log(
-    `[Keepa sync] Starting run with max ${ITEMS_PER_RUN} items (per company ${ITEMS_PER_COMPANY}).`
+    `[Keepa sync] Starting run with max ${ITEMS_PER_RUN} items (per company ${companyLimitDescriptor}).`
   );
 
   const companyIds = await fetchActiveCompanyIds();
@@ -91,6 +93,7 @@ async function runSync() {
 
     const companyLimit =
       ITEMS_PER_COMPANY > 0 ? ITEMS_PER_COMPANY : ITEMS_PER_RUN;
+    let skipCompany = false;
 
     while (
       processed < ITEMS_PER_RUN &&
@@ -194,6 +197,7 @@ async function runSync() {
         console.log(
           `[Keepa sync] Company ${companyId} returned no images in this batch – skipping to next company.`
         );
+        skipCompany = true;
         break;
       }
 
@@ -204,6 +208,11 @@ async function runSync() {
         break;
       }
     }
+
+    if (skipCompany) {
+      continue;
+    }
+  }
   }
 
   console.log(
