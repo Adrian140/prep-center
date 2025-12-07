@@ -1218,7 +1218,10 @@ const filteredShipments = shipments
     const pa = STATUS_PRIORITY[statusA] ?? 99;
     const pb = STATUS_PRIORITY[statusB] ?? 99;
     if (pa !== pb) return pa - pb;
-    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    const dateKey = pa === 2 ? 'updated_at' : 'created_at';
+    const dateA = new Date(a[dateKey] || a.created_at || 0).getTime();
+    const dateB = new Date(b[dateKey] || b.created_at || 0).getTime();
+    return dateB - dateA;
   });
 
   const handleBulkReceived = async () => {
