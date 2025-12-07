@@ -97,7 +97,7 @@ async function runSync() {
       processedForCompany < companyLimit
     ) {
       const remainingForRun = ITEMS_PER_RUN - processed;
-      const remainingForCompany = ITEMS_PER_COMPANY - processedForCompany;
+      const remainingForCompany = companyLimit - processedForCompany;
       const batchLimit = Math.min(remainingForRun, remainingForCompany);
       if (batchLimit <= 0) break;
 
@@ -105,11 +105,13 @@ async function runSync() {
       if (!rows.length) break;
 
       console.log(
-        `[Keepa sync] Company ${companyId} – processing ${rows.length} items (run ${processed + processedForCompany}/${ITEMS_PER_RUN}, company ${processedForCompany}/${ITEMS_PER_COMPANY}).`
+        `[Keepa sync] Company ${companyId} – processing ${rows.length} items (run ${processed + processedForCompany}/${ITEMS_PER_RUN}, company ${processedForCompany}/${companyLimit}).`
       );
 
+      let fetchedImagesThisBatch = 0;
+
       for (const row of rows) {
-        if (processed >= ITEMS_PER_RUN || processedForCompany >= ITEMS_PER_COMPANY) {
+        if (processed >= ITEMS_PER_RUN || processedForCompany >= companyLimit) {
           break;
         }
 
@@ -168,6 +170,7 @@ async function runSync() {
 
           processed += 1;
           processedForCompany += 1;
+          fetchedImagesThisBatch += 1;
         } catch (err) {
           const message = String(err?.message || err || '');
           console.error(
@@ -187,9 +190,16 @@ async function runSync() {
         }
       }
 
-      if (processedForCompany >= ITEMS_PER_COMPANY) {
+      if (fetchedImagesThisBatch === 0) {
         console.log(
-          `[Keepa sync] Company ${companyId} reached per-company limit (${ITEMS_PER_COMPANY}). Moving to next company.`
+          `[Keepa sync] Company ${companyId} returned no images in this batch – skipping to next company.`
+        );
+        break;
+      }
+
+      if (processedForCompany >= companyLimit) {
+        console.log(
+          `[Keepa sync] Company ${companyId} reached per-company limit (${companyLimit}). Moving to next company.`
         );
         break;
       }
