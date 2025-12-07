@@ -11,6 +11,12 @@ const ITEMS_PER_COMPANY = Number(
     process.env.VITE_KEEPA_ITEMS_PER_COMPANY ||
     0
 );
+const MAX_KEEPA_RETRIES = Number(
+  process.env.KEEPA_MAX_RETRIES || process.env.VITE_KEEPA_MAX_RETRIES || 3
+);
+const KEEPA_RETRY_DELAY_MS = Number(
+  process.env.KEEPA_RETRY_DELAY_MS || process.env.VITE_KEEPA_RETRY_DELAY_MS || 5000
+);
 
 function assertEnv() {
   const missing = [];
@@ -68,6 +74,31 @@ async function syncKeepaImages() {
     console.error('[Keepa sync] Unhandled error inside run:', message);
     writeOutputs({ processed: 0, limitReached: false });
   }
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function fetchKeepaImageWithRetries(asin) {
+  let attempts = 0;
+  while (attempts <= MAX_KEEPA_RETRIES) {
+    const res = await getKeepaMainImage({ asin });
+    if (res?.error) {
+      console.warn(`[Keepa sync] Keepa error for asin=${asin}: ${res.error}`);
+      if (/keepa api error \(429\)/i.test(res.error)) {
+        attempts += 1;
+        if (attempts > MAX_KEEPA_RETRIES) {
+          return null;
+        }
+        console.warn(
+          `[Keepa sync] Rate limited for asin=${asin}, waiting ${KEEPA_RETRY_DELAY_MS}ms (attempt ${attempts}/${MAX_KEEPA_RETRIES}).`
+        );
+        await sleep(KEEPA_RETRY_DELAY_MS);
+        continue;
+      }
+    }
+    return res?.image || null;
+  }
+  return null;
 }
 
 async function runSync() {
@@ -136,13 +167,7 @@ async function runSync() {
             console.log(
               `[Keepa sync] Fetching image for company=${companyId}, stock_item=${row.id}, asin=${row.asin}`
             );
-            const res = await getKeepaMainImage({ asin: row.asin });
-            if (res?.error) {
-              console.warn(
-                `[Keepa sync] Keepa error for asin=${row.asin}: ${res.error}`
-              );
-            }
-            image = res?.image || null;
+            image = await fetchKeepaImageWithRetries(row.asin);
           }
           if (!image) {
             console.log(
