@@ -9,7 +9,7 @@ const ITEMS_PER_RUN = Number(
 const ITEMS_PER_COMPANY = Number(
   process.env.KEEPA_ITEMS_PER_COMPANY ||
     process.env.VITE_KEEPA_ITEMS_PER_COMPANY ||
-    10
+    0
 );
 
 function assertEnv() {
@@ -89,9 +89,12 @@ async function runSync() {
     if (processed >= ITEMS_PER_RUN) break;
     let processedForCompany = 0;
 
+    const companyLimit =
+      ITEMS_PER_COMPANY > 0 ? ITEMS_PER_COMPANY : ITEMS_PER_RUN;
+
     while (
       processed < ITEMS_PER_RUN &&
-      processedForCompany < ITEMS_PER_COMPANY
+      processedForCompany < companyLimit
     ) {
       const remainingForRun = ITEMS_PER_RUN - processed;
       const remainingForCompany = ITEMS_PER_COMPANY - processedForCompany;
