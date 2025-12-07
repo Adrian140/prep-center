@@ -213,7 +213,6 @@ async function runSync() {
       continue;
     }
   }
-  }
 
   console.log(
     `[Keepa sync] Completed run. Images updated for ${processed} stock items.`
