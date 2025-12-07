@@ -87,84 +87,108 @@ async function runSync() {
 
   for (const companyId of companyIds) {
     if (processed >= ITEMS_PER_RUN) break;
+    let processedForCompany = 0;
 
-    const remainingBudget = ITEMS_PER_RUN - processed;
-    const perCompanyLimit = Math.min(ITEMS_PER_COMPANY, remainingBudget);
-    if (perCompanyLimit <= 0) break;
+    while (
+      processed < ITEMS_PER_RUN &&
+      processedForCompany < ITEMS_PER_COMPANY
+    ) {
+      const remainingForRun = ITEMS_PER_RUN - processed;
+      const remainingForCompany = ITEMS_PER_COMPANY - processedForCompany;
+      const batchLimit = Math.min(remainingForRun, remainingForCompany);
+      if (batchLimit <= 0) break;
 
-    const rows = await fetchMissingImageRows(companyId, perCompanyLimit);
-    if (!rows.length) continue;
+      const rows = await fetchMissingImageRows(companyId, batchLimit);
+      if (!rows.length) break;
 
-    console.log(
-      `[Keepa sync] Company ${companyId} – processing up to ${rows.length} items.`
-    );
+      console.log(
+        `[Keepa sync] Company ${companyId} – processing ${rows.length} items (run ${processed + processedForCompany}/${ITEMS_PER_RUN}, company ${processedForCompany}/${ITEMS_PER_COMPANY}).`
+      );
 
-    for (const row of rows) {
-      if (processed >= ITEMS_PER_RUN) break;
-
-      try {
-        // Înainte să chemăm Keepa, încercăm cache-ul central asin_assets
-        const { data: cache } = await supabase
-          .from('asin_assets')
-          .select('image_urls')
-          .eq('asin', row.asin)
-          .maybeSingle();
-        let imageFromCache = null;
-        const urls = cache?.image_urls;
-        if (Array.isArray(urls) && urls.length) {
-          imageFromCache = urls.find((u) => typeof u === 'string' && u.trim().length > 0) || null;
+      for (const row of rows) {
+        if (processed >= ITEMS_PER_RUN || processedForCompany >= ITEMS_PER_COMPANY) {
+          break;
         }
-        let image = imageFromCache;
-        if (!image) {
-          console.log(
-            `[Keepa sync] Fetching image for company=${companyId}, stock_item=${row.id}, asin=${row.asin}`
-          );
-          const res = await getKeepaMainImage({ asin: row.asin });
-          if (res?.error) {
+
+        try {
+          const { data: cache } = await supabase
+            .from('asin_assets')
+            .select('image_urls')
+            .eq('asin', row.asin)
+            .maybeSingle();
+          let imageFromCache = null;
+          const urls = cache?.image_urls;
+          if (Array.isArray(urls) && urls.length) {
+            imageFromCache =
+              urls.find((u) => typeof u === 'string' && u.trim().length > 0) ||
+              null;
+          }
+          let image = imageFromCache;
+          if (!image) {
+            console.log(
+              `[Keepa sync] Fetching image for company=${companyId}, stock_item=${row.id}, asin=${row.asin}`
+            );
+            const res = await getKeepaMainImage({ asin: row.asin });
+            if (res?.error) {
+              console.warn(
+                `[Keepa sync] Keepa error for asin=${row.asin}: ${res.error}`
+              );
+            }
+            image = res?.image || null;
+          }
+          if (!image) {
+            console.log(
+              `[Keepa sync] No image returned for asin=${row.asin}, skipping.`
+            );
+            continue;
+          }
+
+          const { error: updateError } = await supabase
+            .from('stock_items')
+            .update({ image_url: image })
+            .eq('id', row.id);
+          if (updateError) throw updateError;
+
+          const { error: cacheError } = await supabase
+            .from('asin_assets')
+            .upsert({
+              asin: row.asin,
+              image_urls: [image],
+              source: 'keepa',
+              fetched_at: new Date().toISOString()
+            });
+          if (cacheError) {
             console.warn(
-              `[Keepa sync] Keepa error for asin=${row.asin}: ${res.error}`
+              `[Keepa sync] Cache upsert failed for asin=${row.asin}: ${cacheError.message}`
             );
           }
-          image = res?.image || null;
-        }
-        if (!image) {
-          console.log(`[Keepa sync] No image returned for asin=${row.asin}, skipping.`);
+
+          processed += 1;
+          processedForCompany += 1;
+        } catch (err) {
+          const message = String(err?.message || err || '');
+          console.error(
+            `[Keepa sync] Failed for company=${companyId}, stock_item=${row.id}, asin=${row.asin}: ${message}`
+          );
+          if (
+            /tokens? low/i.test(message) ||
+            /keepa api error \(429\)/i.test(message)
+          ) {
+            console.warn(
+              '[Keepa sync] Keepa tokens low or rate limited (429) – stopping sync run early.'
+            );
+            writeOutputs({ processed, limitReached: processed >= ITEMS_PER_RUN });
+            return;
+          }
           continue;
         }
+      }
 
-        const { error: updateError } = await supabase
-          .from('stock_items')
-          .update({ image_url: image })
-          .eq('id', row.id);
-        if (updateError) throw updateError;
-        // Upsert în cache pentru reutilizare imediată
-        const { error: cacheError } = await supabase
-          .from('asin_assets')
-          .upsert({
-            asin: row.asin,
-            image_urls: [image],
-            source: 'keepa',
-            fetched_at: new Date().toISOString()
-          });
-        if (cacheError) {
-          console.warn(`[Keepa sync] Cache upsert failed for asin=${row.asin}: ${cacheError.message}`);
-        }
-
-        processed += 1;
-      } catch (err) {
-        const message = String(err?.message || err || '');
-        console.error(
-          `[Keepa sync] Failed for company=${companyId}, stock_item=${row.id}, asin=${row.asin}: ${message}`
+      if (processedForCompany >= ITEMS_PER_COMPANY) {
+        console.log(
+          `[Keepa sync] Company ${companyId} reached per-company limit (${ITEMS_PER_COMPANY}). Moving to next company.`
         );
-        if (/tokens? low/i.test(message) || /keepa api error \(429\)/i.test(message)) {
-          console.warn(
-            '[Keepa sync] Keepa tokens low or rate limited (429) – stopping sync run early.'
-          );
-          writeOutputs({ processed, limitReached: processed >= ITEMS_PER_RUN });
-          return;
-        }
-        // Pentru orice alt 5xx / HTML / Cloudflare, continuăm fără să oprim jobul.
-        continue;
+        break;
       }
     }
   }
