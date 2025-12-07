@@ -843,7 +843,7 @@ const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
   );
   const [sortMode, setSortMode] = useSessionStorage(
     `${storagePrefix}-sortMode`,
-    'amazon'
+    'prep'
   );
 
   const [selectedIdList, setSelectedIdList] = useSessionStorage(
@@ -864,6 +864,16 @@ const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
     },
     [setSelectedIdList]
   );
+
+  const sortModeInitializedRef = useRef(false);
+  useEffect(() => {
+    if (!sortModeInitializedRef.current) {
+      sortModeInitializedRef.current = true;
+      if (sortMode !== 'prep') {
+        setSortMode('prep');
+      }
+    }
+  }, [setSortMode, sortMode]);
 
   const [page, setPage] = useSessionStorage(`${storagePrefix}-page`, 1);
   const [perPage, setPerPage] = useSessionStorage(
@@ -2185,6 +2195,7 @@ const saveReqChanges = async () => {
           <button
             onClick={() => {
               setSortMode('prep');
+              setSalesSortDirection('none');
               setPage(1);
             }}
             className={`px-3 py-1 rounded border ${
@@ -2198,6 +2209,7 @@ const saveReqChanges = async () => {
           <button
             onClick={() => {
               setSortMode('amazon');
+              setSalesSortDirection('none');
               setPage(1);
             }}
             className={`px-3 py-1 rounded border ${
