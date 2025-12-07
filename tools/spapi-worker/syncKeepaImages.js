@@ -11,12 +11,6 @@ const ITEMS_PER_COMPANY = Number(
     process.env.VITE_KEEPA_ITEMS_PER_COMPANY ||
     0
 );
-const MAX_KEEPA_RETRIES = Number(
-  process.env.KEEPA_MAX_RETRIES || process.env.VITE_KEEPA_MAX_RETRIES || 3
-);
-const KEEPA_RETRY_DELAY_MS = Number(
-  process.env.KEEPA_RETRY_DELAY_MS || process.env.VITE_KEEPA_RETRY_DELAY_MS || 5000
-);
 const KEEPA_BACKOFF_MS = Number(
   process.env.KEEPA_BACKOFF_MS || process.env.VITE_KEEPA_BACKOFF_MS || 60 * 60 * 1000
 );
