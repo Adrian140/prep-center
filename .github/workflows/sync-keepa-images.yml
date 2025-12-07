@@ -5,10 +5,6 @@ concurrency:
   cancel-in-progress: false
 
 on:
-  schedule:
-    # Rulează la fiecare 90 minute: 00:00, 01:30, 03:00, 04:30 etc.
-    - cron: "0 */3 * * *"
-    - cron: "30 1-23/3 * * *"
   workflow_dispatch:
 
 jobs:
@@ -47,14 +43,15 @@ jobs:
           KEEPA_ITEMS_PER_COMPANY: ${{ secrets.KEEPA_ITEMS_PER_COMPANY || '20' }}
         run: npm run sync-keepa-images
 
-      - name: Așteaptă 5 minute și pornește următorul run dacă am atins limita
-        if: steps.keepa.outputs.limit_reached == 'true'
+      - name: Wait 5 minutes and restart
+        if: ${{ always() }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const core = require('@actions/core');
             const waitMs = 5 * 60 * 1000;
-            core.info(`Limită atinsă – aștept ${waitMs / 1000}s înainte să pornesc următorul run.`);
+            core.info(`Aștept ${waitMs / 1000}s înainte să pornesc următorul run.`);
             await new Promise((resolve) => setTimeout(resolve, waitMs));
 
             const { owner, repo } = context.repo;

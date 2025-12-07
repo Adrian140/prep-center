@@ -1,8 +1,6 @@
 name: Sync Amazon Listings ES (ASIN/SKU+Titlu)
 
 on:
-  schedule:
-    - cron: "0 * * * *" # every hour
   workflow_dispatch:
 
 concurrency:
@@ -41,3 +39,13 @@ jobs:
           SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
           SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN: ${{ secrets.SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN || '20' }}
         run: npm run sync-products
+
+      - name: Pause and relaunch
+        if: ${{ always() }}
+        run: |
+          sleep 300
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/Adrian140/prep-center/actions/workflows/sync-amazon-listings-es.yml/dispatches \
+            -d '{"ref":"main"}'

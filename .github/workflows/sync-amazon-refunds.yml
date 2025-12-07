@@ -1,8 +1,6 @@
 name: Sync Amazon Refunds
 
 on:
-  schedule:
-    - cron: "0 */6 * * *" # every 6 hours
   workflow_dispatch:
 
 concurrency:
@@ -11,7 +9,6 @@ concurrency:
 
 jobs:
   sync:
-    timeout-minutes: 90
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,3 +39,13 @@ jobs:
           SPAPI_ORDER_WINDOW_DAYS: ${{ secrets.SPAPI_ORDER_WINDOW_DAYS || '30' }}
           SYNC_REFUNDS_ONLY: 'true'
         run: npm run sync-sales
+
+      - name: Pause and relaunch
+        if: ${{ always() }}
+        run: |
+          sleep 300
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/Adrian140/prep-center/actions/workflows/sync-amazon-refunds.yml/dispatches \
+            -d '{"ref":"main"}'
