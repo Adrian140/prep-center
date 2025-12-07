@@ -129,66 +129,6 @@ const images = [
           </div>
         </section>
 
-        {/* Team */}
-        <section className="mb-20">
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-xl border border-gray-200 p-8">
-              <div className="flex flex-col md:flex-row items-center gap-8">
-                <img
-                  src="https://i.postimg.cc/68C52wGT/Adrian-Bucur.jpg"
-                  alt={t('adrianBucurAlt')}
-                  className="w-32 h-32 rounded-full object-cover flex-shrink-0"
-                />
-                <div className="flex-1 text-center md:text-left">
-                  <h3 className="text-2xl font-bold text-text-primary mb-2">{t('adrianBucur')}</h3>
-                  <p className="text-primary font-medium mb-4">{t('founderCEO')}</p>
-                  <p className="text-text-secondary">
-                    {t('adrianBio')}
-                  </p>
-                  <div className="mt-4">
-                    <a
-                      href="https://linkedin.com/in/adrian-bucur-82baa91a5"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-primary hover:text-primary-dark transition-colors"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        className="w-6 h-6 mr-2"
-                      >
-                        <path d="M20.447 20.452h-3.554v-5.569c0-1.362-.027-3.119-1.902-3.119-1.901 0-2.186 1.485-2.186 3.031v5.657h-3.554v-11.998h3.418v1.661h.046c.477-.9 1.637-1.901 3.37-1.901 3.601 0 4.267 2.37 4.267 7.225v6.61H20.447zM9.729 8.377a1.838 1.838 0 11-.009-3.676 1.838 1.838 0 01.009 3.676zm-1.729 12.075h-3.554v-11.998h3.554v11.998zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.454c.98 0 1.771-.773 1.771-1.729V1.729C24 .774 23.209 0 22.225 0z"></path>
-                      </svg>
-                      {t('linkedinProfile')}
-                    </a>
-                    <a
-                      href="https://www.tiktok.com/@franceprepservices?lang=ro-RO"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-primary hover:text-primary-dark transition-colors ml-4"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        className="w-6 h-6 mr-2"
-                      >
-                        <path d="M12.525 0H11.475C10.118 0 9.005 1.113 9.005 2.475v19.05c0 1.362 1.113 2.475 2.475 2.475h1.05c1.362 0 2.475-1.113 2.475-2.475V12.525c0-1.362-1.113-2.475-2.475-2.475H11.475V0zM18.525 0H17.475C16.118 0 15.005 1.113 15.005 2.475v19.05c0 1.362 1.113 2.475 2.475 2.475h1.05c1.362 0 2.475-1.113 2.475-2.475V12.525c0-1.362-1.113-2.475-2.475-2.475H17.475V0zM6.525 0H5.475C4.118 0 3.005 1.113 3.005 2.475v19.05c0 1.362 1.113 2.475 2.475 2.475h1.05c1.362 0 2.475-1.113 2.475-2.475V12.525c0-1.362-1.113-2.475-2.475-2.475H6.525V0z"></path>
-                      </svg>
-                      {t('tiktokProfile')}
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* CTA */}
         <section className="text-center">
           <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl p-12 space-y-6">
