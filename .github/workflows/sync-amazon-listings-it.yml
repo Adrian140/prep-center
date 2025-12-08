@@ -57,6 +57,7 @@ jobs:
               per_page: 5
             });
             const hasActive = (data.workflow_runs || []).some((r) =>
+              r.id !== context.runId &&
               ['in_progress', 'queued', 'waiting', 'requested'].includes(r.status)
             );
             if (hasActive) {
