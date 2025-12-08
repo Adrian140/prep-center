@@ -49,6 +49,19 @@ jobs:
             const waitMs = 5 * 60 * 1000;
             core.info(`Aștept ${waitMs / 1000}s înainte să pornesc următorul run.`);
             await new Promise((resolve) => setTimeout(resolve, waitMs));
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'sync-amazon-listings-de.yml',
+              per_page: 5
+            });
+            const hasActive = (data.workflow_runs || []).some((r) =>
+              ['in_progress', 'queued', 'waiting', 'requested'].includes(r.status)
+            );
+            if (hasActive) {
+              core.info('Există deja un run în desfășurare/queue; nu mai trimit unul nou.');
+              return;
+            }
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
