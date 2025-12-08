@@ -129,10 +129,10 @@ if (!retErr) setReturnRows(rets || []);
       }
       setBillingSaving(false);
       setBillingSelections({});
-      reload?.();
+      await loadAll();
       return { error: null };
     },
-    [company?.id, profile?.id, reload]
+    [company?.id, profile?.id, loadAll]
   );
 
   const displayName =
