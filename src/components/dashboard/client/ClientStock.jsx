@@ -816,10 +816,7 @@ const [salesSortDirection, setSalesSortDirection] = useSessionStorage(
   `${storagePrefix}-salesSortDirection`,
   'none'
 );
-const [showSalesColumn, setShowSalesColumn] = useSessionStorage(
-  `${storagePrefix}-showSalesColumn`,
-  false
-);
+const showSalesColumn = true;
 const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
   `${storagePrefix}-showPriceColumn`,
   false
@@ -2143,20 +2140,6 @@ const saveReqChanges = async () => {
               {showPriceColumn
                 ? t('ClientStock.priceColumn.hide')
                 : t('ClientStock.priceColumn.show')}
-            </button>
-            <button
-              type="button"
-              aria-pressed={showSalesColumn}
-              onClick={() => setShowSalesColumn((prev) => !prev)}
-              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                showSalesColumn
-                  ? 'bg-primary text-white border-primary'
-                  : 'text-primary border-primary hover:bg-primary/5'
-              }`}
-            >
-              {showSalesColumn
-                ? t('ClientStock.salesColumn.hide')
-                : t('ClientStock.salesColumn.show')}
             </button>
           </div>
         </div>
