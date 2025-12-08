@@ -11,8 +11,22 @@ create table if not exists public.billing_invoices (
   updated_at timestamp with time zone not null default now()
 );
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'billing_invoices_pkey'
+      and conrelid = 'public.billing_invoices'::regclass
+  ) then
+    alter table public.billing_invoices
+      add constraint billing_invoices_pkey primary key (id);
+  end if;
+end;
+$$;
+
 alter table public.billing_invoices
-  add constraint billing_invoices_pkey primary key (id);
+  add column if not exists user_id uuid;
 
 alter table public.billing_invoices enable row level security;
 
@@ -33,58 +47,134 @@ create index if not exists idx_fbm_lines_billing_invoice_id
 create index if not exists idx_other_lines_billing_invoice_id
   on public.other_lines (billing_invoice_id);
 
--- Policies for billing invoices (admin + company owners)
-create policy "billing invoices admin select"
-  on public.billing_invoices
-  as permissive
-  for select
-  to authenticated
-using (public.e_admin());
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policy
+    where polname = 'billing invoices admin select'
+      and polrelid = 'public.billing_invoices'::regclass
+  ) then
+    create policy "billing invoices admin select"
+      on public.billing_invoices
+      as permissive
+      for select
+      to authenticated
+    using (public.e_admin());
+  end if;
+end;
+$$;
 
-create policy "billing invoices admin insert"
-  on public.billing_invoices
-  as permissive
-  for insert
-  to authenticated
-with check (public.e_admin());
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policy
+    where polname = 'billing invoices admin insert'
+      and polrelid = 'public.billing_invoices'::regclass
+  ) then
+    create policy "billing invoices admin insert"
+      on public.billing_invoices
+      as permissive
+      for insert
+      to authenticated
+    with check (public.e_admin());
+  end if;
+end;
+$$;
 
-create policy "billing invoices admin update"
-  on public.billing_invoices
-  as permissive
-  for update
-  to authenticated
-using (public.e_admin())
-with check (public.e_admin());
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policy
+    where polname = 'billing invoices admin update'
+      and polrelid = 'public.billing_invoices'::regclass
+  ) then
+    create policy "billing invoices admin update"
+      on public.billing_invoices
+      as permissive
+      for update
+      to authenticated
+    using (public.e_admin())
+    with check (public.e_admin());
+  end if;
+end;
+$$;
 
-create policy "billing invoices admin delete"
-  on public.billing_invoices
-  as permissive
-  for delete
-  to authenticated
-using (public.e_admin());
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policy
+    where polname = 'billing invoices admin delete'
+      and polrelid = 'public.billing_invoices'::regclass
+  ) then
+    create policy "billing invoices admin delete"
+      on public.billing_invoices
+      as permissive
+      for delete
+      to authenticated
+    using (public.e_admin());
+  end if;
+end;
+$$;
 
-create policy "billing invoices clients select own"
-  on public.billing_invoices
-  as permissive
-  for select
-  to authenticated
-using (company_id = public.current_company_id());
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policy
+    where polname = 'billing invoices clients select own'
+      and polrelid = 'public.billing_invoices'::regclass
+  ) then
+    create policy "billing invoices clients select own"
+      on public.billing_invoices
+      as permissive
+      for select
+      to authenticated
+    using (company_id = public.current_company_id());
+  end if;
+end;
+$$;
 
-create policy "billing invoices service role full access"
-  on public.billing_invoices
-  as permissive
-  for all
-  to service_role
-using (true)
-with check (true);
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policy
+    where polname = 'billing invoices service role full access'
+      and polrelid = 'public.billing_invoices'::regclass
+  ) then
+    create policy "billing invoices service role full access"
+      on public.billing_invoices
+      as permissive
+      for all
+      to service_role
+    using (true)
+    with check (true);
+  end if;
+end;
+$$;
 
-create policy "billing invoices supabase admin full access"
-  on public.billing_invoices
-  as permissive
-  for all
-  to supabase_admin
-using (true)
-with check (true);
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policy
+    where polname = 'billing invoices supabase admin full access'
+      and polrelid = 'public.billing_invoices'::regclass
+  ) then
+    create policy "billing invoices supabase admin full access"
+      on public.billing_invoices
+      as permissive
+      for all
+      to supabase_admin
+    using (true)
+    with check (true);
+  end if;
+end;
+$$;
 
 -- Grant privileges to system roles
 grant select, insert, update, delete on public.billing_invoices to service_role;

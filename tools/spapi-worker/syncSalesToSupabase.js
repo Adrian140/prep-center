@@ -51,6 +51,69 @@ function mapMarketplaceToCountry(marketplaceId) {
   return MARKETPLACE_COUNTRY[marketplaceId] || marketplaceId || null;
 }
 
+async function listRefundEvents(spClient, marketplaceIds) {
+  const postedAfter = isoDateDaysAgo(ORDER_WINDOW_DAYS);
+  const events = [];
+  let nextToken = null;
+
+  const ids = Array.isArray(marketplaceIds) && marketplaceIds.length
+    ? marketplaceIds
+    : [DEFAULT_MARKETPLACE];
+
+  do {
+    const res = await spClient.callAPI({
+      operation: nextToken ? 'listFinancialEventsByNextToken' : 'listFinancialEvents',
+      endpoint: 'finances',
+      query: nextToken ? { NextToken: nextToken } : { PostedAfter: postedAfter, MarketplaceIds: ids }
+    });
+
+    const payload = res?.payload || res || {};
+    const refunds = payload?.FinancialEvents?.RefundEventList || [];
+    if (Array.isArray(refunds) && refunds.length) {
+      events.push(...refunds);
+    }
+
+    nextToken =
+      payload?.NextToken ||
+      payload?.nextToken ||
+      null;
+  } while (nextToken);
+
+  return events;
+}
+
+function aggregateRefundEvents(refundEvents, defaultCountry) {
+  const map = new Map();
+  for (const ev of refundEvents) {
+    const country = mapMarketplaceToCountry(ev.MarketplaceId) || defaultCountry || null;
+    const items =
+      ev.ShipmentItemAdjustmentList ||
+      ev.ShipmentItemList ||
+      [];
+    for (const it of items) {
+      const asin = (it.ASIN || '').toUpperCase();
+      const sku = (it.SellerSKU || '').toUpperCase();
+      if (!asin && !sku) continue;
+      const key = `${asin}::${sku}::${country || ''}`;
+      const qty =
+        Number(it.QuantityShipped ?? it.Quantity ?? it.QuantityOrdered ?? it.ItemQuantity ?? 0) || 0;
+      const current = map.get(key) || {
+        asin,
+        sku,
+        country,
+        total_units: 0,
+        pending_units: 0,
+        shipped_units: 0,
+        refund_units: 0,
+        payment_units: 0
+      };
+      current.refund_units += Math.abs(qty);
+      map.set(key, current);
+    }
+  }
+  return Array.from(map.values());
+}
+
 async function fetchActiveIntegrations() {
   const { data, error } = await supabase
     .from('amazon_integrations')
@@ -202,6 +265,17 @@ async function aggregateSales(spClient, integration) {
       agg.total_units = agg.shipped_units + agg.pending_units;
       agg.payment_units = agg.shipped_units;
     }
+  }
+
+  // Refunds: din Finances API. Dacă ceva eșuează, nu blocăm sincronizarea.
+  try {
+    const refundEvents = await listRefundEvents(spClient, marketplaceIds);
+    if (Array.isArray(refundEvents) && refundEvents.length) {
+      const refundRows = aggregateRefundEvents(refundEvents, mapMarketplaceToCountry(integration.marketplace_id));
+      accumulateSalesRows(aggregates, refundRows);
+    }
+  } catch (err) {
+    console.warn(`[Sales sync] Unable to fetch refunds for ${integration.id}: ${err?.message || err}`);
   }
 
   return Array.from(aggregates.values());
