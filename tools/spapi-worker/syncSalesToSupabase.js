@@ -255,7 +255,15 @@ async function upsertSales({ rows, companyId, userId }) {
     }));
 
     const { error } = await supabase.from('amazon_sales_30d').upsert(chunk);
-    if (error) throw error;
+    if (error) {
+      if (/duplicate key value/.test(error.message)) {
+        console.warn(
+          `[Sales sync] Duplicate key on amazon_sales_30d for company ${companyId} — skipping corrupt chunk.`
+        );
+        continue;
+      }
+      throw error;
+    }
   }
 }
 
@@ -271,7 +279,27 @@ async function syncIntegration(integration) {
 
   // Folosim implementarea bazată pe Orders API,
   // care agregează vânzările pe ultimele ORDER_WINDOW_DAYS.
-  const sales = await aggregateSales(spClient, integration);
+  let sales = [];
+  try {
+    sales = await aggregateSales(spClient, integration);
+  } catch (err) {
+    const message = String(err?.message || err || '');
+    if (err?.code === 'Unauthorized' || message.includes('Access to requested resource is denied')) {
+      console.warn(
+        `[Sales sync] Skipping integration ${integration.id} (${integration.marketplace_id}) because SP-API returned unauthorized.`
+      );
+      await supabase
+        .from('amazon_integrations')
+        .update({
+          status: 'error',
+          last_error: message,
+          last_synced_at: new Date().toISOString()
+        })
+        .eq('id', integration.id);
+      return [];
+    }
+    throw err;
+  }
 
   await supabase
     .from('amazon_integrations')
