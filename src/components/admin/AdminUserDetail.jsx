@@ -25,6 +25,7 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [billingSelections, setBillingSelections] = useState({});
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingError, setBillingError] = useState('');
+  const hasBillingSelection = Object.keys(billingSelections).length > 0;
 
   // panouri “secundare” (billing / invoices)
   const [activePanel, setActivePanel] = useState(null);
@@ -287,15 +288,17 @@ if (!retErr) setReturnRows(rets || []);
             <AdminReturns rows={returnRows} reload={loadAll} companyId={companyId} profile={profile} />
           )}
         </div>
-        <div className="lg:w-[360px] lg:flex-shrink-0">
-          <BillingSelectionPanel
-            selections={billingSelections}
-            onSave={handleBillingSave}
-            onClear={clearBillingSelections}
-            isSaving={billingSaving}
-            error={billingError}
-          />
-        </div>
+        {hasBillingSelection && (
+          <div className="lg:w-[360px] lg:flex-shrink-0">
+            <BillingSelectionPanel
+              selections={billingSelections}
+              onSave={handleBillingSave}
+              onClear={clearBillingSelections}
+              isSaving={billingSaving}
+              error={billingError}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
