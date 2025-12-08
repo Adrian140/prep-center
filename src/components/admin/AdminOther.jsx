@@ -14,7 +14,22 @@ const todayStr = () => {
 
 const fmt = (value) => Number.isFinite(value) ? value.toFixed(2) : '0.00';
 
-export default function AdminOther({ rows = [], reload, companyId, profile }) {
+const formatInvoiceTooltip = (invoice) => {
+  if (!invoice) return null;
+  const formattedDate = invoice.invoice_date
+    ? new Date(invoice.invoice_date).toLocaleDateString('ro-RO')
+    : null;
+  return `Factură #${invoice.invoice_number}${formattedDate ? ` · ${formattedDate}` : ''}`;
+};
+
+export default function AdminOther({
+  rows = [],
+  reload,
+  companyId,
+  profile,
+  billingSelectedLines = {},
+  onToggleBillingSelection
+}) {
   const { t } = useAdminTranslation();
   const [edit, setEdit] = useState(null);
   const formStorageKey = companyId
@@ -165,6 +180,7 @@ export default function AdminOther({ rows = [], reload, companyId, profile }) {
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-3 py-2 text-center w-8"></th>
               <th className="px-3 py-2 text-left">Data</th>
               <th className="px-3 py-2 text-left">Serviciu</th>
               <th className="px-3 py-2 text-right">Preț</th>
@@ -188,8 +204,23 @@ export default function AdminOther({ rows = [], reload, companyId, profile }) {
                   row.total != null
                     ? Number(row.total)
                     : Number(row.unit_price || 0) * Number(row.units || 0);
-                return (
-                  <tr key={row.id} className="border-t">
+              return (
+                <tr
+                  key={row.id}
+                  className={`border-t ${
+                    row.billing_invoice_id ? 'bg-blue-50 hover:bg-blue-50' : 'hover:bg-gray-50'
+                  }`}
+                  title={formatInvoiceTooltip(row.billing_invoice)}
+                >
+                  <td className="px-3 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(billingSelectedLines[`other:${row.id}`])}
+                      disabled={Boolean(row.billing_invoice_id)}
+                      onChange={() => onToggleBillingSelection?.('other', row)}
+                      className="rounded border-gray-300 focus:ring-2 focus:ring-primary"
+                    />
+                  </td>
                     <td className="px-3 py-2">
                       {isEdit ? (
                         <input

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ArrowLeft, User } from 'lucide-react';
-import { supabase } from '../../config/supabase';
+import { supabase, supabaseHelpers } from '../../config/supabase';
 import Section from '../common/Section';
 import AdminClientInvoices from './AdminClientInvoices';
 import AdminClientBillingProfiles from './AdminClientBillingProfiles';
@@ -12,6 +12,7 @@ import AdminStockClientView from './AdminStockClientView';
 import AdminReturns from './AdminReturns';
 import AdminOther from './AdminOther';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
+import BillingSelectionPanel from './BillingSelectionPanel';
 
 export default function AdminUserDetail({ profile, onBack }) {
   const [companyId, setCompanyId] = useState(profile?.company_id || null);
@@ -21,6 +22,9 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [fbmRows, setFbmRows] = useState([]);
   const [otherRows, setOtherRows] = useState([]);
   const [returnRows, setReturnRows] = useState([]);
+  const [billingSelections, setBillingSelections] = useState({});
+  const [billingSaving, setBillingSaving] = useState(false);
+  const [billingError, setBillingError] = useState('');
 
   // panouri “secundare” (billing / invoices)
   const [activePanel, setActivePanel] = useState(null);
@@ -42,17 +46,33 @@ const ensureCompany = async () => {
     const cid = await ensureCompany();
     if (!cid) return;
 
-   const [
-  { data: fba, error: fbaErr },
-  { data: fbm, error: fbmErr },
-  { data: other, error: otherErr },
-  { data: rets, error: retErr },
-] = await Promise.all([
-  supabase.from('fba_lines').select('*').eq('company_id', cid).order('service_date', { ascending: false }),
-  supabase.from('fbm_lines').select('*').eq('company_id', cid).order('service_date', { ascending: false }),
-  supabase.from('other_lines').select('*').eq('company_id', cid).order('service_date', { ascending: false }),
-  supabase.from('returns').select('*').eq('company_id', cid).order('return_date', { ascending: false }),
-]);
+    const [
+      { data: fba, error: fbaErr },
+      { data: fbm, error: fbmErr },
+      { data: other, error: otherErr },
+      { data: rets, error: retErr }
+    ] = await Promise.all([
+      supabase
+        .from('fba_lines')
+        .select('*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)')
+        .eq('company_id', cid)
+        .order('service_date', { ascending: false }),
+      supabase
+        .from('fbm_lines')
+        .select('*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)')
+        .eq('company_id', cid)
+        .order('service_date', { ascending: false }),
+      supabase
+        .from('other_lines')
+        .select('*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)')
+        .eq('company_id', cid)
+        .order('service_date', { ascending: false }),
+      supabase
+        .from('returns')
+        .select('*')
+        .eq('company_id', cid)
+        .order('return_date', { ascending: false })
+    ]);
 
 setCompany({ id: cid, name: profile.company_name || profile.first_name || profile.email });
 if (!fbaErr) setFbaRows(fba || []);
@@ -66,6 +86,54 @@ if (!retErr) setReturnRows(rets || []);
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id]);
+
+  const toggleBillingSelection = useCallback((section, row) => {
+    setBillingSelections((prev) => {
+      const key = `${section}:${row.id}`;
+      const next = { ...prev };
+      if (next[key]) {
+        delete next[key];
+        return next;
+      }
+      next[key] = { section, row };
+      return next;
+    });
+  }, []);
+
+  const clearBillingSelections = useCallback(() => {
+    setBillingSelections({});
+    setBillingError('');
+  }, []);
+
+  const handleBillingSave = useCallback(
+    async ({ invoiceNumber, invoiceDate, lines, total }) => {
+      if (!company?.id) {
+        const error = new Error('Nicio companie selectată.');
+        setBillingError(error.message);
+        return { error };
+      }
+      setBillingSaving(true);
+      setBillingError('');
+      const { error } = await supabaseHelpers.createBillingInvoice({
+        company_id: company.id,
+        user_id: profile?.id,
+        invoice_number: invoiceNumber,
+        invoice_date: invoiceDate,
+        total_amount: total,
+        lines
+      });
+      if (error) {
+        setBillingError(error.message || 'Nu am putut salva factura.');
+        setBillingSaving(false);
+        return { error };
+      }
+      setBillingSaving(false);
+      setBillingSelections({});
+      reload?.();
+      return { error: null };
+    },
+    [company?.id, profile?.id, reload]
+  );
 
   const displayName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Utilizator';
@@ -180,21 +248,55 @@ if (!retErr) setReturnRows(rets || []);
         </Section>
       )}
       {/* Conținut principal – afișăm DOAR tab-ul selectat */}
-      {activeSection === 'fba' && (
-        <AdminFBA rows={fbaRows} reload={loadAll} companyId={companyId} profile={profile} />
-      )}
-      {activeSection === 'fbm' && (
-        <AdminFBM rows={fbmRows} reload={loadAll} companyId={companyId} profile={profile} />
-      )}
-      {activeSection === 'other' && (
-        <AdminOther rows={otherRows} reload={loadAll} companyId={companyId} profile={profile} />
-      )}
-      {activeSection === 'stock' && (
-        <AdminStockClientView profile={profile} />
-      )}
-      {activeSection === 'returns' && (
-        <AdminReturns rows={returnRows} reload={loadAll} companyId={companyId} profile={profile} />
-      )}
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <div className="flex-1 space-y-6">
+          {activeSection === 'fba' && (
+            <AdminFBA
+              rows={fbaRows}
+              reload={loadAll}
+              companyId={companyId}
+              profile={profile}
+              billingSelectedLines={billingSelections}
+              onToggleBillingSelection={toggleBillingSelection}
+            />
+          )}
+          {activeSection === 'fbm' && (
+            <AdminFBM
+              rows={fbmRows}
+              reload={loadAll}
+              companyId={companyId}
+              profile={profile}
+              billingSelectedLines={billingSelections}
+              onToggleBillingSelection={toggleBillingSelection}
+            />
+          )}
+          {activeSection === 'other' && (
+            <AdminOther
+              rows={otherRows}
+              reload={loadAll}
+              companyId={companyId}
+              profile={profile}
+              billingSelectedLines={billingSelections}
+              onToggleBillingSelection={toggleBillingSelection}
+            />
+          )}
+          {activeSection === 'stock' && (
+            <AdminStockClientView profile={profile} />
+          )}
+          {activeSection === 'returns' && (
+            <AdminReturns rows={returnRows} reload={loadAll} companyId={companyId} profile={profile} />
+          )}
+        </div>
+        <div className="lg:w-[360px] lg:flex-shrink-0">
+          <BillingSelectionPanel
+            selections={billingSelections}
+            onSave={handleBillingSave}
+            onClear={clearBillingSelections}
+            isSaving={billingSaving}
+            error={billingError}
+          />
+        </div>
+      </div>
     </div>
   );
 }

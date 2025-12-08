@@ -674,6 +674,72 @@ createReceptionRequest: async (data) => {
     return { data: inserted || [], error: insertError || null };
   },
 
+  createBillingInvoice: async ({
+    company_id,
+    user_id,
+    invoice_number,
+    invoice_date,
+    total_amount = 0,
+    lines = []
+  } = {}) => {
+    if (!company_id) {
+      return { data: null, error: new Error('Missing company_id') };
+    }
+    if (!invoice_number || !String(invoice_number).trim()) {
+      return { data: null, error: new Error('Invoice number is required') };
+    }
+    if (!invoice_date) {
+      return { data: null, error: new Error('Invoice date is required') };
+    }
+    const payload = {
+      company_id,
+      user_id: user_id || null,
+      invoice_number: String(invoice_number).trim(),
+      invoice_date,
+      total_amount: Number(total_amount) || 0
+    };
+    const { data: invoice, error: insertError } = await supabase
+      .from('billing_invoices')
+      .insert([payload])
+      .select('*')
+      .single();
+    if (insertError) {
+      return { data: null, error: insertError };
+    }
+
+    const buckets = lines.reduce((acc, entry) => {
+      const key = String(entry.section || 'fba').toLowerCase();
+      const id = entry.id;
+      if (!id) return acc;
+      if (!acc[key]) acc[key] = new Set();
+      acc[key].add(id);
+      return acc;
+    }, {});
+
+    const updates = Object.entries(buckets)
+      .map(([section, ids]) => {
+        const table =
+          section === 'fbm'
+            ? 'fbm_lines'
+            : section === 'other'
+              ? 'other_lines'
+              : 'fba_lines';
+        if (!ids.size) return null;
+        return supabase
+          .from(table)
+          .update({ billing_invoice_id: invoice.id })
+          .in('id', Array.from(ids));
+      })
+      .filter(Boolean);
+
+    const results = await Promise.all(updates);
+    const updateError = results.find((result) => result && result.error);
+    return {
+      data: invoice,
+      error: updateError ? updateError.error : null
+    };
+  },
+
   assignAffiliateCodeToProfile: async (profileId, codeId) => {
     return await supabase
       .from('profiles')
