@@ -74,7 +74,21 @@ async function fetchPrepRequests() {
   return data || [];
 }
 
-async function fetchShipmentSnapshot(spClient, shipmentId, marketplaceId) {
+const normalizeShipmentIds = (raw) => {
+  if (!raw) return [];
+  return String(raw)
+    .split(/[\/,]/)
+    .map((s) => s.trim().toUpperCase())
+    .flatMap((chunk) => chunk.split(/\s+/))
+    .map((s) => s.replace(/%20/g, ''))
+    .map((s) => s.replace(/\s+/g, ''))
+    .filter((s) => s.length > 0);
+};
+
+async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
+  const candidates = normalizeShipmentIds(rawShipmentId);
+  const shipmentId = candidates[0] || rawShipmentId;
+
   const shipmentRes = await spClient.callAPI({
     operation: 'getShipments',
     endpoint: 'fulfillmentInbound',
@@ -89,9 +103,13 @@ async function fetchShipmentSnapshot(spClient, shipmentId, marketplaceId) {
   });
 
   const shipment =
-    shipmentRes?.payload?.ShipmentData?.find((s) => s.ShipmentId === shipmentId) ||
+    shipmentRes?.payload?.ShipmentData?.find((s) => candidates.includes(s.ShipmentId)) ||
     shipmentRes?.payload?.ShipmentData?.[0] ||
     null;
+
+  if (!shipment) {
+    throw new Error(`Shipment not found for ${shipmentId}`);
+  }
 
   const itemsRes = await spClient.callAPI({
     operation: 'getShipmentItemsByShipmentId',
@@ -105,7 +123,7 @@ async function fetchShipmentSnapshot(spClient, shipmentId, marketplaceId) {
     }
   });
 
-  const items = itemsRes?.payload?.ItemData || [];
+  const items = Array.isArray(itemsRes?.payload?.ItemData) ? itemsRes.payload.ItemData : [];
   const skuSet = new Set();
   const unitsExpected = items.reduce((acc, item) => acc + Number(item?.QuantityShipped || 0), 0);
   const unitsReceived = items.reduce((acc, item) => acc + Number(item?.QuantityReceived || 0), 0);
@@ -190,7 +208,7 @@ async function main() {
         row.prep_status ||
         (row.status && row.status !== 'pending' ? 'expediat' : 'pending');
       await updatePrepRequest(row.id, {
-        amazon_status: snap.status,
+        amazon_status: snap.status || 'UNKNOWN',
         amazon_units_expected: snap.units_expected,
         amazon_units_located: snap.units_located,
         amazon_skus: snap.skus,
@@ -208,6 +226,7 @@ async function main() {
     } catch (err) {
       console.error(`Failed to sync shipment ${row.fba_shipment_id}:`, err.message);
       await updatePrepRequest(row.id, {
+        amazon_status: 'NOT_FOUND',
         amazon_sync_error: err.message || 'Sync error',
         amazon_last_synced_at: nowIso
       }).catch(() => {});
