@@ -14,6 +14,7 @@ import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (value) => typeof value === 'string' && UUID_REGEX.test(value);
+const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
 
 const STATUS_PRIORITY = {
   draft: 1,
@@ -108,6 +109,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
   const [savingRow, setSavingRow] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const buildHeaderState = (sh) => ({
+    destination_country: sh.destination_country || 'FR',
     carrier: sh.carrier || '',
     carrier_other: sh.carrier_other || '',
     tracking_ids: sh.tracking_ids?.length
@@ -617,7 +619,19 @@ const checkStockMatches = async () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-text-secondary">Destination</label>
-            <DestinationBadge code={shipment.destination_country || 'FR'} variant="loud" />
+            {editMode ? (
+              <select
+                value={editHeader.destination_country || 'FR'}
+                onChange={(e) => setEditHeader((prev) => ({ ...prev, destination_country: e.target.value }))}
+                className="border rounded px-2 py-1 w-full"
+              >
+                {DESTINATION_COUNTRIES.map((code) => (
+                  <option key={code} value={code}>{code}</option>
+                ))}
+              </select>
+            ) : (
+              <DestinationBadge code={shipment.destination_country || 'FR'} variant="loud" />
+            )}
           </div>
            <div>
           <label className="block text-sm font-medium text-text-secondary">Carrier</label>
@@ -802,11 +816,12 @@ const checkStockMatches = async () => {
                   .map(v => v.trim())
                   .filter(v => v !== '');
 
-              const cleanFBA = (editHeader.fba_shipment_ids || [])
-                .map(v => v.trim())
-                .filter(v => v !== '');
+           const cleanFBA = (editHeader.fba_shipment_ids || [])
+             .map(v => v.trim())
+             .filter(v => v !== '');
 
-           await supabaseHelpers.updateReceivingShipment(shipment.id, {
+          await supabaseHelpers.updateReceivingShipment(shipment.id, {
+              destination_country: editHeader.destination_country || 'FR',
               carrier: editHeader.carrier || null,
               carrier_other: editHeader.carrier_other || null,
               tracking_ids: cleanTracking.length > 0 ? cleanTracking : [],

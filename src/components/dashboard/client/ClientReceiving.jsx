@@ -80,6 +80,8 @@ const DATE_LOCALE_MAP = {
   pl: 'pl-PL'
 };
 
+const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
+
 const getExpectedQty = (item) => Math.max(0, Number(item?.quantity_received || 0));
 const getConfirmedQty = (item) => {
   if (!item) return 0;
@@ -172,14 +174,15 @@ function ClientReceiving() {
     });
   }, [shipments, shipmentsSearch]);
 
-  const buildHeaderState = (shipment) => ({
-    carrier: shipment?.carrier || '',
-    carrier_other: shipment?.carrier_other || '',
-    tracking_ids: buildEditableList(shipment?.tracking_ids, shipment?.tracking_id),
-    fba_shipment_ids: buildEditableList(shipment?.fba_shipment_ids),
-    notes: shipment?.notes || '',
-    fba_mode: shipment?.fba_mode || 'none'
-  });
+const buildHeaderState = (shipment) => ({
+  carrier: shipment?.carrier || '',
+  carrier_other: shipment?.carrier_other || '',
+  tracking_ids: buildEditableList(shipment?.tracking_ids, shipment?.tracking_id),
+  fba_shipment_ids: buildEditableList(shipment?.fba_shipment_ids),
+  notes: shipment?.notes || '',
+  fba_mode: shipment?.fba_mode || 'none',
+  destination_country: shipment?.destination_country || 'FR'
+});
 
   const handleSelectShipment = (shipment) => {
     const decorated = decorateShipment(shipment);
@@ -303,7 +306,8 @@ function ClientReceiving() {
         tracking_ids: trackingValues.length ? trackingValues : null,
         fba_shipment_ids: fbaValues.length ? fbaValues : null,
         notes: toNull(editHeader.notes),
-        fba_mode: editHeader.fba_mode || 'none'
+        fba_mode: editHeader.fba_mode || 'none',
+        destination_country: editHeader.destination_country || 'FR'
       };
 
       await supabaseHelpers.updateReceivingShipment(shipmentId, payloadHeader);
@@ -600,6 +604,29 @@ function ClientReceiving() {
             <div className="flex items-center gap-2 text-text-secondary">
               {getStatusBadge(currentStatus)}
               <span>{new Date(selectedShipment.created_at).toLocaleDateString(DATE_LOCALE)}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col">
+              <span className="text-xs text-text-secondary">{t('receptionForm.destination') || 'Destination'}</span>
+              {editMode ? (
+                <select
+                  value={headerState.destination_country || 'FR'}
+                  onChange={(e) =>
+                    setEditHeader((prev) => ({ ...prev, destination_country: e.target.value }))
+                  }
+                  className="border rounded-md px-2 py-1 text-sm"
+                >
+                  {DESTINATION_COUNTRIES.map((code) => (
+                    <option key={code} value={code}>{code}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="inline-flex px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-sm font-medium">
+                  {selectedShipment.destination_country || 'FR'}
+                </span>
+              )}
             </div>
           </div>
         </div>
