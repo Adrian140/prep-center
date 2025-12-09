@@ -184,8 +184,9 @@ async function main() {
     process.exit(1);
   }
 
+  const refreshTokenOverride = process.env.SPAPI_REFRESH_TOKEN || null;
   const client = createSpClient({
-    refreshToken: integration.refresh_token,
+    refreshToken: refreshTokenOverride || integration.refresh_token,
     region: integration.region || process.env.SPAPI_REGION || 'eu'
   });
 
