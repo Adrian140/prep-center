@@ -118,17 +118,25 @@ const normalizeShipmentIds = (raw) => {
     .filter((s) => s.length > 0);
 };
 
+const EU_MARKETPLACES = [
+  'A13V1IB3VIYZZH', // FR
+  'A1PA6795UKMFR9', // DE
+  'A1RKKUPIHCS9HS', // ES
+  'APJ6JRA9NG5V4',  // IT
+  'A1F83G8C2ARO7P'  // UK
+];
+
 async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   const candidates = normalizeShipmentIds(rawShipmentId);
   const shipmentId = candidates[0] || rawShipmentId;
 
-  const tryFetchShipments = async (withMarketplace) => {
+  const tryFetchShipments = async (mpId) => {
     const query = {
       ShipmentStatusList: STATUS_LIST,
       ShipmentIdList: candidates.length ? candidates : [shipmentId]
     };
-    if (withMarketplace && marketplaceId) {
-      query.MarketplaceId = marketplaceId;
+    if (mpId) {
+      query.MarketplaceId = mpId;
     }
     return spClient.callAPI({
       operation: 'getShipments',
@@ -140,13 +148,29 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
     });
   };
 
-  // prima încercare: cu marketplace; fallback fără MarketplaceId (în unele regiuni nu e necesar)
-  let shipmentRes;
-  try {
-    shipmentRes = await tryFetchShipments(true);
-  } catch (err) {
-    // dacă e 400/Marketplace invalid, mai încercăm fără
-    shipmentRes = await tryFetchShipments(false);
+  const mpCandidates = [
+    marketplaceId || process.env.SPAPI_MARKETPLACE_ID || null,
+    ...EU_MARKETPLACES
+  ].filter(Boolean);
+
+  let shipmentRes = null;
+  let pickedMarketplace = null;
+
+  for (const mp of mpCandidates) {
+    try {
+      shipmentRes = await tryFetchShipments(mp);
+      pickedMarketplace = mp;
+      if (shipmentRes?.payload?.ShipmentData?.length) break;
+    } catch (err) {
+      // încercăm fără MarketplaceId dacă e invalid
+      try {
+        shipmentRes = await tryFetchShipments(null);
+        pickedMarketplace = null;
+      } catch {
+        continue;
+      }
+    }
+    if (shipmentRes?.payload?.ShipmentData?.length) break;
   }
 
   const shipment =
