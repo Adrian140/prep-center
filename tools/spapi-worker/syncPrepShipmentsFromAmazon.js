@@ -89,21 +89,36 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   const candidates = normalizeShipmentIds(rawShipmentId);
   const shipmentId = candidates[0] || rawShipmentId;
 
-  const shipmentRes = await spClient.callAPI({
-    operation: 'getShipments',
-    endpoint: 'fulfillmentInbound',
-    query: {
+  const tryFetchShipments = async (withMarketplace) => {
+    const query = {
       ShipmentStatusList: STATUS_LIST,
-      ShipmentIdList: [shipmentId],
-      MarketplaceId: marketplaceId || process.env.SPAPI_MARKETPLACE_ID
-    },
-    options: {
-      version: 'v0'
+      ShipmentIdList: candidates.length ? candidates : [shipmentId]
+    };
+    if (withMarketplace && marketplaceId) {
+      query.MarketplaceId = marketplaceId;
     }
-  });
+    return spClient.callAPI({
+      operation: 'getShipments',
+      endpoint: 'fulfillmentInbound',
+      query,
+      options: {
+        version: 'v0'
+      }
+    });
+  };
+
+  // prima încercare: cu marketplace; fallback fără MarketplaceId (în unele regiuni nu e necesar)
+  let shipmentRes;
+  try {
+    shipmentRes = await tryFetchShipments(true);
+  } catch (err) {
+    // dacă e 400/Marketplace invalid, mai încercăm fără
+    shipmentRes = await tryFetchShipments(false);
+  }
 
   const shipment =
     shipmentRes?.payload?.ShipmentData?.find((s) => candidates.includes(s.ShipmentId)) ||
+    shipmentRes?.payload?.ShipmentData?.find((s) => s.ShipmentId === shipmentId) ||
     shipmentRes?.payload?.ShipmentData?.[0] ||
     null;
 
