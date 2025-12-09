@@ -678,7 +678,11 @@ export default function ClientPrepShipments() {
                   {amazonSnapshot?.created_using && (
                     <div className="text-sm text-text-secondary">Created using: {amazonSnapshot.created_using}</div>
                   )}
-                  <div className="text-sm text-text-secondary">Amazon reference ID: {reqHeader?.amazon_reference_id || amazonSnapshot?.reference_id || '—'}</div>
+                  {(reqHeader?.amazon_reference_id || amazonSnapshot?.reference_id) && (
+                    <div className="text-sm text-text-secondary">
+                      Amazon reference ID: {reqHeader?.amazon_reference_id || amazonSnapshot?.reference_id}
+                    </div>
+                  )}
                 </div>
                 <div className="p-5 border-r border-gray-100">
                   <div className="text-xs uppercase text-text-secondary mb-2">Ship from</div>
