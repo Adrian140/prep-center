@@ -9,7 +9,8 @@
     "sync-fulfilled-qty": "node syncInventoryToSupabase.js",
     "sync-products": "node syncListingsToSupabase.js",
     "sync-keepa-images": "node syncKeepaImages.js",
-    "sync-sales": "node syncSalesToSupabase.js"
+    "sync-sales": "node syncSalesToSupabase.js",
+    "sync-prep-shipments": "node syncPrepShipmentsFromAmazon.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

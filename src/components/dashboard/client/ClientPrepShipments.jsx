@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Package } from 'lucide-react';
+import { Package, ChevronDown } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
 import { supabase, supabaseHelpers } from '../../../config/supabase';
@@ -39,6 +39,16 @@ export default function ClientPrepShipments() {
   const [adding, setAdding] = useState(false);
   const [addingSel, setAddingSel] = useState('');
   const [addingQty, setAddingQty] = useState('');
+
+  const formatDateParts = (value) => {
+    if (!value) return { date: '—', time: '' };
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return { date: value, time: '' };
+    return {
+      date: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+      time: d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' })
+    };
+  };
 
   const filteredInventory = useMemo(() => {
     const term = inventorySearch.trim().toLowerCase();
@@ -312,7 +322,27 @@ export default function ClientPrepShipments() {
       const [prepRes, stockResCompany, stockResUser] = await Promise.all([
         supabase
           .from('prep_requests')
-          .select('id, destination_country, created_at, status, fba_shipment_id, prep_request_tracking(tracking_id)')
+          .select(`
+            id,
+            destination_country,
+            created_at,
+            confirmed_at,
+            status,
+            prep_status,
+            fba_shipment_id,
+            amazon_status,
+            amazon_units_expected,
+            amazon_units_located,
+            amazon_skus,
+            amazon_shipment_name,
+            amazon_reference_id,
+            amazon_destination_code,
+            amazon_delivery_window,
+            amazon_last_updated,
+            amazon_snapshot,
+            prep_request_tracking(tracking_id),
+            prep_request_items(units_requested)
+          `)
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
           .limit(100),
@@ -379,68 +409,157 @@ export default function ClientPrepShipments() {
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead className="bg-gray-50 text-text-secondary">
+          <table className="w-full min-w-[1100px] text-sm">
+            <thead className="bg-gray-50 text-text-secondary uppercase tracking-wide text-[11px]">
               <tr>
-                <th className="px-4 py-2 text-left">{t('ClientStock.recent.thead.date')}</th>
-                <th className="px-4 py-2 text-left">{t('ClientStock.recent.thead.country')}</th>
-                <th className="px-4 py-2 text-left">{t('ClientStock.recent.thead.fbaShipmentId')}</th>
-                <th className="px-4 py-2 text-left">{t('ClientStock.recent.thead.trackIds')}</th>
-                <th className="px-4 py-2 text-left">{t('ClientStock.recent.thead.status')}</th>
-                <th className="px-4 py-2 text-right">{t('ClientPrepShipments.table.actions')}</th>
+                <th className="px-4 py-2 text-left">Shipment name</th>
+                <th className="px-4 py-2 text-left">Created</th>
+                <th className="px-4 py-2 text-left">Last updated</th>
+                <th className="px-4 py-2 text-left">Ship to</th>
+                <th className="px-4 py-2 text-left">SKUs</th>
+                <th className="px-4 py-2 text-left">Units expected</th>
+                <th className="px-4 py-2 text-left">Status Amazon</th>
+                <th className="px-4 py-2 text-left">Status PrepCenter</th>
+                <th className="px-4 py-2 text-right">Next steps</th>
               </tr>
             </thead>
             <tbody>
                       {!loading && rows.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="px-4 py-8 text-center text-text-light">
+                          <td colSpan={9} className="px-4 py-8 text-center text-text-light">
                             {t('ClientPrepShipments.table.empty')}
                           </td>
                         </tr>
                       )}
               {rows.map((row) => {
                 const status = row.status || 'pending';
-                const tracks = Array.isArray(row.prep_request_tracking) && row.prep_request_tracking.length
-                  ? row.prep_request_tracking.map((trk) => trk.tracking_id).join(', ')
-                  : '—';
-                const pending = status === 'pending';
                 const destCode = (row.destination_country || 'FR').toUpperCase();
                 const destLabel = t(`ClientStock.countries.${destCode}`) || destCode;
+                const createdParts = formatDateParts(row.created_at);
+                const lastUpdatedParts = formatDateParts(row.amazon_last_updated || row.confirmed_at || row.created_at);
+                const snapshot = row.amazon_snapshot || {};
+                const shipmentName =
+                  row.amazon_shipment_name ||
+                  snapshot.shipment_name ||
+                  row.fba_shipment_id ||
+                  'FBA shipment';
+                const shipmentId = row.fba_shipment_id || snapshot.shipment_id || '—';
+                const referenceId = row.amazon_reference_id || snapshot.reference_id || snapshot.shipment_reference_id || '';
+                const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
+                const skusCount = Number.isFinite(row.amazon_skus)
+                  ? row.amazon_skus
+                  : Number.isFinite(snapshot.skus)
+                  ? snapshot.skus
+                  : items.length || '—';
+                const unitsExpected = Number.isFinite(row.amazon_units_expected)
+                  ? row.amazon_units_expected
+                  : Number.isFinite(snapshot.units_expected)
+                  ? snapshot.units_expected
+                  : items.reduce((acc, it) => acc + Number(it.units_requested || 0), 0);
+                const unitsLocated = Number.isFinite(row.amazon_units_located)
+                  ? row.amazon_units_located
+                  : Number.isFinite(snapshot.units_located || snapshot.units_received)
+                  ? (snapshot.units_located || snapshot.units_received)
+                  : null;
+                const shipToText =
+                  row.amazon_destination_code ||
+                  snapshot.destination_code ||
+                  destCode;
+                const deliveryWindow =
+                  row.amazon_delivery_window ||
+                  snapshot.delivery_window ||
+                  snapshot.deliveryWindow ||
+                  '';
+                const amazonStatus = (
+                  row.amazon_status ||
+                  snapshot.status ||
+                  snapshot.shipment_status ||
+                  '—'
+                ).toString();
+                const prepStatusRaw = row.prep_status || status;
+                const prepStatus =
+                  prepStatusRaw === 'pending'
+                    ? 'pending'
+                    : prepStatusRaw === 'cancelled'
+                    ? 'anulat'
+                    : 'expediat';
+                const prepStatusClass = prepStatus === 'pending'
+                  ? 'bg-amber-50 text-amber-700'
+                  : prepStatus === 'anulat'
+                  ? 'bg-red-50 text-red-700'
+                  : 'bg-emerald-50 text-emerald-700';
                 return (
-                  <tr key={row.id} className="border-t">
-                    <td className="px-4 py-2">{toIsoDate(row.created_at)}</td>
-                    <td className="px-4 py-2">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 uppercase">
-                        {destCode}
-                        <span className="normal-case text-[11px] text-rose-700">{destLabel}</span>
-                      </span>
+                  <tr key={row.id} className="border-t even:bg-gray-50/60">
+                    <td className="px-4 py-3 align-top">
+                      <div className="font-semibold text-primary hover:underline cursor-pointer" onClick={() => row.id && openReqEditor(row.id)}>
+                        {shipmentName}
+                      </div>
+                      <div className="text-xs text-text-secondary font-mono">
+                        {shipmentId}
+                        {referenceId ? `, ${referenceId}` : ''}
+                      </div>
                     </td>
-                    <td className="px-4 py-2 font-mono text-xs">{row.fba_shipment_id || '—'}</td>
-                    <td className="px-4 py-2">{tracks}</td>
-                    <td className="px-4 py-2">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${
-                        pending ? 'bg-yellow-50 text-yellow-800' : 'bg-gray-100 text-gray-700'
-                      }`}>
-                        {status}
-                      </span>
+                    <td className="px-4 py-3 align-top">
+                      <div className="font-medium text-text-primary">{createdParts.date}</div>
+                      <div className="text-xs text-text-secondary">{createdParts.time}</div>
                     </td>
-                    <td className="px-4 py-2 text-right space-x-3">
-                      <button
-                        className="text-primary text-sm hover:underline disabled:opacity-50"
-                        disabled={!row.id}
-                        onClick={() => row.id && openReqEditor(row.id)}
-                      >
-                        {pending ? t('ClientPrepShipments.table.edit') : t('ClientPrepShipments.table.view')}
-                      </button>
-                      {pending && (
-                        <button
-                          className="text-red-600 text-sm hover:underline disabled:opacity-50"
-                          disabled={deletingId === row.id}
-                          onClick={() => handleDeleteRequest(row.id)}
-                        >
-                          {deletingId === row.id ? t('common.deleting') || 'Deleting...' : t('common.delete') || 'Delete'}
-                        </button>
+                    <td className="px-4 py-3 align-top">
+                      <div className="font-medium text-text-primary">{lastUpdatedParts.date}</div>
+                      <div className="text-xs text-text-secondary">{lastUpdatedParts.time}</div>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 uppercase">
+                          {shipToText}
+                          <span className="normal-case text-[11px] text-rose-700">{destLabel}</span>
+                        </span>
+                      </div>
+                      {deliveryWindow && (
+                        <div className="text-xs text-text-secondary mt-1">
+                          Delivery window {deliveryWindow}
+                        </div>
                       )}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <span className="text-primary font-semibold">{skusCount}</span>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <div className="text-text-primary font-semibold">
+                        {Number.isFinite(unitsExpected) ? unitsExpected : '—'}
+                      </div>
+                      <div className="text-xs text-primary font-semibold">
+                        {Number.isFinite(unitsLocated) ? unitsLocated : '—'}
+                      </div>
+                      <div className="text-[11px] text-text-secondary">Units located</div>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <span className="font-semibold text-text-primary">{amazonStatus}</span>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${prepStatusClass}`}>
+                        {prepStatus}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 align-top text-right">
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={!row.id}
+                          onClick={() => row.id && openReqEditor(row.id)}
+                        >
+                          View request
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                        {pending && (
+                          <button
+                            className="text-sm text-red-600 hover:underline disabled:opacity-50"
+                            disabled={deletingId === row.id}
+                            onClick={() => handleDeleteRequest(row.id)}
+                          >
+                            {deletingId === row.id ? t('common.deleting') || 'Deleting...' : t('common.delete') || 'Delete'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
