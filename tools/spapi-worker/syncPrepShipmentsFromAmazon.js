@@ -204,9 +204,12 @@ async function main() {
         row.fba_shipment_id,
         integration.marketplace_id || process.env.SPAPI_MARKETPLACE_ID
       );
-      const prepStatusResolved =
-        row.prep_status ||
-        (row.status && row.status !== 'pending' ? 'expediat' : 'pending');
+      let prepStatusResolved = row.prep_status;
+      if (!prepStatusResolved) {
+        if (row.status === 'confirmed') prepStatusResolved = 'expediat';
+        else if (row.status === 'cancelled') prepStatusResolved = 'anulat';
+        else prepStatusResolved = 'pending';
+      }
       await updatePrepRequest(row.id, {
         amazon_status: snap.status || 'UNKNOWN',
         amazon_units_expected: snap.units_expected,

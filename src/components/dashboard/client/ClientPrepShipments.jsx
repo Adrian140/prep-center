@@ -476,7 +476,10 @@ export default function ClientPrepShipments() {
                   snapshot.shipment_status ||
                   '—'
                 ).toString();
-                const prepStatusRaw = row.prep_status || status;
+                let prepStatusRaw = row.prep_status || status;
+                if ((!prepStatusRaw || prepStatusRaw === 'pending') && status === 'confirmed') {
+                  prepStatusRaw = 'expediat';
+                }
                 const prepStatus =
                   prepStatusRaw === 'pending'
                     ? 'pending'
