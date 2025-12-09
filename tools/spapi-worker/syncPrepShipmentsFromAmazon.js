@@ -183,17 +183,28 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
     throw new Error(`Shipment not found for ${shipmentId}`);
   }
 
-  const itemsRes = await spClient.callAPI({
-    operation: 'getShipmentItemsByShipmentId',
-    endpoint: 'fulfillmentInbound',
-    path: { shipmentId },
-    query: {
-      MarketplaceId: marketplaceId || process.env.SPAPI_MARKETPLACE_ID
-    },
-    options: {
-      version: 'v0'
-    }
-  });
+  // Fetch items; încercăm cu marketplace-ul ales, apoi fallback fără
+  let itemsRes;
+  try {
+    itemsRes = await spClient.callAPI({
+      operation: 'getShipmentItemsByShipmentId',
+      endpoint: 'fulfillmentInbound',
+      path: { shipmentId },
+      query: {
+        MarketplaceId: pickedMarketplace || marketplaceId || process.env.SPAPI_MARKETPLACE_ID
+      },
+      options: { version: 'v0' }
+    });
+  } catch (err) {
+    // fallback fără MarketplaceId
+    itemsRes = await spClient.callAPI({
+      operation: 'getShipmentItemsByShipmentId',
+      endpoint: 'fulfillmentInbound',
+      path: { shipmentId },
+      query: {},
+      options: { version: 'v0' }
+    });
+  }
 
   const items = Array.isArray(itemsRes?.payload?.ItemData) ? itemsRes.payload.ItemData : [];
   const skuSet = new Set();
