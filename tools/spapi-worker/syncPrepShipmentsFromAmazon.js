@@ -55,7 +55,9 @@ async function fetchActiveIntegrations() {
 
   const { data, error } = await supabase
     .from('amazon_integrations')
-    .select('id, user_id, company_id, marketplace_id, region, refresh_token, status, selling_partner_id')
+    .select(
+      'id, user_id, company_id, marketplace_id, region, refresh_token, status, selling_partner_id'
+    )
     .eq('status', 'active');
   if (error) throw error;
   return data || [];
@@ -172,8 +174,10 @@ async function main() {
   assertEnv();
   const integrations = await fetchActiveIntegrations();
   const byUser = new Map();
+  const byCompany = new Map();
   integrations.forEach((row) => {
     if (row.user_id) byUser.set(row.user_id, row);
+    if (row.company_id) byCompany.set(row.company_id, row);
   });
 
   const prepRequests = await fetchPrepRequests();
@@ -186,9 +190,11 @@ async function main() {
   const nowIso = new Date().toISOString();
 
   for (const row of prepRequests) {
-    const integration = byUser.get(row.user_id);
+    const integration = byUser.get(row.user_id) || byCompany.get(row.company_id);
     if (!integration) {
-      console.warn(`No active Amazon integration for user ${row.user_id}, skipping ${row.fba_shipment_id}`);
+      console.warn(
+        `No active Amazon integration for user ${row.user_id} / company ${row.company_id}, skipping ${row.fba_shipment_id}`
+      );
       await updatePrepRequest(row.id, {
         amazon_sync_error: 'No active Amazon integration',
         amazon_last_synced_at: nowIso
@@ -242,9 +248,12 @@ async function main() {
       });
       console.log(`Updated shipment ${row.fba_shipment_id} (prep_request ${row.id}) with status ${snap.status || 'n/a'}`);
     } catch (err) {
-      console.error(`Failed to sync shipment ${row.fba_shipment_id}:`, err.message);
+      console.error(
+        `Failed to sync shipment ${row.fba_shipment_id} (user ${row.user_id}, company ${row.company_id}, seller ${integration.selling_partner_id || 'n/a'}, marketplace ${integration.marketplace_id || process.env.SPAPI_MARKETPLACE_ID || 'n/a'}):`,
+        err.message
+      );
       await updatePrepRequest(row.id, {
-        amazon_status: 'NOT_FOUND',
+        amazon_status: row.amazon_status || null,
         amazon_sync_error: err.message || 'Sync error',
         amazon_last_synced_at: nowIso
       }).catch(() => {});
