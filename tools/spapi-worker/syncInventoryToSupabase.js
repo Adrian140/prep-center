@@ -755,6 +755,8 @@ async function zeroAmazonStockForCompany(companyId, seenKeys = new Set()) {
   return rowsToZero.length;
 }
 
+const ZERO_MISSING_STOCK = process.env.ZERO_MISSING_STOCK === 'true';
+
 async function main() {
   assertBaseEnv();
   const integrations = await fetchActiveIntegrations();
@@ -773,6 +775,10 @@ async function main() {
   }
 
   for (const [companyId, seenKeys] of companySeenKeys.entries()) {
+    if (!ZERO_MISSING_STOCK) {
+      console.log(`Company ${companyId}: zeroing missing Amazon rows is disabled (ZERO_MISSING_STOCK!=true).`);
+      continue;
+    }
     if (!seenKeys.size) {
       console.log(`Company ${companyId} had no Amazon inventory rows this run; skipping zeroing.`);
       continue;

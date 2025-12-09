@@ -7,8 +7,9 @@ import { TextDecoder } from 'util';
 
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
 const LISTING_REPORT_TYPE = 'GET_MERCHANT_LISTINGS_ALL_DATA';
-const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 4000);
-const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 60);
+// Amazon reports pot dura mai mult; permitem timeout configurabil.
+const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 10_000); // ms
+const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 300); // 300 * 10s ≈ 50 min
 
 const MAX_INTEGRATIONS_PER_RUN = Number(
   process.env.SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN ||
@@ -155,7 +156,9 @@ async function waitForReport(spClient, reportId) {
         await delay(REPORT_POLL_INTERVAL);
     }
   }
-  throw new Error('Timed out waiting for Amazon listing report to finish');
+  throw new Error(
+    `Timed out waiting for Amazon listing report ${reportId} after ${REPORT_POLL_LIMIT * REPORT_POLL_INTERVAL / 1000}s`
+  );
 }
 
 async function downloadReportDocument(spClient, reportDocumentId) {
@@ -316,15 +319,12 @@ async function insertListingRows(rows) {
   if (!rows.length) return;
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
-    const chunk = rows.slice(i, i + chunkSize).map((row) => {
-      const payload = { ...row };
-      return payload;
-    });
+    const chunk = rows.slice(i, i + chunkSize).map((row) => ({ ...row }));
     if (!chunk.length) continue;
     const { error } = await supabase
       .from('stock_items')
-      // upsert pe company_id+sku+asin ca să evităm duplicatele
-      .upsert(chunk, { defaultToNull: false, onConflict: 'company_id,sku,asin' });
+      // ignorăm complet liniile care există deja (nu vrem să atingem stoc/poze)
+      .insert(chunk, { ignoreDuplicates: true });
     if (error) throw error;
   }
 }
