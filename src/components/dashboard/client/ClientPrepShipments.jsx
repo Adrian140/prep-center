@@ -39,6 +39,7 @@ export default function ClientPrepShipments() {
   const [adding, setAdding] = useState(false);
   const [addingSel, setAddingSel] = useState('');
   const [addingQty, setAddingQty] = useState('');
+  const amazonSnapshot = reqHeader?.amazon_snapshot || null;
 
   const formatDateParts = (value) => {
     if (!value) return { date: '—', time: '' };
@@ -48,6 +49,36 @@ export default function ClientPrepShipments() {
       date: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
       time: d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' })
     };
+  };
+
+  const formatDisplayDate = (value, withTime = false) => {
+    if (!value) return '—';
+    try {
+      const date = new Date(value);
+      const datePart = date.toLocaleDateString('ro-RO', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+      if (!withTime) return datePart;
+      const timePart = date.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
+      return `${datePart} · ${timePart}`;
+    } catch {
+      return value;
+    }
+  };
+
+  const formatAddressLines = (address) => {
+    if (!address) return ['—'];
+    const lines = [
+      address.name,
+      address.address1,
+      address.address2,
+      [address.postal_code, address.city].filter(Boolean).join(' ').trim() || null,
+      address.country_code,
+      address.phone
+    ].filter(Boolean);
+    return lines.length ? lines : ['—'];
   };
 
   const filteredInventory = useMemo(() => {
@@ -208,7 +239,17 @@ export default function ClientPrepShipments() {
         destination_country: data.destination_country,
         status: data.status,
         created_at: data.created_at,
-        fba_shipment_id: data.fba_shipment_id || null
+        fba_shipment_id: data.fba_shipment_id || null,
+        amazon_status: data.amazon_status || null,
+        amazon_units_expected: data.amazon_units_expected ?? null,
+        amazon_units_located: data.amazon_units_located ?? null,
+        amazon_skus: data.amazon_skus ?? null,
+        amazon_shipment_name: data.amazon_shipment_name || null,
+        amazon_reference_id: data.amazon_reference_id || null,
+        amazon_destination_code: data.amazon_destination_code || null,
+        amazon_delivery_window: data.amazon_delivery_window || null,
+        amazon_last_updated: data.amazon_last_updated || null,
+        amazon_snapshot: data.amazon_snapshot || null
       });
       const lines = Array.isArray(data.prep_request_items) ? data.prep_request_items : [];
       setReqLines(
@@ -611,6 +652,91 @@ export default function ClientPrepShipments() {
                   <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.status')}:</span> {reqHeader?.status || 'pending'}</div>
                   <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.shipment')}:</span> {reqHeader?.fba_shipment_id || '—'}</div>
                 </div>
+
+                {reqHeader?.fba_shipment_id && (
+                  <div className="mx-6 mb-4 border rounded-lg bg-gray-50 p-4">
+                    <div className="flex flex-col gap-2 mb-4">
+                      <div className="text-xs uppercase text-text-secondary tracking-wide">Amazon shipment</div>
+                      <div className="text-lg font-semibold text-text-primary">
+                        {reqHeader?.amazon_shipment_name ||
+                          amazonSnapshot?.shipment_name ||
+                          reqHeader?.fba_shipment_id}
+                      </div>
+                      <div className="text-sm text-text-secondary font-mono">
+                        {reqHeader?.fba_shipment_id}
+                        {reqHeader?.amazon_reference_id || amazonSnapshot?.reference_id
+                          ? ` · ${reqHeader?.amazon_reference_id || amazonSnapshot?.reference_id}`
+                          : ''}
+                      </div>
+                      <div className="text-sm text-text-secondary">
+                        {t('ClientPrepShipments.drawer.status')}: {reqHeader?.amazon_status || amazonSnapshot?.status || '—'}
+                      </div>
+                      <div className="text-xs text-text-secondary">
+                        {t('ClientPrepShipments.drawer.date')} Amazon:{' '}
+                        {formatDisplayDate(amazonSnapshot?.created_date || reqHeader?.created_at, true)}
+                      </div>
+                      {amazonSnapshot?.created_using && (
+                        <div className="text-xs text-text-secondary">
+                          Created using: {amazonSnapshot.created_using}
+                        </div>
+                      )}
+                      <div className="text-xs text-text-secondary">
+                        Last updated Amazon:{' '}
+                        {formatDisplayDate(reqHeader?.amazon_last_updated || amazonSnapshot?.last_updated, true)}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                      <div>
+                        <div className="text-xs uppercase text-text-secondary">Ship from</div>
+                        {formatAddressLines(amazonSnapshot?.ship_from).map((line, idx) => (
+                          <div key={`ship-from-${idx}`} className="text-text-primary">
+                            {line}
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <div className="text-xs uppercase text-text-secondary">Ship to</div>
+                        {amazonSnapshot?.ship_to ? (
+                          formatAddressLines(amazonSnapshot.ship_to).map((line, idx) => (
+                            <div key={`ship-to-${idx}`} className="text-text-primary">
+                              {line}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-text-primary">
+                            {amazonSnapshot?.destination_code ||
+                              reqHeader?.amazon_destination_code ||
+                              '—'}
+                          </div>
+                        )}
+                        {amazonSnapshot?.delivery_window && (
+                          <div className="text-xs text-text-secondary mt-1">
+                            Delivery window {amazonSnapshot.delivery_window}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-xs uppercase text-text-secondary">Contents</div>
+                        <div className="text-text-primary">
+                          {reqHeader?.amazon_skus ?? amazonSnapshot?.skus ?? '—'} MSKUs
+                        </div>
+                        <div className="text-text-primary">
+                          {reqHeader?.amazon_units_expected ??
+                            amazonSnapshot?.units_expected ??
+                            '—'}{' '}
+                          units expected
+                        </div>
+                        {reqHeader?.amazon_units_located != null ||
+                        amazonSnapshot?.units_located != null ? (
+                          <div className="text-xs text-text-secondary">
+                            Units located:{' '}
+                            {reqHeader?.amazon_units_located ?? amazonSnapshot?.units_located ?? '—'}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {reqErrors.length > 0 && (
                   <div className="mx-6 mb-4 rounded-md border border-red-200 bg-red-50 text-red-700 p-3 text-sm space-y-1">

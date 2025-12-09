@@ -143,6 +143,8 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   const skuSet = new Set();
   const unitsExpected = items.reduce((acc, item) => acc + Number(item?.QuantityShipped || 0), 0);
   const unitsReceived = items.reduce((acc, item) => acc + Number(item?.QuantityReceived || 0), 0);
+  const shipFrom = shipment?.ShipFromAddress || {};
+  const shipTo = shipment?.ShipToAddress || null;
   items.forEach((it) => {
     if (it?.SellerSKU) skuSet.add(it.SellerSKU);
     if (it?.FNSKU) skuSet.add(it.FNSKU);
@@ -159,6 +161,31 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
     units_expected: Number.isFinite(unitsExpected) ? unitsExpected : null,
     units_located: Number.isFinite(unitsReceived) ? unitsReceived : null,
     last_updated: shipment?.LastUpdatedDate || shipment?.LastUpdatedTimestamp || null
+      ,
+    created_date: shipment?.CreatedDate || shipment?.CreationDate || null,
+    created_using: shipment?.CreatedUsing || null,
+    ship_from: {
+      name: shipFrom?.Name || null,
+      address1: shipFrom?.AddressLine1 || null,
+      address2: shipFrom?.AddressLine2 || null,
+      city: shipFrom?.City || null,
+      state: shipFrom?.StateOrRegion || null,
+      postal_code: shipFrom?.PostalCode || null,
+      country_code: shipFrom?.CountryCode || null,
+      phone: shipFrom?.Phone || null
+    },
+    ship_to: shipTo
+      ? {
+          name: shipTo?.Name || null,
+          address1: shipTo?.AddressLine1 || null,
+          address2: shipTo?.AddressLine2 || null,
+          city: shipTo?.City || null,
+          state: shipTo?.StateOrRegion || null,
+          postal_code: shipTo?.PostalCode || null,
+          country_code: shipTo?.CountryCode || null,
+          phone: shipTo?.Phone || null
+        }
+      : null
   };
 }
 
