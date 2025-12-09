@@ -551,6 +551,15 @@ export default function ClientPrepShipments() {
                           View request
                           <ChevronDown className="w-4 h-4" />
                         </button>
+                        {pending && (
+                          <button
+                            className="text-sm text-red-600 hover:underline disabled:opacity-50"
+                            disabled={deletingId === row.id}
+                            onClick={() => handleDeleteRequest(row.id)}
+                          >
+                            {deletingId === row.id ? t('common.deleting') || 'Deleting...' : t('common.delete') || 'Delete'}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
