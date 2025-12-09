@@ -105,8 +105,8 @@ async function fetchOtherLineSums(companyId, startDate, endDate) {
 
 // --- UI
 function MoneyPill({ value }) {
-  const state = getBalanceState(Number(value));
-  const isZero = state === "neutral";
+  const numeric = Number(value);
+  const state = getBalanceState(numeric);
   const cls =
     state === "advance"
       ? "bg-green-100 text-green-800"
@@ -114,16 +114,16 @@ function MoneyPill({ value }) {
       ? "bg-red-100 text-red-800"
       : "bg-gray-100 text-gray-700";
   let display = "0.00";
-  if (!isZero) {
-    const abs = Math.abs(value);
-    display = value > 0 ? `-${abs.toFixed(2)}` : abs.toFixed(2);
+  if (Number.isFinite(numeric) && Math.abs(numeric) >= 1e-9) {
+    const abs = Math.abs(numeric).toFixed(2);
+    display = numeric > 0 ? `+${abs}` : `-${abs}`;
   }
   return <span className={`px-2 py-1 rounded-md text-sm font-medium ${cls}`}>{display}</span>;
 }
 
 const getBalanceState = (value) => {
   if (!Number.isFinite(value) || Math.abs(value) < 1e-9) return "neutral";
-  return value > 0 ? "overdue" : "advance";
+  return value > 0 ? "advance" : "overdue";
 };
 
 const STORAGE_KEY = 'admin-clients-filters';
