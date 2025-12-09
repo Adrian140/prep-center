@@ -483,6 +483,7 @@ export default function ClientPrepShipments() {
                     : prepStatusRaw === 'cancelled'
                     ? 'anulat'
                     : 'expediat';
+                const pending = prepStatus === 'pending';
                 const prepStatusClass = prepStatus === 'pending'
                   ? 'bg-amber-50 text-amber-700'
                   : prepStatus === 'anulat'
