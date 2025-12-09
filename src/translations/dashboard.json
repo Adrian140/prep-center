@@ -759,7 +759,7 @@
         "actions": "Actions",
         "edit": "Edit draft",
         "view": "View request",
-        "statusPrepCenter": "Status PrepCenter"
+        "statusPrepCenter": "Prep status"
       },
       "prepStatus": {
         "pending": "Pending",
@@ -1515,7 +1515,13 @@
         "empty": "Nu există expedieri încă.",
         "actions": "Acțiuni",
         "edit": "Editează cererea",
-        "view": "Vezi cererea"
+        "view": "Vezi cererea",
+        "statusPrepCenter": "Status prep"
+      },
+      "prepStatus": {
+        "pending": "În așteptare",
+        "expediat": "Expediat din prep-center",
+        "anulat": "Anulat"
       },
       "drawer": {
         "pendingTitle": "Cerere de pregătire (în așteptare – editabilă)",
@@ -2212,7 +2218,13 @@
         "empty": "Aucune expédition pour le moment.",
         "actions": "Actions",
         "edit": "Modifier le brouillon",
-        "view": "Voir la demande"
+        "view": "Voir la demande",
+        "statusPrepCenter": "Statut prep"
+      },
+      "prepStatus": {
+        "pending": "En attente",
+        "expediat": "Expédié depuis le prep-center",
+        "anulat": "Annulé"
       },
       "drawer": {
         "pendingTitle": "Demande de préparation (en attente – modifiable)",
@@ -2909,7 +2921,13 @@
         "empty": "Noch keine Sendungen.",
         "actions": "Aktionen",
         "edit": "Entwurf bearbeiten",
-        "view": "Anfrage ansehen"
+        "view": "Anfrage ansehen",
+        "statusPrepCenter": "Prep-Status"
+      },
+      "prepStatus": {
+        "pending": "Ausstehend",
+        "expediat": "Versendet aus dem Prep-Center",
+        "anulat": "Storniert"
       },
       "drawer": {
         "pendingTitle": "Vorbereitungsauftrag (ausstehend – bearbeitbar)",
@@ -3606,7 +3624,13 @@
         "empty": "Nessuna spedizione ancora.",
         "actions": "Azioni",
         "edit": "Modifica bozza",
-        "view": "Visualizza richiesta"
+        "view": "Visualizza richiesta",
+        "statusPrepCenter": "Stato prep"
+      },
+      "prepStatus": {
+        "pending": "In attesa",
+        "expediat": "Spedito dal prep-center",
+        "anulat": "Annullato"
       },
       "drawer": {
         "pendingTitle": "Richiesta di preparazione (in attesa – modificabile)",
@@ -4303,7 +4327,13 @@
         "empty": "Sin envíos por ahora.",
         "actions": "Acciones",
         "edit": "Editar borrador",
-        "view": "Ver solicitud"
+        "view": "Ver solicitud",
+        "statusPrepCenter": "Estado prep"
+      },
+      "prepStatus": {
+        "pending": "Pendiente",
+        "expediat": "Enviado desde el prep-center",
+        "anulat": "Cancelado"
       },
       "drawer": {
         "pendingTitle": "Solicitud de preparación (pendiente – editable)",
