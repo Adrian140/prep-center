@@ -30,6 +30,47 @@ async function fetchSellerTokens(sellerIds) {
   return map;
 }
 
+const normalizeKey = (value) => (value ? value.trim().toUpperCase() : '');
+
+async function updateItemAmazonQuantities(prepItems, amazonItems) {
+  if (!prepItems?.length || !amazonItems?.length) return;
+  const bySku = new Map();
+  const byAsin = new Map();
+  prepItems.forEach((item) => {
+    const skuKey = normalizeKey(item?.sku);
+    const asinKey = normalizeKey(item?.asin);
+    if (skuKey) bySku.set(skuKey, item);
+    if (asinKey) byAsin.set(asinKey, item);
+  });
+  const updatesMap = new Map();
+  amazonItems.forEach((amazonItem) => {
+    const skuKey = normalizeKey(amazonItem?.SellerSKU);
+    const asinKey = normalizeKey(amazonItem?.ASIN);
+    const matched =
+      (skuKey && bySku.get(skuKey)) ||
+      (asinKey && byAsin.get(asinKey));
+    if (!matched?.id) return;
+    const expected = Number(amazonItem?.QuantityShipped ?? 0);
+    const received = Number(amazonItem?.QuantityReceived ?? 0);
+    if (
+      matched.amazon_units_expected === expected &&
+      matched.amazon_units_received === received
+    ) {
+      return;
+    }
+    updatesMap.set(matched.id, {
+      id: matched.id,
+      amazon_units_expected: expected,
+      amazon_units_received: received
+    });
+  });
+  const updates = Array.from(updatesMap.values());
+  if (updates.length) {
+    const { error } = await supabase.from('prep_request_items').upsert(updates);
+    if (error) throw error;
+  }
+}
+
 function assertEnv() {
   const missing = [];
   if (!process.env.SUPABASE_URL) missing.push('SUPABASE_URL');
@@ -98,7 +139,28 @@ async function fetchPrepRequests() {
   const { data, error } = await supabase
     .from('prep_requests')
     .select(
-      'id, user_id, company_id, fba_shipment_id, status, prep_status, amazon_status, amazon_last_synced_at'
+      `
+      id,
+      user_id,
+      company_id,
+      fba_shipment_id,
+      status,
+      prep_status,
+      amazon_status,
+      amazon_skus,
+      amazon_units_expected,
+      amazon_units_located,
+      amazon_last_synced_at,
+      prep_request_items (
+        id,
+        asin,
+        sku,
+        product_name,
+        units_requested,
+        amazon_units_expected,
+        amazon_units_received
+      )
+    `
     )
     .not('fba_shipment_id', 'is', null)
     .order('amazon_last_synced_at', { ascending: true, nullsFirst: true })
@@ -257,7 +319,7 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
       : null
   };
 
-  return snapshot;
+  return { snapshot, items };
 }
 
 async function updatePrepRequest(id, patch) {
@@ -315,11 +377,12 @@ async function main() {
 
     const client = spClientCache.get(key);
     try {
-      const snap = await fetchShipmentSnapshot(
+      const { snapshot: snap, items: amazonItems } = await fetchShipmentSnapshot(
         client,
         row.fba_shipment_id,
         integration.marketplace_id || process.env.SPAPI_MARKETPLACE_ID
       );
+      await updateItemAmazonQuantities(row.prep_request_items, amazonItems);
       let prepStatusResolved = row.prep_status;
       if (!prepStatusResolved) {
         if (row.status === 'confirmed') prepStatusResolved = 'expediat';

@@ -145,7 +145,9 @@ export default function ClientPrepShipments() {
         sku: '',
         ean: stockItem.ean || '',
         units_requested: qty,
-        product_name: stockItem.name || ''
+        product_name: stockItem.name || '',
+        amazon_units_expected: null,
+        amazon_units_received: null
       }
     ]);
     setReqErrors([]);
@@ -213,7 +215,9 @@ export default function ClientPrepShipments() {
         sku: '',
         ean: stockItem.ean || '',
         units_requested: qty,
-        product_name: stockItem.name || ''
+        product_name: stockItem.name || '',
+        amazon_units_expected: null,
+        amazon_units_received: null
       }
     ]);
     setReqErrors([]);
@@ -261,7 +265,9 @@ export default function ClientPrepShipments() {
           sku: line.sku ?? '',
           units_requested: Number(line.units_requested || 0),
           product_name: line.product_name || line.stock_item?.name || '',
-          ean: line.ean || line.stock_item?.ean || ''
+          ean: line.ean || line.stock_item?.ean || '',
+          amazon_units_expected: line.amazon_units_expected ?? null,
+          amazon_units_received: line.amazon_units_received ?? null
         }))
       );
       setReqEditable((data.status || 'pending') === 'pending');
@@ -803,7 +809,19 @@ export default function ClientPrepShipments() {
                                     }
                                   />
                                 ) : (
-                                  line.units_requested
+                                  <div className="text-right">
+                                    <div className="text-sm font-semibold text-text-primary">
+                                      {line.units_requested}
+                                    </div>
+                                    {(line.amazon_units_expected != null ||
+                                      line.amazon_units_received != null) && (
+                                      <div className="text-[11px] text-text-secondary">
+                                        Amazon:{' '}
+                                        {line.amazon_units_received ?? '—'} /{' '}
+                                        {line.amazon_units_expected ?? '—'}
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                               </td>
                               {reqEditable && (

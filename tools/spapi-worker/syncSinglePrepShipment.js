@@ -76,6 +76,46 @@ async function findIntegration(userId, companyId) {
     .find((row) => row.refresh_token);
 }
 
+const normalizeKey = (value) => (value ? value.trim().toUpperCase() : '');
+
+async function updateItemAmazonQuantities(prepItems, amazonItems) {
+  if (!prepItems?.length || !amazonItems?.length) return;
+  const bySku = new Map();
+  const byAsin = new Map();
+  prepItems.forEach((item) => {
+    const skuKey = normalizeKey(item?.sku);
+    const asinKey = normalizeKey(item?.asin);
+    if (skuKey) bySku.set(skuKey, item);
+    if (asinKey) byAsin.set(asinKey, item);
+  });
+  const updates = [];
+  amazonItems.forEach((amazonItem) => {
+    const skuKey = normalizeKey(amazonItem?.SellerSKU);
+    const asinKey = normalizeKey(amazonItem?.ASIN);
+    const matched =
+      (skuKey && bySku.get(skuKey)) ||
+      (asinKey && byAsin.get(asinKey));
+    if (!matched?.id) return;
+    const expected = Number(amazonItem?.QuantityShipped ?? 0);
+    const received = Number(amazonItem?.QuantityReceived ?? 0);
+    if (
+      matched.amazon_units_expected === expected &&
+      matched.amazon_units_received === received
+    ) {
+      return;
+    }
+    updates.push({
+      id: matched.id,
+      amazon_units_expected: expected,
+      amazon_units_received: received
+    });
+  });
+  if (updates.length) {
+    const { error } = await supabase.from('prep_request_items').upsert(updates);
+    if (error) throw error;
+  }
+}
+
 async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   const candidates = normalizeShipmentIds(rawShipmentId);
   const shipmentId = candidates[0] || rawShipmentId;
@@ -151,6 +191,7 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   });
 
   return {
+    snapshot: {
     shipment_id: shipmentId,
     shipment_name: shipment?.ShipmentName || null,
     reference_id: shipment?.ShipmentReferenceId || null,
@@ -186,6 +227,8 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
           phone: shipTo?.Phone || null
         }
       : null
+    },
+    items
   };
 }
 
@@ -198,7 +241,22 @@ async function main() {
 
   const { data: prepRows, error } = await supabase
     .from('prep_requests')
-    .select('id, user_id, company_id, status, prep_status, fba_shipment_id')
+    .select(`
+      id,
+      user_id,
+      company_id,
+      status,
+      prep_status,
+      fba_shipment_id,
+      prep_request_items (
+        id,
+        asin,
+        sku,
+        units_requested,
+        amazon_units_expected,
+        amazon_units_received
+      )
+    `)
     .ilike('fba_shipment_id', fbaId)
     .limit(1);
   if (error) throw error;
@@ -220,11 +278,12 @@ async function main() {
     region: integration.region || process.env.SPAPI_REGION || 'eu'
   });
 
-  const snap = await fetchShipmentSnapshot(
+  const { snapshot: snap, items: amazonItems } = await fetchShipmentSnapshot(
     client,
     prep.fba_shipment_id,
     integration.marketplace_id || process.env.SPAPI_MARKETPLACE_ID
   );
+  await updateItemAmazonQuantities(prep.prep_request_items, amazonItems);
 
   const prepStatus =
     prep.prep_status ||
