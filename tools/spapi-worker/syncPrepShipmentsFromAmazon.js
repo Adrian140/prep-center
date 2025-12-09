@@ -173,10 +173,12 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
     if (shipmentRes?.payload?.ShipmentData?.length) break;
   }
 
+  const shipmentPayload = shipmentRes?.payload || shipmentRes;
+  const shipmentList = Array.isArray(shipmentPayload?.ShipmentData) ? shipmentPayload.ShipmentData : [];
   const shipment =
-    shipmentRes?.payload?.ShipmentData?.find((s) => candidates.includes(s.ShipmentId)) ||
-    shipmentRes?.payload?.ShipmentData?.find((s) => s.ShipmentId === shipmentId) ||
-    shipmentRes?.payload?.ShipmentData?.[0] ||
+    shipmentList.find((s) => candidates.includes(s.ShipmentId)) ||
+    shipmentList.find((s) => s.ShipmentId === shipmentId) ||
+    shipmentList[0] ||
     null;
 
   if (!shipment) {
@@ -206,7 +208,8 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
     });
   }
 
-  const items = Array.isArray(itemsRes?.payload?.ItemData) ? itemsRes.payload.ItemData : [];
+  const itemPayload = itemsRes?.payload || itemsRes;
+  const items = Array.isArray(itemPayload?.ItemData) ? itemPayload.ItemData : [];
   const skuSet = new Set();
   const unitsExpected = items.reduce((acc, item) => acc + Number(item?.QuantityShipped || 0), 0);
   const unitsReceived = items.reduce((acc, item) => acc + Number(item?.QuantityReceived || 0), 0);
