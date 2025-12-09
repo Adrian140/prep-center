@@ -638,105 +638,99 @@ export default function ClientPrepShipments() {
               <div className="text-sm text-text-secondary py-8 px-6">{t('common.loading')}</div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 text-sm px-6 pt-4">
-                  <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.date')}:</span> {reqHeader?.created_at?.slice(0,10) || '—'}</div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-text-secondary">{t('ClientPrepShipments.drawer.country')}:</span>
-                    <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 uppercase">
-                      {(reqHeader?.destination_country || 'FR').toUpperCase()}
-                    </span>
-                    <span className="text-sm text-text-secondary">
-                      {t(`ClientStock.countries.${reqHeader?.destination_country || 'FR'}`)}
-                    </span>
+          {amazonSnapshot ? (
+            <div className="mx-6 mb-6 border border-gray-200 rounded-2xl overflow-hidden shadow-sm bg-white">
+              <div className="px-6 py-5 border-b border-gray-200 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-text-secondary">Shipment name</div>
+                  <div className="text-xl font-semibold text-primary">
+                    {reqHeader?.amazon_shipment_name || amazonSnapshot.shipment_name || reqHeader?.fba_shipment_id}
                   </div>
-                  <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.status')}:</span> {reqHeader?.status || 'pending'}</div>
-                  <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.shipment')}:</span> {reqHeader?.fba_shipment_id || '—'}</div>
+                  <div className="text-sm text-text-secondary font-mono">
+                    {reqHeader?.fba_shipment_id}
+                    {reqHeader?.amazon_reference_id || amazonSnapshot?.reference_id
+                      ? ` · ${reqHeader?.amazon_reference_id || amazonSnapshot?.reference_id}`
+                      : ''}
+                  </div>
                 </div>
-
-                {reqHeader?.fba_shipment_id && (
-                  <div className="mx-6 mb-4 border rounded-lg bg-gray-50 p-4">
-                    <div className="flex flex-col gap-2 mb-4">
-                      <div className="text-xs uppercase text-text-secondary tracking-wide">Amazon shipment</div>
-                      <div className="text-lg font-semibold text-text-primary">
-                        {reqHeader?.amazon_shipment_name ||
-                          amazonSnapshot?.shipment_name ||
-                          reqHeader?.fba_shipment_id}
-                      </div>
-                      <div className="text-sm text-text-secondary font-mono">
-                        {reqHeader?.fba_shipment_id}
-                        {reqHeader?.amazon_reference_id || amazonSnapshot?.reference_id
-                          ? ` · ${reqHeader?.amazon_reference_id || amazonSnapshot?.reference_id}`
-                          : ''}
-                      </div>
-                      <div className="text-sm text-text-secondary">
-                        {t('ClientPrepShipments.drawer.status')}: {reqHeader?.amazon_status || amazonSnapshot?.status || '—'}
-                      </div>
-                      <div className="text-xs text-text-secondary">
-                        {t('ClientPrepShipments.drawer.date')} Amazon:{' '}
-                        {formatDisplayDate(amazonSnapshot?.created_date || reqHeader?.created_at, true)}
-                      </div>
-                      {amazonSnapshot?.created_using && (
-                        <div className="text-xs text-text-secondary">
-                          Created using: {amazonSnapshot.created_using}
-                        </div>
-                      )}
-                      <div className="text-xs text-text-secondary">
-                        Last updated Amazon:{' '}
-                        {formatDisplayDate(reqHeader?.amazon_last_updated || amazonSnapshot?.last_updated, true)}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                      <div>
-                        <div className="text-xs uppercase text-text-secondary">Ship from</div>
-                        {formatAddressLines(amazonSnapshot?.ship_from).map((line, idx) => (
-                          <div key={`ship-from-${idx}`} className="text-text-primary">
-                            {line}
-                          </div>
-                        ))}
-                      </div>
-                      <div>
-                        <div className="text-xs uppercase text-text-secondary">Ship to</div>
-                        {amazonSnapshot?.ship_to ? (
-                          formatAddressLines(amazonSnapshot.ship_to).map((line, idx) => (
-                            <div key={`ship-to-${idx}`} className="text-text-primary">
-                              {line}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-text-primary">
-                            {amazonSnapshot?.destination_code ||
-                              reqHeader?.amazon_destination_code ||
-                              '—'}
-                          </div>
-                        )}
-                        {amazonSnapshot?.delivery_window && (
-                          <div className="text-xs text-text-secondary mt-1">
-                            Delivery window {amazonSnapshot.delivery_window}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <div className="text-xs uppercase text-text-secondary">Contents</div>
-                        <div className="text-text-primary">
-                          {reqHeader?.amazon_skus ?? amazonSnapshot?.skus ?? '—'} MSKUs
-                        </div>
-                        <div className="text-text-primary">
-                          {reqHeader?.amazon_units_expected ??
-                            amazonSnapshot?.units_expected ??
-                            '—'}{' '}
-                          units expected
-                        </div>
-                        {reqHeader?.amazon_units_located != null ||
-                        amazonSnapshot?.units_located != null ? (
-                          <div className="text-xs text-text-secondary">
-                            Units located:{' '}
-                            {reqHeader?.amazon_units_located ?? amazonSnapshot?.units_located ?? '—'}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
+                <div className="flex flex-wrap gap-6 text-sm">
+                  <div>
+                    <div className="text-xs uppercase text-text-secondary">Status</div>
+                    <div className="text-base font-semibold">{reqHeader?.amazon_status || amazonSnapshot?.status || '—'}</div>
                   </div>
-                )}
+                  <div>
+                    <div className="text-xs uppercase text-text-secondary">Last updated</div>
+                    <div>{formatDisplayDate(reqHeader?.amazon_last_updated || amazonSnapshot?.last_updated, true)}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 border-b border-gray-100">
+                <div className="p-5 border-r border-gray-100">
+                  <div className="text-xs uppercase text-text-secondary mb-2">Shipment</div>
+                  <div className="text-sm text-text-secondary">Created: {formatDisplayDate(amazonSnapshot?.created_date || reqHeader?.created_at)}</div>
+                  <div className="text-sm text-text-secondary">ID: {reqHeader?.fba_shipment_id || '—'}</div>
+                  {amazonSnapshot?.created_using && (
+                    <div className="text-sm text-text-secondary">Created using: {amazonSnapshot.created_using}</div>
+                  )}
+                  <div className="text-sm text-text-secondary">Amazon reference ID: {reqHeader?.amazon_reference_id || amazonSnapshot?.reference_id || '—'}</div>
+                </div>
+                <div className="p-5 border-r border-gray-100">
+                  <div className="text-xs uppercase text-text-secondary mb-2">Ship from</div>
+                  {formatAddressLines(amazonSnapshot.ship_from).map((line, idx) => (
+                    <div key={`shipfrom-${idx}`} className="text-sm text-text-primary">
+                      {line}
+                    </div>
+                  ))}
+                </div>
+                <div className="p-5 border-r border-gray-100">
+                  <div className="text-xs uppercase text-text-secondary mb-2">Ship to</div>
+                  {amazonSnapshot.ship_to ? (
+                    formatAddressLines(amazonSnapshot.ship_to).map((line, idx) => (
+                      <div key={`shipto-${idx}`} className="text-sm text-text-primary">
+                        {line}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-text-primary">
+                      {amazonSnapshot.destination_code || reqHeader?.amazon_destination_code || '—'}
+                    </div>
+                  )}
+                  {amazonSnapshot.delivery_window && (
+                    <div className="text-xs text-text-secondary mt-2">
+                      Delivery window {amazonSnapshot.delivery_window}
+                    </div>
+                  )}
+                </div>
+                <div className="p-5">
+                  <div className="text-xs uppercase text-text-secondary mb-2">Contents</div>
+                  <div className="text-sm text-text-primary">
+                    {reqHeader?.amazon_skus ?? amazonSnapshot.skus ?? '—'} MSKUs
+                  </div>
+                  <div className="text-sm text-text-primary">
+                    {reqHeader?.amazon_units_expected ?? amazonSnapshot.units_expected ?? '—'} units expected
+                  </div>
+                  <div className="text-xs text-text-secondary">
+                    Units located: {reqHeader?.amazon_units_located ?? amazonSnapshot.units_located ?? '—'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 text-sm px-6 pt-4">
+              <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.date')}:</span> {reqHeader?.created_at?.slice(0,10) || '—'}</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-text-secondary">{t('ClientPrepShipments.drawer.country')}:</span>
+                <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 uppercase">
+                  {(reqHeader?.destination_country || 'FR').toUpperCase()}
+                </span>
+                <span className="text-sm text-text-secondary">
+                  {t(`ClientStock.countries.${reqHeader?.destination_country || 'FR'}`)}
+                </span>
+              </div>
+              <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.status')}:</span> {reqHeader?.status || 'pending'}</div>
+              <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.shipment')}:</span> {reqHeader?.fba_shipment_id || '—'}</div>
+            </div>
+          )}
 
                 {reqErrors.length > 0 && (
                   <div className="mx-6 mb-4 rounded-md border border-red-200 bg-red-50 text-red-700 p-3 text-sm space-y-1">
