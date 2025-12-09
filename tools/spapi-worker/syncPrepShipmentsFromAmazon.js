@@ -64,7 +64,9 @@ async function fetchActiveIntegrations() {
 async function fetchPrepRequests() {
   const { data, error } = await supabase
     .from('prep_requests')
-    .select('id, user_id, company_id, fba_shipment_id, prep_status, amazon_status, amazon_last_synced_at')
+    .select(
+      'id, user_id, company_id, fba_shipment_id, status, prep_status, amazon_status, amazon_last_synced_at'
+    )
     .not('fba_shipment_id', 'is', null)
     .order('amazon_last_synced_at', { ascending: true, nullsFirst: true })
     .limit(MAX_ROWS);
@@ -72,13 +74,14 @@ async function fetchPrepRequests() {
   return data || [];
 }
 
-async function fetchShipmentSnapshot(spClient, shipmentId) {
+async function fetchShipmentSnapshot(spClient, shipmentId, marketplaceId) {
   const shipmentRes = await spClient.callAPI({
     operation: 'getShipments',
-    endpoint: 'fulfillmentInboundV0',
+    endpoint: 'fbaInbound',
     query: {
       ShipmentStatusList: STATUS_LIST,
-      ShipmentIdList: [shipmentId]
+      ShipmentIdList: [shipmentId],
+      MarketplaceId: marketplaceId || process.env.SPAPI_MARKETPLACE_ID
     }
   });
 
@@ -89,9 +92,11 @@ async function fetchShipmentSnapshot(spClient, shipmentId) {
 
   const itemsRes = await spClient.callAPI({
     operation: 'getShipmentItemsByShipmentId',
-    endpoint: 'fulfillmentInboundV0',
+    endpoint: 'fbaInbound',
     path: { shipmentId },
-    query: {}
+    query: {
+      MarketplaceId: marketplaceId || process.env.SPAPI_MARKETPLACE_ID
+    }
   });
 
   const items = itemsRes?.payload?.ItemData || [];
@@ -170,7 +175,14 @@ async function main() {
 
     const client = spClientCache.get(key);
     try {
-      const snap = await fetchShipmentSnapshot(client, row.fba_shipment_id);
+      const snap = await fetchShipmentSnapshot(
+        client,
+        row.fba_shipment_id,
+        integration.marketplace_id || process.env.SPAPI_MARKETPLACE_ID
+      );
+      const prepStatusResolved =
+        row.prep_status ||
+        (row.status && row.status !== 'pending' ? 'expediat' : 'pending');
       await updatePrepRequest(row.id, {
         amazon_status: snap.status,
         amazon_units_expected: snap.units_expected,
@@ -183,7 +195,8 @@ async function main() {
         amazon_last_updated: snap.last_updated,
         amazon_snapshot: snap,
         amazon_last_synced_at: nowIso,
-        amazon_sync_error: null
+        amazon_sync_error: null,
+        prep_status: prepStatusResolved
       });
       console.log(`Updated shipment ${row.fba_shipment_id} (prep_request ${row.id}) with status ${snap.status || 'n/a'}`);
     } catch (err) {
