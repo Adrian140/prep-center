@@ -66,7 +66,9 @@ async function updateItemAmazonQuantities(prepItems, amazonItems) {
   });
   const updates = Array.from(updatesMap.values());
   if (updates.length) {
-    const { error } = await supabase.from('prep_request_items').upsert(updates);
+    const { error } = await supabase
+      .from('prep_request_items')
+      .upsert(updates, { onConflict: 'id' });
     if (error) throw error;
   }
 }

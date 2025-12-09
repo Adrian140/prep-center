@@ -111,7 +111,9 @@ async function updateItemAmazonQuantities(prepItems, amazonItems) {
     });
   });
   if (updates.length) {
-    const { error } = await supabase.from('prep_request_items').upsert(updates);
+    const { error } = await supabase
+      .from('prep_request_items')
+      .upsert(updates, { onConflict: 'id' });
     if (error) throw error;
   }
 }
