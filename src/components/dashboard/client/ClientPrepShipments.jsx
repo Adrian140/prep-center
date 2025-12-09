@@ -68,6 +68,12 @@ export default function ClientPrepShipments() {
     };
   };
 
+  const getPrepStatusLabel = (status) => {
+    const key = `ClientPrepShipments.prepStatus.${status}`;
+    const translated = t(key);
+    return translated || status;
+  };
+
   const setAsinOrSku = (key, value) => {
     const raw = String(value || '').trim().toUpperCase();
     const isAsin = /^[A-Z0-9]{10}$/.test(raw) && /[A-Z]/.test(raw);
@@ -419,7 +425,9 @@ export default function ClientPrepShipments() {
                 <th className="px-4 py-2 text-left">SKUs</th>
                 <th className="px-4 py-2 text-left">Units expected</th>
                 <th className="px-4 py-2 text-left">Status Amazon</th>
-                <th className="px-4 py-2 text-left">Status PrepCenter</th>
+                <th className="px-4 py-2 text-left">
+                  {t('ClientPrepShipments.table.statusPrepCenter') || 'Status PrepCenter'}
+                </th>
                 <th className="px-4 py-2 text-right">Next steps</th>
               </tr>
             </thead>
@@ -541,7 +549,7 @@ export default function ClientPrepShipments() {
                     </td>
                     <td className="px-4 py-3 align-top">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${prepStatusClass}`}>
-                        {prepStatus}
+                        {getPrepStatusLabel(prepStatus)}
                       </span>
                     </td>
                     <td className="px-4 py-3 align-top text-right">

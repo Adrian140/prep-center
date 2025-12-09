@@ -758,7 +758,13 @@
         "empty": "No shipments yet.",
         "actions": "Actions",
         "edit": "Edit draft",
-        "view": "View request"
+        "view": "View request",
+        "statusPrepCenter": "Status PrepCenter"
+      },
+      "prepStatus": {
+        "pending": "Pending",
+        "expediat": "Shipped from prep-center",
+        "anulat": "Cancelled"
       },
       "drawer": {
         "pendingTitle": "Preparation request (Pending – editable)",
