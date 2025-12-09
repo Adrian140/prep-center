@@ -583,13 +583,20 @@ export default function ClientPrepShipments() {
                       <span className="text-primary font-semibold">{skusCount}</span>
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <div className="text-text-primary font-semibold">
+                      <div className="text-base font-semibold text-text-primary">
                         {Number.isFinite(unitsExpected) ? unitsExpected : '—'}
                       </div>
-                      <div className="text-xs text-primary font-semibold">
+                      <div
+                        className={`text-sm font-semibold ${
+                          Number.isFinite(unitsLocated) &&
+                          Number.isFinite(unitsExpected) &&
+                          Number(unitsLocated) === Number(unitsExpected)
+                            ? 'text-emerald-600'
+                            : 'text-sky-600'
+                        }`}
+                      >
                         {Number.isFinite(unitsLocated) ? unitsLocated : '—'}
                       </div>
-                      <div className="text-[11px] text-text-secondary">Units located</div>
                     </td>
                     <td className="px-4 py-3 align-top">
                       <span className="font-semibold text-text-primary">{amazonStatus}</span>
@@ -818,40 +825,30 @@ export default function ClientPrepShipments() {
                                     }
                                   />
                                 ) : (
-                                  <div className="text-right space-y-1">
-                                    <div>
-                                      <div className="text-[10px] uppercase text-text-secondary">
-                                        Units expected
-                                      </div>
-                                      <div className="text-sm font-semibold text-text-primary">
-                                        {line.amazon_units_expected ?? line.units_requested ?? '—'}
-                                      </div>
+                                  <div className="text-right">
+                                    <div className="text-base font-semibold text-text-primary leading-5">
+                                      {line.amazon_units_expected ?? line.units_requested ?? '—'}
                                     </div>
-                                    <div>
-                                      <div className="text-[10px] uppercase text-text-secondary">
-                                        Units located
-                                      </div>
-                                      <div
-                                        className={`text-sm font-semibold ${
-                                          line.amazon_units_received != null &&
-                                          line.amazon_units_expected != null &&
-                                          Number(line.amazon_units_received) ===
-                                            Number(line.amazon_units_expected)
-                                            ? 'text-emerald-600'
-                                            : 'text-sky-600'
-                                        }`}
-                                      >
-                                        {line.amazon_units_received ?? '—'}
-                                      </div>
-                                      {line.amazon_units_received != null &&
-                                        line.amazon_units_expected != null && (
-                                          <div className="text-[11px] text-text-secondary">
-                                            Discrepancy:{' '}
-                                            {Number(line.amazon_units_expected) -
-                                              Number(line.amazon_units_received)}
-                                          </div>
-                                        )}
+                                    <div
+                                      className={`text-sm font-semibold ${
+                                        line.amazon_units_received != null &&
+                                        line.amazon_units_expected != null &&
+                                        Number(line.amazon_units_received) ===
+                                          Number(line.amazon_units_expected)
+                                          ? 'text-emerald-600'
+                                          : 'text-sky-600'
+                                      }`}
+                                    >
+                                      {line.amazon_units_received ?? '—'}
                                     </div>
+                                    {line.amazon_units_expected != null &&
+                                      line.amazon_units_received != null && (
+                                        <div className="text-[11px] text-text-secondary">
+                                          Δ{' '}
+                                          {Number(line.amazon_units_expected) -
+                                            Number(line.amazon_units_received)}
+                                        </div>
+                                      )}
                                   </div>
                                 )}
                               </td>
