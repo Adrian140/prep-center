@@ -204,6 +204,9 @@ const LISTING_COLUMN_ALIASES = new Map([
   ['asin1', 'asin'],
   ['item-name', 'name'],
   ['nom-produit', 'name'],
+  ['image-url', 'imageUrl'],
+  ['image', 'imageUrl'],
+  ['primary-image-url', 'imageUrl'],
   ['status', 'status'],
   ['item-status', 'status'],
   ['état', 'status'],
@@ -277,6 +280,7 @@ function normalizeListings(rawRows = []) {
       sku: sku || null,
       asin: asin || null,
       name: sanitizeText(row.name) || null,
+      imageUrl: (row.imageUrl || '').trim() || null,
       status: (row.status || '').trim(),
       fulfillmentChannel: (row.fulfillmentChannel || '').trim()
     });
@@ -413,6 +417,7 @@ async function syncListingsIntegration(integration) {
     const seen = new Set();
     const inserts = [];
     const updates = [];
+    const asinAssetsToInsert = new Map();
     // Regula: nu rescriem rândurile existente, dar completăm titlul/poza dacă lipsesc.
 
     for (const listing of listingRows) {
@@ -439,8 +444,9 @@ async function syncListingsIntegration(integration) {
           ? asinImageCache.get(listing.asin.trim().toUpperCase()) || null
           : null;
         const hasExistingImage = row.image_url && String(row.image_url).trim().length > 0;
-        if (!hasExistingImage && cachedImage) {
-          patch.image_url = cachedImage;
+        const incomingImage = listing.imageUrl || cachedImage;
+        if (!hasExistingImage && incomingImage) {
+          patch.image_url = incomingImage;
           shouldPatch = true;
         }
         if (shouldPatch) updates.push(patch);
@@ -455,7 +461,7 @@ async function syncListingsIntegration(integration) {
           const hasExistingName = r.name && String(r.name).trim().length > 0;
           const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
           const hasExistingImage = r.image_url && String(r.image_url).trim().length > 0;
-          const cachedImage = asinImageCache.get(asinKey) || null;
+          const cachedImage = listing.imageUrl || asinImageCache.get(asinKey) || null;
           const patch = {
             id: r.id,
             company_id: r.company_id,
@@ -488,10 +494,18 @@ async function syncListingsIntegration(integration) {
             sku: listing.sku || null,
             name: listing.name || listing.asin || listing.sku,
             qty: 0,
-            image_url: listing.asin
-              ? asinImageCache.get(listing.asin.trim().toUpperCase()) || null
-              : null
+            image_url: listing.imageUrl
+              || (listing.asin
+                ? asinImageCache.get(listing.asin.trim().toUpperCase()) || null
+                : null)
           });
+        }
+      }
+      // colectăm poze din listings pentru cache asin_assets dacă nu avem deja
+      if (listing.asin && listing.imageUrl) {
+        const asinKey = listing.asin.trim().toUpperCase();
+        if (!asinImageCache.has(asinKey) && !asinAssetsToInsert.has(asinKey)) {
+          asinAssetsToInsert.set(asinKey, listing.imageUrl);
         }
       }
     }
@@ -506,6 +520,23 @@ async function syncListingsIntegration(integration) {
           .from('stock_items')
           .upsert(chunk, { defaultToNull: false, onConflict: 'company_id,sku,asin' });
         if (updateError) throw updateError;
+      }
+    }
+
+    if (asinAssetsToInsert.size) {
+      const now = new Date().toISOString();
+      const payload = Array.from(asinAssetsToInsert.entries()).map(([asin, url]) => ({
+        asin,
+        image_urls: [url],
+        source: 'listing_report',
+        fetched_at: now,
+        updated_at: now
+      }));
+      const { error: asinInsertError } = await supabase
+        .from('asin_assets')
+        .insert(payload, { ignoreDuplicates: true });
+      if (asinInsertError) {
+        console.warn(`[Listings sync] failed to cache listing images in asin_assets: ${asinInsertError.message}`);
       }
     }
 
