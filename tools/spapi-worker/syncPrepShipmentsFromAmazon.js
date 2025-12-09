@@ -66,10 +66,14 @@ async function updateItemAmazonQuantities(prepItems, amazonItems) {
     });
   });
   const updates = Array.from(updatesMap.values());
-  if (updates.length) {
+  for (const patch of updates) {
     const { error } = await supabase
       .from('prep_request_items')
-      .upsert(updates, { onConflict: 'id' });
+      .update({
+        amazon_units_expected: patch.amazon_units_expected,
+        amazon_units_received: patch.amazon_units_received
+      })
+      .eq('id', patch.id);
     if (error) throw error;
   }
 }
