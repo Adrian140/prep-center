@@ -77,11 +77,14 @@ async function fetchPrepRequests() {
 async function fetchShipmentSnapshot(spClient, shipmentId, marketplaceId) {
   const shipmentRes = await spClient.callAPI({
     operation: 'getShipments',
-    endpoint: 'fbaInbound',
+    endpoint: 'fulfillmentInbound',
     query: {
       ShipmentStatusList: STATUS_LIST,
       ShipmentIdList: [shipmentId],
       MarketplaceId: marketplaceId || process.env.SPAPI_MARKETPLACE_ID
+    },
+    options: {
+      version: 'v0'
     }
   });
 
@@ -92,10 +95,13 @@ async function fetchShipmentSnapshot(spClient, shipmentId, marketplaceId) {
 
   const itemsRes = await spClient.callAPI({
     operation: 'getShipmentItemsByShipmentId',
-    endpoint: 'fbaInbound',
+    endpoint: 'fulfillmentInbound',
     path: { shipmentId },
     query: {
       MarketplaceId: marketplaceId || process.env.SPAPI_MARKETPLACE_ID
+    },
+    options: {
+      version: 'v0'
     }
   });
 
