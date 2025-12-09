@@ -79,10 +79,11 @@ async function findIntegration(userId, companyId) {
 const normalizeKey = (value) => (value ? value.trim().toUpperCase() : '');
 
 async function updateItemAmazonQuantities(prepItems, amazonItems) {
-  if (!prepItems?.length || !amazonItems?.length) return;
+  const itemsArray = Array.isArray(prepItems) ? prepItems : [];
+  if (!itemsArray.length || !amazonItems?.length) return;
   const bySku = new Map();
   const byAsin = new Map();
-  prepItems.forEach((item) => {
+  itemsArray.forEach((item) => {
     const skuKey = normalizeKey(item?.sku);
     const asinKey = normalizeKey(item?.asin);
     if (skuKey) bySku.set(skuKey, item);
