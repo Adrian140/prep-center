@@ -365,13 +365,8 @@ async function upsertStockRows(rows) {
 }
 
 async function cleanupInvalidRows(companyId) {
-  // Șterge doar rândurile complet invalide (fără ASIN și fără SKU, null sau string gol).
-  const { error } = await supabase
-    .from('stock_items')
-    .delete()
-    .eq('company_id', companyId)
-    .or('and(asin.is.null,sku.is.null),and(asin.eq.,sku.eq.)');
-  if (error) throw error;
+  // Nu mai ștergem automat rânduri; păstrăm stocurile manuale intacte.
+  console.log(`[inventory] Skip cleanup for company ${companyId} (no deletes).`);
 }
 
 async function fetchAllStockItems(companyId, { filter } = {}) {
@@ -513,7 +508,6 @@ async function syncToSupabase({ items, companyId, userId }) {
   }
 
   // Migrare: mută qty din rândurile manuale fără SKU către rândurile cu SKU (aceeași ASIN).
-  const idsToDelete = [];
   for (const manualRow of manualAsinOnly) {
     const asinKey = normalizeIdentifier(manualRow.asin);
     if (!asinKey) continue;
@@ -548,19 +542,10 @@ async function syncToSupabase({ items, companyId, userId }) {
     const currentQty = Number(targetPayload.qty ?? 0);
     const nextQty = Number.isFinite(currentQty) ? currentQty + manualQty : manualQty;
     targetPayload.qty = nextQty;
-    idsToDelete.push(manualRow.id);
   }
 
   await cleanupInvalidRows(companyId);
   await upsertStockRows(insertsOrUpdates);
-  if (idsToDelete.length) {
-    const { error: deleteError } = await supabase
-      .from('stock_items')
-      .delete()
-      .eq('company_id', companyId)
-      .in('id', idsToDelete);
-    if (deleteError) throw deleteError;
-  }
   return { affected: insertsOrUpdates.length, seenKeys };
 }
 
