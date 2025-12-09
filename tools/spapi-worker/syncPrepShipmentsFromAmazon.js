@@ -14,6 +14,22 @@ const STATUS_LIST = [
 
 const MAX_ROWS = Number(process.env.PREP_SHIP_SYNC_LIMIT || 50);
 
+async function fetchSellerTokens(sellerIds) {
+  if (!sellerIds.length) return new Map();
+  const { data, error } = await supabase
+    .from('seller_tokens')
+    .select('seller_id, refresh_token')
+    .in('seller_id', sellerIds);
+  if (error) throw error;
+  const map = new Map();
+  (data || []).forEach((row) => {
+    if (row.seller_id && row.refresh_token) {
+      map.set(row.seller_id, row.refresh_token);
+    }
+  });
+  return map;
+}
+
 function assertEnv() {
   const missing = [];
   if (!process.env.SUPABASE_URL) missing.push('SUPABASE_URL');
@@ -60,7 +76,22 @@ async function fetchActiveIntegrations() {
     )
     .eq('status', 'active');
   if (error) throw error;
-  return data || [];
+  const integrations = data || [];
+  const sellerIds = integrations
+    .map((r) => r.selling_partner_id)
+    .filter((id) => typeof id === 'string' && id.length);
+  const tokenMap = await fetchSellerTokens(sellerIds);
+
+  return integrations
+    .map((row) => ({
+      ...row,
+      refresh_token:
+        row.refresh_token ||
+        tokenMap.get(row.selling_partner_id) ||
+        process.env.SPAPI_REFRESH_TOKEN ||
+        null
+    }))
+    .filter((r) => r.refresh_token);
 }
 
 async function fetchPrepRequests() {
