@@ -215,6 +215,16 @@ export default function AdminFBM({
     setEdit(null); reload?.();
   };
 
+  const totalSum = useMemo(() => {
+    return (rows || []).reduce((acc, row) => {
+      const total =
+        row.total != null
+          ? Number(row.total)
+          : Number(row.unit_price || 0) * Number(row.orders_units || 0);
+      return acc + (Number.isFinite(total) ? total : 0);
+    }, 0);
+  }, [rows]);
+
   return (
     <Section
       title="FBM"
@@ -418,6 +428,17 @@ export default function AdminFBM({
               );
             })}
           </tbody>
+          <tfoot className="bg-gray-50 border-t font-semibold">
+            <tr>
+              <td className="px-3 py-2 text-right" colSpan={5}>
+                Total
+              </td>
+              <td className="px-3 py-2 text-right">
+                {Number.isFinite(totalSum) ? totalSum.toFixed(2) : '0.00'}
+              </td>
+              <td colSpan={3}></td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </Section>

@@ -111,7 +111,7 @@ export default function AdminFBA({
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-const confirmAndDelete = async (id) => {
+  const confirmAndDelete = async (id) => {
     if (!window.confirm('Sigur vrei să ștergi această linie?')) return;
     const { error } = await supabase.from('fba_lines').delete().eq('id', id);
     if (error) alert(error.message); else reload?.();
@@ -159,6 +159,16 @@ const handleAdd = async () => {
     if (error) return alert(error.message);
     setEdit(null); reload?.();
   };
+
+  const totalSum = useMemo(() => {
+    return (rows || []).reduce((acc, row) => {
+      const total =
+        row.total != null
+          ? Number(row.total)
+          : Number(row.unit_price || 0) * Number(row.units || 0);
+      return acc + (Number.isFinite(total) ? total : 0);
+    }, 0);
+  }, [rows]);
 
   return (
     <Section
@@ -398,6 +408,17 @@ const handleAdd = async () => {
               );
             })}
           </tbody>
+          <tfoot className="bg-gray-50 border-t font-semibold">
+            <tr>
+              <td className="px-3 py-2 text-right" colSpan={5}>
+                Total
+              </td>
+              <td className="px-3 py-2 text-right">
+                {Number.isFinite(totalSum) ? totalSum.toFixed(2) : '0.00'}
+              </td>
+              <td colSpan={2}></td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </Section>
