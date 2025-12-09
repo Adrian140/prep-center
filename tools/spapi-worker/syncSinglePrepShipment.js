@@ -203,6 +203,7 @@ async function main() {
     prep.prep_status ||
     (prep.status === 'confirmed' ? 'expediat' : prep.status === 'cancelled' ? 'anulat' : 'pending');
 
+  const resolvedLastUpdated = snap.last_updated || new Date().toISOString();
   const update = {
     amazon_status: snap.status || 'UNKNOWN',
     amazon_units_expected: snap.units_expected,
@@ -212,7 +213,7 @@ async function main() {
     amazon_reference_id: snap.reference_id,
     amazon_destination_code: snap.destination_code,
     amazon_delivery_window: snap.delivery_window,
-    amazon_last_updated: snap.last_updated,
+    amazon_last_updated: resolvedLastUpdated,
     amazon_snapshot: snap,
     amazon_last_synced_at: new Date().toISOString(),
     amazon_sync_error: null,

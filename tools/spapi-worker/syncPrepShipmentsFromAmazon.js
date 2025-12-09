@@ -300,6 +300,7 @@ async function main() {
         else if (row.status === 'cancelled') prepStatusResolved = 'anulat';
         else prepStatusResolved = 'pending';
       }
+      const resolvedLastUpdated = snap.last_updated || new Date().toISOString();
       await updatePrepRequest(row.id, {
         amazon_status: snap.status || 'UNKNOWN',
         amazon_units_expected: snap.units_expected,
@@ -309,7 +310,7 @@ async function main() {
         amazon_reference_id: snap.reference_id,
         amazon_destination_code: snap.destination_code,
         amazon_delivery_window: snap.delivery_window,
-        amazon_last_updated: snap.last_updated,
+        amazon_last_updated: resolvedLastUpdated,
         amazon_snapshot: snap,
         amazon_last_synced_at: nowIso,
         amazon_sync_error: null,
