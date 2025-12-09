@@ -394,7 +394,11 @@ export default function ClientPrepShipments() {
             amazon_last_updated,
             amazon_snapshot,
             prep_request_tracking(tracking_id),
-            prep_request_items(units_requested)
+            prep_request_items(
+              units_requested,
+              amazon_units_expected,
+              amazon_units_received
+            )
           `)
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
