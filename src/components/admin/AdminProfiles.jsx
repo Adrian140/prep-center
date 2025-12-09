@@ -360,7 +360,7 @@ const tableTotals = useMemo(() => {
           if (error || !data) return [p.id, { currentSold: 0, carry: 0, diff: liveBalance || 0 }];
 
           let current = Number((data.sold_current ?? data.sold_curent) ?? 0);
-          let carry = Number(data.sold_restant ?? 0);
+          let carry = -Number(data.sold_restant ?? 0);
           const otherSums = await fetchOtherLineSums(p.company_id, start, end);
           current += otherSums.monthTotal;
           carry += otherSums.carryTotal;
