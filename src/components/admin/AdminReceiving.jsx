@@ -1119,7 +1119,6 @@ function AdminReceiving() {
   const [statusFilter, setStatusFilter] = useState(listState.statusFilter ?? 'all');
   const [searchQuery, setSearchQuery] = useState(listState.searchQuery ?? '');
   const [page, setPage] = useState(listState.page ?? 1);
-  const [totalPages, setTotalPages] = useState(1);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [carrierOptions, setCarrierOptions] = useState(FALLBACK_CARRIERS);
 
@@ -1153,7 +1152,7 @@ function AdminReceiving() {
   useEffect(() => {
     loadShipments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, page]);
+  }, []);
 
   useEffect(() => {
     const storedId = listState?.selectedShipmentId;
@@ -1168,13 +1167,9 @@ function AdminReceiving() {
 const loadShipments = async () => {
   setLoading(true);
   try {
-    const options = {
-      status: statusFilter === 'all' ? undefined : statusFilter,
-      page,
-      pageSize
-    };
-
-    const { data, error, count } = await supabaseHelpers.getAllReceivingShipments(options);
+    const { data, error } = await supabaseHelpers.getAllReceivingShipments({
+      fetchAll: true
+    });
     if (error) throw error;
 
     const enriched = (data || []).map((row) => ({
@@ -1199,8 +1194,6 @@ const loadShipments = async () => {
     });
 
     setShipments(sorted);
-    setTotalCount(count || 0);
-    setTotalPages(Math.ceil((count || 0) / pageSize));
     return sorted;
   } catch (error) {
     setMessage(`Erreur de chargement: ${error.message}`);
@@ -1211,19 +1204,25 @@ const loadShipments = async () => {
   }
 };
 
-const [totalCount, setTotalCount] = useState(0);
-// în AdminReceiving, înlocuiește const filteredShipments = ...
-const filteredShipments = shipments
-  .map((shipment) => ({
+const filteredShipments = useMemo(() => {
+  let base = shipments.map((shipment) => ({
     ...shipment,
     computed_status: shipment.computed_status || computeShipmentStatus(shipment),
-  }))
-  .filter((shipment) => {
-    if (!searchQuery) return true;
-    const qRaw = String(searchQuery).toLowerCase();
-    const q = qRaw.startsWith('#') ? qRaw.slice(1) : qRaw;
-    const cleanQ = q.replace(/\s+/g, '');
+  }));
 
+  if (statusFilter !== 'all') {
+    base = base.filter(
+      (shipment) => (shipment.computed_status || shipment.status) === statusFilter
+    );
+  }
+
+  if (!searchQuery) return base;
+
+  const qRaw = String(searchQuery).toLowerCase();
+  const q = qRaw.startsWith('#') ? qRaw.slice(1) : qRaw;
+  const cleanQ = q.replace(/\s+/g, '');
+
+  return base.filter((shipment) => {
     const hasTracking = Array.isArray(shipment.tracking_ids)
       ? shipment.tracking_ids.some((id) => String(id || '').toLowerCase().includes(cleanQ))
       : String(shipment.tracking_id || '').toLowerCase().includes(cleanQ);
@@ -1248,7 +1247,8 @@ const filteredShipments = shipments
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
-      return hay.includes(q);
+      const hayCompact = hay.replace(/\s+/g, '');
+      return hay.includes(q) || hayCompact.includes(cleanQ);
     });
 
     return (
@@ -1259,18 +1259,23 @@ const filteredShipments = shipments
       String(shipment.company_name || '').toLowerCase().includes(q) ||
       matchesItem
     );
-  })
-  .sort((a, b) => {
-    const statusA = a.computed_status || a.status;
-    const statusB = b.computed_status || b.status;
-    const pa = STATUS_PRIORITY[statusA] ?? 999;
-    const pb = STATUS_PRIORITY[statusB] ?? 999;
-    if (pa !== pb) return pa - pb;
-    const dateKey = STATUS_SORT_DATE[statusA] || 'created_at';
-    const dateA = new Date(a[dateKey] || a.created_at || 0).getTime();
-    const dateB = new Date(b[dateKey] || b.created_at || 0).getTime();
-    return dateB - dateA;
   });
+}, [shipments, statusFilter, searchQuery]);
+
+const totalFiltered = filteredShipments.length;
+const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+const pageStart = (page - 1) * pageSize;
+const paginatedShipments = filteredShipments.slice(pageStart, pageStart + pageSize);
+
+useEffect(() => {
+  if (page > totalPages) {
+    setPage(totalPages);
+  }
+}, [page, totalPages]);
+
+useEffect(() => {
+  setPage(1);
+}, [statusFilter, searchQuery]);
 
   const handleBulkReceived = async () => {
     if (selectedIds.size === 0) {
@@ -1329,10 +1334,16 @@ const filteredShipments = shipments
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filteredShipments.length) {
-      setSelectedIds(new Set());
+    const pageIds = paginatedShipments.map((s) => s.id);
+    const allSelected = pageIds.every((id) => selectedIds.has(id));
+    if (allSelected) {
+      const next = new Set(selectedIds);
+      pageIds.forEach((id) => next.delete(id));
+      setSelectedIds(next);
     } else {
-      setSelectedIds(new Set(filteredShipments.map(s => s.id)));
+      const next = new Set(selectedIds);
+      pageIds.forEach((id) => next.add(id));
+      setSelectedIds(next);
     }
   };
 
@@ -1459,7 +1470,10 @@ const filteredShipments = shipments
               <th className="px-4 py-3 text-left">
                 <input
                   type="checkbox"
-                  checked={selectedIds.size === filteredShipments.length && filteredShipments.length > 0}
+                  checked={
+                    paginatedShipments.length > 0 &&
+                    paginatedShipments.every((s) => selectedIds.has(s.id))
+                  }
                   onChange={toggleSelectAll}
                   className="rounded border-gray-300"
                 />
@@ -1489,7 +1503,7 @@ const filteredShipments = shipments
                 </td>
               </tr>
             ) : (
-              filteredShipments.map((shipment) => {
+              paginatedShipments.map((shipment) => {
                 const emailRaw = String(shipment.client_email || shipment.user_email || '').trim();
                 const showEmail = emailRaw.includes('@');
                 const hasFbaIntent =
@@ -1616,7 +1630,14 @@ const filteredShipments = shipments
       {/* Pagination */}
       <div className="flex items-center justify-between">
           <div className="text-sm text-text-secondary">
-            Showing {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, totalCount)} of {totalCount}
+            {totalFiltered > 0 ? (
+              <>
+                Showing {Math.min(pageStart + 1, totalFiltered)}-
+                {Math.min(pageStart + pageSize, totalFiltered)} of {totalFiltered}
+              </>
+            ) : (
+              'No results'
+            )}
             {selectedIds.size > 0 && (
               <span className="ml-2 font-medium">
                 ({selectedIds.size} selected)

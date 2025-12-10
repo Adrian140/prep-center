@@ -1910,8 +1910,13 @@ getAllReceivingShipments: async (options = {}) => {
       receiving_shipment_items(*),
       receiving_items(*)
     `, { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(from, to);
+    .order('created_at', { ascending: false });
+
+  if (options.fetchAll) {
+    query = query.limit(options.maxRows || 2000);
+  } else {
+    query = query.range(from, to);
+  }
 
   if (options.status) query = query.eq('status', options.status);
   if (options.companyId) query = query.eq('company_id', options.companyId);

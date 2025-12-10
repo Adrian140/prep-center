@@ -9,6 +9,20 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
 
 const GUIDE_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
+const STATUS_PRIORITY = {
+  draft: 1,
+  submitted: 1,
+  partial: 2,
+  received: 3,
+  processed: 4,
+  cancelled: 5
+};
+
+const STATUS_SORT_DATE = {
+  partial: 'updated_at',
+  received: 'updated_at',
+  processed: 'updated_at'
+};
 
 const toNull = (v) => {
   const s = String(v ?? '').trim();
@@ -112,6 +126,19 @@ const deriveReceivingStatus = (shipment) => {
 const decorateShipment = (shipment) =>
   shipment ? { ...shipment, derived_status: deriveReceivingStatus(shipment) } : shipment;
 
+const sortShipmentsByStatus = (list = []) =>
+  [...list].sort((a, b) => {
+    const statusA = a.derived_status || a.status;
+    const statusB = b.derived_status || b.status;
+    const priorityA = STATUS_PRIORITY[statusA] ?? 999;
+    const priorityB = STATUS_PRIORITY[statusB] ?? 999;
+    if (priorityA !== priorityB) return priorityA - priorityB;
+    const dateKey = STATUS_SORT_DATE[statusA] || 'created_at';
+    const timeA = new Date(a[dateKey] || a.updated_at || a.created_at || 0).getTime();
+    const timeB = new Date(b[dateKey] || b.updated_at || b.created_at || 0).getTime();
+    return timeB - timeA;
+  });
+
 function ClientReceiving() {
   const { t: baseT, tp } = useDashboardTranslation();
   const { currentLanguage } = useLanguage();
@@ -149,10 +176,11 @@ function ClientReceiving() {
   }, [stock, inventorySearch]);
 
   const filteredShipments = useMemo(() => {
-    const term = shipmentsSearch.trim().toLowerCase();
-    if (!term) return shipments;
+    const rawTerm = shipmentsSearch.trim().toLowerCase();
+    const cleanTerm = rawTerm.replace(/\s+/g, '');
+    if (!cleanTerm) return shipments;
     return shipments.filter((shipment) => {
-      const haystack = [
+      const haystackBase = [
         shipment.carrier,
         shipment.tracking_id,
         ...(Array.isArray(shipment.tracking_ids) ? shipment.tracking_ids : []),
@@ -162,15 +190,19 @@ function ClientReceiving() {
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
+      const haystackClean = haystackBase.replace(/\s+/g, '');
+
+      if (haystackBase.includes(rawTerm) || haystackClean.includes(cleanTerm)) return true;
+
       const items = Array.isArray(shipment.receiving_items) ? shipment.receiving_items : [];
-      const matchItem = items.some((it) => {
+      return items.some((it) => {
         const parts = [it.asin, it.sku, it.product_name, it.ean_asin, it.ean]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
-        return parts.includes(term);
+        const partsClean = parts.replace(/\s+/g, '');
+        return parts.includes(rawTerm) || partsClean.includes(cleanTerm);
       });
-      return haystack.includes(term) || matchItem;
     });
   }, [shipments, shipmentsSearch]);
 
@@ -236,15 +268,16 @@ const buildHeaderState = (shipment) => ({
       const nextShipments = Array.isArray(shipmentsRes.data)
         ? shipmentsRes.data.map((row) => decorateShipment(row))
         : [];
+      const sortedShipments = sortShipmentsByStatus(nextShipments);
       const companyItems = Array.isArray(stockResCompany?.data) ? stockResCompany.data : [];
       const userItems = Array.isArray(stockResUser?.data) ? stockResUser.data : [];
       const merged = [...companyItems, ...userItems].filter(Boolean);
       const deduped = Array.from(new Map(merged.map((it) => [it.id, it])).values());
 
-      setShipments(nextShipments);
+      setShipments(sortedShipments);
       setCarriers(normalizeCarriers(carriersRes.data || []));
       setStock(deduped);
-      return nextShipments;
+      return sortedShipments;
     } catch (error) {
       setShipments([]);
       setMessage(supportError);
@@ -443,8 +476,10 @@ const buildHeaderState = (shipment) => ({
         prev ? decorateShipment({ ...prev, status: 'submitted' }) : prev
       );
       setShipments((prev) =>
-        prev.map((row) =>
-          row.id === shipment.id ? decorateShipment({ ...row, status: 'submitted' }) : row
+        sortShipmentsByStatus(
+          prev.map((row) =>
+            row.id === shipment.id ? decorateShipment({ ...row, status: 'submitted' }) : row
+          )
         )
       );
       setMessage(t('reception_sent'));
