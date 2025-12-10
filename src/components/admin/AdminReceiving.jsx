@@ -4,7 +4,7 @@ import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { supabase } from '../../config/supabase';
 import {
   Search, Filter, Package, Truck, CheckCircle,
-  ArrowLeft, Trash2, ChevronLeft, ChevronRight, Clock, User, Building, X
+  ArrowLeft, Trash2, ChevronLeft, ChevronRight, Clock, User, Building, X, AlertTriangle
 } from 'lucide-react';
 import DestinationBadge from '@/components/common/DestinationBadge';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
@@ -19,10 +19,16 @@ const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
 const STATUS_PRIORITY = {
   draft: 1,
   submitted: 1,
-  partial: 1,
-  received: 2,
-  processed: 2,
-  cancelled: 3
+  partial: 2,
+  received: 3,
+  processed: 4,
+  cancelled: 5
+};
+
+const STATUS_SORT_DATE = {
+  partial: 'updated_at',
+  received: 'updated_at',
+  processed: 'updated_at'
 };
 
 const StatusPill = ({ status }) => {
@@ -128,6 +134,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
   const [selectedPrepIds, setSelectedPrepIds] = useState(new Set());
   const [creatingPrep, setCreatingPrep] = useState(false);
   const [receivedDrafts, setReceivedDrafts] = useState({});
+  const trimmedNotes = (shipment.notes || '').trim();
 
   useEffect(() => {
     setSelectedPrepIds(new Set());
@@ -777,8 +784,18 @@ const checkStockMatches = async () => {
                 className="border rounded px-2 py-1 w-full"
                 rows={2}
               />
+            ) : trimmedNotes ? (
+              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700">
+                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide">
+                    Client note
+                  </p>
+                  <p className="text-sm whitespace-pre-line text-red-800">{trimmedNotes}</p>
+                </div>
+              </div>
             ) : (
-              <p className="text-text-primary">{shipment.notes || '—'}</p>
+              <p className="text-text-primary">—</p>
             )}
             
           </div>
@@ -1168,14 +1185,14 @@ const loadShipments = async () => {
     const sorted = enriched.slice().sort((a, b) => {
       const statusA = a.computed_status || a.status;
       const statusB = b.computed_status || b.status;
-      const priorityA = STATUS_PRIORITY[statusA] ?? 4;
-      const priorityB = STATUS_PRIORITY[statusB] ?? 4;
+      const priorityA = STATUS_PRIORITY[statusA] ?? 999;
+      const priorityB = STATUS_PRIORITY[statusB] ?? 999;
 
       if (priorityA !== priorityB) {
         return priorityA - priorityB;
       }
 
-      const dateKey = priorityA === 2 ? 'updated_at' : 'created_at';
+      const dateKey = STATUS_SORT_DATE[statusA] || 'created_at';
       const dateA = new Date(a[dateKey] || a.created_at || 0).getTime();
       const dateB = new Date(b[dateKey] || b.created_at || 0).getTime();
       return dateB - dateA;
@@ -1219,21 +1236,37 @@ const filteredShipments = shipments
       idLower.includes(cleanQ) ||
       idCompact.includes(cleanQ);
 
+    const items = Array.isArray(shipment.receiving_items) ? shipment.receiving_items : [];
+    const matchesItem = items.some((item) => {
+      const hay = [
+        item?.asin,
+        item?.sku,
+        item?.product_name,
+        item?.ean_asin,
+        item?.ean
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+
     return (
       matchesReceptionId ||
       hasTracking ||
       String(shipment.client_name || '').toLowerCase().includes(q) ||
       String(shipment.user_email || '').toLowerCase().includes(q) ||
-      String(shipment.company_name || '').toLowerCase().includes(q)
+      String(shipment.company_name || '').toLowerCase().includes(q) ||
+      matchesItem
     );
   })
   .sort((a, b) => {
     const statusA = a.computed_status || a.status;
     const statusB = b.computed_status || b.status;
-    const pa = STATUS_PRIORITY[statusA] ?? 99;
-    const pb = STATUS_PRIORITY[statusB] ?? 99;
+    const pa = STATUS_PRIORITY[statusA] ?? 999;
+    const pb = STATUS_PRIORITY[statusB] ?? 999;
     if (pa !== pb) return pa - pb;
-    const dateKey = pa === 2 ? 'updated_at' : 'created_at';
+    const dateKey = STATUS_SORT_DATE[statusA] || 'created_at';
     const dateA = new Date(a[dateKey] || a.created_at || 0).getTime();
     const dateB = new Date(b[dateKey] || b.created_at || 0).getTime();
     return dateB - dateA;

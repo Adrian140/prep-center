@@ -799,7 +799,8 @@
       "delete": "Delete",
       "deleting": "Deleting...",
       "confirm_delete": "Delete this reception?",
-      "delete_success": "Reception deleted."
+      "delete_success": "Reception deleted.",
+      "note_warning_label": "Client note"
     },
     "ClientOtherReport": {
       "title": "Other services",
@@ -1556,7 +1557,8 @@
       "delete": "Șterge",
       "deleting": "Se șterge...",
       "confirm_delete": "Ștergi această recepție?",
-      "delete_success": "Recepția a fost ștearsă."
+      "delete_success": "Recepția a fost ștearsă.",
+      "note_warning_label": "Notă client"
     },
     "ClientOtherReport": {
       "title": "Servicii diverse",
@@ -2259,7 +2261,8 @@
       "delete": "Supprimer",
       "deleting": "Suppression...",
       "confirm_delete": "Supprimer cette réception ?",
-      "delete_success": "Réception supprimée."
+      "delete_success": "Réception supprimée.",
+      "note_warning_label": "Note client"
     },
     "ClientOtherReport": {
       "title": "Autres services",
@@ -2962,7 +2965,8 @@
       "delete": "Löschen",
       "deleting": "Wird gelöscht...",
       "confirm_delete": "Diese Wareneingangsmeldung löschen?",
-      "delete_success": "Wareneingang gelöscht."
+      "delete_success": "Wareneingang gelöscht.",
+      "note_warning_label": "Kundennotiz"
     },
     "ClientOtherReport": {
       "title": "Weitere Leistungen",
@@ -3665,7 +3669,8 @@
       "delete": "Elimina",
       "deleting": "Eliminazione...",
       "confirm_delete": "Eliminare questa ricezione?",
-      "delete_success": "Ricezione eliminata."
+      "delete_success": "Ricezione eliminata.",
+      "note_warning_label": "Nota cliente"
     },
     "ClientOtherReport": {
       "title": "Altri servizi",
@@ -4368,7 +4373,8 @@
       "delete": "Eliminar",
       "deleting": "Eliminando...",
       "confirm_delete": "¿Eliminar esta recepción?",
-      "delete_success": "Recepción eliminada."
+      "delete_success": "Recepción eliminada.",
+      "note_warning_label": "Nota del cliente"
     },
     "ClientOtherReport": {
       "title": "Otros servicios",
