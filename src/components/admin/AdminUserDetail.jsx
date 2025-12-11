@@ -30,6 +30,8 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingError, setBillingError] = useState('');
   const hasBillingSelection = canManageInvoices && Object.keys(billingSelections).length > 0;
+  const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns'];
+  const allowedSections = isLimitedAdmin ? ['stock'] : serviceSections;
 
   // panouri “secundare” (billing / invoices)
   const [activePanel, setActivePanel] = useState(null);
@@ -38,7 +40,15 @@ export default function AdminUserDetail({ profile, onBack }) {
   const sectionStorageKey = profile?.id
     ? `admin-user-section-${profile.id}`
     : 'admin-user-section';
-  const [activeSection, setActiveSection] = useSessionStorage(sectionStorageKey, 'fba'); // 'fba' | 'fbm' | 'other' | 'stock' | 'returns'
+  const defaultSection = allowedSections[0] || 'stock';
+  const [activeSectionRaw, setActiveSection] = useSessionStorage(sectionStorageKey, defaultSection);
+  const activeSection = allowedSections.includes(activeSectionRaw) ? activeSectionRaw : defaultSection;
+
+  useEffect(() => {
+    if (!allowedSections.includes(activeSectionRaw) && defaultSection) {
+      setActiveSection(defaultSection);
+    }
+  }, [allowedSections, activeSectionRaw, defaultSection, setActiveSection]);
 
   // Creează companie dacă lipsește și atașează profilul la ea
 const ensureCompany = async () => {
@@ -55,39 +65,54 @@ const ensureCompany = async () => {
       ? '*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)'
       : '*';
 
-    const [
-      { data: fba, error: fbaErr },
-      { data: fbm, error: fbmErr },
-      { data: other, error: otherErr },
-      { data: rets, error: retErr }
-    ] = await Promise.all([
-      supabase
-        .from('fba_lines')
-        .select(invoiceSelect)
-        .eq('company_id', cid)
-        .order('service_date', { ascending: false }),
-      supabase
-        .from('fbm_lines')
-        .select(invoiceSelect)
-        .eq('company_id', cid)
-        .order('service_date', { ascending: false }),
-      supabase
-        .from('other_lines')
-        .select(invoiceSelect)
-        .eq('company_id', cid)
-        .order('service_date', { ascending: false }),
+    const fetchPromises = [];
+    if (!isLimitedAdmin) {
+      fetchPromises.push(
+        supabase
+          .from('fba_lines')
+          .select(invoiceSelect)
+          .eq('company_id', cid)
+          .order('service_date', { ascending: false })
+      );
+      fetchPromises.push(
+        supabase
+          .from('fbm_lines')
+          .select(invoiceSelect)
+          .eq('company_id', cid)
+          .order('service_date', { ascending: false })
+      );
+      fetchPromises.push(
+        supabase
+          .from('other_lines')
+          .select(invoiceSelect)
+          .eq('company_id', cid)
+          .order('service_date', { ascending: false })
+      );
+    }
+    fetchPromises.push(
       supabase
         .from('returns')
         .select('*')
         .eq('company_id', cid)
         .order('return_date', { ascending: false })
-    ]);
+    );
+
+    const results = await Promise.all(fetchPromises);
+    const [fbaRes, fbmRes, otherRes, returnsRes] = isLimitedAdmin
+      ? [null, null, null, results[0]]
+      : results;
 
 setCompany({ id: cid, name: profile.company_name || profile.first_name || profile.email });
-if (!fbaErr) setFbaRows(fba || []);
-if (!fbmErr) setFbmRows(fbm || []);
-if (!otherErr) setOtherRows(other || []);
-if (!retErr) setReturnRows(rets || []);
+if (!isLimitedAdmin) {
+  if (!fbaRes?.error) setFbaRows(fbaRes?.data || []);
+  if (!fbmRes?.error) setFbmRows(fbmRes?.data || []);
+  if (!otherRes?.error) setOtherRows(otherRes?.data || []);
+} else {
+  setFbaRows([]);
+  setFbmRows([]);
+  setOtherRows([]);
+}
+if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
 
   };
 
@@ -215,42 +240,52 @@ if (!retErr) setReturnRows(rets || []);
             </div>
     
             {/* Tabs principale */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setActiveSection('fba')}
-                className={tabBtn(activeSection === 'fba')}
-                title="FBA"
-              >
-                FBA
-              </button>
-              <button
-                onClick={() => setActiveSection('fbm')}
-                className={tabBtn(activeSection === 'fbm')}
-                title="FBM"
-              >
-                FBM
-              </button>
-              <button
-                onClick={() => setActiveSection('other')}
-                className={tabBtn(activeSection === 'other')}
-                title="Other"
-              >
-                Other
-              </button>
-              <button
-                onClick={() => setActiveSection('stock')}
-                className={tabBtn(activeSection === 'stock')}
-                title="Stoc"
-              >
-                Stock
-              </button>
-              <button
-                onClick={() => setActiveSection('returns')}
-                className={tabBtn(activeSection === 'returns')}
-                title="Retururi"
-              >
-                Retururi
-              </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {allowedSections.includes('fba') && (
+                <button
+                  onClick={() => setActiveSection('fba')}
+                  className={tabBtn(activeSection === 'fba')}
+                  title="FBA"
+                >
+                  FBA
+                </button>
+              )}
+              {allowedSections.includes('fbm') && (
+                <button
+                  onClick={() => setActiveSection('fbm')}
+                  className={tabBtn(activeSection === 'fbm')}
+                  title="FBM"
+                >
+                  FBM
+                </button>
+              )}
+              {allowedSections.includes('other') && (
+                <button
+                  onClick={() => setActiveSection('other')}
+                  className={tabBtn(activeSection === 'other')}
+                  title="Other"
+                >
+                  Other
+                </button>
+              )}
+              {allowedSections.includes('stock') && (
+                <button
+                  onClick={() => setActiveSection('stock')}
+                  className={tabBtn(activeSection === 'stock')}
+                  title="Stoc"
+                >
+                  Stock
+                </button>
+              )}
+              {allowedSections.includes('returns') && (
+                <button
+                  onClick={() => setActiveSection('returns')}
+                  className={tabBtn(activeSection === 'returns')}
+                  title="Retururi"
+                >
+                  Retururi
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -275,9 +310,9 @@ if (!retErr) setReturnRows(rets || []);
       {/* Conținut principal – afișăm DOAR tab-ul selectat */}
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="flex-1 space-y-6">
-          {activeSection === 'fba' && (
-            <AdminFBA
-              rows={fbaRows}
+            {activeSection === 'fba' && (
+              <AdminFBA
+                rows={fbaRows}
               reload={loadAll}
               companyId={companyId}
               profile={profile}
@@ -286,8 +321,8 @@ if (!retErr) setReturnRows(rets || []);
               canSelectForBilling={canManageInvoices}
             />
           )}
-          {activeSection === 'fbm' && (
-            <AdminFBM
+            {activeSection === 'fbm' && (
+              <AdminFBM
               rows={fbmRows}
               reload={loadAll}
               companyId={companyId}
@@ -297,8 +332,8 @@ if (!retErr) setReturnRows(rets || []);
               canSelectForBilling={canManageInvoices}
             />
           )}
-          {activeSection === 'other' && (
-            <AdminOther
+            {activeSection === 'other' && (
+              <AdminOther
               rows={otherRows}
               reload={loadAll}
               companyId={companyId}
