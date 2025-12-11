@@ -10,6 +10,8 @@ function UpdatePasswordForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkingLink, setCheckingLink] = useState(true);
+  const [sessionReady, setSessionReady] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -27,13 +29,93 @@ function UpdatePasswordForm() {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        // User is in the password recovery flow (session handled by Supabase client)
+    let isMounted = true;
+
+    const cleanUrl = (next) => {
+      if (typeof window === 'undefined') return;
+      window.history.replaceState({}, document.title, next);
+    };
+
+    const trySetSessionFromHash = async () => {
+      if (typeof window === 'undefined') return null;
+      const hash = window.location.hash || '';
+      if (!hash.includes('access_token') || !hash.includes('refresh_token')) return null;
+      const params = new URLSearchParams(hash.replace('#', '?'));
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+      if (!access_token || !refresh_token) return null;
+      const { data, error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (sessionError) throw sessionError;
+      cleanUrl(`${window.location.pathname}${window.location.search}`);
+      return data?.session ?? null;
+    };
+
+    const tryExchangeCode = async () => {
+      if (typeof window === 'undefined') return null;
+      const search = window.location.search || '';
+      if (!search.includes('code=')) return null;
+      const params = new URLSearchParams(search);
+      const code = params.get('code');
+      if (!code) return null;
+      const { data, error: codeError } = await supabase.auth.exchangeCodeForSession(code);
+      if (codeError) throw codeError;
+      params.delete('code');
+      params.delete('state');
+      const nextSearch = params.toString();
+      const nextUrl = nextSearch ? `${window.location.pathname}?${nextSearch}` : window.location.pathname;
+      cleanUrl(nextUrl);
+      return data?.session ?? null;
+    };
+
+    const ensureSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        let activeSession = data?.session ?? null;
+
+        if (!activeSession) {
+          activeSession = await trySetSessionFromHash();
+        }
+
+        if (!activeSession) {
+          activeSession = await tryExchangeCode();
+        }
+
+        if (!activeSession) {
+          throw new Error('missing_session');
+        }
+
+        if (isMounted) {
+          setSessionReady(true);
+          setError('');
+        }
+      } catch (err) {
+        console.error('Password reset session error:', err);
+        if (!isMounted) return;
+        const friendlyMessage = err?.message === 'missing_session'
+          ? 'Password reset session missing or expired. Please reopen the link from your email.'
+          : 'Unable to validate this reset link. Request a new password reset email and try again.';
+        setError(friendlyMessage);
+        setSessionReady(false);
+      } finally {
+        if (isMounted) {
+          setCheckingLink(false);
+        }
+      }
+    };
+
+    ensureSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      if (!isMounted) return;
+      if (event === 'PASSWORD_RECOVERY' && currentSession) {
+        setSessionReady(true);
+        setCheckingLink(false);
+        setError('');
       }
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -43,6 +125,12 @@ function UpdatePasswordForm() {
     setLoading(true);
     setError('');
     setMessage('');
+
+    if (!sessionReady) {
+      setError('Password reset session missing or expired. Please use the latest email link to continue.');
+      setLoading(false);
+      return;
+    }
 
     if (password.length < 8) {
       setError(copy.errorLength || 'Password must be at least 8 characters.');
@@ -86,6 +174,11 @@ function UpdatePasswordForm() {
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
               {error}
+            </div>
+          )}
+          {checkingLink && !error && (
+            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg">
+              Validating your reset link…
             </div>
           )}
           
@@ -158,7 +251,7 @@ function UpdatePasswordForm() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || checkingLink || !sessionReady}
             className="w-full bg-primary text-white py-3 px-4 rounded-lg font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Saving…' : copy.save || 'Save password'}
