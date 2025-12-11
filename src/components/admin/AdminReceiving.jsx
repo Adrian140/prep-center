@@ -1121,6 +1121,19 @@ function AdminReceiving() {
   const [page, setPage] = useState(listState.page ?? 1);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [carrierOptions, setCarrierOptions] = useState(FALLBACK_CARRIERS);
+  const formatTrackingValue = (value = '') =>
+    !value ? '—' : value.length > 15 ? `${value.slice(0, 15)}…` : value;
+  const handleTrackingCopy = async (value) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setMessage('Tracking copied to clipboard');
+      setMessageType('success');
+    } catch (err) {
+      setMessage('Unable to copy tracking');
+      setMessageType('error');
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1571,9 +1584,18 @@ useEffect(() => {
                     </span>
                   </td>
                     <td className="px-4 py-3">
-                      {(shipment.tracking_ids || [shipment.tracking_id]).filter(Boolean).map((id, i) => (
-                        <p key={i} className="font-mono">{id}</p>
-                      ))}
+                      {(shipment.tracking_ids || [shipment.tracking_id])
+                        .filter(Boolean)
+                        .map((id, i) => (
+                          <p
+                            key={i}
+                            className="font-mono cursor-pointer select-none"
+                            title={id}
+                            onDoubleClick={() => handleTrackingCopy(id)}
+                          >
+                            {formatTrackingValue(id)}
+                          </p>
+                        ))}
                     </td>
                   <td className="px-4 py-3">
                     <DestinationBadge code={shipment.destination_country || 'FR'} variant="subtle" />
