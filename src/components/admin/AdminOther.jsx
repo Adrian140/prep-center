@@ -28,7 +28,8 @@ export default function AdminOther({
   companyId,
   profile,
   billingSelectedLines = {},
-  onToggleBillingSelection
+  onToggleBillingSelection,
+  canSelectForBilling = true
 }) {
   const { t } = useAdminTranslation();
   const [edit, setEdit] = useState(null);
@@ -216,8 +217,8 @@ export default function AdminOther({
                     <input
                       type="checkbox"
                       checked={Boolean(billingSelectedLines[`other:${row.id}`])}
-                      disabled={Boolean(row.billing_invoice_id)}
-                      onChange={() => onToggleBillingSelection?.('other', row)}
+                      disabled={Boolean(row.billing_invoice_id) || !canSelectForBilling}
+                      onChange={() => canSelectForBilling && onToggleBillingSelection?.('other', row)}
                       className="rounded border-gray-300 focus:ring-2 focus:ring-primary"
                     />
                   </td>

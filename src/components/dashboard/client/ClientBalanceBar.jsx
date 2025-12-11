@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../../config/supabase";
 import { useDashboardTranslation } from "../../../translations";
+import { useSupabaseAuth } from "../../../contexts/SupabaseAuthContext";
 
 const DEBUG_BALANCE = false;
 const normStatus = (s) => String(s || "").trim().toLowerCase();
@@ -16,8 +17,14 @@ const num = (v, { allowNull = false } = {}) => {
 
 export default function ClientBalanceBar({ companyId, variant = 'default' }) {
   const { t } = useDashboardTranslation();
+  const { profile } = useSupabaseAuth();
+  const isLimitedAdmin = Boolean(profile?.is_limited_admin);
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState(0);
+
+  if (isLimitedAdmin) {
+    return null;
+  }
 
   useEffect(() => {
     let mounted = true;

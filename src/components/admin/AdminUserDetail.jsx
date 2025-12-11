@@ -13,8 +13,12 @@ import AdminReturns from './AdminReturns';
 import AdminOther from './AdminOther';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import BillingSelectionPanel from './BillingSelectionPanel';
+import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 
 export default function AdminUserDetail({ profile, onBack }) {
+  const { profile: currentAdmin } = useSupabaseAuth();
+  const isLimitedAdmin = Boolean(currentAdmin?.is_limited_admin);
+  const canManageInvoices = !isLimitedAdmin;
   const [companyId, setCompanyId] = useState(profile?.company_id || null);
   const [company, setCompany] = useState(null);
 
@@ -25,7 +29,7 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [billingSelections, setBillingSelections] = useState({});
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingError, setBillingError] = useState('');
-  const hasBillingSelection = Object.keys(billingSelections).length > 0;
+  const hasBillingSelection = canManageInvoices && Object.keys(billingSelections).length > 0;
 
   // panouri “secundare” (billing / invoices)
   const [activePanel, setActivePanel] = useState(null);
@@ -47,6 +51,10 @@ const ensureCompany = async () => {
     const cid = await ensureCompany();
     if (!cid) return;
 
+    const invoiceSelect = canManageInvoices
+      ? '*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)'
+      : '*';
+
     const [
       { data: fba, error: fbaErr },
       { data: fbm, error: fbmErr },
@@ -55,17 +63,17 @@ const ensureCompany = async () => {
     ] = await Promise.all([
       supabase
         .from('fba_lines')
-        .select('*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)')
+        .select(invoiceSelect)
         .eq('company_id', cid)
         .order('service_date', { ascending: false }),
       supabase
         .from('fbm_lines')
-        .select('*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)')
+        .select(invoiceSelect)
         .eq('company_id', cid)
         .order('service_date', { ascending: false }),
       supabase
         .from('other_lines')
-        .select('*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)')
+        .select(invoiceSelect)
         .eq('company_id', cid)
         .order('service_date', { ascending: false }),
       supabase
@@ -89,6 +97,7 @@ if (!retErr) setReturnRows(rets || []);
   }, [profile?.id]);
 
   const toggleBillingSelection = useCallback((section, row) => {
+    if (!canManageInvoices) return;
     setBillingSelections((prev) => {
       const key = `${section}:${row.id}`;
       const next = { ...prev };
@@ -99,7 +108,7 @@ if (!retErr) setReturnRows(rets || []);
       next[key] = { section, row };
       return next;
     });
-  }, []);
+  }, [canManageInvoices]);
 
   const clearBillingSelections = useCallback(() => {
     setBillingSelections({});
@@ -108,11 +117,11 @@ if (!retErr) setReturnRows(rets || []);
 
   const handleBillingSave = useCallback(
     async ({ invoiceNumber, invoiceDate, lines, total }) => {
-      if (!company?.id) {
-        const error = new Error('Nicio companie selectată.');
-        setBillingError(error.message);
-        return { error };
-      }
+    if (!company?.id) {
+      const error = new Error('Nicio companie selectată.');
+      setBillingError(error.message);
+      return { error };
+    }
       setBillingSaving(true);
       setBillingError('');
       const { error } = await supabaseHelpers.createBillingInvoice({
@@ -142,6 +151,19 @@ if (!retErr) setReturnRows(rets || []);
   // helper pentru stilul butoanelor de tab
   const tabBtn = (on, off) =>
     `px-4 py-2 rounded-lg text-sm font-medium ${on ? 'bg-blue-50 text-primary border border-blue-200' : 'text-text-secondary hover:bg-gray-50'}`;
+
+  useEffect(() => {
+    if (!canManageInvoices && activePanel === 'invoices') {
+      setActivePanel(null);
+    }
+  }, [canManageInvoices, activePanel]);
+
+  useEffect(() => {
+    if (!canManageInvoices) {
+      setBillingSelections({});
+      setBillingError('');
+    }
+  }, [canManageInvoices]);
 
   return (
     <div className="space-y-6">
@@ -182,12 +204,14 @@ if (!retErr) setReturnRows(rets || []);
               >
                 Billing details
               </button>
-              <button
-                onClick={() => setActivePanel((p) => (p === 'invoices' ? null : 'invoices'))}
-                className={tabBtn(activePanel === 'invoices')}
-              >
-                Invoices
-              </button>
+              {canManageInvoices && (
+                <button
+                  onClick={() => setActivePanel((p) => (p === 'invoices' ? null : 'invoices'))}
+                  className={tabBtn(activePanel === 'invoices')}
+                >
+                  Invoices
+                </button>
+              )}
             </div>
     
             {/* Tabs principale */}
@@ -237,7 +261,7 @@ if (!retErr) setReturnRows(rets || []);
             <AdminClientBillingProfiles profile={profile} hideTitles />
           </Section>
         )}
-        {activePanel === 'invoices' && (
+        {canManageInvoices && activePanel === 'invoices' && (
           <Section title="" right={null}>
             <AdminClientInvoices profile={profile} hideTitles />
           </Section>
@@ -259,6 +283,7 @@ if (!retErr) setReturnRows(rets || []);
               profile={profile}
               billingSelectedLines={billingSelections}
               onToggleBillingSelection={toggleBillingSelection}
+              canSelectForBilling={canManageInvoices}
             />
           )}
           {activeSection === 'fbm' && (
@@ -269,6 +294,7 @@ if (!retErr) setReturnRows(rets || []);
               profile={profile}
               billingSelectedLines={billingSelections}
               onToggleBillingSelection={toggleBillingSelection}
+              canSelectForBilling={canManageInvoices}
             />
           )}
           {activeSection === 'other' && (
@@ -279,6 +305,7 @@ if (!retErr) setReturnRows(rets || []);
               profile={profile}
               billingSelectedLines={billingSelections}
               onToggleBillingSelection={toggleBillingSelection}
+              canSelectForBilling={canManageInvoices}
             />
           )}
           {activeSection === 'stock' && (
@@ -288,7 +315,7 @@ if (!retErr) setReturnRows(rets || []);
             <AdminReturns rows={returnRows} reload={loadAll} companyId={companyId} profile={profile} />
           )}
         </div>
-        {hasBillingSelection && (
+        {canManageInvoices && hasBillingSelection && (
           <div className="lg:w-[360px] lg:flex-shrink-0">
             <BillingSelectionPanel
               selections={billingSelections}

@@ -49,7 +49,8 @@ export default function AdminFBM({
   companyId,
   profile,
   billingSelectedLines = {},
-  onToggleBillingSelection
+  onToggleBillingSelection,
+  canSelectForBilling = true
 }) {
   const [edit, setEdit] = useState(null);
   const [presets, setPresets] = useState(loadPresets());
@@ -329,8 +330,8 @@ export default function AdminFBM({
                     <input
                       type="checkbox"
                       checked={Boolean(billingSelectedLines[`fbm:${l.id}`])}
-                      disabled={Boolean(l.billing_invoice_id)}
-                      onChange={() => onToggleBillingSelection?.('fbm', l)}
+                      disabled={Boolean(l.billing_invoice_id) || !canSelectForBilling}
+                      onChange={() => canSelectForBilling && onToggleBillingSelection?.('fbm', l)}
                       className="rounded border-gray-300 focus:ring-2 focus:ring-primary"
                     />
                   </td>

@@ -105,7 +105,14 @@ useEffect(() => {
   }
 }, [activeTab]);
 
+  useEffect(() => {
+    if (isLimitedAdmin && activeTab === 'invoices') {
+      setActiveTab('activity');
+    }
+  }, [isLimitedAdmin, activeTab]);
+
   const { user, profile } = useSupabaseAuth();
+  const isLimitedAdmin = Boolean(profile?.is_limited_admin);
   const companyId = profile?.company_id;
   const [reviewPrompt, setReviewPrompt] = useState({
     loading: true,
@@ -117,23 +124,29 @@ useEffect(() => {
   const [reviewForm, setReviewForm] = useState({ rating: 5, text: '' });
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
-  const tabs = [
-    // Operations
-    { id: 'activity', label: t('sidebar.activity'), icon: FileText, group: 'Operations' },
-    { id: 'stock', label: t('sidebar.stock'), icon: Boxes, group: 'Operations' },
-    { id: 'returns', label: t('sidebar.returns'), icon: RotateCcw, group: 'Operations' },
-    { id: 'exports', label: t('sidebar.exports'), icon: Download, group: 'Operations' },
-    { id: 'packlink', label: 'Packlink', icon: Truck, group: 'Operations' },
-    { id: 'box-estimator', label: 'Box Estimator', icon: Truck, group: 'Operations' },
+  const tabs = useMemo(() => {
+    const list = [
+      // Operations
+      { id: 'activity', label: t('sidebar.activity'), icon: FileText, group: 'Operations' },
+      { id: 'stock', label: t('sidebar.stock'), icon: Boxes, group: 'Operations' },
+      { id: 'returns', label: t('sidebar.returns'), icon: RotateCcw, group: 'Operations' },
+      { id: 'exports', label: t('sidebar.exports'), icon: Download, group: 'Operations' },
+      { id: 'packlink', label: 'Packlink', icon: Truck, group: 'Operations' },
+      { id: 'box-estimator', label: 'Box Estimator', icon: Truck, group: 'Operations' },
 
-    // Account
-    { id: 'profile', label: t('sidebar.profile'), icon: User, group: 'Account' },
-    { id: 'billing', label: t('sidebar.billing'), icon: CreditCard, group: 'Account' },
-    { id: 'invoices', label: t('sidebar.invoices'), icon: FileText, group: 'Account' },
-    { id: 'integrations', label: 'Integrations', icon: Link2, group: 'Account' },
-    { id: 'affiliates', label: t('sidebar.affiliates'), icon: Users, group: 'Account' },
-    { id: 'security', label: t('sidebar.security'), icon: Shield, group: 'Account' }
-  ];
+      // Account
+      { id: 'profile', label: t('sidebar.profile'), icon: User, group: 'Account' },
+      { id: 'billing', label: t('sidebar.billing'), icon: CreditCard, group: 'Account' },
+      { id: 'invoices', label: t('sidebar.invoices'), icon: FileText, group: 'Account' },
+      { id: 'integrations', label: 'Integrations', icon: Link2, group: 'Account' },
+      { id: 'affiliates', label: t('sidebar.affiliates'), icon: Users, group: 'Account' },
+      { id: 'security', label: t('sidebar.security'), icon: Shield, group: 'Account' }
+    ];
+    if (isLimitedAdmin) {
+      return list.filter((tab) => tab.id !== 'invoices');
+    }
+    return list;
+  }, [t, isLimitedAdmin]);
 
   // Review prompt pentru clienți (>60 zile de la prima recepție/prep)
   useEffect(() => {
@@ -248,7 +261,14 @@ const renderTabContent = useMemo(() => {
 
     case 'profile':   return <SupabasePersonalProfile />;
     case 'billing':   return <SupabaseBillingProfiles />;
-    case 'invoices':  return <SupabaseInvoicesList />;
+    case 'invoices':
+      return isLimitedAdmin ? (
+        <div className="bg-white border rounded-xl p-6 text-sm text-text-secondary">
+          Access restricted for this account.
+        </div>
+      ) : (
+        <SupabaseInvoicesList />
+      );
     case 'integrations': return <ClientIntegrations />;
     case 'affiliates': return <ClientAffiliates />;
     case 'security':  return <SupabaseSecuritySettings />;
@@ -261,7 +281,7 @@ const renderTabContent = useMemo(() => {
         </div>
       );
   }
-}, [activeTab]);
+}, [activeTab, isLimitedAdmin, t]);
 
   const groups = [
     { key: 'Operations', label: t('common.groups.operations') },
@@ -275,7 +295,9 @@ const renderTabContent = useMemo(() => {
         {activeTab === 'activity' && (
           <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
             <ClientDealsPopover companyId={companyId} />
-            <ClientBalanceBar companyId={companyId} variant="compact" />
+            {!isLimitedAdmin && (
+              <ClientBalanceBar companyId={companyId} variant="compact" />
+            )}
           </div>
         )}
         <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-6 lg:gap-8">

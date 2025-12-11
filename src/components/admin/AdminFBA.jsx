@@ -50,7 +50,8 @@ export default function AdminFBA({
   companyId,
   profile,
   billingSelectedLines = {},
-  onToggleBillingSelection
+  onToggleBillingSelection,
+  canSelectForBilling = true
 }) {
   const [edit, setEdit] = useState(null);
   const [presets, setPresets] = useState(loadPresets());
@@ -312,8 +313,8 @@ const handleAdd = async () => {
                     <input
                       type="checkbox"
                       checked={Boolean(billingSelectedLines[`fba:${l.id}`])}
-                      disabled={Boolean(l.billing_invoice_id)}
-                      onChange={() => onToggleBillingSelection?.('fba', l)}
+                      disabled={Boolean(l.billing_invoice_id) || !canSelectForBilling}
+                      onChange={() => canSelectForBilling && onToggleBillingSelection?.('fba', l)}
                       className="rounded border-gray-300 focus:ring-2 focus:ring-primary"
                     />
                   </td>

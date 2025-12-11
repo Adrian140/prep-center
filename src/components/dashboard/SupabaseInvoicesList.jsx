@@ -8,7 +8,8 @@ function SupabaseInvoicesList() {
   const { t, tp } = useDashboardTranslation();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
- const { user } = useSupabaseAuth();
+  const { user, profile } = useSupabaseAuth();
+  const isLimitedAdmin = Boolean(profile?.is_limited_admin);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
@@ -16,11 +17,16 @@ function SupabaseInvoicesList() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    if (isLimitedAdmin) {
+      setInvoices([]);
+      setLoading(false);
+      return;
+    }
     if (user) fetchInvoices();
-  }, [user]);
+  }, [user, isLimitedAdmin]);
 
   const fetchInvoices = async () => {
-    if (!user) return;
+    if (!user || isLimitedAdmin) return;
     try {
       const { data, error } = await supabaseHelpers.getInvoices(user.id);
       if (error) throw error;
@@ -119,6 +125,14 @@ function SupabaseInvoicesList() {
 
     return matchesSearch && matchesStatus && matchesDate;
   });
+
+  if (isLimitedAdmin) {
+    return (
+      <div className="bg-white border rounded-xl p-6 text-sm text-text-secondary">
+        Access to invoices is disabled for this account.
+      </div>
+    );
+  }
 
   if (loading) {
     return (

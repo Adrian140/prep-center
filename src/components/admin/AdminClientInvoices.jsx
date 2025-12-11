@@ -2,10 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Download, Eye, Calendar, FileText, Edit, Trash2, Save, X } from 'lucide-react';
 import { supabase, supabaseHelpers } from '../../config/supabase';
+import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 
 export default function AdminClientInvoices({ profile, hideTitles = false }) {
   const userId = profile?.id;
   const companyId = profile?.company_id;
+  const { profile: currentProfile } = useSupabaseAuth();
+  const isLimitedAdmin = Boolean(currentProfile?.is_limited_admin);
 
   const [invoices, setInvoices] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -40,7 +43,7 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
 
   // load client invoices (by company!)
   const load = async () => {
-    if (!companyId) { setInvoices([]); setLoadingList(false); return; }
+    if (!companyId || isLimitedAdmin) { setInvoices([]); setLoadingList(false); return; }
     setLoadingList(true);
     // dacă ai un helper dedicat, folosește-l; altfel, query direct:
     let data, error;
@@ -56,7 +59,15 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
     setLoadingList(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
+  useEffect(() => {
+    if (!isLimitedAdmin) {
+      load();
+    } else {
+      setInvoices([]);
+      setLoadingList(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, isLimitedAdmin]);
 
   const onUpload = async (e) => {
     e.preventDefault();
@@ -197,6 +208,14 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
     setFlash('Invoice deleted.');
     load();
   };
+
+  if (isLimitedAdmin) {
+    return (
+      <div className="text-sm text-text-secondary bg-gray-50 border rounded-xl p-4">
+        Access to invoices is disabled for this account.
+      </div>
+    );
+  }
 
   const pill = (status) => ({
     paid: 'bg-green-100 text-green-800',

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAdminTranslation } from "@/i18n/useAdminTranslation";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
+import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
 
 const PER_PAGE = 50;
 const fmt2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "0.00");
@@ -132,6 +133,9 @@ const BALANCE_FILTERS = ["all", "advance", "overdue"];
 
 export default function AdminProfiles({ onSelect }) {
   const { t, tp } = useAdminTranslation();
+  const { profile: currentProfile } = useSupabaseAuth();
+  const isLimitedAdmin = Boolean(currentProfile?.is_limited_admin);
+  const showBalances = !isLimitedAdmin;
   const [persistedFilters, setPersistedFilters] = useSessionStorage(STORAGE_KEY, {
     selectedMonth: monthKey(new Date()),
     showEmail: false,
@@ -183,6 +187,12 @@ export default function AdminProfiles({ onSelect }) {
       restFilter
     });
   }, [selectedMonth, showEmail, showPhone, from, to, q, page, restFilter, setPersistedFilters]);
+
+  useEffect(() => {
+    if (!showBalances && restFilter !== "all") {
+      setRestFilter("all");
+    }
+  }, [showBalances, restFilter]);
 
   useEffect(() => {
     if (!storeBanner) return;
@@ -320,22 +330,29 @@ export default function AdminProfiles({ onSelect }) {
   }, [pageRows, calc]);
 
   const displayRows = useMemo(() => {
-    if (restFilter === "all") return sortedPageRows;
+    if (!showBalances || restFilter === "all") return sortedPageRows;
     const hasAllBalances = sortedPageRows.every((row) => calc[row.id]);
     if (!hasAllBalances) return sortedPageRows;
     return sortedPageRows.filter((row) => {
       const liveBalance = Number(calc[row.id]?.diff ?? 0);
       return getBalanceState(liveBalance) === restFilter;
     });
-  }, [sortedPageRows, restFilter, calc]);
+  }, [sortedPageRows, restFilter, calc, showBalances]);
 
 const tableTotals = useMemo(() => {
+  if (!showBalances) {
+    return { totCurrent: 0, totCarry: 0 };
+  }
   const totCurrent = displayRows.reduce((sum, p) => sum + Number(calc[p.id]?.currentSold ?? 0), 0);
   const totCarry = displayRows.reduce((sum, p) => sum + Number(calc[p.id]?.carry ?? 0), 0);
   return { totCurrent, totCarry };
-}, [displayRows, calc]);
+}, [displayRows, calc, showBalances]);
 
-  const columnCount = 9 + (showEmail ? 1 : 0) + (showPhone ? 1 : 0);
+  const columnCount =
+    7 +
+    (showEmail ? 1 : 0) +
+    (showPhone ? 1 : 0) +
+    (showBalances ? 3 : 0);
   const summaryDetailSpan = 3 + (showEmail ? 1 : 0) + (showPhone ? 1 : 0);
 
   // compute balances per row (STRICT din RPC; fără calcule în React)
@@ -343,7 +360,7 @@ const tableTotals = useMemo(() => {
     let mounted = true;
 
     (async () => {
-      if (pageRows.length === 0) return;
+      if (!showBalances || pageRows.length === 0) return;
 
       const [y, m] = selectedMonth.split("-").map(Number);
       const start = isoLocal(new Date(y, m - 1, 1));        // inclusiv
@@ -382,7 +399,7 @@ const tableTotals = useMemo(() => {
 
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageRows, selectedMonth]);
+  }, [pageRows, selectedMonth, showBalances]);
 
   const toggleClient = (id) => {
     setSelectedIds((prev) => {
@@ -451,14 +468,16 @@ const saveStoreName = async () => {
           </div>
 
           {/* Balance filter */}
-          <div className="relative">
-            <Filter className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light" />
-            <select value={restFilter} onChange={(e)=>setRestFilter(e.target.value)} className="pl-7 pr-2 py-1.5 border rounded w-full text-xs">
-              <option value="all">{t("clients.balanceFilters.all")}</option>
-              <option value="advance">{t("clients.balanceFilters.advance")}</option>
-              <option value="overdue">{t("clients.balanceFilters.overdue")}</option>
-            </select>
-          </div>
+          {showBalances && (
+            <div className="relative">
+              <Filter className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light" />
+              <select value={restFilter} onChange={(e)=>setRestFilter(e.target.value)} className="pl-7 pr-2 py-1.5 border rounded w-full text-xs">
+                <option value="all">{t("clients.balanceFilters.all")}</option>
+                <option value="advance">{t("clients.balanceFilters.advance")}</option>
+                <option value="overdue">{t("clients.balanceFilters.overdue")}</option>
+              </select>
+            </div>
+          )}
 
           {/* Search */}
           <div className="relative">
@@ -523,9 +542,13 @@ const saveStoreName = async () => {
               {showEmail && <th className="px-4 py-3 text-left">{t("clients.table.email")}</th>}
               {showPhone && <th className="px-4 py-3 text-left">{t("clients.table.phone")}</th>}
               <th className="px-4 py-3 text-left">{t("clients.table.createdAt")}</th>
-              <th className="px-4 py-3 text-left whitespace-pre-line">{t("clients.table.currentBalance")}</th>
-              <th className="px-4 py-3 text-left">{t("clients.table.carryBalance")}</th>
-              <th className="px-4 py-3 text-left">{t("clients.table.liveBalance")}</th>
+              {showBalances && (
+                <>
+                  <th className="px-4 py-3 text-left whitespace-pre-line">{t("clients.table.currentBalance")}</th>
+                  <th className="px-4 py-3 text-left">{t("clients.table.carryBalance")}</th>
+                  <th className="px-4 py-3 text-left">{t("clients.table.liveBalance")}</th>
+                </>
+              )}
               <th className="px-4 py-3 text-right">{t("clients.table.actions")}</th>
             </tr>
           </thead>
@@ -579,13 +602,17 @@ const saveStoreName = async () => {
                     {showEmail && <td className="px-4 py-3">{p.email || "—"}</td>}
                     {showPhone && <td className="px-4 py-3">{p.phone || "—"}</td>}
                     <td className="px-4 py-3">{p.created_at?.slice(0,10) || "—"}</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 rounded-md text-sm font-medium bg-gray-100 text-gray-900">
-                        {fmt2(Number(c.currentSold || 0))}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3"><MoneyPill value={c.carry} /></td>
-                    <td className="px-4 py-3"><MoneyPill value={c.diff} /></td>
+                    {showBalances && (
+                      <>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-1 rounded-md text-sm font-medium bg-gray-100 text-gray-900">
+                            {fmt2(Number(c.currentSold || 0))}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3"><MoneyPill value={c.carry} /></td>
+                        <td className="px-4 py-3"><MoneyPill value={c.diff} /></td>
+                      </>
+                    )}
                     <td className="px-4 py-3 text-right">
                       <button className="text-sm bg-primary text-white rounded px-3 py-1" onClick={() => onSelect?.(p)}>{t("clients.table.open")}</button>
                     </td>
@@ -595,7 +622,7 @@ const saveStoreName = async () => {
             )}
           </tbody>
 
-          {!loading && displayRows.length > 0 && (
+          {showBalances && !loading && displayRows.length > 0 && (
             <tfoot>
               <tr className="border-t bg-slate-50/80 font-semibold text-text-primary">
                 <td className="px-4 py-3">{t("clients.csv.footer")}</td>
