@@ -105,14 +105,15 @@ useEffect(() => {
   }
 }, [activeTab]);
 
+  const { user, profile } = useSupabaseAuth();
+  const isLimitedAdmin = Boolean(profile?.is_limited_admin);
+
   useEffect(() => {
     if (isLimitedAdmin && activeTab === 'invoices') {
       setActiveTab('activity');
     }
   }, [isLimitedAdmin, activeTab]);
 
-  const { user, profile } = useSupabaseAuth();
-  const isLimitedAdmin = Boolean(profile?.is_limited_admin);
   const companyId = profile?.company_id;
   const [reviewPrompt, setReviewPrompt] = useState({
     loading: true,
