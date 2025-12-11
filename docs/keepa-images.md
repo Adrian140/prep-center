@@ -1,18 +1,20 @@
-## Keepa – imagini produs (Amazon.fr)
+## Keepa – imagini produs (Amazon EU)
 
 Configurare curentă:
-- Domeniu: `4` (FR).
+- Domenii implicite: `4` (FR) cu fallback spre `3` (DE), `8` (IT) și `9` (ES) dacă primele nu au imagini.
 - Limită: 1 token/min, cu prag de siguranță 20 tokenuri rămase (se oprește dacă scade sub prag).
 - Dimensiune implicită: 1500 px.
 - Set imagini: doar imaginea principală (prima intrare din `images`/`imagesCSV`).
 
 ### Variabile de mediu (.env)
 - `VITE_KEEPA_API_KEY` – cheia privată Keepa (nu o commita).
-- `VITE_KEEPA_DOMAIN` – default `4`.
+- `VITE_KEEPA_DOMAIN` – default `4` (folosit doar ca fallback dacă nu setezi lista).
+- `VITE_KEEPA_DOMAINS` – listă separată prin virgulă cu ID-urile de marketplace Keepa (ex: `4,3,8,9`). Dacă nu o setezi, clientul încearcă FR → DE → IT → ES în această ordine.
 - `VITE_KEEPA_IMAGE_SIZE` – default `1500` (acceptă `500`, `1000`, `1500`, `original`).
 - `VITE_KEEPA_MAIN_IMAGE_ONLY` – `true`/`false` (default `true`).
 - `VITE_KEEPA_TOKENS_PER_MINUTE` – default `1`.
 - `VITE_KEEPA_TOKEN_SAFETY_REMAINING` – default `0` (setează >0 doar dacă vrei un prag de siguranță; dacă `tokensLeft` < prag, clientul se oprește).
+În worker (Node) poți folosi aceleași variabile prefisate cu `KEEPA_` (`KEEPA_DOMAINS`, `KEEPA_DOMAIN` etc.).
 
 ### Utilizare în cod
 ```js

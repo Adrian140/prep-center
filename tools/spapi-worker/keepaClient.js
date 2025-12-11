@@ -1,7 +1,30 @@
 import 'dotenv/config';
 
-const KEEPA_DOMAIN = Number(
+const DEFAULT_DOMAIN = Number(
   process.env.KEEPA_DOMAIN || process.env.VITE_KEEPA_DOMAIN || 4
+);
+const parseDomainList = (raw, fallback) => {
+  if (typeof raw === 'string' && raw.trim().length) {
+    const numbers = raw
+      .split(',')
+      .map((part) => Number(part.trim()))
+      .filter((value) => Number.isFinite(value) && value > 0);
+    if (numbers.length) {
+      return Array.from(new Set(numbers));
+    }
+  }
+  const defaults = [fallback, 3, 8, 9];
+  const unique = [];
+  for (const candidate of defaults) {
+    if (Number.isFinite(candidate) && candidate > 0 && !unique.includes(candidate)) {
+      unique.push(candidate);
+    }
+  }
+  return unique;
+};
+const KEEPA_DOMAINS = parseDomainList(
+  process.env.KEEPA_DOMAINS || process.env.VITE_KEEPA_DOMAINS,
+  DEFAULT_DOMAIN
 );
 const KEEPA_API_KEY =
   process.env.KEEPA_API_KEY || process.env.VITE_KEEPA_API_KEY || null;
@@ -55,8 +78,8 @@ const ensureApiKey = () => {
   }
 };
 
-const buildCacheKey = (asin, size, allImages) =>
-  `${asin}|${size}|${allImages ? 'all' : 'main'}`;
+const buildCacheKey = (asin, size, allImages, domain) =>
+  `${asin}|${size}|${allImages ? 'all' : 'main'}|${domain}`;
 
 const rateLimit = async () => {
   const now = Date.now();
@@ -123,14 +146,14 @@ const fetchImpl = async (url) => {
   return impl(url);
 };
 
-const fetchProductPayload = async (asin, attempt = 0) => {
+const fetchProductPayload = async (asin, domain, attempt = 0) => {
   await rateLimit();
 
-  const url = `https://api.keepa.com/product?key=${KEEPA_API_KEY}&domain=${KEEPA_DOMAIN}&asin=${asin}`;
+  const url = `https://api.keepa.com/product?key=${KEEPA_API_KEY}&domain=${domain}&asin=${asin}`;
   const response = await fetchImpl(url);
 
   if (await maybeBackoff(response, attempt)) {
-    return fetchProductPayload(asin, attempt + 1);
+    return fetchProductPayload(asin, domain, attempt + 1);
   }
 
   if (response.status === 400) {
@@ -175,43 +198,61 @@ export const getKeepaImages = async ({
 
   ensureApiKey();
 
-  const cacheKey = buildCacheKey(normalizedAsin, size, allImages);
-  if (!forceRefresh && imageCache.has(cacheKey)) {
-    return {
-      images: imageCache.get(cacheKey),
-      fromCache: true,
-      tokensLeft: null
-    };
-  }
-
-  let product = null;
+  const domains = KEEPA_DOMAINS.length ? KEEPA_DOMAINS : [DEFAULT_DOMAIN];
   let tokensLeft = null;
-  try {
-    const res = await fetchProductPayload(normalizedAsin);
-    product = res?.product || null;
-    tokensLeft = res?.tokensLeft ?? null;
-  } catch (err) {
-    const msg = err?.message || err;
-    return { images: [], fromCache: false, tokensLeft, error: String(msg || '') };
+
+  for (const domain of domains) {
+    const cacheKey = buildCacheKey(normalizedAsin, size, allImages, domain);
+    if (!forceRefresh && imageCache.has(cacheKey)) {
+      const cached = imageCache.get(cacheKey);
+      if (Array.isArray(cached) && cached.length) {
+        return {
+          images: cached,
+          fromCache: true,
+          tokensLeft: null,
+          domain
+        };
+      }
+      continue;
+    }
+
+    let product = null;
+    try {
+      const res = await fetchProductPayload(normalizedAsin, domain);
+      product = res?.product || null;
+      if (res?.tokensLeft != null) {
+        tokensLeft = res.tokensLeft;
+      }
+    } catch (err) {
+      const msg = err?.message || err;
+      return { images: [], fromCache: false, tokensLeft, error: String(msg || '') };
+    }
+
+    if (!product) {
+      imageCache.set(cacheKey, []);
+      continue;
+    }
+
+    const ids = extractImageIds(product);
+    if (!ids.length) {
+      imageCache.set(cacheKey, []);
+      continue;
+    }
+
+    const orderedIds = allImages ? ids : [ids[0]];
+    const urls = orderedIds
+      .map((id) => buildImageUrl(id, size))
+      .filter(Boolean);
+
+    if (urls.length) {
+      imageCache.set(cacheKey, urls);
+      return { images: urls, fromCache: false, tokensLeft, domain };
+    }
+
+    imageCache.set(cacheKey, []);
   }
 
-  if (!product) {
-    return { images: [], fromCache: false, tokensLeft };
-  }
-
-  const ids = extractImageIds(product);
-  if (!ids.length) {
-    return { images: [], fromCache: false, tokensLeft };
-  }
-
-  const orderedIds = allImages ? ids : [ids[0]];
-  const urls = orderedIds
-    .map((id) => buildImageUrl(id, size))
-    .filter(Boolean);
-
-  imageCache.set(cacheKey, urls);
-
-  return { images: urls, fromCache: false, tokensLeft };
+  return { images: [], fromCache: false, tokensLeft };
 };
 
 export const getKeepaMainImage = async (options = {}) => {
@@ -220,6 +261,7 @@ export const getKeepaMainImage = async (options = {}) => {
     image: res.images[0] || null,
     tokensLeft: res.tokensLeft,
     fromCache: res.fromCache,
+    domain: res.domain,
     error: res.error || null
   };
 };
