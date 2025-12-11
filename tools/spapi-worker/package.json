@@ -10,6 +10,7 @@
     "sync-products": "node syncListingsToSupabase.js",
     "sync-keepa-images": "node syncKeepaImages.js",
     "sync-sales": "node syncSalesToSupabase.js",
+    "sync-refunds": "node syncRefundsToSupabase.js",
     "sync-prep-shipments": "node syncPrepShipmentsFromAmazon.js"
   },
   "dependencies": {
