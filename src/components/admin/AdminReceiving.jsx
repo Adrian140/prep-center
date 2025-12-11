@@ -1128,10 +1128,8 @@ function AdminReceiving() {
     try {
       await navigator.clipboard.writeText(value);
       setMessage('Tracking copied to clipboard');
-      setMessageType('success');
     } catch (err) {
       setMessage('Unable to copy tracking');
-      setMessageType('error');
     }
   };
 
