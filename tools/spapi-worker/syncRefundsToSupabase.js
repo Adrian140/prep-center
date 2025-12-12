@@ -173,16 +173,19 @@ async function fetchActiveIntegrations() {
   return integrations
     .map((row) => {
       const token = row.selling_partner_id ? tokenMap.get(row.selling_partner_id) : null;
+      const allowedMarketplaces =
+        token?.marketplace_ids && token.marketplace_ids.length ? token.marketplace_ids : null;
+      if (allowedMarketplaces && !allowedMarketplaces.includes(row.marketplace_id)) {
+        return null;
+      }
       return {
         ...row,
-        marketplace_ids: (token?.marketplace_ids && token.marketplace_ids.length
-          ? token.marketplace_ids
-          : null),
+        marketplace_ids: allowedMarketplaces,
         refresh_token:
           token?.refresh_token || row.refresh_token || process.env.SPAPI_REFRESH_TOKEN || null
       };
     })
-    .filter((row) => !!row.refresh_token);
+    .filter((row) => !!row?.refresh_token);
 }
 
 function resolveMarketplaceIds(integration) {

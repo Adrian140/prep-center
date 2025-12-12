@@ -35,13 +35,16 @@ async function fetchSellerTokens(sellerIds) {
   if (!sellerIds.length) return new Map();
   const { data, error } = await supabase
     .from('seller_tokens')
-    .select('seller_id, refresh_token')
+    .select('seller_id, refresh_token, marketplace_ids')
     .in('seller_id', sellerIds);
   if (error) throw error;
   const map = new Map();
   (data || []).forEach((row) => {
-    if (row.seller_id && row.refresh_token) {
-      map.set(row.seller_id, row.refresh_token);
+    if (row.seller_id) {
+      map.set(row.seller_id, {
+        refresh_token: row.refresh_token,
+        marketplace_ids: Array.isArray(row.marketplace_ids) ? row.marketplace_ids.filter(Boolean) : null
+      });
     }
   });
   return map;
@@ -65,15 +68,27 @@ async function findIntegration(userId, companyId) {
       .filter((id) => typeof id === 'string' && id.length)
   );
   return integrations
-    .map((row) => ({
-      ...row,
-      refresh_token:
+    .map((row) => {
+      const token = row.selling_partner_id ? sellerTokens.get(row.selling_partner_id) : null;
+      const allowedMarketplaces =
+        token?.marketplace_ids && token.marketplace_ids.length ? token.marketplace_ids : null;
+      if (allowedMarketplaces && !allowedMarketplaces.includes(row.marketplace_id)) {
+        return null;
+      }
+      const refresh =
         row.refresh_token ||
-        sellerTokens.get(row.selling_partner_id) ||
+        token?.refresh_token ||
         process.env.SPAPI_REFRESH_TOKEN ||
-        null
-    }))
-    .find((row) => row.refresh_token);
+        null;
+      return refresh
+        ? {
+            ...row,
+            marketplace_ids: allowedMarketplaces,
+            refresh_token: refresh
+          }
+        : null;
+    })
+    .find((row) => row?.refresh_token);
 }
 
 const normalizeKey = (value) => (value ? value.trim().toUpperCase() : '');

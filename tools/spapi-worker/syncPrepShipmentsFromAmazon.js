@@ -131,15 +131,27 @@ async function fetchActiveIntegrations() {
   const tokenMap = await fetchSellerTokens(sellerIds);
 
   return integrations
-    .map((row) => ({
-      ...row,
-      refresh_token:
+    .map((row) => {
+      const token = row.selling_partner_id ? tokenMap.get(row.selling_partner_id) : null;
+      const allowedMarketplaces =
+        token?.marketplace_ids && token.marketplace_ids.length ? token.marketplace_ids : null;
+      if (allowedMarketplaces && !allowedMarketplaces.includes(row.marketplace_id)) {
+        return null;
+      }
+      const refresh =
         row.refresh_token ||
-        tokenMap.get(row.selling_partner_id) ||
+        token?.refresh_token ||
         process.env.SPAPI_REFRESH_TOKEN ||
-        null
-    }))
-    .filter((r) => r.refresh_token);
+        null;
+      return refresh
+        ? {
+            ...row,
+            marketplace_ids: allowedMarketplaces,
+            refresh_token: refresh
+          }
+        : null;
+    })
+    .filter(Boolean);
 }
 
 async function fetchPrepRequests() {

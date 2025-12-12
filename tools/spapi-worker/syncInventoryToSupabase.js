@@ -84,23 +84,37 @@ async function fetchActiveIntegrations() {
   if (sellerIds.length) {
     const { data: tokens, error: tokensError } = await supabase
       .from('seller_tokens')
-      .select('seller_id, refresh_token')
+      .select('seller_id, refresh_token, marketplace_ids')
       .in('seller_id', sellerIds);
     if (tokensError) throw tokensError;
     (tokens || []).forEach((t) => {
-      if (t.seller_id && t.refresh_token) {
-        tokenMap.set(t.seller_id, t.refresh_token);
+      if (t.seller_id) {
+        tokenMap.set(t.seller_id, {
+          refresh_token: t.refresh_token,
+          marketplace_ids: Array.isArray(t.marketplace_ids) ? t.marketplace_ids.filter(Boolean) : null
+        });
       }
     });
   }
 
   return integrations
-    .map((row) => ({
-      ...row,
-      refresh_token:
-        tokenMap.get(row.selling_partner_id) || row.refresh_token || process.env.SPAPI_REFRESH_TOKEN || null
-    }))
-    .filter((row) => !!row.refresh_token);
+    .map((row) => {
+      const token = row.selling_partner_id ? tokenMap.get(row.selling_partner_id) : null;
+      const allowedMarketplaces =
+        token?.marketplace_ids && token.marketplace_ids.length ? token.marketplace_ids : null;
+      if (allowedMarketplaces && !allowedMarketplaces.includes(row.marketplace_id)) {
+        return null;
+      }
+      const refresh = token?.refresh_token || row.refresh_token || process.env.SPAPI_REFRESH_TOKEN || null;
+      return refresh
+        ? {
+            ...row,
+            marketplace_ids: allowedMarketplaces,
+            refresh_token: refresh
+          }
+        : null;
+    })
+    .filter(Boolean);
 }
 
 async function createInventoryReport(spClient, marketplaceId) {
