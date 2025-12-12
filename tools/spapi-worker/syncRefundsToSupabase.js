@@ -170,22 +170,40 @@ async function fetchActiveIntegrations() {
     });
   }
 
+  const sellerMarketplaceMap = new Map();
+  integrations.forEach((row) => {
+    if (!row?.selling_partner_id) return;
+    if (!sellerMarketplaceMap.has(row.selling_partner_id)) {
+      sellerMarketplaceMap.set(row.selling_partner_id, new Set());
+    }
+    if (row.marketplace_id) {
+      sellerMarketplaceMap.get(row.selling_partner_id).add(row.marketplace_id);
+    }
+  });
+
   return integrations
     .map((row) => {
       const token = row.selling_partner_id ? tokenMap.get(row.selling_partner_id) : null;
-      const allowedMarketplaces =
-        token?.marketplace_ids && token.marketplace_ids.length ? token.marketplace_ids : null;
-      if (allowedMarketplaces && !allowedMarketplaces.includes(row.marketplace_id)) {
-        return null;
+      const sellerMarkets = row.selling_partner_id ? sellerMarketplaceMap.get(row.selling_partner_id) : null;
+      const mergedSet = new Set(
+        (token?.marketplace_ids || []).filter((id) => typeof id === 'string' && id.length > 0)
+      );
+      if (row.marketplace_id) {
+        mergedSet.add(row.marketplace_id);
       }
+      sellerMarkets?.forEach((id) => mergedSet.add(id));
+      const marketplaceList =
+        row.marketplace_id && typeof row.marketplace_id === 'string'
+          ? [row.marketplace_id]
+          : Array.from(mergedSet);
       return {
         ...row,
-        marketplace_ids: allowedMarketplaces,
+        marketplace_ids: marketplaceList.length ? marketplaceList : null,
         refresh_token:
           token?.refresh_token || row.refresh_token || process.env.SPAPI_REFRESH_TOKEN || null
       };
     })
-    .filter((row) => !!row?.refresh_token);
+    .filter((row) => !!row?.refresh_token && (!!row.marketplace_id || (row.marketplace_ids || []).length));
 }
 
 function resolveMarketplaceIds(integration) {

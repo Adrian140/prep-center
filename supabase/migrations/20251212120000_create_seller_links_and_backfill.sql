@@ -30,3 +30,16 @@ on conflict (seller_id) do update set
   user_id = excluded.user_id,
   company_id = excluded.company_id,
   updated_at = now();
+
+update public.seller_tokens st
+set marketplace_ids = sub.marketplace_ids,
+    updated_at = now()
+from (
+  select
+    coalesce(ai.selling_partner_id, ai.company_id::text, ai.user_id::text) as seller_id,
+    array_remove(array_agg(distinct ai.marketplace_id), null) as marketplace_ids
+  from public.amazon_integrations ai
+  group by 1
+) sub
+where st.seller_id = sub.seller_id
+  and coalesce(sub.marketplace_ids, '{}'::text[]) <> coalesce(st.marketplace_ids, '{}'::text[]);
