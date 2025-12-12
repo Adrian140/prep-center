@@ -164,27 +164,59 @@ serve(async (req) => {
     }
 
     const sellerId = sellingPartnerId || companyId || targetUserId;
-    const { data: existingSellerToken } = await serviceClient
-      .from("seller_tokens")
-      .select("marketplace_ids")
-      .eq("seller_id", sellerId)
-      .maybeSingle();
-    const mergedMarketplaces = Array.from(
-      new Set([...(existingSellerToken?.marketplace_ids || []), marketplaceId].filter(Boolean))
-    );
-    const sellerTokenRecord = {
-      seller_id: sellerId,
-      refresh_token: refreshToken,
-      access_token: accessToken || null,
-      access_token_expires_at: accessTokenExpiresAt,
-      marketplace_ids: mergedMarketplaces,
-      updated_at: new Date().toISOString()
-    };
-    const { error: sellerTokenError } = await serviceClient
-      .from("seller_tokens")
-      .upsert(sellerTokenRecord, { onConflict: "seller_id" });
-    if (sellerTokenError) {
-      return new Response(sellerTokenError.message, { status: 500, headers: corsHeaders });
+    if (sellerId) {
+      await serviceClient
+        .from("seller_links")
+        .upsert({
+          seller_id: sellerId,
+          user_id: targetUserId,
+          company_id: companyId || targetUserId
+        })
+        .throwOnError();
+
+      const { data: existingSellerToken } = await serviceClient
+        .from("seller_tokens")
+        .select("marketplace_ids")
+        .eq("seller_id", sellerId)
+        .maybeSingle();
+
+      let integrationMarkets: string[] = [];
+      if (sellingPartnerId) {
+        const { data: relatedIntegrations } = await serviceClient
+          .from("amazon_integrations")
+          .select("marketplace_id")
+          .eq("selling_partner_id", sellingPartnerId);
+        integrationMarkets =
+          relatedIntegrations?.map((row) => row.marketplace_id).filter((id): id is string => Boolean(id)) || [];
+      } else if (companyId) {
+        const { data: relatedIntegrations } = await serviceClient
+          .from("amazon_integrations")
+          .select("marketplace_id")
+          .eq("company_id", companyId);
+        integrationMarkets =
+          relatedIntegrations?.map((row) => row.marketplace_id).filter((id): id is string => Boolean(id)) || [];
+      }
+
+      const mergedMarketplaces = Array.from(
+        new Set(
+          [marketplaceId, ...(existingSellerToken?.marketplace_ids || []), ...integrationMarkets].filter(Boolean)
+        )
+      );
+
+      const sellerTokenRecord = {
+        seller_id: sellerId,
+        refresh_token: refreshToken,
+        access_token: accessToken || null,
+        access_token_expires_at: accessTokenExpiresAt,
+        marketplace_ids: mergedMarketplaces,
+        updated_at: new Date().toISOString()
+      };
+      const { error: sellerTokenError } = await serviceClient
+        .from("seller_tokens")
+        .upsert(sellerTokenRecord, { onConflict: "seller_id" });
+      if (sellerTokenError) {
+        return new Response(sellerTokenError.message, { status: 500, headers: corsHeaders });
+      }
     }
 
     return new Response(JSON.stringify({ ok: true }), {
