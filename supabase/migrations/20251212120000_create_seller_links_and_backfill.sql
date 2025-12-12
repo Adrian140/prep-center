@@ -6,6 +6,12 @@ create table if not exists public.seller_links (
   updated_at timestamptz not null default now()
 );
 
+alter table if exists public.seller_links
+  add column if not exists created_at timestamptz not null default now();
+
+alter table if exists public.seller_links
+  add column if not exists updated_at timestamptz not null default now();
+
 create or replace function public.touch_seller_links_updated_at()
 returns trigger as $$
 begin
