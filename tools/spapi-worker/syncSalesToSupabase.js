@@ -114,24 +114,92 @@ function aggregateRefundEvents(refundEvents, defaultCountry) {
   return Array.from(map.values());
 }
 
+function parseMarketplaceEnvList() {
+  const raw = process.env.SPAPI_MARKETPLACE_IDS;
+  if (!raw) return null;
+  const list = raw
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+  return list.length ? list : null;
+}
+
+function singleModeIntegration() {
+  if (
+    process.env.SUPABASE_STOCK_COMPANY_ID &&
+    process.env.SUPABASE_STOCK_USER_ID &&
+    process.env.SPAPI_REFRESH_TOKEN
+  ) {
+    const fallbackMarketplaces =
+      parseMarketplaceEnvList() || [process.env.SPAPI_MARKETPLACE_ID || DEFAULT_MARKETPLACE];
+    return [
+      {
+        id: 'single-mode',
+        company_id: process.env.SUPABASE_STOCK_COMPANY_ID,
+        user_id: process.env.SUPABASE_STOCK_USER_ID,
+        marketplace_id: fallbackMarketplaces[0],
+        marketplace_ids: fallbackMarketplaces,
+        region: process.env.SPAPI_REGION || 'eu',
+        refresh_token: process.env.SPAPI_REFRESH_TOKEN,
+        status: 'active'
+      }
+    ];
+  }
+  return null;
+}
+
 async function fetchActiveIntegrations() {
+  const single = singleModeIntegration();
+  if (single) return single;
+
   const { data, error } = await supabase
     .from('amazon_integrations')
-    .select('id, user_id, company_id, marketplace_id, region, refresh_token')
+    .select('id, user_id, company_id, marketplace_id, region, selling_partner_id, refresh_token')
     .eq('status', 'active');
   if (error) throw error;
-  return data || [];
+
+  const integrations = data || [];
+  const sellerIds = integrations
+    .map((row) => row.selling_partner_id)
+    .filter((id) => typeof id === 'string' && id.length > 0);
+
+  const tokenMap = new Map();
+  if (sellerIds.length) {
+    const { data: tokens, error: tokensError } = await supabase
+      .from('seller_tokens')
+      .select('seller_id, refresh_token, marketplace_ids')
+      .in('seller_id', sellerIds);
+    if (tokensError) throw tokensError;
+    (tokens || []).forEach((t) => {
+      if (t.seller_id) {
+        tokenMap.set(t.seller_id, {
+          refresh_token: t.refresh_token,
+          marketplace_ids: Array.isArray(t.marketplace_ids) ? t.marketplace_ids.filter(Boolean) : null
+        });
+      }
+    });
+  }
+
+  return integrations
+    .map((row) => {
+      const token = row.selling_partner_id ? tokenMap.get(row.selling_partner_id) : null;
+      return {
+        ...row,
+        marketplace_ids:
+          token?.marketplace_ids && token.marketplace_ids.length ? token.marketplace_ids : null,
+        refresh_token:
+          token?.refresh_token || row.refresh_token || process.env.SPAPI_REFRESH_TOKEN || null
+      };
+    })
+    .filter((row) => !!row.refresh_token);
 }
 
 function resolveMarketplaceIds(integration) {
-  const fromEnv = process.env.SPAPI_MARKETPLACE_IDS;
-  if (fromEnv && typeof fromEnv === 'string') {
-    const list = fromEnv
-      .split(',')
-      .map((id) => id.trim())
-      .filter(Boolean);
-    if (list.length) return list;
+  if (Array.isArray(integration.marketplace_ids) && integration.marketplace_ids.length) {
+    return integration.marketplace_ids;
   }
+  const fromEnv = parseMarketplaceEnvList();
+  if (fromEnv) return fromEnv;
   // fallback: un singur marketplace, ca înainte
   return [integration.marketplace_id || DEFAULT_MARKETPLACE];
 }
