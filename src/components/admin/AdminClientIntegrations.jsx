@@ -92,7 +92,21 @@ export default function AdminClientIntegrations({ profile }) {
       setRows([]);
     } else {
       setFlash('');
-      setRows(Array.isArray(data) ? data : []);
+      const deduped = (data || []).reduce((acc, row) => {
+        const key = `${row.marketplace_id || ''}::${row.region || ''}`;
+        const existing = acc.get(key);
+        const existingTime = existing ? new Date(existing.updated_at || existing.created_at || 0).getTime() : -Infinity;
+        const currentTime = new Date(row.updated_at || row.created_at || 0).getTime();
+        if (!existing || currentTime >= existingTime) {
+          acc.set(key, row);
+        }
+        return acc;
+      }, new Map());
+      setRows(Array.from(deduped.values()).sort((a, b) => {
+        const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
+        const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
+        return bTime - aTime;
+      }));
     }
     setRefreshing(false);
     setLoading(false);
