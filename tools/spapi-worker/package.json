@@ -11,7 +11,8 @@
     "sync-keepa-images": "node syncKeepaImages.js",
     "sync-sales": "node syncSalesToSupabase.js",
     "sync-refunds": "node syncRefundsToSupabase.js",
-    "sync-prep-shipments": "node syncPrepShipmentsFromAmazon.js"
+    "sync-prep-shipments": "node syncPrepShipmentsFromAmazon.js",
+    "restore-integrations": "node restoreAmazonIntegrations.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
