@@ -194,7 +194,10 @@ function resolveMarketplaceIds(integration) {
   }
   const fromEnv = parseMarketplaceEnvList();
   if (fromEnv) return fromEnv;
-  return [integration.marketplace_id || DEFAULT_MARKETPLACE];
+  if (integration.marketplace_id) {
+    return [integration.marketplace_id];
+  }
+  return [];
 }
 
 function accumulateRefundRows(map, rows) {
@@ -305,6 +308,14 @@ async function upsertRefundsForCompany({ companyId, userId, rows }) {
 }
 
 async function syncRefundsForIntegration(integration) {
+  const marketplaceIds = resolveMarketplaceIds(integration);
+  if (!marketplaceIds.length) {
+    console.warn(
+      `[Refund sync] Skipping integration ${integration.id} because it has no marketplace_id or marketplace_ids configured.`
+    );
+    return null;
+  }
+
   const spClient = createSpClient({
     refreshToken: integration.refresh_token,
     region: integration.region || process.env.SPAPI_REGION
@@ -314,7 +325,6 @@ async function syncRefundsForIntegration(integration) {
     `Syncing refunds for integration ${integration.id} (company ${integration.company_id}, marketplace ${integration.marketplace_id})`
   );
 
-  const marketplaceIds = resolveMarketplaceIds(integration);
   let refundEvents = [];
   try {
     refundEvents = await listRefundEvents(spClient, marketplaceIds);

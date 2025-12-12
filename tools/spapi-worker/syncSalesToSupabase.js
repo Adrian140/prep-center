@@ -52,13 +52,14 @@ function mapMarketplaceToCountry(marketplaceId) {
 }
 
 async function listRefundEvents(spClient, marketplaceIds) {
+  if (!Array.isArray(marketplaceIds) || marketplaceIds.length === 0) {
+    return [];
+  }
   const postedAfter = isoDateDaysAgo(ORDER_WINDOW_DAYS);
   const events = [];
   let nextToken = null;
 
-  const ids = Array.isArray(marketplaceIds) && marketplaceIds.length
-    ? marketplaceIds
-    : [DEFAULT_MARKETPLACE];
+  const ids = marketplaceIds;
 
   do {
     const res = await spClient.callAPI({
@@ -204,18 +205,21 @@ function resolveMarketplaceIds(integration) {
   }
   const fromEnv = parseMarketplaceEnvList();
   if (fromEnv) return fromEnv;
-  // fallback: un singur marketplace, ca înainte
-  return [integration.marketplace_id || DEFAULT_MARKETPLACE];
+  if (integration.marketplace_id) {
+    return [integration.marketplace_id];
+  }
+  return [];
 }
 
 async function listAllOrders(spClient, marketplaceIds) {
+  if (!Array.isArray(marketplaceIds) || marketplaceIds.length === 0) {
+    return [];
+  }
   const createdAfter = isoDateDaysAgo(ORDER_WINDOW_DAYS);
   const orders = [];
   let nextToken = null;
 
-  const ids = Array.isArray(marketplaceIds) && marketplaceIds.length
-    ? marketplaceIds
-    : [DEFAULT_MARKETPLACE];
+  const ids = marketplaceIds;
 
   do {
     const baseQuery = nextToken
@@ -275,18 +279,18 @@ async function listOrderItems(spClient, amazonOrderId) {
   return items;
 }
 
-async function aggregateSales(spClient, integration) {
-  const marketplaceIds = resolveMarketplaceIds(integration);
+async function aggregateSales(spClient, integration, marketplaceIds) {
   const orders = await listAllOrders(spClient, marketplaceIds);
   if (!orders.length) return [];
 
   const aggregates = new Map();
+  const fallbackMarketplace = integration.marketplace_id || marketplaceIds[0] || null;
 
   for (const order of orders) {
     const amazonOrderId = order.AmazonOrderId;
     if (!amazonOrderId) continue;
 
-    const marketplaceId = order.MarketplaceId || integration.marketplace_id || DEFAULT_MARKETPLACE;
+    const marketplaceId = order.MarketplaceId || fallbackMarketplace;
     const country = mapMarketplaceToCountry(marketplaceId);
 
     const status = String(order.OrderStatus || '').replace(/\s+/g, '').toLowerCase();
@@ -343,7 +347,10 @@ async function aggregateSales(spClient, integration) {
   try {
     const refundEvents = await listRefundEvents(spClient, marketplaceIds);
     if (Array.isArray(refundEvents) && refundEvents.length) {
-      const refundRows = aggregateRefundEvents(refundEvents, mapMarketplaceToCountry(integration.marketplace_id));
+      const refundRows = aggregateRefundEvents(
+        refundEvents,
+        mapMarketplaceToCountry(fallbackMarketplace)
+      );
       accumulateSalesRows(aggregates, refundRows);
     }
   } catch (err) {
@@ -414,6 +421,14 @@ async function upsertSales({ rows, companyId, userId }) {
 }
 
 async function syncIntegration(integration) {
+  const marketplaceIds = resolveMarketplaceIds(integration);
+  if (!marketplaceIds.length) {
+    console.warn(
+      `[Sales sync] Skipping integration ${integration.id} because it has no marketplace_id or marketplace_ids configured.`
+    );
+    return [];
+  }
+
   const spClient = createSpClient({
     refreshToken: integration.refresh_token,
     region: integration.region || process.env.SPAPI_REGION
@@ -427,7 +442,7 @@ async function syncIntegration(integration) {
   // care agregează vânzările pe ultimele ORDER_WINDOW_DAYS.
   let sales = [];
   try {
-    sales = await aggregateSales(spClient, integration);
+    sales = await aggregateSales(spClient, integration, marketplaceIds);
   } catch (err) {
     const message = String(err?.message || err || '');
     if (err?.code === 'Unauthorized' || message.includes('Access to requested resource is denied')) {

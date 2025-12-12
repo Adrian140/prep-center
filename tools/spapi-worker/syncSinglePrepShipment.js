@@ -12,13 +12,15 @@ const STATUS_LIST = [
   'DELETED'
 ];
 
-const EU_MARKETPLACES = [
-  'A13V1IB3VIYZZH', // FR
-  'A1PA6795UKMFR9', // DE
-  'A1RKKUPIHCS9HS', // ES
-  'APJ6JRA9NG5V4',  // IT
-  'A1F83G8C2ARO7P'  // UK
-];
+const resolveMarketplaceId = (integration) => {
+  if (integration?.marketplace_id) {
+    return integration.marketplace_id;
+  }
+  if (Array.isArray(integration?.marketplace_ids) && integration.marketplace_ids.length) {
+    return integration.marketplace_ids[0];
+  }
+  return null;
+};
 
 const normalizeShipmentIds = (raw) => {
   if (!raw) return [];
@@ -156,10 +158,7 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
     });
   };
 
-  const mpCandidates = [
-    marketplaceId || process.env.SPAPI_MARKETPLACE_ID || null,
-    ...EU_MARKETPLACES
-  ].filter(Boolean);
+  const mpCandidates = marketplaceId ? [marketplaceId] : [null];
 
   let shipmentRes = null;
   for (const mp of mpCandidates) {
@@ -187,7 +186,7 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
       operation: 'getShipmentItemsByShipmentId',
       endpoint: 'fulfillmentInbound',
       path: { shipmentId },
-      query: { MarketplaceId: marketplaceId },
+      query: marketplaceId ? { MarketplaceId: marketplaceId } : {},
       options: { version: 'v0' }
     });
   } catch (err) {
@@ -294,6 +293,12 @@ async function main() {
     process.exit(1);
   }
 
+  const marketplaceId = resolveMarketplaceId(integration);
+  if (!marketplaceId) {
+    console.error('The matched integration has no marketplace configured. Aborting.');
+    process.exit(1);
+  }
+
   const refreshTokenOverride = process.env.SPAPI_REFRESH_TOKEN || null;
   const client = createSpClient({
     refreshToken: refreshTokenOverride || integration.refresh_token,
@@ -303,7 +308,7 @@ async function main() {
   const { snapshot: snap, items: amazonItems } = await fetchShipmentSnapshot(
     client,
     prep.fba_shipment_id,
-    integration.marketplace_id || process.env.SPAPI_MARKETPLACE_ID
+    marketplaceId
   );
   await updateItemAmazonQuantities(prep.prep_request_items, amazonItems);
 

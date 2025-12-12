@@ -127,6 +127,16 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function resolveMarketplaceId(integration) {
+  if (integration?.marketplace_id) {
+    return integration.marketplace_id;
+  }
+  if (Array.isArray(integration?.marketplace_ids) && integration.marketplace_ids.length) {
+    return integration.marketplace_ids[0];
+  }
+  return null;
+}
+
 async function createListingReport(spClient, marketplaceId) {
   const body = {
     reportType: LISTING_REPORT_TYPE,
@@ -325,6 +335,9 @@ const isCorruptedName = (name) => {
 };
 
 async function fetchListingRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
+  if (!marketplaceId) {
+    throw new Error('Marketplace ID is required for listing reports');
+  }
   const reportId = await createListingReport(spClient, marketplaceId);
   const documentId = await waitForReport(spClient, reportId);
   const documentText = await downloadReportDocument(spClient, documentId);
@@ -346,20 +359,25 @@ async function insertListingRows(rows) {
 }
 
 async function syncListingsIntegration(integration) {
+  const marketplaceId = resolveMarketplaceId(integration);
+  if (!marketplaceId) {
+    console.warn(
+      `[Listings sync] Skipping integration ${integration.id} because it has no marketplace_id configured.`
+    );
+    return;
+  }
+
   const spClient = createSpClient({
     refreshToken: integration.refresh_token,
     region: integration.region || process.env.SPAPI_REGION
   });
 
   console.log(
-    `Syncing LISTINGS for integration ${integration.id} (company ${integration.company_id}, marketplace ${integration.marketplace_id})`
+    `Syncing LISTINGS for integration ${integration.id} (company ${integration.company_id}, marketplace ${marketplaceId})`
   );
 
   try {
-    const listingRaw = await fetchListingRows(
-      spClient,
-      integration.marketplace_id || DEFAULT_MARKETPLACE
-    );
+    const listingRaw = await fetchListingRows(spClient, marketplaceId);
     const normalized = normalizeListings(listingRaw);
     const listingRows = filterListings(normalized);
 

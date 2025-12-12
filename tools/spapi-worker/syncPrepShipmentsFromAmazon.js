@@ -199,13 +199,15 @@ const normalizeShipmentIds = (raw) => {
     .filter((s) => s.length > 0);
 };
 
-const EU_MARKETPLACES = [
-  'A13V1IB3VIYZZH', // FR
-  'A1PA6795UKMFR9', // DE
-  'A1RKKUPIHCS9HS', // ES
-  'APJ6JRA9NG5V4',  // IT
-  'A1F83G8C2ARO7P'  // UK
-];
+const resolveMarketplaceId = (integration) => {
+  if (integration?.marketplace_id) {
+    return integration.marketplace_id;
+  }
+  if (Array.isArray(integration?.marketplace_ids) && integration.marketplace_ids.length) {
+    return integration.marketplace_ids[0];
+  }
+  return null;
+};
 
 async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   const candidates = normalizeShipmentIds(rawShipmentId);
@@ -229,10 +231,7 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
     });
   };
 
-  const mpCandidates = [
-    marketplaceId || process.env.SPAPI_MARKETPLACE_ID || null,
-    ...EU_MARKETPLACES
-  ].filter(Boolean);
+  const mpCandidates = marketplaceId ? [marketplaceId] : [null];
 
   let shipmentRes = null;
   let pickedMarketplace = null;
@@ -273,9 +272,7 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
       operation: 'getShipmentItemsByShipmentId',
       endpoint: 'fulfillmentInbound',
       path: { shipmentId },
-      query: {
-        MarketplaceId: pickedMarketplace || marketplaceId || process.env.SPAPI_MARKETPLACE_ID
-      },
+      query: pickedMarketplace || marketplaceId ? { MarketplaceId: pickedMarketplace || marketplaceId } : {},
       options: { version: 'v0' }
     });
   } catch (err) {
@@ -378,6 +375,18 @@ async function main() {
       continue;
     }
 
+    const marketplaceId = resolveMarketplaceId(integration);
+    if (!marketplaceId) {
+      console.warn(
+        `[Prep shipments sync] Skipping shipment ${row.fba_shipment_id} because integration ${integration.id} has no marketplace_id configured.`
+      );
+      await updatePrepRequest(row.id, {
+        amazon_sync_error: 'No marketplace configured',
+        amazon_last_synced_at: nowIso
+      }).catch((err) => console.error('Failed to mark missing marketplace', err.message));
+      continue;
+    }
+
     const key = integration.refresh_token;
     if (!key) {
       console.warn(`Integration without refresh token for user ${row.user_id}, skipping.`);
@@ -399,7 +408,7 @@ async function main() {
       const { snapshot: snap, items: amazonItems } = await fetchShipmentSnapshot(
         client,
         row.fba_shipment_id,
-        integration.marketplace_id || process.env.SPAPI_MARKETPLACE_ID
+        marketplaceId
       );
       await updateItemAmazonQuantities(row.prep_request_items, amazonItems);
       let prepStatusResolved = row.prep_status;
@@ -427,7 +436,7 @@ async function main() {
       console.log(`Updated shipment ${row.fba_shipment_id} (prep_request ${row.id}) with status ${snap.status || 'n/a'}`);
     } catch (err) {
       console.error(
-        `Failed to sync shipment ${row.fba_shipment_id} (user ${row.user_id}, company ${row.company_id}, seller ${integration.selling_partner_id || 'n/a'}, marketplace ${integration.marketplace_id || process.env.SPAPI_MARKETPLACE_ID || 'n/a'}):`,
+        `Failed to sync shipment ${row.fba_shipment_id} (user ${row.user_id}, company ${row.company_id}, seller ${integration.selling_partner_id || 'n/a'}, marketplace ${marketplaceId || 'n/a'}):`,
         err.message
       );
       await updatePrepRequest(row.id, {

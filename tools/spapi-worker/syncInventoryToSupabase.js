@@ -29,6 +29,16 @@ export const sanitizeText = (value) => {
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const resolveMarketplaceId = (integration) => {
+  if (integration?.marketplace_id) {
+    return integration.marketplace_id;
+  }
+  if (Array.isArray(integration?.marketplace_ids) && integration.marketplace_ids.length) {
+    return integration.marketplace_ids[0];
+  }
+  return null;
+};
+
 function assertBaseEnv() {
   const missing = [];
   if (!process.env.SUPABASE_URL) missing.push('SUPABASE_URL');
@@ -564,6 +574,9 @@ async function syncToSupabase({ items, companyId, userId }) {
 }
 
 async function fetchInventoryRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
+  if (!marketplaceId) {
+    throw new Error('Marketplace ID is required for inventory rows');
+  }
   const reportId = await createInventoryReport(spClient, marketplaceId);
   const documentId = await waitForReport(spClient, reportId);
   const documentText = await downloadReportDocument(spClient, documentId);
@@ -571,6 +584,9 @@ async function fetchInventoryRows(spClient, marketplaceId = DEFAULT_MARKETPLACE)
 }
 
 async function fetchInventorySummaries(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
+  if (!marketplaceId) {
+    throw new Error('Marketplace ID is required for inventory summaries');
+  }
   const all = [];
   let nextToken = null;
   do {
@@ -651,6 +667,9 @@ async function createListingReport(spClient, marketplaceId) {
 }
 
 async function fetchListingRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
+  if (!marketplaceId) {
+    throw new Error('Marketplace ID is required for listing reports');
+  }
   const reportId = await createListingReport(spClient, marketplaceId);
   const documentId = await waitForReport(spClient, reportId);
   const documentText = await downloadReportDocument(spClient, documentId);
@@ -658,30 +677,38 @@ async function fetchListingRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
 }
 
 async function syncIntegration(integration) {
+  const marketplaceId = resolveMarketplaceId(integration);
+  if (!marketplaceId) {
+    console.warn(
+      `[Inventory sync] Skipping integration ${integration.id} because it has no marketplace_id configured.`
+    );
+    return { companyId: integration.company_id, seenKeys: new Set() };
+  }
+
   const spClient = createSpClient({
     refreshToken: integration.refresh_token,
     region: integration.region || process.env.SPAPI_REGION
   });
 
   console.log(
-    `Syncing integration ${integration.id} (company ${integration.company_id}, marketplace ${integration.marketplace_id})`
+    `Syncing integration ${integration.id} (company ${integration.company_id}, marketplace ${marketplaceId})`
   );
 
   try {
     let normalized = [];
     let listingRows = [];
     try {
-      const rawRows = await fetchInventoryRows(spClient, integration.marketplace_id || DEFAULT_MARKETPLACE);
+      const rawRows = await fetchInventoryRows(spClient, marketplaceId);
       normalized = normalizeInventory(rawRows);
     } catch (err) {
       console.error(`Report inventory failed for ${integration.id}:`, err?.message || err);
       // fallback to Inventory Summaries API
-      const summaries = await fetchInventorySummaries(spClient, integration.marketplace_id || DEFAULT_MARKETPLACE);
+      const summaries = await fetchInventorySummaries(spClient, marketplaceId);
       normalized = normalizeInventory(summaries);
     }
 
     try {
-      const listingRaw = await fetchListingRows(spClient, integration.marketplace_id || DEFAULT_MARKETPLACE);
+      const listingRaw = await fetchListingRows(spClient, marketplaceId);
       listingRows = filterListings(normalizeListings(listingRaw));
     } catch (err) {
       console.error(`Listing report failed for ${integration.id}:`, err?.message || err);
