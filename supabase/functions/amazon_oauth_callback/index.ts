@@ -45,6 +45,8 @@ serve(async (req) => {
       return new Response("Not authenticated", { status: 401, headers: corsHeaders });
     }
 
+    const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
     const payload =
       req.method === "POST"
         ? await req.json().catch(() => ({}))
@@ -73,8 +75,24 @@ serve(async (req) => {
       return new Response("Invalid state payload", { status: 400, headers: corsHeaders });
     }
 
-    if (!parsedState?.userId || parsedState.userId !== user.id) {
+    if (!parsedState?.userId) {
       return new Response("State mismatch", { status: 400, headers: corsHeaders });
+    }
+
+    const targetUserId = parsedState.userId;
+    if (targetUserId !== user.id) {
+      const { data: adminProfile, error: adminError } = await serviceClient
+        .from("profiles")
+        .select("is_admin, is_limited_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const isElevatedAdmin =
+        !adminError && adminProfile?.is_admin && !adminProfile?.is_limited_admin;
+
+      if (!isElevatedAdmin) {
+        return new Response("State mismatch", { status: 400, headers: corsHeaders });
+      }
     }
 
     const marketplaceId = parsedState.marketplaceId || marketplaceParam || "A13V1IB3VIYZZH";
@@ -115,20 +133,18 @@ serve(async (req) => {
     const accessTokenExpiresAt =
       accessExpiresIn != null ? new Date(Date.now() + accessExpiresIn * 1000).toISOString() : null;
 
-    const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
     let companyId = parsedState.companyId || null;
     if (!companyId) {
       const { data: profile } = await serviceClient
         .from("profiles")
         .select("company_id")
-        .eq("id", user.id)
+        .eq("id", targetUserId)
         .maybeSingle();
-      companyId = profile?.company_id || user.id;
+      companyId = profile?.company_id || targetUserId;
     }
 
     const record = {
-      user_id: user.id,
+      user_id: targetUserId,
       company_id: companyId,
       marketplace_id: marketplaceId,
       region,
@@ -147,7 +163,7 @@ serve(async (req) => {
       return new Response(upsertError.message, { status: 500, headers: corsHeaders });
     }
 
-    const sellerId = sellingPartnerId || companyId || user.id;
+    const sellerId = sellingPartnerId || companyId || targetUserId;
     const { data: existingSellerToken } = await serviceClient
       .from("seller_tokens")
       .select("marketplace_ids")

@@ -14,6 +14,7 @@ import AdminOther from './AdminOther';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import BillingSelectionPanel from './BillingSelectionPanel';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
+import AdminClientIntegrations from './AdminClientIntegrations';
 
 export default function AdminUserDetail({ profile, onBack }) {
   const { profile: currentAdmin } = useSupabaseAuth();
@@ -30,7 +31,7 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingError, setBillingError] = useState('');
   const hasBillingSelection = canManageInvoices && Object.keys(billingSelections).length > 0;
-  const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns'];
+  const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns', 'integrations'];
   const allowedSections = isLimitedAdmin ? ['stock'] : serviceSections;
 
   // panouri “secundare” (billing / invoices)
@@ -286,6 +287,15 @@ if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
                   Retururi
                 </button>
               )}
+              {allowedSections.includes('integrations') && (
+                <button
+                  onClick={() => setActiveSection('integrations')}
+                  className={tabBtn(activeSection === 'integrations')}
+                  title="Integrări Amazon"
+                >
+                  Integrations
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -348,6 +358,9 @@ if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
           )}
           {activeSection === 'returns' && (
             <AdminReturns rows={returnRows} reload={loadAll} companyId={companyId} profile={profile} />
+          )}
+          {activeSection === 'integrations' && !isLimitedAdmin && (
+            <AdminClientIntegrations profile={profile} />
           )}
         </div>
         {canManageInvoices && hasBillingSelection && (
