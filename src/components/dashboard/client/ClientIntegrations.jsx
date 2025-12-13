@@ -348,7 +348,7 @@ export default function ClientIntegrations() {
               <div key={row.id} className="border rounded-lg p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="font-semibold text-text-primary flex items-center gap-2">
-                    {t('ClientIntegrations.card.marketplaceAlt', { id: row.marketplace_id })}
+                    {tp('ClientIntegrations.card.marketplaceAlt', { id: row.marketplace_id || '—' })}
                     <StatusBadge status={row.status} t={t} />
                   </div>
                   <div className="text-xs text-text-secondary">
