@@ -28,6 +28,71 @@ const PACKLINK_PORTALS = [
   { id: 'com', label: 'Packlink PRO .com', url: 'https://auth.packlink.com/en-GB/pro/login?tenant_id=PACKLINKPRO' }
 ];
 
+const STATUS_PRIORITY = {
+  error: 3,
+  active: 2,
+  pending: 1
+};
+
+function formatMarketplaceLabel(ids = []) {
+  const entries = ids
+    .filter(Boolean)
+    .map((id) => MARKETPLACE_LABELS[id] || id);
+  if (!entries.length) return '—';
+  if (entries.length === 1) return entries[0];
+  return `EU (${entries.join(', ')})`;
+}
+
+function aggregateIntegrations(rows = []) {
+  const groups = new Map();
+  rows.forEach((row) => {
+    const key = row.selling_partner_id || `integration-${row.id}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        groupId: key,
+        status: row.status || 'pending',
+        last_error: row.last_error || null,
+        marketplace_ids: [],
+        created_at: row.created_at,
+        last_synced_at: row.last_synced_at,
+        integration_id: row.id,
+        sortTimestamp: new Date(row.updated_at || row.last_synced_at || row.created_at || 0).getTime()
+      });
+    }
+    const group = groups.get(key);
+    if (row.marketplace_id) {
+      group.marketplace_ids.push(row.marketplace_id);
+    }
+    const createdTime = new Date(row.created_at || 0).getTime();
+    if (!group.created_at || createdTime < new Date(group.created_at || 0).getTime()) {
+      group.created_at = row.created_at;
+    }
+    const syncedTime = new Date(row.last_synced_at || 0).getTime();
+    if (syncedTime > new Date(group.last_synced_at || 0).getTime()) {
+      group.last_synced_at = row.last_synced_at;
+    }
+    const rowPriority = STATUS_PRIORITY[row.status] || 0;
+    const groupPriority = STATUS_PRIORITY[group.status] || 0;
+    if (rowPriority > groupPriority) {
+      group.status = row.status;
+    }
+    if (row.last_error) {
+      group.last_error = row.last_error;
+    }
+    const timestamp = new Date(row.updated_at || row.last_synced_at || row.created_at || 0).getTime();
+    if (timestamp >= (group.sortTimestamp || 0)) {
+      group.integration_id = row.id;
+      group.sortTimestamp = timestamp;
+    }
+  });
+
+  return Array.from(groups.values()).map((group) => ({
+    ...group,
+    id: group.groupId,
+    marketplace_ids: Array.from(new Set(group.marketplace_ids))
+  }));
+}
+
 function StatusBadge({ status, t }) {
   if (status === 'active') {
     return (
@@ -119,7 +184,7 @@ export default function ClientIntegrations() {
     setRefreshing(true);
     const { data, error } = await supabase
       .from('amazon_integrations')
-      .select('id, marketplace_id, region, status, last_synced_at, created_at, last_error')
+      .select('id, marketplace_id, region, status, last_synced_at, created_at, updated_at, last_error, selling_partner_id')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
     if (error) {
@@ -137,11 +202,12 @@ export default function ClientIntegrations() {
         }
         return acc;
       }, new Map());
-      setRows(Array.from(deduped.values()).sort((a, b) => {
-        const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
-        const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
+      const aggregated = aggregateIntegrations(Array.from(deduped.values())).sort((a, b) => {
+        const aTime = a.sortTimestamp ?? new Date(a.updated_at || a.created_at || 0).getTime();
+        const bTime = b.sortTimestamp ?? new Date(b.updated_at || b.created_at || 0).getTime();
         return bTime - aTime;
-      }));
+      });
+      setRows(aggregated);
     }
     setRefreshing(false);
     setLoading(false);
@@ -361,7 +427,13 @@ export default function ClientIntegrations() {
                 <div>
                   <div className="font-semibold text-text-primary flex items-center gap-2">
                     {tp('ClientIntegrations.card.marketplaceAlt', {
-                      id: MARKETPLACE_LABELS[row.marketplace_id] || row.marketplace_id || '—'
+                      id: formatMarketplaceLabel(
+                        (row.marketplace_ids && row.marketplace_ids.length
+                          ? row.marketplace_ids
+                          : row.marketplace_id
+                          ? [row.marketplace_id]
+                          : [])
+                      )
                     })}
                     <StatusBadge status={row.status} t={t} />
                   </div>
@@ -383,7 +455,7 @@ export default function ClientIntegrations() {
                   )}
                 </div>
                 <button
-                  onClick={() => removeIntegration(row.id)}
+                  onClick={() => removeIntegration(row.integration_id || row.id)}
                   className="inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-700"
                 >
                   <Unplug className="w-4 h-4" /> {t('ClientIntegrations.actions.disconnect')}
