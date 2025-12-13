@@ -11,6 +11,18 @@ const AMAZON_REGIONS = [
   { id: 'jp', consentUrl: 'https://sellercentral-japan.amazon.com/apps/authorize/consent', marketplaceId: 'A1VC38T7YXB528' }
 ];
 
+const MARKETPLACE_LABELS = {
+  A13V1IB3VIYZZH: 'FR',
+  A1PA6795UKMFR9: 'DE',
+  A1RKKUPIHCS9HS: 'ES',
+  APJ6JRA9NG5V4: 'IT',
+  A1F83G8C2ARO7P: 'UK',
+  AMEN7PMS3EDWL: 'BE',
+  A1805IZSGTT6HS: 'NL',
+  A2NODRKZP88ZB9: 'SE',
+  A1C3SOZRARQ6R3: 'PL'
+};
+
 const PACKLINK_PORTALS = [
   { id: 'fr', label: 'Packlink PRO France', url: 'https://auth.packlink.com/fr-FR/pro/login?tenant_id=PACKLINKPROFR' },
   { id: 'com', label: 'Packlink PRO .com', url: 'https://auth.packlink.com/en-GB/pro/login?tenant_id=PACKLINKPRO' }
@@ -348,7 +360,9 @@ export default function ClientIntegrations() {
               <div key={row.id} className="border rounded-lg p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="font-semibold text-text-primary flex items-center gap-2">
-                    {tp('ClientIntegrations.card.marketplaceAlt', { id: row.marketplace_id || '—' })}
+                    {tp('ClientIntegrations.card.marketplaceAlt', {
+                      id: MARKETPLACE_LABELS[row.marketplace_id] || row.marketplace_id || '—'
+                    })}
                     <StatusBadge status={row.status} t={t} />
                   </div>
                   <div className="text-xs text-text-secondary">
