@@ -371,7 +371,7 @@ async function insertListingRows(rows) {
     const { error } = await supabase
       .from('stock_items')
       // ignorăm complet liniile care există deja (nu vrem să atingem stoc/poze)
-      .insert(chunk, { ignoreDuplicates: true });
+      .insert(chunk, { ignoreDuplicates: true, onConflict: 'company_id,sku,asin' });
     if (error) throw error;
   }
 }
@@ -566,7 +566,7 @@ async function syncListingsIntegration(integration) {
         const chunk = updates.slice(i, i + chunkSize);
         const { error: updateError } = await supabase
           .from('stock_items')
-          .upsert(chunk, { defaultToNull: false, onConflict: 'company_id,sku,asin' });
+          .upsert(chunk, { defaultToNull: false, onConflict: 'id' });
         if (updateError) throw updateError;
       }
     }
