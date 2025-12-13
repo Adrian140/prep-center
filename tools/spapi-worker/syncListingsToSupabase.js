@@ -470,7 +470,10 @@ async function syncListingsIntegration(integration) {
     (existing || []).forEach((row) => {
       const key = keyFromRow(row);
       if (key) existingByKey.set(key, row);
-      const asinKey = row?.asin ? String(row.asin).toUpperCase() : '';
+      const asinKey =
+        row?.asin && String(row.asin).trim().length
+          ? String(row.asin).trim().toUpperCase()
+          : '';
       if (asinKey) {
         if (!existingByAsin.has(asinKey)) existingByAsin.set(asinKey, []);
         existingByAsin.get(asinKey).push(row);
