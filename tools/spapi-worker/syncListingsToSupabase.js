@@ -530,12 +530,7 @@ async function syncListingsIntegration(integration) {
 
       const row = existingByKey.get(listing.key);
       if (row) {
-        const patch = {
-          id: row.id,
-          company_id: row.company_id,
-          sku: row.sku,
-          asin: row.asin
-        };
+        const patch = { id: row.id };
         let shouldPatch = false;
         const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
         const hasExistingName = row.name && String(row.name).trim().length > 0;
@@ -559,12 +554,7 @@ async function syncListingsIntegration(integration) {
           const existingSkuNormalized = normalizeIdentifier(r.sku);
           const incomingSkuNormalized = normalizeIdentifier(incomingSku);
           const needsNameReplace = isCorruptedName(r.name);
-          const patch = {
-            id: r.id,
-            company_id: r.company_id,
-            sku: r.sku,
-            asin: r.asin
-          };
+          const patch = { id: r.id };
           let shouldPatch = false;
           // Dacă rândul din stoc nu are SKU, dar raportul Amazon îl are, îl completăm.
           if (
@@ -629,13 +619,24 @@ async function syncListingsIntegration(integration) {
 
     const updates = Array.from(updatesById.values());
     if (updates.length) {
-      const chunkSize = 500;
-      for (let i = 0; i < updates.length; i += chunkSize) {
-        const chunk = updates.slice(i, i + chunkSize);
+      for (const patch of updates) {
+        if (!patch?.id) continue;
+        const { id, ...payload } = patch;
+        if (!Object.keys(payload).length) continue;
         const { error: updateError } = await supabase
           .from('stock_items')
-          .upsert(chunk, { defaultToNull: false, onConflict: 'id' });
-        if (updateError) throw updateError;
+          .update(payload)
+          .eq('id', id);
+        if (updateError) {
+          if (updateError.code === '23505') {
+            console.warn(
+              `[Listings sync] Duplicate combination while updating stock_item ${patch.id}, skipping.`,
+              updateError.details || updateError.message
+            );
+            continue;
+          }
+          throw updateError;
+        }
       }
     }
 
