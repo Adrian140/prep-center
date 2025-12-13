@@ -162,7 +162,11 @@ async function ensureSellerMarketplaces(seller) {
     refreshToken: seller.refresh_token,
     regionHint
   });
-  const marketplaces = normalizeMarketplaces([...storedMarketplaces, ...discoveredMarketplaces]);
+  const marketplaces = normalizeMarketplaces([
+    ...storedMarketplaces,
+    ...discoveredMarketplaces,
+    ...ALLOWED_MARKETPLACES
+  ]);
 
   if (!companyId || !userId || !seller.refresh_token) {
     return { sellerId: seller.seller_id, inserted: 0 };

@@ -230,6 +230,13 @@ async function fetchRefundsViaReturnsReport(spClient, marketplaceId) {
     const countryFallback = mapMarketplaceToCountry(marketplaceId);
     return aggregateReturnReportRows(parsedRows, countryFallback);
   } catch (err) {
+    const message = String(err?.message || '');
+    if (message.includes('status CANCELLED')) {
+      console.warn(
+        `[Sales sync] Returns report cancelled by Amazon for marketplace ${marketplaceId}; no refund data returned.`
+      );
+      return [];
+    }
     console.warn(
       `[Sales sync] Returns report fallback failed for marketplace ${marketplaceId}:`,
       err?.response?.data || err
@@ -390,6 +397,7 @@ async function fetchActiveIntegrations() {
         mergedSet.add(row.marketplace_id);
       }
       sellerMarkets?.forEach((id) => mergedSet.add(id));
+      SUPPORTED_MARKETPLACES.forEach((id) => mergedSet.add(id));
       const marketplaceList =
         row.marketplace_id && typeof row.marketplace_id === 'string'
           ? [row.marketplace_id]
