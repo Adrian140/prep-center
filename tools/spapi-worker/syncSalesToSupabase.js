@@ -6,6 +6,17 @@ import { createSpClient } from './spapiClient.js';
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
 const ORDERS_PAGE_SIZE = 100;
 const ORDER_WINDOW_DAYS = Number(process.env.SPAPI_ORDER_WINDOW_DAYS || 30);
+const SUPPORTED_MARKETPLACES = [
+  'A13V1IB3VIYZZH', // FR
+  'A1PA6795UKMFR9', // DE
+  'A1RKKUPIHCS9HS', // ES
+  'APJ6JRA9NG5V4', // IT
+  'A1F83G8C2ARO7P', // UK
+  'AMEN7PMS3EDWL', // BE
+  'A1805IZSGTT6HS', // NL
+  'A2NODRKZP88ZB9', // SE
+  'A1C3SOZRARQ6R3' // PL
+];
 
 // Lăsăm SP‑API să ne dea toate statusurile relevante și filtrăm noi în cod.
 // Totuși, setăm o listă explicită pentru claritate.
@@ -51,15 +62,20 @@ function mapMarketplaceToCountry(marketplaceId) {
   return MARKETPLACE_COUNTRY[marketplaceId] || marketplaceId || null;
 }
 
-async function listRefundEvents(spClient, marketplaceIds) {
-  if (!Array.isArray(marketplaceIds) || marketplaceIds.length === 0) {
+function isUnauthorizedError(err) {
+  const message = String(err?.message || err || '');
+  return err?.code === 'Unauthorized' || message.includes('Access to requested resource is denied');
+}
+
+async function listRefundEvents(spClient, marketplaceId) {
+  if (!marketplaceId) {
     return [];
   }
   const postedAfter = isoDateDaysAgo(ORDER_WINDOW_DAYS);
   const events = [];
   let nextToken = null;
 
-  const ids = marketplaceIds;
+  const ids = [marketplaceId];
 
   do {
     const res = await spClient.callAPI({
@@ -218,26 +234,30 @@ async function fetchActiveIntegrations() {
 }
 
 function resolveMarketplaceIds(integration) {
-  if (Array.isArray(integration.marketplace_ids) && integration.marketplace_ids.length) {
-    return integration.marketplace_ids;
+  const set = new Set();
+  if (Array.isArray(integration.marketplace_ids)) {
+    integration.marketplace_ids.filter(Boolean).forEach((id) => set.add(id));
+  }
+  if (integration.marketplace_id) {
+    set.add(integration.marketplace_id);
   }
   const fromEnv = parseMarketplaceEnvList();
-  if (fromEnv) return fromEnv;
-  if (integration.marketplace_id) {
-    return [integration.marketplace_id];
+  if (fromEnv) {
+    fromEnv.filter(Boolean).forEach((id) => set.add(id));
   }
-  return [];
+  SUPPORTED_MARKETPLACES.forEach((id) => set.add(id));
+  return Array.from(set);
 }
 
-async function listAllOrders(spClient, marketplaceIds) {
-  if (!Array.isArray(marketplaceIds) || marketplaceIds.length === 0) {
+async function listAllOrders(spClient, marketplaceId) {
+  if (!marketplaceId) {
     return [];
   }
   const createdAfter = isoDateDaysAgo(ORDER_WINDOW_DAYS);
   const orders = [];
   let nextToken = null;
 
-  const ids = marketplaceIds;
+  const ids = [marketplaceId];
 
   do {
     const baseQuery = nextToken
@@ -298,81 +318,97 @@ async function listOrderItems(spClient, amazonOrderId) {
 }
 
 async function aggregateSales(spClient, integration, marketplaceIds) {
-  const orders = await listAllOrders(spClient, marketplaceIds);
-  if (!orders.length) return [];
-
   const aggregates = new Map();
-  const fallbackMarketplace = integration.marketplace_id || marketplaceIds[0] || null;
 
-  for (const order of orders) {
-    const amazonOrderId = order.AmazonOrderId;
-    if (!amazonOrderId) continue;
+  for (const marketplaceId of marketplaceIds) {
+    if (!marketplaceId) continue;
 
-    const marketplaceId = order.MarketplaceId || fallbackMarketplace;
-    const country = mapMarketplaceToCountry(marketplaceId);
-
-    const status = String(order.OrderStatus || '').replace(/\s+/g, '').toLowerCase();
-    const isCanceled = status === 'canceled';
-    const isUnfulfillable = status === 'unfulfillable';
-    const isPendingLike =
-      status === 'pending' ||
-      status === 'pendingavailability' ||
-      status === 'unshipped';
-    const isShippedLike =
-      status === 'shipped' ||
-      status === 'partiallyshipped' ||
-      status === 'invoiceunconfirmed';
-
-    const shouldProcessOrder = !isCanceled && !isUnfulfillable;
-    if (!shouldProcessOrder) {
-      continue;
+    let orders = [];
+    try {
+      orders = await listAllOrders(spClient, marketplaceId);
+    } catch (err) {
+      if (isUnauthorizedError(err)) {
+        console.warn(
+          `[Sales sync] Skipping orders for ${integration.id} marketplace ${marketplaceId} because SP-API returned unauthorized.`
+        );
+        continue;
+      }
+      throw err;
     }
 
-    const items = await listOrderItems(spClient, amazonOrderId);
-    for (const item of items) {
-      const asinSkuKey = keyFromItem(item);
-      if (!asinSkuKey) continue;
-      const key = `${asinSkuKey}::${country}`;
-      const qtyOrdered = Number(item.QuantityOrdered ?? 0) || 0;
-      const qtyShipped = Number(item.QuantityShipped ?? 0) || 0;
+    for (const order of orders || []) {
+      const amazonOrderId = order.AmazonOrderId;
+      if (!amazonOrderId) continue;
 
-      if (!aggregates.has(key)) {
-        aggregates.set(key, {
-          asin: (item.ASIN || null),
-          sku: (item.SellerSKU || null),
-          country,
-          total_units: 0,
-          pending_units: 0,
-          shipped_units: 0,
-          refund_units: 0,
-          payment_units: 0
-        });
+      const resolvedMarketplace = order.MarketplaceId || marketplaceId;
+      const country = mapMarketplaceToCountry(resolvedMarketplace);
+
+      const status = String(order.OrderStatus || '').replace(/\s+/g, '').toLowerCase();
+      const isCanceled = status === 'canceled';
+      const isUnfulfillable = status === 'unfulfillable';
+      const isPendingLike =
+        status === 'pending' ||
+        status === 'pendingavailability' ||
+        status === 'unshipped';
+      const isShippedLike =
+        status === 'shipped' ||
+        status === 'partiallyshipped' ||
+        status === 'invoiceunconfirmed';
+
+      if (isCanceled || isUnfulfillable) {
+        continue;
       }
 
-      const agg = aggregates.get(key);
-      if (isShippedLike) {
-        agg.shipped_units += qtyOrdered || qtyShipped;
-      } else if (isPendingLike) {
-        agg.pending_units += qtyOrdered;
-      }
-      // total_units = shipped + pending (pending e vizibil în UI, dar păstrăm și aici).
-      agg.total_units = agg.shipped_units + agg.pending_units;
-      agg.payment_units = agg.shipped_units;
-    }
-  }
+      const items = await listOrderItems(spClient, amazonOrderId);
+      for (const item of items) {
+        const asinSkuKey = keyFromItem(item);
+        if (!asinSkuKey) continue;
+        const key = `${asinSkuKey}::${country}`;
+        const qtyOrdered = Number(item.QuantityOrdered ?? 0) || 0;
+        const qtyShipped = Number(item.QuantityShipped ?? 0) || 0;
 
-  // Refunds: din Finances API. Dacă ceva eșuează, nu blocăm sincronizarea.
-  try {
-    const refundEvents = await listRefundEvents(spClient, marketplaceIds);
-    if (Array.isArray(refundEvents) && refundEvents.length) {
-      const refundRows = aggregateRefundEvents(
-        refundEvents,
-        mapMarketplaceToCountry(fallbackMarketplace)
-      );
-      accumulateSalesRows(aggregates, refundRows);
+        if (!aggregates.has(key)) {
+          aggregates.set(key, {
+            asin: item.ASIN || null,
+            sku: item.SellerSKU || null,
+            country,
+            total_units: 0,
+            pending_units: 0,
+            shipped_units: 0,
+            refund_units: 0,
+            payment_units: 0
+          });
+        }
+
+        const agg = aggregates.get(key);
+        if (isShippedLike) {
+          agg.shipped_units += qtyOrdered || qtyShipped;
+        } else if (isPendingLike) {
+          agg.pending_units += qtyOrdered;
+        }
+        agg.total_units = agg.shipped_units + agg.pending_units;
+        agg.payment_units = agg.shipped_units;
+      }
     }
-  } catch (err) {
-    console.warn(`[Sales sync] Unable to fetch refunds for ${integration.id}: ${err?.message || err}`);
+
+    try {
+      const refundEvents = await listRefundEvents(spClient, marketplaceId);
+      if (Array.isArray(refundEvents) && refundEvents.length) {
+        const refundRows = aggregateRefundEvents(
+          refundEvents,
+          mapMarketplaceToCountry(marketplaceId)
+        );
+        accumulateSalesRows(aggregates, refundRows);
+      }
+    } catch (err) {
+      if (isUnauthorizedError(err)) {
+        console.warn(
+          `[Sales sync] Skipping refunds for ${integration.id} marketplace ${marketplaceId} because SP-API returned unauthorized.`
+        );
+      } else {
+        throw err;
+      }
+    }
   }
 
   return Array.from(aggregates.values());
@@ -462,21 +498,6 @@ async function syncIntegration(integration) {
   try {
     sales = await aggregateSales(spClient, integration, marketplaceIds);
   } catch (err) {
-    const message = String(err?.message || err || '');
-    if (err?.code === 'Unauthorized' || message.includes('Access to requested resource is denied')) {
-      console.warn(
-        `[Sales sync] Skipping integration ${integration.id} (${integration.marketplace_id}) because SP-API returned unauthorized.`
-      );
-      await supabase
-        .from('amazon_integrations')
-        .update({
-          status: 'error',
-          last_error: message,
-          last_synced_at: new Date().toISOString()
-        })
-        .eq('id', integration.id);
-      return [];
-    }
     throw err;
   }
 
