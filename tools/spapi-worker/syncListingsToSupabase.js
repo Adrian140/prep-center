@@ -379,6 +379,14 @@ const normalizeIdentifier = (value) =>
     ? String(value).trim().toLowerCase()
     : '';
 
+const makeCombinationKey = (companyId, sku, asin) => {
+  const skuKey = normalizeIdentifier(sku);
+  const asinKey = normalizeIdentifier(asin);
+  if (!companyId) return null;
+  if (!skuKey && !asinKey) return null;
+  return `${companyId}::${skuKey}::${asinKey}`;
+};
+
 function keyFromRow(row) {
   const sku = normalizeIdentifier(row?.sku);
   const asin = normalizeIdentifier(row?.asin);
@@ -467,6 +475,7 @@ async function syncListingsIntegration(integration) {
 
     const existingByKey = new Map();
     const existingByAsin = new Map(); // pentru completare titlu/poza pe toate SKU-urile cu același ASIN
+    const existingCombinationKeys = new Set();
     (existing || []).forEach((row) => {
       const key = keyFromRow(row);
       if (key) existingByKey.set(key, row);
@@ -477,6 +486,10 @@ async function syncListingsIntegration(integration) {
       if (asinKey) {
         if (!existingByAsin.has(asinKey)) existingByAsin.set(asinKey, []);
         existingByAsin.get(asinKey).push(row);
+      }
+      const comboKey = makeCombinationKey(row?.company_id, row?.sku, row?.asin);
+      if (comboKey) {
+        existingCombinationKeys.add(comboKey);
       }
     });
 
@@ -561,8 +574,12 @@ async function syncListingsIntegration(integration) {
           };
           let shouldPatch = false;
           // Dacă rândul din stoc nu are SKU, dar raportul Amazon îl are, îl completăm.
-          if ((!existingSkuNormalized || existingSkuNormalized !== incomingSkuNormalized) && incomingSku) {
-            patch.sku = incomingSkuNormalized || incomingSku;
+          if (incomingSku && (!existingSkuNormalized || existingSkuNormalized !== incomingSkuNormalized)) {
+            patch.sku = incomingSku;
+            const comboKey = makeCombinationKey(r.company_id, incomingSku, r.asin);
+            if (comboKey) {
+              existingCombinationKeys.add(comboKey);
+            }
             shouldPatch = true;
           }
           if (!hasExistingName && hasIncomingName) {
@@ -578,6 +595,17 @@ async function syncListingsIntegration(integration) {
       } else {
         // Inserăm doar dacă avem și ASIN, și SKU
         if (listing.asin && listing.sku) {
+          const comboKey = makeCombinationKey(
+            integration.company_id,
+            listing.sku,
+            listing.asin
+          );
+          if (comboKey && existingCombinationKeys.has(comboKey)) {
+            continue;
+          }
+          if (comboKey) {
+            existingCombinationKeys.add(comboKey);
+          }
           inserts.push({
             company_id: integration.company_id,
             user_id: integration.user_id,
