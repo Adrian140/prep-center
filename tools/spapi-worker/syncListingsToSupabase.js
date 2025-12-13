@@ -430,19 +430,34 @@ async function insertListingRows(rows) {
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize).map((row) => ({ ...row }));
     if (!chunk.length) continue;
+    const insertOptions = { ignoreDuplicates: true, onConflict: 'company_id,sku,asin' };
     const { error } = await supabase
       .from('stock_items')
       // ignorăm complet liniile care există deja (nu vrem să atingem stoc/poze)
-      .insert(chunk, { ignoreDuplicates: true, onConflict: 'company_id,sku,asin' });
-    if (error) {
-      if (error.code === '23505') {
-        console.warn(
-          `[Listings sync] Duplicate insert skipped for company ${chunk[0]?.company_id || 'unknown'}:`,
-          error.details || error.message
-        );
-        continue;
+      .insert(chunk, insertOptions);
+    if (!error) continue;
+    const isBatchConflict =
+      error.code === '21000' ||
+      (typeof error.message === 'string' &&
+        error.message.includes('ON CONFLICT DO UPDATE command cannot affect row a second time'));
+    const isDuplicate = error.code === '23505';
+    if (!isBatchConflict && !isDuplicate) throw error;
+    console.warn(
+      `[Listings sync] Batch insert warning for company ${chunk[0]?.company_id || 'unknown'}:`,
+      error.details || error.message
+    );
+    for (const row of chunk) {
+      const { error: rowError } = await supabase.from('stock_items').insert(row, insertOptions);
+      if (rowError) {
+        if (
+          rowError.code === '23505' ||
+          (typeof rowError.message === 'string' &&
+            rowError.message.includes('ON CONFLICT DO UPDATE command cannot affect row a second time'))
+        ) {
+          continue;
+        }
+        throw rowError;
       }
-      throw error;
     }
   }
 }
