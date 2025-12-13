@@ -60,7 +60,7 @@ jobs:
         with:
           github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
           script: |
-            const waitMs = 5 * 60 * 1000;
+            const waitMs = 0;
             core.info(`Aștept ${waitMs / 1000}s înainte să pornesc următorul run.`);
             await new Promise((resolve) => setTimeout(resolve, waitMs));
             await github.rest.actions.createWorkflowDispatch({
