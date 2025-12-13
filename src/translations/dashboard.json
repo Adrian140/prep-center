@@ -271,7 +271,8 @@
         "announceReception": "Notify incoming goods",
         "deleteListing": "Delete listings",
         "deleteListingConfirm": "Delete the selected listing(s)?",
-        "deleteListingSuccess": "Listings deleted successfully."
+        "deleteListingSuccess": "Listings deleted successfully.",
+        "deleteListingHasPrepStock": "You cannot delete a listing that still has Prep Center stock. Please contact the administrator for this action."
       },
       "receptionForm": {
         "carrierOther": "Carrier name",
@@ -1096,7 +1097,8 @@
         "announceReception": "Anunță recepția",
         "deleteListing": "Șterge listingurile",
         "deleteListingConfirm": "Ești sigur că vrei să ștergi listingurile selectate?",
-        "deleteListingSuccess": "Listingurile au fost șterse cu succes."
+        "deleteListingSuccess": "Listingurile au fost șterse cu succes.",
+        "deleteListingHasPrepStock": "Nu puteți șterge un listing care are stoc în Prep Center. Vă rugăm contactați administratorul pentru acest pas."
       },
       "receptionForm": {
         "carrierOther": "Numele curierului",
@@ -1865,7 +1867,8 @@
         "announceReception": "Annoncer une réception",
         "deleteListing": "Supprimer les annonces",
         "deleteListingConfirm": "Supprimer les annonces sélectionnées ?",
-        "deleteListingSuccess": "Annonces supprimées avec succès."
+        "deleteListingSuccess": "Annonces supprimées avec succès.",
+        "deleteListingHasPrepStock": "Vous ne pouvez pas supprimer une annonce qui a encore du stock au Prep Center. Veuillez contacter l’administrateur pour cette action."
       },
       "receptionForm": {
         "carrierOther": "Nom du transporteur",
@@ -2569,7 +2572,8 @@
         "announceReception": "Wareneingang ankündigen",
         "deleteListing": "Listings löschen",
         "deleteListingConfirm": "Möchtest du die ausgewählten Listings wirklich löschen?",
-        "deleteListingSuccess": "Listings erfolgreich gelöscht."
+        "deleteListingSuccess": "Listings erfolgreich gelöscht.",
+        "deleteListingHasPrepStock": "Du kannst ein Listing mit Bestand im Prep Center nicht löschen. Bitte kontaktiere für diesen Schritt den Administrator."
       },
       "receptionForm": {
         "carrierOther": "Name des Transporteurs",
@@ -3273,7 +3277,8 @@
         "announceReception": "Annuncia una ricezione",
         "deleteListing": "Elimina inserzioni",
         "deleteListingConfirm": "Eliminare le inserzioni selezionate?",
-        "deleteListingSuccess": "Inserzioni eliminate con successo."
+        "deleteListingSuccess": "Inserzioni eliminate con successo.",
+        "deleteListingHasPrepStock": "Non puoi eliminare un’inserzione che ha ancora stock nel Prep Center. Contatta l’amministratore per questa operazione."
       },
       "receptionForm": {
         "carrierOther": "Nome del corriere",
@@ -3977,7 +3982,8 @@
         "announceReception": "Anunciar recepción",
         "deleteListing": "Eliminar listings",
         "deleteListingConfirm": "¿Eliminar los listings seleccionados?",
-        "deleteListingSuccess": "Listings eliminados."
+        "deleteListingSuccess": "Listings eliminados.",
+        "deleteListingHasPrepStock": "No puedes eliminar un listing que todavía tiene stock en el Prep Center. Ponte en contacto con el administrador para este paso."
       },
       "receptionForm": {
         "carrierOther": "Nombre del transportista",

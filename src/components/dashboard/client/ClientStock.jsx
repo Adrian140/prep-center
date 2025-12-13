@@ -1375,40 +1375,50 @@ useEffect(() => {
       setToast({ type: 'error', text: t('ClientStock.actions.needSelection') });
       return;
     }
+
+    const normalizeKey = (value = '') => String(value || '').trim();
+    const normalizeName = (value = '') => String(value || '').trim().toLowerCase();
+    const matchSets = {
+      asins: new Set(),
+      skus: new Set(),
+      eans: new Set(),
+      names: new Set()
+    };
+    selectedRows.forEach((row) => {
+      if (row.asin) matchSets.asins.add(normalizeKey(row.asin).toUpperCase());
+      if (row.sku) matchSets.skus.add(normalizeKey(row.sku).toUpperCase());
+      if (row.ean) matchSets.eans.add(normalizeKey(row.ean).toUpperCase());
+      if (row.name) matchSets.names.add(normalizeName(row.name));
+    });
+
+    const idsToDeleteSet = new Set(selectedRows.map((row) => row.id));
+    rows.forEach((row) => {
+      if (row.asin) return;
+      if (
+        (row.sku && matchSets.skus.has(normalizeKey(row.sku).toUpperCase())) ||
+        (row.ean && matchSets.eans.has(normalizeKey(row.ean).toUpperCase())) ||
+        (row.name && matchSets.names.has(normalizeName(row.name)))
+      ) {
+        idsToDeleteSet.add(row.id);
+      }
+    });
+
+    const hasPrepCenterStock = rows.some(
+      (row) => idsToDeleteSet.has(row.id) && Number(row.qty || 0) > 0
+    );
+    if (hasPrepCenterStock) {
+      setToast({ type: 'error', text: t('ClientStock.cta.deleteListingHasPrepStock') });
+      return;
+    }
+
     if (!window.confirm(t('ClientStock.cta.deleteListingConfirm'))) {
       return;
     }
 
     setDeleteInProgress(true);
     try {
-      const normalizeKey = (value = '') => String(value || '').trim();
-      const normalizeName = (value = '') => String(value || '').trim().toLowerCase();
-      const matchSets = {
-        asins: new Set(),
-        skus: new Set(),
-        eans: new Set(),
-        names: new Set()
-      };
-      selectedRows.forEach((row) => {
-        if (row.asin) matchSets.asins.add(normalizeKey(row.asin).toUpperCase());
-        if (row.sku) matchSets.skus.add(normalizeKey(row.sku).toUpperCase());
-        if (row.ean) matchSets.eans.add(normalizeKey(row.ean).toUpperCase());
-        if (row.name) matchSets.names.add(normalizeName(row.name));
-      });
-
-      const idsToDelete = new Set(selectedRows.map((row) => row.id));
-      rows.forEach((row) => {
-        if (row.asin) return;
-        if (
-          (row.sku && matchSets.skus.has(normalizeKey(row.sku).toUpperCase())) ||
-          (row.ean && matchSets.eans.has(normalizeKey(row.ean).toUpperCase())) ||
-          (row.name && matchSets.names.has(normalizeName(row.name)))
-        ) {
-          idsToDelete.add(row.id);
-        }
-      });
-
-      await supabaseHelpers.deleteStockItems(Array.from(idsToDelete));
+      const idsToDelete = Array.from(idsToDeleteSet);
+      await supabaseHelpers.deleteStockItems(idsToDelete);
       setToast({ type: 'success', text: t('ClientStock.cta.deleteListingSuccess') });
       setSelectedIdList([]);
       await refreshStockData();
