@@ -73,7 +73,19 @@ export default function AdminFBM({
         console.error('Failed to load FBM pricing services', error);
         return;
       }
-      setServiceOptions(data || []);
+      let list = data || [];
+      const hasTransport = list.some((item) => item.service_name === 'Transport');
+      if (!hasTransport) {
+        list = [
+          ...list,
+          {
+            id: 'custom-transport',
+            service_name: 'Transport',
+            price: null
+          }
+        ];
+      }
+      setServiceOptions(list);
     };
     fetchServices();
   }, []);
