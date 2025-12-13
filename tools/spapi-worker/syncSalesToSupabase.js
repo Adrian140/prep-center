@@ -1,11 +1,15 @@
 import 'dotenv/config';
 import { subDays } from 'date-fns';
+import { gunzipSync } from 'zlib';
 import { supabase } from './supabaseClient.js';
 import { createSpClient } from './spapiClient.js';
 
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
 const ORDERS_PAGE_SIZE = 100;
 const ORDER_WINDOW_DAYS = Number(process.env.SPAPI_ORDER_WINDOW_DAYS || 30);
+const RETURNS_REPORT_TYPE = 'GET_FBA_FULFILLMENT_CUSTOMER_RETURNS_DATA';
+const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 10_000);
+const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 120);
 const SUPPORTED_MARKETPLACES = [
   'A13V1IB3VIYZZH', // FR
   'A1PA6795UKMFR9', // DE
@@ -65,6 +69,173 @@ function mapMarketplaceToCountry(marketplaceId) {
 function isUnauthorizedError(err) {
   const message = String(err?.message || err || '');
   return err?.code === 'Unauthorized' || message.includes('Access to requested resource is denied');
+}
+
+async function createReturnsReport(spClient, marketplaceId) {
+  if (!marketplaceId) throw new Error('Missing marketplaceId for returns report');
+  const body = {
+    reportType: RETURNS_REPORT_TYPE,
+    marketplaceIds: [marketplaceId],
+    dataStartTime: isoDateDaysAgo(ORDER_WINDOW_DAYS),
+    dataEndTime: new Date().toISOString()
+  };
+  const response = await spClient.callAPI({
+    operation: 'createReport',
+    endpoint: 'reports',
+    body
+  });
+  if (!response?.reportId) {
+    throw new Error('Failed to create returns report');
+  }
+  return response.reportId;
+}
+
+async function waitForReturnsReport(spClient, reportId) {
+  for (let attempt = 0; attempt < REPORT_POLL_LIMIT; attempt += 1) {
+    const report = await spClient.callAPI({
+      operation: 'getReport',
+      endpoint: 'reports',
+      path: { reportId }
+    });
+    if (!report) throw new Error('Missing returns report status response');
+    switch (report.processingStatus) {
+      case 'DONE':
+        return report.reportDocumentId;
+      case 'FATAL':
+      case 'CANCELLED':
+        throw new Error(`Returns report failed with status ${report.processingStatus}`);
+      case 'DONE_NO_DATA':
+        return null;
+      default:
+        await new Promise((resolve) => setTimeout(resolve, REPORT_POLL_INTERVAL));
+    }
+  }
+  throw new Error('Timed out waiting for returns report to complete');
+}
+
+async function downloadReturnsReportDocument(spClient, reportDocumentId) {
+  if (!reportDocumentId) return '';
+  const document = await spClient.callAPI({
+    operation: 'getReportDocument',
+    endpoint: 'reports',
+    path: { reportDocumentId }
+  });
+  if (!document?.url) throw new Error('Returns report document missing download URL');
+  const fetchImpl =
+    typeof globalThis.fetch === 'function'
+      ? globalThis.fetch.bind(globalThis)
+      : (await import('node-fetch').then((mod) => mod.default));
+  const response = await fetchImpl(document.url);
+  if (!response.ok) {
+    throw new Error(`Failed to download returns report document (${response.status})`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  let buffer = Buffer.from(arrayBuffer);
+  if (document.compressionAlgorithm === 'GZIP') {
+    buffer = gunzipSync(buffer);
+  }
+  return buffer.toString('utf-8');
+}
+
+const RETURN_HEADER_ALIASES = new Map([
+  ['seller-sku', 'sku'],
+  ['sku', 'sku'],
+  ['sku-seller', 'sku'],
+  ['merchant-sku', 'sku'],
+  ['asin', 'asin'],
+  ['asin1', 'asin'],
+  ['item-name', 'name'],
+  ['product-name', 'name'],
+  ['quantity', 'quantity'],
+  ['quantity-shipped', 'quantity'],
+  ['shipped-quantity', 'quantity'],
+  ['quantityreturned', 'quantity'],
+  ['return-quantity', 'quantity'],
+  ['marketplace-name', 'marketplace'],
+  ['marketplaceid', 'marketplace'],
+  ['marketplace', 'marketplace'],
+  ['country', 'country'],
+  ['country-code', 'country']
+]);
+
+function normalizeReturnHeader(header) {
+  const raw = (header || '').trim().toLowerCase();
+  const normalized = raw.replace(/[^a-z0-9_-]+/g, '-');
+  return RETURN_HEADER_ALIASES.get(raw) || RETURN_HEADER_ALIASES.get(normalized) || raw;
+}
+
+function parseReturnsReport(tsvText) {
+  const cleanText = (tsvText || '').replace(/^\uFEFF/, '');
+  const lines = cleanText
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\uFEFF/g, ''))
+    .filter((line) => line.trim() !== '');
+  if (!lines.length) return [];
+  const headerLine = lines.shift();
+  const delimiter = headerLine.includes('\t')
+    ? '\t'
+    : headerLine.includes(';')
+    ? ';'
+    : ',';
+  const splitColumns = (line) => line.split(delimiter).map((part) => part.replace(/^"|"$/g, '').trim());
+  const headers = splitColumns(headerLine).map((header) => normalizeReturnHeader(header));
+  return lines.map((line) => {
+    const cols = splitColumns(line);
+    const row = {};
+    headers.forEach((header, idx) => {
+      if (header) row[header] = cols[idx];
+    });
+    return row;
+  });
+}
+
+function aggregateReturnReportRows(rows, defaultCountry) {
+  const map = new Map();
+  for (const row of rows) {
+    const asinValue = (row.asin || '').trim();
+    const skuValue = (row.sku || '').trim();
+    if (!asinValue && !skuValue) continue;
+    const qty = Number(row.quantity ?? row.qty ?? row.units ?? 0) || 0;
+    const marketplaceValue = (row.marketplace || row['marketplace-name'] || '').trim();
+    const country =
+      (row.country || row['country-code'] || mapMarketplaceToCountry(marketplaceValue)) ||
+      defaultCountry ||
+      null;
+    const key = `${asinValue.toUpperCase()}::${skuValue.toUpperCase()}::${country || ''}`;
+    const current = map.get(key) || {
+      asin: asinValue || null,
+      sku: skuValue || null,
+      country,
+      total_units: 0,
+      pending_units: 0,
+      shipped_units: 0,
+      refund_units: 0,
+      payment_units: 0
+    };
+    current.refund_units += Math.abs(qty);
+    map.set(key, current);
+  }
+  return Array.from(map.values());
+}
+
+async function fetchRefundsViaReturnsReport(spClient, marketplaceId) {
+  try {
+    const reportId = await createReturnsReport(spClient, marketplaceId);
+    const documentId = await waitForReturnsReport(spClient, reportId);
+    if (!documentId) {
+      return [];
+    }
+    const documentText = await downloadReturnsReportDocument(spClient, documentId);
+    const parsedRows = parseReturnsReport(documentText);
+    const countryFallback = mapMarketplaceToCountry(marketplaceId);
+    return aggregateReturnReportRows(parsedRows, countryFallback);
+  } catch (err) {
+    console.warn(
+      `[Sales sync] Returns report fallback failed for marketplace ${marketplaceId}:`,
+      err?.response?.data || err
+    );
+    return [];
+  }
 }
 
 async function listRefundEvents(spClient, marketplaceId) {
@@ -392,23 +563,27 @@ async function aggregateSales(spClient, integration, marketplaceIds) {
       }
     }
 
+    let refundRows = [];
     try {
       const refundEvents = await listRefundEvents(spClient, marketplaceId);
       if (Array.isArray(refundEvents) && refundEvents.length) {
-        const refundRows = aggregateRefundEvents(
+        refundRows = aggregateRefundEvents(
           refundEvents,
           mapMarketplaceToCountry(marketplaceId)
         );
-        accumulateSalesRows(aggregates, refundRows);
       }
     } catch (err) {
       if (isUnauthorizedError(err)) {
         console.warn(
-          `[Sales sync] Skipping refunds for ${integration.id} marketplace ${marketplaceId} because SP-API returned unauthorized.`
+          `[Sales sync] Finances refunds unauthorized for ${integration.id} marketplace ${marketplaceId}; falling back to returns report.`
         );
+        refundRows = await fetchRefundsViaReturnsReport(spClient, marketplaceId);
       } else {
         throw err;
       }
+    }
+    if (refundRows?.length) {
+      accumulateSalesRows(aggregates, refundRows);
     }
   }
 
