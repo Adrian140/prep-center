@@ -237,13 +237,19 @@ async function downloadReportDocument(spClient, reportDocumentId) {
 
 const LISTING_COLUMN_ALIASES = new Map([
   ['seller-sku', 'sku'],
+  ['sku-seller', 'sku'],
   ['sku-vendeur', 'sku'],
   ['sku-vend***r', 'sku'],
+  ['sku-venditore', 'sku'],
+  ['sku-vendedor', 'sku'],
+  ['sku vendedor', 'sku'],
   ['sku', 'sku'],
   ['asin', 'asin'],
   ['asin1', 'asin'],
   ['item-name', 'name'],
   ['nom-produit', 'name'],
+  ['nome-prodotto', 'name'],
+  ['nombre-del-producto', 'name'],
   ['image-url', 'imageUrl'],
   ['image', 'imageUrl'],
   ['primary-image-url', 'imageUrl'],
@@ -251,13 +257,43 @@ const LISTING_COLUMN_ALIASES = new Map([
   ['item-status', 'status'],
   ['état', 'status'],
   ['etat', 'status'],
+  ['estado', 'status'],
+  ['estado-producto', 'status'],
+  ['estado-del-producto', 'status'],
+  ['stato', 'status'],
+  ['stato-prodotto', 'status'],
   ['fulfillment-channel', 'fulfillmentChannel'],
   ['canal-traitement', 'fulfillmentChannel'],
+  ['canal-de-gestion', 'fulfillmentChannel'],
+  ['canal gestion', 'fulfillmentChannel'],
+  ['canale-di-evasione', 'fulfillmentChannel'],
   ['product-id', 'productId'],
   ['id-produit', 'productId'],
+  ['id-prodotto', 'productId'],
   ['product-id-type', 'productIdType'],
-  ['type-id-produit', 'productIdType']
+  ['type-id-produit', 'productIdType'],
+  ['tipo-id-prodotto', 'productIdType']
 ]);
+
+const stripDiacritics = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+function normalizeHeaderKey(rawHeader) {
+  const original = (rawHeader || '').trim().toLowerCase();
+  if (!original) return '';
+  const repaired = original.replace(/\uFFFD/g, 'e');
+  const withoutDiacritics = stripDiacritics(repaired);
+  const sanitized = withoutDiacritics.replace(/[^a-z0-9_-]+/g, '');
+  return (
+    LISTING_COLUMN_ALIASES.get(original) ||
+    LISTING_COLUMN_ALIASES.get(repaired) ||
+    LISTING_COLUMN_ALIASES.get(withoutDiacritics) ||
+    LISTING_COLUMN_ALIASES.get(sanitized) ||
+    original
+  );
+}
 
 function parseListingRows(tsvText) {
   const cleanText = (tsvText || '').replace(/^\uFEFF/, '');
@@ -284,11 +320,7 @@ function parseListingRows(tsvText) {
     return line.split(regex).map((part) => part.replace(/^"|"$/g, '').trim());
   };
 
-  const headers = splitColumns(headerLine).map(
-    (header) =>
-      LISTING_COLUMN_ALIASES.get(header.trim().toLowerCase()) ||
-      header.trim().toLowerCase()
-  );
+  const headers = splitColumns(headerLine).map((header) => normalizeHeaderKey(header));
 
   return lines.map((line) => {
     const cols = splitColumns(line);
