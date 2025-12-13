@@ -228,7 +228,11 @@ async function fetchRefundsViaReturnsReport(spClient, marketplaceId) {
     const documentText = await downloadReturnsReportDocument(spClient, documentId);
     const parsedRows = parseReturnsReport(documentText);
     const countryFallback = mapMarketplaceToCountry(marketplaceId);
-    return aggregateReturnReportRows(parsedRows, countryFallback);
+    const aggregated = aggregateReturnReportRows(parsedRows, countryFallback);
+    console.log(
+      `[Sales sync] Returns report for marketplace ${marketplaceId}: parsed ${parsedRows.length} rows -> ${aggregated.length} aggregated entries.`
+    );
+    return aggregated;
   } catch (err) {
     const message = String(err?.message || '');
     if (message.includes('status CANCELLED')) {
@@ -516,6 +520,15 @@ async function aggregateSales(spClient, integration, marketplaceIds) {
       throw err;
     }
 
+    console.log(
+      `[Sales sync] ${integration.id} marketplace ${marketplaceId}: fetched ${orders.length} orders via Orders API.`
+    );
+    if (!orders.length) {
+      console.log(
+        `[Sales sync] ${integration.id} marketplace ${marketplaceId}: no orders returned for last ${ORDER_WINDOW_DAYS} days.`
+      );
+    }
+
     for (const order of orders || []) {
       const amazonOrderId = order.AmazonOrderId;
       if (!amazonOrderId) continue;
@@ -575,9 +588,16 @@ async function aggregateSales(spClient, integration, marketplaceIds) {
     try {
       const refundEvents = await listRefundEvents(spClient, marketplaceId);
       if (Array.isArray(refundEvents) && refundEvents.length) {
+        console.log(
+          `[Sales sync] ${integration.id} marketplace ${marketplaceId}: finances API returned ${refundEvents.length} refund events.`
+        );
         refundRows = aggregateRefundEvents(
           refundEvents,
           mapMarketplaceToCountry(marketplaceId)
+        );
+      } else {
+        console.log(
+          `[Sales sync] ${integration.id} marketplace ${marketplaceId}: finances API returned 0 refund events.`
         );
       }
     } catch (err) {
@@ -590,6 +610,9 @@ async function aggregateSales(spClient, integration, marketplaceIds) {
         throw err;
       }
     }
+    console.log(
+      `[Sales sync] ${integration.id} marketplace ${marketplaceId}: refund rows merged=${refundRows?.length || 0}.`
+    );
     if (refundRows?.length) {
       accumulateSalesRows(aggregates, refundRows);
     }
@@ -627,6 +650,7 @@ function accumulateSalesRows(map, rows) {
 async function upsertSales({ rows, companyId, userId }) {
   if (!rows.length) return;
   const now = new Date().toISOString();
+  console.log(`[Sales sync] Writing ${rows.length} aggregated rows for company ${companyId}.`);
   // Curățăm valorile vechi pentru companie înainte de a scrie din nou
   await supabase.from('amazon_sales_30d').delete().eq('company_id', companyId);
   const chunkSize = 500;
