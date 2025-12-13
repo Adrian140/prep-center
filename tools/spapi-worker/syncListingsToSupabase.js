@@ -347,8 +347,9 @@ function normalizeListings(rawRows = []) {
     // cerință: trebuie să existe cel puțin un identificator (SKU sau ASIN)
     if (!sku && !asin) continue;
 
+    const key = normalizeIdentifier(sku || asin);
     normalized.push({
-      key: (sku || asin).toLowerCase(),
+      key,
       sku: sku || null,
       asin: asin || null,
       name: sanitizeText(row.name) || null,
@@ -373,9 +374,14 @@ function filterListings(listings = []) {
   });
 }
 
+const normalizeIdentifier = (value) =>
+  value && String(value).trim().length
+    ? String(value).trim().toLowerCase()
+    : '';
+
 function keyFromRow(row) {
-  const sku = row?.sku ? String(row.sku).toLowerCase() : '';
-  const asin = row?.asin ? String(row.asin).toLowerCase() : '';
+  const sku = normalizeIdentifier(row?.sku);
+  const asin = normalizeIdentifier(row?.asin);
   return sku || asin || null;
 }
 
