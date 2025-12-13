@@ -9,7 +9,6 @@ on:
 
 jobs:
   sync:
-    timeout-minutes: 180
     runs-on: ubuntu-latest
     permissions:
       contents: read
