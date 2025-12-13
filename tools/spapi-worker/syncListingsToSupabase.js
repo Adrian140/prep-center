@@ -516,7 +516,12 @@ async function syncListingsIntegration(integration) {
 
     const seen = new Set();
     const inserts = [];
-    const updates = [];
+    const updatesById = new Map();
+    const queueUpdate = (patch) => {
+      if (!patch?.id) return;
+      const prev = updatesById.get(patch.id) || { id: patch.id };
+      updatesById.set(patch.id, { ...prev, ...patch });
+    };
     // Regula: nu rescriem rândurile existente, dar completăm titlul dacă lipsește.
 
     for (const listing of listingRows) {
@@ -540,7 +545,7 @@ async function syncListingsIntegration(integration) {
           patch.name = listing.name;
           shouldPatch = true;
         }
-        if (shouldPatch) updates.push(patch);
+        if (shouldPatch) queueUpdate(patch);
         continue;
       }
       // Dacă nu găsim pereche ASIN+SKU, dar există rânduri cu același ASIN și nume lipsă, completăm titlul lor.
@@ -592,7 +597,7 @@ async function syncListingsIntegration(integration) {
             r.name = listing.name;
             shouldPatch = true;
           }
-          if (shouldPatch) updates.push(patch);
+          if (shouldPatch) queueUpdate(patch);
         }
       } else {
         // Inserăm doar dacă avem și ASIN, și SKU
@@ -622,6 +627,7 @@ async function syncListingsIntegration(integration) {
 
     await insertListingRows(inserts);
 
+    const updates = Array.from(updatesById.values());
     if (updates.length) {
       const chunkSize = 500;
       for (let i = 0; i < updates.length; i += chunkSize) {
