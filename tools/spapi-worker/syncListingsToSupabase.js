@@ -510,7 +510,8 @@ async function syncListingsIntegration(integration) {
         const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
         const hasExistingName = row.name && String(row.name).trim().length > 0;
         const needsNameReplace = isCorruptedName(row.name);
-        if ((!hasExistingName || needsNameReplace) && hasIncomingName) {
+        const hasExistingSku = row.sku && String(row.sku).trim().length > 0;
+        if (!hasExistingSku && (!hasExistingName || needsNameReplace) && hasIncomingName) {
           patch.name = listing.name;
           shouldPatch = true;
         }
