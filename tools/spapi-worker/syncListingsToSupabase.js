@@ -551,6 +551,8 @@ async function syncListingsIntegration(integration) {
           const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
           const hasExistingImage = r.image_url && String(r.image_url).trim().length > 0;
           const cachedImage = listing.imageUrl || asinImageCache.get(asinKey) || null;
+          const existingSkuNormalized = normalizeIdentifier(r.sku);
+          const incomingSkuNormalized = normalizeIdentifier(incomingSku);
           const patch = {
             id: r.id,
             company_id: r.company_id,
@@ -559,8 +561,8 @@ async function syncListingsIntegration(integration) {
           };
           let shouldPatch = false;
           // Dacă rândul din stoc nu are SKU, dar raportul Amazon îl are, îl completăm.
-          if ((!r.sku || !String(r.sku).trim()) && incomingSku) {
-            patch.sku = incomingSku;
+          if ((!existingSkuNormalized || existingSkuNormalized !== incomingSkuNormalized) && incomingSku) {
+            patch.sku = incomingSkuNormalized || incomingSku;
             shouldPatch = true;
           }
           if (!hasExistingName && hasIncomingName) {
