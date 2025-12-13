@@ -234,19 +234,20 @@ async function fetchActiveIntegrations() {
 }
 
 function resolveMarketplaceIds(integration) {
-  const set = new Set();
-  if (Array.isArray(integration.marketplace_ids)) {
-    integration.marketplace_ids.filter(Boolean).forEach((id) => set.add(id));
-  }
-  if (integration.marketplace_id) {
-    set.add(integration.marketplace_id);
+  if (Array.isArray(integration.marketplace_ids) && integration.marketplace_ids.length) {
+    return integration.marketplace_ids.filter(Boolean);
   }
   const fromEnv = parseMarketplaceEnvList();
-  if (fromEnv) {
-    fromEnv.filter(Boolean).forEach((id) => set.add(id));
+  if (fromEnv?.length) {
+    return fromEnv;
   }
-  SUPPORTED_MARKETPLACES.forEach((id) => set.add(id));
-  return Array.from(set);
+  if (integration.marketplace_id) {
+    return [integration.marketplace_id];
+  }
+  if (process.env.SPAPI_MARKETPLACE_ID || DEFAULT_MARKETPLACE) {
+    return [process.env.SPAPI_MARKETPLACE_ID || DEFAULT_MARKETPLACE];
+  }
+  return [];
 }
 
 async function listAllOrders(spClient, marketplaceId) {
