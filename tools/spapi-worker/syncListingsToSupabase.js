@@ -404,6 +404,26 @@ async function fetchListingRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
   return parseListingRows(documentText);
 }
 
+async function fetchCompanyStockItems(companyId, chunkSize = 1000) {
+  if (!companyId) return [];
+  const rows = [];
+  let from = 0;
+  while (true) {
+    const to = from + chunkSize - 1;
+    const { data, error } = await supabase
+      .from('stock_items')
+      .select('id, company_id, user_id, sku, asin, name', { head: false })
+      .eq('company_id', companyId)
+      .range(from, to);
+    if (error) throw error;
+    if (!data || !data.length) break;
+    rows.push(...data);
+    if (data.length < chunkSize) break;
+    from += chunkSize;
+  }
+  return rows;
+}
+
 async function insertListingRows(rows) {
   if (!rows.length) return;
   const chunkSize = 500;
@@ -414,7 +434,16 @@ async function insertListingRows(rows) {
       .from('stock_items')
       // ignorăm complet liniile care există deja (nu vrem să atingem stoc/poze)
       .insert(chunk, { ignoreDuplicates: true, onConflict: 'company_id,sku,asin' });
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23505') {
+        console.warn(
+          `[Listings sync] Duplicate insert skipped for company ${chunk[0]?.company_id || 'unknown'}:`,
+          error.details || error.message
+        );
+        continue;
+      }
+      throw error;
+    }
   }
 }
 
@@ -463,11 +492,7 @@ async function syncListingsIntegration(integration) {
       return;
     }
 
-    const { data: existing, error } = await supabase
-      .from('stock_items')
-      .select('id, company_id, user_id, sku, asin, name')
-      .eq('company_id', integration.company_id);
-    if (error) throw error;
+    const existing = await fetchCompanyStockItems(integration.company_id);
 
     const existingByKey = new Map();
     const existingByAsin = new Map(); // pentru completare titlu/poza pe toate SKU-urile cu același ASIN
@@ -522,12 +547,13 @@ async function syncListingsIntegration(integration) {
       const asinKey = listing.asin ? listing.asin.trim().toUpperCase() : '';
       if (asinKey && existingByAsin.has(asinKey)) {
         const rowsForAsin = existingByAsin.get(asinKey) || [];
-        rowsForAsin.forEach((r) => {
+        for (const r of rowsForAsin) {
           const incomingSku = listing.sku && String(listing.sku).trim();
           const hasExistingName = r.name && String(r.name).trim().length > 0;
           const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
           const existingSkuNormalized = normalizeIdentifier(r.sku);
           const incomingSkuNormalized = normalizeIdentifier(incomingSku);
+          const needsNameReplace = isCorruptedName(r.name);
           const patch = {
             id: r.id,
             company_id: r.company_id,
@@ -536,20 +562,38 @@ async function syncListingsIntegration(integration) {
           };
           let shouldPatch = false;
           // Dacă rândul din stoc nu are SKU, dar raportul Amazon îl are, îl completăm.
-          if (incomingSku && (!existingSkuNormalized || existingSkuNormalized !== incomingSkuNormalized)) {
-            patch.sku = incomingSku;
+          if (
+            incomingSku &&
+            (!existingSkuNormalized || existingSkuNormalized !== incomingSkuNormalized)
+          ) {
             const comboKey = makeCombinationKey(r.company_id, incomingSku, r.asin);
-            if (comboKey) {
-              existingCombinationKeys.add(comboKey);
+            if (comboKey && existingCombinationKeys.has(comboKey)) {
+              console.warn(
+                `[Listings sync] Duplicate combination detected for company ${r.company_id} asin ${r.asin} sku ${incomingSku}, skipping SKU backfill.`
+              );
+            } else {
+              patch.sku = incomingSku;
+              if (comboKey) {
+                existingCombinationKeys.add(comboKey);
+              }
+              r.sku = incomingSku;
+              const normalizedKey = normalizeIdentifier(incomingSku);
+              if (normalizedKey) {
+                existingByKey.set(normalizedKey, { ...r });
+              }
+              shouldPatch = true;
             }
-            shouldPatch = true;
           }
-          if (!hasExistingName && hasIncomingName) {
+          const shouldUpdateName =
+            hasIncomingName &&
+            (!hasExistingName || needsNameReplace || !existingSkuNormalized);
+          if (shouldUpdateName) {
             patch.name = listing.name;
+            r.name = listing.name;
             shouldPatch = true;
           }
           if (shouldPatch) updates.push(patch);
-        });
+        }
       } else {
         // Inserăm doar dacă avem și ASIN, și SKU
         if (listing.asin && listing.sku) {
