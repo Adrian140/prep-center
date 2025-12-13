@@ -495,7 +495,7 @@ async function syncListingsIntegration(integration) {
     const existing = await fetchCompanyStockItems(integration.company_id);
 
     const existingByKey = new Map();
-    const existingByAsin = new Map(); // pentru completare titlu/poza pe toate SKU-urile cu același ASIN
+    const existingByAsin = new Map(); // pentru completare titlu pe toate SKU-urile cu același ASIN
     const existingCombinationKeys = new Set();
     (existing || []).forEach((row) => {
       const key = keyFromRow(row);
@@ -517,7 +517,7 @@ async function syncListingsIntegration(integration) {
     const seen = new Set();
     const inserts = [];
     const updates = [];
-    // Regula: nu rescriem rândurile existente, dar completăm titlul/poza dacă lipsesc.
+    // Regula: nu rescriem rândurile existente, dar completăm titlul dacă lipsește.
 
     for (const listing of listingRows) {
       if (!listing.key || seen.has(listing.key)) continue;

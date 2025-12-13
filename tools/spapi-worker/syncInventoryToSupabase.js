@@ -421,7 +421,7 @@ async function fetchAllStockItems(companyId, { filter } = {}) {
     const query = supabase
       .from('stock_items')
       .select(
-        'id, company_id, user_id, sku, asin, name, amazon_stock, amazon_inbound, amazon_reserved, amazon_unfulfillable, qty, image_url'
+        'id, company_id, user_id, sku, asin, name, amazon_stock, amazon_inbound, amazon_reserved, amazon_unfulfillable, qty'
       )
       .eq('company_id', companyId)
       .range(from, to);
@@ -449,12 +449,6 @@ async function syncToSupabase({ items, companyId, userId }) {
   const existingByKey = new Map();
   const asinToExistingWithSku = new Map(); // pentru migrare manual -> automat
   const manualAsinOnly = [];
-  const asinsForCache = new Set();
-  items.forEach((item) => {
-    const id = normalizeIdentifier(item.asin);
-    if (id) asinsForCache.add(id);
-  });
-  const asinCache = new Map();
   existing.forEach((row) => {
     const key = keyFromRow(row);
     if (key) existingByKey.set(key, row);
@@ -470,29 +464,7 @@ async function syncToSupabase({ items, companyId, userId }) {
     if (!hasSku && hasAsin && hasQty) {
       manualAsinOnly.push(row);
     }
-    if (row?.asin) {
-      const cacheKey = normalizeIdentifier(row.asin);
-      if (cacheKey) asinsForCache.add(cacheKey);
-    }
   });
-  if (asinsForCache.size) {
-    const { data: cached, error: cacheError } = await supabase
-      .from('asin_assets')
-      .select('asin, image_urls')
-      .in('asin', Array.from(asinsForCache));
-    if (cacheError) {
-      console.warn('Failed to load asin_assets cache:', cacheError.message);
-    } else {
-      (cached || []).forEach((row) => {
-        const urls = Array.isArray(row.image_urls) ? row.image_urls : [];
-        const first = urls.find((u) => typeof u === 'string' && u.trim().length > 0);
-        if (first) {
-          const key = normalizeIdentifier(row.asin);
-          if (key) asinCache.set(key, first);
-        }
-      });
-    }
-  }
 
   const seenKeys = new Set();
   const hasManualPrepStock = (row) => {
