@@ -280,6 +280,33 @@ async function spapiGet(opts: {
   return { res, text, json };
 }
 
+async function catalogCheck(params: {
+  asin?: string | null;
+  marketplaceId: string;
+  host: string;
+  region: string;
+  lwaToken: string;
+  tempCreds: TempCreds;
+}) {
+  const { asin, marketplaceId, host, region, lwaToken, tempCreds } = params;
+  if (!asin) return { found: false, reason: "Lipsă ASIN pentru verificare catalog" };
+  const path = `/catalog/2022-04-01/items/${encodeURIComponent(asin)}`;
+  const query = `marketplaceIds=${encodeURIComponent(marketplaceId)}`;
+  const { res, json, text } = await spapiGet({ host, region, path, query, lwaToken, tempCreds });
+  if (res.ok) {
+    const identifiers = json?.payload?.identifiers || json?.payload?.Identifiers || [];
+    const hasMarketplace = Array.isArray(identifiers)
+      ? identifiers.some((id: any) => {
+          const mids = id?.marketplaceId || id?.MarketplaceId;
+          if (Array.isArray(mids)) return mids.includes(marketplaceId);
+          return mids === marketplaceId;
+        })
+      : true;
+    if (hasMarketplace) return { found: true, reason: "Găsit în Catalog Items" };
+  }
+  return { found: false, reason: `Catalog check ${res.status}: ${text}` };
+}
+
 async function checkSkuStatus(params: {
   sku: string;
   asin?: string | null;
@@ -310,14 +337,28 @@ async function checkSkuStatus(params: {
       return { state: "missing", reason: "Listing inexistent pe marketplace-ul destinație" };
     }
     if (!res.ok) {
+      // Try catalog fallback for visibility; if found, mark ok with note
+      const cat = await catalogCheck({ asin, marketplaceId, host, region, lwaToken, tempCreds });
+      if (cat.found) {
+        return { state: "ok", reason: `Catalog găsit; Listings API ${res.status}` };
+      }
       return { state: "unknown", reason: `Eroare Listings API (${res.status}): ${text}` };
     }
 
     const status = json?.payload?.status || json?.payload?.Status || "";
     if (!status || String(status).toUpperCase() !== "ACTIVE") {
+      // If listing response says inactive, try catalog to at least mark existence
+      const cat = await catalogCheck({ asin, marketplaceId, host, region, lwaToken, tempCreds });
+      if (cat.found) {
+        return { state: "ok", reason: "Listing inactiv în răspuns; găsit în Catalog" };
+      }
       return { state: "inactive", reason: "Listing inactiv sau nelansat pe marketplace-ul destinație" };
     }
   } catch (e) {
+    const cat = await catalogCheck({ asin, marketplaceId, host, region, lwaToken, tempCreds });
+    if (cat.found) {
+      return { state: "ok", reason: `Catalog găsit; ${fallbackReason}` };
+    }
     return { state: "unknown", reason: `${fallbackReason}: ${e instanceof Error ? e.message : e}` };
   }
 
