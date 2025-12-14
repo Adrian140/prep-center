@@ -552,7 +552,28 @@ serve(async (req) => {
 
     const text = await res.text();
     if (!res.ok) {
-      throw new Error(`Amazon plan error ${res.status}: ${text}`);
+      console.error("fba-plan createInboundPlan error", {
+        traceId,
+        status: res.status,
+        host,
+        marketplaceId,
+        region: awsRegion,
+        sellerId,
+        body: text?.slice(0, 2000) // avoid huge logs
+      });
+      return new Response(
+        JSON.stringify({
+          error: "Amazon createInboundPlan failed",
+          detail: text,
+          status: res.status,
+          traceId,
+          context: { marketplaceId, region: awsRegion, sellerId }
+        }),
+        {
+          status: res.status,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        }
+      );
     }
     const amazonJson = text ? JSON.parse(text) : {};
     const plans = amazonJson?.payload?.inboundPlan?.inboundShipmentPlans || amazonJson?.payload?.InboundShipmentPlans || [];
