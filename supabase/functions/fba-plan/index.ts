@@ -29,6 +29,12 @@ type PrepRequestItem = {
   product_name: string | null;
   units_requested: number | null;
   units_sent: number | null;
+  stock_item?: {
+    image_url?: string | null;
+    sku?: string | null;
+    asin?: string | null;
+    name?: string | null;
+  } | null;
 };
 
 type AmazonIntegration = {
@@ -267,13 +273,14 @@ async function checkSkuStatus(params: {
   region: string;
   lwaToken: string;
   tempCreds: TempCreds;
+  sellerId: string;
 }) {
-  const { sku, asin, marketplaceId, host, region, lwaToken, tempCreds } = params;
+  const { sku, asin, marketplaceId, host, region, lwaToken, tempCreds, sellerId } = params;
   const fallbackReason = "Nu am putut verifica statusul în Amazon";
 
   // Listings Items check
   try {
-    const listingsPath = `/listings/2021-08-01/items/${encodeURIComponent(SUPABASE_SELLER_ID)}/${encodeURIComponent(sku)}`;
+    const listingsPath = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(sku)}`;
     const listingsQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}`;
     const { res, json, text } = await spapiGet({
       host,
@@ -349,7 +356,7 @@ serve(async (req) => {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error("Missing Supabase configuration");
     }
-    if (!LWA_CLIENT_ID || !LWA_CLIENT_SECRET || !AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY || !SPAPI_ROLE_ARN || !SUPABASE_SELLER_ID) {
+    if (!LWA_CLIENT_ID || !LWA_CLIENT_SECRET || !AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY || !SPAPI_ROLE_ARN) {
       throw new Error("Missing SP-API environment variables");
     }
 
@@ -366,7 +373,7 @@ serve(async (req) => {
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
       .select(
-        "id, destination_country, company_id, user_id, prep_request_items(id, asin, sku, product_name, units_requested, units_sent)"
+        "id, destination_country, company_id, user_id, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item(image_url, sku, asin, name))"
       )
       .eq("id", requestId)
       .maybeSingle();
@@ -381,7 +388,7 @@ serve(async (req) => {
     // Fetch amazon integration for this user/company
     const { data: integRows, error: integErr } = await supabase
       .from("amazon_integrations")
-      .select("refresh_token, marketplace_id, region, updated_at")
+      .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id")
       .eq("company_id", reqData.company_id)
       .eq("status", "active")
       .order("updated_at", { ascending: false })
@@ -393,6 +400,10 @@ serve(async (req) => {
     }
 
     const refreshToken = integ.refresh_token;
+    const sellerId = integ.selling_partner_id || SUPABASE_SELLER_ID;
+    if (!sellerId) {
+      throw new Error("Missing seller id (selling_partner_id) for SP-API Listings/Restrictions calls");
+    }
     // Prefer marketplace inferred from destination country, otherwise fall back to integration default
     const inferredMarketplace = marketplaceByCountry[(reqData.destination_country || "").toUpperCase()] || null;
     const marketplaceId = inferredMarketplace || integ.marketplace_id || "A13V1IB3VIYZZH";
@@ -440,7 +451,8 @@ serve(async (req) => {
         host,
         region: awsRegion,
         lwaToken: lwaAccessToken,
-        tempCreds
+        tempCreds,
+        sellerId
       });
       skuStatuses.push({ sku, asin: it.asin || null, state: status.state, reason: status.reason });
     }
@@ -585,15 +597,16 @@ serve(async (req) => {
 
     const skus = items.map((it, idx) => ({
       id: it.id || `sku-${idx + 1}`,
-      title: it.product_name || it.sku || `SKU ${idx + 1}`,
-      sku: it.sku || "",
-      asin: it.asin || "",
+      title: it.product_name || it.stock_item?.name || it.sku || `SKU ${idx + 1}`,
+      sku: it.sku || it.stock_item?.sku || "",
+      asin: it.asin || it.stock_item?.asin || "",
       storageType: "Standard-size",
       packing: "individual",
       units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
       expiry: "",
       prepRequired: false,
-      readyToPack: true
+      readyToPack: true,
+      image: it.stock_item?.image_url || null
     }));
 
     const plan = {

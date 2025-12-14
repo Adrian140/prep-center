@@ -8,6 +8,8 @@ const FieldLabel = ({ label, children }) => (
   </div>
 );
 
+const placeholderImg = 'https://via.placeholder.com/60?text=SKU';
+
 export default function FbaStep1Inventory({
   data,
   skuStatuses = [],
@@ -95,18 +97,27 @@ export default function FbaStep1Inventory({
 
               return (
                 <tr key={sku.id} className="align-top">
-                  <td className="py-3">
-                    <div className="font-semibold text-slate-900 hover:text-blue-700 cursor-pointer">
-                      {sku.title}
+                <td className="py-3">
+                  <div className="flex gap-3">
+                    <img
+                      src={sku.image || placeholderImg}
+                      alt={sku.title}
+                      className="w-12 h-12 object-contain border border-slate-200 rounded"
+                    />
+                    <div>
+                      <div className="font-semibold text-slate-900 hover:text-blue-700 cursor-pointer">
+                        {sku.title}
+                      </div>
+                      <div className="text-xs text-slate-500">SKU: {sku.sku}</div>
+                      <div className="text-xs text-slate-500">ASIN: {sku.asin}</div>
+                      <div className="text-xs text-slate-500">Storage: {sku.storageType}</div>
+                      <div className={`mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded ${badgeClass}`}>
+                        {badgeLabel}
+                        {status.reason ? <span className="text-slate-500">· {status.reason}</span> : null}
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-500">SKU: {sku.sku}</div>
-                    <div className="text-xs text-slate-500">ASIN: {sku.asin}</div>
-                    <div className="text-xs text-slate-500">Storage: {sku.storageType}</div>
-                    <div className={`mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded ${badgeClass}`}>
-                      {badgeLabel}
-                      {status.reason ? <span className="text-slate-500">· {status.reason}</span> : null}
-                    </div>
-                  </td>
+                  </div>
+                </td>
                   <td className="py-3">
                     <select
                       value={sku.packing}
