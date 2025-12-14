@@ -14,6 +14,20 @@ const LWA_CLIENT_ID = Deno.env.get("SPAPI_LWA_CLIENT_ID") ?? Deno.env.get("LWA_C
 const LWA_CLIENT_SECRET = Deno.env.get("SPAPI_LWA_CLIENT_SECRET") ?? Deno.env.get("LWA_CLIENT_SECRET") ?? "";
 const DEFAULT_REDIRECT = Deno.env.get("SPAPI_REDIRECT_URI") ?? Deno.env.get("LWA_REDIRECT_URI") ?? "";
 
+const SUPPORTED_EU_MARKETPLACES: Record<string, "eu"> = {
+  A13V1IB3VIYZZH: "eu", // FR
+  A1PA6795UKMFR9: "eu", // DE
+  A1RKKUPIHCS9HS: "eu", // ES
+  APJ6JRA9NG5V4: "eu", // IT
+  A1F83G8C2ARO7P: "eu", // UK
+  AMEN7PMS3EDWL: "eu", // BE
+  A1805IZSGTT6HS: "eu", // NL
+  A2NODRKZP88ZB9: "eu", // SE
+  A1C3SOZRARQ6R3: "eu" // PL
+};
+
+const DEFAULT_MARKETPLACE_IDS = Object.keys(SUPPORTED_EU_MARKETPLACES);
+
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
   console.error("Missing Supabase environment variables.");
 }
@@ -143,11 +157,13 @@ serve(async (req) => {
       companyId = profile?.company_id || targetUserId;
     }
 
-    const record = {
+    const marketplacesToActivate = Array.from(
+      new Set([marketplaceId, ...DEFAULT_MARKETPLACE_IDS].filter(Boolean))
+    );
+
+    const baseIntegrationRecord = {
       user_id: targetUserId,
       company_id: companyId,
-      marketplace_id: marketplaceId,
-      region,
       refresh_token: refreshToken,
       selling_partner_id: sellingPartnerId,
       status: "active",
@@ -155,9 +171,15 @@ serve(async (req) => {
       updated_at: new Date().toISOString()
     };
 
+    const integrationRecords = marketplacesToActivate.map((mpId) => ({
+      ...baseIntegrationRecord,
+      marketplace_id: mpId,
+      region: SUPPORTED_EU_MARKETPLACES[mpId] || region
+    }));
+
     const { error: upsertError } = await serviceClient
       .from("amazon_integrations")
-      .upsert(record, { onConflict: "user_id,marketplace_id" });
+      .upsert(integrationRecords, { onConflict: "user_id,marketplace_id" });
 
     if (upsertError) {
       return new Response(upsertError.message, { status: 500, headers: corsHeaders });
@@ -199,7 +221,11 @@ serve(async (req) => {
 
       const mergedMarketplaces = Array.from(
         new Set(
-          [marketplaceId, ...(existingSellerToken?.marketplace_ids || []), ...integrationMarkets].filter(Boolean)
+          [
+            ...marketplacesToActivate,
+            ...(existingSellerToken?.marketplace_ids || []),
+            ...integrationMarkets
+          ].filter(Boolean)
         )
       );
 
