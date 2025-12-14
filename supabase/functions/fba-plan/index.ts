@@ -1064,6 +1064,7 @@ serve(async (req) => {
     const plan = {
       source: "amazon",
       marketplace: marketplaceId,
+      companyId: reqData.company_id || null,
       shipFrom: {
         name: shipFromAddress.name,
         address: formatAddress(shipFromAddress)
