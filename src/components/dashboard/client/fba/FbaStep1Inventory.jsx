@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, AlertCircle } from 'lucide-react';
-import { supabase } from '../../../config/supabase';
+import { supabase } from '@/config/supabase';
 
 const FieldLabel = ({ label, children }) => (
   <div className="flex flex-col gap-1 text-sm text-slate-700">
