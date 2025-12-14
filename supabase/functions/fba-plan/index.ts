@@ -389,7 +389,7 @@ serve(async (req) => {
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
       .select(
-        "id, destination_country, company_id, user_id, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item(image_url, sku, asin, name))"
+        "id, destination_country, company_id, user_id, prep_request_items(id, asin, sku, product_name, units_requested, units_sent)"
       )
       .eq("id", requestId)
       .maybeSingle();
@@ -637,16 +637,16 @@ serve(async (req) => {
 
     const skus = items.map((it, idx) => ({
       id: it.id || `sku-${idx + 1}`,
-      title: it.product_name || it.stock_item?.name || it.sku || `SKU ${idx + 1}`,
-      sku: it.sku || it.stock_item?.sku || "",
-      asin: it.asin || it.stock_item?.asin || "",
+      title: it.product_name || it.sku || `SKU ${idx + 1}`,
+      sku: it.sku || "",
+      asin: it.asin || "",
       storageType: "Standard-size",
       packing: "individual",
       units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
       expiry: "",
       prepRequired: false,
       readyToPack: true,
-      image: it.stock_item?.image_url || null
+      image: null
     }));
 
     const plan = {
