@@ -111,7 +111,11 @@ export default function FbaSendToAmazonWizard({
           blocking: pBlocking
         } = response;
         if (pFrom && pMarket && Array.isArray(pSkus)) {
-          setPlan({ shipFrom: pFrom, marketplace: pMarket, skus: pSkus });
+          // păstrează și câmpuri suplimentare (ex. companyId) din response
+          setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
+        } else {
+          // fallback: măcar atașează restul câmpurilor (companyId etc.)
+          setPlan((prev) => ({ ...prev, ...response }));
         }
         if (Array.isArray(pGroups) && pGroups.length) setPackGroups(pGroups);
         if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
