@@ -61,6 +61,7 @@ export default function FbaStep1Inventory({
     manufacturerBarcodeEligible: true
   });
   const [prepTab, setPrepTab] = useState('prep');
+  const [prepSelections, setPrepSelections] = useState({});
 
   const openPackingModal = (sku) => {
     setPackingModal({
@@ -89,13 +90,45 @@ export default function FbaStep1Inventory({
     setPrepModal({
       open: true,
       sku,
-      prepCategory: '',
-      useManufacturerBarcode: false,
+      prepCategory: prepSelections[sku.id]?.prepCategory || '',
+      useManufacturerBarcode: prepSelections[sku.id]?.useManufacturerBarcode || false,
       manufacturerBarcodeEligible: eligible
     });
   };
 
   const closePrepModal = () => setPrepModal((prev) => ({ ...prev, open: false, sku: null }));
+
+  const savePrepModal = () => {
+    if (!prepModal.sku) return;
+    setPrepSelections((prev) => ({
+      ...prev,
+      [prepModal.sku.id]: {
+        resolved: true,
+        prepCategory: prepModal.prepCategory || 'none',
+        useManufacturerBarcode: prepModal.useManufacturerBarcode,
+        manufacturerBarcodeEligible: prepModal.manufacturerBarcodeEligible
+      }
+    }));
+    closePrepModal();
+  };
+
+  const prepCategoryLabel = (value) => {
+    switch (value) {
+      case 'fragile':
+        return 'Fragile/glass';
+      case 'liquids':
+        return 'Liquids (non glass)';
+      case 'perforated':
+        return 'Perforated packaging';
+      case 'powder':
+        return 'Powder, pellets and granular';
+      case 'small':
+        return 'Small';
+      case 'none':
+      default:
+        return 'No prep needed';
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -148,6 +181,8 @@ export default function FbaStep1Inventory({
               const status = statusForSku(sku);
               const state = String(status.state || '').toLowerCase();
               const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
+              const prepSelection = prepSelections[sku.id] || {};
+              const prepResolved = prepSelection.resolved;
               const badgeClass =
                 state === 'ok'
                   ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
@@ -210,12 +245,13 @@ export default function FbaStep1Inventory({
                     </select>
                   </td>
                   <td className="py-3">
-                    {sku.prepRequired ? (
+                    {needsPrepNotice && !prepResolved ? (
                       <div className="flex items-start gap-2 text-amber-700">
                         <AlertCircle className="w-4 h-4 mt-0.5" />
                         <div>
-                          <div className="font-semibold">Prep required</div>
-                          <div className="text-xs text-slate-600">{sku.prepNotes}</div>
+                          <div className="font-semibold">
+                            {sku.prepNotes ? `Prep required: ${sku.prepNotes}` : 'Prep and labelling details needed'}
+                          </div>
                           <button
                             onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
                             className="text-xs text-blue-600 mt-1"
@@ -225,18 +261,34 @@ export default function FbaStep1Inventory({
                         </div>
                       </div>
                     ) : (
-                      <div className="text-slate-700 flex items-center gap-2">
-                        <span>Prep not required</span>
-                        <button
-                          onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
-                          className="text-amber-600 text-xs inline-flex items-center gap-1"
-                        >
-                          {needsPrepNotice ? <AlertCircle className="w-4 h-4" /> : null}
-                          {needsPrepNotice ? 'Prep and labelling details needed' : 'Edit prep / labels'}
-                        </button>
+                      <div className="space-y-1">
+                        <div className="text-slate-700 flex items-center gap-2">
+                          <span>
+                            {needsPrepNotice && prepResolved
+                              ? `Prep set: ${prepCategoryLabel(prepSelection.prepCategory)}`
+                              : 'Prep not required'}
+                          </span>
+                          <button
+                            onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
+                            className="text-amber-600 text-xs inline-flex items-center gap-1"
+                          >
+                            Edit prep / labels
+                          </button>
+                        </div>
+                        {needsPrepNotice && prepResolved && (
+                          <div className="text-xs text-slate-600">
+                            {prepSelection.manufacturerBarcodeEligible === false
+                              ? 'Manufacturer barcode not eligible'
+                              : prepSelection.useManufacturerBarcode
+                                ? 'Using manufacturer barcode'
+                                : 'Unit labelling: By seller'}
+                          </div>
+                        )}
+                        {!needsPrepNotice && (
+                          <div className="text-xs text-blue-600 cursor-pointer">Print SKU labels</div>
+                        )}
                       </div>
                     )}
-                    <div className="text-xs text-blue-600 mt-1 cursor-pointer">Print SKU labels</div>
                   </td>
                   <td className="py-3 w-48">
                     <div className="flex items-center gap-2">
@@ -501,7 +553,7 @@ export default function FbaStep1Inventory({
                 Cancel
               </button>
               <button
-                onClick={closePrepModal}
+                onClick={savePrepModal}
                 className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm"
               >
                 Save
