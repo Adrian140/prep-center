@@ -24,6 +24,15 @@ export default function FbaStep1Inventory({
 }) {
   const { shipFrom, marketplace, skus } = data;
   const totalUnits = skus.reduce((sum, sku) => sum + Number(sku.units || 0), 0);
+  const marketplaceName = (() => {
+    const map = {
+      A13V1IB3VIYZZH: 'France',
+      A1PA6795UKMFR9: 'Germany',
+      A1RKKUPIHCS9HS: 'Spain',
+      APJ6JRA9NG5V4: 'Italy'
+    };
+    return map[marketplace] || marketplace;
+  })();
   const statusForSku = (sku) => {
     const match =
       skuStatuses.find((s) => s.sku === sku.sku) ||
@@ -58,7 +67,7 @@ export default function FbaStep1Inventory({
             className="border rounded-md px-3 py-2 text-sm w-full bg-slate-100 text-slate-800"
             disabled
           >
-            <option value={marketplace}>{marketplace}</option>
+            <option value={marketplace}>{marketplaceName}</option>
           </select>
         </FieldLabel>
       </div>
