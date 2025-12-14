@@ -60,6 +60,7 @@ export default function FbaStep1Inventory({
     useManufacturerBarcode: false,
     manufacturerBarcodeEligible: true
   });
+  const [prepTab, setPrepTab] = useState('prep');
 
   const openPackingModal = (sku) => {
     setPackingModal({
@@ -146,6 +147,7 @@ export default function FbaStep1Inventory({
             {skus.map((sku) => {
               const status = statusForSku(sku);
               const state = String(status.state || '').toLowerCase();
+              const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
               const badgeClass =
                 state === 'ok'
                   ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
@@ -214,17 +216,23 @@ export default function FbaStep1Inventory({
                         <div>
                           <div className="font-semibold">Prep required</div>
                           <div className="text-xs text-slate-600">{sku.prepNotes}</div>
+                          <button
+                            onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
+                            className="text-xs text-blue-600 mt-1"
+                          >
+                            More inputs
+                          </button>
                         </div>
                       </div>
                     ) : (
                       <div className="text-slate-700 flex items-center gap-2">
                         <span>Prep not required</span>
                         <button
-                          onClick={() => openPrepModal(sku)}
+                          onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
                           className="text-amber-600 text-xs inline-flex items-center gap-1"
                         >
-                          <AlertCircle className="w-4 h-4" />
-                          Prep and labelling details needed
+                          {needsPrepNotice ? <AlertCircle className="w-4 h-4" /> : null}
+                          {needsPrepNotice ? 'Prep and labelling details needed' : 'Edit prep / labels'}
                         </button>
                       </div>
                     )}
@@ -392,6 +400,108 @@ export default function FbaStep1Inventory({
               </button>
               <button
                 onClick={savePackingTemplate}
+                className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {prepModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="text-lg font-semibold text-slate-900">Prepare your FBA items</div>
+              <button onClick={closePrepModal} className="text-slate-500 hover:text-slate-700 text-sm">Close</button>
+            </div>
+
+            <div className="px-6 py-5 space-y-5">
+              {prepModal.sku && (
+                <div className="flex gap-3">
+                  <img
+                    src={prepModal.sku.image || placeholderImg}
+                    alt={prepModal.sku.title}
+                    className="w-12 h-12 object-contain border border-slate-200 rounded"
+                  />
+                  <div className="text-sm text-slate-800">
+                    <div className="font-semibold text-slate-900 leading-snug">{prepModal.sku.title}</div>
+                    <div className="text-xs text-slate-600">SKU: {prepModal.sku.sku}</div>
+                    <div className="text-xs text-slate-600">ASIN: {prepModal.sku.asin}</div>
+                    <div className="text-xs text-slate-600">Storage: {prepModal.sku.storageType}</div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex border-b border-slate-200">
+                <button
+                  onClick={() => setPrepTab('prep')}
+                  className={`px-4 py-2 text-sm font-semibold ${prepTab === 'prep' ? 'border-b-2 border-blue-600 text-blue-700' : 'text-slate-600'}`}
+                >
+                  Prep guidance
+                </button>
+                <button
+                  onClick={() => setPrepTab('barcode')}
+                  className={`px-4 py-2 text-sm font-semibold ${prepTab === 'barcode' ? 'border-b-2 border-blue-600 text-blue-700' : 'text-slate-600'}`}
+                >
+                  Use manufacturer barcode
+                </button>
+              </div>
+
+              {prepTab === 'prep' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-semibold text-slate-800">Choose prep category</label>
+                    <select
+                      value={prepModal.prepCategory}
+                      onChange={(e) => setPrepModal((prev) => ({ ...prev, prepCategory: e.target.value }))}
+                      className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                    >
+                      <option value="">Select...</option>
+                      <option value="fragile">Fragile/glass</option>
+                      <option value="liquids">Liquids (non glass)</option>
+                      <option value="perforated">Perforated packaging</option>
+                      <option value="powder">Powder, pellets and granular</option>
+                      <option value="small">Small</option>
+                      <option value="none">No prep needed</option>
+                    </select>
+                  </div>
+                  {prepModal.sku?.prepNotes && (
+                    <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded px-3 py-2">
+                      Guidance: {prepModal.sku.prepNotes}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {prepTab === 'barcode' && (
+                <div className="space-y-3">
+                  {!prepModal.manufacturerBarcodeEligible ? (
+                    <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+                      This SKU is not eligible to use manufacturer barcode for tracking.
+                    </div>
+                  ) : (
+                    <div className="text-sm text-slate-700">This SKU can use manufacturer barcode.</div>
+                  )}
+                  <label className="inline-flex items-center gap-2 text-sm text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={prepModal.useManufacturerBarcode}
+                      onChange={(e) => setPrepModal((prev) => ({ ...prev, useManufacturerBarcode: e.target.checked }))}
+                    />
+                    Use manufacturer barcode for tracking
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+              <button onClick={closePrepModal} className="px-4 py-2 rounded-md border border-slate-300 text-slate-700 text-sm">
+                Cancel
+              </button>
+              <button
+                onClick={closePrepModal}
                 className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm"
               >
                 Save

@@ -38,6 +38,15 @@ type PrepRequestItem = {
   } | null;
 };
 
+type PrepGuidance = {
+  sku?: string | null;
+  asin?: string | null;
+  prepRequired: boolean;
+  prepInstructions: string[];
+  barcodeInstruction?: string | null;
+  guidance?: string | null;
+};
+
 type AmazonIntegration = {
   user_id: string | null;
   company_id: string | null;
@@ -480,6 +489,76 @@ async function checkSkuStatus(params: {
   return { state: "ok", reason: "" };
 }
 
+async function fetchPrepGuidance(params: {
+  items: PrepRequestItem[];
+  shipFromCountry: string;
+  shipToCountry: string;
+  host: string;
+  region: string;
+  tempCreds: TempCreds;
+  lwaToken: string;
+}) {
+  const { items, shipFromCountry, shipToCountry, host, region, tempCreds, lwaToken } = params;
+  const skus = items.map((it) => it.sku).filter(Boolean) as string[];
+  const asins = items.map((it) => it.asin).filter(Boolean) as string[];
+  if (!skus.length && !asins.length) return {};
+
+  const payload = JSON.stringify({
+    ShipFromCountryCode: shipFromCountry,
+    ShipToCountryCode: shipToCountry,
+    SellerSKUList: skus,
+    ASINList: asins
+  });
+
+  const prep = await signedFetch({
+    method: "POST",
+    service: "execute-api",
+    region,
+    host,
+    path: "/fba/inbound/v0/prepInstructions",
+    query: "",
+    payload,
+    accessKey: tempCreds.accessKeyId,
+    secretKey: tempCreds.secretAccessKey,
+    sessionToken: tempCreds.sessionToken,
+    lwaToken
+  });
+
+  if (!prep.res.ok) {
+    console.warn("prepInstructions error", { status: prep.res.status, body: prep.text?.slice(0, 500) });
+    return {};
+  }
+
+  const list =
+    prep.json?.payload?.PrepInstructionsList ||
+    prep.json?.PrepInstructionsList ||
+    [];
+
+  const map: Record<string, PrepGuidance> = {};
+  for (const entry of Array.isArray(list) ? list : []) {
+    const sku = entry.SellerSKU || entry.sellerSKU || null;
+    const asin = entry.ASIN || entry.asin || null;
+    const prepInstructions = Array.isArray(entry.PrepInstructionList || entry.prepInstructionList)
+      ? (entry.PrepInstructionList || entry.prepInstructionList).map((p: string) => String(p))
+      : [];
+    const guidance = entry.PrepGuidance || entry.prepGuidance || null;
+    const barcodeInstruction = entry.BarcodeInstruction || entry.barcodeInstruction || null;
+    const prepRequired = prepInstructions.length > 0 && !prepInstructions.includes("NoPrep");
+
+    const key = sku || asin;
+    if (!key) continue;
+    map[key] = {
+      sku,
+      asin,
+      prepRequired,
+      prepInstructions,
+      guidance,
+      barcodeInstruction
+    };
+  }
+  return map;
+}
+
 serve(async (req) => {
   const traceId = crypto.randomUUID();
   if (req.method === "OPTIONS") {
@@ -606,6 +685,16 @@ serve(async (req) => {
       throw new Error("No items in request with quantity > 0");
     }
 
+    const prepGuidanceMap = await fetchPrepGuidance({
+      items,
+      shipFromCountry,
+      shipToCountry: destCountry || shipFromCountry,
+      host,
+      region: awsRegion,
+      tempCreds,
+      lwaToken: lwaAccessToken
+    });
+
     // Debug info for auth context (mascat)
     console.log("fba-plan auth-context", {
       traceId,
@@ -668,7 +757,10 @@ serve(async (req) => {
         packing: "individual",
         units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
         expiry: "",
-        prepRequired: false,
+        prepRequired: prepGuidanceMap[it.sku || it.asin || ""]?.prepRequired || false,
+        prepNotes: (prepGuidanceMap[it.sku || it.asin || ""]?.prepInstructions || []).join(", "),
+        manufacturerBarcodeEligible:
+          (prepGuidanceMap[it.sku || it.asin || ""]?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
         readyToPack: true
       }));
       const plan = {
@@ -810,6 +902,7 @@ serve(async (req) => {
           });
           const fallbackSkus = items.map((it, idx) => {
             const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+            const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
             return {
               id: it.id || `sku-${idx + 1}`,
               title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
@@ -819,7 +912,10 @@ serve(async (req) => {
               packing: "individual",
               units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
               expiry: "",
-              prepRequired: false,
+              prepRequired: prepInfo.prepRequired || false,
+              prepNotes: (prepInfo.prepInstructions || []).join(", "),
+              manufacturerBarcodeEligible:
+                (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
               readyToPack: true,
               image: stock?.image_url || null
             };
@@ -856,6 +952,7 @@ serve(async (req) => {
         });
         const fallbackSkus = items.map((it, idx) => {
           const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+          const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
           return {
             id: it.id || `sku-${idx + 1}`,
             title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
@@ -865,7 +962,10 @@ serve(async (req) => {
             packing: "individual",
             units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
             expiry: "",
-            prepRequired: false,
+            prepRequired: prepInfo.prepRequired || false,
+            prepNotes: (prepInfo.prepInstructions || []).join(", "),
+            manufacturerBarcodeEligible:
+              (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
             readyToPack: true,
             image: stock?.image_url || null
           };
@@ -943,6 +1043,7 @@ serve(async (req) => {
 
     const skus = items.map((it, idx) => {
       const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+      const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
       return {
         id: it.id || `sku-${idx + 1}`,
         title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
@@ -952,7 +1053,9 @@ serve(async (req) => {
         packing: "individual",
         units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
         expiry: "",
-        prepRequired: false,
+        prepRequired: prepInfo.prepRequired || false,
+        prepNotes: (prepInfo.prepInstructions || []).join(", "),
+        manufacturerBarcodeEligible: (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
         readyToPack: true,
         image: stock?.image_url || null
       };
