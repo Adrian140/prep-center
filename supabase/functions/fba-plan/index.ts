@@ -348,6 +348,13 @@ async function checkSkuStatus(params: {
 
     // If API returned 200, treat as ok regardless of status field (some accounts return blank or legacy fields)
     const status = json?.payload?.status || json?.payload?.Status || "";
+
+    // Double-check with Catalog API that ASIN/SKU este pe marketplace-ul destinație
+    const cat = await catalogCheck({ asin, marketplaceId, host, region, lwaToken, tempCreds });
+    if (!cat.found) {
+      return { state: "missing", reason: "Produsul nu există pe marketplace-ul destinație (Catalog Items)" };
+    }
+
     if (!status) {
       return { state: "inactive", reason: "Listing găsit, dar status necunoscut (posibil neactiv pe marketplace)" };
     }
