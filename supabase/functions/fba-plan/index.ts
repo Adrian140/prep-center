@@ -348,8 +348,11 @@ async function checkSkuStatus(params: {
 
     // If API returned 200, treat as ok regardless of status field (some accounts return blank or legacy fields)
     const status = json?.payload?.status || json?.payload?.Status || "";
-    if (!status || String(status).toUpperCase() !== "ACTIVE") {
-      return { state: "ok", reason: "Listing găsit; status nelipsit/legacy" };
+    if (!status) {
+      return { state: "inactive", reason: "Listing găsit, dar status necunoscut (posibil neactiv pe marketplace)" };
+    }
+    if (String(status).toUpperCase() !== "ACTIVE") {
+      return { state: "inactive", reason: `Listing găsit cu status ${status}` };
     }
   } catch (e) {
     const cat = await catalogCheck({ asin, marketplaceId, host, region, lwaToken, tempCreds });
