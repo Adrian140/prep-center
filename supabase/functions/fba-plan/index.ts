@@ -29,6 +29,7 @@ type PrepRequestItem = {
   product_name: string | null;
   units_requested: number | null;
   units_sent: number | null;
+  stock_item_id?: number | null;
   stock_item?: {
     image_url?: string | null;
     sku?: string | null;
@@ -426,7 +427,7 @@ serve(async (req) => {
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
       .select(
-        "id, destination_country, company_id, user_id, prep_request_items(id, asin, sku, product_name, units_requested, units_sent)"
+        "id, destination_country, company_id, user_id, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id)"
       )
       .eq("id", requestId)
       .maybeSingle();
@@ -587,6 +588,14 @@ serve(async (req) => {
     const path = "/fba/inbound/2024-03-20/inboundPlans";
     const query = "";
 
+    const formatAddress = (addr?: Record<string, string | undefined | null>) => {
+      if (!addr) return "—";
+      const parts = [addr.addressLine1, addr.addressLine2, addr.city, addr.stateOrProvinceCode, addr.postalCode, addr.countryCode]
+        .map((part) => (part || "").trim())
+        .filter((part) => part.length);
+      return parts.join(", ") || "—";
+    };
+
     const sigHeaders = await signRequest({
       method: "POST",
       service: "execute-api",
@@ -611,6 +620,48 @@ serve(async (req) => {
 
     const text = await res.text();
     if (!res.ok) {
+      const authWarning =
+        res.status === 401 || res.status === 403
+          ? `Acces refuzat de Amazon (HTTP ${res.status}). Reautorizează conexiunea SP-API și verifică dacă are permisiunile FBA Inbound.`
+          : null;
+      if (authWarning) {
+        // Return a graceful, non-blocking plan so UI can still show SKU status details.
+        const fallbackSkus = items.map((it, idx) => {
+          const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+          return {
+            id: it.id || `sku-${idx + 1}`,
+            title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
+            sku: it.sku || stock?.sku || "",
+            asin: it.asin || stock?.asin || "",
+            storageType: "Standard-size",
+            packing: "individual",
+            units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+            expiry: "",
+            prepRequired: false,
+            readyToPack: true,
+            image: stock?.image_url || null
+          };
+        });
+        const fallbackPlan = {
+          source: "amazon",
+          marketplace: marketplaceId,
+          shipFrom: {
+            name: shipFromAddress.name,
+            address: formatAddress(shipFromAddress)
+          },
+          skus: fallbackSkus,
+          packGroups: [],
+          shipments: [],
+          raw: null,
+          skuStatuses,
+          warning: authWarning,
+          blocking: true
+        };
+        return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: res.status }), {
+          status: 200,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+      }
       console.error("fba-plan createInboundPlan error", {
         traceId,
         status: res.status,
@@ -636,14 +687,6 @@ serve(async (req) => {
     }
     const amazonJson = text ? JSON.parse(text) : {};
     const plans = amazonJson?.payload?.inboundPlan?.inboundShipmentPlans || amazonJson?.payload?.InboundShipmentPlans || [];
-
-    const formatAddress = (addr?: Record<string, string | undefined | null>) => {
-      if (!addr) return "—";
-      const parts = [addr.addressLine1, addr.addressLine2, addr.city, addr.stateOrProvinceCode, addr.postalCode, addr.countryCode]
-        .map((part) => (part || "").trim())
-        .filter((part) => part.length);
-      return parts.join(", ") || "—";
-    };
 
     const normalizeItems = (p: any) => p?.items || p?.Items || [];
 
