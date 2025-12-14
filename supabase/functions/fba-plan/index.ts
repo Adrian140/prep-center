@@ -357,6 +357,7 @@ async function checkSkuStatus(params: {
 }
 
 serve(async (req) => {
+  const traceId = crypto.randomUUID();
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -417,7 +418,7 @@ serve(async (req) => {
     const refreshToken = integ.refresh_token;
     const sellerId = await resolveSellerId(reqData.company_id, integ.selling_partner_id);
     if (!sellerId) {
-      return new Response(JSON.stringify({ error: "Missing seller id. Set selling_partner_id in amazon_integrations or SPAPI_SELLER_ID env." }), {
+      return new Response(JSON.stringify({ error: "Missing seller id. Set selling_partner_id in amazon_integrations or SPAPI_SELLER_ID env.", traceId }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
@@ -641,13 +642,13 @@ serve(async (req) => {
       skuStatuses
     };
 
-    return new Response(JSON.stringify({ plan }), {
+    return new Response(JSON.stringify({ plan, traceId }), {
       status: 200,
       headers: { ...corsHeaders, "content-type": "application/json" }
     });
   } catch (e) {
-    console.error("fba-plan error", e);
-    return new Response(JSON.stringify({ error: e?.message || "Server error", detail: `${e}` }), {
+    console.error("fba-plan error", { traceId, error: e });
+    return new Response(JSON.stringify({ error: e?.message || "Server error", detail: `${e}`, traceId }), {
       status: 500,
       headers: { ...corsHeaders, "content-type": "application/json" }
     });
