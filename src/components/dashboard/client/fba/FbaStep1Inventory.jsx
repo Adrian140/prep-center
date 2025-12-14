@@ -85,17 +85,27 @@ export default function FbaStep1Inventory({
 
   const savePackingTemplate = async () => {
     if (packingModal.sku) {
+      const derivedName =
+        packingModal.templateName || (packingModal.unitsPerBox ? `pack ${packingModal.unitsPerBox}` : '');
+      if (!derivedName) {
+        setTemplateError('Setează un nume sau units per box pentru template.');
+        return;
+      }
+
+      const templateType = packingModal.templateType === 'case' ? 'case' : 'individual';
+      const unitsPerBox = packingModal.unitsPerBox ? Number(packingModal.unitsPerBox) : null;
+
       // Persist template if we have a name and companyId
-      if (packingModal.templateName && data?.companyId) {
+      if (data?.companyId) {
         try {
           const payload = {
             company_id: data.companyId,
             marketplace_id: data.marketplace,
             sku: packingModal.sku.sku || null,
             asin: packingModal.sku.asin || null,
-            name: packingModal.templateName,
-            template_type: packingModal.templateType === 'case' ? 'case' : 'individual',
-            units_per_box: packingModal.unitsPerBox ? Number(packingModal.unitsPerBox) : null,
+            name: derivedName,
+            template_type: templateType,
+            units_per_box: unitsPerBox,
             box_length_cm: packingModal.boxL ? Number(packingModal.boxL) : null,
             box_width_cm: packingModal.boxW ? Number(packingModal.boxW) : null,
             box_height_cm: packingModal.boxH ? Number(packingModal.boxH) : null,
@@ -116,9 +126,9 @@ export default function FbaStep1Inventory({
       }
 
       onChangePacking(packingModal.sku.id, {
-        packing: packingModal.templateType === 'case' ? 'case' : 'individual',
-        packingTemplateName: packingModal.templateName || null,
-        unitsPerBox: packingModal.unitsPerBox ? Number(packingModal.unitsPerBox) : null
+        packing: templateType,
+        packingTemplateName: derivedName || null,
+        unitsPerBox
       });
     }
     closePackingModal();
@@ -296,7 +306,9 @@ export default function FbaStep1Inventory({
                           openPackingModal(sku);
                           return;
                         }
-                        const template = templates.find((t) => t.name === val && t.sku === sku.sku);
+                        const template = templates.find(
+                          (t) => t.name === val && (t.sku === sku.sku || (t.asin && t.asin === sku.asin))
+                        );
                         if (template) {
                           onChangePacking(sku.id, {
                             packing: template.template_type === 'case' ? 'case' : 'individual',
@@ -316,7 +328,7 @@ export default function FbaStep1Inventory({
                       className="border rounded-md px-3 py-2 text-sm w-full"
                     >
                       {templates
-                        .filter((t) => t.sku === sku.sku)
+                        .filter((t) => t.sku === sku.sku || (t.asin && t.asin === sku.asin))
                         .map((t) => (
                           <option key={t.id} value={t.name}>
                             {t.name}
