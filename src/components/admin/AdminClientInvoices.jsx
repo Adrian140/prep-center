@@ -224,6 +224,16 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
     cancelled: 'bg-gray-100 text-gray-800',
   }[status] || 'bg-gray-100 text-gray-800');
 
+  const formatAmount = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const number = Number(value);
+    if (Number.isNaN(number)) return String(value);
+    return `${number.toLocaleString('ro-RO', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} €`;
+  };
+
   return (
     <div className="space-y-6">
       {/* header */}
@@ -357,7 +367,9 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
         ) : invoices.length === 0 ? (
           <div className="text-text-secondary">No invoices yet.</div>
         ) : (
-          invoices.map((inv) => (
+          invoices.map((inv) => {
+            const invoiceAmount = formatAmount(inv.amount);
+            return (
             <div key={inv.id} className="bg-white border border-gray-200 rounded-xl p-5">
               {editId === inv.id ? (
                 <div className="space-y-4">
@@ -454,6 +466,13 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
                         <Calendar className="w-4 h-4 mr-2" />
                         <span>Issue: {inv.issue_date}</span>
                       </div>
+                      {invoiceAmount && (
+                        <div className="flex items-center">
+                          <span className="ml-6 font-semibold text-text-primary">
+                            Suma: {invoiceAmount}
+                          </span>
+                        </div>
+                      )}
                       {inv.due_date && (
                         <div className="flex items-center">
                           <Calendar className="w-4 h-4 mr-2" />
@@ -501,7 +520,8 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
                 </div>
               )}
             </div>
-          ))
+          );
+          })
         )}
       </div>
     </div>
