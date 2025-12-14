@@ -317,11 +317,13 @@ async function checkSkuStatus(params: {
   lwaToken: string;
   tempCreds: TempCreds;
   sellerId: string;
+  traceId?: string;
 }) {
-  const { sku, asin, marketplaceId, host, region, lwaToken, tempCreds, sellerId } = params;
+  const { sku, asin, marketplaceId, host, region, lwaToken, tempCreds, sellerId, traceId } = params;
   const fallbackReason = "Nu am putut verifica statusul în Amazon";
 
   // Listings Items check
+  let debug: Record<string, unknown> = {};
   try {
     const listingsPath = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(sku)}`;
     const listingsQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}`;
@@ -351,6 +353,15 @@ async function checkSkuStatus(params: {
 
     // Catalog confirmă că ASIN/SKU există pe marketplace; altfel blocăm ca missing
     const cat = await catalogCheck({ asin, marketplaceId, host, region, lwaToken, tempCreds });
+    debug = {
+      listingStatusCode: res.status,
+      listingStatusField: status || null,
+      catalogFound: cat.found,
+      catalogReason: cat.reason
+    };
+    if (traceId) {
+      console.log("sku-status", { traceId, sku, asin, marketplaceId, ...debug });
+    }
     if (!cat.found) {
       return { state: "missing", reason: "Produsul nu există pe marketplace-ul destinație (Catalog Items)" };
     }
@@ -363,6 +374,17 @@ async function checkSkuStatus(params: {
     }
   } catch (e) {
     const cat = await catalogCheck({ asin, marketplaceId, host, region, lwaToken, tempCreds });
+    if (traceId) {
+      console.log("sku-status-error", {
+        traceId,
+        sku,
+        asin,
+        marketplaceId,
+        error: e instanceof Error ? e.message : `${e}`,
+        catalogFound: cat.found,
+        catalogReason: cat.reason
+      });
+    }
     if (cat.found) {
       return { state: "ok", reason: `Catalog găsit; ${fallbackReason}` };
     }
@@ -561,7 +583,8 @@ serve(async (req) => {
         region: awsRegion,
         lwaToken: lwaAccessToken,
         tempCreds,
-        sellerId
+        sellerId,
+        traceId
       });
       skuStatuses.push({ sku, asin: it.asin || null, state: status.state, reason: status.reason });
     }
