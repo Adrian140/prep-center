@@ -296,13 +296,15 @@ async function catalogCheck(params: {
   const { res, json, text } = await spapiGet({ host, region, path, query, lwaToken, tempCreds });
   if (res.ok) {
     const identifiers = json?.payload?.identifiers || json?.payload?.Identifiers || [];
-    const hasMarketplace = Array.isArray(identifiers)
-      ? identifiers.some((id: any) => {
-          const mids = id?.marketplaceId || id?.MarketplaceId;
-          if (Array.isArray(mids)) return mids.includes(marketplaceId);
-          return mids === marketplaceId;
-        })
-      : true;
+    const summaries = json?.payload?.summaries || json?.payload?.Summaries || [];
+    const marketplaceMatches = (entry: any) => {
+      const mids = entry?.marketplaceId || entry?.MarketplaceId;
+      if (Array.isArray(mids)) return mids.includes(marketplaceId);
+      return mids === marketplaceId;
+    };
+    const hasIdentifiers = Array.isArray(identifiers) && identifiers.some((id: any) => marketplaceMatches(id));
+    const hasSummaries = Array.isArray(summaries) && summaries.some((s: any) => marketplaceMatches(s));
+    const hasMarketplace = hasIdentifiers || hasSummaries;
     if (hasMarketplace) return { found: true, reason: "Găsit în Catalog Items" };
   }
   return { found: false, reason: `Catalog check ${res.status}: ${text}` };
