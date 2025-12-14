@@ -677,6 +677,9 @@ serve(async (req) => {
       shipFromAddress,
       destinationMarketplaces: [marketplaceId],
       labelPrepPreference: "SELLER_LABEL",
+      program: "EFN",
+      shipmentType: "SP",
+      requireDeliveryWindows: false,
       items: items.map((it) => ({
         msku: it.sku || "",
         quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
@@ -718,6 +721,14 @@ serve(async (req) => {
       [];
 
     if (!primary.res.ok) {
+      console.error("createInboundPlan primary error", {
+        traceId,
+        status: primary.res.status,
+        marketplaceId,
+        region: awsRegion,
+        sellerId,
+        body: primary.text?.slice(0, 2000)
+      });
       // Fallback la v0 createInboundShipmentPlan dacă 401/403
       if (primary.res.status === 401 || primary.res.status === 403) {
         const v0Payload = JSON.stringify({
@@ -753,6 +764,16 @@ serve(async (req) => {
         if (v0.res.ok) {
           plans = v0.json?.payload?.InboundShipmentPlans || v0.json?.InboundShipmentPlans || [];
         } else {
+          console.error("createInboundPlan v0 fallback error", {
+            traceId,
+            status: primary.res.status,
+            v0Status: v0.res.status,
+            marketplaceId,
+            region: awsRegion,
+            sellerId,
+            body: primary.text?.slice(0, 2000),
+            v0Body: v0.text?.slice(0, 2000)
+          });
           const authWarning = `Amazon a refuzat crearea planului (HTTP ${primary.res.status}). Încearcă din nou sau verifică permisiunile Inbound pe marketplace.`;
           console.error("fba-plan createInboundPlan error", {
             traceId,
