@@ -295,8 +295,9 @@ async function catalogCheck(params: {
   const query = `marketplaceIds=${encodeURIComponent(marketplaceId)}`;
   const { res, json, text } = await spapiGet({ host, region, path, query, lwaToken, tempCreds });
   if (res.ok) {
-    const identifiers = json?.payload?.identifiers || json?.payload?.Identifiers || [];
-    const summaries = json?.payload?.summaries || json?.payload?.Summaries || [];
+    const payload = json?.payload || json || {};
+    const identifiers = payload?.identifiers || payload?.Identifiers || [];
+    const summaries = payload?.summaries || payload?.Summaries || [];
     const marketplaceMatches = (entry: any) => {
       const mids = entry?.marketplaceId || entry?.MarketplaceId;
       if (Array.isArray(mids)) return mids.includes(marketplaceId);
