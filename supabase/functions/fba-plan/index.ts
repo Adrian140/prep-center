@@ -442,17 +442,19 @@ serve(async (req) => {
       throw new Error("No items in request with quantity > 0");
     }
 
-    // Ship-from: use destination_country for country; rest fallback defaults
+    // Ship-from: fixed prep center address (use country from destination for Amazon requirement)
     const shipFromCountry = reqData.destination_country || "FR";
-    // Fulfillment Inbound v2024-03-20 createInboundPlan
     const shipFromAddress = {
-      name: "Prep Center",
-      addressLine1: "5 Rue des Enclos, Zone B, Cellule 7",
-      city: "La Gouesnière",
-      stateOrProvinceCode: "",
+      name: "Bucur Adrian",
+      addressLine1: "5 Rue des Enclos",
+      addressLine2: "Zone B, Cellule 7",
+      city: "Gouesniere",
+      stateOrProvinceCode: "Ille-et-Vilaine",
       postalCode: "35350",
       countryCode: shipFromCountry,
-      phoneNumber: "0675116218"
+      phoneNumber: "0675116218",
+      email: "ioan.adrian.bucur@gmail.com",
+      companyName: "EcomPrep Hub"
     };
 
     // Pre-eligibility check per SKU for destination marketplace

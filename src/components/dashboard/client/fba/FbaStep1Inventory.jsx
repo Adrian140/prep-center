@@ -52,7 +52,7 @@ export default function FbaStep1Inventory({
           <div className="text-slate-800">{shipFrom.name}</div>
           <div className="text-slate-600 text-sm">{shipFrom.address}</div>
         </FieldLabel>
-        <FieldLabel label="Marketplace destination">
+        <FieldLabel label="Marketplace destination (Country)">
           <select
             value={marketplace}
             className="border rounded-md px-3 py-2 text-sm w-full bg-slate-100 text-slate-800"
