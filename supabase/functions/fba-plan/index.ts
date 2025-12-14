@@ -18,6 +18,8 @@ const AWS_SECRET_ACCESS_KEY = Deno.env.get("AWS_SECRET_ACCESS_KEY") || "";
 const AWS_SESSION_TOKEN = Deno.env.get("AWS_SESSION_TOKEN") || null;
 const SPAPI_ROLE_ARN = Deno.env.get("SPAPI_ROLE_ARN") || "";
 
+const SUPABASE_SELLER_ID = Deno.env.get("SPAPI_SELLER_ID") || "";
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 type PrepRequestItem = {
@@ -203,6 +205,135 @@ async function assumeRole(roleArn: string) {
   return { accessKeyId, secretAccessKey, sessionToken };
 }
 
+const marketplaceByCountry: Record<string, string> = {
+  FR: "A13V1IB3VIYZZH",
+  DE: "A1PA6795UKMFR9",
+  ES: "A1RKKUPIHCS9HS",
+  IT: "APJ6JRA9NG5V4"
+};
+
+type TempCreds = {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken: string | null;
+};
+
+async function spapiGet(opts: {
+  host: string;
+  region: string;
+  path: string;
+  query: string;
+  lwaToken: string;
+  tempCreds: TempCreds;
+}) {
+  const { host, region, path, query, lwaToken, tempCreds } = opts;
+  const payload = "";
+  const sigHeaders = await signRequest({
+    method: "GET",
+    service: "execute-api",
+    region,
+    host,
+    path,
+    query,
+    payload,
+    accessKey: tempCreds.accessKeyId,
+    secretKey: tempCreds.secretAccessKey,
+    sessionToken: tempCreds.sessionToken
+  });
+
+  const res = await fetch(`https://${host}${path}${query ? `?${query}` : ""}`, {
+    method: "GET",
+    headers: {
+      ...sigHeaders,
+      "x-amz-access-token": lwaToken
+    }
+  });
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    // ignore parse errors; handled by status
+  }
+  return { res, text, json };
+}
+
+async function checkSkuStatus(params: {
+  sku: string;
+  asin?: string | null;
+  marketplaceId: string;
+  host: string;
+  region: string;
+  lwaToken: string;
+  tempCreds: TempCreds;
+}) {
+  const { sku, asin, marketplaceId, host, region, lwaToken, tempCreds } = params;
+  const fallbackReason = "Nu am putut verifica statusul în Amazon";
+
+  // Listings Items check
+  try {
+    const listingsPath = `/listings/2021-08-01/items/${encodeURIComponent(SUPABASE_SELLER_ID)}/${encodeURIComponent(sku)}`;
+    const listingsQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}`;
+    const { res, json, text } = await spapiGet({
+      host,
+      region,
+      path: listingsPath,
+      query: listingsQuery,
+      lwaToken,
+      tempCreds
+    });
+
+    if (res.status === 404) {
+      return { state: "missing", reason: "Listing inexistent pe marketplace-ul destinație" };
+    }
+    if (!res.ok) {
+      return { state: "unknown", reason: `Eroare Listings API (${res.status}): ${text}` };
+    }
+
+    const status = json?.payload?.status || json?.payload?.Status || "";
+    if (!status || String(status).toUpperCase() !== "ACTIVE") {
+      return { state: "inactive", reason: "Listing inactiv sau nelansat pe marketplace-ul destinație" };
+    }
+  } catch (e) {
+    return { state: "unknown", reason: `${fallbackReason}: ${e instanceof Error ? e.message : e}` };
+  }
+
+  // Restrictions / eligibility check (best-effort)
+  if (asin) {
+    try {
+      const restrictionsPath = "/listings/2021-08-01/restrictions";
+      const restrictionsQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}&asin=${encodeURIComponent(asin)}`;
+      const { res, json, text } = await spapiGet({
+        host,
+        region,
+        path: restrictionsPath,
+        query: restrictionsQuery,
+        lwaToken,
+        tempCreds
+      });
+      if (res.ok) {
+        const restrictions = json?.restrictions || json?.payload || [];
+        const blocking = (Array.isArray(restrictions) ? restrictions : []).find(
+          (r: any) => ["NOT_ELIGIBLE", "UNAVAILABLE", "RESTRICTED"].includes(String(r?.reasonCode || "").toUpperCase())
+        );
+        if (blocking) {
+          const reason = blocking?.message || blocking?.ReasonMessage || "Produs restricționat pe acest marketplace";
+          return { state: "restricted", reason };
+        }
+      } else if (res.status !== 404) {
+        // 404 can happen if endpoint unsupported; treat as best-effort
+        return { state: "unknown", reason: `Eroare Restrictions API (${res.status}): ${text}` };
+      }
+    } catch (e) {
+      // best-effort; non-blocking
+      return { state: "unknown", reason: `${fallbackReason}: ${e instanceof Error ? e.message : e}` };
+    }
+  }
+
+  return { state: "ok", reason: "" };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -218,7 +349,7 @@ serve(async (req) => {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error("Missing Supabase configuration");
     }
-    if (!LWA_CLIENT_ID || !LWA_CLIENT_SECRET || !AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY || !SPAPI_ROLE_ARN) {
+    if (!LWA_CLIENT_ID || !LWA_CLIENT_SECRET || !AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY || !SPAPI_ROLE_ARN || !SUPABASE_SELLER_ID) {
       throw new Error("Missing SP-API environment variables");
     }
 
@@ -262,7 +393,9 @@ serve(async (req) => {
     }
 
     const refreshToken = integ.refresh_token;
-    const marketplaceId = integ.marketplace_id || "A13V1IB3VIYZZH";
+    // Prefer marketplace inferred from destination country, otherwise fall back to integration default
+    const inferredMarketplace = marketplaceByCountry[(reqData.destination_country || "").toUpperCase()] || null;
+    const marketplaceId = inferredMarketplace || integ.marketplace_id || "A13V1IB3VIYZZH";
     const regionCode = (integ.region || "eu").toLowerCase();
     const awsRegion = regionCode === "na" ? "us-east-1" : regionCode === "fe" ? "us-west-2" : "eu-west-1";
     const host = regionHost(regionCode);
@@ -282,16 +415,74 @@ serve(async (req) => {
     // Ship-from: use destination_country for country; rest fallback defaults
     const shipFromCountry = reqData.destination_country || "FR";
     // Fulfillment Inbound v2024-03-20 createInboundPlan
+    const shipFromAddress = {
+      name: "Prep Center",
+      addressLine1: "5 Rue des Enclos, Zone B, Cellule 7",
+      city: "La Gouesnière",
+      stateOrProvinceCode: "",
+      postalCode: "35350",
+      countryCode: shipFromCountry,
+      phoneNumber: "0675116218"
+    };
+
+    // Pre-eligibility check per SKU for destination marketplace
+    const skuStatuses: { sku: string; asin: string | null; state: string; reason: string }[] = [];
+    for (const it of items) {
+      const sku = it.sku || "";
+      if (!sku) {
+        skuStatuses.push({ sku: "", asin: it.asin || null, state: "unknown", reason: "SKU lipsă în prep request" });
+        continue;
+      }
+      const status = await checkSkuStatus({
+        sku,
+        asin: it.asin,
+        marketplaceId,
+        host,
+        region: awsRegion,
+        lwaToken: lwaAccessToken,
+        tempCreds
+      });
+      skuStatuses.push({ sku, asin: it.asin || null, state: status.state, reason: status.reason });
+    }
+
+    const blocking = skuStatuses.filter((s) => ["missing", "inactive", "restricted"].includes(String(s.state)));
+    if (blocking.length) {
+      const warning = `Unele produse nu sunt eligibile pe marketplace-ul destinație (${marketplaceId}).`;
+      const skus = items.map((it, idx) => ({
+        id: it.id || `sku-${idx + 1}`,
+        title: it.product_name || it.sku || `SKU ${idx + 1}`,
+        sku: it.sku || "",
+        asin: it.asin || "",
+        storageType: "Standard-size",
+        packing: "individual",
+        units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+        expiry: "",
+        prepRequired: false,
+        readyToPack: true
+      }));
+      const plan = {
+        source: "amazon",
+        marketplace: marketplaceId,
+        shipFrom: {
+          name: shipFromAddress.name,
+          address: `${shipFromAddress.addressLine1}, ${shipFromAddress.postalCode}, ${shipFromAddress.countryCode}`
+        },
+        skus,
+        packGroups: [],
+        shipments: [],
+        raw: null,
+        skuStatuses,
+        warning,
+        blocking: true
+      };
+      return new Response(JSON.stringify({ plan }), {
+        status: 200,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+
     const planBody = {
-      shipFromAddress: {
-        name: "Prep Center",
-        addressLine1: "5 Rue des Enclos, Zone B, Cellule 7",
-        city: "La Gouesnière",
-        stateOrProvinceCode: "",
-        postalCode: "35350",
-        countryCode: shipFromCountry,
-        phoneNumber: "0675116218"
-      },
+      shipFromAddress,
       destinationMarketplaces: [marketplaceId],
       labelPrepPreference: "SELLER_LABEL",
       items: items.map((it) => ({
@@ -335,18 +526,32 @@ serve(async (req) => {
     const amazonJson = text ? JSON.parse(text) : {};
     const plans = amazonJson?.payload?.inboundPlan?.inboundShipmentPlans || amazonJson?.payload?.InboundShipmentPlans || [];
 
+    const formatAddress = (addr?: Record<string, string | undefined | null>) => {
+      if (!addr) return "—";
+      const parts = [addr.addressLine1, addr.addressLine2, addr.city, addr.stateOrProvinceCode, addr.postalCode, addr.countryCode]
+        .map((part) => (part || "").trim())
+        .filter((part) => part.length);
+      return parts.join(", ") || "—";
+    };
+
+    const normalizeItems = (p: any) => p?.items || p?.Items || [];
+
     // Map to UI format
     const packGroups = plans.map((p: any, idx: number) => {
-      const itemsList = p.items || p.Items || [];
+      const itemsList = normalizeItems(p);
       const totalUnits = itemsList.reduce((s: number, it: any) => s + (Number(it.quantity || it.Quantity) || 0), 0);
+      const warning = Array.isArray(p.warnings || p.Warnings) && (p.warnings || p.Warnings)[0]?.message
+        ? (p.warnings || p.Warnings)[0]?.message
+        : null;
+      const estimatedBoxes = Number(p.estimatedBoxCount || p.EstimatedBoxCount || 1) || 1;
       return {
         id: p.ShipmentId || `plan-${idx + 1}`,
         title: `Pack group ${idx + 1}`,
         skuCount: itemsList.length,
         units: totalUnits,
-        boxes: 1,
-        packMode: "single",
-        warning: null,
+        boxes: estimatedBoxes,
+        packMode: estimatedBoxes > 1 ? "multiple" : "single",
+        warning,
         image: null,
         skus: itemsList.map((it: any, j: number) => ({
           id: it.msku || it.SellerSKU || `sku-${j + 1}`,
@@ -356,27 +561,53 @@ serve(async (req) => {
       };
     });
 
-    const shipments = plans.map((p: any, idx: number) => ({
-      id: p.ShipmentId || `shipment-${idx + 1}`,
-      name: `Shipment ${p.ShipmentId || idx + 1}`,
-      destinationFc: p.destinationFulfillmentCenterId || p.DestinationFulfillmentCenterId || null,
-      items: (p.items || p.Items || []).map((it: any) => ({
-        sellerSKU: it.msku || it.SellerSKU,
-        fnsku: it.fulfillmentNetworkSku || it.FulfillmentNetworkSKU,
-        quantity: it.quantity || it.Quantity
-      }))
+    const shipments = plans.map((p: any, idx: number) => {
+      const itemsList = normalizeItems(p);
+      const totalUnits = itemsList.reduce((s: number, it: any) => s + (Number(it.quantity || it.Quantity) || 0), 0);
+      const destAddress = p.destinationAddress || p.DestinationAddress;
+      const destinationFc = p.destinationFulfillmentCenterId || p.DestinationFulfillmentCenterId || null;
+      const boxes = Number(p.estimatedBoxCount || p.EstimatedBoxCount || itemsList.length || 1) || 1;
+      return {
+        id: p.ShipmentId || `shipment-${idx + 1}`,
+        name: `Shipment ${p.ShipmentId || idx + 1}`,
+        from: formatAddress(shipFromAddress),
+        to: destAddress ? formatAddress(destAddress) : destinationFc || "—",
+        boxes,
+        skuCount: itemsList.length,
+        units: totalUnits,
+        raw: {
+          destinationFc,
+          destinationAddress: destAddress,
+          shipment: p
+        }
+      };
+    });
+
+    const skus = items.map((it, idx) => ({
+      id: it.id || `sku-${idx + 1}`,
+      title: it.product_name || it.sku || `SKU ${idx + 1}`,
+      sku: it.sku || "",
+      asin: it.asin || "",
+      storageType: "Standard-size",
+      packing: "individual",
+      units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+      expiry: "",
+      prepRequired: false,
+      readyToPack: true
     }));
 
     const plan = {
       source: "amazon",
       marketplace: marketplaceId,
       shipFrom: {
-        name: "Prep Center",
-        address: reqData.destination_country || "FR"
+        name: shipFromAddress.name,
+        address: formatAddress(shipFromAddress)
       },
+      skus,
       packGroups,
       shipments,
-      raw: amazonJson
+      raw: amazonJson,
+      skuStatuses
     };
 
     return new Response(JSON.stringify({ plan }), {

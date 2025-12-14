@@ -72,9 +72,10 @@ export default function FbaSendToAmazonWizard({
   initialShipmentMode = { method: 'SPD', deliveryDate: '01/12/2025', carrier: { partnered: false, name: 'UPS (non-partnered)' } },
   initialShipmentList = initialShipments,
   initialTrackingList = initialTracking,
+  initialSkuStatuses = [],
   showLegacyToggle = true,
   autoLoadPlan = false,
-  fetchPlan // optional async () => ({ shipFrom, marketplace, skus, packGroups, shipments })
+  fetchPlan // optional async () => ({ shipFrom, marketplace, skus, packGroups, shipments, skuStatuses, warning, blocking })
 }) {
   const [step, setStep] = useState(1);
   const [legacy, setLegacy] = useState(false);
@@ -86,6 +87,8 @@ export default function FbaSendToAmazonWizard({
   const [tracking, setTracking] = useState(initialTrackingList);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [planError, setPlanError] = useState('');
+  const [skuStatuses, setSkuStatuses] = useState(initialSkuStatuses);
+  const [blocking, setBlocking] = useState(false);
 
   useEffect(() => {
     if (!autoLoadPlan && !fetchPlan) return;
@@ -96,12 +99,28 @@ export default function FbaSendToAmazonWizard({
       try {
         const response = fetchPlan ? await fetchPlan() : null;
         if (cancelled || !response) return;
-        const { shipFrom: pFrom, marketplace: pMarket, skus: pSkus, packGroups: pGroups, shipments: pShipments } = response;
+        const {
+          shipFrom: pFrom,
+          marketplace: pMarket,
+          skus: pSkus,
+          packGroups: pGroups,
+          shipments: pShipments,
+          warning: pWarning,
+          shipmentMode: pShipmentMode,
+          skuStatuses: pSkuStatuses,
+          blocking: pBlocking
+        } = response;
         if (pFrom && pMarket && Array.isArray(pSkus)) {
           setPlan({ shipFrom: pFrom, marketplace: pMarket, skus: pSkus });
         }
         if (Array.isArray(pGroups) && pGroups.length) setPackGroups(pGroups);
         if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
+        if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
+        if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
+        setBlocking(Boolean(pBlocking));
+        if (typeof pWarning === 'string') {
+          setPlanError((prevError) => prevError || pWarning);
+        }
       } catch (e) {
         if (!cancelled) setPlanError(e?.message || 'Failed to load Amazon plan.');
       } finally {
@@ -114,13 +133,12 @@ export default function FbaSendToAmazonWizard({
     };
   }, [autoLoadPlan, fetchPlan]);
 
-  const warning = useMemo(
-    () =>
-      shipmentMode.carrier.partnered
-        ? null
-        : 'UPS (Amazon-partnered carrier) is unavailable because one or more shipments contain dangerous goods',
-    [shipmentMode.carrier.partnered]
-  );
+  const warning = useMemo(() => {
+    if (!shipmentMode?.carrier) return null;
+    return shipmentMode.carrier.partnered
+      ? null
+      : 'UPS (Amazon-partnered carrier) is unavailable because one or more shipments contain dangerous goods';
+  }, [shipmentMode?.carrier?.partnered]);
 
   const handlePackingChange = (skuId, value) => {
     setPlan((prev) => ({
@@ -164,10 +182,13 @@ export default function FbaSendToAmazonWizard({
       return (
         <FbaStep1Inventory
           data={plan}
+          skuStatuses={skuStatuses}
+          blocking={blocking}
           onChangePacking={handlePackingChange}
           onChangeQuantity={handleQuantityChange}
           onChangeExpiry={handleExpiryChange}
           onNext={() => setStep(1.5)}
+          error={planError}
         />
       );
     }
