@@ -555,8 +555,8 @@ serve(async (req) => {
       throw new Error("No items in request with quantity > 0");
     }
 
-    // Ship-from: fixed prep center address (use country from destination for Amazon requirement)
-    const shipFromCountry = reqData.destination_country || "FR";
+    // Ship-from: fixed prep center address (real location in FR, nu schimbăm după destinație)
+    const shipFromCountry = "FR";
     const shipFromAddress = {
       name: "Bucur Adrian",
       addressLine1: "5 Rue des Enclos",
