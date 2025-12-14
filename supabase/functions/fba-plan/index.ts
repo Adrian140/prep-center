@@ -137,6 +137,51 @@ async function signRequest(opts: {
   return headers;
 }
 
+async function signedFetch(opts: {
+  method: string;
+  service: string;
+  region: string;
+  host: string;
+  path: string;
+  query: string;
+  payload: string;
+  accessKey: string;
+  secretKey: string;
+  sessionToken?: string | null;
+  lwaToken: string;
+}) {
+  const { method, service, region, host, path, query, payload, accessKey, secretKey, sessionToken, lwaToken } = opts;
+  const sigHeaders = await signRequest({
+    method,
+    service,
+    region,
+    host,
+    path,
+    query,
+    payload,
+    accessKey,
+    secretKey,
+    sessionToken
+  });
+  const res = await fetch(`https://${host}${path}${query ? `?${query}` : ""}`, {
+    method,
+    headers: {
+      ...sigHeaders,
+      "x-amz-access-token": lwaToken,
+      accept: "application/json"
+    },
+    body: method === "POST" ? payload : undefined
+  });
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    // ignore parse errors
+  }
+  return { res, text, json };
+}
+
 async function getLwaAccessToken(refreshToken: string) {
   const res = await fetch("https://api.amazon.com/auth/o2/token", {
     method: "POST",
@@ -652,7 +697,7 @@ serve(async (req) => {
       return parts.join(", ") || "—";
     };
 
-    const sigHeaders = await signRequest({
+    const primary = await signedFetch({
       method: "POST",
       service: "execute-api",
       region: awsRegion,
@@ -662,87 +707,102 @@ serve(async (req) => {
       payload,
       accessKey: tempCreds.accessKeyId,
       secretKey: tempCreds.secretAccessKey,
-      sessionToken: tempCreds.sessionToken
+      sessionToken: tempCreds.sessionToken,
+      lwaToken: lwaAccessToken
     });
 
-    const res = await fetch(`https://${host}${path}${query ? `?${query}` : ""}`, {
-      method: "POST",
-      headers: {
-        ...sigHeaders,
-        "x-amz-access-token": lwaAccessToken
-      },
-      body: payload
-    });
+    let plans =
+      primary.json?.payload?.inboundPlan?.inboundShipmentPlans ||
+      primary.json?.payload?.InboundShipmentPlans ||
+      primary.json?.InboundShipmentPlans ||
+      [];
 
-    const text = await res.text();
-    if (!res.ok) {
-      const authWarning =
-        res.status === 401 || res.status === 403
-          ? `Acces refuzat de Amazon (HTTP ${res.status}). Reautorizează conexiunea SP-API și verifică dacă are permisiunile FBA Inbound.`
-          : null;
-      if (authWarning) {
-        // Return a graceful, non-blocking plan so UI can still show SKU status details.
-        const fallbackSkus = items.map((it, idx) => {
-          const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
-          return {
-            id: it.id || `sku-${idx + 1}`,
-            title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
-            sku: it.sku || stock?.sku || "",
-            asin: it.asin || stock?.asin || "",
-            storageType: "Standard-size",
-            packing: "individual",
-            units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-            expiry: "",
-            prepRequired: false,
-            readyToPack: true,
-            image: stock?.image_url || null
-          };
-        });
-        const fallbackPlan = {
-          source: "amazon",
-          marketplace: marketplaceId,
-          shipFrom: {
-            name: shipFromAddress.name,
-            address: formatAddress(shipFromAddress)
+    if (!primary.res.ok) {
+      // Fallback la v0 createInboundShipmentPlan dacă 401/403
+      if (primary.res.status === 401 || primary.res.status === 403) {
+        const v0Payload = JSON.stringify({
+          ShipFromAddress: {
+            Name: shipFromAddress.name,
+            AddressLine1: shipFromAddress.addressLine1,
+            AddressLine2: shipFromAddress.addressLine2,
+            City: shipFromAddress.city,
+            StateOrProvinceCode: shipFromAddress.stateOrProvinceCode,
+            PostalCode: shipFromAddress.postalCode,
+            CountryCode: shipFromAddress.countryCode
           },
-          skus: fallbackSkus,
-          packGroups: [],
-          shipments: [],
-          raw: null,
-          skuStatuses,
-          warning: authWarning,
-          blocking: true
-        };
-        return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: res.status }), {
-          status: 200,
-          headers: { ...corsHeaders, "content-type": "application/json" }
+          LabelPrepPreference: "SELLER_LABEL",
+          InboundShipmentPlanRequestItems: items.map((it) => ({
+            SellerSKU: it.sku || "",
+            ASIN: it.asin || undefined,
+            Quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0
+          }))
         });
-      }
-      console.error("fba-plan createInboundPlan error", {
-        traceId,
-        status: res.status,
-        host,
-        marketplaceId,
-        region: awsRegion,
-        sellerId,
-        body: text?.slice(0, 2000) // avoid huge logs
-      });
-      return new Response(
-        JSON.stringify({
-          error: "Amazon createInboundPlan failed",
-          detail: text,
-          status: res.status,
-          traceId,
-          context: { marketplaceId, region: awsRegion, sellerId }
-        }),
-        {
-          status: res.status,
-          headers: { ...corsHeaders, "content-type": "application/json" }
+        const v0 = await signedFetch({
+          method: "POST",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: "/fba/inbound/v0/plans",
+          query: "",
+          payload: v0Payload,
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken
+        });
+        if (v0.res.ok) {
+          plans = v0.json?.payload?.InboundShipmentPlans || v0.json?.InboundShipmentPlans || [];
+        } else {
+          console.error("fba-plan createInboundPlan error", {
+            traceId,
+            status: primary.res.status,
+            host,
+            marketplaceId,
+            region: awsRegion,
+            sellerId,
+            body: primary.text?.slice(0, 2000),
+            v0Status: v0.res.status,
+            v0Body: v0.text?.slice(0, 2000)
+          });
+          return new Response(
+            JSON.stringify({
+              error: "Amazon createInboundPlan failed",
+              detail: primary.text,
+              status: primary.res.status,
+              traceId,
+              context: { marketplaceId, region: awsRegion, sellerId }
+            }),
+            {
+              status: primary.res.status,
+              headers: { ...corsHeaders, "content-type": "application/json" }
+            }
+          );
         }
-      );
+      } else {
+        console.error("fba-plan createInboundPlan error", {
+          traceId,
+          status: primary.res.status,
+          host,
+          marketplaceId,
+          region: awsRegion,
+          sellerId,
+          body: primary.text?.slice(0, 2000) // avoid huge logs
+        });
+        return new Response(
+          JSON.stringify({
+            error: "Amazon createInboundPlan failed",
+            detail: primary.text,
+            status: primary.res.status,
+            traceId,
+            context: { marketplaceId, region: awsRegion, sellerId }
+          }),
+          {
+            status: primary.res.status,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          }
+        );
+      }
     }
-    const amazonJson = text ? JSON.parse(text) : {};
-    const plans = amazonJson?.payload?.inboundPlan?.inboundShipmentPlans || amazonJson?.payload?.InboundShipmentPlans || [];
 
     const normalizeItems = (p: any) => p?.items || p?.Items || [];
 
