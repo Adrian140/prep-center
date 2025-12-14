@@ -8,7 +8,9 @@ const FieldLabel = ({ label, children }) => (
   </div>
 );
 
-const placeholderImg = 'https://via.placeholder.com/60?text=SKU';
+// Small inline placeholder (60x60 light gray) to avoid network failures
+const placeholderImg =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="%23f1f5f9"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="10">SKU</text></svg>';
 
 export default function FbaStep1Inventory({
   data,

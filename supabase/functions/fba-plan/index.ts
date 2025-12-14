@@ -224,6 +224,21 @@ type TempCreds = {
   sessionToken: string | null;
 };
 
+async function resolveSellerId(companyId?: string | null, existing?: string | null) {
+  if (existing) return existing;
+  if (!companyId) return SUPABASE_SELLER_ID || "";
+  // Try seller_links
+  const { data, error } = await supabase
+    .from("seller_links")
+    .select("seller_id")
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (error) {
+    console.error("resolveSellerId seller_links error", error);
+  }
+  return data?.seller_id || SUPABASE_SELLER_ID || "";
+}
+
 async function spapiGet(opts: {
   host: string;
   region: string;
@@ -400,9 +415,12 @@ serve(async (req) => {
     }
 
     const refreshToken = integ.refresh_token;
-    const sellerId = integ.selling_partner_id || SUPABASE_SELLER_ID;
+    const sellerId = await resolveSellerId(reqData.company_id, integ.selling_partner_id);
     if (!sellerId) {
-      throw new Error("Missing seller id (selling_partner_id) for SP-API Listings/Restrictions calls");
+      return new Response(JSON.stringify({ error: "Missing seller id. Set selling_partner_id in amazon_integrations or SPAPI_SELLER_ID env." }), {
+        status: 400,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
     }
     // Prefer marketplace inferred from destination country, otherwise fall back to integration default
     const inferredMarketplace = marketplaceByCountry[(reqData.destination_country || "").toUpperCase()] || null;
