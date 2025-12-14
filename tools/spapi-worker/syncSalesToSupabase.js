@@ -529,12 +529,19 @@ async function aggregateSales(spClient, integration, marketplaceIds) {
       );
     }
 
+    let sampleLogged = 0;
     for (const order of orders || []) {
       const amazonOrderId = order.AmazonOrderId;
       if (!amazonOrderId) continue;
 
       const resolvedMarketplace = order.MarketplaceId || marketplaceId;
-      const country = mapMarketplaceToCountry(resolvedMarketplace);
+      const country = mapMarketplaceToCountry(resolvedMarketplace) || mapMarketplaceToCountry(marketplaceId);
+      if (sampleLogged < 3) {
+        console.log(
+          `[Sales sync] sample order for integration ${integration.id}: integration marketplace=${marketplaceId}, order.MarketplaceId=${order.MarketplaceId}, SalesChannel=${order.SalesChannel}, resolvedCountry=${country}`
+        );
+        sampleLogged += 1;
+      }
 
       const status = String(order.OrderStatus || '').replace(/\s+/g, '').toLowerCase();
       const isCanceled = status === 'canceled';
