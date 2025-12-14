@@ -96,7 +96,9 @@ export default function FbaStep1Inventory({
       const unitsPerBox = packingModal.unitsPerBox ? Number(packingModal.unitsPerBox) : null;
 
       // Persist template if we have a name and companyId
-      if (data?.companyId) {
+      if (!data?.companyId) {
+        setTemplateError('Lipsește companyId în plan; nu pot salva template-ul.');
+      } else {
         try {
           const payload = {
             company_id: data.companyId,
@@ -112,7 +114,10 @@ export default function FbaStep1Inventory({
             box_weight_kg: packingModal.boxWeight ? Number(packingModal.boxWeight) : null
           };
           const { error } = await supabase.from('packing_templates').upsert(payload);
-          if (error) throw error;
+          if (error) {
+            console.error('packing template upsert error', error);
+            throw error;
+          }
           // Reload templates
           const { data: rows } = await supabase
             .from('packing_templates')
@@ -338,7 +343,7 @@ export default function FbaStep1Inventory({
                       <option value="case">Case packed</option>
                       <option value="__template__">Create packing template</option>
                     </select>
-                    </td>
+                  </td>
                   <td className="py-3">
                     {needsPrepNotice && !prepResolved ? (
                       <div className="flex items-start gap-2 text-amber-700">
@@ -382,6 +387,11 @@ export default function FbaStep1Inventory({
                         {!needsPrepNotice && (
                           <div className="text-xs text-blue-600 cursor-pointer">Print SKU labels</div>
                         )}
+                      </div>
+                    )}
+                    {templateError && (
+                      <div className="text-xs text-red-600 mt-2">
+                        {templateError}
                       </div>
                     )}
                   </td>
