@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckCircle, AlertCircle } from 'lucide-react';
+import { supabase } from '../../../config/supabase';
 
 const FieldLabel = ({ label, children }) => (
   <div className="flex flex-col gap-1 text-sm text-slate-700">
@@ -62,6 +63,9 @@ export default function FbaStep1Inventory({
   });
   const [prepTab, setPrepTab] = useState('prep');
   const [prepSelections, setPrepSelections] = useState({});
+  const [templates, setTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [templateError, setTemplateError] = useState('');
 
   const openPackingModal = (sku) => {
     setPackingModal({
@@ -79,9 +83,43 @@ export default function FbaStep1Inventory({
 
   const closePackingModal = () => setPackingModal((prev) => ({ ...prev, open: false, sku: null }));
 
-  const savePackingTemplate = () => {
+  const savePackingTemplate = async () => {
     if (packingModal.sku) {
-      onChangePacking(packingModal.sku.id, packingModal.templateType === 'case' ? 'case' : 'individual');
+      // Persist template if we have a name and companyId
+      if (packingModal.templateName && data?.companyId) {
+        try {
+          const payload = {
+            company_id: data.companyId,
+            marketplace_id: data.marketplace,
+            sku: packingModal.sku.sku || null,
+            asin: packingModal.sku.asin || null,
+            name: packingModal.templateName,
+            template_type: packingModal.templateType === 'case' ? 'case' : 'individual',
+            units_per_box: packingModal.unitsPerBox ? Number(packingModal.unitsPerBox) : null,
+            box_length_cm: packingModal.boxL ? Number(packingModal.boxL) : null,
+            box_width_cm: packingModal.boxW ? Number(packingModal.boxW) : null,
+            box_height_cm: packingModal.boxH ? Number(packingModal.boxH) : null,
+            box_weight_kg: packingModal.boxWeight ? Number(packingModal.boxWeight) : null
+          };
+          const { error } = await supabase.from('packing_templates').upsert(payload);
+          if (error) throw error;
+          // Reload templates
+          const { data: rows } = await supabase
+            .from('packing_templates')
+            .select('*')
+            .eq('company_id', data.companyId)
+            .eq('marketplace_id', data.marketplace);
+          setTemplates(Array.isArray(rows) ? rows : []);
+        } catch (e) {
+          setTemplateError(e?.message || 'Nu am putut salva template-ul.');
+        }
+      }
+
+      onChangePacking(packingModal.sku.id, {
+        packing: packingModal.templateType === 'case' ? 'case' : 'individual',
+        packingTemplateName: packingModal.templateName || null,
+        unitsPerBox: packingModal.unitsPerBox ? Number(packingModal.unitsPerBox) : null
+      });
     }
     closePackingModal();
   };
@@ -129,6 +167,29 @@ export default function FbaStep1Inventory({
         return 'No prep needed';
     }
   };
+
+  // Load packing templates for this company/marketplace
+  useEffect(() => {
+    const loadTemplates = async () => {
+      if (!data?.companyId) return;
+      setLoadingTemplates(true);
+      setTemplateError('');
+      try {
+        const { data: rows, error } = await supabase
+          .from('packing_templates')
+          .select('*')
+          .eq('company_id', data.companyId)
+          .eq('marketplace_id', data.marketplace);
+        if (error) throw error;
+        setTemplates(Array.isArray(rows) ? rows : []);
+      } catch (e) {
+        setTemplateError(e?.message || 'Nu am putut încărca template-urile de packing.');
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+    loadTemplates();
+  }, [data?.companyId, data?.marketplace]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -228,22 +289,44 @@ export default function FbaStep1Inventory({
                 </td>
                   <td className="py-3">
                     <select
-                      value={sku.packing}
+                      value={sku.packingTemplateName || sku.packing || 'individual'}
                       onChange={(e) => {
                         const val = e.target.value;
                         if (val === '__template__') {
                           openPackingModal(sku);
                           return;
                         }
-                        onChangePacking(sku.id, val);
+                        const template = templates.find((t) => t.name === val && t.sku === sku.sku);
+                        if (template) {
+                          onChangePacking(sku.id, {
+                            packing: template.template_type === 'case' ? 'case' : 'individual',
+                            packingTemplateId: template.id,
+                            packingTemplateName: template.name,
+                            unitsPerBox: template.units_per_box || null
+                          });
+                          return;
+                        }
+                        onChangePacking(sku.id, {
+                          packing: val,
+                          packingTemplateId: null,
+                          packingTemplateName: null,
+                          unitsPerBox: null
+                        });
                       }}
                       className="border rounded-md px-3 py-2 text-sm w-full"
                     >
+                      {templates
+                        .filter((t) => t.sku === sku.sku)
+                        .map((t) => (
+                          <option key={t.id} value={t.name}>
+                            {t.name}
+                          </option>
+                        ))}
                       <option value="individual">Individual units</option>
                       <option value="case">Case packed</option>
                       <option value="__template__">Create packing template</option>
                     </select>
-                  </td>
+                    </td>
                   <td className="py-3">
                     {needsPrepNotice && !prepResolved ? (
                       <div className="flex items-start gap-2 text-amber-700">

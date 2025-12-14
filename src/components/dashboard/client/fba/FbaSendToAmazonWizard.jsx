@@ -140,10 +140,20 @@ export default function FbaSendToAmazonWizard({
       : 'UPS (Amazon-partnered carrier) is unavailable because one or more shipments contain dangerous goods';
   }, [shipmentMode?.carrier?.partnered]);
 
-  const handlePackingChange = (skuId, value) => {
+  const handlePackingChange = (skuId, patch) => {
+    // patch poate fi string (packing) sau obiect cu packing + template info
+    if (typeof patch === 'string') {
+      setPlan((prev) => ({
+        ...prev,
+        skus: prev.skus.map((sku) =>
+          sku.id === skuId ? { ...sku, packing: patch, packingTemplateId: null, packingTemplateName: null, unitsPerBox: null } : sku
+        )
+      }));
+      return;
+    }
     setPlan((prev) => ({
       ...prev,
-      skus: prev.skus.map((sku) => (sku.id === skuId ? { ...sku, packing: value } : sku))
+      skus: prev.skus.map((sku) => (sku.id === skuId ? { ...sku, ...patch } : sku))
     }));
   };
 
