@@ -46,6 +46,12 @@ type AmazonIntegration = {
   refresh_token: string;
 };
 
+function maskSecret(value: string, visible: number = 4) {
+  if (!value) return "";
+  if (value.length <= visible * 2) return value.replace(/./g, "*");
+  return `${value.slice(0, visible)}${"*".repeat(Math.max(1, value.length - visible * 2))}${value.slice(-visible)}`;
+}
+
 // Helpers for SigV4
 function toHex(buffer: ArrayBuffer): string {
   return Array.prototype.map
@@ -600,6 +606,19 @@ serve(async (req) => {
       throw new Error("No items in request with quantity > 0");
     }
 
+    // Debug info for auth context (mascat)
+    console.log("fba-plan auth-context", {
+      traceId,
+      sellerId,
+      marketplaceId,
+      region: awsRegion,
+      host,
+      lwaClientId: maskSecret(LWA_CLIENT_ID || ""),
+      refreshToken: maskSecret(refreshToken || "", 3),
+      roleArn: SPAPI_ROLE_ARN ? `...${SPAPI_ROLE_ARN.slice(-6)}` : "",
+      accessKey: AWS_ACCESS_KEY_ID ? `...${AWS_ACCESS_KEY_ID.slice(-4)}` : ""
+    });
+
     // Ship-from: fixed prep center address (real location in FR, nu schimbăm după destinație)
     const shipFromCountry = "FR";
     const shipFromAddress = {
@@ -713,6 +732,9 @@ serve(async (req) => {
       sessionToken: tempCreds.sessionToken,
       lwaToken: lwaAccessToken
     });
+
+    // Keep raw Amazon response for debugging / UI
+    const amazonJson = primary.json;
 
     let plans =
       primary.json?.payload?.inboundPlan?.inboundShipmentPlans ||
