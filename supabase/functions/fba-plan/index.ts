@@ -439,16 +439,37 @@ serve(async (req) => {
       });
     }
 
+    const destCountry = (reqData.destination_country || "").toUpperCase();
+    const inferredMarketplace = marketplaceByCountry[destCountry] || null;
+
     // Fetch amazon integration for this user/company
-    const { data: integRows, error: integErr } = await supabase
-      .from("amazon_integrations")
-      .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id")
-      .eq("company_id", reqData.company_id)
-      .eq("status", "active")
-      .order("updated_at", { ascending: false })
-      .limit(1);
-    if (integErr) throw integErr;
-    const integ = integRows?.[0];
+    let integ: AmazonIntegration | null = null;
+    if (inferredMarketplace) {
+      const { data: integRows, error } = await supabase
+        .from("amazon_integrations")
+        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id")
+        .eq("company_id", reqData.company_id)
+        .eq("status", "active")
+        .eq("marketplace_id", inferredMarketplace)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (!error && Array.isArray(integRows) && integRows[0]) {
+        integ = integRows[0] as any;
+      } else if (error) {
+        console.warn("amazon_integrations query (by marketplace) failed", error);
+      }
+    }
+    if (!integ) {
+      const { data: integRows, error: integErr } = await supabase
+        .from("amazon_integrations")
+        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id")
+        .eq("company_id", reqData.company_id)
+        .eq("status", "active")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (integErr) throw integErr;
+      integ = (integRows?.[0] as any) || null;
+    }
     if (!integ?.refresh_token) {
       throw new Error("No active Amazon integration found for this company");
     }
@@ -462,7 +483,6 @@ serve(async (req) => {
       });
     }
     // Prefer marketplace inferred from destination country, otherwise fall back to integration default
-    const inferredMarketplace = marketplaceByCountry[(reqData.destination_country || "").toUpperCase()] || null;
     const marketplaceId = inferredMarketplace || integ.marketplace_id || "A13V1IB3VIYZZH";
     const regionCode = (integ.region || "eu").toLowerCase();
     const awsRegion = regionCode === "na" ? "us-east-1" : regionCode === "fe" ? "us-west-2" : "eu-west-1";
