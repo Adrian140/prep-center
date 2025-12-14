@@ -438,6 +438,26 @@ serve(async (req) => {
     const items: PrepRequestItem[] = (Array.isArray(reqData.prep_request_items) ? reqData.prep_request_items : []).filter(
       (it) => Number(it.units_sent ?? it.units_requested ?? 0) > 0
     );
+    const stockItemIds = Array.from(
+      new Set(
+        items
+          .map((it) => it.stock_item_id)
+          .filter((id): id is number => typeof id === "number" && Number.isFinite(id))
+      )
+    );
+    let stockMap: Record<number, { image_url?: string | null; sku?: string | null; asin?: string | null; name?: string | null }> = {};
+    if (stockItemIds.length) {
+      const { data: stockRows, error: stockErr } = await supabase
+        .from("stock_items")
+        .select("id, image_url, sku, asin, name")
+        .in("id", stockItemIds);
+      if (!stockErr && Array.isArray(stockRows)) {
+        stockMap = stockRows.reduce((acc, row) => {
+          acc[row.id] = row;
+          return acc;
+        }, {} as Record<number, { image_url?: string | null; sku?: string | null; asin?: string | null; name?: string | null }>);
+      }
+    }
     if (!items.length) {
       throw new Error("No items in request with quantity > 0");
     }
@@ -637,19 +657,22 @@ serve(async (req) => {
       };
     });
 
-    const skus = items.map((it, idx) => ({
-      id: it.id || `sku-${idx + 1}`,
-      title: it.product_name || it.sku || `SKU ${idx + 1}`,
-      sku: it.sku || "",
-      asin: it.asin || "",
-      storageType: "Standard-size",
-      packing: "individual",
-      units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-      expiry: "",
-      prepRequired: false,
-      readyToPack: true,
-      image: null
-    }));
+    const skus = items.map((it, idx) => {
+      const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+      return {
+        id: it.id || `sku-${idx + 1}`,
+        title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
+        sku: it.sku || stock?.sku || "",
+        asin: it.asin || stock?.asin || "",
+        storageType: "Standard-size",
+        packing: "individual",
+        units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+        expiry: "",
+        prepRequired: false,
+        readyToPack: true,
+        image: stock?.image_url || null
+      };
+    });
 
     const plan = {
       source: "amazon",
