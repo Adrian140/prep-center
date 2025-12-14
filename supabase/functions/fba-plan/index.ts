@@ -685,6 +685,21 @@ serve(async (req) => {
       throw new Error("No items in request with quantity > 0");
     }
 
+    // Ship-from: fixed prep center address (real location in FR, nu schimbăm după destinație)
+    const shipFromCountry = "FR";
+    const shipFromAddress = {
+      name: "Bucur Adrian",
+      addressLine1: "5 Rue des Enclos",
+      addressLine2: "Zone B, Cellule 7",
+      city: "Gouesniere",
+      stateOrProvinceCode: "Ille-et-Vilaine",
+      postalCode: "35350",
+      countryCode: shipFromCountry,
+      phoneNumber: "0675116218",
+      email: "ioan.adrian.bucur@gmail.com",
+      companyName: "EcomPrep Hub"
+    };
+
     const prepGuidanceMap = await fetchPrepGuidance({
       items,
       shipFromCountry,
@@ -707,21 +722,6 @@ serve(async (req) => {
       roleArn: SPAPI_ROLE_ARN ? `...${SPAPI_ROLE_ARN.slice(-6)}` : "",
       accessKey: AWS_ACCESS_KEY_ID ? `...${AWS_ACCESS_KEY_ID.slice(-4)}` : ""
     });
-
-    // Ship-from: fixed prep center address (real location in FR, nu schimbăm după destinație)
-    const shipFromCountry = "FR";
-    const shipFromAddress = {
-      name: "Bucur Adrian",
-      addressLine1: "5 Rue des Enclos",
-      addressLine2: "Zone B, Cellule 7",
-      city: "Gouesniere",
-      stateOrProvinceCode: "Ille-et-Vilaine",
-      postalCode: "35350",
-      countryCode: shipFromCountry,
-      phoneNumber: "0675116218",
-      email: "ioan.adrian.bucur@gmail.com",
-      companyName: "EcomPrep Hub"
-    };
 
     // Pre-eligibility check per SKU for destination marketplace
     const skuStatuses: { sku: string; asin: string | null; state: string; reason: string }[] = [];
