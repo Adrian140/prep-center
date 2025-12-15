@@ -13,6 +13,8 @@ const corsHeaders = {
 interface Item {
   asin: string | null;
   sku: string | null;
+  ean?: string | null;
+  image_url?: string | null;
   requested: number | null; // total cerut
   sent: number | null;      // trimis
   removed: number | null;   // scăzut (= requested - sent)
@@ -54,6 +56,10 @@ function renderHtml(p: Payload, subjectId: string) {
   const rows = (p.items ?? []).map((it) => {
     const asin = it.asin ?? "-";
     const sku = it.sku ?? "-";
+    const ean = it.ean ?? "-";
+    const imageTag = it.image_url
+      ? `<img src="${escapeHtml(String(it.image_url))}" alt="" style="max-width:60px;max-height:60px;object-fit:contain;border:1px solid #e5e7eb;border-radius:6px;" />`
+      : "—";
     const req = Number(it.requested ?? 0);
     const snd = Number(it.sent ?? 0);
     const rmd = Number.isFinite(it.removed) ? Number(it.removed) : Math.max(req - snd, 0);
@@ -61,6 +67,8 @@ function renderHtml(p: Payload, subjectId: string) {
 
     return `
       <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:Inter,Arial;text-align:center">${imageTag}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:Inter,Arial">${escapeHtml(String(ean))}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:Inter,Arial">${escapeHtml(String(asin))}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:Inter,Arial">${escapeHtml(String(sku))}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right">${req}</td>
@@ -133,6 +141,8 @@ function renderHtml(p: Payload, subjectId: string) {
     <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-top:14px">
       <thead>
         <tr style="background:#f8fafc;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb">
+          <th style="padding:10px 12px;text-align:left;font-family:Inter,Arial">Image</th>
+          <th style="padding:10px 12px;text-align:left;font-family:Inter,Arial">EAN</th>
           <th style="padding:10px 12px;text-align:left;font-family:Inter,Arial">ASIN</th>
           <th style="padding:10px 12px;text-align:left;font-family:Inter,Arial">SKU</th>
           <th style="padding:10px 12px;text-align:right;font-family:Inter,Arial">Requested</th>
