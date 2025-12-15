@@ -14,7 +14,6 @@ const FROM_EMAIL =
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 
 interface ItemPayload {
-  ean?: string | null;
   asin?: string | null;
   sku?: string | null;
   product_name?: string | null;
@@ -62,7 +61,6 @@ const renderItems = (items: ItemPayload[] = []) => {
     .map((item) => {
       return `
         <tr>
-          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:Inter,Arial">${formatText(item.ean)}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:Inter,Arial">${formatText(item.asin)}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:Inter,Arial">${formatText(item.product_name)}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;font-family:Inter,Arial">${normalizeQuantity(item.quantity)}</td>
@@ -123,7 +121,6 @@ const renderHtml = (payload: Payload) => {
     <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-top:16px">
       <thead>
         <tr style="background:#f3f4f6;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb">
-          <th style="padding:10px 12px;text-align:left;font-family:Inter,Arial">EAN</th>
           <th style="padding:10px 12px;text-align:left;font-family:Inter,Arial">ASIN</th>
           <th style="padding:10px 12px;text-align:left;font-family:Inter,Arial">Product</th>
           <th style="padding:10px 12px;text-align:right;font-family:Inter,Arial">Qty</th>
