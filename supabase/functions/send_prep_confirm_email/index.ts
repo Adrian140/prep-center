@@ -2,6 +2,7 @@
 // Supabase Edge Function (Deno) + Resend
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,7 @@ const corsHeaders = {
 interface Item {
   asin: string | null;
   sku: string | null;
+  ean?: string | null;
   image_url?: string | null;
   requested: number | null; // total cerut
   sent: number | null;      // trimis
@@ -36,6 +38,15 @@ interface Payload {
 // ===== ENV =====
 const FROM_EMAIL = Deno.env.get("PREP_FROM_EMAIL") ?? "no-reply@prep-center.eu";
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY")  ?? "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE") ?? "";
+
+const supabase =
+  SUPABASE_URL && SUPABASE_SERVICE_ROLE
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
+        global: { headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE}` } }
+      })
+    : null;
 
 // ===== Brand assets =====
 const LOGO_URL =
@@ -51,10 +62,37 @@ function subjectFromPayload(p: Payload) {
     (p.request_id ? p.request_id.slice(0, 8) : "request");
   return { subjectId, subject: `Prep request ${subjectId} confirmed` };
 }
+
+async function enrichItemsFromSupabase(items: Item[]): Promise<Item[]> {
+  if (!supabase) return items;
+  const asins = Array.from(new Set(items.map((it) => it.asin).filter(Boolean))) as string[];
+  if (!asins.length) return items;
+  const { data, error } = await supabase
+    .from("stock_items")
+    .select("asin, ean, image_url")
+    .in("asin", asins);
+  if (error) {
+    console.error("enrichItemsFromSupabase error", error);
+    return items;
+  }
+  const byAsin = (data || []).reduce<Record<string, { ean?: string | null; image_url?: string | null }>>((acc, row) => {
+    acc[String(row.asin)] = { ean: row.ean ?? null, image_url: row.image_url ?? null };
+    return acc;
+  }, {});
+  return items.map((it) => {
+    const extra = it.asin ? byAsin[it.asin] : null;
+    return {
+      ...it,
+      ean: it.ean ?? extra?.ean ?? null,
+      image_url: it.image_url ?? extra?.image_url ?? null
+    };
+  });
+}
 function renderHtml(p: Payload, subjectId: string) {
   const rows = (p.items ?? []).map((it) => {
     const asin = it.asin ?? "-";
     const sku = it.sku ?? "-";
+    const ean = it.ean ?? "-";
     const imageTag = it.image_url
       ? `<img src="${escapeHtml(String(it.image_url))}" alt="" style="max-width:60px;max-height:60px;object-fit:contain;border:1px solid #e5e7eb;border-radius:6px;" />`
       : "—";
@@ -66,6 +104,7 @@ function renderHtml(p: Payload, subjectId: string) {
     return `
       <tr>
         <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:Inter,Arial;text-align:center">${imageTag}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:Inter,Arial">${escapeHtml(String(ean))}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:Inter,Arial">${escapeHtml(String(asin))}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:Inter,Arial">${escapeHtml(String(sku))}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right">${req}</td>
@@ -139,6 +178,7 @@ function renderHtml(p: Payload, subjectId: string) {
       <thead>
         <tr style="background:#f8fafc;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb">
           <th style="padding:10px 12px;text-align:left;font-family:Inter,Arial">Image</th>
+          <th style="padding:10px 12px;text-align:left;font-family:Inter,Arial">EAN</th>
           <th style="padding:10px 12px;text-align:left;font-family:Inter,Arial">ASIN</th>
           <th style="padding:10px 12px;text-align:left;font-family:Inter,Arial">SKU</th>
           <th style="padding:10px 12px;text-align:right;font-family:Inter,Arial">Requested</th>
@@ -182,8 +222,11 @@ Deno.serve(async (req) => {
       return new Response("Missing recipient email", { status: 400, headers: corsHeaders });
     }
 
-     const { subjectId, subject } = subjectFromPayload(payload);
-    const html = renderHtml(payload, subjectId);
+    // Enrich items cu EAN / imagine din stock_items dacă lipsesc
+    const items = payload.items ? await enrichItemsFromSupabase(payload.items) : [];
+
+    const { subjectId, subject } = subjectFromPayload(payload);
+    const html = renderHtml({ ...payload, items }, subjectId);
 
     const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
