@@ -32,6 +32,7 @@ interface Payload {
   // Opționale:
   fba_shipment_id?: string | null;
   tracking_ids?: string[] | null;
+  marketplace?: string | null;
 }
 
 // ===== ENV =====
@@ -55,11 +56,8 @@ function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 function subjectFromPayload(p: Payload) {
-  const subjectId =
-    (p.subject_id?.toString().trim()) ||
-    (p.fba_shipment_id?.toString().trim()) ||
-    (p.request_id ? p.request_id.slice(0, 8) : "request");
-  return { subjectId, subject: `Prep request ${subjectId} confirmed` };
+  const prepId = p.request_id ? `Request #${p.request_id.slice(0, 8)}` : "Prep request";
+  return { prepId, subject: `Prep request ${prepId} confirmed` };
 }
 
 async function enrichItemsFromSupabase(items: Item[]): Promise<Item[]> {
@@ -86,7 +84,7 @@ async function enrichItemsFromSupabase(items: Item[]): Promise<Item[]> {
     };
   });
 }
-function renderHtml(p: Payload, subjectId: string) {
+function renderHtml(p: Payload, prepId: string) {
   const rows = (p.items ?? []).map((it) => {
     const asin = it.asin ?? "-";
     const sku = it.sku ?? "-";
@@ -117,12 +115,12 @@ function renderHtml(p: Payload, subjectId: string) {
 
   const hasTracking = Array.isArray(p.tracking_ids) && p.tracking_ids.length > 0;
   const infoLines = [
-    `<div style="margin-bottom:4px"><strong>Prep request ID:</strong> ${escapeHtml(subjectId)}</div>`,
-    p.subject_id
-      ? `<div style="margin-bottom:4px"><strong>Amazon order ID:</strong> ${escapeHtml(String(p.subject_id))}</div>`
-      : "",
+    `<div style="margin-bottom:4px"><strong>Prep request ID:</strong> ${escapeHtml(prepId)}</div>`,
     p.fba_shipment_id
       ? `<div style="margin-bottom:4px"><strong>Shipment ID:</strong> ${escapeHtml(p.fba_shipment_id)}</div>`
+      : "",
+    p.marketplace
+      ? `<div style="margin-bottom:4px"><strong>Marketplace:</strong> ${escapeHtml(p.marketplace)}</div>`
       : ""
   ].filter(Boolean).join("");
 
@@ -158,7 +156,7 @@ function renderHtml(p: Payload, subjectId: string) {
       </tr>
     </table>
 
-   <h1 style="font-size:24px;margin:0 0 10px 0">Prep request ${escapeHtml(subjectId)} confirmed</h1>
+   <h1 style="font-size:24px;margin:0 0 10px 0">Prep request ${escapeHtml(prepId)} confirmed</h1>
 
     <p style="margin:0 0 12px 0">
       Hello${p.client_name ? ` ${escapeHtml(p.client_name)}` : ""}${p.company_name ? `, ${escapeHtml(`(${p.company_name})`)}` : ""},
@@ -220,8 +218,8 @@ Deno.serve(async (req) => {
     // Enrich items cu EAN / imagine din stock_items dacă lipsesc
     const items = payload.items ? await enrichItemsFromSupabase(payload.items) : [];
 
-    const { subjectId, subject } = subjectFromPayload(payload);
-    const html = renderHtml({ ...payload, items }, subjectId);
+    const { prepId, subject } = subjectFromPayload(payload);
+    const html = renderHtml({ ...payload, items }, prepId);
 
     const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
