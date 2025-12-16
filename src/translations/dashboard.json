@@ -18,7 +18,9 @@
       "no": "No",
       "supportError": "Something went wrong. Please contact support.",
       "delete": "Delete",
-      "deleting": "Deleting..."
+      "deleting": "Deleting...",
+      "add": "Add",
+      "save": "Save"
     },
     "fba_mode_none": "Do not send now",
     "fba_mode_full": "Send all units to Amazon",
@@ -879,7 +881,9 @@
       "accessDeniedTitle": "Acces interzis",
       "accessDeniedDesc": "Nu ai permisiunea să vezi această secțiune.",
       "delete": "Șterge",
-      "deleting": "Se șterge..."
+      "deleting": "Se șterge...",
+      "add": "Adaugă",
+      "save": "Salvează"
     },
     "sidebar": {
       "activity": "Activitate",
@@ -1672,6 +1676,8 @@
       "delete": "Supprimer",
       "deleting": "Suppression...",
       "cancel": "Annuler",
+      "add": "Ajouter",
+      "save": "Enregistrer",
       "accessDeniedTitle": "Accès refusé",
       "accessDeniedDesc": "Vous n'avez pas l’autorisation d'accéder à cette section."
     },
@@ -2409,6 +2415,8 @@
       "delete": "Löschen",
       "deleting": "Wird gelöscht...",
       "cancel": "Abbrechen",
+      "add": "Hinzufügen",
+      "save": "Speichern",
       "accessDeniedTitle": "Zugriff verweigert",
       "accessDeniedDesc": "Sie besitzen keine Berechtigung für diesen Bereich."
     },
@@ -3146,6 +3154,8 @@
       "delete": "Elimina",
       "deleting": "Eliminazione...",
       "cancel": "Annulla",
+      "add": "Aggiungi",
+      "save": "Salva",
       "accessDeniedTitle": "Accesso negato",
       "accessDeniedDesc": "Non hai i permessi per visualizzare questa sezione."
     },
@@ -3883,6 +3893,8 @@
       "delete": "Eliminar",
       "deleting": "Eliminando...",
       "cancel": "Cancelar",
+      "add": "Añadir",
+      "save": "Guardar",
       "accessDeniedTitle": "Acceso denegado",
       "accessDeniedDesc": "No tienes permisos para ver esta sección."
     },

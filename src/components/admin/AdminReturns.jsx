@@ -25,7 +25,15 @@ export default function AdminReturns() {
         notes,
         created_at,
         updated_at,
-        return_items (id, asin, sku, qty, notes),
+        return_items (
+          id,
+          asin,
+          sku,
+          qty,
+          notes,
+          stock_item_id,
+          stock_item:stock_items (image_url, name, asin, sku)
+        ),
         return_files (id, file_type, url, name)
       `)
       .order('created_at', { ascending: false })
@@ -166,10 +174,24 @@ export default function AdminReturns() {
                   <div className="text-xs uppercase text-text-secondary">Items ({items.length})</div>
                   {items.length === 0 && <div className="text-text-secondary text-sm">—</div>}
                   {items.map((it) => (
-                    <div key={it.id} className="border rounded px-3 py-2 text-sm bg-slate-50">
-                      <div className="font-semibold break-all">{it.asin || it.sku || '—'}</div>
-                      <div className="text-text-secondary text-xs">Qty: {it.qty}</div>
-                      {it.notes && <div className="text-text-secondary text-xs">Notes: {it.notes}</div>}
+                    <div key={it.id} className="border rounded px-3 py-2 text-sm bg-slate-50 flex gap-3">
+                      {it.stock_item?.image_url && (
+                        <img
+                          src={it.stock_item.image_url}
+                          alt={it.stock_item.name || it.asin || it.sku || 'Product'}
+                          className="w-12 h-12 object-contain rounded border bg-white"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold break-all">
+                          {it.asin || it.sku || it.stock_item?.asin || it.stock_item?.sku || '—'}
+                        </div>
+                        {it.stock_item?.name && (
+                          <div className="text-text-secondary text-xs truncate">{it.stock_item.name}</div>
+                        )}
+                        <div className="text-text-secondary text-xs">Qty: {it.qty}</div>
+                        {it.notes && <div className="text-text-secondary text-xs">Notes: {it.notes}</div>}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pencil, Trash2, Upload, CheckCircle2 } from 'lucide-react';
+import { Pencil, Trash2, Upload, CheckCircle2, X } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabase } from '../../../config/supabase';
 import { useDashboardTranslation } from '../../../translations';
@@ -31,7 +31,15 @@ export default function ClientReturns() {
         notes,
         marketplace,
         created_at,
-        return_items (id, asin, sku, qty, notes),
+        return_items (
+          id,
+          asin,
+          sku,
+          qty,
+          notes,
+          stock_item_id,
+          stock_item:stock_items (image_url, name, asin, sku)
+        ),
         return_files (id, file_type, url, name)
       `)
       .eq('company_id', profile.company_id)
@@ -46,6 +54,66 @@ export default function ClientReturns() {
   }, [status, profile?.company_id]);
 
   const canEdit = (row) => editableStatuses.includes(row.status);
+
+  const uploadFiles = async (row, type, fileList) => {
+    if (!fileList || !fileList.length) return;
+    if (!profile?.company_id) {
+      setError('Missing company_id');
+      return;
+    }
+    setSavingId(row.id);
+    try {
+      const bucket = 'returns';
+      const arr = Array.from(fileList);
+      const uploaded = [];
+      for (const file of arr) {
+        const path = `${profile.company_id}/${Date.now()}-${file.name}`;
+        const { data: upData, error: upErr } = await supabase.storage
+          .from(bucket)
+          .upload(path, file, { upsert: false, contentType: file.type || undefined });
+        if (upErr) throw upErr;
+        const { data: pub } = supabase.storage.from(bucket).getPublicUrl(upData.path);
+        uploaded.push({ name: file.name, url: pub.publicUrl, file_type: type });
+      }
+      if (uploaded.length) {
+        const { data: rowsInserted, error: insErr } = await supabase
+          .from('return_files')
+          .insert(uploaded.map((f) => ({ ...f, return_id: row.id, mime_type: null })))
+          .select();
+        if (insErr) throw insErr;
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === row.id
+              ? { ...r, return_files: [...(r.return_files || []), ...(rowsInserted || [])] }
+              : r
+          )
+        );
+      }
+    } catch (e) {
+      setError(e?.message || 'Could not upload files.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const removeFile = async (row, fileId) => {
+    setSavingId(row.id);
+    try {
+      const { error: delErr } = await supabase.from('return_files').delete().eq('id', fileId);
+      if (delErr) throw delErr;
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === row.id
+            ? { ...r, return_files: (r.return_files || []).filter((f) => f.id !== fileId) }
+            : r
+        )
+      );
+    } catch (e) {
+      setError(e?.message || 'Could not delete file.');
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   const handleSaveNotes = async (row) => {
     const newNotes = editing[row.id]?.notes ?? row.notes ?? '';
@@ -91,6 +159,8 @@ export default function ClientReturns() {
         rows.map((row) => {
           const items = Array.isArray(row.return_items) ? row.return_items : [];
           const files = Array.isArray(row.return_files) ? row.return_files : [];
+          const insideFiles = files.filter((f) => f.file_type === 'inside');
+          const labelFiles = files.filter((f) => f.file_type === 'label');
           const isEditable = canEdit(row);
           const draftNotes = editing[row.id]?.notes ?? row.notes ?? '';
           return (
@@ -138,32 +208,112 @@ export default function ClientReturns() {
                   <div className="text-xs uppercase text-text-secondary">Items ({items.length})</div>
                   {items.length === 0 && <div className="text-text-secondary text-sm">—</div>}
                   {items.map((it) => (
-                    <div key={it.id} className="border rounded px-3 py-2 text-sm bg-slate-50">
-                      <div className="font-semibold break-all">{it.asin || it.sku || '—'}</div>
-                      <div className="text-text-secondary text-xs">Qty: {it.qty}</div>
-                      {it.notes && <div className="text-text-secondary text-xs">Notes: {it.notes}</div>}
+                    <div key={it.id} className="border rounded px-3 py-2 text-sm bg-slate-50 flex gap-3">
+                      {it.stock_item?.image_url && (
+                        <img
+                          src={it.stock_item.image_url}
+                          alt={it.stock_item.name || it.asin || it.sku || 'Product'}
+                          className="w-12 h-12 object-contain rounded border bg-white"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold break-all">
+                          {it.asin || it.sku || it.stock_item?.asin || it.stock_item?.sku || '—'}
+                        </div>
+                        {it.stock_item?.name && (
+                          <div className="text-text-secondary text-xs truncate">{it.stock_item.name}</div>
+                        )}
+                        <div className="text-text-secondary text-xs">Qty: {it.qty}</div>
+                        {it.notes && <div className="text-text-secondary text-xs">Notes: {it.notes}</div>}
+                      </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="space-y-2">
-                  <div className="text-xs uppercase text-text-secondary">Files ({files.length})</div>
-                  {files.length === 0 && <div className="text-text-secondary text-sm">—</div>}
-                  {files.map((f) => (
-                    <a
-                      key={f.id}
-                      href={f.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-2 text-primary text-sm underline break-all"
-                    >
-                      <Upload className="w-3 h-3" />
-                      <span className="font-semibold uppercase text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">
-                        {f.file_type}
-                      </span>
-                      <span>{f.name || f.url}</span>
-                    </a>
-                  ))}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="text-xs uppercase text-text-secondary">
+                      {t('ClientPrepShipments.return.insideDocs') || 'Docs to put inside the box'} ({insideFiles.length})
+                    </div>
+                    {isEditable && (
+                      <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded cursor-pointer hover:bg-primary-dark">
+                        <Upload className="w-4 h-4" />
+                        {t('common.add') || 'Add'}
+                        <input
+                          type="file"
+                          multiple
+                          className="hidden"
+                          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                          onChange={(e) => uploadFiles(row, 'inside', e.target.files)}
+                        />
+                      </label>
+                    )}
+                    {insideFiles.length === 0 && <div className="text-text-secondary text-sm">—</div>}
+                    {insideFiles.map((f) => (
+                      <div key={f.id} className="flex items-center gap-2 text-sm break-all">
+                        <a
+                          href={f.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 text-primary underline"
+                        >
+                          <Upload className="w-3 h-3" />
+                          <span>{f.name || f.url}</span>
+                        </a>
+                        {isEditable && (
+                          <button
+                            type="button"
+                            className="text-red-500 hover:text-red-700"
+                            onClick={() => removeFile(row, f.id)}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-xs uppercase text-text-secondary">
+                      {t('ClientPrepShipments.return.labelDocs') || 'Return labels'} ({labelFiles.length})
+                    </div>
+                    {isEditable && (
+                      <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded cursor-pointer hover:bg-primary-dark">
+                        <Upload className="w-4 h-4" />
+                        {t('common.add') || 'Add'}
+                        <input
+                          type="file"
+                          multiple
+                          className="hidden"
+                          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                          onChange={(e) => uploadFiles(row, 'label', e.target.files)}
+                        />
+                      </label>
+                    )}
+                    {labelFiles.length === 0 && <div className="text-text-secondary text-sm">—</div>}
+                    {labelFiles.map((f) => (
+                      <div key={f.id} className="flex items-center gap-2 text-sm break-all">
+                        <a
+                          href={f.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 text-primary underline"
+                        >
+                          <Upload className="w-3 h-3" />
+                          <span>{f.name || f.url}</span>
+                        </a>
+                        {isEditable && (
+                          <button
+                            type="button"
+                            className="text-red-500 hover:text-red-700"
+                            onClick={() => removeFile(row, f.id)}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-2">

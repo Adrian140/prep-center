@@ -54,7 +54,6 @@ function SupabaseDashboard() {
   const validTabs = [
     'activity',
     'stock',
-    'returns',
     'exports',
     'packlink',
     'profile',
@@ -258,7 +257,6 @@ const renderTabContent = useMemo(() => {
   switch (activeTab) {
     case 'activity':  return <SupabaseClientActivity />;
     case 'stock':     return <ClientStock />;
-    case 'returns':   return <ClientReturns />;
     case 'exports':   return <ClientExports />;
     case 'packlink':  return <ClientPacklink />;
     case 'box-estimator': return <ClientBoxEstimator />;
