@@ -1327,45 +1327,8 @@ const items = (draftData.items || []).map((it) => ({
   },
 
 deletePrepRequest: async (requestId) => {
-  // Prefer the RPC helper when available
-  const { error: rpcError } = await supabase.rpc('admin_delete_prep_request', {
-    p_request_id: requestId
-  });
-  if (!rpcError) return { error: null };
-  // If the RPC is missing (older deployments), fall back to the manual cascade
-  const missingFn =
-    rpcError?.message && rpcError.message.toLowerCase().includes('admin_delete_prep_request');
-  if (!missingFn) return { error: rpcError };
-
-  const { data: itemRows, error: fetchItemsErr } = await supabase
-    .from('prep_request_items')
-    .select('id')
-    .eq('prep_request_id', requestId);
-  if (fetchItemsErr) return { error: fetchItemsErr };
-  const itemIds = (itemRows || []).map((it) => it.id).filter(Boolean);
-
-  if (itemIds.length > 0) {
-    const { error: boxesErr } = await supabase
-      .from('prep_request_boxes')
-      .delete()
-      .in('prep_request_item_id', itemIds);
-    if (boxesErr && !isRelationMissingError(boxesErr, 'prep_request_boxes')) {
-      return { error: boxesErr };
-    }
-  }
-
-  const { error: trackErr } = await supabase
-    .from('prep_request_tracking')
-    .delete()
-    .eq('request_id', requestId);
-  if (trackErr) return { error: trackErr };
-
-  const { error: itemsErr } = await supabase
-    .from('prep_request_items')
-    .delete()
-    .eq('prep_request_id', requestId);
-  if (itemsErr) return { error: itemsErr };
-
+  // Client-side delete: rely on RLS + ON DELETE CASCADE (prep_request_items, tracking, boxes)
+  // Admins pot șterge direct, funcția RPC este doar pentru admin; evităm să o apelăm din client.
   const { error } = await supabase
     .from('prep_requests')
     .delete()
