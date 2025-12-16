@@ -274,6 +274,16 @@
         "deleteListingSuccess": "Listings deleted successfully.",
         "deleteListingHasPrepStock": "You cannot delete a listing that still has Prep Center stock. Please contact the administrator for this action."
       },
+      "return": {
+        "cta": "Return items",
+        "insideDocs": "Docs to put inside the box",
+        "labelDocs": "Return labels",
+        "uploadHint": "Upload PDF/JPG/PNG/DOC (multiple allowed)",
+        "notes": "Notes for the team",
+        "qtyError": "Quantity for {asin} must be greater than 0.",
+        "noItems": "Add at least one product.",
+        "success": "Return created"
+      },
       "receptionForm": {
         "carrierOther": "Carrier name",
         "carrierPlaceholder": "Select carrier",
@@ -794,6 +804,27 @@
         "save": "Save changes",
         "empty": "No items in this request.",
         "locked": "Request is no longer editable (status changed)."
+      },
+      "return": {
+        "button": "Return",
+        "title": "Return request",
+        "subtitle": "Select items and provide docs if needed.",
+        "items": "Items to return",
+        "qtyHelper": "Set a positive quantity for each item.",
+        "empty": "No items added yet.",
+        "selectStock": "Select a product from stock.",
+        "qty": "Qty",
+        "add": "Add",
+        "inventoryTitle": "Inventory",
+        "search": "Search",
+        "inventoryEmpty": "No stock found.",
+        "insideDocs": "Docs to put inside the box",
+        "linksHint": "Paste one link per line. You can upload files elsewhere and paste the link.",
+        "labelDocs": "Return labels",
+        "notes": "Notes for the team",
+        "submit": "Create return",
+        "qtyError": "Quantity for {asin} must be greater than 0.",
+        "noItems": "Add at least one product."
       }
     },
     "ClientReceiving": {
@@ -1101,11 +1132,14 @@
         "deleteListingHasPrepStock": "Nu puteți șterge un listing care are stoc în Prep Center. Vă rugăm contactați administratorul pentru acest pas."
       },
       "return": {
-        "cta": "Return items",
-        "insideDocs": "Docs to put inside the box",
-        "labelDocs": "Return labels",
-        "uploadHint": "Upload PDF/JPG/PNG/DOC (multiple allowed)",
-        "notes": "Notes for the team"
+        "cta": "Retur produse",
+        "insideDocs": "Documente de pus în colet",
+        "labelDocs": "Etichete de retur",
+        "uploadHint": "Încarcă PDF/JPG/PNG/DOC (poți adăuga mai multe)",
+        "notes": "Notițe pentru echipă",
+        "qtyError": "Cantitatea pentru {asin} trebuie să fie mai mare de 0.",
+        "noItems": "Adaugă cel puțin un produs.",
+        "success": "Retur creat"
       },
       "receptionForm": {
         "carrierOther": "Numele curierului",
@@ -1560,6 +1594,27 @@
         "save": "Salvează modificările",
         "empty": "Nu există articole în această cerere.",
         "locked": "Cererea nu mai poate fi editată."
+      },
+      "return": {
+        "button": "Retur",
+        "title": "Cerere de retur",
+        "subtitle": "Selectează produsele și adaugă documente dacă e nevoie.",
+        "items": "Produse de returnat",
+        "qtyHelper": "Setează o cantitate pozitivă pentru fiecare produs.",
+        "empty": "Încă nu ai adăugat produse.",
+        "selectStock": "Selectează un produs din stoc.",
+        "qty": "Cant.",
+        "add": "Adaugă",
+        "inventoryTitle": "Inventar",
+        "search": "Căutare",
+        "inventoryEmpty": "Nu am găsit stoc.",
+        "insideDocs": "Documente de pus în colet",
+        "linksHint": "Adaugă câte un link pe linie. Poți încărca fișiere în altă parte și să lipești linkul.",
+        "labelDocs": "Etichete de retur",
+        "notes": "Notițe pentru echipă",
+        "submit": "Creează retur",
+        "qtyError": "Cantitatea pentru {asin} trebuie să fie mai mare de 0.",
+        "noItems": "Adaugă cel puțin un produs."
       }
     },
     "ClientReceiving": {
@@ -1876,6 +1931,16 @@
         "deleteListingConfirm": "Supprimer les annonces sélectionnées ?",
         "deleteListingSuccess": "Annonces supprimées avec succès.",
         "deleteListingHasPrepStock": "Vous ne pouvez pas supprimer une annonce qui a encore du stock au Prep Center. Veuillez contacter l’administrateur pour cette action."
+      },
+      "return": {
+        "cta": "Retour produits",
+        "insideDocs": "Documents à mettre dans le colis",
+        "labelDocs": "Étiquettes de retour",
+        "uploadHint": "Téléchargez PDF/JPG/PNG/DOC (plusieurs fichiers possibles)",
+        "notes": "Notes pour l’équipe",
+        "qtyError": "La quantité pour {asin} doit être supérieure à 0.",
+        "noItems": "Ajoutez au moins un article.",
+        "success": "Retour créé"
       },
       "receptionForm": {
         "carrierOther": "Nom du transporteur",
@@ -2265,6 +2330,27 @@
         "save": "Enregistrer les modifications",
         "empty": "Aucun article dans cette demande.",
         "locked": "La demande ne peut plus être modifiée."
+      },
+      "return": {
+        "button": "Retour",
+        "title": "Demande de retour",
+        "subtitle": "Sélectionnez les articles et ajoutez des documents si besoin.",
+        "items": "Articles à retourner",
+        "qtyHelper": "Indiquez une quantité positive pour chaque article.",
+        "empty": "Aucun article ajouté pour l’instant.",
+        "selectStock": "Sélectionnez un produit du stock.",
+        "qty": "Qté",
+        "add": "Ajouter",
+        "inventoryTitle": "Inventaire",
+        "search": "Recherche",
+        "inventoryEmpty": "Aucun stock trouvé.",
+        "insideDocs": "Documents à mettre dans le colis",
+        "linksHint": "Collez un lien par ligne. Vous pouvez héberger les fichiers ailleurs et coller le lien.",
+        "labelDocs": "Étiquettes de retour",
+        "notes": "Notes pour l’équipe",
+        "submit": "Créer le retour",
+        "qtyError": "La quantité pour {asin} doit être supérieure à 0.",
+        "noItems": "Ajoutez au moins un article."
       }
     },
     "ClientReceiving": {
@@ -2581,6 +2667,16 @@
         "deleteListingConfirm": "Möchtest du die ausgewählten Listings wirklich löschen?",
         "deleteListingSuccess": "Listings erfolgreich gelöscht.",
         "deleteListingHasPrepStock": "Du kannst ein Listing mit Bestand im Prep Center nicht löschen. Bitte kontaktiere für diesen Schritt den Administrator."
+      },
+      "return": {
+        "cta": "Artikel retournieren",
+        "insideDocs": "Dokumente in das Paket legen",
+        "labelDocs": "Retourenlabel",
+        "uploadHint": "PDF/JPG/PNG/DOC hochladen (mehrere erlaubt)",
+        "notes": "Notizen für das Team",
+        "qtyError": "Menge für {asin} muss größer als 0 sein.",
+        "noItems": "Mindestens einen Artikel hinzufügen.",
+        "success": "Retoure erstellt"
       },
       "receptionForm": {
         "carrierOther": "Name des Transporteurs",
@@ -2970,6 +3066,27 @@
         "save": "Änderungen speichern",
         "empty": "Keine Artikel in dieser Anfrage.",
         "locked": "Anfrage kann nicht mehr bearbeitet werden."
+      },
+      "return": {
+        "button": "Retoure",
+        "title": "Retourenanfrage",
+        "subtitle": "Wähle Artikel aus und füge bei Bedarf Dokumente hinzu.",
+        "items": "Zurückzusendende Artikel",
+        "qtyHelper": "Geben Sie für jeden Artikel eine positive Menge an.",
+        "empty": "Noch keine Artikel hinzugefügt.",
+        "selectStock": "Produkt aus dem Lager auswählen.",
+        "qty": "Menge",
+        "add": "Hinzufügen",
+        "inventoryTitle": "Lagerbestand",
+        "search": "Suche",
+        "inventoryEmpty": "Kein Bestand gefunden.",
+        "insideDocs": "Dokumente in das Paket legen",
+        "linksHint": "Fügen Sie pro Zeile einen Link ein. Dateien können anderswo hochgeladen und hier verlinkt werden.",
+        "labelDocs": "Retourenlabel",
+        "notes": "Notizen für das Team",
+        "submit": "Retoure erstellen",
+        "qtyError": "Menge für {asin} muss größer als 0 sein.",
+        "noItems": "Fügen Sie mindestens einen Artikel hinzu."
       }
     },
     "ClientReceiving": {
@@ -3286,6 +3403,16 @@
         "deleteListingConfirm": "Eliminare le inserzioni selezionate?",
         "deleteListingSuccess": "Inserzioni eliminate con successo.",
         "deleteListingHasPrepStock": "Non puoi eliminare un’inserzione che ha ancora stock nel Prep Center. Contatta l’amministratore per questa operazione."
+      },
+      "return": {
+        "cta": "Reso articoli",
+        "insideDocs": "Documenti da inserire nel pacco",
+        "labelDocs": "Etichette di reso",
+        "uploadHint": "Carica PDF/JPG/PNG/DOC (sono consentiti più file)",
+        "notes": "Note per il team",
+        "qtyError": "La quantità per {asin} deve essere maggiore di 0.",
+        "noItems": "Aggiungi almeno un articolo.",
+        "success": "Reso creato"
       },
       "receptionForm": {
         "carrierOther": "Nome del corriere",
@@ -3675,6 +3802,27 @@
         "save": "Salva modifiche",
         "empty": "Nessun articolo in questa richiesta.",
         "locked": "La richiesta non è più modificabile."
+      },
+      "return": {
+        "button": "Reso",
+        "title": "Richiesta di reso",
+        "subtitle": "Seleziona gli articoli e aggiungi documenti se necessario.",
+        "items": "Articoli da restituire",
+        "qtyHelper": "Imposta una quantità positiva per ogni articolo.",
+        "empty": "Nessun articolo aggiunto finora.",
+        "selectStock": "Seleziona un prodotto dal magazzino.",
+        "qty": "Q.tà",
+        "add": "Aggiungi",
+        "inventoryTitle": "Inventario",
+        "search": "Cerca",
+        "inventoryEmpty": "Nessuno stock trovato.",
+        "insideDocs": "Documenti da inserire nel pacco",
+        "linksHint": "Incolla un link per riga. Puoi caricare i file altrove e incollare il link.",
+        "labelDocs": "Etichette di reso",
+        "notes": "Note per il team",
+        "submit": "Crea reso",
+        "qtyError": "La quantità per {asin} deve essere maggiore di 0.",
+        "noItems": "Aggiungi almeno un articolo."
       }
     },
     "ClientReceiving": {
@@ -3991,6 +4139,16 @@
         "deleteListingConfirm": "¿Eliminar los listings seleccionados?",
         "deleteListingSuccess": "Listings eliminados.",
         "deleteListingHasPrepStock": "No puedes eliminar un listing que todavía tiene stock en el Prep Center. Ponte en contacto con el administrador para este paso."
+      },
+      "return": {
+        "cta": "Devolver artículos",
+        "insideDocs": "Documentos para poner dentro de la caja",
+        "labelDocs": "Etiquetas de devolución",
+        "uploadHint": "Sube PDF/JPG/PNG/DOC (se permiten varios)",
+        "notes": "Notas para el equipo",
+        "qtyError": "La cantidad para {asin} debe ser mayor que 0.",
+        "noItems": "Añade al menos un artículo.",
+        "success": "Devolución creada"
       },
       "receptionForm": {
         "carrierOther": "Nombre del transportista",
@@ -4380,6 +4538,27 @@
         "save": "Guardar cambios",
         "empty": "No hay artículos en esta solicitud.",
         "locked": "La solicitud ya no se puede editar."
+      },
+      "return": {
+        "button": "Devolución",
+        "title": "Solicitud de devolución",
+        "subtitle": "Selecciona los artículos y añade documentos si es necesario.",
+        "items": "Artículos a devolver",
+        "qtyHelper": "Indica una cantidad positiva para cada artículo.",
+        "empty": "Aún no has añadido artículos.",
+        "selectStock": "Selecciona un producto del stock.",
+        "qty": "Cant.",
+        "add": "Añadir",
+        "inventoryTitle": "Inventario",
+        "search": "Buscar",
+        "inventoryEmpty": "No se encontró stock.",
+        "insideDocs": "Documentos para poner dentro de la caja",
+        "linksHint": "Pega un enlace por línea. Puedes subir los archivos en otro lugar y pegar el enlace.",
+        "labelDocs": "Etiquetas de devolución",
+        "notes": "Notas para el equipo",
+        "submit": "Crear devolución",
+        "qtyError": "La cantidad para {asin} debe ser mayor que 0.",
+        "noItems": "Añade al menos un artículo."
       }
     },
     "ClientReceiving": {
