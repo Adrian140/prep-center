@@ -40,6 +40,18 @@ export default function ClientPrepShipments() {
   const [addingSel, setAddingSel] = useState('');
   const [addingQty, setAddingQty] = useState('');
   const amazonSnapshot = reqHeader?.amazon_snapshot || null;
+  // Return flow
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [returnItems, setReturnItems] = useState([]);
+  const [returnNotes, setReturnNotes] = useState('');
+  const [returnError, setReturnError] = useState('');
+  const [savingReturn, setSavingReturn] = useState(false);
+  const [returnSearch, setReturnSearch] = useState('');
+  const [returnInsideLinks, setReturnInsideLinks] = useState('');
+  const [returnLabelLinks, setReturnLabelLinks] = useState('');
+  const [returnSel, setReturnSel] = useState('');
+  const [returnQty, setReturnQty] = useState('');
+  const [returnDraftQty, setReturnDraftQty] = useState({});
 
   const formatDateParts = (value) => {
     if (!value) return { date: '—', time: '' };
@@ -90,12 +102,23 @@ export default function ClientPrepShipments() {
     });
   }, [stock, inventorySearch]);
 
+  const filteredReturnInventory = useMemo(() => {
+    const term = returnSearch.trim().toLowerCase();
+    if (!term) return stock;
+    return stock.filter((item) => {
+      const hay = `${item.name || ''} ${item.ean || ''} ${item.asin || ''} ${item.sku || ''}`.toLowerCase();
+      return hay.includes(term);
+    });
+  }, [stock, returnSearch]);
+
   const getStockMeta = (line) => {
     const st = line?.stock_item_id ? stock.find((r) => r.id === line.stock_item_id) : null;
     return {
       ean: (line?.ean || st?.ean || '') || '',
       name: st?.name || line?.product_name || '',
       image_url: st?.image_url || null,
+      asin: st?.asin || line?.asin || '',
+      sku: st?.sku || line?.sku || ''
     };
   };
 
@@ -182,6 +205,193 @@ export default function ClientPrepShipments() {
         return matches ? { ...line, ...patch } : line;
       })
     );
+  };
+
+  const addReturnItem = (stockItem, qty) => {
+    setReturnItems((prev) => [
+      ...prev,
+      {
+        id: createClientUid(),
+        stock_item_id: stockItem.id,
+        asin: stockItem.asin,
+        sku: stockItem.sku,
+        name: stockItem.name,
+        qty,
+        image_url: stockItem.image_url || null
+      }
+    ]);
+  };
+
+  const removeReturnItem = (id) => {
+    setReturnItems((prev) => prev.filter((it) => it.id !== id));
+  };
+
+  const handleAddReturn = () => {
+    const stockItem = stock.find((r) => String(r.id) === String(returnSel));
+    const qty = Number(returnQty);
+    if (!stockItem) {
+      setReturnError(t('ClientPrepShipments.return.selectStock') || 'Selectează un produs.');
+      return;
+    }
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setReturnError(
+        t('ClientPrepShipments.return.qtyError', { asin: stockItem.asin || stockItem.sku || '' }) ||
+          'Cantitatea nu poate fi 0.'
+      );
+      return;
+    }
+    addReturnItem(stockItem, qty);
+    setReturnSel('');
+    setReturnQty('');
+    setReturnError('');
+  };
+
+  const quickAddReturnFromInventory = (itemId) => {
+    const qty = Number(returnDraftQty[itemId] || 0);
+    const stockItem = stock.find((r) => r.id === itemId);
+    if (!stockItem || !Number.isFinite(qty) || qty <= 0) {
+      setReturnError(
+        t('ClientPrepShipments.return.qtyError', { asin: stockItem?.asin || stockItem?.sku || '' }) ||
+          'Cantitatea nu poate fi 0.'
+      );
+      return;
+    }
+    addReturnItem(stockItem, qty);
+    setReturnDraftQty((prev) => ({ ...prev, [itemId]: '' }));
+    setReturnError('');
+  };
+
+  const handleCreateReturn = async () => {
+    setReturnError('');
+    if (!profile?.company_id) {
+      setReturnError('Lipsește company_id.');
+      return;
+    }
+    if (!returnItems.length) {
+      setReturnError(t('ClientPrepShipments.return.noItems') || 'Adaugă cel puțin un produs.');
+      return;
+    }
+    const invalid = returnItems.find((it) => !Number.isFinite(Number(it.qty)) || Number(it.qty) <= 0);
+    if (invalid) {
+      setReturnError(
+        t('ClientPrepShipments.return.qtyError', { asin: invalid.asin || invalid.sku || '' }) ||
+          `Cantitatea la ${invalid.asin || invalid.sku || 'produs'} nu poate fi 0`
+      );
+      return;
+    }
+    setSavingReturn(true);
+    try {
+      const { data: retRow, error: retErr } = await supabase
+        .from('returns')
+        .insert({
+          company_id: profile.company_id,
+          user_id: profile.id,
+          marketplace: reqHeader?.destination_country || null,
+          notes: returnNotes || null
+        })
+        .select('id')
+        .single();
+      if (retErr) throw retErr;
+      const itemsPayload = returnItems.map((it) => ({
+        return_id: retRow.id,
+        stock_item_id: it.stock_item_id,
+        asin: it.asin || null,
+        sku: it.sku || null,
+        qty: Number(it.qty) || 0,
+        notes: null
+      }));
+      const { error: itemsErr } = await supabase.from('return_items').insert(itemsPayload);
+      if (itemsErr) throw itemsErr;
+      const filesPayload = [];
+      const insideLinks = (returnInsideLinks || '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
+      const labelLinks = (returnLabelLinks || '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
+      insideLinks.forEach((link) =>
+        filesPayload.push({
+          return_id: retRow.id,
+          file_type: 'inside',
+          url: link,
+          name: link,
+          mime_type: null
+        })
+      );
+      labelLinks.forEach((link) =>
+        filesPayload.push({
+          return_id: retRow.id,
+          file_type: 'label',
+          url: link,
+          name: link,
+          mime_type: null
+        })
+      );
+      if (filesPayload.length) {
+        const { error: filesErr } = await supabase.from('return_files').insert(filesPayload);
+        if (filesErr) throw filesErr;
+      }
+      setReturnOpen(false);
+      setReturnItems([]);
+      setReturnNotes('');
+      setReturnInsideLinks('');
+      setReturnLabelLinks('');
+    } catch (e) {
+      setReturnError(e?.message || 'Nu am putut salva returul.');
+    } finally {
+      setSavingReturn(false);
+    }
+  };
+
+  const normalizeCode = (value) => String(value || '').trim().toLowerCase();
+
+  const findStockMatch = (line) => {
+    const ean = normalizeCode(line.ean || line.ean_asin);
+    if (ean) {
+      const match = stock.find((item) => normalizeCode(item.ean) === ean);
+      if (match) return match;
+    }
+    const asin = normalizeCode(line.asin);
+    if (asin) {
+      const match = stock.find((item) => normalizeCode(item.asin) === asin);
+      if (match) return match;
+    }
+    const sku = normalizeCode(line.sku);
+    if (sku) {
+      const match = stock.find((item) => normalizeCode(item.sku) === sku);
+      if (match) return match;
+    }
+    const name = normalizeCode(line.product_name);
+    if (name) {
+      const match = stock.find((item) => normalizeCode(item.name) === name);
+      if (match) return match;
+    }
+    return null;
+  };
+
+  const ensureStockItemId = async (line) => {
+    if (line.stock_item_id) return line.stock_item_id;
+    const existing = findStockMatch(line);
+    if (existing) return existing.id;
+    if (!profile?.company_id) return null;
+
+    const payload = {
+      company_id: profile.company_id,
+      user_id: profile.id,
+      name: line.product_name || line.name || line.asin || line.ean || 'Prep product',
+      asin: line.asin || null,
+      sku: line.sku || null,
+      ean: line.ean || null,
+      qty: 0,
+      created_by: profile.id
+    };
+
+    const { data, error } = await supabase.from('stock_items').insert(payload).select().single();
+    if (error) throw error;
+    setStock((prev) => [data, ...prev]);
+    return data.id;
   };
 
   const removeReqLine = (key) => {
@@ -451,6 +661,30 @@ export default function ClientPrepShipments() {
             <p className="text-sm text-text-secondary">{t('ClientPrepShipments.desc')}</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setReturnOpen(true);
+              setReturnItems([]);
+              setReturnNotes('');
+              setReturnError('');
+              setReturnSel('');
+              setReturnQty('');
+              setReturnDraftQty({});
+              setReturnInsideLinks('');
+              setReturnLabelLinks('');
+            }}
+            className="text-sm px-3 py-2 border rounded-md text-slate-700 hover:bg-slate-100"
+          >
+            {t('ClientPrepShipments.return.button') || 'Return'}
+          </button>
+          <button
+            onClick={() => openReqEditor(null)}
+            className="text-sm px-3 py-2 border rounded-md text-slate-700 hover:bg-slate-100"
+          >
+            {t('ClientPrepShipments.newRequest') || 'New prep request'}
+          </button>
+        </div>
       </header>
 
       <div className="border rounded-xl bg-white overflow-hidden">
@@ -459,11 +693,11 @@ export default function ClientPrepShipments() {
             {t('ClientPrepShipments.table.title')}
           </h2>
           {loading && <span className="text-xs text-text-light">{t('common.loading')}</span>}
-        </div>
+      </div>
 
-        {error && (
-          <div className="p-4 text-sm text-red-600 bg-red-50 border-b border-red-100">{error}</div>
-        )}
+      {error && (
+        <div className="p-4 text-sm text-red-600 bg-red-50 border-b border-red-100">{error}</div>
+      )}
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1100px] text-sm">
@@ -610,15 +844,31 @@ export default function ClientPrepShipments() {
                         {getPrepStatusLabel(prepStatus)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 align-top text-right">
-                      <div className="inline-flex items-center gap-2">
+                   <td className="px-4 py-3 align-top text-right">
+                     <div className="inline-flex items-center gap-2">
+                       <button
+                         className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                         disabled={!row.id}
+                         onClick={() => row.id && openReqEditor(row.id)}
+                       >
+                         View request
+                         <ChevronDown className="w-4 h-4" />
+                       </button>
                         <button
-                          className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={!row.id}
-                          onClick={() => row.id && openReqEditor(row.id)}
+                          className="text-sm text-amber-700 hover:underline"
+                          onClick={() => {
+                            setReturnOpen(true);
+                            setReturnItems([]);
+                            setReturnNotes('');
+                            setReturnError('');
+                            setReturnSel('');
+                            setReturnQty('');
+                            setReturnDraftQty({});
+                            setReturnInsideLinks('');
+                            setReturnLabelLinks('');
+                          }}
                         >
-                          View request
-                          <ChevronDown className="w-4 h-4" />
+                          Return
                         </button>
                         {pending && (
                           <button
@@ -638,6 +888,216 @@ export default function ClientPrepShipments() {
           </table>
         </div>
       </div>
+
+      {returnOpen && (
+        <div className="fixed inset-0 bg-black/30 z-[120]" onClick={() => setReturnOpen(false)}>
+          <div
+            className="absolute inset-y-0 right-0 w-full max-w-3xl bg-white shadow-xl overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white/95 border-b px-6 py-3 flex items-center justify-between">
+              <div>
+                <div className="text-xs uppercase text-text-secondary">{t('ClientPrepShipments.return.title') || 'Return request'}</div>
+                <div className="text-lg font-semibold"> {t('ClientPrepShipments.return.subtitle') || 'Select items and provide docs if needed'} </div>
+              </div>
+              <button className="text-sm text-text-secondary" onClick={() => setReturnOpen(false)}>
+                {t('common.close')}
+              </button>
+            </div>
+
+            {returnError && (
+              <div className="mx-6 mt-4 mb-2 rounded-md border border-red-200 bg-red-50 text-red-700 p-3 text-sm">
+                {returnError}
+              </div>
+            )}
+
+            <div className="px-6 py-4 space-y-6">
+              <div className="border rounded-lg">
+                <div className="px-4 py-3 border-b flex items-center gap-3">
+                  <div className="font-semibold text-text-primary">
+                    {t('ClientPrepShipments.return.items') || 'Items to return'}
+                  </div>
+                  <div className="text-xs text-text-secondary">{t('ClientPrepShipments.return.qtyHelper') || 'Set a positive quantity for each item.'}</div>
+                </div>
+                <div className="p-4 space-y-4">
+                  {returnItems.length === 0 && (
+                    <div className="text-sm text-text-secondary">
+                      {t('ClientPrepShipments.return.empty') || 'No items added yet.'}
+                    </div>
+                  )}
+                  {returnItems.map((item) => (
+                    <div key={item.id} className="flex items-center gap-3 border rounded-md px-3 py-2">
+                      {item.image_url ? (
+                        <img src={item.image_url} alt={item.name || ''} className="w-10 h-10 rounded object-cover border" />
+                      ) : (
+                        <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">N/A</div>
+                      )}
+                      <div className="flex-1">
+                        <div className="font-semibold text-text-primary">{item.name || '—'}</div>
+                        <div className="text-xs text-text-secondary font-mono">
+                          {item.asin || '—'} {item.sku ? ` · ${item.sku}` : ''}
+                        </div>
+                      </div>
+                      <input
+                        type="number"
+                        min={1}
+                        className="w-24 border rounded px-2 py-1 text-right"
+                        value={item.qty}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setReturnItems((prev) =>
+                            prev.map((it) => (it.id === item.id ? { ...it, qty: val } : it))
+                          );
+                        }}
+                      />
+                      <button className="text-xs text-red-600 hover:underline" onClick={() => removeReturnItem(item.id)}>
+                        {t('common.remove')}
+                      </button>
+                    </div>
+                  ))}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                    <div>
+                      <label className="text-xs text-text-secondary">{t('ClientPrepShipments.return.selectStock') || 'Stock product'}</label>
+                      <select
+                        className="border rounded px-2 py-2 w-full text-sm"
+                        value={returnSel}
+                        onChange={(e) => setReturnSel(e.target.value)}
+                      >
+                        <option value="">—</option>
+                        {stock.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name || '—'} ({item.asin || item.sku || '—'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-text-secondary">{t('ClientPrepShipments.return.qty') || 'Qty'}</label>
+                      <input
+                        type="number"
+                        min={1}
+                        className="border rounded px-2 py-2 w-full text-sm text-right"
+                        value={returnQty}
+                        onChange={(e) => setReturnQty(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button className="bg-primary text-white rounded px-3 py-2 text-sm" onClick={handleAddReturn}>
+                        {t('ClientPrepShipments.return.add') || 'Add'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="border rounded-lg p-3 bg-gray-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm font-semibold">{t('ClientPrepShipments.return.inventoryTitle') || 'Inventory'}</div>
+                      <input
+                        type="text"
+                        className="border rounded px-2 py-1 text-sm"
+                        placeholder={t('ClientPrepShipments.return.search') || 'Search'}
+                        value={returnSearch}
+                        onChange={(e) => setReturnSearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="max-h-56 overflow-y-auto divide-y">
+                      {filteredReturnInventory.map((item) => (
+                        <div key={item.id} className="py-2 flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-3">
+                            {item.image_url ? (
+                              <img src={item.image_url} alt={item.name || ''} className="w-10 h-10 rounded object-cover border" />
+                            ) : (
+                              <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">N/A</div>
+                            )}
+                            <div>
+                              <div className="font-semibold text-text-primary">{item.name || '—'}</div>
+                              <div className="text-xs text-text-secondary font-mono">
+                                {item.asin || '—'} {item.sku ? ` · ${item.sku}` : ''}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min={1}
+                              placeholder="Qty"
+                              className="border rounded px-2 py-1 w-20 text-right"
+                              value={returnDraftQty[item.id] || ''}
+                              onChange={(e) => setReturnDraftQty((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                            />
+                            <button
+                              className="px-2 py-1 bg-primary text-white rounded text-xs"
+                              onClick={() => quickAddReturnFromInventory(item.id)}
+                            >
+                              {t('ClientPrepShipments.return.add')}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {filteredReturnInventory.length === 0 && (
+                        <div className="py-4 text-center text-text-secondary text-sm">
+                          {t('ClientPrepShipments.return.inventoryEmpty') || 'No stock found.'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border rounded-lg p-4">
+                  <div className="text-sm font-semibold mb-1">
+                    {t('ClientPrepShipments.return.insideDocs') || 'Files to put inside the box'}
+                  </div>
+                  <div className="text-xs text-text-secondary mb-2">
+                    {t('ClientPrepShipments.return.linksHint') || 'Paste one link per line. You can upload files elsewhere and paste the link.'}
+                  </div>
+                  <textarea
+                    className="w-full border rounded px-2 py-2 text-sm min-h-[90px]"
+                    value={returnInsideLinks}
+                    onChange={(e) => setReturnInsideLinks(e.target.value)}
+                  />
+                </div>
+                <div className="border rounded-lg p-4">
+                  <div className="text-sm font-semibold mb-1">
+                    {t('ClientPrepShipments.return.labelDocs') || 'Return labels'}
+                  </div>
+                  <div className="text-xs text-text-secondary mb-2">
+                    {t('ClientPrepShipments.return.linksHint') || 'Paste one link per line. You can upload files elsewhere and paste the link.'}
+                  </div>
+                  <textarea
+                    className="w-full border rounded px-2 py-2 text-sm min-h-[90px]"
+                    value={returnLabelLinks}
+                    onChange={(e) => setReturnLabelLinks(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-4">
+                <div className="text-sm font-semibold mb-2">
+                  {t('ClientPrepShipments.return.notes') || 'Notes for the team'}
+                </div>
+                <textarea
+                  className="w-full border rounded px-3 py-2 text-sm min-h-[80px]"
+                  value={returnNotes}
+                  onChange={(e) => setReturnNotes(e.target.value)}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pb-6">
+                <button className="border rounded px-4 py-2" onClick={() => setReturnOpen(false)}>
+                  {t('common.cancel')}
+                </button>
+                <button
+                  className="bg-primary text-white rounded px-4 py-2 disabled:opacity-60"
+                  disabled={savingReturn}
+                  onClick={handleCreateReturn}
+                >
+                  {savingReturn ? t('common.saving') || 'Saving...' : t('ClientPrepShipments.return.submit') || 'Create return'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {reqOpen && (
         <div className="fixed inset-0 bg-black/30 z-[110]" onClick={() => setReqOpen(false)}>
@@ -1003,60 +1463,3 @@ export default function ClientPrepShipments() {
     </div>
   );
 }
-  const normalizeCode = (value) => String(value || '').trim().toLowerCase();
-
-  const findStockMatch = (line) => {
-    const ean = normalizeCode(line.ean || line.ean_asin);
-    if (ean) {
-      const match = stock.find((item) => normalizeCode(item.ean) === ean);
-      if (match) return match;
-    }
-    const asin = normalizeCode(line.asin);
-    if (asin) {
-      const match = stock.find((item) => normalizeCode(item.asin) === asin);
-      if (match) return match;
-    }
-    const sku = normalizeCode(line.sku);
-    if (sku) {
-      const match = stock.find((item) => normalizeCode(item.sku) === sku);
-      if (match) return match;
-    }
-    const name = normalizeCode(line.product_name);
-    if (name) {
-      const match = stock.find((item) => normalizeCode(item.name) === name);
-      if (match) return match;
-    }
-    return null;
-  };
-
-  const ensureStockItemId = async (line) => {
-    if (line.stock_item_id) return line.stock_item_id;
-    const existing = findStockMatch(line);
-    if (existing) return existing.id;
-    if (!profile?.company_id) return null;
-
-    const payload = {
-      company_id: profile.company_id,
-      user_id: profile.id,
-      name:
-        line.product_name ||
-        line.name ||
-        line.asin ||
-        line.ean ||
-        'Prep product',
-      asin: line.asin || null,
-      sku: line.sku || null,
-      ean: line.ean || null,
-      qty: 0,
-      created_by: profile.id
-    };
-
-    const { data, error } = await supabase
-      .from('stock_items')
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-    setStock((prev) => [data, ...prev]);
-    return data.id;
-  };
