@@ -1407,6 +1407,10 @@ useEffect(() => {
     setReturnError('');
   };
 
+  const isUuid = (value) =>
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
   const uploadReturnFiles = async (type, fileList) => {
     if (!fileList || fileList.length === 0) return;
     if (!profile?.company_id) {
@@ -1479,7 +1483,7 @@ useEffect(() => {
       if (retErr) throw retErr;
       const itemsPayload = itemsList.map((it) => ({
         return_id: retRow.id,
-        stock_item_id: it.id,
+        stock_item_id: isUuid(it.id) ? it.id : null,
         asin: it.asin || null,
         sku: it.sku || null,
         qty: Number(it.qty) || 0,
