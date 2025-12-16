@@ -29,6 +29,11 @@ const ClientStockSelectionBar = ({
   deleteInProgress
 }) => {
   if (!selectedIds?.size) return null;
+  const rawReturnLabel = t('ClientStock.cta.return');
+  const returnLabel =
+    rawReturnLabel && !String(rawReturnLabel).includes('ClientStock.cta.return')
+      ? rawReturnLabel
+      : 'Return items';
 
   const showReceptionFields = submitType === 'reception';
   const showCarrierOther = receptionForm.carrier === 'OTHER';
@@ -71,15 +76,15 @@ const ClientStockSelectionBar = ({
     <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 shadow-md border border-gray-200 rounded-[36px] px-6 py-2 flex flex-col gap-2 items-center backdrop-blur-md bg-white/80 w-full max-w-[640px] sm:px-8">
       <div className="flex flex-col sm:flex-row items-center gap-2 w-full justify-between">
         <select
-          value={submitType}
-          onChange={(e) => setSubmitType(e.target.value)}
-          className="border rounded-md px-3 py-1.5 text-sm min-w-[220px] text-center"
-        >
-          <option value="prep">{t('ClientStock.cta.sendToPrep')}</option>
-          <option value="reception">{t('ClientStock.cta.announceReception')}</option>
-          <option value="return">{t('ClientStock.cta.return') || 'Return items'}</option>
-          <option value="delete">{t('ClientStock.cta.deleteListing')}</option>
-        </select>
+        value={submitType}
+        onChange={(e) => setSubmitType(e.target.value)}
+        className="border rounded-md px-3 py-1.5 text-sm min-w-[220px] text-center"
+      >
+        <option value="prep">{t('ClientStock.cta.sendToPrep')}</option>
+        <option value="reception">{t('ClientStock.cta.announceReception')}</option>
+          <option value="return">{returnLabel}</option>
+        <option value="delete">{t('ClientStock.cta.deleteListing')}</option>
+      </select>
         {showReceptionFields && renderDestinationSelector()}
         {showDestinationNearPrep && !showReceptionFields && renderDestinationSelector()}
       </div>
@@ -278,7 +283,7 @@ const ClientStockSelectionBar = ({
               : submitType === 'reception'
               ? t('ClientStock.cta.announceReception')
               : submitType === 'return'
-              ? t('ClientStock.cta.return') || 'Return items'
+              ? returnLabel
               : t('ClientStock.cta.deleteListing')}
           </button>
           {showDestinationNearPrep && renderDestinationSelector('w-full sm:w-[190px] sm:min-w-[170px]')}
