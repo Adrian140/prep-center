@@ -13,6 +13,7 @@ import { supabase } from '@/config/supabase';
 import AdminBoxes from './AdminBoxes';
 import AdminPricing from './AdminPricing';
 import AdminShippingRates from './AdminShippingRates';
+import AdminReturns from './AdminReturns';
 import { getTabId } from '@/utils/tabIdentity';
 import { tabSessionStorage } from '@/utils/tabStorage';
 
@@ -74,7 +75,7 @@ const [activeTab, setActiveTab] = useState(() => {
     saved = null;
   }
   const validTabs = [
-    'analytics', 'profiles', 'receiving', 'prep-requests',
+    'analytics', 'profiles', 'receiving', 'prep-requests', 'returns',
     'pricing', 'boxes', 'reviews', 'user-guide', 'settings'
   ];
   if (initialTab && validTabs.includes(initialTab)) return initialTab;
@@ -158,6 +159,7 @@ useEffect(() => {
     { id: 'profiles', label: t('sidebar.profiles'), icon: Users },
     { id: 'receiving', label: t('sidebar.receiving'), icon: Truck },
     { id: 'prep-requests', label: t('sidebar.prepRequests'), icon: PackageCheck },
+    { id: 'returns', label: 'Returns', icon: Package },
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
     { id: 'boxes', label: 'Boxes', icon: Boxes },
     { id: 'reviews', label: t('sidebar.reviews'), icon: Star },
@@ -1290,6 +1292,7 @@ const renderTabContent = () => {
       : <AdminProfiles onSelect={handleSelectProfile} />;
     case 'receiving': return <AdminReceiving />;
     case 'prep-requests': return <AdminPrepRequests />;
+    case 'returns': return <AdminReturns />;
     case 'services': return renderServicesTab();
     case 'pricing': return renderPricingTab();
     case 'boxes': return <AdminBoxes />;

@@ -1,286 +1,211 @@
-import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Trash2, Edit3, Save, X, Eye } from 'lucide-react';
-import { supabase } from '../../config/supabase';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowDownRight, ArrowUpRight, RefreshCcw, Trash2, Upload } from 'lucide-react';
 import Section from '../common/Section';
-import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { supabase } from '../../config/supabase';
 
-const pick = (obj, keys) => Object.fromEntries(keys.map(k => [k, obj[k]]));
+const statusOptions = ['pending', 'processing', 'done', 'cancelled'];
 
-const defaultFormState = () => ({
-  return_date: '',
-  asin: '',
-  qty: '',
-  return_type: '',
-  status: 'Sigilat',
-  status_note: '',
-  obs_admin: '',
-});
+export default function AdminReturns() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [filter, setFilter] = useState('pending');
 
-export default function AdminReturns({ rows = [], reload, companyId, profile }) {
-  const [edit, setEdit] = useState(null);
-  const formStorageKey = companyId
-    ? `admin-returns-form-${companyId}`
-    : `admin-returns-form-${profile?.id || 'default'}`;
-  const defaultForm = useMemo(() => defaultFormState(), [companyId, profile?.id]);
-  const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
-
-  const markClientObsSeen = async (id) => {
-    const { error } = await supabase.from('returns').update({ obs_client_seen: true }).eq('id', id);
-    if (error) alert(error.message); else reload?.();
+  const load = async () => {
+    setLoading(true);
+    setError('');
+    const { data, error: err } = await supabase
+      .from('returns')
+      .select(`
+        id,
+        company_id,
+        user_id,
+        marketplace,
+        status,
+        notes,
+        created_at,
+        updated_at,
+        return_items (id, asin, sku, qty, notes),
+        return_files (id, file_type, url, name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (err) setError(err.message);
+    setRows(Array.isArray(data) ? data : []);
+    setLoading(false);
   };
 
-  const confirmAndDelete = async (id) => {
-    if (!window.confirm('Sigur vrei să ștergi această linie?')) return;
-    const { error } = await supabase.from('returns').delete().eq('id', id);
-    if (error) alert(error.message); else reload?.();
+  useEffect(() => {
+    load();
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!filter) return rows;
+    return rows.filter((r) => r.status === filter);
+  }, [rows, filter]);
+
+  const updateStatus = async (id, status) => {
+    const { error: err } = await supabase.from('returns').update({ status }).eq('id', id);
+    if (err) {
+      alert(err.message);
+      return;
+    }
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
   };
 
-  const handleAdd = async () => {
-    if (!companyId) return;
-    const payload = {
-      company_id: companyId,
-      return_date: form.return_date,
-      asin: form.asin,
-      qty: Number(form.qty || 0),
-      return_type: form.return_type || null,
-      status: form.status || null,
-      status_note: form.status === 'Other' ? (form.status_note || null) : null,
-      obs_admin: form.obs_admin || null,
-      created_by: profile.id,
-    };
-    const { error } = await supabase.from('returns').insert(payload);
-    if (error) return alert(error.message);
-    setForm(() => defaultFormState());
-    reload?.();
-  };
-
-  const saveEdit = async () => {
-    if (!edit) return;
-    const payload = pick(edit, ['return_date','asin','qty','return_type','status','status_note','obs_admin']);
-    if (payload.status !== 'Other') payload.status_note = null;
-    if (payload.qty != null) payload.qty = Number(payload.qty);
-    const { error } = await supabase.from('returns').update(payload).eq('id', edit.id);
-    if (error) return alert(error.message);
-    setEdit(null); reload?.();
+  const handleDelete = async (id) => {
+    if (!window.confirm('Ștergi acest retur?')) return;
+    const { error: err } = await supabase.from('returns').delete().eq('id', id);
+    if (err) return alert(err.message);
+    setRows((prev) => prev.filter((r) => r.id !== id));
   };
 
   return (
     <Section
       title="Retururi"
       right={
-        <div className="flex items-center space-x-2">
-          <input type="date" className="border rounded px-2 py-1"
-            value={form.return_date}
-            onChange={(e) => setForm((s) => ({ ...s, return_date: e.target.value }))} />
-          <input placeholder="ASIN" className="border rounded px-2 py-1 w-40"
-            value={form.asin}
-            onChange={(e) => setForm((s) => ({ ...s, asin: e.target.value }))} />
-          <input placeholder="Cantitate" className="border rounded px-2 py-1 w-28"
-            value={form.qty}
-            onChange={(e) => setForm((s) => ({ ...s, qty: e.target.value }))} />
-          <input placeholder="Tip retur" className="border rounded px-2 py-1 w-40"
-            value={form.return_type}
-            onChange={(e) => setForm((s) => ({ ...s, return_type: e.target.value }))} />
+        <div className="flex items-center gap-2">
           <select
-            className="border rounded px-2 py-1 w-36"
-            value={form.status}
-            onChange={(e) => setForm((s) => ({ ...s, status: e.target.value }))}
+            className="border rounded px-2 py-1 text-sm"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
           >
-            <option>Sigilat</option>
-            <option>Desigilat</option>
-            <option>Distrus</option>
-            <option>Other</option>
+            <option value="">Toate</option>
+            {statusOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
           </select>
-          {form.status === 'Other' && (
-            <input
-              placeholder="Motiv (Other)"
-              className="border rounded px-2 py-1 w-56"
-              value={form.status_note}
-              onChange={(e) => setForm((s) => ({ ...s, status_note: e.target.value }))}
-            />
-          )}
-          <input placeholder="Obs admin" className="border rounded px-2 py-1 w-56"
-            value={form.obs_admin}
-            onChange={(e) => setForm((s) => ({ ...s, obs_admin: e.target.value }))} />
-          <button onClick={handleAdd} className="bg-primary text-white px-3 py-1 rounded">
-            Adaugă
+          <button
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border rounded"
+            onClick={load}
+            disabled={loading}
+          >
+            <RefreshCcw className="w-4 h-4" /> Reîmprospătează
           </button>
         </div>
       }
     >
-     <div className="relative mt-4 overflow-x-auto">
-  {/* lățime minimă ca să avem scrollbar când e nevoie */}
-  <table className="min-w-[1200px] w-full text-sm table-auto border-collapse">
-    <thead className="bg-gray-50 text-text-secondary">
-      <tr>
-        <th className="px-4 py-3 text-left whitespace-nowrap w-[160px]">Data</th>
-        <th className="px-4 py-3 text-left whitespace-nowrap w-[210px]">ASIN</th>
-        <th className="px-4 py-3 text-right whitespace-nowrap w-[100px]">Cant.</th>
-        <th className="px-4 py-3 text-left whitespace-nowrap w-[220px]">Tip retur</th>
-        <th className="px-4 py-3 text-left whitespace-nowrap w-[220px]">Status</th>
-        <th className="px-4 py-3 text-left whitespace-nowrap w-[280px]">Obs admin</th>
-        {/* sticky pe dreapta ca să vezi mereu butoanele */}
-        <th className="px-4 py-3 text-right whitespace-nowrap sticky right-0 bg-gray-50 z-10 w-[160px]">
-          Acțiuni
-        </th>
-      </tr>
-    </thead>
-
-    <tbody>
-      {(!rows || rows.length === 0) ? (
-        <tr className="border-t">
-          <td colSpan={7} className="px-4 py-6 text-center text-gray-400">Niciun retur încă.</td>
-        </tr>
-      ) : (
-        rows.map((r) => {
-          const editing = edit?.id === r.id;
-          return (
-            <tr key={r.id} className="border-t align-top">
-              {/* date */}
-              <td className="px-4 py-3 whitespace-nowrap">
-                {editing ? (
-                  <input
-                    type="date"
-                    className="border rounded px-2 py-1 w-[160px]"
-                    value={edit.return_date || ''}
-                    onChange={(e) => setEdit(s => ({ ...s, return_date: e.target.value }))}
-                  />
-                ) : (r.return_date || '—')}
-              </td>
-
-              {/* ASIN */}
-              <td className="px-4 py-3">
-                {editing ? (
-                  <input
-                    className="border rounded px-2 py-1 w-[210px]"
-                    value={edit.asin || ''}
-                    onChange={(e) => setEdit(s => ({ ...s, asin: e.target.value }))}
-                  />
-                ) : (r.asin || '—')}
-              </td>
-
-              {/* qty */}
-              <td className="px-4 py-3 text-right whitespace-nowrap">
-                {editing ? (
-                  <input
-                    className="border rounded px-2 py-1 w-[100px] text-right"
-                    value={edit.qty ?? ''}
-                    onChange={(e) => setEdit(s => ({ ...s, qty: e.target.value }))}
-                  />
-                ) : r.qty}
-              </td>
-
-              {/* return_type */}
-              <td className="px-4 py-3">
-                {editing ? (
-                  <input
-                    className="border rounded px-2 py-1 w-[220px]"
-                    value={edit.return_type ?? ''}
-                    onChange={(e) => setEdit(s => ({ ...s, return_type: e.target.value }))}
-                  />
-                ) : (r.return_type || '—')}
-              </td>
-
-              {/* status + status_note */}
-              <td className="px-4 py-3">
-                {editing ? (
-                  <div className="flex items-center gap-2">
-                    <select
-                      className="border rounded px-2 py-1 w-[140px]"
-                      value={edit.status ?? 'Sigilat'}
-                      onChange={(e) => setEdit(s => ({ ...s, status: e.target.value }))}
-                    >
-                      <option>Sigilat</option>
-                      <option>Desigilat</option>
-                      <option>Distrus</option>
-                      <option>Other</option>
-                    </select>
-                    {edit.status === 'Other' && (
-                      <input
-                        className="border rounded px-2 py-1 w-[220px]"
-                        placeholder="Motiv (Other)"
-                        value={edit.status_note ?? ''}
-                        onChange={(e) => setEdit(s => ({ ...s, status_note: e.target.value }))}
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    {r.status || '—'}
-                    {r.status === 'Other' && r.status_note ? (
-                      <span className="text-text-secondary"> · {r.status_note}</span>
-                    ) : null}
-                  </>
-                )}
-              </td>
-
-              {/* obs_admin */}
-              <td className="px-4 py-3">
-                {editing ? (
-                  <input
-                    className="border rounded px-2 py-1 w-[280px]"
-                    value={edit.obs_admin ?? ''}
-                    onChange={(e) => setEdit(s => ({ ...s, obs_admin: e.target.value }))}
-                  />
-                ) : (r.obs_admin || '—')}
-              </td>
-
-              {/* Actions – sticky right */}
-              <td className="px-4 py-3 text-right sticky right-0 bg-white z-10">
-                {editing ? (
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={saveEdit}
-                      className="inline-flex items-center px-2 py-1 rounded bg-green-600 text-white"
-                      title="Salvează"
-                    >
-                      <Save className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setEdit(null)}
-                      className="inline-flex items-center px-2 py-1 rounded bg-gray-500 text-white"
-                      title="Renunță"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex justify-end gap-2">
-                    {!!r.obs_client && !r.obs_client_seen && (
-                      <button
-                        onClick={() => markClientObsSeen(r.id)}
-                        className="inline-flex items-center px-2 py-1 rounded border"
-                        title="Marchează observația client ca văzută"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setEdit({ ...r })}
-                      className="inline-flex items-center px-2 py-1 rounded border"
-                      title="Editează"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => confirmAndDelete(r.id)}
-                      className="inline-flex items-center px-2 py-1 rounded bg-red-600 text-white"
-                      title="Șterge"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </td>
+      {error && <div className="mb-3 text-sm text-red-600">{error}</div>}
+      <div className="overflow-x-auto">
+        <table className="min-w-[1100px] w-full text-sm border-collapse">
+          <thead className="bg-gray-50 text-text-secondary">
+            <tr>
+              <th className="px-3 py-2 text-left">ID</th>
+              <th className="px-3 py-2 text-left">Company</th>
+              <th className="px-3 py-2 text-left">Marketplace</th>
+              <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-left">Notes</th>
+              <th className="px-3 py-2 text-left">Items</th>
+              <th className="px-3 py-2 text-left">Files</th>
+              <th className="px-3 py-2 text-left">Created</th>
+              <th className="px-3 py-2 text-right">Actions</th>
             </tr>
-          );
-        })
-      )}
-    </tbody>
-  </table>
-</div>
-
-
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={9} className="px-3 py-6 text-center text-text-secondary">
+                  Niciun retur.
+                </td>
+              </tr>
+            )}
+            {filtered.map((r) => (
+              <tr key={r.id} className="border-t align-top">
+                <td className="px-3 py-2 font-mono text-xs">{r.id}</td>
+                <td className="px-3 py-2">
+                  <div className="text-xs text-text-secondary">Company</div>
+                  <div className="font-semibold text-text-primary break-all">{r.company_id || '—'}</div>
+                  <div className="text-xs text-text-secondary break-all">User: {r.user_id || '—'}</div>
+                </td>
+                <td className="px-3 py-2 uppercase">{r.marketplace || '—'}</td>
+                <td className="px-3 py-2">
+                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-100 text-xs font-semibold">
+                    {r.status}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {statusOptions.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => updateStatus(r.id, s)}
+                        className={`text-[11px] px-2 py-1 rounded border ${
+                          r.status === s ? 'bg-primary text-white border-primary' : 'border-gray-200'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-sm whitespace-pre-wrap max-w-[240px]">
+                  {r.notes || '—'}
+                </td>
+                <td className="px-3 py-2">
+                  <div className="text-xs text-text-secondary mb-1">
+                    {Array.isArray(r.return_items) ? r.return_items.length : 0} linii
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    {Array.isArray(r.return_items) &&
+                      r.return_items.map((it) => (
+                        <div key={it.id} className="border rounded px-2 py-1">
+                          <div className="font-semibold break-all">{it.asin || it.sku || '—'}</div>
+                          <div className="text-text-secondary">Qty: {it.qty}</div>
+                          {it.notes && <div className="text-text-secondary">Notes: {it.notes}</div>}
+                        </div>
+                      ))}
+                  </div>
+                </td>
+                <td className="px-3 py-2">
+                  <div className="space-y-1 text-xs">
+                    {Array.isArray(r.return_files) && r.return_files.length === 0 && (
+                      <div className="text-text-secondary">—</div>
+                    )}
+                    {Array.isArray(r.return_files) &&
+                      r.return_files.map((f) => (
+                        <a
+                          key={f.id}
+                          href={f.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-primary underline break-all"
+                        >
+                          <Upload className="w-3 h-3" />
+                          {f.file_type}: {f.name || f.url}
+                        </a>
+                      ))}
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-xs text-text-secondary">
+                  {new Date(r.created_at).toLocaleString()}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <div className="inline-flex items-center gap-2">
+                    <button
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs border rounded"
+                      onClick={() => updateStatus(r.id, 'processing')}
+                    >
+                      <ArrowUpRight className="w-4 h-4" /> Proc.
+                    </button>
+                    <button
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs border rounded"
+                      onClick={() => updateStatus(r.id, 'done')}
+                    >
+                      <ArrowDownRight className="w-4 h-4" /> Done
+                    </button>
+                    <button
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-red-200 text-red-700 rounded hover:bg-red-50"
+                      onClick={() => handleDelete(r.id)}
+                    >
+                      <Trash2 className="w-4 h-4" /> Șterge
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Section>
   );
 }
