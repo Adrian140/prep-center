@@ -2256,10 +2256,7 @@ const saveReqChanges = async () => {
             </h2>
           </div>
 
-          <p
-            className="text-sm text-text-secondary"
-            dangerouslySetInnerHTML={{ __html: t('ClientStock.desc') }}
-          />
+          <p className="text-sm text-text-secondary">{t('ClientStock.desc')}</p>
         </div>
 
         <div className="flex flex-col gap-1 items-stretch sm:items-end text-left sm:text-right">
