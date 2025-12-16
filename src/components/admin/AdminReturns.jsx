@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, RefreshCcw, Trash2, Upload } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, RefreshCcw, Trash2, Upload, CheckCircle2 } from 'lucide-react';
 import Section from '../common/Section';
 import { supabase } from '../../config/supabase';
 
@@ -26,7 +26,8 @@ export default function AdminReturns() {
         created_at,
         updated_at,
         return_items (id, asin, sku, qty, notes),
-        return_files (id, file_type, url, name)
+        return_files (id, file_type, url, name),
+        profile:profiles (id, first_name, last_name, company_name, store_name, email)
       `)
       .order('created_at', { ascending: false })
       .limit(200);
@@ -88,123 +89,120 @@ export default function AdminReturns() {
       }
     >
       {error && <div className="mb-3 text-sm text-red-600">{error}</div>}
-      <div className="overflow-x-auto">
-        <table className="min-w-[1100px] w-full text-sm border-collapse">
-          <thead className="bg-gray-50 text-text-secondary">
-            <tr>
-              <th className="px-3 py-2 text-left">ID</th>
-              <th className="px-3 py-2 text-left">Company</th>
-              <th className="px-3 py-2 text-left">Marketplace</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-left">Notes</th>
-              <th className="px-3 py-2 text-left">Items</th>
-              <th className="px-3 py-2 text-left">Files</th>
-              <th className="px-3 py-2 text-left">Created</th>
-              <th className="px-3 py-2 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={9} className="px-3 py-6 text-center text-text-secondary">
-                  Niciun retur.
-                </td>
-              </tr>
-            )}
-            {filtered.map((r) => (
-              <tr key={r.id} className="border-t align-top">
-                <td className="px-3 py-2 font-mono text-xs">{r.id}</td>
-                <td className="px-3 py-2">
-                  <div className="text-xs text-text-secondary">Company</div>
-                  <div className="font-semibold text-text-primary break-all">{r.company_id || '—'}</div>
-                  <div className="text-xs text-text-secondary break-all">User: {r.user_id || '—'}</div>
-                </td>
-                <td className="px-3 py-2 uppercase">{r.marketplace || '—'}</td>
-                <td className="px-3 py-2">
-                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-100 text-xs font-semibold">
-                    {r.status}
+      <div className="flex flex-col gap-3">
+        {filtered.length === 0 && (
+          <div className="px-3 py-6 text-center text-text-secondary bg-white border rounded-lg">Niciun retur.</div>
+        )}
+        {filtered.map((r) => {
+          const items = Array.isArray(r.return_items) ? r.return_items : [];
+          const files = Array.isArray(r.return_files) ? r.return_files : [];
+          const profile = r.profile || {};
+          const companyLabel =
+            profile.company_name ||
+            profile.store_name ||
+            r.company_id ||
+            '—';
+          const userLabel = profile.email || profile.id || r.user_id || '—';
+          return (
+            <div key={r.id} className="border rounded-lg bg-white shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="text-xs text-text-secondary">ID</div>
+                  <div className="font-mono text-sm">{r.id}</div>
+                  <div className="h-4 w-px bg-gray-200" />
+                  <div>
+                    <div className="text-xs text-text-secondary">Company / Store</div>
+                    <div className="font-semibold text-text-primary">{companyLabel}</div>
+                    <div className="text-xs text-text-secondary">User: {userLabel}</div>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-1">
+                  <div className="h-4 w-px bg-gray-200" />
+                  <div>
+                    <div className="text-xs text-text-secondary">Marketplace</div>
+                    <div className="font-semibold uppercase">{r.marketplace || '—'}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={r.status}
+                    onChange={(e) => updateStatus(r.id, e.target.value)}
+                    className="border rounded px-2 py-1 text-sm"
+                  >
                     {statusOptions.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => updateStatus(r.id, s)}
-                        className={`text-[11px] px-2 py-1 rounded border ${
-                          r.status === s ? 'bg-primary text-white border-primary' : 'border-gray-200'
-                        }`}
-                      >
+                      <option key={s} value={s}>
                         {s}
-                      </button>
+                      </option>
                     ))}
+                  </select>
+                  <div className="flex items-center gap-1 text-xs text-text-secondary">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    {new Date(r.created_at).toLocaleString()}
                   </div>
-                </td>
-                <td className="px-3 py-2 text-sm whitespace-pre-wrap max-w-[240px]">
-                  {r.notes || '—'}
-                </td>
-                <td className="px-3 py-2">
-                  <div className="text-xs text-text-secondary mb-1">
-                    {Array.isArray(r.return_items) ? r.return_items.length : 0} linii
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 py-3">
+                <div className="space-y-2">
+                  <div className="text-xs uppercase text-text-secondary">Items ({items.length})</div>
+                  {items.length === 0 && <div className="text-text-secondary text-sm">—</div>}
+                  {items.map((it) => (
+                    <div key={it.id} className="border rounded px-3 py-2 text-sm bg-slate-50">
+                      <div className="font-semibold break-all">{it.asin || it.sku || '—'}</div>
+                      <div className="text-text-secondary text-xs">Qty: {it.qty}</div>
+                      {it.notes && <div className="text-text-secondary text-xs">Notes: {it.notes}</div>}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-xs uppercase text-text-secondary">Files ({files.length})</div>
+                  {files.length === 0 && <div className="text-text-secondary text-sm">—</div>}
+                  {files.map((f) => (
+                    <a
+                      key={f.id}
+                      href={f.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 text-primary text-sm underline break-all"
+                    >
+                      <Upload className="w-3 h-3" />
+                      <span className="font-semibold uppercase text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">
+                        {f.file_type}
+                      </span>
+                      <span>{f.name || f.url}</span>
+                    </a>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-xs uppercase text-text-secondary">Notes</div>
+                  <div className="text-sm text-text-primary whitespace-pre-wrap min-h-[40px] border rounded px-3 py-2 bg-slate-50">
+                    {r.notes || '—'}
                   </div>
-                  <div className="space-y-1 text-xs">
-                    {Array.isArray(r.return_items) &&
-                      r.return_items.map((it) => (
-                        <div key={it.id} className="border rounded px-2 py-1">
-                          <div className="font-semibold break-all">{it.asin || it.sku || '—'}</div>
-                          <div className="text-text-secondary">Qty: {it.qty}</div>
-                          {it.notes && <div className="text-text-secondary">Notes: {it.notes}</div>}
-                        </div>
-                      ))}
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="space-y-1 text-xs">
-                    {Array.isArray(r.return_files) && r.return_files.length === 0 && (
-                      <div className="text-text-secondary">—</div>
-                    )}
-                    {Array.isArray(r.return_files) &&
-                      r.return_files.map((f) => (
-                        <a
-                          key={f.id}
-                          href={f.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-primary underline break-all"
-                        >
-                          <Upload className="w-3 h-3" />
-                          {f.file_type}: {f.name || f.url}
-                        </a>
-                      ))}
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-xs text-text-secondary">
-                  {new Date(r.created_at).toLocaleString()}
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <div className="inline-flex items-center gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button
-                      className="inline-flex items-center gap-1 px-2 py-1 text-xs border rounded"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded"
                       onClick={() => updateStatus(r.id, 'processing')}
                     >
                       <ArrowUpRight className="w-4 h-4" /> Proc.
                     </button>
                     <button
-                      className="inline-flex items-center gap-1 px-2 py-1 text-xs border rounded"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded"
                       onClick={() => updateStatus(r.id, 'done')}
                     >
                       <ArrowDownRight className="w-4 h-4" /> Done
                     </button>
                     <button
-                      className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-red-200 text-red-700 rounded hover:bg-red-50"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-red-200 text-red-700 rounded hover:bg-red-50"
                       onClick={() => handleDelete(r.id)}
                     >
                       <Trash2 className="w-4 h-4" /> Șterge
                     </button>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </Section>
   );
