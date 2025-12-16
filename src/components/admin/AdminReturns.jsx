@@ -41,23 +41,25 @@ export default function AdminReturns() {
     let baseRows = Array.isArray(data) ? data : [];
 
     // Fetch stock items separately (no FK in schema cache)
-    const stockIds = Array.from(
-      new Set(
-        baseRows
-          .flatMap((r) => (Array.isArray(r.return_items) ? r.return_items : []))
-          .map((it) => it.stock_item_id)
-          .filter(Boolean)
-      )
-    );
+    const allItems = baseRows.flatMap((r) => (Array.isArray(r.return_items) ? r.return_items : []));
+    const stockIds = Array.from(new Set(allItems.map((it) => it.stock_item_id).filter(Boolean)));
+    const asins = Array.from(new Set(allItems.map((it) => it.asin).filter(Boolean)));
+    const skus = Array.from(new Set(allItems.map((it) => it.sku).filter(Boolean)));
     let stockMap = {};
-    if (stockIds.length) {
+    if (stockIds.length || asins.length || skus.length) {
+      const ors = [];
+      if (stockIds.length) ors.push(`id.in.(${stockIds.join(',')})`);
+      if (asins.length) ors.push(`asin.in.(${asins.map((a) => `"${a}"`).join(',')})`);
+      if (skus.length) ors.push(`sku.in.(${skus.map((s) => `"${s}"`).join(',')})`);
       const { data: stockData } = await supabase
         .from('stock_items')
         .select('id, image_url, name, asin, sku')
-        .in('id', stockIds);
+        .or(ors.join(','));
       stockMap = Array.isArray(stockData)
         ? stockData.reduce((acc, s) => {
             acc[s.id] = s;
+            if (s.asin) acc[`asin:${s.asin}`] = s;
+            if (s.sku) acc[`sku:${s.sku}`] = s;
             return acc;
           }, {})
         : {};
@@ -82,7 +84,12 @@ export default function AdminReturns() {
       ...r,
       profile: profileMap[r.user_id] || null,
       return_items: Array.isArray(r.return_items)
-        ? r.return_items.map((it) => ({ ...it, stock_item: stockMap[it.stock_item_id] || null }))
+        ? r.return_items.map((it) => {
+            const byId = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+            const byAsin = !byId && it.asin ? stockMap[`asin:${it.asin}`] : null;
+            const bySku = !byId && !byAsin && it.sku ? stockMap[`sku:${it.sku}`] : null;
+            return { ...it, stock_item: byId || byAsin || bySku || null };
+          })
         : []
     }));
 
