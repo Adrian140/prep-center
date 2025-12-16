@@ -1,7 +1,7 @@
 -- Returns workflow: return requests + items + files (labels / inside docs)
 
 create table if not exists public.returns (
-  id uuid primary key default gen_random_uuid(),
+  id bigint generated always as identity primary key,
   company_id uuid not null,
   user_id uuid,
   marketplace text,
@@ -12,8 +12,8 @@ create table if not exists public.returns (
 );
 
 create table if not exists public.return_items (
-  id uuid primary key default gen_random_uuid(),
-  return_id uuid not null references public.returns(id) on delete cascade,
+  id bigint generated always as identity primary key,
+  return_id bigint not null references public.returns(id) on delete cascade,
   stock_item_id uuid,
   asin text,
   sku text,
@@ -23,8 +23,8 @@ create table if not exists public.return_items (
 );
 
 create table if not exists public.return_files (
-  id uuid primary key default gen_random_uuid(),
-  return_id uuid not null references public.returns(id) on delete cascade,
+  id bigint generated always as identity primary key,
+  return_id bigint not null references public.returns(id) on delete cascade,
   file_type text not null check (file_type in ('inside','label')),
   name text,
   url text not null,
