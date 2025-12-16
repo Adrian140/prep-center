@@ -900,8 +900,8 @@ const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
   );
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [returnItems, setReturnItems] = useState([]);
-  const [returnInsideLinks, setReturnInsideLinks] = useState('');
-  const [returnLabelLinks, setReturnLabelLinks] = useState('');
+  const [returnInsideFiles, setReturnInsideFiles] = useState([]);
+  const [returnLabelFiles, setReturnLabelFiles] = useState([]);
   const [returnNotes, setReturnNotes] = useState('');
   const [returnError, setReturnError] = useState('');
   const [savingReturn, setSavingReturn] = useState(false);
@@ -1396,11 +1396,39 @@ useEffect(() => {
       };
     });
     setReturnItems(prepared);
-    setReturnInsideLinks('');
-    setReturnLabelLinks('');
+    setReturnInsideFiles([]);
+    setReturnLabelFiles([]);
     setReturnNotes('');
     setReturnError('');
-    setReturnModalOpen(true);
+  };
+
+  const uploadReturnFiles = async (type, fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    if (!profile?.company_id) {
+      setReturnError('Lipsește company_id.');
+      return;
+    }
+    const bucket = 'returns';
+    const arr = Array.from(fileList);
+    const uploaded = [];
+    for (const file of arr) {
+      const path = `${profile.company_id}/${Date.now()}-${file.name}`;
+      const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
+        upsert: false,
+        contentType: file.type || undefined
+      });
+      if (error) {
+        setReturnError(error.message);
+        return;
+      }
+      const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
+      uploaded.push({ name: file.name, url: pub.publicUrl, file_type: type });
+    }
+    if (type === 'inside') {
+      setReturnInsideFiles((prev) => [...prev, ...uploaded]);
+    } else {
+      setReturnLabelFiles((prev) => [...prev, ...uploaded]);
+    }
   };
 
   const handleSubmitReturn = async () => {
@@ -1445,28 +1473,19 @@ useEffect(() => {
       }));
       const { error: itemsErr } = await supabase.from('return_items').insert(itemsPayload);
       if (itemsErr) throw itemsErr;
-      const linksToRows = (links, file_type) =>
-        (links || '')
-          .split('\n')
-          .map((l) => l.trim())
-          .filter(Boolean)
-          .map((url) => ({
-            return_id: retRow.id,
-            file_type,
-            url,
-            name: url,
-            mime_type: null
-          }));
-      const filesPayload = [...linksToRows(returnInsideLinks, 'inside'), ...linksToRows(returnLabelLinks, 'label')];
+      const filesPayload = [
+        ...returnInsideFiles.map((f) => ({ return_id: retRow.id, file_type: 'inside', url: f.url, name: f.name, mime_type: null })),
+        ...returnLabelFiles.map((f) => ({ return_id: retRow.id, file_type: 'label', url: f.url, name: f.name, mime_type: null }))
+      ];
       if (filesPayload.length) {
         const { error: filesErr } = await supabase.from('return_files').insert(filesPayload);
         if (filesErr) throw filesErr;
       }
-      setReturnModalOpen(false);
       setReturnItems([]);
-      setReturnInsideLinks('');
-      setReturnLabelLinks('');
+      setReturnInsideFiles([]);
+      setReturnLabelFiles([]);
       setReturnNotes('');
+      setReturnError('');
       setToast({ type: 'success', text: t('ClientStock.return.success') || 'Return creat' });
     } catch (e) {
       setReturnError(e?.message || 'Nu am putut salva returul.');
@@ -2347,6 +2366,14 @@ const saveReqChanges = async () => {
         onDelete={openDeleteListings}
         deleteInProgress={deleteInProgress}
         clearSelection={() => setSelectedIdList([])}
+        returnError={returnError}
+        returnNotes={returnNotes}
+        onReturnNotesChange={setReturnNotes}
+        returnInsideFiles={returnInsideFiles}
+        returnLabelFiles={returnLabelFiles}
+        onReturnFilesUpload={uploadReturnFiles}
+        onReturnSubmit={handleSubmitReturn}
+        savingReturn={savingReturn}
       />
 
       <div className="border rounded-lg overflow-hidden mt-2">
@@ -2692,114 +2719,6 @@ const saveReqChanges = async () => {
         </div>
       </div>
 
-      {returnModalOpen && (
-        <div className="fixed inset-0 z-[150] bg-black/30 flex items-center justify-center" onClick={() => setReturnModalOpen(false)}>
-          <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-5 py-4 border-b flex items-center justify-between sticky top-0 bg-white">
-              <div>
-                <div className="text-xs uppercase text-text-secondary">Return items</div>
-                <div className="text-lg font-semibold text-text-primary">Selectează produsele și cantitățile</div>
-              </div>
-              <button className="text-sm text-text-secondary" onClick={() => setReturnModalOpen(false)}>
-                {t('common.close')}
-              </button>
-            </div>
-
-            {returnError && (
-              <div className="mx-5 mt-4 rounded-md border border-red-200 bg-red-50 text-red-700 p-3 text-sm">
-                {returnError}
-              </div>
-            )}
-
-            <div className="p-5 space-y-4">
-              <div className="border rounded-lg">
-                <div className="px-4 py-3 border-b flex items-center justify-between">
-                  <div className="font-semibold text-text-primary">Produse selectate</div>
-                  <div className="text-xs text-text-secondary">
-                    {t('ClientStock.return.qtyHelper') || 'Cantitatea trebuie să fie > 0'}
-                  </div>
-                </div>
-                <div className="divide-y">
-                  {returnItems.length === 0 && (
-                    <div className="p-4 text-sm text-text-secondary">Niciun produs selectat.</div>
-                  )}
-                  {returnItems.map((item) => (
-                    <div key={item.id} className="p-3 flex items-center gap-3">
-                      {item.image_url ? (
-                        <img src={item.image_url} alt={item.name || ''} className="w-10 h-10 rounded object-cover border" />
-                      ) : (
-                        <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">N/A</div>
-                      )}
-                      <div className="flex-1">
-                        <div className="font-semibold text-text-primary">{item.name || '—'}</div>
-                        <div className="text-xs font-mono text-text-secondary">
-                          {item.asin || '—'} {item.sku ? `· ${item.sku}` : ''}
-                        </div>
-                      </div>
-                      <input
-                        type="number"
-                        min={1}
-                        className="w-24 border rounded px-2 py-1 text-right"
-                        value={item.qty}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setReturnItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, qty: val } : it)));
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border rounded-lg p-4">
-                  <div className="text-sm font-semibold mb-1">Documente pentru interiorul cutiei</div>
-                  <div className="text-xs text-text-secondary mb-2">Pune link-urile (unul pe linie).</div>
-                  <textarea
-                    className="w-full border rounded px-2 py-2 text-sm min-h-[90px]"
-                    value={returnInsideLinks}
-                    onChange={(e) => setReturnInsideLinks(e.target.value)}
-                  />
-                </div>
-                <div className="border rounded-lg p-4">
-                  <div className="text-sm font-semibold mb-1">Etichete de retur</div>
-                  <div className="text-xs text-text-secondary mb-2">Pune link-urile (unul pe linie).</div>
-                  <textarea
-                    className="w-full border rounded px-2 py-2 text-sm min-h-[90px]"
-                    value={returnLabelLinks}
-                    onChange={(e) => setReturnLabelLinks(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="border rounded-lg p-4">
-                <div className="text-sm font-semibold mb-2">Notă pentru echipă</div>
-                <textarea
-                  className="w-full border rounded px-3 py-2 text-sm min-h-[80px]"
-                  value={returnNotes}
-                  onChange={(e) => setReturnNotes(e.target.value)}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pb-4">
-                <button className="border rounded px-4 py-2" onClick={() => setReturnModalOpen(false)}>
-                  {t('common.cancel')}
-                </button>
-                <button
-                  className="bg-primary text-white rounded px-4 py-2 disabled:opacity-60"
-                  disabled={savingReturn}
-                  onClick={handleSubmitReturn}
-                >
-                  {savingReturn ? t('common.saving') || 'Saving...' : 'Creează retur'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ===== Request View/Edit Drawer ===== */}
       {reqOpen && (

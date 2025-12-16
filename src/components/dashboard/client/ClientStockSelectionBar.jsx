@@ -26,7 +26,15 @@ const ClientStockSelectionBar = ({
   openReturn,
   clearSelection,
   onDelete,
-  deleteInProgress
+  deleteInProgress,
+  returnError,
+  returnNotes,
+  onReturnNotesChange,
+  returnInsideFiles = [],
+  returnLabelFiles = [],
+  onReturnFilesUpload,
+  onReturnSubmit,
+  savingReturn
 }) => {
   if (!selectedIds?.size) return null;
   const rawReturnLabel = t('ClientStock.cta.return');
@@ -46,6 +54,7 @@ const ClientStockSelectionBar = ({
     : [];
   const showDestinationNearPrep = submitType === 'prep';
   const showFbaControls = showReceptionFields;
+  const showReturnFields = submitType === 'return';
   const selectedCount = Array.isArray(selectedRows) ? selectedRows.length : 0;
   const selectedUnits = Array.isArray(selectedRows)
     ? selectedRows.reduce((acc, row) => {
@@ -80,13 +89,14 @@ const ClientStockSelectionBar = ({
         onChange={(e) => setSubmitType(e.target.value)}
         className="border rounded-md px-3 py-1.5 text-sm min-w-[220px] text-center"
       >
-        <option value="prep">{t('ClientStock.cta.sendToPrep')}</option>
-        <option value="reception">{t('ClientStock.cta.announceReception')}</option>
+          <option value="prep">{t('ClientStock.cta.sendToPrep')}</option>
+          <option value="reception">{t('ClientStock.cta.announceReception')}</option>
           <option value="return">{returnLabel}</option>
-        <option value="delete">{t('ClientStock.cta.deleteListing')}</option>
-      </select>
+          <option value="delete">{t('ClientStock.cta.deleteListing')}</option>
+        </select>
         {showReceptionFields && renderDestinationSelector()}
-        {showDestinationNearPrep && !showReceptionFields && renderDestinationSelector()}
+        {showDestinationNearPrep && !showReceptionFields && !showReturnFields && renderDestinationSelector()}
+        {showReturnFields && renderDestinationSelector()}
       </div>
 
       {showReceptionFields && (
@@ -191,7 +201,7 @@ const ClientStockSelectionBar = ({
         </div>
       )}
 
-      {showFbaControls && (
+     {showFbaControls && (
         <div className="w-full flex flex-col gap-2">
           <div className="flex flex-col gap-2 border rounded-lg bg-white/70 p-3">
             <div className="flex flex-wrap items-center gap-3 text-[13px] sm:text-sm text-text-primary">
@@ -262,13 +272,81 @@ const ClientStockSelectionBar = ({
         </div>
       )}
 
+      {showReturnFields && (
+        <div className="w-full flex flex-col gap-3 border rounded-lg bg-white/70 p-3">
+          {returnError && (
+            <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+              {returnError}
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="border rounded-lg p-3 bg-white">
+              <div className="text-sm font-semibold">
+                {t('ClientStock.return.insideDocs') || 'Docs to put inside the box'}
+              </div>
+              <div className="text-xs text-text-secondary mb-2">
+                {t('ClientStock.return.uploadHint') || 'Upload PDF/JPG/PNG/DOC'}
+              </div>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                onChange={(e) => onReturnFilesUpload?.('inside', e.target.files)}
+                className="text-sm"
+              />
+              <div className="mt-2 space-y-1 text-xs">
+                {returnInsideFiles.length === 0 && <div className="text-text-secondary">—</div>}
+                {returnInsideFiles.map((f, idx) => (
+                  <div key={`${f.name}-${idx}`} className="text-text-primary break-all">
+                    {f.name || f.url}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="border rounded-lg p-3 bg-white">
+              <div className="text-sm font-semibold">
+                {t('ClientStock.return.labelDocs') || 'Return labels'}
+              </div>
+              <div className="text-xs text-text-secondary mb-2">
+                {t('ClientStock.return.uploadHint') || 'Upload PDF/JPG/PNG/DOC'}
+              </div>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                onChange={(e) => onReturnFilesUpload?.('label', e.target.files)}
+                className="text-sm"
+              />
+              <div className="mt-2 space-y-1 text-xs">
+                {returnLabelFiles.length === 0 && <div className="text-text-secondary">—</div>}
+                {returnLabelFiles.map((f, idx) => (
+                  <div key={`${f.name}-${idx}`} className="text-text-primary break-all">
+                    {f.name || f.url}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="border rounded-lg p-3 bg-white">
+            <div className="text-sm font-semibold">
+              {t('ClientStock.return.notes') || 'Notes for the team'}
+            </div>
+            <textarea
+              className="w-full border rounded px-3 py-2 text-sm min-h-[70px]"
+              value={returnNotes}
+              onChange={(e) => onReturnNotesChange?.(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-3 w-full">
         <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-center sm:gap-3">
           <button
             onClick={() => {
               if (submitType === 'prep') openPrep();
               else if (submitType === 'reception') openReception();
-              else if (submitType === 'return') openReturn?.();
+              else if (submitType === 'return') onReturnSubmit?.();
               else if (submitType === 'delete') onDelete?.();
             }}
             disabled={submitType === 'delete' ? deleteInProgress : false}
