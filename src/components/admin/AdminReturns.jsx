@@ -199,17 +199,24 @@ export default function AdminReturns() {
                   <div className="text-xs uppercase text-text-secondary">Items ({items.length})</div>
                   {items.length === 0 && <div className="text-text-secondary text-sm">—</div>}
                   {items.map((it) => (
-                    <div key={it.id} className="border rounded px-3 py-2 text-sm bg-slate-50 flex gap-3">
-                      {it.stock_item?.image_url && (
-                        <img
-                          src={it.stock_item.image_url}
-                          alt={it.stock_item.name || it.asin || it.sku || 'Product'}
-                          className="w-12 h-12 object-contain rounded border bg-white"
-                        />
-                      )}
+                    <div key={it.id} className="border rounded px-3 py-2 text-sm bg-slate-50 flex gap-3 items-center">
+                      <div className="w-12 h-12 rounded border bg-white flex items-center justify-center overflow-hidden">
+                        {it.stock_item?.image_url ? (
+                          <img
+                            src={it.stock_item.image_url}
+                            alt={it.stock_item.name || it.asin || it.sku || 'Product'}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <div className="text-[10px] text-text-secondary text-center px-1">No image</div>
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold break-all">
-                          {it.asin || it.sku || it.stock_item?.asin || it.stock_item?.sku || '—'}
+                          {it.asin || it.stock_item?.asin || '—'}
+                          {it.sku || it.stock_item?.sku ? (
+                            <span className="text-text-secondary text-xs ml-1">({it.sku || it.stock_item?.sku})</span>
+                          ) : null}
                         </div>
                         {it.stock_item?.name && (
                           <div className="text-text-secondary text-xs truncate">{it.stock_item.name}</div>
