@@ -15,8 +15,6 @@ import {
   Truck
 } from 'lucide-react';
 
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
 const STATUS_FILTERS = [
   { id: 'all', label: 'All Shipments', status: null },
   { id: 'pending', label: 'Pending', status: 'pending' },
@@ -56,7 +54,6 @@ async function buildAuthHeaders() {
   const { data } = await supabase.auth.getSession();
   const accessToken = data?.session?.access_token;
   const headers = {};
-  if (supabaseAnonKey) headers.apikey = supabaseAnonKey;
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   return headers;
 }
@@ -130,10 +127,10 @@ export default function ClientPacklink() {
       setError('');
       try {
         const headers = await buildAuthHeaders();
-        const res = await fetch(
-          `${supabase.supabaseUrl}/functions/v1/packlink/shipments?user_id=${user.id}`,
-          { headers }
-        );
+        if (!headers.Authorization) throw new Error('Nu există sesiune activă.');
+        const res = await fetch(`${supabase.supabaseUrl}/functions/v1/packlink/shipments?user_id=${user.id}`, {
+          headers
+        });
         const data = await res.json();
         if (!res.ok) throw new Error(data?.error || 'Failed to load shipments');
         setShipments(Array.isArray(data.shipments) ? data.shipments : []);
@@ -155,6 +152,7 @@ export default function ClientPacklink() {
     setError('');
     try {
       const headers = await buildAuthHeaders();
+      if (!headers.Authorization) throw new Error('Nu există sesiune activă.');
       const res = await fetch(`${supabase.supabaseUrl}/functions/v1/packlink/services`, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -199,6 +197,7 @@ export default function ClientPacklink() {
     setError('');
     try {
       const headers = await buildAuthHeaders();
+      if (!headers.Authorization) throw new Error('Nu există sesiune activă.');
       const res = await fetch(`${supabase.supabaseUrl}/functions/v1/packlink/shipments`, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -240,6 +239,7 @@ export default function ClientPacklink() {
     setError('');
     try {
       const headers = await buildAuthHeaders();
+      if (!headers.Authorization) throw new Error('Nu există sesiune activă.');
       const res = await fetch(
         `${supabase.supabaseUrl}/functions/v1/packlink/reports?user_id=${user.id}&format=csv`,
         { headers }

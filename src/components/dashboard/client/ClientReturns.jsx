@@ -15,6 +15,14 @@ export default function ClientReturns() {
   const [editing, setEditing] = useState({});
   const [error, setError] = useState('');
 
+  const createSignedUrl = async (path) => {
+    if (!path) return '';
+    if (/^https?:\/\//i.test(path)) return path;
+    const { data, error } = await supabase.storage.from('returns').createSignedUrl(path, 60 * 60 * 24 * 7);
+    if (error) return path;
+    return data?.signedUrl || path;
+  };
+
   const load = async () => {
     if (!profile?.company_id) {
       setRows([]);
@@ -64,17 +72,33 @@ export default function ClientReturns() {
       fetchAndMerge('sku', skus)
     ]);
 
-    baseRows = baseRows.map((r) => ({
-      ...r,
-      return_items: Array.isArray(r.return_items)
-        ? r.return_items.map((it) => {
-            const byId = it.stock_item_id ? stockMap[it.stock_item_id] : null;
-            const byAsin = !byId && it.asin ? stockMap[`asin:${it.asin}`] : null;
-            const bySku = !byId && !byAsin && it.sku ? stockMap[`sku:${it.sku}`] : null;
-            return { ...it, stock_item: byId || byAsin || bySku || null };
-          })
-        : []
-    }));
+    // Presemnează link-urile la fișiere
+    const fileCache = new Map();
+    const signFiles = async (files = []) =>
+      Promise.all(
+        files.map(async (f) => {
+          const key = f.url || '';
+          if (fileCache.has(key)) return { ...f, signed_url: fileCache.get(key) };
+          const href = await createSignedUrl(key);
+          fileCache.set(key, href);
+          return { ...f, signed_url: href };
+        })
+      );
+
+    baseRows = await Promise.all(
+      baseRows.map(async (r) => ({
+        ...r,
+        return_items: Array.isArray(r.return_items)
+          ? r.return_items.map((it) => {
+              const byId = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+              const byAsin = !byId && it.asin ? stockMap[`asin:${it.asin}`] : null;
+              const bySku = !byId && !byAsin && it.sku ? stockMap[`sku:${it.sku}`] : null;
+              return { ...it, stock_item: byId || byAsin || bySku || null };
+            })
+          : [],
+        return_files: await signFiles(Array.isArray(r.return_files) ? r.return_files : [])
+      }))
+    );
 
     setRows(baseRows);
     if (err) setError(err.message);
@@ -104,19 +128,29 @@ export default function ClientReturns() {
           .from(bucket)
           .upload(path, file, { upsert: false, contentType: file.type || undefined });
         if (upErr) throw upErr;
-        const { data: pub } = supabase.storage.from(bucket).getPublicUrl(upData.path);
-        uploaded.push({ name: file.name, url: pub.publicUrl, file_type: type });
+        const { data: signed } = await supabase.storage.from(bucket).createSignedUrl(upData.path, 60 * 60 * 24 * 7);
+        uploaded.push({ name: file.name, url: upData.path, signed_url: signed?.signedUrl || upData.path, file_type: type });
       }
       if (uploaded.length) {
+        const insertPayload = uploaded.map((f) => ({ ...f, return_id: row.id, mime_type: null }));
         const { data: rowsInserted, error: insErr } = await supabase
           .from('return_files')
-          .insert(uploaded.map((f) => ({ ...f, return_id: row.id, mime_type: null })))
+          .insert(insertPayload)
           .select();
         if (insErr) throw insErr;
+        const signedRows =
+          rowsInserted && rowsInserted.length
+            ? await Promise.all(
+                rowsInserted.map(async (f) => ({
+                  ...f,
+                  signed_url: f.signed_url || (await createSignedUrl(f.url))
+                }))
+              )
+            : [];
         setRows((prev) =>
           prev.map((r) =>
             r.id === row.id
-              ? { ...r, return_files: [...(r.return_files || []), ...(rowsInserted || [])] }
+              ? { ...r, return_files: [...(r.return_files || []), ...signedRows] }
               : r
           )
         );
@@ -291,7 +325,7 @@ export default function ClientReturns() {
                     {insideFiles.map((f) => (
                       <div key={f.id} className="flex items-center gap-2 text-sm break-all">
                         <a
-                          href={f.url}
+                          href={f.signed_url || f.url}
                           target="_blank"
                           rel="noreferrer"
                           className="flex items-center gap-2 text-primary underline"
@@ -333,7 +367,7 @@ export default function ClientReturns() {
                     {labelFiles.map((f) => (
                       <div key={f.id} className="flex items-center gap-2 text-sm break-all">
                         <a
-                          href={f.url}
+                          href={f.signed_url || f.url}
                           target="_blank"
                           rel="noreferrer"
                           className="flex items-center gap-2 text-primary underline"

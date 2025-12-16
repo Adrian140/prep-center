@@ -517,7 +517,23 @@ export const supabaseHelpers = {
       .select('card_key, image_url')
       .eq('lang', lang);
     if (error) return { data: null, error };
-    return { data: data || [], error: null };
+    const cache = new Map();
+    const signed = await Promise.all(
+      (data || []).map(async (row) => {
+        const url = row.image_url || '';
+        if (!url) return row;
+        if (/^https?:\/\//i.test(url)) return row;
+        if (cache.has(url)) return { ...row, image_url: cache.get(url) };
+        const { data: signedUrl } = await supabase
+          .storage
+          .from('integration-media')
+          .createSignedUrl(url, 60 * 60 * 24 * 7);
+        const href = signedUrl?.signedUrl || url;
+        cache.set(url, href);
+        return { ...row, image_url: href };
+      })
+    );
+    return { data: signed, error: null };
   },
   async upsertIntegrationMedia({ lang, card_key, image_url }) {
     if (!lang || !card_key) {
@@ -559,21 +575,20 @@ export const supabaseHelpers = {
       });
     if (upErr) return { data: null, error: upErr };
 
-    const { data: pub } = supabase
+    const { data: signed } = await supabase
       .storage
       .from('integration-media')
-      .getPublicUrl(path);
-    const publicUrl = pub?.publicUrl;
+      .createSignedUrl(path, 60 * 60 * 24 * 7);
+    const signedUrl = signed?.signedUrl || null;
 
-    if (publicUrl) {
-      await supabase
-        .from('integration_media')
-        .upsert(
-          { lang, card_key, image_url: publicUrl, updated_at: new Date().toISOString() },
-          { onConflict: 'lang,card_key' }
-        );
-    }
-    return { data: { publicUrl }, error: null };
+    await supabase
+      .from('integration_media')
+      .upsert(
+        { lang, card_key, image_url: path, updated_at: new Date().toISOString() },
+        { onConflict: 'lang,card_key' }
+      );
+
+    return { data: { signedUrl, path }, error: null };
   },
   
   signUp: async (email, password, userData) => {

@@ -1417,7 +1417,7 @@ useEffect(() => {
       setReturnError('Lipsește company_id.');
       return;
     }
-    const bucket = 'returns'; // asigură-te că bucket-ul public "returns" există în Supabase Storage
+    const bucket = 'returns';
     const arr = Array.from(fileList);
     const uploaded = [];
     for (const file of arr) {
@@ -1430,8 +1430,8 @@ useEffect(() => {
         setReturnError(error.message);
         return;
       }
-      const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
-      uploaded.push({ name: file.name, url: pub.publicUrl, file_type: type });
+      const { data: signed } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 7);
+      uploaded.push({ name: file.name, url: path, signed_url: signed?.signedUrl || path, file_type: type });
     }
     if (type === 'inside') {
       setReturnInsideFiles((prev) => [...prev, ...uploaded]);

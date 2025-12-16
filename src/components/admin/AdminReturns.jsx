@@ -40,6 +40,14 @@ export default function AdminReturns() {
     if (err) setError(err.message);
     let baseRows = Array.isArray(data) ? data : [];
 
+    const createSignedUrl = async (path) => {
+      if (!path) return '';
+      if (/^https?:\/\//i.test(path)) return path;
+      const { data, error } = await supabase.storage.from('returns').createSignedUrl(path, 60 * 60 * 24 * 7);
+      if (error) return path;
+      return data?.signedUrl || path;
+    };
+
     // Fetch stock items separat, fără .or() construit din string
     const allItems = baseRows.flatMap((r) => (Array.isArray(r.return_items) ? r.return_items : []));
     const stockIds = Array.from(new Set(allItems.map((it) => it.stock_item_id).filter(Boolean)));
@@ -66,6 +74,19 @@ export default function AdminReturns() {
       fetchAndMerge('sku', skus)
     ]);
 
+    // Presemnează fișierele de retur
+    const fileCache = new Map();
+    const signFiles = async (files = []) =>
+      Promise.all(
+        files.map(async (f) => {
+          const key = f.url || '';
+          if (fileCache.has(key)) return { ...f, signed_url: fileCache.get(key) };
+          const href = await createSignedUrl(key);
+          fileCache.set(key, href);
+          return { ...f, signed_url: href };
+        })
+      );
+
     // Fetch profile info separately (no FK relation in schema cache)
     const userIds = Array.from(new Set(baseRows.map((r) => r.user_id).filter(Boolean)));
     let profileMap = {};
@@ -81,18 +102,21 @@ export default function AdminReturns() {
           }, {})
         : {};
     }
-    baseRows = baseRows.map((r) => ({
-      ...r,
-      profile: profileMap[r.user_id] || null,
-      return_items: Array.isArray(r.return_items)
-        ? r.return_items.map((it) => {
-            const byId = it.stock_item_id ? stockMap[it.stock_item_id] : null;
-            const byAsin = !byId && it.asin ? stockMap[`asin:${it.asin}`] : null;
-            const bySku = !byId && !byAsin && it.sku ? stockMap[`sku:${it.sku}`] : null;
-            return { ...it, stock_item: byId || byAsin || bySku || null };
-          })
-        : []
-    }));
+    baseRows = await Promise.all(
+      baseRows.map(async (r) => ({
+        ...r,
+        profile: profileMap[r.user_id] || null,
+        return_items: Array.isArray(r.return_items)
+          ? r.return_items.map((it) => {
+              const byId = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+              const byAsin = !byId && it.asin ? stockMap[`asin:${it.asin}`] : null;
+              const bySku = !byId && !byAsin && it.sku ? stockMap[`sku:${it.sku}`] : null;
+              return { ...it, stock_item: byId || byAsin || bySku || null };
+            })
+          : [],
+        return_files: await signFiles(Array.isArray(r.return_files) ? r.return_files : [])
+      }))
+    );
 
     setRows(baseRows);
     setLoading(false);
@@ -242,7 +266,7 @@ export default function AdminReturns() {
                   {files.map((f) => (
                     <a
                       key={f.id}
-                      href={f.url}
+                      href={f.signed_url || f.url}
                       target="_blank"
                       rel="noreferrer"
                       className="flex items-center gap-2 text-primary text-sm underline break-all"

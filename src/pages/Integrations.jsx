@@ -400,10 +400,10 @@ export default function Integrations() {
             const file = data[0]?.name;
             if (!file) continue;
             const fullPath = path ? `${path}/${file}` : file;
-            const { data: pub } = supabase.storage
+            const { data: signed } = await supabase.storage
               .from('integration-media')
-              .getPublicUrl(fullPath);
-            if (pub?.publicUrl) return pub.publicUrl;
+              .createSignedUrl(fullPath, 60 * 60 * 24 * 7);
+            if (signed?.signedUrl) return signed.signedUrl;
           }
           return null;
         };
