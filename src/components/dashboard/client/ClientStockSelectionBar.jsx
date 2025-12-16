@@ -37,7 +37,7 @@ const ClientStockSelectionBar = ({
   savingReturn
 }) => {
   if (!selectedIds?.size) return null;
-  const rawReturnLabel = t('ClientStock.cta.return');
+  const rawReturnLabel = t('ClientStock.return.cta') || t('ClientStock.cta.return');
   const returnLabel =
     rawReturnLabel && !String(rawReturnLabel).includes('ClientStock.cta.return')
       ? rawReturnLabel

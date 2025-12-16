@@ -1100,6 +1100,13 @@
         "deleteListingSuccess": "Listingurile au fost șterse cu succes.",
         "deleteListingHasPrepStock": "Nu puteți șterge un listing care are stoc în Prep Center. Vă rugăm contactați administratorul pentru acest pas."
       },
+      "return": {
+        "cta": "Return items",
+        "insideDocs": "Docs to put inside the box",
+        "labelDocs": "Return labels",
+        "uploadHint": "Upload PDF/JPG/PNG/DOC (multiple allowed)",
+        "notes": "Notes for the team"
+      },
       "receptionForm": {
         "carrierOther": "Numele curierului",
         "carrierPlaceholder": "Selectează curierul",
