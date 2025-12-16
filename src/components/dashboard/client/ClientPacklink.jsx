@@ -15,6 +15,8 @@ import {
   Truck
 } from 'lucide-react';
 
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 const STATUS_FILTERS = [
   { id: 'all', label: 'All Shipments', status: null },
   { id: 'pending', label: 'Pending', status: 'pending' },
@@ -54,6 +56,7 @@ async function buildAuthHeaders() {
   const { data } = await supabase.auth.getSession();
   const accessToken = data?.session?.access_token;
   const headers = {};
+  if (supabaseAnonKey) headers.apikey = supabaseAnonKey; // necesar pentru Functions
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   return headers;
 }

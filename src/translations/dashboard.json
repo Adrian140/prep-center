@@ -713,7 +713,7 @@
       },
       "rules": {
         "title": "Payout rules",
-        "bonus": "If you refer a client and they reach €1000 billed in the first 3 months, you earn a €100 bonus. The referred client gets €25 off their next invoice.",
+        "bonus": "If you refer a new client with your code and they reach €1000 billed in the first 3 months, you earn a €100 bonus. The referred client gets €25 off their next invoice.",
         "percent": "You earn {percent}% from every invoice paid by your referrals.",
         "threshold": "Below {threshold}: {below}%. Above: {above}%.",
         "fixed": "Once a referred client reaches {threshold}, you receive {amount} once.",
@@ -1506,7 +1506,7 @@
       },
       "rules": {
         "title": "Reguli de plată",
-        "bonus": "Dacă aduci un client nou și acesta ajunge la facturi de 1000 € în primele 3 luni, primești 100 € bonus. Clientul recomandat primește 25 € reducere la următoarea factură.",
+        "bonus": "Dacă aduci un client nou prin codul tău și acesta ajunge la facturi de 1000 € în primele 3 luni, primești 100 € bonus. Clientul recomandat primește 25 € reducere la următoarea factură.",
         "percent": "Primești {percent}% din fiecare factură plătită de recomandările tale.",
         "threshold": "Sub {threshold}: {below}%. Peste: {above}%.",
         "fixed": "Când un client recomandat ajunge la {threshold}, primești {amount} o singură dată.",
@@ -1698,7 +1698,7 @@
     },
     "ClientAffiliates": {
       "rules": {
-        "bonus": "Si vous parrainez un client qui atteint 1 000 € facturés dans les 3 premiers mois, vous gagnez un bonus de 100 €. Le client parrainé reçoit 25 € de réduction sur la prochaine facture."
+        "bonus": "Si vous parrainez un nouveau client avec votre code et qu'il atteint 1 000 € facturés dans les 3 premiers mois, vous gagnez un bonus de 100 €. Le client parrainé reçoit 25 € de remise sur sa prochaine facture."
       },
       "request": {
         "applyCta": "Pas encore de code ? Demandez-le et commencez à gagner avec vos parrainages."
@@ -2437,7 +2437,7 @@
     },
     "ClientAffiliates": {
       "rules": {
-        "bonus": "Wenn ein geworbener Kunde in den ersten 3 Monaten 1.000 € Umsatz erreicht, erhältst du 100 € Bonus. Der geworbene Kunde bekommt 25 € Rabatt auf die nächste Rechnung."
+        "bonus": "Wenn du mit deinem Code einen neuen Kunden wirbst und dieser in den ersten 3 Monaten 1.000 € Rechnungen erreicht, erhältst du 100 € Bonus. Der geworbene Kunde bekommt 25 € Rabatt auf die nächste Rechnung."
       },
       "request": {
         "applyCta": "Noch keinen Code? Jetzt beantragen und mit Empfehlungen verdienen."
@@ -3176,7 +3176,7 @@
     },
     "ClientAffiliates": {
       "rules": {
-        "bonus": "Se un cliente che porti raggiunge 1.000 € di fatturato nei primi 3 mesi, ricevi 100 € di bonus. Il cliente invitato ottiene 25 € di sconto sulla prossima fattura."
+        "bonus": "Se porti un nuovo cliente con il tuo codice e raggiunge 1.000 € fatturati nei primi 3 mesi, ricevi un bonus di 100 €. Il cliente invitato ottiene 25 € di sconto sulla prossima fattura."
       },
       "request": {
         "applyCta": "Non hai ancora un codice? Richiedilo ora e inizia a guadagnare dalle tue segnalazioni."
@@ -3915,7 +3915,7 @@
     },
     "ClientAffiliates": {
       "rules": {
-        "bonus": "Si un cliente referido alcanza 1.000 € facturados en los primeros 3 meses, ganas un bono de 100 €. El cliente recomendado recibe 25 € de descuento en la siguiente factura."
+        "bonus": "Si traes un nuevo cliente con tu código y llega a 1.000 € facturados en los primeros 3 meses, ganas un bono de 100 €. El cliente recomendado recibe 25 € de descuento en su siguiente factura."
       },
       "request": {
         "applyCta": "¿Aún no tienes código? Solicítalo y empieza a ganar con tus referidos."
