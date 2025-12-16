@@ -1378,14 +1378,11 @@ useEffect(() => {
     [rows, selectedIds]
   );
 
-  const openReturnModal = () => {
-    if (!selectedRows.length) {
-      setToast({ type: 'error', text: t('ClientStock.actions.needSelection') });
-      return;
-    }
-    const prepared = selectedRows.map((row) => {
+  const buildReturnItemsFromSelection = () => {
+    if (!selectedRows.length) return [];
+    return selectedRows.map((row) => {
       const edit = rowEdits[row.id] || {};
-      const qty = Math.max(0, Number(edit.units_to_send || row.qty || 0));
+      const qty = Math.max(1, Number(edit.units_to_send || row.qty || 1));
       return {
         id: row.id,
         asin: row.asin,
@@ -1395,6 +1392,14 @@ useEffect(() => {
         qty
       };
     });
+  };
+
+  const openReturnModal = () => {
+    const prepared = buildReturnItemsFromSelection();
+    if (!prepared.length) {
+      setToast({ type: 'error', text: t('ClientStock.actions.needSelection') });
+      return;
+    }
     setReturnItems(prepared);
     setReturnInsideFiles([]);
     setReturnLabelFiles([]);
@@ -1445,11 +1450,12 @@ useEffect(() => {
       setReturnError('Lipsește company_id.');
       return;
     }
-    if (!returnItems.length) {
+    const itemsList = returnItems.length ? returnItems : buildReturnItemsFromSelection();
+    if (!itemsList.length) {
       setReturnError(t('ClientStock.return.noItems') || 'Adaugă cel puțin un produs.');
       return;
     }
-    const invalid = returnItems.find((it) => !Number.isFinite(Number(it.qty)) || Number(it.qty) <= 0);
+    const invalid = itemsList.find((it) => !Number.isFinite(Number(it.qty)) || Number(it.qty) <= 0);
     if (invalid) {
       setReturnError(
         t('ClientStock.return.qtyError', { asin: invalid.asin || invalid.sku || '' }) ||
@@ -1471,7 +1477,7 @@ useEffect(() => {
         .select('id')
         .single();
       if (retErr) throw retErr;
-      const itemsPayload = returnItems.map((it) => ({
+      const itemsPayload = itemsList.map((it) => ({
         return_id: retRow.id,
         stock_item_id: it.id,
         asin: it.asin || null,

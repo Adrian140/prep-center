@@ -309,7 +309,7 @@ const ClientStockSelectionBar = ({
                   htmlFor="return-inside-upload"
                   className="inline-flex items-center px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded cursor-pointer hover:bg-primary-dark"
                 >
-                  {returnInsideFiles.length > 0 ? t('common.add') || 'Add' : insideLabel}
+                  {returnInsideFiles.length > 0 ? 'Add files' : insideLabel}
                 </label>
                 <input
                   id="return-inside-upload"
@@ -353,7 +353,7 @@ const ClientStockSelectionBar = ({
                   htmlFor="return-label-upload"
                   className="inline-flex items-center px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded cursor-pointer hover:bg-primary-dark"
                 >
-                  {returnLabelFiles.length > 0 ? t('common.add') || 'Add' : labelDocsLabel}
+                  {returnLabelFiles.length > 0 ? 'Add files' : labelDocsLabel}
                 </label>
                 <input
                   id="return-label-upload"
