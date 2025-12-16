@@ -23,6 +23,7 @@ const ClientStockSelectionBar = ({
   updateEdit,
   openPrep,
   openReception,
+  openReturn,
   clearSelection,
   onDelete,
   deleteInProgress
@@ -76,6 +77,7 @@ const ClientStockSelectionBar = ({
         >
           <option value="prep">{t('ClientStock.cta.sendToPrep')}</option>
           <option value="reception">{t('ClientStock.cta.announceReception')}</option>
+          <option value="return">{t('ClientStock.cta.return') || 'Return items'}</option>
           <option value="delete">{t('ClientStock.cta.deleteListing')}</option>
         </select>
         {showReceptionFields && renderDestinationSelector()}
@@ -261,6 +263,7 @@ const ClientStockSelectionBar = ({
             onClick={() => {
               if (submitType === 'prep') openPrep();
               else if (submitType === 'reception') openReception();
+              else if (submitType === 'return') openReturn?.();
               else if (submitType === 'delete') onDelete?.();
             }}
             disabled={submitType === 'delete' ? deleteInProgress : false}
@@ -274,6 +277,8 @@ const ClientStockSelectionBar = ({
               ? t('ClientStock.cta.sendToPrep')
               : submitType === 'reception'
               ? t('ClientStock.cta.announceReception')
+              : submitType === 'return'
+              ? t('ClientStock.cta.return') || 'Return items'
               : t('ClientStock.cta.deleteListing')}
           </button>
           {showDestinationNearPrep && renderDestinationSelector('w-full sm:w-[190px] sm:min-w-[170px]')}

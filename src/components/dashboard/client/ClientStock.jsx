@@ -898,6 +898,13 @@ const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
     `${storagePrefix}-submitType`,
     'reception'
   );
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
+  const [returnItems, setReturnItems] = useState([]);
+  const [returnInsideLinks, setReturnInsideLinks] = useState('');
+  const [returnLabelLinks, setReturnLabelLinks] = useState('');
+  const [returnNotes, setReturnNotes] = useState('');
+  const [returnError, setReturnError] = useState('');
+  const [savingReturn, setSavingReturn] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const handleCodeCopy = useCallback(
@@ -1370,6 +1377,103 @@ useEffect(() => {
     () => rows.filter((r) => selectedIds.has(r.id)),
     [rows, selectedIds]
   );
+
+  const openReturnModal = () => {
+    if (!selectedRows.length) {
+      setToast({ type: 'error', text: t('ClientStock.actions.needSelection') });
+      return;
+    }
+    const prepared = selectedRows.map((row) => {
+      const edit = rowEdits[row.id] || {};
+      const qty = Math.max(0, Number(edit.units_to_send || row.qty || 0));
+      return {
+        id: row.id,
+        asin: row.asin,
+        sku: row.sku,
+        name: row.name,
+        image_url: row.image_url,
+        qty
+      };
+    });
+    setReturnItems(prepared);
+    setReturnInsideLinks('');
+    setReturnLabelLinks('');
+    setReturnNotes('');
+    setReturnError('');
+    setReturnModalOpen(true);
+  };
+
+  const handleSubmitReturn = async () => {
+    setReturnError('');
+    if (!profile?.company_id) {
+      setReturnError('Lipsește company_id.');
+      return;
+    }
+    if (!returnItems.length) {
+      setReturnError(t('ClientStock.return.noItems') || 'Adaugă cel puțin un produs.');
+      return;
+    }
+    const invalid = returnItems.find((it) => !Number.isFinite(Number(it.qty)) || Number(it.qty) <= 0);
+    if (invalid) {
+      setReturnError(
+        t('ClientStock.return.qtyError', { asin: invalid.asin || invalid.sku || '' }) ||
+          `Cantitatea la ${invalid.asin || invalid.sku || 'produs'} nu poate fi 0`
+      );
+      return;
+    }
+    setSavingReturn(true);
+    try {
+      const { data: retRow, error: retErr } = await supabase
+        .from('returns')
+        .insert({
+          company_id: profile.company_id,
+          user_id: profile.id,
+          marketplace: receptionForm.destinationCountry || 'FR',
+          status: 'pending',
+          notes: returnNotes || null
+        })
+        .select('id')
+        .single();
+      if (retErr) throw retErr;
+      const itemsPayload = returnItems.map((it) => ({
+        return_id: retRow.id,
+        stock_item_id: it.id,
+        asin: it.asin || null,
+        sku: it.sku || null,
+        qty: Number(it.qty) || 0,
+        notes: null
+      }));
+      const { error: itemsErr } = await supabase.from('return_items').insert(itemsPayload);
+      if (itemsErr) throw itemsErr;
+      const linksToRows = (links, file_type) =>
+        (links || '')
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .map((url) => ({
+            return_id: retRow.id,
+            file_type,
+            url,
+            name: url,
+            mime_type: null
+          }));
+      const filesPayload = [...linksToRows(returnInsideLinks, 'inside'), ...linksToRows(returnLabelLinks, 'label')];
+      if (filesPayload.length) {
+        const { error: filesErr } = await supabase.from('return_files').insert(filesPayload);
+        if (filesErr) throw filesErr;
+      }
+      setReturnModalOpen(false);
+      setReturnItems([]);
+      setReturnInsideLinks('');
+      setReturnLabelLinks('');
+      setReturnNotes('');
+      setToast({ type: 'success', text: t('ClientStock.return.success') || 'Return creat' });
+    } catch (e) {
+      setReturnError(e?.message || 'Nu am putut salva returul.');
+    } finally {
+      setSavingReturn(false);
+    }
+  };
   const openDeleteListings = useCallback(async () => {
     if (selectedRows.length === 0) {
       setToast({ type: 'error', text: t('ClientStock.actions.needSelection') });
@@ -2239,6 +2343,7 @@ const saveReqChanges = async () => {
         updateEdit={updateEdit}
         openPrep={openPrep}
         openReception={openReception}
+        openReturn={openReturnModal}
         onDelete={openDeleteListings}
         deleteInProgress={deleteInProgress}
         clearSelection={() => setSelectedIdList([])}
@@ -2586,6 +2691,115 @@ const saveReqChanges = async () => {
           </button>
         </div>
       </div>
+
+      {returnModalOpen && (
+        <div className="fixed inset-0 z-[150] bg-black/30 flex items-center justify-center" onClick={() => setReturnModalOpen(false)}>
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b flex items-center justify-between sticky top-0 bg-white">
+              <div>
+                <div className="text-xs uppercase text-text-secondary">Return items</div>
+                <div className="text-lg font-semibold text-text-primary">Selectează produsele și cantitățile</div>
+              </div>
+              <button className="text-sm text-text-secondary" onClick={() => setReturnModalOpen(false)}>
+                {t('common.close')}
+              </button>
+            </div>
+
+            {returnError && (
+              <div className="mx-5 mt-4 rounded-md border border-red-200 bg-red-50 text-red-700 p-3 text-sm">
+                {returnError}
+              </div>
+            )}
+
+            <div className="p-5 space-y-4">
+              <div className="border rounded-lg">
+                <div className="px-4 py-3 border-b flex items-center justify-between">
+                  <div className="font-semibold text-text-primary">Produse selectate</div>
+                  <div className="text-xs text-text-secondary">
+                    {t('ClientStock.return.qtyHelper') || 'Cantitatea trebuie să fie > 0'}
+                  </div>
+                </div>
+                <div className="divide-y">
+                  {returnItems.length === 0 && (
+                    <div className="p-4 text-sm text-text-secondary">Niciun produs selectat.</div>
+                  )}
+                  {returnItems.map((item) => (
+                    <div key={item.id} className="p-3 flex items-center gap-3">
+                      {item.image_url ? (
+                        <img src={item.image_url} alt={item.name || ''} className="w-10 h-10 rounded object-cover border" />
+                      ) : (
+                        <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">N/A</div>
+                      )}
+                      <div className="flex-1">
+                        <div className="font-semibold text-text-primary">{item.name || '—'}</div>
+                        <div className="text-xs font-mono text-text-secondary">
+                          {item.asin || '—'} {item.sku ? `· ${item.sku}` : ''}
+                        </div>
+                      </div>
+                      <input
+                        type="number"
+                        min={1}
+                        className="w-24 border rounded px-2 py-1 text-right"
+                        value={item.qty}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setReturnItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, qty: val } : it)));
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border rounded-lg p-4">
+                  <div className="text-sm font-semibold mb-1">Documente pentru interiorul cutiei</div>
+                  <div className="text-xs text-text-secondary mb-2">Pune link-urile (unul pe linie).</div>
+                  <textarea
+                    className="w-full border rounded px-2 py-2 text-sm min-h-[90px]"
+                    value={returnInsideLinks}
+                    onChange={(e) => setReturnInsideLinks(e.target.value)}
+                  />
+                </div>
+                <div className="border rounded-lg p-4">
+                  <div className="text-sm font-semibold mb-1">Etichete de retur</div>
+                  <div className="text-xs text-text-secondary mb-2">Pune link-urile (unul pe linie).</div>
+                  <textarea
+                    className="w-full border rounded px-2 py-2 text-sm min-h-[90px]"
+                    value={returnLabelLinks}
+                    onChange={(e) => setReturnLabelLinks(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-4">
+                <div className="text-sm font-semibold mb-2">Notă pentru echipă</div>
+                <textarea
+                  className="w-full border rounded px-3 py-2 text-sm min-h-[80px]"
+                  value={returnNotes}
+                  onChange={(e) => setReturnNotes(e.target.value)}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pb-4">
+                <button className="border rounded px-4 py-2" onClick={() => setReturnModalOpen(false)}>
+                  {t('common.cancel')}
+                </button>
+                <button
+                  className="bg-primary text-white rounded px-4 py-2 disabled:opacity-60"
+                  disabled={savingReturn}
+                  onClick={handleSubmitReturn}
+                >
+                  {savingReturn ? t('common.saving') || 'Saving...' : 'Creează retur'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== Request View/Edit Drawer ===== */}
       {reqOpen && (
