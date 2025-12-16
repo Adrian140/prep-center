@@ -31,20 +31,44 @@ export default function ClientReturns() {
         notes,
         marketplace,
         created_at,
-        return_items (
-          id,
-          asin,
-          sku,
-          qty,
-          notes,
-          stock_item_id,
-          stock_item:stock_items (image_url, name, asin, sku)
-        ),
+        return_items (id, asin, sku, qty, notes, stock_item_id),
         return_files (id, file_type, url, name)
       `)
       .eq('company_id', profile.company_id)
       .order('created_at', { ascending: false });
-    setRows(err ? [] : Array.isArray(data) ? data : []);
+    let baseRows = err ? [] : Array.isArray(data) ? data : [];
+
+    // Fetch stock item metadata separately (no FK relation in schema cache)
+    const stockIds = Array.from(
+      new Set(
+        baseRows
+          .flatMap((r) => (Array.isArray(r.return_items) ? r.return_items : []))
+          .map((it) => it.stock_item_id)
+          .filter(Boolean)
+      )
+    );
+    let stockMap = {};
+    if (stockIds.length) {
+      const { data: stockData } = await supabase
+        .from('stock_items')
+        .select('id, image_url, name, asin, sku')
+        .in('id', stockIds);
+      stockMap = Array.isArray(stockData)
+        ? stockData.reduce((acc, s) => {
+            acc[s.id] = s;
+            return acc;
+          }, {})
+        : {};
+    }
+
+    baseRows = baseRows.map((r) => ({
+      ...r,
+      return_items: Array.isArray(r.return_items)
+        ? r.return_items.map((it) => ({ ...it, stock_item: stockMap[it.stock_item_id] || null }))
+        : []
+    }));
+
+    setRows(baseRows);
     if (err) setError(err.message);
     setLoading(false);
   };
