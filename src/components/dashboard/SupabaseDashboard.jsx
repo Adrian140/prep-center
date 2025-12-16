@@ -134,9 +134,9 @@ useEffect(() => {
       // Operations
       { id: 'activity', label: t('sidebar.activity'), icon: FileText, group: 'Operations' },
       { id: 'stock', label: t('sidebar.stock'), icon: Boxes, group: 'Operations' },
-      { id: 'exports', label: t('sidebar.exports'), icon: Download, group: 'Operations' },
       { id: 'packlink', label: 'Packlink', icon: Truck, group: 'Operations' },
       { id: 'box-estimator', label: 'Box Estimator', icon: Truck, group: 'Operations' },
+      { id: 'exports', label: t('sidebar.exports'), icon: Download, group: 'Operations' },
 
       // Account
       { id: 'profile', label: t('sidebar.profile'), icon: User, group: 'Account' },
