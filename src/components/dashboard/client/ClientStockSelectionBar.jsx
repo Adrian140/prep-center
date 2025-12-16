@@ -33,6 +33,7 @@ const ClientStockSelectionBar = ({
   returnInsideFiles = [],
   returnLabelFiles = [],
   onReturnFilesUpload,
+  onReturnFileRemove,
   onReturnSubmit,
   savingReturn
 }) => {
@@ -303,18 +304,39 @@ const ClientStockSelectionBar = ({
               <div className="text-xs text-text-secondary mb-2">
                 {uploadHint}
               </div>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                onChange={(e) => onReturnFilesUpload?.('inside', e.target.files)}
-                className="text-sm"
-              />
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="return-inside-upload"
+                  className="inline-flex items-center px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded cursor-pointer hover:bg-primary-dark"
+                >
+                  {returnInsideFiles.length > 0 ? t('common.add') || 'Add' : insideLabel}
+                </label>
+                <input
+                  id="return-inside-upload"
+                  type="file"
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                  onChange={(e) => onReturnFilesUpload?.('inside', e.target.files)}
+                  className="hidden"
+                />
+                {returnInsideFiles.length > 0 && (
+                  <span className="text-xs text-text-secondary">
+                    {returnInsideFiles.length} {returnInsideFiles.length === 1 ? 'file' : 'files'}
+                  </span>
+                )}
+              </div>
               <div className="mt-2 space-y-1 text-xs">
                 {returnInsideFiles.length === 0 && <div className="text-text-secondary">—</div>}
                 {returnInsideFiles.map((f, idx) => (
-                  <div key={`${f.name}-${idx}`} className="text-text-primary break-all">
-                    {f.name || f.url}
+                  <div key={`${f.name}-${idx}`} className="flex items-center gap-2 text-text-primary break-all">
+                    <span>{f.name || f.url}</span>
+                    <button
+                      type="button"
+                      className="text-red-500 hover:underline text-[11px] font-semibold"
+                      onClick={() => onReturnFileRemove?.('inside', idx)}
+                    >
+                      {t('common.delete') || 'Remove'}
+                    </button>
                   </div>
                 ))}
               </div>
@@ -326,18 +348,39 @@ const ClientStockSelectionBar = ({
               <div className="text-xs text-text-secondary mb-2">
                 {uploadHint}
               </div>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                onChange={(e) => onReturnFilesUpload?.('label', e.target.files)}
-                className="text-sm"
-              />
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="return-label-upload"
+                  className="inline-flex items-center px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded cursor-pointer hover:bg-primary-dark"
+                >
+                  {returnLabelFiles.length > 0 ? t('common.add') || 'Add' : labelDocsLabel}
+                </label>
+                <input
+                  id="return-label-upload"
+                  type="file"
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                  onChange={(e) => onReturnFilesUpload?.('label', e.target.files)}
+                  className="hidden"
+                />
+                {returnLabelFiles.length > 0 && (
+                  <span className="text-xs text-text-secondary">
+                    {returnLabelFiles.length} {returnLabelFiles.length === 1 ? 'file' : 'files'}
+                  </span>
+                )}
+              </div>
               <div className="mt-2 space-y-1 text-xs">
                 {returnLabelFiles.length === 0 && <div className="text-text-secondary">—</div>}
                 {returnLabelFiles.map((f, idx) => (
-                  <div key={`${f.name}-${idx}`} className="text-text-primary break-all">
-                    {f.name || f.url}
+                  <div key={`${f.name}-${idx}`} className="flex items-center gap-2 text-text-primary break-all">
+                    <span>{f.name || f.url}</span>
+                    <button
+                      type="button"
+                      className="text-red-500 hover:underline text-[11px] font-semibold"
+                      onClick={() => onReturnFileRemove?.('label', idx)}
+                    >
+                      {t('common.delete') || 'Remove'}
+                    </button>
                   </div>
                 ))}
               </div>

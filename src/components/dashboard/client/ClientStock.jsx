@@ -1431,6 +1431,14 @@ useEffect(() => {
     }
   };
 
+  const removeReturnFile = (type, idx) => {
+    if (type === 'inside') {
+      setReturnInsideFiles((prev) => prev.filter((_, i) => i !== idx));
+    } else {
+      setReturnLabelFiles((prev) => prev.filter((_, i) => i !== idx));
+    }
+  };
+
   const handleSubmitReturn = async () => {
     setReturnError('');
     if (!profile?.company_id) {
@@ -2372,6 +2380,7 @@ const saveReqChanges = async () => {
         returnInsideFiles={returnInsideFiles}
         returnLabelFiles={returnLabelFiles}
         onReturnFilesUpload={uploadReturnFiles}
+        onReturnFileRemove={removeReturnFile}
         onReturnSubmit={handleSubmitReturn}
         savingReturn={savingReturn}
       />
