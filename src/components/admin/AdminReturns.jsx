@@ -31,15 +31,37 @@ export default function AdminReturns() {
           sku,
           qty,
           notes,
-          stock_item_id,
-          stock_item:stock_items (image_url, name, asin, sku)
+          stock_item_id
         ),
         return_files (id, file_type, url, name)
       `)
       .order('created_at', { ascending: false })
       .limit(200);
     if (err) setError(err.message);
-    const baseRows = Array.isArray(data) ? data : [];
+    let baseRows = Array.isArray(data) ? data : [];
+
+    // Fetch stock items separately (no FK in schema cache)
+    const stockIds = Array.from(
+      new Set(
+        baseRows
+          .flatMap((r) => (Array.isArray(r.return_items) ? r.return_items : []))
+          .map((it) => it.stock_item_id)
+          .filter(Boolean)
+      )
+    );
+    let stockMap = {};
+    if (stockIds.length) {
+      const { data: stockData } = await supabase
+        .from('stock_items')
+        .select('id, image_url, name, asin, sku')
+        .in('id', stockIds);
+      stockMap = Array.isArray(stockData)
+        ? stockData.reduce((acc, s) => {
+            acc[s.id] = s;
+            return acc;
+          }, {})
+        : {};
+    }
 
     // Fetch profile info separately (no FK relation in schema cache)
     const userIds = Array.from(new Set(baseRows.map((r) => r.user_id).filter(Boolean)));
@@ -56,12 +78,15 @@ export default function AdminReturns() {
           }, {})
         : {};
     }
-    setRows(
-      baseRows.map((r) => ({
-        ...r,
-        profile: profileMap[r.user_id] || null
-      }))
-    );
+    baseRows = baseRows.map((r) => ({
+      ...r,
+      profile: profileMap[r.user_id] || null,
+      return_items: Array.isArray(r.return_items)
+        ? r.return_items.map((it) => ({ ...it, stock_item: stockMap[it.stock_item_id] || null }))
+        : []
+    }));
+
+    setRows(baseRows);
     setLoading(false);
   };
 
