@@ -26,13 +26,34 @@ export default function AdminReturns() {
         created_at,
         updated_at,
         return_items (id, asin, sku, qty, notes),
-        return_files (id, file_type, url, name),
-        profile:profiles (id, first_name, last_name, company_name, store_name, email)
+        return_files (id, file_type, url, name)
       `)
       .order('created_at', { ascending: false })
       .limit(200);
     if (err) setError(err.message);
-    setRows(Array.isArray(data) ? data : []);
+    const baseRows = Array.isArray(data) ? data : [];
+
+    // Fetch profile info separately (no FK relation in schema cache)
+    const userIds = Array.from(new Set(baseRows.map((r) => r.user_id).filter(Boolean)));
+    let profileMap = {};
+    if (userIds.length) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, company_name, store_name, email')
+        .in('id', userIds);
+      profileMap = Array.isArray(profiles)
+        ? profiles.reduce((acc, p) => {
+            acc[p.id] = p;
+            return acc;
+          }, {})
+        : {};
+    }
+    setRows(
+      baseRows.map((r) => ({
+        ...r,
+        profile: profileMap[r.user_id] || null
+      }))
+    );
     setLoading(false);
   };
 
