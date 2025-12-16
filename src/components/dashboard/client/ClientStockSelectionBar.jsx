@@ -42,6 +42,22 @@ const ClientStockSelectionBar = ({
     rawReturnLabel && !String(rawReturnLabel).includes('ClientStock.cta.return')
       ? rawReturnLabel
       : 'Return items';
+  const insideLabel =
+    t('ClientStock.return.insideDocs') && !String(t('ClientStock.return.insideDocs')).includes('ClientStock.return.insideDocs')
+      ? t('ClientStock.return.insideDocs')
+      : 'Docs to put inside the box';
+  const labelDocsLabel =
+    t('ClientStock.return.labelDocs') && !String(t('ClientStock.return.labelDocs')).includes('ClientStock.return.labelDocs')
+      ? t('ClientStock.return.labelDocs')
+      : 'Return labels';
+  const uploadHint =
+    t('ClientStock.return.uploadHint') && !String(t('ClientStock.return.uploadHint')).includes('ClientStock.return.uploadHint')
+      ? t('ClientStock.return.uploadHint')
+      : 'Upload PDF/JPG/PNG/DOC (multiple allowed)';
+  const notesLabel =
+    t('ClientStock.return.notes') && !String(t('ClientStock.return.notes')).includes('ClientStock.return.notes')
+      ? t('ClientStock.return.notes')
+      : 'Notes for the team';
 
   const showReceptionFields = submitType === 'reception';
   const showCarrierOther = receptionForm.carrier === 'OTHER';
@@ -282,10 +298,10 @@ const ClientStockSelectionBar = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="border rounded-lg p-3 bg-white">
               <div className="text-sm font-semibold">
-                {t('ClientStock.return.insideDocs') || 'Docs to put inside the box'}
+                {insideLabel}
               </div>
               <div className="text-xs text-text-secondary mb-2">
-                {t('ClientStock.return.uploadHint') || 'Upload PDF/JPG/PNG/DOC'}
+                {uploadHint}
               </div>
               <input
                 type="file"
@@ -305,10 +321,10 @@ const ClientStockSelectionBar = ({
             </div>
             <div className="border rounded-lg p-3 bg-white">
               <div className="text-sm font-semibold">
-                {t('ClientStock.return.labelDocs') || 'Return labels'}
+                {labelDocsLabel}
               </div>
               <div className="text-xs text-text-secondary mb-2">
-                {t('ClientStock.return.uploadHint') || 'Upload PDF/JPG/PNG/DOC'}
+                {uploadHint}
               </div>
               <input
                 type="file"
@@ -329,7 +345,7 @@ const ClientStockSelectionBar = ({
           </div>
           <div className="border rounded-lg p-3 bg-white">
             <div className="text-sm font-semibold">
-              {t('ClientStock.return.notes') || 'Notes for the team'}
+              {notesLabel}
             </div>
             <textarea
               className="w-full border rounded px-3 py-2 text-sm min-h-[70px]"

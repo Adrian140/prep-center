@@ -1408,7 +1408,7 @@ useEffect(() => {
       setReturnError('Lipsește company_id.');
       return;
     }
-    const bucket = 'returns';
+    const bucket = 'returns'; // asigură-te că bucket-ul public "returns" există în Supabase Storage
     const arr = Array.from(fileList);
     const uploaded = [];
     for (const file of arr) {
