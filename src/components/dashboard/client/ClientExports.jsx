@@ -261,26 +261,25 @@ export default function ClientExports() {
     setTriggerMessage('');
     
     try {
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/trigger_monthly_snapshots`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabase.supabaseKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        setTriggerMessage(`✅ Generated ${result.generated} snapshots, skipped ${result.skipped} existing ones for period ${result.period}`);
-        
-        // Reload archive after generation
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-      } else {
-        setTriggerMessage(`❌ ${supportError}`);
+      if (!profile?.company_id) {
+        setTriggerMessage('❌ Lipsesc datele de companie.');
+        return;
       }
+      // Folosim supabase.functions.invoke ca să trimită tokenul de sesiune, nu anon key.
+      const { data: result, error } = await supabase.functions.invoke('trigger_monthly_snapshots', {
+        body: { company_id: profile.company_id }
+      });
+      if (error || !result?.success) {
+        setTriggerMessage(`❌ ${supportError}`);
+        return;
+      }
+
+      setTriggerMessage(`✅ Generated ${result.generated} snapshots, skipped ${result.skipped} existing ones for period ${result.period}`);
+        
+      // Reload archive after generation
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error) {
       setTriggerMessage(`❌ ${supportError}`);
     } finally {
