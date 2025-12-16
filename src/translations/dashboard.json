@@ -759,7 +759,8 @@
     },
     "reportsMenu": {
       "shipments": "Prep-center shipments",
-      "receiving": "Prep-center receiving"
+      "receiving": "Prep-center receiving",
+      "returns": "Returns"
     },
     "ClientPrepShipments": {
       "title": "Prep-center shipments",
@@ -1549,7 +1550,8 @@
     },
     "reportsMenu": {
       "shipments": "Expedieri prep-center",
-      "receiving": "Recepții prep-center"
+      "receiving": "Recepții prep-center",
+      "returns": "Retururi"
     },
     "ClientPrepShipments": {
       "title": "Expedieri prep-center",
@@ -2285,7 +2287,8 @@
     },
     "reportsMenu": {
       "shipments": "Expéditions prep-center",
-      "receiving": "Réceptions prep-center"
+      "receiving": "Réceptions prep-center",
+      "returns": "Retours"
     },
     "ClientPrepShipments": {
       "title": "Expéditions prep-center",
@@ -3021,7 +3024,8 @@
     },
     "reportsMenu": {
       "shipments": "Prep-Center Sendungen",
-      "receiving": "Prep-Center Wareneingang"
+      "receiving": "Prep-Center Wareneingang",
+      "returns": "Retouren"
     },
     "ClientPrepShipments": {
       "title": "Prep-Center Sendungen",
@@ -3757,7 +3761,8 @@
     },
     "reportsMenu": {
       "shipments": "Spedizioni prep-center",
-      "receiving": "Ricezioni prep-center"
+      "receiving": "Ricezioni prep-center",
+      "returns": "Resi"
     },
     "ClientPrepShipments": {
       "title": "Spedizioni prep-center",
@@ -4493,7 +4498,8 @@
     },
     "reportsMenu": {
       "shipments": "Envíos del prep-center",
-      "receiving": "Recepciones del prep-center"
+      "receiving": "Recepciones del prep-center",
+      "returns": "Devoluciones"
     },
     "ClientPrepShipments": {
       "title": "Envíos del prep-center",

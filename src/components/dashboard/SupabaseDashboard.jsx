@@ -42,7 +42,8 @@ import { Star, X } from 'lucide-react';
 
 const REPORT_TABS = [
   { id: 'reports-shipments', labelKey: 'reportsMenu.shipments', icon: Package },
-  { id: 'reports-receiving', labelKey: 'reportsMenu.receiving', icon: Truck }
+  { id: 'reports-receiving', labelKey: 'reportsMenu.receiving', icon: Truck },
+  { id: 'reports-returns', labelKey: 'reportsMenu.returns', icon: RotateCcw }
 ];
 
 function SupabaseDashboard() {
@@ -65,7 +66,11 @@ function SupabaseDashboard() {
     ...REPORT_TABS.map((rt) => rt.id)
   ];
 
-  const normalizeTab = (tab) => (tab === 'receiving' ? 'reports-receiving' : tab);
+  const normalizeTab = (tab) => {
+    if (tab === 'receiving') return 'reports-receiving';
+    if (tab === 'returns-report') return 'reports-returns';
+    return tab;
+  };
   const [activeTab, setActiveTab] = useState(() => {
     const params =
       typeof window !== 'undefined'
@@ -259,6 +264,7 @@ const renderTabContent = useMemo(() => {
     case 'box-estimator': return <ClientBoxEstimator />;
     case 'reports-shipments': return <ClientPrepShipments />;
     case 'reports-receiving': return <ClientReceiving />;
+    case 'reports-returns': return <ClientReturns />;
 
     case 'profile':   return <SupabasePersonalProfile />;
     case 'billing':   return <SupabaseBillingProfiles />;
