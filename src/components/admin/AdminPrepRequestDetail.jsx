@@ -491,11 +491,17 @@ const mapBoxRows = (rows = []) => {
     let cancelled = false;
     const search = async () => {
       try {
+        const sanitized = term.replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+        if (!sanitized) {
+          setInventoryRemote([]);
+          return;
+        }
+        const pattern = `%${sanitized.replace(/[%_]/g, '\\$&')}%`;
         const or = [
-          `asin.ilike.%${term}%`,
-          `sku.ilike.%${term}%`,
-          `ean.ilike.%${term}%`,
-          `name.ilike.%${term}%`
+          `asin.ilike.${pattern}`,
+          `sku.ilike.${pattern}`,
+          `ean.ilike.${pattern}`,
+          `name.ilike.${pattern}`
         ].join(',');
         let query = supabase
           .from('stock_items')

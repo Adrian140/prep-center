@@ -40,30 +40,31 @@ export default function AdminReturns() {
     if (err) setError(err.message);
     let baseRows = Array.isArray(data) ? data : [];
 
-    // Fetch stock items separately (no FK in schema cache)
+    // Fetch stock items separat, fără .or() construit din string
     const allItems = baseRows.flatMap((r) => (Array.isArray(r.return_items) ? r.return_items : []));
     const stockIds = Array.from(new Set(allItems.map((it) => it.stock_item_id).filter(Boolean)));
     const asins = Array.from(new Set(allItems.map((it) => it.asin).filter(Boolean)));
     const skus = Array.from(new Set(allItems.map((it) => it.sku).filter(Boolean)));
-    let stockMap = {};
-    if (stockIds.length || asins.length || skus.length) {
-      const ors = [];
-      if (stockIds.length) ors.push(`id.in.(${stockIds.join(',')})`);
-      if (asins.length) ors.push(`asin.in.(${asins.map((a) => `"${a}"`).join(',')})`);
-      if (skus.length) ors.push(`sku.in.(${skus.map((s) => `"${s}"`).join(',')})`);
-      const { data: stockData } = await supabase
+    const stockMap = {};
+    const fetchAndMerge = async (column, values) => {
+      if (!values.length) return;
+      const { data } = await supabase
         .from('stock_items')
         .select('id, image_url, name, asin, sku')
-        .or(ors.join(','));
-      stockMap = Array.isArray(stockData)
-        ? stockData.reduce((acc, s) => {
-            acc[s.id] = s;
-            if (s.asin) acc[`asin:${s.asin}`] = s;
-            if (s.sku) acc[`sku:${s.sku}`] = s;
-            return acc;
-          }, {})
-        : {};
-    }
+        .in(column, values);
+      if (Array.isArray(data)) {
+        data.forEach((s) => {
+          stockMap[s.id] = stockMap[s.id] || s;
+          if (s.asin) stockMap[`asin:${s.asin}`] = stockMap[`asin:${s.asin}`] || s;
+          if (s.sku) stockMap[`sku:${s.sku}`] = stockMap[`sku:${s.sku}`] || s;
+        });
+      }
+    };
+    await Promise.all([
+      fetchAndMerge('id', stockIds),
+      fetchAndMerge('asin', asins),
+      fetchAndMerge('sku', skus)
+    ]);
 
     // Fetch profile info separately (no FK relation in schema cache)
     const userIds = Array.from(new Set(baseRows.map((r) => r.user_id).filter(Boolean)));
