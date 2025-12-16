@@ -1,5 +1,10 @@
 -- Returns workflow: return requests + items + files (labels / inside docs)
 
+-- Drop any previous attempt to avoid type mismatches
+drop table if exists public.return_files cascade;
+drop table if exists public.return_items cascade;
+drop table if exists public.returns cascade;
+
 create table if not exists public.returns (
   id bigint generated always as identity primary key,
   company_id uuid not null,
