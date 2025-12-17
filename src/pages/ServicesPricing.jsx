@@ -998,160 +998,162 @@ export default function ServicesPricing() {
             </section>
           </>
         ) : (
-          <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-8 -mt-4">
-            <div className="grid gap-6 md:grid-cols-2">
-              {publicGroups.map((group) => {
-                const Icon = group.icon;
-                const bullets = Array.isArray(group.bullets) ? group.bullets : [];
-                return (
-                  <article key={group.key} className="rounded-3xl border bg-gray-50/70 p-5 space-y-4">
-                    <div className="flex items-start gap-3">
-                      <div className="rounded-2xl bg-white p-3 shadow-sm">
-                        <Icon className="w-5 h-5 text-primary" />
+          <>
+            <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-8 -mt-4">
+              <div className="grid gap-6 md:grid-cols-2">
+                {publicGroups.map((group) => {
+                  const Icon = group.icon;
+                  const bullets = Array.isArray(group.bullets) ? group.bullets : [];
+                  return (
+                    <article key={group.key} className="rounded-3xl border bg-gray-50/70 p-5 space-y-4">
+                      <div className="flex items-start gap-3">
+                        <div className="rounded-2xl bg-white p-3 shadow-sm">
+                          <Icon className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-text-light">
+                            {t('publicSection.groupLabel')}
+                          </p>
+                          <h2 className="text-xl font-semibold text-text-primary">{group.title}</h2>
+                          <p className="text-sm text-text-secondary">{group.subtitle}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-text-light">
-                          {t('publicSection.groupLabel')}
-                        </p>
-                        <h2 className="text-xl font-semibold text-text-primary">{group.title}</h2>
-                        <p className="text-sm text-text-secondary">{group.subtitle}</p>
-                      </div>
-                    </div>
-                    {bullets.length > 0 && (
-                      <ul className="grid gap-2 text-sm text-text-secondary">
-                        {bullets.map((item) => (
-                          <li key={item} className="flex items-center gap-2">
-                            <span className="inline-flex h-2 w-2 rounded-full bg-primary/70" />
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <a
-                href="/contact"
-                className="inline-flex items-center gap-2 px-6 py-2 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark"
-              >
-                {t('publicSection.ctaPrimary')}
-                <ArrowRight className="w-4 h-4" />
-              </a>
-              <a
-                href="https://wa.me/33675116218"
-                className="inline-flex items-center gap-2 px-6 py-2 rounded-xl border border-gray-200 text-text-primary font-semibold hover:border-primary"
-              >
-                {t('publicSection.ctaSecondary')}
-              </a>
-            </div>
-            <p className="text-xs text-text-light">{t('publicSection.note')}</p>
-          </section>
-
-          <section className="space-y-12">
-            <div className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold text-text-primary">
-                  {t('shippingSection.domesticTitle')}
-                </h2>
-                <p className="text-text-secondary">{t('shippingSection.domesticSubtitle')}</p>
-              </div>
-              {shippingLoading ? (
-                <div className="py-10 text-center text-text-secondary">
-                  {t('pricingSection.loading')}
-                </div>
-              ) : (
-                <>
-                  {renderShippingCards(shippingRates.domestic, DOMESTIC_COLUMNS)}
-                  <div className="hidden md:block overflow-auto border rounded-xl">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-gray-50 text-text-secondary">
-                        <tr>
-                          <th className="px-4 py-3 text-left">
-                            {t('shippingSection.table.transporter')}
-                          </th>
-                          {DOMESTIC_COLUMNS.map((col) => (
-                            <th key={col} className="px-4 py-3 text-center">
-                              {col === '20' ? '20 kg' : `${col} kg`}
-                            </th>
+                      {bullets.length > 0 && (
+                        <ul className="grid gap-2 text-sm text-text-secondary">
+                          {bullets.map((item) => (
+                            <li key={item} className="flex items-center gap-2">
+                              <span className="inline-flex h-2 w-2 rounded-full bg-primary/70" />
+                              {item}
+                            </li>
                           ))}
-                          <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {shippingRates.domestic.map((row) =>
-                          renderShippingRow(row, DOMESTIC_COLUMNS)
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-              <p className="text-xs text-text-light">{t('shippingSection.domesticDisclaimer')}</p>
-            </div>
+                        </ul>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <a
+                  href="/contact"
+                  className="inline-flex items-center gap-2 px-6 py-2 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark"
+                >
+                  {t('publicSection.ctaPrimary')}
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+                <a
+                  href="https://wa.me/33675116218"
+                  className="inline-flex items-center gap-2 px-6 py-2 rounded-xl border border-gray-200 text-text-primary font-semibold hover:border-primary"
+                >
+                  {t('publicSection.ctaSecondary')}
+                </a>
+              </div>
+              <p className="text-xs text-text-light">{t('publicSection.note')}</p>
+            </section>
 
-            <div className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <section className="space-y-12">
+              <div className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
                 <div>
                   <h2 className="text-2xl font-semibold text-text-primary">
-                    {t('shippingSection.internationalTitle')}
+                    {t('shippingSection.domesticTitle')}
                   </h2>
-                  <p className="text-text-secondary">{t('shippingSection.internationalSubtitle')}</p>
+                  <p className="text-text-secondary">{t('shippingSection.domesticSubtitle')}</p>
                 </div>
-                <select
-                  value={shippingRegion}
-                  onChange={(e) => setShippingRegion(e.target.value)}
-                  className="border rounded-lg px-4 py-2"
-                  aria-label={t('shippingSection.dropdownLabel')}
-                >
-                  {Object.keys(INTERNATIONAL_COLUMNS).map((region) => (
-                    <option key={region} value={region}>
-                      {region}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {shippingLoading ? (
-                <div className="py-10 text-center text-text-secondary">
-                  {t('pricingSection.loading')}
-                </div>
-              ) : (
-                <>
-                  {renderShippingCards(
-                    shippingRates.international[shippingRegion] || [],
-                    INTERNATIONAL_COLUMNS[shippingRegion] || []
-                  )}
-                  <div className="hidden md:block overflow-auto border rounded-xl">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-gray-50 text-text-secondary">
-                        <tr>
-                          <th className="px-4 py-3 text-left">
-                            {t('shippingSection.table.transporter')}
-                          </th>
-                          {(INTERNATIONAL_COLUMNS[shippingRegion] || []).map((col) => (
-                            <th key={col} className="px-4 py-3 text-center">
-                              {col} kg
-                            </th>
-                          ))}
-                          <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(shippingRates.international[shippingRegion] || []).map((row) =>
-                          renderShippingRow(row, INTERNATIONAL_COLUMNS[shippingRegion] || [])
-                        )}
-                      </tbody>
-                    </table>
+                {shippingLoading ? (
+                  <div className="py-10 text-center text-text-secondary">
+                    {t('pricingSection.loading')}
                   </div>
-                </>
-              )}
-              {shippingError && <div className="text-xs text-red-500">{shippingError}</div>}
-              <p className="text-xs text-text-light">
-                {t('shippingSection.internationalDisclaimer')}
-              </p>
-            </div>
-          </section>
+                ) : (
+                  <>
+                    {renderShippingCards(shippingRates.domestic, DOMESTIC_COLUMNS)}
+                    <div className="hidden md:block overflow-auto border rounded-xl">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-gray-50 text-text-secondary">
+                          <tr>
+                            <th className="px-4 py-3 text-left">
+                              {t('shippingSection.table.transporter')}
+                            </th>
+                            {DOMESTIC_COLUMNS.map((col) => (
+                              <th key={col} className="px-4 py-3 text-center">
+                                {col === '20' ? '20 kg' : `${col} kg`}
+                              </th>
+                            ))}
+                            <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {shippingRates.domestic.map((row) =>
+                            renderShippingRow(row, DOMESTIC_COLUMNS)
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+                <p className="text-xs text-text-light">{t('shippingSection.domesticDisclaimer')}</p>
+              </div>
+
+              <div className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-text-primary">
+                      {t('shippingSection.internationalTitle')}
+                    </h2>
+                    <p className="text-text-secondary">{t('shippingSection.internationalSubtitle')}</p>
+                  </div>
+                  <select
+                    value={shippingRegion}
+                    onChange={(e) => setShippingRegion(e.target.value)}
+                    className="border rounded-lg px-4 py-2"
+                    aria-label={t('shippingSection.dropdownLabel')}
+                  >
+                    {Object.keys(INTERNATIONAL_COLUMNS).map((region) => (
+                      <option key={region} value={region}>
+                        {region}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {shippingLoading ? (
+                  <div className="py-10 text-center text-text-secondary">
+                    {t('pricingSection.loading')}
+                  </div>
+                ) : (
+                  <>
+                    {renderShippingCards(
+                      shippingRates.international[shippingRegion] || [],
+                      INTERNATIONAL_COLUMNS[shippingRegion] || []
+                    )}
+                    <div className="hidden md:block overflow-auto border rounded-xl">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-gray-50 text-text-secondary">
+                          <tr>
+                            <th className="px-4 py-3 text-left">
+                              {t('shippingSection.table.transporter')}
+                            </th>
+                            {(INTERNATIONAL_COLUMNS[shippingRegion] || []).map((col) => (
+                              <th key={col} className="px-4 py-3 text-center">
+                                {col} kg
+                              </th>
+                            ))}
+                            <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(shippingRates.international[shippingRegion] || []).map((row) =>
+                            renderShippingRow(row, INTERNATIONAL_COLUMNS[shippingRegion] || [])
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+                {shippingError && <div className="text-xs text-red-500">{shippingError}</div>}
+                <p className="text-xs text-text-light">
+                  {t('shippingSection.internationalDisclaimer')}
+                </p>
+              </div>
+            </section>
+          </>
         )}
      </div>
    </div>
