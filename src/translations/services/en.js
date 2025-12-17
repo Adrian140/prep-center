@@ -6,7 +6,7 @@ export const servicesEn = {
   pricingSection: {
     title: 'Live services & pricing',
     description: '',
-    export: 'Download pricing workbook',
+    export: 'Save pricing PDF',
     manage: 'Manage services',
     loading: 'Loading pricing…',
     empty: 'Pricing is being configured. Please check back soon.',
@@ -17,8 +17,8 @@ export const servicesEn = {
     ctaFbm: 'Add FBM Platform',
     ctaStorage: 'Contact for Storage Options',
     ctaExtra: 'Request Custom Service',
-    finalTitle: 'Download the complete pricing workbook.',
-    finalNote: 'Structured like an XLS offer so you can drop it into Excel or forward it to clients instantly.',
+    finalTitle: 'Save a PDF snapshot of the current pricing layout.',
+    finalNote: 'The PDF matches the admin view so you can share or archive the same layout.',
     groups: {
       fba: {
         title: 'FBA Prep Services',

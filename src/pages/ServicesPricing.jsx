@@ -4,7 +4,6 @@ import { supabaseHelpers } from '../config/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useServicesTranslation } from '../translations/services';
-import { exportPricingWorkbook } from '../utils/pricingWorkbook';
 
 const CATEGORY_ORDER = [
   { id: 'FBA Prep Services', key: 'fba' },
@@ -126,6 +125,7 @@ export default function ServicesPricing() {
   const [shippingLoading, setShippingLoading] = useState(true);
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingError, setPricingError] = useState('');
+  const [isPrinting, setIsPrinting] = useState(false);
   const [serviceSelection, setServiceSelection] = useState('');
   const [estimateItems, setEstimateItems] = useState([]);
 
@@ -228,6 +228,23 @@ export default function ServicesPricing() {
     fetchContent();
     fetchShipping();
   }, [fetchPricing, fetchContent, fetchShipping]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const handleAfterPrint = () => setIsPrinting(false);
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => window.removeEventListener('afterprint', handleAfterPrint);
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (isPrinting) {
+      document.body.classList.add('admin-printing');
+    } else {
+      document.body.classList.remove('admin-printing');
+    }
+    return () => document.body.classList.remove('admin-printing');
+  }, [isAdmin, isPrinting]);
 
   useEffect(() => {
     if (isAdmin || currentLanguage !== 'en') return;
@@ -462,17 +479,16 @@ export default function ServicesPricing() {
     setEstimateItems([]);
   };
 
-  const handleExport = async () => {
+  const handlePrint = () => {
     if (!Object.keys(pricingGroups).length) {
       setPricingError(t('pricingSection.error'));
       return;
     }
-    try {
-      await exportPricingWorkbook(pricingGroups);
-    } catch (err) {
-      console.error('Workbook export failed', err);
-      setPricingError(t('pricingSection.error'));
-    }
+    setIsPrinting(true);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => setIsPrinting(false), 1200);
+    }, 100);
   };
 
   const getServiceIcon = (name = '') => {
@@ -572,7 +588,25 @@ export default function ServicesPricing() {
 
   return (
     <div className="min-h-screen py-20 bg-gradient-to-b from-white via-gray-50 to-white">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+      <div
+        id="admin-pricing-print"
+        className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12"
+      >
+        {isAdmin && (
+          <style>{`
+            @media print {
+              body.admin-printing * { visibility: hidden; }
+              body.admin-printing #admin-pricing-print,
+              body.admin-printing #admin-pricing-print * { visibility: visible; }
+              body.admin-printing #admin-pricing-print {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+              }
+            }
+          `}</style>
+        )}
         <header className="relative overflow-hidden rounded-3xl border bg-white/90 shadow-sm p-8 md:p-10 text-center">
           <div className="absolute -top-24 -left-32 h-72 w-72 rounded-full bg-blue-100/60 blur-3xl" />
           <div className="absolute -bottom-20 -right-32 h-72 w-72 rounded-full bg-emerald-100/60 blur-3xl" />
@@ -697,7 +731,7 @@ export default function ServicesPricing() {
                   {t('pricingSection.manage')}
                 </a>
                 <button
-                  onClick={handleExport}
+                  onClick={handlePrint}
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-gray-900 font-semibold hover:bg-gray-100"
                 >
                   <FileDown className="w-4 h-4" />

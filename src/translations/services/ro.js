@@ -6,7 +6,7 @@ export const servicesRo = {
   pricingSection: {
     title: 'Tarife actualizate în timp real',
     description: '',
-    export: 'Descarcă oferta completă',
+    export: 'Salvează PDF-ul tarifelor',
     manage: 'Gestionează serviciile',
     loading: 'Încărcăm tarifele…',
     empty: 'Tarifele sunt în curs de configurare. Revino în scurt timp.',
@@ -17,8 +17,8 @@ export const servicesRo = {
     ctaFbm: 'Adaugă platformă FBM',
     ctaStorage: 'Contactează-ne pentru depozitare',
     ctaExtra: 'Cere serviciu personalizat',
-    finalTitle: 'Descarci imediat oferta completă.',
-    finalNote: 'Fișier tabelar în stil XLS, gata de folosit în Excel sau de trimis clienților.',
+    finalTitle: 'Salvezi un PDF cu aspectul exact al paginii.',
+    finalNote: 'PDF-ul reproduce vizual pagina admin pentru partajare sau arhivare.',
     groups: {
       fba: {
         title: 'Servicii FBA Prep',

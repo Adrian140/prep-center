@@ -6,7 +6,7 @@ export const servicesFr = {
   pricingSection: {
     title: 'Tarifs mis à jour en temps réel',
     description: '',
-    export: 'Télécharger l’offre complète',
+    export: 'Enregistrer le PDF des tarifs',
     manage: 'Gérer les services',
     loading: 'Chargement des tarifs…',
     empty: 'Les tarifs sont en cours de configuration. Revenez bientôt.',
@@ -17,8 +17,8 @@ export const servicesFr = {
     ctaFbm: 'Ajouter une plateforme FBM',
     ctaStorage: 'Contacter pour les options de stockage',
     ctaExtra: 'Demander un service personnalisé',
-    finalTitle: 'Téléchargez le classeur complet des tarifs.',
-    finalNote: 'Format tableau compatible Excel, prêt à être envoyé comme offre commerciale.',
+    finalTitle: 'Enregistrez un PDF fidèle à la mise en page actuelle.',
+    finalNote: 'Le PDF reprend exactement la vue admin pour un partage ou un archivage simple.',
     groups: {
       fba: {
         title: 'Services FBA Prep',
