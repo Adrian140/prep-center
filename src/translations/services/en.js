@@ -234,10 +234,10 @@ export const servicesEn = {
   otherLabelsUnits: 'Other Labels (Transparency codes, warning labels, etc.) (€0.10/unit)'
 ,
   shippingSection: {
-    domesticTitle: 'FBM Package Shipping Rates',
+    domesticTitle: 'Package Shipping Rates',
     domesticSubtitle: 'Domestic shipping – France',
     domesticDisclaimer: 'These prices are indicative and may not always be updated in real time. For exact shipping rates, please contact us.',
-    internationalTitle: 'FBM International Shipping Rates',
+    internationalTitle: 'International Shipping Rates',
     internationalSubtitle: 'Choose destination to compare transporters',
     internationalDisclaimer: 'These international shipping prices are indicative and may not always be updated in real time. For exact rates, please contact us.',
     dropdownLabel: 'Select destination',

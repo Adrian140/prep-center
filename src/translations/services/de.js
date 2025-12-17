@@ -234,10 +234,10 @@ export const servicesDe = {
   otherLabelsUnits: 'Andere Etiketten (Transparenz-Codes, Warnhinweise, etc.) (€0.10/Einheit)'
   ,
   shippingSection: {
-    domesticTitle: 'FBM Paketversand – Inland',
+    domesticTitle: 'Paketversandtarife – Inland',
     domesticSubtitle: 'Lieferungen innerhalb Frankreichs',
     domesticDisclaimer: 'Diese Preise sind Richtwerte und können sich ändern. Für exakte Tarife kontaktieren Sie uns bitte.',
-    internationalTitle: 'FBM Paketversand – International',
+    internationalTitle: 'Paketversandtarife – International',
     internationalSubtitle: 'Ziel auswählen und Spediteure vergleichen',
     internationalDisclaimer: 'Diese internationalen Preise sind Richtwerte und können sich ändern. Für exakte Tarife kontaktieren Sie uns bitte.',
     dropdownLabel: 'Ziel auswählen',

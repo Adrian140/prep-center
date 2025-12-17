@@ -234,10 +234,10 @@ export const servicesFr = {
   otherLabelsUnits: 'Autres Étiquettes (codes de transparence, étiquettes d\'avertissement, etc.) (€0.10/unité)'
   ,
   shippingSection: {
-    domesticTitle: 'Tarifs d’expédition FBM',
+    domesticTitle: 'Tarifs d’expédition de colis',
     domesticSubtitle: 'Expéditions domestiques – France',
     domesticDisclaimer: 'Ces tarifs sont indicatifs et peuvent évoluer. Pour des tarifs exacts, contactez-nous.',
-    internationalTitle: 'Tarifs d’expédition FBM – International',
+    internationalTitle: 'Tarifs d’expédition internationaux',
     internationalSubtitle: 'Choisissez la destination pour comparer les transporteurs',
     internationalDisclaimer: 'Ces tarifs internationaux sont indicatifs et peuvent évoluer. Pour des tarifs exacts, contactez-nous.',
     dropdownLabel: 'Sélectionnez la destination',

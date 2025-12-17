@@ -233,10 +233,10 @@ export const servicesRo = {
   otherLabelsUnits: 'Alte Etichete (coduri de transparență, etichete de avertizare, etc.) (€0.10/unitate)'
   ,
   shippingSection: {
-    domesticTitle: 'Tarife FBM – livrări interne',
+    domesticTitle: 'Tarife de expediere pachete – livrări interne',
     domesticSubtitle: 'Expediere internă – Franța',
     domesticDisclaimer: 'Aceste prețuri sunt orientative și pot fi actualizate fără notificare. Pentru tarife exacte, contactează-ne.',
-    internationalTitle: 'Tarife FBM – livrări internaționale',
+    internationalTitle: 'Tarife de expediere internaționale',
     internationalSubtitle: 'Alege destinația pentru a compara transportatorii',
     internationalDisclaimer: 'Aceste tarife internaționale sunt orientative și pot fi actualizate fără notificare. Pentru tarife exacte, contactează-ne.',
     dropdownLabel: 'Selectează destinația',

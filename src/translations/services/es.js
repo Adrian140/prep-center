@@ -234,10 +234,10 @@ export const servicesEs = {
   otherLabelsUnits: 'Otras Etiquetas (códigos de transparencia, etiquetas de advertencia, etc.) (€0.10/unidad)'
   ,
   shippingSection: {
-    domesticTitle: 'Tarifas de envío FBM',
+    domesticTitle: 'Tarifas de envío de paquetes',
     domesticSubtitle: 'Envíos nacionales – Francia',
     domesticDisclaimer: 'Estos precios son orientativos y pueden cambiar. Para tarifas exactas, contáctanos.',
-    internationalTitle: 'Tarifas de envío FBM internacionales',
+    internationalTitle: 'Tarifas de envío internacionales',
     internationalSubtitle: 'Elige el destino para comparar transportistas',
     internationalDisclaimer: 'Estas tarifas internacionales son orientativas y pueden cambiar. Para tarifas exactas, contáctanos.',
     dropdownLabel: 'Selecciona destino',
