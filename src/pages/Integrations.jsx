@@ -21,7 +21,7 @@ const COPY = {
     importList: [
       'Poză principală',
       'Titlu produs',
-      'SKU / EAN',
+      'ASIN / SKU',
       'Stoc inbound (disponibil / inbound / rezervat)',
       'Stoc în PrepCenter',
       'Vânzări din ultimele 30 de zile'
@@ -40,7 +40,7 @@ const COPY = {
     clickToEnlarge: 'Click pentru mărire',
     miniCards: {
       listTitle: 'Listări',
-      listBody: 'Titlu + poză + SKU/EAN',
+      listBody: 'Titlu + poză + ASIN/SKU',
       stockTitle: 'Stoc',
       stockBody: 'Inbound & disponibil',
       shipTitle: 'Expedieri',
@@ -74,7 +74,7 @@ const COPY = {
     importList: [
       'Main image',
       'Product title',
-      'SKU / EAN',
+      'ASIN / SKU',
       'Inbound stock (available / inbound / reserved)',
       'PrepCenter stock',
       'Sales from last 30 days'
@@ -93,7 +93,7 @@ const COPY = {
     clickToEnlarge: 'Click to enlarge',
     miniCards: {
       listTitle: 'Listings',
-      listBody: 'Title + image + SKU/EAN',
+      listBody: 'Title + image + ASIN/SKU',
       stockTitle: 'Stock',
       stockBody: 'Inbound & available',
       shipTitle: 'Shipments',
@@ -127,7 +127,7 @@ const COPY = {
     importList: [
       'Photo principale',
       'Titre du produit',
-      'SKU / EAN',
+      'ASIN / SKU',
       'Stock inbound (disponible / inbound / réservé)',
       'Stock en PrepCenter',
       'Ventes des 30 derniers jours'
@@ -146,7 +146,7 @@ const COPY = {
     clickToEnlarge: 'Cliquer pour agrandir',
     miniCards: {
       listTitle: 'Listings',
-      listBody: 'Titre + photo + SKU/EAN',
+      listBody: 'Titre + photo + ASIN/SKU',
       stockTitle: 'Stock',
       stockBody: 'Inbound & disponible',
       shipTitle: 'Expéditions',
@@ -180,7 +180,7 @@ const COPY = {
     importList: [
       'Hauptbild',
       'Produkttitel',
-      'SKU / EAN',
+      'ASIN / SKU',
       'Inbound-Bestand (available / inbound / reserved)',
       'Bestand im PrepCenter',
       'Verkäufe der letzten 30 Tage'
@@ -199,7 +199,7 @@ const COPY = {
     clickToEnlarge: 'Zum Vergrößern klicken',
     miniCards: {
       listTitle: 'Listings',
-      listBody: 'Titel + Bild + SKU/EAN',
+      listBody: 'Titel + Bild + ASIN/SKU',
       stockTitle: 'Bestand',
       stockBody: 'Inbound & verfügbar',
       shipTitle: 'Sendungen',
@@ -233,7 +233,7 @@ const COPY = {
     importList: [
       'Imagen principal',
       'Título del producto',
-      'SKU / EAN',
+      'ASIN / SKU',
       'Stock inbound (available / inbound / reserved)',
       'Stock en PrepCenter',
       'Ventas de los últimos 30 días'
@@ -252,7 +252,7 @@ const COPY = {
     clickToEnlarge: 'Clic para ampliar',
     miniCards: {
       listTitle: 'Listados',
-      listBody: 'Título + foto + SKU/EAN',
+      listBody: 'Título + foto + ASIN/SKU',
       stockTitle: 'Stock',
       stockBody: 'Inbound & disponible',
       shipTitle: 'Envíos',
@@ -286,7 +286,7 @@ const COPY = {
     importList: [
       'Immagine principale',
       'Titolo prodotto',
-      'SKU / EAN',
+      'ASIN / SKU',
       'Stock inbound (available / inbound / reserved)',
       'Stock in PrepCenter',
       'Vendite degli ultimi 30 giorni'
@@ -305,7 +305,7 @@ const COPY = {
     clickToEnlarge: 'Clicca per ingrandire',
     miniCards: {
       listTitle: 'Listing',
-      listBody: 'Titolo + foto + SKU/EAN',
+      listBody: 'Titolo + foto + ASIN/SKU',
       stockTitle: 'Stock',
       stockBody: 'Inbound & disponibile',
       shipTitle: 'Spedizioni',
