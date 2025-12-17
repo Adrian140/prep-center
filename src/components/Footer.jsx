@@ -57,8 +57,8 @@ function Footer() {
           <div className="space-y-3 max-w-sm">
             <div className="flex items-center space-x-2">
               <img 
-                src="/branding/prep-center-logo.svg" 
-                alt="Prep Center Logistics Logo" 
+                src="/branding/fulfillment-prep-logo.png" 
+                alt="Fulfillment Prep Logistics Logo" 
                 className="w-14 h-14 object-contain"
               />
               <span className="text-lg font-bold text-text-primary leading-tight">PrepCenter France</span>
