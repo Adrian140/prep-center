@@ -233,11 +233,11 @@ export const servicesIt = {
   ,
   shippingSection: {
     domesticTitle: 'Tariffe di spedizione pacchi – interne',
-    domesticSubtitle: 'Spedizioni nazionali – Francia',
-    domesticDisclaimer: 'Queste tariffe sono indicative e possono cambiare. Per tariffe esatte contattaci.',
+    domesticSubtitle: 'Spedizioni nazionali – Francia (stime Packlink)',
+    domesticDisclaimer: 'Solo stime Packlink indicative. Per tariffe esatte contattaci.',
     internationalTitle: 'Tariffe di spedizione internazionali',
-    internationalSubtitle: 'Scegli la destinazione per confrontare i vettori',
-    internationalDisclaimer: 'Queste tariffe internazionali sono indicative e possono cambiare. Per tariffe esatte contattaci.',
+    internationalSubtitle: 'Scegli la destinazione per confrontare i vettori (stime Packlink)',
+    internationalDisclaimer: 'Solo stime Packlink indicative. Per tariffe esatte contattaci.',
     dropdownLabel: 'Seleziona destinazione',
     table: {
       transporter: 'Vettore',

@@ -233,11 +233,11 @@ export const servicesDe = {
   ,
   shippingSection: {
     domesticTitle: 'Paketversandtarife – Inland',
-    domesticSubtitle: 'Lieferungen innerhalb Frankreichs',
-    domesticDisclaimer: 'Diese Preise sind Richtwerte und können sich ändern. Für exakte Tarife kontaktieren Sie uns bitte.',
+    domesticSubtitle: 'Lieferungen innerhalb Frankreichs (Packlink-Schätzungen)',
+    domesticDisclaimer: 'Nur indikative Packlink-Schätzungen. Für exakte Tarife kontaktieren Sie uns bitte.',
     internationalTitle: 'Paketversandtarife – International',
-    internationalSubtitle: 'Ziel auswählen und Spediteure vergleichen',
-    internationalDisclaimer: 'Diese internationalen Preise sind Richtwerte und können sich ändern. Für exakte Tarife kontaktieren Sie uns bitte.',
+    internationalSubtitle: 'Ziel auswählen und Spediteure vergleichen (Packlink-Schätzungen)',
+    internationalDisclaimer: 'Nur indikative Packlink-Schätzungen. Für exakte Tarife kontaktieren Sie uns bitte.',
     dropdownLabel: 'Ziel auswählen',
     table: {
       transporter: 'Transporteur',

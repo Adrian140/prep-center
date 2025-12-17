@@ -233,11 +233,11 @@ export const servicesEn = {
 ,
   shippingSection: {
     domesticTitle: 'Package Shipping Rates',
-    domesticSubtitle: 'Domestic shipping – France',
-    domesticDisclaimer: 'These prices are indicative and may not always be updated in real time. For exact shipping rates, please contact us.',
+    domesticSubtitle: 'Domestic shipping – France (Packlink estimates)',
+    domesticDisclaimer: 'Indicative Packlink estimates only. For exact shipping rates, please contact us.',
     internationalTitle: 'International Shipping Rates',
-    internationalSubtitle: 'Choose destination to compare transporters',
-    internationalDisclaimer: 'These international shipping prices are indicative and may not always be updated in real time. For exact rates, please contact us.',
+    internationalSubtitle: 'Choose destination to compare transporters (Packlink estimates)',
+    internationalDisclaimer: 'Indicative Packlink estimates only. For exact rates, please contact us.',
     dropdownLabel: 'Select destination',
     table: {
       transporter: 'Transporter',

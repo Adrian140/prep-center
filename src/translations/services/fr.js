@@ -233,11 +233,11 @@ export const servicesFr = {
   ,
   shippingSection: {
     domesticTitle: 'Tarifs d’expédition de colis',
-    domesticSubtitle: 'Expéditions domestiques – France',
-    domesticDisclaimer: 'Ces tarifs sont indicatifs et peuvent évoluer. Pour des tarifs exacts, contactez-nous.',
+    domesticSubtitle: 'Expéditions domestiques – France (estimations Packlink)',
+    domesticDisclaimer: 'Estimations Packlink indicatives uniquement. Pour des tarifs exacts, contactez-nous.',
     internationalTitle: 'Tarifs d’expédition internationaux',
-    internationalSubtitle: 'Choisissez la destination pour comparer les transporteurs',
-    internationalDisclaimer: 'Ces tarifs internationaux sont indicatifs et peuvent évoluer. Pour des tarifs exacts, contactez-nous.',
+    internationalSubtitle: 'Choisissez la destination pour comparer les transporteurs (estimations Packlink)',
+    internationalDisclaimer: 'Estimations Packlink indicatives uniquement. Pour des tarifs exacts, contactez-nous.',
     dropdownLabel: 'Sélectionnez la destination',
     table: {
       transporter: 'Transporteur',

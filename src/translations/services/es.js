@@ -233,11 +233,11 @@ export const servicesEs = {
   ,
   shippingSection: {
     domesticTitle: 'Tarifas de envío de paquetes',
-    domesticSubtitle: 'Envíos nacionales – Francia',
-    domesticDisclaimer: 'Estos precios son orientativos y pueden cambiar. Para tarifas exactas, contáctanos.',
+    domesticSubtitle: 'Envíos nacionales – Francia (estimaciones Packlink)',
+    domesticDisclaimer: 'Solo estimaciones Packlink orientativas. Para tarifas exactas, contáctanos.',
     internationalTitle: 'Tarifas de envío internacionales',
-    internationalSubtitle: 'Elige el destino para comparar transportistas',
-    internationalDisclaimer: 'Estas tarifas internacionales son orientativas y pueden cambiar. Para tarifas exactas, contáctanos.',
+    internationalSubtitle: 'Elige el destino para comparar transportistas (estimaciones Packlink)',
+    internationalDisclaimer: 'Solo estimaciones Packlink orientativas. Para tarifas exactas, contáctanos.',
     dropdownLabel: 'Selecciona destino',
     table: {
       transporter: 'Transportista',

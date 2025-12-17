@@ -232,11 +232,11 @@ export const servicesRo = {
   ,
   shippingSection: {
     domesticTitle: 'Tarife de expediere pachete – livrări interne',
-    domesticSubtitle: 'Expediere internă – Franța',
-    domesticDisclaimer: 'Aceste prețuri sunt orientative și pot fi actualizate fără notificare. Pentru tarife exacte, contactează-ne.',
+    domesticSubtitle: 'Expediere internă – Franța (estimări Packlink)',
+    domesticDisclaimer: 'Estimări Packlink orientative. Pentru tarife exacte, contactează-ne.',
     internationalTitle: 'Tarife de expediere internaționale',
-    internationalSubtitle: 'Alege destinația pentru a compara transportatorii',
-    internationalDisclaimer: 'Aceste tarife internaționale sunt orientative și pot fi actualizate fără notificare. Pentru tarife exacte, contactează-ne.',
+    internationalSubtitle: 'Alege destinația pentru a compara transportatorii (estimări Packlink)',
+    internationalDisclaimer: 'Estimări Packlink orientative. Pentru tarife exacte, contactează-ne.',
     dropdownLabel: 'Selectează destinația',
     table: {
       transporter: 'Transportator',
