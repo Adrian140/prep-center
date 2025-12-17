@@ -59,7 +59,7 @@ function Footer() {
               <img 
                 src="/branding/fulfillment-prep-logo.png" 
                 alt="Fulfillment Prep Logistics Logo" 
-                className="w-14 h-14 object-contain"
+                className="w-16 h-16 object-contain"
               />
               <span className="text-lg font-bold text-text-primary leading-tight">PrepCenter France</span>
             </div>

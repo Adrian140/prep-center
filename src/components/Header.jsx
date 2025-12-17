@@ -50,13 +50,13 @@ function Header() {
   return (
     <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
+        <div className="flex justify-between items-center h-24">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3 cursor-pointer">
             <img
               src="/branding/fulfillment-prep-logo.png"
               alt="Fulfillment Prep Logistics Logo"
-              className="w-20 h-20 object-contain"
+              className="w-24 h-24 object-contain"
             />
             <div className="flex flex-col">
               <span className="text-lg font-bold text-text-primary leading-tight">PrepCenter</span>
