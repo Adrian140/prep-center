@@ -56,7 +56,7 @@ function Header() {
             <img
               src="/branding/fulfillment-prep-logo.png"
               alt="Fulfillment Prep Logistics Logo"
-              className="h-10 w-auto object-contain"
+              className="h-12 w-auto object-contain"
             />
             <div className="flex flex-col">
               <span className="text-lg font-bold text-text-primary leading-tight">PrepCenter</span>
