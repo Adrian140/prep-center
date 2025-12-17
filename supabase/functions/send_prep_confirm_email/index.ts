@@ -84,6 +84,32 @@ async function enrichItemsFromSupabase(items: Item[]): Promise<Item[]> {
     };
   });
 }
+
+async function shouldSendPrepEmail(payload: Payload): Promise<boolean> {
+  if (!supabase || !payload?.request_id) return true;
+  const { data: requestRow, error: requestError } = await supabase
+    .from("prep_requests")
+    .select("user_id")
+    .eq("id", payload.request_id)
+    .maybeSingle();
+  if (requestError || !requestRow?.user_id) {
+    if (requestError) {
+      console.error("prep_requests lookup error", requestError);
+    }
+    return true;
+  }
+
+  const { data: profileRow, error: profileError } = await supabase
+    .from("profiles")
+    .select("notify_prep_shipments")
+    .eq("id", requestRow.user_id)
+    .maybeSingle();
+  if (profileError) {
+    console.error("profiles lookup error", profileError);
+    return true;
+  }
+  return profileRow?.notify_prep_shipments !== false;
+}
 function renderHtml(p: Payload, prepId: string) {
   const rows = (p.items ?? []).map((it) => {
     const asin = it.asin ?? "-";
@@ -211,6 +237,12 @@ Deno.serve(async (req) => {
     }
 
     const payload = (await req.json()) as Payload;
+    const shouldSend = await shouldSendPrepEmail(payload);
+    if (!shouldSend) {
+      return new Response(JSON.stringify({ ok: true, skipped: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     if (!payload?.email) {
       return new Response("Missing recipient email", { status: 400, headers: corsHeaders });
     }

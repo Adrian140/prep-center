@@ -38,6 +38,7 @@
       "integrations": "Integrations",
       "affiliates": "Affiliates",
       "security": "Security",
+      "settings": "Settings",
       "reports": "Reports"
     },
     "billing": {
@@ -234,6 +235,19 @@
         "t2": "Enable two-factor authentication for maximum security (if available).",
         "t3": "Never share your login credentials with anyone.",
         "t4": "Always sign out when using public or shared computers."
+      }
+    },
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Manage account preferences and notifications.",
+      "notifications": {
+        "title": "Notifications",
+        "subtitle": "Choose which emails you want to receive.",
+        "prepShipments": "Prep-center shipments",
+        "prepShipmentsDesc": "Email confirmation when prep requests are completed.",
+        "note": "Critical account emails (password reset, billing) are always sent.",
+        "updated": "Notification preferences updated.",
+        "error": "Unable to update notification preferences."
       }
     },
     "SupabaseClientActivity": {
@@ -950,6 +964,7 @@
       "integrations": "Integrări",
       "affiliates": "Afiliați",
       "security": "Securitate",
+      "settings": "Setări",
       "reports": "Rapoarte"
     },
     "billing": {
@@ -1107,6 +1122,19 @@
         "t2": "Activează autentificarea în doi pași dacă este disponibilă.",
         "t3": "Nu partaja niciodată datele de autentificare.",
         "t4": "Deconectează-te când folosești calculatoare publice sau partajate."
+      }
+    },
+    "settings": {
+      "title": "Setări",
+      "subtitle": "Administrează preferințele și notificările contului.",
+      "notifications": {
+        "title": "Notificări",
+        "subtitle": "Alege ce emailuri vrei să primești.",
+        "prepShipments": "Expedieri Prep-center",
+        "prepShipmentsDesc": "Confirmare prin email când cererile de prep sunt finalizate.",
+        "note": "Emailurile critice (resetare parolă, facturare) sunt trimise întotdeauna.",
+        "updated": "Preferințele de notificare au fost actualizate.",
+        "error": "Nu am putut actualiza preferințele de notificare."
       }
     },
     "SupabaseClientActivity": {
@@ -1759,6 +1787,7 @@
       "integrations": "Intégrations",
       "affiliates": "Affiliés",
       "security": "Sécurité",
+      "settings": "Paramètres",
       "reports": "Rapports"
     },
     "ClientAffiliates": {
@@ -1963,6 +1992,19 @@
         "t2": "Activez l’authentification à deux facteurs si disponible.",
         "t3": "Ne partagez jamais vos identifiants.",
         "t4": "Déconnectez-vous sur les ordinateurs publics ou partagés."
+      }
+    },
+    "settings": {
+      "title": "Paramètres",
+      "subtitle": "Gérez les préférences et notifications du compte.",
+      "notifications": {
+        "title": "Notifications",
+        "subtitle": "Choisissez les emails que vous souhaitez recevoir.",
+        "prepShipments": "Expéditions Prep-center",
+        "prepShipmentsDesc": "Email de confirmation lorsque les demandes de prep sont finalisées.",
+        "note": "Les emails critiques (réinitialisation, facturation) sont toujours envoyés.",
+        "updated": "Préférences de notification mises à jour.",
+        "error": "Impossible de mettre à jour les préférences."
       }
     },
     "SupabaseClientActivity": {
@@ -2537,6 +2579,7 @@
       "integrations": "Integrationen",
       "affiliates": "Affiliates",
       "security": "Sicherheit",
+      "settings": "Einstellungen",
       "reports": "Berichte"
     },
     "ClientAffiliates": {
@@ -3276,6 +3319,7 @@
       "integrations": "Integrazioni",
       "affiliates": "Affiliazioni",
       "security": "Sicurezza",
+      "settings": "Impostazioni",
       "reports": "Report"
     },
     "ClientAffiliates": {
@@ -4015,6 +4059,7 @@
       "integrations": "Integraciones",
       "affiliates": "Afiliados",
       "security": "Seguridad",
+      "settings": "Configuración",
       "reports": "Reportes"
     },
     "ClientAffiliates": {

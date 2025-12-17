@@ -14,7 +14,8 @@ import {
   Download,
   Truck,
   Link2,
-  ChevronDown
+  ChevronDown,
+  Settings
 } from 'lucide-react';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../translations';
@@ -23,6 +24,7 @@ import SupabasePersonalProfile from './SupabasePersonalProfile';
 import SupabaseBillingProfiles from './SupabaseBillingProfiles';
 import SupabaseInvoicesList from './SupabaseInvoicesList';
 import SupabaseSecuritySettings from './SupabaseSecuritySettings';
+import SupabaseClientSettings from './SupabaseClientSettings';
 import SupabaseClientActivity from "./client/SupabaseClientActivity";
 
 import ClientStock from './client/ClientStock';
@@ -60,6 +62,7 @@ function SupabaseDashboard() {
     'integrations',
     'affiliates',
     'security',
+    'settings',
     ...REPORT_TABS.map((rt) => rt.id)
   ];
 
@@ -141,7 +144,8 @@ useEffect(() => {
       { id: 'invoices', label: t('sidebar.invoices'), icon: FileText, group: 'Account' },
       { id: 'integrations', label: 'Integrations', icon: Link2, group: 'Account' },
       { id: 'affiliates', label: t('sidebar.affiliates'), icon: Users, group: 'Account' },
-      { id: 'security', label: t('sidebar.security'), icon: Shield, group: 'Account' }
+      { id: 'security', label: t('sidebar.security'), icon: Shield, group: 'Account' },
+      { id: 'settings', label: t('sidebar.settings'), icon: Settings, group: 'Account' }
     ];
     if (isLimitedAdmin) {
       return list.filter((tab) => tab.id !== 'invoices');
@@ -272,6 +276,7 @@ const renderTabContent = useMemo(() => {
     case 'integrations': return <ClientIntegrations />;
     case 'affiliates': return <ClientAffiliates />;
     case 'security':  return <SupabaseSecuritySettings />;
+    case 'settings': return <SupabaseClientSettings />;
 
     default:
       return (
