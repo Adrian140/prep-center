@@ -1042,7 +1042,7 @@ export default function ServicesPricing() {
                 </a>
                 <a
                   href="https://wa.me/33675116218"
-                  className="inline-flex items-center gap-2 px-6 py-2 rounded-xl border border-gray-200 text-text-primary font-semibold hover:border-primary"
+                  className="inline-flex items-center gap-2 px-6 py-2 rounded-xl bg-[#25D366] text-white font-semibold hover:bg-[#1ebe5d]"
                 >
                   {t('publicSection.ctaSecondary')}
                 </a>

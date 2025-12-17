@@ -147,7 +147,7 @@ const images = [
                 href="https://wa.me/33675116218"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-accent text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-accent-dark transition-colors text-center"
+                className="bg-[#25D366] text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[#1ebe5d] transition-colors text-center"
               >
                 {t('chatWhatsApp')}
               </a>

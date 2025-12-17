@@ -129,7 +129,7 @@ function Home() {
             <a href="/contact" className="w-full sm:w-auto bg-primary text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-primary-dark transition-colors text-center">
               {t('getQuote')}
             </a>
-            <a href="https://wa.me/33675116218" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto bg-accent text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-accent-dark transition-colors text-center">
+            <a href="https://wa.me/33675116218" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto bg-[#25D366] text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[#1ebe5d] transition-colors text-center">
               {t('chatWhatsApp')}
             </a>
           </div>
@@ -373,7 +373,7 @@ function Home() {
             <a href="/contact" className="w-full sm:w-auto bg-white text-primary px-8 py-4 rounded-xl font-semibold text-lg hover:bg-gray-100 transition-all duration-200 shadow-lg hover:shadow-xl text-center">
               {t('getQuote')}
             </a>
-            <a href="https://wa.me/33675116218" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto bg-accent text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-accent-dark transition-all duration-200 shadow-lg hover:shadow-xl text-center">
+            <a href="https://wa.me/33675116218" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto bg-[#25D366] text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[#1ebe5d] transition-all duration-200 shadow-lg hover:shadow-xl text-center">
               {t('chatWhatsApp')}
             </a>
           </div>

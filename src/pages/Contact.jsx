@@ -220,7 +220,7 @@ function Contact() {
                   href="https://wa.me/33675116218"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center w-full bg-accent text-white py-4 px-6 rounded-lg font-semibold hover:bg-accent-dark transition-colors"
+                  className="flex items-center justify-center w-full bg-[#25D366] text-white py-4 px-6 rounded-lg font-semibold hover:bg-[#1ebe5d] transition-colors"
                 >
                   <MessageCircle className="w-5 h-5 mr-2" />
                   {t('chatWhatsApp')}

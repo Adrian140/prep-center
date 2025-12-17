@@ -74,7 +74,7 @@ function Footer() {
                 href="https://wa.me/33675116218"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-accent text-white px-4 py-2 rounded-lg font-medium hover:bg-accent-dark transition-colors text-sm"
+                className="bg-[#25D366] text-white px-4 py-2 rounded-lg font-medium hover:bg-[#1ebe5d] transition-colors text-sm"
               >
                 WhatsApp
               </a>

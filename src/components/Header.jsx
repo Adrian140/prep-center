@@ -131,7 +131,7 @@ function Header() {
                 href="https://wa.me/33675116218"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-accent text-white px-4 py-2 rounded-lg font-medium hover:bg-accent-dark transition-all duration-200 shadow-sm hover:shadow-md text-sm"
+                className="bg-[#25D366] text-white px-4 py-2 rounded-lg font-medium hover:bg-[#1ebe5d] transition-all duration-200 shadow-sm hover:shadow-md text-sm"
               >
                 {t('actions.whatsApp')}
               </a>
@@ -238,7 +238,7 @@ function Header() {
                     href="https://wa.me/33675116218"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full bg-accent text-white px-4 py-3 rounded-lg font-medium text-center hover:bg-accent-dark transition-colors"
+                    className="block w-full bg-[#25D366] text-white px-4 py-3 rounded-lg font-medium text-center hover:bg-[#1ebe5d] transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {t('actions.whatsApp')}
