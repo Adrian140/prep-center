@@ -7,6 +7,7 @@ export const servicesDe = {
     title: 'Live-Preise in Echtzeit',
     description: '',
     export: 'Komplettes Angebot herunterladen',
+    manage: 'Services verwalten',
     loading: 'Preise werden geladen…',
     empty: 'Die Preisstruktur wird derzeit vorbereitet. Bitte bald wieder nachsehen.',
     error: 'Preise konnten nicht geladen werden. Bitte aktualisieren.',

@@ -90,7 +90,7 @@
       "title": "Pricing manager",
       "subtitle": "Add, edit or publish prep, FBM, extra and storage fees in one place.",
       "sync": "Sync to website",
-      "export": "Export pricing PDF",
+      "export": "Export pricing workbook",
       "loading": "Loading pricing…",
       "save": "Save changes",
       "saving": "Saving…",
@@ -107,7 +107,7 @@
       "saveSuccess": "Pricing saved successfully.",
       "saveError": "Unable to save pricing. Please try again.",
       "loadError": "Unable to load pricing services.",
-      "exportError": "Failed to generate PDF.",
+      "exportError": "Failed to generate the workbook.",
       "quickEditor": {
         "title": "Website pricing quick editor",
         "subtitle": "Select a service and adjust only the price that appears on the public pricing page.",
@@ -395,7 +395,7 @@
       "title": "Gestionnaire de tarifs",
       "subtitle": "Ajoutez, modifiez ou publiez les tarifs FBA, FBM, extra et stockage en un seul endroit.",
       "sync": "Synchroniser avec le site",
-      "export": "Exporter les tarifs en PDF",
+      "export": "Exporter le classeur de tarifs",
       "loading": "Chargement des tarifs…",
       "save": "Enregistrer",
       "saving": "Enregistrement…",
@@ -412,7 +412,7 @@
       "saveSuccess": "Tarifs enregistrés avec succès.",
       "saveError": "Impossible d’enregistrer les tarifs.",
       "loadError": "Impossible de charger les tarifs.",
-      "exportError": "Échec de la génération du PDF.",
+      "exportError": "Échec de la génération du classeur.",
       "groups": {
         "fba": {
           "title": "Services FBA Prep",
@@ -653,7 +653,7 @@
       "title": "Manager tarife",
       "subtitle": "Adaugă, editează sau publică tarifele FBA, FBM, Extra și depozitare dintr-un singur loc.",
       "sync": "Sincronizează pe site",
-      "export": "Exportă tarife PDF",
+      "export": "Exportă fișierul XLS",
       "loading": "Se încarcă tarifele…",
       "save": "Salvează modificările",
       "saving": "Se salvează…",
@@ -670,7 +670,7 @@
       "saveSuccess": "Tarife salvate cu succes.",
       "saveError": "Tarifele nu au putut fi salvate.",
       "loadError": "Tarifele nu au putut fi încărcate.",
-      "exportError": "Nu am putut genera PDF-ul.",
+      "exportError": "Nu am putut genera fișierul XLS.",
       "groups": {
         "fba": {
           "title": "Servicii FBA Prep",

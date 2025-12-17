@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FileDown, ArrowRight, Tag, Package, Boxes, Truck, Archive, Shield, Layers } from 'lucide-react';
+import { FileDown, ArrowRight, Tag, Package, Boxes, Truck, Archive, Shield, Layers, Settings } from 'lucide-react';
 import { supabaseHelpers } from '../config/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useServicesTranslation } from '../translations/services';
-import { exportPricingPdf } from '../utils/pricingPdf';
+import { exportPricingWorkbook } from '../utils/pricingWorkbook';
 
 const CATEGORY_ORDER = [
   { id: 'FBA Prep Services', key: 'fba' },
@@ -468,9 +468,9 @@ export default function ServicesPricing() {
       return;
     }
     try {
-      await exportPricingPdf(pricingGroups);
+      await exportPricingWorkbook(pricingGroups);
     } catch (err) {
-      console.error('PDF export failed', err);
+      console.error('Workbook export failed', err);
       setPricingError(t('pricingSection.error'));
     }
   };
@@ -688,7 +688,14 @@ export default function ServicesPricing() {
                 <h2 className="text-2xl font-semibold">{t('pricingSection.finalTitle')}</h2>
                 <p className="text-white/80 text-sm md:text-base">{t('pricingSection.finalNote')}</p>
               </div>
-              <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <a
+                  href="/admin?tab=pricing"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-white/30 text-white font-semibold hover:border-white"
+                >
+                  <Settings className="w-4 h-4" />
+                  {t('pricingSection.manage')}
+                </a>
                 <button
                   onClick={handleExport}
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-gray-900 font-semibold hover:bg-gray-100"

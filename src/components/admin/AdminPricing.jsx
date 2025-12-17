@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Minus, ChevronDown, ChevronUp, Save, RefreshCcw, FileDown, Trash2 } from 'lucide-react';
 import { supabaseHelpers } from '@/config/supabase';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
-import { exportPricingPdf } from '@/utils/pricingPdf';
+import { exportPricingWorkbook } from '@/utils/pricingWorkbook';
 
 const GROUP_CONFIG = [
   {
@@ -303,9 +303,9 @@ export default function AdminPricing() {
 
   const handleExport = async () => {
     try {
-      await exportPricingPdf(groupedData);
+      await exportPricingWorkbook(groupedData);
     } catch (err) {
-      console.error('Pricing PDF generation failed', err);
+      console.error('Pricing workbook export failed', err);
       setMessage({ type: 'error', text: t('adminPricing.exportError') });
     }
   };

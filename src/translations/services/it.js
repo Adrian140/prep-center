@@ -7,6 +7,7 @@ export const servicesIt = {
     title: 'Tariffe aggiornate in tempo reale',
     description: '',
     export: 'Scarica l’offerta completa',
+    manage: 'Gestisci i servizi',
     loading: 'Caricamento tariffe…',
     empty: 'Le tariffe sono in fase di configurazione. Torna presto.',
     error: 'Impossibile caricare le tariffe. Riprova.',

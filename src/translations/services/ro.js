@@ -7,6 +7,7 @@ export const servicesRo = {
     title: 'Tarife actualizate în timp real',
     description: '',
     export: 'Descarcă oferta completă',
+    manage: 'Gestionează serviciile',
     loading: 'Încărcăm tarifele…',
     empty: 'Tarifele sunt în curs de configurare. Revino în scurt timp.',
     error: 'Nu am putut încărca tarifele. Reîncearcă.',

@@ -7,6 +7,7 @@ export const servicesEn = {
     title: 'Live services & pricing',
     description: '',
     export: 'Download pricing workbook',
+    manage: 'Manage services',
     loading: 'Loading pricing…',
     empty: 'Pricing is being configured. Please check back soon.',
     error: 'Could not load pricing. Please refresh.',

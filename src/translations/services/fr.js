@@ -7,6 +7,7 @@ export const servicesFr = {
     title: 'Tarifs mis à jour en temps réel',
     description: '',
     export: 'Télécharger l’offre complète',
+    manage: 'Gérer les services',
     loading: 'Chargement des tarifs…',
     empty: 'Les tarifs sont en cours de configuration. Revenez bientôt.',
     error: 'Impossible de charger les tarifs. Merci de réessayer.',
