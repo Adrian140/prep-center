@@ -290,6 +290,14 @@
       "performanceClients": "Affiliated clients",
       "performanceBilled": "Billed total",
       "performancePayout": "Estimated payout",
+      "discount": {
+        "amountLabel": "Discount per client (EUR)",
+        "applyAll": "Apply discount to all clients",
+        "note": "Creates in Other for each client a line “Réduction pour les affiliés” with unit price -{amount} and admin note with code {code}.",
+        "invalidAmount": "Enter a positive discount (e.g. 10 for -€10).",
+        "appliedCount": "Discount applied to {count} company(ies).",
+        "alreadyApplied": "All clients on this code already have the discount."
+      },
       "deleteCode": "Delete affiliate code",
       "deleteConfirm": "Delete this affiliate code? Assigned clients will lose the link.",
       "deleteSuccess": "Affiliate code deleted.",
@@ -540,6 +548,14 @@
       "offerFixed": "One-time bonus {amount} after {threshold}",
       "offerNone": "No payout settings",
       "memberBilling": "{billed} billed · share {commission}",
+      "discount": {
+        "amountLabel": "Remise par client (EUR)",
+        "applyAll": "Appliquer la remise à tous les clients",
+        "note": "Crée dans Other pour chaque client une ligne « Réduction pour les affiliés » avec un prix/unité de -{amount} et une note admin avec le code {code}.",
+        "invalidAmount": "Saisissez une remise positive (ex. 10 pour -10 €).",
+        "appliedCount": "Remise appliquée à {count} entreprise(s).",
+        "alreadyApplied": "Tous les clients de ce code ont déjà la remise."
+      },
       "deleteCode": "Delete affiliate code",
       "deleteConfirm": "Delete this affiliate code? Assigned clients will lose the link.",
       "deleteSuccess": "Affiliate code deleted.",
@@ -801,6 +817,14 @@
       "performanceClients": "Clienți afiliați",
       "performanceBilled": "Total facturat",
       "performancePayout": "Estimare comision",
+      "discount": {
+        "amountLabel": "Reducere per client (EUR)",
+        "applyAll": "Aplică reducere tuturor clienților",
+        "note": "Creează în tab-ul Other la fiecare client o linie “Réduction pour les affiliés” cu preț/unit -{amount} și obs admin cu codul {code}.",
+        "invalidAmount": "Introdu un discount pozitiv (ex: 10 pentru -10€).",
+        "appliedCount": "Reducere aplicată la {count} companie(i).",
+        "alreadyApplied": "Toți clienții acestui cod au deja reducerea."
+      },
       "deleteCode": "Șterge codul de afiliat",
       "deleteConfirm": "Ștergi acest cod? Clienții asignați vor pierde legătura.",
       "deleteSuccess": "Codul de afiliat a fost șters.",

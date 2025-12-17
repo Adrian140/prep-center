@@ -273,7 +273,7 @@ export default function AdminAffiliates() {
     const raw = String(discountAmount || '').replace(',', '.');
     const value = Number(raw);
     if (!Number.isFinite(value) || value <= 0) {
-      setMessage('Introdu un discount pozitiv (ex: 10 pentru -10€).');
+      setMessage(t('affiliates.discount.invalidAmount'));
       return;
     }
     setDiscountLoading(true);
@@ -290,9 +290,9 @@ export default function AdminAffiliates() {
       } else {
         const count = Array.isArray(data) ? data.length : 0;
         if (count > 0) {
-          setMessage(`Reducere aplicată la ${count} companie(i).`);
+          setMessage(tp('affiliates.discount.appliedCount', { count }));
         } else {
-          setMessage('Toți clienții acestui cod au deja reducerea.');
+          setMessage(t('affiliates.discount.alreadyApplied'));
         }
       }
     } catch (err) {
@@ -722,7 +722,7 @@ export default function AdminAffiliates() {
                     <div className="flex flex-wrap items-end gap-3">
                       <div>
                         <label className="block text-xs uppercase text-text-secondary mb-1">
-                          Discount per client (EUR)
+                        {t('affiliates.discount.amountLabel')}
                         </label>
                         <input
                           type="number"
@@ -741,14 +741,15 @@ export default function AdminAffiliates() {
                         className="px-3 py-1.5 rounded bg-primary text-white text-xs font-semibold disabled:opacity-50"
                       >
                         {discountLoading
-                          ? t('common.loading')
-                          : 'Aplică reducere tuturor clienților'}
-                      </button>
-                      <p className="text-xs text-text-secondary">
-                        Creează în tab-ul Other la fiecare client o linie
-                        &nbsp;<strong>“Réduction pour les affiliés”</strong> cu preț/unit&nbsp;
-                        <strong>-{discountAmount || '0'}</strong> și obs admin cu codul {code.code}.
-                      </p>
+                        ? t('common.loading')
+                        : t('affiliates.discount.applyAll')}
+                    </button>
+                    <p className="text-xs text-text-secondary">
+                      {tp('affiliates.discount.note', {
+                        amount: discountAmount || '0',
+                        code: code.code
+                      })}
+                    </p>
                     </div>
                   </div>
                 )}

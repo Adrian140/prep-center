@@ -610,11 +610,5 @@ const PayoutSummary = ({ code }) => {
       </p>
     );
   }
-  return (
-    <p className="text-sm text-text-secondary">
-      {tp('ClientAffiliates.rules.percent', {
-        percent: Number(code.percent_below_threshold || code.percent_above_threshold || 0)
-      })}
-    </p>
-  );
+  return null;
 };
