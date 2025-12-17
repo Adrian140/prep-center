@@ -7,6 +7,8 @@ export const servicesIt = {
     title: 'Tariffe aggiornate in tempo reale',
     description: '',
     export: 'Salva il PDF dei prezzi',
+    exportFba: 'Scarica PDF FBA',
+    exportFbm: 'Scarica PDF FBM',
     manage: 'Gestisci i servizi',
     loading: 'Caricamento tariffe…',
     empty: 'Le tariffe sono in fase di configurazione. Torna presto.',
@@ -17,8 +19,8 @@ export const servicesIt = {
     ctaFbm: 'Aggiungi piattaforma FBM',
     ctaStorage: 'Contattaci per lo stoccaggio',
     ctaExtra: 'Richiedi servizio personalizzato',
-    finalTitle: 'Salva un PDF con la stessa vista admin dei prezzi.',
-    finalNote: 'Il PDF replica il layout attuale per condivisione o archivio.',
+    finalTitle: 'Scarica i PDF dei prezzi che ti servono.',
+    finalNote: 'Ogni PDF include Servizi extra + Storage e si aggiorna automaticamente.',
     groups: {
       fba: {
         title: 'Servizi FBA Prep',

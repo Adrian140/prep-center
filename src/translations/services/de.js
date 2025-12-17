@@ -7,6 +7,8 @@ export const servicesDe = {
     title: 'Live-Preise in Echtzeit',
     description: '',
     export: 'Preis-PDF speichern',
+    exportFba: 'FBA-PDF herunterladen',
+    exportFbm: 'FBM-PDF herunterladen',
     manage: 'Services verwalten',
     loading: 'Preise werden geladen…',
     empty: 'Die Preisstruktur wird derzeit vorbereitet. Bitte bald wieder nachsehen.',
@@ -17,8 +19,8 @@ export const servicesDe = {
     ctaFbm: 'FBM-Plattform hinzufügen',
     ctaStorage: 'Kontakt zu Lageroptionen',
     ctaExtra: 'Individuellen Service anfragen',
-    finalTitle: 'PDF-Snapshot der aktuellen Preisansicht speichern.',
-    finalNote: 'Das PDF entspricht der Admin-Ansicht und kann direkt geteilt oder archiviert werden.',
+    finalTitle: 'Laden Sie die benötigten Preis-PDFs herunter.',
+    finalNote: 'Jedes PDF enthält Zusatzservices + Lagerung und aktualisiert sich automatisch.',
     groups: {
       fba: {
         title: 'FBA Prep Services',
