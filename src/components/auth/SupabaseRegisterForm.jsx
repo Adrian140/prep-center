@@ -11,7 +11,6 @@ function SupabaseRegisterForm() {
     firstName: '',
     lastName: '',
     companyName: '',
-    cui: '',
     vatNumber: '',
     companyAddress: '',
     companyCity: '',
@@ -87,7 +86,7 @@ function SupabaseRegisterForm() {
     }
 
     if (formData.accountType === 'company') {
-      if (!formData.companyName || !formData.cui || !formData.companyAddress || !formData.companyCity || !formData.companyPostalCode) {
+      if (!formData.companyName || !formData.companyAddress || !formData.companyCity || !formData.companyPostalCode) {
         setError('All fields marked with * are required for company accounts.');
         setLoading(false);
         return;
@@ -127,7 +126,6 @@ function SupabaseRegisterForm() {
       first_name: trimmedFirst,
       last_name: trimmedLast,
       company_name: formData.companyName,
-      cui: formData.cui,
       vat_number: formData.vatNumber,
       company_address: formData.companyAddress,
       company_city: formData.companyCity,
@@ -319,36 +317,19 @@ function SupabaseRegisterForm() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="cui" className="block text-sm font-medium text-text-primary mb-2">
-                      Company ID *
-                    </label>
-                    <input
-                      id="cui"
-                      name="cui"
-                      type="text"
-                      required
-                      value={formData.cui}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
-                      placeholder="RO12345678"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="vatNumber" className="block text-sm font-medium text-text-primary mb-2">
-                      VAT number (optional)
-                    </label>
-                    <input
-                      id="vatNumber"
-                      name="vatNumber"
-                      type="text"
-                      value={formData.vatNumber}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
-                      placeholder="RO12345678"
-                    />
-                  </div>
+                <div>
+                  <label htmlFor="vatNumber" className="block text-sm font-medium text-text-primary mb-2">
+                    VAT number
+                  </label>
+                  <input
+                    id="vatNumber"
+                    name="vatNumber"
+                    type="text"
+                    value={formData.vatNumber}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
+                    placeholder="FR12345678"
+                  />
                 </div>
 
                 <div>
