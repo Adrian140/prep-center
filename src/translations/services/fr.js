@@ -42,6 +42,57 @@ export const servicesFr = {
     }
   },
 
+  publicSection: {
+    pageTitle: 'Services & Solutions',
+    pageSubtitle: 'Préparation, fulfillment et stockage adaptés à vos produits, volumes et délais.',
+    groupLabel: 'Groupe de services',
+    ctaPrimary: 'Demander un devis',
+    ctaSecondary: 'Parler à notre équipe',
+    note: 'Tarification sur demande selon le volume, les dimensions et les exigences de traitement.',
+    groups: {
+      prep: {
+        title: 'Services de préparation',
+        subtitle: 'Préparation entrante pour marketplaces et marques DTC.',
+        bullets: [
+          'Réception & inspection',
+          'Étiquetage & emballage',
+          'Contrôle qualité & photos',
+          'Cartonnage & conformité'
+        ]
+      },
+      fulfillment: {
+        title: 'Traitement des commandes',
+        subtitle: 'Pick, pack et expédition multi-canaux.',
+        bullets: [
+          'Gestion multi-canaux',
+          'Options d’expédition le jour même',
+          'Gestion des retours',
+          'Coordination transporteurs'
+        ]
+      },
+      storage: {
+        title: 'Stockage',
+        subtitle: 'Stockage sécurisé et suivi en France.',
+        bullets: [
+          'Stockage palettes et bacs',
+          'Visibilité inventaire',
+          'Options climatisées',
+          'Surveillance 24/7'
+        ]
+      },
+      extras: {
+        title: 'Services à valeur ajoutée',
+        subtitle: 'Branding et tâches sur mesure.',
+        bullets: [
+          'Kitting & bundling',
+          'Supports d’insertion',
+          'Étiquetage personnalisé',
+          'Support documentaire'
+        ]
+      }
+    }
+  },
+
   // New Customer Bonus
   newCustomerBonus: 'Bonus Nouveau Client',
   bonusFirstMonths: 'Premiers 2 mois : {new_customer_rate}/produit (au lieu de {standard_rate}) + Consultation de configuration gratuite',

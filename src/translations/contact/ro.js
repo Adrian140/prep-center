@@ -1,7 +1,7 @@
 export const contactRo = {
   // Page Header
-  pageTitle: 'Contact Prep Center France – Servicii de Preparare Amazon FBA',
-  pageSubtitle: 'Contactează-ne pentru prepararea Amazon FBA în Franța: oferte, suport WhatsApp, email sau telefon. Răspuns rapid pentru vânzătorii Amazon europeni.',
+  pageTitle: 'Contact Prep Center France – Servicii de preparare și fulfillment',
+  pageSubtitle: 'Contactează-ne pentru preparare în Franța: oferte, suport WhatsApp, email sau telefon. Răspuns rapid pentru vânzătorii europeni.',
   
   // Form Section
   sendMessage: 'Trimite-ne un Mesaj',
@@ -61,5 +61,5 @@ export const contactRo = {
   mapTitle: 'Locația Prep Center France - La Gouesnière',
   locationName: 'Prep Center France',
   locationAddress: '35350 La Gouesnière, Franța',
-  locationDescription: 'Locație strategică pentru distribuția Amazon FBA în toată UE'
+  locationDescription: 'Locație strategică pentru distribuția fulfillment în toată UE'
 };

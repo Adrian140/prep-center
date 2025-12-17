@@ -54,8 +54,8 @@ function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3 cursor-pointer">
             <img
-              src="https://i.postimg.cc/9zLyQFZx/Chat-GPT-Image-25-aug-2025-01-47-38.png"
-              alt="FBA Prep Logistics Logo"
+              src="/branding/prep-center-logo.svg"
+              alt="Prep Center Logistics Logo"
               className="w-20 h-20 object-contain"
             />
             <div className="flex flex-col">

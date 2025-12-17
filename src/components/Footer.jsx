@@ -12,6 +12,14 @@ function Footer() {
     return fallback;
   };
 
+  const withSafeSubtitle = (value, fallback) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed && !/(amazon|fba|fbm)/i.test(trimmed)) return trimmed;
+    }
+    return fallback;
+  };
+
   useEffect(() => {
     const fetchContent = async () => {
       const { data, error } = await supabaseHelpers.getContent();
@@ -49,14 +57,17 @@ function Footer() {
           <div className="space-y-3 max-w-sm">
             <div className="flex items-center space-x-2">
               <img 
-                src="https://i.postimg.cc/9zLyQFZx/Chat-GPT-Image-25-aug-2025-01-47-38.png" 
-                alt="FBA Prep Logistics Logo" 
+                src="/branding/prep-center-logo.svg" 
+                alt="Prep Center Logistics Logo" 
                 className="w-14 h-14 object-contain"
               />
               <span className="text-lg font-bold text-text-primary leading-tight">PrepCenter France</span>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed">
-              {content.hero_subtitle || 'Reception, quality control, FNSKU labeling, polybagging & fast shipping to EU Amazon FCs.'}
+              {withSafeSubtitle(
+                content.hero_subtitle,
+                'Reception, quality control, labeling, polybagging & fast shipping to EU fulfillment centers.'
+              )}
             </p>
             <div className="flex flex-wrap gap-3">
               <a

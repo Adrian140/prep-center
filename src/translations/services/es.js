@@ -42,6 +42,57 @@ export const servicesEs = {
     }
   },
 
+  publicSection: {
+    pageTitle: 'Servicios y Soluciones',
+    pageSubtitle: 'Prep, fulfillment y almacenamiento adaptados a tus productos, volúmenes y plazos.',
+    groupLabel: 'Grupo de servicios',
+    ctaPrimary: 'Solicitar presupuesto',
+    ctaSecondary: 'Habla con nuestro equipo',
+    note: 'Precios bajo solicitud según volumen, dimensiones y requisitos de manipulación.',
+    groups: {
+      prep: {
+        title: 'Servicios de preparación',
+        subtitle: 'Prep de entrada para marketplaces y DTC.',
+        bullets: [
+          'Recepción e inspección',
+          'Etiquetado y embalaje',
+          'Control de calidad y fotos',
+          'Empaquetado y cumplimiento'
+        ]
+      },
+      fulfillment: {
+        title: 'Fulfillment de pedidos',
+        subtitle: 'Pick, pack y envío multicanal.',
+        bullets: [
+          'Gestión de pedidos multicanal',
+          'Opciones de envío el mismo día',
+          'Gestión de devoluciones',
+          'Coordinación de transportistas'
+        ]
+      },
+      storage: {
+        title: 'Almacenamiento',
+        subtitle: 'Almacenamiento seguro y trazable en Francia.',
+        bullets: [
+          'Almacenaje de pallets y bins',
+          'Visibilidad de inventario',
+          'Opciones climatizadas',
+          'Monitoreo 24/7'
+        ]
+      },
+      extras: {
+        title: 'Servicios de valor añadido',
+        subtitle: 'Branding y tareas a medida.',
+        bullets: [
+          'Kitting y bundling',
+          'Insertos',
+          'Etiquetado personalizado',
+          'Soporte documental'
+        ]
+      }
+    }
+  },
+
   // New Customer Bonus
   newCustomerBonus: 'Bonus Cliente Nuevo',
   bonusFirstMonths: 'Primeros 2 meses: {new_customer_rate}/producto (en lugar de {standard_rate}) + Consulta de configuración gratuita',

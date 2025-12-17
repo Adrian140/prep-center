@@ -6,36 +6,35 @@ function Blog() {
   
   const articles = [
     {
-      title: "How to prep for Amazon FBA in France",
-      excerpt: "Complete guide to preparing your products for Amazon FBA in France. Learn about requirements, regulations, and best practices for European sellers.",
+      title: "How to prep for EU fulfillment in France",
+      excerpt: "Complete guide to preparing your products for EU fulfillment in France. Learn about requirements, regulations, and best practices for European sellers.",
       author: "Adrian Bucur",
       date: "March 15, 2024",
       readTime: "5 min read",
-      category: "FBA Prep",
-      slug: "how-to-prep-amazon-fba-france"
+      category: "Prep",
+      slug: "how-to-prep-eu-fulfillment-france"
     },
     {
-      title: "EU packaging rules for FBA",
-      excerpt: "Understanding European Union packaging regulations for Amazon FBA. Compliance requirements, labeling standards, and avoiding common mistakes.",
+      title: "EU packaging rules for fulfillment",
+      excerpt: "Understanding European Union packaging regulations for fulfillment. Compliance requirements, labeling standards, and avoiding common mistakes.",
       author: "Prep Center Team",
       date: "March 10, 2024",
       readTime: "7 min read",
       category: "Compliance",
-      slug: "eu-packaging-rules-fba"
+      slug: "eu-packaging-rules-fulfillment"
     },
     {
-      title: "SPD vs LTL to Amazon FCs",
-      excerpt: "Choosing between Small Parcel Delivery and Less Than Truckload shipping to Amazon fulfillment centers. Cost comparison and best practices.",
+      title: "SPD vs LTL to fulfillment centers",
+      excerpt: "Choosing between Small Parcel Delivery and Less Than Truckload shipping to fulfillment centers. Cost comparison and best practices.",
       author: "Adrian Bucur",
       date: "March 5, 2024",
       readTime: "6 min read",
       category: "Shipping",
-      slug: "spd-vs-ltl-amazon-fcs"
+      slug: "spd-vs-ltl-fulfillment-centers"
     }
   ];
 
-  const categories = ["All", "FBA Prep", "Compliance", "Shipping", "Tips"];
-  const categoryKeys = ["allCategories", "fbaPrepCategory", "complianceCategory", "shippingCategory", "tipsCategory"];
+  const categoryKeys = ["allCategories", "prepCategory", "complianceCategory", "shippingCategory", "tipsCategory"];
 
   return (
     <div className="min-h-screen py-20">

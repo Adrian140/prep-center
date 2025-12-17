@@ -42,6 +42,57 @@ export const servicesDe = {
     }
   },
 
+  publicSection: {
+    pageTitle: 'Services & Lösungen',
+    pageSubtitle: 'Prep, Fulfillment und Lagerung abgestimmt auf Produkte, Volumen und Zeitpläne.',
+    groupLabel: 'Servicegruppe',
+    ctaPrimary: 'Angebot anfordern',
+    ctaSecondary: 'Mit unserem Team sprechen',
+    note: 'Preise auf Anfrage, abhängig von Volumen, Maßen und Handling-Anforderungen.',
+    groups: {
+      prep: {
+        title: 'Prep-Services',
+        subtitle: 'Inbound-Prep für Marktplätze und DTC.',
+        bullets: [
+          'Annahme & Prüfung',
+          'Etikettierung & Verpackung',
+          'Qualitätskontrolle & Fotos',
+          'Kartonierung & Compliance'
+        ]
+      },
+      fulfillment: {
+        title: 'Auftragsabwicklung',
+        subtitle: 'Pick, Pack und Versand über mehrere Kanäle.',
+        bullets: [
+          'Multi-Channel-Aufträge',
+          'Same-Day-Optionen',
+          'Retourenmanagement',
+          'Carrier-Koordination'
+        ]
+      },
+      storage: {
+        title: 'Lagerung',
+        subtitle: 'Sichere, nachverfolgbare Lagerung in Frankreich.',
+        bullets: [
+          'Paletten- und Behälterlagerung',
+          'Bestandsübersicht',
+          'Klimatisierte Optionen',
+          '24/7-Überwachung'
+        ]
+      },
+      extras: {
+        title: 'Zusatzservices',
+        subtitle: 'Branding und Sonderwünsche.',
+        bullets: [
+          'Kitting & Bundling',
+          'Beileger',
+          'Individuelle Etiketten',
+          'Dokumentationssupport'
+        ]
+      }
+    }
+  },
+
   // New Customer Bonus
   newCustomerBonus: 'Neukunden-Bonus',
   bonusFirstMonths: 'Erste 2 Monate: {new_customer_rate}/Produkt (statt {standard_rate}) + Kostenlose Einrichtungsberatung',

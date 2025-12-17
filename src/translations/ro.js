@@ -35,8 +35,8 @@ export const ro = {
   learnMore: 'Află Mai Mult',
   
   // Home Page - Hero Section
-  heroTitle: 'Centru de Preparare Amazon FBA Franța – Preparare, Etichetare și Expediere 24h către UE',
-  heroSubtitle: 'Procesare 24h, control calitate, etichetare FNSKU, ambalare și expediere rapidă către centrele de fulfillment Amazon din Europa',
+  heroTitle: 'Centru de Preparare Franța – Preparare, Etichetare și Expediere 24h către UE',
+  heroSubtitle: 'Procesare 24h, control calitate, etichetare, ambalare și expediere rapidă către centrele de fulfillment din Europa',
   
   // Home Page - Stats
   yearsExperience: 'Ani de Experiență',
@@ -45,24 +45,24 @@ export const ro = {
   averageTurnaround: 'Procesare Medie',
   
   // Home Page - Why Choose Us
-  whyChooseTitle: 'De Ce să Alegi Prep Center France pentru Prepararea Amazon FBA',
-  whyChooseSubtitle: 'Servicii profesionale de preparare Amazon FBA în Franța proiectate pentru vânzătorii europeni',
+  whyChooseTitle: 'De Ce să Alegi Prep Center France pentru preparare',
+  whyChooseSubtitle: 'Servicii profesionale de preparare în Franța pentru vânzătorii europeni',
   turnaroundTitle: 'Procesare 24h',
-  turnaroundDesc: 'Procesare rapidă a produselor tale către centrele de fulfillment Amazon FBA',
-  transparentPricingTitle: 'Prețuri transparente pentru prepararea FBA',
-  transparentPricingDesc: 'Fără taxe ascunse, tarife competitive pentru toate serviciile de preparare Amazon FBA din Franța',
+  turnaroundDesc: 'Procesare rapidă a produselor tale către centrele de fulfillment europene',
+  transparentPricingTitle: 'Prețuri transparente pentru preparare',
+  transparentPricingDesc: 'Fără taxe ascunse, tarife competitive pentru toate serviciile de preparare din Franța',
   strategicLocationTitle: 'Locația strategică a centrului de preparare din Franța',
-  strategicLocationDesc: 'Poziție optimă pentru distribuția în toată UE și expediere rapidă către centrele de fulfillment Amazon',
-  amazonReadyTitle: 'Ambalare gata pentru Amazon FBA',
-  amazonReadyDesc: 'Cunoștințe experte despre cerințele Amazon FBA europene și standardele de conformitate',
+  strategicLocationDesc: 'Poziție optimă pentru distribuția în toată UE și expediere rapidă către centrele de fulfillment',
+  amazonReadyTitle: 'Ambalare gata pentru marketplace',
+  amazonReadyDesc: 'Cunoștințe experte despre cerințele marketplace europene și standardele de conformitate',
   
   // Home Page - Services
   coreServicesTitle: 'Serviciile Noastre Principale',
-  coreServicesSubtitle: 'Soluții profesionale de pregătire Amazon FBA și fulfillment multi-platformă.',
+  coreServicesSubtitle: 'Soluții profesionale de pregătire și fulfillment multi-platformă.',
   fnskuLabelingTitle: 'Abonament stocare foto',
   fnskuLabelingDesc: 'Stocare în cloud pentru imaginile produselor legate de fiecare ASIN. Poți încărca până la șase fotografii per produs direct în platformă, câte una pentru fiecare parte, păstrate în siguranță și accesibile oricând.',
-  fbmShippingTitle: 'Expediere FBM',
-  fbmShippingDesc: 'Gestionăm zilnic comenzile din Amazon, eBay, Shopify, Vinted și alte platforme. Include pick & pack, expediere rapidă și administrarea retururilor.',
+  fbmShippingTitle: 'Fulfillment comenzi',
+  fbmShippingDesc: 'Gestionăm zilnic comenzile din marketplace-uri și platforme ecommerce. Include pick & pack, expediere rapidă și administrarea retururilor.',
   storageTitle: 'Soluții de Depozitare',
   storageDesc: 'Depozitare sigură cu urmărire digitală și acces permanent. Spațiu climatizat, monitorizare 24/7 și administrare completă a inventarului.',
   perProduct: 'per produs',
@@ -75,27 +75,27 @@ export const ro = {
   
   // Home Page - How It Works
   howItWorksTitle: 'Cum Funcționează',
-  howItWorksSubtitle: 'Proces simplu în 6 pași de la sosire la centrul Amazon FC',
+  howItWorksSubtitle: 'Proces simplu în 6 pași de la sosire la fulfillment',
   receptionStep: 'Recepție',
   receptionDesc: 'Produsele tale sosesc la facilitatea noastră',
   qualityControlStep: 'Control Calitate',
   qualityControlDesc: 'Proces de control calitate și inspecție',
   labelingStep: 'Etichetare',
-  labelingDesc: 'Aplicarea etichetării FNSKU/EAN',
+  labelingDesc: 'Aplicarea etichetării SKU/EAN',
   polybaggingStep: 'Ambalare',
   polybaggingDesc: 'Ambalare și împachetare protectoare',
   shippingStep: 'Expediere',
-  shippingDesc: 'Expediere rapidă către centrele Amazon FC',
+  shippingDesc: 'Expediere rapidă către centrele de fulfillment',
   confirmStep: 'Confirmare',
   confirmDesc: 'Confirmarea livrării și raportare',
   
   // Home Page - Benefits
   benefitsTitle: 'De Ce Vânzătorii Europeni Ne Aleg',
-  benefitsSubtitle: 'Avantaje care fac diferența pentru afacerea ta Amazon FBA',
+  benefitsSubtitle: 'Avantaje care fac diferența pentru operațiunile tale',
   euDistributionTitle: 'Distribuție în toată UE',
-  euDistributionDesc: 'Locație strategică în Franța pentru expediere rapidă către toate centrele de fulfillment Amazon europene',
+  euDistributionDesc: 'Locație strategică în Franța pentru expediere rapidă către centrele de fulfillment europene',
   complianceTitle: 'Expertiză în Conformitate',
-  complianceDesc: 'Cunoștințe profunde despre cerințele Amazon FBA și reglementările europene',
+  complianceDesc: 'Cunoștințe profunde despre cerințele marketplace și reglementările europene',
   qualityAssuranceTitle: 'Asigurarea Calității',
   qualityAssuranceDesc: 'Proces riguros de control calitate cu documentație fotografică',
   transparentPricingBenefitTitle: 'Prețuri Transparente',
@@ -103,8 +103,8 @@ export const ro = {
   
   // Home Page - Testimonials
   testimonialsTitle: 'Ce Spun Clienții Noștri',
-  testimonialsSubtitle: 'Încrederea vânzătorilor Amazon globali',
-  testimonial1Text: 'Prep Center France ne-a transformat operațiunile FBA. Procesarea 24h este incredibilă!',
+  testimonialsSubtitle: 'Încrederea vânzătorilor ecommerce globali',
+  testimonial1Text: 'Prep Center France ne-a transformat operațiunile. Procesarea 24h este incredibilă!',
   testimonial1Name: 'Marcus Weber',
   testimonial1Company: 'Weber Electronics',
   testimonial2Text: 'Serviciu profesional, prețuri transparente. Centrul nostru de preparare de referință din Europa.',
@@ -126,8 +126,8 @@ export const ro = {
   productSourcing: 'Consultanță sourcing produse',
   qualityCompliance: 'Control calitate și conformitate',
   endToEndFulfillment: 'Soluții de fulfillment end-to-end',
-  multiPlatformTitle: 'FBM Multi-Platformă',
-  amazonFbmFulfillment: 'Fulfillment Amazon FBM',
+  multiPlatformTitle: 'Fulfillment multi-platformă',
+  amazonFbmFulfillment: 'Fulfillment marketplace',
   ebayProcessing: 'Procesarea comenzilor eBay',
   shopifyIntegration: 'Integrare Shopify',
   customWebsiteFulfillment: 'Fulfillment site-uri web personalizate',
@@ -144,8 +144,8 @@ export const ro = {
   startChat: 'Începe Chat',
   
   // Home Page - CTA
-  ctaTitle: 'Gata să Optimizezi Operațiunile Amazon FBA în Europa?',
-  ctaSubtitle: 'Începe cu servicii profesionale de preparare Amazon FBA în Franța. Timpi de procesare 24h, control calitate, etichetare FNSKU și expediere rapidă către centrele de fulfillment Amazon europene.',
+  ctaTitle: 'Gata să optimizezi operațiunile logistice în Europa?',
+  ctaSubtitle: 'Începe cu servicii profesionale de preparare în Franța. Timpi de procesare 24h, control calitate, etichetare și expediere rapidă către centrele de fulfillment europene.',
   
   // Service Features
   receptionInspection: 'Recepție și inspecție',
@@ -159,5 +159,20 @@ export const ro = {
   secureStorage: 'Depozitare sigură',
   inventoryTracking: 'Urmărirea inventarului',
   climateControlled: 'Climatizat',
-  monitoring24h: 'Monitorizare 24/7'
+  monitoring24h: 'Monitorizare 24/7',
+
+  // Blog
+  blogPageTitle: 'Resurse & Noutăți',
+  blogPageSubtitle: 'Ghiduri despre prep, fulfillment, conformitate și expediere pentru vânzători UE.',
+  stayUpdated: 'Rămâi la curent',
+  subscribeNewsletter: 'Abonează-te la newsletter',
+  enterEmail: 'Introdu emailul tău',
+  subscribe: 'Abonează-te',
+  expertGuidance: 'Ghidare de la experți',
+  expertGuidanceDesc: 'Sfaturi practice de la echipa noastră de operațiuni.',
+  allCategories: 'Toate',
+  prepCategory: 'Prep',
+  complianceCategory: 'Conformitate',
+  shippingCategory: 'Expediere',
+  tipsCategory: 'Sfaturi'
 };

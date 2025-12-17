@@ -50,7 +50,7 @@ const supabase =
 
 // ===== Brand assets =====
 const LOGO_URL =
-  "https://raw.githubusercontent.com/Adrian140/prep-center/main/public/branding/fba-prep-logo.svg";
+  "https://raw.githubusercontent.com/Adrian140/prep-center/main/public/branding/prep-center-logo.svg";
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

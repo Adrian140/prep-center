@@ -132,17 +132,16 @@ const images = [
         {/* CTA */}
         <section className="text-center">
           <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl p-12 space-y-6">
-            <h2 className="text-3xl font-bold text-text-primary">Ready to Partner with Us?</h2>
+            <h2 className="text-3xl font-bold text-text-primary">{t('readyPartner')}</h2>
             <p className="text-xl text-text-secondary">
-              Streamline your logistics with Prep Center France — your trusted partner for Amazon
-              FBA and FBM fulfillment in Europe.
+              {t('joinCommunity')}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
                 href="https://prep-center.eu/contact"
                 className="bg-primary text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-primary-dark transition-colors text-center"
               >
-                Get a Quote
+                {t('getStartedToday')}
               </a>
               <a
                 href="https://wa.me/33675116218"
@@ -150,7 +149,7 @@ const images = [
                 rel="noopener noreferrer"
                 className="bg-accent text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-accent-dark transition-colors text-center"
               >
-                Chat on WhatsApp
+                {t('chatWhatsApp')}
               </a>
             </div>
           </div>

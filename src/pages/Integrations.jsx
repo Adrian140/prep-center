@@ -13,16 +13,16 @@ const CARD_KEYS = {
 
 const COPY = {
   ro: {
-    heroPill: 'Amazon Integration',
-    heroTitle: 'Integrare Amazon fără complicații',
+    heroPill: 'Integrare marketplace',
+    heroTitle: 'Integrare marketplace fără complicații',
     heroSubtitle: 'Listări, titluri, stoc și poze aduse automat, fără dubluri. Totul într-o singură pagină, gata de folosit.',
     tags: ['Import complet', 'Expedieri simple', 'Rapoarte clare'],
-    importTitle: 'Import complet al listingurilor Amazon',
+    importTitle: 'Import complet al listingurilor marketplace',
     importList: [
       'Poză principală',
       'Titlu produs',
-      'ASIN / SKU',
-      'Stoc FBA (available / inbound / reserved)',
+      'SKU / EAN',
+      'Stoc inbound (disponibil / inbound / rezervat)',
       'Stoc în PrepCenter',
       'Vânzări din ultimele 30 de zile'
     ],
@@ -31,33 +31,33 @@ const COPY = {
     notifyBody: 'Anunți produsul și cantitatea care urmează să ajungă la noi, ca să pregătim recepția înainte de expediere.',
     notifyOptions: [
       'Nu trimitem acum: rămâne în stocul PrepCenter.',
-      'Trimitem tot stocul: tot ce este disponibil merge la Amazon.',
+      'Trimitem tot stocul: tot ce este disponibil merge către fulfillment.',
       'Trimitem parțial: doar cantitatea selectată, restul rămâne în depozit.'
     ],
     prepTitle: 'Stoc deja în PrepCenter',
-    prepBody: 'Dacă ai produsul la noi, selectezi cantitatea și folosești acțiunea Trimite în Prep (Amazon).',
-    prepOption: 'Trimite în Prep (Amazon): trimitem cantitatea selectată către Amazon.',
+    prepBody: 'Dacă ai produsul la noi, selectezi cantitatea și folosești acțiunea Trimite în Prep.',
+    prepOption: 'Trimite în Prep: trimitem cantitatea selectată către fulfillment.',
     clickToEnlarge: 'Click pentru mărire',
     miniCards: {
       listTitle: 'Listări',
-      listBody: 'Titlu + poză + ASIN/SKU',
+      listBody: 'Titlu + poză + SKU/EAN',
       stockTitle: 'Stoc',
-      stockBody: 'FBA & inbound',
+      stockBody: 'Inbound & disponibil',
       shipTitle: 'Expedieri',
       shipBody: '3 opțiuni',
       reportTitle: 'Rapoarte',
       reportBody: 'Totul la vedere'
     },
     placeholders: {
-      import: 'Loc pentru captură de ecran (ex: listări Amazon)',
+      import: 'Loc pentru captură de ecran (ex: listări marketplace)',
       notify: 'Loc pentru captură (ex: selector notificare marfă)',
       prep: 'Loc pentru captură (ex: selector Trimite în Prep)',
-      reportSend: 'Captură „Trimite către Amazon”',
+      reportSend: 'Captură „Trimite către fulfillment”',
       reportIncoming: 'Captură „Marfă recepționată”',
       reportEmail: 'Captură raport / email'
     },
     reports: {
-      sendTitle: 'Send to Amazon',
+      sendTitle: 'Trimite către fulfillment',
       sendDesc: 'Vezi cererile trimise și statusurile lor.',
       incomingTitle: 'Incoming goods',
       incomingDesc: 'Tot ce a fost recepționat, într-o listă clară.',
@@ -66,16 +66,16 @@ const COPY = {
     }
   },
   en: {
-    heroPill: 'Amazon Integration',
-    heroTitle: 'Amazon integration without headaches',
+    heroPill: 'Marketplace Integration',
+    heroTitle: 'Marketplace integration without headaches',
     heroSubtitle: 'Listings, titles, stock and photos are imported automatically, no duplicates. Everything on one page, ready to use.',
     tags: ['Full import', 'Easy shipments', 'Clear reports'],
-    importTitle: 'Full Amazon listings import',
+    importTitle: 'Full marketplace listings import',
     importList: [
       'Main image',
       'Product title',
-      'ASIN / SKU',
-      'FBA stock (available / inbound / reserved)',
+      'SKU / EAN',
+      'Inbound stock (available / inbound / reserved)',
       'PrepCenter stock',
       'Sales from last 30 days'
     ],
@@ -84,33 +84,33 @@ const COPY = {
     notifyBody: 'Announce the product and quantity arriving so we prepare receiving before shipping.',
     notifyOptions: [
       'Do not send now: stays in PrepCenter, we ship nothing now.',
-      'Send all units: we ship all available stock to Amazon.',
+      'Send all units: we ship all available stock to fulfillment.',
       'Partial shipment: ship only the selected quantity, keep the rest in storage.'
     ],
     prepTitle: 'Stock already in PrepCenter',
-    prepBody: 'If the product is with us, pick the quantity and use Send to Prep (Amazon).',
-    prepOption: 'Send to Prep (Amazon): we ship the selected quantity to Amazon.',
+    prepBody: 'If the product is with us, pick the quantity and use Send to Prep.',
+    prepOption: 'Send to Prep: we ship the selected quantity to fulfillment.',
     clickToEnlarge: 'Click to enlarge',
     miniCards: {
       listTitle: 'Listings',
-      listBody: 'Title + image + ASIN/SKU',
+      listBody: 'Title + image + SKU/EAN',
       stockTitle: 'Stock',
-      stockBody: 'FBA & inbound',
+      stockBody: 'Inbound & available',
       shipTitle: 'Shipments',
       shipBody: '3 options',
       reportTitle: 'Reports',
       reportBody: 'Everything visible'
     },
     placeholders: {
-      import: 'Placeholder for screenshot (e.g., Amazon listings)',
+      import: 'Placeholder for screenshot (e.g., marketplace listings)',
       notify: 'Placeholder (Notify incoming goods selector)',
       prep: 'Placeholder (Send to Prep selector)',
-      reportSend: 'Screenshot Send to Amazon',
+      reportSend: 'Screenshot Send to fulfillment',
       reportIncoming: 'Screenshot Incoming goods',
       reportEmail: 'Screenshot report / email'
     },
     reports: {
-      sendTitle: 'Send to Amazon',
+      sendTitle: 'Send to fulfillment',
       sendDesc: 'See submitted requests and their statuses.',
       incomingTitle: 'Incoming goods',
       incomingDesc: 'Everything received, in a clear list.',
@@ -119,16 +119,16 @@ const COPY = {
     }
   },
   fr: {
-    heroPill: 'Intégration Amazon',
-    heroTitle: 'Intégration Amazon sans prise de tête',
+    heroPill: 'Intégration marketplace',
+    heroTitle: 'Intégration marketplace sans prise de tête',
     heroSubtitle: 'Titres, stock et photos importés automatiquement, sans doublons. Tout sur une seule page, prêt à l’emploi.',
     tags: ['Import complet', 'Expéditions simples', 'Rapports clairs'],
-    importTitle: 'Import complet des listings Amazon',
+    importTitle: 'Import complet des listings marketplace',
     importList: [
       'Photo principale',
       'Titre du produit',
-      'ASIN / SKU',
-      'Stock FBA (available / inbound / reserved)',
+      'SKU / EAN',
+      'Stock inbound (disponible / inbound / réservé)',
       'Stock en PrepCenter',
       'Ventes des 30 derniers jours'
     ],
@@ -137,33 +137,33 @@ const COPY = {
     notifyBody: 'Déclare le produit et la quantité qui arrivent pour préparer la réception avant l’expédition.',
     notifyOptions: [
       'Ne pas expédier maintenant : reste en PrepCenter, aucun envoi pour l’instant.',
-      'Envoyer toutes les unités : on expédie tout le stock disponible vers Amazon.',
+      'Envoyer toutes les unités : on expédie tout le stock disponible vers le fulfillment.',
       'Expédition partielle : tu envoies seulement la quantité choisie, le reste reste stocké.'
     ],
     prepTitle: 'Stock déjà en PrepCenter',
-    prepBody: 'Si le produit est chez nous, choisis la quantité et utilise Send to Prep (Amazon).',
-    prepOption: 'Envoyer en Prep (Amazon) : on expédie la quantité sélectionnée vers Amazon.',
+    prepBody: 'Si le produit est chez nous, choisis la quantité et utilise Send to Prep.',
+    prepOption: 'Envoyer en Prep : on expédie la quantité sélectionnée vers le fulfillment.',
     clickToEnlarge: 'Cliquer pour agrandir',
     miniCards: {
       listTitle: 'Listings',
-      listBody: 'Titre + photo + ASIN/SKU',
+      listBody: 'Titre + photo + SKU/EAN',
       stockTitle: 'Stock',
-      stockBody: 'FBA & inbound',
+      stockBody: 'Inbound & disponible',
       shipTitle: 'Expéditions',
       shipBody: '3 options',
       reportTitle: 'Rapports',
       reportBody: 'Tout est visible'
     },
     placeholders: {
-      import: 'Zone pour capture (ex: listings Amazon)',
+      import: 'Zone pour capture (ex: listings marketplace)',
       notify: 'Zone pour capture (Notifier la réception)',
       prep: 'Zone pour capture (Envoyer en Prep)',
-      reportSend: 'Capture « Send to Amazon »',
+      reportSend: 'Capture « Send to fulfillment »',
       reportIncoming: 'Capture « Incoming goods »',
       reportEmail: 'Capture rapport / email'
     },
     reports: {
-      sendTitle: 'Send to Amazon',
+      sendTitle: 'Send to fulfillment',
       sendDesc: 'Toutes les demandes envoyées et leurs statuts.',
       incomingTitle: 'Incoming goods',
       incomingDesc: 'Tout ce qui a été réceptionné, dans une liste claire.',
@@ -172,16 +172,16 @@ const COPY = {
     }
   },
   de: {
-    heroPill: 'Amazon-Integration',
-    heroTitle: 'Amazon-Integration ohne Kopfschmerzen',
+    heroPill: 'Marketplace-Integration',
+    heroTitle: 'Marketplace-Integration ohne Kopfschmerzen',
     heroSubtitle: 'Listings, Titel, Bestand und Bilder werden automatisch importiert, ohne Duplikate. Alles auf einer Seite, einsatzbereit.',
     tags: ['Kompletter Import', 'Einfache Sendungen', 'Klare Reports'],
-    importTitle: 'Vollständiger Import der Amazon-Listings',
+    importTitle: 'Vollständiger Import der Marketplace-Listings',
     importList: [
       'Hauptbild',
       'Produkttitel',
-      'ASIN / SKU',
-      'FBA-Bestand (available / inbound / reserved)',
+      'SKU / EAN',
+      'Inbound-Bestand (available / inbound / reserved)',
       'Bestand im PrepCenter',
       'Verkäufe der letzten 30 Tage'
     ],
@@ -190,33 +190,33 @@ const COPY = {
     notifyBody: 'Melde Produkt und Menge im Anmarsch, damit wir den Wareneingang vor dem Versand vorbereiten.',
     notifyOptions: [
       'Jetzt nicht senden: bleibt im PrepCenter, kein Versand jetzt.',
-      'Alle Einheiten senden: wir senden den gesamten verfügbaren Bestand zu Amazon.',
+      'Alle Einheiten senden: wir senden den gesamten verfügbaren Bestand zum Fulfillment.',
       'Teillieferung: du sendest nur die gewählte Menge, der Rest bleibt eingelagert.'
     ],
     prepTitle: 'Bestand bereits im PrepCenter',
-    prepBody: 'Wenn der Artikel bei uns liegt, wähle die Menge und nutze Send to Prep (Amazon).',
-    prepOption: 'An Prep senden (Amazon): wir senden die ausgewählte Menge zu Amazon.',
+    prepBody: 'Wenn der Artikel bei uns liegt, wähle die Menge und nutze Send to Prep.',
+    prepOption: 'An Prep senden: wir senden die ausgewählte Menge zum Fulfillment.',
     clickToEnlarge: 'Zum Vergrößern klicken',
     miniCards: {
       listTitle: 'Listings',
-      listBody: 'Titel + Bild + ASIN/SKU',
+      listBody: 'Titel + Bild + SKU/EAN',
       stockTitle: 'Bestand',
-      stockBody: 'FBA & inbound',
+      stockBody: 'Inbound & verfügbar',
       shipTitle: 'Sendungen',
       shipBody: '3 Optionen',
       reportTitle: 'Reports',
       reportBody: 'Alles im Blick'
     },
     placeholders: {
-      import: 'Platzhalter für Screenshot (z. B. Amazon-Listings)',
+      import: 'Platzhalter für Screenshot (z. B. Marketplace-Listings)',
       notify: 'Platzhalter (Ankommende Ware melden)',
       prep: 'Platzhalter (An Prep senden)',
-      reportSend: 'Screenshot „Send to Amazon“',
+      reportSend: 'Screenshot „Send to fulfillment“',
       reportIncoming: 'Screenshot „Incoming goods“',
       reportEmail: 'Screenshot Report / E-Mail'
     },
     reports: {
-      sendTitle: 'Send to Amazon',
+      sendTitle: 'Send to fulfillment',
       sendDesc: 'Gesendete Anfragen und ihre Status.',
       incomingTitle: 'Incoming goods',
       incomingDesc: 'Alles, was empfangen wurde, in einer klaren Liste.',
@@ -225,16 +225,16 @@ const COPY = {
     }
   },
   es: {
-    heroPill: 'Integración Amazon',
-    heroTitle: 'Integración con Amazon sin complicaciones',
+    heroPill: 'Integración marketplace',
+    heroTitle: 'Integración marketplace sin complicaciones',
     heroSubtitle: 'Listados, títulos, stock y fotos se importan automáticamente, sin duplicados. Todo en una sola página, listo para usar.',
     tags: ['Importación completa', 'Envíos fáciles', 'Reportes claros'],
-    importTitle: 'Importación completa de listados Amazon',
+    importTitle: 'Importación completa de listados marketplace',
     importList: [
       'Imagen principal',
       'Título del producto',
-      'ASIN / SKU',
-      'Stock FBA (available / inbound / reserved)',
+      'SKU / EAN',
+      'Stock inbound (available / inbound / reserved)',
       'Stock en PrepCenter',
       'Ventas de los últimos 30 días'
     ],
@@ -243,33 +243,33 @@ const COPY = {
     notifyBody: 'Avísas el producto y la cantidad que llegan para preparar la recepción antes del envío.',
     notifyOptions: [
       'No enviar ahora: permanece en PrepCenter, no enviamos ahora.',
-      'Enviar todas las unidades: enviamos todo el stock disponible a Amazon.',
+      'Enviar todas las unidades: enviamos todo el stock disponible a fulfillment.',
       'Envío parcial: envías solo la cantidad elegida, el resto queda almacenado.'
     ],
     prepTitle: 'Stock ya en PrepCenter',
-    prepBody: 'Si el producto está con nosotros, eliges la cantidad y usas Send to Prep (Amazon).',
-    prepOption: 'Enviar al Prep (Amazon): enviamos la cantidad seleccionada a Amazon.',
+    prepBody: 'Si el producto está con nosotros, eliges la cantidad y usas Send to Prep.',
+    prepOption: 'Enviar al Prep: enviamos la cantidad seleccionada a fulfillment.',
     clickToEnlarge: 'Clic para ampliar',
     miniCards: {
       listTitle: 'Listados',
-      listBody: 'Título + foto + ASIN/SKU',
+      listBody: 'Título + foto + SKU/EAN',
       stockTitle: 'Stock',
-      stockBody: 'FBA & inbound',
+      stockBody: 'Inbound & disponible',
       shipTitle: 'Envíos',
       shipBody: '3 opciones',
       reportTitle: 'Reportes',
       reportBody: 'Todo visible'
     },
     placeholders: {
-      import: 'Espacio para captura (ej: listados Amazon)',
+      import: 'Espacio para captura (ej: listados marketplace)',
       notify: 'Espacio para captura (Avisar mercancía entrante)',
       prep: 'Espacio para captura (Enviar al Prep)',
-      reportSend: 'Captura «Send to Amazon»',
+      reportSend: 'Captura «Send to fulfillment»',
       reportIncoming: 'Captura «Incoming goods»',
       reportEmail: 'Captura reporte / email'
     },
     reports: {
-      sendTitle: 'Send to Amazon',
+      sendTitle: 'Send to fulfillment',
       sendDesc: 'Solicitudes enviadas y sus estados.',
       incomingTitle: 'Incoming goods',
       incomingDesc: 'Todo lo recibido, en una lista clara.',
@@ -278,16 +278,16 @@ const COPY = {
     }
   },
   it: {
-    heroPill: 'Integrazione Amazon',
-    heroTitle: 'Integrazione Amazon senza complicazioni',
+    heroPill: 'Integrazione marketplace',
+    heroTitle: 'Integrazione marketplace senza complicazioni',
     heroSubtitle: 'Listing, titoli, stock e foto importati automaticamente, senza duplicati. Tutto in una sola pagina, pronto all’uso.',
     tags: ['Import completo', 'Spedizioni semplici', 'Report chiari'],
-    importTitle: 'Import completo dei listing Amazon',
+    importTitle: 'Import completo dei listing marketplace',
     importList: [
       'Immagine principale',
       'Titolo prodotto',
-      'ASIN / SKU',
-      'Stock FBA (available / inbound / reserved)',
+      'SKU / EAN',
+      'Stock inbound (available / inbound / reserved)',
       'Stock in PrepCenter',
       'Vendite degli ultimi 30 giorni'
     ],
@@ -296,33 +296,33 @@ const COPY = {
     notifyBody: 'Segnali il prodotto e la quantità in arrivo, così prepariamo la ricezione prima della spedizione.',
     notifyOptions: [
       'Non spedire ora: resta in PrepCenter, nessuna spedizione ora.',
-      'Spedisci tutte le unità: inviamo tutto lo stock disponibile ad Amazon.',
+      'Spedisci tutte le unità: inviamo tutto lo stock disponibile a fulfillment.',
       'Spedizione parziale: spedisci solo la quantità scelta, il resto resta in deposito.'
     ],
     prepTitle: 'Stock già in PrepCenter',
-    prepBody: 'Se il prodotto è da noi, scegli la quantità e usa Send to Prep (Amazon).',
-    prepOption: 'Invia al Prep (Amazon): spediamo la quantità selezionata ad Amazon.',
+    prepBody: 'Se il prodotto è da noi, scegli la quantità e usa Send to Prep.',
+    prepOption: 'Invia al Prep: spediamo la quantità selezionata a fulfillment.',
     clickToEnlarge: 'Clicca per ingrandire',
     miniCards: {
       listTitle: 'Listing',
-      listBody: 'Titolo + foto + ASIN/SKU',
+      listBody: 'Titolo + foto + SKU/EAN',
       stockTitle: 'Stock',
-      stockBody: 'FBA & inbound',
+      stockBody: 'Inbound & disponibile',
       shipTitle: 'Spedizioni',
       shipBody: '3 opzioni',
       reportTitle: 'Report',
       reportBody: 'Tutto visibile'
     },
     placeholders: {
-      import: 'Spazio per screenshot (es: listing Amazon)',
+      import: 'Spazio per screenshot (es: listing marketplace)',
       notify: 'Spazio per screenshot (Segnala merce in arrivo)',
       prep: 'Spazio per screenshot (Invia al Prep)',
-      reportSend: 'Screenshot «Send to Amazon»',
+      reportSend: 'Screenshot «Send to fulfillment»',
       reportIncoming: 'Screenshot «Incoming goods»',
       reportEmail: 'Screenshot report / email'
     },
     reports: {
-      sendTitle: 'Send to Amazon',
+      sendTitle: 'Send to fulfillment',
       sendDesc: 'Vedi le richieste inviate e i loro stati.',
       incomingTitle: 'Incoming goods',
       incomingDesc: 'Tutto ciò che è stato ricevuto, in una lista chiara.',
@@ -427,7 +427,7 @@ export default function Integrations() {
     () => ({
       import: (
         <div className="h-56 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-gray-200 flex items-center justify-center text-gray-500 text-xs">
-          Loc pentru captură de ecran (ex: listări Amazon)
+          {copy.placeholders.import}
         </div>
       ),
       notify: (

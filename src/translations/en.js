@@ -35,8 +35,8 @@ export const en = {
   learnMore: 'Learn More',
   
   // Home Page - Hero Section
-  heroTitle: 'Amazon FBA Prep Center France – 24h Prep, Labeling & Shipping to EU',
-  heroSubtitle: '24h turnaround, quality control, FNSKU labeling, polybagging & fast shipping to Amazon fulfillment centers in Europe',
+  heroTitle: 'Prep Center France – 24h Prep, Labeling & EU Shipping',
+  heroSubtitle: '24h turnaround, quality control, labeling, polybagging & fast shipping to EU fulfillment centers',
   
   // Home Page - Stats
   yearsExperience: 'Years Experience',
@@ -45,24 +45,24 @@ export const en = {
   averageTurnaround: 'Average Turnaround',
   
   // Home Page - Why Choose Us
-  whyChooseTitle: 'Why Choose Prep Center France for Amazon FBA Prep',
-  whyChooseSubtitle: 'Professional Amazon FBA prep services in France designed for European sellers',
+  whyChooseTitle: 'Why Choose Prep Center France for Prep Services',
+  whyChooseSubtitle: 'Professional prep services in France designed for European sellers',
   turnaroundTitle: '24h Turnaround',
-  turnaroundDesc: 'Fast processing of your products to Amazon FBA fulfillment centers',
-  transparentPricingTitle: 'Transparent FBA prep pricing',
-  transparentPricingDesc: 'No hidden fees, competitive rates for all Amazon FBA prep services in France',
+  turnaroundDesc: 'Fast processing of your products to EU fulfillment centers',
+  transparentPricingTitle: 'Transparent prep pricing',
+  transparentPricingDesc: 'No hidden fees, competitive rates for all prep services in France',
   strategicLocationTitle: 'Strategic prep center location in France',
-  strategicLocationDesc: 'Optimal position for EU-wide Amazon fulfillment center distribution and fast shipping',
-  amazonReadyTitle: 'Amazon FBA-ready packaging',
-  amazonReadyDesc: 'Expert knowledge of European Amazon FBA requirements and compliance standards',
+  strategicLocationDesc: 'Optimal position for EU-wide fulfillment distribution and fast shipping',
+  amazonReadyTitle: 'Marketplace-ready packaging',
+  amazonReadyDesc: 'Expert knowledge of EU marketplace requirements and compliance standards',
   
   // Home Page - Services
   coreServicesTitle: 'Our Core Services',
-  coreServicesSubtitle: 'Professional Amazon FBA prep and multi-platform fulfillment solutions.',
+  coreServicesSubtitle: 'Professional prep and multi-platform fulfillment solutions.',
   fnskuLabelingTitle: 'Photo Storage Subscription',
   fnskuLabelingDesc: 'Cloud storage for product images linked to each ASIN. Upload up to six photos per product directly on the platform, one for each side, stored securely and accessible anytime.',
-  fbmShippingTitle: 'FBM Shipping',
-  fbmShippingDesc: 'We handle daily orders from Amazon, eBay, Shopify, Vinted, and other platforms. Includes pick & pack, fast shipping, and returns management.',
+  fbmShippingTitle: 'Order Fulfillment',
+  fbmShippingDesc: 'We handle daily orders from marketplaces and ecommerce platforms. Includes pick & pack, fast shipping, and returns management.',
   storageTitle: 'Storage Solutions',
   storageDesc: 'Secure warehouse storage with digital tracking, permanent access, climate control, 24/7 monitoring, and complete inventory management.',
   perProduct: 'per product',
@@ -75,27 +75,27 @@ export const en = {
   
   // Home Page - How It Works
   howItWorksTitle: 'How It Works',
-  howItWorksSubtitle: 'Simple 6-step process from arrival to Amazon FC',
+  howItWorksSubtitle: 'Simple 6-step process from arrival to fulfillment',
   receptionStep: 'Reception',
   receptionDesc: 'Your products arrive at our facility',
   qualityControlStep: 'Quality Control',
   qualityControlDesc: 'Quality control and inspection process',
   labelingStep: 'Labeling',
-  labelingDesc: 'FNSKU/EAN labeling application',
+  labelingDesc: 'SKU/EAN labeling application',
   polybaggingStep: 'Polybagging',
   polybaggingDesc: 'Polybagging and protective packaging',
   shippingStep: 'Shipping',
-  shippingDesc: 'Fast dispatch to Amazon FCs',
+  shippingDesc: 'Fast dispatch to EU fulfillment centers',
   confirmStep: 'Confirm',
   confirmDesc: 'Delivery confirmation and reporting',
   
   // Home Page - Benefits
   benefitsTitle: 'Why European Sellers Choose Us',
-  benefitsSubtitle: 'Advantages that make the difference for your Amazon FBA business',
+  benefitsSubtitle: 'Advantages that make the difference for your fulfillment operations',
   euDistributionTitle: 'EU-Wide Distribution',
-  euDistributionDesc: 'Strategic location in France for fast shipping to all European Amazon fulfillment centers',
+  euDistributionDesc: 'Strategic location in France for fast shipping to EU fulfillment centers',
   complianceTitle: 'Compliance Expertise',
-  complianceDesc: 'Deep knowledge of Amazon FBA requirements and European regulations',
+  complianceDesc: 'Deep knowledge of marketplace requirements and European regulations',
   qualityAssuranceTitle: 'Quality Assurance',
   qualityAssuranceDesc: 'Rigorous quality control process with photo documentation',
   transparentPricingBenefitTitle: 'Transparent Pricing',
@@ -103,8 +103,8 @@ export const en = {
   
   // Home Page - Testimonials
   testimonialsTitle: 'What Our Clients Say',
-  testimonialsSubtitle: 'Trusted by global Amazon sellers',
-  testimonial1Text: 'Prep Center France transformed our FBA operations. 24h turnaround is incredible!',
+  testimonialsSubtitle: 'Trusted by global ecommerce sellers',
+  testimonial1Text: 'Prep Center France transformed our operations. 24h turnaround is incredible!',
   testimonial1Name: 'Marcus Weber',
   testimonial1Company: 'Weber Electronics',
   testimonial2Text: 'Professional service, transparent pricing. Our go-to prep center in Europe.',
@@ -126,8 +126,8 @@ export const en = {
   productSourcing: 'Product sourcing consultation',
   qualityCompliance: 'Quality control and compliance',
   endToEndFulfillment: 'End-to-end fulfillment solutions',
-  multiPlatformTitle: 'Multi-Platform FBM',
-  amazonFbmFulfillment: 'Amazon FBM fulfillment',
+  multiPlatformTitle: 'Multi-Platform Fulfillment',
+  amazonFbmFulfillment: 'Marketplace fulfillment',
   ebayProcessing: 'eBay order processing',
   shopifyIntegration: 'Shopify integration',
   customWebsiteFulfillment: 'Custom website fulfillment',
@@ -144,8 +144,8 @@ export const en = {
   startChat: 'Start Chat',
   
   // Home Page - CTA
-  ctaTitle: 'Ready to Streamline Your Amazon FBA Operations in Europe?',
-  ctaSubtitle: 'Get started with professional Amazon FBA prep services in France. 24h turnaround times, quality control, FNSKU labeling and fast shipping to European Amazon fulfillment centers.',
+  ctaTitle: 'Ready to Streamline Your Fulfillment Operations in Europe?',
+  ctaSubtitle: 'Get started with professional prep services in France. 24h turnaround times, quality control, labeling and fast shipping to EU fulfillment centers.',
   
   // Service Features
   receptionInspection: 'Reception & inspection',
@@ -159,5 +159,20 @@ export const en = {
   secureStorage: 'Secure storage',
   inventoryTracking: 'Inventory tracking',
   climateControlled: 'Climate controlled',
-  monitoring24h: '24/7 monitoring'
+  monitoring24h: '24/7 monitoring',
+
+  // Blog
+  blogPageTitle: 'Insights & Resources',
+  blogPageSubtitle: 'Guides on prep, fulfillment, compliance, and shipping for EU sellers.',
+  stayUpdated: 'Stay updated',
+  subscribeNewsletter: 'Subscribe to our newsletter',
+  enterEmail: 'Enter your email',
+  subscribe: 'Subscribe',
+  expertGuidance: 'Expert guidance',
+  expertGuidanceDesc: 'Practical tips from our operations team.',
+  allCategories: 'All',
+  prepCategory: 'Prep',
+  complianceCategory: 'Compliance',
+  shippingCategory: 'Shipping',
+  tipsCategory: 'Tips'
 };

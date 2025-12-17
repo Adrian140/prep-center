@@ -35,8 +35,8 @@ export const es = {
   learnMore: 'Saber Más',
   
   // Home Page - Hero Section
-  heroTitle: 'Centro de Preparación Amazon FBA Francia – Preparación, Etiquetado y Envío 24h a UE',
-  heroSubtitle: 'Procesamiento 24h, control de calidad, etiquetado FNSKU, embolsado y envío rápido a centros de fulfillment Amazon en Europa',
+  heroTitle: 'Centro de Preparación Francia – Preparación, Etiquetado y Envío 24h a la UE',
+  heroSubtitle: 'Procesamiento 24h, control de calidad, etiquetado, embolsado y envío rápido a centros de fulfillment en Europa',
   
   // Home Page - Stats
   yearsExperience: 'Años de Experiencia',
@@ -45,24 +45,24 @@ export const es = {
   averageTurnaround: 'Procesamiento Promedio',
   
   // Home Page - Why Choose Us
-  whyChooseTitle: 'Por Qué Elegir Prep Center France para Preparación Amazon FBA',
-  whyChooseSubtitle: 'Servicios profesionales de preparación Amazon FBA en Francia diseñados para vendedores europeos',
+  whyChooseTitle: 'Por Qué Elegir Prep Center France para preparación',
+  whyChooseSubtitle: 'Servicios profesionales de preparación en Francia diseñados para vendedores europeos',
   turnaroundTitle: 'Procesamiento 24h',
-  turnaroundDesc: 'Procesamiento rápido de tus productos a centros de fulfillment Amazon FBA',
-  transparentPricingTitle: 'Precios transparentes para preparación FBA',
-  transparentPricingDesc: 'Sin tarifas ocultas, precios competitivos para todos los servicios de preparación Amazon FBA en Francia',
+  turnaroundDesc: 'Procesamiento rápido de tus productos a centros de fulfillment europeos',
+  transparentPricingTitle: 'Precios transparentes para preparación',
+  transparentPricingDesc: 'Sin tarifas ocultas, precios competitivos para todos los servicios de preparación en Francia',
   strategicLocationTitle: 'Ubicación estratégica del centro de preparación en Francia',
-  strategicLocationDesc: 'Posición óptima para distribución en toda la UE y envío rápido a centros de fulfillment Amazon',
-  amazonReadyTitle: 'Empaquetado listo para Amazon FBA',
-  amazonReadyDesc: 'Conocimiento experto de requisitos Amazon FBA europeos y estándares de cumplimiento',
+  strategicLocationDesc: 'Posición óptima para distribución en toda la UE y envío rápido a centros de fulfillment',
+  amazonReadyTitle: 'Empaquetado listo para marketplace',
+  amazonReadyDesc: 'Conocimiento experto de requisitos de marketplace europeos y estándares de cumplimiento',
   
   // Home Page - Services
   coreServicesTitle: 'Nuestros Servicios Principales',
-  coreServicesSubtitle: 'Soluciones profesionales de preparación Amazon FBA y fulfillment multiplataforma.',
+  coreServicesSubtitle: 'Soluciones profesionales de preparación y fulfillment multiplataforma.',
   fnskuLabelingTitle: 'Suscripción de almacenamiento de fotos',
   fnskuLabelingDesc: 'Almacenamiento en la nube para imágenes de producto vinculadas a cada ASIN. Sube hasta seis fotos por producto directamente en la plataforma, una por cada lado, guardadas de forma segura y accesibles en cualquier momento.',
-  fbmShippingTitle: 'Envío FBM',
-  fbmShippingDesc: 'Gestionamos pedidos diarios de Amazon, eBay, Shopify, Vinted y otras plataformas. Incluye pick & pack, envíos rápidos y gestión de devoluciones.',
+  fbmShippingTitle: 'Fulfillment de pedidos',
+  fbmShippingDesc: 'Gestionamos pedidos diarios de marketplaces y plataformas ecommerce. Incluye pick & pack, envíos rápidos y gestión de devoluciones.',
   storageTitle: 'Soluciones de Almacenamiento',
   storageDesc: 'Almacenaje seguro con seguimiento digital, acceso permanente, control de clima, monitorización 24/7 y gestión completa del inventario.',
   perProduct: 'por producto',
@@ -75,27 +75,27 @@ export const es = {
   
   // Home Page - How It Works
   howItWorksTitle: 'Cómo Funciona',
-  howItWorksSubtitle: 'Proceso simple de 6 pasos desde llegada hasta centro Amazon FC',
+  howItWorksSubtitle: 'Proceso simple de 6 pasos desde llegada hasta fulfillment',
   receptionStep: 'Recepción',
   receptionDesc: 'Tus productos llegan a nuestras instalaciones',
   qualityControlStep: 'Control de Calidad',
   qualityControlDesc: 'Proceso de control de calidad e inspección',
   labelingStep: 'Etiquetado',
-  labelingDesc: 'Aplicación de etiquetado FNSKU/EAN',
+  labelingDesc: 'Aplicación de etiquetado SKU/EAN',
   polybaggingStep: 'Embolsado',
   polybaggingDesc: 'Embolsado y empaquetado protector',
   shippingStep: 'Envío',
-  shippingDesc: 'Envío rápido a centros Amazon FC',
+  shippingDesc: 'Envío rápido a centros de fulfillment',
   confirmStep: 'Confirmación',
   confirmDesc: 'Confirmación de entrega e informes',
   
   // Home Page - Benefits
   benefitsTitle: 'Por Qué los Vendedores Europeos Nos Eligen',
-  benefitsSubtitle: 'Ventajas que marcan la diferencia para tu negocio Amazon FBA',
+  benefitsSubtitle: 'Ventajas que marcan la diferencia para tus operaciones',
   euDistributionTitle: 'Distribución en toda la UE',
-  euDistributionDesc: 'Ubicación estratégica en Francia para envío rápido a todos los centros de fulfillment Amazon europeos',
+  euDistributionDesc: 'Ubicación estratégica en Francia para envío rápido a centros de fulfillment europeos',
   complianceTitle: 'Experiencia en Cumplimiento',
-  complianceDesc: 'Conocimiento profundo de requisitos Amazon FBA y regulaciones europeas',
+  complianceDesc: 'Conocimiento profundo de requisitos de marketplace y regulaciones europeas',
   qualityAssuranceTitle: 'Garantía de Calidad',
   qualityAssuranceDesc: 'Proceso riguroso de control de calidad con documentación fotográfica',
   transparentPricingBenefitTitle: 'Precios Transparentes',
@@ -103,8 +103,8 @@ export const es = {
   
   // Home Page - Testimonials
   testimonialsTitle: 'Lo Que Dicen Nuestros Clientes',
-  testimonialsSubtitle: 'Confiado por vendedores Amazon globales',
-  testimonial1Text: 'Prep Center France transformó nuestras operaciones FBA. ¡El procesamiento 24h es increíble!',
+  testimonialsSubtitle: 'Confiado por vendedores ecommerce globales',
+  testimonial1Text: 'Prep Center France transformó nuestras operaciones. ¡El procesamiento 24h es increíble!',
   testimonial1Name: 'Marcus Weber',
   testimonial1Company: 'Weber Electronics',
   testimonial2Text: 'Servicio profesional, precios transparentes. Nuestro centro de preparación de referencia en Europa.',
@@ -126,8 +126,8 @@ export const es = {
   productSourcing: 'Consultoría de sourcing de productos',
   qualityCompliance: 'Control de calidad y cumplimiento',
   endToEndFulfillment: 'Soluciones de fulfillment end-to-end',
-  multiPlatformTitle: 'FBM Multi-Plataforma',
-  amazonFbmFulfillment: 'Fulfillment Amazon FBM',
+  multiPlatformTitle: 'Fulfillment multi-plataforma',
+  amazonFbmFulfillment: 'Fulfillment marketplace',
   ebayProcessing: 'Procesamiento de pedidos eBay',
   shopifyIntegration: 'Integración Shopify',
   customWebsiteFulfillment: 'Fulfillment de sitios web personalizados',
@@ -144,8 +144,8 @@ export const es = {
   startChat: 'Iniciar Chat',
   
   // Home Page - CTA
-  ctaTitle: '¿Listo para Optimizar tus Operaciones Amazon FBA en Europa?',
-  ctaSubtitle: 'Comienza con servicios profesionales de preparación Amazon FBA en Francia. Tiempos de procesamiento 24h, control de calidad, etiquetado FNSKU y envío rápido a centros de fulfillment Amazon europeos.',
+  ctaTitle: '¿Listo para optimizar tus operaciones logísticas en Europa?',
+  ctaSubtitle: 'Comienza con servicios profesionales de preparación en Francia. Tiempos de procesamiento 24h, control de calidad, etiquetado y envío rápido a centros de fulfillment europeos.',
   
   // Service Features
   receptionInspection: 'Recepción e inspección',
@@ -159,5 +159,20 @@ export const es = {
   secureStorage: 'Almacenamiento seguro',
   inventoryTracking: 'Seguimiento de inventario',
   climateControlled: 'Climatizado',
-  monitoring24h: 'Monitoreo 24/7'
+  monitoring24h: 'Monitoreo 24/7',
+
+  // Blog
+  blogPageTitle: 'Recursos & Novedades',
+  blogPageSubtitle: 'Guías sobre prep, fulfillment, cumplimiento y envíos para vendedores UE.',
+  stayUpdated: 'Mantente al día',
+  subscribeNewsletter: 'Suscríbete al boletín',
+  enterEmail: 'Introduce tu email',
+  subscribe: 'Suscribirse',
+  expertGuidance: 'Guía experta',
+  expertGuidanceDesc: 'Consejos prácticos de nuestro equipo de operaciones.',
+  allCategories: 'Todos',
+  prepCategory: 'Prep',
+  complianceCategory: 'Cumplimiento',
+  shippingCategory: 'Envíos',
+  tipsCategory: 'Consejos'
 };

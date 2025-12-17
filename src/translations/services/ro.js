@@ -42,6 +42,57 @@ export const servicesRo = {
     }
   },
 
+  publicSection: {
+    pageTitle: 'Servicii și Soluții',
+    pageSubtitle: 'Pregătire, fulfillment și depozitare adaptate produselor, volumelor și termenelor tale.',
+    groupLabel: 'Grup de servicii',
+    ctaPrimary: 'Cere ofertă',
+    ctaSecondary: 'Discută cu echipa',
+    note: 'Prețurile se oferă la cerere, în funcție de volum, dimensiuni și cerințe de manipulare.',
+    groups: {
+      prep: {
+        title: 'Servicii de pregătire',
+        subtitle: 'Pregătire inbound pentru marketplace-uri și DTC.',
+        bullets: [
+          'Recepție & inspecție',
+          'Etichetare & ambalare',
+          'Control calitate & foto',
+          'Cartonare & conformitate'
+        ]
+      },
+      fulfillment: {
+        title: 'Fulfillment comenzi',
+        subtitle: 'Pick, pack și expediere multicanal.',
+        bullets: [
+          'Gestionare comenzi multicanal',
+          'Opțiuni de expediere în aceeași zi',
+          'Gestionare retururi',
+          'Coordonare curieri'
+        ]
+      },
+      storage: {
+        title: 'Depozitare',
+        subtitle: 'Depozitare sigură și urmărită în Franța.',
+        bullets: [
+          'Depozitare paleți și cutii',
+          'Vizibilitate inventar',
+          'Opțiuni climatizate',
+          'Monitorizare 24/7'
+        ]
+      },
+      extras: {
+        title: 'Servicii cu valoare adăugată',
+        subtitle: 'Branding și sarcini personalizate.',
+        bullets: [
+          'Kitting & bundling',
+          'Inserturi',
+          'Etichete personalizate',
+          'Suport documente'
+        ]
+      }
+    }
+  },
+
   // New Customer Bonus
   newCustomerBonus: 'Bonus Client Nou',
   bonusFirstMonths: 'Primele 2 luni: {new_customer_rate}/produs (în loc de {standard_rate}) + Consultanță de configurare gratuită',

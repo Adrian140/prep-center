@@ -42,6 +42,57 @@ export const servicesEn = {
     }
   },
 
+  publicSection: {
+    pageTitle: 'Services & Solutions',
+    pageSubtitle: 'Prep, fulfillment, and storage built around your products, volumes, and timelines.',
+    groupLabel: 'Service group',
+    ctaPrimary: 'Request a quote',
+    ctaSecondary: 'Talk to our team',
+    note: 'Pricing is provided on request based on volume, dimensions, and handling requirements.',
+    groups: {
+      prep: {
+        title: 'Prep Services',
+        subtitle: 'Inbound preparation for marketplaces and DTC brands.',
+        bullets: [
+          'Reception & inspection',
+          'Labeling & packaging',
+          'Quality control & photos',
+          'Cartonization & compliance'
+        ]
+      },
+      fulfillment: {
+        title: 'Order Fulfillment',
+        subtitle: 'Pick, pack, and ship across channels.',
+        bullets: [
+          'Multi-channel order handling',
+          'Same-day dispatch options',
+          'Returns management',
+          'Carrier coordination'
+        ]
+      },
+      storage: {
+        title: 'Storage',
+        subtitle: 'Secure, tracked storage in France.',
+        bullets: [
+          'Pallet and bin storage',
+          'Inventory visibility',
+          'Climate-controlled options',
+          '24/7 monitoring'
+        ]
+      },
+      extras: {
+        title: 'Value-added Services',
+        subtitle: 'Branding and custom tasks on request.',
+        bullets: [
+          'Kitting & bundling',
+          'Insert materials',
+          'Custom labeling',
+          'Documentation support'
+        ]
+      }
+    }
+  },
+
   // New Customer Bonus
   newCustomerBonus: 'New Customer Bonus',
   bonusFirstMonths: 'First 2 months: {new_customer_rate}/product (instead of {standard_rate}) + Free setup consultation',

@@ -38,7 +38,7 @@ function AdminLoginInfo() { // Changed to AdminLoginInfo
                 </div>
                 <ul className="space-y-2 text-sm text-green-800">
                   <li>• Actualizează prețurile serviciilor</li>
-                  <li>• Modifică tarifele FBA și FBM</li>
+                  <li>• Modifică tarifele de prep și fulfillment</li>
                   <li>• Adaugă servicii noi</li>
                   <li>• Gestionează oferte speciale</li>
                 </ul>

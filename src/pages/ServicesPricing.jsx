@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FileDown, ArrowRight, Tag, Package, Boxes, Truck, Archive, Shield, Layers } from 'lucide-react';
 import { supabaseHelpers } from '../config/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useServicesTranslation } from '../translations/services';
-import { useTranslation } from '../translations';
 import { exportPricingPdf } from '../utils/pricingPdf';
 
 const CATEGORY_ORDER = [
@@ -37,6 +37,13 @@ const PROVIDER_BADGES = {
   Chronopost: { bg: '#DBEAFE', text: '#1D4ED8' },
   FedEx: { bg: '#F3E8FF', text: '#6B21A8' }
 };
+
+const PUBLIC_GROUPS = [
+  { key: 'prep', icon: Package },
+  { key: 'fulfillment', icon: Truck },
+  { key: 'storage', icon: Archive },
+  { key: 'extras', icon: Boxes }
+];
 
 const SECTION_STYLES = {
   fba: {
@@ -107,7 +114,10 @@ const groupPricing = (rows = []) => {
 export default function ServicesPricing() {
   const { currentLanguage } = useLanguage();
   const { t } = useServicesTranslation(currentLanguage);
-  const { t: tCommon } = useTranslation();
+  const { user, profile } = useSupabaseAuth();
+  const isAdmin = Boolean(
+    profile?.account_type === 'admin' || user?.user_metadata?.account_type === 'admin'
+  );
   const [content, setContent] = useState({});
   const [pricingGroups, setPricingGroups] = useState({});
   const [shippingRates, setShippingRates] = useState({ domestic: [], international: {} });
@@ -150,8 +160,12 @@ export default function ServicesPricing() {
     [content, currentLanguage, t]
   );
 
-  const heroTitle = getLocalizedContent('services_title', 'pageTitle');
-  const heroSubtitle = getLocalizedContent('services_subtitle', 'pageSubtitle');
+  const heroTitle = isAdmin
+    ? getLocalizedContent('services_title', 'pageTitle')
+    : t('publicSection.pageTitle');
+  const heroSubtitle = isAdmin
+    ? getLocalizedContent('services_subtitle', 'pageSubtitle')
+    : t('publicSection.pageSubtitle');
 
   const fetchPricing = useCallback(async () => {
     setPricingLoading(true);
@@ -526,6 +540,17 @@ export default function ServicesPricing() {
       ? translatedDescription
       : '';
 
+  const publicGroups = useMemo(
+    () =>
+      PUBLIC_GROUPS.map((group) => ({
+        ...group,
+        title: t(`publicSection.groups.${group.key}.title`),
+        subtitle: t(`publicSection.groups.${group.key}.subtitle`),
+        bullets: t(`publicSection.groups.${group.key}.bullets`)
+      })),
+    [t]
+  );
+
   return (
     <div className="min-h-screen py-20 bg-gradient-to-b from-white via-gray-50 to-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
@@ -538,423 +563,478 @@ export default function ServicesPricing() {
           </p>
         </header>
 
-        <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-6 -mt-4">
-          {pricingError && (
-            <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
-              {pricingError}
-            </div>
-          )}
+        {isAdmin ? (
+          <>
+            <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-6 -mt-4">
+              {pricingError && (
+                <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
+                  {pricingError}
+                </div>
+              )}
 
-          {pricingLoading ? (
-            <div className="px-4 py-10 text-center text-text-secondary">
-              {t('pricingSection.loading')}
-            </div>
-          ) : sections.length === 0 ? (
-            <div className="px-4 py-10 text-center text-text-secondary">
-              {t('pricingSection.empty')}
-            </div>
-          ) : (
-            <div className="space-y-8">
-              {sections.map((section) => {
-                const style = SECTION_STYLES[section.key] || SECTION_STYLES.custom;
-                const cta = sectionCtas[section.key];
-                return (
-                  <article
-                    key={section.id}
-                    className={`rounded-3xl border shadow-sm p-6 space-y-6 ${style.wrapper}`}
+              {pricingLoading ? (
+                <div className="px-4 py-10 text-center text-text-secondary">
+                  {t('pricingSection.loading')}
+                </div>
+              ) : sections.length === 0 ? (
+                <div className="px-4 py-10 text-center text-text-secondary">
+                  {t('pricingSection.empty')}
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {sections.map((section) => {
+                    const style = SECTION_STYLES[section.key] || SECTION_STYLES.custom;
+                    const cta = sectionCtas[section.key];
+                    return (
+                      <article
+                        key={section.id}
+                        className={`rounded-3xl border shadow-sm p-6 space-y-6 ${style.wrapper}`}
+                      >
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                          <div>
+                            <p className={`text-xs font-semibold uppercase tracking-wide ${style.pill}`}>
+                              {t(`pricingSection.groups.${section.key}.title`) || section.id}
+                            </p>
+                            <h2 className="mt-2 text-2xl font-semibold text-text-primary">{section.id}</h2>
+                            <p className="text-sm text-text-secondary">
+                              {t(`pricingSection.groups.${section.key}.subtitle`) || section.id}
+                            </p>
+                          </div>
+                          {section.key !== 'extra' && sectionDescription && (
+                            <div className="text-sm text-text-secondary max-w-lg">
+                              {sectionDescription}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {section.items.map((item) => {
+                            const Icon = getServiceIcon(item.service_name);
+                            return (
+                              <div
+                                key={item.id}
+                                className="flex gap-4 rounded-2xl bg-white/80 border border-white shadow-sm p-4"
+                              >
+                                <div className="shrink-0 rounded-xl bg-white p-3 shadow">
+                                  <Icon className={`w-5 h-5 ${style.icon}`} />
+                                </div>
+                                <div>
+                                  <p className="text-base font-semibold text-text-primary">
+                                    {item.service_name}
+                                  </p>
+                                  <p className="text-sm text-text-secondary">
+                                    {formatPriceHt(item.price)}
+                                    <span className="text-xs text-text-light"> / {item.unit}</span>
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {cta && (
+                          <a
+                            href={cta.href}
+                            className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary-dark self-start"
+                          >
+                            {cta.label}
+                            <ArrowRight className="w-4 h-4" />
+                          </a>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            <section className="bg-[#0B1221] text-white rounded-3xl p-8 space-y-6">
+              <div className="space-y-3">
+                <h2 className="text-2xl font-semibold">{t('pricingSection.finalTitle')}</h2>
+                <p className="text-white/80 text-sm md:text-base">{t('pricingSection.finalNote')}</p>
+              </div>
+              <div>
+                <button
+                  onClick={handleExport}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-gray-900 font-semibold hover:bg-gray-100"
+                >
+                  <FileDown className="w-4 h-4" />
+                  {t('pricingSection.export')}
+                </button>
+              </div>
+            </section>
+
+            <section className="space-y-12">
+              <div className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
+                <div>
+                  <h2 className="text-2xl font-semibold text-text-primary">
+                    {t('shippingSection.domesticTitle')}
+                  </h2>
+                  <p className="text-text-secondary">{t('shippingSection.domesticSubtitle')}</p>
+                </div>
+                {shippingLoading ? (
+                  <div className="py-10 text-center text-text-secondary">
+                    {t('pricingSection.loading')}
+                  </div>
+                ) : (
+                  <>
+                    {renderShippingCards(shippingRates.domestic, DOMESTIC_COLUMNS)}
+                    <div className="hidden md:block overflow-auto border rounded-xl">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-gray-50 text-text-secondary">
+                          <tr>
+                            <th className="px-4 py-3 text-left">
+                              {t('shippingSection.table.transporter')}
+                            </th>
+                            {DOMESTIC_COLUMNS.map((col) => (
+                              <th key={col} className="px-4 py-3 text-center">
+                                {col === '20' ? '20 kg' : `${col} kg`}
+                              </th>
+                            ))}
+                            <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {shippingRates.domestic.map((row) =>
+                            renderShippingRow(row, DOMESTIC_COLUMNS)
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+                <p className="text-xs text-text-light">{t('shippingSection.domesticDisclaimer')}</p>
+              </div>
+
+              <div className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-text-primary">
+                      {t('shippingSection.internationalTitle')}
+                    </h2>
+                    <p className="text-text-secondary">{t('shippingSection.internationalSubtitle')}</p>
+                  </div>
+                  <select
+                    value={shippingRegion}
+                    onChange={(e) => setShippingRegion(e.target.value)}
+                    className="border rounded-lg px-4 py-2"
+                    aria-label={t('shippingSection.dropdownLabel')}
                   >
-                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                      <div>
-                        <p className={`text-xs font-semibold uppercase tracking-wide ${style.pill}`}>
-                          {t(`pricingSection.groups.${section.key}.title`) || section.id}
-                        </p>
-                        <h2 className="mt-2 text-2xl font-semibold text-text-primary">{section.id}</h2>
-                        <p className="text-sm text-text-secondary">
-                          {t(`pricingSection.groups.${section.key}.subtitle`) || section.id}
-                        </p>
+                    {Object.keys(INTERNATIONAL_COLUMNS).map((region) => (
+                      <option key={region} value={region}>
+                        {region}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {shippingLoading ? (
+                  <div className="py-10 text-center text-text-secondary">
+                    {t('pricingSection.loading')}
+                  </div>
+                ) : (
+                  <>
+                    {renderShippingCards(
+                      shippingRates.international[shippingRegion] || [],
+                      INTERNATIONAL_COLUMNS[shippingRegion] || []
+                    )}
+                    <div className="hidden md:block overflow-auto border rounded-xl">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-gray-50 text-text-secondary">
+                          <tr>
+                            <th className="px-4 py-3 text-left">
+                              {t('shippingSection.table.transporter')}
+                            </th>
+                            {(INTERNATIONAL_COLUMNS[shippingRegion] || []).map((col) => (
+                              <th key={col} className="px-4 py-3 text-center">
+                                {col} kg
+                              </th>
+                            ))}
+                            <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(shippingRates.international[shippingRegion] || []).map((row) =>
+                            renderShippingRow(row, INTERNATIONAL_COLUMNS[shippingRegion] || [])
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+                {shippingError && <div className="text-xs text-red-500">{shippingError}</div>}
+                <p className="text-xs text-text-light">
+                  {t('shippingSection.internationalDisclaimer')}
+                </p>
+              </div>
+            </section>
+
+            <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="space-y-2">
+                  <p className="text-xs uppercase text-text-light tracking-wide">{t('calculator.title')}</p>
+                  <h2 className="text-2xl font-semibold text-text-primary">{t('calculator.subtitle')}</h2>
+                  <p className="text-sm text-text-secondary">{t('calculator.selectorsHint')}</p>
+                </div>
+                <div className="text-left lg:text-right">
+                  <p className="text-xs uppercase text-text-light">{t('calculator.totalLabel')}</p>
+                  <p className="text-3xl font-bold text-primary">
+                    {currencyFormatter.format(calculatorTotal || 0)}
+                  </p>
+                </div>
+              </div>
+              {calculatorSections.length === 0 ? (
+                <div className="py-12 text-center text-text-secondary">{t('calculator.empty')}</div>
+              ) : (
+                <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
+                  <div className="space-y-5">
+                    <div className="rounded-3xl border bg-gray-50/80 p-5 space-y-5 shadow-inner">
+                      <div className="space-y-2">
+                        <label className="text-xs uppercase text-text-light">
+                          {t('calculator.categoryLabel')}
+                        </label>
+                        <select
+                          value={serviceSelection}
+                          onChange={(e) => handleServiceSelection(e.target.value)}
+                          disabled={!hasServiceResults}
+                          className="block w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-100"
+                        >
+                          {hasServiceResults ? (
+                            <>
+                              <option value="" disabled>
+                                {t('calculator.pickerPlaceholder')}
+                              </option>
+                              {visibleServiceGroups.map((section) => (
+                                <optgroup
+                                  key={section.id}
+                                  label={t(`pricingSection.groups.${section.key}.title`) || section.id}
+                                >
+                                  {section.items.map((service) => (
+                                    <option key={service.id} value={service.id}>
+                                      {`${service.service_name} — ${service.price ?? t('calculator.priceUnavailable')} · ${service.unit}`}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </>
+                          ) : (
+                            <option value="">{t('calculator.noResults')}</option>
+                          )}
+                        </select>
                       </div>
-                      {section.key !== 'extra' && sectionDescription && (
-                        <div className="text-sm text-text-secondary max-w-lg">
-                          {sectionDescription}
+                    </div>
+                    <div className="space-y-2">
+                      {estimateSummary.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed bg-white p-6 text-sm text-text-secondary text-center">
+                          {t('calculator.emptySelection')}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {estimateSummary.map((item) => (
+                            <div
+                              key={`${item.service.id}-${item.period.id}`}
+                              className="relative rounded-2xl border bg-white p-3 text-xs shadow-sm flex flex-col gap-2 min-h-[140px]"
+                            >
+                              <button
+                                type="button"
+                                aria-label={t('calculator.remove')}
+                                onClick={() => handleRemoveEstimateLine(item.service.id, item.period.id)}
+                                className="absolute top-2 right-2 text-text-light hover:text-text-primary text-sm"
+                              >
+                                ×
+                              </button>
+                              <div className="space-y-1 pr-4">
+                                <p className="font-semibold text-text-primary text-sm leading-tight">
+                                  {item.service.service_name}
+                                </p>
+                                <p className="text-[11px] text-text-light">
+                                  {item.service.sectionId} · {item.period.displayLabel}
+                                </p>
+                                <p className="text-[11px] text-text-secondary">
+                                  {item.service.price == null
+                                    ? t('calculator.priceUnavailable')
+                                    : `${formatPriceHt(item.service.price)} · ${item.service.unit}`}
+                                </p>
+                              </div>
+                              {item.service.sectionId === 'Storage' && (
+                                <div className="space-y-2">
+                                  <div className="flex flex-wrap gap-1">
+                                    {PERIOD_OPTIONS.map((option) => {
+                                      const isActive = item.period.id === option.id;
+                                      return (
+                                        <button
+                                          type="button"
+                                          key={option.id}
+                                          onClick={() =>
+                                            handleEstimatePeriodChange(item.service.id, item.period.id, option.id)
+                                          }
+                                          className={`px-2 py-1 rounded-full text-[11px] border transition ${
+                                            isActive
+                                              ? 'bg-primary text-white border-primary'
+                                              : 'bg-white text-text-secondary border-gray-200 hover:border-primary'
+                                          }`}
+                                        >
+                                          {t(`calculator.periodOptions.${option.labelKey}`)}
+                                        </button>
+                                      );
+                                    })}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleActivateCustomPeriod(item.service.id, item.period.id)}
+                                      className={`px-2 py-1 rounded-full text-[11px] border transition ${
+                                        item.period.id === 'custom'
+                                          ? 'bg-primary text-white border-primary'
+                                          : 'bg-white text-text-secondary border-gray-200 hover:border-primary'
+                                      }`}
+                                    >
+                                      {t('calculator.periodOptions.other')}
+                                    </button>
+                                  </div>
+                                  {item.period.id === 'custom' && (
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        value={item.customPeriodMonths || ''}
+                                        onChange={(e) =>
+                                          handleCustomPeriodMonthsChange(item.service.id, e.target.value)
+                                        }
+                                        className="w-20 rounded-lg border px-2 py-1 text-xs"
+                                        placeholder={t('calculator.customPeriodPlaceholder')}
+                                      />
+                                      <span className="text-[11px] text-text-light">
+                                        {t('calculator.customPeriodHint')}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between gap-2 mt-auto">
+                                <span className="text-[10px] uppercase text-text-light">
+                                  {t('calculator.quantity')}
+                                </span>
+                                <input
+                                  id={`qty-inline-${item.service.id}-${item.period.id}`}
+                                  type="number"
+                                  min="1"
+                                  value={item.qty}
+                                  onChange={(e) =>
+                                    handleEstimateQtyChange(item.service.id, item.period.id, e.target.value)
+                                  }
+                                  className="w-14 rounded-lg border px-2 py-1 text-xs text-center"
+                                />
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
-
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {section.items.map((item) => {
-                        const Icon = getServiceIcon(item.service_name);
-                        return (
-                          <div
-                            key={item.id}
-                            className="flex gap-4 rounded-2xl bg-white/80 border border-white shadow-sm p-4"
-                          >
-                            <div className="shrink-0 rounded-xl bg-white p-3 shadow">
-                              <Icon className={`w-5 h-5 ${style.icon}`} />
-                            </div>
-                            <div>
-                              <p className="text-base font-semibold text-text-primary">
-                                {item.service_name}
-                              </p>
-                              <p className="text-sm text-text-secondary">
-                                {formatPriceHt(item.price)}
-                                <span className="text-xs text-text-light"> / {item.unit}</span>
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
+                  </div>
+                  <aside className="bg-[#0B1221] text-white rounded-3xl p-5 space-y-4 shadow-xl lg:sticky lg:top-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase text-white/50">{t('calculator.totalLabel')}</p>
+                        <p className="text-2xl font-semibold">
+                          {currencyFormatter.format(calculatorTotal || 0)}
+                        </p>
+                      </div>
+                      {estimateSummary.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearCalculator}
+                          className="text-xs underline decoration-dotted text-white/80 hover:text-white"
+                        >
+                          {t('calculator.clearAll')}
+                        </button>
+                      )}
                     </div>
-
-                    {cta && (
-                      <a
-                        href={cta.href}
-                        className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary-dark self-start"
-                      >
-                        {cta.label}
-                        <ArrowRight className="w-4 h-4" />
-                      </a>
+                    <div className="space-y-2 max-h-[360px] overflow-auto pr-1">
+                      {estimateSummary.length === 0 ? (
+                        <p className="text-sm text-white/70">{t('calculator.emptySelection')}</p>
+                      ) : (
+                        estimateSummary.map((item) => (
+                          <div
+                            key={`${item.service.id}-${item.period.id}`}
+                            className="flex items-start justify-between gap-3 border-b border-white/10 pb-2"
+                          >
+                            <div>
+                              <p className="text-sm font-semibold">{item.service.service_name}</p>
+                              <p className="text-[11px] text-white/60">
+                                {item.service.sectionId} · {item.period.displayLabel}
+                              </p>
+                              <p className="text-[11px] text-white/60">
+                                {item.qty} ×{' '}
+                                {item.service.price == null
+                                  ? t('calculator.priceUnavailable')
+                                  : `${formatPriceHt(item.service.price)} · ${item.service.unit}`}
+                              </p>
+                            </div>
+                            <p className="text-sm font-semibold">
+                              {item.lineTotal == null
+                                ? t('calculator.priceUnavailable')
+                                : currencyFormatter.format(item.lineTotal)}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <p className="text-xs text-white/70">{t('calculator.note')}</p>
+                  </aside>
+                </div>
+              )}
+            </section>
+          </>
+        ) : (
+          <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-8 -mt-4">
+            <div className="grid gap-6 md:grid-cols-2">
+              {publicGroups.map((group) => {
+                const Icon = group.icon;
+                const bullets = Array.isArray(group.bullets) ? group.bullets : [];
+                return (
+                  <article key={group.key} className="rounded-3xl border bg-gray-50/70 p-5 space-y-4">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                        <Icon className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-text-light">
+                          {t('publicSection.groupLabel')}
+                        </p>
+                        <h2 className="text-xl font-semibold text-text-primary">{group.title}</h2>
+                        <p className="text-sm text-text-secondary">{group.subtitle}</p>
+                      </div>
+                    </div>
+                    {bullets.length > 0 && (
+                      <ul className="grid gap-2 text-sm text-text-secondary">
+                        {bullets.map((item) => (
+                          <li key={item} className="flex items-center gap-2">
+                            <span className="inline-flex h-2 w-2 rounded-full bg-primary/70" />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </article>
                 );
               })}
             </div>
-          )}
-        </section>
-
-        <section className="bg-[#0B1221] text-white rounded-3xl p-8 space-y-6">
-          <div className="space-y-3">
-            <h2 className="text-2xl font-semibold">{t('pricingSection.finalTitle')}</h2>
-            <p className="text-white/80 text-sm md:text-base">{t('pricingSection.finalNote')}</p>
-          </div>
-          <div>
-            <button
-              onClick={handleExport}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-gray-900 font-semibold hover:bg-gray-100"
-            >
-              <FileDown className="w-4 h-4" />
-              {t('pricingSection.export')}
-            </button>
-          </div>
-        </section>
-
-        <section className="space-y-12">
-          <div className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
-            <div>
-              <h2 className="text-2xl font-semibold text-text-primary">
-                {t('shippingSection.domesticTitle')}
-              </h2>
-              <p className="text-text-secondary">{t('shippingSection.domesticSubtitle')}</p>
-            </div>
-            {shippingLoading ? (
-              <div className="py-10 text-center text-text-secondary">
-                {t('pricingSection.loading')}
-              </div>
-            ) : (
-              <>
-                {renderShippingCards(shippingRates.domestic, DOMESTIC_COLUMNS)}
-                <div className="hidden md:block overflow-auto border rounded-xl">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-gray-50 text-text-secondary">
-                      <tr>
-                        <th className="px-4 py-3 text-left">
-                          {t('shippingSection.table.transporter')}
-                        </th>
-                        {DOMESTIC_COLUMNS.map((col) => (
-                          <th key={col} className="px-4 py-3 text-center">
-                            {col === '20' ? '20 kg' : `${col} kg`}
-                          </th>
-                        ))}
-                        <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {shippingRates.domestic.map((row) =>
-                        renderShippingRow(row, DOMESTIC_COLUMNS)
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-            <p className="text-xs text-text-light">{t('shippingSection.domesticDisclaimer')}</p>
-          </div>
-
-          <div className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-              <div>
-                <h2 className="text-2xl font-semibold text-text-primary">
-                  {t('shippingSection.internationalTitle')}
-                </h2>
-                <p className="text-text-secondary">{t('shippingSection.internationalSubtitle')}</p>
-              </div>
-              <select
-                value={shippingRegion}
-                onChange={(e) => setShippingRegion(e.target.value)}
-                className="border rounded-lg px-4 py-2"
-                aria-label={t('shippingSection.dropdownLabel')}
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href="/contact"
+                className="inline-flex items-center gap-2 px-6 py-2 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark"
               >
-                {Object.keys(INTERNATIONAL_COLUMNS).map((region) => (
-                  <option key={region} value={region}>
-                    {region}
-                  </option>
-                ))}
-              </select>
+                {t('publicSection.ctaPrimary')}
+                <ArrowRight className="w-4 h-4" />
+              </a>
+              <a
+                href="/contact"
+                className="inline-flex items-center gap-2 px-6 py-2 rounded-xl border border-gray-200 text-text-primary font-semibold hover:border-primary"
+              >
+                {t('publicSection.ctaSecondary')}
+              </a>
             </div>
-            {shippingLoading ? (
-              <div className="py-10 text-center text-text-secondary">
-                {t('pricingSection.loading')}
-              </div>
-            ) : (
-              <>
-                {renderShippingCards(
-                  shippingRates.international[shippingRegion] || [],
-                  INTERNATIONAL_COLUMNS[shippingRegion] || []
-                )}
-                <div className="hidden md:block overflow-auto border rounded-xl">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-gray-50 text-text-secondary">
-                      <tr>
-                        <th className="px-4 py-3 text-left">
-                          {t('shippingSection.table.transporter')}
-                        </th>
-                        {(INTERNATIONAL_COLUMNS[shippingRegion] || []).map((col) => (
-                          <th key={col} className="px-4 py-3 text-center">
-                            {col} kg
-                          </th>
-                        ))}
-                        <th className="px-4 py-3 text-left">{t('shippingSection.table.info')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(shippingRates.international[shippingRegion] || []).map((row) =>
-                        renderShippingRow(row, INTERNATIONAL_COLUMNS[shippingRegion] || [])
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-            {shippingError && <div className="text-xs text-red-500">{shippingError}</div>}
-            <p className="text-xs text-text-light">
-              {t('shippingSection.internationalDisclaimer')}
-            </p>
-          </div>
-        </section>
-
-        <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="space-y-2">
-              <p className="text-xs uppercase text-text-light tracking-wide">{t('calculator.title')}</p>
-              <h2 className="text-2xl font-semibold text-text-primary">{t('calculator.subtitle')}</h2>
-              <p className="text-sm text-text-secondary">{t('calculator.selectorsHint')}</p>
-            </div>
-            <div className="text-left lg:text-right">
-              <p className="text-xs uppercase text-text-light">{t('calculator.totalLabel')}</p>
-              <p className="text-3xl font-bold text-primary">
-                {currencyFormatter.format(calculatorTotal || 0)}
-              </p>
-            </div>
-          </div>
-          {calculatorSections.length === 0 ? (
-            <div className="py-12 text-center text-text-secondary">{t('calculator.empty')}</div>
-          ) : (
-            <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
-              <div className="space-y-5">
-                <div className="rounded-3xl border bg-gray-50/80 p-5 space-y-5 shadow-inner">
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase text-text-light">
-                      {t('calculator.categoryLabel')}
-                    </label>
-                    <select
-                      value={serviceSelection}
-                      onChange={(e) => handleServiceSelection(e.target.value)}
-                      disabled={!hasServiceResults}
-                      className="block w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-100"
-                    >
-                      {hasServiceResults ? (
-                        <>
-                          <option value="" disabled>
-                            {t('calculator.pickerPlaceholder')}
-                          </option>
-                          {visibleServiceGroups.map((section) => (
-                            <optgroup
-                              key={section.id}
-                              label={t(`pricingSection.groups.${section.key}.title`) || section.id}
-                            >
-                              {section.items.map((service) => (
-                                <option key={service.id} value={service.id}>
-                                  {`${service.service_name} — ${service.price ?? t('calculator.priceUnavailable')} · ${service.unit}`}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                        </>
-                      ) : (
-                        <option value="">{t('calculator.noResults')}</option>
-                      )}
-                    </select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {estimateSummary.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed bg-white p-6 text-sm text-text-secondary text-center">
-                      {t('calculator.emptySelection')}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {estimateSummary.map((item) => (
-                        <div
-                          key={`${item.service.id}-${item.period.id}`}
-                          className="relative rounded-2xl border bg-white p-3 text-xs shadow-sm flex flex-col gap-2 min-h-[140px]"
-                        >
-                          <button
-                            type="button"
-                            aria-label={t('calculator.remove')}
-                            onClick={() => handleRemoveEstimateLine(item.service.id, item.period.id)}
-                            className="absolute top-2 right-2 text-text-light hover:text-text-primary text-sm"
-                          >
-                            ×
-                          </button>
-                          <div className="space-y-1 pr-4">
-                            <p className="font-semibold text-text-primary text-sm leading-tight">
-                              {item.service.service_name}
-                            </p>
-                            <p className="text-[11px] text-text-light">
-                              {item.service.sectionId} · {item.period.displayLabel}
-                            </p>
-                            <p className="text-[11px] text-text-secondary">
-                              {item.service.price == null
-                                ? t('calculator.priceUnavailable')
-                                : `${formatPriceHt(item.service.price)} · ${item.service.unit}`}
-                            </p>
-                          </div>
-                          {item.service.sectionId === 'Storage' && (
-                            <div className="space-y-2">
-                              <div className="flex flex-wrap gap-1">
-                                {PERIOD_OPTIONS.map((option) => {
-                                  const isActive = item.period.id === option.id;
-                                  return (
-                                    <button
-                                      type="button"
-                                      key={option.id}
-                                      onClick={() =>
-                                        handleEstimatePeriodChange(item.service.id, item.period.id, option.id)
-                                      }
-                                      className={`px-2 py-1 rounded-full text-[11px] border transition ${
-                                        isActive
-                                          ? 'bg-primary text-white border-primary'
-                                          : 'bg-white text-text-secondary border-gray-200 hover:border-primary'
-                                      }`}
-                                    >
-                                      {t(`calculator.periodOptions.${option.labelKey}`)}
-                                    </button>
-                                  );
-                                })}
-                                <button
-                                  type="button"
-                                  onClick={() => handleActivateCustomPeriod(item.service.id, item.period.id)}
-                                  className={`px-2 py-1 rounded-full text-[11px] border transition ${
-                                    item.period.id === 'custom'
-                                      ? 'bg-primary text-white border-primary'
-                                      : 'bg-white text-text-secondary border-gray-200 hover:border-primary'
-                                  }`}
-                                >
-                                  {t('calculator.periodOptions.other')}
-                                </button>
-                              </div>
-                              {item.period.id === 'custom' && (
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    value={item.customPeriodMonths || ''}
-                                    onChange={(e) =>
-                                      handleCustomPeriodMonthsChange(item.service.id, e.target.value)
-                                    }
-                                    className="w-20 rounded-lg border px-2 py-1 text-xs"
-                                    placeholder={t('calculator.customPeriodPlaceholder')}
-                                  />
-                                  <span className="text-[11px] text-text-light">
-                                    {t('calculator.customPeriodHint')}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          <div className="flex items-center justify-between gap-2 mt-auto">
-                            <span className="text-[10px] uppercase text-text-light">
-                              {t('calculator.quantity')}
-                            </span>
-                            <input
-                              id={`qty-inline-${item.service.id}-${item.period.id}`}
-                              type="number"
-                              min="1"
-                              value={item.qty}
-                              onChange={(e) =>
-                                handleEstimateQtyChange(item.service.id, item.period.id, e.target.value)
-                              }
-                              className="w-14 rounded-lg border px-2 py-1 text-xs text-center"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <aside className="bg-[#0B1221] text-white rounded-3xl p-5 space-y-4 shadow-xl lg:sticky lg:top-6">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase text-white/50">{t('calculator.totalLabel')}</p>
-                    <p className="text-2xl font-semibold">
-                      {currencyFormatter.format(calculatorTotal || 0)}
-                    </p>
-                  </div>
-                  {estimateSummary.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleClearCalculator}
-                      className="text-xs underline decoration-dotted text-white/80 hover:text-white"
-                    >
-                      {t('calculator.clearAll')}
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-2 max-h-[360px] overflow-auto pr-1">
-                  {estimateSummary.length === 0 ? (
-                    <p className="text-sm text-white/70">{t('calculator.emptySelection')}</p>
-                  ) : (
-                    estimateSummary.map((item) => (
-                      <div
-                        key={`${item.service.id}-${item.period.id}`}
-                        className="flex items-start justify-between gap-3 border-b border-white/10 pb-2"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold">{item.service.service_name}</p>
-                          <p className="text-[11px] text-white/60">
-                            {item.service.sectionId} · {item.period.displayLabel}
-                          </p>
-                          <p className="text-[11px] text-white/60">
-                            {item.qty} ×{' '}
-                            {item.service.price == null
-                              ? t('calculator.priceUnavailable')
-                              : `${formatPriceHt(item.service.price)} · ${item.service.unit}`}
-                          </p>
-                        </div>
-                        <p className="text-sm font-semibold">
-                          {item.lineTotal == null
-                            ? t('calculator.priceUnavailable')
-                            : currencyFormatter.format(item.lineTotal)}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <p className="text-xs text-white/70">{t('calculator.note')}</p>
-              </aside>
-            </div>
-          )}
-        </section>
+            <p className="text-xs text-text-light">{t('publicSection.note')}</p>
+          </section>
+        )}
      </div>
    </div>
  );
