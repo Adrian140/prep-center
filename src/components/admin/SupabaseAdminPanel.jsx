@@ -878,15 +878,6 @@ const renderPricingTab = () => (
           <input type="text" placeholder="Valoare Shopify" value={contentData.fbm_shopify_value || ''} onChange={(e) => setContentData({ ...contentData, fbm_shopify_value: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
         </div>
       </div>
-      {/* PackLink Integration */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-text-primary mb-4">PackLink Integration</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <input type="text" placeholder="Etichetă PackLink" value={contentData.fbm_packlink_label || ''} onChange={(e) => setContentData({ ...contentData, fbm_packlink_label: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
-          <input type="text" placeholder="Valoare PackLink" value={contentData.fbm_packlink_value || ''} onChange={(e) => setContentData({ ...contentData, fbm_packlink_value: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
-        </div>
-      </div>
-
       {/* Calculator */}
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-text-primary mb-4">Calculator Preț</h3>

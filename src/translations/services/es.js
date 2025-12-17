@@ -129,8 +129,6 @@ export const servicesEs = {
   cartonsIncluded: '/ pedido (cartones incluidos)',
   ebayIntegration: 'Integración eBay',
   shopifyWebsiteOrders: 'Pedidos Shopify/Sitio Web',
-  shippingViaPacklink: 'Envío vía PackLink',
-  automaticDataIntegration: 'integración automática de datos para etiquetas y recogida de mensajería',
   
   // Extra Services
   extraServices: 'Servicios Extra',

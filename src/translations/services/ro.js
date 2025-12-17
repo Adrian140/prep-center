@@ -128,8 +128,6 @@ export const servicesRo = {
   cartonsIncluded: '/ comandă (cartoane incluse)',
   ebayIntegration: 'Integrare eBay',
   shopifyWebsiteOrders: 'Comenzi Shopify/Site Web',
-  shippingViaPacklink: 'Expediere via PackLink',
-  automaticDataIntegration: 'integrare automată de date pentru etichete și ridicare curier',
   
   // Extra Services
   extraServices: 'Servicii Extra',

@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link2, ExternalLink, CheckCircle, AlertTriangle, Loader2, RefreshCw, Unplug, Truck } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link2, ExternalLink, CheckCircle, AlertTriangle, Loader2, RefreshCw, Unplug } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
@@ -22,11 +21,6 @@ const MARKETPLACE_LABELS = {
   A2NODRKZP88ZB9: 'SE',
   A1C3SOZRARQ6R3: 'PL'
 };
-
-const PACKLINK_PORTALS = [
-  { id: 'fr', label: 'Packlink PRO France', url: 'https://auth.packlink.com/fr-FR/pro/login?tenant_id=PACKLINKPROFR' },
-  { id: 'com', label: 'Packlink PRO .com', url: 'https://auth.packlink.com/en-GB/pro/login?tenant_id=PACKLINKPRO' }
-];
 
 const STATUS_PRIORITY = {
   error: 3,
@@ -118,16 +112,10 @@ function StatusBadge({ status, t }) {
 export default function ClientIntegrations() {
   const { user, profile } = useSupabaseAuth();
   const { t, tp } = useDashboardTranslation();
-  const navigate = useNavigate();
   const supportError = t('common.supportError');
   const isIndividualAccount =
     (profile?.account_type || profile?.accountType || profile?.type) === 'individual';
   const [region, setRegion] = useState('eu');
-  const [packlinkPortal, setPacklinkPortal] = useState('fr');
-  const [packlinkKey, setPacklinkKey] = useState('');
-  const [packlinkKeySavedAt, setPacklinkKeySavedAt] = useState('');
-  const [packlinkSaving, setPacklinkSaving] = useState(false);
-  const [packlinkMsg, setPacklinkMsg] = useState('');
   const [stateToken] = useState(() => Math.random().toString(36).slice(2) + Date.now().toString(36));
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -138,9 +126,6 @@ export default function ClientIntegrations() {
   const applicationId = import.meta.env.VITE_AMZ_APP_ID || clientId || '';
   const redirectUri =
     import.meta.env.VITE_SPAPI_REDIRECT_URI || `${window.location.origin}/auth/amazon/callback`;
-  const packlinkPath = '/dashboard?tab=packlink';
-  const packlinkPortalUrl =
-    PACKLINK_PORTALS.find((p) => p.id === packlinkPortal)?.url || PACKLINK_PORTALS[0].url;
 
   const statePayload = useMemo(() => {
     if (!user?.id) return '';
@@ -218,44 +203,6 @@ export default function ClientIntegrations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  useEffect(() => {
-    const loadPacklinkKey = async () => {
-      if (!user?.id) return;
-      const { data, error } = await supabase
-        .from('packlink_credentials')
-        .select('api_key, updated_at')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (!error && data?.api_key) {
-        setPacklinkKey(data.api_key);
-        setPacklinkKeySavedAt(data.updated_at || '');
-      }
-    };
-    loadPacklinkKey();
-  }, [user?.id]);
-
-  const savePacklinkKey = async () => {
-    if (!user?.id) return;
-    if (!packlinkKey.trim()) {
-      setPacklinkMsg('Add your Packlink API key first.');
-      return;
-    }
-    setPacklinkSaving(true);
-    setPacklinkMsg('');
-    const { error, data } = await supabase
-      .from('packlink_credentials')
-      .upsert({ user_id: user.id, api_key: packlinkKey.trim() })
-      .select('updated_at')
-      .maybeSingle();
-    if (error) {
-      setPacklinkMsg('Could not save key. Please retry.');
-    } else {
-      setPacklinkMsg('Packlink key saved.');
-      setPacklinkKeySavedAt(data?.updated_at || new Date().toISOString());
-    }
-    setPacklinkSaving(false);
-  };
-
   const removeIntegration = async (id) => {
     if (!window.confirm(t('ClientIntegrations.confirmDisconnect'))) return;
     setFlash('');
@@ -321,83 +268,6 @@ export default function ClientIntegrations() {
           <p className="text-sm text-red-600">{t('ClientIntegrations.individualBlocked')}</p>
         )}
         <p className="text-xs text-text-light">{t('ClientIntegrations.instructions')}</p>
-      </section>
-
-      <section className="bg-white border rounded-xl p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-full bg-blue-50 text-blue-700">
-            <Truck className="w-4 h-4" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary">Packlink PRO</h2>
-            <p className="text-sm text-text-secondary">
-              Book labels, compare services, and track shipments directly in the Packlink tab.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => navigate(packlinkPath)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white"
-          >
-            <ExternalLink className="w-4 h-4" /> Open Packlink tab
-          </button>
-          <div className="flex items-center gap-2">
-            <select
-              value={packlinkPortal}
-              onChange={(e) => setPacklinkPortal(e.target.value)}
-              className="border rounded-lg px-3 py-2 text-sm"
-            >
-              {PACKLINK_PORTALS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => window.open(packlinkPortalUrl, '_blank', 'noopener')}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-primary text-primary"
-            >
-              <ExternalLink className="w-4 h-4" /> Open Packlink portal
-            </button>
-          </div>
-          <p className="text-xs text-text-light">
-            Use your own Packlink API key (Settings → Packlink PRO API key) to book labels from your account.
-          </p>
-        </div>
-        <div className="border rounded-lg p-4 bg-gray-50/70 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold text-text-primary">Your Packlink API key</div>
-              <p className="text-xs text-text-secondary">
-                Paste the key from Packlink: Settings → Packlink PRO API key.
-              </p>
-            </div>
-            {packlinkKeySavedAt && (
-              <span className="text-[11px] text-text-light">
-                Saved: {new Date(packlinkKeySavedAt).toLocaleString()}
-              </span>
-            )}
-          </div>
-          <input
-            type="text"
-            value={packlinkKey}
-            onChange={(e) => setPacklinkKey(e.target.value)}
-            placeholder="pk_live_..."
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <div className="flex items-center gap-3">
-            <button
-              onClick={savePacklinkKey}
-              disabled={packlinkSaving}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
-            >
-              {packlinkSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
-              Save key
-            </button>
-            {packlinkMsg && <span className="text-xs text-text-secondary">{packlinkMsg}</span>}
-          </div>
-        </div>
       </section>
 
       <section className="bg-white border rounded-xl p-5 space-y-4">
