@@ -229,6 +229,20 @@ export default function ServicesPricing() {
     fetchShipping();
   }, [fetchPricing, fetchContent, fetchShipping]);
 
+  useEffect(() => {
+    if (isAdmin || currentLanguage !== 'en') return;
+    document.title = 'Prep, Fulfillment & Storage Services in France | PrepCenter';
+    const metaDescription =
+      'Fast reception, labeling, quality checks, order fulfillment and storage in France. Flexible workflows, quick turnaround and tailored quotes.';
+    let meta = document.querySelector('meta[name="description"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'description');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', metaDescription);
+  }, [isAdmin, currentLanguage]);
+
   const sections = useMemo(() => {
     const manualCategories = CATEGORY_ORDER.filter((entry) => pricingGroups[entry.id]?.length);
     const otherCategories = Object.keys(pricingGroups).filter(
@@ -1026,7 +1040,7 @@ export default function ServicesPricing() {
                 <ArrowRight className="w-4 h-4" />
               </a>
               <a
-                href="/contact"
+                href="https://wa.me/33675116218"
                 className="inline-flex items-center gap-2 px-6 py-2 rounded-xl border border-gray-200 text-text-primary font-semibold hover:border-primary"
               >
                 {t('publicSection.ctaSecondary')}

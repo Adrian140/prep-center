@@ -76,7 +76,6 @@ export const servicesRo = {
         bullets: [
           'Depozitare paleți și cutii',
           'Vizibilitate inventar',
-          'Opțiuni climatizate',
           'Monitorizare 24/7'
         ]
       },
