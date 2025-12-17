@@ -54,7 +54,7 @@ function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3 cursor-pointer">
             <img
-              src="https://i.imgur.com/Jt2uAEr.png"
+              src="/branding/fulfillment-prep-logo.png"
               alt="Fulfillment Prep Logistics Logo"
               className="h-10 w-auto object-contain"
             />

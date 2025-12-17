@@ -50,7 +50,7 @@ const supabase =
 
 // ===== Brand assets =====
 const LOGO_URL =
-  "https://i.imgur.com/Jt2uAEr.png";
+  "https://prep-center.eu/branding/fulfillment-prep-logo.png";
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
