@@ -108,22 +108,28 @@ export default function AdminAffiliates() {
     []
   );
 
+  const sortedAssigned = useMemo(() => {
+    return [...(members.assigned || [])].sort(
+      (a, b) => Number(b.billing_total || 0) - Number(a.billing_total || 0)
+    );
+  }, [members.assigned]);
+
   const selectedPerformance = useMemo(() => {
     if (!selectedCode) return null;
-    const billed = (members.assigned || []).reduce(
+    const billed = sortedAssigned.reduce(
       (sum, client) => sum + Number(client.billing_total || 0),
       0
     );
-    const payout = (members.assigned || []).reduce(
+    const payout = sortedAssigned.reduce(
       (sum, client) => sum + computeCommission(client.billing_total || 0, selectedCode),
       0
     );
     return {
-      count: (members.assigned || []).length,
+      count: sortedAssigned.length,
       billed,
       payout
     };
-  }, [members.assigned, selectedCode]);
+  }, [sortedAssigned, selectedCode]);
 
   const describePayout = (code) => {
     if (!code) return t('affiliates.offerNone');
@@ -944,15 +950,17 @@ export default function AdminAffiliates() {
                           <h4 className="text-sm font-semibold mb-2 flex items-center gap-1">
                             <Users className="w-4 h-4" /> {t('affiliates.assignedTitle')}
                           </h4>
-                          {members.assigned.length === 0 ? (
+                          {sortedAssigned.length === 0 ? (
                             <p className="text-xs text-text-secondary">{t('affiliates.noAssigned')}</p>
                           ) : (
                             <ul className="space-y-2">
-                              {members.assigned.map((client) => (
+                              {sortedAssigned.map((client) => (
                                 <li key={client.id} className="flex items-center justify-between text-sm border rounded px-3 py-2">
                                   <div>
                                     <p className="font-semibold">{formatClientName(client)}</p>
-                                    <p className="text-xs text-text-secondary uppercase">{client.id}</p>
+                                    <p className="text-xs text-text-secondary">
+                                      {client.company_name || client.store_name || '—'}
+                                    </p>
                                     <p className="text-xs text-text-secondary mt-1">
                                       {tp('affiliates.memberBilling', {
                                         billed: currencyFormatter.format(client.billing_total || 0),

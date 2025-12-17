@@ -96,7 +96,7 @@ export default function ClientAffiliates() {
   const members = useMemo(() => {
     if (!ownerSnapshot?.members || !payoutCode) return [];
     const type = payoutCode.payout_type || 'percentage';
-    return ownerSnapshot.members.map((member) => {
+    const mapped = ownerSnapshot.members.map((member) => {
       const billed = Number(member.billing_total || 0);
       let payout = 0;
       let percent = 0;
@@ -119,6 +119,7 @@ export default function ClientAffiliates() {
         thresholdMeta
       };
     });
+    return mapped.sort((a, b) => (b.billing_total || 0) - (a.billing_total || 0));
   }, [ownerSnapshot, payoutCode, payoutTiers]);
 
   const totals = useMemo(() => {
