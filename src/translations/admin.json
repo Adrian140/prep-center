@@ -14,6 +14,7 @@
       "homeContent": "Homepage Content",
       "reviews": "Reviews",
       "userGuide": "User Guide",
+      "security": "Security",
       "settings": "Settings",
       "affiliates": "Affiliates"
     },
@@ -319,6 +320,7 @@
       "homeContent": "Contenu d'accueil",
       "reviews": "Avis",
       "userGuide": "Guide utilisateur",
+      "security": "Sécurité",
       "settings": "Paramètres",
       "affiliates": "Affiliates"
     },
@@ -577,6 +579,7 @@
       "homeContent": "Conținut Homepage",
       "reviews": "Recenzii",
       "userGuide": "Ghid utilizator",
+      "security": "Securitate",
       "settings": "Setări",
       "affiliates": "Afiliați"
     },

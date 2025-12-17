@@ -16,6 +16,7 @@ import AdminShippingRates from './AdminShippingRates';
 import AdminReturns from './AdminReturns';
 import { getTabId } from '@/utils/tabIdentity';
 import { tabSessionStorage } from '@/utils/tabStorage';
+import SupabaseSecuritySettings from '@/components/dashboard/SupabaseSecuritySettings';
 
 const SERVICE_LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -28,7 +29,7 @@ const SERVICE_LANGUAGES = [
 
 import {
   Settings, DollarSign, Package, FileText, Plus, Edit, Trash2, Save, X,
-  Star, Users, BarChart3, PackageCheck, Truck, Boxes
+  Star, Users, BarChart3, PackageCheck, Truck, Boxes, Shield
 } from 'lucide-react';
 import AdminPrepRequests from './AdminPrepRequests';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
@@ -65,7 +66,7 @@ useEffect(() => {
   const location = useLocation();
   const [selectedProfile, setSelectedProfile] = useState(null);
   // ✅ Save & restore last selected admin tab
-const [activeTab, setActiveTab] = useState(() => {
+  const [activeTab, setActiveTab] = useState(() => {
   const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const initialTab = params.get('tab');
   let saved = null;
@@ -76,7 +77,7 @@ const [activeTab, setActiveTab] = useState(() => {
   }
   const validTabs = [
     'analytics', 'profiles', 'receiving', 'prep-requests', 'returns',
-    'pricing', 'boxes', 'reviews', 'user-guide', 'settings'
+    'pricing', 'boxes', 'reviews', 'user-guide', 'security', 'settings'
   ];
   if (initialTab && validTabs.includes(initialTab)) return initialTab;
   return validTabs.includes(saved) ? saved : 'profiles';
@@ -165,6 +166,7 @@ useEffect(() => {
     { id: 'reviews', label: t('sidebar.reviews'), icon: Star },
     { id: 'user-guide', label: t('sidebar.userGuide'), icon: PlayCircle },
     { id: 'affiliates', label: t('sidebar.affiliates'), icon: Users },
+    { id: 'security', label: t('sidebar.security'), icon: Shield },
     { id: 'settings', label: t('sidebar.settings'), icon: Settings }
   ]), [t]);
 
@@ -1290,6 +1292,7 @@ const renderTabContent = () => {
     case 'reviews': return renderReviewsTab();
     case 'user-guide': return <AdminUserGuide />;
       case 'affiliates': return <AdminAffiliates />;
+    case 'security': return <SupabaseSecuritySettings />;
     case 'settings': return renderSettingsTab();
     default:
       return (
