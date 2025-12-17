@@ -108,6 +108,23 @@ export default function AdminAffiliates() {
     []
   );
 
+  const selectedPerformance = useMemo(() => {
+    if (!selectedCode) return null;
+    const billed = (members.assigned || []).reduce(
+      (sum, client) => sum + Number(client.billing_total || 0),
+      0
+    );
+    const payout = (members.assigned || []).reduce(
+      (sum, client) => sum + computeCommission(client.billing_total || 0, selectedCode),
+      0
+    );
+    return {
+      count: (members.assigned || []).length,
+      billed,
+      payout
+    };
+  }, [members.assigned, selectedCode]);
+
   const describePayout = (code) => {
     if (!code) return t('affiliates.offerNone');
     if (code.payout_type === 'threshold') {
@@ -670,36 +687,63 @@ export default function AdminAffiliates() {
                   </div>
                 </div>
                 {selectedCode?.id === code.id && (
-                  <div className="mt-3 flex flex-wrap items-end gap-3">
-                    <div>
-                      <label className="block text-xs uppercase text-text-secondary mb-1">
-                        Discount per client (EUR)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        className="border rounded px-2 py-1 w-28 text-right"
-                        value={discountAmount}
-                        onChange={(e) => setDiscountAmount(e.target.value)}
-                        placeholder="10"
-                      />
+                  <div className="mt-3 space-y-3">
+                    {selectedPerformance && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-text-secondary">
+                          {t('affiliates.performanceTitle')}
+                        </p>
+                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                          <div className="border rounded-lg p-3">
+                            <p className="text-text-secondary">{t('affiliates.performanceClients')}</p>
+                            <strong className="text-text-primary">{selectedPerformance.count}</strong>
+                          </div>
+                          <div className="border rounded-lg p-3">
+                            <p className="text-text-secondary">{t('affiliates.performanceBilled')}</p>
+                            <strong className="text-text-primary">
+                              {currencyFormatter.format(selectedPerformance.billed)}
+                            </strong>
+                          </div>
+                          <div className="border rounded-lg p-3">
+                            <p className="text-text-secondary">{t('affiliates.performancePayout')}</p>
+                            <strong className="text-text-primary">
+                              {currencyFormatter.format(selectedPerformance.payout)}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div>
+                        <label className="block text-xs uppercase text-text-secondary mb-1">
+                          Discount per client (EUR)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="border rounded px-2 py-1 w-28 text-right"
+                          value={discountAmount}
+                          onChange={(e) => setDiscountAmount(e.target.value)}
+                          placeholder="10"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyDiscount(code)}
+                        disabled={discountLoading}
+                        className="px-3 py-1.5 rounded bg-primary text-white text-xs font-semibold disabled:opacity-50"
+                      >
+                        {discountLoading
+                          ? t('common.loading')
+                          : 'Aplică reducere tuturor clienților'}
+                      </button>
+                      <p className="text-xs text-text-secondary">
+                        Creează în tab-ul Other la fiecare client o linie
+                        &nbsp;<strong>“Réduction pour les affiliés”</strong> cu preț/unit&nbsp;
+                        <strong>-{discountAmount || '0'}</strong> și obs admin cu codul {code.code}.
+                      </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleApplyDiscount(code)}
-                      disabled={discountLoading}
-                      className="px-3 py-1.5 rounded bg-primary text-white text-xs font-semibold disabled:opacity-50"
-                    >
-                      {discountLoading
-                        ? t('common.loading')
-                        : 'Aplică reducere tuturor clienților'}
-                    </button>
-                    <p className="text-xs text-text-secondary">
-                      Creează în tab-ul Other la fiecare client o linie
-                      &nbsp;<strong>“Réduction pour les affiliés”</strong> cu preț/unit&nbsp;
-                      <strong>-{discountAmount || '0'}</strong> și obs admin cu codul {code.code}.
-                    </p>
                   </div>
                 )}
                 {editingCodeId === code.id && (

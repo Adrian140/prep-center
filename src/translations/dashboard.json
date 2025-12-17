@@ -726,6 +726,19 @@
         "billed": "Billed total",
         "payout": "Estimated payout"
       },
+      "credit": {
+        "title": "Affiliate credit",
+        "available": "Available credit",
+        "used": "Redeemed",
+        "amountPh": "e.g. 50",
+        "apply": "Apply credit",
+        "applying": "Applying…",
+        "note": "Applied credits appear in Other and cannot be removed by clients. For changes, contact the admin team.",
+        "success": "{amount} applied to your balance.",
+        "errorAmount": "Enter a valid amount.",
+        "errorMax": "Maximum available is {amount}.",
+        "errorApply": "Could not apply the credit. Please try again."
+      },
       "members": {
         "title": "Clients linked to your code",
         "empty": "No one has used your code yet.",
@@ -1518,6 +1531,19 @@
         "clients": "Clienți afiliați",
         "billed": "Total facturat",
         "payout": "Estimare comision"
+      },
+      "credit": {
+        "title": "Credit de afiliere",
+        "available": "Credit disponibil",
+        "used": "Folosit",
+        "amountPh": "ex: 50",
+        "apply": "Aplică credit",
+        "applying": "Se aplică…",
+        "note": "Creditul aplicat apare în Other și nu poate fi șters de client. Pentru modificări, contactează echipa admin.",
+        "success": "{amount} aplicat în sold.",
+        "errorAmount": "Introdu o sumă validă.",
+        "errorMax": "Maximul disponibil este {amount}.",
+        "errorApply": "Nu am putut aplica creditul. Încearcă din nou."
       },
       "members": {
         "title": "Clienți legați de codul tău",

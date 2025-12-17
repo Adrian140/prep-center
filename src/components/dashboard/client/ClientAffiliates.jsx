@@ -63,6 +63,10 @@ export default function ClientAffiliates() {
   const [submitting, setSubmitting] = useState(false);
   const [flash, setFlash] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [creditUsage, setCreditUsage] = useState({ used: 0 });
+  const [creditAmount, setCreditAmount] = useState('');
+  const [creditLoading, setCreditLoading] = useState(false);
+  const [creditFlash, setCreditFlash] = useState(null);
 
   const payoutCode = ownerSnapshot?.code || null;
   const payoutTiers = useMemo(
@@ -129,6 +133,9 @@ export default function ClientAffiliates() {
     );
   }, [members]);
 
+  const creditUsed = Number(creditUsage?.used || 0);
+  const availableCredit = Math.max((totals.payout || 0) - creditUsed, 0);
+
   useEffect(() => {
     if (!profile?.id) return;
     loadState();
@@ -146,6 +153,16 @@ export default function ClientAffiliates() {
       ]);
       setClientStatus(clientInfo);
       setOwnerSnapshot(ownerInfo?.data || null);
+      const codeId = ownerInfo?.data?.code?.id;
+      if (profile?.company_id && codeId) {
+        const { data: creditData } = await supabaseHelpers.getAffiliateCreditUsage({
+          companyId: profile.company_id,
+          codeId
+        });
+        setCreditUsage(creditData || { used: 0 });
+      } else {
+        setCreditUsage({ used: 0 });
+      }
       setStatus('ready');
     } catch (err) {
       console.error('load affiliate state', err);
@@ -187,6 +204,50 @@ export default function ClientAffiliates() {
       setTimeout(() => setCopied(false), 1800);
     } catch (err) {
       console.error('copy affiliate code', err);
+    }
+  };
+
+  const handleRedeemCredit = async () => {
+    const raw = String(creditAmount || '').replace(',', '.');
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value <= 0) {
+      setCreditFlash({ type: 'error', message: t('ClientAffiliates.credit.errorAmount') });
+      return;
+    }
+    if (value > availableCredit) {
+      setCreditFlash({
+        type: 'error',
+        message: tp('ClientAffiliates.credit.errorMax', {
+          amount: euroFormatter.format(availableCredit)
+        })
+      });
+      return;
+    }
+    setCreditLoading(true);
+    setCreditFlash(null);
+    try {
+      const { data, error } = await supabaseHelpers.redeemAffiliateCredit({ amount: value });
+      if (error) {
+        throw error;
+      }
+      const payload = Array.isArray(data) ? data[0] : data;
+      const applied = payload?.applied ?? value;
+      setCreditAmount('');
+      setCreditFlash({
+        type: 'success',
+        message: tp('ClientAffiliates.credit.success', {
+          amount: euroFormatter.format(applied)
+        })
+      });
+      await loadState();
+    } catch (err) {
+      console.error('redeem affiliate credit', err);
+      setCreditFlash({
+        type: 'error',
+        message: err.message || t('ClientAffiliates.credit.errorApply')
+      });
+    } finally {
+      setCreditLoading(false);
     }
   };
 
@@ -313,6 +374,64 @@ export default function ClientAffiliates() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="border rounded-xl p-4 space-y-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs uppercase tracking-wide text-text-secondary">
+                {t('ClientAffiliates.credit.title')}
+              </p>
+              <div className="text-sm text-text-secondary">
+                {t('ClientAffiliates.credit.used')}:{" "}
+                <strong className="text-text-primary">
+                  {euroFormatter.format(creditUsed)}
+                </strong>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-text-secondary">
+                {t('ClientAffiliates.credit.available')}:{" "}
+                <strong className="text-text-primary">
+                  {euroFormatter.format(availableCredit)}
+                </strong>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="border rounded-lg px-3 py-2 w-32 text-right"
+                  placeholder={t('ClientAffiliates.credit.amountPh')}
+                  value={creditAmount}
+                  onChange={(e) => setCreditAmount(e.target.value)}
+                  disabled={creditLoading || availableCredit <= 0}
+                />
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
+                  disabled={creditLoading || availableCredit <= 0}
+                  onClick={handleRedeemCredit}
+                >
+                  {creditLoading
+                    ? t('ClientAffiliates.credit.applying')
+                    : t('ClientAffiliates.credit.apply')}
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-text-secondary">
+              {t('ClientAffiliates.credit.note')}
+            </p>
+            {creditFlash && (
+              <div
+                className={`text-sm ${
+                  creditFlash.type === 'success'
+                    ? 'text-green-700'
+                    : 'text-red-600'
+                }`}
+              >
+                {creditFlash.message}
+              </div>
+            )}
           </div>
 
           <div className="border rounded-xl p-4">
@@ -488,21 +607,6 @@ const PayoutSummary = ({ code }) => {
           amount: euroFormatter.format(Number(code.fixed_amount || 0))
         })}
       </p>
-    );
-  }
-  const tiers = normalizeTiers(code.payout_tiers || []);
-  if (tiers.length > 0) {
-    return (
-      <ul className="text-xs text-text-secondary space-y-1">
-        {tiers.map((tier, index) => (
-          <li key={index}>
-            {tp('ClientAffiliates.rules.tier', {
-              amount: euroFormatter.format(tier.min_amount),
-              percent: tier.percent
-            })}
-          </li>
-        ))}
-      </ul>
     );
   }
   return (

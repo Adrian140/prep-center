@@ -525,6 +525,29 @@ createReceptionRequest: async (data) => {
     };
   },
 
+  getAffiliateCreditUsage: async ({ companyId, codeId }) => {
+    if (!companyId || !codeId) {
+      return { data: { used: 0 }, error: null };
+    }
+    const { data, error } = await supabase
+      .from('other_lines')
+      .select('total')
+      .eq('company_id', companyId)
+      .ilike('obs_admin', `affiliate_credit:${codeId}%`);
+    if (error) {
+      return { data: { used: 0 }, error };
+    }
+    const used = (data || []).reduce((sum, row) => {
+      const total = Number(row.total || 0);
+      return sum + (Number.isFinite(total) ? Math.abs(total) : 0);
+    }, 0);
+    return { data: { used }, error: null };
+  },
+
+  redeemAffiliateCredit: async ({ amount }) => {
+    return await supabase.rpc('redeem_affiliate_credit', { amount });
+  },
+
   getAffiliateClientStatus: async (profileId) => {
     const { data: profile } = await supabase
       .from('profiles')
