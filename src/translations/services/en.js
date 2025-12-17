@@ -44,7 +44,14 @@ export const servicesEn = {
 
   publicSection: {
     pageTitle: 'Services & Solutions',
-    pageSubtitle: 'Prep, fulfillment, and storage built around your products, volumes, and timelines.',
+    pageSubtitle: 'Prep, fulfillment, and storage in France for EU sellers, with fast receiving, labeling, compliance checks, order handling, and secure storage tailored to your volumes.',
+    heroBadge: 'France fulfillment hub',
+    highlights: [
+      'Fast intake',
+      'EU-ready compliance',
+      'Multi-channel support',
+      'Tailored workflows'
+    ],
     groupLabel: 'Service group',
     ctaPrimary: 'Request a quote',
     ctaSecondary: 'Talk to our team',

@@ -45,6 +45,13 @@ export const servicesDe = {
   publicSection: {
     pageTitle: 'Services & Lösungen',
     pageSubtitle: 'Prep, Fulfillment und Lagerung abgestimmt auf Produkte, Volumen und Zeitpläne.',
+    heroBadge: 'Fulfillment-Hub in Frankreich',
+    highlights: [
+      'Schnelle Annahme',
+      'EU-konforme Abwicklung',
+      'Multi-Channel-Support',
+      'Individuelle Workflows'
+    ],
     groupLabel: 'Servicegruppe',
     ctaPrimary: 'Angebot anfordern',
     ctaSecondary: 'Mit unserem Team sprechen',

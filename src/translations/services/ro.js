@@ -45,6 +45,13 @@ export const servicesRo = {
   publicSection: {
     pageTitle: 'Servicii și Soluții',
     pageSubtitle: 'Pregătire, fulfillment și depozitare adaptate produselor, volumelor și termenelor tale.',
+    heroBadge: 'Hub de fulfillment în Franța',
+    highlights: [
+      'Recepție rapidă',
+      'Conformitate UE',
+      'Suport multi-canal',
+      'Fluxuri personalizate'
+    ],
     groupLabel: 'Grup de servicii',
     ctaPrimary: 'Cere ofertă',
     ctaSecondary: 'Discută cu echipa',

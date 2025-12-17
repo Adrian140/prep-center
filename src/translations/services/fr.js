@@ -45,6 +45,13 @@ export const servicesFr = {
   publicSection: {
     pageTitle: 'Services & Solutions',
     pageSubtitle: 'Préparation, fulfillment et stockage adaptés à vos produits, volumes et délais.',
+    heroBadge: 'Hub de fulfillment en France',
+    highlights: [
+      'Réception rapide',
+      'Conformité UE',
+      'Support multicanal',
+      'Flux sur mesure'
+    ],
     groupLabel: 'Groupe de services',
     ctaPrimary: 'Demander un devis',
     ctaSecondary: 'Parler à notre équipe',

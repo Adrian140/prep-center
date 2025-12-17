@@ -564,17 +564,38 @@ export default function ServicesPricing() {
       })),
     [t]
   );
+  const publicBadge = t('publicSection.heroBadge');
+  const publicHighlights = useMemo(() => {
+    const value = t('publicSection.highlights');
+    return Array.isArray(value) ? value : [];
+  }, [t]);
 
   return (
     <div className="min-h-screen py-20 bg-gradient-to-b from-white via-gray-50 to-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        <header className="text-center space-y-5 mx-auto max-w-lg">
-          <h1 className="text-2xl md:text-3xl font-bold text-text-primary leading-tight">
-            {heroTitle}
-          </h1>
-          <p className="text-sm md:text-base text-text-secondary">
-            {heroSubtitle}
-          </p>
+        <header className="relative overflow-hidden rounded-3xl border bg-white/90 shadow-sm p-8 md:p-10 text-center">
+          <div className="absolute -top-24 -left-32 h-72 w-72 rounded-full bg-blue-100/60 blur-3xl" />
+          <div className="absolute -bottom-20 -right-32 h-72 w-72 rounded-full bg-emerald-100/60 blur-3xl" />
+          <div className="relative z-10 space-y-4">
+            <p className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+              {publicBadge}
+            </p>
+            <h1 className="text-3xl md:text-4xl font-semibold text-text-primary leading-tight">
+              {heroTitle}
+            </h1>
+            <p className="text-sm md:text-base text-text-secondary max-w-2xl mx-auto">
+              {heroSubtitle}
+            </p>
+            {publicHighlights.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-text-secondary">
+                {publicHighlights.map((item) => (
+                  <span key={item} className="rounded-full border border-gray-200 bg-white px-3 py-1">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </header>
 
         {isAdmin ? (
@@ -1005,7 +1026,7 @@ export default function ServicesPricing() {
                   const Icon = group.icon;
                   const bullets = Array.isArray(group.bullets) ? group.bullets : [];
                   return (
-                    <article key={group.key} className="rounded-3xl border bg-gray-50/70 p-5 space-y-4">
+                  <article key={group.key} className="rounded-3xl border bg-white/90 p-5 space-y-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                       <div className="flex items-start gap-3">
                         <div className="rounded-2xl bg-white p-3 shadow-sm">
                           <Icon className="w-5 h-5 text-primary" />

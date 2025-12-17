@@ -45,6 +45,13 @@ export const servicesEs = {
   publicSection: {
     pageTitle: 'Servicios y Soluciones',
     pageSubtitle: 'Prep, fulfillment y almacenamiento adaptados a tus productos, volúmenes y plazos.',
+    heroBadge: 'Hub de fulfillment en Francia',
+    highlights: [
+      'Recepción rápida',
+      'Cumplimiento UE',
+      'Soporte multicanal',
+      'Flujos a medida'
+    ],
     groupLabel: 'Grupo de servicios',
     ctaPrimary: 'Solicitar presupuesto',
     ctaSecondary: 'Habla con nuestro equipo',
