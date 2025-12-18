@@ -659,6 +659,7 @@
     "ClientReturns": {
       "title": "Returns",
       "readonly": "Read-only view.",
+      "doneAt": "Done on",
       "thead": {
         "date": "Date",
         "asin": "ASIN",
@@ -1479,6 +1480,7 @@
     "ClientReturns": {
       "title": "Retururi",
       "readonly": "Vizualizare doar în citire.",
+      "doneAt": "Finalizat la",
       "thead": {
         "date": "Data",
         "asin": "ASIN",
@@ -2349,6 +2351,7 @@
     "ClientReturns": {
       "title": "Retours",
       "readonly": "Vue en lecture seule.",
+      "doneAt": "Finalisé le",
       "thead": {
         "date": "Date",
         "asin": "ASIN",
@@ -3089,6 +3092,7 @@
     "ClientReturns": {
       "title": "Retouren",
       "readonly": "Nur Leseansicht.",
+      "doneAt": "Abgeschlossen am",
       "thead": {
         "date": "Datum",
         "asin": "ASIN",
@@ -3829,6 +3833,7 @@
     "ClientReturns": {
       "title": "Resi",
       "readonly": "Solo visualizzazione.",
+      "doneAt": "Completato il",
       "thead": {
         "date": "Data",
         "asin": "ASIN",
@@ -4569,6 +4574,7 @@
     "ClientReturns": {
       "title": "Devoluciones",
       "readonly": "Vista de solo lectura.",
+      "doneAt": "Finalizado el",
       "thead": {
         "date": "Fecha",
         "asin": "ASIN",

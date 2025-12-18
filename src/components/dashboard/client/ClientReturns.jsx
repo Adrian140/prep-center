@@ -36,6 +36,7 @@ export default function ClientReturns() {
       .select(`
         id,
         status,
+        done_at,
         notes,
         marketplace,
         created_at,
@@ -249,6 +250,15 @@ export default function ClientReturns() {
                     <CheckCircle2 className="w-4 h-4 text-green-500" />
                     {new Date(row.created_at).toLocaleString()}
                   </div>
+                  {row.status === 'done' && row.done_at && (
+                    <>
+                      <div className="h-4 w-px bg-gray-200" />
+                      <div className="flex items-center gap-1 text-xs text-text-secondary">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        {t('ClientReturns.doneAt') || 'Done on'} {new Date(row.done_at).toLocaleString()}
+                      </div>
+                    </>
+                  )}
                 </div>
                 {isEditable && (
                   <div className="flex items-center gap-2">

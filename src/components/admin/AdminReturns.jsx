@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, RefreshCcw, Trash2, Upload, CheckCircle2 } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, RefreshCcw, Trash2, Upload, CheckCircle2, Pencil, X } from 'lucide-react';
 import Section from '../common/Section';
 import { supabase } from '../../config/supabase';
 
@@ -10,6 +10,10 @@ export default function AdminReturns() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('pending');
+  const [savingId, setSavingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editNotes, setEditNotes] = useState('');
+  const [editItems, setEditItems] = useState({});
 
   const load = async () => {
     setLoading(true);
@@ -25,6 +29,8 @@ export default function AdminReturns() {
         notes,
         created_at,
         updated_at,
+        done_at,
+        stock_adjusted,
         return_items (
           id,
           asin,
@@ -131,13 +137,70 @@ export default function AdminReturns() {
     return rows.filter((r) => r.status === filter);
   }, [rows, filter]);
 
-  const updateStatus = async (id, status) => {
-    const { error: err } = await supabase.from('returns').update({ status }).eq('id', id);
+  const resolveStockItem = async (item, companyId) => {
+    if (item.stock_item_id) {
+      const { data } = await supabase
+        .from('stock_items')
+        .select('id, qty')
+        .eq('id', item.stock_item_id)
+        .maybeSingle();
+      return data || null;
+    }
+    if (item.asin) {
+      const { data } = await supabase
+        .from('stock_items')
+        .select('id, qty')
+        .eq('company_id', companyId)
+        .eq('asin', item.asin)
+        .maybeSingle();
+      if (data) return data;
+    }
+    if (item.sku) {
+      const { data } = await supabase
+        .from('stock_items')
+        .select('id, qty')
+        .eq('company_id', companyId)
+        .eq('sku', item.sku)
+        .maybeSingle();
+      return data || null;
+    }
+    return null;
+  };
+
+  const adjustStockForReturn = async (row) => {
+    const items = Array.isArray(row.return_items) ? row.return_items : [];
+    for (const item of items) {
+      const stockRow = await resolveStockItem(item, row.company_id);
+      if (!stockRow) continue;
+      const currentQty = Number(stockRow.qty || 0);
+      const nextQty = Math.max(currentQty - Number(item.qty || 0), 0);
+      await supabase.from('stock_items').update({ qty: nextQty }).eq('id', stockRow.id);
+    }
+  };
+
+  const updateStatus = async (row, status) => {
+    setSavingId(row.id);
+    const patch = {
+      status,
+      updated_at: new Date().toISOString(),
+      done_at: status === 'done' ? new Date().toISOString() : null
+    };
+    if (status === 'done' && !row.stock_adjusted) {
+      await adjustStockForReturn(row);
+      patch.stock_adjusted = true;
+    }
+    const { error: err } = await supabase.from('returns').update(patch).eq('id', row.id);
     if (err) {
       alert(err.message);
+      setSavingId(null);
       return;
     }
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === row.id ? { ...r, ...patch, stock_adjusted: r.stock_adjusted || patch.stock_adjusted } : r
+      )
+    );
+    setSavingId(null);
   };
 
   const handleDelete = async (id) => {
@@ -145,6 +208,68 @@ export default function AdminReturns() {
     const { error: err } = await supabase.from('returns').delete().eq('id', id);
     if (err) return alert(err.message);
     setRows((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const startEdit = (row) => {
+    setEditingId(row.id);
+    setEditNotes(row.notes || '');
+    const itemDraft = {};
+    (row.return_items || []).forEach((item) => {
+      itemDraft[item.id] = { qty: item.qty, notes: item.notes || '' };
+    });
+    setEditItems(itemDraft);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditNotes('');
+    setEditItems({});
+  };
+
+  const saveEdit = async (row) => {
+    setSavingId(row.id);
+    const { error: returnErr } = await supabase
+      .from('returns')
+      .update({ notes: editNotes, updated_at: new Date().toISOString() })
+      .eq('id', row.id);
+    if (returnErr) {
+      alert(returnErr.message);
+      setSavingId(null);
+      return;
+    }
+    const itemUpdates = Object.entries(editItems).map(([id, value]) => ({
+      id: Number(id),
+      qty: Number(value.qty || 0),
+      notes: value.notes || null
+    }));
+    for (const update of itemUpdates) {
+      const { error: itemErr } = await supabase
+        .from('return_items')
+        .update({ qty: update.qty, notes: update.notes })
+        .eq('id', update.id);
+      if (itemErr) {
+        alert(itemErr.message);
+        setSavingId(null);
+        return;
+      }
+    }
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === row.id
+          ? {
+              ...r,
+              notes: editNotes,
+              return_items: (r.return_items || []).map((item) => ({
+                ...item,
+                qty: editItems[item.id]?.qty ?? item.qty,
+                notes: editItems[item.id]?.notes ?? item.notes
+              }))
+            }
+          : r
+      )
+    );
+    setSavingId(null);
+    cancelEdit();
   };
 
   return (
@@ -210,8 +335,9 @@ export default function AdminReturns() {
                 <div className="flex items-center gap-2">
                   <select
                     value={r.status}
-                    onChange={(e) => updateStatus(r.id, e.target.value)}
+                    onChange={(e) => updateStatus(r, e.target.value)}
                     className="border rounded px-2 py-1 text-sm"
+                    disabled={savingId === r.id}
                   >
                     {statusOptions.map((s) => (
                       <option key={s} value={s}>
@@ -223,6 +349,11 @@ export default function AdminReturns() {
                     <CheckCircle2 className="w-4 h-4 text-green-500" />
                     {new Date(r.created_at).toLocaleString()}
                   </div>
+                  {r.status === 'done' && r.done_at && (
+                    <div className="text-xs text-text-secondary">
+                      Done: {new Date(r.done_at).toLocaleString()}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -253,8 +384,50 @@ export default function AdminReturns() {
                         {it.stock_item?.name && (
                           <div className="text-text-secondary text-xs truncate">{it.stock_item.name}</div>
                         )}
-                        <div className="text-text-secondary text-xs">Qty: {it.qty}</div>
-                        {it.notes && <div className="text-text-secondary text-xs">Notes: {it.notes}</div>}
+                        {editingId === r.id ? (
+                          <div className="mt-2 space-y-2">
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-text-secondary">Qty:</span>
+                              <input
+                                type="number"
+                                min="0"
+                                value={editItems[it.id]?.qty ?? it.qty}
+                                onChange={(e) =>
+                                  setEditItems((prev) => ({
+                                    ...prev,
+                                    [it.id]: {
+                                      ...(prev[it.id] || {}),
+                                      qty: Number(e.target.value || 0)
+                                    }
+                                  }))
+                                }
+                                className="w-20 rounded border px-2 py-1 text-xs"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-text-secondary">Notes:</span>
+                              <input
+                                type="text"
+                                value={editItems[it.id]?.notes ?? it.notes ?? ''}
+                                onChange={(e) =>
+                                  setEditItems((prev) => ({
+                                    ...prev,
+                                    [it.id]: {
+                                      ...(prev[it.id] || {}),
+                                      notes: e.target.value
+                                    }
+                                  }))
+                                }
+                                className="flex-1 rounded border px-2 py-1 text-xs"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="text-text-secondary text-xs">Qty: {it.qty}</div>
+                            {it.notes && <div className="text-text-secondary text-xs">Notes: {it.notes}</div>}
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -282,28 +455,66 @@ export default function AdminReturns() {
 
                 <div className="space-y-2">
                   <div className="text-xs uppercase text-text-secondary">Notes</div>
-                  <div className="text-sm text-text-primary whitespace-pre-wrap min-h-[40px] border rounded px-3 py-2 bg-slate-50">
-                    {r.notes || '—'}
-                  </div>
+                  {editingId === r.id ? (
+                    <textarea
+                      className="w-full border rounded px-3 py-2 text-sm min-h-[80px]"
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                    />
+                  ) : (
+                    <div className="text-sm text-text-primary whitespace-pre-wrap min-h-[40px] border rounded px-3 py-2 bg-slate-50">
+                      {r.notes || '—'}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded"
-                      onClick={() => updateStatus(r.id, 'processing')}
-                    >
-                      <ArrowUpRight className="w-4 h-4" /> Proc.
-                    </button>
-                    <button
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded"
-                      onClick={() => updateStatus(r.id, 'done')}
-                    >
-                      <ArrowDownRight className="w-4 h-4" /> Done
-                    </button>
-                    <button
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-red-200 text-red-700 rounded hover:bg-red-50"
-                      onClick={() => handleDelete(r.id)}
-                    >
-                      <Trash2 className="w-4 h-4" /> Șterge
-                    </button>
+                    {editingId === r.id ? (
+                      <>
+                        <button
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded"
+                          onClick={() => saveEdit(r)}
+                          disabled={savingId === r.id}
+                        >
+                          <CheckCircle2 className="w-4 h-4" /> Save
+                        </button>
+                        <button
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded"
+                          onClick={cancelEdit}
+                          disabled={savingId === r.id}
+                        >
+                          <X className="w-4 h-4" /> Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded"
+                          onClick={() => startEdit(r)}
+                        >
+                          <Pencil className="w-4 h-4" /> Edit
+                        </button>
+                        <button
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded"
+                          onClick={() => updateStatus(r, 'processing')}
+                          disabled={savingId === r.id}
+                        >
+                          <ArrowUpRight className="w-4 h-4" /> Proc.
+                        </button>
+                        <button
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded"
+                          onClick={() => updateStatus(r, 'done')}
+                          disabled={savingId === r.id}
+                        >
+                          <ArrowDownRight className="w-4 h-4" /> Done
+                        </button>
+                        <button
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-red-200 text-red-700 rounded hover:bg-red-50"
+                          onClick={() => handleDelete(r.id)}
+                          disabled={savingId === r.id}
+                        >
+                          <Trash2 className="w-4 h-4" /> Șterge
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
