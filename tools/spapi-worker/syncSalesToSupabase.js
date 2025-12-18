@@ -10,6 +10,10 @@ const ORDER_WINDOW_DAYS = Number(process.env.SPAPI_ORDER_WINDOW_DAYS || 30);
 const RETURNS_REPORT_TYPE = 'GET_FBA_FULFILLMENT_CUSTOMER_RETURNS_DATA';
 const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 10_000);
 const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 120);
+const SALES_SYNC_LOOP = process.env.SPAPI_SALES_SYNC_LOOP !== 'false';
+const SALES_SYNC_INTERVAL_MS = Number(
+  process.env.SPAPI_SALES_SYNC_INTERVAL_MS || 15 * 60 * 1000
+);
 const SUPPORTED_MARKETPLACES = [
   'A13V1IB3VIYZZH', // FR
   'A1PA6795UKMFR9', // DE
@@ -768,7 +772,34 @@ async function main() {
   }
 }
 
-main().catch((err) => {
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function runForever() {
+  do {
+    try {
+      await main();
+    } catch (err) {
+      console.error('Fatal error in sales sync', err);
+      if (!SALES_SYNC_LOOP) {
+        throw err;
+      }
+    }
+
+    if (!SALES_SYNC_LOOP) {
+      break;
+    }
+
+    const sleepMs = Number.isFinite(SALES_SYNC_INTERVAL_MS)
+      ? Math.max(0, SALES_SYNC_INTERVAL_MS)
+      : 0;
+    if (sleepMs > 0) {
+      console.log(`[Sales sync] Sleeping ${Math.round(sleepMs / 1000)}s before next run.`);
+      await delay(sleepMs);
+    }
+  } while (true);
+}
+
+runForever().catch((err) => {
   console.error('Fatal error in sales sync', err);
   process.exit(1);
 });
