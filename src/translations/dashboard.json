@@ -245,7 +245,7 @@
         "subtitle": "Choose which emails you want to receive.",
         "prepShipments": "Prep-center shipments",
         "prepShipmentsDesc": "Email confirmation when prep requests are completed.",
-        "note": "Critical account emails (password reset, billing) are always sent.",
+        "note": "Admin always receives shipment confirmations even if you disable this.",
         "updated": "Notification preferences updated.",
         "error": "Unable to update notification preferences."
       }
@@ -1132,7 +1132,7 @@
         "subtitle": "Alege ce emailuri vrei să primești.",
         "prepShipments": "Expedieri Prep-center",
         "prepShipmentsDesc": "Confirmare prin email când cererile de prep sunt finalizate.",
-        "note": "Emailurile critice (resetare parolă, facturare) sunt trimise întotdeauna.",
+        "note": "Adminul primește întotdeauna confirmările, chiar dacă le dezactivezi.",
         "updated": "Preferințele de notificare au fost actualizate.",
         "error": "Nu am putut actualiza preferințele de notificare."
       }
@@ -2002,7 +2002,7 @@
         "subtitle": "Choisissez les emails que vous souhaitez recevoir.",
         "prepShipments": "Expéditions Prep-center",
         "prepShipmentsDesc": "Email de confirmation lorsque les demandes de prep sont finalisées.",
-        "note": "Les emails critiques (réinitialisation, facturation) sont toujours envoyés.",
+        "note": "L’admin reçoit toujours les confirmations, même si vous les désactivez.",
         "updated": "Préférences de notification mises à jour.",
         "error": "Impossible de mettre à jour les préférences."
       }

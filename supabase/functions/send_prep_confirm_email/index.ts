@@ -37,6 +37,7 @@ interface Payload {
 
 // ===== ENV =====
 const FROM_EMAIL = Deno.env.get("PREP_FROM_EMAIL") ?? "no-reply@prep-center.eu";
+const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "contact@prep-center.eu";
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY")  ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE") ?? "";
@@ -85,7 +86,7 @@ async function enrichItemsFromSupabase(items: Item[]): Promise<Item[]> {
   });
 }
 
-async function shouldSendPrepEmail(payload: Payload): Promise<boolean> {
+async function shouldNotifyClient(payload: Payload): Promise<boolean> {
   if (!supabase || !payload?.request_id) return true;
   const { data: requestRow, error: requestError } = await supabase
     .from("prep_requests")
@@ -237,15 +238,11 @@ Deno.serve(async (req) => {
     }
 
     const payload = (await req.json()) as Payload;
-    const shouldSend = await shouldSendPrepEmail(payload);
-    if (!shouldSend) {
-      return new Response(JSON.stringify({ ok: true, skipped: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (!payload?.email) {
-      return new Response("Missing recipient email", { status: 400, headers: corsHeaders });
-    }
+    const notifyClient = await shouldNotifyClient(payload);
+    const hasClientEmail = !!payload?.email;
+    const sendToClient = notifyClient && hasClientEmail;
+    const recipients = sendToClient ? [payload.email as string] : [ADMIN_EMAIL];
+    const bccRecipients = sendToClient ? [ADMIN_EMAIL] : [];
 
     // Enrich items cu EAN / imagine din stock_items dacă lipsesc
     const items = payload.items ? await enrichItemsFromSupabase(payload.items) : [];
@@ -261,10 +258,10 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: `Prep Center <${FROM_EMAIL}>`,
-        to: [payload.email],
-        bcc: ["contact@prep-center.eu"],
+        to: recipients,
+        bcc: bccRecipients,
         // punctul 5: răspunsurile merg la adresa clientului
-        reply_to: payload.email ? [payload.email] : undefined,
+        reply_to: sendToClient && payload.email ? [payload.email] : undefined,
         subject,
         html,
       }),
