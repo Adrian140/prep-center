@@ -67,7 +67,11 @@ export default function ClientAffiliates() {
   const [creditAmount, setCreditAmount] = useState('');
   const [creditLoading, setCreditLoading] = useState(false);
   const [creditFlash, setCreditFlash] = useState(null);
-  const [billingMonth, setBillingMonth] = useState('');
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+  const [billingMonth, setBillingMonth] = useState(currentMonth);
 
   const payoutCode = ownerSnapshot?.code || null;
   const payoutTiers = useMemo(
@@ -159,7 +163,8 @@ export default function ClientAffiliates() {
       if (profile?.company_id && codeId) {
         const { data: creditData } = await supabaseHelpers.getAffiliateCreditUsage({
           companyId: profile.company_id,
-          codeId
+          codeId,
+          billingMonth: billingMonth || null
         });
         setCreditUsage(creditData || { used: 0 });
       } else {
@@ -353,7 +358,7 @@ export default function ClientAffiliates() {
               <PayoutSummary code={ownerSnapshot.code} />
             </div>
 
-            <div className="border rounded-xl p-4 space-y-2">
+              <div className="border rounded-xl p-4 space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs uppercase tracking-wide text-text-secondary">
                   {t('ClientAffiliates.stats.title')}
@@ -369,9 +374,9 @@ export default function ClientAffiliates() {
                     <button
                       type="button"
                       className="text-xs text-text-secondary underline"
-                      onClick={() => setBillingMonth('')}
+                      onClick={() => setBillingMonth(currentMonth)}
                     >
-                      {t('common.reset') || 'Reset'}
+                      {t('common.reset') || 'Current month'}
                     </button>
                   )}
                 </div>
@@ -391,6 +396,18 @@ export default function ClientAffiliates() {
                   <span>{t('ClientAffiliates.stats.payout')}</span>
                   <strong className="text-text-primary">
                     {euroFormatter.format(totals.payout)}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>{t('ClientAffiliates.credit.used')}</span>
+                  <strong className="text-text-primary">
+                    {euroFormatter.format(creditUsed)}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>{t('ClientAffiliates.credit.remaining') || 'Remaining'}</span>
+                  <strong className="text-text-primary">
+                    {euroFormatter.format(Math.max(0, totals.payout - creditUsed))}
                   </strong>
                 </div>
               </div>

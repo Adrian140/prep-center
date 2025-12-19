@@ -97,7 +97,12 @@ export default function AdminAffiliates() {
   const [deletingCodeId, setDeletingCodeId] = useState(null);
   const [discountAmount, setDiscountAmount] = useState('');
   const [discountLoading, setDiscountLoading] = useState(false);
-  const [billingMonth, setBillingMonth] = useState('');
+  const [creditUsage, setCreditUsage] = useState({ used: 0 });
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+  const [billingMonth, setBillingMonth] = useState(currentMonth);
 
   const currencyFormatter = useMemo(
     () =>
@@ -128,9 +133,11 @@ export default function AdminAffiliates() {
     return {
       count: sortedAssigned.length,
       billed,
-      payout
+      payout,
+      applied: Number(creditUsage.used || 0),
+      remaining: Math.max(0, payout - Number(creditUsage.used || 0))
     };
-  }, [sortedAssigned, selectedCode]);
+  }, [sortedAssigned, selectedCode, creditUsage.used]);
 
   const describePayout = (code) => {
     if (!code) return t('affiliates.offerNone');
@@ -238,6 +245,11 @@ export default function AdminAffiliates() {
       code.code,
       { billingMonth: billingMonth || null }
     );
+    const { data: creditData } = await supabaseHelpers.getAffiliateCreditUsageByCode({
+      codeId: code.id,
+      billingMonth: billingMonth || null
+    });
+    setCreditUsage(creditData || { used: 0 });
     setMembers({ assigned, candidates });
     setBusyMembers(false);
   };
@@ -708,7 +720,7 @@ export default function AdminAffiliates() {
                   <div className="mt-3 space-y-3">
                     <div className="flex flex-wrap items-center gap-3">
                       <label className="text-xs uppercase text-text-secondary">
-                        Filtru lună (facturi plătite)
+                        Billing month (paid invoices)
                       </label>
                       <input
                         type="month"
@@ -720,9 +732,9 @@ export default function AdminAffiliates() {
                         <button
                           type="button"
                           className="text-xs text-text-secondary underline"
-                          onClick={() => setBillingMonth('')}
+                          onClick={() => setBillingMonth(currentMonth)}
                         >
-                          Resetează
+                          {t('common.reset') || 'Reset'}
                         </button>
                       )}
                     </div>
@@ -746,6 +758,18 @@ export default function AdminAffiliates() {
                             <p className="text-text-secondary">{t('affiliates.performancePayout')}</p>
                             <strong className="text-text-primary">
                               {currencyFormatter.format(selectedPerformance.payout)}
+                            </strong>
+                          </div>
+                          <div className="border rounded-lg p-3">
+                            <p className="text-text-secondary">{t('affiliates.performanceApplied') || 'Credit applied'}</p>
+                            <strong className="text-text-primary">
+                              {currencyFormatter.format(selectedPerformance.applied)}
+                            </strong>
+                          </div>
+                          <div className="border rounded-lg p-3">
+                            <p className="text-text-secondary">{t('affiliates.performanceRemaining') || 'Remaining'}</p>
+                            <strong className="text-text-primary">
+                              {currencyFormatter.format(selectedPerformance.remaining)}
                             </strong>
                           </div>
                         </div>
