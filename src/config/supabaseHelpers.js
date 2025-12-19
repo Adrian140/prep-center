@@ -478,7 +478,7 @@ createReceptionRequest: async (data) => {
     return await supabase.from('affiliate_codes').delete().eq('id', id);
   },
 
-  getAffiliateOwnerSnapshot: async (profileId) => {
+  getAffiliateOwnerSnapshot: async (profileId, { billingMonth } = {}) => {
     const { data: code, error } = await supabase
       .from('affiliate_codes')
       .select('*')
@@ -499,10 +499,21 @@ createReceptionRequest: async (data) => {
     if (companyIds.length > 0) {
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, amount, status')
+        .select('company_id, amount, status, invoice_date, created_at')
         .in('company_id', companyIds);
       (invoices || [])
         .filter((inv) => String(inv.status || '').trim().toLowerCase() === 'paid')
+        .filter((inv) => {
+          if (!billingMonth) return true;
+          const [y, m] = billingMonth.split('-').map((v) => Number(v));
+          if (!y || !m) return true;
+          const start = new Date(Date.UTC(y, m - 1, 1));
+          const end = new Date(Date.UTC(y, m, 1));
+          const dateStr = inv.invoice_date || inv.created_at || null;
+          if (!dateStr) return false;
+          const d = new Date(dateStr);
+          return d >= start && d < end;
+        })
         .forEach((inv) => {
           const baseAmount = Number(inv.amount ?? 0);
           const amount = Number.isFinite(baseAmount) ? baseAmount : 0;
@@ -577,7 +588,7 @@ createReceptionRequest: async (data) => {
     return { profile, code: null, members: [], request: request || null };
   },
 
-  getAffiliateCodeMembers: async (codeId, codeValue) => {
+  getAffiliateCodeMembers: async (codeId, codeValue, { billingMonth } = {}) => {
     const assignedPromise = supabase
       .from('profiles')
       .select('id, first_name, last_name, company_name, store_name, country, company_id, affiliate_code_input, affiliate_code_id, updated_at')
@@ -600,10 +611,21 @@ createReceptionRequest: async (data) => {
     if (companyIds.length > 0) {
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, amount, status')
+        .select('company_id, amount, status, invoice_date, created_at')
         .in('company_id', companyIds);
       (invoices || [])
         .filter((invoice) => String(invoice.status || '').trim().toLowerCase() === 'paid')
+        .filter((invoice) => {
+          if (!billingMonth) return true;
+          const [y, m] = billingMonth.split('-').map((v) => Number(v));
+          if (!y || !m) return true;
+          const start = new Date(Date.UTC(y, m - 1, 1));
+          const end = new Date(Date.UTC(y, m, 1));
+          const dateStr = invoice.invoice_date || invoice.created_at || null;
+          if (!dateStr) return false;
+          const d = new Date(dateStr);
+          return d >= start && d < end;
+        })
         .forEach((invoice) => {
           const baseAmount = Number(invoice.amount ?? 0);
           const amount = Number.isFinite(baseAmount) ? baseAmount : 0;
@@ -655,30 +677,14 @@ createReceptionRequest: async (data) => {
       return { data: [], error: null };
     }
 
-    // Verificăm dacă reducerea a mai fost aplicată pentru acest cod, indiferent de denumirea serviciului.
-    const { data: existing, error: existingError } = await supabase
-      .from('other_lines')
-      .select('company_id')
-      .in('company_id', companyIds)
-      .ilike('obs_admin', `%${normalizedCode}%`);
-    if (existingError) {
-      return { data: [], error: existingError };
-    }
-
-    const alreadyDiscounted = new Set(
-      (existing || []).map((row) => row.company_id)
-    );
-
-    const payloads = companyIds
-      .filter((cid) => !alreadyDiscounted.has(cid))
-      .map((cid) => ({
+    const payloads = companyIds.map((cid) => ({
         company_id: cid,
         service,
         service_date: today,
         unit_price: discount,
         units: 1,
         total: discount,
-        obs_admin: normalizedCode || null
+        obs_admin: `affiliate_credit_admin:${normalizedCode || ''}`
       }));
 
     if (!payloads.length) {

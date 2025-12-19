@@ -67,6 +67,7 @@ export default function ClientAffiliates() {
   const [creditAmount, setCreditAmount] = useState('');
   const [creditLoading, setCreditLoading] = useState(false);
   const [creditFlash, setCreditFlash] = useState(null);
+  const [billingMonth, setBillingMonth] = useState('');
 
   const payoutCode = ownerSnapshot?.code || null;
   const payoutTiers = useMemo(
@@ -141,7 +142,7 @@ export default function ClientAffiliates() {
     if (!profile?.id) return;
     loadState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id]);
+  }, [profile?.id, billingMonth]);
 
   const loadState = async () => {
     if (!profile?.id) return;
@@ -150,7 +151,7 @@ export default function ClientAffiliates() {
     try {
       const [clientInfo, ownerInfo] = await Promise.all([
         supabaseHelpers.getAffiliateClientStatus(profile.id),
-        supabaseHelpers.getAffiliateOwnerSnapshot(profile.id)
+        supabaseHelpers.getAffiliateOwnerSnapshot(profile.id, { billingMonth: billingMonth || null })
       ]);
       setClientStatus(clientInfo);
       setOwnerSnapshot(ownerInfo?.data || null);
@@ -352,11 +353,30 @@ export default function ClientAffiliates() {
               <PayoutSummary code={ownerSnapshot.code} />
             </div>
 
-            <div className="border rounded-xl p-4">
-              <p className="text-xs uppercase tracking-wide text-text-secondary">
-                {t('ClientAffiliates.stats.title')}
-              </p>
-              <div className="mt-2 space-y-1 text-sm text-text-secondary">
+            <div className="border rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs uppercase tracking-wide text-text-secondary">
+                  {t('ClientAffiliates.stats.title')}
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="month"
+                    value={billingMonth}
+                    onChange={(e) => setBillingMonth(e.target.value)}
+                    className="border rounded px-2 py-1 text-xs"
+                  />
+                  {billingMonth && (
+                    <button
+                      type="button"
+                      className="text-xs text-text-secondary underline"
+                      onClick={() => setBillingMonth('')}
+                    >
+                      {t('common.reset') || 'Reset'}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1 text-sm text-text-secondary">
                 <div className="flex items-center justify-between">
                   <span>{t('ClientAffiliates.stats.clients')}</span>
                   <strong className="text-text-primary">{totals.count}</strong>

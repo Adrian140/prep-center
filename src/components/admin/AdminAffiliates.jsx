@@ -97,6 +97,7 @@ export default function AdminAffiliates() {
   const [deletingCodeId, setDeletingCodeId] = useState(null);
   const [discountAmount, setDiscountAmount] = useState('');
   const [discountLoading, setDiscountLoading] = useState(false);
+  const [billingMonth, setBillingMonth] = useState('');
 
   const currencyFormatter = useMemo(
     () =>
@@ -187,6 +188,13 @@ export default function AdminAffiliates() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (selectedCode) {
+      openMembers(selectedCode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [billingMonth]);
+
   const handleCreateCode = async (e) => {
     e.preventDefault();
     if (!form.owner_profile_id || !form.code) {
@@ -225,7 +233,11 @@ export default function AdminAffiliates() {
   const openMembers = async (code) => {
     setSelectedCode(code);
     setBusyMembers(true);
-    const { assigned, candidates } = await supabaseHelpers.getAffiliateCodeMembers(code.id, code.code);
+    const { assigned, candidates } = await supabaseHelpers.getAffiliateCodeMembers(
+      code.id,
+      code.code,
+      { billingMonth: billingMonth || null }
+    );
     setMembers({ assigned, candidates });
     setBusyMembers(false);
   };
@@ -283,7 +295,7 @@ export default function AdminAffiliates() {
         codeId: code.id,
         codeValue: code.code,
         amount: value,
-        serviceLabel: 'Réduction pour les affiliés'
+        serviceLabel: 'Affiliate discount'
       });
       if (error) {
         setMessage(error.message || 'Failed to apply discount.');
@@ -694,6 +706,26 @@ export default function AdminAffiliates() {
                 </div>
                 {selectedCode?.id === code.id && (
                   <div className="mt-3 space-y-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="text-xs uppercase text-text-secondary">
+                        Filtru lună (facturi plătite)
+                      </label>
+                      <input
+                        type="month"
+                        value={billingMonth}
+                        onChange={(e) => setBillingMonth(e.target.value)}
+                        className="border rounded px-2 py-1 text-sm"
+                      />
+                      {billingMonth && (
+                        <button
+                          type="button"
+                          className="text-xs text-text-secondary underline"
+                          onClick={() => setBillingMonth('')}
+                        >
+                          Resetează
+                        </button>
+                      )}
+                    </div>
                     {selectedPerformance && (
                       <div>
                         <p className="text-xs uppercase tracking-wide text-text-secondary">
