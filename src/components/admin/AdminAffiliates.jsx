@@ -255,6 +255,7 @@ export default function AdminAffiliates() {
     );
     const { data: creditData } = await supabaseHelpers.getAffiliateCreditUsageByCode({
       codeId: code.id,
+      companyId: code.owner?.company_id || null,
       billingMonth: billingMonth || null
     });
     setCreditUsage(creditData || { used: 0 });

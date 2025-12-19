@@ -554,13 +554,17 @@ createReceptionRequest: async (data) => {
     const matchMonth = createMonthMatcher(billingMonth);
     const { data, error } = await supabase
       .from('other_lines')
-      .select('total, service_date, created_at, obs_admin')
+      .select('total, service, service_date, created_at, obs_admin')
       .eq('company_id', companyId)
-      .ilike('obs_admin', `affiliate_credit:${codeId}%`);
+      .lt('total', 0);
     if (error) {
       return { data: { used: 0 }, error };
     }
     const used = (data || []).reduce((sum, row) => {
+      const isAffiliate =
+        (row.service || '').toLowerCase().includes('affiliate credit') ||
+        (row.obs_admin || '').toLowerCase().startsWith(`affiliate_credit:${codeId}`);
+      if (!isAffiliate) return sum;
       if (!matchMonth(row.service_date || row.created_at)) return sum;
       const total = Number(row.total ?? 0);
       return sum + (Number.isFinite(total) ? Math.abs(total) : 0);
@@ -568,15 +572,33 @@ createReceptionRequest: async (data) => {
     return { data: { used }, error: null };
   },
 
-  getAffiliateCreditUsageByCode: async ({ codeId, billingMonth } = {}) => {
+  getAffiliateCreditUsageByCode: async ({ codeId, companyId, billingMonth } = {}) => {
     if (!codeId) return { data: { used: 0 }, error: null };
+
+    let targetCompanyId = companyId;
+    if (!targetCompanyId) {
+      const { data: codeRow } = await supabase
+        .from('affiliate_codes')
+        .select('id, owner:profiles!affiliate_codes_owner_profile_id_fkey(company_id)')
+        .eq('id', codeId)
+        .maybeSingle();
+      targetCompanyId = codeRow?.owner?.company_id || null;
+    }
+
+    if (!targetCompanyId) return { data: { used: 0 }, error: null };
+
     const matchMonth = createMonthMatcher(billingMonth);
     const { data, error } = await supabase
       .from('other_lines')
-      .select('total, service_date, created_at, company_id, obs_admin')
-      .ilike('obs_admin', `affiliate_credit:${codeId}%`);
+      .select('total, service, service_date, created_at, obs_admin')
+      .eq('company_id', targetCompanyId)
+      .lt('total', 0);
     if (error) return { data: { used: 0 }, error };
     const used = (data || []).reduce((sum, row) => {
+      const isAffiliate =
+        (row.service || '').toLowerCase().includes('affiliate credit') ||
+        (row.obs_admin || '').toLowerCase().startsWith(`affiliate_credit:${codeId}`);
+      if (!isAffiliate) return sum;
       if (!matchMonth(row.service_date || row.created_at)) return sum;
       const total = Number(row.total || 0);
       return sum + (Number.isFinite(total) ? Math.abs(total) : 0);
@@ -711,8 +733,7 @@ createReceptionRequest: async (data) => {
         service_date: today,
         unit_price: discount,
         units: 1,
-        total: discount,
-        obs_admin: `affiliate_credit:${codeId}`
+        total: discount
       }));
 
     if (!payloads.length) {
@@ -754,8 +775,7 @@ createReceptionRequest: async (data) => {
         service_date: today,
         unit_price: credit,
         units: 1,
-        total: credit,
-        obs_admin: `affiliate_credit:${codeId}`
+        total: credit
       })
       .select('*')
       .single();
