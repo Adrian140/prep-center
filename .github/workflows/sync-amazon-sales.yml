@@ -5,11 +5,12 @@ on:
 
 concurrency:
   group: sync-amazon-sales
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 350
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,6 +52,7 @@ jobs:
           SPAPI_REGION: ${{ secrets.SPAPI_REGION || 'eu' }}
           SPAPI_MARKETPLACE_ID: ${{ secrets.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH' }}
           SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
+          SPAPI_SALES_SYNC_LOOP: 'false'
           SPAPI_ORDER_WINDOW_DAYS: ${{ secrets.SPAPI_ORDER_WINDOW_DAYS || '30' }}
         run: npm run sync-sales
 
