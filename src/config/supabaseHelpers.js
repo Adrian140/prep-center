@@ -499,15 +499,13 @@ createReceptionRequest: async (data) => {
     if (companyIds.length > 0) {
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, amount, vat_amount, status')
+        .select('company_id, amount, status')
         .in('company_id', companyIds);
       (invoices || [])
         .filter((inv) => String(inv.status || '').trim().toLowerCase() === 'paid')
         .forEach((inv) => {
           const baseAmount = Number(inv.amount ?? 0);
-          const vat = Number(inv.vat_amount ?? 0);
-          const total = Number(inv.total_amount ?? baseAmount + vat);
-          const amount = Number.isFinite(total) ? total : baseAmount;
+          const amount = Number.isFinite(baseAmount) ? baseAmount : 0;
           if (!inv.company_id) return;
           totals[inv.company_id] = (totals[inv.company_id] || 0) + amount;
         });
@@ -602,15 +600,13 @@ createReceptionRequest: async (data) => {
     if (companyIds.length > 0) {
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, amount, vat_amount, status')
+        .select('company_id, amount, status')
         .in('company_id', companyIds);
       (invoices || [])
         .filter((invoice) => String(invoice.status || '').trim().toLowerCase() === 'paid')
         .forEach((invoice) => {
           const baseAmount = Number(invoice.amount ?? 0);
-          const vat = Number(invoice.vat_amount ?? 0);
-          const total = Number(invoice.total_amount ?? baseAmount + vat);
-          const amount = Number.isFinite(total) ? total : baseAmount;
+          const amount = Number.isFinite(baseAmount) ? baseAmount : 0;
           if (!invoice.company_id) return;
           totals[invoice.company_id] = (totals[invoice.company_id] || 0) + amount;
         });

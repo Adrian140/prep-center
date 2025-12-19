@@ -101,21 +101,24 @@ begin
     raise exception 'Invalid amount';
   end if;
 
-  select coalesce(sum(
-    public.compute_affiliate_commission(
-      totals.billed,
-      code_row.payout_type,
-      code_row.percent_below_threshold,
-      code_row.percent_above_threshold,
-      code_row.threshold_amount,
-      code_row.fixed_amount,
-      code_row.payout_tiers
-    )
-  ), 0)
+  select coalesce(
+    sum(
+      public.compute_affiliate_commission(
+        totals.billed,
+        code_row.payout_type,
+        code_row.percent_below_threshold,
+        code_row.percent_above_threshold,
+        code_row.threshold_amount,
+        code_row.fixed_amount,
+        code_row.payout_tiers
+      )
+    ),
+    0
+  )
   into total_commission
   from (
     select inv.company_id,
-           sum(coalesce(inv.amount, 0) + coalesce(inv.vat_amount, 0)) as billed
+           sum(coalesce(inv.amount, 0)) as billed
     from public.invoices inv
     where lower(coalesce(inv.status, '')) = 'paid'
       and inv.company_id in (
