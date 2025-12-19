@@ -50,7 +50,7 @@ function Header() {
   return (
     <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
+        <div className="flex justify-between items-center h-20 gap-3">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2 sm:space-x-3 cursor-pointer min-w-0">
             <img
@@ -76,12 +76,12 @@ function Header() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden lg:flex items-center space-x-1">
+          <nav className="hidden md:flex items-center space-x-1 flex-shrink">
             {navigation.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
-                className={`px-3 xl:px-4 py-1.5 xl:py-2 text-[13px] xl:text-sm font-medium rounded-lg transition-all duration-200 ${
+                className={`px-2.5 lg:px-3 xl:px-4 py-1.5 text-[12px] md:text-[13px] lg:text-sm font-medium rounded-lg transition-all duration-200 ${
                   isActive(item.href)
                     ? 'text-primary bg-blue-50 border border-blue-200'
                     : 'text-text-secondary hover:text-primary hover:bg-gray-50'
@@ -93,28 +93,28 @@ function Header() {
           </nav>
 
           {/* Desktop Actions */}
-          <div className="hidden lg:flex items-center space-x-2 xl:space-x-3">
+          <div className="hidden md:flex items-center space-x-2 xl:space-x-3 flex-shrink-0">
             <LanguageSelector />
 
             <div className="flex items-center space-x-2 xl:space-x-3 ml-3 xl:ml-4 pl-3 xl:pl-4 border-l border-gray-200">
               {!isAuthenticated ? (
                 <Link
                   to="/admin-login"
-                  className="bg-gray-600 text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-gray-700 transition-all duration-200 shadow-sm hover:shadow-md text-[13px] xl:text-sm"
+                  className="bg-gray-600 text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-gray-700 transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
                 >
                   {t('actions.login')}
                 </Link>
               ) : isAdmin ? (
                 <Link
                   to="/admin"
-                  className="bg-red-600 text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-red-700 transition-all duration-200 shadow-sm hover:shadow-md text-[13px] xl:text-sm"
+                  className="bg-red-600 text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-red-700 transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
                 >
                   {t('actions.admin')}
                 </Link>
               ) : (
                 <Link
                   to="/dashboard"
-                  className="bg-gray-100 text-gray-800 px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-gray-200 transition-all duration-200 shadow-sm hover:shadow-md text-[13px] xl:text-sm"
+                  className="bg-gray-100 text-gray-800 px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-gray-200 transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
                 >
                   {t('actions.dashboard')}
                 </Link>
@@ -123,7 +123,7 @@ function Header() {
               {isAuthenticated && (
                 <button
                   onClick={handleSignOut}
-                  className="px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg text-[13px] xl:text-sm font-medium text-text-secondary border border-gray-200 hover:text-red-600 hover:border-red-300 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg text-[12px] md:text-[13px] xl:text-sm font-medium text-text-secondary border border-gray-200 hover:text-red-600 hover:border-red-300 transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   {t('actions.signOut') || 'Sign out'}
                 </button>
@@ -132,7 +132,7 @@ function Header() {
               {!isAuthenticated && (
                 <Link
                   to="/register"
-                  className="bg-blue-600 text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md text-[13px] xl:text-sm"
+                  className="bg-blue-600 text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
                 >
                   {t('actions.register')}
                 </Link>
@@ -142,14 +142,14 @@ function Header() {
                 href="https://wa.me/33675116218"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-[#25D366] text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-[#1ebe5d] transition-all duration-200 shadow-sm hover:shadow-md text-[13px] xl:text-sm"
+                className="bg-[#25D366] text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-[#1ebe5d] transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
               >
                 {t('actions.whatsApp')}
               </a>
 
               <Link
                 to="/contact"
-                className="bg-primary text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-primary-dark transition-all duration-200 shadow-sm hover:shadow-md text-[13px] xl:text-sm"
+                className="bg-primary text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-primary-dark transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
               >
                 {t('actions.quote')}
               </Link>
@@ -267,25 +267,6 @@ function Header() {
             </div>
           </div>
         )}
-
-        {/* Tablet Nav */}
-        <div className="hidden md:block lg:hidden">
-          <nav className="flex items-center justify-center space-x-6 py-3 border-t border-gray-100">
-            {navigation.map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  isActive(item.href)
-                    ? 'text-primary bg-blue-50 border border-blue-200'
-                    : 'text-text-secondary hover:text-primary hover:bg-gray-50'
-                }`}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </nav>
-        </div>
       </div>
     </header>
   );
