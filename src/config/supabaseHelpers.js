@@ -516,7 +516,7 @@ createReceptionRequest: async (data) => {
       const monthMatcher = createMonthMatcher(billingMonth);
       const { data: invoices, error: invoicesError } = await supabase
         .from('invoices')
-        .select('company_id, amount, vat_amount, status, invoice_date, issue_date, created_at')
+        .select('company_id, amount, vat_amount, status, issue_date, created_at')
         .in('company_id', companyIds);
       if (invoicesError) {
         console.error('affiliate invoices fetch', invoicesError);
@@ -526,9 +526,7 @@ createReceptionRequest: async (data) => {
           const status = String(inv.status || '').trim().toLowerCase();
           return status === 'paid' || status.includes('paid');
         })
-        .filter((inv) =>
-          monthMatcher(inv.invoice_date || inv.issue_date || inv.created_at)
-        )
+        .filter((inv) => monthMatcher(inv.issue_date || inv.created_at))
         .forEach((inv) => {
           const net = Number(inv.amount ?? 0);
           const amount = Number.isFinite(net) ? net : 0;
@@ -645,7 +643,7 @@ createReceptionRequest: async (data) => {
       const monthMatcher = createMonthMatcher(billingMonth);
       const { data: invoices, error: invoicesError } = await supabase
         .from('invoices')
-        .select('company_id, amount, vat_amount, status, invoice_date, issue_date, created_at')
+        .select('company_id, amount, vat_amount, status, issue_date, created_at')
         .in('company_id', companyIds);
       if (invoicesError) {
         console.error('affiliate invoices fetch', invoicesError);
@@ -655,9 +653,7 @@ createReceptionRequest: async (data) => {
           const status = String(invoice.status || '').trim().toLowerCase();
           return status === 'paid' || status.includes('paid');
         })
-        .filter((invoice) =>
-          monthMatcher(invoice.invoice_date || invoice.issue_date || invoice.created_at)
-        )
+        .filter((invoice) => monthMatcher(invoice.issue_date || invoice.created_at))
         .forEach((invoice) => {
           const net = Number(invoice.amount ?? 0);
           const amount = Number.isFinite(net) ? net : 0;
