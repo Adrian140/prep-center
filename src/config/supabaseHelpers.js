@@ -525,8 +525,10 @@ createReceptionRequest: async (data) => {
         })
         .filter((inv) => monthMatcher(inv.invoice_date || inv.created_at || inv.updated_at))
         .forEach((inv) => {
-          const baseAmount = Number(inv.amount ?? inv.total_amount ?? 0);
-          const amount = Number.isFinite(baseAmount) ? baseAmount : 0;
+          const net = Number(inv.amount ?? 0);
+          const vat = Number(inv.vat_amount ?? 0);
+          const gross = Number(inv.total_amount ?? net + vat);
+          const amount = Number.isFinite(gross) ? gross : Number.isFinite(net + vat) ? net + vat : 0;
           if (!inv.company_id) return;
           totals[inv.company_id] = (totals[inv.company_id] || 0) + amount;
         });
@@ -649,8 +651,10 @@ createReceptionRequest: async (data) => {
         })
         .filter((invoice) => monthMatcher(invoice.invoice_date || invoice.created_at || invoice.updated_at))
         .forEach((invoice) => {
-          const baseAmount = Number(invoice.amount ?? invoice.total_amount ?? 0);
-          const amount = Number.isFinite(baseAmount) ? baseAmount : 0;
+          const net = Number(invoice.amount ?? 0);
+          const vat = Number(invoice.vat_amount ?? 0);
+          const gross = Number(invoice.total_amount ?? net + vat);
+          const amount = Number.isFinite(gross) ? gross : Number.isFinite(net + vat) ? net + vat : 0;
           if (!invoice.company_id) return;
           totals[invoice.company_id] = (totals[invoice.company_id] || 0) + amount;
         });
