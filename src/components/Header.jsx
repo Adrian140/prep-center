@@ -52,22 +52,25 @@ function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20 gap-3">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2 sm:space-x-3 cursor-pointer min-w-0">
+          <Link
+            to="/"
+            className="flex items-center space-x-2 sm:space-x-3 cursor-pointer flex-shrink-0 min-w-fit"
+          >
             <img
               src="/branding/fulfillment-prep-logo.png"
               alt="Fulfillment Prep Logistics Logo"
               className="w-auto object-contain shrink-0"
               style={{ height: 'clamp(32px, 4vw, 46px)' }}
             />
-            <div className="flex flex-col leading-tight min-w-0">
+            <div className="flex flex-col leading-tight">
               <span
-                className="font-bold text-text-primary truncate"
+                className="font-bold text-text-primary whitespace-nowrap"
                 style={{ fontSize: 'clamp(16px, 1.8vw, 20px)' }}
               >
                 PrepCenter
               </span>
               <span
-                className="font-medium text-primary"
+                className="font-medium text-primary whitespace-nowrap"
                 style={{ fontSize: 'clamp(11px, 1.2vw, 13px)' }}
               >
                 France
