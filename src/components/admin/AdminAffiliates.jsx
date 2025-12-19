@@ -185,6 +185,14 @@ export default function AdminAffiliates() {
       setRequests(reqData || []);
       setCodes(codeData || []);
       setOwnerOptions(ownerData || []);
+      // keep current selection if still present
+      if (selectedCode) {
+        const next = (codeData || []).find((c) => c.id === selectedCode.id);
+        if (next) {
+          setSelectedCode(next);
+          await openMembers(next);
+        }
+      }
     } finally {
       setLoading(false);
       setOwnersLoading(false);

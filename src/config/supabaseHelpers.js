@@ -519,7 +519,10 @@ createReceptionRequest: async (data) => {
         .select('company_id, amount, total_amount, status, invoice_date, created_at, updated_at')
         .in('company_id', companyIds);
       (invoices || [])
-        .filter((inv) => String(inv.status || '').trim().toLowerCase() === 'paid')
+        .filter((inv) => {
+          const status = String(inv.status || '').trim().toLowerCase();
+          return status === 'paid' || status.includes('paid');
+        })
         .filter((inv) => monthMatcher(inv.invoice_date || inv.created_at || inv.updated_at))
         .forEach((inv) => {
           const baseAmount = Number(inv.amount ?? inv.total_amount ?? 0);
@@ -640,7 +643,10 @@ createReceptionRequest: async (data) => {
         .select('company_id, amount, total_amount, status, invoice_date, created_at, updated_at')
         .in('company_id', companyIds);
       (invoices || [])
-        .filter((invoice) => String(invoice.status || '').trim().toLowerCase() === 'paid')
+        .filter((invoice) => {
+          const status = String(invoice.status || '').trim().toLowerCase();
+          return status === 'paid' || status.includes('paid');
+        })
         .filter((invoice) => monthMatcher(invoice.invoice_date || invoice.created_at || invoice.updated_at))
         .forEach((invoice) => {
           const baseAmount = Number(invoice.amount ?? invoice.total_amount ?? 0);
