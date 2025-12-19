@@ -516,19 +516,14 @@ createReceptionRequest: async (data) => {
       const monthMatcher = createMonthMatcher(billingMonth);
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, amount, total_amount, status, invoice_date, created_at, updated_at')
+        .select('company_id, amount, vat_amount, status, issue_date, created_at, updated_at')
         .in('company_id', companyIds);
       (invoices || [])
-        .filter((inv) => {
-          const status = String(inv.status || '').trim().toLowerCase();
-          return status === 'paid' || status.includes('paid');
-        })
-        .filter((inv) => monthMatcher(inv.invoice_date || inv.created_at || inv.updated_at))
+        .filter((inv) => String(inv.status || '').trim().toLowerCase() === 'paid')
+        .filter((inv) => monthMatcher(inv.issue_date || inv.created_at || inv.updated_at))
         .forEach((inv) => {
           const net = Number(inv.amount ?? 0);
-          const vat = Number(inv.vat_amount ?? 0);
-          const gross = Number(inv.total_amount ?? net + vat);
-          const amount = Number.isFinite(gross) ? gross : Number.isFinite(net + vat) ? net + vat : 0;
+          const amount = Number.isFinite(net) ? net : 0;
           if (!inv.company_id) return;
           totals[inv.company_id] = (totals[inv.company_id] || 0) + amount;
         });
@@ -642,19 +637,14 @@ createReceptionRequest: async (data) => {
       const monthMatcher = createMonthMatcher(billingMonth);
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, amount, total_amount, status, invoice_date, created_at, updated_at')
+        .select('company_id, amount, vat_amount, status, issue_date, created_at, updated_at')
         .in('company_id', companyIds);
       (invoices || [])
-        .filter((invoice) => {
-          const status = String(invoice.status || '').trim().toLowerCase();
-          return status === 'paid' || status.includes('paid');
-        })
-        .filter((invoice) => monthMatcher(invoice.invoice_date || invoice.created_at || invoice.updated_at))
+        .filter((invoice) => String(invoice.status || '').trim().toLowerCase() === 'paid')
+        .filter((invoice) => monthMatcher(invoice.issue_date || invoice.created_at || invoice.updated_at))
         .forEach((invoice) => {
           const net = Number(invoice.amount ?? 0);
-          const vat = Number(invoice.vat_amount ?? 0);
-          const gross = Number(invoice.total_amount ?? net + vat);
-          const amount = Number.isFinite(gross) ? gross : Number.isFinite(net + vat) ? net + vat : 0;
+          const amount = Number.isFinite(net) ? net : 0;
           if (!invoice.company_id) return;
           totals[invoice.company_id] = (totals[invoice.company_id] || 0) + amount;
         });
