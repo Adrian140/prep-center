@@ -22,6 +22,7 @@
       "loading": "Loading…",
       "errorPrefix": "Error",
       "delete": "Delete",
+      "reset": "Reset",
       "cancel": "Cancel",
       "save": "Save",
       "refresh": "Refresh",
@@ -298,6 +299,7 @@
         "applied": "Credit applied.",
         "none": "No credit to apply."
       },
+      "monthFilterLabel": "Billing month (paid invoices)",
       "discount": {
         "amountLabel": "Discount per client (EUR)",
         "applyAll": "Apply discount to all clients",

@@ -516,13 +516,13 @@ createReceptionRequest: async (data) => {
       const monthMatcher = createMonthMatcher(billingMonth);
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, amount, status, invoice_date, created_at, updated_at')
+        .select('company_id, amount, total_amount, status, invoice_date, created_at, updated_at')
         .in('company_id', companyIds);
       (invoices || [])
         .filter((inv) => String(inv.status || '').trim().toLowerCase() === 'paid')
         .filter((inv) => monthMatcher(inv.invoice_date || inv.created_at || inv.updated_at))
         .forEach((inv) => {
-          const baseAmount = Number(inv.amount ?? 0);
+          const baseAmount = Number(inv.amount ?? inv.total_amount ?? 0);
           const amount = Number.isFinite(baseAmount) ? baseAmount : 0;
           if (!inv.company_id) return;
           totals[inv.company_id] = (totals[inv.company_id] || 0) + amount;
@@ -556,7 +556,7 @@ createReceptionRequest: async (data) => {
     }
     const used = (data || []).reduce((sum, row) => {
       if (!matchMonth(row.service_date || row.created_at)) return sum;
-      const total = Number(row.total || 0);
+      const total = Number(row.total ?? 0);
       return sum + (Number.isFinite(total) ? Math.abs(total) : 0);
     }, 0);
     return { data: { used }, error: null };
@@ -637,13 +637,13 @@ createReceptionRequest: async (data) => {
       const monthMatcher = createMonthMatcher(billingMonth);
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('company_id, amount, status, invoice_date, created_at, updated_at')
+        .select('company_id, amount, total_amount, status, invoice_date, created_at, updated_at')
         .in('company_id', companyIds);
       (invoices || [])
         .filter((invoice) => String(invoice.status || '').trim().toLowerCase() === 'paid')
         .filter((invoice) => monthMatcher(invoice.invoice_date || invoice.created_at || invoice.updated_at))
         .forEach((invoice) => {
-          const baseAmount = Number(invoice.amount ?? 0);
+          const baseAmount = Number(invoice.amount ?? invoice.total_amount ?? 0);
           const amount = Number.isFinite(baseAmount) ? baseAmount : 0;
           if (!invoice.company_id) return;
           totals[invoice.company_id] = (totals[invoice.company_id] || 0) + amount;
