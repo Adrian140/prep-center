@@ -10,24 +10,6 @@ import {
 } from "./supabase";
 import { encodeRemainingAction } from "../utils/receivingFba";
 
-// Month matcher helper (YYYY-MM in UTC)
-const createMonthMatcher = (billingMonth) => {
-  if (!billingMonth || typeof billingMonth !== 'string') {
-    return () => true;
-  }
-  const [y, m] = billingMonth.split('-').map((v) => Number(v));
-  if (!y || !m) return () => true;
-  const start = new Date(Date.UTC(y, m - 1, 1));
-  const end = new Date(Date.UTC(y, m, 1));
-  return (value) => {
-    if (!value) return false;
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return false;
-    return d >= start && d < end;
-  };
-};
-
-// Helper: build month matcher for YYYY-MM (UTC).
 const createMonthMatcher = (billingMonth) => {
   if (!billingMonth || typeof billingMonth !== 'string') {
     return () => true;
