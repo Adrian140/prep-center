@@ -514,13 +514,21 @@ createReceptionRequest: async (data) => {
     let totals = {};
     if (companyIds.length > 0) {
       const monthMatcher = createMonthMatcher(billingMonth);
-      const { data: invoices } = await supabase
+      const { data: invoices, error: invoicesError } = await supabase
         .from('invoices')
         .select('company_id, amount, vat_amount, status, issue_date, created_at, updated_at')
         .in('company_id', companyIds);
+      if (invoicesError) {
+        console.error('affiliate invoices fetch', invoicesError);
+      }
       (invoices || [])
-        .filter((inv) => String(inv.status || '').trim().toLowerCase() === 'paid')
-        .filter((inv) => monthMatcher(inv.issue_date || inv.created_at || inv.updated_at))
+        .filter((inv) => {
+          const status = String(inv.status || '').trim().toLowerCase();
+          return status === 'paid' || status.includes('paid');
+        })
+        .filter((inv) =>
+          monthMatcher(inv.issue_date || inv.created_at || inv.updated_at)
+        )
         .forEach((inv) => {
           const net = Number(inv.amount ?? 0);
           const amount = Number.isFinite(net) ? net : 0;
@@ -635,13 +643,21 @@ createReceptionRequest: async (data) => {
       .filter(Boolean);
     if (companyIds.length > 0) {
       const monthMatcher = createMonthMatcher(billingMonth);
-      const { data: invoices } = await supabase
+      const { data: invoices, error: invoicesError } = await supabase
         .from('invoices')
         .select('company_id, amount, vat_amount, status, issue_date, created_at, updated_at')
         .in('company_id', companyIds);
+      if (invoicesError) {
+        console.error('affiliate invoices fetch', invoicesError);
+      }
       (invoices || [])
-        .filter((invoice) => String(invoice.status || '').trim().toLowerCase() === 'paid')
-        .filter((invoice) => monthMatcher(invoice.issue_date || invoice.created_at || invoice.updated_at))
+        .filter((invoice) => {
+          const status = String(invoice.status || '').trim().toLowerCase();
+          return status === 'paid' || status.includes('paid');
+        })
+        .filter((invoice) =>
+          monthMatcher(invoice.issue_date || invoice.created_at || invoice.updated_at)
+        )
         .forEach((invoice) => {
           const net = Number(invoice.amount ?? 0);
           const amount = Number.isFinite(net) ? net : 0;
