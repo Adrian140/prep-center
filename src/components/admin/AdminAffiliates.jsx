@@ -326,6 +326,31 @@ export default function AdminAffiliates() {
     }
   };
 
+  const handleApplyCredit = async () => {
+    if (!selectedCode || !selectedPerformance) return;
+    const remaining = Number(selectedPerformance.remaining || 0);
+    if (!(remaining > 0)) {
+      setMessage(t('affiliates.credit.none') || 'No credit to apply.');
+      return;
+    }
+    setDiscountLoading(true);
+    setMessage('');
+    try {
+      const { error } = await supabaseHelpers.applyAffiliateCreditForCode({
+        codeId: selectedCode.id,
+        amount: remaining,
+        note: `Affiliate credit ${billingMonth || ''}`.trim()
+      });
+      if (error) throw error;
+      setMessage(t('affiliates.credit.applied') || 'Credit applied.');
+      await openMembers(selectedCode);
+    } catch (err) {
+      setMessage(err.message || 'Failed to apply credit.');
+    } finally {
+      setDiscountLoading(false);
+    }
+  };
+
   const openEditForm = (code) => {
     setEditingCodeId(code.id);
     setEditForm({
@@ -772,6 +797,16 @@ export default function AdminAffiliates() {
                               {currencyFormatter.format(selectedPerformance.remaining)}
                             </strong>
                           </div>
+                        </div>
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            className="px-3 py-2 rounded bg-primary text-white text-sm disabled:opacity-50"
+                            onClick={handleApplyCredit}
+                            disabled={discountLoading || selectedPerformance.remaining <= 0}
+                          >
+                            {t('affiliates.credit.apply') || 'Apply credit'}
+                          </button>
                         </div>
                       </div>
                     )}

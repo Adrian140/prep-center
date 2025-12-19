@@ -469,7 +469,7 @@ createReceptionRequest: async (data) => {
   listAffiliateCodes: async () => {
     return await supabase
       .from('affiliate_codes')
-      .select('*, owner:profiles!affiliate_codes_owner_profile_id_fkey(id, first_name, last_name, company_name, store_name)')
+      .select('*, owner:profiles!affiliate_codes_owner_profile_id_fkey(id, first_name, last_name, company_name, store_name, company_id)')
       .order('created_at', { ascending: false });
   },
 
@@ -713,6 +713,41 @@ createReceptionRequest: async (data) => {
       .select('*');
 
     return { data: inserted || [], error: insertError || null };
+  },
+
+  applyAffiliateCreditForCode: async ({ codeId, amount, note }) => {
+    const value = Number(
+      typeof amount === 'string' ? amount.replace(',', '.') : amount
+    );
+    if (!codeId || !Number.isFinite(value) || value <= 0) {
+      return { data: null, error: new Error('Invalid credit amount') };
+    }
+    // find owner + company
+    const { data: codeRow, error: codeErr } = await supabase
+      .from('affiliate_codes')
+      .select('id, owner_profile_id, owner:profiles!affiliate_codes_owner_profile_id_fkey(id, company_id)')
+      .eq('id', codeId)
+      .maybeSingle();
+    if (codeErr || !codeRow?.owner?.company_id) {
+      return { data: null, error: codeErr || new Error('Missing owner company_id') };
+    }
+    const companyId = codeRow.owner.company_id;
+    const credit = -Math.abs(value);
+    const today = new Date().toISOString().slice(0, 10);
+    const { data, error } = await supabase
+      .from('other_lines')
+      .insert({
+        company_id: companyId,
+        service: note || 'Affiliate credit applied',
+        service_date: today,
+        unit_price: credit,
+        units: 1,
+        total: credit,
+        obs_admin: `affiliate_credit:${codeId}`
+      })
+      .select('*')
+      .single();
+    return { data, error };
   },
 
   createBillingInvoice: async ({

@@ -414,11 +414,11 @@ export default function ClientAffiliates() {
             </div>
           </div>
 
-          <div className="border rounded-xl p-4 space-y-3">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs uppercase tracking-wide text-text-secondary">
-                {t('ClientAffiliates.credit.title')}
-              </p>
+            <div className="border rounded-xl p-4 space-y-3">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs uppercase tracking-wide text-text-secondary">
+                  {t('ClientAffiliates.credit.title')}
+                </p>
               <div className="text-sm text-text-secondary">
                 {t('ClientAffiliates.credit.used')}:{" "}
                 <strong className="text-text-primary">
@@ -426,36 +426,47 @@ export default function ClientAffiliates() {
                 </strong>
               </div>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm text-text-secondary">
-                {t('ClientAffiliates.credit.available')}:{" "}
-                <strong className="text-text-primary">
-                  {euroFormatter.format(availableCredit)}
-                </strong>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-text-secondary">
+                  {t('ClientAffiliates.credit.available')}:{" "}
+                  <strong className="text-text-primary">
+                    {euroFormatter.format(availableCredit)}
+                  </strong>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="border rounded-lg px-3 py-2 w-32 text-right"
+                    placeholder={t('ClientAffiliates.credit.amountPh')}
+                    value={creditAmount}
+                    onChange={(e) => setCreditAmount(e.target.value)}
+                    disabled={creditLoading || availableCredit <= 0}
+                  />
+                  <button
+                    type="button"
+                    className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
+                    disabled={creditLoading || availableCredit <= 0}
+                    onClick={handleRedeemCredit}
+                  >
+                    {creditLoading
+                      ? t('ClientAffiliates.credit.applying')
+                      : t('ClientAffiliates.credit.apply')}
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3 py-2 bg-gray-100 text-text-primary rounded-lg text-sm disabled:opacity-50"
+                    disabled={creditLoading || availableCredit <= 0}
+                    onClick={() => {
+                      setCreditAmount(String(availableCredit.toFixed(2)));
+                      handleRedeemCredit();
+                    }}
+                  >
+                    {t('ClientAffiliates.credit.applyAll') || 'Apply all'}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="border rounded-lg px-3 py-2 w-32 text-right"
-                  placeholder={t('ClientAffiliates.credit.amountPh')}
-                  value={creditAmount}
-                  onChange={(e) => setCreditAmount(e.target.value)}
-                  disabled={creditLoading || availableCredit <= 0}
-                />
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
-                  disabled={creditLoading || availableCredit <= 0}
-                  onClick={handleRedeemCredit}
-                >
-                  {creditLoading
-                    ? t('ClientAffiliates.credit.applying')
-                    : t('ClientAffiliates.credit.apply')}
-                </button>
-              </div>
-            </div>
             <p className="text-xs text-text-secondary">
               {t('ClientAffiliates.credit.note')}
             </p>

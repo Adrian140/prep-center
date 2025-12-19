@@ -291,6 +291,13 @@
       "performanceClients": "Affiliated clients",
       "performanceBilled": "Billed total",
       "performancePayout": "Estimated payout",
+      "performanceApplied": "Credit applied",
+      "performanceRemaining": "Remaining credit",
+      "credit": {
+        "apply": "Apply credit",
+        "applied": "Credit applied.",
+        "none": "No credit to apply."
+      },
       "discount": {
         "amountLabel": "Discount per client (EUR)",
         "applyAll": "Apply discount to all clients",
