@@ -75,20 +75,6 @@ function Header() {
             to="/"
             className="flex items-center space-x-2 sm:space-x-2 md:space-x-3 cursor-pointer flex-shrink-0 min-w-fit"
           >
-            <div className="flex flex-col leading-tight">
-              <span
-                className="font-bold text-text-primary whitespace-nowrap"
-                style={{ fontSize: 'clamp(16px, 1.8vw, 20px)' }}
-              >
-                PrepCenter
-              </span>
-              <span
-                className="font-medium text-primary whitespace-nowrap"
-                style={{ fontSize: 'clamp(11px, 1.2vw, 13px)' }}
-              >
-                France
-              </span>
-            </div>
             <div className="flex flex-col items-center text-center" style={logoWidthStyle}>
               <img
                 src="/branding/fulfillment-prep-logo.png"
@@ -101,6 +87,20 @@ function Header() {
                 style={{ ...sloganGradientStyle, fontSize: 'clamp(6px, 0.8vw, 8px)' }}
               >
                 We prep. You scale.
+              </span>
+            </div>
+            <div className="flex flex-col leading-tight text-left">
+              <span
+                className="font-bold text-text-primary whitespace-nowrap"
+                style={{ fontSize: 'clamp(16px, 1.8vw, 20px)' }}
+              >
+                PrepCenter
+              </span>
+              <span
+                className="font-medium text-primary whitespace-nowrap"
+                style={{ fontSize: 'clamp(11px, 1.2vw, 13px)' }}
+              >
+                France
               </span>
             </div>
           </Link>
