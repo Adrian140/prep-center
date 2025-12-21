@@ -28,6 +28,13 @@ function Footer() {
     fetchContent();
   }, []);
 
+  const logoWidthStyle = { width: 'clamp(140px, 18vw, 180px)' };
+  const sloganGradientStyle = {
+    background: 'linear-gradient(90deg, #0b60c4 0%, #008ed1 50%, #00b5d9 100%)',
+    WebkitBackgroundClip: 'text',
+    color: 'transparent',
+  };
+
   const companyInfoName = withFallback(content.company_info_name, 'Global Fulfill Hub');
   const companyInfoSiret = withFallback(content.company_info_siret, '941 373 110 00019');
   const companyInfoVat = withFallback(content.company_info_vat, 'FR 38 941 373 110');
@@ -55,12 +62,21 @@ function Footer() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="space-y-3 max-w-sm">
-            <div className="flex items-center space-x-2">
-              <img 
-                src="/branding/fulfillment-prep-logo.png"
-                alt="Fulfillment Prep Logistics Logo" 
-                className="h-12 w-auto object-contain"
-              />
+            <div className="flex items-start space-x-3">
+              <div className="flex flex-col items-center" style={logoWidthStyle}>
+                <img 
+                  src="/branding/fulfillment-prep-logo.png"
+                  alt="Fulfillment Prep Logistics Logo" 
+                  className="w-full object-contain"
+                  style={{ maxHeight: 'clamp(34px, 3.8vw, 44px)' }}
+                />
+                <span
+                  className="block mt-1 font-semibold uppercase tracking-[0.05em] text-center whitespace-nowrap"
+                  style={{ ...sloganGradientStyle, fontSize: 'clamp(12px, 1.6vw, 15px)' }}
+                >
+                  We prep. You scale
+                </span>
+              </div>
               <span className="text-lg font-bold text-text-primary leading-tight">PrepCenter France</span>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed">

@@ -11,6 +11,12 @@ function Header() {
   const location = useLocation();
   const { isAuthenticated, user, profile, signOut } = useSupabaseAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const logoWidthStyle = { width: 'clamp(140px, 18vw, 180px)' };
+  const sloganGradientStyle = {
+    background: 'linear-gradient(90deg, #0b60c4 0%, #008ed1 50%, #00b5d9 100%)',
+    WebkitBackgroundClip: 'text',
+    color: 'transparent',
+  };
 
   useEffect(() => {
     const onLang = () => setIsMenuOpen(false);
@@ -56,12 +62,20 @@ function Header() {
             to="/"
             className="flex items-center space-x-2 sm:space-x-3 cursor-pointer flex-shrink-0 min-w-fit"
           >
-            <img
-              src="/branding/fulfillment-prep-logo.png"
-              alt="Fulfillment Prep Logistics Logo"
-              className="w-auto object-contain shrink-0"
-              style={{ height: 'clamp(32px, 4vw, 46px)' }}
-            />
+            <div className="flex flex-col items-center" style={logoWidthStyle}>
+              <img
+                src="/branding/fulfillment-prep-logo.png"
+                alt="Fulfillment Prep Logistics Logo"
+                className="w-full object-contain shrink-0"
+                style={{ maxHeight: 'clamp(30px, 3.6vw, 40px)' }}
+              />
+              <span
+                className="block mt-1 font-semibold uppercase tracking-[0.05em] text-center whitespace-nowrap"
+                style={{ ...sloganGradientStyle, fontSize: 'clamp(11px, 1.4vw, 14px)' }}
+              >
+                We prep. You scale
+              </span>
+            </div>
             <div className="flex flex-col leading-tight">
               <span
                 className="font-bold text-text-primary whitespace-nowrap"
