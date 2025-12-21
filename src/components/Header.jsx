@@ -11,7 +11,7 @@ function Header() {
   const location = useLocation();
   const { isAuthenticated, user, profile, signOut } = useSupabaseAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const logoWidthStyle = { width: 'clamp(140px, 18vw, 180px)' };
+  const logoWidthStyle = { width: 'clamp(120px, 16vw, 160px)' };
   const sloganGradientStyle = {
     color: '#111',
     background: 'none',
@@ -69,7 +69,7 @@ function Header() {
   return (
     <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
       <div className="w-full px-2 sm:px-3 lg:px-4">
-        <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-2 md:gap-3 min-h-[74px]">
+        <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-2 md:gap-2.5 min-h-[74px]">
           {/* Logo */}
           <Link
             to="/"
@@ -106,12 +106,12 @@ function Header() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center flex-1 justify-start gap-2 lg:gap-2.5 min-w-0 pr-1 md:pr-3 flex-nowrap overflow-x-auto md:overflow-visible whitespace-nowrap">
+          <nav className="hidden md:flex items-center flex-1 justify-start gap-1.5 lg:gap-2 min-w-0 pr-1 flex-nowrap overflow-x-auto md:overflow-visible whitespace-nowrap">
             {navigation.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
-                className={`shrink-0 px-2 lg:px-2.5 xl:px-3 py-1.5 text-[12px] md:text-[13px] lg:text-sm font-medium rounded-lg transition-all duration-200 ${
+                className={`shrink-0 px-1.5 lg:px-2 xl:px-2.5 py-1.5 text-[12px] md:text-[13px] lg:text-sm font-medium rounded-lg transition-all duration-200 ${
                   isActive(item.href)
                     ? 'text-primary bg-blue-50 border border-blue-200'
                     : 'text-text-secondary hover:text-primary hover:bg-gray-50'
@@ -123,7 +123,7 @@ function Header() {
           </nav>
 
           {/* Desktop Actions */}
-          <div className="hidden md:flex items-center space-x-2 xl:space-x-3 flex-wrap md:flex-nowrap justify-end min-w-0 ml-auto">
+          <div className="hidden md:flex items-center space-x-1.5 xl:space-x-2.5 flex-wrap md:flex-nowrap justify-end min-w-0 ml-auto">
             <LanguageSelector />
 
             <div className="flex items-center flex-wrap gap-2 xl:gap-3 ml-3 xl:ml-4 pl-3 xl:pl-4 border-l border-gray-200">
