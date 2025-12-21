@@ -13,7 +13,7 @@ function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const logoWidthStyle = { width: 'clamp(140px, 18vw, 180px)' };
   const sloganGradientStyle = {
-    background: 'linear-gradient(90deg, #0b60c4 0%, #008ed1 50%, #00b5d9 100%)',
+    background: 'linear-gradient(90deg, #084a9b 0%, #006ea8 50%, #0082b5 100%)',
     WebkitBackgroundClip: 'text',
     color: 'transparent',
   };
@@ -71,9 +71,9 @@ function Header() {
               />
               <span
                 className="block mt-1 font-semibold uppercase tracking-[0.05em] text-center whitespace-nowrap"
-                style={{ ...sloganGradientStyle, fontSize: 'clamp(11px, 1.4vw, 14px)' }}
+                style={{ ...sloganGradientStyle, fontSize: 'clamp(6px, 0.8vw, 8px)' }}
               >
-                We prep. You scale
+                We prep. You scale.
               </span>
             </div>
             <div className="flex flex-col leading-tight">
