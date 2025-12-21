@@ -68,8 +68,8 @@ function Header() {
 
   return (
     <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
-      <div className="w-full px-3 sm:px-4 lg:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-2 md:gap-4 min-h-[74px]">
+      <div className="w-full px-2 sm:px-3 lg:px-4">
+        <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-2 md:gap-4 min-h-[74px]">
           {/* Logo */}
           <Link
             to="/"
@@ -106,7 +106,7 @@ function Header() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex flex-wrap items-center flex-1 justify-start gap-2 lg:gap-3 min-w-[360px] pr-2 md:pr-4">
+          <nav className="hidden md:flex items-center flex-1 justify-start gap-2 lg:gap-3 min-w-0 pr-2 md:pr-4 flex-nowrap overflow-x-auto md:overflow-visible whitespace-nowrap">
             {navigation.map((item) => (
               <Link
                 key={item.href}
@@ -123,7 +123,7 @@ function Header() {
           </nav>
 
           {/* Desktop Actions */}
-          <div className="hidden md:flex items-center space-x-2 xl:space-x-3 flex-wrap justify-end min-w-0 ml-auto">
+          <div className="hidden md:flex items-center space-x-2 xl:space-x-3 flex-wrap md:flex-nowrap justify-end min-w-0 ml-auto">
             <LanguageSelector />
 
             <div className="flex items-center flex-wrap gap-2 xl:gap-3 ml-3 xl:ml-4 pl-3 xl:pl-4 border-l border-gray-200">
