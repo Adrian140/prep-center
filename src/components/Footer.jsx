@@ -71,7 +71,7 @@ function Footer() {
                   style={{ maxHeight: 'clamp(34px, 3.8vw, 44px)' }}
                 />
                 <span
-                  className="block mt-1 font-semibold uppercase tracking-[0.05em] text-center whitespace-nowrap"
+                  className="block mt-1 font-semibold uppercase tracking-[0.05em] text-center whitespace-nowrap px-1"
                   style={{ ...sloganGradientStyle, fontSize: 'clamp(6px, 0.8vw, 8px)' }}
                 >
                   We prep. You scale.

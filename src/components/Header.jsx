@@ -17,6 +17,19 @@ function Header() {
     background: 'none',
     WebkitBackgroundClip: 'initial',
   };
+  const renderNavLabel = (item) => {
+    if (item.href === '/services-pricing' && item.name?.includes('&')) {
+      const [before, after] = item.name.split('&');
+      return (
+        <span className="inline-flex items-center gap-1 leading-none">
+          <span>{before.trim()}</span>
+          <span className="text-[0.9em] leading-none align-middle">&</span>
+          <span>{after.trim()}</span>
+        </span>
+      );
+    }
+    return item.name;
+  };
 
   useEffect(() => {
     const onLang = () => setIsMenuOpen(false);
@@ -56,7 +69,7 @@ function Header() {
   return (
     <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20 gap-3">
+        <div className="flex justify-between items-center h-[74px] gap-3">
           {/* Logo */}
           <Link
             to="/"
@@ -70,7 +83,7 @@ function Header() {
                 style={{ maxHeight: 'clamp(30px, 3.6vw, 40px)' }}
               />
               <span
-                className="block mt-1 font-semibold uppercase tracking-[0.05em] text-center whitespace-nowrap"
+                className="block mt-1 font-semibold uppercase tracking-[0.05em] text-center whitespace-nowrap px-1"
                 style={{ ...sloganGradientStyle, fontSize: 'clamp(6px, 0.8vw, 8px)' }}
               >
                 We prep. You scale.
@@ -104,7 +117,7 @@ function Header() {
                     : 'text-text-secondary hover:text-primary hover:bg-gray-50'
                 }`}
               >
-                {item.name}
+                {renderNavLabel(item)}
               </Link>
             ))}
           </nav>
@@ -197,12 +210,12 @@ function Header() {
                     to={item.href}
                     className={`block px-4 py-3 text-base font-medium rounded-lg transition-colors ${
                       isActive(item.href)
-                        ? 'text-primary bg-blue-50 border border-blue-200'
-                        : 'text-text-secondary hover:text-primary hover:bg-gray-50'
+                    ? 'text-primary bg-blue-50 border border-blue-200'
+                    : 'text-text-secondary hover:text-primary hover:bg-gray-50'
                     }`}
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    {item.name}
+                    {renderNavLabel(item)}
                   </Link>
                 ))}
               </div>
