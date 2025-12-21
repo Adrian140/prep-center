@@ -69,13 +69,13 @@ function Header() {
   return (
     <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-[74px] gap-3">
+        <div className="flex justify-between items-center h-[74px] gap-2 md:gap-4">
           {/* Logo */}
           <Link
             to="/"
-            className="flex items-center space-x-2 sm:space-x-3 cursor-pointer flex-shrink-0 min-w-fit"
+            className="flex items-start space-x-2 sm:space-x-2 md:space-x-3 cursor-pointer flex-shrink-0 min-w-fit"
           >
-            <div className="flex flex-col items-center" style={logoWidthStyle}>
+            <div className="flex flex-col items-start text-left" style={logoWidthStyle}>
               <img
                 src="/branding/fulfillment-prep-logo.png"
                 alt="Fulfillment Prep Logistics Logo"
@@ -83,7 +83,7 @@ function Header() {
                 style={{ maxHeight: 'clamp(30px, 3.6vw, 40px)' }}
               />
               <span
-                className="block mt-1 font-semibold uppercase tracking-[0.05em] text-center whitespace-nowrap px-1"
+                className="block mt-1 font-semibold uppercase tracking-[0.05em] text-left whitespace-nowrap px-1"
                 style={{ ...sloganGradientStyle, fontSize: 'clamp(6px, 0.8vw, 8px)' }}
               >
                 We prep. You scale.
