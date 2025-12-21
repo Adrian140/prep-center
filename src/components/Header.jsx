@@ -68,12 +68,12 @@ function Header() {
 
   return (
     <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6">
         <div className="flex flex-wrap items-center justify-between gap-2 md:gap-4 min-h-[74px]">
           {/* Logo */}
           <Link
             to="/"
-            className="flex items-center space-x-2 sm:space-x-2 md:space-x-3 cursor-pointer flex-shrink-0 min-w-fit"
+            className="flex items-center gap-2 sm:gap-2 md:gap-3 cursor-pointer flex-shrink-0 min-w-fit"
           >
             <div className="flex flex-col items-center text-center" style={logoWidthStyle}>
               <img
@@ -106,7 +106,7 @@ function Header() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center space-x-1 flex-1 justify-center min-w-0">
+          <nav className="hidden md:flex items-center space-x-1 flex-1 justify-center min-w-[320px] md:ml-6 lg:ml-10">
             {navigation.map((item) => (
               <Link
                 key={item.href}
