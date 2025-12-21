@@ -30,9 +30,9 @@ function Footer() {
 
   const logoWidthStyle = { width: 'clamp(140px, 18vw, 180px)' };
   const sloganGradientStyle = {
-    background: 'linear-gradient(90deg, #084a9b 0%, #006ea8 50%, #0082b5 100%)',
-    WebkitBackgroundClip: 'text',
-    color: 'transparent',
+    color: '#111',
+    background: 'none',
+    WebkitBackgroundClip: 'initial',
   };
 
   const companyInfoName = withFallback(content.company_info_name, 'Global Fulfill Hub');

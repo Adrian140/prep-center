@@ -13,9 +13,9 @@ function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const logoWidthStyle = { width: 'clamp(140px, 18vw, 180px)' };
   const sloganGradientStyle = {
-    background: 'linear-gradient(90deg, #084a9b 0%, #006ea8 50%, #0082b5 100%)',
-    WebkitBackgroundClip: 'text',
-    color: 'transparent',
+    color: '#111',
+    background: 'none',
+    WebkitBackgroundClip: 'initial',
   };
 
   useEffect(() => {
