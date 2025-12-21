@@ -69,11 +69,11 @@ function Header() {
   return (
     <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
       <div className="w-full px-2 sm:px-3 lg:px-4">
-        <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-2 md:gap-4 min-h-[74px]">
+        <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-2 md:gap-3 min-h-[74px]">
           {/* Logo */}
           <Link
             to="/"
-            className="flex items-center gap-2 sm:gap-2 md:gap-3 cursor-pointer flex-shrink-0 min-w-fit mr-2 md:mr-4"
+            className="flex items-center gap-2 sm:gap-2 md:gap-2 cursor-pointer flex-shrink-0 min-w-fit mr-2 md:mr-3"
           >
             <div className="flex flex-col items-center text-center" style={logoWidthStyle}>
               <img
@@ -106,12 +106,12 @@ function Header() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center flex-1 justify-start gap-2 lg:gap-3 min-w-0 pr-2 md:pr-4 flex-nowrap overflow-x-auto md:overflow-visible whitespace-nowrap">
+          <nav className="hidden md:flex items-center flex-1 justify-start gap-2 lg:gap-2.5 min-w-0 pr-1 md:pr-3 flex-nowrap overflow-x-auto md:overflow-visible whitespace-nowrap">
             {navigation.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
-                className={`shrink-0 px-2.5 lg:px-3 xl:px-4 py-1.5 text-[12px] md:text-[13px] lg:text-sm font-medium rounded-lg transition-all duration-200 ${
+                className={`shrink-0 px-2 lg:px-2.5 xl:px-3 py-1.5 text-[12px] md:text-[13px] lg:text-sm font-medium rounded-lg transition-all duration-200 ${
                   isActive(item.href)
                     ? 'text-primary bg-blue-50 border border-blue-200'
                     : 'text-text-secondary hover:text-primary hover:bg-gray-50'
