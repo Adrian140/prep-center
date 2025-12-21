@@ -106,12 +106,12 @@ function Header() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center flex-1 justify-start gap-2 lg:gap-3 min-w-[420px] pr-4">
+          <nav className="hidden md:flex flex-wrap items-center flex-1 justify-start gap-2 lg:gap-3 min-w-[360px] pr-2 md:pr-4">
             {navigation.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
-                className={`px-2.5 lg:px-3 xl:px-4 py-1.5 text-[12px] md:text-[13px] lg:text-sm font-medium rounded-lg transition-all duration-200 ${
+                className={`shrink-0 px-2.5 lg:px-3 xl:px-4 py-1.5 text-[12px] md:text-[13px] lg:text-sm font-medium rounded-lg transition-all duration-200 ${
                   isActive(item.href)
                     ? 'text-primary bg-blue-50 border border-blue-200'
                     : 'text-text-secondary hover:text-primary hover:bg-gray-50'
