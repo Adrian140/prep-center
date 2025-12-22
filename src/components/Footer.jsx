@@ -77,7 +77,6 @@ function Footer() {
                   We prep. You scale.
                 </span>
               </div>
-              <span className="text-lg font-bold text-text-primary leading-tight">PrepCenter France</span>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed">
               {withSafeSubtitle(
