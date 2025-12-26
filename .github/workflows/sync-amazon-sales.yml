@@ -5,7 +5,7 @@ on:
 
 concurrency:
   group: sync-amazon-sales
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   sync:
@@ -62,13 +62,18 @@ jobs:
         with:
           github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
           script: |
-            const { data: run } = await github.rest.actions.getWorkflowRun({
+            const { data } = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              run_id: context.runId
+              workflow_id: 'sync-amazon-sales.yml',
+              per_page: 5
             });
-            if (run.status !== 'completed') {
-              core.info(`Run ${context.runId} not completed yet; skipping auto-relaunch.`);
+            const hasActive = (data.workflow_runs || []).some((r) =>
+              r.id !== context.runId &&
+              ['in_progress', 'queued', 'waiting', 'requested'].includes(r.status)
+            );
+            if (hasActive) {
+              core.info('Există deja un run în desfășurare/queue; nu mai trimit unul nou.');
               return;
             }
             await github.rest.actions.createWorkflowDispatch({
