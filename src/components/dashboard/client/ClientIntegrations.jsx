@@ -112,7 +112,6 @@ function StatusBadge({ status, t }) {
 export default function ClientIntegrations() {
   const { user, profile } = useSupabaseAuth();
   const { t, tp } = useDashboardTranslation();
-  const pbText = t('ClientIntegrations.prepBusiness', { returnObjects: true }) || {};
   const supportError = t('common.supportError');
   const isIndividualAccount =
     (profile?.account_type || profile?.accountType || profile?.type) === 'individual';
@@ -346,26 +345,23 @@ export default function ClientIntegrations() {
       <section className="bg-white border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-text-primary">
-              {pbText.title || 'Arbitrage One (via PrepBusiness)'}
-            </h2>
+            <h2 className="text-lg font-semibold text-text-primary">Arbitrage One (via PrepBusiness)</h2>
             <p className="text-sm text-text-secondary">
-              {pbText.desc ||
-                'Auto-import new inbounds into Reception Management and tag them as coming from PrepBusiness.'}
+              Auto-import new inbounds into Reception Management and tag them as coming from PrepBusiness.
             </p>
           </div>
           <div className="text-sm">
             {pbStatus === 'active' || pbStatus === 'mapped' ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
-                <CheckCircle className="w-4 h-4" /> {pbText.status?.active || 'Active'}
+                <CheckCircle className="w-4 h-4" /> Active
               </span>
             ) : pbStatus === 'error' ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
-                <AlertTriangle className="w-4 h-4" /> {pbText.status?.error || 'Error'}
+                <AlertTriangle className="w-4 h-4" /> Error
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700">
-                <Loader2 className="w-4 h-4" /> {pbText.status?.pending || 'Pending'}
+                <Loader2 className="w-4 h-4" /> Pending
               </span>
             )}
           </div>
@@ -373,9 +369,7 @@ export default function ClientIntegrations() {
 
         <form onSubmit={handleSavePrepBusiness} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-text-primary">
-              {pbText.prepEmail || 'Prep Center email'}
-            </label>
+            <label className="text-sm font-medium text-text-primary">Prep Center email (auto)</label>
             <input
               type="email"
               value={pbEmail}
@@ -394,13 +388,11 @@ export default function ClientIntegrations() {
                   if (next) setPbEmail(aoEmail || pbEmail || profile?.email || '');
                 }}
               />
-              {pbText.sameEmail || 'Use the same email for PrepBusiness'}
+              Use the same email for PrepBusiness
             </label>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-text-primary">
-              {pbText.aoEmail || 'ArbitrageOne email (required)'}
-            </label>
+            <label className="text-sm font-medium text-text-primary">ArbitrageOne email (required)</label>
             <input
               type="email"
               value={aoEmail}
@@ -417,11 +409,11 @@ export default function ClientIntegrations() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
             >
               {pbSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-              {pbText.save || 'Save & activate'}
+              Save & activate
             </button>
             <p className="text-xs text-text-secondary">
-              {pbText.helper ||
-                'Adds the “Soft Arbitrage One” €5 fee to your Other/Extras and auto-creates receptions for new inbounds.'}
+              Adds the “Soft Arbitrage One” €5 fee to your Other/Extras, maps by email, and auto-creates receptions.
+              Missing destination/tracking will be flagged as pending until you fill them.
             </p>
           </div>
         </form>
@@ -430,6 +422,15 @@ export default function ClientIntegrations() {
           <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{pbLastError}</div>
         )}
 
+        <div className="text-xs text-text-light space-y-1">
+          <p>
+            Env keys: set PREPBUSINESS_API_BASE_URL + PREPBUSINESS_API_TOKEN in Vercel (and Supabase Edge functions if used).
+            Do not commit them to git.
+          </p>
+          <p>
+            All receptions created from this sync are tagged with source “prepbusiness” so you can separate errors vs manual entries.
+          </p>
+        </div>
       </section>
 
       <section className="bg-white border rounded-xl p-5 space-y-4">

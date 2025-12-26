@@ -746,20 +746,6 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
-      },
-      "prepBusiness": {
-        "title": "Arbitrage One (via PrepBusiness)",
-        "desc": "Auto-import new inbounds into Reception Management and tag them as coming from PrepBusiness.",
-        "prepEmail": "Prep Center email",
-        "aoEmail": "ArbitrageOne email (required)",
-        "sameEmail": "Use the same email for PrepBusiness",
-        "save": "Save & activate",
-        "helper": "Adds the “Soft Arbitrage One” €5 fee to your Other/Extras and auto-creates receptions for new inbounds.",
-        "status": {
-          "pending": "Pending",
-          "error": "Error",
-          "active": "Active"
-        }
       }
     },
     "ClientAffiliates": {
@@ -1583,20 +1569,6 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
-      },
-      "prepBusiness": {
-        "title": "Arbitrage One (prin PrepBusiness)",
-        "desc": "Importă automat recepțiile în Reception Management și le marchează ca venite din PrepBusiness.",
-        "prepEmail": "Email Prep Center",
-        "aoEmail": "Email ArbitrageOne (obligatoriu)",
-        "sameEmail": "Folosește același email pentru PrepBusiness",
-        "save": "Salvează și activează",
-        "helper": "Adaugă linia „Soft Arbitrage One” de 5 € în Other/Extras și creează automat recepțiile pentru inbound-urile noi.",
-        "status": {
-          "pending": "În așteptare",
-          "error": "Eroare",
-          "active": "Activ"
-        }
       }
     },
     "ClientAffiliates": {
@@ -2468,20 +2440,6 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace : {id}"
-      },
-      "prepBusiness": {
-        "title": "Arbitrage One (via PrepBusiness)",
-        "desc": "Importe automatiquement les inbound dans Reception Management et les marque comme venant de PrepBusiness.",
-        "prepEmail": "Email Prep Center",
-        "aoEmail": "Email ArbitrageOne (obligatoire)",
-        "sameEmail": "Utiliser le même email pour PrepBusiness",
-        "save": "Enregistrer & activer",
-        "helper": "Ajoute la ligne « Soft Arbitrage One » de 5 € dans Other/Extras et crée automatiquement les réceptions pour les nouveaux inbound.",
-        "status": {
-          "pending": "En attente",
-          "error": "Erreur",
-          "active": "Actif"
-        }
       }
     },
     "reportsMenu": {
@@ -3223,20 +3181,6 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
-      },
-      "prepBusiness": {
-        "title": "Arbitrage One (über PrepBusiness)",
-        "desc": "Importiert neue Inbounds automatisch ins Reception Management und kennzeichnet sie als von PrepBusiness.",
-        "prepEmail": "Prep Center E-Mail",
-        "aoEmail": "ArbitrageOne E-Mail (Pflicht)",
-        "sameEmail": "Gleiche E-Mail für PrepBusiness verwenden",
-        "save": "Speichern & aktivieren",
-        "helper": "Fügt die Position „Soft Arbitrage One“ (5 €) zu Other/Extras hinzu und erstellt automatisch Receptions für neue Inbounds.",
-        "status": {
-          "pending": "Ausstehend",
-          "error": "Fehler",
-          "active": "Aktiv"
-        }
       }
     },
     "reportsMenu": {
@@ -3978,20 +3922,6 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
-      },
-      "prepBusiness": {
-        "title": "Arbitrage One (via PrepBusiness)",
-        "desc": "Importa automaticamente gli inbound in Reception Management e li contrassegna come provenienti da PrepBusiness.",
-        "prepEmail": "Email Prep Center",
-        "aoEmail": "Email ArbitrageOne (obbligatoria)",
-        "sameEmail": "Usa la stessa email per PrepBusiness",
-        "save": "Salva e attiva",
-        "helper": "Aggiunge la riga \"Soft Arbitrage One\" da 5 € in Other/Extras e crea automaticamente le reception per i nuovi inbound.",
-        "status": {
-          "pending": "In attesa",
-          "error": "Errore",
-          "active": "Attivo"
-        }
       }
     },
     "reportsMenu": {
@@ -4733,20 +4663,6 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
-      },
-      "prepBusiness": {
-        "title": "Arbitrage One (vía PrepBusiness)",
-        "desc": "Importa automáticamente los inbound en Reception Management y los marca como provenientes de PrepBusiness.",
-        "prepEmail": "Email del Prep Center",
-        "aoEmail": "Email de ArbitrageOne (obligatorio)",
-        "sameEmail": "Usar el mismo email para PrepBusiness",
-        "save": "Guardar y activar",
-        "helper": "Añade la línea «Soft Arbitrage One» de 5 € en Other/Extras y crea automáticamente recepciones para los nuevos inbound.",
-        "status": {
-          "pending": "Pendiente",
-          "error": "Error",
-          "active": "Activo"
-        }
       }
     },
     "reportsMenu": {
