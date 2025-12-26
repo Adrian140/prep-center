@@ -19,6 +19,7 @@ import { getTabId } from '@/utils/tabIdentity';
 import { tabSessionStorage } from '@/utils/tabStorage';
 import SupabaseSecuritySettings from '@/components/dashboard/SupabaseSecuritySettings';
 import { useMarket } from '@/contexts/MarketContext';
+import AdminPrepBusinessIntegrations from './AdminPrepBusinessIntegrations';
 
 const SERVICE_LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -31,7 +32,7 @@ const SERVICE_LANGUAGES = [
 
 import {
   Settings, DollarSign, Package, FileText, Plus, Edit, Trash2, Save, X,
-  Star, Users, BarChart3, PackageCheck, Truck, Boxes, Shield
+  Star, Users, BarChart3, PackageCheck, Truck, Boxes, Shield, Link2
 } from 'lucide-react';
 import AdminPrepRequests from './AdminPrepRequests';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
@@ -71,7 +72,7 @@ useEffect(() => {
   const lastUrlTabRef = useRef(null);
   const validTabs = [
     'analytics', 'dashboard', 'profiles', 'receiving', 'prep-requests', 'returns',
-    'pricing', 'boxes', 'reviews', 'user-guide', 'security', 'settings'
+    'pricing', 'boxes', 'reviews', 'user-guide', 'prep-business', 'security', 'settings'
   ];
   // ✅ Save & restore last selected admin tab
   const [activeTab, setActiveTab] = useState(() => {
@@ -192,6 +193,7 @@ useEffect(() => {
     { id: 'profiles', label: t('sidebar.profiles'), icon: Users },
     { id: 'receiving', label: t('sidebar.receiving'), icon: Truck },
     { id: 'prep-requests', label: t('sidebar.prepRequests'), icon: PackageCheck },
+    { id: 'prep-business', label: 'Arbitrage One', icon: Link2 },
     { id: 'returns', label: 'Returns', icon: Package },
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
     { id: 'boxes', label: 'Boxes', icon: Boxes },
@@ -1521,6 +1523,7 @@ const renderTabContent = () => {
       : <AdminProfiles onSelect={handleSelectProfile} />;
     case 'receiving': return <AdminReceiving />;
     case 'prep-requests': return <AdminPrepRequests />;
+    case 'prep-business': return <AdminPrepBusinessIntegrations />;
     case 'returns': return <AdminReturns />;
     case 'services': return renderServicesTab();
     case 'pricing': return renderPricingTab();

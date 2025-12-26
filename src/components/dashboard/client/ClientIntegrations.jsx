@@ -129,6 +129,14 @@ export default function ClientIntegrations() {
   const [qogitaConnections, setQogitaConnections] = useState([]);
   const [qogitaListLoading, setQogitaListLoading] = useState(true);
   const [qogitaRefreshing, setQogitaRefreshing] = useState(false);
+  const [pbEmail, setPbEmail] = useState('');
+  const [aoEmail, setAoEmail] = useState('');
+  const [sameEmail, setSameEmail] = useState(false);
+  const [pbStatus, setPbStatus] = useState('pending');
+  const [pbLastError, setPbLastError] = useState('');
+  const [pbLoading, setPbLoading] = useState(true);
+  const [pbSaving, setPbSaving] = useState(false);
+  const [pbIntegration, setPbIntegration] = useState(null);
 
   const clientId = import.meta.env.VITE_SPAPI_CLIENT_ID || '';
   const applicationId = import.meta.env.VITE_AMZ_APP_ID || clientId || '';
@@ -233,6 +241,56 @@ export default function ClientIntegrations() {
     loadQogitaConnections();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+  useEffect(() => {
+    const loadPrepBusiness = async () => {
+      if (!user?.id) {
+        setPbLoading(false);
+        return;
+      }
+      setPbLoading(true);
+      setPbLastError('');
+      const defaultEmail =
+        profile?.email ||
+        profile?.contact_email ||
+        profile?.company_email ||
+        '';
+      const { data, error } = await supabase
+        .from('prep_business_integrations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        setPbIntegration(null);
+        setPbEmail(defaultEmail);
+        setAoEmail('');
+        setPbStatus('pending');
+        setPbLastError(error.message || supportError);
+      } else if (data) {
+        setPbIntegration(data);
+        setPbEmail(data.email_prep_business || defaultEmail);
+        setAoEmail(data.email_arbitrage_one || '');
+        setPbStatus(data.status || 'pending');
+        setSameEmail(
+          !!data.email_prep_business &&
+            !!data.email_arbitrage_one &&
+            data.email_prep_business === data.email_arbitrage_one
+        );
+        setPbLastError(data.last_error || '');
+      } else {
+        setPbIntegration(null);
+        setPbEmail(defaultEmail);
+        setAoEmail('');
+        setPbStatus('pending');
+        setSameEmail(false);
+        setPbLastError('');
+      }
+      setPbLoading(false);
+    };
+    loadPrepBusiness();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, profile?.email, profile?.contact_email, profile?.company_email]);
 
   const removeIntegration = async (id) => {
     if (!window.confirm(t('ClientIntegrations.confirmDisconnect'))) return;
@@ -309,6 +367,49 @@ export default function ClientIntegrations() {
     setQogitaRefreshing(false);
   };
 
+  const handleSavePrepBusiness = async (event) => {
+    event.preventDefault();
+    if (!user?.id) return;
+    setPbSaving(true);
+    setPbLastError('');
+    const ao = (aoEmail || '').trim().toLowerCase();
+    const pb = (sameEmail ? aoEmail : pbEmail || profile?.email || '').trim().toLowerCase();
+    if (!ao) {
+      setPbLastError('ArbitrageOne email is required.');
+      setPbSaving(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('prep_business_integrations')
+      .upsert(
+        {
+          id: pbIntegration?.id,
+          user_id: user.id,
+          company_id: profile?.company_id || null,
+          email_arbitrage_one: ao,
+          email_prep_business: pb || null,
+          status: pbIntegration?.status || 'pending',
+          last_error: null,
+          updated_at: new Date().toISOString(),
+          created_at: pbIntegration?.created_at || new Date().toISOString()
+        },
+        { onConflict: 'user_id' }
+      )
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      setPbLastError(error.message || supportError);
+    } else {
+      setPbIntegration(data);
+      setPbStatus(data?.status || 'pending');
+      setPbLastError('');
+      setFlash('Arbitrage One via PrepBusiness saved. We will map and sync receptions automatically.');
+    }
+    setPbSaving(false);
+  };
+
   return (
     <div className="space-y-6 relative">
       <header className="flex items-center gap-3">
@@ -334,8 +435,99 @@ export default function ClientIntegrations() {
         <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{flash}</div>
       )}
 
-      <section className="bg-white border rounded-xl p-5 space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <section className="bg-white border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">Arbitrage One (via PrepBusiness)</h2>
+            <p className="text-sm text-text-secondary">
+              Auto-import new inbounds into Reception Management and tag them as coming from PrepBusiness.
+            </p>
+          </div>
+          <div className="text-sm">
+            {pbStatus === 'active' || pbStatus === 'mapped' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                <CheckCircle className="w-4 h-4" /> Active
+              </span>
+            ) : pbStatus === 'error' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
+                <AlertTriangle className="w-4 h-4" /> Error
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700">
+                <Loader2 className="w-4 h-4" /> Pending
+              </span>
+            )}
+          </div>
+        </div>
+
+        <form onSubmit={handleSavePrepBusiness} className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">Prep Center email (auto)</label>
+            <input
+              type="email"
+              value={pbEmail}
+              onChange={(e) => setPbEmail(e.target.value)}
+              disabled={sameEmail}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+              placeholder="you@prepcenter.com"
+            />
+            <label className="inline-flex items-center gap-2 text-sm text-text-secondary">
+              <input
+                type="checkbox"
+                checked={sameEmail}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setSameEmail(next);
+                  if (next) setPbEmail(aoEmail || pbEmail || profile?.email || '');
+                }}
+              />
+              Use the same email for PrepBusiness
+            </label>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">ArbitrageOne email (required)</label>
+            <input
+              type="email"
+              value={aoEmail}
+              onChange={(e) => setAoEmail(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+              placeholder="user@arbitrageone.com"
+              required
+            />
+          </div>
+          <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
+            <button
+              type="submit"
+              disabled={pbSaving || pbLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+            >
+              {pbSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+              Save & activate
+            </button>
+            <p className="text-xs text-text-secondary">
+              Adds the “Soft Arbitrage One” €5 fee to your Other/Extras, maps by email, and auto-creates receptions.
+              Missing destination/tracking will be flagged as pending until you fill them.
+            </p>
+          </div>
+        </form>
+
+        {pbLastError && (
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{pbLastError}</div>
+        )}
+
+        <div className="text-xs text-text-light space-y-1">
+          <p>
+            Env keys: set PREPBUSINESS_API_BASE_URL + PREPBUSINESS_API_TOKEN in Vercel (and Supabase Edge functions if used).
+            Do not commit them to git.
+          </p>
+          <p>
+            All receptions created from this sync are tagged with source “prepbusiness” so you can separate errors vs manual entries.
+          </p>
+        </div>
+      </section>
+
+      <section className="bg-white border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-text-primary">
               {t('ClientIntegrations.amazonTitle', 'Amazon Seller Central')}
