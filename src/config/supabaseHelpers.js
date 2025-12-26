@@ -43,6 +43,59 @@ const receivingItemColumnMissing = (error) =>
 const receivingShipmentArrayColumnMissing = (error) =>
   ['tracking_ids', 'fba_shipment_ids'].some((col) => isMissingColumnError(error, col));
 
+const receivingImportColumnMissing = (error) =>
+  ['import_source', 'import_source_ref', 'import_tags'].some((col) =>
+    isMissingColumnError(error, col)
+  );
+
+const normalizeCode = (value) =>
+  typeof value === 'string' ? value.trim() : value ?? null;
+
+const normalizeEmail = (value) =>
+  typeof value === 'string' ? value.trim().toLowerCase() : value ?? null;
+
+const PREP_BUSINESS_INTEGRATIONS_TABLE = 'prep_business_integrations';
+const PREP_BUSINESS_IMPORTS_TABLE = 'prep_business_imports';
+
+const ensureStockItemForPrepBusiness = async (companyId, userId, item) => {
+  if (!companyId) throw new Error('Missing company id for stock item');
+  const asin = normalizeCode(item.asin);
+  const sku = normalizeCode(item.sku);
+  const ean = normalizeCode(item.ean);
+  const orFilters = [];
+  if (asin) orFilters.push(`asin.eq.${asin}`);
+  if (sku) orFilters.push(`sku.eq.${sku}`);
+  if (ean) orFilters.push(`ean.eq.${ean}`);
+
+  if (orFilters.length) {
+    const { data: existing } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('company_id', companyId)
+      .or(orFilters.join(','))
+      .maybeSingle();
+    if (existing) return existing;
+  }
+
+  const payload = {
+    company_id: companyId,
+    user_id: userId || null,
+    asin,
+    sku,
+    ean,
+    name: item.product_name || item.title || sku || asin || 'Unknown product',
+    qty: 0,
+    created_at: new Date().toISOString()
+  };
+  const { data: created, error } = await supabase
+    .from('stock_items')
+    .insert(payload)
+    .select()
+    .single();
+  if (error) throw error;
+  return created;
+};
+
 export const supabaseHelpers = {
   getCarriers: async () => {
     return await supabase
@@ -130,11 +183,12 @@ export const supabaseHelpers = {
   /* =========================
      Reception Announcements
      ========================= */
-createReceptionRequest: async (data) => {
+  createReceptionRequest: async (data) => {
   await ensureReceivingColumnSupport();
   let useShipmentFba = canUseReceivingFbaMode();
   let useItemsFba = canUseReceivingItemFbaColumns();
   let useShipmentArrays = canUseReceivingShipmentArrays();
+  let includeImportMeta = true;
   const destinationCountry = (data.destination_country || 'FR').toUpperCase();
 
   const trackingIds =
@@ -157,7 +211,7 @@ createReceptionRequest: async (data) => {
     storeName = profileData?.store_name || null;
   }
 
-  const buildHeaderPayload = (withFbaMode, withArrays) => {
+  const buildHeaderPayload = (withFbaMode, withArrays, withImportMeta) => {
     const payload = {
       user_id: data.user_id,
       company_id: data.company_id,
@@ -175,6 +229,13 @@ createReceptionRequest: async (data) => {
     if (withFbaMode) {
       payload.fba_mode = data.fba_mode || 'none';
     }
+    if (withImportMeta) {
+      if (data.import_source) payload.import_source = data.import_source;
+      if (data.import_source_ref || data.source_id) {
+        payload.import_source_ref = data.import_source_ref || data.source_id;
+      }
+      if (data.import_tags) payload.import_tags = data.import_tags;
+    }
     return payload;
   };
 
@@ -190,7 +251,7 @@ createReceptionRequest: async (data) => {
 
   let header;
   while (true) {
-    const headerPayload = buildHeaderPayload(useShipmentFba, useShipmentArrays);
+    const headerPayload = buildHeaderPayload(useShipmentFba, useShipmentArrays, includeImportMeta);
     try {
       header = await insertHeader(headerPayload);
       break;
@@ -203,6 +264,10 @@ createReceptionRequest: async (data) => {
       if (useShipmentArrays && receivingShipmentArrayColumnMissing(error)) {
         disableReceivingShipmentArraySupport();
         useShipmentArrays = false;
+        continue;
+      }
+      if (includeImportMeta && receivingImportColumnMissing(error)) {
+        includeImportMeta = false;
         continue;
       }
       throw error;
@@ -864,5 +929,130 @@ createReceptionRequest: async (data) => {
       .eq('id', profileId)
       .select('id')
       .single();
+  },
+
+  /* =========================
+     PrepBusiness / ArbitrageOne
+     ========================= */
+  getPrepBusinessIntegrationForUser: async (userId) => {
+    if (!userId) return { data: null, error: new Error('Missing user id') };
+    const { data, error } = await supabase
+      .from(PREP_BUSINESS_INTEGRATIONS_TABLE)
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return { data, error };
+  },
+
+  upsertPrepBusinessIntegration: async (payload) => {
+    if (!payload?.user_id) return { data: null, error: new Error('Missing user id') };
+    const record = {
+      id: payload.id,
+      user_id: payload.user_id,
+      company_id: payload.company_id || null,
+      email_arbitrage_one: normalizeEmail(payload.email_arbitrage_one) || null,
+      email_prep_business: normalizeEmail(payload.email_prep_business) || null,
+      status: payload.status || 'pending',
+      merchant_id: payload.merchant_id || null,
+      last_error: payload.last_error || null,
+      last_synced_at: payload.last_synced_at || null,
+      updated_at: new Date().toISOString(),
+      created_at: payload.created_at || new Date().toISOString()
+    };
+    const { data, error } = await supabase
+      .from(PREP_BUSINESS_INTEGRATIONS_TABLE)
+      .upsert(record, { onConflict: 'user_id' })
+      .select()
+      .maybeSingle();
+    return { data, error };
+  },
+
+  listPrepBusinessIntegrations: async () => {
+    const { data, error } = await supabase
+      .from(PREP_BUSINESS_INTEGRATIONS_TABLE)
+      .select('*')
+      .order('updated_at', { ascending: false });
+    return { data: data || [], error };
+  },
+
+  importPrepBusinessInbound: async (payload) => {
+    if (!payload?.user_id || !payload?.company_id) {
+      return { data: null, error: new Error('Missing user/company for import') };
+    }
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    if (!items.length) {
+      return { data: null, error: new Error('Missing items to import') };
+    }
+
+    const resolvedItems = [];
+    for (const item of items) {
+      try {
+        const stock = await ensureStockItemForPrepBusiness(
+          payload.company_id,
+          payload.user_id,
+          item
+        );
+        resolvedItems.push({
+          ...item,
+          stock_item_id: stock?.id || item.stock_item_id || null,
+          product_name: item.product_name || item.title || stock?.name || item.sku || item.asin,
+          asin: normalizeCode(item.asin),
+          sku: normalizeCode(item.sku)
+        });
+      } catch (error) {
+        return { data: null, error };
+      }
+    }
+
+    const receptionPayload = {
+      user_id: payload.user_id,
+      company_id: payload.company_id,
+      destination_country: (payload.destination_country || 'FR').toUpperCase(),
+      carrier: payload.carrier || payload.carrier_name || null,
+      carrier_other: payload.carrier_other || null,
+      tracking_id: payload.tracking_id || null,
+      tracking_ids: payload.tracking_ids || null,
+      notes: payload.notes || null,
+      status: payload.status || 'submitted',
+      import_source: 'prepbusiness',
+      import_source_ref: payload.source_id || payload.external_id || null,
+      items: resolvedItems.map((it) => ({
+        stock_item_id: it.stock_item_id || null,
+        asin: normalizeCode(it.asin),
+        sku: normalizeCode(it.sku),
+        product_name: it.product_name || it.title || it.sku || it.asin,
+        units_requested: Math.max(1, Number(it.quantity || it.qty || it.units_requested || 0) || 0),
+        purchase_price: it.purchase_price ?? null,
+        fba_qty: it.fba_qty,
+        send_to_fba: it.send_to_fba
+      }))
+    };
+
+    let header = null;
+    try {
+      header = await supabaseHelpers.createReceptionRequest(receptionPayload);
+    } catch (error) {
+      return { data: null, error };
+    }
+
+    if (payload.source_id) {
+      try {
+        await supabase.from(PREP_BUSINESS_IMPORTS_TABLE).insert({
+          source_id: payload.source_id,
+          user_id: payload.user_id,
+          company_id: payload.company_id,
+          receiving_shipment_id: header?.id || null,
+          status: 'imported',
+          created_at: new Date().toISOString()
+        });
+      } catch (err) {
+        // ignore logging errors to avoid blocking import
+        console.warn('prep_business_imports insert failed', err?.message || err);
+      }
+    }
+
+    return { data: header, items: resolvedItems, error: null };
   }
 };
