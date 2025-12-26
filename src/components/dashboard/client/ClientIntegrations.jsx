@@ -421,7 +421,7 @@ export default function ClientIntegrations() {
             </button>
             <p className="text-xs text-text-secondary">
               {pbText.helper ||
-                'Adds the “Soft Arbitrage One” €5 fee to your Other/Extras and auto-creates receptions for new inbounds.'}
+                'Once enabled, a €5 monthly fee is applied. You can turn this off anytime.'}
             </p>
           </div>
         </form>

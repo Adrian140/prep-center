@@ -754,7 +754,7 @@
         "aoEmail": "ArbitrageOne email (required)",
         "sameEmail": "Use the same email for PrepBusiness",
         "save": "Save & activate",
-        "helper": "Adds the “Soft Arbitrage One” €5 fee to your Other/Extras and auto-creates receptions for new inbounds.",
+        "helper": "Once enabled, a €5 monthly fee is applied. You can turn this off anytime.",
         "status": {
           "pending": "Pending",
           "error": "Error",
@@ -1591,7 +1591,7 @@
         "aoEmail": "Email ArbitrageOne (obligatoriu)",
         "sameEmail": "Folosește același email pentru PrepBusiness",
         "save": "Salvează și activează",
-        "helper": "Adaugă linia „Soft Arbitrage One” de 5 € în Other/Extras și creează automat recepțiile pentru inbound-urile noi.",
+        "helper": "Odată activată, se aplică o taxă lunară de 5 € și o poți opri oricând.",
         "status": {
           "pending": "În așteptare",
           "error": "Eroare",
@@ -2476,7 +2476,7 @@
         "aoEmail": "Email ArbitrageOne (obligatoire)",
         "sameEmail": "Utiliser le même email pour PrepBusiness",
         "save": "Enregistrer & activer",
-        "helper": "Ajoute la ligne « Soft Arbitrage One » de 5 € dans Other/Extras et crée automatiquement les réceptions pour les nouveaux inbound.",
+        "helper": "Une fois activé, des frais mensuels de 5 € s’appliquent. Vous pouvez arrêter à tout moment.",
         "status": {
           "pending": "En attente",
           "error": "Erreur",
@@ -3231,7 +3231,7 @@
         "aoEmail": "ArbitrageOne E-Mail (Pflicht)",
         "sameEmail": "Gleiche E-Mail für PrepBusiness verwenden",
         "save": "Speichern & aktivieren",
-        "helper": "Fügt die Position „Soft Arbitrage One“ (5 €) zu Other/Extras hinzu und erstellt automatisch Receptions für neue Inbounds.",
+        "helper": "Nach Aktivierung fällt eine monatliche Gebühr von 5 € an. Du kannst sie jederzeit stoppen.",
         "status": {
           "pending": "Ausstehend",
           "error": "Fehler",
@@ -3986,7 +3986,7 @@
         "aoEmail": "Email ArbitrageOne (obbligatoria)",
         "sameEmail": "Usa la stessa email per PrepBusiness",
         "save": "Salva e attiva",
-        "helper": "Aggiunge la riga \"Soft Arbitrage One\" da 5 € in Other/Extras e crea automaticamente le reception per i nuovi inbound.",
+        "helper": "Una volta attivata, viene applicata una tariffa mensile di 5 €. Puoi disattivarla in qualsiasi momento.",
         "status": {
           "pending": "In attesa",
           "error": "Errore",
@@ -4741,7 +4741,7 @@
         "aoEmail": "Email de ArbitrageOne (obligatorio)",
         "sameEmail": "Usar el mismo email para PrepBusiness",
         "save": "Guardar y activar",
-        "helper": "Añade la línea «Soft Arbitrage One» de 5 € en Other/Extras y crea automáticamente recepciones para los nuevos inbound.",
+        "helper": "Una vez activado, se aplica una tarifa mensual de 5 €. Puedes desactivarlo en cualquier momento.",
         "status": {
           "pending": "Pendiente",
           "error": "Error",
