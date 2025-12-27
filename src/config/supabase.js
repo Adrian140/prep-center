@@ -1546,14 +1546,18 @@ createPrepItem: async (requestId, item) => {
 
   getAnalytics: async (options = {}) => {
     try {
-      const days = options.days || 30;
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - days);
+      const days = Math.max(1, options.days || 30);
+      const end = new Date();
+      end.setUTCHours(23, 59, 59, 999);
+      const start = new Date(end);
+      start.setDate(start.getDate() - (days - 1));
 
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('analytics_visits')
-        .select('id, created_at, path, referrer, visitor_id')
-        .gte('created_at', cutoff.toISOString())
+        .select('id, created_at, path, referrer, visitor_id', { count: 'exact' })
+        .gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString())
+        .limit(50000)
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -1594,7 +1598,7 @@ createPrepItem: async (requestId, item) => {
       });
 
       const totals = {
-        visits: visits.length,
+        visits: typeof count === 'number' ? count : visits.length,
         uniqueVisitors: visitorCounts.size,
         returningVisitors: Array.from(visitorCounts.values()).filter((c) => c > 1).length
       };
@@ -1605,8 +1609,8 @@ createPrepItem: async (requestId, item) => {
         return iso.toISOString().slice(0, 10);
       };
 
-      const startKey = normalizeDateKey(cutoff);
-      const endKey = normalizeDateKey(new Date());
+      const startKey = normalizeDateKey(start);
+      const endKey = normalizeDateKey(end);
 
       const existing = new Map(
         Array.from(perDay.values()).map((d) => [
