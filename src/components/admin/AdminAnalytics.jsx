@@ -90,7 +90,9 @@ export default function AdminAnalytics() {
         >
           <option value={7}>Ultimele 7 zile</option>
           <option value={30}>Ultimele 30 zile</option>
-          <option value={90}>Ultimele 90 zile</option>
+          <option value={90}>Ultimele 3 luni</option>
+          <option value={180}>Ultimele 6 luni</option>
+          <option value={270}>Ultimele 9 luni</option>
         </select>
       </div>
 
