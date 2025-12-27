@@ -15,14 +15,14 @@ function randomId() {
 
 export default function RouteTracker() {
   const location = useLocation();
-  const userId = useMemo(() => randomId(), []);
+  const visitorId = useMemo(() => randomId(), []);
 
   useEffect(() => {
     const path = location.pathname + location.search;
     const ref = document.referrer ? new URL(document.referrer).host : null;
     const locale = navigator.language || 'en';
-    supabaseHelpers.trackVisit({ path, referrer: ref, locale, userId });
-  }, [location, userId]);
+    supabaseHelpers.trackVisit({ path, referrer: ref, locale, visitorId });
+  }, [location, visitorId]);
 
   return null;
 }

@@ -1516,10 +1516,25 @@ createPrepItem: async (requestId, item) => {
   // ===== Analytics =====
   trackVisit: async (visitData) => {
     try {
+      // generate a stable visitor id if caller doesn't provide one
+      let visitorId = visitData?.userId || visitData?.visitorId || null;
+      if (!visitorId && typeof window !== 'undefined') {
+        try {
+          const k = 'pcf_uid';
+          visitorId = localStorage.getItem(k);
+          if (!visitorId) {
+            visitorId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+            localStorage.setItem(k, visitorId);
+          }
+        } catch {
+          visitorId = null;
+        }
+      }
+
       const payload = {
         path: visitData?.path || window?.location?.pathname || '/',
         referrer: visitData?.referrer || document?.referrer || null,
-        visitor_id: visitData?.userId || visitData?.visitorId || null,
+        visitor_id: visitorId,
         locale: visitData?.locale || null,
         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
       };
@@ -1552,7 +1567,14 @@ createPrepItem: async (requestId, item) => {
       visits.forEach((v, idx) => {
         const date = new Date(v.created_at);
         const dayKey = date.toISOString().slice(0, 10);
-        const visitorKey = v.visitor_id || v.id || `unknown-${idx}`;
+        const visitorKey =
+          v.visitor_id ||
+          v.visitorId ||
+          v.visitor ||
+          v.client_id ||
+          v.user_id ||
+          v.id ||
+          `unknown-${idx}`;
 
         const day = perDay.get(dayKey) || {
           date: dayKey,
