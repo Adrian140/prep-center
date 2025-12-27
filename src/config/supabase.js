@@ -1599,14 +1599,42 @@ createPrepItem: async (requestId, item) => {
         returningVisitors: Array.from(visitorCounts.values()).filter((c) => c > 1).length
       };
 
-      const byDay = Array.from(perDay.values())
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .map((d) => ({
-          date: d.date,
-          visits: d.visits,
-          uniqueVisitors: d.uniqueVisitors.size,
-          returningVisitors: d.returningVisitors.size
-        }));
+      const normalizeDateKey = (d) => {
+        const iso = new Date(d);
+        iso.setUTCHours(0, 0, 0, 0);
+        return iso.toISOString().slice(0, 10);
+      };
+
+      const startKey = normalizeDateKey(cutoff);
+      const endKey = normalizeDateKey(new Date());
+
+      const existing = new Map(
+        Array.from(perDay.values()).map((d) => [
+          d.date,
+          {
+            date: d.date,
+            visits: d.visits,
+            uniqueVisitors: d.uniqueVisitors.size,
+            returningVisitors: d.returningVisitors.size
+          }
+        ])
+      );
+
+      const byDay = [];
+      let cursor = new Date(startKey);
+      while (cursor <= new Date(endKey)) {
+        const key = normalizeDateKey(cursor);
+        const row =
+          existing.get(key) ||
+          {
+            date: key,
+            visits: 0,
+            uniqueVisitors: 0,
+            returningVisitors: 0
+          };
+        byDay.push(row);
+        cursor.setDate(cursor.getDate() + 1);
+      }
 
       const aggregateCounts = (key, fallbackLabel = '') => {
         const map = new Map();
