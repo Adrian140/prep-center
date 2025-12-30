@@ -39,8 +39,10 @@ function SupabaseRegisterForm() {
   const validatePassword = (password) => {
     const minLength = password.length >= 8;
     const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
     const hasNumber = /\d/.test(password);
-    return minLength && hasUpperCase && hasNumber;
+    const hasSymbol = /[^A-Za-z0-9]/.test(password);
+    return minLength && hasUpperCase && hasLowerCase && hasNumber && hasSymbol;
   };
 
   const checkAffiliateCode = async (code) => {
@@ -94,7 +96,7 @@ function SupabaseRegisterForm() {
     }
 
     if (!validatePassword(formData.password)) {
-      setError('Password must have at least 8 characters, one uppercase letter, and one number.');
+      setError(t('authPasswordRequirements'));
       setLoading(false);
       return;
     }
@@ -418,7 +420,7 @@ function SupabaseRegisterForm() {
                   value={formData.password}
                   onChange={handleChange}
                   className="pl-9 pr-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
-                  placeholder="At least 8 characters, 1 uppercase, 1 number"
+                  placeholder="At least 8 chars, uppercase, lowercase, number, symbol"
                 />
                 <button
                   type="button"
@@ -428,6 +430,7 @@ function SupabaseRegisterForm() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+              <p className="text-xs text-text-secondary mt-1">{t('authPasswordRequirements')}</p>
             </div>
             
             <div>

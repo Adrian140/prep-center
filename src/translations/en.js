@@ -22,6 +22,7 @@ export const en = {
   authResetErrorLength: 'Password must be at least 8 characters.',
   authResetErrorMismatch: 'Passwords do not match.',
   authSignupGenericError: 'Something went wrong. Please contact support.',
+  authPasswordRequirements: 'Use at least 8 characters, with uppercase, lowercase, a number, and a symbol.',
   authAffiliateLabel: 'Affiliate code (optional)',
   authAffiliateHint: 'If you received a referral code, enter it here.',
   authAffiliateInvalid: 'Affiliate code not found.',

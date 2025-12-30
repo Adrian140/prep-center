@@ -22,6 +22,7 @@ export const ro = {
   authResetErrorLength: 'Parola trebuie să aibă cel puțin 8 caractere.',
   authResetErrorMismatch: 'Parolele nu coincid.',
   authSignupGenericError: 'Ceva nu a funcționat corect. Vă rugăm să contactați suportul.',
+  authPasswordRequirements: 'Parola trebuie să aibă minim 8 caractere, o literă mare, o literă mică, o cifră și un simbol.',
   authAffiliateLabel: 'Cod afiliat (opțional)',
   authAffiliateHint: 'Dacă ai primit un cod de la un partener, introdu-l aici.',
   authAffiliateInvalid: 'Codul de afiliat nu există.',

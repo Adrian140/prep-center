@@ -22,6 +22,7 @@ export const it = {
   authResetErrorLength: 'La password deve contenere almeno 8 caratteri.',
   authResetErrorMismatch: 'Le password non coincidono.',
   authSignupGenericError: 'Qualcosa non ha funzionato correttamente. Contatta il supporto.',
+  authPasswordRequirements: 'Almeno 8 caratteri con maiuscole, minuscole, un numero e un simbolo.',
   authAffiliateLabel: 'Codice affiliato (opzionale)',
   authAffiliateHint: 'Se hai ricevuto un codice da un partner, inseriscilo qui.',
   authAffiliateInvalid: 'Codice affiliato non trovato.',
