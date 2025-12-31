@@ -5,7 +5,6 @@ import LanguageSelector from '@/components/common/LanguageSelector';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Menu, X } from 'lucide-react';
 import { useT } from '@/i18n/useT';
-import { supabase } from '@/config/supabase';
 
 function Header() {
   const t = useT();
@@ -46,12 +45,18 @@ function Header() {
         if (active) setHasIntegration(false);
         return;
       }
-      const { count } = await supabase
-        .from('amazon_integrations')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-      if (active) setHasIntegration((count || 0) > 0);
+      try {
+        const { supabase } = await import('@/config/supabase');
+        const { count } = await supabase
+          .from('amazon_integrations')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', 'active');
+        if (active) setHasIntegration((count || 0) > 0);
+      } catch (err) {
+        console.error('Failed to check integrations', err);
+        if (active) setHasIntegration(false);
+      }
     };
     loadIntegration();
     return () => {
