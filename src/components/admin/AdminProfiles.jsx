@@ -140,6 +140,7 @@ export default function AdminProfiles({ onSelect }) {
     selectedMonth: monthKey(new Date()),
     showEmail: false,
     showPhone: false,
+    showPricing: true,
     from: isoLocal(firstDayOfMonth(new Date())),
     to: isoLocal(lastDayOfMonth(new Date())),
     q: '',
@@ -150,6 +151,9 @@ export default function AdminProfiles({ onSelect }) {
   const [selectedMonth, setSelectedMonth] = useState(persistedFilters.selectedMonth || monthKey(new Date()));
   const [showEmail, setShowEmail] = useState(!!persistedFilters.showEmail);
   const [showPhone, setShowPhone] = useState(!!persistedFilters.showPhone);
+  const [showPricing, setShowPricing] = useState(
+    persistedFilters.showPricing === undefined ? true : !!persistedFilters.showPricing
+  );
   const [from, setFrom] = useState(persistedFilters.from || isoLocal(firstDayOfMonth(new Date())));
   const [to, setTo] = useState(persistedFilters.to || isoLocal(lastDayOfMonth(new Date())));
   const gotoMonth = (delta) => {
@@ -181,13 +185,14 @@ export default function AdminProfiles({ onSelect }) {
       selectedMonth,
       showEmail,
       showPhone,
+      showPricing,
       from,
       to,
       q,
       page,
       restFilter
     });
-  }, [selectedMonth, showEmail, showPhone, from, to, q, page, restFilter, setPersistedFilters]);
+  }, [selectedMonth, showEmail, showPhone, showPricing, from, to, q, page, restFilter, setPersistedFilters]);
 
   useEffect(() => {
     if (!showBalances && restFilter !== "all") {
@@ -353,8 +358,9 @@ const tableTotals = useMemo(() => {
     7 +
     (showEmail ? 1 : 0) +
     (showPhone ? 1 : 0) +
+    (showPricing ? 1 : 0) +
     (showBalances ? 3 : 0);
-  const summaryDetailSpan = 4 + (showEmail ? 1 : 0) + (showPhone ? 1 : 0);
+  const summaryDetailSpan = 3 + (showEmail ? 1 : 0) + (showPhone ? 1 : 0) + (showPricing ? 1 : 0);
 
   // compute balances per row (STRICT din RPC; fără calcule în React)
   useEffect(() => {
@@ -541,6 +547,13 @@ const togglePriceAccess = async (profile, nextValue) => {
           >
             {showPhone ? t("clients.buttons.hidePhone") : t("clients.buttons.showPhone")}
           </button>
+          <button
+            onClick={() => setShowPricing(!showPricing)}
+            className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm w-full text-xs"
+            title={t("clients.buttons.togglePricing")}
+          >
+            {showPricing ? t("clients.buttons.hidePricing") : t("clients.buttons.showPricing")}
+          </button>
         </div>
       </div>
 
@@ -568,7 +581,9 @@ const togglePriceAccess = async (profile, nextValue) => {
               {showEmail && <th className="px-4 py-3 text-left">{t("clients.table.email")}</th>}
               {showPhone && <th className="px-4 py-3 text-left">{t("clients.table.phone")}</th>}
               <th className="px-4 py-3 text-left">{t("clients.table.createdAt")}</th>
-              <th className="px-4 py-3 text-left">{t("clients.table.pricingVisibility")}</th>
+              {showPricing && (
+                <th className="px-4 py-3 text-left">{t("clients.table.pricingVisibility")}</th>
+              )}
               {showBalances && (
                 <>
                   <th className="px-4 py-3 text-left whitespace-pre-line">{t("clients.table.currentBalance")}</th>
@@ -629,25 +644,27 @@ const togglePriceAccess = async (profile, nextValue) => {
                     {showEmail && <td className="px-4 py-3">{p.email || "—"}</td>}
                     {showPhone && <td className="px-4 py-3">{p.phone || "—"}</td>}
                     <td className="px-4 py-3">{p.created_at?.slice(0,10) || "—"}</td>
-                    <td className="px-4 py-3">
-                      <label className="inline-flex items-center gap-2 text-xs text-text-secondary">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-gray-300"
-                          checked={!!p.can_view_prices}
-                          onChange={(e) => togglePriceAccess(p, e.target.checked)}
-                          disabled={!!priceToggleSaving[p.id]}
-                        />
-                        <span>
-                          {p.can_view_prices
-                            ? t("clients.table.pricingVisible")
-                            : t("clients.table.pricingHidden")}
-                        </span>
-                        {priceToggleSaving[p.id] && (
-                          <span className="text-[11px] text-text-light">{t("common.loading")}</span>
-                        )}
-                      </label>
-                    </td>
+                    {showPricing && (
+                      <td className="px-4 py-3">
+                        <label className="inline-flex items-center gap-2 text-xs text-text-secondary">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300"
+                            checked={!!p.can_view_prices}
+                            onChange={(e) => togglePriceAccess(p, e.target.checked)}
+                            disabled={!!priceToggleSaving[p.id]}
+                          />
+                          <span>
+                            {p.can_view_prices
+                              ? t("clients.table.pricingVisible")
+                              : t("clients.table.pricingHidden")}
+                          </span>
+                          {priceToggleSaving[p.id] && (
+                            <span className="text-[11px] text-text-light">{t("common.loading")}</span>
+                          )}
+                        </label>
+                      </td>
+                    )}
                     {showBalances && (
                       <>
                         <td className="px-4 py-3">

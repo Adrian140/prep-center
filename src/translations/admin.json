@@ -51,7 +51,10 @@
         "toggleEmail": "Show/Hide email column",
         "showPhone": "Show Phone",
         "hidePhone": "Hide Phone",
-        "togglePhone": "Show/Hide phone column"
+        "togglePhone": "Show/Hide phone column",
+        "showPricing": "Show pricing access",
+        "hidePricing": "Hide pricing access",
+        "togglePricing": "Show/Hide pricing column"
       },
       "rpcRange": "RPC period: {start} (inclusive) → {end} (inclusive)",
       "table": {
@@ -373,7 +376,10 @@
         "toggleEmail": "Afficher / masquer la colonne email",
         "showPhone": "Afficher le téléphone",
         "hidePhone": "Masquer le téléphone",
-        "togglePhone": "Afficher / masquer la colonne téléphone"
+        "togglePhone": "Afficher / masquer la colonne téléphone",
+        "showPricing": "Afficher accès tarifs",
+        "hidePricing": "Masquer accès tarifs",
+        "togglePricing": "Afficher / masquer la colonne tarifs"
       },
       "rpcRange": "Période RPC : {start} (inclus) → {end} (inclus)",
       "table": {
@@ -640,7 +646,10 @@
         "toggleEmail": "Afișează/ascunde coloana email",
         "showPhone": "Afișează telefon",
         "hidePhone": "Ascunde telefon",
-        "togglePhone": "Afișează/ascunde coloana telefon"
+        "togglePhone": "Afișează/ascunde coloana telefon",
+        "showPricing": "Afișează acces prețuri",
+        "hidePricing": "Ascunde acces prețuri",
+        "togglePricing": "Afișează/ascunde coloana prețuri"
       },
       "rpcRange": "Perioadă RPC: {start} (inclusiv) → {end} (inclusiv)",
       "table": {
