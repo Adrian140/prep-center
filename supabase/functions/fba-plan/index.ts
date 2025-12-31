@@ -258,8 +258,8 @@ async function assumeRole(roleArn: string) {
     },
     body
   });
-  if (!res.ok) throw new Error(`STS assumeRole failed: ${res.status} ${await res.text()}`);
   const xml = await res.text();
+  if (!res.ok) throw new Error(`STS assumeRole failed: ${res.status} ${xml}`);
   const get = (tag: string) => {
     const m = xml.match(new RegExp(`<${tag}>([^<]+)</${tag}>`));
     return m ? m[1] : "";
@@ -673,44 +673,6 @@ serve(async (req) => {
       // ignore decode errors
     }
 
-    const hasInboundScope = lwaScopes.some((s) => s.toLowerCase().includes("fulfillment_inbound"));
-    if (!hasInboundScope) {
-      const warning = "Lipsea scope-ul sellingpartnerapi::fulfillment_inbound din token. Reautorizează aplicația după ce Amazon atașează rolul Fulfillment Inbound.";
-      const skus = (reqData.prep_request_items || []).map((it: any, idx: number) => ({
-        id: it.id || `sku-${idx + 1}`,
-        title: it.product_name || it.sku || `SKU ${idx + 1}`,
-        sku: it.sku || "",
-        asin: it.asin || "",
-        storageType: "Standard-size",
-        packing: "individual",
-        units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-        expiry: "",
-        prepRequired: false,
-        prepNotes: "",
-        manufacturerBarcodeEligible: true,
-        readyToPack: true
-      }));
-      const plan = {
-        source: "amazon",
-        marketplace: marketplaceId,
-        shipFrom: {
-          name: "—",
-          address: "—"
-        },
-        skus,
-        packGroups: [],
-        shipments: [],
-        raw: null,
-        skuStatuses: [],
-        warning,
-        blocking: true
-      };
-      return new Response(JSON.stringify({ plan, traceId, scopes: lwaScopes }), {
-        status: 200,
-        headers: { ...corsHeaders, "content-type": "application/json" }
-      });
-    }
-
     const items: PrepRequestItem[] = (Array.isArray(reqData.prep_request_items) ? reqData.prep_request_items : []).filter(
       (it) => Number(it.units_sent ?? it.units_requested ?? 0) > 0
     );
@@ -774,7 +736,7 @@ serve(async (req) => {
       refreshToken: maskSecret(refreshToken || "", 3),
       roleArn: SPAPI_ROLE_ARN ? `...${SPAPI_ROLE_ARN.slice(-6)}` : "",
       accessKey: AWS_ACCESS_KEY_ID ? `...${AWS_ACCESS_KEY_ID.slice(-4)}` : "",
-      scopes: lwaScopes
+      scopes: lwaScopes.length ? lwaScopes : "opaque_token_not_decoded"
     });
 
     // Pre-eligibility check per SKU for destination marketplace
@@ -842,7 +804,6 @@ serve(async (req) => {
       shipFromAddress,
       destinationMarketplaces: [marketplaceId],
       labelPrepPreference: "SELLER_LABEL",
-      program: "EFN",
       shipmentType: "SP",
       requireDeliveryWindows: false,
       items: items.map((it) => ({

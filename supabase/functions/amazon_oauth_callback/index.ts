@@ -165,9 +165,9 @@ serve(async (req) => {
       user_id: targetUserId,
       company_id: companyId,
       refresh_token: refreshToken,
-      selling_partner_id: sellingPartnerId,
-      status: "active",
-      last_error: null,
+      selling_partner_id: sellingPartnerId || null,
+      status: sellingPartnerId ? "active" : "pending",
+      last_error: sellingPartnerId ? null : "Missing selling_partner_id in callback; reconnect to finish setup.",
       updated_at: new Date().toISOString()
     };
 
@@ -179,13 +179,13 @@ serve(async (req) => {
 
     const { error: upsertError } = await serviceClient
       .from("amazon_integrations")
-      .upsert(integrationRecords, { onConflict: "user_id,marketplace_id" });
+      .upsert(integrationRecords, { onConflict: "company_id,marketplace_id" });
 
     if (upsertError) {
       return new Response(upsertError.message, { status: 500, headers: corsHeaders });
     }
 
-    const sellerId = sellingPartnerId || companyId || targetUserId;
+    const sellerId = sellingPartnerId || null;
     if (sellerId) {
       await serviceClient
         .from("seller_links")
