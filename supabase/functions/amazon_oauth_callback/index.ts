@@ -177,10 +177,18 @@ serve(async (req) => {
       region: SUPPORTED_EU_MARKETPLACES[mpId] || region
     }));
 
-    const { error: upsertError } = await serviceClient
+    // Primary strategy: dedupe per company + marketplace; if the DB doesn't have that constraint yet, retry on user+marketplace.
+    let upsertError = null;
+    let upsertResponse = await serviceClient
       .from("amazon_integrations")
       .upsert(integrationRecords, { onConflict: "company_id,marketplace_id" });
-
+    upsertError = upsertResponse.error;
+    if (upsertError && /unique|conflict|constraint/i.test(upsertError.message || "")) {
+      upsertResponse = await serviceClient
+        .from("amazon_integrations")
+        .upsert(integrationRecords, { onConflict: "user_id,marketplace_id" });
+      upsertError = upsertResponse.error;
+    }
     if (upsertError) {
       return new Response(upsertError.message, { status: 500, headers: corsHeaders });
     }
