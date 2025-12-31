@@ -811,7 +811,7 @@ resetPassword: async (email) => {
       .eq('user_id', userId)
       .order('created_at', { ascending: true })
       .limit(1)
-      .single();
+      .maybeSingle();
     return { data: data?.created_at || null, error };
   },
 
