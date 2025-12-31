@@ -5,12 +5,14 @@ import LanguageSelector from '@/components/common/LanguageSelector';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Menu, X } from 'lucide-react';
 import { useT } from '@/i18n/useT';
+import { supabase } from '@/config/supabase';
 
 function Header() {
   const t = useT();
   const location = useLocation();
   const { isAuthenticated, user, profile, signOut } = useSupabaseAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [hasIntegration, setHasIntegration] = useState(false);
   const logoWidthStyle = { width: 'clamp(120px, 16vw, 160px)' };
   const sloganGradientStyle = {
     color: '#111',
@@ -37,21 +39,41 @@ function Header() {
     return () => window.removeEventListener('i18n:changed', onLang);
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const loadIntegration = async () => {
+      if (!user?.id || isAdmin) {
+        if (active) setHasIntegration(false);
+        return;
+      }
+      const { count } = await supabase
+        .from('amazon_integrations')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+      if (active) setHasIntegration((count || 0) > 0);
+    };
+    loadIntegration();
+    return () => {
+      active = false;
+    };
+  }, [user?.id, isAdmin]);
+
   const isAdmin = !!(
     profile?.account_type === 'admin' ||
     user?.user_metadata?.account_type === 'admin'
   );
 
-  const navigation = useMemo(
-    () => [
+  const navigation = useMemo(() => {
+    const base = [
       { name: t('nav.home'),     href: '/' },
       { name: t('nav.services'), href: '/services-pricing' },
-      { name: 'Integrations', href: '/integrations' },
+      { name: 'Integrations', href: '/integrations', hide: hasIntegration && isAuthenticated && !isAdmin },
       { name: t('nav.about'),    href: '/about' },
       { name: t('nav.contact'),  href: '/contact' },
-    ],
-    [t]
-  );
+    ];
+    return base.filter((item) => !item.hide);
+  }, [t, hasIntegration, isAuthenticated, isAdmin]);
 
   const isActive = (href) =>
     location.pathname === href || location.pathname.startsWith(href + '/');
