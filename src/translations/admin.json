@@ -62,6 +62,9 @@
         "email": "Email",
         "phone": "Phone",
         "createdAt": "Created",
+        "pricingVisibility": "Pricing access",
+        "pricingVisible": "Visible",
+        "pricingHidden": "Hidden",
         "currentBalance": "Balance",
         "carryBalance": "Outstanding / Advance",
         "liveBalance": "Live balance",
@@ -82,7 +85,12 @@
       "totalLabel": "Total clients: {count}",
       "pagination": "Page {page} / {total}",
       "paginationPrev": "Previous page",
-      "paginationNext": "Next page"
+      "paginationNext": "Next page",
+      "messages": {
+        "priceAccessEnabled": "Client can now see pricing.",
+        "priceAccessDisabled": "Pricing hidden for this client.",
+        "priceAccessError": "Could not update pricing visibility."
+      }
     },
     "serviceNames": {
       "photoSubscription": "Photo storage subscription",
@@ -376,6 +384,9 @@
         "email": "Email",
         "phone": "Téléphone",
         "createdAt": "Créé le",
+        "pricingVisibility": "Accès tarifs",
+        "pricingVisible": "Affichés",
+        "pricingHidden": "Masqués",
         "currentBalance": "Solde",
         "carryBalance": "Solde restant / avance",
         "liveBalance": "Solde du jour",
@@ -396,7 +407,12 @@
       "totalLabel": "Nombre de clients : {count}",
       "pagination": "Page {page} / {total}",
       "paginationPrev": "Page précédente",
-      "paginationNext": "Page suivante"
+      "paginationNext": "Page suivante",
+      "messages": {
+        "priceAccessEnabled": "Le client peut maintenant voir les tarifs.",
+        "priceAccessDisabled": "Tarifs masqués pour ce client.",
+        "priceAccessError": "Impossible de mettre à jour l'accès aux tarifs."
+      }
     },
     "serviceNames": {
       "photoSubscription": "Abonnement stockage photos",
@@ -635,6 +651,9 @@
         "email": "Email",
         "phone": "Telefon",
         "createdAt": "Creat la",
+        "pricingVisibility": "Acces la prețuri",
+        "pricingVisible": "Vizibile",
+        "pricingHidden": "Ascunse",
         "currentBalance": "Sold",
         "carryBalance": "Sold restant / avans",
         "liveBalance": "Sold la zi",
@@ -655,7 +674,12 @@
       "totalLabel": "Număr clienți: {count}",
       "pagination": "Pagina {page} / {total}",
       "paginationPrev": "Pagina anterioară",
-      "paginationNext": "Pagina următoare"
+      "paginationNext": "Pagina următoare",
+      "messages": {
+        "priceAccessEnabled": "Clientul poate vedea prețurile.",
+        "priceAccessDisabled": "Prețurile sunt ascunse pentru acest client.",
+        "priceAccessError": "Nu am putut actualiza accesul la prețuri."
+      }
     },
     "serviceNames": {
       "photoSubscription": "Abonament stocare fotografii",

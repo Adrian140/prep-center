@@ -174,6 +174,7 @@ export default function AdminProfiles({ onSelect }) {
   const [editingStoreId, setEditingStoreId] = useState(null);
   const [storeDraft, setStoreDraft] = useState("");
   const [storeBanner, setStoreBanner] = useState("");
+  const [priceToggleSaving, setPriceToggleSaving] = useState({});
 
   useEffect(() => {
     setPersistedFilters({
@@ -223,7 +224,7 @@ export default function AdminProfiles({ onSelect }) {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id,email,phone,first_name,last_name,company_name,created_at,account_type,company_id,store_name")
+        .select("id,email,phone,first_name,last_name,company_name,created_at,account_type,company_id,store_name,can_view_prices")
         .order("created_at", { ascending: false });
       if (error) throw error;
       const nonAdmins = (data || []).filter(
@@ -353,7 +354,7 @@ const tableTotals = useMemo(() => {
     (showEmail ? 1 : 0) +
     (showPhone ? 1 : 0) +
     (showBalances ? 3 : 0);
-  const summaryDetailSpan = 3 + (showEmail ? 1 : 0) + (showPhone ? 1 : 0);
+  const summaryDetailSpan = 4 + (showEmail ? 1 : 0) + (showPhone ? 1 : 0);
 
   // compute balances per row (STRICT din RPC; fără calcule în React)
   useEffect(() => {
@@ -436,6 +437,31 @@ const saveStoreName = async () => {
   } catch (err) {
     console.error("Failed to save store name:", err);
     setStoreBanner(err?.message || "Failed to save store name.");
+  }
+};
+
+const togglePriceAccess = async (profile, nextValue) => {
+  if (!profile?.id) return;
+  setPriceToggleSaving((prev) => ({ ...prev, [profile.id]: true }));
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ can_view_prices: nextValue })
+      .eq("id", profile.id);
+    if (error) throw error;
+    setRows((prev) =>
+      prev.map((r) => (r.id === profile.id ? { ...r, can_view_prices: nextValue } : r))
+    );
+    setStoreBanner(
+      nextValue
+        ? t("clients.messages.priceAccessEnabled")
+        : t("clients.messages.priceAccessDisabled")
+    );
+  } catch (err) {
+    console.error("Failed to toggle price access:", err);
+    setStoreBanner(err?.message || t("clients.messages.priceAccessError"));
+  } finally {
+    setPriceToggleSaving((prev) => ({ ...prev, [profile.id]: false }));
   }
 };
 
@@ -542,6 +568,7 @@ const saveStoreName = async () => {
               {showEmail && <th className="px-4 py-3 text-left">{t("clients.table.email")}</th>}
               {showPhone && <th className="px-4 py-3 text-left">{t("clients.table.phone")}</th>}
               <th className="px-4 py-3 text-left">{t("clients.table.createdAt")}</th>
+              <th className="px-4 py-3 text-left">{t("clients.table.pricingVisibility")}</th>
               {showBalances && (
                 <>
                   <th className="px-4 py-3 text-left whitespace-pre-line">{t("clients.table.currentBalance")}</th>
@@ -602,6 +629,25 @@ const saveStoreName = async () => {
                     {showEmail && <td className="px-4 py-3">{p.email || "—"}</td>}
                     {showPhone && <td className="px-4 py-3">{p.phone || "—"}</td>}
                     <td className="px-4 py-3">{p.created_at?.slice(0,10) || "—"}</td>
+                    <td className="px-4 py-3">
+                      <label className="inline-flex items-center gap-2 text-xs text-text-secondary">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300"
+                          checked={!!p.can_view_prices}
+                          onChange={(e) => togglePriceAccess(p, e.target.checked)}
+                          disabled={!!priceToggleSaving[p.id]}
+                        />
+                        <span>
+                          {p.can_view_prices
+                            ? t("clients.table.pricingVisible")
+                            : t("clients.table.pricingHidden")}
+                        </span>
+                        {priceToggleSaving[p.id] && (
+                          <span className="text-[11px] text-text-light">{t("common.loading")}</span>
+                        )}
+                      </label>
+                    </td>
                     {showBalances && (
                       <>
                         <td className="px-4 py-3">

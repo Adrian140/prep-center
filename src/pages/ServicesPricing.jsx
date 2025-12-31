@@ -118,6 +118,8 @@ export default function ServicesPricing() {
   const isAdmin = Boolean(
     profile?.account_type === 'admin' || user?.user_metadata?.account_type === 'admin'
   );
+  const canViewPrices = Boolean(isAdmin || profile?.can_view_prices);
+  const canManagePricing = isAdmin;
   const [content, setContent] = useState({});
   const [pricingGroups, setPricingGroups] = useState({});
   const [shippingRates, setShippingRates] = useState({ domestic: [], international: {} });
@@ -160,10 +162,10 @@ export default function ServicesPricing() {
     [content, currentLanguage, t]
   );
 
-  const heroTitle = isAdmin
+  const heroTitle = canViewPrices
     ? getLocalizedContent('services_title', 'pageTitle')
     : t('publicSection.pageTitle');
-  const heroSubtitle = isAdmin
+  const heroSubtitle = canViewPrices
     ? getLocalizedContent('services_subtitle', 'pageSubtitle')
     : t('publicSection.pageSubtitle');
 
@@ -224,13 +226,19 @@ export default function ServicesPricing() {
   }, [shippingFallbackMessage]);
 
   useEffect(() => {
-    fetchPricing();
+    if (canViewPrices) {
+      fetchPricing();
+    } else {
+      setPricingGroups({});
+      setPricingError('');
+      setPricingLoading(false);
+    }
     fetchContent();
     fetchShipping();
-  }, [fetchPricing, fetchContent, fetchShipping]);
+  }, [fetchPricing, fetchContent, fetchShipping, canViewPrices]);
 
   useEffect(() => {
-    if (isAdmin || currentLanguage !== 'en') return;
+    if (canViewPrices || currentLanguage !== 'en') return;
     document.title = 'Prep, Fulfillment & Storage Services in France | PrepCenter';
     const metaDescription =
       'Fast reception, labeling, quality checks, order fulfillment and storage in France. Flexible workflows, quick turnaround and tailored quotes.';
@@ -241,7 +249,7 @@ export default function ServicesPricing() {
       document.head.appendChild(meta);
     }
     meta.setAttribute('content', metaDescription);
-  }, [isAdmin, currentLanguage]);
+  }, [canViewPrices, currentLanguage]);
 
   const sections = useMemo(() => {
     const manualCategories = CATEGORY_ORDER.filter((entry) => pricingGroups[entry.id]?.length);
@@ -603,7 +611,7 @@ export default function ServicesPricing() {
           </div>
         </header>
 
-        {isAdmin ? (
+        {canViewPrices ? (
           <>
             <section className="bg-white border rounded-3xl shadow-sm p-6 space-y-6 -mt-4">
               {pricingError && (
@@ -693,43 +701,45 @@ export default function ServicesPricing() {
                 <h2 className="text-2xl font-semibold">{t('pricingSection.finalTitle')}</h2>
                 <p className="text-white/80 text-sm md:text-base">{t('pricingSection.finalNote')}</p>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <a
-                  href="/admin?tab=pricing"
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-white/30 text-white font-semibold hover:border-white"
-                >
-                  <Settings className="w-4 h-4" />
-                  {t('pricingSection.manage')}
-                </a>
+              {canManagePricing && (
                 <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={() =>
-                      handleBundleExport({
-                        title: CATEGORY_ORDER[0].id,
-                        categories: ['FBA Prep Services', 'Extra Services', 'Storage'],
-                        filename: 'FBA-Prep-Services.pdf'
-                      })
-                    }
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-gray-900 font-semibold hover:bg-gray-100"
+                  <a
+                    href="/admin?tab=pricing"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-white/30 text-white font-semibold hover:border-white"
                   >
-                    <FileDown className="w-4 h-4" />
-                    {t('pricingSection.exportFba')}
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleBundleExport({
-                        title: CATEGORY_ORDER[1].id,
-                        categories: ['FBM Fulfillment', 'Extra Services', 'Storage'],
-                        filename: 'FBM-Fulfillment.pdf'
-                      })
-                    }
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-white/40 text-white font-semibold hover:border-white"
-                  >
-                    <FileDown className="w-4 h-4" />
-                    {t('pricingSection.exportFbm')}
-                  </button>
+                    <Settings className="w-4 h-4" />
+                    {t('pricingSection.manage')}
+                  </a>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={() =>
+                        handleBundleExport({
+                          title: CATEGORY_ORDER[0].id,
+                          categories: ['FBA Prep Services', 'Extra Services', 'Storage'],
+                          filename: 'FBA-Prep-Services.pdf'
+                        })
+                      }
+                      className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-gray-900 font-semibold hover:bg-gray-100"
+                    >
+                      <FileDown className="w-4 h-4" />
+                      {t('pricingSection.exportFba')}
+                    </button>
+                    <button
+                      onClick={() =>
+                        handleBundleExport({
+                          title: CATEGORY_ORDER[1].id,
+                          categories: ['FBM Fulfillment', 'Extra Services', 'Storage'],
+                          filename: 'FBM-Fulfillment.pdf'
+                        })
+                      }
+                      className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-white/40 text-white font-semibold hover:border-white"
+                    >
+                      <FileDown className="w-4 h-4" />
+                      {t('pricingSection.exportFbm')}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </section>
 
             <section className="space-y-12">
