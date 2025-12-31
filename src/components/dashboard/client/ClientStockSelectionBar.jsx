@@ -423,7 +423,6 @@ const ClientStockSelectionBar = ({
               ? returnLabel
               : t('ClientStock.cta.deleteListing')}
           </button>
-          {showDestinationNearPrep && renderDestinationSelector('w-full sm:w-[190px] sm:min-w-[170px]')}
         </div>
         <button onClick={clearSelection} className="text-sm text-gray-500 hover:text-gray-700">
           {t('common.cancel')}
