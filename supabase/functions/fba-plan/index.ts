@@ -886,161 +886,56 @@ serve(async (req) => {
         requestId: primaryRequestId,
         body: primary.text?.slice(0, 2000)
       });
-      // Fallback la v0 createInboundShipmentPlan dacă 401/403
-      if (primary.res.status === 401 || primary.res.status === 403) {
-        const v0Payload = JSON.stringify({
-          ShipFromAddress: {
-            Name: shipFromAddress.name,
-            AddressLine1: shipFromAddress.addressLine1,
-            AddressLine2: shipFromAddress.addressLine2,
-            City: shipFromAddress.city,
-            StateOrProvinceCode: shipFromAddress.stateOrProvinceCode,
-            PostalCode: shipFromAddress.postalCode,
-            CountryCode: shipFromAddress.countryCode
-          },
-          LabelPrepPreference: "SELLER_LABEL",
-          InboundShipmentPlanRequestItems: items.map((it) => ({
-            SellerSKU: it.sku || "",
-            ASIN: it.asin || undefined,
-            Quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0
-          }))
-        });
-        const v0 = await signedFetch({
-          method: "POST",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: "/fba/inbound/v0/plans",
-          query: "",
-          payload: v0Payload,
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken
-        });
-        const v0RequestId = v0.requestId || null;
-        if (v0.res.ok) {
-          plans = v0.json?.payload?.InboundShipmentPlans || v0.json?.InboundShipmentPlans || [];
-        } else {
-          console.error("createInboundPlan v0 fallback error", {
-            traceId,
-            status: primary.res.status,
-            v0Status: v0.res.status,
-            marketplaceId,
-            region: awsRegion,
-            sellerId,
-            requestId: primaryRequestId,
-            v0RequestId,
-            body: primary.text?.slice(0, 2000),
-            v0Body: v0.text?.slice(0, 2000)
-          });
-          const authWarning = `Amazon a refuzat crearea planului (HTTP ${primary.res.status}). Încearcă din nou sau verifică permisiunile Inbound pe marketplace.`;
-          console.error("fba-plan createInboundPlan error", {
-            traceId,
-            status: primary.res.status,
-            host,
-            marketplaceId,
-            region: awsRegion,
-            sellerId,
-            requestId: primaryRequestId,
-            body: primary.text?.slice(0, 2000),
-            v0Status: v0.res.status,
-            v0RequestId,
-            v0Body: v0.text?.slice(0, 2000)
-          });
-          const fallbackSkus = items.map((it, idx) => {
-            const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
-            const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
-            return {
-              id: it.id || `sku-${idx + 1}`,
-              title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
-              sku: it.sku || stock?.sku || "",
-              asin: it.asin || stock?.asin || "",
-              storageType: "Standard-size",
-              packing: "individual",
-              units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-              expiry: "",
-              prepRequired: prepInfo.prepRequired || false,
-              prepNotes: (prepInfo.prepInstructions || []).join(", "),
-              manufacturerBarcodeEligible:
-                (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
-              readyToPack: true,
-              image: stock?.image_url || null
-            };
-          });
-          const fallbackPlan = {
-            source: "amazon",
-            marketplace: marketplaceId,
-            shipFrom: {
-              name: shipFromAddress.name,
-              address: formatAddress(shipFromAddress)
-            },
-            skus: fallbackSkus,
-            packGroups: [],
-            shipments: [],
-            raw: null,
-            skuStatuses,
-            warning: authWarning,
-            blocking: true,
-            requestId: primaryRequestId || v0RequestId || null
-          };
-          return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status, requestId: primaryRequestId || v0RequestId || null, scopes: lwaScopes }), {
-            status: 200,
-            headers: { ...corsHeaders, "content-type": "application/json" }
-          });
-        }
-      } else {
-        console.error("fba-plan createInboundPlan error", {
-          traceId,
-          status: primary.res.status,
-          host,
-          marketplaceId,
-          region: awsRegion,
-          sellerId,
-          requestId: primaryRequestId,
-          body: primary.text?.slice(0, 2000) // avoid huge logs
-        });
-        const fallbackSkus = items.map((it, idx) => {
-          const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
-          const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
-          return {
-            id: it.id || `sku-${idx + 1}`,
-            title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
-            sku: it.sku || stock?.sku || "",
-            asin: it.asin || stock?.asin || "",
-            storageType: "Standard-size",
-            packing: "individual",
-            units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-            expiry: "",
-            prepRequired: prepInfo.prepRequired || false,
-            prepNotes: (prepInfo.prepInstructions || []).join(", "),
-            manufacturerBarcodeEligible:
-              (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
-            readyToPack: true,
-            image: stock?.image_url || null
-          };
-        });
-        const fallbackPlan = {
-          source: "amazon",
-          marketplace: marketplaceId,
-          shipFrom: {
-            name: shipFromAddress.name,
-            address: formatAddress(shipFromAddress)
-          },
-          skus: fallbackSkus,
-          packGroups: [],
-          shipments: [],
-          raw: null,
-          skuStatuses,
-          warning: `Amazon a refuzat crearea planului (HTTP ${primary.res.status}). Încearcă din nou sau verifică permisiunile Inbound pe marketplace.`,
-          blocking: true,
-          requestId: primaryRequestId || null
+      console.error("fba-plan createInboundPlan error", {
+        traceId,
+        status: primary.res.status,
+        host,
+        marketplaceId,
+        region: awsRegion,
+        sellerId,
+        requestId: primaryRequestId,
+        body: primary.text?.slice(0, 2000) // avoid huge logs
+      });
+      const fallbackSkus = items.map((it, idx) => {
+        const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+        const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
+        return {
+          id: it.id || `sku-${idx + 1}`,
+          title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
+          sku: it.sku || stock?.sku || "",
+          asin: it.asin || stock?.asin || "",
+          storageType: "Standard-size",
+          packing: "individual",
+          units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+          expiry: "",
+          prepRequired: prepInfo.prepRequired || false,
+          prepNotes: (prepInfo.prepInstructions || []).join(", "),
+          manufacturerBarcodeEligible:
+            (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
+          readyToPack: true,
+          image: stock?.image_url || null
         };
-        return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status, requestId: primaryRequestId || null, scopes: lwaScopes }), {
-          status: 200,
-          headers: { ...corsHeaders, "content-type": "application/json" }
-        });
-      }
+      });
+      const fallbackPlan = {
+        source: "amazon",
+        marketplace: marketplaceId,
+        shipFrom: {
+          name: shipFromAddress.name,
+          address: formatAddress(shipFromAddress)
+        },
+        skus: fallbackSkus,
+        packGroups: [],
+        shipments: [],
+        raw: null,
+        skuStatuses,
+        warning: `Amazon a refuzat crearea planului (HTTP ${primary.res.status}). Încearcă din nou sau verifică permisiunile Inbound pe marketplace.`,
+        blocking: true,
+        requestId: primaryRequestId || null
+      };
+      return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status, requestId: primaryRequestId || null, scopes: lwaScopes }), {
+        status: 200,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
     }
 
     const normalizeItems = (p: any) => p?.items || p?.Items || [];
