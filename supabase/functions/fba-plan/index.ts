@@ -673,6 +673,44 @@ serve(async (req) => {
       // ignore decode errors
     }
 
+    const hasInboundScope = lwaScopes.some((s) => s.toLowerCase().includes("fulfillment_inbound"));
+    if (!hasInboundScope) {
+      const warning = "Lipsea scope-ul sellingpartnerapi::fulfillment_inbound din token. Reautorizează aplicația după ce Amazon atașează rolul Fulfillment Inbound.";
+      const skus = (reqData.prep_request_items || []).map((it: any, idx: number) => ({
+        id: it.id || `sku-${idx + 1}`,
+        title: it.product_name || it.sku || `SKU ${idx + 1}`,
+        sku: it.sku || "",
+        asin: it.asin || "",
+        storageType: "Standard-size",
+        packing: "individual",
+        units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+        expiry: "",
+        prepRequired: false,
+        prepNotes: "",
+        manufacturerBarcodeEligible: true,
+        readyToPack: true
+      }));
+      const plan = {
+        source: "amazon",
+        marketplace: marketplaceId,
+        shipFrom: {
+          name: "—",
+          address: "—"
+        },
+        skus,
+        packGroups: [],
+        shipments: [],
+        raw: null,
+        skuStatuses: [],
+        warning,
+        blocking: true
+      };
+      return new Response(JSON.stringify({ plan, traceId, scopes: lwaScopes }), {
+        status: 200,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+
     const items: PrepRequestItem[] = (Array.isArray(reqData.prep_request_items) ? reqData.prep_request_items : []).filter(
       (it) => Number(it.units_sent ?? it.units_requested ?? 0) > 0
     );
@@ -794,7 +832,7 @@ serve(async (req) => {
         warning,
         blocking: true
       };
-      return new Response(JSON.stringify({ plan }), {
+      return new Response(JSON.stringify({ plan, traceId, scopes: lwaScopes }), {
         status: 200,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
@@ -959,7 +997,7 @@ serve(async (req) => {
             blocking: true,
             requestId: primaryRequestId || v0RequestId || null
           };
-          return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status, requestId: primaryRequestId || v0RequestId || null }), {
+          return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status, requestId: primaryRequestId || v0RequestId || null, scopes: lwaScopes }), {
             status: 200,
             headers: { ...corsHeaders, "content-type": "application/json" }
           });
@@ -1011,7 +1049,7 @@ serve(async (req) => {
           blocking: true,
           requestId: primaryRequestId || null
         };
-        return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status, requestId: primaryRequestId || null }), {
+        return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status, requestId: primaryRequestId || null, scopes: lwaScopes }), {
           status: 200,
           headers: { ...corsHeaders, "content-type": "application/json" }
         });
@@ -1102,7 +1140,7 @@ serve(async (req) => {
       skuStatuses
     };
 
-    return new Response(JSON.stringify({ plan, traceId, requestId: primaryRequestId || null }), {
+    return new Response(JSON.stringify({ plan, traceId, requestId: primaryRequestId || null, scopes: lwaScopes }), {
       status: 200,
       headers: { ...corsHeaders, "content-type": "application/json" }
     });

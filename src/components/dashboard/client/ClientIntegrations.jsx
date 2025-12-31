@@ -263,6 +263,12 @@ export default function ClientIntegrations() {
           >
             <ExternalLink className="w-4 h-4" /> {t('ClientIntegrations.connectButton')}
           </button>
+          <button
+            onClick={removeAllIntegrations}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500 text-red-600 hover:bg-red-50"
+          >
+            <Unplug className="w-4 h-4" /> {t('ClientIntegrations.actions.disconnectAll', 'Disconnect all')}
+          </button>
         </div>
         {isIndividualAccount && (
           <p className="text-sm text-red-600">{t('ClientIntegrations.individualBlocked')}</p>
