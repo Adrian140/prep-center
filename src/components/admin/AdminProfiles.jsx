@@ -532,24 +532,24 @@ const togglePriceAccess = async (profile, nextValue) => {
             )}
           </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setShowEmail(!showEmail)}
-            className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm w-full text-xs"
+            className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm text-xs"
             title={t("clients.buttons.toggleEmail")}
           >
             {showEmail ? t("clients.buttons.hideEmail") : t("clients.buttons.showEmail")}
           </button>
           <button
             onClick={() => setShowPhone(!showPhone)}
-            className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm w-full text-xs"
+            className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm text-xs"
             title={t("clients.buttons.togglePhone")}
           >
             {showPhone ? t("clients.buttons.hidePhone") : t("clients.buttons.showPhone")}
           </button>
           <button
             onClick={() => setShowPricing(!showPricing)}
-            className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm w-full text-xs"
+            className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm text-xs"
             title={t("clients.buttons.togglePricing")}
           >
             {showPricing ? t("clients.buttons.hidePricing") : t("clients.buttons.showPricing")}
