@@ -658,6 +658,20 @@ serve(async (req) => {
     const tempCreds = await assumeRole(SPAPI_ROLE_ARN);
 
     const lwaAccessToken = await getLwaAccessToken(refreshToken);
+    let lwaScopes: string[] = [];
+    try {
+      const parts = lwaAccessToken.split(".");
+      if (parts.length >= 2) {
+        const payload = JSON.parse(atob(parts[1]));
+        const scopeStr = payload.scope || payload.scp || "";
+        lwaScopes = String(scopeStr || "")
+          .split(" ")
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+      }
+    } catch (_e) {
+      // ignore decode errors
+    }
 
     const items: PrepRequestItem[] = (Array.isArray(reqData.prep_request_items) ? reqData.prep_request_items : []).filter(
       (it) => Number(it.units_sent ?? it.units_requested ?? 0) > 0
@@ -721,7 +735,8 @@ serve(async (req) => {
       lwaClientId: maskSecret(LWA_CLIENT_ID || ""),
       refreshToken: maskSecret(refreshToken || "", 3),
       roleArn: SPAPI_ROLE_ARN ? `...${SPAPI_ROLE_ARN.slice(-6)}` : "",
-      accessKey: AWS_ACCESS_KEY_ID ? `...${AWS_ACCESS_KEY_ID.slice(-4)}` : ""
+      accessKey: AWS_ACCESS_KEY_ID ? `...${AWS_ACCESS_KEY_ID.slice(-4)}` : "",
+      scopes: lwaScopes
     });
 
     // Pre-eligibility check per SKU for destination marketplace
@@ -843,6 +858,7 @@ serve(async (req) => {
         marketplaceId,
         region: awsRegion,
         sellerId,
+        requestId: primaryRequestId,
         body: primary.text?.slice(0, 2000)
       });
       // Fallback la v0 createInboundShipmentPlan dacă 401/403
@@ -888,6 +904,8 @@ serve(async (req) => {
             marketplaceId,
             region: awsRegion,
             sellerId,
+            requestId: primaryRequestId,
+            v0RequestId,
             body: primary.text?.slice(0, 2000),
             v0Body: v0.text?.slice(0, 2000)
           });
@@ -899,8 +917,10 @@ serve(async (req) => {
             marketplaceId,
             region: awsRegion,
             sellerId,
+            requestId: primaryRequestId,
             body: primary.text?.slice(0, 2000),
             v0Status: v0.res.status,
+            v0RequestId,
             v0Body: v0.text?.slice(0, 2000)
           });
           const fallbackSkus = items.map((it, idx) => {
@@ -952,6 +972,7 @@ serve(async (req) => {
           marketplaceId,
           region: awsRegion,
           sellerId,
+          requestId: primaryRequestId,
           body: primary.text?.slice(0, 2000) // avoid huge logs
         });
         const fallbackSkus = items.map((it, idx) => {
