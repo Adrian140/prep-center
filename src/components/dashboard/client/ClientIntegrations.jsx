@@ -215,6 +215,28 @@ export default function ClientIntegrations() {
     }
   };
 
+  const removeAllIntegrations = async () => {
+    const companyId = profile?.company_id || user?.id || null;
+    if (!companyId) {
+      setFlash('Nu am putut identifica company_id pentru a șterge conexiunile.');
+      return;
+    }
+    const message = [
+      'Deconectezi TOATE marketplace-urile Amazon pentru acest cont.',
+      'Se vor șterge toate înregistrările amazon_integrations pentru companie.',
+      'Continui?'
+    ].join('\n');
+    if (!window.confirm(message)) return;
+    setFlash('');
+    const { error } = await supabase.from('amazon_integrations').delete().eq('company_id', companyId);
+    if (error) {
+      setFlash(supportError);
+    } else {
+      setFlash('Toate conexiunile Amazon au fost deconectate. Reconectează pentru token nou.');
+      loadIntegrations();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex items-center gap-3">
