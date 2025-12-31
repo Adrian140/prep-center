@@ -38,6 +38,11 @@ function Header() {
     return () => window.removeEventListener('i18n:changed', onLang);
   }, []);
 
+  const isAdmin = !!(
+    profile?.account_type === 'admin' ||
+    user?.user_metadata?.account_type === 'admin'
+  );
+
   useEffect(() => {
     let active = true;
     const loadIntegration = async () => {
@@ -63,11 +68,6 @@ function Header() {
       active = false;
     };
   }, [user?.id, isAdmin]);
-
-  const isAdmin = !!(
-    profile?.account_type === 'admin' ||
-    user?.user_metadata?.account_type === 'admin'
-  );
 
   const navigation = useMemo(() => {
     const base = [
