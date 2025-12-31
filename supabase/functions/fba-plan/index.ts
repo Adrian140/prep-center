@@ -610,10 +610,11 @@ serve(async (req) => {
 
     // Fetch amazon integration for this user/company
     let integ: AmazonIntegration | null = null;
+    let integStatus: string | null = null;
     if (inferredMarketplace) {
       const { data: integRows, error } = await supabase
         .from("amazon_integrations")
-        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id")
+        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
         .eq("company_id", reqData.company_id)
         .eq("status", "active")
         .eq("marketplace_id", inferredMarketplace)
@@ -621,6 +622,7 @@ serve(async (req) => {
         .limit(1);
       if (!error && Array.isArray(integRows) && integRows[0]) {
         integ = integRows[0] as any;
+        integStatus = (integ as any).status || null;
       } else if (error) {
         console.warn("amazon_integrations query (by marketplace) failed", error);
       }
@@ -628,16 +630,40 @@ serve(async (req) => {
     if (!integ) {
       const { data: integRows, error: integErr } = await supabase
         .from("amazon_integrations")
-        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id")
+        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
         .eq("company_id", reqData.company_id)
         .eq("status", "active")
         .order("updated_at", { ascending: false })
         .limit(1);
       if (integErr) throw integErr;
       integ = (integRows?.[0] as any) || null;
+      integStatus = integ ? (integ as any).status || null : null;
+    }
+    // fallback: accept pending to show a clear message instead of hard error
+    if (!integ) {
+      const { data: pendingRows, error: pendingErr } = await supabase
+        .from("amazon_integrations")
+        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .eq("company_id", reqData.company_id)
+        .in("status", ["pending"])
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (pendingErr) {
+        console.warn("amazon_integrations pending query failed", pendingErr);
+      } else if (pendingRows?.[0]) {
+        integ = pendingRows[0] as any;
+        integStatus = (integ as any).status || "pending";
+      }
     }
     if (!integ?.refresh_token) {
       throw new Error("No active Amazon integration found for this company");
+    }
+    if (integStatus === "pending") {
+      const warning = "Integrarea Amazon nu este completă (lipsește Selling Partner ID). Deconectează și reconectează pentru a finaliza autorizarea.";
+      return new Response(JSON.stringify({ plan: null, warning, blocking: true, traceId }), {
+        status: 200,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
     }
 
     const refreshToken = integ.refresh_token;
