@@ -123,7 +123,12 @@ export default function FbaSendToAmazonWizard({
         if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
         setBlocking(Boolean(pBlocking));
         if (typeof pWarning === 'string') {
-          setPlanError((prevError) => prevError || pWarning);
+          const reqId = response.requestId || response.request_id || null;
+          const trId = response.traceId || response.trace_id || null;
+          const extra = [pWarning, reqId ? `RequestId: ${reqId}` : null, trId ? `TraceId: ${trId}` : null]
+            .filter(Boolean)
+            .join(' · ');
+          setPlanError((prevError) => prevError || extra);
         }
       } catch (e) {
         if (!cancelled) setPlanError(e?.message || 'Failed to load Amazon plan.');

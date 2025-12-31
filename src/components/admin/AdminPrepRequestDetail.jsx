@@ -103,7 +103,14 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
       body: { request_id: row.id }
     });
     if (error) throw error;
-    return data?.plan;
+    const plan = data?.plan || null;
+    if (!plan) return null;
+    return {
+      ...plan,
+      traceId: data?.traceId || plan.traceId || null,
+      requestId: data?.requestId || plan.requestId || null,
+      statusCode: data?.status || plan.statusCode || null
+    };
   }, [row?.id]);
 
   const wizardShipments = useMemo(() => {

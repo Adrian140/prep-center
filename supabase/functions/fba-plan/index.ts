@@ -187,6 +187,7 @@ async function signedFetch(opts: {
     },
     body: method === "POST" ? payload : undefined
   });
+  const requestId = res.headers.get("x-amzn-RequestId") || res.headers.get("x-amzn-requestid") || null;
   const text = await res.text();
   let json: any = null;
   try {
@@ -194,7 +195,7 @@ async function signedFetch(opts: {
   } catch {
     // ignore parse errors
   }
-  return { res, text, json };
+  return { res, text, json, requestId };
 }
 
 async function getLwaAccessToken(refreshToken: string) {
@@ -827,6 +828,7 @@ serve(async (req) => {
 
     // Keep raw Amazon response for debugging / UI
     const amazonJson = primary.json;
+    const primaryRequestId = primary.requestId || null;
 
     let plans =
       primary.json?.payload?.inboundPlan?.inboundShipmentPlans ||
@@ -875,6 +877,7 @@ serve(async (req) => {
           sessionToken: tempCreds.sessionToken,
           lwaToken: lwaAccessToken
         });
+        const v0RequestId = v0.requestId || null;
         if (v0.res.ok) {
           plans = v0.json?.payload?.InboundShipmentPlans || v0.json?.InboundShipmentPlans || [];
         } else {
@@ -933,9 +936,10 @@ serve(async (req) => {
             raw: null,
             skuStatuses,
             warning: authWarning,
-            blocking: true
+            blocking: true,
+            requestId: primaryRequestId || v0RequestId || null
           };
-          return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status }), {
+          return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status, requestId: primaryRequestId || v0RequestId || null }), {
             status: 200,
             headers: { ...corsHeaders, "content-type": "application/json" }
           });
@@ -983,9 +987,10 @@ serve(async (req) => {
           raw: null,
           skuStatuses,
           warning: `Amazon a refuzat crearea planului (HTTP ${primary.res.status}). Încearcă din nou sau verifică permisiunile Inbound pe marketplace.`,
-          blocking: true
+          blocking: true,
+          requestId: primaryRequestId || null
         };
-        return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status }), {
+        return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status, requestId: primaryRequestId || null }), {
           status: 200,
           headers: { ...corsHeaders, "content-type": "application/json" }
         });
@@ -1076,7 +1081,7 @@ serve(async (req) => {
       skuStatuses
     };
 
-    return new Response(JSON.stringify({ plan, traceId }), {
+    return new Response(JSON.stringify({ plan, traceId, requestId: primaryRequestId || null }), {
       status: 200,
       headers: { ...corsHeaders, "content-type": "application/json" }
     });
