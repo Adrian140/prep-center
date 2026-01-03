@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/config/supabase';
-import { jsPDF } from 'jspdf';
-import JsBarcode from 'jsbarcode';
 
 const FieldLabel = ({ label, children }) => (
   <div className="flex flex-col gap-1 text-sm text-slate-700">
@@ -194,89 +192,6 @@ export default function FbaStep1Inventory({
   };
 
   const closeLabelModal = () => setLabelModal((prev) => ({ ...prev, open: false, sku: null }));
-
-  const mmToPx = (mm) => (mm * 300) / 25.4; // 300 DPI to keep detail on thermal
-  const clamp = (val, min, max) => Math.min(max, Math.max(min, val));
-
-  const wrapText = (ctx, text, maxWidth, maxLines = 2) => {
-    if (!text) return [];
-    const words = text.split(/\s+/);
-    const lines = [];
-    let current = '';
-    for (const word of words) {
-      const test = current ? `${current} ${word}` : word;
-      if (ctx.measureText(test).width <= maxWidth) {
-        current = test;
-      } else {
-        lines.push(current || word);
-        current = '';
-        if (lines.length >= maxLines) break;
-        current = word;
-      }
-    }
-    if (current && lines.length < maxLines) lines.push(current);
-    if (lines.length > maxLines) {
-      const last = lines[maxLines - 1] || '';
-      lines[maxLines - 1] = `${last.slice(0, Math.max(0, last.length - 3))}...`;
-      return lines.slice(0, maxLines);
-    }
-    return lines;
-  };
-
-  const renderBarcodes = ({ code, title, widthMm, heightMm }) => {
-    if (!code) return null;
-
-    const widthPx = clamp(mmToPx(widthMm), 120, 2200);
-    const heightPx = clamp(mmToPx(heightMm), 60, 1200);
-    const pad = 6;
-    const innerWidth = Math.max(20, widthPx - pad * 2);
-    const innerHeight = Math.max(20, heightPx - pad * 2);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(widthPx);
-    canvas.height = Math.round(heightPx);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#000';
-
-    const barWidth = clamp(innerWidth / 180, 0.7, 2);
-    const barcodeHeight = clamp(innerHeight * 0.6, 24, innerHeight * 0.75);
-    const barcodeX = (widthPx - innerWidth) / 2;
-    const barcodeY = pad;
-
-    const tempCanvas = document.createElement('canvas');
-    try {
-      JsBarcode(tempCanvas, code, {
-        format: 'CODE128',
-        width: barWidth,
-        height: barcodeHeight,
-        margin: 0,
-        displayValue: false
-      });
-      ctx.drawImage(tempCanvas, barcodeX, barcodeY, innerWidth, barcodeHeight);
-    } catch (err) {
-      console.error('Failed to render barcode', err);
-      return null;
-    }
-
-    ctx.font = 'bold 11px Inter, Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(code, widthPx / 2, barcodeY + barcodeHeight + 14);
-
-    ctx.font = '10px Inter, Arial, sans-serif';
-    ctx.textAlign = 'left';
-    const maxTextWidth = innerWidth;
-    const lines = wrapText(ctx, title, maxTextWidth, 2);
-    const textStartY = barcodeY + barcodeHeight + 30;
-    lines.forEach((line, idx) => {
-      ctx.fillText(line, barcodeX, textStartY + idx * 14);
-    });
-
-    return canvas.toDataURL('image/png');
-  };
 
   const handleDownloadLabels = async () => {
     if (!labelModal.sku) return;
