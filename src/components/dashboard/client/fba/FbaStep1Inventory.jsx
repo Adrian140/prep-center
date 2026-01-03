@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/config/supabase';
+import { jsPDF } from 'jspdf';
+import JsBarcode from 'jsbarcode';
 
 const FieldLabel = ({ label, children }) => (
   <div className="flex flex-col gap-1 text-sm text-slate-700">
@@ -61,11 +63,26 @@ export default function FbaStep1Inventory({
     useManufacturerBarcode: false,
     manufacturerBarcodeEligible: true
   });
+  const LABEL_PRESETS = {
+    thermal: { width: '50', height: '25' },
+    standard: { width: '63', height: '25' }
+  };
+
+  const [labelModal, setLabelModal] = useState({
+    open: false,
+    sku: null,
+    format: 'thermal',
+    width: LABEL_PRESETS.thermal.width,
+    height: LABEL_PRESETS.thermal.height,
+    quantity: 1
+  });
   const [prepTab, setPrepTab] = useState('prep');
   const [prepSelections, setPrepSelections] = useState({});
   const [templates, setTemplates] = useState([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [templateError, setTemplateError] = useState('');
+  const [labelLoading, setLabelLoading] = useState(false);
+  const [labelError, setLabelError] = useState('');
 
   const openPackingModal = (sku) => {
     setPackingModal({
@@ -163,6 +180,146 @@ export default function FbaStep1Inventory({
       }
     }));
     closePrepModal();
+  };
+
+  const openLabelModal = (sku) => {
+    setLabelModal({
+      open: true,
+      sku,
+      format: 'thermal',
+      width: '50',
+      height: '25',
+      quantity: Number(sku.units || 1) || 1
+    });
+  };
+
+  const closeLabelModal = () => setLabelModal((prev) => ({ ...prev, open: false, sku: null }));
+
+  const mmToPx = (mm) => (mm * 300) / 25.4; // 300 DPI to keep detail on thermal
+  const clamp = (val, min, max) => Math.min(max, Math.max(min, val));
+
+  const wrapText = (ctx, text, maxWidth, maxLines = 2) => {
+    if (!text) return [];
+    const words = text.split(/\s+/);
+    const lines = [];
+    let current = '';
+    for (const word of words) {
+      const test = current ? `${current} ${word}` : word;
+      if (ctx.measureText(test).width <= maxWidth) {
+        current = test;
+      } else {
+        lines.push(current || word);
+        current = '';
+        if (lines.length >= maxLines) break;
+        current = word;
+      }
+    }
+    if (current && lines.length < maxLines) lines.push(current);
+    if (lines.length > maxLines) {
+      const last = lines[maxLines - 1] || '';
+      lines[maxLines - 1] = `${last.slice(0, Math.max(0, last.length - 3))}...`;
+      return lines.slice(0, maxLines);
+    }
+    return lines;
+  };
+
+  const renderBarcodes = ({ code, title, widthMm, heightMm }) => {
+    if (!code) return null;
+
+    const widthPx = clamp(mmToPx(widthMm), 120, 2200);
+    const heightPx = clamp(mmToPx(heightMm), 60, 1200);
+    const pad = 6;
+    const innerWidth = Math.max(20, widthPx - pad * 2);
+    const innerHeight = Math.max(20, heightPx - pad * 2);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(widthPx);
+    canvas.height = Math.round(heightPx);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#000';
+
+    const barWidth = clamp(innerWidth / 180, 0.7, 2);
+    const barcodeHeight = clamp(innerHeight * 0.6, 24, innerHeight * 0.75);
+    const barcodeX = (widthPx - innerWidth) / 2;
+    const barcodeY = pad;
+
+    const tempCanvas = document.createElement('canvas');
+    try {
+      JsBarcode(tempCanvas, code, {
+        format: 'CODE128',
+        width: barWidth,
+        height: barcodeHeight,
+        margin: 0,
+        displayValue: false
+      });
+      ctx.drawImage(tempCanvas, barcodeX, barcodeY, innerWidth, barcodeHeight);
+    } catch (err) {
+      console.error('Failed to render barcode', err);
+      return null;
+    }
+
+    ctx.font = 'bold 11px Inter, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(code, widthPx / 2, barcodeY + barcodeHeight + 14);
+
+    ctx.font = '10px Inter, Arial, sans-serif';
+    ctx.textAlign = 'left';
+    const maxTextWidth = innerWidth;
+    const lines = wrapText(ctx, title, maxTextWidth, 2);
+    const textStartY = barcodeY + barcodeHeight + 30;
+    lines.forEach((line, idx) => {
+      ctx.fillText(line, barcodeX, textStartY + idx * 14);
+    });
+
+    return canvas.toDataURL('image/png');
+  };
+
+  const handleDownloadLabels = async () => {
+    if (!labelModal.sku) return;
+    setLabelError('');
+    setLabelLoading(true);
+
+    try {
+      const payload = {
+        company_id: data.companyId,
+        marketplace_id: data.marketplace,
+        items: [
+          {
+            sku: labelModal.sku.sku,
+            asin: labelModal.sku.asin,
+            fnsku: labelModal.sku.fnsku,
+            quantity: Math.max(1, Number(labelModal.quantity) || 1)
+          }
+        ]
+      };
+
+      const { data: resp, error } = await supabase.functions.invoke('fba-labels', { body: payload });
+      if (error) {
+        throw new Error(error.message || 'Nu am putut cere etichetele de la Amazon.');
+      }
+      if (resp?.error) {
+        throw new Error(resp.error);
+      }
+      if (resp?.downloadUrl) {
+        window.open(resp.downloadUrl, '_blank', 'noopener');
+        closeLabelModal();
+        return;
+      }
+      if (resp?.operationId) {
+        setLabelError('Label request trimis la Amazon; reîncearcă după câteva secunde dacă nu s-a deschis PDF-ul.');
+        return;
+      }
+      throw new Error('Răspuns Amazon fără downloadUrl/operationId');
+    } catch (err) {
+      console.error('fba-labels error', err);
+      setLabelError(err?.message || 'Nu am putut descărca etichetele Amazon.');
+    } finally {
+      setLabelLoading(false);
+    }
   };
 
   const prepCategoryLabel = (value) => {
@@ -358,6 +515,14 @@ export default function FbaStep1Inventory({
                           >
                             More inputs
                           </button>
+                          <div className="mt-2">
+                            <button
+                              onClick={() => openLabelModal(sku)}
+                              className="text-sm font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
+                            >
+                              Print SKU labels
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -384,9 +549,12 @@ export default function FbaStep1Inventory({
                                 : 'Unit labelling: By seller'}
                           </div>
                         )}
-                        {!needsPrepNotice && (
-                          <div className="text-xs text-blue-600 cursor-pointer">Print SKU labels</div>
-                        )}
+                        <button
+                          onClick={() => openLabelModal(sku)}
+                          className="text-sm font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
+                        >
+                          Print SKU labels
+                        </button>
                       </div>
                     )}
                     {templateError && (
@@ -664,6 +832,124 @@ export default function FbaStep1Inventory({
                 Save
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {labelModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="text-lg font-semibold text-slate-900">Print SKU labels</div>
+              <button onClick={closeLabelModal} className="text-slate-500 hover:text-slate-700 text-sm">Close</button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              {labelModal.sku && (
+                <div className="flex gap-3">
+                  <img
+                    src={labelModal.sku.image || placeholderImg}
+                    alt={labelModal.sku.title}
+                    className="w-12 h-12 object-contain border border-slate-200 rounded"
+                  />
+                  <div className="text-sm text-slate-800">
+                    <div className="font-semibold text-slate-900 leading-snug">{labelModal.sku.title}</div>
+                    <div className="text-xs text-slate-600">SKU: {labelModal.sku.sku}</div>
+                    <div className="text-xs text-slate-600">ASIN: {labelModal.sku.asin}</div>
+                    <div className="text-xs text-slate-600">Fulfilment by Amazon storage type: {labelModal.sku.storageType}</div>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-semibold text-slate-800">Choose printing format</label>
+                  <select
+                    value={labelModal.format}
+                    onChange={(e) => {
+                      const nextFormat = e.target.value;
+                      const preset = LABEL_PRESETS[nextFormat] || LABEL_PRESETS.thermal;
+                      setLabelModal((prev) => ({
+                        ...prev,
+                        format: nextFormat,
+                        width: preset.width,
+                        height: preset.height
+                      }));
+                    }}
+                    className="border rounded-md px-3 py-2 text-sm"
+                  >
+                    <option value="thermal">Thermal printing</option>
+                    <option value="standard">Standard formats</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-semibold text-slate-800">Width (mm)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={labelModal.width}
+                    onChange={(e) => setLabelModal((prev) => ({ ...prev, width: e.target.value }))}
+                    className="border rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-semibold text-slate-800">Height (mm)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={labelModal.height}
+                    onChange={(e) => setLabelModal((prev) => ({ ...prev, height: e.target.value }))}
+                    className="border rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-md">
+                <div className="px-4 py-3 text-sm font-semibold text-slate-800 border-b border-slate-200">SKU details</div>
+                {labelModal.sku && (
+                  <div className="px-4 py-3 flex items-center gap-3">
+                    <img
+                      src={labelModal.sku.image || placeholderImg}
+                      alt={labelModal.sku.title}
+                      className="w-10 h-10 object-contain border border-slate-200 rounded"
+                    />
+                    <div className="flex-1 text-sm text-slate-800">
+                      <div className="font-semibold text-slate-900 leading-snug line-clamp-2">{labelModal.sku.title}</div>
+                      <div className="text-xs text-slate-600">SKU: {labelModal.sku.sku}</div>
+                      <div className="text-xs text-slate-600">ASIN: {labelModal.sku.asin}</div>
+                    </div>
+                    <div className="flex flex-col gap-1 items-end">
+                      <label className="text-xs text-slate-600">Print labels</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={labelModal.quantity}
+                        onChange={(e) => setLabelModal((prev) => ({ ...prev, quantity: e.target.value }))}
+                        className="border rounded-md px-3 py-2 text-sm w-24 text-right"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+              <button onClick={closeLabelModal} className="px-4 py-2 rounded-md border border-slate-300 text-slate-700 text-sm">
+                Cancel
+              </button>
+              <button
+                onClick={handleDownloadLabels}
+                disabled={labelLoading}
+                className={`px-4 py-2 rounded-md text-white text-sm font-semibold shadow-sm ${labelLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+              >
+                {labelLoading ? 'Downloading…' : 'Download labels'}
+              </button>
+            </div>
+            {labelError && (
+              <div className="px-6 pb-4 text-sm text-red-600">
+                {labelError}
+              </div>
+            )}
           </div>
         </div>
       )}

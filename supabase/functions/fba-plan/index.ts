@@ -61,6 +61,38 @@ function maskSecret(value: string, visible: number = 4) {
   return `${value.slice(0, visible)}${"*".repeat(Math.max(1, value.length - visible * 2))}${value.slice(-visible)}`;
 }
 
+function maskValue(val: string) {
+  if (!val) return "";
+  if (val.length <= 8) return "***";
+  return `${val.slice(0, 4)}***${val.slice(-4)}`;
+}
+
+function maskHeaders(headers: Headers | Record<string, string>) {
+  const entries: Record<string, string> = {};
+  if (headers instanceof Headers) {
+    headers.forEach((v, k) => {
+      entries[k.toLowerCase()] = v;
+    });
+  } else {
+    for (const [k, v] of Object.entries(headers)) {
+      entries[k.toLowerCase()] = v;
+    }
+  }
+  const sensitive = ["authorization", "x-amz-access-token", "x-amz-security-token", "client_secret"];
+  for (const key of sensitive) {
+    if (entries[key]) entries[key] = maskValue(entries[key]);
+  }
+  return entries;
+}
+
+function safeJson(input: unknown) {
+  try {
+    return JSON.stringify(input);
+  } catch (_e) {
+    return String(input);
+  }
+}
+
 // Helpers for SigV4
 function toHex(buffer: ArrayBuffer): string {
   return Array.prototype.map
@@ -164,8 +196,28 @@ async function signedFetch(opts: {
   secretKey: string;
   sessionToken?: string | null;
   lwaToken: string;
+  traceId?: string;
+  operationName?: string;
+  marketplaceId?: string;
+  sellerId?: string;
 }) {
-  const { method, service, region, host, path, query, payload, accessKey, secretKey, sessionToken, lwaToken } = opts;
+  const {
+    method,
+    service,
+    region,
+    host,
+    path,
+    query,
+    payload,
+    accessKey,
+    secretKey,
+    sessionToken,
+    lwaToken,
+    traceId,
+    operationName,
+    marketplaceId,
+    sellerId
+  } = opts;
   const sigHeaders = await signRequest({
     method,
     service,
@@ -178,24 +230,86 @@ async function signedFetch(opts: {
     secretKey,
     sessionToken
   });
-  const res = await fetch(`https://${host}${path}${query ? `?${query}` : ""}`, {
-    method,
-    headers: {
-      ...sigHeaders,
-      "x-amz-access-token": lwaToken,
-      accept: "application/json"
-    },
-    body: method === "POST" ? payload : undefined
-  });
-  const requestId = res.headers.get("x-amzn-RequestId") || res.headers.get("x-amzn-requestid") || null;
-  const text = await res.text();
-  let json: any = null;
+  const url = `https://${host}${path}${query ? `?${query}` : ""}`;
+  const requestHeaders = {
+    ...sigHeaders,
+    "x-amz-access-token": lwaToken,
+    accept: "application/json"
+  };
+
+  console.log(
+    JSON.stringify(
+      {
+        tag: "SPAPI_REQUEST",
+        traceId: traceId || null,
+        timestamp: new Date().toISOString(),
+        operation: operationName || path,
+        method,
+        url,
+        marketplaceId: marketplaceId || null,
+        sellerId: sellerId || null,
+        region,
+        requestHeaders: maskHeaders(requestHeaders),
+        requestBody: payload
+      },
+      null,
+      2
+    )
+  );
+
   try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    // ignore parse errors
+    const res = await fetch(url, {
+      method,
+      headers: requestHeaders,
+      body: ["POST", "PUT", "PATCH"].includes(method) ? payload : undefined
+    });
+    const requestId = res.headers.get("x-amzn-RequestId") || res.headers.get("x-amzn-requestid") || null;
+    const resHeaders = maskHeaders(res.headers);
+    const text = await res.text();
+    let json: any = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      // ignore parse errors
+    }
+
+    console.log(
+      JSON.stringify(
+        {
+          tag: "SPAPI_RESPONSE",
+          traceId: traceId || null,
+          timestamp: new Date().toISOString(),
+          operation: operationName || path,
+          status: res.status,
+          requestId,
+          responseHeaders: resHeaders,
+          responseBody: text
+        },
+        null,
+        2
+      )
+    );
+
+    return { res, text, json, requestId };
+  } catch (error: any) {
+    console.error(
+      JSON.stringify(
+        {
+          tag: "SPAPI_ERROR",
+          traceId: traceId || null,
+          timestamp: new Date().toISOString(),
+          operation: operationName || path,
+          errorName: error?.name || "Error",
+          errorMessage: error?.message || String(error),
+          errorStack: error?.stack || "",
+          raw: safeJson(error)
+        },
+        null,
+        2
+      )
+    );
+    throw error;
   }
-  return { res, text, json, requestId };
 }
 
 async function getLwaAccessToken(refreshToken: string) {
@@ -308,38 +422,30 @@ async function spapiGet(opts: {
   query: string;
   lwaToken: string;
   tempCreds: TempCreds;
+  traceId?: string;
+  operationName?: string;
+  marketplaceId?: string;
+  sellerId?: string;
 }) {
-  const { host, region, path, query, lwaToken, tempCreds } = opts;
-  const payload = "";
-  const sigHeaders = await signRequest({
+  const { host, region, path, query, lwaToken, tempCreds, traceId, operationName, marketplaceId, sellerId } = opts;
+  const out = await signedFetch({
     method: "GET",
     service: "execute-api",
     region,
     host,
     path,
     query,
-    payload,
+    payload: "",
     accessKey: tempCreds.accessKeyId,
     secretKey: tempCreds.secretAccessKey,
-    sessionToken: tempCreds.sessionToken
+    sessionToken: tempCreds.sessionToken,
+    lwaToken,
+    traceId,
+    operationName,
+    marketplaceId,
+    sellerId
   });
-
-  const res = await fetch(`https://${host}${path}${query ? `?${query}` : ""}`, {
-    method: "GET",
-    headers: {
-      ...sigHeaders,
-      "x-amz-access-token": lwaToken
-    }
-  });
-
-  const text = await res.text();
-  let json: any = null;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    // ignore parse errors; handled by status
-  }
-  return { res, text, json };
+  return { res: out.res, text: out.text, json: out.json };
 }
 
 async function catalogCheck(params: {
@@ -349,12 +455,25 @@ async function catalogCheck(params: {
   region: string;
   lwaToken: string;
   tempCreds: TempCreds;
+  traceId: string;
+  sellerId: string;
 }) {
-  const { asin, marketplaceId, host, region, lwaToken, tempCreds } = params;
+  const { asin, marketplaceId, host, region, lwaToken, tempCreds, traceId, sellerId } = params;
   if (!asin) return { found: false, reason: "Lipsă ASIN pentru verificare catalog" };
   const path = `/catalog/2022-04-01/items/${encodeURIComponent(asin)}`;
   const query = `marketplaceIds=${encodeURIComponent(marketplaceId)}`;
-  const { res, json, text } = await spapiGet({ host, region, path, query, lwaToken, tempCreds });
+  const { res, json, text } = await spapiGet({
+    host,
+    region,
+    path,
+    query,
+    lwaToken,
+    tempCreds,
+    traceId,
+    operationName: "catalog.getItem",
+    marketplaceId,
+    sellerId
+  });
   if (res.ok) {
     const payload = json?.payload || json || {};
     const identifiers = payload?.identifiers || payload?.Identifiers || [];
@@ -397,15 +516,27 @@ async function checkSkuStatus(params: {
       path: listingsPath,
       query: listingsQuery,
       lwaToken,
-      tempCreds
+      tempCreds,
+      traceId,
+      operationName: "listings.getItem",
+      marketplaceId,
+      sellerId
     });
 
     if (res.status === 404) {
       return { state: "missing", reason: "Listing inexistent pe marketplace-ul destinație" };
     }
     if (!res.ok) {
-      // Try catalog fallback for visibility; if found, mark ok with note
-      const cat = await catalogCheck({ asin, marketplaceId, host, region, lwaToken, tempCreds });
+      const cat = await catalogCheck({
+        asin,
+        marketplaceId,
+        host,
+        region,
+        lwaToken,
+        tempCreds,
+        traceId: traceId || crypto.randomUUID(),
+        sellerId
+      });
       if (cat.found) {
         return { state: "ok", reason: `Catalog găsit; Listings API ${res.status}` };
       }
@@ -416,7 +547,16 @@ async function checkSkuStatus(params: {
     const status = json?.payload?.status || json?.payload?.Status || "";
 
     // Catalog confirmă că ASIN/SKU există pe marketplace; altfel blocăm ca missing
-    const cat = await catalogCheck({ asin, marketplaceId, host, region, lwaToken, tempCreds });
+    const cat = await catalogCheck({
+      asin,
+      marketplaceId,
+      host,
+      region,
+      lwaToken,
+      tempCreds,
+      traceId: traceId || crypto.randomUUID(),
+      sellerId
+    });
     debug = {
       listingStatusCode: res.status,
       listingStatusField: status || null,
@@ -437,7 +577,16 @@ async function checkSkuStatus(params: {
       return { state: "inactive", reason: `Listing găsit cu status ${status}` };
     }
   } catch (e) {
-    const cat = await catalogCheck({ asin, marketplaceId, host, region, lwaToken, tempCreds });
+    const cat = await catalogCheck({
+      asin,
+      marketplaceId,
+      host,
+      region,
+      lwaToken,
+      tempCreds,
+      traceId: traceId || crypto.randomUUID(),
+      sellerId
+    });
     if (traceId) {
       console.log("sku-status-error", {
         traceId,
@@ -466,7 +615,11 @@ async function checkSkuStatus(params: {
         path: restrictionsPath,
         query: restrictionsQuery,
         lwaToken,
-        tempCreds
+        tempCreds,
+        traceId,
+        operationName: "listings.getRestrictions",
+        marketplaceId,
+        sellerId
       });
       if (res.ok) {
         const restrictions = json?.restrictions || json?.payload || [];
@@ -498,8 +651,11 @@ async function fetchPrepGuidance(params: {
   region: string;
   tempCreds: TempCreds;
   lwaToken: string;
+  traceId: string;
+  marketplaceId: string;
+  sellerId: string;
 }) {
-  const { items, shipFromCountry, shipToCountry, host, region, tempCreds, lwaToken } = params;
+  const { items, shipFromCountry, shipToCountry, host, region, tempCreds, lwaToken, traceId, marketplaceId, sellerId } = params;
   const skus = items.map((it) => it.sku).filter(Boolean) as string[];
   const asins = items.map((it) => it.asin).filter(Boolean) as string[];
   if (!skus.length && !asins.length) return {};
@@ -522,11 +678,19 @@ async function fetchPrepGuidance(params: {
     accessKey: tempCreds.accessKeyId,
     secretKey: tempCreds.secretAccessKey,
     sessionToken: tempCreds.sessionToken,
-    lwaToken
+    lwaToken,
+    traceId,
+    operationName: "inbound.v0.prepInstructions",
+    marketplaceId,
+    sellerId
   });
 
   if (!prep.res.ok) {
-    console.warn("prepInstructions error", { status: prep.res.status, body: prep.text?.slice(0, 500) });
+    console.warn("prepInstructions error (best-effort, ignored for plan)", {
+      status: prep.res.status,
+      body: prep.text?.slice(0, 500),
+      traceId
+    });
     return {};
   }
 
@@ -732,12 +896,12 @@ serve(async (req) => {
       name: "Bucur Adrian",
       addressLine1: "5 Rue des Enclos",
       addressLine2: "Zone B, Cellule 7",
-      city: "Gouesniere",
-      stateOrProvinceCode: "Ille-et-Vilaine",
+      city: "La Gouesniere",
+      stateOrProvinceCode: "35", // FR department code for Ille-et-Vilaine
       postalCode: "35350",
       countryCode: shipFromCountry,
-      phoneNumber: "0675116218",
-      email: "ioan.adrian.bucur@gmail.com",
+      phoneNumber: "+33675116218",
+      email: "contact@prep-center.eu",
       companyName: "EcomPrep Hub"
     };
 
@@ -748,7 +912,10 @@ serve(async (req) => {
       host,
       region: awsRegion,
       tempCreds,
-      lwaToken: lwaAccessToken
+      lwaToken: lwaAccessToken,
+      traceId,
+      marketplaceId,
+      sellerId
     });
 
     // Debug info for auth context (mascat)
@@ -827,21 +994,28 @@ serve(async (req) => {
     }
 
     const planBody = {
-      shipFromAddress,
+      // Amazon requires `sourceAddress` for createInboundPlan payload
+      sourceAddress: shipFromAddress,
       destinationMarketplaces: [marketplaceId],
       labelPrepPreference: "SELLER_LABEL",
       shipmentType: "SP",
       requireDeliveryWindows: false,
-      items: items.map((it) => ({
-        msku: it.sku || "",
-        quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-        prepOwner: "SELLER",
-        labelOwner: "SELLER"
-      }))
+      items: items.map((it) => {
+        const key = it.sku || it.asin || "";
+        const prepInfo = prepGuidanceMap[key] || {};
+        const prepRequired = !!prepInfo.prepRequired;
+        return {
+          msku: it.sku || "",
+          quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+          prepOwner: prepRequired ? "SELLER" : "NONE",
+          labelOwner: "SELLER"
+        };
+      })
     };
 
     const payload = JSON.stringify(planBody);
-    const path = "/fba/inbound/2024-03-20/inboundPlans";
+    // SP-API expects the resource under /inbound/fba (not /fba/inbound)
+    const path = "/inbound/fba/2024-03-20/inboundPlans";
     const query = "";
 
     const formatAddress = (addr?: Record<string, string | undefined | null>) => {
@@ -863,7 +1037,11 @@ serve(async (req) => {
       accessKey: tempCreds.accessKeyId,
       secretKey: tempCreds.secretAccessKey,
       sessionToken: tempCreds.sessionToken,
-      lwaToken: lwaAccessToken
+      lwaToken: lwaAccessToken,
+      traceId,
+      operationName: "inbound.v20240320.createInboundPlan",
+      marketplaceId,
+      sellerId
     });
 
     // Keep raw Amazon response for debugging / UI
@@ -940,6 +1118,19 @@ serve(async (req) => {
 
     const normalizeItems = (p: any) => p?.items || p?.Items || [];
 
+    // Map FNSKU returned by Amazon to seller SKU so UI can render the exact label code
+    const fnskuBySku: Record<string, string> = {};
+    plans.forEach((p: any) => {
+      const itemsList = normalizeItems(p);
+      itemsList.forEach((it: any) => {
+        const sellerSku = it.msku || it.SellerSKU || it.sellerSku || "";
+        const fnsku = it.fulfillmentNetworkSku || it.FulfillmentNetworkSKU || it.fnsku || "";
+        if (sellerSku && fnsku) {
+          fnskuBySku[sellerSku] = fnsku;
+        }
+      });
+    });
+
     // Map to UI format
     const packGroups = plans.map((p: any, idx: number) => {
       const itemsList = normalizeItems(p);
@@ -996,6 +1187,7 @@ serve(async (req) => {
         sku: it.sku || stock?.sku || "",
         asin: it.asin || stock?.asin || "",
         storageType: "Standard-size",
+        fnsku: fnskuBySku[it.sku || ""] || null,
         packing: "individual",
         units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
         expiry: "",

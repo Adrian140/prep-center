@@ -83,7 +83,7 @@ export default function FbaSendToAmazonWizard({
   const [packGroups, setPackGroups] = useState(initialPacking);
   const [shipmentMode, setShipmentMode] = useState(initialShipmentMode);
   const [shipments, setShipments] = useState(initialShipmentList);
-  const [labelFormat, setLabelFormat] = useState('letter');
+  const [labelFormat, setLabelFormat] = useState('thermal');
   const [tracking, setTracking] = useState(initialTrackingList);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [planError, setPlanError] = useState('');
@@ -265,8 +265,8 @@ export default function FbaSendToAmazonWizard({
     <div className="w-full mx-auto max-w-5xl space-y-4">
       <div className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm">
         <div className="flex items-center gap-2 text-slate-800 font-semibold">
-          Send to Amazon (beta)
-          <span className="text-xs text-slate-500 font-normal">Mock UI aligned to Amazon steps</span>
+          Send to Amazon
+          <span className="text-xs text-slate-500 font-normal">UI aliniat la pașii Amazon (live)</span>
         </div>
         {showLegacyToggle && (
           <button
@@ -274,7 +274,7 @@ export default function FbaSendToAmazonWizard({
             className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-800"
           >
             {legacy ? <ToggleLeft className="w-5 h-5" /> : <ToggleRight className="w-5 h-5" />}
-            {legacy ? 'Use legacy flow' : 'Use new Send to Amazon'}
+            {legacy ? 'Folosește fluxul nou' : 'Revino la fluxul vechi'}
           </button>
         )}
       </div>
