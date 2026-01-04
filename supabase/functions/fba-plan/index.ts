@@ -1994,39 +1994,7 @@ serve(async (req) => {
       inboundPlanStatus = fetchedStatus || inboundPlanStatus;
     }
 
-    // Best-effort: if plan is ACTIVE/SUCCESS but shipments missing, trigger packing/placement generation then refetch plan
-    if (
-      !plans.length &&
-      inboundPlanId &&
-      ((operationStatus || "").toUpperCase() === "SUCCESS" || (inboundPlanStatus || "").toUpperCase() === "ACTIVE")
-    ) {
-      try {
-        await generatePackingOptions(inboundPlanId);
-        const packRes = await listPackingOptions(inboundPlanId);
-        _lastPackingOptions = packRes.json?.payload?.packingOptions || packRes.json?.packingOptions || _lastPackingOptions;
-
-        await generatePlacementOptions(inboundPlanId);
-        const placeRes = await listPlacementOptions(inboundPlanId);
-        _lastPlacementOptions =
-          placeRes.json?.payload?.placementOptions || placeRes.json?.placementOptions || _lastPlacementOptions;
-
-        const { fetchedJson, fetchedPlans, fetchedStatus, fetchedPackingOptions, fetchedPlacementOptions } =
-          await fetchInboundPlanById(inboundPlanId);
-        if (fetchedPlans.length) {
-          plans = fetchedPlans;
-          amazonJson = fetchedJson;
-        }
-        inboundPlanStatus = fetchedStatus || inboundPlanStatus;
-        _lastPackingOptions = fetchedPackingOptions || _lastPackingOptions;
-        _lastPlacementOptions = fetchedPlacementOptions || _lastPlacementOptions;
-      } catch (err) {
-        console.warn("inbound-plan followup generate/list failed", {
-          traceId,
-          inboundPlanId,
-          error: err instanceof Error ? err.message : String(err)
-        });
-      }
-    }
+    // No shipments yet is expected until carrier/placement is confirmed; we stop here in Step 1.
 
     if (!appliedPlanBody) {
       appliedPlanBody = buildPlanBody(appliedOverrides);
