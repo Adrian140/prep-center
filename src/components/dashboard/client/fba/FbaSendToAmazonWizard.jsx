@@ -299,6 +299,9 @@ export default function FbaSendToAmazonWizard({
     const hasApiShipments = Array.isArray(shipments) && shipments.some((s) => s.source === 'api' || s.confirmed);
     const derived = deriveShipmentsFromPacking();
     if (hasApiShipments) return;
+    const currentLocal = JSON.stringify((shipments || []).filter((s) => s.source === 'local'));
+    const nextLocal = JSON.stringify(derived);
+    if (currentLocal === nextLocal) return;
     setShipments(derived);
   }, [packGroups, plan?.shipFrom, plan?.marketplace, shipments]);
 
