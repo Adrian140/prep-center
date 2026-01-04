@@ -34,7 +34,14 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
                 <Box className="w-5 h-5 text-slate-500" />
                 <div>
                   <div className="font-semibold text-slate-900">{group.title}</div>
-                  <div className="text-sm text-slate-600">These SKUs can be packed together – {group.skuCount} SKUs ({group.units} units)</div>
+                  <div className="text-sm text-slate-600">
+                    These SKUs can be packed together – {group.skuCount} SKUs ({group.units} units)
+                  </div>
+                  {group.destLabel && (
+                    <div className="text-xs text-slate-500 mt-1">
+                      Destination: {group.destLabel}
+                    </div>
+                  )}
                 </div>
               </div>
 

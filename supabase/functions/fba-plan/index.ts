@@ -1138,30 +1138,69 @@ serve(async (req) => {
       });
     });
 
-    // Map to UI format
-    const packGroups = plans.map((p: any, idx: number) => {
+    // Grupăm planurile după destinație (FC sau adresă) ca să reflectăm gruparea Amazon per adresă
+    const packGroupsMap = new Map<
+      string,
+      {
+        id: string;
+        destLabel: string;
+        skuCount: number;
+        units: number;
+        boxes: number;
+        packMode: "single" | "multiple";
+        warning: string | null;
+        image: string | null;
+        skus: { id: string; qty: number; fnsku: string | null }[];
+      }
+    >();
+
+    plans.forEach((p: any, idx: number) => {
       const itemsList = normalizeItems(p);
       const totalUnits = itemsList.reduce((s: number, it: any) => s + (Number(it.quantity || it.Quantity) || 0), 0);
       const warning = Array.isArray(p.warnings || p.Warnings) && (p.warnings || p.Warnings)[0]?.message
         ? (p.warnings || p.Warnings)[0]?.message
         : null;
       const estimatedBoxes = Number(p.estimatedBoxCount || p.EstimatedBoxCount || 1) || 1;
-      return {
-        id: p.ShipmentId || `plan-${idx + 1}`,
-        title: `Pack group ${idx + 1}`,
-        skuCount: itemsList.length,
-        units: totalUnits,
-        boxes: estimatedBoxes,
-        packMode: estimatedBoxes > 1 ? "multiple" : "single",
-        warning,
-        image: null,
-        skus: itemsList.map((it: any, j: number) => ({
-          id: it.msku || it.SellerSKU || `sku-${j + 1}`,
-          qty: Number(it.quantity || it.Quantity) || 0,
-          fnsku: it.fulfillmentNetworkSku || it.FulfillmentNetworkSKU || null
-        }))
-      };
+      const destinationFc = p.destinationFulfillmentCenterId || p.DestinationFulfillmentCenterId || "";
+      const destAddress = p.destinationAddress || p.DestinationAddress || null;
+      const destAddressLabel = destAddress ? formatAddress(destAddress) : "";
+      const destLabel = destinationFc || destAddressLabel || "Unknown destination";
+      const destKey = destinationFc || destAddressLabel || `plan-${idx + 1}`;
+
+      const existing = packGroupsMap.get(destKey);
+      const skus = itemsList.map((it: any, j: number) => ({
+        id: it.msku || it.SellerSKU || `sku-${j + 1}`,
+        qty: Number(it.quantity || it.Quantity) || 0,
+        fnsku: it.fulfillmentNetworkSku || it.FulfillmentNetworkSKU || null
+      }));
+
+      if (existing) {
+        existing.skuCount += itemsList.length;
+        existing.units += totalUnits;
+        existing.boxes += estimatedBoxes;
+        existing.skus = existing.skus.concat(skus);
+        // păstrăm warning-ul mai sever dacă apare (nu suprascriem cu null)
+        existing.warning = existing.warning || warning;
+        packGroupsMap.set(destKey, existing);
+      } else {
+        packGroupsMap.set(destKey, {
+          id: p.ShipmentId || `plan-${idx + 1}`,
+          destLabel,
+          skuCount: itemsList.length,
+          units: totalUnits,
+          boxes: estimatedBoxes,
+          packMode: estimatedBoxes > 1 ? "multiple" : "single",
+          warning,
+          image: null,
+          skus
+        });
+      }
     });
+
+    const packGroups = Array.from(packGroupsMap.values()).map((g, idx) => ({
+      ...g,
+      title: g.destLabel ? `Pack group ${idx + 1} · ${g.destLabel}` : `Pack group ${idx + 1}`
+    }));
 
     const shipments = plans.map((p: any, idx: number) => {
       const itemsList = normalizeItems(p);
