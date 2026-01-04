@@ -76,23 +76,35 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
 
               <div className="px-4 py-3 flex flex-col gap-3">
                 <div className="space-y-3 text-sm text-slate-700">
-                  {(group.items || []).map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between gap-3 py-1 border-b border-slate-100 last:border-0">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {renderItemAvatar(item)}
-                        <div className="min-w-0">
-                          <div className="font-medium text-slate-800 truncate">
-                            {item.title || item.sku || item.msku || `Item ${idx + 1}`}
+                  {(() => {
+                    const items = group.items || [];
+                    if (!items.length) {
+                      return <div className="text-xs text-slate-500">No items returned for this group yet.</div>;
+                    }
+                    const maxVisible = 4;
+                    const visible = items.slice(0, maxVisible);
+                    const totalUnits = items.reduce((s, it) => s + (Number(it.quantity || 0) || 0), 0);
+                    const visibleUnits = visible.reduce((s, it) => s + (Number(it.quantity || 0) || 0), 0);
+                    const hiddenUnits = Math.max(0, totalUnits - visibleUnits);
+                    return (
+                      <div className="flex flex-wrap gap-4">
+                        {visible.map((item, idx) => (
+                          <div key={idx} className="flex flex-col items-center gap-1 min-w-[72px]">
+                            {renderItemAvatar(item)}
+                            <div className="text-xs text-slate-600">x {Number(item.quantity || 0)}</div>
                           </div>
-                          <div className="text-xs text-slate-500 truncate">{item.sku || item.msku || ''}</div>
-                        </div>
+                        ))}
+                        {hiddenUnits > 0 && (
+                          <div className="flex flex-col items-center gap-1 min-w-[72px]">
+                            <div className="w-10 h-10 rounded bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-semibold text-slate-600">
+                              +{hiddenUnits}
+                            </div>
+                            <div className="text-xs text-slate-600 whitespace-nowrap">more units</div>
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs text-slate-600 whitespace-nowrap">Qty: {Number(item.quantity || 0)}</div>
-                    </div>
-                  ))}
-                  {!group.items?.length && (
-                    <div className="text-xs text-slate-500">No items returned for this group yet.</div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 text-sm text-emerald-700 font-semibold">
