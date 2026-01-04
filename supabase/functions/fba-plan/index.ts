@@ -1218,7 +1218,7 @@ serve(async (req) => {
     if (inferredMarketplace) {
       const { data: integRows, error } = await supabase
         .from("amazon_integrations")
-        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
         .eq("company_id", reqData.company_id)
         .eq("status", "active")
         .eq("marketplace_id", inferredMarketplace)
@@ -1234,7 +1234,7 @@ serve(async (req) => {
     if (!integ) {
       const { data: integRows, error: integErr } = await supabase
         .from("amazon_integrations")
-        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
         .eq("company_id", reqData.company_id)
         .eq("status", "active")
         .order("updated_at", { ascending: false })
@@ -1247,7 +1247,7 @@ serve(async (req) => {
     if (!integ) {
       const { data: pendingRows, error: pendingErr } = await supabase
         .from("amazon_integrations")
-        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
         .eq("company_id", reqData.company_id)
         .in("status", ["pending"])
         .order("updated_at", { ascending: false })
@@ -1271,6 +1271,7 @@ serve(async (req) => {
     }
 
     const refreshToken = integ.refresh_token;
+    const amazonIntegrationId = (integ as any)?.id || null;
     const sellerId = await resolveSellerId(reqData.company_id, integ.selling_partner_id);
     if (!sellerId) {
       return new Response(JSON.stringify({ error: "Missing seller id. Set selling_partner_id in amazon_integrations or SPAPI_SELLER_ID env.", traceId }), {
@@ -1543,6 +1544,7 @@ serve(async (req) => {
       });
       const plan = {
         source: "amazon",
+        amazonIntegrationId,
         marketplace: marketplaceId,
         shipFrom: {
           name: shipFromAddress.name,
@@ -1553,9 +1555,9 @@ serve(async (req) => {
         shipments: [],
         raw: null,
         skuStatuses,
-          warning,
-          blocking: true
-        };
+        warning,
+        blocking: true
+      };
       return new Response(JSON.stringify({ plan, traceId, scopes: lwaScopes }), {
         status: 200,
         headers: { ...corsHeaders, "content-type": "application/json" }
@@ -1935,6 +1937,7 @@ serve(async (req) => {
       });
       const plan = {
         source: "amazon",
+        amazonIntegrationId,
         marketplace: marketplaceId,
         shipFrom: {
           name: shipFromAddress.name,
@@ -2048,6 +2051,7 @@ serve(async (req) => {
           : "";
         const fallbackPlan = {
           source: "amazon",
+          amazonIntegrationId,
           marketplace: marketplaceId,
           shipFrom: {
             name: shipFromAddress.name,
@@ -2267,6 +2271,7 @@ serve(async (req) => {
     const combinedWarning = planWarnings.length ? planWarnings.join(" ") : null;
     const plan = {
       source: "amazon",
+      amazonIntegrationId,
       marketplace: marketplaceId,
       companyId: reqData.company_id || null,
       inboundPlanId: inboundPlanId || null,

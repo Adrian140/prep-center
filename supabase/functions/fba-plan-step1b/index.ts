@@ -490,27 +490,44 @@ serve(async (req) => {
     const inferredMarketplace = marketplaceByCountry[destCountry] || null;
 
     // Fetch amazon integration
+    const amazonIntegrationIdInput = body?.amazon_integration_id as string | undefined;
     let integ: AmazonIntegration | null = null;
+    let integId: string | null = null;
     if (inferredMarketplace) {
       const { data: integRows } = await supabase
         .from("amazon_integrations")
-        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
         .eq("company_id", reqData.company_id)
         .eq("status", "active")
         .eq("marketplace_id", inferredMarketplace)
         .order("updated_at", { ascending: false })
         .limit(1);
       integ = (integRows?.[0] as any) || null;
+      integId = (integ as any)?.id || null;
+    }
+    if (!integ && amazonIntegrationIdInput) {
+      const { data: integRowById } = await supabase
+        .from("amazon_integrations")
+        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .eq("company_id", reqData.company_id)
+        .eq("id", amazonIntegrationIdInput)
+        .eq("status", "active")
+        .maybeSingle();
+      if (integRowById) {
+        integ = integRowById as any;
+        integId = (integRowById as any)?.id || null;
+      }
     }
     if (!integ) {
       const { data: integRows } = await supabase
         .from("amazon_integrations")
-        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
         .eq("company_id", reqData.company_id)
         .eq("status", "active")
         .order("updated_at", { ascending: false })
         .limit(1);
       integ = (integRows?.[0] as any) || null;
+      integId = (integ as any)?.id || integId || null;
     }
     if (!integ?.refresh_token) {
       throw new Error("No active Amazon integration found for this company");
@@ -532,9 +549,24 @@ serve(async (req) => {
     const tempCreds = await assumeRole(SPAPI_ROLE_ARN);
     const lwaAccessToken = await getLwaAccessToken(refreshToken);
 
+    // Debug auth context
+    console.log("fba-plan-step1b auth-context", {
+      traceId,
+      inboundPlanId,
+      companyId: reqData.company_id,
+      amazonIntegrationId: integId || null,
+      marketplaceId,
+      region: awsRegion,
+      host,
+      sellerId,
+      refreshToken: maskValue(refreshToken || ""),
+      roleArn: SPAPI_ROLE_ARN ? `...${SPAPI_ROLE_ARN.slice(-6)}` : "",
+      accessKey: AWS_ACCESS_KEY_ID ? `...${AWS_ACCESS_KEY_ID.slice(-4)}` : ""
+    });
+
     // Step 1b: generate + list packing options for inboundPlanId
     const basePath = "/inbound/fba/2024-03-20";
-    let warning: string | null = null;
+    const warnings: string[] = [];
 
     const pollOperationStatus = async (operationId: string) => {
       const maxAttempts = 8;
@@ -576,42 +608,18 @@ serve(async (req) => {
       return last;
     };
 
-    // generate (idempotent if already generated)
-    const genRes = await signedFetch({
-      method: "POST",
-      service: "execute-api",
-      region: awsRegion,
-      host,
-      path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions:generate`,
-      query: "",
-      payload: "",
-      accessKey: tempCreds.accessKeyId,
-      secretKey: tempCreds.secretAccessKey,
-      sessionToken: tempCreds.sessionToken,
-      lwaToken: lwaAccessToken,
-      traceId,
-      operationName: "inbound.v20240320.generatePackingOptions",
-      marketplaceId,
-      sellerId
-    });
+    const extractPackingOptionsFromResponse = (res: Awaited<ReturnType<typeof signedFetch>> | null) => {
+      if (!res) return [];
+      return (
+        res.json?.payload?.packingOptions ||
+        res.json?.packingOptions ||
+        res.json?.PackingOptions ||
+        []
+      );
+    };
 
-    if (!genRes.res.ok && genRes.res.status !== 409) {
-      warning = `Amazon a refuzat generatePackingOptions (${genRes.res.status}). Verifică permisiunile Inbound/packing pe cont.`;
-    }
-
-    const genOpId =
-      genRes.json?.payload?.operationId ||
-      genRes.json?.payload?.OperationId ||
-      genRes.json?.operationId ||
-      genRes.json?.OperationId ||
-      null;
-    if (genOpId && !warning) {
-      await pollOperationStatus(genOpId);
-    }
-
-    let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
-    if (!warning) {
-      listRes = await signedFetch({
+    const listPackingOptions = async () => {
+      return signedFetch({
         method: "GET",
         service: "execute-api",
         region: awsRegion,
@@ -628,17 +636,89 @@ serve(async (req) => {
         marketplaceId,
         sellerId
       });
+    };
 
+    // Quick verification: confirm plan is accessible with this token/seller
+    const planCheck = await signedFetch({
+      method: "GET",
+      service: "execute-api",
+      region: awsRegion,
+      host,
+      path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}`,
+      query: "",
+      payload: "",
+      accessKey: tempCreds.accessKeyId,
+      secretKey: tempCreds.secretAccessKey,
+      sessionToken: tempCreds.sessionToken,
+      lwaToken: lwaAccessToken,
+      traceId,
+      operationName: "inbound.v20240320.getInboundPlan.check",
+      marketplaceId,
+      sellerId
+    });
+
+    let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+    let genRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+
+    if (!planCheck.res.ok) {
+      warnings.push(
+        `Nu am acces la inboundPlanId cu integrarea selectată (${planCheck.res.status}). Verifică seller/token.`
+      );
+    } else {
+      listRes = await listPackingOptions();
       if (!listRes.res.ok) {
-        warning = `Packing options list failed (${listRes.res.status}). ${listRes.text?.slice(0, 200) || ""}`;
+        warnings.push(
+          `Packing options list failed (${listRes.res.status}). ${listRes.text?.slice(0, 200) || ""}`
+        );
+      }
+
+      const packingOptionsSnapshot = extractPackingOptionsFromResponse(listRes);
+      const shouldGenerate = listRes.res.ok && packingOptionsSnapshot.length === 0;
+      if (shouldGenerate) {
+        genRes = await signedFetch({
+          method: "POST",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions:generate`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.generatePackingOptions",
+          marketplaceId,
+          sellerId
+        });
+
+        if (genRes && !genRes.res.ok && genRes.res.status !== 409) {
+          warnings.push(
+            `Amazon a refuzat generatePackingOptions (${genRes.res.status}). Verifică permisiunile Inbound/packing pe cont.`
+          );
+        }
+
+        const genOpId =
+          genRes?.json?.payload?.operationId ||
+          genRes?.json?.payload?.OperationId ||
+          genRes?.json?.operationId ||
+          genRes?.json?.OperationId ||
+          null;
+        if (genOpId && genRes?.res.ok) {
+          await pollOperationStatus(genOpId);
+        }
+
+        listRes = await listPackingOptions();
+        if (!listRes.res.ok) {
+          warnings.push(
+            `Packing options list failed (${listRes.res.status}). ${listRes.text?.slice(0, 200) || ""}`
+          );
+        }
       }
     }
 
-    const packingOptions =
-      listRes?.json?.payload?.packingOptions ||
-      listRes?.json?.packingOptions ||
-      listRes?.json?.PackingOptions ||
-      [];
+    const packingOptions = extractPackingOptionsFromResponse(listRes);
 
     const pickPackingOption = (options: any[]) => {
       if (!Array.isArray(options) || !options.length) return null;
@@ -716,6 +796,8 @@ serve(async (req) => {
       await delay(50);
     }
 
+    const warning = warnings.length ? warnings.join(" ") : null;
+
     return new Response(
       JSON.stringify({
         inboundPlanId,
@@ -723,11 +805,13 @@ serve(async (req) => {
         packingGroups,
         traceId,
         status: {
-          generate: genRes.res.status,
+          planCheck: planCheck.res.status,
+          generate: genRes?.res.status ?? null,
           list: listRes?.res.status ?? null
         },
-        requestId: listRes?.requestId || genRes.requestId || null,
-        warning
+        requestId: listRes?.requestId || genRes?.requestId || planCheck.requestId || null,
+        warning,
+        amazonIntegrationId: integId || null
       }),
       { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
     );

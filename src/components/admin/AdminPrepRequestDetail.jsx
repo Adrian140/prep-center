@@ -112,7 +112,8 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
         const { data: packingData, error: packingErr } = await supabase.functions.invoke('fba-plan-step1b', {
           body: {
             request_id: row.id,
-            inbound_plan_id: plan.inboundPlanId
+            inbound_plan_id: plan.inboundPlanId,
+            amazon_integration_id: plan.amazonIntegrationId || null
           }
         });
         if (!packingErr && packingData) {
