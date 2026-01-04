@@ -361,7 +361,9 @@ export default function FbaStep1Inventory({
               const status = statusForSku(sku);
               const state = String(status.state || '').toLowerCase();
               const labelOwner = sku.labelOwner || (sku.manufacturerBarcodeEligible ? 'NONE' : 'SELLER');
+              const labelOwnerSource = sku.labelOwnerSource || 'unknown';
               const labelRequired = labelOwner !== 'NONE';
+              const showLabelButton = labelRequired && ['amazon-override', 'prep-guidance'].includes(labelOwnerSource);
               const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
               const prepSelection = prepSelections[sku.id] || {};
               const prepResolved = prepSelection.resolved;
@@ -465,14 +467,16 @@ export default function FbaStep1Inventory({
                           >
                             More inputs
                           </button>
-                          <div className="mt-2">
-                            <button
-                              onClick={() => openLabelModal(sku)}
-                              className="text-sm font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
-                            >
-                              Print SKU labels
-                            </button>
-                          </div>
+                          {showLabelButton && (
+                            <div className="mt-2">
+                              <button
+                                onClick={() => openLabelModal(sku)}
+                                className="text-sm font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
+                              >
+                                Print SKU labels
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -501,13 +505,18 @@ export default function FbaStep1Inventory({
                                   : 'Unit labelling: By seller'}
                           </div>
                         )}
-                        {labelRequired && (
+                        {showLabelButton && (
                           <button
                             onClick={() => openLabelModal(sku)}
                             className="text-sm font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
                           >
                             Print SKU labels
-                          </button>
+                         </button>
+                       )}
+                        {labelRequired && labelOwnerSource === 'amazon-override' && (
+                          <div className="text-[11px] text-amber-600">
+                            Amazon solicită etichete pentru acest SKU.
+                          </div>
                         )}
                       </div>
                     )}

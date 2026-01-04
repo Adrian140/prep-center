@@ -1013,8 +1013,10 @@ serve(async (req) => {
           const prepInfo = prepGuidanceMap[key] || {};
           const prepRequired = !!prepInfo.prepRequired;
           const manufacturerBarcodeEligible =
-            (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode";
-          // Default conservativ: dacă nu avem guidance, cerem label (SELLER).
+            prepInfo.barcodeInstruction
+              ? (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode"
+              : true;
+          // Default to manufacturer barcode if guidance is missing; Amazon will respond with the correct requirement.
           let labelOwner = prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER";
           if (overrides[it.sku || ""]) {
             labelOwner = overrides[it.sku || ""]!;
@@ -1031,6 +1033,8 @@ serve(async (req) => {
 
     let planBody = buildPlanBody();
     let appliedPlanBody = planBody;
+    let planWarning: string | null = null;
+    let appliedOverrides: Record<string, "SELLER" | "NONE"> = {};
 
     const payload = JSON.stringify(planBody);
     // SP-API expects the resource under /inbound/fba (not /fba/inbound)
@@ -1118,6 +1122,11 @@ serve(async (req) => {
             [];
           amazonJson = retryRes.json;
           appliedPlanBody = retryBody;
+          appliedOverrides = overrides;
+          const flipped = Object.entries(overrides)
+            .map(([msku, owner]) => `${msku}→${owner}`)
+            .join(", ");
+          planWarning = `Amazon a cerut ajustarea labelOwner pentru: ${flipped}.`;
         } else {
           console.error("createInboundPlan retry error", {
             traceId,
@@ -1297,9 +1306,15 @@ serve(async (req) => {
     });
 
     const labelOwnerBySku: Record<string, "SELLER" | "NONE"> = {};
+    const labelOwnerSourceBySku: Record<string, "prep-guidance" | "amazon-override" | "assumed"> = {};
     (appliedPlanBody?.items || []).forEach((it: any) => {
       if (it?.msku) {
         labelOwnerBySku[it.msku] = (it.labelOwner as "SELLER" | "NONE") || "SELLER";
+        if (appliedOverrides[it.msku]) {
+          labelOwnerSourceBySku[it.msku] = "amazon-override";
+        } else {
+          labelOwnerSourceBySku[it.msku] = "prep-guidance";
+        }
       }
     });
     // Dacă retry a aplicat inversări, completăm map-ul cu override-urile folosite
@@ -1307,6 +1322,7 @@ serve(async (req) => {
       appliedPlanBody.items.forEach((it: any) => {
         if (it?.msku && it.labelOwner && !labelOwnerBySku[it.msku]) {
           labelOwnerBySku[it.msku] = it.labelOwner as "SELLER" | "NONE";
+          labelOwnerSourceBySku[it.msku] = appliedOverrides[it.msku] ? "amazon-override" : "prep-guidance";
         }
       });
     }
@@ -1315,10 +1331,15 @@ serve(async (req) => {
       const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
       const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
       const prepRequired = !!prepInfo.prepRequired;
-      const manufacturerBarcodeEligible = (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode";
+      const manufacturerBarcodeEligible = prepInfo.barcodeInstruction
+        ? (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode"
+        : true;
       const labelOwner =
         labelOwnerBySku[it.sku || ""] ||
         (prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER");
+      const labelOwnerSource =
+        labelOwnerSourceBySku[it.sku || ""] ||
+        (prepInfo.barcodeInstruction ? "prep-guidance" : "assumed");
       const requiresExpiry = (prepInfo.prepInstructions || []).some((p: string) =>
         String(p || "").toLowerCase().includes("expir")
       );
@@ -1337,6 +1358,7 @@ serve(async (req) => {
         prepNotes: (prepInfo.prepInstructions || []).join(", "),
         manufacturerBarcodeEligible,
         labelOwner,
+        labelOwnerSource,
         readyToPack: true,
         image: stock?.image_url || null
       };
@@ -1354,7 +1376,8 @@ serve(async (req) => {
       packGroups,
       shipments,
       raw: amazonJson,
-      skuStatuses
+      skuStatuses,
+      warning: planWarning
     };
 
     return new Response(JSON.stringify({ plan, traceId, requestId: primaryRequestId || null, scopes: lwaScopes }), {
