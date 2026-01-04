@@ -29,6 +29,8 @@ type PrepRequestItem = {
   product_name: string | null;
   units_requested: number | null;
   units_sent: number | null;
+  expiration_date?: string | null;
+  expiration_source?: string | null;
   stock_item_id?: number | null;
   stock_item?: {
     image_url?: string | null;
@@ -54,6 +56,10 @@ type AmazonIntegration = {
   region: string;
   refresh_token: string;
 };
+
+type OwnerVal = "NONE" | "SELLER" | "AMAZON";
+type InboundField = "labelOwner" | "prepOwner";
+type InboundFix = Partial<Record<InboundField, OwnerVal>>;
 
 function maskSecret(value: string, visible: number = 4) {
   if (!value) return "";
@@ -110,6 +116,10 @@ function normalizeAttrArray(v: any): any[] {
   return [v];
 }
 
+function normalizeSku(val: string | null | undefined): string {
+  return (val || "").trim();
+}
+
 function extractBoolAttr(attrs: any, key: string): boolean | null {
   const raw = attrs?.[key];
   const direct = toBool(raw);
@@ -142,6 +152,83 @@ function extractExpiryFlags(attrs: any) {
     hasAnyAttrValue(attrs, "fc_shelf_life_unit_of_measure") ||
     hasAnyAttrValue(attrs, "product_expiration_type");
   return { iedp, hasShelfLife };
+}
+
+function isManufacturerBarcodeEligible(instr?: string | null) {
+  if (!instr) return false;
+  const val = instr.toLowerCase();
+  return (
+    val === "manufacturerbarcode" ||
+    val === "canuseoriginalbarcode" ||
+    val === "can_use_original_barcode" ||
+    val === "can-use-original-barcode" ||
+    val === "canuseoriginal"
+  );
+}
+
+function extractAcceptedValues(msg: string): OwnerVal[] {
+  const m = msg.match(/Accepted values:\s*\[([^\]]+)\]/i);
+  if (!m) return [];
+  return m[1]
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter((v) => v === "NONE" || v === "SELLER" || v === "AMAZON") as OwnerVal[];
+}
+
+function extractMsku(msg: string): string | null {
+  const m = msg.match(/ERROR:\s*([^\s]+)\s+/i);
+  return m ? String(m[1] || "").trim() : null;
+}
+
+function extractInboundErrors(primary: { json: any; text: string }): {
+  msku: string;
+  field: InboundField;
+  msg: string;
+  accepted: OwnerVal[];
+}[] {
+  const out: { msku: string; field: InboundField; msg: string; accepted: OwnerVal[] }[] = [];
+
+  const tryFrom = (obj: any) => {
+    const errs = obj?.errors || obj?.payload?.errors || [];
+    if (!Array.isArray(errs)) return;
+    for (const e of errs) {
+      const msg = String(e?.message || "");
+      const msku = extractMsku(msg);
+      if (!msku) continue;
+      if (msg.includes("labelOwner")) {
+        out.push({ msku, field: "labelOwner", msg, accepted: extractAcceptedValues(msg) });
+      }
+      if (msg.includes("prepOwner")) {
+        out.push({ msku, field: "prepOwner", msg, accepted: extractAcceptedValues(msg) });
+      }
+    }
+  };
+
+  if (primary.json) tryFrom(primary.json);
+
+  if (!out.length && primary.text) {
+    try {
+      const parsed = JSON.parse(primary.text);
+      tryFrom(parsed);
+    } catch {
+      // ignore
+    }
+  }
+
+  return out;
+}
+
+function chooseFixValue(field: InboundField, msg: string, accepted: OwnerVal[]): OwnerVal | null {
+  const up = msg.toUpperCase();
+  if (up.includes("DOES NOT REQUIRE") && accepted.includes("NONE")) return "NONE";
+  if (up.includes("REQUIRES") && up.includes("NONE WAS ASSIGNED")) {
+    if (accepted.includes("SELLER")) return "SELLER";
+    if (accepted.includes("AMAZON")) return "AMAZON";
+  }
+  if (accepted.includes("SELLER")) return "SELLER";
+  if (accepted.includes("NONE")) return "NONE";
+  if (accepted.includes("AMAZON")) return "AMAZON";
+  return null;
 }
 
 // Helpers for SigV4
@@ -616,6 +703,9 @@ async function catalogCheck(params: {
   });
   if (res.ok) {
     const payload = json?.payload || json || {};
+    const asinOk = String(payload?.asin || payload?.ASIN || "") === asin;
+    const hasItems = Array.isArray(payload?.items) && payload.items.length > 0;
+    const hasAttrs = payload?.attributes && typeof payload.attributes === "object" && Object.keys(payload.attributes).length > 0;
     const identifiers = payload?.identifiers || payload?.Identifiers || [];
     const summaries = payload?.summaries || payload?.Summaries || [];
     const marketplaceMatches = (entry: any) => {
@@ -626,7 +716,9 @@ async function catalogCheck(params: {
     const hasIdentifiers = Array.isArray(identifiers) && identifiers.some((id: any) => marketplaceMatches(id));
     const hasSummaries = Array.isArray(summaries) && summaries.some((s: any) => marketplaceMatches(s));
     const hasMarketplace = hasIdentifiers || hasSummaries;
-    if (hasMarketplace) return { found: true, reason: "Găsit în Catalog Items" };
+    if (asinOk || hasItems || hasAttrs || hasMarketplace) {
+      return { found: true, reason: "Găsit în Catalog Items", rateLimited };
+    }
   }
   return { found: false, reason: `Catalog check ${res.status}: ${text}`, rateLimited };
 }
@@ -700,7 +792,7 @@ async function checkSkuStatus(params: {
   let debug: Record<string, unknown> = {};
   try {
     const listingsPath = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(sku)}`;
-    const listingsQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}`;
+    const listingsQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=attributes,summaries`;
     const { res, json, text } = await spapiGet({
       host,
       region,
@@ -734,43 +826,35 @@ async function checkSkuStatus(params: {
       return { state: "unknown", reason: `Eroare Listings API (${res.status}): ${text}` };
     }
 
-    // If API returned 200, treat as ok regardless of status field (some accounts return blank or legacy fields)
-    const status = json?.payload?.status || json?.payload?.Status || "";
-
-    // Catalog confirmă că ASIN/SKU există pe marketplace; altfel blocăm ca missing
-    const cat = await catalogCheck({
-      asin,
-      marketplaceId,
-      host,
-      region,
-      lwaToken,
-      tempCreds,
-      traceId: traceId || crypto.randomUUID(),
-      sellerId
-    });
-    debug = {
-      listingStatusCode: res.status,
-      listingStatusField: status || null,
-      catalogFound: cat.found,
-      catalogReason: cat.reason,
-      catalogRateLimited: cat.rateLimited
+    // Listings Items 200 => listing există pe marketplace; nu mai blocăm pe Catalog.
+    const summaries = json?.payload?.summaries || json?.summaries || [];
+    const toStatusList = (val: any): string[] => {
+      if (Array.isArray(val)) return val.map((v) => String(v || "").trim()).filter(Boolean);
+      if (typeof val === "string") return val.split(",").map((v) => v.trim()).filter(Boolean);
+      if (val != null) return [String(val).trim()].filter(Boolean);
+      return [];
     };
-    if (traceId) {
-      console.log("sku-status", { traceId, sku, asin, marketplaceId, ...debug });
-    }
-    if (!cat.found) {
-      if (cat.rateLimited) {
-        return { state: "unknown", reason: `Catalog neluat în calcul (throttled): ${cat.reason}` };
-      }
-      return { state: "missing", reason: "Produsul nu există pe marketplace-ul destinație (Catalog Items)" };
+
+    let status = "";
+    if (Array.isArray(summaries)) {
+      const s = summaries.find((x: any) => String(x?.marketplaceId || x?.marketplace_id || "") === String(marketplaceId));
+      status = String(s?.status || s?.Status || "");
     }
 
-    if (!status) {
-      return { state: "ok", reason: "Listing găsit; status lipsă/legacy (considerat eligibil)" };
+    const statusList = toStatusList(status).map((v) => v.toUpperCase());
+    const hasBuyable = statusList.includes("BUYABLE") || statusList.includes("ACTIVE");
+    const hasDiscoverable = statusList.includes("DISCOVERABLE");
+
+    if (!statusList.length) {
+      return { state: "ok", reason: "Listing găsit (Listings API 200). Status lipsă/omitted." };
     }
-    if (String(status).toUpperCase() !== "ACTIVE") {
-      return { state: "inactive", reason: `Listing găsit cu status ${status}` };
+    if (hasBuyable) {
+      return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")}` };
     }
+    if (hasDiscoverable) {
+      return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")} (considerat eligibil)` };
+    }
+    return { state: "inactive", reason: `Listing găsit cu status ${statusList.join(",")}` };
   } catch (e) {
     const cat = await catalogCheck({
       asin,
@@ -856,27 +940,25 @@ async function fetchPrepGuidance(params: {
   const asins = items.map((it) => it.asin).filter(Boolean) as string[];
   if (!skus.length && !asins.length) return { map: {}, warning: null };
 
-  const payload = JSON.stringify({
-    ShipFromCountryCode: shipFromCountry,
-    ShipToCountryCode: shipToCountry,
-    SellerSKUList: skus,
-    ASINList: asins
-  });
+  const searchParams = new URLSearchParams();
+  searchParams.set("ShipToCountryCode", shipToCountry || shipFromCountry);
+  for (const sku of skus) searchParams.append("SellerSKUList", sku);
+  for (const asin of asins) searchParams.append("ASINList", asin);
 
   const prep = await signedFetch({
-    method: "POST",
+    method: "GET",
     service: "execute-api",
     region,
     host,
     path: "/fba/inbound/v0/prepInstructions",
-    query: "",
-    payload,
+    query: searchParams.toString(),
+    payload: "",
     accessKey: tempCreds.accessKeyId,
     secretKey: tempCreds.secretAccessKey,
     sessionToken: tempCreds.sessionToken,
     lwaToken,
     traceId,
-    operationName: "inbound.v0.prepInstructions",
+    operationName: "inbound.v0.getPrepInstructions",
     marketplaceId,
     sellerId
   });
@@ -911,7 +993,7 @@ async function fetchPrepGuidance(params: {
     const barcodeInstruction = entry.BarcodeInstruction || entry.barcodeInstruction || null;
     const prepRequired = prepInstructions.length > 0 && !prepInstructions.includes("NoPrep");
 
-    const key = sku || asin;
+    const key = normalizeSku(sku || asin);
     if (!key) continue;
     map[key] = {
       sku,
@@ -1092,6 +1174,7 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const requestId = body?.request_id as string | undefined;
+    const expirationsInput = (body?.expirations as Record<string, string | undefined | null>) || {};
     if (!requestId) {
       return new Response(JSON.stringify({ error: "request_id is required" }), {
         status: 400,
@@ -1103,7 +1186,7 @@ serve(async (req) => {
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
       .select(
-        "id, destination_country, company_id, user_id, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id)"
+        "id, destination_country, company_id, user_id, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
       )
       .eq("id", requestId)
       .maybeSingle();
@@ -1262,10 +1345,14 @@ serve(async (req) => {
       companyName: "EcomPrep Hub"
     };
 
-    const hasInboundScope = lwaScopes.some((s) => s.toLowerCase() === "sellingpartnerapi::fba_inbound");
+    const scopesLower = lwaScopes.map((s) => s.toLowerCase());
+    const scopesDecoded = scopesLower.length > 0;
+    const hasInboundScope = scopesLower.includes("sellingpartnerapi::fba_inbound");
+    // Dacă nu am putut decoda scopes (token opac), încercăm oricum prep guidance și lăsăm Amazon să răspundă.
+    const shouldAttemptPrepGuidance = hasInboundScope || !scopesDecoded;
     let prepGuidanceWarning: string | null = null;
     let prepGuidanceMap: Record<string, PrepGuidance> = {};
-    if (hasInboundScope) {
+    if (shouldAttemptPrepGuidance) {
       const prepGuidanceResult = await fetchPrepGuidance({
         items,
         shipFromCountry,
@@ -1296,6 +1383,85 @@ serve(async (req) => {
       marketplaceId,
       sellerId
     });
+    const normalizeExpiryInput = (v: string | undefined | null) => {
+      if (!v) return null;
+      const trimmed = String(v).trim();
+      if (!trimmed) return null;
+      // Accept YYYY-MM-DD; fallback: Date parse
+      const iso = trimmed.length === 10 ? `${trimmed}T00:00:00.000Z` : trimmed;
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return null;
+      return d.toISOString().split("T")[0];
+    };
+    const expirations: Record<string, string> = {};
+    const expirySourceBySku: Record<string, "manual" | "auto_16m" | "existing"> = {};
+    const dbExpiryByItemId: Record<string, { date: string | null; source: string | null }> = {};
+
+    // Pre-fill with existing DB values (persisted previously)
+    items.forEach((it) => {
+      const key = normalizeSku(it.sku || it.asin || "");
+      const dbVal = normalizeExpiryInput(it.expiration_date);
+      dbExpiryByItemId[it.id] = { date: dbVal, source: it.expiration_source || null };
+      if (key && dbVal && !expirations[key]) {
+        expirations[key] = dbVal;
+        expirySourceBySku[key] = (it.expiration_source as any) || "existing";
+      }
+    });
+
+    // Manual input from request payload overrides DB
+    Object.entries(expirationsInput).forEach(([k, v]) => {
+      const val = normalizeExpiryInput(v);
+      const normKey = normalizeSku(k);
+      if (val && normKey) {
+        expirations[normKey] = val;
+        expirySourceBySku[normKey] = "manual";
+      }
+    });
+
+    const addMonths = (d: Date, months: number) => {
+      const dt = new Date(d.getTime());
+      dt.setMonth(dt.getMonth() + months);
+      return dt;
+    };
+    // Autofill expiry with +16 months from today when required and missing (before attempting plan)
+    const today = new Date();
+    items.forEach((it) => {
+      const key = normalizeSku(it.sku || it.asin || "");
+      const requiresExpiry =
+        (prepGuidanceMap[key]?.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
+        expiryRequiredBySku[normalizeSku(it.sku || "")] === true;
+      if (requiresExpiry && !expirations[key]) {
+        const auto = addMonths(today, 16).toISOString().split("T")[0];
+        expirations[key] = auto;
+        expirySourceBySku[key] = "auto_16m";
+      }
+    });
+
+    // Persist expirations that were auto/manual filled but missing in DB
+    const expiryUpdates: { id: string; expiration_date: string; expiration_source: string | null }[] = [];
+    items.forEach((it) => {
+      const key = normalizeSku(it.sku || it.asin || "");
+      const newDate = key ? expirations[key] || null : null;
+      const newSource = key ? expirySourceBySku[key] || (newDate ? "existing" : null) : null;
+      const dbEntry = dbExpiryByItemId[it.id] || { date: null, source: null };
+      if (newDate && (newDate !== dbEntry.date || newSource !== dbEntry.source)) {
+        expiryUpdates.push({
+          id: it.id,
+          expiration_date: newDate,
+          expiration_source: newSource
+        });
+      }
+    });
+
+    if (expiryUpdates.length) {
+      const { error: expirySaveErr } = await supabase
+        .from("prep_request_items")
+        .upsert(expiryUpdates, { onConflict: "id", returning: "minimal" });
+      if (expirySaveErr) {
+        console.warn("fba-plan expiration save failed", { traceId, error: expirySaveErr, updates: expiryUpdates.length });
+      }
+    }
+
     // Debug info for auth context (mascat)
     console.log("fba-plan auth-context", {
       traceId,
@@ -1338,11 +1504,14 @@ serve(async (req) => {
       if (prepGuidanceWarning) warningParts.push(prepGuidanceWarning);
       const warning = warningParts.filter(Boolean).join(" ");
       const skus = items.map((it, idx) => {
-        const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
+        const key = normalizeSku(it.sku || it.asin || "");
+        const prepInfo = prepGuidanceMap[key] || {};
         const requiresExpiryFromGuidance = (prepInfo.prepInstructions || []).some((p: string) =>
           String(p || "").toLowerCase().includes("expir")
         );
-        const requiresExpiry = requiresExpiryFromGuidance || expiryRequiredBySku[it.sku || ""] === true;
+        const expiryKey = normalizeSku(it.sku || "");
+        const requiresExpiry = requiresExpiryFromGuidance || expiryRequiredBySku[expiryKey] === true;
+        const expiryVal = expirations[expiryKey] || "";
         return {
           id: it.id || `sku-${idx + 1}`,
           title: it.product_name || it.sku || `SKU ${idx + 1}`,
@@ -1351,7 +1520,8 @@ serve(async (req) => {
           storageType: "Standard-size",
           packing: "individual",
           units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-          expiry: "",
+          expiry: expiryVal,
+          expirySource: expirySourceBySku[expiryKey] || null,
           expiryRequired: requiresExpiry,
           prepRequired: prepInfo?.prepRequired || false,
           prepNotes: (prepInfo?.prepInstructions || []).join(", "),
@@ -1381,7 +1551,7 @@ serve(async (req) => {
       });
     }
 
-    const buildPlanBody = (overrides: Record<string, "NONE" | "SELLER"> = {}) => {
+    const buildPlanBody = (overrides: Record<string, InboundFix> = {}) => {
       return {
         // Amazon requires `sourceAddress` for createInboundPlan payload
         sourceAddress: shipFromAddress,
@@ -1390,37 +1560,165 @@ serve(async (req) => {
         shipmentType: "SP",
         requireDeliveryWindows: false,
         items: items.map((it) => {
-          const key = it.sku || it.asin || "";
+          const key = normalizeSku(it.sku || it.asin || "");
           const prepInfo = prepGuidanceMap[key] || {};
           const prepRequired = !!prepInfo.prepRequired;
           const manufacturerBarcodeEligible =
-            prepInfo.barcodeInstruction
-              ? (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode"
-              : false; // fără guidance forțăm eticheta seller ca fallback
-          let labelOwner = prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER";
-          if (overrides[it.sku || ""]) {
-            labelOwner = overrides[it.sku || ""]!;
-          }
+            prepInfo.barcodeInstruction ? isManufacturerBarcodeEligible(prepInfo.barcodeInstruction) : false;
+          // Default: SELLER; dacă e barcode producător, NONE; restul se corectează din overrides după erori
+          let labelOwner: OwnerVal = manufacturerBarcodeEligible ? "NONE" : "SELLER";
+          let prepOwner: OwnerVal = prepRequired ? "SELLER" : "NONE";
+          const expiryVal = expirations[key] || null;
+
+          const o = overrides[key];
+          if (o?.labelOwner) labelOwner = o.labelOwner;
+          if (o?.prepOwner) prepOwner = o.prepOwner;
           return {
             msku: it.sku || "",
             quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-            prepOwner: prepRequired ? "SELLER" : "NONE",
+            expiration: expiryVal || undefined,
+            prepOwner,
             labelOwner
           };
         })
       };
     };
 
-    let planBody = buildPlanBody();
-    let appliedPlanBody = planBody;
+    let appliedPlanBody: any = null;
     const planWarnings: string[] = [];
     let planWarning: string | null = null;
-    let appliedOverrides: Record<string, "SELLER" | "NONE"> = {};
+    let appliedOverrides: Record<string, InboundFix> = {};
 
-    const payload = JSON.stringify(planBody);
     // SP-API expects the resource under /inbound/fba (not /fba/inbound)
     const path = "/inbound/fba/2024-03-20/inboundPlans";
     const query = "";
+
+    const extractInboundPlanData = (json: any) => {
+      const inboundPlan =
+        json?.payload?.inboundPlan ||
+        json?.payload?.InboundPlan ||
+        json?.inboundPlan ||
+        json?.InboundPlan ||
+        null;
+      const shipments = Array.isArray(inboundPlan?.shipments || inboundPlan?.Shipments)
+        ? inboundPlan?.shipments || inboundPlan?.Shipments || []
+        : [];
+      const inboundShipmentPlans = Array.isArray(inboundPlan?.inboundShipmentPlans || inboundPlan?.InboundShipmentPlans)
+        ? inboundPlan?.inboundShipmentPlans || inboundPlan?.InboundShipmentPlans || []
+        : [];
+      const packingOptions = Array.isArray(inboundPlan?.packingOptions || inboundPlan?.PackingOptions)
+        ? inboundPlan?.packingOptions || inboundPlan?.PackingOptions || []
+        : [];
+      const placementOptions = Array.isArray(inboundPlan?.placementOptions || inboundPlan?.PlacementOptions)
+        ? inboundPlan?.placementOptions || inboundPlan?.PlacementOptions || []
+        : [];
+      const inboundPlanId =
+        inboundPlan?.inboundPlanId ||
+        inboundPlan?.InboundPlanId ||
+        json?.payload?.inboundPlanId ||
+        json?.payload?.InboundPlanId ||
+        json?.inboundPlanId ||
+        json?.InboundPlanId ||
+        null;
+      const inboundStatus =
+        inboundPlan?.status ||
+        inboundPlan?.Status ||
+        json?.payload?.status ||
+        json?.status ||
+        null;
+      return { inboundPlan, inboundPlanId, shipments, inboundShipmentPlans, packingOptions, placementOptions, inboundStatus };
+    };
+
+    const extractOperationId = (json: any) =>
+      json?.payload?.operationId || json?.payload?.OperationId || json?.operationId || json?.OperationId || null;
+
+    const fetchInboundPlanById = async (inboundPlanId: string) => {
+      const maxAttempts = 8;
+      let attempt = 0;
+      let fetchedJson: any = null;
+      let fetchedPlans: any[] = [];
+      let fetchedStatus: string | null = null;
+      let fetchedPackingOptions: any[] = [];
+      let fetchedPlacementOptions: any[] = [];
+      while (attempt < maxAttempts && !fetchedPlans.length) {
+        attempt += 1;
+        const res = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${path}/${encodeURIComponent(inboundPlanId)}`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.getInboundPlan",
+          marketplaceId,
+          sellerId
+        });
+        fetchedJson = res.json;
+        const data = extractInboundPlanData(res.json);
+        fetchedStatus = data.inboundStatus;
+        fetchedPlans = data.shipments.length ? data.shipments : data.inboundShipmentPlans;
+        fetchedPackingOptions = data.packingOptions;
+        fetchedPlacementOptions = data.placementOptions;
+        if (fetchedPlans.length || !res.res.ok) break;
+        await delay(500 * attempt);
+      }
+      return { fetchedJson, fetchedPlans, fetchedStatus, fetchedPackingOptions, fetchedPlacementOptions };
+    };
+
+    const fetchOperationStatus = async (operationId: string) => {
+      const res = await signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `/inbound/fba/2024-03-20/operations/${encodeURIComponent(operationId)}`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.getOperationStatus",
+        marketplaceId,
+        sellerId
+      });
+      const state =
+        res.json?.payload?.state ||
+        res.json?.payload?.operationStatus ||
+        res.json?.state ||
+        res.json?.operationStatus ||
+        res.json?.status ||
+        null;
+      const problemsSource =
+        res.json?.payload?.problems ||
+        res.json?.payload?.operationProblems ||
+        res.json?.problems ||
+        res.json?.operationProblems ||
+        [];
+      const problems = Array.isArray(problemsSource) ? problemsSource : [];
+      return { state, problems, raw: res.json, httpStatus: res.res.status };
+    };
+
+    const pollOperationStatus = async (operationId: string) => {
+      const maxAttempts = 8;
+      let attempt = 0;
+      let last: Awaited<ReturnType<typeof fetchOperationStatus>> | null = null;
+      while (attempt < maxAttempts) {
+        attempt += 1;
+        last = await fetchOperationStatus(operationId);
+        const stateUpper = (last.state || "").toUpperCase();
+        if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUpper) || last.httpStatus >= 400) break;
+        await delay(400 * attempt);
+      }
+      return last;
+    };
 
     const formatAddress = (addr?: Record<string, string | undefined | null>) => {
       if (!addr) return "—";
@@ -1430,117 +1728,220 @@ serve(async (req) => {
       return parts.join(", ") || "—";
     };
 
-    const primary = await signedFetch({
-      method: "POST",
-      service: "execute-api",
-      region: awsRegion,
-      host,
-      path,
-      query,
-      payload,
-      accessKey: tempCreds.accessKeyId,
-      secretKey: tempCreds.secretAccessKey,
-      sessionToken: tempCreds.sessionToken,
-      lwaToken: lwaAccessToken,
-      traceId,
-      operationName: "inbound.v20240320.createInboundPlan",
-      marketplaceId,
-      sellerId
-    });
+    let attempt = 0;
+    const maxAttempts = 3;
+    let amazonJson: any = null;
+    let primaryRequestId: string | null = null;
+    let plans: any[] = [];
+    let inboundPlanId: string | null = null;
+    let inboundPlanStatus: string | null = null;
+    let operationId: string | null = null;
+    let operationStatus: string | null = null;
+    let operationProblems: any[] = [];
+    let operationRaw: any = null;
+    let createHttpStatus: number | null = null;
+    let _lastPackingOptions: any[] = [];
+    let _lastPlacementOptions: any[] = [];
 
-    // Keep raw Amazon response for debugging / UI
-    let amazonJson = primary.json;
-    const primaryRequestId = primary.requestId || null;
+    while (attempt < maxAttempts) {
+      attempt += 1;
+      const planBody = buildPlanBody(appliedOverrides);
+      const payload = JSON.stringify(planBody);
 
-    let plans =
-      primary.json?.payload?.inboundPlan?.inboundShipmentPlans ||
-      primary.json?.payload?.InboundShipmentPlans ||
-      primary.json?.InboundShipmentPlans ||
-      [];
+      const res = await signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path,
+        query,
+        payload,
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName:
+          attempt === 1 ? "inbound.v20240320.createInboundPlan" : `inbound.v20240320.createInboundPlan.retry${attempt}`,
+        marketplaceId,
+        sellerId
+      });
 
-    if (!primary.res.ok) {
-      // Încearcă o singură retrimitere dacă mesajele indică labelOwner greșit (SELLER vs NONE)
-      const errors = primary.json?.errors || primary.json?.payload?.errors || [];
-      const overrides: Record<string, "SELLER" | "NONE"> = {};
-      for (const err of Array.isArray(errors) ? errors : []) {
-        const msg = err?.message || "";
-        const mskuMatch = msg.match(/ERROR:\s*([^ \n]+)\s/);
-        const msku = mskuMatch ? mskuMatch[1] : null;
-        if (!msku) continue;
-        if (msg.includes("does not require labelOwner") && msg.includes("SELLER was assigned")) {
-          overrides[msku] = "NONE";
-        } else if (msg.includes("requires labelOwner") && msg.includes("NONE was assigned")) {
-          overrides[msku] = "SELLER";
+      createHttpStatus = res.res.status;
+      if (!primaryRequestId) primaryRequestId = res.requestId || null;
+      amazonJson = res.json;
+      operationId = operationId || extractOperationId(res.json);
+      const data = extractInboundPlanData(res.json);
+      inboundPlanId = inboundPlanId || data.inboundPlanId;
+      inboundPlanStatus = inboundPlanStatus || data.inboundStatus;
+      plans = data.shipments.length ? data.shipments : data.inboundShipmentPlans;
+      _lastPackingOptions = data.packingOptions;
+      _lastPlacementOptions = data.placementOptions;
+
+      if (res.res.ok && plans?.length) {
+        appliedPlanBody = planBody;
+        break;
+      }
+
+      const inboundErrors = extractInboundErrors({ json: res.json, text: res.text || "" });
+      if (!inboundErrors.length) {
+        break;
+      }
+
+      let changed = false;
+      for (const err of inboundErrors) {
+        const fixVal = chooseFixValue(err.field, err.msg, err.accepted);
+        if (!fixVal) continue;
+        const skuKey = normalizeSku(err.msku);
+        appliedOverrides[skuKey] = appliedOverrides[skuKey] || {};
+        if (appliedOverrides[skuKey][err.field] !== fixVal) {
+          appliedOverrides[skuKey][err.field] = fixVal;
+          changed = true;
         }
       }
 
-      if (Object.keys(overrides).length) {
-        const retryBody = buildPlanBody(overrides);
-        const retryPayload = JSON.stringify(retryBody);
-        const retryRes = await signedFetch({
-          method: "POST",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path,
-          query,
-          payload: retryPayload,
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
+      if (!changed) {
+        break;
+      }
+    }
+
+    const missingExpiry = items
+      .map((it) => {
+        const key = normalizeSku(it.sku || it.asin || "");
+        const requiresExpiry =
+          (prepGuidanceMap[key]?.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
+          expiryRequiredBySku[normalizeSku(it.sku || "")] === true;
+        const hasExpiry = !!expirations[key];
+        return requiresExpiry && !hasExpiry ? key : null;
+      })
+      .filter(Boolean) as string[];
+
+    if (missingExpiry.length) {
+      const warn = `Unele SKU-uri necesită dată de expirare: ${missingExpiry.join(", ")}. Completează expirarea și reîncearcă.`;
+      const skus = items.map((it, idx) => {
+        const key = normalizeSku(it.sku || it.asin || "");
+        const prepInfo = prepGuidanceMap[key] || {};
+        const requiresExpiry =
+          (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
+          expiryRequiredBySku[normalizeSku(it.sku || "")] === true;
+        return {
+          id: it.id || `sku-${idx + 1}`,
+          title: it.product_name || it.sku || `SKU ${idx + 1}`,
+          sku: it.sku || "",
+          asin: it.asin || "",
+          storageType: "Standard-size",
+          packing: "individual",
+          units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+          expiry: expirations[key] || "",
+          expirySource: expirySourceBySku[key] || null,
+          expiryRequired: requiresExpiry,
+          prepRequired: prepInfo?.prepRequired || false,
+          prepNotes: (prepInfo?.prepInstructions || []).join(", "),
+          manufacturerBarcodeEligible:
+            (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
+          readyToPack: false
+        };
+      });
+      const plan = {
+        source: "amazon",
+        marketplace: marketplaceId,
+        shipFrom: {
+          name: shipFromAddress.name,
+          address: `${shipFromAddress.addressLine1}, ${shipFromAddress.postalCode}, ${shipFromAddress.countryCode}`
+        },
+        skus,
+        packGroups: [],
+        shipments: [],
+        raw: null,
+        skuStatuses,
+        warning: warn,
+        blocking: true
+      };
+      return new Response(JSON.stringify({ plan, traceId, scopes: lwaScopes }), {
+        status: 200,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+
+    if (!plans || !plans.length) {
+      let planId =
+        inboundPlanId ||
+        amazonJson?.payload?.inboundPlan?.inboundPlanId ||
+        amazonJson?.payload?.InboundPlanId ||
+        amazonJson?.inboundPlanId ||
+        amazonJson?.InboundPlanId ||
+        null;
+      if (planId) {
+        const { fetchedJson, fetchedPlans, fetchedStatus, fetchedPackingOptions, fetchedPlacementOptions } =
+          await fetchInboundPlanById(planId);
+        if (fetchedPlans.length) {
+          plans = fetchedPlans;
+          amazonJson = fetchedJson;
+        }
+        inboundPlanStatus = fetchedStatus || inboundPlanStatus;
+        inboundPlanId = planId;
+        _lastPackingOptions = fetchedPackingOptions;
+        _lastPlacementOptions = fetchedPlacementOptions;
+      }
+    }
+
+    if (!plans.length && operationId) {
+      const opStatus = await pollOperationStatus(operationId);
+      if (opStatus) {
+        operationStatus = opStatus.state || null;
+        operationProblems = opStatus.problems || [];
+        operationRaw = opStatus.raw || null;
+      }
+    }
+
+    if (!plans.length && operationStatus && operationStatus.toUpperCase() === "SUCCESS" && inboundPlanId) {
+      const { fetchedJson, fetchedPlans, fetchedStatus } = await fetchInboundPlanById(inboundPlanId);
+      if (fetchedPlans.length) {
+        plans = fetchedPlans;
+        amazonJson = fetchedJson;
+      }
+      inboundPlanStatus = fetchedStatus || inboundPlanStatus;
+    }
+
+    if (!appliedPlanBody) {
+      appliedPlanBody = buildPlanBody(appliedOverrides);
+    }
+
+    if (!plans || !plans.length) {
+      const planActive =
+        (operationStatus || "").toUpperCase() === "SUCCESS" || (inboundPlanStatus || "").toUpperCase() === "ACTIVE";
+
+      if (planActive) {
+        console.warn("createInboundPlan missing shipments but operation/plan success", {
           traceId,
-          operationName: "inbound.v20240320.createInboundPlan.retry",
+          status: createHttpStatus,
+          inboundPlanId,
+          inboundPlanStatus,
+          operationId,
+          operationStatus,
           marketplaceId,
-          sellerId
+          region: awsRegion,
+          sellerId,
+          requestId: primaryRequestId
         });
-
-        if (retryRes.res.ok) {
-          plans =
-            retryRes.json?.payload?.inboundPlan?.inboundShipmentPlans ||
-            retryRes.json?.payload?.InboundShipmentPlans ||
-            retryRes.json?.InboundShipmentPlans ||
-            [];
-          amazonJson = retryRes.json;
-          appliedPlanBody = retryBody;
-          appliedOverrides = overrides;
-          const flipped = Object.entries(overrides)
-            .map(([msku, owner]) => `${msku}→${owner}`)
-            .join(", ");
-          planWarning = `Amazon a cerut ajustarea labelOwner pentru: ${flipped}.`;
-        } else {
-          console.error("createInboundPlan retry error", {
-            traceId,
-            status: retryRes.res.status,
-            marketplaceId,
-            region: awsRegion,
-            sellerId,
-            requestId: retryRes.requestId || null,
-            body: retryRes.text?.slice(0, 2000)
-          });
-          // dacă retry a eșuat, continuăm cu fallback
-        }
-      }
-
-      if (!plans || !plans.length) {
+        planWarnings.push(
+          "Amazon nu a returnat încă shipments/packing/placement pentru planul creat. Step 1 este valid; generează packing/placement în pasul următor."
+        );
+      } else {
         console.error("createInboundPlan primary error", {
           traceId,
-          status: primary.res.status,
+          status: createHttpStatus,
+          inboundPlanId,
+          inboundPlanStatus,
+          operationId,
+          operationStatus,
           marketplaceId,
           region: awsRegion,
           sellerId,
           requestId: primaryRequestId,
-          body: primary.text?.slice(0, 2000)
-        });
-        console.error("fba-plan createInboundPlan error", {
-          traceId,
-          status: primary.res.status,
-          host,
-          marketplaceId,
-          region: awsRegion,
-          sellerId,
-          requestId: primaryRequestId,
-          body: primary.text?.slice(0, 2000) // avoid huge logs
+          body: amazonJson || null,
+          operationProblems: operationProblems?.slice?.(0, 5) || null,
+          operationRaw: operationRaw || null
         });
         const fallbackSkus = items.map((it, idx) => {
           const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
@@ -1548,6 +1949,7 @@ serve(async (req) => {
           const requiresExpiry =
             (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
             expiryRequiredBySku[it.sku || ""] === true;
+          const key = normalizeSku(it.sku || it.asin || "");
           return {
             id: it.id || `sku-${idx + 1}`,
             title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
@@ -1556,7 +1958,8 @@ serve(async (req) => {
             storageType: "Standard-size",
             packing: "individual",
             units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-            expiry: "",
+            expiry: expirations[key] || "",
+            expirySource: expirySourceBySku[key] || null,
             expiryRequired: requiresExpiry,
             prepRequired: prepInfo.prepRequired || false,
             prepNotes: (prepInfo.prepInstructions || []).join(", "),
@@ -1567,6 +1970,24 @@ serve(async (req) => {
           };
         });
         const extraWarnings = planWarnings.length ? ` ${planWarnings.join(" ")}` : "";
+        const statusInfo = inboundPlanStatus
+          ? ` Status plan: ${inboundPlanStatus}${inboundPlanId ? ` (${inboundPlanId})` : ""}.`
+          : inboundPlanId
+          ? ` InboundPlanId: ${inboundPlanId}.`
+          : "";
+        const optionsInfo =
+          _lastPackingOptions.length || _lastPlacementOptions.length
+            ? ` Packing options: ${_lastPackingOptions.length}, placement options: ${_lastPlacementOptions.length}.`
+            : "";
+        const operationInfo = operationId
+          ? ` Operation: ${operationStatus || "necunoscut"} (${operationId}).`
+          : "";
+        const problemsInfo = operationProblems?.length
+          ? ` Probleme raportate: ${operationProblems
+              .slice(0, 3)
+              .map((p: any) => p?.message || p?.code || safeJson(p))
+              .join(" | ")}`
+          : "";
         const fallbackPlan = {
           source: "amazon",
           marketplace: marketplaceId,
@@ -1579,24 +2000,35 @@ serve(async (req) => {
           shipments: [],
           raw: null,
           skuStatuses,
-          warning: `Amazon a refuzat crearea planului (HTTP ${primary.res.status}). Încearcă din nou sau verifică permisiunile Inbound pe marketplace.${extraWarnings}`,
+          warning: `Amazon a refuzat crearea planului. Încearcă din nou sau verifică permisiunile Inbound pe marketplace.${statusInfo}${operationInfo}${optionsInfo}${problemsInfo ? ` ${problemsInfo}` : ""}${extraWarnings}`,
           blocking: true,
           requestId: primaryRequestId || null
         };
-        return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status, requestId: primaryRequestId || null, scopes: lwaScopes }), {
+        return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: createHttpStatus, requestId: primaryRequestId || null, inboundPlanId, inboundPlanStatus, operationId, operationStatus, operationProblems, operationRaw, scopes: lwaScopes }), {
           status: 200,
           headers: { ...corsHeaders, "content-type": "application/json" }
         });
       }
     }
 
-    const normalizeItems = (p: any) => p?.items || p?.Items || [];
+    const normalizeItems = (p: any) => p?.items || p?.Items || p?.shipmentItems || p?.ShipmentItems || [];
 
     if (prepGuidanceWarning) {
       planWarnings.push(prepGuidanceWarning);
     }
     if (planWarning) {
       planWarnings.push(planWarning);
+    }
+    if (operationStatus && operationStatus.toUpperCase() !== "SUCCESS") {
+      planWarnings.push(`Operation ${operationId || ""} status: ${operationStatus}.`);
+    }
+    if (operationProblems?.length) {
+      planWarnings.push(
+        `Probleme raportate: ${operationProblems
+          .slice(0, 3)
+          .map((p: any) => p?.message || p?.code || safeJson(p))
+          .join(" | ")}`
+      );
     }
 
     // Map FNSKU returned by Amazon to seller SKU so UI can render the exact label code
@@ -1634,9 +2066,15 @@ serve(async (req) => {
       const warning = Array.isArray(p.warnings || p.Warnings) && (p.warnings || p.Warnings)[0]?.message
         ? (p.warnings || p.Warnings)[0]?.message
         : null;
-      const estimatedBoxes = Number(p.estimatedBoxCount || p.EstimatedBoxCount || 1) || 1;
-      const destinationFc = p.destinationFulfillmentCenterId || p.DestinationFulfillmentCenterId || "";
-      const destAddress = p.destinationAddress || p.DestinationAddress || null;
+      const estimatedBoxes = Number(p.estimatedBoxCount || p.EstimatedBoxCount || p.estimatedBoxes || 1) || 1;
+      const destinationFc =
+        p.destinationFulfillmentCenterId ||
+        p.destinationFulfillmentCenterID ||
+        p.destinationFC ||
+        p.destination_fulfillment_center_id ||
+        p.DestinationFulfillmentCenterId ||
+        "";
+      const destAddress = p.destinationAddress || p.destination_address || p.DestinationAddress || p.destination || null;
       const destAddressLabel = destAddress ? formatAddress(destAddress) : "";
       const destLabel = destinationFc || destAddressLabel || "Unknown destination";
       const destKey = destinationFc || destAddressLabel || `plan-${idx + 1}`;
@@ -1658,7 +2096,7 @@ serve(async (req) => {
         packGroupsMap.set(destKey, existing);
       } else {
         packGroupsMap.set(destKey, {
-          id: p.ShipmentId || `plan-${idx + 1}`,
+          id: p.ShipmentId || p.shipmentId || p.id || `plan-${idx + 1}`,
           destLabel,
           skuCount: itemsList.length,
           units: totalUnits,
@@ -1679,12 +2117,18 @@ serve(async (req) => {
     const shipments = plans.map((p: any, idx: number) => {
       const itemsList = normalizeItems(p);
       const totalUnits = itemsList.reduce((s: number, it: any) => s + (Number(it.quantity || it.Quantity) || 0), 0);
-      const destAddress = p.destinationAddress || p.DestinationAddress;
-      const destinationFc = p.destinationFulfillmentCenterId || p.DestinationFulfillmentCenterId || null;
-      const boxes = Number(p.estimatedBoxCount || p.EstimatedBoxCount || itemsList.length || 1) || 1;
+      const destAddress = p.destinationAddress || p.destination_address || p.DestinationAddress || p.destination;
+      const destinationFc =
+        p.destinationFulfillmentCenterId ||
+        p.destinationFulfillmentCenterID ||
+        p.destinationFC ||
+        p.destination_fulfillment_center_id ||
+        p.DestinationFulfillmentCenterId ||
+        null;
+      const boxes = Number(p.estimatedBoxCount || p.EstimatedBoxCount || p.estimatedBoxes || itemsList.length || 1) || 1;
       return {
-        id: p.ShipmentId || `shipment-${idx + 1}`,
-        name: `Shipment ${p.ShipmentId || idx + 1}`,
+        id: p.ShipmentId || p.shipmentId || p.id || `shipment-${idx + 1}`,
+        name: `Shipment ${p.ShipmentId || p.shipmentId || idx + 1}`,
         from: formatAddress(shipFromAddress),
         to: destAddress ? formatAddress(destAddress) : destinationFc || "—",
         boxes,
@@ -1702,11 +2146,12 @@ serve(async (req) => {
     const labelOwnerSourceBySku: Record<string, "prep-guidance" | "amazon-override" | "assumed"> = {};
     (appliedPlanBody?.items || []).forEach((it: any) => {
       if (it?.msku) {
-        labelOwnerBySku[it.msku] = (it.labelOwner as "SELLER" | "NONE") || "SELLER";
-        if (appliedOverrides[it.msku]) {
-          labelOwnerSourceBySku[it.msku] = "amazon-override";
+        const key = normalizeSku(it.msku);
+        labelOwnerBySku[key] = (it.labelOwner as "SELLER" | "NONE") || "SELLER";
+        if (appliedOverrides[key]) {
+          labelOwnerSourceBySku[key] = "amazon-override";
         } else {
-          labelOwnerSourceBySku[it.msku] = "prep-guidance";
+          labelOwnerSourceBySku[key] = "prep-guidance";
         }
       }
     });
@@ -1714,28 +2159,31 @@ serve(async (req) => {
     if (plans?.length && appliedPlanBody?.items) {
       appliedPlanBody.items.forEach((it: any) => {
         if (it?.msku && it.labelOwner && !labelOwnerBySku[it.msku]) {
-          labelOwnerBySku[it.msku] = it.labelOwner as "SELLER" | "NONE";
-          labelOwnerSourceBySku[it.msku] = appliedOverrides[it.msku] ? "amazon-override" : "prep-guidance";
+          const key = normalizeSku(it.msku);
+          labelOwnerBySku[key] = it.labelOwner as "SELLER" | "NONE";
+          labelOwnerSourceBySku[key] = appliedOverrides[key] ? "amazon-override" : "prep-guidance";
         }
       });
     }
 
     const skus = items.map((it, idx) => {
       const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
-      const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
+      const skuKey = normalizeSku(it.sku || stock?.sku || it.asin || "");
+      const prepInfo = prepGuidanceMap[skuKey] || {};
       const prepRequired = !!prepInfo.prepRequired;
       const manufacturerBarcodeEligible = prepInfo.barcodeInstruction
-        ? (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode"
+        ? isManufacturerBarcodeEligible(prepInfo.barcodeInstruction)
         : false;
       const labelOwner =
-        labelOwnerBySku[it.sku || ""] ||
+        labelOwnerBySku[skuKey] ||
         (prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER");
       const labelOwnerSource =
-        labelOwnerSourceBySku[it.sku || ""] ||
+        labelOwnerSourceBySku[skuKey] ||
         (prepInfo.barcodeInstruction ? "prep-guidance" : "assumed");
       const requiresExpiry =
         (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
-        expiryRequiredBySku[it.sku || ""] === true;
+        expiryRequiredBySku[skuKey] === true;
+      const expiryVal = expirations[skuKey] || "";
       return {
         id: it.id || `sku-${idx + 1}`,
         title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
@@ -1745,7 +2193,8 @@ serve(async (req) => {
         fnsku: fnskuBySku[it.sku || ""] || null,
         packing: "individual",
         units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-        expiry: "",
+        expiry: expiryVal,
+        expirySource: expirySourceBySku[skuKey] || null,
         expiryRequired: requiresExpiry,
         prepRequired,
         prepNotes: (prepInfo.prepInstructions || []).join(", "),
@@ -1774,10 +2223,13 @@ serve(async (req) => {
       warning: combinedWarning
     };
 
-    return new Response(JSON.stringify({ plan, traceId, requestId: primaryRequestId || null, scopes: lwaScopes }), {
-      status: 200,
-      headers: { ...corsHeaders, "content-type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({ plan, traceId, requestId: primaryRequestId || null, operationId, operationStatus, scopes: lwaScopes }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      }
+    );
   } catch (e) {
     console.error("fba-plan error", { traceId, error: e });
     return new Response(JSON.stringify({ error: e?.message || "Server error", detail: `${e}`, traceId }), {
