@@ -1011,11 +1011,14 @@ serve(async (req) => {
         const key = it.sku || it.asin || "";
         const prepInfo = prepGuidanceMap[key] || {};
         const prepRequired = !!prepInfo.prepRequired;
+        const manufacturerBarcodeEligible =
+          (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode";
+        const labelOwner = prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "NONE";
         return {
           msku: it.sku || "",
           quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
           prepOwner: prepRequired ? "SELLER" : "NONE",
-          labelOwner: "SELLER"
+          labelOwner
         };
       })
     };
