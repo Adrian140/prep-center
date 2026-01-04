@@ -361,6 +361,7 @@ export default function FbaStep1Inventory({
               const status = statusForSku(sku);
               const state = String(status.state || '').toLowerCase();
               const labelOwner = sku.labelOwner || (sku.manufacturerBarcodeEligible ? 'NONE' : 'SELLER');
+              const labelRequired = labelOwner !== 'NONE';
               const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
               const prepSelection = prepSelections[sku.id] || {};
               const prepResolved = prepSelection.resolved;
@@ -500,7 +501,7 @@ export default function FbaStep1Inventory({
                                   : 'Unit labelling: By seller'}
                           </div>
                         )}
-                        {labelOwner !== 'NONE' && (
+                        {labelRequired && (
                           <button
                             onClick={() => openLabelModal(sku)}
                             className="text-sm font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"

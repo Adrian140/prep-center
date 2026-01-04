@@ -1302,6 +1302,14 @@ serve(async (req) => {
         labelOwnerBySku[it.msku] = (it.labelOwner as "SELLER" | "NONE") || "SELLER";
       }
     });
+    // Dacă retry a aplicat inversări, completăm map-ul cu override-urile folosite
+    if (plans?.length && appliedPlanBody?.items) {
+      appliedPlanBody.items.forEach((it: any) => {
+        if (it?.msku && it.labelOwner && !labelOwnerBySku[it.msku]) {
+          labelOwnerBySku[it.msku] = it.labelOwner as "SELLER" | "NONE";
+        }
+      });
+    }
 
     const skus = items.map((it, idx) => {
       const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
