@@ -37,6 +37,10 @@ type TempCreds = {
   sessionToken: string | null;
 };
 
+function normalizeSku(val: string | null | undefined) {
+  return (val || "").trim();
+}
+
 function maskValue(val: string) {
   if (!val) return "";
   if (val.length <= 8) return "***";
@@ -796,15 +800,77 @@ serve(async (req) => {
       await delay(50);
     }
 
-    // Normalize packing groups for UI (ensure id/boxes/packMode fields exist)
+    // Fetch metadata for SKUs to show images/titles in UI
+    const fetchSkuMeta = async () => {
+      const { data: prepItems } = await supabase
+        .from("prep_request_items")
+        .select("sku, product_name, units_sent, units_requested, stock_item_id")
+        .eq("prep_request_id", requestId);
+      const stockIds = Array.from(
+        new Set(
+          (prepItems || [])
+            .map((it: any) => it.stock_item_id)
+            .filter((id: any) => typeof id === "number" && Number.isFinite(id))
+        )
+      );
+      let stockMap: Record<number, { image_url?: string | null }> = {};
+      if (stockIds.length) {
+        const { data: stockRows } = await supabase
+          .from("stock_items")
+          .select("id, image_url")
+          .in("id", stockIds);
+        if (Array.isArray(stockRows)) {
+          stockMap = stockRows.reduce((acc: Record<number, { image_url?: string | null }>, row: any) => {
+            acc[row.id] = row;
+            return acc;
+          }, {});
+        }
+      }
+
+      const skuMeta = new Map<
+        string,
+        { title: string | null; image: string | null; defaultQty: number }
+      >();
+      (prepItems || []).forEach((it: any) => {
+        const skuKey = normalizeSku(it.sku);
+        if (!skuKey) return;
+        const qty = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
+        const image = it.stock_item_id ? stockMap[it.stock_item_id]?.image_url || null : null;
+        skuMeta.set(skuKey, {
+          title: it.product_name || skuKey,
+          image,
+          defaultQty: qty
+        });
+      });
+      return skuMeta;
+    };
+
+    const skuMeta = await fetchSkuMeta();
+
+    // Normalize packing groups for UI (ensure id/boxes/packMode fields exist) and decorate items
+    const normalizeItems = (items: any[] = []) =>
+      (Array.isArray(items) ? items : []).map((it: any, idx: number) => {
+        const skuKey = normalizeSku(it.msku || it.sku || it.SellerSKU || `item-${idx + 1}`);
+        const meta = skuMeta.get(skuKey);
+        return {
+          ...it,
+          sku: skuKey,
+          title: meta?.title || skuKey,
+          image: meta?.image || null,
+          quantity: Number(it.quantity || it.Quantity || meta?.defaultQty || 0) || 0
+        };
+      });
+
     const normalizedPackingGroups = packingGroups.map((g, idx) => {
       const boxes = Number((g as any)?.boxes || (g as any)?.boxCount || 1) || 1;
+      const items = normalizeItems((g as any)?.items);
       return {
         ...g,
         id: (g as any)?.packingGroupId || (g as any)?.id || `group-${idx + 1}`,
         boxes,
         packMode: boxes > 1 ? "multiple" : "single",
-        title: (g as any)?.title || null
+        title: (g as any)?.title || null,
+        items
       };
     });
 
@@ -816,10 +882,12 @@ serve(async (req) => {
         .select("sku, units_sent, units_requested")
         .eq("prep_request_id", requestId);
       if (!itemsErr && Array.isArray(items) && items.length) {
-        const fallbackItems = items.map((it) => ({
-          msku: it.sku || "",
-          quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0
-        }));
+        const fallbackItems = normalizeItems(
+          items.map((it) => ({
+            msku: it.sku || "",
+            quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0
+          }))
+        );
         effectivePackingGroups = [
           {
             id: "fallback-1",

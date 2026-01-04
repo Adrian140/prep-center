@@ -17,6 +17,24 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
     );
   }, [packGroups]);
 
+  const renderItemAvatar = (item) => {
+    if (item?.image) {
+      return (
+        <img
+          src={item.image}
+          alt={item.title || item.sku || item.msku || 'Item'}
+          className="w-10 h-10 rounded object-cover border border-slate-200"
+        />
+      );
+    }
+    const label = (item?.title || item?.sku || item?.msku || 'SKU').slice(0, 2).toUpperCase();
+    return (
+      <div className="w-10 h-10 rounded bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-semibold text-slate-600">
+        {label}
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
@@ -25,8 +43,8 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
         <div className="text-sm text-slate-500">You can start packing now</div>
       </div>
 
-      <div className="px-6 py-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
+      <div className="px-6 py-4 grid grid-cols-1 gap-4">
+        <div className="col-span-1">
           {loading && (
             <div className="px-4 py-6 text-slate-600 text-sm">Loading pack groups from Amazon…</div>
           )}
@@ -57,11 +75,19 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
               </div>
 
               <div className="px-4 py-3 flex flex-col gap-3">
-                <div className="space-y-1 text-sm text-slate-700">
+                <div className="space-y-3 text-sm text-slate-700">
                   {(group.items || []).map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between">
-                      <div className="font-medium text-slate-800">{item.sku || item.msku || `Item ${idx + 1}`}</div>
-                      <div className="text-xs text-slate-500">Qty: {Number(item.quantity || 0)}</div>
+                    <div key={idx} className="flex items-center justify-between gap-3 py-1 border-b border-slate-100 last:border-0">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {renderItemAvatar(item)}
+                        <div className="min-w-0">
+                          <div className="font-medium text-slate-800 truncate">
+                            {item.title || item.sku || item.msku || `Item ${idx + 1}`}
+                          </div>
+                          <div className="text-xs text-slate-500 truncate">{item.sku || item.msku || ''}</div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-600 whitespace-nowrap">Qty: {Number(item.quantity || 0)}</div>
                     </div>
                   ))}
                   {!group.items?.length && (
@@ -215,14 +241,6 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
           ))}
         </div>
 
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm text-slate-700">
-          <div className="font-semibold text-slate-900 mb-2">Frequently asked questions</div>
-          <ul className="space-y-2 list-disc list-inside text-slate-600">
-            <li>Pack groups are SKUs that can be packed together.</li>
-            <li>Dangerous goods cannot be packed with other SKUs.</li>
-            <li>Number your boxes so labels match correctly.</li>
-          </ul>
-        </div>
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
