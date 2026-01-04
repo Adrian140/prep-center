@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Circle, Eye, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Circle, Eye } from 'lucide-react';
 import FbaStep1Inventory from './FbaStep1Inventory';
 import FbaStep1bPacking from './FbaStep1bPacking';
 import FbaStep2Shipping from './FbaStep2Shipping';
@@ -286,8 +286,8 @@ export default function FbaSendToAmazonWizard({
     setCurrentStep(stepKey);
   };
 
-  const renderStep = () => {
-    if (currentStep === '1') {
+  const renderContent = (stepKey) => {
+    if (stepKey === '1') {
       return (
         <FbaStep1Inventory
           data={plan}
@@ -301,7 +301,7 @@ export default function FbaSendToAmazonWizard({
         />
       );
     }
-    if (currentStep === '1b') {
+    if (stepKey === '1b') {
       return (
         <FbaStep1bPacking
           packGroups={packGroups}
@@ -313,7 +313,7 @@ export default function FbaSendToAmazonWizard({
         />
       );
     }
-    if (currentStep === '2') {
+    if (stepKey === '2') {
       return (
         <FbaStep2Shipping
           shipment={{
@@ -330,7 +330,7 @@ export default function FbaSendToAmazonWizard({
         />
       );
     }
-    if (currentStep === '3') {
+    if (stepKey === '3') {
       return (
         <FbaStep3Labels
           shipments={shipments}
@@ -342,14 +342,14 @@ export default function FbaSendToAmazonWizard({
       );
     }
     return (
-        <FbaStep4Tracking
-          tracking={tracking}
-          onUpdateTracking={handleTrackingChange}
-          onBack={() => goToStep('3')}
-          onFinish={() => completeAndNext('4')}
-        />
-      );
-    };
+      <FbaStep4Tracking
+        tracking={tracking}
+        onUpdateTracking={handleTrackingChange}
+        onBack={() => goToStep('3')}
+        onFinish={() => completeAndNext('4')}
+      />
+    );
+  };
 
   const skuCount = useMemo(() => (Array.isArray(plan?.skus) ? plan.skus.length : 0), [plan?.skus]);
   const unitCount = useMemo(
@@ -387,27 +387,33 @@ export default function FbaSendToAmazonWizard({
     const done = isCompleted(stepKey);
     return (
       <div
-        className={`flex items-center justify-between px-4 py-3 border border-slate-200 bg-white rounded-lg ${active ? 'ring-2 ring-blue-500' : ''
-          }`}
+        className={`px-3 py-2 border border-slate-200 bg-white rounded-lg transition-all ${active ? 'ring-2 ring-blue-500' : ''}`}
       >
-        <div className="flex items-center gap-3">
-          {done ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-          ) : (
-            <Circle className={`w-5 h-5 ${active ? 'text-blue-600' : 'text-slate-400'}`} />
-          )}
-          <div>
-            <div className="font-semibold text-slate-900">{title}</div>
-            <div className="text-xs text-slate-500">{subtitle}</div>
-            {summary && <div className="text-sm text-slate-600">{summary}</div>}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            {done ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            ) : (
+              <Circle className={`w-4 h-4 ${active ? 'text-blue-600' : 'text-slate-400'}`} />
+            )}
+            <div className="min-w-0">
+              <div className="font-semibold text-slate-900 text-sm truncate">{title}</div>
+              <div className="text-[11px] text-slate-500 truncate">{subtitle}</div>
+              {summary && <div className="text-xs text-slate-600 truncate">{summary}</div>}
+            </div>
           </div>
+          <button
+            onClick={() => goToStep(stepKey)}
+            className="flex items-center gap-1 text-xs text-blue-700 hover:text-blue-800 whitespace-nowrap"
+          >
+            <Eye className="w-4 h-4" /> View/Edit
+          </button>
         </div>
-        <button
-          onClick={() => goToStep(stepKey)}
-          className="flex items-center gap-1 text-sm text-blue-700 hover:text-blue-800"
-        >
-          <Eye className="w-4 h-4" /> View/Edit
-        </button>
+        {active && (
+          <div className="mt-3 border-t border-slate-100 pt-3">
+            {renderContent(stepKey)}
+          </div>
+        )}
       </div>
     );
   };
@@ -451,17 +457,6 @@ export default function FbaSendToAmazonWizard({
           summary={trackingSummary.tracked ? 'Tracking captured' : 'Enter tracking details'}
         />
       </div>
-
-      <div className="flex items-center gap-2 text-sm text-slate-500 px-1">
-        <ChevronRight className="w-4 h-4" />
-        {currentStep === '1' && 'Step 1 · Confirmed inventory to send'}
-        {currentStep === '1b' && 'Step 1b · Pack individual units'}
-        {currentStep === '2' && 'Step 2 · Confirm shipping'}
-        {currentStep === '3' && 'Step 3 · Box labels printed'}
-        {currentStep === '4' && 'Final step · Tracking details'}
-      </div>
-
-      {renderStep()}
     </div>
   );
 }
