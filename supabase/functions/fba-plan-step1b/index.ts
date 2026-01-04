@@ -806,6 +806,7 @@ serve(async (req) => {
         .from("prep_request_items")
         .select("sku, product_name, units_sent, units_requested, stock_item_id")
         .eq("prep_request_id", requestId);
+
       const stockIds = Array.from(
         new Set(
           (prepItems || [])
@@ -813,15 +814,38 @@ serve(async (req) => {
             .filter((id: any) => typeof id === "number" && Number.isFinite(id))
         )
       );
-      let stockMap: Record<number, { image_url?: string | null }> = {};
+      const skuList = Array.from(
+        new Set(
+          (prepItems || [])
+            .map((it: any) => normalizeSku(it.sku))
+            .filter((s: string) => s)
+        )
+      );
+
+      let stockById: Record<number, { image_url?: string | null; sku?: string | null }> = {};
+      let stockBySku: Record<string, { image_url?: string | null; sku?: string | null }> = {};
+
       if (stockIds.length) {
         const { data: stockRows } = await supabase
           .from("stock_items")
-          .select("id, image_url")
+          .select("id, sku, image_url")
           .in("id", stockIds);
         if (Array.isArray(stockRows)) {
-          stockMap = stockRows.reduce((acc: Record<number, { image_url?: string | null }>, row: any) => {
+          stockById = stockRows.reduce((acc: Record<number, { image_url?: string | null; sku?: string | null }>, row: any) => {
             acc[row.id] = row;
+            return acc;
+          }, {});
+        }
+      }
+      if (skuList.length) {
+        const { data: stockRowsBySku } = await supabase
+          .from("stock_items")
+          .select("id, sku, image_url")
+          .in("sku", skuList);
+        if (Array.isArray(stockRowsBySku)) {
+          stockBySku = stockRowsBySku.reduce((acc: Record<string, { image_url?: string | null; sku?: string | null }>, row: any) => {
+            const key = normalizeSku(row.sku);
+            if (key) acc[key] = row;
             return acc;
           }, {});
         }
@@ -835,7 +859,9 @@ serve(async (req) => {
         const skuKey = normalizeSku(it.sku);
         if (!skuKey) return;
         const qty = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
-        const image = it.stock_item_id ? stockMap[it.stock_item_id]?.image_url || null : null;
+        const fromId = it.stock_item_id ? stockById[it.stock_item_id] : null;
+        const fromSku = stockBySku[skuKey] || null;
+        const image = fromId?.image_url || fromSku?.image_url || null;
         skuMeta.set(skuKey, {
           title: it.product_name || skuKey,
           image,
