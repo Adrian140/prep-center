@@ -238,6 +238,70 @@ export default function FbaSendToAmazonWizard({
     invalidateFrom('1b');
   };
 
+  const formatAddress = (addr = {}) => {
+    const parts = [
+      addr.name,
+      addr.addressLine1 || addr.line1 || addr.address,
+      addr.city,
+      addr.state || addr.region || addr.county,
+      addr.postalCode || addr.zip,
+      addr.country
+    ]
+      .filter(Boolean)
+      .join(', ');
+    return parts || addr.label || addr.raw || '—';
+  };
+
+  const deriveShipmentsFromPacking = () => {
+    if (!Array.isArray(packGroups) || !packGroups.length) return [];
+    const boxesDetail = [];
+    packGroups.forEach((g) => {
+      const boxCount = Math.max(1, Number(g.boxes) || 1);
+      const dims = g.boxDimensions || {};
+      for (let i = 0; i < boxCount; i++) {
+        boxesDetail.push({
+          groupId: g.id,
+          length: dims.length || null,
+          width: dims.width || null,
+          height: dims.height || null,
+          weight: g.boxWeight || null
+        });
+      }
+    });
+
+    const boxes = boxesDetail.length || packGroups.reduce((s, g) => s + (Number(g.boxes) || 0), 0);
+    const skuCount = packGroups.reduce((s, g) => s + (Number(g.skuCount) || 0), 0);
+    const units = packGroups.reduce((s, g) => s + (Number(g.units) || 0), 0);
+    const weight = boxesDetail.reduce((s, b) => s + (Number(b.weight) || 0), 0);
+
+    const from = formatAddress(plan?.shipFrom || {});
+    const to = plan?.marketplace || plan?.destination || '—';
+
+    return [
+      {
+        id: '1',
+        name: 'Shipment #1',
+        from,
+        to,
+        boxes,
+        skuCount,
+        units,
+        weight,
+        capability: 'Standard',
+        boxesDetail,
+        source: 'local'
+      }
+    ];
+  };
+
+  // Dacă nu avem shipments din backend, sau avem doar cele derivate local, recalculăm din packGroups + shipFrom
+  useEffect(() => {
+    const hasApiShipments = Array.isArray(shipments) && shipments.some((s) => s.source === 'api' || s.confirmed);
+    const derived = deriveShipmentsFromPacking();
+    if (hasApiShipments) return;
+    setShipments(derived);
+  }, [packGroups, plan?.shipFrom, plan?.marketplace, shipments]);
+
   const handleCarrierChange = (carrier) => {
     setShipmentMode((prev) => ({ ...prev, carrier }));
     invalidateFrom('2');
@@ -323,8 +387,10 @@ export default function FbaSendToAmazonWizard({
             shipments,
             warning
           }}
+          fetchPartneredQuote={shipmentMode.fetchPartneredQuote}
           onCarrierChange={handleCarrierChange}
           onModeChange={handleModeChange}
+          onShipDateChange={(date) => setShipmentMode((prev) => ({ ...prev, deliveryDate: date }))}
           onNext={() => completeAndNext('2')}
           onBack={() => goToStep('1b')}
         />

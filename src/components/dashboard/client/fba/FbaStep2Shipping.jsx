@@ -47,6 +47,7 @@ export default function FbaStep2Shipping({
   const totalBoxes = shipments?.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0) || 0;
   const totalUnits = shipments?.reduce((s, sh) => s + (Number(sh.units) || 0), 0) || 0;
   const totalSkus = shipments?.reduce((s, sh) => s + (Number(sh.skuCount) || 0), 0) || 0;
+  const totalWeight = shipments?.reduce((s, sh) => s + (Number(sh.weight) || 0), 0) || 0;
   const carrierName = carrier?.partnered ? 'UPS (Amazon-partnered carrier)' : carrier?.name || 'Non Amazon partnered carrier';
 
   const summaryTitle = useMemo(() => {
@@ -58,12 +59,17 @@ export default function FbaStep2Shipping({
     <div key={s.id} className="border border-slate-200 rounded-lg overflow-hidden">
       <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
         <div className="font-semibold text-slate-900">Shipment #{s.id}</div>
-        <div className="text-sm text-slate-600">Boxes: {s.boxes} · SKUs: {s.skuCount} · Units: {s.units}</div>
+        <div className="text-sm text-slate-600">Boxes: {s.boxes} · SKUs: {s.skuCount} · Units: {s.units} · Weight: {s.weight || '—'} kg</div>
       </div>
       <div className="px-4 py-3 text-sm text-slate-700 space-y-1">
         <div>Ship from: {s.from}</div>
         <div>Ship to: {s.to}</div>
         <div>Fulfilment capability: {s.capability || 'Standard'}</div>
+        {Array.isArray(s.boxesDetail) && s.boxesDetail.length > 0 && (
+          <div className="text-xs text-slate-500">
+            {s.boxesDetail.length} boxes with dimensions/weight captured from packing.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -178,14 +184,14 @@ export default function FbaStep2Shipping({
         </div>
 
         <div className="space-y-3">
-          <div className="font-semibold text-slate-900 text-sm">Number of shipments: {shipmentCount}</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {shipments.map(renderShipmentCard)}
-          </div>
-          <div className="text-sm text-slate-700">
-            Boxes: {totalBoxes} · SKUs: {totalSkus} · Units: {totalUnits}
-          </div>
+        <div className="font-semibold text-slate-900 text-sm">Number of shipments: {shipmentCount}</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {shipments.map(renderShipmentCard)}
         </div>
+        <div className="text-sm text-slate-700">
+            Boxes: {totalBoxes} · SKUs: {totalSkus} · Units: {totalUnits} · Weight: {totalWeight || '—'} kg
+        </div>
+      </div>
 
         {carrier.partnered && partneredAllowed && (
           <div className="border border-slate-200 rounded-lg p-4 space-y-2 text-sm">
