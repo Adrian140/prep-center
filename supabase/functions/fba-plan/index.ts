@@ -801,7 +801,18 @@ async function fetchListingsExpiryRequired(params: {
       hasAnyAttrValue(attrs, "fc_shelf_life") ||
       hasAnyAttrValue(attrs, "fc_shelf_life_unit_of_measure") ||
       hasAnyAttrValue(attrs, "product_expiration_type");
-    const expiryRequired = iedp === true || (iedp === null && hasShelfLife);
+    const expiryRequired = iedp === true || hasShelfLife;
+    if (expiryRequired === false) {
+      console.log("expiry-debug", {
+        traceId,
+        sku,
+        iedp,
+        hasShelfLife,
+        rawIedp: attrs?.is_expiration_dated_product ?? null,
+        rawShelfLife: attrs?.fc_shelf_life ?? null,
+        rawExpType: attrs?.product_expiration_type ?? null
+      });
+    }
     map[sku] = expiryRequired;
   }
   return map;
@@ -1257,6 +1268,9 @@ serve(async (req) => {
         const fallbackSkus = items.map((it, idx) => {
           const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
           const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
+          const requiresExpiry =
+            (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
+            expiryRequiredBySku[it.sku || ""] === true;
           return {
             id: it.id || `sku-${idx + 1}`,
             title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
@@ -1266,6 +1280,7 @@ serve(async (req) => {
             packing: "individual",
             units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
             expiry: "",
+            expiryRequired: requiresExpiry,
             prepRequired: prepInfo.prepRequired || false,
             prepNotes: (prepInfo.prepInstructions || []).join(", "),
             manufacturerBarcodeEligible:
