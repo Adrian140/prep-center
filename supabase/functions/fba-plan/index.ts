@@ -822,6 +822,49 @@ async function fetchProductTypes(params: {
   return map;
 }
 
+// Fetch Listings Item attributes to detect if SKU este marcat ca expiration-dated (IEDP)
+async function fetchListingsIedp(params: {
+  skus: string[];
+  host: string;
+  region: string;
+  tempCreds: TempCreds;
+  lwaToken: string;
+  traceId: string;
+  marketplaceId: string;
+  sellerId: string;
+}) {
+  const { skus, host, region, tempCreds, lwaToken, traceId, marketplaceId, sellerId } = params;
+  const map: Record<string, boolean> = {};
+  for (const sku of Array.from(new Set(skus.filter(Boolean)))) {
+    const path = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(sku)}`;
+    const query = `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=attributes`;
+    const { res, json } = await spapiGet({
+      host,
+      region,
+      path,
+      query,
+      lwaToken,
+      tempCreds,
+      traceId,
+      operationName: "listings.getItem",
+      marketplaceId,
+      sellerId
+    });
+    if (!res.ok) continue;
+    const attrs = json?.attributes || json?.payload?.attributes || {};
+    const flag = attrs.is_expiration_dated_product;
+    if (typeof flag === "boolean") {
+      map[sku] = flag;
+      continue;
+    }
+    if (Array.isArray(flag)) {
+      const v = flag.find((f: any) => typeof f?.value === "boolean");
+      if (v) map[sku] = Boolean(v.value);
+    }
+  }
+  return map;
+}
+
 serve(async (req) => {
   const traceId = crypto.randomUUID();
   if (req.method === "OPTIONS") {
@@ -1026,6 +1069,17 @@ serve(async (req) => {
       marketplaceId,
       sellerId
     });
+    const skuList = items.map((it) => it.sku || "").filter(Boolean) as string[];
+    const listingIedpMap = await fetchListingsIedp({
+      skus: skuList,
+      host,
+      region: awsRegion,
+      tempCreds,
+      lwaToken: lwaAccessToken,
+      traceId,
+      marketplaceId,
+      sellerId
+    });
     // Debug info for auth context (mascat)
     console.log("fba-plan auth-context", {
       traceId,
@@ -1072,7 +1126,8 @@ serve(async (req) => {
         );
         const title = it.product_name || it.sku || `SKU ${idx + 1}`;
         const productType = productTypeMap[it.asin || ""] || null;
-        const requiresExpiry = requiresExpiryFromGuidance || inferExpiry(title, productType);
+        const requiresExpiry =
+          requiresExpiryFromGuidance || listingIedpMap[it.sku || ""] === true || inferExpiry(title, productType);
         return {
           id: it.id || `sku-${idx + 1}`,
           title,
@@ -1452,6 +1507,7 @@ serve(async (req) => {
         (prepInfo.barcodeInstruction ? "prep-guidance" : "assumed");
       const requiresExpiry =
         (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
+        listingIedpMap[it.sku || ""] === true ||
         inferExpiry(it.product_name || stock?.name || it.sku || "", productTypeMap[it.asin || ""] || null);
       return {
         id: it.id || `sku-${idx + 1}`,
