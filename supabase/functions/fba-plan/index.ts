@@ -1013,7 +1013,8 @@ serve(async (req) => {
         const prepRequired = !!prepInfo.prepRequired;
         const manufacturerBarcodeEligible =
           (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode";
-        const labelOwner = prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "NONE";
+        // Default conservativ: dacă nu avem guidance, cerem label (SELLER).
+        const labelOwner = prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER";
         return {
           msku: it.sku || "",
           quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
@@ -1230,6 +1231,9 @@ serve(async (req) => {
     const skus = items.map((it, idx) => {
       const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
       const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
+      const prepRequired = !!prepInfo.prepRequired;
+      const manufacturerBarcodeEligible = (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode";
+      const labelOwner = prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER";
       const requiresExpiry = (prepInfo.prepInstructions || []).some((p: string) =>
         String(p || "").toLowerCase().includes("expir")
       );
@@ -1244,9 +1248,10 @@ serve(async (req) => {
         units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
         expiry: "",
         expiryRequired: requiresExpiry,
-        prepRequired: prepInfo.prepRequired || false,
+        prepRequired,
         prepNotes: (prepInfo.prepInstructions || []).join(", "),
-        manufacturerBarcodeEligible: (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
+        manufacturerBarcodeEligible,
+        labelOwner,
         readyToPack: true,
         image: stock?.image_url || null
       };

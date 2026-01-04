@@ -360,6 +360,7 @@ export default function FbaStep1Inventory({
             {skus.map((sku) => {
               const status = statusForSku(sku);
               const state = String(status.state || '').toLowerCase();
+              const labelOwner = sku.labelOwner || (sku.manufacturerBarcodeEligible ? 'NONE' : 'SELLER');
               const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
               const prepSelection = prepSelections[sku.id] || {};
               const prepResolved = prepSelection.resolved;
@@ -488,21 +489,25 @@ export default function FbaStep1Inventory({
                             Edit prep / labels
                           </button>
                         </div>
-                        {needsPrepNotice && prepResolved && (
-                          <div className="text-xs text-slate-600">
-                            {prepSelection.manufacturerBarcodeEligible === false
-                              ? 'Manufacturer barcode not eligible'
-                              : prepSelection.useManufacturerBarcode
-                                ? 'Using manufacturer barcode'
-                                : 'Unit labelling: By seller'}
+                       {needsPrepNotice && prepResolved && (
+                         <div className="text-xs text-slate-600">
+                           {prepSelection.manufacturerBarcodeEligible === false
+                             ? 'Manufacturer barcode not eligible'
+                             : prepSelection.useManufacturerBarcode
+                               ? 'Using manufacturer barcode'
+                                : labelOwner === 'NONE'
+                                  ? 'Unit labelling: Not required'
+                                  : 'Unit labelling: By seller'}
                           </div>
                         )}
-                        <button
-                          onClick={() => openLabelModal(sku)}
-                          className="text-sm font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
-                        >
-                          Print SKU labels
-                        </button>
+                        {labelOwner !== 'NONE' && (
+                          <button
+                            onClick={() => openLabelModal(sku)}
+                            className="text-sm font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
+                          >
+                            Print SKU labels
+                          </button>
+                        )}
                       </div>
                     )}
                     {templateError && (
