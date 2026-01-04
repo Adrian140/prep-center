@@ -81,6 +81,38 @@ export default function FbaStep1Inventory({
   const [templateError, setTemplateError] = useState('');
   const [labelLoading, setLabelLoading] = useState(false);
   const [labelError, setLabelError] = useState('');
+  const [expiryFlags, setExpiryFlags] = useState({});
+
+  // Prefill prep selections as "No prep needed" for all SKUs (Amazon expects a choice).
+  useEffect(() => {
+    setPrepSelections((prev) => {
+      const next = { ...prev };
+      skus.forEach((sku) => {
+        if (!next[sku.id]) {
+          next[sku.id] = {
+            resolved: true,
+            prepCategory: 'none',
+            useManufacturerBarcode: false,
+            manufacturerBarcodeEligible: sku.manufacturerBarcodeEligible !== false
+          };
+        }
+      });
+      return next;
+    });
+  }, [skus]);
+
+  // Prefill expiry requirement flags (backend guidance expiryRequired) per SKU
+  useEffect(() => {
+    setExpiryFlags((prev) => {
+      const next = { ...prev };
+      skus.forEach((sku) => {
+        if (typeof next[sku.id] === 'undefined') {
+          next[sku.id] = Boolean(sku.expiryRequired);
+        }
+      });
+      return next;
+    });
+  }, [skus]);
 
   const openPackingModal = (sku) => {
     setPackingModal({
@@ -331,6 +363,7 @@ export default function FbaStep1Inventory({
               const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
               const prepSelection = prepSelections[sku.id] || {};
               const prepResolved = prepSelection.resolved;
+              const needsExpiry = (expiryFlags[sku.id] ?? Boolean(sku.expiryRequired)) === true;
               const badgeClass =
                 state === 'ok'
                   ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
@@ -489,15 +522,35 @@ export default function FbaStep1Inventory({
                       />
                       <div className="text-xs text-slate-500">Units</div>
                     </div>
-                    <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
-                      <input
-                        type="date"
-                        value={sku.expiry || ''}
-                        onChange={(e) => onChangeExpiry(sku.id, e.target.value)}
-                        className="border rounded-md px-2 py-1 text-xs"
-                      />
-                      <span className="text-slate-500">Expiry</span>
-                    </div>
+                    {needsExpiry ? (
+                      <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                        <input
+                          type="date"
+                          value={sku.expiry || ''}
+                          onChange={(e) => onChangeExpiry(sku.id, e.target.value)}
+                          className="border rounded-md px-2 py-1 text-xs"
+                        />
+                        <span className="text-slate-500">Expiry</span>
+                        <button
+                          onClick={() => {
+                            setExpiryFlags((prev) => ({ ...prev, [sku.id]: false }));
+                            onChangeExpiry(sku.id, '');
+                          }}
+                          className="text-[11px] text-blue-600 hover:text-blue-700"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-xs text-slate-600">
+                        <button
+                          onClick={() => setExpiryFlags((prev) => ({ ...prev, [sku.id]: true }))}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          Add expiry date (only if Amazon requests it)
+                        </button>
+                      </div>
+                    )}
                     {sku.readyToPack && (
                       <div className="mt-2 flex items-center gap-1 text-emerald-600 text-xs font-semibold">
                         <CheckCircle className="w-4 h-4" /> Ready to pack

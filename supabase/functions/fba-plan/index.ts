@@ -957,7 +957,12 @@ serve(async (req) => {
     const blocking = skuStatuses.filter((s) => ["missing", "inactive", "restricted"].includes(String(s.state)));
     if (blocking.length) {
       const warning = `Unele produse nu sunt eligibile pe marketplace-ul destinație (${marketplaceId}).`;
-      const skus = items.map((it, idx) => ({
+      const skus = items.map((it, idx) => {
+        const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
+        const requiresExpiry = (prepInfo.prepInstructions || []).some((p: string) =>
+          String(p || "").toLowerCase().includes("expir")
+        );
+        return {
         id: it.id || `sku-${idx + 1}`,
         title: it.product_name || it.sku || `SKU ${idx + 1}`,
         sku: it.sku || "",
@@ -966,12 +971,14 @@ serve(async (req) => {
         packing: "individual",
         units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
         expiry: "",
-        prepRequired: prepGuidanceMap[it.sku || it.asin || ""]?.prepRequired || false,
-        prepNotes: (prepGuidanceMap[it.sku || it.asin || ""]?.prepInstructions || []).join(", "),
+        expiryRequired: requiresExpiry,
+        prepRequired: prepInfo?.prepRequired || false,
+        prepNotes: (prepInfo?.prepInstructions || []).join(", "),
         manufacturerBarcodeEligible:
-          (prepGuidanceMap[it.sku || it.asin || ""]?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
+          (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
         readyToPack: true
-      }));
+      };
+      });
       const plan = {
         source: "amazon",
         marketplace: marketplaceId,
@@ -1181,6 +1188,9 @@ serve(async (req) => {
     const skus = items.map((it, idx) => {
       const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
       const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
+      const requiresExpiry = (prepInfo.prepInstructions || []).some((p: string) =>
+        String(p || "").toLowerCase().includes("expir")
+      );
       return {
         id: it.id || `sku-${idx + 1}`,
         title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
@@ -1191,6 +1201,7 @@ serve(async (req) => {
         packing: "individual",
         units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
         expiry: "",
+        expiryRequired: requiresExpiry,
         prepRequired: prepInfo.prepRequired || false,
         prepNotes: (prepInfo.prepInstructions || []).join(", "),
         manufacturerBarcodeEligible: (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",

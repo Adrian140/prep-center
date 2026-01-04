@@ -90,6 +90,32 @@ export default function FbaSendToAmazonWizard({
   const [skuStatuses, setSkuStatuses] = useState(initialSkuStatuses);
   const [blocking, setBlocking] = useState(false);
 
+  // Persistăm ultimul pas vizitat ca să nu se piardă la refresh.
+  const stepStorageKey = useMemo(() => {
+    const reqId =
+      plan?.requestId ||
+      plan?.request_id ||
+      initialPlan?.requestId ||
+      initialPlan?.request_id ||
+      plan?.id ||
+      initialPlan?.id ||
+      "default";
+    return `fba-wizard-step-${reqId}`;
+  }, [plan?.requestId, plan?.request_id, plan?.id, initialPlan?.requestId, initialPlan?.request_id, initialPlan?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = Number(window.localStorage.getItem(stepStorageKey));
+    if (Number.isFinite(saved) && saved >= 1 && saved <= 5) {
+      setStep(saved);
+    }
+  }, [stepStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(stepStorageKey, String(step));
+  }, [step, stepStorageKey]);
+
   useEffect(() => {
     if (!autoLoadPlan && !fetchPlan) return;
     let cancelled = false;

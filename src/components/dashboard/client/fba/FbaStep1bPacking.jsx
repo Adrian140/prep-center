@@ -61,7 +61,15 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
                       type="radio"
                       name={`boxes-${group.id}`}
                       checked={group.packMode === 'single'}
-                      onChange={() => onUpdateGroup(group.id, { packMode: 'single' })}
+                      onChange={() =>
+                        onUpdateGroup(group.id, {
+                          packMode: 'single',
+                          boxes: 1,
+                          boxDimensions: null,
+                          boxWeight: null,
+                          packingConfirmed: false
+                        })
+                      }
                     />
                     Everything will fit into one box
                   </label>
@@ -75,6 +83,94 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
                     Multiple boxes will be needed
                   </label>
                 </div>
+
+                {group.packMode === 'single' && (
+                  <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-3">
+                    <div className="font-semibold text-slate-900 text-sm">Packing information for 1 box</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                      <div className="sm:col-span-3">
+                        <label className="text-xs text-slate-600 block mb-1">Box dimensions (cm)</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            value={group.boxDimensions?.length ?? ''}
+                            onChange={(e) =>
+                              onUpdateGroup(group.id, {
+                                boxDimensions: {
+                                  ...(group.boxDimensions || {}),
+                                  length: Number(e.target.value)
+                                }
+                              })
+                            }
+                            className="border rounded-md px-3 py-2 w-20"
+                            placeholder="L"
+                          />
+                          <span className="text-slate-500 text-sm">×</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            value={group.boxDimensions?.width ?? ''}
+                            onChange={(e) =>
+                              onUpdateGroup(group.id, {
+                                boxDimensions: {
+                                  ...(group.boxDimensions || {}),
+                                  width: Number(e.target.value)
+                                }
+                              })
+                            }
+                            className="border rounded-md px-3 py-2 w-20"
+                            placeholder="W"
+                          />
+                          <span className="text-slate-500 text-sm">×</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            value={group.boxDimensions?.height ?? ''}
+                            onChange={(e) =>
+                              onUpdateGroup(group.id, {
+                                boxDimensions: {
+                                  ...(group.boxDimensions || {}),
+                                  height: Number(e.target.value)
+                                }
+                              })
+                            }
+                            className="border rounded-md px-3 py-2 w-20"
+                            placeholder="H"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-600 block mb-1">Box weight (kg)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          value={group.boxWeight ?? ''}
+                          onChange={(e) => onUpdateGroup(group.id, { boxWeight: Number(e.target.value) })}
+                          className="border rounded-md px-3 py-2 w-24"
+                          placeholder="kg"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateGroup(group.id, { packingConfirmed: true })}
+                      className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded-md"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Confirm packing information
+                    </button>
+                    {group.packingConfirmed && (
+                      <div className="text-xs text-emerald-700 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Saved for this pack group
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {group.packMode === 'multiple' && (
                   <div className="flex flex-col gap-2 text-sm text-slate-700">

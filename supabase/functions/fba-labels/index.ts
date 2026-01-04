@@ -332,31 +332,129 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const companyId = body.company_id || body.companyId || null;
-    const marketplaceId = body.marketplace_id || body.marketplaceId || "A13V1IB3VIYZZH";
-    const items = Array.isArray(body.items) ? body.items : [];
+    const requestId = body.request_id || body.requestId || null;
+    let companyId = body.company_id || body.companyId || null;
+    let marketplaceId = body.marketplace_id || body.marketplaceId || "A13V1IB3VIYZZH";
+    let items = Array.isArray(body.items) ? body.items : [];
+
+    console.log(
+      JSON.stringify(
+        {
+          tag: "FBA_LABELS_INPUT",
+          traceId,
+          requestId,
+          companyId,
+          marketplaceId,
+          itemsCount: items.length
+        },
+        null,
+        2
+      )
+    );
+
+    // Dacă nu primim companyId, încearcă să îl derivezi din prep_requests
+    if (!companyId && requestId) {
+      const { data: reqRow, error: reqErr } = await supabase
+        .from("prep_requests")
+        .select("id, company_id, destination_country, prep_request_items(id, sku, asin, units_requested, units_sent)")
+        .eq("id", requestId)
+        .maybeSingle();
+      if (!reqErr && reqRow) {
+        companyId = reqRow.company_id || companyId;
+        if (Array.isArray(reqRow.prep_request_items) && !items.length) {
+          items = reqRow.prep_request_items.map((it) => ({
+            sku: it.sku || null,
+            asin: it.asin || null,
+            quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 1
+          }));
+        }
+        const country = (reqRow.destination_country || "").toUpperCase();
+        const map: Record<string, string> = {
+          FR: "A13V1IB3VIYZZH",
+          DE: "A1PA6795UKMFR9",
+          ES: "A1RKKUPIHCS9HS",
+          IT: "APJ6JRA9NG5V4"
+        };
+        marketplaceId = body.marketplace_id || body.marketplaceId || map[country] || marketplaceId;
+      }
+    }
 
     if (!companyId) {
-      return new Response(JSON.stringify({ error: "Missing company_id", traceId }), {
+      const msg = "Missing company_id (sau request_id) în apelul fba-labels";
+      console.error(msg, { traceId });
+      return new Response(JSON.stringify({ error: msg, traceId }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
     if (!items.length) {
-      return new Response(JSON.stringify({ error: "No items provided", traceId }), {
+      const msg = "No items provided";
+      console.error(msg, { traceId });
+      return new Response(JSON.stringify({ error: msg, traceId }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
 
-    const { data: integ, error: integErr } = await supabase
-      .from("amazon_integrations")
-      .select("refresh_token, marketplace_id, region, selling_partner_id")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (integErr || !integ?.refresh_token) {
+    // Găsește integrarea Amazon (alăturat cu fba-plan): încearcă întâi marketplace, apoi orice activ, apoi pending
+    let integ: any = null;
+    let integStatus: string | null = null;
+    if (marketplaceId) {
+      const { data: integRows, error } = await supabase
+        .from("amazon_integrations")
+        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .eq("company_id", companyId)
+        .eq("status", "active")
+        .eq("marketplace_id", marketplaceId)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (!error && Array.isArray(integRows) && integRows[0]) {
+        integ = integRows[0];
+        integStatus = (integ as any).status || null;
+      } else if (error) {
+        console.warn("amazon_integrations query (by marketplace) failed", error);
+      }
+    }
+    if (!integ) {
+      const { data: integRows, error: integErr } = await supabase
+        .from("amazon_integrations")
+        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .eq("company_id", companyId)
+        .eq("status", "active")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (!integErr && Array.isArray(integRows) && integRows[0]) {
+        integ = integRows[0];
+        integStatus = (integ as any).status || null;
+      } else if (integErr) {
+        console.warn("amazon_integrations query (fallback) failed", integErr);
+      }
+    }
+    if (!integ) {
+      const { data: pendingRows, error: pendingErr } = await supabase
+        .from("amazon_integrations")
+        .select("refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .eq("company_id", companyId)
+        .in("status", ["pending"])
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (!pendingErr && Array.isArray(pendingRows) && pendingRows[0]) {
+        integ = pendingRows[0];
+        integStatus = (integ as any).status || "pending";
+      } else if (pendingErr) {
+        console.warn("amazon_integrations pending query failed", pendingErr);
+      }
+    }
+    if (!integ?.refresh_token) {
       return new Response(JSON.stringify({ error: "Missing Amazon integration for company", traceId }), {
+        status: 400,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+    if (integStatus === "pending") {
+      const msg =
+        "Integrarea Amazon nu este completă (lipsește Selling Partner ID). Deconectează și reconectează pentru a finaliza autorizarea.";
+      return new Response(JSON.stringify({ error: msg, traceId }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
@@ -400,14 +498,35 @@ serve(async (req) => {
       });
     }
 
-    const payloadJson = {
-      destinationMarketplaceId: marketplaceId || integ.marketplace_id || "A13V1IB3VIYZZH",
-      labelSpecification: {
-        format: "PDF",
-        itemLabelType: "ITEM_LABEL_2_5X1" // 50mm x 25mm thermal
-      },
-      items: labelItems
+    // SP-API createMarketplaceItemLabels (2024-03-20) așteaptă marketplaceId + labelType + mskuQuantities (+ width/height pentru thermal)
+    const chosenMarketplace = marketplaceId || integ.marketplace_id || "A13V1IB3VIYZZH";
+    const labelType = String(body.label_type || body.labelType || "THERMAL_PRINTING").toUpperCase();
+    const rawWidth = Number(body.label_width || body.labelWidth || body.width || 50);
+    const rawHeight = Number(body.label_height || body.labelHeight || body.height || 25);
+    const clamp = (v: number, min: number, max: number) => (Number.isFinite(v) ? Math.min(Math.max(v, min), max) : min);
+    const width = clamp(rawWidth, 25, 100);
+    const height = clamp(rawHeight, 25, 100);
+
+    const payloadJson: any = {
+      marketplaceId: chosenMarketplace,
+      labelType,
+      localeCode: body.locale || body.localeCode || "en_GB", // EU default
+      mskuQuantities: labelItems.map((it: any) => ({
+        msku: it.itemReference || it.identifier?.value || it.sku || it.fnsku || it.asin || "",
+        quantity: it.quantity || 1
+      }))
     };
+
+    if (labelType === "THERMAL_PRINTING") {
+      payloadJson.width = width;
+      payloadJson.height = height;
+    } else {
+      // fallback pentru A4 (se poate seta din body.pageType)
+      payloadJson.pageType = body.page_type || body.pageType || "A4_24";
+      // opțional trimitem și dimensiunile dacă vin din UI
+      payloadJson.width = width;
+      payloadJson.height = height;
+    }
 
     const payload = JSON.stringify(payloadJson);
 
@@ -437,6 +556,18 @@ serve(async (req) => {
         }),
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
+    }
+
+    const directDownload =
+      createRes.json?.documentDownloads?.[0]?.uri ||
+      createRes.json?.payload?.documentDownloads?.[0]?.uri ||
+      null;
+
+    if (directDownload) {
+      return new Response(JSON.stringify({ downloadUrl: directDownload, traceId }), {
+        status: 200,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
     }
 
     const operationId =
