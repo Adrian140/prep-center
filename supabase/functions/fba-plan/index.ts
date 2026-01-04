@@ -917,7 +917,6 @@ serve(async (req) => {
       marketplaceId,
       sellerId
     });
-
     // Debug info for auth context (mascat)
     console.log("fba-plan auth-context", {
       traceId,
@@ -1015,8 +1014,7 @@ serve(async (req) => {
           const manufacturerBarcodeEligible =
             prepInfo.barcodeInstruction
               ? (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode"
-              : true;
-          // Default to manufacturer barcode if guidance is missing; Amazon will respond with the correct requirement.
+              : false; // fără guidance forțăm eticheta seller ca fallback
           let labelOwner = prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER";
           if (overrides[it.sku || ""]) {
             labelOwner = overrides[it.sku || ""]!;
@@ -1333,7 +1331,7 @@ serve(async (req) => {
       const prepRequired = !!prepInfo.prepRequired;
       const manufacturerBarcodeEligible = prepInfo.barcodeInstruction
         ? (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode"
-        : true;
+        : false;
       const labelOwner =
         labelOwnerBySku[it.sku || ""] ||
         (prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER");
