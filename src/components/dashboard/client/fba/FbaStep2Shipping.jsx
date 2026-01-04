@@ -1,11 +1,48 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle, Truck } from 'lucide-react';
 
-export default function FbaStep2Shipping({ shipment, onCarrierChange, onModeChange, onNext, onBack }) {
+export default function FbaStep2Shipping({
+  shipment,
+  hazmat = false,
+  fetchPartneredQuote, // optional async ({ method, hazmat }) => { allowed: boolean; rate: number; reason?: string }
+  onCarrierChange,
+  onModeChange,
+  onShipDateChange,
+  onNext,
+  onBack
+}) {
   const { deliveryDate, method, carrier, shipments, warning } = shipment;
   const [shipDate, setShipDate] = useState(deliveryDate || '');
+  const [partneredAllowed, setPartneredAllowed] = useState(true);
+  const [partneredReason, setPartneredReason] = useState('');
+  const [partneredRate, setPartneredRate] = useState(carrier?.rate ?? 6.15);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
-  const partneredRate = carrier?.rate ?? 6.15; // fallback dacă nu avem cotă
+  useEffect(() => {
+    let cancelled = false;
+    const runQuote = async () => {
+      if (typeof fetchPartneredQuote !== 'function') {
+        setPartneredAllowed(!hazmat);
+        setPartneredReason(hazmat ? 'Hazmat items are not eligible for partnered carrier.' : '');
+        return;
+      }
+      const res = await fetchPartneredQuote({ method, hazmat });
+      if (cancelled) return;
+      setPartneredAllowed(res?.allowed ?? true);
+      setPartneredReason(res?.reason || '');
+      if (typeof res?.rate === 'number') setPartneredRate(res.rate);
+    };
+    runQuote().catch(() => {
+      if (!cancelled) {
+        setPartneredAllowed(!hazmat);
+        setPartneredReason('');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchPartneredQuote, hazmat, method]);
+
   const shipmentCount = shipments?.length || 0;
   const totalBoxes = shipments?.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0) || 0;
   const totalUnits = shipments?.reduce((s, sh) => s + (Number(sh.units) || 0), 0) || 0;
@@ -26,9 +63,15 @@ export default function FbaStep2Shipping({ shipment, onCarrierChange, onModeChan
       <div className="px-4 py-3 text-sm text-slate-700 space-y-1">
         <div>Ship from: {s.from}</div>
         <div>Ship to: {s.to}</div>
+        <div>Fulfilment capability: {s.capability || 'Standard'}</div>
       </div>
     </div>
   );
+
+  const disablePartnered = !partneredAllowed;
+  const partneredLabel = partneredReason || 'Estimated charge';
+  const partneredChargeText = disablePartnered ? 'Not available' : `€${partneredRate.toFixed(2)}`;
+  const canContinue = carrier?.partnered ? termsAccepted && partneredAllowed : true;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -51,7 +94,10 @@ export default function FbaStep2Shipping({ shipment, onCarrierChange, onModeChan
             <input
               type="date"
               value={shipDate}
-              onChange={(e) => setShipDate(e.target.value)}
+              onChange={(e) => {
+                setShipDate(e.target.value);
+                onShipDateChange?.(e.target.value);
+              }}
               className="w-full border rounded-md px-3 py-2 text-sm"
             />
           </div>
@@ -78,14 +124,15 @@ export default function FbaStep2Shipping({ shipment, onCarrierChange, onModeChan
           <div className="border border-slate-200 rounded-lg p-4 space-y-3">
             <div className="font-semibold text-slate-900">Select shipping carrier</div>
             <div className="flex flex-col gap-2 text-sm">
-              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${carrier.partnered ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
+              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${carrier.partnered ? 'border-blue-500 bg-blue-50' : 'border-slate-200'} ${disablePartnered ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 <div className="flex flex-col">
                   <span className="font-semibold">UPS (Amazon-partnered carrier)</span>
-                  <span className="text-xs text-slate-500">Estimated charge: €{partneredRate.toFixed(2)}</span>
+                  <span className="text-xs text-slate-500">{partneredLabel}: {partneredChargeText}</span>
                 </div>
                 <input
                   type="radio"
-                  checked={carrier.partnered}
+                  disabled={disablePartnered}
+                  checked={carrier.partnered && partneredAllowed}
                   onChange={() => onCarrierChange({ partnered: true, name: 'UPS (Amazon-partnered carrier)', rate: partneredRate })}
                 />
               </label>
@@ -113,7 +160,7 @@ export default function FbaStep2Shipping({ shipment, onCarrierChange, onModeChan
                 </select>
               )}
               <div className="text-xs text-slate-500">
-                The Amazon Partnered Carrier programme offers discounted shipping rates, buying/printing labels, and automated tracking.
+                The Amazon Partnered Carrier programme offers discounted rates, buying/printing labels, and automated tracking.
               </div>
             </div>
           </div>
@@ -122,7 +169,7 @@ export default function FbaStep2Shipping({ shipment, onCarrierChange, onModeChan
             <div className="font-semibold text-slate-900">Shipment charges</div>
             <div className="flex items-center justify-between">
               <span>Estimated carrier charges</span>
-              <span className="font-semibold">€{partneredRate.toFixed(2)}</span>
+              <span className="font-semibold">{partneredChargeText}</span>
             </div>
             <div className="text-xs text-slate-500">
               Review charges before continuing. You have up to 24h to void Amazon partnered shipping charges.
@@ -139,6 +186,28 @@ export default function FbaStep2Shipping({ shipment, onCarrierChange, onModeChan
             Boxes: {totalBoxes} · SKUs: {totalSkus} · Units: {totalUnits}
           </div>
         </div>
+
+        {carrier.partnered && partneredAllowed && (
+          <div className="border border-slate-200 rounded-lg p-4 space-y-2 text-sm">
+            <div className="font-semibold text-slate-900">Ready to continue?</div>
+            <div className="text-xs text-slate-600">
+              Before we generate shipping labels, review details and confirm charges.
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+              />
+              <span className="text-xs text-slate-700">
+                I agree to the Amazon Partnered Carrier Terms and Conditions and the Carrier Terms and Conditions.
+              </span>
+            </div>
+            <div className="text-xs text-slate-500">
+              When using an Amazon partnered carrier, you have up to 24 hours to void charges.
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -149,7 +218,8 @@ export default function FbaStep2Shipping({ shipment, onCarrierChange, onModeChan
           </button>
           <button
             onClick={onNext}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold shadow-sm"
+            disabled={!canContinue}
+            className={`px-4 py-2 rounded-md font-semibold shadow-sm ${canContinue ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
           >
             Continue to labels
           </button>
