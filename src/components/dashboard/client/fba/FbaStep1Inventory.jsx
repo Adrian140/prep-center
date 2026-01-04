@@ -363,7 +363,9 @@ export default function FbaStep1Inventory({
               const labelOwner = sku.labelOwner || (sku.manufacturerBarcodeEligible ? 'NONE' : 'SELLER');
               const labelOwnerSource = sku.labelOwnerSource || 'unknown';
               const labelRequired = labelOwner !== 'NONE';
-              const showLabelButton = labelRequired && ['amazon-override', 'prep-guidance'].includes(labelOwnerSource);
+              const showLabelButton =
+                labelRequired &&
+                (['amazon-override', 'prep-guidance'].includes(labelOwnerSource) || labelOwner === 'SELLER');
               const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
               const prepSelection = prepSelections[sku.id] || {};
               const prepResolved = prepSelection.resolved;
