@@ -1454,9 +1454,20 @@ serve(async (req) => {
     });
 
     if (expiryUpdates.length) {
+      // Use update to avoid accidental inserts that would violate non-null prep_request_id
       const { error: expirySaveErr } = await supabase
         .from("prep_request_items")
-        .upsert(expiryUpdates, { onConflict: "id", returning: "minimal" });
+        .update(
+          expiryUpdates.map((row) => ({
+            id: row.id,
+            expiration_date: row.expiration_date,
+            expiration_source: row.expiration_source
+          }))
+        )
+        .in(
+          "id",
+          expiryUpdates.map((row) => row.id)
+        );
       if (expirySaveErr) {
         console.warn("fba-plan expiration save failed", { traceId, error: expirySaveErr, updates: expiryUpdates.length });
       }
@@ -1728,6 +1739,86 @@ serve(async (req) => {
       return parts.join(", ") || "—";
     };
 
+    const generatePackingOptions = async (inboundPlanId: string) => {
+      return signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${path}/${encodeURIComponent(inboundPlanId)}/packingOptions:generate`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.generatePackingOptions",
+        marketplaceId,
+        sellerId
+      });
+    };
+
+    const listPackingOptions = async (inboundPlanId: string) => {
+      return signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${path}/${encodeURIComponent(inboundPlanId)}/packingOptions`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.listPackingOptions",
+        marketplaceId,
+        sellerId
+      });
+    };
+
+    const generatePlacementOptions = async (inboundPlanId: string) => {
+      return signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${path}/${encodeURIComponent(inboundPlanId)}/placementOptions:generate`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.generatePlacementOptions",
+        marketplaceId,
+        sellerId
+      });
+    };
+
+    const listPlacementOptions = async (inboundPlanId: string) => {
+      return signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${path}/${encodeURIComponent(inboundPlanId)}/placementOptions`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.listPlacementOptions",
+        marketplaceId,
+        sellerId
+      });
+    };
+
     let attempt = 0;
     const maxAttempts = 3;
     let amazonJson: any = null;
@@ -1901,6 +1992,40 @@ serve(async (req) => {
         amazonJson = fetchedJson;
       }
       inboundPlanStatus = fetchedStatus || inboundPlanStatus;
+    }
+
+    // Best-effort: if plan is ACTIVE/SUCCESS but shipments missing, trigger packing/placement generation then refetch plan
+    if (
+      !plans.length &&
+      inboundPlanId &&
+      ((operationStatus || "").toUpperCase() === "SUCCESS" || (inboundPlanStatus || "").toUpperCase() === "ACTIVE")
+    ) {
+      try {
+        await generatePackingOptions(inboundPlanId);
+        const packRes = await listPackingOptions(inboundPlanId);
+        _lastPackingOptions = packRes.json?.payload?.packingOptions || packRes.json?.packingOptions || _lastPackingOptions;
+
+        await generatePlacementOptions(inboundPlanId);
+        const placeRes = await listPlacementOptions(inboundPlanId);
+        _lastPlacementOptions =
+          placeRes.json?.payload?.placementOptions || placeRes.json?.placementOptions || _lastPlacementOptions;
+
+        const { fetchedJson, fetchedPlans, fetchedStatus, fetchedPackingOptions, fetchedPlacementOptions } =
+          await fetchInboundPlanById(inboundPlanId);
+        if (fetchedPlans.length) {
+          plans = fetchedPlans;
+          amazonJson = fetchedJson;
+        }
+        inboundPlanStatus = fetchedStatus || inboundPlanStatus;
+        _lastPackingOptions = fetchedPackingOptions || _lastPackingOptions;
+        _lastPlacementOptions = fetchedPlacementOptions || _lastPlacementOptions;
+      } catch (err) {
+        console.warn("inbound-plan followup generate/list failed", {
+          traceId,
+          inboundPlanId,
+          error: err instanceof Error ? err.message : String(err)
+        });
+      }
     }
 
     if (!appliedPlanBody) {
