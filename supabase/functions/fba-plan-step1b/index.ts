@@ -534,6 +534,7 @@ serve(async (req) => {
 
     // Step 1b: generate + list packing options for inboundPlanId
     const basePath = "/inbound/fba/2024-03-20";
+    let warning: string | null = null;
 
     const pollOperationStatus = async (operationId: string) => {
       const maxAttempts = 8;
@@ -595,15 +596,7 @@ serve(async (req) => {
     });
 
     if (!genRes.res.ok && genRes.res.status !== 409) {
-      // 409 = already generated, acceptable
-      return new Response(
-        JSON.stringify({
-          error: `Packing options generate failed (${genRes.res.status})`,
-          body: genRes.text,
-          traceId
-        }),
-        { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
+      warning = `Amazon a refuzat generatePackingOptions (${genRes.res.status}). Verifică permisiunile Inbound/packing pe cont.`;
     }
 
     const genOpId =
@@ -612,43 +605,39 @@ serve(async (req) => {
       genRes.json?.operationId ||
       genRes.json?.OperationId ||
       null;
-    if (genOpId) {
+    if (genOpId && !warning) {
       await pollOperationStatus(genOpId);
     }
 
-    const listRes = await signedFetch({
-      method: "GET",
-      service: "execute-api",
-      region: awsRegion,
-      host,
-      path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions`,
-      query: "",
-      payload: "",
-      accessKey: tempCreds.accessKeyId,
-      secretKey: tempCreds.secretAccessKey,
-      sessionToken: tempCreds.sessionToken,
-      lwaToken: lwaAccessToken,
-      traceId,
-      operationName: "inbound.v20240320.listPackingOptions",
-      marketplaceId,
-      sellerId
-    });
+    let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+    if (!warning) {
+      listRes = await signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.listPackingOptions",
+        marketplaceId,
+        sellerId
+      });
 
-    if (!listRes.res.ok) {
-      return new Response(
-        JSON.stringify({
-          error: `Packing options list failed (${listRes.res.status})`,
-          body: listRes.text,
-          traceId
-        }),
-        { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
+      if (!listRes.res.ok) {
+        warning = `Packing options list failed (${listRes.res.status}). ${listRes.text?.slice(0, 200) || ""}`;
+      }
     }
 
     const packingOptions =
-      listRes.json?.payload?.packingOptions ||
-      listRes.json?.packingOptions ||
-      listRes.json?.PackingOptions ||
+      listRes?.json?.payload?.packingOptions ||
+      listRes?.json?.packingOptions ||
+      listRes?.json?.PackingOptions ||
       [];
 
     const pickPackingOption = (options: any[]) => {
@@ -735,9 +724,10 @@ serve(async (req) => {
         traceId,
         status: {
           generate: genRes.res.status,
-          list: listRes.res.status
+          list: listRes?.res.status ?? null
         },
-        requestId: listRes.requestId || genRes.requestId || null
+        requestId: listRes?.requestId || genRes.requestId || null,
+        warning
       }),
       { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
     );
