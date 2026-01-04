@@ -93,6 +93,48 @@ function safeJson(input: unknown) {
   }
 }
 
+function toBool(v: any): boolean | null {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v === 1 ? true : v === 0 ? false : null;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    if (["true", "yes", "1"].includes(s)) return true;
+    if (["false", "no", "0"].includes(s)) return false;
+  }
+  return null;
+}
+
+function normalizeAttrArray(v: any): any[] {
+  if (v == null) return [];
+  if (Array.isArray(v)) return v;
+  return [v];
+}
+
+function extractBoolAttr(attrs: any, key: string): boolean | null {
+  const raw = attrs?.[key];
+  const direct = toBool(raw);
+  if (direct !== null) return direct;
+
+  for (const entry of normalizeAttrArray(raw)) {
+    const val = toBool(entry?.value);
+    if (val !== null) return val;
+    const val2 = toBool(entry?.boolean_value);
+    if (val2 !== null) return val2;
+  }
+  return null;
+}
+
+function hasAnyAttrValue(attrs: any, key: string): boolean {
+  const raw = attrs?.[key];
+  if (raw == null) return false;
+  if (typeof raw === "string") return raw.trim().length > 0;
+  if (typeof raw === "number") return Number.isFinite(raw);
+  if (typeof raw === "boolean") return true;
+  if (Array.isArray(raw)) return raw.some((x) => x?.value != null && String(x.value).trim() !== "");
+  if (typeof raw === "object") return Object.keys(raw).length > 0;
+  return false;
+}
+
 // Helpers for SigV4
 function toHex(buffer: ArrayBuffer): string {
   return Array.prototype.map
@@ -724,106 +766,8 @@ async function fetchPrepGuidance(params: {
   return map;
 }
 
-// Fallback heuristic: marchează expirabil dacă guidance lipsește, pe baza titlului și productType.
-function inferExpiry(title: string, productType?: string | null) {
-  const t = (title || "").toLowerCase();
-  const pt = (productType || "").toLowerCase();
-  const typeKeywords = [
-    "beauty",
-    "hair",
-    "skin",
-    "personal_care",
-    "oral_care",
-    "fragrance",
-    "cosmetic",
-    "health",
-    "dietary",
-    "supplement",
-    "grocery",
-    "food",
-    "beverage",
-    "drink",
-    "pet_food",
-    "pet_treat",
-    "vitamin",
-    "nutrition",
-    "medical",
-    "pharmacy"
-  ];
-  const titleKeywords = [
-    "gel",
-    "cream",
-    "creme",
-    "lotion",
-    "serum",
-    "shampoo",
-    "conditioner",
-    "spray",
-    "cosmetic",
-    "beauty",
-    "vitamin",
-    "supplement",
-    "supliment",
-    "capsule",
-    "tablet",
-    "gummies",
-    "wipes",
-    "food",
-    "drink",
-    "beverage",
-    "honey",
-    "oil",
-    "syrup",
-    "mouthwash",
-    "toothpaste"
-  ];
-  if (typeKeywords.some((k) => pt.includes(k))) return true;
-  if (!t) return false;
-  return titleKeywords.some((k) => t.includes(k));
-}
-
-async function fetchProductTypes(params: {
-  asins: string[];
-  host: string;
-  region: string;
-  tempCreds: TempCreds;
-  lwaToken: string;
-  traceId: string;
-  marketplaceId: string;
-  sellerId: string;
-}) {
-  const { asins, host, region, tempCreds, lwaToken, traceId, marketplaceId, sellerId } = params;
-  const map: Record<string, string> = {};
-  for (const asin of Array.from(new Set(asins.filter(Boolean)))) {
-    const path = `/catalog/2022-04-01/items/${encodeURIComponent(asin)}`;
-    const query = `marketplaceIds=${encodeURIComponent(marketplaceId)}`;
-    const { res, json } = await spapiGet({
-      host,
-      region,
-      path,
-      query,
-      lwaToken,
-      tempCreds,
-      traceId,
-      operationName: "catalog.getItem",
-      marketplaceId,
-      sellerId
-    });
-    if (!res.ok) continue;
-    const summaries = json?.payload?.summaries || json?.summaries || [];
-    const summary = Array.isArray(summaries)
-      ? summaries.find((s: any) => (s?.marketplaceId || s?.MarketplaceId) === marketplaceId) || summaries[0]
-      : null;
-    const productType = summary?.productType || summary?.ProductType || summary?.itemClassification || summary?.ItemClassification;
-    if (productType) {
-      map[asin] = String(productType);
-    }
-  }
-  return map;
-}
-
-// Fetch Listings Item attributes to detect if SKU este marcat ca expiration-dated (IEDP)
-async function fetchListingsIedp(params: {
+// Fetch Listings Item attributes pentru a determina dacă SKU cere expirare (IEDP sau shelf-life)
+async function fetchListingsExpiryRequired(params: {
   skus: string[];
   host: string;
   region: string;
@@ -851,16 +795,14 @@ async function fetchListingsIedp(params: {
       sellerId
     });
     if (!res.ok) continue;
-    const attrs = json?.attributes || json?.payload?.attributes || {};
-    const flag = attrs.is_expiration_dated_product;
-    if (typeof flag === "boolean") {
-      map[sku] = flag;
-      continue;
-    }
-    if (Array.isArray(flag)) {
-      const v = flag.find((f: any) => typeof f?.value === "boolean");
-      if (v) map[sku] = Boolean(v.value);
-    }
+    const attrs = json?.payload?.attributes || json?.attributes || {};
+    const iedp = extractBoolAttr(attrs, "is_expiration_dated_product");
+    const hasShelfLife =
+      hasAnyAttrValue(attrs, "fc_shelf_life") ||
+      hasAnyAttrValue(attrs, "fc_shelf_life_unit_of_measure") ||
+      hasAnyAttrValue(attrs, "product_expiration_type");
+    const expiryRequired = iedp === true || (iedp === null && hasShelfLife);
+    map[sku] = expiryRequired;
   }
   return map;
 }
@@ -1058,19 +1000,8 @@ serve(async (req) => {
       marketplaceId,
       sellerId
     });
-    const asins = items.map((it) => it.asin || "").filter(Boolean) as string[];
-    const productTypeMap = await fetchProductTypes({
-      asins,
-      host,
-      region: awsRegion,
-      tempCreds,
-      lwaToken: lwaAccessToken,
-      traceId,
-      marketplaceId,
-      sellerId
-    });
     const skuList = items.map((it) => it.sku || "").filter(Boolean) as string[];
-    const listingIedpMap = await fetchListingsIedp({
+    const expiryRequiredBySku = await fetchListingsExpiryRequired({
       skus: skuList,
       host,
       region: awsRegion,
@@ -1124,13 +1055,10 @@ serve(async (req) => {
         const requiresExpiryFromGuidance = (prepInfo.prepInstructions || []).some((p: string) =>
           String(p || "").toLowerCase().includes("expir")
         );
-        const title = it.product_name || it.sku || `SKU ${idx + 1}`;
-        const productType = productTypeMap[it.asin || ""] || null;
-        const requiresExpiry =
-          requiresExpiryFromGuidance || listingIedpMap[it.sku || ""] === true || inferExpiry(title, productType);
+        const requiresExpiry = requiresExpiryFromGuidance || expiryRequiredBySku[it.sku || ""] === true;
         return {
           id: it.id || `sku-${idx + 1}`,
-          title,
+          title: it.product_name || it.sku || `SKU ${idx + 1}`,
           sku: it.sku || "",
           asin: it.asin || "",
           storageType: "Standard-size",
@@ -1507,8 +1435,7 @@ serve(async (req) => {
         (prepInfo.barcodeInstruction ? "prep-guidance" : "assumed");
       const requiresExpiry =
         (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
-        listingIedpMap[it.sku || ""] === true ||
-        inferExpiry(it.product_name || stock?.name || it.sku || "", productTypeMap[it.asin || ""] || null);
+        expiryRequiredBySku[it.sku || ""] === true;
       return {
         id: it.id || `sku-${idx + 1}`,
         title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
