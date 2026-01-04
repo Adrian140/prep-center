@@ -1029,7 +1029,8 @@ serve(async (req) => {
       };
     };
 
-    const planBody = buildPlanBody();
+    let planBody = buildPlanBody();
+    let appliedPlanBody = planBody;
 
     const payload = JSON.stringify(planBody);
     // SP-API expects the resource under /inbound/fba (not /fba/inbound)
@@ -1116,6 +1117,7 @@ serve(async (req) => {
             retryRes.json?.InboundShipmentPlans ||
             [];
           amazonJson = retryRes.json;
+          appliedPlanBody = retryBody;
         } else {
           console.error("createInboundPlan retry error", {
             traceId,
@@ -1294,12 +1296,21 @@ serve(async (req) => {
       };
     });
 
+    const labelOwnerBySku: Record<string, "SELLER" | "NONE"> = {};
+    (appliedPlanBody?.items || []).forEach((it: any) => {
+      if (it?.msku) {
+        labelOwnerBySku[it.msku] = (it.labelOwner as "SELLER" | "NONE") || "SELLER";
+      }
+    });
+
     const skus = items.map((it, idx) => {
       const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
       const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
       const prepRequired = !!prepInfo.prepRequired;
       const manufacturerBarcodeEligible = (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode";
-      const labelOwner = prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER";
+      const labelOwner =
+        labelOwnerBySku[it.sku || ""] ||
+        (prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER");
       const requiresExpiry = (prepInfo.prepInstructions || []).some((p: string) =>
         String(p || "").toLowerCase().includes("expir")
       );
