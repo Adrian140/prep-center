@@ -186,6 +186,10 @@ function canonicalQueryString(query: string) {
   return entries.map(([key, value]) => `${key}=${value}`).join("&");
 }
 
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function signRequest(opts: {
   method: string;
   service: string;
@@ -529,6 +533,58 @@ async function spapiGet(opts: {
   return { res: out.res, text: out.text, json: out.json };
 }
 
+type CatalogApiResult = {
+  res: ReturnType<typeof spapiGet>["res"];
+  json: any;
+  text: string;
+  rateLimited: boolean;
+};
+
+type CatalogAttributesResult = {
+  attributes: any;
+  status: number;
+  ok: boolean;
+  rateLimited: boolean;
+  errorText: string;
+};
+
+type CatalogCheckResult = {
+  found: boolean;
+  reason: string;
+  rateLimited: boolean;
+};
+
+async function catalogSpapiCall(opts: Parameters<typeof spapiGet>[0] & { maxAttempts?: number }) {
+  const { maxAttempts = 3 } = opts;
+  let attempt = 0;
+  let lastRes: ReturnType<typeof spapiGet>["res"] | null = null;
+  let lastJson: any = null;
+  let lastText = "";
+  while (attempt < maxAttempts) {
+    attempt += 1;
+    const { res, json, text } = await spapiGet(opts);
+    lastRes = res;
+    lastJson = json;
+    lastText = text || "";
+    const retryable = res.status === 429 || (res.status >= 500 && res.status < 600);
+    if (!retryable || res.ok || attempt >= maxAttempts) {
+      return {
+        res,
+        json,
+        text: lastText,
+        rateLimited: res.status === 429
+      };
+    }
+    await delay(150 * attempt);
+  }
+  return {
+    res: lastRes as ReturnType<typeof spapiGet>["res"],
+    json: lastJson,
+    text: lastText,
+    rateLimited: lastRes?.status === 429
+  };
+}
+
 async function catalogCheck(params: {
   asin?: string | null;
   marketplaceId: string;
@@ -538,15 +594,15 @@ async function catalogCheck(params: {
   tempCreds: TempCreds;
   traceId: string;
   sellerId: string;
-}) {
+}): Promise<CatalogCheckResult> {
   const { asin, marketplaceId, host, region, lwaToken, tempCreds, traceId, sellerId } = params;
-  if (!asin) return { found: false, reason: "Lipsă ASIN pentru verificare catalog" };
+  if (!asin) return { found: false, reason: "Lipsă ASIN pentru verificare catalog", rateLimited: false };
   const path = `/catalog/2022-04-01/items/${encodeURIComponent(asin)}`;
   const query = new URLSearchParams({
     marketplaceIds: marketplaceId,
     includedData: "attributes"
   }).toString();
-  const { res, json, text } = await spapiGet({
+  const { res, json, text, rateLimited } = await catalogSpapiCall({
     host,
     region,
     path,
@@ -572,7 +628,7 @@ async function catalogCheck(params: {
     const hasMarketplace = hasIdentifiers || hasSummaries;
     if (hasMarketplace) return { found: true, reason: "Găsit în Catalog Items" };
   }
-  return { found: false, reason: `Catalog check ${res.status}: ${text}` };
+  return { found: false, reason: `Catalog check ${res.status}: ${text}`, rateLimited };
 }
 
 async function fetchCatalogItemAttributes(params: {
@@ -592,7 +648,7 @@ async function fetchCatalogItemAttributes(params: {
     includedData: "attributes"
   }).toString();
   try {
-    const { res, json } = await spapiGet({
+    const { res, json, text, rateLimited } = await catalogSpapiCall({
       host,
       region,
       path,
@@ -615,14 +671,14 @@ async function fetchCatalogItemAttributes(params: {
       firstItem?.Attributes ||
       (firstItem?.attributeSets && firstItem.attributeSets[0]) ||
       {};
-    return { attributes: attributes || {}, status: res.status, ok: res.ok };
+    return { attributes: attributes || {}, status: res.status, ok: res.ok, rateLimited, errorText: text };
   } catch (error) {
     console.warn("catalog attributes fetch failed", {
       traceId,
       asin,
       error: error instanceof Error ? error.message : String(error)
     });
-    return { attributes: {}, status: 0, ok: false };
+    return { attributes: {}, status: 0, ok: false, rateLimited: false, errorText: String(error) };
   }
 }
 
@@ -696,12 +752,16 @@ async function checkSkuStatus(params: {
       listingStatusCode: res.status,
       listingStatusField: status || null,
       catalogFound: cat.found,
-      catalogReason: cat.reason
+      catalogReason: cat.reason,
+      catalogRateLimited: cat.rateLimited
     };
     if (traceId) {
       console.log("sku-status", { traceId, sku, asin, marketplaceId, ...debug });
     }
     if (!cat.found) {
+      if (cat.rateLimited) {
+        return { state: "unknown", reason: `Catalog neluat în calcul (throttled): ${cat.reason}` };
+      }
       return { state: "missing", reason: "Produsul nu există pe marketplace-ul destinație (Catalog Items)" };
     }
 
@@ -730,7 +790,8 @@ async function checkSkuStatus(params: {
         marketplaceId,
         error: e instanceof Error ? e.message : `${e}`,
         catalogFound: cat.found,
-        catalogReason: cat.reason
+        catalogReason: cat.reason,
+        catalogRateLimited: cat.rateLimited
       });
     }
     if (cat.found) {
@@ -947,6 +1008,7 @@ async function fetchListingsExpiryRequired(params: {
         asin,
         source: "catalog",
         catalogStatus: catalogResult.status,
+        catalogRateLimited: catalogResult.rateLimited,
         catalogAttributes: catalogResult.attributes
       });
     }
