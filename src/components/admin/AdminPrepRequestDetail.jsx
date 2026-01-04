@@ -105,8 +105,28 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
     if (error) throw error;
     const plan = data?.plan || null;
     if (!plan) return null;
+    let packingGroups = [];
+    let packingOptionId = null;
+    if (plan.inboundPlanId) {
+      try {
+        const { data: packingData, error: packingErr } = await supabase.functions.invoke('fba-plan-step1b', {
+          body: {
+            request_id: row.id,
+            inbound_plan_id: plan.inboundPlanId
+          }
+        });
+        if (!packingErr && packingData) {
+          packingGroups = Array.isArray(packingData.packingGroups) ? packingData.packingGroups : [];
+          packingOptionId = packingData.packingOptionId || null;
+        }
+      } catch (e) {
+        console.warn('Unable to fetch packing groups', e);
+      }
+    }
     return {
       ...plan,
+      packingOptionId,
+      packGroups: packingGroups,
       traceId: data?.traceId || plan.traceId || null,
       requestId: data?.requestId || plan.requestId || null,
       statusCode: data?.status || plan.statusCode || null

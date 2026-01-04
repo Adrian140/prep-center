@@ -80,7 +80,29 @@ export default function FbaSendToAmazonWizard({
   const [step, setStep] = useState(1);
   const [legacy, setLegacy] = useState(false);
   const [plan, setPlan] = useState(initialPlan);
-  const [packGroups, setPackGroups] = useState(initialPacking);
+  const normalizePackGroups = (groups = []) =>
+    (Array.isArray(groups) ? groups : []).map((g, idx) => {
+      const items = (g.items || []).map((it) => ({
+        sku: it.sku || it.msku || it.SellerSKU || it.sellerSku || it.asin || '',
+        quantity: Number(it.quantity || it.units || 0) || 0
+      }));
+      const units = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+      return {
+        id: g.id || g.packingGroupId || `group-${idx + 1}`,
+        packingGroupId: g.packingGroupId || g.id || `group-${idx + 1}`,
+        title: g.title || g.destLabel || `Pack group ${idx + 1}`,
+        items,
+        skuCount: g.skuCount || items.length || 0,
+        units: g.units || units || 0,
+        packMode: g.packMode || 'single',
+        boxes: g.boxes || 1,
+        boxDimensions: g.boxDimensions || null,
+        boxWeight: g.boxWeight ?? null,
+        packingConfirmed: Boolean(g.packingConfirmed)
+      };
+    });
+  const [packGroups, setPackGroups] = useState(normalizePackGroups(initialPacking));
+  const [packingOptionId, setPackingOptionId] = useState(initialPlan?.packingOptionId || null);
   const [shipmentMode, setShipmentMode] = useState(initialShipmentMode);
   const [shipments, setShipments] = useState(initialShipmentList);
   const [labelFormat, setLabelFormat] = useState('thermal');
@@ -143,7 +165,8 @@ export default function FbaSendToAmazonWizard({
           // fallback: măcar atașează restul câmpurilor (companyId etc.)
           setPlan((prev) => ({ ...prev, ...response }));
         }
-        if (Array.isArray(pGroups) && pGroups.length) setPackGroups(pGroups);
+        if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
+        if (Array.isArray(pGroups)) setPackGroups(normalizePackGroups(pGroups));
         if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
         if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
         if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);

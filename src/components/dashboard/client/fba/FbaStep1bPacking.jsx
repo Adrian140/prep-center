@@ -1,8 +1,21 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { AlertTriangle, Box, CheckCircle } from 'lucide-react';
 
 export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateGroup, onNext, onBack }) {
   const isEmpty = !loading && (!Array.isArray(packGroups) || packGroups.length === 0);
+  const totals = useMemo(() => {
+    if (!Array.isArray(packGroups)) return { skus: 0, units: 0 };
+    return packGroups.reduce(
+      (acc, g) => {
+        const units = Array.isArray(g.items)
+          ? g.items.reduce((s, it) => s + (Number(it.quantity || 0) || 0), 0)
+          : Number(g.units || 0) || 0;
+        const skuCount = Array.isArray(g.items) ? g.items.length : Number(g.skuCount || 0) || 0;
+        return { skus: acc.skus + skuCount, units: acc.units + units };
+      },
+      { skus: 0, units: 0 }
+    );
+  }, [packGroups]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -25,7 +38,9 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
           )}
 
           {isEmpty && (
-            <div className="px-4 py-6 text-slate-600 text-sm">No pack groups received yet. Once we fetch the Amazon plan, groups will appear here.</div>
+            <div className="px-4 py-6 text-slate-600 text-sm">
+              No pack groups received yet. Once we fetch the Amazon plan, groups will appear here.
+            </div>
           )}
 
           {(packGroups || []).map((group) => (
@@ -33,22 +48,25 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
               <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
                 <Box className="w-5 h-5 text-slate-500" />
                 <div>
-                  <div className="font-semibold text-slate-900">{group.title}</div>
+                  <div className="font-semibold text-slate-900">{group.title || `Pack group ${group.id}`}</div>
                   <div className="text-sm text-slate-600">
-                    These SKUs can be packed together – {group.skuCount} SKUs ({group.units} units)
+                    These SKUs can be packed together – {(group.items || []).length || group.skuCount || 0} SKUs (
+                    {(group.items || []).reduce((s, it) => s + (Number(it.quantity || 0) || 0), 0) || group.units || 0} units)
                   </div>
-                  {group.destLabel && (
-                    <div className="text-xs text-slate-500 mt-1">
-                      Destination: {group.destLabel}
-                    </div>
-                  )}
                 </div>
               </div>
 
               <div className="px-4 py-3 flex flex-col gap-3">
-                <div className="flex items-center gap-3 text-slate-700 text-sm">
-                  <img src={group.image} alt={group.title} className="w-10 h-10 object-contain" />
-                  <div className="text-xs text-slate-500">x {group.units}</div>
+                <div className="space-y-1 text-sm text-slate-700">
+                  {(group.items || []).map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <div className="font-medium text-slate-800">{item.sku || item.msku || `Item ${idx + 1}`}</div>
+                      <div className="text-xs text-slate-500">Qty: {Number(item.quantity || 0)}</div>
+                    </div>
+                  ))}
+                  {!group.items?.length && (
+                    <div className="text-xs text-slate-500">No items returned for this group yet.</div>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 text-sm text-emerald-700 font-semibold">
@@ -208,7 +226,9 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="text-sm text-slate-600">SKUs already case-packed: 0 (0 units)</div>
+        <div className="text-sm text-slate-600">
+          Pack groups received: {packGroups?.length || 0} · SKUs: {totals.skus} · Units: {totals.units}
+        </div>
         <div className="flex gap-3 justify-end">
           <button
             onClick={onBack}

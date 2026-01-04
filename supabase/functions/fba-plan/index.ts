@@ -1954,45 +1954,8 @@ serve(async (req) => {
       });
     }
 
-    if (!plans || !plans.length) {
-      let planId =
-        inboundPlanId ||
-        amazonJson?.payload?.inboundPlan?.inboundPlanId ||
-        amazonJson?.payload?.InboundPlanId ||
-        amazonJson?.inboundPlanId ||
-        amazonJson?.InboundPlanId ||
-        null;
-      if (planId) {
-        const { fetchedJson, fetchedPlans, fetchedStatus, fetchedPackingOptions, fetchedPlacementOptions } =
-          await fetchInboundPlanById(planId);
-        if (fetchedPlans.length) {
-          plans = fetchedPlans;
-          amazonJson = fetchedJson;
-        }
-        inboundPlanStatus = fetchedStatus || inboundPlanStatus;
-        inboundPlanId = planId;
-        _lastPackingOptions = fetchedPackingOptions;
-        _lastPlacementOptions = fetchedPlacementOptions;
-      }
-    }
-
-    if (!plans.length && operationId) {
-      const opStatus = await pollOperationStatus(operationId);
-      if (opStatus) {
-        operationStatus = opStatus.state || null;
-        operationProblems = opStatus.problems || [];
-        operationRaw = opStatus.raw || null;
-      }
-    }
-
-    if (!plans.length && operationStatus && operationStatus.toUpperCase() === "SUCCESS" && inboundPlanId) {
-      const { fetchedJson, fetchedPlans, fetchedStatus } = await fetchInboundPlanById(inboundPlanId);
-      if (fetchedPlans.length) {
-        plans = fetchedPlans;
-        amazonJson = fetchedJson;
-      }
-      inboundPlanStatus = fetchedStatus || inboundPlanStatus;
-    }
+    // Step 1 nu mai face polling după createInboundPlan; evităm seriile de GET inboundPlan/operation
+    // care adăugau ~1 minut. Confirmarea packing/placement (Step 2) va genera shipments ulterior.
 
     // No shipments yet is expected until carrier/placement is confirmed; we stop here in Step 1.
 
@@ -2001,6 +1964,10 @@ serve(async (req) => {
     }
 
     if (!plans || !plans.length) {
+      if (inboundPlanId && !inboundPlanStatus) inboundPlanStatus = "ACTIVE";
+      if (operationId && !operationStatus && createHttpStatus && createHttpStatus < 300) {
+        operationStatus = "SUCCESS";
+      }
       const planActive =
         (operationStatus || "").toUpperCase() === "SUCCESS" || (inboundPlanStatus || "").toUpperCase() === "ACTIVE";
 
@@ -2017,9 +1984,7 @@ serve(async (req) => {
           sellerId,
           requestId: primaryRequestId
         });
-        planWarnings.push(
-          "Amazon nu a returnat încă shipments/packing/placement pentru planul creat. Step 1 este valid; generează packing/placement în pasul următor."
-        );
+        // Step 1 se oprește aici; nu mai afișăm warning-ul repetitiv din UI.
       } else {
         console.error("createInboundPlan primary error", {
           traceId,
@@ -2304,6 +2269,7 @@ serve(async (req) => {
       source: "amazon",
       marketplace: marketplaceId,
       companyId: reqData.company_id || null,
+      inboundPlanId: inboundPlanId || null,
       shipFrom: {
         name: shipFromAddress.name,
         address: formatAddress(shipFromAddress)
@@ -2317,7 +2283,16 @@ serve(async (req) => {
     };
 
     return new Response(
-      JSON.stringify({ plan, traceId, requestId: primaryRequestId || null, operationId, operationStatus, scopes: lwaScopes }),
+      JSON.stringify({
+        plan,
+        traceId,
+        requestId: primaryRequestId || null,
+        inboundPlanId,
+        inboundPlanStatus,
+        operationId,
+        operationStatus,
+        scopes: lwaScopes
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, "content-type": "application/json" }
