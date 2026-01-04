@@ -42,38 +42,6 @@ export default function FbaStep1Inventory({
     return match || { state: 'unknown', reason: '' };
   };
   const hasBlocking = blocking || skuStatuses.some((s) => ['missing', 'inactive', 'restricted'].includes(String(s.state)));
-  const inferExpiryFromTitle = (title = '') => {
-    const t = String(title || '').toLowerCase();
-    if (!t) return false;
-    const keywords = [
-      'gel',
-      'cream',
-      'creme',
-      'lotion',
-      'serum',
-      'shampoo',
-      'conditioner',
-      'spray',
-      'cosmetic',
-      'beauty',
-      'vitamin',
-      'supplement',
-      'supliment',
-      'capsule',
-      'tablet',
-      'gummies',
-      'wipes',
-      'food',
-      'drink',
-      'beverage',
-      'honey',
-      'oil',
-      'syrup',
-      'mouthwash',
-      'toothpaste'
-    ];
-    return keywords.some((k) => t.includes(k));
-  };
 
   const [packingModal, setPackingModal] = useState({
     open: false,
@@ -391,9 +359,7 @@ export default function FbaStep1Inventory({
                 (['amazon-override', 'prep-guidance'].includes(labelOwnerSource) || labelOwner === 'SELLER');
               const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
               const prepResolved = prepSelection.resolved;
-              const needsExpiry = Boolean(
-                sku.expiryRequired || inferExpiryFromTitle(sku.title) || expiryFlags[sku.id] === true
-              );
+              const needsExpiry = Boolean(sku.expiryRequired);
               const badgeClass =
                 state === 'ok'
                   ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
@@ -566,7 +532,7 @@ export default function FbaStep1Inventory({
                         />
                       </div>
                     </div>
-                    {needsExpiry ? (
+                    {needsExpiry && (
                       <div className="mt-3 flex flex-col gap-1 text-xs text-slate-700">
                         <div className="font-semibold text-slate-800">Expiry</div>
                         <div className="flex items-center gap-2">
@@ -576,25 +542,7 @@ export default function FbaStep1Inventory({
                             onChange={(e) => onChangeExpiry(sku.id, e.target.value)}
                             className="border rounded-md px-2 py-1 text-xs"
                           />
-                          <button
-                            onClick={() => {
-                              setExpiryFlags((prev) => ({ ...prev, [sku.id]: false }));
-                              onChangeExpiry(sku.id, '');
-                            }}
-                            className="text-[11px] text-blue-600 hover:text-blue-700"
-                          >
-                            Remove
-                          </button>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="mt-3 text-xs text-slate-600">
-                        <button
-                          onClick={() => setExpiryFlags((prev) => ({ ...prev, [sku.id]: true }))}
-                          className="text-blue-600 hover:text-blue-700"
-                        >
-                          Add expiry date (if Amazon requests it)
-                        </button>
                       </div>
                     )}
                     {sku.readyToPack && (
