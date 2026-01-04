@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ToggleLeft, ToggleRight } from 'lucide-react';
+import { CheckCircle2, Circle, Eye, ChevronRight } from 'lucide-react';
 import FbaStep1Inventory from './FbaStep1Inventory';
 import FbaStep1bPacking from './FbaStep1bPacking';
 import FbaStep2Shipping from './FbaStep2Shipping';
@@ -73,12 +73,12 @@ export default function FbaSendToAmazonWizard({
   initialShipmentList = initialShipments,
   initialTrackingList = initialTracking,
   initialSkuStatuses = [],
-  showLegacyToggle = true,
   autoLoadPlan = false,
   fetchPlan // optional async () => ({ shipFrom, marketplace, skus, packGroups, shipments, skuStatuses, warning, blocking })
 }) {
-  const [step, setStep] = useState(1);
-  const [legacy, setLegacy] = useState(false);
+  const stepsOrder = ['1', '1b', '2', '3', '4'];
+  const [currentStep, setCurrentStep] = useState('1');
+  const [completedSteps, setCompletedSteps] = useState([]);
   const [plan, setPlan] = useState(initialPlan);
   const normalizePackGroups = (groups = []) =>
     (Array.isArray(groups) ? groups : []).map((g, idx) => {
@@ -127,16 +127,16 @@ export default function FbaSendToAmazonWizard({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const saved = Number(window.localStorage.getItem(stepStorageKey));
-    if (Number.isFinite(saved) && saved >= 1 && saved <= 5) {
-      setStep(saved);
+    const saved = window.localStorage.getItem(stepStorageKey);
+    if (saved && stepsOrder.includes(saved)) {
+      setCurrentStep(saved);
     }
   }, [stepStorageKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(stepStorageKey, String(step));
-  }, [step, stepStorageKey]);
+    window.localStorage.setItem(stepStorageKey, String(currentStep));
+  }, [currentStep, stepStorageKey]);
 
   useEffect(() => {
     if (!autoLoadPlan && !fetchPlan) return;
@@ -207,12 +207,14 @@ export default function FbaSendToAmazonWizard({
           sku.id === skuId ? { ...sku, packing: patch, packingTemplateId: null, packingTemplateName: null, unitsPerBox: null } : sku
         )
       }));
+      invalidateFrom('1');
       return;
     }
     setPlan((prev) => ({
       ...prev,
       skus: prev.skus.map((sku) => (sku.id === skuId ? { ...sku, ...patch } : sku))
     }));
+    invalidateFrom('1');
   };
 
   const handleQuantityChange = (skuId, value) => {
@@ -220,6 +222,7 @@ export default function FbaSendToAmazonWizard({
       ...prev,
       skus: prev.skus.map((sku) => (sku.id === skuId ? { ...sku, units: Math.max(0, value) } : sku))
     }));
+    invalidateFrom('1');
   };
 
   const handleExpiryChange = (skuId, value) => {
@@ -227,26 +230,64 @@ export default function FbaSendToAmazonWizard({
       ...prev,
       skus: prev.skus.map((sku) => (sku.id === skuId ? { ...sku, expiry: value } : sku))
     }));
+    invalidateFrom('1');
   };
 
   const handlePackGroupUpdate = (groupId, patch) => {
     setPackGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, ...patch } : g)));
+    invalidateFrom('1b');
   };
 
   const handleCarrierChange = (carrier) => {
     setShipmentMode((prev) => ({ ...prev, carrier }));
+    invalidateFrom('2');
   };
 
   const handleModeChange = (mode) => {
     setShipmentMode((prev) => ({ ...prev, method: mode }));
+    invalidateFrom('2');
   };
 
   const handleTrackingChange = (id, value) => {
     setTracking((prev) => prev.map((row) => (row.id === id ? { ...row, trackingId: value } : row)));
   };
 
+  const invalidateFrom = (stepKey) => {
+    const idx = stepsOrder.indexOf(stepKey);
+    if (idx === -1) return;
+    const allowed = stepsOrder.slice(0, idx + 1);
+    setCompletedSteps((prev) => prev.filter((s) => allowed.includes(s)));
+    if (stepsOrder.indexOf(currentStep) > idx) {
+      setCurrentStep(stepKey);
+    }
+    // Reset date pentru pașii următori
+    if (stepKey === '1') {
+      setPackGroups([]);
+      setShipments([]);
+      setTracking([]);
+      setPackingOptionId(null);
+    } else if (stepKey === '1b') {
+      setShipments([]);
+      setTracking([]);
+    } else if (stepKey === '2') {
+      setTracking([]);
+    }
+  };
+
+  const completeAndNext = (stepKey) => {
+    const idx = stepsOrder.indexOf(stepKey);
+    setCompletedSteps((prev) => Array.from(new Set([...prev, stepKey])));
+    const nextKey = stepsOrder[idx + 1] || stepKey;
+    setCurrentStep(nextKey);
+  };
+
+  const goToStep = (stepKey) => {
+    if (!stepsOrder.includes(stepKey)) return;
+    setCurrentStep(stepKey);
+  };
+
   const renderStep = () => {
-    if (step === 1) {
+    if (currentStep === '1') {
       return (
         <FbaStep1Inventory
           data={plan}
@@ -255,24 +296,24 @@ export default function FbaSendToAmazonWizard({
           onChangePacking={handlePackingChange}
           onChangeQuantity={handleQuantityChange}
           onChangeExpiry={handleExpiryChange}
-          onNext={() => setStep(1.5)}
+          onNext={() => completeAndNext('1')}
           error={planError}
         />
       );
     }
-    if (step === 1.5) {
+    if (currentStep === '1b') {
       return (
         <FbaStep1bPacking
           packGroups={packGroups}
           loading={loadingPlan}
           error={planError}
           onUpdateGroup={handlePackGroupUpdate}
-          onNext={() => setStep(2)}
-          onBack={() => setStep(1)}
+          onNext={() => completeAndNext('1b')}
+          onBack={() => goToStep('1')}
         />
       );
     }
-    if (step === 2) {
+    if (currentStep === '2') {
       return (
         <FbaStep2Shipping
           shipment={{
@@ -284,19 +325,19 @@ export default function FbaSendToAmazonWizard({
           }}
           onCarrierChange={handleCarrierChange}
           onModeChange={handleModeChange}
-          onNext={() => setStep(3)}
-          onBack={() => setStep(1.5)}
+          onNext={() => completeAndNext('2')}
+          onBack={() => goToStep('1b')}
         />
       );
     }
-    if (step === 3) {
+    if (currentStep === '3') {
       return (
         <FbaStep3Labels
           shipments={shipments}
           labelFormat={labelFormat}
           onFormatChange={setLabelFormat}
-          onBack={() => setStep(2)}
-          onNext={() => setStep(4)}
+          onBack={() => goToStep('2')}
+          onNext={() => completeAndNext('3')}
         />
       );
     }
@@ -304,28 +345,120 @@ export default function FbaSendToAmazonWizard({
         <FbaStep4Tracking
           tracking={tracking}
           onUpdateTracking={handleTrackingChange}
-          onBack={() => setStep(3)}
-          onFinish={() => setStep(4)}
+          onBack={() => goToStep('3')}
+          onFinish={() => completeAndNext('4')}
         />
       );
     };
 
+  const skuCount = useMemo(() => (Array.isArray(plan?.skus) ? plan.skus.length : 0), [plan?.skus]);
+  const unitCount = useMemo(
+    () => (Array.isArray(plan?.skus) ? plan.skus.reduce((s, it) => s + (Number(it.units) || 0), 0) : 0),
+    [plan?.skus]
+  );
+  const packUnits = useMemo(
+    () => (Array.isArray(packGroups) ? packGroups.reduce((s, g) => s + (Number(g.units) || 0), 0) : 0),
+    [packGroups]
+  );
+  const boxesCount = useMemo(
+    () => (Array.isArray(packGroups) ? packGroups.reduce((s, g) => s + (Number(g.boxes) || 0), 0) : 0),
+    [packGroups]
+  );
+
+  const shipmentSummary = useMemo(() => {
+    const dests = Array.isArray(shipments) ? shipments.length : 0;
+    const method = shipmentMode?.method || '—';
+    const carrierName = shipmentMode?.carrier?.name || shipmentMode?.carrier?.code || '—';
+    return { dests, method, carrierName };
+  }, [shipments, shipmentMode]);
+
+  const trackingSummary = useMemo(() => {
+    const totalBoxes = Array.isArray(shipments)
+      ? shipments.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0)
+      : 0;
+    const tracked = Array.isArray(tracking) ? tracking.filter((t) => t.trackingId).length : 0;
+    return { totalBoxes, tracked };
+  }, [shipments, tracking]);
+
+  const isCompleted = (key) => completedSteps.includes(key);
+
+  const StepRow = ({ stepKey, title, subtitle, summary }) => {
+    const active = currentStep === stepKey;
+    const done = isCompleted(stepKey);
+    return (
+      <div
+        className={`flex items-center justify-between px-4 py-3 border border-slate-200 bg-white rounded-lg ${active ? 'ring-2 ring-blue-500' : ''
+          }`}
+      >
+        <div className="flex items-center gap-3">
+          {done ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+          ) : (
+            <Circle className={`w-5 h-5 ${active ? 'text-blue-600' : 'text-slate-400'}`} />
+          )}
+          <div>
+            <div className="font-semibold text-slate-900">{title}</div>
+            <div className="text-xs text-slate-500">{subtitle}</div>
+            {summary && <div className="text-sm text-slate-600">{summary}</div>}
+          </div>
+        </div>
+        <button
+          onClick={() => goToStep(stepKey)}
+          className="flex items-center gap-1 text-sm text-blue-700 hover:text-blue-800"
+        >
+          <Eye className="w-4 h-4" /> View/Edit
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="w-full mx-auto max-w-5xl space-y-4">
-      <div className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-2 text-slate-800 font-semibold">
-          Send to Amazon
-          <span className="text-xs text-slate-500 font-normal">UI aliniat la pașii Amazon (live)</span>
-        </div>
-        {showLegacyToggle && (
-          <button
-            onClick={() => setLegacy((prev) => !prev)}
-            className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-800"
-          >
-            {legacy ? <ToggleLeft className="w-5 h-5" /> : <ToggleRight className="w-5 h-5" />}
-            {legacy ? 'Folosește fluxul nou' : 'Revino la fluxul vechi'}
-          </button>
-        )}
+      <div className="bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm flex items-center gap-2 text-slate-800 font-semibold">
+        Send to Amazon
+        <span className="text-xs text-slate-500 font-normal">UI aliniat la pașii Amazon (live)</span>
+      </div>
+
+      <div className="space-y-2">
+        <StepRow
+          stepKey="1"
+          title="Step 1 - Confirmed inventory to send"
+          subtitle={`SKUs: ${skuCount} · Units: ${unitCount} · Ship from: ${plan?.shipFrom?.name || plan?.shipFrom?.address || '—'}`}
+          summary={plan?.marketplace ? `Marketplace: ${plan.marketplace}` : null}
+        />
+        <StepRow
+          stepKey="1b"
+          title="Step 1b - Pack individual units"
+          subtitle={`Pack groups: ${packGroups?.length || 0} · Units: ${packUnits} · Boxes: ${boxesCount}`}
+          summary={packGroups?.length ? 'You can start packing now' : 'No pack groups yet'}
+        />
+        <StepRow
+          stepKey="2"
+          title="Step 2 - Confirm shipping"
+          subtitle={`Destinations: ${shipmentSummary.dests} · Method: ${shipmentSummary.method} · Carrier: ${shipmentSummary.carrierName}`}
+          summary={shipmentMode?.deliveryDate ? `Delivery date: ${shipmentMode.deliveryDate}` : null}
+        />
+        <StepRow
+          stepKey="3"
+          title="Step 3 - Box labels printed"
+          subtitle={`Shipments: ${shipments?.length || 0}`}
+          summary={`Label format: ${labelFormat}`}
+        />
+        <StepRow
+          stepKey="4"
+          title="Final step: Tracking details"
+          subtitle={`Boxes: ${trackingSummary.totalBoxes} · Tracking IDs: ${trackingSummary.tracked}`}
+          summary={trackingSummary.tracked ? 'Tracking captured' : 'Enter tracking details'}
+        />
+      </div>
+
+      <div className="flex items-center gap-2 text-sm text-slate-500 px-1">
+        <ChevronRight className="w-4 h-4" />
+        {currentStep === '1' && 'Step 1 · Confirmed inventory to send'}
+        {currentStep === '1b' && 'Step 1b · Pack individual units'}
+        {currentStep === '2' && 'Step 2 · Confirm shipping'}
+        {currentStep === '3' && 'Step 3 · Box labels printed'}
+        {currentStep === '4' && 'Final step · Tracking details'}
       </div>
 
       {renderStep()}
