@@ -796,13 +796,53 @@ serve(async (req) => {
       await delay(50);
     }
 
+    // Normalize packing groups for UI (ensure id/boxes/packMode fields exist)
+    const normalizedPackingGroups = packingGroups.map((g, idx) => {
+      const boxes = Number((g as any)?.boxes || (g as any)?.boxCount || 1) || 1;
+      return {
+        ...g,
+        id: (g as any)?.packingGroupId || (g as any)?.id || `group-${idx + 1}`,
+        boxes,
+        packMode: boxes > 1 ? "multiple" : "single",
+        title: (g as any)?.title || null
+      };
+    });
+
+    // Fallback: dacă nu avem packing groups din SP-API, creează unul simplu din SKUs trimise
+    let effectivePackingGroups = normalizedPackingGroups;
+    if (!normalizedPackingGroups.length) {
+      const { data: items, error: itemsErr } = await supabase
+        .from("prep_request_items")
+        .select("sku, units_sent, units_requested")
+        .eq("prep_request_id", requestId);
+      if (!itemsErr && Array.isArray(items) && items.length) {
+        const fallbackItems = items.map((it) => ({
+          msku: it.sku || "",
+          quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0
+        }));
+        effectivePackingGroups = [
+          {
+            id: "fallback-1",
+            packingGroupId: "fallback-1",
+            items: fallbackItems,
+            boxes: 1,
+            packMode: "single",
+            status: null,
+            requestId: null,
+            warning: "Packing groups indisponibile de la Amazon (403 generate/list). Folosim un grup simplu cu toate SKU-urile."
+          }
+        ];
+        warnings.push("Packing groups indisponibile de la Amazon; s-a creat un fallback local.");
+      }
+    }
+
     const warning = warnings.length ? warnings.join(" ") : null;
 
     return new Response(
       JSON.stringify({
         inboundPlanId,
         packingOptionId,
-        packingGroups,
+        packingGroups: effectivePackingGroups,
         traceId,
         status: {
           planCheck: planCheck.res.status,
