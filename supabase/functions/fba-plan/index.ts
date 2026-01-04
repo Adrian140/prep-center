@@ -850,11 +850,11 @@ async function fetchPrepGuidance(params: {
   traceId: string;
   marketplaceId: string;
   sellerId: string;
-}) {
+}): Promise<{ map: Record<string, PrepGuidance>; warning: string | null }> {
   const { items, shipFromCountry, shipToCountry, host, region, tempCreds, lwaToken, traceId, marketplaceId, sellerId } = params;
   const skus = items.map((it) => it.sku).filter(Boolean) as string[];
   const asins = items.map((it) => it.asin).filter(Boolean) as string[];
-  if (!skus.length && !asins.length) return {};
+  if (!skus.length && !asins.length) return { map: {}, warning: null };
 
   const payload = JSON.stringify({
     ShipFromCountryCode: shipFromCountry,
@@ -887,7 +887,12 @@ async function fetchPrepGuidance(params: {
       body: prep.text?.slice(0, 500),
       traceId
     });
-    return {};
+    const shortBody = (prep.text || "").slice(0, 120);
+    const warning =
+      prep.res.status === 403
+        ? "Amazon a refuzat prepInstructions (403) – continuăm fără ghidaj de prep."
+        : `Amazon a refuzat prepInstructions (${prep.res.status}${shortBody ? `: ${shortBody}` : ""}) – continuăm fără ghidaj de prep.`;
+    return { map: {}, warning };
   }
 
   const list =
@@ -917,7 +922,7 @@ async function fetchPrepGuidance(params: {
       barcodeInstruction
     };
   }
-  return map;
+  return { map, warning: null };
 }
 
 // Fetch Listings Item attributes pentru a determina dacă SKU cere expirare (IEDP sau shelf-life)
@@ -1257,18 +1262,27 @@ serve(async (req) => {
       companyName: "EcomPrep Hub"
     };
 
-    const prepGuidanceMap = await fetchPrepGuidance({
-      items,
-      shipFromCountry,
-      shipToCountry: destCountry || shipFromCountry,
-      host,
-      region: awsRegion,
-      tempCreds,
-      lwaToken: lwaAccessToken,
-      traceId,
-      marketplaceId,
-      sellerId
-    });
+    const hasInboundScope = lwaScopes.some((s) => s.toLowerCase() === "sellingpartnerapi::fba_inbound");
+    let prepGuidanceWarning: string | null = null;
+    let prepGuidanceMap: Record<string, PrepGuidance> = {};
+    if (hasInboundScope) {
+      const prepGuidanceResult = await fetchPrepGuidance({
+        items,
+        shipFromCountry,
+        shipToCountry: destCountry || shipFromCountry,
+        host,
+        region: awsRegion,
+        tempCreds,
+        lwaToken: lwaAccessToken,
+        traceId,
+        marketplaceId,
+        sellerId
+      });
+      prepGuidanceMap = prepGuidanceResult.map;
+      prepGuidanceWarning = prepGuidanceResult.warning;
+    } else {
+      prepGuidanceWarning = "Token LWA fără scope fba_inbound; instrucțiunile de pregătire au fost omise.";
+    }
     const skuItems = items
       .map((it) => ({ sku: it.sku || "", asin: it.asin || null }))
       .filter((entry) => entry.sku);
@@ -1320,7 +1334,9 @@ serve(async (req) => {
 
     const blocking = skuStatuses.filter((s) => ["missing", "inactive", "restricted"].includes(String(s.state)));
     if (blocking.length) {
-      const warning = `Unele produse nu sunt eligibile pe marketplace-ul destinație (${marketplaceId}).`;
+      const warningParts: string[] = [`Unele produse nu sunt eligibile pe marketplace-ul destinație (${marketplaceId}).`];
+      if (prepGuidanceWarning) warningParts.push(prepGuidanceWarning);
+      const warning = warningParts.filter(Boolean).join(" ");
       const skus = items.map((it, idx) => {
         const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
         const requiresExpiryFromGuidance = (prepInfo.prepInstructions || []).some((p: string) =>
@@ -1356,9 +1372,9 @@ serve(async (req) => {
         shipments: [],
         raw: null,
         skuStatuses,
-        warning,
-        blocking: true
-      };
+          warning,
+          blocking: true
+        };
       return new Response(JSON.stringify({ plan, traceId, scopes: lwaScopes }), {
         status: 200,
         headers: { ...corsHeaders, "content-type": "application/json" }
@@ -1397,6 +1413,7 @@ serve(async (req) => {
 
     let planBody = buildPlanBody();
     let appliedPlanBody = planBody;
+    const planWarnings: string[] = [];
     let planWarning: string | null = null;
     let appliedOverrides: Record<string, "SELLER" | "NONE"> = {};
 
@@ -1549,6 +1566,7 @@ serve(async (req) => {
             image: stock?.image_url || null
           };
         });
+        const extraWarnings = planWarnings.length ? ` ${planWarnings.join(" ")}` : "";
         const fallbackPlan = {
           source: "amazon",
           marketplace: marketplaceId,
@@ -1561,7 +1579,7 @@ serve(async (req) => {
           shipments: [],
           raw: null,
           skuStatuses,
-          warning: `Amazon a refuzat crearea planului (HTTP ${primary.res.status}). Încearcă din nou sau verifică permisiunile Inbound pe marketplace.`,
+          warning: `Amazon a refuzat crearea planului (HTTP ${primary.res.status}). Încearcă din nou sau verifică permisiunile Inbound pe marketplace.${extraWarnings}`,
           blocking: true,
           requestId: primaryRequestId || null
         };
@@ -1573,6 +1591,13 @@ serve(async (req) => {
     }
 
     const normalizeItems = (p: any) => p?.items || p?.Items || [];
+
+    if (prepGuidanceWarning) {
+      planWarnings.push(prepGuidanceWarning);
+    }
+    if (planWarning) {
+      planWarnings.push(planWarning);
+    }
 
     // Map FNSKU returned by Amazon to seller SKU so UI can render the exact label code
     const fnskuBySku: Record<string, string> = {};
@@ -1732,6 +1757,7 @@ serve(async (req) => {
       };
     });
 
+    const combinedWarning = planWarnings.length ? planWarnings.join(" ") : null;
     const plan = {
       source: "amazon",
       marketplace: marketplaceId,
@@ -1745,7 +1771,7 @@ serve(async (req) => {
       shipments,
       raw: amazonJson,
       skuStatuses,
-      warning: planWarning
+      warning: combinedWarning
     };
 
     return new Response(JSON.stringify({ plan, traceId, requestId: primaryRequestId || null, scopes: lwaScopes }), {
