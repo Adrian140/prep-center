@@ -346,14 +346,17 @@ export default function FbaStep1Inventory({
             {skus.map((sku) => {
               const status = statusForSku(sku);
               const state = String(status.state || '').toLowerCase();
-              const labelOwner = sku.labelOwner || (sku.manufacturerBarcodeEligible ? 'NONE' : 'SELLER');
+              const prepSelection = prepSelections[sku.id] || {};
+              const labelOwner =
+                prepSelection.useManufacturerBarcode === true
+                  ? 'NONE'
+                  : sku.labelOwner || (sku.manufacturerBarcodeEligible ? 'NONE' : 'SELLER');
               const labelOwnerSource = sku.labelOwnerSource || 'unknown';
               const labelRequired = labelOwner !== 'NONE';
               const showLabelButton =
                 labelRequired &&
                 (['amazon-override', 'prep-guidance'].includes(labelOwnerSource) || labelOwner === 'SELLER');
               const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
-              const prepSelection = prepSelections[sku.id] || {};
               const prepResolved = prepSelection.resolved;
               const needsExpiry = Boolean(sku.expiryRequired);
               const badgeClass =
@@ -442,72 +445,64 @@ export default function FbaStep1Inventory({
                     </select>
                   </td>
                   <td className="py-3">
-                    {needsPrepNotice && !prepResolved ? (
-                      <div className="flex items-start gap-2 text-amber-700">
-                        <AlertCircle className="w-4 h-4 mt-0.5" />
-                        <div>
-                          <div className="font-semibold">
-                            {sku.prepNotes ? `Prep required: ${sku.prepNotes}` : 'Prep and labelling details needed'}
-                          </div>
-                          <button
-                            onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
-                            className="text-xs text-blue-600 mt-1"
-                          >
-                            More inputs
-                          </button>
-                          {showLabelButton && (
-                            <div className="mt-2">
-                              <button
-                                onClick={() => openLabelModal(sku)}
-                                className="text-sm font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
-                              >
-                                Print SKU labels
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        <div className="text-slate-700 flex items-center gap-2">
-                          <span>
-                            {needsPrepNotice && prepResolved
-                              ? `Prep set: ${prepCategoryLabel(prepSelection.prepCategory)}`
+                    <div className="space-y-1">
+                      <div className="text-slate-700 flex items-center gap-2">
+                        <span>
+                          {needsPrepNotice && prepResolved
+                            ? `Prep set: ${prepCategoryLabel(prepSelection.prepCategory)}`
+                            : sku.prepRequired
+                              ? 'Prep and labelling details needed'
                               : 'Prep not required'}
-                          </span>
-                          <button
-                            onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
-                            className="text-amber-600 text-xs inline-flex items-center gap-1"
-                          >
-                            Edit prep / labels
-                          </button>
-                        </div>
-                       {needsPrepNotice && prepResolved && (
-                         <div className="text-xs text-slate-600">
-                           {prepSelection.manufacturerBarcodeEligible === false
-                             ? 'Manufacturer barcode not eligible'
-                             : prepSelection.useManufacturerBarcode
-                               ? 'Using manufacturer barcode'
-                                : labelOwner === 'NONE'
-                                  ? 'Unit labelling: Not required'
-                                  : 'Unit labelling: By seller'}
-                          </div>
-                        )}
-                        {showLabelButton && (
-                          <button
-                            onClick={() => openLabelModal(sku)}
-                            className="text-sm font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
-                          >
-                            Print SKU labels
-                         </button>
-                       )}
-                        {labelRequired && labelOwnerSource === 'amazon-override' && (
-                          <div className="text-[11px] text-amber-600">
-                            Amazon solicită etichete pentru acest SKU.
-                          </div>
-                        )}
+                        </span>
+                        <button
+                          onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
+                          className="text-amber-600 text-xs inline-flex items-center gap-1"
+                        >
+                          More inputs
+                        </button>
                       </div>
-                    )}
+                      <div className="text-xs text-slate-600">
+                        {prepSelection.manufacturerBarcodeEligible === false
+                          ? 'Manufacturer barcode not eligible'
+                          : prepSelection.useManufacturerBarcode
+                            ? 'Unit labelling: Not required (manufacturer barcode)'
+                            : labelOwner === 'NONE'
+                              ? 'Unit labelling: Not required'
+                              : 'Unit labelling: By seller'}
+                      </div>
+                      {sku.manufacturerBarcodeEligible !== false && !prepSelection.useManufacturerBarcode && (
+                        <button
+                          onClick={() =>
+                            setPrepSelections((prev) => ({
+                              ...prev,
+                              [sku.id]: {
+                                ...(prev[sku.id] || {}),
+                                resolved: true,
+                                prepCategory: prev[sku.id]?.prepCategory || 'none',
+                                useManufacturerBarcode: true,
+                                manufacturerBarcodeEligible: true
+                              }
+                            }))
+                          }
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center"
+                        >
+                          Save by using manufacturer barcode
+                        </button>
+                      )}
+                      {showLabelButton && (
+                        <button
+                          onClick={() => openLabelModal(sku)}
+                          className="text-sm font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
+                        >
+                          Print SKU labels
+                        </button>
+                      )}
+                      {labelRequired && labelOwnerSource === 'amazon-override' && (
+                        <div className="text-[11px] text-amber-600">
+                          Amazon solicită etichete pentru acest SKU.
+                        </div>
+                      )}
+                    </div>
                     {templateError && (
                       <div className="text-xs text-red-600 mt-2">
                         {templateError}
@@ -515,19 +510,30 @@ export default function FbaStep1Inventory({
                     )}
                   </td>
                   <td className="py-3 w-48">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={0}
-                        value={sku.units}
-                        onChange={(e) => onChangeQuantity(sku.id, Number(e.target.value))}
-                        className="border rounded-md px-2 py-1 w-20"
-                      />
-                      <div className="text-xs text-slate-500">Units</div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col text-xs text-slate-600">
+                        <span className="mb-1 text-slate-700">Boxes</span>
+                        <input
+                          type="text"
+                          value="—"
+                          disabled
+                          className="border rounded-md px-2 py-1 w-16 bg-slate-100 text-center text-slate-500"
+                        />
+                      </div>
+                      <div className="flex flex-col text-xs text-slate-600">
+                        <span className="mb-1 text-slate-700">Units</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={sku.units}
+                          onChange={(e) => onChangeQuantity(sku.id, Number(e.target.value))}
+                          className="border rounded-md px-2 py-1 w-20"
+                        />
+                      </div>
                     </div>
                     {needsExpiry && (
-                      <div className="mt-2 flex flex-col gap-1 text-xs text-slate-700">
-                        <div className="font-semibold text-slate-800">Data expirării (cerută de Amazon)</div>
+                      <div className="mt-3 flex flex-col gap-1 text-xs text-slate-700">
+                        <div className="font-semibold text-slate-800">Expiry</div>
                         <div className="flex items-center gap-2">
                           <input
                             type="date"
@@ -535,7 +541,6 @@ export default function FbaStep1Inventory({
                             onChange={(e) => onChangeExpiry(sku.id, e.target.value)}
                             className="border rounded-md px-2 py-1 text-xs"
                           />
-                          <span className="text-slate-500">Obligatoriu pentru acest SKU</span>
                         </div>
                       </div>
                     )}
