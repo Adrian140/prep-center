@@ -564,9 +564,14 @@ export default function FbaStep1Inventory({
         </div>
         <div className="flex gap-3 justify-end">
           <button
-            onClick={onNext}
-            disabled={hasBlocking}
-            className={`px-4 py-2 rounded-md font-semibold shadow-sm text-white ${hasBlocking ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+            onClick={() => {
+              if (hasBlocking) {
+                alert('Unele SKU-uri nu sunt eligibile în Amazon; rezolvă eligibilitatea și încearcă din nou.');
+                return;
+              }
+              onNext?.();
+            }}
+            className={`px-4 py-2 rounded-md font-semibold shadow-sm text-white ${hasBlocking ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'}`}
           >
             {hasBlocking ? 'Rezolvă eligibilitatea în Amazon' : 'Continue to packing'}
           </button>
