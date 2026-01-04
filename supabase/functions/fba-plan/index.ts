@@ -135,6 +135,15 @@ function hasAnyAttrValue(attrs: any, key: string): boolean {
   return false;
 }
 
+function extractExpiryFlags(attrs: any) {
+  const iedp = extractBoolAttr(attrs, "is_expiration_dated_product");
+  const hasShelfLife =
+    hasAnyAttrValue(attrs, "fc_shelf_life") ||
+    hasAnyAttrValue(attrs, "fc_shelf_life_unit_of_measure") ||
+    hasAnyAttrValue(attrs, "product_expiration_type");
+  return { iedp, hasShelfLife };
+}
+
 // Helpers for SigV4
 function toHex(buffer: ArrayBuffer): string {
   return Array.prototype.map
@@ -162,6 +171,21 @@ async function getSignatureKey(secret: string, dateStamp: string, region: string
   return kSigning;
 }
 
+function canonicalQueryString(query: string) {
+  if (!query) return "";
+  const params = new URLSearchParams(query);
+  const entries = Array.from(params.entries())
+    .map(([key, value]) => [encodeURIComponent(key), encodeURIComponent(value)] as const)
+    .sort(([aKey, aValue], [bKey, bValue]) => {
+      if (aKey < bKey) return -1;
+      if (aKey > bKey) return 1;
+      if (aValue < bValue) return -1;
+      if (aValue > bValue) return 1;
+      return 0;
+    });
+  return entries.map(([key, value]) => `${key}=${value}`).join("&");
+}
+
 async function signRequest(opts: {
   method: string;
   service: string;
@@ -183,12 +207,13 @@ async function signRequest(opts: {
   const canonicalHeaders =
     "host:" + host + "\n" + "x-amz-date:" + amzDate + "\n" + (sessionToken ? "x-amz-security-token:" + sessionToken + "\n" : "");
   const signedHeaders = sessionToken ? "host;x-amz-date;x-amz-security-token" : "host;x-amz-date";
+  const canonicalQuery = canonicalQueryString(query);
   const canonicalRequest =
     method +
     "\n" +
     path +
     "\n" +
-    query +
+    canonicalQuery +
     "\n" +
     canonicalHeaders +
     "\n" +
@@ -433,7 +458,21 @@ const marketplaceByCountry: Record<string, string> = {
   FR: "A13V1IB3VIYZZH",
   DE: "A1PA6795UKMFR9",
   ES: "A1RKKUPIHCS9HS",
-  IT: "APJ6JRA9NG5V4"
+  IT: "APJ6JRA9NG5V4",
+  NL: "A1805IZSGTT6HS",
+  BE: "A2Q3Y263D00KWC",
+  PL: "A1C3SOZRARQ6R3",
+  SE: "A2NODRKZP88ZB9",
+  UK: "A1F83G8C2ARO7P",
+  IE: "A1F83G8C2ARO7P",
+  AT: "A1PA6795UKMFR9",
+  DK: "A1PA6795UKMFR9",
+  FI: "A1F83G8C2ARO7P",
+  NO: "A1F83G8C2ARO7P",
+  LU: "A1PA6795UKMFR9",
+  CH: "A1F83G8C2ARO7P",
+  PT: "A1RKKUPIHCS9HS",
+  GR: "A1RKKUPIHCS9HS"
 };
 
 type TempCreds = {
@@ -503,7 +542,10 @@ async function catalogCheck(params: {
   const { asin, marketplaceId, host, region, lwaToken, tempCreds, traceId, sellerId } = params;
   if (!asin) return { found: false, reason: "Lipsă ASIN pentru verificare catalog" };
   const path = `/catalog/2022-04-01/items/${encodeURIComponent(asin)}`;
-  const query = `marketplaceIds=${encodeURIComponent(marketplaceId)}`;
+  const query = new URLSearchParams({
+    marketplaceIds: marketplaceId,
+    includedData: "attributes"
+  }).toString();
   const { res, json, text } = await spapiGet({
     host,
     region,
@@ -531,6 +573,57 @@ async function catalogCheck(params: {
     if (hasMarketplace) return { found: true, reason: "Găsit în Catalog Items" };
   }
   return { found: false, reason: `Catalog check ${res.status}: ${text}` };
+}
+
+async function fetchCatalogItemAttributes(params: {
+  asin: string;
+  host: string;
+  region: string;
+  tempCreds: TempCreds;
+  lwaToken: string;
+  traceId: string;
+  marketplaceId: string;
+  sellerId: string;
+}) {
+  const { asin, host, region, tempCreds, lwaToken, traceId, marketplaceId, sellerId } = params;
+  const path = `/catalog/2022-04-01/items/${encodeURIComponent(asin)}`;
+  const query = new URLSearchParams({
+    marketplaceIds: marketplaceId,
+    includedData: "attributes"
+  }).toString();
+  try {
+    const { res, json } = await spapiGet({
+      host,
+      region,
+      path,
+      query,
+      lwaToken,
+      tempCreds,
+      traceId,
+      operationName: "catalog.getItem.attributes",
+      marketplaceId,
+      sellerId
+    });
+    const payload = json?.payload || json || {};
+    const firstItem = Array.isArray(payload?.items) ? payload.items[0] : null;
+    const attributes =
+      payload?.attributes ||
+      payload?.Attributes ||
+      json?.attributes ||
+      json?.Attributes ||
+      firstItem?.attributes ||
+      firstItem?.Attributes ||
+      (firstItem?.attributeSets && firstItem.attributeSets[0]) ||
+      {};
+    return { attributes: attributes || {}, status: res.status, ok: res.ok };
+  } catch (error) {
+    console.warn("catalog attributes fetch failed", {
+      traceId,
+      asin,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return { attributes: {}, status: 0, ok: false };
+  }
 }
 
 async function checkSkuStatus(params: {
@@ -768,7 +861,7 @@ async function fetchPrepGuidance(params: {
 
 // Fetch Listings Item attributes pentru a determina dacă SKU cere expirare (IEDP sau shelf-life)
 async function fetchListingsExpiryRequired(params: {
-  skus: string[];
+  items: { sku: string; asin?: string | null }[];
   host: string;
   region: string;
   tempCreds: TempCreds;
@@ -777,44 +870,103 @@ async function fetchListingsExpiryRequired(params: {
   marketplaceId: string;
   sellerId: string;
 }) {
-  const { skus, host, region, tempCreds, lwaToken, traceId, marketplaceId, sellerId } = params;
+  const { items, host, region, tempCreds, lwaToken, traceId, marketplaceId, sellerId } = params;
   const map: Record<string, boolean> = {};
-  for (const sku of Array.from(new Set(skus.filter(Boolean)))) {
-    const path = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(sku)}`;
-    const query = `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=attributes`;
-    const { res, json } = await spapiGet({
-      host,
-      region,
-      path,
-      query,
-      lwaToken,
-      tempCreds,
-      traceId,
-      operationName: "listings.getItem",
-      marketplaceId,
-      sellerId
-    });
-    if (!res.ok) continue;
-    const attrs = json?.payload?.attributes || json?.attributes || {};
-    const iedp = extractBoolAttr(attrs, "is_expiration_dated_product");
-    const hasShelfLife =
-      hasAnyAttrValue(attrs, "fc_shelf_life") ||
-      hasAnyAttrValue(attrs, "fc_shelf_life_unit_of_measure") ||
-      hasAnyAttrValue(attrs, "product_expiration_type");
-    const expiryRequired = iedp === true || hasShelfLife;
-    if (expiryRequired === false) {
+  const uniqueBySku: Record<string, string | null> = {};
+  for (const entry of items) {
+    const sku = (entry.sku || "").trim();
+    if (!sku) continue;
+    if (!Object.prototype.hasOwnProperty.call(uniqueBySku, sku)) {
+      uniqueBySku[sku] = entry.asin ?? null;
+    }
+  }
+
+  for (const [sku, asin] of Object.entries(uniqueBySku)) {
+    let expiryRequired = false;
+    let listingAttrs: any = {};
+    let listingIedp: boolean | null = null;
+    let listingShelfLife = false;
+    let listingSuccess = false;
+    let listingStatusCode: number | null = null;
+    try {
+      const path = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(sku)}`;
+      const query = `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=attributes`;
+      const { res, json } = await spapiGet({
+        host,
+        region,
+        path,
+        query,
+        lwaToken,
+        tempCreds,
+        traceId,
+        operationName: "listings.getItem",
+        marketplaceId,
+        sellerId
+      });
+      listingStatusCode = res.status;
+      listingAttrs = json?.payload?.attributes || json?.attributes || {};
+      if (res.ok) {
+        listingSuccess = true;
+        const flags = extractExpiryFlags(listingAttrs);
+        listingIedp = flags.iedp;
+        listingShelfLife = flags.hasShelfLife;
+        expiryRequired = flags.iedp === true || flags.hasShelfLife;
+      }
+    } catch (error) {
+      console.warn("listings expiry fetch failed", {
+        traceId,
+        sku,
+        marketplaceId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+
+    let catalogResult: { attributes: any; status: number; ok: boolean } | null = null;
+    const needsCatalog = !!asin && (!listingSuccess || (listingSuccess && listingIedp === null && !listingShelfLife));
+    if (needsCatalog && asin) {
+      catalogResult = await fetchCatalogItemAttributes({
+        asin,
+        host,
+        region,
+        tempCreds,
+        lwaToken,
+        traceId,
+        marketplaceId,
+        sellerId
+      });
+      const catalogFlags = extractExpiryFlags(catalogResult.attributes);
+      if (catalogResult.ok) {
+        expiryRequired = catalogFlags.iedp === true || catalogFlags.hasShelfLife;
+      }
+    }
+
+    if (catalogResult) {
       console.log("expiry-debug", {
         traceId,
         sku,
-        iedp,
-        hasShelfLife,
-        rawIedp: attrs?.is_expiration_dated_product ?? null,
-        rawShelfLife: attrs?.fc_shelf_life ?? null,
-        rawExpType: attrs?.product_expiration_type ?? null
+        asin,
+        source: "catalog",
+        catalogStatus: catalogResult.status,
+        catalogAttributes: catalogResult.attributes
       });
     }
+
+    if (listingSuccess && expiryRequired === false) {
+      console.log("expiry-debug", {
+        traceId,
+        sku,
+        listingStatusCode,
+        iedp: listingIedp,
+        hasShelfLife: listingShelfLife,
+        rawIedp: listingAttrs?.is_expiration_dated_product ?? null,
+        rawShelfLife: listingAttrs?.fc_shelf_life ?? null,
+        rawExpType: listingAttrs?.product_expiration_type ?? null
+      });
+    }
+
     map[sku] = expiryRequired;
   }
+
   return map;
 }
 
@@ -834,6 +986,39 @@ serve(async (req) => {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error("Missing Supabase configuration");
     }
+    const authHeader = req.headers.get("Authorization") || "";
+    if (!authHeader.toLowerCase().startsWith("bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Authorization required" }),
+        { status: 401, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+    const authSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      global: { headers: { Authorization: authHeader } }
+    });
+    const { data: authData, error: authErr } = await authSupabase.auth.getUser();
+    const user = authData?.user ?? null;
+    if (authErr || !user) {
+      console.warn("fba-plan auth failed", { traceId, error: authErr?.message || null });
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+    const { data: profileRow, error: profileErr } = await supabase
+      .from("profiles")
+      .select("company_id, is_admin")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profileErr) {
+      console.error("fba-plan profile lookup failed", { traceId, error: profileErr });
+      return new Response(
+        JSON.stringify({ error: "Unable to verify user profile", traceId }),
+        { status: 500, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+    const userCompanyId = profileRow?.company_id || null;
+    const userIsAdmin = Boolean(profileRow?.is_admin);
     if (!LWA_CLIENT_ID || !LWA_CLIENT_SECRET || !AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY || !SPAPI_ROLE_ARN) {
       throw new Error("Missing SP-API environment variables");
     }
@@ -861,6 +1046,17 @@ serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
+    }
+    if (!userIsAdmin) {
+      const isOwner = !!reqData.user_id && reqData.user_id === user.id;
+      const isCompanyMember =
+        !!reqData.company_id && !!userCompanyId && reqData.company_id === userCompanyId;
+      if (!isOwner && !isCompanyMember) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden", traceId }),
+          { status: 403, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
     }
 
     const destCountry = (reqData.destination_country || "").toUpperCase();
@@ -1011,9 +1207,11 @@ serve(async (req) => {
       marketplaceId,
       sellerId
     });
-    const skuList = items.map((it) => it.sku || "").filter(Boolean) as string[];
+    const skuItems = items
+      .map((it) => ({ sku: it.sku || "", asin: it.asin || null }))
+      .filter((entry) => entry.sku);
     const expiryRequiredBySku = await fetchListingsExpiryRequired({
-      skus: skuList,
+      items: skuItems,
       host,
       region: awsRegion,
       tempCreds,
