@@ -724,6 +724,104 @@ async function fetchPrepGuidance(params: {
   return map;
 }
 
+// Fallback heuristic: marchează expirabil dacă guidance lipsește, pe baza titlului și productType.
+function inferExpiry(title: string, productType?: string | null) {
+  const t = (title || "").toLowerCase();
+  const pt = (productType || "").toLowerCase();
+  const typeKeywords = [
+    "beauty",
+    "hair",
+    "skin",
+    "personal_care",
+    "oral_care",
+    "fragrance",
+    "cosmetic",
+    "health",
+    "dietary",
+    "supplement",
+    "grocery",
+    "food",
+    "beverage",
+    "drink",
+    "pet_food",
+    "pet_treat",
+    "vitamin",
+    "nutrition",
+    "medical",
+    "pharmacy"
+  ];
+  const titleKeywords = [
+    "gel",
+    "cream",
+    "creme",
+    "lotion",
+    "serum",
+    "shampoo",
+    "conditioner",
+    "spray",
+    "cosmetic",
+    "beauty",
+    "vitamin",
+    "supplement",
+    "supliment",
+    "capsule",
+    "tablet",
+    "gummies",
+    "wipes",
+    "food",
+    "drink",
+    "beverage",
+    "honey",
+    "oil",
+    "syrup",
+    "mouthwash",
+    "toothpaste"
+  ];
+  if (typeKeywords.some((k) => pt.includes(k))) return true;
+  if (!t) return false;
+  return titleKeywords.some((k) => t.includes(k));
+}
+
+async function fetchProductTypes(params: {
+  asins: string[];
+  host: string;
+  region: string;
+  tempCreds: TempCreds;
+  lwaToken: string;
+  traceId: string;
+  marketplaceId: string;
+  sellerId: string;
+}) {
+  const { asins, host, region, tempCreds, lwaToken, traceId, marketplaceId, sellerId } = params;
+  const map: Record<string, string> = {};
+  for (const asin of Array.from(new Set(asins.filter(Boolean)))) {
+    const path = `/catalog/2022-04-01/items/${encodeURIComponent(asin)}`;
+    const query = `marketplaceIds=${encodeURIComponent(marketplaceId)}`;
+    const { res, json } = await spapiGet({
+      host,
+      region,
+      path,
+      query,
+      lwaToken,
+      tempCreds,
+      traceId,
+      operationName: "catalog.getItem",
+      marketplaceId,
+      sellerId
+    });
+    if (!res.ok) continue;
+    const summaries = json?.payload?.summaries || json?.summaries || [];
+    const summary = Array.isArray(summaries)
+      ? summaries.find((s: any) => (s?.marketplaceId || s?.MarketplaceId) === marketplaceId) || summaries[0]
+      : null;
+    const productType = summary?.productType || summary?.ProductType || summary?.itemClassification || summary?.ItemClassification;
+    if (productType) {
+      map[asin] = String(productType);
+    }
+  }
+  return map;
+}
+
 serve(async (req) => {
   const traceId = crypto.randomUUID();
   if (req.method === "OPTIONS") {
@@ -917,6 +1015,17 @@ serve(async (req) => {
       marketplaceId,
       sellerId
     });
+    const asins = items.map((it) => it.asin || "").filter(Boolean) as string[];
+    const productTypeMap = await fetchProductTypes({
+      asins,
+      host,
+      region: awsRegion,
+      tempCreds,
+      lwaToken: lwaAccessToken,
+      traceId,
+      marketplaceId,
+      sellerId
+    });
     // Debug info for auth context (mascat)
     console.log("fba-plan auth-context", {
       traceId,
@@ -958,25 +1067,28 @@ serve(async (req) => {
       const warning = `Unele produse nu sunt eligibile pe marketplace-ul destinație (${marketplaceId}).`;
       const skus = items.map((it, idx) => {
         const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
-        const requiresExpiry = (prepInfo.prepInstructions || []).some((p: string) =>
+        const requiresExpiryFromGuidance = (prepInfo.prepInstructions || []).some((p: string) =>
           String(p || "").toLowerCase().includes("expir")
         );
+        const title = it.product_name || it.sku || `SKU ${idx + 1}`;
+        const productType = productTypeMap[it.asin || ""] || null;
+        const requiresExpiry = requiresExpiryFromGuidance || inferExpiry(title, productType);
         return {
-        id: it.id || `sku-${idx + 1}`,
-        title: it.product_name || it.sku || `SKU ${idx + 1}`,
-        sku: it.sku || "",
-        asin: it.asin || "",
-        storageType: "Standard-size",
-        packing: "individual",
-        units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-        expiry: "",
-        expiryRequired: requiresExpiry,
-        prepRequired: prepInfo?.prepRequired || false,
-        prepNotes: (prepInfo?.prepInstructions || []).join(", "),
-        manufacturerBarcodeEligible:
-          (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
-        readyToPack: true
-      };
+          id: it.id || `sku-${idx + 1}`,
+          title,
+          sku: it.sku || "",
+          asin: it.asin || "",
+          storageType: "Standard-size",
+          packing: "individual",
+          units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+          expiry: "",
+          expiryRequired: requiresExpiry,
+          prepRequired: prepInfo?.prepRequired || false,
+          prepNotes: (prepInfo?.prepInstructions || []).join(", "),
+          manufacturerBarcodeEligible:
+            (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
+          readyToPack: true
+        };
       });
       const plan = {
         source: "amazon",
@@ -1338,9 +1450,9 @@ serve(async (req) => {
       const labelOwnerSource =
         labelOwnerSourceBySku[it.sku || ""] ||
         (prepInfo.barcodeInstruction ? "prep-guidance" : "assumed");
-      const requiresExpiry = (prepInfo.prepInstructions || []).some((p: string) =>
-        String(p || "").toLowerCase().includes("expir")
-      );
+      const requiresExpiry =
+        (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
+        inferExpiry(it.product_name || stock?.name || it.sku || "", productTypeMap[it.asin || ""] || null);
       return {
         id: it.id || `sku-${idx + 1}`,
         title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
