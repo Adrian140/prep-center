@@ -1000,29 +1000,36 @@ serve(async (req) => {
       });
     }
 
-    const planBody = {
-      // Amazon requires `sourceAddress` for createInboundPlan payload
-      sourceAddress: shipFromAddress,
-      destinationMarketplaces: [marketplaceId],
-      labelPrepPreference: "SELLER_LABEL",
-      shipmentType: "SP",
-      requireDeliveryWindows: false,
-      items: items.map((it) => {
-        const key = it.sku || it.asin || "";
-        const prepInfo = prepGuidanceMap[key] || {};
-        const prepRequired = !!prepInfo.prepRequired;
-        const manufacturerBarcodeEligible =
-          (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode";
-        // Default conservativ: dacă nu avem guidance, cerem label (SELLER).
-        const labelOwner = prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER";
-        return {
-          msku: it.sku || "",
-          quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-          prepOwner: prepRequired ? "SELLER" : "NONE",
-          labelOwner
-        };
-      })
+    const buildPlanBody = (overrides: Record<string, "NONE" | "SELLER"> = {}) => {
+      return {
+        // Amazon requires `sourceAddress` for createInboundPlan payload
+        sourceAddress: shipFromAddress,
+        destinationMarketplaces: [marketplaceId],
+        labelPrepPreference: "SELLER_LABEL",
+        shipmentType: "SP",
+        requireDeliveryWindows: false,
+        items: items.map((it) => {
+          const key = it.sku || it.asin || "";
+          const prepInfo = prepGuidanceMap[key] || {};
+          const prepRequired = !!prepInfo.prepRequired;
+          const manufacturerBarcodeEligible =
+            (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode";
+          // Default conservativ: dacă nu avem guidance, cerem label (SELLER).
+          let labelOwner = prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER";
+          if (overrides[it.sku || ""]) {
+            labelOwner = overrides[it.sku || ""]!;
+          }
+          return {
+            msku: it.sku || "",
+            quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+            prepOwner: prepRequired ? "SELLER" : "NONE",
+            labelOwner
+          };
+        })
+      };
     };
+
+    const planBody = buildPlanBody();
 
     const payload = JSON.stringify(planBody);
     // SP-API expects the resource under /inbound/fba (not /fba/inbound)
@@ -1056,7 +1063,7 @@ serve(async (req) => {
     });
 
     // Keep raw Amazon response for debugging / UI
-    const amazonJson = primary.json;
+    let amazonJson = primary.json;
     const primaryRequestId = primary.requestId || null;
 
     let plans =
@@ -1066,65 +1073,124 @@ serve(async (req) => {
       [];
 
     if (!primary.res.ok) {
-      console.error("createInboundPlan primary error", {
-        traceId,
-        status: primary.res.status,
-        marketplaceId,
-        region: awsRegion,
-        sellerId,
-        requestId: primaryRequestId,
-        body: primary.text?.slice(0, 2000)
-      });
-      console.error("fba-plan createInboundPlan error", {
-        traceId,
-        status: primary.res.status,
-        host,
-        marketplaceId,
-        region: awsRegion,
-        sellerId,
-        requestId: primaryRequestId,
-        body: primary.text?.slice(0, 2000) // avoid huge logs
-      });
-      const fallbackSkus = items.map((it, idx) => {
-        const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
-        const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
-        return {
-          id: it.id || `sku-${idx + 1}`,
-          title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
-          sku: it.sku || stock?.sku || "",
-          asin: it.asin || stock?.asin || "",
-          storageType: "Standard-size",
-          packing: "individual",
-          units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-          expiry: "",
-          prepRequired: prepInfo.prepRequired || false,
-          prepNotes: (prepInfo.prepInstructions || []).join(", "),
-          manufacturerBarcodeEligible:
-            (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
-          readyToPack: true,
-          image: stock?.image_url || null
+      // Încearcă o singură retrimitere dacă mesajele indică labelOwner greșit (SELLER vs NONE)
+      const errors = primary.json?.errors || primary.json?.payload?.errors || [];
+      const overrides: Record<string, "SELLER" | "NONE"> = {};
+      for (const err of Array.isArray(errors) ? errors : []) {
+        const msg = err?.message || "";
+        const mskuMatch = msg.match(/ERROR:\s*([^ \n]+)\s/);
+        const msku = mskuMatch ? mskuMatch[1] : null;
+        if (!msku) continue;
+        if (msg.includes("does not require labelOwner") && msg.includes("SELLER was assigned")) {
+          overrides[msku] = "NONE";
+        } else if (msg.includes("requires labelOwner") && msg.includes("NONE was assigned")) {
+          overrides[msku] = "SELLER";
+        }
+      }
+
+      if (Object.keys(overrides).length) {
+        const retryBody = buildPlanBody(overrides);
+        const retryPayload = JSON.stringify(retryBody);
+        const retryRes = await signedFetch({
+          method: "POST",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path,
+          query,
+          payload: retryPayload,
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.createInboundPlan.retry",
+          marketplaceId,
+          sellerId
+        });
+
+        if (retryRes.res.ok) {
+          plans =
+            retryRes.json?.payload?.inboundPlan?.inboundShipmentPlans ||
+            retryRes.json?.payload?.InboundShipmentPlans ||
+            retryRes.json?.InboundShipmentPlans ||
+            [];
+          amazonJson = retryRes.json;
+        } else {
+          console.error("createInboundPlan retry error", {
+            traceId,
+            status: retryRes.res.status,
+            marketplaceId,
+            region: awsRegion,
+            sellerId,
+            requestId: retryRes.requestId || null,
+            body: retryRes.text?.slice(0, 2000)
+          });
+          // dacă retry a eșuat, continuăm cu fallback
+        }
+      }
+
+      if (!plans || !plans.length) {
+        console.error("createInboundPlan primary error", {
+          traceId,
+          status: primary.res.status,
+          marketplaceId,
+          region: awsRegion,
+          sellerId,
+          requestId: primaryRequestId,
+          body: primary.text?.slice(0, 2000)
+        });
+        console.error("fba-plan createInboundPlan error", {
+          traceId,
+          status: primary.res.status,
+          host,
+          marketplaceId,
+          region: awsRegion,
+          sellerId,
+          requestId: primaryRequestId,
+          body: primary.text?.slice(0, 2000) // avoid huge logs
+        });
+        const fallbackSkus = items.map((it, idx) => {
+          const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+          const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
+          return {
+            id: it.id || `sku-${idx + 1}`,
+            title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
+            sku: it.sku || stock?.sku || "",
+            asin: it.asin || stock?.asin || "",
+            storageType: "Standard-size",
+            packing: "individual",
+            units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+            expiry: "",
+            prepRequired: prepInfo.prepRequired || false,
+            prepNotes: (prepInfo.prepInstructions || []).join(", "),
+            manufacturerBarcodeEligible:
+              (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
+            readyToPack: true,
+            image: stock?.image_url || null
+          };
+        });
+        const fallbackPlan = {
+          source: "amazon",
+          marketplace: marketplaceId,
+          shipFrom: {
+            name: shipFromAddress.name,
+            address: formatAddress(shipFromAddress)
+          },
+          skus: fallbackSkus,
+          packGroups: [],
+          shipments: [],
+          raw: null,
+          skuStatuses,
+          warning: `Amazon a refuzat crearea planului (HTTP ${primary.res.status}). Încearcă din nou sau verifică permisiunile Inbound pe marketplace.`,
+          blocking: true,
+          requestId: primaryRequestId || null
         };
-      });
-      const fallbackPlan = {
-        source: "amazon",
-        marketplace: marketplaceId,
-        shipFrom: {
-          name: shipFromAddress.name,
-          address: formatAddress(shipFromAddress)
-        },
-        skus: fallbackSkus,
-        packGroups: [],
-        shipments: [],
-        raw: null,
-        skuStatuses,
-        warning: `Amazon a refuzat crearea planului (HTTP ${primary.res.status}). Încearcă din nou sau verifică permisiunile Inbound pe marketplace.`,
-        blocking: true,
-        requestId: primaryRequestId || null
-      };
-      return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status, requestId: primaryRequestId || null, scopes: lwaScopes }), {
-        status: 200,
-        headers: { ...corsHeaders, "content-type": "application/json" }
-      });
+        return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: primary.res.status, requestId: primaryRequestId || null, scopes: lwaScopes }), {
+          status: 200,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+      }
     }
 
     const normalizeItems = (p: any) => p?.items || p?.Items || [];
