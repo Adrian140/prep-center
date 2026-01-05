@@ -448,6 +448,7 @@ serve(async (req) => {
     const amazonIntegrationIdInput = body?.amazon_integration_id ?? body?.amazonIntegrationId;
     const confirmOptionId = body?.transportation_option_id ?? body?.transportationOptionId;
     const shipmentTransportConfigs = body?.shipment_transportation_configurations ?? body?.shipmentTransportationConfigurations ?? [];
+    const shippingModeInput = body?.shipping_mode ?? body?.shippingMode ?? null;
     const readyToShipStart = body?.ship_date ?? body?.shipDate;
 
     logStep("fba-step2-confirm-shipping called", {
@@ -804,10 +805,31 @@ serve(async (req) => {
       return now.toISOString();
     })();
 
-    const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => ({
-      shipmentId: sh.shipmentId || sh.id || `s-${idx + 1}`,
-      readyToShipWindow: { start: readyStartIso }
-    }));
+    const mapMode = (val: any) => {
+      const v = String(val || "").toUpperCase();
+      if (["SPD", "SMALL_PARCEL", "SMALLPARCEL"].includes(v)) return "SMALL_PARCEL";
+      if (["LTL", "LESS_THAN_TRUCKLOAD", "TRUCKLOAD", "FTL"].includes(v)) return "LESS_THAN_TRUCKLOAD";
+      return null;
+    };
+
+    const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
+      const shId = sh.shipmentId || sh.id || `s-${idx + 1}`;
+      const cfg = (shipmentTransportConfigs || []).find(
+        (c: any) => c?.shipmentId === shId || c?.shipment_id === shId
+      ) || (shipmentTransportConfigs || [])[idx] || {};
+      const shippingMode = mapMode(cfg.shippingMode || cfg.shipping_mode || shippingModeInput) || null;
+      const packages = Array.isArray(cfg.packages)
+        ? cfg.packages
+        : Array.isArray(cfg?.Packages)
+        ? cfg.Packages
+        : null;
+      return {
+        shipmentId: shId,
+        readyToShipWindow: { start: readyStartIso },
+        shippingMode,
+        packages
+      };
+    });
 
     // 1) Generate transportation options (idempotent)
     const generatePayload = JSON.stringify({
@@ -881,6 +903,11 @@ serve(async (req) => {
         listRes?.json?.transportationOptions?.length ||
         listRes?.json?.TransportationOptions?.length ||
         0
+    });
+    logStep("shipmentTransportationConfigurations", {
+      traceId,
+      count: shipmentTransportationConfigurations.length,
+      shippingMode: shippingModeInput || null
     });
 
     const options =

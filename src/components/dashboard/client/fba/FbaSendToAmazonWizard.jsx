@@ -344,6 +344,7 @@ export default function FbaSendToAmazonWizard({
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
           placement_option_id: placementOptId,
+          shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
           ship_date: shipmentMode?.deliveryDate || null
         }
