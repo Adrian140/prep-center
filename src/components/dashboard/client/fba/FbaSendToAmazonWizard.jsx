@@ -352,7 +352,21 @@ export default function FbaSendToAmazonWizard({
       setShippingOptions(json.options || []);
       setShippingSummary(json.summary || null);
       if (Array.isArray(json.shipments) && json.shipments.length) {
-        setShipments(json.shipments.map((s) => ({ ...s, source: "api" })));
+        const fallbackShipments = deriveShipmentsFromPacking();
+        const fallbackById = new Map(
+          (fallbackShipments || []).map((sh) => [String(sh.id || ""), sh])
+        );
+        setShipments(
+          json.shipments.map((s) => {
+            const fb = fallbackById.get(String(s.id || "")) || {};
+            return {
+              ...fb,
+              ...s,
+              weight: s.weight ?? fb.weight ?? null,
+              source: "api"
+            };
+          })
+        );
       }
       // auto-select carrier from summary
       if (json.summary) {
