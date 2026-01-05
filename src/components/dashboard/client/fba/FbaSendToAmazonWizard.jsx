@@ -270,11 +270,8 @@ export default function FbaSendToAmazonWizard({
       plan?.inboundPlanId || plan?.inbound_plan_id || plan?.planId || plan?.plan_id || null;
     const placementOptionId = packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null;
     const requestId = plan?.requestId || plan?.request_id || initialPlan?.requestId || initialPlan?.request_id || null;
-    if (!inboundPlanId || !requestId) return;
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token || null;
-    if (!accessToken) {
-      setShippingError('Autentificare necesară pentru a încărca opțiunile de transport.');
+    if (!inboundPlanId || !requestId) {
+      setShippingError('Lipsește inboundPlanId sau requestId; nu pot cere opțiunile de transport.');
       return;
     }
     setShippingLoading(true);
@@ -287,8 +284,7 @@ export default function FbaSendToAmazonWizard({
           inbound_plan_id: inboundPlanId,
           placement_option_id: placementOptionId,
           shipment_transportation_configurations: configs
-        },
-        headers: { Authorization: `Bearer ${accessToken}` }
+        }
       });
       if (error) throw error;
       setShippingOptions(json.options || []);
