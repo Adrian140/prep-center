@@ -417,13 +417,21 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const requestId = body?.request_id as string | undefined;
-    const inboundPlanId = body?.inbound_plan_id as string | undefined;
-    const placementOptionId = body?.placement_option_id as string | undefined;
-    const amazonIntegrationIdInput = body?.amazon_integration_id as string | undefined;
-    const confirmOptionId = body?.transportation_option_id as string | undefined;
-    const shipmentTransportConfigs = body?.shipment_transportation_configurations || [];
-    const readyToShipStart = body?.ship_date as string | undefined;
+    const requestId = body?.request_id ?? body?.requestId;
+    const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
+    const placementOptionId = body?.placement_option_id ?? body?.placementOptionId;
+    const amazonIntegrationIdInput = body?.amazon_integration_id ?? body?.amazonIntegrationId;
+    const confirmOptionId = body?.transportation_option_id ?? body?.transportationOptionId;
+    const shipmentTransportConfigs = body?.shipment_transportation_configurations ?? body?.shipmentTransportationConfigurations ?? [];
+    const readyToShipStart = body?.ship_date ?? body?.shipDate;
+
+    console.log("fba-step2-confirm-shipping called", {
+      traceId,
+      keys: Object.keys(body || {}),
+      hasPlacement: Boolean(placementOptionId),
+      hasInbound: Boolean(inboundPlanId),
+      hasRequest: Boolean(requestId)
+    });
 
     if (!requestId || !inboundPlanId) {
       return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare", traceId }), {
@@ -532,7 +540,7 @@ serve(async (req) => {
     const basePath = "/inbound/fba/2024-03-20";
 
     const pollOperationStatus = async (operationId: string) => {
-      const maxAttempts = 8;
+      const maxAttempts = 24; // ~60-90s cu backoff
       let attempt = 0;
       while (attempt < maxAttempts) {
         attempt += 1;
@@ -553,15 +561,12 @@ serve(async (req) => {
           marketplaceId,
           sellerId
         });
-        const state =
-          opRes.json?.payload?.state ||
-          opRes.json?.state ||
-          null;
+        const state = opRes.json?.payload?.state || opRes.json?.state || null;
         const stateUp = String(state || "").toUpperCase();
         if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp) || opRes.res.status >= 400) {
           return opRes;
         }
-        await delay(250 * attempt);
+        await delay(500 * attempt);
       }
       return null;
     };
@@ -681,38 +686,6 @@ serve(async (req) => {
       marketplaceId,
       sellerId
     });
-
-    const pollOperationStatus = async (operationId: string) => {
-      const maxAttempts = 24; // ~60-90s cu backoff
-      let attempt = 0;
-      while (attempt < maxAttempts) {
-        attempt += 1;
-        const opRes = await signedFetch({
-          method: "GET",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/operations/${encodeURIComponent(operationId)}`,
-          query: "",
-          payload: "",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.getOperationStatus",
-          marketplaceId,
-          sellerId
-        });
-        const state = opRes.json?.payload?.state || opRes.json?.state || null;
-        const stateUp = String(state || "").toUpperCase();
-        if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp) || opRes.res.status >= 400) {
-          return opRes;
-        }
-        await delay(500 * attempt);
-      }
-      return null;
-    };
 
     const placementOpId =
       placementConfirm?.json?.payload?.operationId ||
