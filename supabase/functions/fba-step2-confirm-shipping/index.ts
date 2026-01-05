@@ -574,9 +574,13 @@ serve(async (req) => {
     const basePath = "/inbound/fba/2024-03-20";
 
     const pollOperationStatus = async (operationId: string) => {
-      const maxAttempts = 24; // ~60-90s cu backoff
+      // Amazon poate întoarce operații asincrone; menținem polling-ul scurt pentru a nu depăși timeout-ul Edge.
+      const maxAttempts = 10;
+      const timeoutMs = 25000;
+      const start = Date.now();
       let attempt = 0;
-      while (attempt < maxAttempts) {
+      let last: Awaited<ReturnType<typeof signedFetch>> | null = null;
+      while (attempt < maxAttempts && Date.now() - start < timeoutMs) {
         attempt += 1;
         const opRes = await signedFetch({
           method: "GET",
@@ -595,14 +599,22 @@ serve(async (req) => {
           marketplaceId,
           sellerId
         });
+        last = opRes;
         const state = opRes.json?.payload?.state || opRes.json?.state || null;
         const stateUp = String(state || "").toUpperCase();
         if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp) || opRes.res.status >= 400) {
           return opRes;
         }
-        await delay(500 * attempt);
+        await delay(Math.min(500 * attempt, 2500));
       }
-      return null;
+      console.warn("pollOperationStatus timeout", {
+        traceId,
+        operationId,
+        attempts: attempt,
+        elapsedMs: Date.now() - start,
+        lastStatus: last?.res?.status || null
+      });
+      return last;
     };
 
     const ensurePlacement = async () => {
