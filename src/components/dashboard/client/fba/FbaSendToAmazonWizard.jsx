@@ -287,7 +287,16 @@ export default function FbaSendToAmazonWizard({
       plan?.inboundPlanId || plan?.inbound_plan_id || plan?.planId || plan?.plan_id || null;
     let placementOptId =
       placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
-    const requestId = plan?.requestId || plan?.request_id || initialPlan?.requestId || initialPlan?.request_id || null;
+    const requestId =
+      plan?.prepRequestId ||
+      initialPlan?.prepRequestId ||
+      plan?.requestId ||
+      plan?.request_id ||
+      initialPlan?.requestId ||
+      initialPlan?.request_id ||
+      plan?.id ||
+      initialPlan?.id ||
+      null;
     if (!inboundPlanId || !requestId) {
       setShippingError('Lipsește inboundPlanId sau requestId; nu pot cere opțiunile de transport.');
       return;

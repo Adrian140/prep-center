@@ -128,6 +128,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
     }
     return {
       ...plan,
+      prepRequestId: row.id, // păstrăm id-ul intern pentru step2
       packingOptionId,
       packGroups: packingGroups,
       traceId: data?.traceId || plan.traceId || null,

@@ -459,6 +459,14 @@ serve(async (req) => {
       .select("id, destination_country, company_id, user_id")
       .eq("id", requestId)
       .maybeSingle();
+    logStep("prepRequestLookup", {
+      traceId,
+      requestId,
+      companyId: reqData?.company_id || null,
+      userId: reqData?.user_id || null,
+      found: Boolean(reqData),
+      err: reqErr?.message || null
+    });
     if (reqErr) throw reqErr;
     if (!reqData) {
       return new Response(JSON.stringify({ error: "Request not found" }), {
