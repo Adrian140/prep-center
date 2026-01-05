@@ -113,6 +113,10 @@ export default function FbaSendToAmazonWizard({
   const [planError, setPlanError] = useState('');
   const [skuStatuses, setSkuStatuses] = useState(initialSkuStatuses);
   const [blocking, setBlocking] = useState(false);
+  const [shippingOptions, setShippingOptions] = useState([]);
+  const [shippingSummary, setShippingSummary] = useState(null);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [shippingError, setShippingError] = useState('');
 
   // Persistăm ultimul pas vizitat ca să nu se piardă la refresh.
   const stepStorageKey = useMemo(() => {
@@ -239,6 +243,85 @@ export default function FbaSendToAmazonWizard({
     setPackGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, ...patch } : g)));
     invalidateFrom('1b');
   };
+
+  const buildShipmentConfigs = () => {
+    if (!Array.isArray(packGroups)) return [];
+    return packGroups.map((g, idx) => {
+      const dims = getSafeDims(g.boxDimensions);
+      const weight = getSafeNumber(g.boxWeight);
+      return {
+        shipmentId: `s-${idx + 1}`,
+        packingGroupId: g.packingGroupId || g.id,
+        packages: [
+          {
+            dimensions: dims
+              ? { length: dims.length, width: dims.width, height: dims.height, unit: "CM" }
+              : null,
+            weight: weight ? { value: weight, unit: "KG" } : null
+          }
+        ]
+      };
+    });
+  };
+
+  const fetchShippingOptions = async () => {
+    const inboundPlanId =
+      plan?.inboundPlanId || plan?.inbound_plan_id || plan?.planId || plan?.plan_id || null;
+    const placementOptionId = packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null;
+    const requestId = plan?.requestId || plan?.request_id || initialPlan?.requestId || initialPlan?.request_id || null;
+    if (!inboundPlanId || !requestId) return;
+    setShippingLoading(true);
+    setShippingError('');
+    try {
+      const configs = buildShipmentConfigs();
+      const res = await fetch("/functions/v1/fba-step2-confirm-shipping", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${window?.localStorage?.getItem("supabase.auth.token") || ""}`
+        },
+        body: JSON.stringify({
+          request_id: requestId,
+          inbound_plan_id: inboundPlanId,
+          placement_option_id: placementOptionId,
+          shipment_transportation_configurations: configs
+        })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || json?.detail || `HTTP ${res.status}`);
+      setShippingOptions(json.options || []);
+      setShippingSummary(json.summary || null);
+      if (Array.isArray(json.shipments) && json.shipments.length) {
+        setShipments(json.shipments.map((s: any) => ({ ...s, source: "api" })));
+      }
+      // auto-select carrier from summary
+      if (json.summary) {
+        if (json.summary.partneredAllowed) {
+          setShipmentMode((prev) => ({
+            ...prev,
+            carrier: { partnered: true, name: json.summary.defaultCarrier || "Amazon partnered", rate: json.summary.partneredRate },
+            method: json.summary.defaultMode || prev.method
+          }));
+        } else {
+          setShipmentMode((prev) => ({
+            ...prev,
+            carrier: { partnered: false, name: json.summary.defaultCarrier || "Non Amazon partnered" },
+            method: json.summary.defaultMode || prev.method
+          }));
+        }
+      }
+    } catch (e: any) {
+      setShippingError(e?.message || "Failed to load shipping options");
+    } finally {
+      setShippingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentStep !== '2') return;
+    fetchShippingOptions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, packGroups, packingOptionId, plan?.inboundPlanId, plan?.requestId]);
 
   const formatAddress = (addr = {}) => {
     const parts = [
