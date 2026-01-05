@@ -118,6 +118,19 @@ export default function FbaSendToAmazonWizard({
         packingConfirmed: Boolean(g.packingConfirmed)
       };
     });
+  const mergePackGroups = (prev = [], incoming = []) => {
+    const prevById = new Map(prev.map((g) => [g.id, g]));
+    return incoming.map((g) => {
+      const existing = prevById.get(g.id);
+      if (!existing) return g;
+      return {
+        ...g,
+        boxDimensions: g.boxDimensions || existing.boxDimensions || null,
+        boxWeight: g.boxWeight ?? existing.boxWeight ?? null,
+        packingConfirmed: g.packingConfirmed || existing.packingConfirmed || false
+      };
+    });
+  };
   const [packGroups, setPackGroups] = useState(normalizePackGroups(initialPacking));
   const [packingOptionId, setPackingOptionId] = useState(initialPlan?.packingOptionId || null);
   const [placementOptionId, setPlacementOptionId] = useState(initialPlan?.placementOptionId || null);
@@ -261,7 +274,10 @@ export default function FbaSendToAmazonWizard({
         }
         if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
         if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
-        if (Array.isArray(pGroups)) setPackGroups(normalizePackGroups(pGroups));
+        if (Array.isArray(pGroups)) {
+          const normalized = normalizePackGroups(pGroups);
+          setPackGroups((prev) => mergePackGroups(prev, normalized));
+        }
         if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
         if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
         if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
@@ -393,7 +409,10 @@ export default function FbaSendToAmazonWizard({
         placementOptId = step1b?.placementOptionId || step1b?.placement_option_id || null;
         if (placementOptId) {
           setPlacementOptionId(placementOptId);
-          if (Array.isArray(step1b?.packingGroups)) setPackGroups(normalizePackGroups(step1b.packingGroups));
+          if (Array.isArray(step1b?.packingGroups)) {
+            const normalized = normalizePackGroups(step1b.packingGroups);
+            setPackGroups((prev) => mergePackGroups(prev, normalized));
+          }
           if (Array.isArray(step1b?.shipments)) setShipments(step1b.shipments);
         }
       } catch (e) {
