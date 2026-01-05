@@ -27,9 +27,9 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
 
   const commitDraft = (group, fields) => {
     const draft = drafts[group.id] || {};
-    const payload: Record<string, any> = {};
+    const payload = {};
     fields.forEach((f) => {
-      if (draft[f] !== undefined) payload[f as string] = draft[f];
+      if (draft[f] !== undefined) payload[f] = draft[f];
     });
     if (Object.keys(payload).length) {
       onUpdateGroup(group.id, payload);
