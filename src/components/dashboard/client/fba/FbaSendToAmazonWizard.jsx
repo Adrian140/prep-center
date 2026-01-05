@@ -498,7 +498,15 @@ export default function FbaSendToAmazonWizard({
         }
       }
     } catch (e) {
-      setShippingError(e?.message || "Failed to load shipping options");
+      // Supabase aruncă "Edge Function returned a non-2xx status code" fără detalii; încercăm să extragem mesajul din payload.
+      const detail =
+        e?.context?.error?.message ||
+        e?.context?.response?.error?.message ||
+        e?.context?.response?.data?.error ||
+        e?.message ||
+        "Failed to load shipping options";
+      console.error("fetchShippingOptions failed", e);
+      setShippingError(detail);
     } finally {
       setShippingLoading(false);
     }
