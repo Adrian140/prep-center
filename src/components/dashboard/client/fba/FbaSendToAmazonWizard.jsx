@@ -266,6 +266,7 @@ export default function FbaSendToAmazonWizard({
   };
 
   const fetchShippingOptions = async () => {
+    if (typeof window === 'undefined') return; // rulează doar în browser
     const inboundPlanId =
       plan?.inboundPlanId || plan?.inbound_plan_id || plan?.planId || plan?.plan_id || null;
     const placementOptionId = packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null;
@@ -278,6 +279,13 @@ export default function FbaSendToAmazonWizard({
     setShippingError('');
     try {
       const configs = buildShipmentConfigs();
+      // log local pentru debug (nu trimite date sensibile)
+      console.log('Step2 invoke fba-step2-confirm-shipping', {
+        requestId,
+        inboundPlanId,
+        placementOptionId,
+        configsCount: configs.length
+      });
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
           request_id: requestId,
