@@ -146,6 +146,18 @@ export default function FbaSendToAmazonWizard({
       "default";
     return `fba-wizard-step-${reqId}`;
   }, [plan?.requestId, plan?.request_id, plan?.id, initialPlan?.requestId, initialPlan?.request_id, initialPlan?.id]);
+  const stateStorageKey = useMemo(() => {
+    const reqId =
+      plan?.requestId ||
+      plan?.request_id ||
+      initialPlan?.requestId ||
+      initialPlan?.request_id ||
+      plan?.id ||
+      initialPlan?.id ||
+      "default";
+    return `fba-wizard-state-${reqId}`;
+  }, [plan?.requestId, plan?.request_id, plan?.id, initialPlan?.requestId, initialPlan?.request_id, initialPlan?.id]);
+  const [restoredState, setRestoredState] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -159,6 +171,63 @@ export default function FbaSendToAmazonWizard({
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(stepStorageKey, String(currentStep));
   }, [currentStep, stepStorageKey]);
+
+  // Rehidratează starea locală după refresh (similar cu "Active workflow" din Amazon)
+  useEffect(() => {
+    if (typeof window === 'undefined' || restoredState) return;
+    const raw = window.localStorage.getItem(stateStorageKey);
+    if (!raw) {
+      setRestoredState(true);
+      return;
+    }
+    try {
+      const data = JSON.parse(raw);
+      if (data?.plan) setPlan((prev) => ({ ...prev, ...data.plan }));
+      if (Array.isArray(data?.packGroups)) setPackGroups(data.packGroups);
+      if (data?.shipmentMode) setShipmentMode((prev) => ({ ...prev, ...data.shipmentMode }));
+      if (Array.isArray(data?.shipments)) setShipments(data.shipments);
+      if (data?.labelFormat) setLabelFormat(data.labelFormat);
+      if (Array.isArray(data?.tracking)) setTracking(data.tracking);
+      if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
+      if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
+      if (Array.isArray(data?.completedSteps)) setCompletedSteps(data.completedSteps);
+      if (data?.currentStep && stepsOrder.includes(data.currentStep)) setCurrentStep(data.currentStep);
+    } catch {
+      // ignore corrupt cache
+    } finally {
+      setRestoredState(true);
+    }
+  }, [stateStorageKey, stepsOrder, restoredState]);
+
+  // Persistă starea curentă ca să poți relua workflow-ul după refresh.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const snapshot = {
+      plan,
+      packGroups,
+      shipmentMode,
+      shipments,
+      labelFormat,
+      tracking,
+      packingOptionId,
+      placementOptionId,
+      completedSteps,
+      currentStep
+    };
+    window.localStorage.setItem(stateStorageKey, JSON.stringify(snapshot));
+  }, [
+    plan,
+    packGroups,
+    shipmentMode,
+    shipments,
+    labelFormat,
+    tracking,
+    packingOptionId,
+    placementOptionId,
+    completedSteps,
+    currentStep,
+    stateStorageKey
+  ]);
 
   useEffect(() => {
     if (!autoLoadPlan && !fetchPlan) return;
