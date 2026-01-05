@@ -7,6 +7,20 @@ import FbaStep2Shipping from './FbaStep2Shipping';
 import FbaStep3Labels from './FbaStep3Labels';
 import FbaStep4Tracking from './FbaStep4Tracking';
 
+const getSafeNumber = (val) => {
+  if (val === null || val === undefined) return null;
+  const num = Number(String(val).replace(',', '.'));
+  return Number.isFinite(num) ? num : null;
+};
+
+const getSafeDims = (dims = {}) => {
+  const length = getSafeNumber(dims.length);
+  const width = getSafeNumber(dims.width);
+  const height = getSafeNumber(dims.height);
+  if (length === null && width === null && height === null) return null;
+  return { length: length || 0, width: width || 0, height: height || 0 };
+};
+
 const initialData = {
   shipFrom: {
     name: 'Bucur Adrian, 5B Rue des Enclos, Gouseniere, FR',
