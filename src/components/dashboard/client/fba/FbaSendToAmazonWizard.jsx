@@ -271,17 +271,40 @@ export default function FbaSendToAmazonWizard({
     if (typeof window === 'undefined') return; // rulează doar în browser
     const inboundPlanId =
       plan?.inboundPlanId || plan?.inbound_plan_id || plan?.planId || plan?.plan_id || null;
-    const placementOptId =
+    let placementOptId =
       placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
     const requestId = plan?.requestId || plan?.request_id || initialPlan?.requestId || initialPlan?.request_id || null;
     if (!inboundPlanId || !requestId) {
       setShippingError('Lipsește inboundPlanId sau requestId; nu pot cere opțiunile de transport.');
       return;
     }
+
+    // fallback: dacă nu avem placementOptionId, reapelează step1b edge func pentru a-l obține
+    if (!placementOptId) {
+      try {
+        const { data: step1b, error: step1bErr } = await supabase.functions.invoke('fba-plan-step1b', {
+          body: {
+            request_id: requestId,
+            inbound_plan_id: inboundPlanId,
+            amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null
+          }
+        });
+        if (step1bErr) throw step1bErr;
+        placementOptId = step1b?.placementOptionId || step1b?.placement_option_id || null;
+        if (placementOptId) {
+          setPlacementOptionId(placementOptId);
+          if (Array.isArray(step1b?.packingGroups)) setPackGroups(normalizePackGroups(step1b.packingGroups));
+          if (Array.isArray(step1b?.shipments)) setShipments(step1b.shipments);
+        }
+      } catch (e) {
+        console.warn('Step2 fallback placement fetch failed', e);
+      }
+    }
     if (!placementOptId) {
       setShippingError('Lipsește placementOptionId; finalizează Step 1b (placement) înainte de transport.');
       return;
     }
+
     setShippingLoading(true);
     setShippingError('');
     try {
