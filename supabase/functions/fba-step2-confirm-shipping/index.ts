@@ -421,6 +421,8 @@ serve(async (req) => {
     const inboundPlanId = body?.inbound_plan_id as string | undefined;
     const placementOptionId = body?.placement_option_id as string | undefined;
     const amazonIntegrationIdInput = body?.amazon_integration_id as string | undefined;
+    const confirmOptionId = body?.transportation_option_id as string | undefined;
+    const shipmentTransportConfigs = body?.shipment_transportation_configurations || [];
 
     if (!requestId || !inboundPlanId) {
       return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare" }), {
@@ -524,7 +526,7 @@ serve(async (req) => {
     const basePath = "/inbound/fba/2024-03-20";
     const generatePayload = JSON.stringify({
       placementOptionId: placementOptionId || null,
-      shipmentTransportationConfigurations: body?.shipment_transportation_configurations || []
+      shipmentTransportationConfigurations: shipmentTransportConfigs
     });
     const genRes = await signedFetch({
       method: "POST",
@@ -613,16 +615,101 @@ serve(async (req) => {
       listRes?.json?.TransportationOptions ||
       [];
 
+    const extractCharge = (opt: any) => {
+      const fromPath = [
+        opt?.charge?.totalCharge?.amount,
+        opt?.totalCharge?.amount,
+        opt?.chargeAmount?.amount,
+        opt?.estimatedCharge?.amount,
+        opt?.price?.amount
+      ].find((v) => v !== undefined && v !== null);
+      const value = Number(fromPath);
+      return Number.isFinite(value) ? value : null;
+    };
+
+    const normalizedOptions = Array.isArray(options)
+      ? options.map((opt: any) => ({
+          id: opt.transportationOptionId || opt.id || opt.optionId || null,
+          partnered: Boolean(opt.partneredCarrier || opt.isPartnered || opt.partnered),
+          mode: opt.mode || opt.shippingMode || opt.method || null,
+          carrierName: opt.carrierName || opt.carrier || null,
+          charge: extractCharge(opt),
+          raw: opt
+        }))
+      : [];
+
+    // pick a default: partnered if available, otherwise first option
+    const partneredOpt = normalizedOptions.find((o) => o.partnered);
+    const defaultOpt = partneredOpt || normalizedOptions[0] || null;
+
+    const summary = {
+      partneredAllowed: Boolean(partneredOpt),
+      partneredRate: partneredOpt?.charge ?? null,
+      defaultOptionId: defaultOpt?.id || null,
+      defaultCarrier: defaultOpt?.carrierName || null,
+      defaultMode: defaultOpt?.mode || null,
+      defaultCharge: defaultOpt?.charge ?? null
+    };
+
+    // 3) If client asked to confirm an option, call confirmation endpoint
+    let confirmRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+    if (confirmOptionId) {
+      const confirmPayload = JSON.stringify({
+        transportationOptionId: confirmOptionId,
+        shipmentTransportationConfigurations: shipmentTransportConfigs
+      });
+      confirmRes = await signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptionsConfirmation`,
+        query: "",
+        payload: confirmPayload,
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.confirmTransportationOptions",
+        marketplaceId,
+        sellerId
+      });
+    }
+
+    const normalizeShipmentsFromOptions = () => {
+      const opt = options[0] || {};
+      const shipments = opt.shipments || opt.Shipments || [];
+      if (!Array.isArray(shipments)) return [];
+      return shipments.map((sh: any, idx: number) => {
+        const contents = sh.contents || sh.Contents || {};
+        return {
+          id: sh.id || sh.shipmentId || `s-${idx + 1}`,
+          from: sh.shipFromAddress || sh.from || sh.shipFrom || null,
+          to: sh.destinationAddress || sh.to || sh.shipTo || null,
+          boxes: sh.boxes || contents.boxes || contents.cartons || null,
+          skuCount: sh.skuCount || contents.skuCount || null,
+          units: sh.units || contents.units || null,
+          weight: sh.weight || contents.weight || null
+        };
+      });
+    };
+
+    const shipments = normalizeShipmentsFromOptions();
+
     return new Response(
       JSON.stringify({
         inboundPlanId,
         placementOptionId: placementOptionId || null,
         options,
+        shipments,
+        summary,
         status: {
           generate: genRes?.res.status ?? null,
-          list: listRes?.res.status ?? null
+          list: listRes?.res.status ?? null,
+          confirm: confirmRes?.res.status ?? null
         },
-        requestId: listRes?.requestId || genRes?.requestId || null,
+        requestId: confirmRes?.requestId || listRes?.requestId || genRes?.requestId || null,
         traceId
       }),
       { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
