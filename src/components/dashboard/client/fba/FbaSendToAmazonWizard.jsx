@@ -84,7 +84,9 @@ export default function FbaSendToAmazonWizard({
     (Array.isArray(groups) ? groups : []).map((g, idx) => {
       const items = (g.items || []).map((it) => ({
         sku: it.sku || it.msku || it.SellerSKU || it.sellerSku || it.asin || '',
-        quantity: Number(it.quantity || it.units || 0) || 0
+        quantity: Number(it.quantity || it.units || 0) || 0,
+        image: it.image || it.thumbnail || it.main_image || it.img || null,
+        title: it.title || it.name || null
       }));
       const units = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
       return {

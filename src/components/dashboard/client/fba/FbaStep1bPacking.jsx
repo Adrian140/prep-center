@@ -17,6 +17,25 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
     );
   }, [packGroups]);
 
+  // Draft state to allow multi-digit input without instant save
+  const [drafts, setDrafts] = React.useState<Record<string, any>>({});
+
+  const getDraft = (group: any) => drafts[group.id] || {};
+  const setDraftValue = (groupId: string, patch: Record<string, any>) => {
+    setDrafts((prev) => ({ ...prev, [groupId]: { ...(prev[groupId] || {}), ...patch } }));
+  };
+
+  const commitDraft = (group: any, fields: Array<keyof any>) => {
+    const draft = drafts[group.id] || {};
+    const payload: Record<string, any> = {};
+    fields.forEach((f) => {
+      if (draft[f] !== undefined) payload[f as string] = draft[f];
+    });
+    if (Object.keys(payload).length) {
+      onUpdateGroup(group.id, payload);
+    }
+  };
+
   const renderItemAvatar = (item) => {
     if (item?.image) {
       return (
@@ -158,67 +177,77 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
                             type="number"
                             min={0}
                             step="0.1"
-                            value={group.boxDimensions?.length ?? ''}
-                            onChange={(e) =>
-                              onUpdateGroup(group.id, {
-                                boxDimensions: {
-                                  ...(group.boxDimensions || {}),
-                                  length: Number(e.target.value)
-                                }
-                              })
-                            }
-                            className="border rounded-md px-3 py-2 w-20"
-                            placeholder="L"
-                          />
-                          <span className="text-slate-500 text-sm">×</span>
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.1"
-                            value={group.boxDimensions?.width ?? ''}
-                            onChange={(e) =>
-                              onUpdateGroup(group.id, {
-                                boxDimensions: {
-                                  ...(group.boxDimensions || {}),
-                                  width: Number(e.target.value)
-                                }
-                              })
-                            }
-                            className="border rounded-md px-3 py-2 w-20"
-                            placeholder="W"
-                          />
-                          <span className="text-slate-500 text-sm">×</span>
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.1"
-                            value={group.boxDimensions?.height ?? ''}
-                            onChange={(e) =>
-                              onUpdateGroup(group.id, {
-                                boxDimensions: {
-                                  ...(group.boxDimensions || {}),
-                                  height: Number(e.target.value)
-                                }
-                              })
-                            }
-                            className="border rounded-md px-3 py-2 w-20"
-                            placeholder="H"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-600 block mb-1">Box weight (kg)</label>
+                          value={group.boxDimensions?.length ?? ''}
+                          onChange={(e) =>
+                            setDraftValue(group.id, {
+                              boxDimensions: {
+                                ...(getDraft(group).boxDimensions || group.boxDimensions || {}),
+                                length: e.target.value
+                              }
+                            })
+                          }
+                          onBlur={() =>
+                            commitDraft(group, ["boxDimensions"])
+                          }
+                          className="border rounded-md px-3 py-2 w-20"
+                          placeholder="L"
+                        />
+                        <span className="text-slate-500 text-sm">×</span>
                         <input
-                          type="number"
-                          min={0}
-                          step="0.1"
-                          value={group.boxWeight ?? ''}
-                          onChange={(e) => onUpdateGroup(group.id, { boxWeight: Number(e.target.value) })}
-                          className="border rounded-md px-3 py-2 w-24"
-                          placeholder="kg"
+                            type="number"
+                            min={0}
+                            step="0.1"
+                          value={group.boxDimensions?.width ?? ''}
+                          onChange={(e) =>
+                            setDraftValue(group.id, {
+                              boxDimensions: {
+                                ...(getDraft(group).boxDimensions || group.boxDimensions || {}),
+                                width: e.target.value
+                              }
+                            })
+                          }
+                          onBlur={() =>
+                            commitDraft(group, ["boxDimensions"])
+                          }
+                          className="border rounded-md px-3 py-2 w-20"
+                          placeholder="W"
+                        />
+                        <span className="text-slate-500 text-sm">×</span>
+                        <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                          value={group.boxDimensions?.height ?? ''}
+                          onChange={(e) =>
+                            setDraftValue(group.id, {
+                              boxDimensions: {
+                                ...(getDraft(group).boxDimensions || group.boxDimensions || {}),
+                                height: e.target.value
+                              }
+                            })
+                          }
+                          onBlur={() =>
+                            commitDraft(group, ["boxDimensions"])
+                          }
+                          className="border rounded-md px-3 py-2 w-20"
+                          placeholder="H"
                         />
                       </div>
                     </div>
+                    <div>
+                      <label className="text-xs text-slate-600 block mb-1">Box weight (kg)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.1"
+                        value={getDraft(group).boxWeight ?? group.boxWeight ?? ''}
+                        onChange={(e) => setDraftValue(group.id, { boxWeight: e.target.value })}
+                        onBlur={() => commitDraft(group, ["boxWeight"])}
+                        className="border rounded-md px-3 py-2 w-24"
+                        placeholder="kg"
+                      />
+                    </div>
+                  </div>
                     <button
                       type="button"
                       onClick={() => onUpdateGroup(group.id, { packingConfirmed: true })}
@@ -237,17 +266,18 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
 
                 {group.packMode === 'multiple' && (
                   <div className="flex flex-col gap-2 text-sm text-slate-700">
-                    <label className="font-semibold">How many boxes?</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={group.boxes}
-                      onChange={(e) => onUpdateGroup(group.id, { boxes: Number(e.target.value) })}
-                      className="border rounded-md px-3 py-2 w-28"
-                    />
-                    <div className="text-xs text-slate-500">Exact number not needed</div>
-                  </div>
-                )}
+                  <label className="font-semibold">How many boxes?</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={getDraft(group).boxes ?? group.boxes}
+                    onChange={(e) => setDraftValue(group.id, { boxes: e.target.value })}
+                    onBlur={() => commitDraft(group, ["boxes"])}
+                    className="border rounded-md px-3 py-2 w-28"
+                  />
+                  <div className="text-xs text-slate-500">Exact number not needed</div>
+                </div>
+              )}
               </div>
             </div>
           ))}
