@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { supabase } from '../../../config/supabase';
 import { CheckCircle2, Circle, Eye } from 'lucide-react';
 import FbaStep1Inventory from './FbaStep1Inventory';
 import FbaStep1bPacking from './FbaStep1bPacking';
@@ -274,25 +275,19 @@ export default function FbaSendToAmazonWizard({
     setShippingError('');
     try {
       const configs = buildShipmentConfigs();
-      const res = await fetch("/functions/v1/fba-step2-confirm-shipping", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${window?.localStorage?.getItem("supabase.auth.token") || ""}`
-        },
-        body: JSON.stringify({
+      const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
+        body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
           placement_option_id: placementOptionId,
           shipment_transportation_configurations: configs
-        })
+        }
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || json?.detail || `HTTP ${res.status}`);
+      if (error) throw error;
       setShippingOptions(json.options || []);
       setShippingSummary(json.summary || null);
       if (Array.isArray(json.shipments) && json.shipments.length) {
-        setShipments(json.shipments.map((s: any) => ({ ...s, source: "api" })));
+        setShipments(json.shipments.map((s) => ({ ...s, source: "api" })));
       }
       // auto-select carrier from summary
       if (json.summary) {
