@@ -263,11 +263,20 @@ export default function FbaSendToAmazonWizard({
 
   const buildShipmentConfigs = () => {
     if (!Array.isArray(packGroups)) return [];
+
+    const shipmentIdForGroup = (g, idx) => {
+      if (Array.isArray(shipments) && shipments.length === 1) {
+        const sh = shipments[0];
+        return sh?.shipmentId || sh?.id || `s-1`;
+      }
+      return g.shipmentId || g.shipment_id || shipments?.[idx]?.shipmentId || shipments?.[idx]?.id || `s-${idx + 1}`;
+    };
+
     return packGroups.map((g, idx) => {
       const dims = getSafeDims(g.boxDimensions);
       const weight = getSafeNumber(g.boxWeight);
       return {
-        shipmentId: `s-${idx + 1}`,
+        shipmentId: shipmentIdForGroup(g, idx),
         packingGroupId: g.packingGroupId || g.id,
         packages: [
           {
@@ -325,6 +334,20 @@ export default function FbaSendToAmazonWizard({
     }
     if (!placementOptId) {
       setShippingError('Lipsește placementOptionId; finalizează Step 1b (placement) înainte de transport.');
+      return;
+    }
+
+    // guard: avem nevoie de greutate + dimensiuni pentru toate grupurile
+    const missingPack = (packGroups || []).find((g) => {
+      const w = Number(g.boxWeight || 0);
+      const d = g.boxDimensions || {};
+      const L = Number(d.length || 0);
+      const W = Number(d.width || 0);
+      const H = Number(d.height || 0);
+      return !(w > 0 && L > 0 && W > 0 && H > 0);
+    });
+    if (missingPack) {
+      setShippingError('Completează greutatea și dimensiunile (L/W/H) pentru toate cutiile înainte de a cere tariful.');
       return;
     }
 

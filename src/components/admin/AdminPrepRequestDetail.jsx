@@ -159,7 +159,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
   const wizardShipmentMode = useMemo(
     () => ({
       method: 'SPD',
-      deliveryDate: row?.created_at ? new Date(row.created_at).toLocaleDateString() : '—',
+      deliveryDate: row?.created_at ? new Date(row.created_at).toISOString().slice(0, 10) : '',
       carrier: { partnered: false, name: 'UPS (non-partnered)' }
     }),
     [row]
