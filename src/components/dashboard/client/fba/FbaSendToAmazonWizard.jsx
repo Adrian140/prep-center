@@ -458,20 +458,22 @@ export default function FbaSendToAmazonWizard({
     const units = packGroups.reduce((s, g) => s + (Number(g.units) || 0), 0);
     const weight = boxesDetail.reduce((s, b) => s + (Number(b.weight) || 0), 0);
 
-    const from = formatAddress(plan?.shipFrom || {});
-    const to = plan?.marketplace || plan?.destination || '—';
+    const baseShipment = Array.isArray(shipments) && shipments.length ? shipments[0] : null;
+    const id = baseShipment?.id || baseShipment?.shipmentId || '1';
+    const from = baseShipment?.from || formatAddress(plan?.shipFrom || {});
+    const to = baseShipment?.to || plan?.marketplace || plan?.destination || '—';
 
     return [
       {
-        id: '1',
-        name: 'Shipment #1',
+        id,
+        name: baseShipment?.name || 'Shipment #1',
         from,
         to,
         boxes,
         skuCount,
         units,
         weight,
-        capability: 'Standard',
+        capability: baseShipment?.capability || 'Standard',
         boxesDetail,
         source: 'local'
       }
