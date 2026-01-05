@@ -940,10 +940,24 @@ serve(async (req) => {
       return Number.isFinite(value) ? value : null;
     };
 
+    const detectPartnered = (opt: any) => {
+      const carrierName = (opt?.carrierName || opt?.carrier || "").toString();
+      const flags = [
+        opt?.partneredCarrier,
+        opt?.isPartnered,
+        opt?.partnered,
+        opt?.carrierType === "AMAZON_PARTNERED",
+        opt?.type === "PARTNERED",
+        opt?.program === "AMAZON_PARTNERED"
+      ];
+      const nameHints = /partner/i.test(carrierName);
+      return Boolean(flags.find(Boolean) || nameHints);
+    };
+
     const normalizedOptions = Array.isArray(options)
       ? options.map((opt: any) => ({
           id: opt.transportationOptionId || opt.id || opt.optionId || null,
-          partnered: Boolean(opt.partneredCarrier || opt.isPartnered || opt.partnered),
+          partnered: detectPartnered(opt),
           mode: opt.mode || opt.shippingMode || opt.method || null,
           carrierName: opt.carrierName || opt.carrier || null,
           charge: extractCharge(opt),
