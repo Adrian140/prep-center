@@ -215,11 +215,11 @@ export default function FbaSendToAmazonWizard({
   }, [autoLoadPlan, fetchPlan]);
 
   const warning = useMemo(() => {
-    if (!shipmentMode?.carrier) return null;
-    return shipmentMode.carrier.partnered
-      ? null
-      : 'UPS (Amazon-partnered carrier) is unavailable because one or more shipments contain dangerous goods';
-  }, [shipmentMode?.carrier?.partnered]);
+    if (shippingSummary && shippingSummary.partneredAllowed === false) {
+      return 'Amazon a indicat că transportul partenereat nu este disponibil pentru aceste expedieri.';
+    }
+    return null;
+  }, [shippingSummary]);
 
   const handlePackingChange = (skuId, patch) => {
     // patch poate fi string (packing) sau obiect cu packing + template info
@@ -356,17 +356,19 @@ export default function FbaSendToAmazonWizard({
       }
       // auto-select carrier from summary
       if (json.summary) {
+        const preferredMode = json.summary.defaultMode || shipmentMode.method;
+        const preferredRate = json.summary.defaultCharge ?? json.summary.partneredRate ?? shipmentMode.carrier?.rate ?? null;
         if (json.summary.partneredAllowed) {
           setShipmentMode((prev) => ({
             ...prev,
-            carrier: { partnered: true, name: json.summary.defaultCarrier || "Amazon partnered", rate: json.summary.partneredRate },
-            method: json.summary.defaultMode || prev.method
+            carrier: { partnered: true, name: json.summary.defaultCarrier || "Amazon partnered", rate: preferredRate },
+            method: preferredMode
           }));
         } else {
           setShipmentMode((prev) => ({
             ...prev,
-            carrier: { partnered: false, name: json.summary.defaultCarrier || "Non Amazon partnered" },
-            method: json.summary.defaultMode || prev.method
+            carrier: { partnered: false, name: json.summary.defaultCarrier || "Non Amazon partnered", rate: preferredRate },
+            method: preferredMode
           }));
         }
       }

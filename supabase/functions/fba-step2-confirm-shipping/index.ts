@@ -378,6 +378,23 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function formatAddress(addr: any) {
+  if (!addr) return null;
+  const parts = [
+    addr.name,
+    addr.addressLine1 || addr.address_line1 || addr.line1,
+    addr.addressLine2 || addr.address_line2 || addr.line2,
+    addr.addressLine3 || addr.address_line3 || addr.line3,
+    addr.city || addr.locality,
+    addr.stateOrProvinceCode || addr.state || addr.region || addr.county,
+    addr.postalCode || addr.zip || addr.postcode,
+    addr.countryCode || addr.country
+  ]
+    .map((p) => (p || "").toString().trim())
+    .filter(Boolean);
+  return parts.join(", ") || null;
+}
+
 function logStep(tag: string, payload: Record<string, unknown>) {
   try {
     console.log(JSON.stringify({ tag, ...payload, ts: new Date().toISOString() }));
@@ -992,8 +1009,8 @@ serve(async (req) => {
         const contents = payload?.contents || payload?.Contents || {};
         list.push({
           id: shId,
-          from: payload?.shipFromAddress || payload?.from || null,
-          to: payload?.destinationAddress || payload?.to || null,
+          from: formatAddress(payload?.shipFromAddress || payload?.from) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
+          to: formatAddress(payload?.destinationAddress || payload?.to) || formatAddress(sh?.destinationAddress || sh?.to) || null,
           boxes: contents?.boxes || contents?.cartons || null,
           skuCount: contents?.skuCount || null,
           units: contents?.units || null,
