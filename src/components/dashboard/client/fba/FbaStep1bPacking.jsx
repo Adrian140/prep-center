@@ -18,14 +18,14 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
   }, [packGroups]);
 
   // Draft state to allow multi-digit input without instant save
-  const [drafts, setDrafts] = React.useState<Record<string, any>>({});
+  const [drafts, setDrafts] = React.useState({});
 
-  const getDraft = (group: any) => drafts[group.id] || {};
-  const setDraftValue = (groupId: string, patch: Record<string, any>) => {
+  const getDraft = (group) => drafts[group.id] || {};
+  const setDraftValue = (groupId, patch) => {
     setDrafts((prev) => ({ ...prev, [groupId]: { ...(prev[groupId] || {}), ...patch } }));
   };
 
-  const commitDraft = (group: any, fields: Array<keyof any>) => {
+  const commitDraft = (group, fields) => {
     const draft = drafts[group.id] || {};
     const payload: Record<string, any> = {};
     fields.forEach((f) => {
