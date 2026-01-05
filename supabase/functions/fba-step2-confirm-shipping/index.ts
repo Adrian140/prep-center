@@ -692,10 +692,18 @@ serve(async (req) => {
       placementConfirm?.json?.operationId ||
       null;
     if (!placementConfirm?.res?.ok && !placementOpId) {
-      return new Response(JSON.stringify({ error: "Placement confirmation failed", traceId, status: placementConfirm?.res?.status }), {
-        status: 502,
-        headers: { ...corsHeaders, "content-type": "application/json" }
-      });
+      // 409 sau 400 pot apărea dacă placement-ul este deja confirmat; le acceptăm ca idempotent
+      if (placementConfirm?.res?.status === 409 || placementConfirm?.res?.status === 400) {
+        console.warn("placement already confirmed or not needed", { traceId, status: placementConfirm.res.status });
+      } else {
+        return new Response(
+          JSON.stringify({ error: "Placement confirmation failed", traceId, status: placementConfirm?.res?.status }),
+          {
+            status: 502,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          }
+        );
+      }
     }
     if (placementOpId) {
       const placementStatus = await pollOperationStatus(placementOpId);
