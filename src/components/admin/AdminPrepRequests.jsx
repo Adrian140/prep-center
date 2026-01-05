@@ -24,7 +24,7 @@ export default function AdminPrepRequests() {
   const initialState = persistedRef.current || {};
   const initialPage = Number(initialState.page) > 0 ? Number(initialState.page) : 1;
 
-  const [status, setStatus] = useState(initialState.status || 'all'); // all | pending | confirmed | cancelled
+  const [status, setStatus] = useState(initialState.status || 'all'); // all | pending | confirmed | cancelled | workflow
   const [q, setQ] = useState(initialState.q || '');             // căutare simplă
   const [rows, setRows] = useState([]);
   const [count, setCount] = useState(0);
@@ -71,7 +71,7 @@ export default function AdminPrepRequests() {
   setFlash('');
   try {
     const { data, error, count: c } = await supabaseHelpers.listPrepRequests({
-      status: status === 'all' ? undefined : status,
+      status: status === 'all' || status === 'workflow' ? undefined : status,
       page: p,
       pageSize,
     });
@@ -113,26 +113,31 @@ export default function AdminPrepRequests() {
     const base = !search
       ? rows.slice()
       : rows.filter((r) => {
-        const items = r.prep_request_items || [];
-        const hitItem = items.some(
-          (it) =>
-            (it.asin || '').toLowerCase().includes(search) ||
-            (it.sku || '').toLowerCase().includes(search)
-        );
-        const email = (r.user_email || '').toLowerCase();
-        const comp = (r.company_name || '').toLowerCase();
-        const cname = (r.client_name || '').toLowerCase();
-        const clientCompany = (r.client_company_name || '').toLowerCase();
-        return (
-          hitItem ||
-          email.includes(search) ||
-          comp.includes(search) ||
-          cname.includes(search) ||
-          clientCompany.includes(search)
-        );
-      });
+          const items = r.prep_request_items || [];
+          const hitItem = items.some(
+            (it) =>
+              (it.asin || '').toLowerCase().includes(search) ||
+              (it.sku || '').toLowerCase().includes(search)
+          );
+          const email = (r.user_email || '').toLowerCase();
+          const comp = (r.company_name || '').toLowerCase();
+          const cname = (r.client_name || '').toLowerCase();
+          const clientCompany = (r.client_company_name || '').toLowerCase();
+          return (
+            hitItem ||
+            email.includes(search) ||
+            comp.includes(search) ||
+            cname.includes(search) ||
+            clientCompany.includes(search)
+          );
+        });
 
-    return base
+    const withWorkflowFilter =
+      status === 'workflow'
+        ? base.filter((r) => r.inbound_plan_id || r.fba_shipment_id || r.placement_option_id)
+        : base;
+
+    return withWorkflowFilter
       .slice()
       .sort((a, b) => {
         const pa = STATUS_PRIORITY[a.status] ?? 99;
@@ -185,6 +190,7 @@ export default function AdminPrepRequests() {
             <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
             <option value="cancelled">Cancelled</option>
+            <option value="workflow">Active workflow</option>
           </select>
         </div>
       </div>
@@ -201,6 +207,7 @@ export default function AdminPrepRequests() {
               <th className="px-4 py-3 text-left">Client</th>
               <th className="px-4 py-3 text-left">Store</th>
               <th className="px-4 py-3 text-left">Țara</th>
+              <th className="px-4 py-3 text-left">Workflow</th>
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-right">Acțiuni</th>
             </tr>
@@ -234,6 +241,15 @@ export default function AdminPrepRequests() {
                   <td className="px-4 py-3">{r.company_name || r.store_name || '—'}</td>
                   <td className="px-4 py-3">
                     <DestinationBadge code={r.destination_country || 'FR'} variant="subtle" />
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.inbound_plan_id || r.fba_shipment_id ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs">
+                        {r.inbound_plan_id ? 'Inbound plan' : 'Shipment'} activ
+                      </span>
+                    ) : (
+                      <span className="text-xs text-text-secondary">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <StatusPill s={r.status} />
