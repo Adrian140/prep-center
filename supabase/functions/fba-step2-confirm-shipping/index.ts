@@ -378,6 +378,14 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function logStep(tag: string, payload: Record<string, unknown>) {
+  try {
+    console.log(JSON.stringify({ tag, ...payload, ts: new Date().toISOString() }));
+  } catch {
+    console.log(tag, payload);
+  }
+}
+
 serve(async (req) => {
   const traceId = crypto.randomUUID();
 
@@ -425,7 +433,7 @@ serve(async (req) => {
     const shipmentTransportConfigs = body?.shipment_transportation_configurations ?? body?.shipmentTransportationConfigurations ?? [];
     const readyToShipStart = body?.ship_date ?? body?.shipDate;
 
-    console.log("fba-step2-confirm-shipping called", {
+    logStep("fba-step2-confirm-shipping called", {
       traceId,
       keys: Object.keys(body || {}),
       hasPlacement: Boolean(placementOptionId),
@@ -686,6 +694,11 @@ serve(async (req) => {
       marketplaceId,
       sellerId
     });
+    logStep("placementConfirm", {
+      traceId,
+      status: placementConfirm?.res?.status,
+      requestId: placementConfirm?.requestId || null
+    });
 
     const placementOpId =
       placementConfirm?.json?.payload?.operationId ||
@@ -734,6 +747,11 @@ serve(async (req) => {
       operationName: "inbound.v20240320.getInboundPlan",
       marketplaceId,
       sellerId
+    });
+    logStep("getInboundPlan after placement", {
+      traceId,
+      status: planRes?.res?.status,
+      requestId: planRes?.requestId || null
     });
 
     if (!planRes?.res?.ok) {
@@ -788,6 +806,11 @@ serve(async (req) => {
       marketplaceId,
       sellerId
     });
+    logStep("generateTransportationOptions", {
+      traceId,
+      status: genRes?.res?.status,
+      requestId: genRes?.requestId || null
+    });
 
     const opId =
       genRes?.json?.payload?.operationId ||
@@ -823,6 +846,16 @@ serve(async (req) => {
       operationName: "inbound.v20240320.listTransportationOptions",
       marketplaceId,
       sellerId
+    });
+    logStep("listTransportationOptions", {
+      traceId,
+      status: listRes?.res?.status,
+      requestId: listRes?.requestId || null,
+      count:
+        listRes?.json?.payload?.transportationOptions?.length ||
+        listRes?.json?.transportationOptions?.length ||
+        listRes?.json?.TransportationOptions?.length ||
+        0
     });
 
     const options =
@@ -900,6 +933,11 @@ serve(async (req) => {
         operationName: "inbound.v20240320.confirmTransportationOptions",
         marketplaceId,
         sellerId
+      });
+      logStep("confirmTransportationOptions", {
+        traceId,
+        status: confirmRes?.res?.status,
+        requestId: confirmRes?.requestId || null
       });
 
       const confirmOpId =
