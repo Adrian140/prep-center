@@ -812,9 +812,13 @@ serve(async (req) => {
     }
 
     const readyStartIso = (() => {
-      if (readyToShipStart) return new Date(readyToShipStart).toISOString();
+      // Amazon dă 400 dacă start e în trecut; clamp to now + small buffer
       const now = new Date();
-      return now.toISOString();
+      const parsed = readyToShipStart ? new Date(readyToShipStart) : null;
+      const base = parsed && !isNaN(parsed.getTime()) ? parsed : now;
+      // dacă e în trecut, mută la azi + 1h
+      const start = base.getTime() < now.getTime() ? new Date(now.getTime() + 60 * 60 * 1000) : base;
+      return start.toISOString();
     })();
 
     const mapMode = (val: any) => {
