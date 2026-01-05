@@ -423,9 +423,16 @@ serve(async (req) => {
     const amazonIntegrationIdInput = body?.amazon_integration_id as string | undefined;
     const confirmOptionId = body?.transportation_option_id as string | undefined;
     const shipmentTransportConfigs = body?.shipment_transportation_configurations || [];
+    const readyToShipStart = body?.ship_date as string | undefined;
 
     if (!requestId || !inboundPlanId) {
-      return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare" }), {
+      return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare", traceId }), {
+        status: 400,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+    if (!placementOptionId) {
+      return new Response(JSON.stringify({ error: "placement_option_id este necesar pentru Step 2", traceId }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
@@ -656,26 +663,132 @@ serve(async (req) => {
       return { placementId, placementShipments };
     };
 
-    const { placementId: ensuredPlacementId, placementShipments } = await ensurePlacement();
-    const effectivePlacementId = placementOptionId || ensuredPlacementId;
+    // Confirmăm placement-ul (cerință SP-API) înainte de transport
+    const placementConfirm = await signedFetch({
+      method: "POST",
+      service: "execute-api",
+      region: awsRegion,
+      host,
+      path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(placementOptionId)}/confirmation`,
+      query: "",
+      payload: "{}",
+      accessKey: tempCreds.accessKeyId,
+      secretKey: tempCreds.secretAccessKey,
+      sessionToken: tempCreds.sessionToken,
+      lwaToken: lwaAccessToken,
+      traceId,
+      operationName: "inbound.v20240320.confirmPlacementOption",
+      marketplaceId,
+      sellerId
+    });
 
-    // dacă configs nu au shipmentId, aplicăm primul shipmentId disponibil
-    let normalizedConfigs = shipmentTransportConfigs;
-    if (Array.isArray(placementShipments) && placementShipments.length) {
-      const firstShipmentId =
-        placementShipments[0]?.shipmentId ||
-        placementShipments[0]?.id ||
-        null;
-      normalizedConfigs = (shipmentTransportConfigs || []).map((cfg: any, idx: number) => ({
-        ...cfg,
-        shipmentId: cfg.shipmentId || cfg.shipment_id || firstShipmentId || `s-${idx + 1}`
-      }));
+    const pollOperationStatus = async (operationId: string) => {
+      const maxAttempts = 24; // ~60-90s cu backoff
+      let attempt = 0;
+      while (attempt < maxAttempts) {
+        attempt += 1;
+        const opRes = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/operations/${encodeURIComponent(operationId)}`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.getOperationStatus",
+          marketplaceId,
+          sellerId
+        });
+        const state = opRes.json?.payload?.state || opRes.json?.state || null;
+        const stateUp = String(state || "").toUpperCase();
+        if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp) || opRes.res.status >= 400) {
+          return opRes;
+        }
+        await delay(500 * attempt);
+      }
+      return null;
+    };
+
+    const placementOpId =
+      placementConfirm?.json?.payload?.operationId ||
+      placementConfirm?.json?.operationId ||
+      null;
+    if (!placementConfirm?.res?.ok && !placementOpId) {
+      return new Response(JSON.stringify({ error: "Placement confirmation failed", traceId, status: placementConfirm?.res?.status }), {
+        status: 502,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
     }
+    if (placementOpId) {
+      const placementStatus = await pollOperationStatus(placementOpId);
+      const st = placementStatus?.json?.payload?.state || placementStatus?.json?.state || placementStatus?.res?.status;
+      const stateUp = String(st || "").toUpperCase();
+      if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
+        return new Response(JSON.stringify({ error: "Placement confirmation failed", traceId, state: stateUp }), {
+          status: 502,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+      }
+    }
+
+    // După confirm placement, citim planul pentru a obține shipments + IDs
+    const planRes = await signedFetch({
+      method: "GET",
+      service: "execute-api",
+      region: awsRegion,
+      host,
+      path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}`,
+      query: "",
+      payload: "",
+      accessKey: tempCreds.accessKeyId,
+      secretKey: tempCreds.secretAccessKey,
+      sessionToken: tempCreds.sessionToken,
+      lwaToken: lwaAccessToken,
+      traceId,
+      operationName: "inbound.v20240320.getInboundPlan",
+      marketplaceId,
+      sellerId
+    });
+
+    if (!planRes?.res?.ok) {
+      return new Response(JSON.stringify({ error: "Nu pot citi inbound plan după confirmarea placementului", traceId, status: planRes?.res?.status }), {
+        status: 502,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+
+    const placementShipments =
+      planRes?.json?.shipments ||
+      planRes?.json?.payload?.shipments ||
+      [];
+
+    if (!Array.isArray(placementShipments) || !placementShipments.length) {
+      return new Response(JSON.stringify({ error: "Nu există shipments după confirmarea placementului", traceId }), {
+        status: 502,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+
+    const readyStartIso = (() => {
+      if (readyToShipStart) return new Date(readyToShipStart).toISOString();
+      const now = new Date();
+      return now.toISOString();
+    })();
+
+    const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => ({
+      shipmentId: sh.shipmentId || sh.id || `s-${idx + 1}`,
+      readyToShipWindow: { start: readyStartIso }
+    }));
 
     // 1) Generate transportation options (idempotent)
     const generatePayload = JSON.stringify({
-      placementOptionId: effectivePlacementId || null,
-      shipmentTransportationConfigurations: normalizedConfigs
+      placementOptionId,
+      shipmentTransportationConfigurations
     });
     const genRes = await signedFetch({
       method: "POST",
@@ -700,43 +813,16 @@ serve(async (req) => {
       genRes?.json?.operationId ||
       null;
 
-    const pollOperationStatus = async (operationId: string) => {
-      const maxAttempts = 8;
-      let attempt = 0;
-      while (attempt < maxAttempts) {
-        attempt += 1;
-        const opRes = await signedFetch({
-          method: "GET",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/operations/${encodeURIComponent(operationId)}`,
-          query: "",
-          payload: "",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.getOperationStatus",
-          marketplaceId,
-          sellerId
-        });
-        const state =
-          opRes.json?.payload?.state ||
-          opRes.json?.state ||
-          null;
-        const stateUp = String(state || "").toUpperCase();
-        if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp) || opRes.res.status >= 400) {
-          return opRes;
-        }
-        await delay(250 * attempt);
-      }
-      return null;
-    };
-
     if (opId) {
-      await pollOperationStatus(opId);
+      const genStatus = await pollOperationStatus(opId);
+      const st = genStatus?.json?.payload?.state || genStatus?.json?.state || genStatus?.res?.status;
+      const stateUp = String(st || "").toUpperCase();
+      if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
+        return new Response(JSON.stringify({ error: "Generate transportation options failed", traceId, state: stateUp }), {
+          status: 502,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+      }
     }
 
     // 2) List transportation options
@@ -746,7 +832,7 @@ serve(async (req) => {
       region: awsRegion,
       host,
       path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
-      query: "",
+      query: `placementOptionId=${encodeURIComponent(placementOptionId)}`,
       payload: "",
       accessKey: tempCreds.accessKeyId,
       secretKey: tempCreds.secretAccessKey,
@@ -803,16 +889,26 @@ serve(async (req) => {
     // 3) If client asked to confirm an option, call confirmation endpoint
     let confirmRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
     if (confirmOptionId) {
+      const selectedOption = normalizedOptions.find((o) => o.id === confirmOptionId) || normalizedOptions[0] || null;
+      const selections = Array.isArray(selectedOption?.raw?.shipments)
+        ? selectedOption.raw.shipments.map((sh: any) => ({
+            shipmentId: sh.shipmentId || sh.id,
+            transportationOptionId: selectedOption?.id
+          }))
+        : placementShipments.map((sh: any, idx: number) => ({
+            shipmentId: sh.shipmentId || sh.id || `s-${idx + 1}`,
+            transportationOptionId: selectedOption?.id
+          }));
+
       const confirmPayload = JSON.stringify({
-        transportationOptionId: confirmOptionId,
-        shipmentTransportationConfigurations: shipmentTransportConfigs
+        transportationSelections: selections
       });
       confirmRes = await signedFetch({
         method: "POST",
         service: "execute-api",
         region: awsRegion,
         host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptionsConfirmation`,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions/confirmation`,
         query: "",
         payload: confirmPayload,
         accessKey: tempCreds.accessKeyId,
@@ -824,27 +920,63 @@ serve(async (req) => {
         marketplaceId,
         sellerId
       });
+
+      const confirmOpId =
+        confirmRes?.json?.payload?.operationId ||
+        confirmRes?.json?.operationId ||
+        null;
+      if (confirmOpId) {
+        const confirmStatus = await pollOperationStatus(confirmOpId);
+        const st = confirmStatus?.json?.payload?.state || confirmStatus?.json?.state || confirmStatus?.res?.status;
+        const stateUp = String(st || "").toUpperCase();
+        if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
+          return new Response(JSON.stringify({ error: "Transportation confirmation failed", traceId, state: stateUp }), {
+            status: 502,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+      }
     }
 
-    const normalizeShipmentsFromOptions = () => {
-      const opt = options[0] || {};
-      const shipments = opt.shipments || opt.Shipments || [];
-      if (!Array.isArray(shipments)) return [];
-      return shipments.map((sh: any, idx: number) => {
-        const contents = sh.contents || sh.Contents || {};
-        return {
-          id: sh.id || sh.shipmentId || `s-${idx + 1}`,
-          from: sh.shipFromAddress || sh.from || sh.shipFrom || null,
-          to: sh.destinationAddress || sh.to || sh.shipTo || null,
-          boxes: sh.boxes || contents.boxes || contents.cartons || null,
-          skuCount: sh.skuCount || contents.skuCount || null,
-          units: sh.units || contents.units || null,
-          weight: sh.weight || contents.weight || null
-        };
-      });
+    const normalizeShipmentsFromPlan = async () => {
+      const list: any[] = [];
+      for (const sh of placementShipments) {
+        const shId = sh.shipmentId || sh.id;
+        if (!shId) continue;
+        const shDetail = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shId)}`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.getShipment",
+          marketplaceId,
+          sellerId
+        });
+        const shJson = shDetail?.json || {};
+        const payload = shJson?.payload || shJson;
+        const contents = payload?.contents || payload?.Contents || {};
+        list.push({
+          id: shId,
+          from: payload?.shipFromAddress || payload?.from || null,
+          to: payload?.destinationAddress || payload?.to || null,
+          boxes: contents?.boxes || contents?.cartons || null,
+          skuCount: contents?.skuCount || null,
+          units: contents?.units || null,
+          weight: contents?.weight || null
+        });
+      }
+      return list;
     };
 
-    const shipments = normalizeShipmentsFromOptions();
+    const shipments = await normalizeShipmentsFromPlan();
 
     return new Response(
       JSON.stringify({
@@ -854,6 +986,7 @@ serve(async (req) => {
         shipments,
         summary,
         status: {
+          placementConfirm: placementConfirm?.res?.status ?? null,
           generate: genRes?.res.status ?? null,
           list: listRes?.res.status ?? null,
           confirm: confirmRes?.res.status ?? null

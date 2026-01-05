@@ -119,6 +119,8 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
         if (!packingErr && packingData) {
           packingGroups = Array.isArray(packingData.packingGroups) ? packingData.packingGroups : [];
           packingOptionId = packingData.packingOptionId || null;
+          if (packingData.placementOptionId) plan.placementOptionId = packingData.placementOptionId;
+          if (Array.isArray(packingData.shipments)) plan.shipments = packingData.shipments;
         }
       } catch (e) {
         console.warn('Unable to fetch packing groups', e);

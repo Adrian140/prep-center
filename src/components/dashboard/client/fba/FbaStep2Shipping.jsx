@@ -9,7 +9,8 @@ export default function FbaStep2Shipping({
   onModeChange,
   onShipDateChange,
   onNext,
-  onBack
+  onBack,
+  error = ''
 }) {
   const { deliveryDate, method, carrier, shipments, warning } = shipment;
   const [shipDate, setShipDate] = useState(deliveryDate || '');
@@ -88,6 +89,11 @@ export default function FbaStep2Shipping({
       </div>
 
       <div className="px-6 py-4 space-y-4">
+        {error && (
+          <div className="flex items-start gap-2 bg-red-50 text-red-800 border border-red-200 px-3 py-2 rounded-md text-sm">
+            {error}
+          </div>
+        )}
         {warning && (
           <div className="flex items-start gap-2 bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2 rounded-md text-sm">
             <AlertTriangle className="w-4 h-4 mt-0.5" /> {warning}

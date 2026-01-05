@@ -106,6 +106,7 @@ export default function FbaSendToAmazonWizard({
     });
   const [packGroups, setPackGroups] = useState(normalizePackGroups(initialPacking));
   const [packingOptionId, setPackingOptionId] = useState(initialPlan?.packingOptionId || null);
+  const [placementOptionId, setPlacementOptionId] = useState(initialPlan?.placementOptionId || null);
   const [shipmentMode, setShipmentMode] = useState(initialShipmentMode);
   const [shipments, setShipments] = useState(initialShipmentList);
   const [labelFormat, setLabelFormat] = useState('thermal');
@@ -173,6 +174,7 @@ export default function FbaSendToAmazonWizard({
           setPlan((prev) => ({ ...prev, ...response }));
         }
         if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
+        if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
         if (Array.isArray(pGroups)) setPackGroups(normalizePackGroups(pGroups));
         if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
         if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
@@ -269,10 +271,15 @@ export default function FbaSendToAmazonWizard({
     if (typeof window === 'undefined') return; // rulează doar în browser
     const inboundPlanId =
       plan?.inboundPlanId || plan?.inbound_plan_id || plan?.planId || plan?.plan_id || null;
-    const placementOptionId = packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null;
+    const placementOptId =
+      placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
     const requestId = plan?.requestId || plan?.request_id || initialPlan?.requestId || initialPlan?.request_id || null;
     if (!inboundPlanId || !requestId) {
       setShippingError('Lipsește inboundPlanId sau requestId; nu pot cere opțiunile de transport.');
+      return;
+    }
+    if (!placementOptId) {
+      setShippingError('Lipsește placementOptionId; finalizează Step 1b (placement) înainte de transport.');
       return;
     }
     setShippingLoading(true);
@@ -283,15 +290,16 @@ export default function FbaSendToAmazonWizard({
       console.log('Step2 invoke fba-step2-confirm-shipping', {
         requestId,
         inboundPlanId,
-        placementOptionId,
+        placementOptionId: placementOptId,
         configsCount: configs.length
       });
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
-          placement_option_id: placementOptionId,
-          shipment_transportation_configurations: configs
+          placement_option_id: placementOptId,
+          shipment_transportation_configurations: configs,
+          ship_date: shipmentMode?.deliveryDate || null
         }
       });
       if (error) throw error;
@@ -327,7 +335,7 @@ export default function FbaSendToAmazonWizard({
     if (currentStep !== '2') return;
     fetchShippingOptions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, packGroups, packingOptionId, plan?.inboundPlanId, plan?.requestId]);
+  }, [currentStep, packGroups, packingOptionId, placementOptionId, plan?.inboundPlanId, plan?.requestId]);
 
   const formatAddress = (addr = {}) => {
     const parts = [
@@ -424,9 +432,11 @@ export default function FbaSendToAmazonWizard({
       setShipments([]);
       setTracking([]);
       setPackingOptionId(null);
+      setPlacementOptionId(null);
     } else if (stepKey === '1b') {
       setShipments([]);
       setTracking([]);
+      setPlacementOptionId(null);
     } else if (stepKey === '2') {
       setTracking([]);
     }
@@ -485,6 +495,7 @@ export default function FbaSendToAmazonWizard({
           onCarrierChange={handleCarrierChange}
           onModeChange={handleModeChange}
           onShipDateChange={(date) => setShipmentMode((prev) => ({ ...prev, deliveryDate: date }))}
+          error={shippingError}
           onNext={() => completeAndNext('2')}
           onBack={() => goToStep('1b')}
         />
