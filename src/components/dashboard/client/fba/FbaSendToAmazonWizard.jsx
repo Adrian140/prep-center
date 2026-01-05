@@ -119,9 +119,14 @@ export default function FbaSendToAmazonWizard({
       };
     });
   const mergePackGroups = (prev = [], incoming = []) => {
-    const prevById = new Map(prev.map((g) => [g.id, g]));
+    const prevByKey = new Map();
+    prev.forEach((g) => {
+      const key = g.id || g.packingGroupId;
+      if (key) prevByKey.set(key, g);
+    });
     return incoming.map((g) => {
-      const existing = prevById.get(g.id);
+      const key = g.id || g.packingGroupId;
+      const existing = key ? prevByKey.get(key) : null;
       if (!existing) return g;
       return {
         ...g,
@@ -768,7 +773,7 @@ export default function FbaSendToAmazonWizard({
   const shipmentSummary = useMemo(() => {
     const dests = Array.isArray(shipments) ? shipments.length : 0;
     const method = shipmentMode?.method || '—';
-    const carrierName = shipmentMode?.carrier?.name || shipmentMode?.carrier?.code || '—';
+    const carrierName = String(shipmentMode?.carrier?.name || shipmentMode?.carrier?.code || '—');
     return { dests, method, carrierName };
   }, [shipments, shipmentMode]);
 
