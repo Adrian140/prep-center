@@ -252,7 +252,6 @@ export default function FbaStep1bPacking({ packGroups, loading, error, onUpdateG
                         placeholder="kg"
                       />
                     </div>
-                  </div>
                     <button
                       type="button"
                       onClick={() => onUpdateGroup(group.id, { packingConfirmed: true })}
