@@ -16,7 +16,9 @@ export default function FbaStep2Shipping({
   const [shipDate, setShipDate] = useState(deliveryDate || '');
   const [partneredAllowed, setPartneredAllowed] = useState(true);
   const [partneredReason, setPartneredReason] = useState('');
-  const [partneredRate, setPartneredRate] = useState(carrier?.rate ?? 6.15);
+  const [partneredRate, setPartneredRate] = useState(
+    typeof carrier?.rate === 'number' ? carrier.rate : null
+  );
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   useEffect(() => {
@@ -77,7 +79,8 @@ export default function FbaStep2Shipping({
 
   const disablePartnered = !partneredAllowed;
   const partneredLabel = partneredReason || 'Estimated charge';
-  const partneredChargeText = disablePartnered ? 'Not available' : `€${partneredRate.toFixed(2)}`;
+  const partneredChargeText =
+    disablePartnered || partneredRate === null ? 'Not available' : `€${partneredRate.toFixed(2)}`;
   const canContinue = carrier?.partnered ? termsAccepted && partneredAllowed : true;
 
   return (
