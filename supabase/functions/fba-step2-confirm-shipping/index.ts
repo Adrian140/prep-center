@@ -522,11 +522,160 @@ serve(async (req) => {
     const tempCreds = await assumeRole(SPAPI_ROLE_ARN);
     const lwaAccessToken = await getLwaAccessToken(refreshToken);
 
-    // 1) Generate transportation options (idempotent)
     const basePath = "/inbound/fba/2024-03-20";
+
+    const pollOperationStatus = async (operationId: string) => {
+      const maxAttempts = 8;
+      let attempt = 0;
+      while (attempt < maxAttempts) {
+        attempt += 1;
+        const opRes = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/operations/${encodeURIComponent(operationId)}`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.getOperationStatus",
+          marketplaceId,
+          sellerId
+        });
+        const state =
+          opRes.json?.payload?.state ||
+          opRes.json?.state ||
+          null;
+        const stateUp = String(state || "").toUpperCase();
+        if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp) || opRes.res.status >= 400) {
+          return opRes;
+        }
+        await delay(250 * attempt);
+      }
+      return null;
+    };
+
+    const ensurePlacement = async () => {
+      // dacă avem placementOptionId din client, îl folosim; altfel generăm + confirmăm prima opțiune
+      let placementId = placementOptionId || null;
+      let placementShipments: any[] = [];
+      if (!placementId) {
+        const genPlacement = await signedFetch({
+          method: "POST",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
+          query: "",
+          payload: "{}",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.generatePlacementOptions",
+          marketplaceId,
+          sellerId
+        });
+        const opId =
+          genPlacement?.json?.payload?.operationId ||
+          genPlacement?.json?.operationId ||
+          null;
+        if (opId) {
+          await pollOperationStatus(opId);
+        }
+        const listPlacement = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.listPlacementOptions",
+          marketplaceId,
+          sellerId
+        });
+        const placements =
+          listPlacement?.json?.payload?.placementOptions ||
+          listPlacement?.json?.placementOptions ||
+          listPlacement?.json?.PlacementOptions ||
+          [];
+        placementId = placements?.[0]?.placementOptionId || placements?.[0]?.id || placements?.[0]?.PlacementOptionId || null;
+        if (placementId) {
+          await signedFetch({
+            method: "POST",
+            service: "execute-api",
+            region: awsRegion,
+            host,
+            path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(placementId)}:confirm`,
+            query: "",
+            payload: "{}",
+            accessKey: tempCreds.accessKeyId,
+            secretKey: tempCreds.secretAccessKey,
+            sessionToken: tempCreds.sessionToken,
+            lwaToken: lwaAccessToken,
+            traceId,
+            operationName: "inbound.v20240320.confirmPlacementOption",
+            marketplaceId,
+            sellerId
+          });
+        }
+      }
+      // după confirm placement, citim planul pentru a obține shipments populate
+      const planRes = await signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.getInboundPlan",
+        marketplaceId,
+        sellerId
+      });
+      placementShipments =
+        planRes?.json?.shipments ||
+        planRes?.json?.payload?.shipments ||
+        [];
+      return { placementId, placementShipments };
+    };
+
+    const { placementId: ensuredPlacementId, placementShipments } = await ensurePlacement();
+    const effectivePlacementId = placementOptionId || ensuredPlacementId;
+
+    // dacă configs nu au shipmentId, aplicăm primul shipmentId disponibil
+    let normalizedConfigs = shipmentTransportConfigs;
+    if (Array.isArray(placementShipments) && placementShipments.length) {
+      const firstShipmentId =
+        placementShipments[0]?.shipmentId ||
+        placementShipments[0]?.id ||
+        null;
+      normalizedConfigs = (shipmentTransportConfigs || []).map((cfg: any, idx: number) => ({
+        ...cfg,
+        shipmentId: cfg.shipmentId || cfg.shipment_id || firstShipmentId || `s-${idx + 1}`
+      }));
+    }
+
+    // 1) Generate transportation options (idempotent)
     const generatePayload = JSON.stringify({
-      placementOptionId: placementOptionId || null,
-      shipmentTransportationConfigurations: shipmentTransportConfigs
+      placementOptionId: effectivePlacementId || null,
+      shipmentTransportationConfigurations: normalizedConfigs
     });
     const genRes = await signedFetch({
       method: "POST",
