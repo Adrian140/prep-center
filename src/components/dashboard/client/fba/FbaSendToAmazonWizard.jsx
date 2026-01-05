@@ -305,7 +305,7 @@ export default function FbaSendToAmazonWizard({
           }));
         }
       }
-    } catch (e: any) {
+    } catch (e) {
       setShippingError(e?.message || "Failed to load shipping options");
     } finally {
       setShippingLoading(false);
