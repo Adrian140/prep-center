@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../../../config/supabase';
 import { CheckCircle2, Circle, Eye } from 'lucide-react';
 import FbaStep1Inventory from './FbaStep1Inventory';
@@ -163,7 +163,12 @@ export default function FbaSendToAmazonWizard({
   useEffect(() => {
     if (!autoLoadPlan && !fetchPlan) return;
     let cancelled = false;
-    const loadPlan = async () => {
+    loadPlan();
+    return () => {
+      cancelled = true;
+    };
+
+    async function loadPlan() {
       setLoadingPlan(true);
       setPlanError('');
       try {
@@ -181,10 +186,8 @@ export default function FbaSendToAmazonWizard({
           blocking: pBlocking
         } = response;
         if (pFrom && pMarket && Array.isArray(pSkus)) {
-          // păstrează și câmpuri suplimentare (ex. companyId) din response
           setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
         } else {
-          // fallback: măcar atașează restul câmpurilor (companyId etc.)
           setPlan((prev) => ({ ...prev, ...response }));
         }
         if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
@@ -207,12 +210,8 @@ export default function FbaSendToAmazonWizard({
       } finally {
         if (!cancelled) setLoadingPlan(false);
       }
-    };
-    loadPlan();
-    return () => {
-      cancelled = true;
-    };
-  }, [autoLoadPlan, fetchPlan]);
+    }
+  }, [autoLoadPlan, fetchPlan, normalizePackGroups]);
 
   const warning = useMemo(() => {
     if (shippingSummary && shippingSummary.partneredAllowed === false) {
@@ -394,7 +393,7 @@ export default function FbaSendToAmazonWizard({
       }
       // auto-select carrier from summary
       if (json.summary) {
-        const preferredMode = json.summary.defaultMode || shipmentMode.method;
+        const preferredMode = shipmentMode.method || json.summary.defaultMode;
         const preferredRate = json.summary.defaultCharge ?? json.summary.partneredRate ?? shipmentMode.carrier?.rate ?? null;
         if (json.summary.partneredAllowed) {
           setShipmentMode((prev) => ({
@@ -503,6 +502,52 @@ export default function FbaSendToAmazonWizard({
   const handleTrackingChange = (id, value) => {
     setTracking((prev) => prev.map((row) => (row.id === id ? { ...row, trackingId: value } : row)));
   };
+
+  const refreshStep = useCallback(
+    async (stepKey) => {
+      if (stepKey === '2' || stepKey === '3' || stepKey === '4') {
+        await fetchShippingOptions();
+        return;
+      }
+      if (fetchPlan) {
+        await fetchPlan().then((response) => {
+          if (!response) return;
+          const {
+            shipFrom: pFrom,
+            marketplace: pMarket,
+            skus: pSkus,
+            packGroups: pGroups,
+            shipments: pShipments,
+            warning: pWarning,
+            shipmentMode: pShipmentMode,
+            skuStatuses: pSkuStatuses,
+            blocking: pBlocking
+          } = response;
+          if (pFrom && pMarket && Array.isArray(pSkus)) {
+            setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
+          } else {
+            setPlan((prev) => ({ ...prev, ...response }));
+          }
+          if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
+          if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
+          if (Array.isArray(pGroups)) setPackGroups(normalizePackGroups(pGroups));
+          if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
+          if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
+          if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
+          setBlocking(Boolean(pBlocking));
+          if (typeof pWarning === 'string') {
+            const reqId = response.requestId || response.request_id || null;
+            const trId = response.traceId || response.trace_id || null;
+            const extra = [pWarning, reqId ? `RequestId: ${reqId}` : null, trId ? `TraceId: ${trId}` : null]
+              .filter(Boolean)
+              .join(' · ');
+            setPlanError((prevError) => prevError || extra);
+          }
+        });
+      }
+    },
+    [fetchPlan, fetchShippingOptions, normalizePackGroups]
+  );
 
   const invalidateFrom = (stepKey) => {
     const idx = stepsOrder.indexOf(stepKey);
@@ -642,6 +687,7 @@ export default function FbaSendToAmazonWizard({
   const StepRow = ({ stepKey, title, subtitle, summary }) => {
     const active = currentStep === stepKey;
     const done = isCompleted(stepKey);
+    const canRefresh = stepKey === '2' || stepKey === '3' || stepKey === '4' || Boolean(fetchPlan);
     return (
       <div
         className={`px-3 py-2 border border-slate-200 bg-white rounded-lg transition-all ${active ? 'ring-2 ring-blue-500' : ''}`}
@@ -665,6 +711,14 @@ export default function FbaSendToAmazonWizard({
           >
             <Eye className="w-4 h-4" /> View/Edit
           </button>
+          {canRefresh && (
+            <button
+              onClick={() => refreshStep(stepKey)}
+              className="ml-2 text-xs text-slate-600 hover:text-slate-800 border border-slate-200 rounded-md px-2 py-1"
+            >
+              Refresh
+            </button>
+          )}
         </div>
         {active && (
           <div className="mt-3 border-t border-slate-100 pt-3">
