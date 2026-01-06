@@ -684,7 +684,7 @@ serve(async (req) => {
           service: "execute-api",
           region: awsRegion,
           host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions`,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions:generate`,
           query: "",
           payload: "",
           accessKey: tempCreds.accessKeyId,
