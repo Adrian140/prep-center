@@ -142,8 +142,9 @@ function normalizeWeight(input: any) {
   return { value: toPounds(value), unit: "LB" };
 }
 
-function normalizePackage(input: any) {
+function normalizePackage(input: any, fallbackId?: string) {
   return {
+    packageId: input?.packageId || input?.package_id || fallbackId || null,
     packingGroupId: input?.packingGroupId || input?.packing_group_id || input?.groupId || input?.group_id || null,
     dimensions: normalizeDimensions(input?.dimensions),
     weight: normalizeWeight(input?.weight)
@@ -160,6 +161,7 @@ function buildPackagesFromGroups(groups: any[]) {
     if (!packingGroupId || !dims || !weight) return;
     for (let i = 0; i < boxCount; i++) {
       packages.push({
+        packageId: g?.packageId || g?.package_id || `pkg-${packages.length + 1}`,
         packingGroupId,
         dimensions: dims,
         weight
@@ -487,8 +489,18 @@ serve(async (req) => {
       [];
     const packages = rawPackages.length ? rawPackages : buildPackagesFromGroups(packingGroupsInput);
     const normalizedPackages = (packages || [])
-      .map((p: any) => normalizePackage(p))
-      .filter((p) => p.packingGroupId);
+      .map((p: any, idx: number) => normalizePackage(p, `pkg-${idx + 1}`))
+      .filter((p) => p.packingGroupId && p.packageId);
+    const packageGroupings = (() => {
+      const map = new Map<string, string[]>();
+      normalizedPackages.forEach((p) => {
+        const groupId = String(p.packingGroupId);
+        const pkgId = String(p.packageId);
+        if (!map.has(groupId)) map.set(groupId, []);
+        map.get(groupId)!.push(pkgId);
+      });
+      return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({ packingGroupId, packageIds }));
+    })();
     if (!requestId || !inboundPlanId || !packingOptionId) {
       return new Response(JSON.stringify({ error: "request_id, inbound_plan_id și packing_option_id sunt necesare", traceId }), {
         status: 400,
@@ -620,7 +632,8 @@ serve(async (req) => {
     const basePath = "/inbound/fba/2024-03-20";
     const payload = JSON.stringify({
       packingOptionId,
-      packages: normalizedPackages
+      packages: normalizedPackages,
+      packageGroupings
     });
 
     const res = await signedFetch({

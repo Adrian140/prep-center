@@ -879,7 +879,7 @@ serve(async (req) => {
         const packages = cfg?.packages || cfg?.Packages || [];
         const packingGroupId =
           cfg?.packingGroupId || cfg?.packing_group_id || cfg?.packing_groupid || null;
-        (Array.isArray(packages) ? packages : []).forEach((p: any) => {
+        (Array.isArray(packages) ? packages : []).forEach((p: any, idx: number) => {
           const dims = p?.dimensions || p?.Dimensions || null;
           const weight = p?.weight || p?.Weight || null;
           const groupId =
@@ -894,6 +894,7 @@ serve(async (req) => {
           const wOk = weight && Number(weight.value) > 0;
           if (!groupId || !dimOk || !wOk) return;
           pkgs.push({
+            packageId: p?.packageId || p?.package_id || `pkg-${pkgs.length + 1}`,
             packingGroupId: groupId,
             dimensions: {
               length: cmToIn(dims.length),
@@ -930,11 +931,23 @@ serve(async (req) => {
       packagesCount: normalizedPackages.length
     });
 
+    const packageGroupings = (() => {
+      const map = new Map<string, string[]>();
+      normalizedPackages.forEach((p) => {
+        const gid = String(p.packingGroupId);
+        const pid = String(p.packageId);
+        if (!map.has(gid)) map.set(gid, []);
+        map.get(gid)!.push(pid);
+      });
+      return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({ packingGroupId, packageIds }));
+    })();
+
     // 0) Asigură packingInformation înainte de transport (ca fallback)
     if (effectivePackingOptionId && normalizedPackages.length) {
       const setPackPayload = JSON.stringify({
         packingOptionId: effectivePackingOptionId,
-        packages: normalizedPackages
+        packages: normalizedPackages,
+        packageGroupings
       });
       const setRes = await signedFetch({
         method: "POST",
