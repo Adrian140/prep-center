@@ -926,16 +926,26 @@ serve(async (req) => {
       };
     });
 
-    logStep("packingInfoFallback", {
-      traceId,
-      packingOptionId: effectivePackingOptionId || null,
-      packagesCount: normalizedPackages.length
-    });
+  logStep("packingInfoFallback", {
+    traceId,
+    packingOptionId: effectivePackingOptionId || null,
+    packagesCount: normalizedPackages.length
+  });
 
-    const packageGroupings = (() => {
-      const map = new Map<string, string[]>();
-      normalizedPackages.forEach((p) => {
-        const gid = String(p.packingGroupId);
+  if (effectivePackingOptionId && !normalizedPackages.length) {
+    return new Response(
+      JSON.stringify({
+        error: "Nu există packingGroupId valid de la Amazon pentru setPackingInformation. Reia Step1b ca să generezi packingOptions.",
+        traceId
+      }),
+      { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+    );
+  }
+
+  const packageGroupings = (() => {
+    const map = new Map<string, string[]>();
+    normalizedPackages.forEach((p) => {
+      const gid = String(p.packingGroupId);
         const pid = String(p.packageId);
         if (!map.has(gid)) map.set(gid, []);
         map.get(gid)!.push(pid);

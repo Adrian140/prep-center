@@ -155,6 +155,8 @@ function buildPackagesFromGroups(groups: any[]) {
   const packages: any[] = [];
   (groups || []).forEach((g: any) => {
     const packingGroupId = g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
+    const isAmazonGroup = typeof packingGroupId === "string" && packingGroupId.length >= 30;
+    if (!isAmazonGroup) return;
     const dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
     const weight = normalizeWeight(g?.weight || g?.boxWeight);
     const boxCount = Math.max(1, Number(g?.boxes || 1) || 1);
@@ -490,7 +492,11 @@ serve(async (req) => {
     const packages = rawPackages.length ? rawPackages : buildPackagesFromGroups(packingGroupsInput);
     const normalizedPackages = (packages || [])
       .map((p: any, idx: number) => normalizePackage(p, `pkg-${idx + 1}`))
-      .filter((p) => p.packingGroupId && p.packageId);
+      .filter((p) => {
+        const hasId = p.packingGroupId && p.packageId;
+        const validGroup = typeof p.packingGroupId === "string" && p.packingGroupId.length >= 30;
+        return hasId && validGroup;
+      });
     const packageGroupings = (() => {
       const map = new Map<string, string[]>();
       normalizedPackages.forEach((p) => {
@@ -511,10 +517,16 @@ serve(async (req) => {
       });
     }
     if (!normalizedPackages.length) {
-      return new Response(JSON.stringify({ error: "Lipsesc pachetele (packages) cu dimensiuni/greutate", traceId }), {
+      return new Response(
+        JSON.stringify({
+          error: "Lipsesc pachetele (packages) valide cu packingGroupId de la Amazon. Reîncarcă packingOptions (Step1b) și asigură-te că există packingGroupId.",
+          traceId
+        }),
+        {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
-      });
+        }
+      );
     }
 
     // Basic validation for single pack (length/width/height/weight)
