@@ -133,7 +133,11 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
       packGroups: packingGroups,
       traceId: data?.traceId || plan.traceId || null,
       requestId: data?.requestId || plan.requestId || null,
-      statusCode: data?.status || plan.statusCode || null
+      statusCode: data?.status || plan.statusCode || null,
+      operationId: data?.operationId || plan.operationId || null,
+      operationStatus: data?.operationStatus || plan.operationStatus || null,
+      inboundPlanStatus: data?.inboundPlanStatus || plan.inboundPlanStatus || null,
+      shipmentsPending: data?.shipmentsPending ?? plan.shipmentsPending ?? false
     };
   }, [row?.id]);
 

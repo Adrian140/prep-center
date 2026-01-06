@@ -675,7 +675,7 @@ serve(async (req) => {
             service: "execute-api",
             region: awsRegion,
             host,
-            path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(placementId)}:confirm`,
+            path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(placementId)}/confirmation`,
             query: "",
             payload: "{}",
             accessKey: tempCreds.accessKeyId,

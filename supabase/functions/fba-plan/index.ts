@@ -2278,6 +2278,7 @@ serve(async (req) => {
     });
 
     const combinedWarning = planWarnings.length ? planWarnings.join(" ") : null;
+    const shipmentsPending = !plans?.length;
     // Persist inboundPlanId when newly created so viitoarele apeluri nu mai generează plan nou
     if (inboundPlanId && inboundPlanId !== reqData.inbound_plan_id) {
       await supabase
@@ -2292,6 +2293,10 @@ serve(async (req) => {
       marketplace: marketplaceId,
       companyId: reqData.company_id || null,
       inboundPlanId: inboundPlanId || null,
+      inboundPlanStatus: inboundPlanStatus || null,
+      operationId: operationId || null,
+      operationStatus: operationStatus || null,
+      shipmentsPending,
       shipFrom: {
         name: shipFromAddress.name,
         address: formatAddress(shipFromAddress)
@@ -2313,6 +2318,7 @@ serve(async (req) => {
         inboundPlanStatus,
         operationId,
         operationStatus,
+        shipmentsPending,
         scopes: lwaScopes
       }),
       {
