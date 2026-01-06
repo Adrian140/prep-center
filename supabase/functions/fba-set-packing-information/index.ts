@@ -101,18 +101,6 @@ function toHex(buffer: ArrayBuffer): string {
     .join("");
 }
 
-function toInches(cm: number) {
-  const num = Number(cm);
-  if (!Number.isFinite(num)) return 0;
-  return num / 2.54;
-}
-
-function toPounds(kg: number) {
-  const num = Number(kg);
-  if (!Number.isFinite(num)) return 0;
-  return num * 2.2046226218;
-}
-
 function normalizeDimensions(input: any) {
   if (typeof input === "number") return null;
   if (!input) return null;
@@ -121,24 +109,26 @@ function normalizeDimensions(input: any) {
   const width = Number(input.width || 0);
   const height = Number(input.height || 0);
   if (![length, width, height].every((n) => Number.isFinite(n))) return null;
+  const toInches = (cm: number) => Number((cm / 2.54).toFixed(2));
   if (unit === "IN") {
-    return { length, width, height, unit: "IN" };
+    return { length: Number(length.toFixed(2)), width: Number(width.toFixed(2)), height: Number(height.toFixed(2)), unit: "IN" };
   }
   return { length: toInches(length), width: toInches(width), height: toInches(height), unit: "IN" };
 }
 
 function normalizeWeight(input: any) {
   if (typeof input === "number") {
-    const pounds = toPounds(input);
-    return { value: pounds, unit: "LB" };
+    const toPounds = (kg: number) => Number((kg * 2.2046226218).toFixed(2));
+    return { value: toPounds(input), unit: "LB" };
   }
   if (!input) return null;
   const unit = String(input.unit || "KG").toUpperCase();
   const value = Number(input.value || 0);
   if (!Number.isFinite(value)) return null;
   if (unit === "LB") {
-    return { value, unit: "LB" };
+    return { value: Number(value.toFixed(2)), unit: "LB" };
   }
+  const toPounds = (kg: number) => Number((kg * 2.2046226218).toFixed(2));
   return { value: toPounds(value), unit: "LB" };
 }
 
@@ -485,6 +475,7 @@ serve(async (req) => {
     const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
     const packingOptionId = body?.packing_option_id ?? body?.packingOptionId;
     const rawPackages = Array.isArray(body?.packages) ? body.packages : [];
+    const placementOptionId = body?.placement_option_id ?? body?.placementOptionId ?? null;
     const packingGroupsInput =
       (Array.isArray(body?.packing_groups) && body.packing_groups) ||
       (Array.isArray(body?.packingGroups) && body.packingGroups) ||
@@ -500,17 +491,17 @@ serve(async (req) => {
       });
     const packageGroupings = (() => {
       const map = new Map<string, string[]>();
-      normalizedPackages.forEach((p) => {
-        const groupId = String(p.packingGroupId);
-        const pkgId = String(p.packageId);
-        if (!map.has(groupId)) map.set(groupId, []);
-        map.get(groupId)!.push(pkgId);
-      });
-      return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({
-        packingGroupId,
-        boxes: packageIds.map((pid) => ({ packageIds: [pid] }))
-      }));
-    })();
+    normalizedPackages.forEach((p) => {
+      const groupId = String(p.packingGroupId);
+      const pkgId = String(p.packageId);
+      if (!map.has(groupId)) map.set(groupId, []);
+      map.get(groupId)!.push(pkgId);
+    });
+    return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({
+      packingGroupId,
+      boxes: packageIds.map((pid) => ({ quantity: 1, packageIds: [pid] }))
+    }));
+  })();
     if (!requestId || !inboundPlanId || !packingOptionId) {
       return new Response(JSON.stringify({ error: "request_id, inbound_plan_id și packing_option_id sunt necesare", traceId }), {
         status: 400,
@@ -649,8 +640,10 @@ serve(async (req) => {
     const basePath = "/inbound/fba/2024-03-20";
     const payload = JSON.stringify({
       packingOptionId,
-      packages: normalizedPackages,
-      packageGroupings
+      placementOptionId: placementOptionId || undefined,
+      packages: normalizedPackages
+      // Intenționat NU trimitem packageGroupings; unele implementări SP-API validează strict
+      // doar lista de packages. Dacă devine obligatoriu, reintrodu instanța generată mai sus.
     });
 
     const res = await signedFetch({

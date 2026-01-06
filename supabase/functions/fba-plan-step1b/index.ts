@@ -1068,7 +1068,7 @@ serve(async (req) => {
     }
 
     let placementOptionId: string | null = null;
-    let placementOptions: any[] = [];
+    let placementOptionsList: any[] = [];
     let planShipments: any[] = [];
 
     // Placement options (necesare pentru Step 2 - shipping)
@@ -1126,11 +1126,10 @@ serve(async (req) => {
       if (opId) await pollOperationStatus(opId);
       placementListRes = await listPlacementOptions();
     }
-    const placementOptions = extractPlacementOptions(placementListRes);
-    const placementOptionId =
-      placementOptions?.[0]?.placementOptionId ||
-      placementOptions?.[0]?.PlacementOptionId ||
-      placementOptions?.[0]?.id ||
+    placementOptionsList = extractPlacementOptions(placementListRes);
+    placementOptionId =
+      placementOptionsList?.[0]?.placementOptionId ||
+      placementOptionsList?.[0]?.id ||
       null;
     if (!placementOptionId) {
       warnings.push("Nu am putut obține placementOptionId (generate/list).");
