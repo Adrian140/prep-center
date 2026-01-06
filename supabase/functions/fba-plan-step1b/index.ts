@@ -712,8 +712,15 @@ serve(async (req) => {
       );
     }
 
+    const debugStatuses: Record<string, { status: number | null; requestId: string | null }> = {};
+    const rawSamples: Record<string, string | null> = {};
+    const sampleBody = (res: Awaited<ReturnType<typeof signedFetch>> | null) => res?.text?.slice(0, 1200) || null;
+
     let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
     let genRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+
+    debugStatuses.planCheck = { status: planCheck?.res?.status ?? null, requestId: planCheck?.requestId || null };
+    rawSamples.planCheck = sampleBody(planCheck);
 
     if (!planCheck.res.ok) {
       warnings.push(
@@ -721,6 +728,8 @@ serve(async (req) => {
       );
     } else {
       listRes = await listPackingOptions();
+      debugStatuses.listPackingOptions = { status: listRes?.res?.status ?? null, requestId: listRes?.requestId || null };
+      rawSamples.listPackingOptions = sampleBody(listRes);
       if (!listRes.res.ok) {
         warnings.push(
           `Packing options list failed (${listRes.res.status}). ${listRes.text?.slice(0, 200) || ""}`
@@ -763,6 +772,8 @@ serve(async (req) => {
           marketplaceId,
           sellerId
         });
+        debugStatuses.generatePackingOptions = { status: genRes?.res?.status ?? null, requestId: genRes?.requestId || null };
+        rawSamples.generatePackingOptions = sampleBody(genRes);
 
         if (genRes && !genRes.res.ok && genRes.res.status !== 409) {
           const errMsg = extractErrorDetail(genRes);
@@ -778,10 +789,14 @@ serve(async (req) => {
           genRes?.json?.OperationId ||
           null;
         if (genOpId && genRes?.res.ok) {
-          await pollOperationStatus(genOpId);
+          const pollRes = await pollOperationStatus(genOpId);
+          debugStatuses.generatePackingOptionsPoll = { status: pollRes?.res?.status ?? null, requestId: pollRes?.requestId || null };
+          rawSamples.generatePackingOptionsPoll = sampleBody(pollRes);
         }
 
         listRes = await listPackingOptions();
+        debugStatuses.listPackingOptionsAfterGenerate = { status: listRes?.res?.status ?? null, requestId: listRes?.requestId || null };
+        rawSamples.listPackingOptionsAfterGenerate = sampleBody(listRes);
         if (listRes?.res?.ok && Array.isArray(listRes?.json?.packingOptions) && listRes.json.packingOptions.length === 0) {
           warnings.push("Amazon nu a returnat packingOptions (posibil lipsă permisiuni GeneratePackingOptions).");
         }
@@ -834,6 +849,24 @@ serve(async (req) => {
     };
 
     const packingGroupIds = extractPackingGroupIds(chosen || {});
+    // fallback: unele răspunsuri returnează doar packingGroups ca string sau nimic; dacă avem packingOption,
+    // încearcă să recuperezi ID-ul de grup măcar din packingGroups/packingGroupIds/raw.
+    if (!packingGroupIds.length && chosen) {
+      const fromOption =
+        Array.isArray((chosen as any)?.packingGroups) && (chosen as any)?.packingGroups.length
+          ? (chosen as any)?.packingGroups
+          : [];
+      const fromIds =
+        Array.isArray((chosen as any)?.packingGroupIds) && (chosen as any)?.packingGroupIds.length
+          ? (chosen as any)?.packingGroupIds
+          : [];
+      [...fromOption, ...fromIds].forEach((val: any) => {
+        if (val) packingGroupIds.push(String(val));
+      });
+      if (!packingGroupIds.length && packingOptionId) {
+        packingGroupIds.push(`pg-for-${packingOptionId}`);
+      }
+    }
     // fallback: unele răspunsuri returnează doar packingGroups ca string sau nimic; dacă avem packingOption,
     // încearcă să recuperezi ID-ul de grup măcar din packingGroups/packingGroupIds/raw.
     if (!packingGroupIds.length && chosen) {
@@ -963,19 +996,6 @@ serve(async (req) => {
       packingGroups.push(grp);
       await delay(50);
     }
-    // fallback: dacă Amazon nu permite getPackingGroupItems (ex: 403) sau răspunsul e gol,
-    // păstrăm totuși packingGroupId ca să nu blocăm UI-ul.
-    if (!packingGroups.length && packingGroupIds.length) {
-      packingGroups.push(
-        ...packingGroupIds.map((gid) => ({
-          packingGroupId: gid,
-          items: [],
-          status: null,
-          requestId: null,
-          warning: "PackingGroupItems indisponibile de la Amazon; folosim ID-ul raportat în packingOptions."
-        }))
-      );
-    }
 
     // Fetch metadata for SKUs to show images/titles in UI
     const fetchSkuMeta = async () => {
@@ -1078,39 +1098,29 @@ serve(async (req) => {
         items
       };
     });
+    const hasPackingGroups = packingGroupIds.length > 0 && normalizedPackingGroups.length > 0;
 
-    // Fallback: dacă nu avem packing groups din SP-API, creează unul simplu din SKUs trimise
-    let effectivePackingGroups = normalizedPackingGroups;
-    if (!normalizedPackingGroups.length) {
-      const { data: items, error: itemsErr } = await supabase
-        .from("prep_request_items")
-        .select("sku, units_sent, units_requested")
-        .eq("prep_request_id", requestId);
-      if (!itemsErr && Array.isArray(items) && items.length) {
-        const fallbackItems = normalizeItems(
-          items.map((it) => ({
-            msku: it.sku || "",
-            quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0
-          }))
-        );
-        effectivePackingGroups = [
-          {
-            id: "fallback-1",
-            packingGroupId: "fallback-1",
-            items: fallbackItems,
-            boxes: 1,
-            packMode: "single",
-            status: null,
-            requestId: null,
-            warning: "Packing groups indisponibile de la Amazon (403 generate/list). Folosim un grup simplu cu toate SKU-urile."
+    if (!hasPackingGroups) {
+      const message = "Amazon nu a returnat packingGroupIds după list/generate.";
+      return new Response(
+        JSON.stringify({
+          code: "PACKING_GROUPS_NOT_READY",
+          message,
+          traceId,
+          inboundPlanId,
+          packingOptionId,
+          placementOptionId,
+          amazonIntegrationId: integId || null,
+          debug: {
+            statuses: debugStatuses,
+            rawSamples
           }
-        ];
-        const lockNote = placementLocked
-          ? " (placement deja confirmat, Amazon blochează generatePackingOptions)."
-          : "";
-        warnings.push(`Packing groups indisponibile de la Amazon; s-a creat un fallback local.${lockNote}`);
-      }
+        }),
+        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
     }
+
+    const effectivePackingGroups = normalizedPackingGroups;
 
     const warning = warnings.length ? warnings.join(" ") : null;
 
