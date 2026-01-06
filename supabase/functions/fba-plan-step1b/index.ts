@@ -2,10 +2,11 @@
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
+const baseCorsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Max-Age": "86400"
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -407,6 +408,12 @@ function delay(ms: number) {
 
 serve(async (req) => {
   const traceId = crypto.randomUUID();
+  const origin = req.headers.get("origin") || "*";
+  const corsHeaders = {
+    ...baseCorsHeaders,
+    "Access-Control-Allow-Origin": origin,
+    ...(origin !== "*" ? { Vary: "Origin" } : {})
+  };
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -520,6 +527,11 @@ serve(async (req) => {
       if (integRowById) {
         integ = integRowById as any;
         integId = (integRowById as any)?.id || null;
+      } else {
+        return new Response(
+          JSON.stringify({ error: "Amazon integration not found or inactive", traceId }),
+          { status: 404, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
       }
     }
     if (!integ) {
@@ -612,6 +624,14 @@ serve(async (req) => {
       return last;
     };
 
+    const extractErrorDetail = (res: Awaited<ReturnType<typeof signedFetch>> | null) => {
+      const err = (res?.json?.errors && res.json.errors[0]) || null;
+      if (err) {
+        return `${err.code || ""} ${err.message || ""} ${err.details || ""}`.trim();
+      }
+      return res?.text?.slice(0, 300) || "";
+    };
+
     const extractPackingOptionsFromResponse = (res: Awaited<ReturnType<typeof signedFetch>> | null) => {
       if (!res) return [];
       return (
@@ -661,6 +681,37 @@ serve(async (req) => {
       sellerId
     });
 
+    const planPackingOptionFromPlan =
+      planCheck?.json?.payload?.packingOptions?.[0] ||
+      planCheck?.json?.packingOptions?.[0] ||
+      null;
+    const planPlacementStatus =
+      planCheck?.json?.payload?.placementOptions?.[0]?.status ||
+      planCheck?.json?.placementOptions?.[0]?.status ||
+      null;
+    const placementLocked =
+      typeof planPlacementStatus === "string" &&
+      ["ACCEPTED", "CONFIRMED"].includes(String(planPlacementStatus).toUpperCase());
+
+    if (placementLocked) {
+      const lockWarning =
+        "PlacementOption este deja ACCEPTED/CONFIRMED. Amazon blochează generate/list packing după confirmarea placement-ului. Creează un inbound plan nou pentru a reface packing-ul.";
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          code: "PLACEMENT_ALREADY_ACCEPTED",
+          message: lockWarning,
+          inboundPlanId,
+          placementOptions: planCheck?.json?.payload?.placementOptions || planCheck?.json?.placementOptions || [],
+          packingOptionsFromPlan: planCheck?.json?.payload?.packingOptions || planCheck?.json?.packingOptions || [],
+          traceId,
+          warning: lockWarning,
+          amazonIntegrationId: integId || null
+        }),
+        { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
     let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
     let genRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
 
@@ -677,16 +728,32 @@ serve(async (req) => {
       }
 
       const packingOptionsSnapshot = extractPackingOptionsFromResponse(listRes);
-      const shouldGenerate = listRes.res.ok && packingOptionsSnapshot.length === 0;
+      const hasPackingGroups = (opts: any[]) => {
+        return (opts || []).some((opt) => {
+          const pg = Array.isArray(opt?.packingGroups || opt?.PackingGroups) ? opt.packingGroups || opt.PackingGroups : [];
+          const pgIds = opt?.packingGroupIds || opt?.PackingGroupIds || [];
+          return (Array.isArray(pg) && pg.length > 0) || (Array.isArray(pgIds) && pgIds.length > 0);
+        });
+      };
+      const shouldGenerate =
+        listRes.res.ok &&
+        (!packingOptionsSnapshot.length || !hasPackingGroups(packingOptionsSnapshot)) &&
+        !placementLocked;
+
+      if (placementLocked && (!packingOptionsSnapshot.length || !hasPackingGroups(packingOptionsSnapshot))) {
+        warnings.push(
+          "PlacementOption este deja ACCEPTED/CONFIRMED și packingOptions nu conțin packingGroupIds. Amazon blochează GeneratePackingOptions după confirmarea placement-ului; reia planul sau trimite packingInformation înainte de confirmare."
+        );
+      }
       if (shouldGenerate) {
         genRes = await signedFetch({
           method: "POST",
           service: "execute-api",
           region: awsRegion,
           host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions:generate`,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions`,
           query: "",
-          payload: "",
+          payload: "{}",
           accessKey: tempCreds.accessKeyId,
           secretKey: tempCreds.secretAccessKey,
           sessionToken: tempCreds.sessionToken,
@@ -698,12 +765,10 @@ serve(async (req) => {
         });
 
         if (genRes && !genRes.res.ok && genRes.res.status !== 409) {
+          const errMsg = extractErrorDetail(genRes);
           warnings.push(
-            `Amazon a refuzat generatePackingOptions (${genRes.res.status}). Verifică permisiunile Inbound/packing pe cont.`
+            `Amazon a refuzat generatePackingOptions (${genRes.res.status}). Verifică permisiunile Inbound/packing pe cont. ${errMsg ? `Detaliu: ${errMsg}` : ""}`
           );
-          // Surface the body for troubleshooting (no secrets inside)
-          const bodyPreview = genRes.text?.slice(0, 200) || "";
-          if (bodyPreview) warnings.push(`Detaliu generatePackingOptions: ${bodyPreview}`);
         }
 
         const genOpId =
@@ -729,6 +794,7 @@ serve(async (req) => {
     }
 
     const packingOptions = extractPackingOptionsFromResponse(listRes);
+    const mergedPackingOptions = packingOptions.length ? packingOptions : planPackingOptionFromPlan ? [planPackingOptionFromPlan] : [];
 
     const pickPackingOption = (options: any[]) => {
       if (!Array.isArray(options) || !options.length) return null;
@@ -737,7 +803,7 @@ serve(async (req) => {
       return offered || options[0];
     };
 
-    const chosen = pickPackingOption(packingOptions);
+    const chosen = pickPackingOption(mergedPackingOptions);
     const packingOptionId =
       chosen?.packingOptionId ||
       chosen?.PackingOptionId ||
@@ -868,6 +934,10 @@ serve(async (req) => {
     for (const gid of packingGroupIds) {
       // sequential to respect throttling limits
       const grp = await fetchGroupItems(gid);
+      // ensure packingGroupId is present even if SP-API omits it in the payload
+      if (!grp.packingGroupId && gid) {
+        (grp as any).packingGroupId = gid;
+      }
       packingGroups.push(grp);
       await delay(50);
     }
@@ -962,9 +1032,11 @@ serve(async (req) => {
     const normalizedPackingGroups = packingGroups.map((g, idx) => {
       const boxes = Number((g as any)?.boxes || (g as any)?.boxCount || 1) || 1;
       const items = normalizeItems((g as any)?.items);
+      const pgId = (g as any)?.packingGroupId || (g as any)?.id || `group-${idx + 1}`;
       return {
         ...g,
-        id: (g as any)?.packingGroupId || (g as any)?.id || `group-${idx + 1}`,
+        id: pgId,
+        packingGroupId: pgId,
         boxes,
         packMode: boxes > 1 ? "multiple" : "single",
         title: (g as any)?.title || null,
@@ -998,7 +1070,10 @@ serve(async (req) => {
             warning: "Packing groups indisponibile de la Amazon (403 generate/list). Folosim un grup simplu cu toate SKU-urile."
           }
         ];
-        warnings.push("Packing groups indisponibile de la Amazon; s-a creat un fallback local.");
+        const lockNote = placementLocked
+          ? " (placement deja confirmat, Amazon blochează generatePackingOptions)."
+          : "";
+        warnings.push(`Packing groups indisponibile de la Amazon; s-a creat un fallback local.${lockNote}`);
       }
     }
 
