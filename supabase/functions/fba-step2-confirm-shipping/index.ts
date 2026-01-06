@@ -485,6 +485,20 @@ serve(async (req) => {
       });
     }
 
+    // dacă lipsește packing_option_id în body, încearcă să-l citești din prep_requests
+    let effectivePackingOptionId = packingOptionId;
+    if (!effectivePackingOptionId) {
+      const { data: reqRow, error: reqErr } = await supabase
+        .from("prep_requests")
+        .select("packing_option_id")
+        .eq("id", requestId)
+        .maybeSingle();
+      if (reqErr) {
+        console.warn("fba-step2-confirm-shipping packingOptionId fetch failed", { traceId, error: reqErr });
+      }
+      effectivePackingOptionId = reqRow?.packing_option_id || null;
+    }
+
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
       .select("id, destination_country, company_id, user_id")
@@ -910,10 +924,16 @@ serve(async (req) => {
       };
     });
 
+    logStep("packingInfoFallback", {
+      traceId,
+      packingOptionId: effectivePackingOptionId || null,
+      packagesCount: normalizedPackages.length
+    });
+
     // 0) Asigură packingInformation înainte de transport (ca fallback)
-    if (packingOptionId && normalizedPackages.length) {
+    if (effectivePackingOptionId && normalizedPackages.length) {
       const setPackPayload = JSON.stringify({
-        packingOptionId,
+        packingOptionId: effectivePackingOptionId,
         packages: normalizedPackages
       });
       const setRes = await signedFetch({
