@@ -517,6 +517,7 @@ export default function FbaSendToAmazonWizard({
         const trace = data?.traceId || data?.trace_id || null;
         const msg = data?.message || 'Amazon nu a returnat încă packing groups. Reîncearcă în câteva secunde.';
         setPackingReadyError(trace ? `${msg} · TraceId ${trace}` : msg);
+        setPackGroups([]); // nu afișăm nimic local dacă nu avem packing groups reale
         return;
       }
       if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);

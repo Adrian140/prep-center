@@ -13,6 +13,7 @@ export default function FbaStep1bPacking({
   retryLoading = false
 }) {
   const isEmpty = !loading && (!Array.isArray(packGroups) || packGroups.length === 0);
+  const showErrorOnly = Boolean(error) && !loading;
   const totals = useMemo(() => {
     if (!Array.isArray(packGroups)) return { skus: 0, units: 0 };
     return packGroups.reduce(
@@ -205,11 +206,11 @@ export default function FbaStep1bPacking({
             <div className="px-4 py-6 text-slate-600 text-sm">Loading pack groups from Amazon…</div>
           )}
 
-      {error && !loading && (
-        <div className="px-4 py-3 mb-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded">
-          {error}
-        </div>
-      )}
+          {error && !loading && (
+            <div className="px-4 py-3 mb-3 text-sm text-red-800 bg-red-50 border border-red-200 rounded">
+              {error}
+            </div>
+          )}
           {onRetry && !loading && (error || isEmpty) && (
             <div className="px-4 py-3 mb-3 text-sm bg-blue-50 border border-blue-200 rounded flex flex-col gap-2">
               <div className="text-blue-800">
@@ -232,7 +233,7 @@ export default function FbaStep1bPacking({
             </div>
           )}
 
-          {(packGroups || []).map((group) => (
+          {!showErrorOnly && (packGroups || []).map((group) => (
             <div key={group.id} className="border border-slate-200 rounded-lg overflow-hidden mb-4">
               <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
                 <Box className="w-5 h-5 text-slate-500" />
