@@ -84,6 +84,18 @@ function toHex(buffer: ArrayBuffer): string {
     .join("");
 }
 
+function cmToIn(cm: any) {
+  const num = Number(cm);
+  if (!Number.isFinite(num)) return 0;
+  return num / 2.54;
+}
+
+function kgToLb(kg: any) {
+  const num = Number(kg);
+  if (!Number.isFinite(num)) return 0;
+  return num * 2.2046226218;
+}
+
 async function sha256(message: string): Promise<string> {
   const data = new TextEncoder().encode(message);
   const hash = await crypto.subtle.digest("SHA-256", data);
@@ -445,6 +457,7 @@ serve(async (req) => {
     const requestId = body?.request_id ?? body?.requestId;
     const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
     const placementOptionId = body?.placement_option_id ?? body?.placementOptionId;
+    const packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
     const amazonIntegrationIdInput = body?.amazon_integration_id ?? body?.amazonIntegrationId;
     const confirmOptionId = body?.transportation_option_id ?? body?.transportationOptionId;
     const shipmentTransportConfigs = body?.shipment_transportation_configurations ?? body?.shipmentTransportationConfigurations ?? [];
@@ -846,6 +859,44 @@ serve(async (req) => {
       return null;
     };
 
+    const normalizedPackages = (() => {
+      const pkgs: any[] = [];
+      (shipmentTransportConfigs || []).forEach((cfg: any) => {
+        const packages = cfg?.packages || cfg?.Packages || [];
+        const packingGroupId =
+          cfg?.packingGroupId || cfg?.packing_group_id || cfg?.packing_groupid || null;
+        (Array.isArray(packages) ? packages : []).forEach((p: any) => {
+          const dims = p?.dimensions || p?.Dimensions || null;
+          const weight = p?.weight || p?.Weight || null;
+          const groupId =
+            p?.packingGroupId ||
+            p?.packing_group_id ||
+            packingGroupId ||
+            cfg?.shipmentId ||
+            cfg?.shipment_id ||
+            null;
+          const dimOk =
+            dims && Number(dims.length) > 0 && Number(dims.width) > 0 && Number(dims.height) > 0;
+          const wOk = weight && Number(weight.value) > 0;
+          if (!groupId || !dimOk || !wOk) return;
+          pkgs.push({
+            packingGroupId: groupId,
+            dimensions: {
+              length: cmToIn(dims.length),
+              width: cmToIn(dims.width),
+              height: cmToIn(dims.height),
+              unit: "IN"
+            },
+            weight: {
+              value: kgToLb(weight.value),
+              unit: "LB"
+            }
+          });
+        });
+      });
+      return pkgs;
+    })();
+
     const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
       const shId = sh.shipmentId || sh.id || `s-${idx + 1}`;
       const cfg = (shipmentTransportConfigs || []).find(
@@ -858,6 +909,38 @@ serve(async (req) => {
         shippingMode
       };
     });
+
+    // 0) Asigură packingInformation înainte de transport (ca fallback)
+    if (packingOptionId && normalizedPackages.length) {
+      const setPackPayload = JSON.stringify({
+        packingOptionId,
+        packages: normalizedPackages
+      });
+      const setRes = await signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingInformation`,
+        query: "",
+        payload: setPackPayload,
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.setPackingInformation",
+        marketplaceId,
+        sellerId
+      });
+      logStep("setPackingInformation", { traceId, status: setRes?.res?.status, requestId: setRes?.requestId || null });
+      if (!setRes?.res?.ok) {
+        return new Response(
+          JSON.stringify({ error: "SetPackingInformation failed before transportation", status: setRes?.res?.status || null, traceId }),
+          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+    }
 
     // 1) Generate transportation options (idempotent)
     const generatePayload = JSON.stringify({

@@ -601,6 +601,7 @@ export default function FbaSendToAmazonWizard({
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
           placement_option_id: placementOptId,
+          packing_option_id: packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null,
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
           ship_date: shipmentMode?.deliveryDate || null
