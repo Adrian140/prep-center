@@ -491,17 +491,17 @@ serve(async (req) => {
       });
     const packageGroupings = (() => {
       const map = new Map<string, string[]>();
-    normalizedPackages.forEach((p) => {
-      const groupId = String(p.packingGroupId);
-      const pkgId = String(p.packageId);
-      if (!map.has(groupId)) map.set(groupId, []);
-      map.get(groupId)!.push(pkgId);
-    });
-    return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({
-      packingGroupId,
-      boxes: packageIds.map((pid) => ({ quantity: 1, packageIds: [pid] }))
-    }));
-  })();
+      normalizedPackages.forEach((p) => {
+        const groupId = String(p.packingGroupId);
+        const pkgId = String(p.packageId);
+        if (!map.has(groupId)) map.set(groupId, []);
+        map.get(groupId)!.push(pkgId);
+      });
+      return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({
+        packingGroupId,
+        boxes: packageIds.map((pid) => ({ quantity: 1, packageIds: [pid] }))
+      }));
+    })();
     if (!requestId || !inboundPlanId || !packingOptionId) {
       return new Response(JSON.stringify({ error: "request_id, inbound_plan_id și packing_option_id sunt necesare", traceId }), {
         status: 400,
@@ -641,9 +641,9 @@ serve(async (req) => {
     const payload = JSON.stringify({
       packingOptionId,
       placementOptionId: placementOptionId || undefined,
-      packages: normalizedPackages
-      // Intenționat NU trimitem packageGroupings; unele implementări SP-API validează strict
-      // doar lista de packages. Dacă devine obligatoriu, reintrodu instanța generată mai sus.
+      packages: normalizedPackages,
+      // Amazon validează că packageGroupings nu este null; trimitem grupările generate (cu quantity=1).
+      packageGroupings
     });
 
     const res = await signedFetch({
