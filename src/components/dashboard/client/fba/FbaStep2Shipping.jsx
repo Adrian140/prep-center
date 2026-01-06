@@ -51,7 +51,11 @@ export default function FbaStep2Shipping({
   const totalUnits = shipments?.reduce((s, sh) => s + (Number(sh.units) || 0), 0) || 0;
   const totalSkus = shipments?.reduce((s, sh) => s + (Number(sh.skuCount) || 0), 0) || 0;
   const totalWeight = shipments?.reduce((s, sh) => s + (Number(sh.weight) || 0), 0) || 0;
-  const carrierName = carrier?.partnered ? 'UPS (Amazon-partnered carrier)' : carrier?.name || 'Non Amazon partnered carrier';
+  const carrierName = carrier?.partnered
+    ? 'UPS (Amazon-partnered carrier)'
+    : typeof carrier?.name === 'string'
+      ? carrier.name
+      : 'Non Amazon partnered carrier';
 
   const summaryTitle = useMemo(() => {
     const modeLabel = method === 'SPD' ? 'Small parcel delivery (SPD)' : 'Less than truckload (LTL/FTL)';

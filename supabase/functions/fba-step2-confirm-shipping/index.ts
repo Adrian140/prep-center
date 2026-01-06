@@ -1081,11 +1081,21 @@ serve(async (req) => {
         });
         const shJson = shDetail?.json || {};
         const payload = shJson?.payload || shJson;
+        const destinationAddress =
+          payload?.destinationAddress ||
+          payload?.to ||
+          payload?.destination?.address ||
+          null;
+        const sourceAddress =
+          payload?.shipFromAddress ||
+          payload?.from ||
+          payload?.source?.address ||
+          null;
         const contents = payload?.contents || payload?.Contents || {};
         list.push({
           id: shId,
-          from: formatAddress(payload?.shipFromAddress || payload?.from) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
-          to: formatAddress(payload?.destinationAddress || payload?.to) || formatAddress(sh?.destinationAddress || sh?.to) || null,
+          from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
+          to: formatAddress(destinationAddress) || formatAddress(sh?.destinationAddress || sh?.to) || null,
           boxes: contents?.boxes || contents?.cartons || null,
           skuCount: contents?.skuCount || null,
           units: contents?.units || null,
