@@ -814,6 +814,10 @@ serve(async (req) => {
       const ids = new Set<string>();
       const direct = option?.packingGroups || option?.PackingGroups || [];
       (Array.isArray(direct) ? direct : []).forEach((g: any) => {
+        if (typeof g === "string") {
+          ids.add(g);
+          return;
+        }
         const id = g?.packingGroupId || g?.PackingGroupId || g?.id || g?.groupId || g?.group_id;
         if (id) ids.add(String(id));
       });
