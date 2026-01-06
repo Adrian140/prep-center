@@ -1186,7 +1186,7 @@ serve(async (req) => {
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
       .select(
-        "id, destination_country, company_id, user_id, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
+        "id, destination_country, company_id, user_id, inbound_plan_id, placement_option_id, fba_shipment_id, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
       )
       .eq("id", requestId)
       .maybeSingle();
@@ -1826,7 +1826,7 @@ serve(async (req) => {
     let amazonJson: any = null;
     let primaryRequestId: string | null = null;
     let plans: any[] = [];
-    let inboundPlanId: string | null = null;
+    let inboundPlanId: string | null = reqData.inbound_plan_id || null;
     let inboundPlanStatus: string | null = null;
     let operationId: string | null = null;
     let operationStatus: string | null = null;
@@ -1836,65 +1836,74 @@ serve(async (req) => {
     let _lastPackingOptions: any[] = [];
     let _lastPlacementOptions: any[] = [];
 
-    while (attempt < maxAttempts) {
-      attempt += 1;
-      const planBody = buildPlanBody(appliedOverrides);
-      const payload = JSON.stringify(planBody);
+    if (inboundPlanId) {
+      const fetched = await fetchInboundPlanById(inboundPlanId);
+      plans = fetched.fetchedPlans || [];
+      inboundPlanStatus = fetched.fetchedStatus || null;
+      _lastPackingOptions = fetched.fetchedPackingOptions || [];
+      _lastPlacementOptions = fetched.fetchedPlacementOptions || [];
+      appliedPlanBody = appliedPlanBody || buildPlanBody(appliedOverrides);
+    } else {
+      while (attempt < maxAttempts) {
+        attempt += 1;
+        const planBody = buildPlanBody(appliedOverrides);
+        const payload = JSON.stringify(planBody);
 
-      const res = await signedFetch({
-        method: "POST",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path,
-        query,
-        payload,
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName:
-          attempt === 1 ? "inbound.v20240320.createInboundPlan" : `inbound.v20240320.createInboundPlan.retry${attempt}`,
-        marketplaceId,
-        sellerId
-      });
+        const res = await signedFetch({
+          method: "POST",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path,
+          query,
+          payload,
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName:
+            attempt === 1 ? "inbound.v20240320.createInboundPlan" : `inbound.v20240320.createInboundPlan.retry${attempt}`,
+          marketplaceId,
+          sellerId
+        });
 
-      createHttpStatus = res.res.status;
-      if (!primaryRequestId) primaryRequestId = res.requestId || null;
-      amazonJson = res.json;
-      operationId = operationId || extractOperationId(res.json);
-      const data = extractInboundPlanData(res.json);
-      inboundPlanId = inboundPlanId || data.inboundPlanId;
-      inboundPlanStatus = inboundPlanStatus || data.inboundStatus;
-      plans = data.shipments.length ? data.shipments : data.inboundShipmentPlans;
-      _lastPackingOptions = data.packingOptions;
-      _lastPlacementOptions = data.placementOptions;
+        createHttpStatus = res.res.status;
+        if (!primaryRequestId) primaryRequestId = res.requestId || null;
+        amazonJson = res.json;
+        operationId = operationId || extractOperationId(res.json);
+        const data = extractInboundPlanData(res.json);
+        inboundPlanId = inboundPlanId || data.inboundPlanId;
+        inboundPlanStatus = inboundPlanStatus || data.inboundStatus;
+        plans = data.shipments.length ? data.shipments : data.inboundShipmentPlans;
+        _lastPackingOptions = data.packingOptions;
+        _lastPlacementOptions = data.placementOptions;
 
-      if (res.res.ok && plans?.length) {
-        appliedPlanBody = planBody;
-        break;
-      }
-
-      const inboundErrors = extractInboundErrors({ json: res.json, text: res.text || "" });
-      if (!inboundErrors.length) {
-        break;
-      }
-
-      let changed = false;
-      for (const err of inboundErrors) {
-        const fixVal = chooseFixValue(err.field, err.msg, err.accepted);
-        if (!fixVal) continue;
-        const skuKey = normalizeSku(err.msku);
-        appliedOverrides[skuKey] = appliedOverrides[skuKey] || {};
-        if (appliedOverrides[skuKey][err.field] !== fixVal) {
-          appliedOverrides[skuKey][err.field] = fixVal;
-          changed = true;
+        if (res.res.ok && plans?.length) {
+          appliedPlanBody = planBody;
+          break;
         }
-      }
 
-      if (!changed) {
-        break;
+        const inboundErrors = extractInboundErrors({ json: res.json, text: res.text || "" });
+        if (!inboundErrors.length) {
+          break;
+        }
+
+        let changed = false;
+        for (const err of inboundErrors) {
+          const fixVal = chooseFixValue(err.field, err.msg, err.accepted);
+          if (!fixVal) continue;
+          const skuKey = normalizeSku(err.msku);
+          appliedOverrides[skuKey] = appliedOverrides[skuKey] || {};
+          if (appliedOverrides[skuKey][err.field] !== fixVal) {
+            appliedOverrides[skuKey][err.field] = fixVal;
+            changed = true;
+          }
+        }
+
+        if (!changed) {
+          break;
+        }
       }
     }
 
@@ -2269,6 +2278,14 @@ serve(async (req) => {
     });
 
     const combinedWarning = planWarnings.length ? planWarnings.join(" ") : null;
+    // Persist inboundPlanId when newly created so viitoarele apeluri nu mai generează plan nou
+    if (inboundPlanId && inboundPlanId !== reqData.inbound_plan_id) {
+      await supabase
+        .from("prep_requests")
+        .update({ inbound_plan_id: inboundPlanId })
+        .eq("id", requestId);
+    }
+
     const plan = {
       source: "amazon",
       amazonIntegrationId,
