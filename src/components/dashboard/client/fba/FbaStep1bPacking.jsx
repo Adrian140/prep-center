@@ -131,6 +131,11 @@ export default function FbaStep1bPacking({
   };
 
   const handleContinue = async () => {
+    // commit toate draft-urile în state înainte de validare
+    (packGroups || []).forEach((g) => {
+      commitDraft(g, ["boxes", "boxWeight", "boxDimensions"]);
+    });
+
     const validationError = validateGroups();
     if (validationError) {
       setContinueError(validationError);
@@ -363,7 +368,10 @@ export default function FbaStep1bPacking({
                     </div>
                     <button
                       type="button"
-                      onClick={() => onUpdateGroup(group.id, { packingConfirmed: true })}
+                      onClick={() => {
+                        commitDraft(group, ["boxes", "boxWeight", "boxDimensions"]);
+                        onUpdateGroup(group.id, { packingConfirmed: true });
+                      }}
                       className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded-md"
                     >
                       <CheckCircle className="w-4 h-4" />

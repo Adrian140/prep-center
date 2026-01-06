@@ -879,7 +879,7 @@ serve(async (req) => {
         const packages = cfg?.packages || cfg?.Packages || [];
         const packingGroupId =
           cfg?.packingGroupId || cfg?.packing_group_id || cfg?.packing_groupid || null;
-        (Array.isArray(packages) ? packages : []).forEach((p: any, idx: number) => {
+        (Array.isArray(packages) ? packages : []).forEach((p: any) => {
           const dims = p?.dimensions || p?.Dimensions || null;
           const weight = p?.weight || p?.Weight || null;
           const groupId =
@@ -892,8 +892,7 @@ serve(async (req) => {
           const dimOk =
             dims && Number(dims.length) > 0 && Number(dims.width) > 0 && Number(dims.height) > 0;
           const wOk = weight && Number(weight.value) > 0;
-          const isAmazonGroup = typeof groupId === "string" && groupId.length >= 30;
-          if (!groupId || !dimOk || !wOk || !isAmazonGroup) return;
+          if (!groupId || !dimOk || !wOk) return;
           pkgs.push({
             packageId: p?.packageId || p?.package_id || `pkg-${pkgs.length + 1}`,
             packingGroupId: groupId,
@@ -942,17 +941,17 @@ serve(async (req) => {
     );
   }
 
-  const packageGroupings = (() => {
-    const map = new Map<string, string[]>();
-    normalizedPackages.forEach((p) => {
-      const gid = String(p.packingGroupId);
+    const packageGroupings = (() => {
+      const map = new Map<string, string[]>();
+      normalizedPackages.forEach((p) => {
+        const gid = String(p.packingGroupId);
         const pid = String(p.packageId);
         if (!map.has(gid)) map.set(gid, []);
         map.get(gid)!.push(pid);
       });
       return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({
         packingGroupId,
-        boxes: [{ packageIds }]
+        boxes: packageIds.map((pid) => ({ packageIds: [pid] }))
       }));
     })();
 

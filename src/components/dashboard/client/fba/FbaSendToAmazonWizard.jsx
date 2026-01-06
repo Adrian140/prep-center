@@ -153,6 +153,7 @@ export default function FbaSendToAmazonWizard({
   const [shippingError, setShippingError] = useState('');
   const [packingSubmitLoading, setPackingSubmitLoading] = useState(false);
   const [packingSubmitError, setPackingSubmitError] = useState('');
+  const [step2Loaded, setStep2Loaded] = useState(false);
 
   // Persistăm ultimul pas vizitat ca să nu se piardă la refresh.
   const stepStorageKey = useMemo(() => {
@@ -477,17 +478,15 @@ export default function FbaSendToAmazonWizard({
     return packGroups.map((g, idx) => {
       const dims = getSafeDims(g.boxDimensions);
       const weight = getSafeNumber(g.boxWeight);
+      const boxCount = Math.max(1, Number(g.boxes) || 1);
+      const pkg = {
+        dimensions: dims ? { length: dims.length, width: dims.width, height: dims.height, unit: "CM" } : null,
+        weight: weight ? { value: weight, unit: "KG" } : null
+      };
       return {
         shipmentId: shipmentIdForGroup(g, idx),
         packingGroupId: g.packingGroupId || g.id,
-        packages: [
-          {
-            dimensions: dims
-              ? { length: dims.length, width: dims.width, height: dims.height, unit: "CM" }
-              : null,
-            weight: weight ? { value: weight, unit: "KG" } : null
-          }
-        ]
+        packages: Array.from({ length: boxCount }, () => pkg)
       };
     });
   };
@@ -662,10 +661,14 @@ export default function FbaSendToAmazonWizard({
   };
 
   useEffect(() => {
-    if (currentStep !== '2') return;
-    fetchShippingOptions();
+    if (currentStep !== '2') {
+      setStep2Loaded(false);
+      return;
+    }
+    if (step2Loaded) return;
+    fetchShippingOptions().finally(() => setStep2Loaded(true));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, packGroups, packingOptionId, placementOptionId, plan?.inboundPlanId, plan?.requestId]);
+  }, [currentStep, step2Loaded]);
 
   const formatAddress = (addr = {}) => {
     const parts = [
@@ -753,6 +756,7 @@ export default function FbaSendToAmazonWizard({
   const refreshStep = useCallback(
     async (stepKey) => {
       if (stepKey === '2' || stepKey === '3' || stepKey === '4') {
+        setStep2Loaded(false);
         await fetchShippingOptions();
         return;
       }
