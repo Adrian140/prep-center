@@ -406,6 +406,25 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function backoffMs(attempt: number) {
+  const base = 400 * Math.pow(2, attempt - 1);
+  const jitter = Math.floor(Math.random() * 120);
+  return base + jitter;
+}
+
+async function runWith429Retry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
+  let last: any = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    last = await fn();
+    const status = Number((last as any)?.res?.status || 0);
+    if (status !== 429) break;
+    if (attempt < maxAttempts) {
+      await delay(backoffMs(attempt));
+    }
+  }
+  return last;
+}
+
 serve(async (req) => {
   const traceId = crypto.randomUUID();
   const origin = req.headers.get("origin") || "*";
@@ -584,10 +603,10 @@ serve(async (req) => {
     const basePath = "/inbound/fba/2024-03-20";
     const warnings: string[] = [];
 
-    const pollOperationStatus = async (operationId: string) => {
-      const maxAttempts = 8;
+    const pollOperationStatus = async (operationId: string, maxAttempts = 12) => {
       let attempt = 0;
       let last: any = null;
+      let delayMs = 350;
       while (attempt < maxAttempts) {
         attempt += 1;
         const opRes = await signedFetch({
@@ -619,7 +638,8 @@ serve(async (req) => {
         if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp) || opRes.res.status >= 400) {
           break;
         }
-        await delay(200 * attempt);
+        await delay(delayMs);
+        delayMs = Math.min(Math.floor(delayMs * 1.6), 3200);
       }
       return last;
     };
@@ -642,13 +662,35 @@ serve(async (req) => {
       );
     };
 
-    const listPackingOptions = async () => {
-      return signedFetch({
+    const listPackingOptions = async () =>
+      runWith429Retry(() =>
+        signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.listPackingOptions",
+          marketplaceId,
+          sellerId
+        })
+      );
+
+    // Quick verification: confirm plan is accessible with this token/seller
+    const planCheck = await runWith429Retry(() =>
+      signedFetch({
         method: "GET",
         service: "execute-api",
         region: awsRegion,
         host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions`,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}`,
         query: "",
         payload: "",
         accessKey: tempCreds.accessKeyId,
@@ -656,30 +698,40 @@ serve(async (req) => {
         sessionToken: tempCreds.sessionToken,
         lwaToken: lwaAccessToken,
         traceId,
-        operationName: "inbound.v20240320.listPackingOptions",
+        operationName: "inbound.v20240320.getInboundPlan.check",
         marketplaceId,
         sellerId
-      });
+      })
+    );
+
+    const debugStatuses: Record<string, { status: number | null; requestId: string | null }> = {};
+    const rawSamples: Record<string, string | null> = {};
+    const sampleBody = (res: Awaited<ReturnType<typeof signedFetch>> | null) => res?.text?.slice(0, 1200) || null;
+    const recordSample = (label: string, res: Awaited<ReturnType<typeof signedFetch>> | null) => {
+      debugStatuses[label] = { status: res?.res?.status ?? null, requestId: res?.requestId || null };
+      rawSamples[label] = sampleBody(res);
     };
 
-    // Quick verification: confirm plan is accessible with this token/seller
-    const planCheck = await signedFetch({
-      method: "GET",
-      service: "execute-api",
-      region: awsRegion,
-      host,
-      path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}`,
-      query: "",
-      payload: "",
-      accessKey: tempCreds.accessKeyId,
-      secretKey: tempCreds.secretAccessKey,
-      sessionToken: tempCreds.sessionToken,
-      lwaToken: lwaAccessToken,
-      traceId,
-      operationName: "inbound.v20240320.getInboundPlan.check",
-      marketplaceId,
-      sellerId
-    });
+    let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+    let genRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+    let genOpId: string | null = null;
+
+    recordSample("planCheck", planCheck);
+    if (planCheck?.res?.status === 429) {
+      const retryAfterMs = backoffMs(3);
+      return new Response(
+        JSON.stringify({
+          code: "SPAPI_THROTTLED",
+          message: "Amazon a răspuns 429 la getInboundPlan (throttled)",
+          inboundPlanId,
+          traceId,
+          retryAfterMs,
+          amazonIntegrationId: integId || null,
+          debug: { statuses: debugStatuses, rawSamples }
+        }),
+        { status: 429, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
     const planPackingOptionFromPlan =
       planCheck?.json?.payload?.packingOptions?.[0] ||
@@ -712,25 +764,45 @@ serve(async (req) => {
       );
     }
 
-    const debugStatuses: Record<string, { status: number | null; requestId: string | null }> = {};
-    const rawSamples: Record<string, string | null> = {};
-    const sampleBody = (res: Awaited<ReturnType<typeof signedFetch>> | null) => res?.text?.slice(0, 1200) || null;
-
-    let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
-    let genRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
-
-    debugStatuses.planCheck = { status: planCheck?.res?.status ?? null, requestId: planCheck?.requestId || null };
-    rawSamples.planCheck = sampleBody(planCheck);
-
     if (!planCheck.res.ok) {
       warnings.push(
         `Nu am acces la inboundPlanId cu integrarea selectată (${planCheck.res.status}). Verifică seller/token.`
       );
     } else {
       listRes = await listPackingOptions();
-      debugStatuses.listPackingOptions = { status: listRes?.res?.status ?? null, requestId: listRes?.requestId || null };
-      rawSamples.listPackingOptions = sampleBody(listRes);
+      recordSample("listPackingOptions", listRes);
+      if (listRes?.res?.status === 429) {
+        const retryAfterMs = backoffMs(3);
+        return new Response(
+          JSON.stringify({
+            code: "SPAPI_THROTTLED",
+            message: "Amazon a răspuns 429 la listPackingOptions (throttled)",
+            inboundPlanId,
+            traceId,
+            retryAfterMs,
+            amazonIntegrationId: integId || null,
+            debug: { statuses: debugStatuses, rawSamples }
+          }),
+          { status: 429, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
       if (!listRes.res.ok) {
+        if (listRes.res.status !== 409) {
+          const upstreamStatus = listRes.res.status;
+          const statusToSend = upstreamStatus >= 500 ? 503 : 502;
+          return new Response(
+            JSON.stringify({
+              code: "SPAPI_LIST_PACKING_FAILED",
+              message: `listPackingOptions a eșuat (${upstreamStatus}).`,
+              detail: listRes.text?.slice(0, 200) || "",
+              inboundPlanId,
+              traceId,
+              amazonIntegrationId: integId || null,
+              debug: { statuses: debugStatuses, rawSamples }
+            }),
+            { status: statusToSend, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
         warnings.push(
           `Packing options list failed (${listRes.res.status}). ${listRes.text?.slice(0, 200) || ""}`
         );
@@ -782,7 +854,7 @@ serve(async (req) => {
           );
         }
 
-        const genOpId =
+        genOpId =
           genRes?.json?.payload?.operationId ||
           genRes?.json?.payload?.OperationId ||
           genRes?.json?.operationId ||
@@ -795,12 +867,42 @@ serve(async (req) => {
         }
 
         listRes = await listPackingOptions();
-        debugStatuses.listPackingOptionsAfterGenerate = { status: listRes?.res?.status ?? null, requestId: listRes?.requestId || null };
-        rawSamples.listPackingOptionsAfterGenerate = sampleBody(listRes);
+        recordSample("listPackingOptionsAfterGenerate", listRes);
+        if (listRes?.res?.status === 429) {
+          const retryAfterMs = backoffMs(3);
+          return new Response(
+            JSON.stringify({
+              code: "SPAPI_THROTTLED",
+              message: "Amazon a răspuns 429 la listPackingOptions (după generate).",
+              inboundPlanId,
+              traceId,
+              retryAfterMs,
+              amazonIntegrationId: integId || null,
+              debug: { statuses: debugStatuses, rawSamples }
+            }),
+            { status: 429, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
         if (listRes?.res?.ok && Array.isArray(listRes?.json?.packingOptions) && listRes.json.packingOptions.length === 0) {
           warnings.push("Amazon nu a returnat packingOptions (posibil lipsă permisiuni GeneratePackingOptions).");
         }
         if (!listRes.res.ok) {
+          if (listRes.res.status !== 409) {
+            const upstreamStatus = listRes.res.status;
+            const statusToSend = upstreamStatus >= 500 ? 503 : 502;
+            return new Response(
+              JSON.stringify({
+                code: "SPAPI_LIST_PACKING_FAILED",
+                message: `listPackingOptions a eșuat (${upstreamStatus}).`,
+                detail: listRes.text?.slice(0, 200) || "",
+                inboundPlanId,
+                traceId,
+                amazonIntegrationId: integId || null,
+                debug: { statuses: debugStatuses, rawSamples }
+              }),
+              { status: statusToSend, headers: { ...corsHeaders, "content-type": "application/json" } }
+            );
+          }
           warnings.push(
             `Packing options list failed (${listRes.res.status}). ${listRes.text?.slice(0, 200) || ""}`
           );
@@ -818,7 +920,7 @@ serve(async (req) => {
       return offered || options[0];
     };
 
-    const chosen = pickPackingOption(mergedPackingOptions);
+    let chosen = pickPackingOption(mergedPackingOptions);
     const packingOptionId =
       chosen?.packingOptionId ||
       chosen?.PackingOptionId ||
@@ -848,7 +950,126 @@ serve(async (req) => {
       return Array.from(ids.values());
     };
 
-    const packingGroupIds = extractPackingGroupIds(chosen || {});
+    let packingGroupIds = extractPackingGroupIds(chosen || {});
+
+    // If Amazon has not yet populated packingGroupIds, poll listPackingOptions a few times
+    if (!packingGroupIds.length) {
+      const maxRetries = 3;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        await delay(200 * attempt);
+        const retryRes = await listPackingOptions();
+        recordSample(`listPackingOptionsRetry${attempt}`, retryRes);
+        if (retryRes?.res?.ok) {
+          const retryOptions = extractPackingOptionsFromResponse(retryRes);
+          const retryChosen = pickPackingOption(retryOptions.length ? retryOptions : mergedPackingOptions);
+          const retryIds = extractPackingGroupIds(retryChosen || {});
+          if (retryIds.length) {
+            packingGroupIds = retryIds;
+            chosen = retryChosen || chosen;
+            listRes = retryRes;
+            break;
+          }
+        }
+      }
+    }
+
+    const packingOptionsCount = mergedPackingOptions?.length ?? 0;
+
+    const debugSnapshot = (failed = false, extra: Record<string, unknown> = {}) => ({
+      packingGroupIds,
+      failedGroupFetch: failed,
+      packingOptionsCount,
+      genOperationId: genOpId,
+      placementLocked,
+      statuses: debugStatuses,
+      rawSamples,
+      ...extra
+    });
+
+    const resolveUpstreamStatus = (resObj: Awaited<ReturnType<typeof signedFetch>> | null) => resObj?.res?.status ?? null;
+    const listStatus = resolveUpstreamStatus(listRes);
+    const planStatus = resolveUpstreamStatus(planCheck);
+    const generationInFlight =
+      !!genRes ||
+      !!genOpId ||
+      listStatus === 202 ||
+      planStatus === 202 ||
+      listStatus === 409; // 409 from Amazon can mean generate already in progress
+
+    // Explicit throttling handling
+    if (listStatus === 429 || planStatus === 429) {
+      return new Response(
+        JSON.stringify({
+          code: "SPAPI_THROTTLED",
+          message: "SP-API a răspuns cu 429 (throttling) pentru planCheck/listPackingOptions.",
+          traceId,
+          inboundPlanId,
+          packingOptionId: null,
+          placementOptionId,
+          amazonIntegrationId: integId || null,
+          debug: debugSnapshot()
+        }),
+        { status: 429, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
+    const processingLikely = (!packingGroupIds.length || !packingOptionId) && generationInFlight;
+    if (processingLikely) {
+      const retryAfterMs = backoffMs(2);
+      return new Response(
+        JSON.stringify({
+          code: "PACKING_OPTIONS_PROCESSING",
+          message: "PackingOptions sunt în curs de generare la Amazon. Reîncearcă în câteva secunde.",
+          traceId,
+          inboundPlanId,
+          packingOptionId: packingOptionId || null,
+          placementOptionId: null,
+          amazonIntegrationId: integId || null,
+          retryAfterMs,
+          debug: debugSnapshot(false, { generationInFlight: true })
+        }),
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
+    // Upstream failure (auth/perm/5xx) before we even have packingGroupIds
+    if (planCheck && !planCheck.res.ok) {
+      const status = planStatus && planStatus >= 500 ? 503 : 502;
+      return new Response(
+        JSON.stringify({
+          code: "SPAPI_PLAN_CHECK_FAILED",
+          message: `SP-API getInboundPlan a eșuat cu status ${planStatus ?? "n/a"}.`,
+          traceId,
+          inboundPlanId,
+          packingOptionId: null,
+          placementOptionId,
+          amazonIntegrationId: integId || null,
+          debug: debugSnapshot()
+        }),
+        { status, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
+    if (listRes && !listRes.res.ok) {
+      const status = listStatus && listStatus >= 500 ? 503 : 502;
+      return new Response(
+        JSON.stringify({
+          code: "SPAPI_LIST_PACKING_FAILED",
+          message: `SP-API listPackingOptions a eșuat cu status ${listStatus ?? "n/a"}.`,
+          traceId,
+          inboundPlanId,
+          packingOptionId: null,
+          placementOptionId,
+          amazonIntegrationId: integId || null,
+          debug: debugSnapshot()
+        }),
+        { status, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
+    let placementOptionId: string | null = null;
+    let placementOptions: any[] = [];
+    let planShipments: any[] = [];
 
     // Placement options (necesare pentru Step 2 - shipping)
     const extractPlacementOptions = (res: Awaited<ReturnType<typeof signedFetch>> | null) =>
@@ -914,7 +1135,7 @@ serve(async (req) => {
     if (!placementOptionId) {
       warnings.push("Nu am putut obține placementOptionId (generate/list).");
     }
-    const planShipments = planCheck?.json?.payload?.shipments || planCheck?.json?.shipments || [];
+    planShipments = planCheck?.json?.payload?.shipments || planCheck?.json?.shipments || [];
 
     const fetchGroupItems = async (groupId: string) => {
       const res = await signedFetch({
@@ -949,10 +1170,26 @@ serve(async (req) => {
       return { packingGroupId: groupId, items: normalizedItems, status: res.res.status, requestId: res.requestId || null };
     };
 
+    const fetchGroupItemsWithRetry = async (groupId: string) => {
+      const transientStatuses = new Set([0, 202, 404, 429, 500, 502, 503, 504]);
+      let last: any = null;
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        last = await fetchGroupItems(groupId);
+        if (!transientStatuses.has(Number(last?.status || 0)) && Number(last?.status || 0) < 400) {
+          break;
+        }
+        if (attempt < maxAttempts) {
+          await delay(150 * attempt);
+        }
+      }
+      return last;
+    };
+
     const packingGroups = [];
     for (const gid of packingGroupIds) {
       // sequential to respect throttling limits
-      const grp = await fetchGroupItems(gid);
+      const grp = await fetchGroupItemsWithRetry(gid);
       // ensure packingGroupId is present even if SP-API omits it in the payload
       if (!grp.packingGroupId && gid) {
         (grp as any).packingGroupId = gid;
@@ -963,19 +1200,21 @@ serve(async (req) => {
 
     const failedGroupFetch = packingGroups.some((g: any) => Number(g?.status || 0) >= 400);
     if (!packingGroupIds.length || !packingGroups.length || failedGroupFetch) {
+      const message = failedGroupFetch
+        ? "getPackingGroupItems a eșuat pentru unul sau mai multe grupuri."
+        : !packingGroupIds.length
+          ? "packingGroupIds lipsesc (list/generate indisponibil sau throttled)."
+          : "packingGroups nu sunt gata (list/generate nu a populat grupurile).";
       return new Response(
         JSON.stringify({
           code: "PACKING_GROUPS_NOT_READY",
-          message: "Amazon nu a returnat packingGroupIds sau packingGroupItems (getPackingGroupItems a eșuat).",
+          message,
           traceId,
           inboundPlanId,
           packingOptionId,
           placementOptionId,
           amazonIntegrationId: integId || null,
-          debug: {
-            packingGroupIds,
-            failedGroupFetch
-          }
+          debug: debugSnapshot(failedGroupFetch)
         }),
         { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
@@ -1085,7 +1324,9 @@ serve(async (req) => {
     const hasPackingGroups = packingGroupIds.length > 0 && normalizedPackingGroups.length > 0;
 
     if (!hasPackingGroups) {
-      const message = "Amazon nu a returnat packingGroupIds după list/generate.";
+      const message = packingGroupIds.length === 0
+        ? "packingGroupIds lipsesc după list/generate (posibil throttling sau permisiuni insuficiente)."
+        : "packingGroups nu sunt gata după list/generate.";
       return new Response(
         JSON.stringify({
           code: "PACKING_GROUPS_NOT_READY",
@@ -1095,10 +1336,7 @@ serve(async (req) => {
           packingOptionId,
           placementOptionId,
           amazonIntegrationId: integId || null,
-          debug: {
-            statuses: debugStatuses,
-            rawSamples
-          }
+          debug: debugSnapshot(failedGroupFetch)
         }),
         { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
       );

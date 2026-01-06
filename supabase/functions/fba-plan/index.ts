@@ -1566,12 +1566,10 @@ serve(async (req) => {
 
     const buildPlanBody = (overrides: Record<string, InboundFix> = {}) => {
       return {
+        name: `PrepRequest-${requestId}`,
         // Amazon requires `sourceAddress` for createInboundPlan payload
         sourceAddress: shipFromAddress,
         destinationMarketplaces: [marketplaceId],
-        labelPrepPreference: "SELLER_LABEL",
-        shipmentType: "SP",
-        requireDeliveryWindows: false,
         items: items.map((it) => {
           const key = normalizeSku(it.sku || it.asin || "");
           const prepInfo = prepGuidanceMap[key] || {};
@@ -1747,9 +1745,9 @@ serve(async (req) => {
         service: "execute-api",
         region: awsRegion,
         host,
-        path: `${path}/${encodeURIComponent(inboundPlanId)}/packingOptions:generate`,
+        path: `${path}/${encodeURIComponent(inboundPlanId)}/packingOptions`,
         query: "",
-        payload: "",
+        payload: "{}",
         accessKey: tempCreds.accessKeyId,
         secretKey: tempCreds.secretAccessKey,
         sessionToken: tempCreds.sessionToken,
@@ -1787,9 +1785,9 @@ serve(async (req) => {
         service: "execute-api",
         region: awsRegion,
         host,
-        path: `${path}/${encodeURIComponent(inboundPlanId)}/placementOptions:generate`,
+        path: `${path}/${encodeURIComponent(inboundPlanId)}/placementOptions`,
         query: "",
-        payload: "",
+        payload: "{}",
         accessKey: tempCreds.accessKeyId,
         secretKey: tempCreds.secretAccessKey,
         sessionToken: tempCreds.sessionToken,
