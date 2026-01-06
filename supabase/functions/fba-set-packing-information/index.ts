@@ -499,7 +499,10 @@ serve(async (req) => {
         if (!map.has(groupId)) map.set(groupId, []);
         map.get(groupId)!.push(pkgId);
       });
-      return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({ packingGroupId, packageIds }));
+      return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({
+        packingGroupId,
+        boxes: [{ packageIds }]
+      }));
     })();
     if (!requestId || !inboundPlanId || !packingOptionId) {
       return new Response(JSON.stringify({ error: "request_id, inbound_plan_id și packing_option_id sunt necesare", traceId }), {

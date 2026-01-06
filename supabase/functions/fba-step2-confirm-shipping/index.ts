@@ -892,7 +892,8 @@ serve(async (req) => {
           const dimOk =
             dims && Number(dims.length) > 0 && Number(dims.width) > 0 && Number(dims.height) > 0;
           const wOk = weight && Number(weight.value) > 0;
-          if (!groupId || !dimOk || !wOk) return;
+          const isAmazonGroup = typeof groupId === "string" && groupId.length >= 30;
+          if (!groupId || !dimOk || !wOk || !isAmazonGroup) return;
           pkgs.push({
             packageId: p?.packageId || p?.package_id || `pkg-${pkgs.length + 1}`,
             packingGroupId: groupId,
@@ -939,7 +940,10 @@ serve(async (req) => {
         if (!map.has(gid)) map.set(gid, []);
         map.get(gid)!.push(pid);
       });
-      return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({ packingGroupId, packageIds }));
+      return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({
+        packingGroupId,
+        boxes: [{ packageIds }]
+      }));
     })();
 
     // 0) Asigură packingInformation înainte de transport (ca fallback)
