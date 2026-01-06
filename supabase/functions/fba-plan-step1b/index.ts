@@ -701,6 +701,9 @@ serve(async (req) => {
           warnings.push(
             `Amazon a refuzat generatePackingOptions (${genRes.res.status}). Verifică permisiunile Inbound/packing pe cont.`
           );
+          // Surface the body for troubleshooting (no secrets inside)
+          const bodyPreview = genRes.text?.slice(0, 200) || "";
+          if (bodyPreview) warnings.push(`Detaliu generatePackingOptions: ${bodyPreview}`);
         }
 
         const genOpId =
@@ -714,6 +717,9 @@ serve(async (req) => {
         }
 
         listRes = await listPackingOptions();
+        if (listRes?.res?.ok && Array.isArray(listRes?.json?.packingOptions) && listRes.json.packingOptions.length === 0) {
+          warnings.push("Amazon nu a returnat packingOptions (posibil lipsă permisiuni GeneratePackingOptions).");
+        }
         if (!listRes.res.ok) {
           warnings.push(
             `Packing options list failed (${listRes.res.status}). ${listRes.text?.slice(0, 200) || ""}`
