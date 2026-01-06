@@ -849,42 +849,6 @@ serve(async (req) => {
     };
 
     const packingGroupIds = extractPackingGroupIds(chosen || {});
-    // fallback: unele răspunsuri returnează doar packingGroups ca string sau nimic; dacă avem packingOption,
-    // încearcă să recuperezi ID-ul de grup măcar din packingGroups/packingGroupIds/raw.
-    if (!packingGroupIds.length && chosen) {
-      const fromOption =
-        Array.isArray((chosen as any)?.packingGroups) && (chosen as any)?.packingGroups.length
-          ? (chosen as any)?.packingGroups
-          : [];
-      const fromIds =
-        Array.isArray((chosen as any)?.packingGroupIds) && (chosen as any)?.packingGroupIds.length
-          ? (chosen as any)?.packingGroupIds
-          : [];
-      [...fromOption, ...fromIds].forEach((val: any) => {
-        if (val) packingGroupIds.push(String(val));
-      });
-      if (!packingGroupIds.length && packingOptionId) {
-        packingGroupIds.push(`pg-for-${packingOptionId}`);
-      }
-    }
-    // fallback: unele răspunsuri returnează doar packingGroups ca string sau nimic; dacă avem packingOption,
-    // încearcă să recuperezi ID-ul de grup măcar din packingGroups/packingGroupIds/raw.
-    if (!packingGroupIds.length && chosen) {
-      const fromOption =
-        Array.isArray((chosen as any)?.packingGroups) && (chosen as any)?.packingGroups.length
-          ? (chosen as any)?.packingGroups
-          : [];
-      const fromIds =
-        Array.isArray((chosen as any)?.packingGroupIds) && (chosen as any)?.packingGroupIds.length
-          ? (chosen as any)?.packingGroupIds
-          : [];
-      [...fromOption, ...fromIds].forEach((val: any) => {
-        if (val) packingGroupIds.push(String(val));
-      });
-      if (!packingGroupIds.length && packingOptionId) {
-        packingGroupIds.push(`pg-for-${packingOptionId}`);
-      }
-    }
 
     // Placement options (necesare pentru Step 2 - shipping)
     const extractPlacementOptions = (res: Awaited<ReturnType<typeof signedFetch>> | null) =>
@@ -995,6 +959,26 @@ serve(async (req) => {
       }
       packingGroups.push(grp);
       await delay(50);
+    }
+
+    const failedGroupFetch = packingGroups.some((g: any) => Number(g?.status || 0) >= 400);
+    if (!packingGroupIds.length || !packingGroups.length || failedGroupFetch) {
+      return new Response(
+        JSON.stringify({
+          code: "PACKING_GROUPS_NOT_READY",
+          message: "Amazon nu a returnat packingGroupIds sau packingGroupItems (getPackingGroupItems a eșuat).",
+          traceId,
+          inboundPlanId,
+          packingOptionId,
+          placementOptionId,
+          amazonIntegrationId: integId || null,
+          debug: {
+            packingGroupIds,
+            failedGroupFetch
+          }
+        }),
+        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
     }
 
     // Fetch metadata for SKUs to show images/titles in UI
