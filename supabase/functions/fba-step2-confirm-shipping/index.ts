@@ -873,45 +873,46 @@ serve(async (req) => {
       return null;
     };
 
-  const normalizedPackages = (() => {
-    const pkgs: any[] = [];
-    (shipmentTransportConfigs || []).forEach((cfg: any) => {
-      const packages = cfg?.packages || cfg?.Packages || [];
-      const packingGroupId =
-        cfg?.packingGroupId || cfg?.packing_group_id || cfg?.packing_groupid || null;
-      (Array.isArray(packages) ? packages : []).forEach((p: any) => {
-        const dims = p?.dimensions || p?.Dimensions || null;
-        const weight = p?.weight || p?.Weight || null;
-        const groupId =
-          p?.packingGroupId ||
-          p?.packing_group_id ||
-          packingGroupId ||
-          null;
-        const isFallback =
-          typeof groupId === "string" && groupId.toLowerCase().startsWith("fallback-");
-        const dimOk =
-          dims && Number(dims.length) > 0 && Number(dims.width) > 0 && Number(dims.height) > 0;
-        const wOk = weight && Number(weight.value) > 0;
-        if (!groupId || isFallback || !dimOk || !wOk) return;
-        const unitDim = String(dims.unit || "CM").toUpperCase();
-        const unitW = String(weight.unit || "KG").toUpperCase();
-        pkgs.push({
-          packageId: p?.packageId || p?.package_id || `pkg-${pkgs.length + 1}`,
-          packingGroupId: groupId,
-          dimensions: {
-            length: unitDim === "IN" ? Number(dims.length) : cmToIn(dims.length),
-            width: unitDim === "IN" ? Number(dims.width) : cmToIn(dims.width),
-            height: unitDim === "IN" ? Number(dims.height) : cmToIn(dims.height),
-            unit: "IN"
-          },
-          weight: {
-            value: unitW === "LB" ? Number(weight.value) : kgToLb(weight.value),
-            unit: "LB"
-          }
+    const isFallbackId = (val: any) => typeof val === "string" && val.toLowerCase().startsWith("fallback-");
+
+    const normalizedPackages = (() => {
+      const pkgs: any[] = [];
+      (shipmentTransportConfigs || []).forEach((cfg: any) => {
+        const packages = cfg?.packages || cfg?.Packages || [];
+        const packingGroupId =
+          cfg?.packingGroupId || cfg?.packing_group_id || cfg?.packing_groupid || null;
+        (Array.isArray(packages) ? packages : []).forEach((p: any) => {
+          const dims = p?.dimensions || p?.Dimensions || null;
+          const weight = p?.weight || p?.Weight || null;
+          const groupId =
+            p?.packingGroupId ||
+            p?.packing_group_id ||
+            packingGroupId ||
+            null;
+          const isFallback = isFallbackId(groupId);
+          const dimOk =
+            dims && Number(dims.length) > 0 && Number(dims.width) > 0 && Number(dims.height) > 0;
+          const wOk = weight && Number(weight.value) > 0;
+          if (!groupId || isFallback || !dimOk || !wOk) return;
+          const unitDim = String(dims.unit || "CM").toUpperCase();
+          const unitW = String(weight.unit || "KG").toUpperCase();
+          pkgs.push({
+            packageId: p?.packageId || p?.package_id || `pkg-${pkgs.length + 1}`,
+            packingGroupId: groupId,
+            dimensions: {
+              length: unitDim === "IN" ? Number(dims.length) : cmToIn(dims.length),
+              width: unitDim === "IN" ? Number(dims.width) : cmToIn(dims.width),
+              height: unitDim === "IN" ? Number(dims.height) : cmToIn(dims.height),
+              unit: "IN"
+            },
+            weight: {
+              value: unitW === "LB" ? Number(weight.value) : kgToLb(weight.value),
+              unit: "LB"
+            }
+          });
         });
       });
-    });
-    return pkgs;
+      return pkgs;
     })();
 
     const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
@@ -927,31 +928,50 @@ serve(async (req) => {
       };
     });
 
-  logStep("packingInfoFallback", {
-    traceId,
-    packingOptionId: effectivePackingOptionId || null,
-    packagesCount: normalizedPackages.length
-  });
+    logStep("packingInfoFallback", {
+      traceId,
+      packingOptionId: effectivePackingOptionId || null,
+      packagesCount: normalizedPackages.length
+    });
 
-  if (!effectivePackingOptionId) {
-    return new Response(
-      JSON.stringify({
-        error: "Lipsește packing_option_id. Reia Step1b ca să confirmi packingOptions.",
-        traceId
-      }),
-      { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
-    );
-  }
+    const hasFallbackPackingGroup = (shipmentTransportConfigs || []).some((cfg: any) => {
+      const topLevelId =
+        cfg?.packingGroupId || cfg?.packing_group_id || cfg?.packing_groupid || null;
+      if (isFallbackId(topLevelId)) return true;
+      const packages = cfg?.packages || cfg?.Packages || [];
+      return (Array.isArray(packages) ? packages : []).some((p: any) =>
+        isFallbackId(p?.packingGroupId || p?.packing_group_id)
+      );
+    });
+    if (hasFallbackPackingGroup) {
+      return new Response(
+        JSON.stringify({
+          error: "PackingGroupId invalid (fallback) trimis din client. Reia Step1b ca să obții packing groups reale.",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
-  if (effectivePackingOptionId && !normalizedPackages.length) {
-    return new Response(
-      JSON.stringify({
-        error: "Nu există packingGroupId + packages valide (de la Amazon) pentru setPackingInformation. Reia Step1b ca să generezi packingOptions.",
-        traceId
-      }),
-      { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
-    );
-  }
+    if (!effectivePackingOptionId) {
+      return new Response(
+        JSON.stringify({
+          error: "Lipsește packing_option_id. Reia Step1b ca să confirmi packingOptions.",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
+    if (effectivePackingOptionId && !normalizedPackages.length) {
+      return new Response(
+        JSON.stringify({
+          error: "Nu există packingGroupId + packages valide (de la Amazon) pentru setPackingInformation. Reia Step1b ca să generezi packingOptions.",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
     const packageGroupings = (() => {
       const map = new Map<string, string[]>();

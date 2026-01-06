@@ -69,8 +69,9 @@ export default function FbaStep1bPacking({
   const buildPackingPayload = () => {
     const packages = [];
     const packingGroups = [];
+    let missingGroupId = false;
     (packGroups || []).forEach((group) => {
-      const packingGroupId = group.packingGroupId || group.id || null;
+      const packingGroupId = group.packingGroupId || null;
       const { dims, weight, boxes } = resolveBoxState(group);
       const dimsNum = {
         length: resolveGroupNumber(dims.length),
@@ -80,26 +81,29 @@ export default function FbaStep1bPacking({
       const weightNum = resolveGroupNumber(weight);
       const boxCount = Math.max(1, resolveGroupNumber(boxes) || 1);
 
-      if (packingGroupId) {
-        packingGroups.push({
-          packingGroupId,
-          boxes: boxCount,
-          packMode: group.packMode || 'single',
-          dimensions:
-            dimsNum.length || dimsNum.width || dimsNum.height
-              ? { ...dimsNum, unit: 'CM' }
-              : null,
-          weight: weightNum ? { value: weightNum, unit: 'KG' } : null,
-          items: Array.isArray(group.items)
-            ? group.items.map((it) => ({
-                sku: it.sku || it.msku || it.SellerSKU || null,
-                quantity: Number(it.quantity || 0) || 0
-              }))
-            : []
-        });
+      if (!packingGroupId) {
+        missingGroupId = true;
+        return;
       }
 
-      if (packingGroupId && dimsNum.length > 0 && dimsNum.width > 0 && dimsNum.height > 0 && weightNum > 0) {
+      packingGroups.push({
+        packingGroupId,
+        boxes: boxCount,
+        packMode: group.packMode || 'single',
+        dimensions:
+          dimsNum.length || dimsNum.width || dimsNum.height
+            ? { ...dimsNum, unit: 'CM' }
+            : null,
+        weight: weightNum ? { value: weightNum, unit: 'KG' } : null,
+        items: Array.isArray(group.items)
+          ? group.items.map((it) => ({
+              sku: it.sku || it.msku || it.SellerSKU || null,
+              quantity: Number(it.quantity || 0) || 0
+            }))
+          : []
+      });
+
+      if (dimsNum.length > 0 && dimsNum.width > 0 && dimsNum.height > 0 && weightNum > 0) {
         for (let i = 0; i < boxCount; i++) {
           packages.push({
             packingGroupId,
@@ -109,12 +113,16 @@ export default function FbaStep1bPacking({
         }
       }
     });
-    return { packages, packingGroups };
+    return { packages, packingGroups, missingGroupId };
   };
 
   const validateGroups = () => {
     if (!Array.isArray(packGroups) || packGroups.length === 0) {
       return 'Completează cel puțin un pack group înainte de a continua.';
+    }
+    const missingPackingId = (packGroups || []).find((g) => !g.packingGroupId);
+    if (missingPackingId) {
+      return 'Amazon nu a returnat packingGroupId pentru unul din grupuri. Reia Step 1b ca să obții packing groups reale.';
     }
     const missing = packGroups.find((group) => {
       const { dims, weight } = resolveBoxState(group);
@@ -136,8 +144,9 @@ export default function FbaStep1bPacking({
       commitDraft(g, ["boxes", "boxWeight", "boxDimensions"]);
     });
 
+    const isFallback = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
     const hasFallbackGroup = (packGroups || []).some(
-      (g) => typeof g.packingGroupId === "string" && g.packingGroupId.toLowerCase().startsWith("fallback-")
+      (g) => isFallback(g.packingGroupId) || isFallback(g.id)
     );
     if (hasFallbackGroup) {
       setContinueError("Amazon nu a returnat packingGroupId (packingOptions). Reia Step 1b ca să obții packing groups reale.");
@@ -151,6 +160,10 @@ export default function FbaStep1bPacking({
     }
     setContinueError('');
     const payload = buildPackingPayload();
+    if (payload.missingGroupId) {
+      setContinueError("Amazon nu a returnat packingGroupId (packingOptions). Reia Step 1b ca să obții packing groups reale.");
+      return;
+    }
     try {
       await onNext(payload);
     } catch (err) {

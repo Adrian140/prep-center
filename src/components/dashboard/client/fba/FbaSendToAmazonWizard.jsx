@@ -354,38 +354,42 @@ export default function FbaSendToAmazonWizard({
   };
 
   const buildPackingPayload = (groups = packGroups) => {
-    if (!Array.isArray(groups) || groups.length === 0) return { packages: [], packingGroups: [] };
+    if (!Array.isArray(groups) || groups.length === 0) return { packages: [], packingGroups: [], missingGroupId: false };
 
     const packingGroupsPayload = [];
     const packagesPayload = [];
+    let missingGroupId = false;
 
     groups.forEach((g) => {
       const dims = getSafeDims(g.boxDimensions);
       const weight = getSafeNumber(g.boxWeight);
       const count = Math.max(1, Number(g.boxes) || 1);
-      const packingGroupId = g.packingGroupId || g.id || null;
+      const packingGroupId = g.packingGroupId || null;
       const normalizedDims = dims
         ? { length: dims.length || 0, width: dims.width || 0, height: dims.height || 0, unit: "CM" }
         : null;
       const normalizedWeight = weight ? { value: weight, unit: "KG" } : null;
 
-      if (packingGroupId) {
-        packingGroupsPayload.push({
-          packingGroupId,
-          boxes: count,
-          packMode: g.packMode || "single",
-          dimensions: normalizedDims,
-          weight: normalizedWeight,
-          items: Array.isArray(g.items)
-            ? g.items.map((it) => ({
-                sku: it.sku || it.msku || it.SellerSKU || null,
-                quantity: Number(it.quantity || 0) || 0
-              }))
-            : []
-        });
+      if (!packingGroupId) {
+        missingGroupId = true;
+        return;
       }
 
-      if (normalizedDims && normalizedWeight && packingGroupId) {
+      packingGroupsPayload.push({
+        packingGroupId,
+        boxes: count,
+        packMode: g.packMode || "single",
+        dimensions: normalizedDims,
+        weight: normalizedWeight,
+        items: Array.isArray(g.items)
+          ? g.items.map((it) => ({
+              sku: it.sku || it.msku || it.SellerSKU || null,
+              quantity: Number(it.quantity || 0) || 0
+            }))
+          : []
+      });
+
+      if (normalizedDims && normalizedWeight) {
         for (let i = 0; i < count; i++) {
           packagesPayload.push({
             packingGroupId,
@@ -396,7 +400,7 @@ export default function FbaSendToAmazonWizard({
       }
     });
 
-    return { packages: packagesPayload, packingGroups: packingGroupsPayload };
+    return { packages: packagesPayload, packingGroups: packingGroupsPayload, missingGroupId };
   };
 
   const submitPackingInformation = async (payload = {}) => {
@@ -425,9 +429,15 @@ export default function FbaSendToAmazonWizard({
     const packingGroupsPayload =
       Array.isArray(payload.packingGroups) && payload.packingGroups.length ? payload.packingGroups : derivedPayload.packingGroups;
 
+    const isFallback = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
     const hasFallback = packages.some(
-      (p) => typeof p.packingGroupId === "string" && p.packingGroupId.toLowerCase().startsWith("fallback-")
+      (p) => isFallback(p.packingGroupId)
     );
+    const missingGroupId = derivedPayload.missingGroupId || packingGroupsPayload.some((g) => !g.packingGroupId);
+    if (missingGroupId) {
+      setPackingSubmitError("Amazon nu a returnat packingGroupId pentru cutii (packingOptions). Reia Step 1b pentru a obține packing groups reale.");
+      return;
+    }
     if (hasFallback) {
       setPackingSubmitError("Amazon nu a returnat packingGroupId pentru cutii (packingOptions). Reia Step 1b pentru a obține packing groups reale.");
       return;
@@ -491,12 +501,14 @@ export default function FbaSendToAmazonWizard({
         dimensions: dims ? { length: dims.length, width: dims.width, height: dims.height, unit: "CM" } : null,
         weight: weight ? { value: weight, unit: "KG" } : null
       };
+      const packingGroupId = g.packingGroupId || null;
+      if (!packingGroupId) return null;
       return {
         shipmentId: shipmentIdForGroup(g, idx),
-        packingGroupId: g.packingGroupId || g.id,
+        packingGroupId,
         packages: Array.from({ length: boxCount }, () => pkg)
       };
-    });
+    }).filter(Boolean);
   };
 
   const fetchShippingOptions = async () => {
@@ -517,6 +529,13 @@ export default function FbaSendToAmazonWizard({
       null;
     if (!inboundPlanId || !requestId) {
       setShippingError('Lipsește inboundPlanId sau requestId; nu pot cere opțiunile de transport.');
+      return;
+    }
+
+    const isFallback = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
+    const missingPackingGroupId = (packGroups || []).some((g) => !g.packingGroupId || isFallback(g.packingGroupId) || isFallback(g.id));
+    if (missingPackingGroupId) {
+      setShippingError('Packing groups nu au packingGroupId valid de la Amazon. Reia Step 1b ca să obții packingOptions.');
       return;
     }
 
