@@ -8,7 +8,9 @@ export default function FbaStep1bPacking({
   submitting = false,
   onUpdateGroup,
   onNext,
-  onBack
+  onBack,
+  onRetry,
+  retryLoading = false
 }) {
   const isEmpty = !loading && (!Array.isArray(packGroups) || packGroups.length === 0);
   const totals = useMemo(() => {
@@ -203,9 +205,24 @@ export default function FbaStep1bPacking({
             <div className="px-4 py-6 text-slate-600 text-sm">Loading pack groups from Amazon…</div>
           )}
 
-          {error && !loading && (
-            <div className="px-4 py-3 mb-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded">
-              {error}
+      {error && !loading && (
+        <div className="px-4 py-3 mb-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded">
+          {error}
+        </div>
+      )}
+          {onRetry && !loading && (error || isEmpty) && (
+            <div className="px-4 py-3 mb-3 text-sm bg-blue-50 border border-blue-200 rounded flex flex-col gap-2">
+              <div className="text-blue-800">
+                Amazon nu a returnat încă packing groups sau a răspuns cu o eroare. Încearcă din nou peste câteva secunde.
+              </div>
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={retryLoading}
+                className="self-start inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white text-sm px-3 py-2 rounded-md"
+              >
+                {retryLoading ? 'Retry…' : 'Retry fetch packing groups'}
+              </button>
             </div>
           )}
 

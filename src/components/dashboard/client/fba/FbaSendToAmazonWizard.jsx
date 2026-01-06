@@ -153,6 +153,8 @@ export default function FbaSendToAmazonWizard({
   const [shippingError, setShippingError] = useState('');
   const [packingSubmitLoading, setPackingSubmitLoading] = useState(false);
   const [packingSubmitError, setPackingSubmitError] = useState('');
+  const [packingRefreshLoading, setPackingRefreshLoading] = useState(false);
+  const [packingReadyError, setPackingReadyError] = useState('');
   const [step2Loaded, setStep2Loaded] = useState(false);
 
   // Persistăm ultimul pas vizitat ca să nu se piardă la refresh.
@@ -482,6 +484,56 @@ export default function FbaSendToAmazonWizard({
     }
   };
 
+  const refreshPackingGroups = async () => {
+    if (typeof window === 'undefined') return;
+    const inboundPlanId =
+      plan?.inboundPlanId || plan?.inbound_plan_id || plan?.planId || plan?.plan_id || null;
+    const requestId =
+      plan?.prepRequestId ||
+      initialPlan?.prepRequestId ||
+      plan?.requestId ||
+      plan?.request_id ||
+      initialPlan?.requestId ||
+      initialPlan?.request_id ||
+      plan?.id ||
+      initialPlan?.id ||
+      null;
+    if (!inboundPlanId || !requestId) {
+      setPackingReadyError('Lipsește inboundPlanId sau requestId; reîncarcă planul.');
+      return;
+    }
+    setPackingRefreshLoading(true);
+    setPackingReadyError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('fba-plan-step1b', {
+        body: {
+          request_id: requestId,
+          inbound_plan_id: inboundPlanId,
+          amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null
+        }
+      });
+      if (error) throw error;
+      if (data?.code === 'PACKING_GROUPS_NOT_READY') {
+        const trace = data?.traceId || data?.trace_id || null;
+        const msg = data?.message || 'Amazon nu a returnat încă packing groups. Reîncearcă în câteva secunde.';
+        setPackingReadyError(trace ? `${msg} · TraceId ${trace}` : msg);
+        return;
+      }
+      if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
+      if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
+      if (Array.isArray(data?.packingGroups)) {
+        const normalized = normalizePackGroups(data.packingGroups);
+        setPackGroups((prev) => mergePackGroups(prev, normalized));
+      }
+      if (Array.isArray(data?.shipments)) setShipments(data.shipments);
+      setPlanError('');
+    } catch (e) {
+      setPackingReadyError(e?.message || 'Nu am putut reîncărca packing groups.');
+    } finally {
+      setPackingRefreshLoading(false);
+    }
+  };
+
   const buildShipmentConfigs = () => {
     if (!Array.isArray(packGroups)) return [];
 
@@ -550,6 +602,13 @@ export default function FbaSendToAmazonWizard({
           }
         });
         if (step1bErr) throw step1bErr;
+        if (step1b?.code === 'PACKING_GROUPS_NOT_READY') {
+          const trace = step1b?.traceId || step1b?.trace_id || null;
+          setShippingError(
+            `${step1b?.message || 'Packing groups nu sunt încă gata la Amazon.'}${trace ? ` · TraceId ${trace}` : ''}`
+          );
+          return;
+        }
         placementOptId = step1b?.placementOptionId || step1b?.placement_option_id || null;
         if (placementOptId) {
           setPlacementOptionId(placementOptId);
@@ -882,8 +941,10 @@ export default function FbaSendToAmazonWizard({
       return (
         <FbaStep1bPacking
           packGroups={packGroups}
-          loading={loadingPlan}
-          error={planError || packingSubmitError}
+          loading={loadingPlan || packingRefreshLoading}
+          error={planError || packingReadyError || packingSubmitError}
+          onRetry={refreshPackingGroups}
+          retryLoading={packingRefreshLoading}
           submitting={packingSubmitLoading}
           onUpdateGroup={handlePackGroupUpdate}
           onNext={submitPackingInformation}
