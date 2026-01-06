@@ -955,6 +955,9 @@ serve(async (req) => {
       });
       logStep("setPackingInformation", { traceId, status: setRes?.res?.status, requestId: setRes?.requestId || null });
       if (!setRes?.res?.ok) {
+        // log body for debugging (truncated)
+        const bodyPreview = (setRes?.text || "").slice(0, 500);
+        logStep("setPackingInformation_error", { traceId, status: setRes?.res?.status || null, body: bodyPreview });
         return new Response(
           JSON.stringify({ error: "SetPackingInformation failed before transportation", status: setRes?.res?.status || null, traceId }),
           { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }

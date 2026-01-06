@@ -444,7 +444,7 @@ export default function FbaSendToAmazonWizard({
     setPackingSubmitLoading(true);
     setPackingSubmitError('');
     try {
-      const { error } = await supabase.functions.invoke('fba-set-packing-information', {
+      const { data, error } = await supabase.functions.invoke('fba-set-packing-information', {
         body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
@@ -454,6 +454,7 @@ export default function FbaSendToAmazonWizard({
         }
       });
       if (error) throw error;
+      if (data?.traceId) console.log('setPackingInformation traceId', data.traceId);
       completeAndNext('1b');
     } catch (e) {
       setPackingSubmitError(e?.message || 'SetPackingInformation a eșuat.');
