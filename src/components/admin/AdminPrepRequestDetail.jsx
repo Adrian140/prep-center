@@ -29,7 +29,7 @@ const StatusPill = ({ s }) => {
 };
 
 export default function AdminPrepRequestDetail({ requestId, onBack, onChanged }) {
-  const { profile } = useSupabaseAuth();
+  const { profile, session } = useSupabaseAuth();
 
   const [row, setRow] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -99,10 +99,34 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
 
   const fetchPlanFromEdge = useCallback(async () => {
     if (!row?.id) throw new Error('Missing request id');
+    const {
+      data: { session: freshSession },
+      error: sessionError
+    } = await supabase.auth.getSession();
+
+    if (sessionError) throw sessionError;
+    const activeSession = freshSession || session;
+
+    if (!activeSession?.access_token) {
+      const err = new Error('You must be signed in to load the Amazon plan. Please refresh and sign in again.');
+      setFlash(err.message);
+      throw err;
+    }
+
+    const authHeaders = { Authorization: `Bearer ${activeSession.access_token}` };
+
     const { data, error } = await supabase.functions.invoke('fba-plan', {
+      headers: authHeaders,
       body: { request_id: row.id }
     });
-    if (error) throw error;
+    if (error) {
+      if (error?.status === 401) {
+        const err = new Error('Session expired while loading Amazon plan. Please sign in again.');
+        setFlash(err.message);
+        throw err;
+      }
+      throw error;
+    }
     const plan = data?.plan || null;
     if (!plan) return null;
     let packingGroups = [];
@@ -110,6 +134,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
     if (plan.inboundPlanId) {
       try {
         const { data: packingData, error: packingErr } = await supabase.functions.invoke('fba-plan-step1b', {
+          headers: authHeaders,
           body: {
             request_id: row.id,
             inbound_plan_id: plan.inboundPlanId,
@@ -139,7 +164,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
       inboundPlanStatus: data?.inboundPlanStatus || plan.inboundPlanStatus || null,
       shipmentsPending: data?.shipmentsPending ?? plan.shipmentsPending ?? false
     };
-  }, [row?.id]);
+  }, [row?.id, session]);
 
   const wizardShipments = useMemo(() => {
     if (!row) return [];
