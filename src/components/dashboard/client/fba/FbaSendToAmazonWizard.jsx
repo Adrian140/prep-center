@@ -156,6 +156,7 @@ export default function FbaSendToAmazonWizard({
   const [packingRefreshLoading, setPackingRefreshLoading] = useState(false);
   const [packingReadyError, setPackingReadyError] = useState('');
   const [step2Loaded, setStep2Loaded] = useState(false);
+  const isFallbackId = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
 
   // Persistăm ultimul pas vizitat ca să nu se piardă la refresh.
   const stepStorageKey = useMemo(() => {
@@ -524,7 +525,11 @@ export default function FbaSendToAmazonWizard({
       if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
       if (Array.isArray(data?.packingGroups)) {
         const normalized = normalizePackGroups(data.packingGroups);
-        setPackGroups((prev) => mergePackGroups(prev, normalized));
+        const filtered = normalized.filter((g) => g.packingGroupId && !isFallbackId(g.packingGroupId));
+        if (!filtered.length) {
+          setPackingReadyError('Packing groups lipsesc din răspunsul Amazon. Reîncearcă peste câteva secunde.');
+        }
+        setPackGroups((prev) => mergePackGroups(prev, filtered));
       }
       if (Array.isArray(data?.shipments)) setShipments(data.shipments);
       setPlanError('');
@@ -585,8 +590,7 @@ export default function FbaSendToAmazonWizard({
       return;
     }
 
-    const isFallback = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
-    const missingPackingGroupId = (packGroups || []).some((g) => !g.packingGroupId || isFallback(g.packingGroupId) || isFallback(g.id));
+    const missingPackingGroupId = (packGroups || []).some((g) => !g.packingGroupId || isFallbackId(g.packingGroupId) || isFallbackId(g.id));
     if (missingPackingGroupId) {
       setShippingError('Packing groups nu au packingGroupId valid de la Amazon. Reia Step 1b ca să obții packingOptions.');
       return;
