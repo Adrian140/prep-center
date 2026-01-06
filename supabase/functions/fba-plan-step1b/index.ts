@@ -945,6 +945,19 @@ serve(async (req) => {
       packingGroups.push(grp);
       await delay(50);
     }
+    // fallback: dacă Amazon nu permite getPackingGroupItems (ex: 403) sau răspunsul e gol,
+    // păstrăm totuși packingGroupId ca să nu blocăm UI-ul.
+    if (!packingGroups.length && packingGroupIds.length) {
+      packingGroups.push(
+        ...packingGroupIds.map((gid) => ({
+          packingGroupId: gid,
+          items: [],
+          status: null,
+          requestId: null,
+          warning: "PackingGroupItems indisponibile de la Amazon; folosim ID-ul raportat în packingOptions."
+        }))
+      );
+    }
 
     // Fetch metadata for SKUs to show images/titles in UI
     const fetchSkuMeta = async () => {
