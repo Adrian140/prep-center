@@ -443,6 +443,34 @@ export default function FbaSendToAmazonWizard({
       return;
     }
 
+    // guard: validăm limitele Amazon pentru box (SPD) înainte de cerere
+    const minDims = { L: 15.2, W: 10.0, H: 2.5 };
+    const maxSide = 63.5;
+    const minWeight = 0.15;
+    const maxWeight = 23;
+    const invalidBox = (packGroups || []).find((g) => {
+      const w = Number(g.boxWeight || 0);
+      const d = g.boxDimensions || {};
+      const L = Number(d.length || 0);
+      const W = Number(d.width || 0);
+      const H = Number(d.height || 0);
+      const sides = [L, W, H].sort((a, b) => b - a); // largest first
+      return (
+        w < minWeight ||
+        w > maxWeight ||
+        sides[0] > maxSide ||
+        L < minDims.L ||
+        W < minDims.W ||
+        H < minDims.H
+      );
+    });
+    if (invalidBox) {
+      setShippingError(
+        'Amazon limite: min 15.2×10×2.5 cm și 0.15 kg; max 63.5 cm pe orice latură și 23 kg per box (fără oversize). Ajustează dimensiunile/greutatea.'
+      );
+      return;
+    }
+
     setShippingLoading(true);
     setShippingError('');
     try {
