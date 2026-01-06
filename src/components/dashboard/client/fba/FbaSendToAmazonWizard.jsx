@@ -425,6 +425,14 @@ export default function FbaSendToAmazonWizard({
     const packingGroupsPayload =
       Array.isArray(payload.packingGroups) && payload.packingGroups.length ? payload.packingGroups : derivedPayload.packingGroups;
 
+    const hasFallback = packages.some(
+      (p) => typeof p.packingGroupId === "string" && p.packingGroupId.toLowerCase().startsWith("fallback-")
+    );
+    if (hasFallback) {
+      setPackingSubmitError("Amazon nu a returnat packingGroupId pentru cutii (packingOptions). Reia Step 1b pentru a obține packing groups reale.");
+      return;
+    }
+
     if (!packages.length) {
       setPackingSubmitError('Completează dimensiunile și greutatea pentru cutie înainte de a continua.');
       return;

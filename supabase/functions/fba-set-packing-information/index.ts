@@ -155,8 +155,8 @@ function buildPackagesFromGroups(groups: any[]) {
   const packages: any[] = [];
   (groups || []).forEach((g: any) => {
     const packingGroupId = g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
-    const isAmazonGroup = typeof packingGroupId === "string" && packingGroupId.length >= 30;
-    if (!isAmazonGroup) return;
+    if (!packingGroupId) return;
+    if (typeof packingGroupId === "string" && packingGroupId.toLowerCase().startsWith("fallback-")) return;
     const dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
     const weight = normalizeWeight(g?.weight || g?.boxWeight);
     const boxCount = Math.max(1, Number(g?.boxes || 1) || 1);
@@ -494,8 +494,9 @@ serve(async (req) => {
       .map((p: any, idx: number) => normalizePackage(p, `pkg-${idx + 1}`))
       .filter((p) => {
         const hasId = p.packingGroupId && p.packageId;
-        const validGroup = typeof p.packingGroupId === "string" && p.packingGroupId.length >= 30;
-        return hasId && validGroup;
+        const isFallback =
+          typeof p.packingGroupId === "string" && p.packingGroupId.toLowerCase().startsWith("fallback-");
+        return hasId && !isFallback;
       });
     const packageGroupings = (() => {
       const map = new Map<string, string[]>();
@@ -507,7 +508,7 @@ serve(async (req) => {
       });
       return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({
         packingGroupId,
-        boxes: [{ packageIds }]
+        boxes: packageIds.map((pid) => ({ packageIds: [pid] }))
       }));
     })();
     if (!requestId || !inboundPlanId || !packingOptionId) {
@@ -519,7 +520,8 @@ serve(async (req) => {
     if (!normalizedPackages.length) {
       return new Response(
         JSON.stringify({
-          error: "Lipsesc pachetele (packages) valide cu packingGroupId de la Amazon. Reîncarcă packingOptions (Step1b) și asigură-te că există packingGroupId.",
+          error:
+            "Lipsesc pachetele (packages) valide cu packingGroupId de la Amazon. Reîncarcă packingOptions (Step1b) și asigură-te că există packingGroupId (nu fallback).",
           traceId
         }),
         {

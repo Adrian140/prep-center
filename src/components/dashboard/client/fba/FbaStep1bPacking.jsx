@@ -136,6 +136,14 @@ export default function FbaStep1bPacking({
       commitDraft(g, ["boxes", "boxWeight", "boxDimensions"]);
     });
 
+    const hasFallbackGroup = (packGroups || []).some(
+      (g) => typeof g.packingGroupId === "string" && g.packingGroupId.toLowerCase().startsWith("fallback-")
+    );
+    if (hasFallbackGroup) {
+      setContinueError("Amazon nu a returnat packingGroupId (packingOptions). Reia Step 1b ca să obții packing groups reale.");
+      return;
+    }
+
     const validationError = validateGroups();
     if (validationError) {
       setContinueError(validationError);
