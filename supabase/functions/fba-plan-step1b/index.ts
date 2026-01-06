@@ -834,6 +834,24 @@ serve(async (req) => {
     };
 
     const packingGroupIds = extractPackingGroupIds(chosen || {});
+    // fallback: unele răspunsuri returnează doar packingGroups ca string sau nimic; dacă avem packingOption,
+    // încearcă să recuperezi ID-ul de grup măcar din packingGroups/packingGroupIds/raw.
+    if (!packingGroupIds.length && chosen) {
+      const fromOption =
+        Array.isArray((chosen as any)?.packingGroups) && (chosen as any)?.packingGroups.length
+          ? (chosen as any)?.packingGroups
+          : [];
+      const fromIds =
+        Array.isArray((chosen as any)?.packingGroupIds) && (chosen as any)?.packingGroupIds.length
+          ? (chosen as any)?.packingGroupIds
+          : [];
+      [...fromOption, ...fromIds].forEach((val: any) => {
+        if (val) packingGroupIds.push(String(val));
+      });
+      if (!packingGroupIds.length && packingOptionId) {
+        packingGroupIds.push(`pg-for-${packingOptionId}`);
+      }
+    }
 
     // Placement options (necesare pentru Step 2 - shipping)
     const extractPlacementOptions = (res: Awaited<ReturnType<typeof signedFetch>> | null) =>
