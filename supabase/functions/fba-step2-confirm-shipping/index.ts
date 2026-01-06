@@ -1057,6 +1057,11 @@ serve(async (req) => {
       }
     }
 
+    const configsByShipment = new Map<string, any>();
+    shipmentTransportationConfigurations.forEach((cfg: any) => {
+      if (cfg?.shipmentId) configsByShipment.set(String(cfg.shipmentId), cfg);
+    });
+
     const normalizeShipmentsFromPlan = async () => {
       const list: any[] = [];
       for (const sh of placementShipments) {
@@ -1085,21 +1090,43 @@ serve(async (req) => {
           payload?.destinationAddress ||
           payload?.to ||
           payload?.destination?.address ||
+          payload?.DestinationAddress ||
           null;
         const sourceAddress =
           payload?.shipFromAddress ||
           payload?.from ||
           payload?.source?.address ||
+          payload?.SourceAddress ||
           null;
         const contents = payload?.contents || payload?.Contents || {};
+        const destinationFc =
+          payload?.destination?.warehouseId ||
+          payload?.destination?.warehouseCode ||
+          payload?.destinationWarehouseId ||
+          sh?.destinationWarehouseId ||
+          sh?.destinationFc ||
+          null;
+        const cfg = configsByShipment.get(String(shId)) || {};
+        const pkgList = Array.isArray(cfg?.packages) ? cfg.packages : [];
+        const weightFromCfg = pkgList.reduce((sum: number, p: any) => {
+          const w = Number(p?.weight?.value || 0);
+          return sum + (Number.isFinite(w) ? w : 0);
+        }, 0);
+        const boxesFromCfg = pkgList.length ? pkgList.length : null;
         list.push({
           id: shId,
           from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
-          to: formatAddress(destinationAddress) || formatAddress(sh?.destinationAddress || sh?.to) || null,
-          boxes: contents?.boxes || contents?.cartons || null,
+          to: (() => {
+            const addr = formatAddress(destinationAddress) || formatAddress(sh?.destinationAddress || sh?.to) || null;
+            if (addr && destinationFc) return `${destinationFc} - ${addr}`;
+            if (addr) return addr;
+            return destinationFc || null;
+          })(),
+          destinationWarehouseId: destinationFc || null,
+          boxes: contents?.boxes || contents?.cartons || boxesFromCfg || null,
           skuCount: contents?.skuCount || null,
           units: contents?.units || null,
-          weight: contents?.weight || null
+          weight: contents?.weight || weightFromCfg || null
         });
       }
       return list;
