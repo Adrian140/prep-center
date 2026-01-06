@@ -768,24 +768,42 @@ serve(async (req) => {
       }
     }
 
-    // După confirm placement, citim planul pentru a obține shipments + IDs
-    const planRes = await signedFetch({
-      method: "GET",
-      service: "execute-api",
-      region: awsRegion,
-      host,
-      path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}`,
-      query: "",
-      payload: "",
-      accessKey: tempCreds.accessKeyId,
-      secretKey: tempCreds.secretAccessKey,
-      sessionToken: tempCreds.sessionToken,
-      lwaToken: lwaAccessToken,
-      traceId,
-      operationName: "inbound.v20240320.getInboundPlan",
-      marketplaceId,
-      sellerId
-    });
+    // După confirm placement, citim planul pentru a obține shipments + IDs; retry ușor pe 429
+    const fetchPlanWithRetry = async () => {
+      const maxAttempts = 5;
+      let attempt = 0;
+      let last: Awaited<ReturnType<typeof signedFetch>> | null = null;
+      while (attempt < maxAttempts) {
+        attempt += 1;
+        last = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.getInboundPlan",
+          marketplaceId,
+          sellerId
+        });
+        const status = last?.res?.status || 0;
+        if (last?.res?.ok) return last;
+        if ([429, 425, 503].includes(status)) {
+          await delay(400 * attempt);
+          continue;
+        }
+        break;
+      }
+      return last;
+    };
+
+    const planRes = await fetchPlanWithRetry();
     logStep("getInboundPlan after placement", {
       traceId,
       status: planRes?.res?.status,
