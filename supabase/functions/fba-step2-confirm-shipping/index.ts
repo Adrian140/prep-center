@@ -910,33 +910,56 @@ serve(async (req) => {
       }
     }
 
-    // 2) List transportation options
-    const listRes = await signedFetch({
-      method: "GET",
-      service: "execute-api",
-      region: awsRegion,
-      host,
-      path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
-      query: `placementOptionId=${encodeURIComponent(placementOptionId)}`,
-      payload: "",
-      accessKey: tempCreds.accessKeyId,
-      secretKey: tempCreds.secretAccessKey,
-      sessionToken: tempCreds.sessionToken,
-      lwaToken: lwaAccessToken,
-      traceId,
-      operationName: "inbound.v20240320.listTransportationOptions",
-      marketplaceId,
-      sellerId
-    });
+    // 2) List transportation options (paginat, ca să nu ratăm SPD/partnered)
+    const listAllTransportationOptions = async () => {
+      let nextToken: string | null = null;
+      const collected: any[] = [];
+      let firstRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+      let attempt = 0;
+      do {
+        attempt += 1;
+        const queryParts = [`placementOptionId=${encodeURIComponent(placementOptionId)}`];
+        if (nextToken) queryParts.push(`nextToken=${encodeURIComponent(nextToken)}`);
+        const res = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
+          query: queryParts.join("&"),
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.listTransportationOptions",
+          marketplaceId,
+          sellerId
+        });
+        if (!firstRes) firstRes = res;
+        const chunk =
+          res?.json?.payload?.transportationOptions ||
+          res?.json?.transportationOptions ||
+          res?.json?.TransportationOptions ||
+          [];
+        if (Array.isArray(chunk)) collected.push(...chunk);
+        nextToken =
+          res?.json?.payload?.pagination?.nextToken ||
+          res?.json?.pagination?.nextToken ||
+          res?.json?.nextToken ||
+          null;
+        if (nextToken) await delay(150 * attempt);
+      } while (nextToken && attempt < 10);
+      return { firstRes, collected };
+    };
+
+    const { firstRes: listRes, collected: optionsRaw } = await listAllTransportationOptions();
     logStep("listTransportationOptions", {
       traceId,
       status: listRes?.res?.status,
       requestId: listRes?.requestId || null,
-      count:
-        listRes?.json?.payload?.transportationOptions?.length ||
-        listRes?.json?.transportationOptions?.length ||
-        listRes?.json?.TransportationOptions?.length ||
-        0
+      count: optionsRaw.length
     });
     logStep("shipmentTransportationConfigurations", {
       traceId,
@@ -944,11 +967,7 @@ serve(async (req) => {
       shippingMode: shippingModeInput || null
     });
 
-    const options =
-      listRes?.json?.payload?.transportationOptions ||
-      listRes?.json?.transportationOptions ||
-      listRes?.json?.TransportationOptions ||
-      [];
+    const options = optionsRaw;
 
     const extractCharge = (opt: any) => {
       const fromPath = [
@@ -970,7 +989,8 @@ serve(async (req) => {
         opt?.partnered,
         opt?.carrierType === "AMAZON_PARTNERED",
         opt?.type === "PARTNERED",
-        opt?.program === "AMAZON_PARTNERED"
+        opt?.program === "AMAZON_PARTNERED",
+        opt?.shippingSolution === "AMAZON_PARTNERED_CARRIER"
       ];
       const nameHints = /partner/i.test(carrierName);
       return Boolean(flags.find(Boolean) || nameHints);
