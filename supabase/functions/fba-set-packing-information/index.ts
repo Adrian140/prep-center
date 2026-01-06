@@ -542,6 +542,19 @@ serve(async (req) => {
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
+    if (!packageGroupings.length) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Nu am putut construi packageGroupings pentru Amazon (packingGroupId lipsă). Reia Step1b pentru a reîncărca packing groups reale înainte de a confirma.",
+          traceId
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        }
+      );
+    }
 
     const { data: profileRow, error: profileErr } = await supabase
       .from("profiles")
@@ -638,6 +651,12 @@ serve(async (req) => {
     const lwaAccessToken = await getLwaAccessToken(refreshToken);
 
     const basePath = "/inbound/fba/2024-03-20";
+    console.log("set-packing payload-meta", {
+      traceId,
+      packagesCount: normalizedPackages.length,
+      packageGroupingsCount: packageGroupings.length,
+      hasPlacementOptionId: Boolean(placementOptionId)
+    });
     const payload = JSON.stringify({
       packingOptionId,
       placementOptionId: placementOptionId || undefined,

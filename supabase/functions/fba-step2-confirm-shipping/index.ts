@@ -983,7 +983,7 @@ serve(async (req) => {
       });
       return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({
         packingGroupId,
-        boxes: packageIds.map((pid) => ({ packageIds: [pid] }))
+        boxes: packageIds.map((pid) => ({ quantity: 1, packageIds: [pid] }))
       }));
     })();
 
