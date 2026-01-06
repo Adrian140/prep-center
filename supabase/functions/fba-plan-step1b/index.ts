@@ -684,7 +684,7 @@ serve(async (req) => {
           service: "execute-api",
           region: awsRegion,
           host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions:generate`,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions`,
           query: "",
           payload: "",
           accessKey: tempCreds.accessKeyId,
@@ -997,6 +997,20 @@ serve(async (req) => {
     }
 
     const warning = warnings.length ? warnings.join(" ") : null;
+
+    // Persist inbound/placement IDs on prep_requests to avoid losing context between steps
+    try {
+      await supabase
+        .from("prep_requests")
+        .update({
+          inbound_plan_id: inboundPlanId,
+          placement_option_id: placementOptionId || null,
+          packing_option_id: packingOptionId || null
+        })
+        .eq("id", requestId);
+    } catch (persistErr) {
+      console.error("prep_requests persist inbound/placement failed", { traceId, error: persistErr });
+    }
 
     return new Response(
       JSON.stringify({

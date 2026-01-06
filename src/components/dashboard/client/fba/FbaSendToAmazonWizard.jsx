@@ -151,6 +151,8 @@ export default function FbaSendToAmazonWizard({
   const [shippingSummary, setShippingSummary] = useState(null);
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState('');
+  const [packingSubmitLoading, setPackingSubmitLoading] = useState(false);
+  const [packingSubmitError, setPackingSubmitError] = useState('');
 
   // Persistăm ultimul pas vizitat ca să nu se piardă la refresh.
   const stepStorageKey = useMemo(() => {
@@ -350,6 +352,116 @@ export default function FbaSendToAmazonWizard({
     invalidateFrom('1b');
   };
 
+  const buildPackingPayload = (groups = packGroups) => {
+    if (!Array.isArray(groups) || groups.length === 0) return { packages: [], packingGroups: [] };
+
+    const packingGroupsPayload = [];
+    const packagesPayload = [];
+
+    groups.forEach((g) => {
+      const dims = getSafeDims(g.boxDimensions);
+      const weight = getSafeNumber(g.boxWeight);
+      const count = Math.max(1, Number(g.boxes) || 1);
+      const packingGroupId = g.packingGroupId || g.id || null;
+      const normalizedDims = dims
+        ? { length: dims.length || 0, width: dims.width || 0, height: dims.height || 0, unit: "CM" }
+        : null;
+      const normalizedWeight = weight ? { value: weight, unit: "KG" } : null;
+
+      if (packingGroupId) {
+        packingGroupsPayload.push({
+          packingGroupId,
+          boxes: count,
+          packMode: g.packMode || "single",
+          dimensions: normalizedDims,
+          weight: normalizedWeight,
+          items: Array.isArray(g.items)
+            ? g.items.map((it) => ({
+                sku: it.sku || it.msku || it.SellerSKU || null,
+                quantity: Number(it.quantity || 0) || 0
+              }))
+            : []
+        });
+      }
+
+      if (normalizedDims && normalizedWeight && packingGroupId) {
+        for (let i = 0; i < count; i++) {
+          packagesPayload.push({
+            packingGroupId,
+            dimensions: normalizedDims,
+            weight: normalizedWeight
+          });
+        }
+      }
+    });
+
+    return { packages: packagesPayload, packingGroups: packingGroupsPayload };
+  };
+
+  const submitPackingInformation = async (payload = {}) => {
+    const inboundPlanId =
+      plan?.inboundPlanId || plan?.inbound_plan_id || plan?.planId || plan?.plan_id || null;
+    const packingOptId =
+      packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null;
+    const requestId =
+      plan?.prepRequestId ||
+      initialPlan?.prepRequestId ||
+      plan?.requestId ||
+      plan?.request_id ||
+      initialPlan?.requestId ||
+      initialPlan?.request_id ||
+      plan?.id ||
+      initialPlan?.id ||
+      null;
+
+    if (!inboundPlanId || !packingOptId || !requestId) {
+      setPackingSubmitError('Lipsește inboundPlanId sau packingOptionId; finalizează Step 1 înainte de confirmare.');
+      return;
+    }
+
+    const derivedPayload = buildPackingPayload();
+    const packages = Array.isArray(payload.packages) && payload.packages.length ? payload.packages : derivedPayload.packages;
+    const packingGroupsPayload =
+      Array.isArray(payload.packingGroups) && payload.packingGroups.length ? payload.packingGroups : derivedPayload.packingGroups;
+
+    if (!packages.length) {
+      setPackingSubmitError('Completează dimensiunile și greutatea pentru cutie înainte de a continua.');
+      return;
+    }
+    const invalid = packages.find((p) => {
+      return !(
+        Number(p.dimensions.length) > 0 &&
+        Number(p.dimensions.width) > 0 &&
+        Number(p.dimensions.height) > 0 &&
+        Number(p.weight.value) > 0
+      );
+    });
+    if (invalid) {
+      setPackingSubmitError('Dimensiuni/greutate incomplete pentru cutie.');
+      return;
+    }
+
+    setPackingSubmitLoading(true);
+    setPackingSubmitError('');
+    try {
+      const { error } = await supabase.functions.invoke('fba-set-packing-information', {
+        body: {
+          request_id: requestId,
+          inbound_plan_id: inboundPlanId,
+          packing_option_id: packingOptId,
+          packages,
+          packing_groups: packingGroupsPayload
+        }
+      });
+      if (error) throw error;
+      completeAndNext('1b');
+    } catch (e) {
+      setPackingSubmitError(e?.message || 'SetPackingInformation a eșuat.');
+    } finally {
+      setPackingSubmitLoading(false);
+    }
+  };
+
   const buildShipmentConfigs = () => {
     if (!Array.isArray(packGroups)) return [];
 
@@ -418,7 +530,9 @@ export default function FbaSendToAmazonWizard({
             const normalized = normalizePackGroups(step1b.packingGroups);
             setPackGroups((prev) => mergePackGroups(prev, normalized));
           }
-          if (Array.isArray(step1b?.shipments)) setShipments(step1b.shipments);
+          if (Array.isArray(step1b?.shipments)) {
+            setShipments((prev) => (step1b.shipments.length ? step1b.shipments : prev));
+          }
         }
       } catch (e) {
         console.warn('Step2 fallback placement fetch failed', e);
@@ -736,9 +850,10 @@ export default function FbaSendToAmazonWizard({
         <FbaStep1bPacking
           packGroups={packGroups}
           loading={loadingPlan}
-          error={planError}
+          error={planError || packingSubmitError}
+          submitting={packingSubmitLoading}
           onUpdateGroup={handlePackGroupUpdate}
-          onNext={() => completeAndNext('1b')}
+          onNext={submitPackingInformation}
           onBack={() => goToStep('1')}
         />
       );

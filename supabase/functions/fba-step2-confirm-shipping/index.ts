@@ -851,17 +851,11 @@ serve(async (req) => {
       const cfg = (shipmentTransportConfigs || []).find(
         (c: any) => c?.shipmentId === shId || c?.shipment_id === shId
       ) || (shipmentTransportConfigs || [])[idx] || {};
-      const shippingMode = mapMode(cfg.shippingMode || cfg.shipping_mode || shippingModeInput) || null;
-      const packages = Array.isArray(cfg.packages)
-        ? cfg.packages
-        : Array.isArray(cfg?.Packages)
-        ? cfg.Packages
-        : null;
+      const shippingMode = mapMode(cfg.shippingMode || cfg.shipping_mode || shippingModeInput || "SMALL_PARCEL");
       return {
         shipmentId: shId,
         readyToShipWindow: { start: readyStartIso },
-        shippingMode,
-        packages
+        shippingMode
       };
     });
 
