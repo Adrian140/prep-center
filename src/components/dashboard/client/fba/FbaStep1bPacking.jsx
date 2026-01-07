@@ -3,6 +3,7 @@ import { AlertTriangle, Box, CheckCircle } from 'lucide-react';
 
 export default function FbaStep1bPacking({
   packGroups,
+  packGroupsLoaded = false,
   loading,
   error,
   submitting = false,
@@ -20,8 +21,8 @@ export default function FbaStep1bPacking({
       return gid && !isFallbackId(gid) && isAmazonGroupId(gid);
     }
   );
-  const isEmpty = !loading && visibleGroups.length === 0;
-  const waitingForAmazon = loading || visibleGroups.length === 0;
+  const waitingForAmazon = loading || (!packGroupsLoaded && !error);
+  const isEmpty = !waitingForAmazon && visibleGroups.length === 0;
   const showErrorOnly = Boolean(error) && !loading;
   const totals = useMemo(() => {
     if (!Array.isArray(visibleGroups)) return { skus: 0, units: 0 };
@@ -210,11 +211,11 @@ export default function FbaStep1bPacking({
 
       <div className="px-6 py-4 grid grid-cols-1 gap-4">
         <div className="col-span-1">
-          {loading && (
+          {waitingForAmazon && (
             <div className="px-4 py-6 text-slate-600 text-sm">Loading pack groups from Amazon…</div>
           )}
 
-          {error && !loading && (
+          {error && !waitingForAmazon && (
             <div className="px-4 py-3 mb-3 text-sm text-red-800 bg-red-50 border border-red-200 rounded">
               {error}
             </div>
@@ -224,7 +225,7 @@ export default function FbaStep1bPacking({
               Așteptăm packing groups reale de la Amazon (poate dura 10-15 secunde). Nu arătăm nimic local până le primim.
             </div>
           )}
-          {onRetry && !loading && (error || isEmpty) && (
+          {onRetry && !waitingForAmazon && (error || isEmpty) && (
             <div className="px-4 py-3 mb-3 text-sm bg-blue-50 border border-blue-200 rounded flex flex-col gap-2">
               <div className="text-blue-800">
                 Amazon nu a returnat încă packing groups sau a răspuns cu o eroare. Încearcă din nou peste câteva secunde.

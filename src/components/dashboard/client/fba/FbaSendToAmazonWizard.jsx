@@ -124,7 +124,8 @@ export default function FbaSendToAmazonWizard({
       };
     });
   }, []);
-  const [packGroups, setPackGroups] = useState(normalizePackGroups(initialPacking));
+  const [packGroups, setPackGroups] = useState([]);
+  const [packGroupsLoaded, setPackGroupsLoaded] = useState(false);
   const [packingOptionId, setPackingOptionId] = useState(initialPlan?.packingOptionId || null);
   const [placementOptionId, setPlacementOptionId] = useState(initialPlan?.placementOptionId || null);
   const [shipmentMode, setShipmentMode] = useState(initialShipmentMode);
@@ -277,6 +278,7 @@ export default function FbaSendToAmazonWizard({
         if (Array.isArray(pGroups)) {
           const normalized = normalizePackGroups(pGroups);
           setPackGroups((prev) => mergePackGroups(prev, normalized));
+          setPackGroupsLoaded(normalized.length > 0);
         }
         if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
         if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
@@ -304,6 +306,14 @@ export default function FbaSendToAmazonWizard({
     }
     return null;
   }, [shippingSummary]);
+
+  // când intrăm în 1b și nu avem încă packing groups reale, declanșăm fetch automat
+  useEffect(() => {
+    if (currentStep !== '1b') return;
+    if (packGroupsLoaded) return;
+    if (packingRefreshLoading || loadingPlan) return;
+    refreshPackingGroups();
+  }, [currentStep, packGroupsLoaded, packingRefreshLoading, loadingPlan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePackingChange = (skuId, patch) => {
     // patch poate fi string (packing) sau obiect cu packing + template info
@@ -495,12 +505,13 @@ export default function FbaSendToAmazonWizard({
       setPackingReadyError('Lipsește inboundPlanId sau requestId; reîncarcă planul.');
       return;
     }
-    setPackGroups([]); // curățăm grupurile locale până sosesc cele reale de la Amazon
-    setPackingRefreshLoading(true);
-    setPackingReadyError('');
-    try {
-      const { data, error } = await supabase.functions.invoke('fba-plan-step1b', {
-        body: {
+      setPackGroups([]); // curățăm grupurile locale până sosesc cele reale de la Amazon
+      setPackGroupsLoaded(false);
+      setPackingRefreshLoading(true);
+      setPackingReadyError('');
+      try {
+        const { data, error } = await supabase.functions.invoke('fba-plan-step1b', {
+          body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
           amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null
@@ -521,6 +532,8 @@ export default function FbaSendToAmazonWizard({
         const filtered = normalized.filter((g) => g.packingGroupId && !isFallbackId(g.packingGroupId));
         if (!filtered.length) {
           setPackingReadyError('Packing groups lipsesc din răspunsul Amazon. Reîncearcă peste câteva secunde.');
+        } else {
+          setPackGroupsLoaded(true);
         }
         setPackGroups((prev) => mergePackGroups(prev, filtered));
       }
@@ -866,6 +879,7 @@ export default function FbaSendToAmazonWizard({
           if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
           if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
           if (Array.isArray(pGroups)) setPackGroups(normalizePackGroups(pGroups));
+          if (Array.isArray(pGroups)) setPackGroupsLoaded(pGroups.length > 0);
           if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
           if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
           if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
@@ -895,6 +909,7 @@ export default function FbaSendToAmazonWizard({
     // Reset date pentru pașii următori
     if (stepKey === '1') {
       setPackGroups([]);
+      setPackGroupsLoaded(false);
       setShipments([]);
       setTracking([]);
       setPackingOptionId(null);
@@ -903,6 +918,7 @@ export default function FbaSendToAmazonWizard({
       setShipments([]);
       setTracking([]);
       setPlacementOptionId(null);
+      setPackGroupsLoaded(false);
     } else if (stepKey === '2') {
       setTracking([]);
     }
@@ -939,6 +955,7 @@ export default function FbaSendToAmazonWizard({
       return (
         <FbaStep1bPacking
           packGroups={packGroups}
+          packGroupsLoaded={packGroupsLoaded}
           loading={loadingPlan || packingRefreshLoading}
           error={planError || packingReadyError || packingSubmitError}
           onRetry={refreshPackingGroups}
