@@ -844,10 +844,96 @@ serve(async (req) => {
       });
     }
 
-    const placementShipments =
+    let placementShipments =
       planRes?.json?.shipments ||
       planRes?.json?.payload?.shipments ||
       [];
+
+    // Fallback: dacă planul nu a populat shipments, regenerează + reconfirmă placementul
+    if (!Array.isArray(placementShipments) || !placementShipments.length) {
+      console.warn("placement shipments missing, regenerating placement options", { traceId });
+      const regen = await signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
+        query: "",
+        payload: "{}",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.generatePlacementOptions",
+        marketplaceId,
+        sellerId
+      });
+      const regenOpId =
+        regen?.json?.payload?.operationId ||
+        regen?.json?.operationId ||
+        null;
+      if (regenOpId) {
+        await pollOperationStatus(regenOpId);
+      }
+      const listPlacement = await signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.listPlacementOptions",
+        marketplaceId,
+        sellerId
+      });
+      const placements =
+        listPlacement?.json?.payload?.placementOptions ||
+        listPlacement?.json?.placementOptions ||
+        listPlacement?.json?.PlacementOptions ||
+        [];
+      const freshPlacementId =
+        placements?.[0]?.placementOptionId || placements?.[0]?.id || placements?.[0]?.PlacementOptionId || placementOptionId;
+      if (freshPlacementId) {
+        const freshConfirm = await signedFetch({
+          method: "POST",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(freshPlacementId)}/confirmation`,
+          query: "",
+          payload: "{}",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.confirmPlacementOption",
+          marketplaceId,
+          sellerId
+        });
+        const freshOp =
+          freshConfirm?.json?.payload?.operationId ||
+          freshConfirm?.json?.operationId ||
+          null;
+        if (freshOp) {
+          await pollOperationStatus(freshOp);
+        }
+        const planRetry = await fetchPlanWithRetry();
+        if (planRetry?.res?.ok) {
+          placementShipments =
+            planRetry?.json?.shipments ||
+            planRetry?.json?.payload?.shipments ||
+            [];
+        }
+      }
+    }
 
     if (!Array.isArray(placementShipments) || !placementShipments.length) {
       return new Response(JSON.stringify({ error: "Nu există shipments după confirmarea placementului", traceId }), {
