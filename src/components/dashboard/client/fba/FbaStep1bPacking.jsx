@@ -13,8 +13,12 @@ export default function FbaStep1bPacking({
   retryLoading = false
 }) {
   const isFallbackId = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
+  const isAmazonGroupId = (v) => typeof v === "string" && v.toLowerCase().startsWith("pg");
   const visibleGroups = (Array.isArray(packGroups) ? packGroups : []).filter(
-    (g) => g?.packingGroupId && !isFallbackId(g.packingGroupId) && !isFallbackId(g.id)
+    (g) => {
+      const gid = g?.packingGroupId || g?.id || "";
+      return gid && !isFallbackId(gid) && isAmazonGroupId(gid);
+    }
   );
   const isEmpty = !loading && visibleGroups.length === 0;
   const waitingForAmazon = loading || visibleGroups.length === 0;
