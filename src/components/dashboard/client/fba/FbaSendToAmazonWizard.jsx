@@ -410,6 +410,8 @@ export default function FbaSendToAmazonWizard({
       plan?.id ||
       initialPlan?.id ||
       null;
+    const placementOptId =
+      placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
 
     if (!inboundPlanId || !packingOptId || !requestId) {
       setPackingSubmitError('Lipsește inboundPlanId sau packingOptionId; finalizează Step 1 înainte de confirmare.');
@@ -460,6 +462,7 @@ export default function FbaSendToAmazonWizard({
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
           packing_option_id: packingOptId,
+          placement_option_id: placementOptId,
           packages,
           packing_groups: packingGroupsPayload
         }
