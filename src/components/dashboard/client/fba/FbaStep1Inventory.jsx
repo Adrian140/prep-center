@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 
 const FieldLabel = ({ label, children }) => (
@@ -21,10 +21,27 @@ export default function FbaStep1Inventory({
   onChangePacking,
   onChangeQuantity,
   onChangeExpiry,
+  onChangePrep,
   onNext
 }) {
-  const { shipFrom, marketplace, skus } = data;
-  const totalUnits = skus.reduce((sum, sku) => sum + Number(sku.units || 0), 0);
+  const shipFrom = data?.shipFrom || {};
+  const marketplaceRaw = data?.marketplace || '';
+  const skus = Array.isArray(data?.skus) ? data.skus : [];
+
+  const marketplaceIdByCountry = {
+    FR: 'A13V1IB3VIYZZH',
+    DE: 'A1PA6795UKMFR9',
+    ES: 'A1RKKUPIHCS9HS',
+    IT: 'APJ6JRA9NG5V4',
+    FRANCE: 'A13V1IB3VIYZZH',
+    GERMANY: 'A1PA6795UKMFR9',
+    SPAIN: 'A1RKKUPIHCS9HS',
+    ITALY: 'APJ6JRA9NG5V4'
+  };
+  const marketplaceId = (() => {
+    const upper = String(marketplaceRaw || '').trim().toUpperCase();
+    return marketplaceIdByCountry[upper] || marketplaceRaw;
+  })();
   const marketplaceName = (() => {
     const map = {
       A13V1IB3VIYZZH: 'France',
@@ -32,8 +49,9 @@ export default function FbaStep1Inventory({
       A1RKKUPIHCS9HS: 'Spain',
       APJ6JRA9NG5V4: 'Italy'
     };
-    return map[marketplace] || marketplace;
+    return map[marketplaceId] || marketplaceRaw || '—';
   })();
+  const totalUnits = skus.reduce((sum, sku) => sum + Number(sku.units || 0), 0);
   const statusForSku = (sku) => {
     const match =
       skuStatuses.find((s) => s.sku === sku.sku) ||
@@ -81,7 +99,6 @@ export default function FbaStep1Inventory({
   const [templateError, setTemplateError] = useState('');
   const [labelLoading, setLabelLoading] = useState(false);
   const [labelError, setLabelError] = useState('');
-  const [expiryFlags, setExpiryFlags] = useState({});
 
   // Prefill prep selections as "No prep needed" for all SKUs (Amazon expects a choice).
   useEffect(() => {
@@ -136,7 +153,7 @@ export default function FbaStep1Inventory({
         try {
           const payload = {
             company_id: data.companyId,
-            marketplace_id: data.marketplace,
+            marketplace_id: marketplaceId,
             sku: packingModal.sku.sku || null,
             asin: packingModal.sku.asin || null,
             name: derivedName,
@@ -147,7 +164,9 @@ export default function FbaStep1Inventory({
             box_height_cm: packingModal.boxH ? Number(packingModal.boxH) : null,
             box_weight_kg: packingModal.boxWeight ? Number(packingModal.boxWeight) : null
           };
-          const { error } = await supabase.from('packing_templates').upsert(payload);
+          const { error } = await supabase
+            .from('packing_templates')
+            .upsert(payload, { onConflict: 'company_id,marketplace_id,sku,name' });
           if (error) {
             console.error('packing template upsert error', error);
             throw error;
@@ -157,7 +176,7 @@ export default function FbaStep1Inventory({
             .from('packing_templates')
             .select('*')
             .eq('company_id', data.companyId)
-            .eq('marketplace_id', data.marketplace);
+            .eq('marketplace_id', marketplaceId);
           setTemplates(Array.isArray(rows) ? rows : []);
         } catch (e) {
           setTemplateError(e?.message || 'Nu am putut salva template-ul.');
@@ -187,15 +206,32 @@ export default function FbaStep1Inventory({
 
   const savePrepModal = () => {
     if (!prepModal.sku) return;
+    const patch = {
+      resolved: true,
+      prepCategory: prepModal.prepCategory || 'none',
+      useManufacturerBarcode: prepModal.useManufacturerBarcode,
+      manufacturerBarcodeEligible: prepModal.manufacturerBarcodeEligible
+    };
+    const labelOwnerFromSku = prepModal.sku.labelOwner || null;
+    const derivedLabelOwner =
+      labelOwnerFromSku ||
+      (patch.useManufacturerBarcode
+        ? 'NONE'
+        : prepModal.sku.manufacturerBarcodeEligible === false
+          ? 'SELLER'
+          : null);
+    const prepOwner = patch.prepCategory && patch.prepCategory !== 'none' ? 'SELLER' : 'NONE';
+
     setPrepSelections((prev) => ({
       ...prev,
-      [prepModal.sku.id]: {
-        resolved: true,
-        prepCategory: prepModal.prepCategory || 'none',
-        useManufacturerBarcode: prepModal.useManufacturerBarcode,
-        manufacturerBarcodeEligible: prepModal.manufacturerBarcodeEligible
-      }
+      [prepModal.sku.id]: patch
     }));
+    onChangePrep?.(prepModal.sku.id, {
+      prepCategory: patch.prepCategory,
+      useManufacturerBarcode: patch.useManufacturerBarcode,
+      prepOwner,
+      labelOwner: derivedLabelOwner
+    });
     closePrepModal();
   };
 
@@ -220,7 +256,7 @@ export default function FbaStep1Inventory({
     try {
       const payload = {
         company_id: data.companyId,
-        marketplace_id: data.marketplace,
+        marketplace_id: marketplaceId,
         items: [
           {
             sku: labelModal.sku.sku,
@@ -285,7 +321,7 @@ export default function FbaStep1Inventory({
           .from('packing_templates')
           .select('*')
           .eq('company_id', data.companyId)
-          .eq('marketplace_id', data.marketplace);
+          .eq('marketplace_id', marketplaceId);
         if (error) throw error;
         setTemplates(Array.isArray(rows) ? rows : []);
       } catch (e) {
@@ -295,7 +331,7 @@ export default function FbaStep1Inventory({
       }
     };
     loadTemplates();
-  }, [data?.companyId, data?.marketplace]);
+  }, [data?.companyId, marketplaceId]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -313,16 +349,16 @@ export default function FbaStep1Inventory({
 
       <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 border-b border-slate-200">
         <FieldLabel label="Ship from">
-          <div className="text-slate-800">{shipFrom.name}</div>
-          <div className="text-slate-600 text-sm">{shipFrom.address}</div>
+          <div className="text-slate-800">{shipFrom.name || '—'}</div>
+          <div className="text-slate-600 text-sm">{shipFrom.address || '—'}</div>
         </FieldLabel>
         <FieldLabel label="Marketplace destination (Country)">
           <select
-            value={marketplace}
+            value={marketplaceId}
             className="border rounded-md px-3 py-2 text-sm w-full bg-slate-100 text-slate-800"
             disabled
           >
-            <option value={marketplace}>{marketplaceName}</option>
+            <option value={marketplaceId}>{marketplaceName}</option>
           </select>
         </FieldLabel>
       </div>
@@ -349,14 +385,17 @@ export default function FbaStep1Inventory({
               const state = String(status.state || '').toLowerCase();
               const prepSelection = prepSelections[sku.id] || {};
               const labelOwner =
-                prepSelection.useManufacturerBarcode === true
+                sku.labelOwner ||
+                (prepSelection.useManufacturerBarcode === true
                   ? 'NONE'
-                  : sku.labelOwner || (sku.manufacturerBarcodeEligible ? 'NONE' : 'SELLER');
+                  : sku.manufacturerBarcodeEligible === false
+                    ? 'SELLER'
+                    : null);
               const labelOwnerSource = sku.labelOwnerSource || 'unknown';
-              const labelRequired = labelOwner !== 'NONE';
+              const labelRequired = labelOwner && labelOwner !== 'NONE';
               const showLabelButton =
-                labelRequired &&
-                (['amazon-override', 'prep-guidance'].includes(labelOwnerSource) || labelOwner === 'SELLER');
+                (labelRequired || labelOwner === null) &&
+                (['amazon-override', 'prep-guidance'].includes(labelOwnerSource) || true);
               const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
               const prepResolved = prepSelection.resolved;
               const needsExpiry = Boolean(sku.expiryRequired);
@@ -469,22 +508,31 @@ export default function FbaStep1Inventory({
                             ? 'Unit labelling: Not required (manufacturer barcode)'
                             : labelOwner === 'NONE'
                               ? 'Unit labelling: Not required'
-                              : 'Unit labelling: By seller'}
+                              : labelOwner
+                                ? 'Unit labelling: By seller'
+                                : 'Unit labelling: Unknown (check guidance)'}
                       </div>
                       {sku.manufacturerBarcodeEligible !== false && !prepSelection.useManufacturerBarcode && (
                         <button
-                          onClick={() =>
+                          onClick={() => {
+                            const currentPrepCategory = prepSelections[sku.id]?.prepCategory || 'none';
                             setPrepSelections((prev) => ({
                               ...prev,
                               [sku.id]: {
                                 ...(prev[sku.id] || {}),
                                 resolved: true,
-                                prepCategory: prev[sku.id]?.prepCategory || 'none',
+                                prepCategory: currentPrepCategory,
                                 useManufacturerBarcode: true,
                                 manufacturerBarcodeEligible: true
                               }
-                            }))
-                          }
+                            }));
+                            onChangePrep?.(sku.id, {
+                              prepCategory: currentPrepCategory,
+                              useManufacturerBarcode: true,
+                              prepOwner: 'NONE',
+                              labelOwner: 'NONE'
+                            });
+                          }}
                           className="text-xs font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center"
                         >
                           Save by using manufacturer barcode
@@ -501,6 +549,11 @@ export default function FbaStep1Inventory({
                       {labelRequired && labelOwnerSource === 'amazon-override' && (
                         <div className="text-[11px] text-amber-600">
                           Amazon solicită etichete pentru acest SKU.
+                        </div>
+                      )}
+                      {labelOwner === null && (
+                        <div className="text-[11px] text-amber-600">
+                          Label owner necunoscut (se recomandă verificare / print).
                         </div>
                       )}
                     </div>

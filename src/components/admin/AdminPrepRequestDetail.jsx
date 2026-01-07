@@ -57,6 +57,17 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
 
   const placeholderImg =
     'https://images.unsplash.com/photo-1582456891925-054d52d43a9c?auto=format&fit=crop&w=80&q=60';
+  const MARKETPLACE_ID = {
+    FR: 'A13V1IB3VIYZZH',
+    DE: 'A1PA6795UKMFR9',
+    IT: 'APJ6JRA9NG5V4',
+    ES: 'A1RKKUPIHCS9HS',
+    NL: 'A1805IZSGTT6HS',
+    BE: 'AMEN7PMS3EDWL',
+    PL: 'A1C3SOZRARQ6R3',
+    SE: 'A2NODRKZP88ZB9',
+    UK: 'A1F83G8C2ARO7P'
+  };
 
   const wizardPlan = useMemo(() => {
     if (!row) return null;
@@ -66,7 +77,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
         name: row.client_name || 'Prep Center',
         address: row.destination_country || '—'
       },
-      marketplace: row.destination_country || 'France',
+      marketplace: MARKETPLACE_ID[row.destination_country] || row.destination_country || 'FR',
       skus: items.map((it, idx) => ({
         id: it.id || `sku-${idx}`,
         title: it.product_name || it.stock_item?.name || `SKU ${idx + 1}`,
@@ -129,27 +140,46 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
     }
     const plan = data?.plan || null;
     if (!plan) return null;
+
+    // Dacă planul nu are inboundPlanId, nu are sens să cerem step1b (packing groups)
+    if (!plan.inboundPlanId) {
+      setFlash('Amazon plan loaded, but inboundPlanId is missing. Please retry Step 1.');
+      return {
+        ...plan,
+        prepRequestId: row.id,
+        packGroups: [],
+        packingOptionId: null,
+        traceId: data?.traceId || plan.traceId || null,
+        requestId: data?.requestId || plan.requestId || null,
+        statusCode: data?.status || plan.statusCode || null,
+        operationId: data?.operationId || plan.operationId || null,
+        operationStatus: data?.operationStatus || plan.operationStatus || null,
+        inboundPlanStatus: data?.inboundPlanStatus || plan.inboundPlanStatus || null,
+        shipmentsPending: data?.shipmentsPending ?? plan.shipmentsPending ?? false
+      };
+    }
+
     let packingGroups = [];
     let packingOptionId = null;
-    if (plan.inboundPlanId) {
-      try {
-        const { data: packingData, error: packingErr } = await supabase.functions.invoke('fba-plan-step1b', {
-          headers: authHeaders,
-          body: {
-            request_id: row.id,
-            inbound_plan_id: plan.inboundPlanId,
-            amazon_integration_id: plan.amazonIntegrationId || null
-          }
-        });
-        if (!packingErr && packingData) {
-          packingGroups = Array.isArray(packingData.packingGroups) ? packingData.packingGroups : [];
-          packingOptionId = packingData.packingOptionId || null;
-          if (packingData.placementOptionId) plan.placementOptionId = packingData.placementOptionId;
-          if (Array.isArray(packingData.shipments)) plan.shipments = packingData.shipments;
+
+    try {
+      const { data: packingData, error: packingErr } = await supabase.functions.invoke('fba-plan-step1b', {
+        headers: authHeaders,
+        body: {
+          request_id: row.id,
+          inbound_plan_id: plan.inboundPlanId,
+          amazon_integration_id: plan.amazonIntegrationId || null
         }
-      } catch (e) {
-        console.warn('Unable to fetch packing groups', e);
+      });
+
+      if (!packingErr && packingData) {
+        packingGroups = Array.isArray(packingData.packingGroups) ? packingData.packingGroups : [];
+        packingOptionId = packingData.packingOptionId || null;
+        if (packingData.placementOptionId) plan.placementOptionId = packingData.placementOptionId;
+        if (Array.isArray(packingData.shipments)) plan.shipments = packingData.shipments;
       }
+    } catch (e) {
+      console.warn('Unable to fetch packing groups', e);
     }
     return {
       ...plan,
@@ -221,7 +251,7 @@ async function persistAllItemEdits() {
   }
 
   // fallback: salvează pe rând
-  await Promise.all(
+  const results = await Promise.all(
     prepared.map(p =>
       supabaseHelpers.updatePrepItem(p.id, {
         units_sent: p.units_sent,
@@ -229,6 +259,8 @@ async function persistAllItemEdits() {
       })
     )
   );
+  const failed = results.find((r) => r?.error);
+  if (failed?.error) throw failed.error;
 }
 
 const mapBoxRows = (rows = []) => {
@@ -317,16 +349,6 @@ const mapBoxRows = (rows = []) => {
     }, 700);
   }, [persistBoxesForItem]);
 
-  const persistImmediately = useCallback(
-    (itemId) => {
-      if (!itemId) return;
-      setTimeout(() => {
-        persistBoxesForItem(itemId);
-      }, 40);
-    },
-    [persistBoxesForItem]
-  );
-
   useEffect(() => {
     return () => {
       Object.values(boxSaveTimers.current).forEach((timer) => clearTimeout(timer));
@@ -390,7 +412,6 @@ const mapBoxRows = (rows = []) => {
       return { ...prev, [itemId]: next };
     });
     scheduleBoxPersist(itemId);
-    persistImmediately(itemId);
   };
 
   const removeBox = (itemId, boxId) => {
@@ -431,6 +452,7 @@ const mapBoxRows = (rows = []) => {
     }
 
     setLoading(false);
+    return data;
   }
 
   useEffect(() => {
@@ -780,7 +802,8 @@ async function confirmRequest() {
     await persistAllItemEdits();
 
     // 4) reîncarcă pentru a fi sigur că RPC vede valorile curente din DB
-    await load();
+    const freshRow = await load();
+    if (!freshRow) throw new Error("Failed to reload request after saving items.");
 
 // 5) RPC de confirmare
 console.log('[CONFIRM] calling RPC confirm_prep_request_v2 with:', {
@@ -800,12 +823,12 @@ if (error) throw error;
   if (statusErr) console.warn('Status set failed:', statusErr);
 }
 
-// 5.2) Folosește FBA Shipment ID din starea curentă (row)
+// 5.2) Folosește FBA Shipment ID din starea proaspăt reîncărcată
 const fallbackId = `FBA${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-const subject_id = (row?.fba_shipment_id || '').trim() || fallbackId;
+const subject_id = (freshRow?.fba_shipment_id || '').trim() || fallbackId;
 
 // compune payloadul de email
-const mailItems = (row?.prep_request_items || []).map((item) => {
+const mailItems = (freshRow?.prep_request_items || []).map((item) => {
   const requested = Number(item.units_requested || 0);
   const sent = Number(item.units_sent || 0);
   return {
@@ -821,12 +844,12 @@ const mailItems = (row?.prep_request_items || []).map((item) => {
 const mailPayload = {
   ...data,                               // ceea ce întoarce RPC-ul (items, removed, etc.)
   request_id: requestId,
-  email: row?.user_email || null,
-  client_name: row?.client_name || null,
-  company_name: row?.company_name || null,
-  note: row?.obs_admin || null,
-  fba_shipment_id: row?.fba_shipment_id || null,
-  tracking_ids: (row?.prep_request_tracking || [])
+  email: freshRow?.user_email || null,
+  client_name: freshRow?.client_name || null,
+  company_name: freshRow?.company_name || null,
+  note: freshRow?.obs_admin || null,
+  fba_shipment_id: freshRow?.fba_shipment_id || null,
+  tracking_ids: (freshRow?.prep_request_tracking || [])
     .map((t) => t.tracking_id)
     .filter(Boolean),
   subject_id,
@@ -944,7 +967,6 @@ onChanged?.();
     });
     affected.forEach((itemId) => {
       scheduleBoxPersist(itemId);
-      persistImmediately(itemId);
     });
   };
 

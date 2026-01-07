@@ -144,7 +144,7 @@ export default function ClientPrepShipments() {
         client_uid: createClientUid(),
         stock_item_id: stockItem.id,
         asin: stockItem.asin || '',
-        sku: '',
+        sku: stockItem.sku || '',
         ean: stockItem.ean || '',
         units_requested: qty,
         product_name: stockItem.name || '',
@@ -263,7 +263,7 @@ export default function ClientPrepShipments() {
         client_uid: createClientUid(),
         stock_item_id: stockItem.id,
         asin: stockItem.asin || '',
-        sku: '',
+        sku: stockItem.sku || '',
         ean: stockItem.ean || '',
         units_requested: qty,
         product_name: stockItem.name || '',
@@ -286,6 +286,31 @@ export default function ClientPrepShipments() {
     setAddingQty('');
     setInventoryDraftQty({});
     setReqErrors([]);
+
+    // Mode "create new request"
+    if (!requestId) {
+      setReqHeader({
+        id: null,
+        destination_country: profile?.company_country || 'FR',
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        fba_shipment_id: null,
+        amazon_status: null,
+        amazon_units_expected: null,
+        amazon_units_located: null,
+        amazon_skus: null,
+        amazon_shipment_name: null,
+        amazon_reference_id: null,
+        amazon_destination_code: null,
+        amazon_delivery_window: null,
+        amazon_last_updated: null,
+        amazon_snapshot: null
+      });
+      setReqEditable(true);
+      setReqLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabaseHelpers.getPrepRequest(requestId);
       if (error) throw error;
@@ -379,7 +404,7 @@ export default function ClientPrepShipments() {
         if (error) throw error;
       }
       for (const ins of toInsert) {
-        const stockMeta = rows.find((r) => r.id === ins.stock_item_id) || {};
+        const stockMeta = stock.find((r) => r.id === ins.stock_item_id) || {};
         const resolvedStockId = await ensureStockItemId(ins);
         if (resolvedStockId && !ins.stock_item_id) {
           ins.stock_item_id = resolvedStockId;
@@ -564,21 +589,16 @@ export default function ClientPrepShipments() {
                 const shipmentId = row.fba_shipment_id || snapshot.shipment_id || '—';
                 const referenceId = row.amazon_reference_id || snapshot.reference_id || snapshot.shipment_reference_id || '';
                 const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
-                const skusCount = Number.isFinite(row.amazon_skus)
-                  ? row.amazon_skus
-                  : Number.isFinite(snapshot.skus)
-                  ? snapshot.skus
-                  : items.length || '—';
-                const unitsExpected = Number.isFinite(row.amazon_units_expected)
-                  ? row.amazon_units_expected
-                  : Number.isFinite(snapshot.units_expected)
-                  ? snapshot.units_expected
+                const skusCountRaw = Number(row.amazon_skus ?? snapshot.skus ?? items.length);
+                const skusCount = Number.isFinite(skusCountRaw) ? skusCountRaw : items.length || '—';
+                const unitsExpectedRaw = Number(row.amazon_units_expected ?? snapshot.units_expected);
+                const unitsExpected = Number.isFinite(unitsExpectedRaw)
+                  ? unitsExpectedRaw
                   : items.reduce((acc, it) => acc + Number(it.units_requested || 0), 0);
-                const unitsLocated = Number.isFinite(row.amazon_units_located)
-                  ? row.amazon_units_located
-                  : Number.isFinite(snapshot.units_located || snapshot.units_received)
-                  ? (snapshot.units_located || snapshot.units_received)
-                  : null;
+                const unitsLocatedRaw = Number(
+                  row.amazon_units_located ?? snapshot.units_located ?? snapshot.units_received
+                );
+                const unitsLocated = Number.isFinite(unitsLocatedRaw) ? unitsLocatedRaw : null;
                 const shipToText =
                   row.amazon_destination_code ||
                   snapshot.destination_code ||

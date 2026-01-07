@@ -2,16 +2,6 @@ import 'dotenv/config';
 import { createSpClient } from './spapiClient.js';
 import { supabase } from './supabaseClient.js';
 
-const STATUS_LIST = [
-  'WORKING',
-  'SHIPPED',
-  'RECEIVING',
-  'DELIVERED',
-  'CLOSED',
-  'CANCELLED',
-  'DELETED'
-];
-
 const resolveMarketplaceId = (integration) => {
   if (integration?.marketplace_id) {
     return integration.marketplace_id;
@@ -158,16 +148,15 @@ async function updateItemAmazonQuantities(prepItems, amazonItems) {
   }
 }
 
-async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
+async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceIds) {
   const candidates = normalizeShipmentIds(rawShipmentId);
   const shipmentId = candidates[0] || rawShipmentId;
 
   const tryFetch = async (mpId) => {
     const query = {
-      ShipmentStatusList: STATUS_LIST,
       ShipmentIdList: candidates.length ? candidates : [shipmentId]
     };
-    if (mpId) query.MarketplaceId = mpId;
+    query.MarketplaceId = mpId;
     return spClient.callAPI({
       operation: 'getShipments',
       endpoint: 'fulfillmentInbound',
@@ -176,14 +165,21 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
     });
   };
 
-  const mpCandidates = marketplaceId ? [marketplaceId] : [null];
+  const mpCandidates = Array.isArray(marketplaceIds)
+    ? marketplaceIds.filter(Boolean)
+    : marketplaceIds
+      ? [marketplaceIds]
+      : [];
+  if (!mpCandidates.length) {
+    throw new Error('No marketplaceId available to fetch shipment');
+  }
 
   let shipmentRes = null;
   for (const mp of mpCandidates) {
     try {
       shipmentRes = await tryFetch(mp);
     } catch (err) {
-      shipmentRes = await tryFetch(null);
+      shipmentRes = null;
     }
     if (shipmentRes?.payload?.ShipmentData?.length) break;
   }
@@ -204,7 +200,7 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
       operation: 'getShipmentItemsByShipmentId',
       endpoint: 'fulfillmentInbound',
       path: { shipmentId },
-      query: marketplaceId ? { MarketplaceId: marketplaceId } : {},
+      query: {},
       options: { version: 'v0' }
     });
   } catch (err) {
@@ -293,10 +289,10 @@ async function main() {
         sku,
         units_requested,
         amazon_units_expected,
-        amazon_units_received
-      )
-    `)
-    .ilike('fba_shipment_id', fbaId)
+      amazon_units_received
+    )
+  `)
+    .eq('fba_shipment_id', fbaId)
     .limit(1);
   if (error) throw error;
   const prep = prepRows?.[0];
@@ -311,8 +307,8 @@ async function main() {
     process.exit(1);
   }
 
-  const marketplaceId = resolveMarketplaceId(integration);
-  if (!marketplaceId) {
+  const marketplaceIds = integration.marketplace_ids || (resolveMarketplaceId(integration) ? [resolveMarketplaceId(integration)] : []);
+  if (!marketplaceIds.length) {
     console.error('The matched integration has no marketplace configured. Aborting.');
     process.exit(1);
   }
@@ -326,7 +322,7 @@ async function main() {
   const { snapshot: snap, items: amazonItems } = await fetchShipmentSnapshot(
     client,
     prep.fba_shipment_id,
-    marketplaceId
+    marketplaceIds
   );
   await updateItemAmazonQuantities(prep.prep_request_items, amazonItems);
 

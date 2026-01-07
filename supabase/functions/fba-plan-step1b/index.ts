@@ -1009,6 +1009,10 @@ serve(async (req) => {
       }
     }
 
+    let placementOptionId: string | null = null;
+    let placementOptionsList: any[] = [];
+    let planShipments: any[] = [];
+
     const debugSnapshot = (failed = false, extra: Record<string, unknown> = {}) => ({
       packingGroupIds,
       failedGroupFetch: failed,
@@ -1100,10 +1104,6 @@ serve(async (req) => {
         { status, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
-
-    let placementOptionId: string | null = null;
-    let placementOptionsList: any[] = [];
-    let planShipments: any[] = [];
 
     // Placement options (necesare pentru Step 2 - shipping)
     const extractPlacementOptions = (res: Awaited<ReturnType<typeof signedFetch>> | null) =>

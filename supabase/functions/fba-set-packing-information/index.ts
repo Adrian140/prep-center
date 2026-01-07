@@ -2,10 +2,11 @@
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
+const baseCorsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Max-Age": "86400"
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -102,13 +103,14 @@ function toHex(buffer: ArrayBuffer): string {
 }
 
 function normalizeDimensions(input: any) {
-  if (typeof input === "number") return null;
-  if (!input) return null;
-  const unit = String(input.unit || input.unitOfMeasurement || "CM").toUpperCase();
-  const length = Number(input.length || 0);
-  const width = Number(input.width || 0);
-  const height = Number(input.height || 0);
-  if (![length, width, height].every((n) => Number.isFinite(n))) return null;
+  if (input == null) return null;
+  const shape = typeof input === "number" ? { length: input, width: input, height: input } : input;
+  const unit = String(shape.unit || shape.unitOfMeasurement || "CM").toUpperCase();
+  const length = Number(shape.length ?? shape.Length ?? shape.l ?? 0);
+  const width = Number(shape.width ?? shape.Width ?? shape.w ?? 0);
+  const height = Number(shape.height ?? shape.Height ?? shape.h ?? 0);
+  const dims = [length, width, height];
+  if (!dims.every((n) => Number.isFinite(n) && n > 0)) return null;
   const toInches = (cm: number) => Number((cm / 2.54).toFixed(2));
   if (unit === "IN") {
     return {
@@ -145,7 +147,7 @@ function normalizeWeight(input: any) {
 function normalizeItem(input: any) {
   if (!input) return null;
   const msku = input?.msku || input?.MSKU || input?.sellerSku || input?.sku || null;
-  const quantity = Number(input?.quantity ?? input?.qty ?? 0);
+  const quantity = Number(input?.quantity ?? input?.qty ?? input?.quantityInBox ?? 0);
   if (!msku || !Number.isFinite(quantity) || quantity <= 0) return null;
 
   const prepOwner = input?.prepOwner ? String(input.prepOwner) : null;
@@ -162,8 +164,7 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
   const out: any[] = [];
   (groups || []).forEach((g: any) => {
     const packingGroupId = g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
-    const shipmentId = g?.shipmentId || g?.shipment_id || null;
-    if (!packingGroupId && !shipmentId) return;
+    if (!packingGroupId) return;
     if (packingGroupId && typeof packingGroupId === "string" && packingGroupId.toLowerCase().startsWith("fallback-")) return;
 
     const dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
@@ -182,17 +183,28 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
     }
 
     const boxCount = Math.max(1, Number(g?.boxCount || g?.boxes || 1) || 1);
-    const boxes = Array.from({ length: boxCount }).map(() => ({
-      quantity: 1,
-      contentInformationSource,
-      ...(contentInformationSource === "BOX_CONTENT_PROVIDED" ? { items } : {}),
-      dimensions: dims,
-      weight
-    }));
+    const boxes = [
+      {
+        quantity: boxCount,
+        contentInformationSource,
+        ...(contentInformationSource === "BOX_CONTENT_PROVIDED"
+          ? {
+              contents: items.map((it) => ({
+                msku: it.msku,
+                quantityInBox: it.quantity,
+                prepOwner: it.prepOwner,
+                labelOwner: it.labelOwner,
+                ...(it.expiration ? { expiration: it.expiration } : {}),
+                ...(it.manufacturingLotCode ? { manufacturingLotCode: it.manufacturingLotCode } : {})
+              }))
+            }
+          : {}),
+        dimensions: dims,
+        weight
+      }
+    ];
 
-    const grouping: any = { boxes };
-    if (shipmentId) grouping.shipmentId = shipmentId;
-    else grouping.packingGroupId = packingGroupId;
+    const grouping: any = { boxes, packingGroupId };
     out.push(grouping);
   });
   return out;
@@ -484,6 +496,12 @@ async function signedFetchWithRetry(opts: Parameters<typeof signedFetch>[0], max
 
 serve(async (req) => {
   const traceId = crypto.randomUUID();
+  const origin = req.headers.get("origin") || "*";
+  const corsHeaders = {
+    ...baseCorsHeaders,
+    "Access-Control-Allow-Origin": origin,
+    ...(origin !== "*" ? { Vary: "Origin" } : {})
+  };
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -536,6 +554,12 @@ serve(async (req) => {
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
+    if (!packingOptionId) {
+      return new Response(JSON.stringify({ error: "packing_option_id este necesar (confirmă packing option înainte de setPackingInformation)", traceId }), {
+        status: 400,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
     if (!packageGroupings.length) {
       return new Response(
         JSON.stringify({
@@ -550,25 +574,28 @@ serve(async (req) => {
       );
     }
 
-    // Validare minimă pe schema reală: packageGroupings[].boxes[].dimensions.unitOfMeasurement + weight.unit/value
-    const invalidGrouping = packageGroupings.find((g: any) => {
-      if (!g?.packingGroupId && !g?.shipmentId) return true;
-      if (!Array.isArray(g?.boxes) || !g.boxes.length) return true;
-      return g.boxes.some((b: any) => {
-        const d = b?.dimensions || {};
-        const w = b?.weight || {};
-        const uom = d?.unitOfMeasurement;
-        if (!(Number(d.length) > 0 && Number(d.width) > 0 && Number(d.height) > 0)) return true;
-        if (!(typeof uom === "string" && uom.length)) return true;
-        if (!(Number(w.value) > 0 && typeof w.unit === "string" && w.unit.length)) return true;
-        if (b?.contentInformationSource === "BOX_CONTENT_PROVIDED") {
-          if (!Array.isArray(b?.items) || !b.items.length) return true;
-        } else {
-          if (Array.isArray(b?.items) && b.items.length) return true;
-        }
-        return false;
-      });
+  // Validare minimă pe schema reală: packageGroupings[].boxes[].dimensions.unitOfMeasurement + weight.unit/value
+  const invalidGrouping = packageGroupings.find((g: any) => {
+    if (!g?.packingGroupId) return true;
+    if (!Array.isArray(g?.boxes) || !g.boxes.length) return true;
+    return g.boxes.some((b: any) => {
+      const d = b?.dimensions || {};
+      const w = b?.weight || {};
+      const uom = d?.unitOfMeasurement;
+      if (!(Number(d.length) > 0 && Number(d.width) > 0 && Number(d.height) > 0)) return true;
+      if (!(typeof uom === "string" && uom.length)) return true;
+      if (!(Number(w.value) > 0 && typeof w.unit === "string" && w.unit.length)) return true;
+      if (!(Number(b?.quantity) > 0)) return true;
+      if (b?.contentInformationSource === "BOX_CONTENT_PROVIDED") {
+        if (!Array.isArray(b?.contents) || !b.contents.length) return true;
+        const badContent = b.contents.some((c: any) => !(c?.msku && Number(c?.quantityInBox) > 0));
+        if (badContent) return true;
+      } else {
+        if (Array.isArray(b?.contents) && b.contents.length) return true;
+      }
+      return false;
     });
+  });
     if (invalidGrouping) {
       return new Response(JSON.stringify({ error: "packageGroupings are invalid (missing boxes dimensions/weight/items)", traceId }), {
         status: 400,
@@ -613,24 +640,13 @@ serve(async (req) => {
       }
     }
 
-    const destCountry = (reqData.destination_country || "").toUpperCase();
-    const inferredMarketplace = marketplaceByCountry[destCountry] || null;
-
     // Fetch Amazon integration
     const amazonIntegrationIdInput = body?.amazon_integration_id ?? body?.amazonIntegrationId;
+    const marketplaceOverride = body?.marketplace_id ?? body?.marketplaceId ?? null;
+    const destCountry = (reqData.destination_country || "").toUpperCase();
+    const inferredMarketplace = marketplaceByCountry[destCountry] || null;
     let integ: AmazonIntegration | null = null;
-    if (inferredMarketplace) {
-      const { data: integRows } = await supabase
-        .from("amazon_integrations")
-        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
-        .eq("company_id", reqData.company_id)
-        .eq("status", "active")
-        .eq("marketplace_id", inferredMarketplace)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      integ = (integRows?.[0] as any) || null;
-    }
-    if (!integ && amazonIntegrationIdInput) {
+    if (amazonIntegrationIdInput) {
       const { data: integRowById } = await supabase
         .from("amazon_integrations")
         .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
@@ -639,6 +655,17 @@ serve(async (req) => {
         .eq("status", "active")
         .maybeSingle();
       if (integRowById) integ = integRowById as any;
+    }
+    if (!integ && (marketplaceOverride || inferredMarketplace)) {
+      const { data: integRows } = await supabase
+        .from("amazon_integrations")
+        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .eq("company_id", reqData.company_id)
+        .eq("status", "active")
+        .eq("marketplace_id", marketplaceOverride || inferredMarketplace)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      integ = (integRows?.[0] as any) || null;
     }
     if (!integ) {
       const { data: integRows } = await supabase
@@ -655,7 +682,7 @@ serve(async (req) => {
     }
 
     const refreshToken = integ.refresh_token;
-    const marketplaceId = inferredMarketplace || integ.marketplace_id || "A13V1IB3VIYZZH";
+    const marketplaceId = marketplaceOverride || inferredMarketplace || integ.marketplace_id || "A13V1IB3VIYZZH";
     const regionCode = (integ.region || "eu").toLowerCase();
     const awsRegion = regionCode === "na" ? "us-east-1" : regionCode === "fe" ? "us-west-2" : "eu-west-1";
     const host = regionHost(regionCode);

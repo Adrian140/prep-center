@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Box, CheckCircle } from 'lucide-react';
 
 export default function FbaStep1bPacking({
@@ -18,7 +18,7 @@ export default function FbaStep1bPacking({
   const visibleGroups = (Array.isArray(packGroups) ? packGroups : []).filter(
     (g) => {
       const gid = g?.packingGroupId || g?.id || "";
-      return gid && !isFallbackId(gid) && isAmazonGroupId(gid);
+      return gid && !isFallbackId(gid); // nu ascundem grupuri valide chiar dacă id-ul nu începe cu pg
     }
   );
   const waitingForAmazon = loading || (!packGroupsLoaded && !error);
@@ -36,25 +36,26 @@ export default function FbaStep1bPacking({
       },
       { skus: 0, units: 0 }
     );
-  }, [packGroups]);
+  }, [visibleGroups]);
 
   // Draft state to allow multi-digit input without instant save
-  const [drafts, setDrafts] = React.useState({});
-  const [continueError, setContinueError] = React.useState('');
+  const [drafts, setDrafts] = useState({});
+  const [continueError, setContinueError] = useState('');
 
-  const getDraft = (group) => drafts[group.id] || {};
+  const getDraft = (group) => drafts[group.packingGroupId || group.id] || {};
   const setDraftValue = (groupId, patch) => {
     setDrafts((prev) => ({ ...prev, [groupId]: { ...(prev[groupId] || {}), ...patch } }));
   };
 
   const commitDraft = (group, fields) => {
-    const draft = drafts[group.id] || {};
+    const key = group.packingGroupId || group.id;
+    const draft = drafts[key] || {};
     const payload = {};
     fields.forEach((f) => {
       if (draft[f] !== undefined) payload[f] = draft[f];
     });
     if (Object.keys(payload).length) {
-      onUpdateGroup(group.id, payload);
+      onUpdateGroup(key, payload);
     }
   };
 
@@ -64,7 +65,8 @@ export default function FbaStep1bPacking({
   };
 
   const resolveBoxState = (group) => {
-    const draft = drafts[group.id] || {};
+    const key = group.packingGroupId || group.id;
+    const draft = drafts[key] || {};
     const dimsDraft = draft.boxDimensions || {};
     const dimsCurrent = group.boxDimensions || {};
     const dims = {
@@ -83,7 +85,7 @@ export default function FbaStep1bPacking({
     const packages = [];
     const packingGroups = [];
     let missingGroupId = false;
-    (packGroups || []).forEach((group) => {
+    (visibleGroups || []).forEach((group) => {
       const packingGroupId = group.packingGroupId || null;
       const { dims, weight, boxes } = resolveBoxState(group);
       const dimsNum = {
@@ -130,14 +132,14 @@ export default function FbaStep1bPacking({
   };
 
   const validateGroups = () => {
-    if (!Array.isArray(packGroups) || packGroups.length === 0) {
+    if (!Array.isArray(visibleGroups) || visibleGroups.length === 0) {
       return 'Completează cel puțin un pack group înainte de a continua.';
     }
-    const missingPackingId = (packGroups || []).find((g) => !g.packingGroupId);
+    const missingPackingId = (visibleGroups || []).find((g) => !g.packingGroupId);
     if (missingPackingId) {
       return 'Amazon nu a returnat packingGroupId pentru unul din grupuri. Reia Step 1b ca să obții packing groups reale.';
     }
-    const missing = packGroups.find((group) => {
+    const missing = visibleGroups.find((group) => {
       const { dims, weight } = resolveBoxState(group);
       const length = resolveGroupNumber(dims.length);
       const width = resolveGroupNumber(dims.width);
@@ -153,11 +155,11 @@ export default function FbaStep1bPacking({
 
   const handleContinue = async () => {
     // commit toate draft-urile în state înainte de validare
-    (packGroups || []).forEach((g) => {
+    (visibleGroups || []).forEach((g) => {
       commitDraft(g, ["boxes", "boxWeight", "boxDimensions"]);
     });
 
-    const hasFallbackGroup = (packGroups || []).some(
+    const hasFallbackGroup = (visibleGroups || []).some(
       (g) => isFallbackId(g.packingGroupId) || isFallbackId(g.id)
     );
     if (hasFallbackGroup) {
@@ -423,7 +425,18 @@ export default function FbaStep1bPacking({
                       type="button"
                       onClick={() => {
                         commitDraft(group, ["boxes", "boxWeight", "boxDimensions"]);
-                        onUpdateGroup(group.id, { packingConfirmed: true });
+                        const { dims, weight } = resolveBoxState(group);
+                        const length = resolveGroupNumber(dims.length);
+                        const width = resolveGroupNumber(dims.width);
+                        const height = resolveGroupNumber(dims.height);
+                        const w = resolveGroupNumber(weight);
+                        if (!(length > 0 && width > 0 && height > 0 && w > 0)) {
+                          setContinueError('Completează dimensiunile și greutatea înainte de a salva grupul.');
+                          return;
+                        }
+                        const key = group.packingGroupId || group.id;
+                        onUpdateGroup(key, { packingConfirmed: true });
+                        setContinueError('');
                       }}
                       className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded-md"
                     >

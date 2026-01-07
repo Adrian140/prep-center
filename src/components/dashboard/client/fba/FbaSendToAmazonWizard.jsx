@@ -352,16 +352,25 @@ export default function FbaSendToAmazonWizard({
     invalidateFrom('1');
   };
 
+  const handlePrepChange = (skuId, patch) => {
+    setPlan((prev) => ({
+      ...prev,
+      skus: (prev.skus || []).map((sku) => (sku.id === skuId ? { ...sku, ...patch } : sku))
+    }));
+    invalidateFrom('1');
+  };
+
   const handlePackGroupUpdate = (groupId, patch) => {
     setPackGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, ...patch } : g)));
     invalidateFrom('1b');
   };
 
   const buildPackingPayload = (groups = packGroups) => {
-    if (!Array.isArray(groups) || groups.length === 0) return { packages: [], packingGroups: [], missingGroupId: false };
+    if (!Array.isArray(groups) || groups.length === 0) {
+      return { packingGroups: [], missingGroupId: false };
+    }
 
     const packingGroupsPayload = [];
-    const packagesPayload = [];
     let missingGroupId = false;
 
     groups.forEach((g) => {
@@ -392,19 +401,9 @@ export default function FbaSendToAmazonWizard({
             }))
           : []
       });
-
-      if (normalizedDims && normalizedWeight) {
-        for (let i = 0; i < count; i++) {
-          packagesPayload.push({
-            packingGroupId,
-            dimensions: normalizedDims,
-            weight: normalizedWeight
-          });
-        }
-      }
     });
 
-    return { packages: packagesPayload, packingGroups: packingGroupsPayload, missingGroupId };
+    return { packingGroups: packingGroupsPayload, missingGroupId };
   };
 
   const submitPackingInformation = async (payload = {}) => {
@@ -431,14 +430,11 @@ export default function FbaSendToAmazonWizard({
     }
 
     const derivedPayload = buildPackingPayload();
-    const packages = Array.isArray(payload.packages) && payload.packages.length ? payload.packages : derivedPayload.packages;
     const packingGroupsPayload =
       Array.isArray(payload.packingGroups) && payload.packingGroups.length ? payload.packingGroups : derivedPayload.packingGroups;
 
     const isFallback = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
-    const hasFallback = packages.some(
-      (p) => isFallback(p.packingGroupId)
-    );
+    const hasFallback = packingGroupsPayload.some((g) => isFallback(g.packingGroupId));
     const missingGroupId = derivedPayload.missingGroupId || packingGroupsPayload.some((g) => !g.packingGroupId);
     if (missingGroupId) {
       setPackingSubmitError("Amazon nu a returnat packingGroupId pentru cutii (packingOptions). Reia Step 1b pentru a obține packing groups reale.");
@@ -449,16 +445,16 @@ export default function FbaSendToAmazonWizard({
       return;
     }
 
-    if (!packages.length) {
+    if (!packingGroupsPayload.length) {
       setPackingSubmitError('Completează dimensiunile și greutatea pentru cutie înainte de a continua.');
       return;
     }
-    const invalid = packages.find((p) => {
+    const invalid = packingGroupsPayload.find((g) => {
       return !(
-        Number(p.dimensions.length) > 0 &&
-        Number(p.dimensions.width) > 0 &&
-        Number(p.dimensions.height) > 0 &&
-        Number(p.weight.value) > 0
+        Number(g.dimensions?.length) > 0 &&
+        Number(g.dimensions?.width) > 0 &&
+        Number(g.dimensions?.height) > 0 &&
+        Number(g.weight?.value) > 0
       );
     });
     if (invalid) {
@@ -475,7 +471,6 @@ export default function FbaSendToAmazonWizard({
           inbound_plan_id: inboundPlanId,
           packing_option_id: packingOptId,
           placement_option_id: placementOptId,
-          packages,
           packing_groups: packingGroupsPayload
         }
       });
@@ -710,7 +705,7 @@ export default function FbaSendToAmazonWizard({
       setShippingOptions(json.options || []);
       setShippingSummary(json.summary || null);
       if (Array.isArray(json.shipments) && json.shipments.length) {
-        const fallbackShipments = deriveShipmentsFromPacking();
+        const fallbackShipments = deriveShipmentsFromPacking(shipments);
         const fallbackById = new Map(
           (fallbackShipments || []).map((sh) => [String(sh.id || ""), sh])
         );
@@ -769,6 +764,10 @@ export default function FbaSendToAmazonWizard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, step2Loaded]);
 
+  useEffect(() => {
+    setStep2Loaded(false);
+  }, [packGroups, packingOptionId, placementOptionId, shipmentMode.method, shipmentMode.deliveryDate]);
+
   const formatAddress = (addr = {}) => {
     const parts = [
       addr.name,
@@ -783,7 +782,7 @@ export default function FbaSendToAmazonWizard({
     return parts || addr.label || addr.raw || '—';
   };
 
-  const deriveShipmentsFromPacking = () => {
+  const deriveShipmentsFromPacking = (baseShipments = []) => {
     if (!Array.isArray(packGroups) || !packGroups.length) return [];
     const boxesDetail = [];
     packGroups.forEach((g) => {
@@ -805,7 +804,7 @@ export default function FbaSendToAmazonWizard({
     const units = packGroups.reduce((s, g) => s + (Number(g.units) || 0), 0);
     const weight = boxesDetail.reduce((s, b) => s + (Number(b.weight) || 0), 0);
 
-    const baseShipment = Array.isArray(shipments) && shipments.length ? shipments[0] : null;
+    const baseShipment = Array.isArray(baseShipments) && baseShipments.length ? baseShipments[0] : null;
     const id = baseShipment?.id || baseShipment?.shipmentId || '1';
     const from = baseShipment?.from || formatAddress(plan?.shipFrom || {});
     const to = baseShipment?.to || plan?.marketplace || plan?.destination || '—';
@@ -830,7 +829,7 @@ export default function FbaSendToAmazonWizard({
   // Dacă nu avem shipments din backend, sau avem doar cele derivate local, recalculăm din packGroups + shipFrom
   useEffect(() => {
     const hasApiShipments = Array.isArray(shipments) && shipments.some((s) => s.source === 'api' || s.confirmed);
-    const derived = deriveShipmentsFromPacking();
+    const derived = deriveShipmentsFromPacking(shipments);
     if (hasApiShipments) return;
     const currentLocal = JSON.stringify((shipments || []).filter((s) => s.source === 'local'));
     const nextLocal = JSON.stringify(derived);
@@ -919,7 +918,6 @@ export default function FbaSendToAmazonWizard({
     } else if (stepKey === '1b') {
       setShipments([]);
       setTracking([]);
-      setPlacementOptionId(null);
       setPackGroupsLoaded(false);
     } else if (stepKey === '2') {
       setTracking([]);
@@ -948,6 +946,7 @@ export default function FbaSendToAmazonWizard({
           onChangePacking={handlePackingChange}
           onChangeQuantity={handleQuantityChange}
           onChangeExpiry={handleExpiryChange}
+          onChangePrep={handlePrepChange}
           onNext={() => completeAndNext('1')}
           error={planError}
         />
