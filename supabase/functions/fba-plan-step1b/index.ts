@@ -609,6 +609,7 @@ serve(async (req) => {
     // Step 1b: generate + list packing options for inboundPlanId
     const basePath = "/inbound/fba/2024-03-20";
     const warnings: string[] = [];
+    let packingConfirmDenied = false;
 
     const pollOperationStatus = async (operationId: string, maxAttempts = 12) => {
       let attempt = 0;
@@ -676,7 +677,7 @@ serve(async (req) => {
           service: "execute-api",
           region: awsRegion,
           host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions/${encodeURIComponent(packingOptionIdToConfirm)}/confirm`,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions/${encodeURIComponent(packingOptionIdToConfirm)}/confirmation`,
           query: "",
           payload: "{}",
           accessKey: tempCreds.accessKeyId,
@@ -1012,6 +1013,7 @@ serve(async (req) => {
       if (confirmRes && !confirmRes.res.ok && confirmRes.res.status !== 409) {
         const detail = extractErrorDetail(confirmRes);
         if (confirmRes.res.status === 403) {
+          packingConfirmDenied = true;
           warnings.push(
             `ConfirmPackingOption a fost refuzat (403). Verifică autorizarea seller/app pentru fba_inbound v2024-03-20.${detail ? " " + detail : ""}`
           );
@@ -1422,6 +1424,7 @@ serve(async (req) => {
         },
         requestId: listRes?.requestId || genRes?.requestId || planCheck.requestId || null,
         warning,
+        packingConfirmDenied,
         amazonIntegrationId: integId || null
       }),
       { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
