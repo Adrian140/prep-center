@@ -662,6 +662,27 @@ serve(async (req) => {
       );
     };
 
+    const confirmPackingOption = async (packingOptionIdToConfirm: string) =>
+      runWith429Retry(() =>
+        signedFetch({
+          method: "POST",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions/${encodeURIComponent(packingOptionIdToConfirm)}/confirm`,
+          query: "",
+          payload: "{}",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.confirmPackingOption",
+          marketplaceId,
+          sellerId
+        })
+      );
+
     const listPackingOptions = async () =>
       runWith429Retry(() =>
         signedFetch({
@@ -974,6 +995,19 @@ serve(async (req) => {
     }
 
     const packingOptionsCount = mergedPackingOptions?.length ?? 0;
+
+    // Confirmăm packingOption-ul înainte de a cere packingGroupItems, altfel SPAPI răspunde cu
+    // "Package grouping ID not found in the inbound plan. ... call ConfirmPackingOption".
+    if (packingOptionId) {
+      const confirmRes = await confirmPackingOption(packingOptionId);
+      debugStatuses.confirmPackingOption = { status: confirmRes?.res?.status ?? null, requestId: confirmRes?.requestId || null };
+      rawSamples.confirmPackingOption = sampleBody(confirmRes);
+      if (confirmRes && !confirmRes.res.ok && confirmRes.res.status !== 409) {
+        warnings.push(
+          `ConfirmPackingOption a eșuat (${confirmRes.res.status}). ${extractErrorDetail(confirmRes)}`
+        );
+      }
+    }
 
     const debugSnapshot = (failed = false, extra: Record<string, unknown> = {}) => ({
       packingGroupIds,
