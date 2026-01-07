@@ -43,19 +43,7 @@ const initialData = {
   ]
 };
 
-const initialPackGroups = [
-  {
-    id: 'pack-1',
-    title: 'Pack group 1',
-    skuCount: 1,
-    units: 33,
-    boxes: 1,
-    packMode: 'single',
-    warning: 'Boxes that weigh more than 15 kg must be clearly marked “Heavy package” on the top and sides',
-    image:
-      'https://images.unsplash.com/photo-1582456891925-054d52d43a9c?auto=format&fit=crop&w=80&q=60'
-  }
-];
+const initialPackGroups = [];
 
 const initialShipments = [
   {
@@ -264,6 +252,7 @@ export default function FbaSendToAmazonWizard({
     async function loadPlan() {
       setLoadingPlan(true);
       setPlanError('');
+      setPackGroups([]); // nu afișăm nimic local până primim packing groups de la API
       try {
         const response = fetchPlan ? await fetchPlan() : null;
         if (cancelled || !response) return;
@@ -503,6 +492,7 @@ export default function FbaSendToAmazonWizard({
       setPackingReadyError('Lipsește inboundPlanId sau requestId; reîncarcă planul.');
       return;
     }
+    setPackGroups([]); // curățăm grupurile locale până sosesc cele reale de la Amazon
     setPackingRefreshLoading(true);
     setPackingReadyError('');
     try {
