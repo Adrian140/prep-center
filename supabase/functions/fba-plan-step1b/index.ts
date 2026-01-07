@@ -304,7 +304,7 @@ async function signedFetch(opts: {
   }
 }
 
-async function getLwaAccessToken(refreshToken: string) {
+async function getLwaAccessToken(refreshToken: string, traceId?: string) {
   const res = await fetch("https://api.amazon.com/auth/o2/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" },
@@ -318,7 +318,13 @@ async function getLwaAccessToken(refreshToken: string) {
   if (!res.ok) throw new Error(`LWA token failed: ${await res.text()}`);
   const json = await res.json();
   if (!json.access_token) throw new Error("Missing access_token");
-  return json.access_token as string;
+  const scope: string = json.scope || json.scp || "";
+  // Debug scopes to validate permissions without exposing full token
+  console.log("fba-plan-step1b lwa-scope", {
+    traceId: traceId || null,
+    scope
+  });
+  return { accessToken: json.access_token as string, scope };
 }
 
 async function assumeRole(roleArn: string) {
@@ -582,7 +588,7 @@ serve(async (req) => {
     }
 
     const tempCreds = await assumeRole(SPAPI_ROLE_ARN);
-    const lwaAccessToken = await getLwaAccessToken(refreshToken);
+    const { accessToken: lwaAccessToken, scope: lwaScope } = await getLwaAccessToken(refreshToken, traceId);
 
     // Debug auth context
     console.log("fba-plan-step1b auth-context", {
@@ -596,7 +602,8 @@ serve(async (req) => {
       sellerId,
       refreshToken: maskValue(refreshToken || ""),
       roleArn: SPAPI_ROLE_ARN ? `...${SPAPI_ROLE_ARN.slice(-6)}` : "",
-      accessKey: AWS_ACCESS_KEY_ID ? `...${AWS_ACCESS_KEY_ID.slice(-4)}` : ""
+      accessKey: AWS_ACCESS_KEY_ID ? `...${AWS_ACCESS_KEY_ID.slice(-4)}` : "",
+      lwaScope: lwaScope || null
     });
 
     // Step 1b: generate + list packing options for inboundPlanId
@@ -1003,9 +1010,16 @@ serve(async (req) => {
       debugStatuses.confirmPackingOption = { status: confirmRes?.res?.status ?? null, requestId: confirmRes?.requestId || null };
       rawSamples.confirmPackingOption = sampleBody(confirmRes);
       if (confirmRes && !confirmRes.res.ok && confirmRes.res.status !== 409) {
-        warnings.push(
-          `ConfirmPackingOption a eșuat (${confirmRes.res.status}). ${extractErrorDetail(confirmRes)}`
-        );
+        const detail = extractErrorDetail(confirmRes);
+        if (confirmRes.res.status === 403) {
+          warnings.push(
+            `ConfirmPackingOption a fost refuzat (403). Verifică autorizarea seller/app pentru fba_inbound v2024-03-20.${detail ? " " + detail : ""}`
+          );
+        } else {
+          warnings.push(
+            `ConfirmPackingOption a eșuat (${confirmRes.res.status}). ${detail}`
+          );
+        }
       }
     }
 
