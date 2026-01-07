@@ -104,16 +104,26 @@ function toHex(buffer: ArrayBuffer): string {
 function normalizeDimensions(input: any) {
   if (typeof input === "number") return null;
   if (!input) return null;
-  const unit = String(input.unit || "CM").toUpperCase();
+  const unit = String(input.unit || input.unitOfMeasurement || "CM").toUpperCase();
   const length = Number(input.length || 0);
   const width = Number(input.width || 0);
   const height = Number(input.height || 0);
   if (![length, width, height].every((n) => Number.isFinite(n))) return null;
   const toInches = (cm: number) => Number((cm / 2.54).toFixed(2));
   if (unit === "IN") {
-    return { length: Number(length.toFixed(2)), width: Number(width.toFixed(2)), height: Number(height.toFixed(2)), unit: "IN" };
+    return {
+      length: Number(length.toFixed(2)),
+      width: Number(width.toFixed(2)),
+      height: Number(height.toFixed(2)),
+      unitOfMeasurement: "IN"
+    };
   }
-  return { length: toInches(length), width: toInches(width), height: toInches(height), unit: "IN" };
+  return {
+    length: toInches(length),
+    width: toInches(width),
+    height: toInches(height),
+    unitOfMeasurement: "IN"
+  };
 }
 
 function normalizeWeight(input: any) {
@@ -132,35 +142,49 @@ function normalizeWeight(input: any) {
   return { value: toPounds(value), unit: "LB" };
 }
 
-function normalizePackage(input: any, fallbackId?: string) {
-  return {
-    packageId: input?.packageId || input?.package_id || fallbackId || null,
-    packingGroupId: input?.packingGroupId || input?.packing_group_id || input?.groupId || input?.group_id || null,
-    dimensions: normalizeDimensions(input?.dimensions),
-    weight: normalizeWeight(input?.weight)
-  };
+function normalizeItem(input: any) {
+  if (!input) return null;
+  const msku = input?.msku || input?.MSKU || input?.sellerSku || input?.sku || null;
+  const quantity = Number(input?.quantity ?? input?.qty ?? 0);
+  if (!msku || !Number.isFinite(quantity) || quantity <= 0) return null;
+
+  const out: any = { msku: String(msku), quantity };
+  if (input?.prepOwner) out.prepOwner = String(input.prepOwner);
+  if (input?.labelOwner) out.labelOwner = String(input.labelOwner);
+  if (input?.expiration) out.expiration = String(input.expiration).slice(0, 10);
+  if (input?.manufacturingLotCode) out.manufacturingLotCode = String(input.manufacturingLotCode);
+  return out;
 }
 
-function buildPackagesFromGroups(groups: any[]) {
-  const packages: any[] = [];
+function buildPackageGroupingsFromPackingGroups(groups: any[]) {
+  const out: any[] = [];
   (groups || []).forEach((g: any) => {
     const packingGroupId = g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
     if (!packingGroupId) return;
     if (typeof packingGroupId === "string" && packingGroupId.toLowerCase().startsWith("fallback-")) return;
+
     const dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
     const weight = normalizeWeight(g?.weight || g?.boxWeight);
-    const boxCount = Math.max(1, Number(g?.boxes || 1) || 1);
-    if (!packingGroupId || !dims || !weight) return;
-    for (let i = 0; i < boxCount; i++) {
-      packages.push({
-        packageId: g?.packageId || g?.package_id || `pkg-${packages.length + 1}`,
-        packingGroupId,
-        dimensions: dims,
-        weight
-      });
-    }
+    if (!dims || !weight) return;
+
+    const rawItems = Array.isArray(g?.items) ? g.items : (Array.isArray(g?.expectedItems) ? g.expectedItems : []);
+    const items = rawItems.map(normalizeItem).filter(Boolean);
+
+    const boxCount = Math.max(1, Number(g?.boxCount || g?.boxes || 1) || 1);
+    const contentInformationSource = items.length ? "BOX_CONTENT_PROVIDED" : "BOX_CONTENT_NOT_PROVIDED";
+    const boxes = Array.from({ length: boxCount }).map(() => ({
+      quantity: 1,
+      contentInformationSource,
+      ...(items.length ? { items } : {}),
+      dimensions: dims,
+      weight
+    }));
+
+    const grouping: any = { packingGroupId, boxes };
+    if (g?.shipmentId || g?.shipment_id) grouping.shipmentId = g?.shipmentId || g?.shipment_id;
+    out.push(grouping);
   });
-  return packages;
+  return out;
 }
 
 async function sha256(message: string): Promise<string> {
@@ -434,6 +458,19 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function signedFetchWithRetry(opts: Parameters<typeof signedFetch>[0], maxAttempts = 6) {
+  let last: any = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await signedFetch(opts);
+    last = res;
+    if (res?.res?.status !== 429) return res;
+    const base = Math.min(20000, 500 * (2 ** attempt));
+    const jitter = Math.floor(Math.random() * 250);
+    await delay(base + jitter);
+  }
+  return last;
+}
+
 serve(async (req) => {
   const traceId = crypto.randomUUID();
 
@@ -473,72 +510,17 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const requestId = body?.request_id ?? body?.requestId;
     const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
-    const packingOptionId = body?.packing_option_id ?? body?.packingOptionId;
-    const rawPackages = Array.isArray(body?.packages) ? body.packages : [];
-    const placementOptionId = body?.placement_option_id ?? body?.placementOptionId ?? null;
+    const packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
     const packingGroupsInput =
       (Array.isArray(body?.packing_groups) && body.packing_groups) ||
       (Array.isArray(body?.packingGroups) && body.packingGroups) ||
       [];
-    const packages = rawPackages.length ? rawPackages : buildPackagesFromGroups(packingGroupsInput);
-    const normalizedPackages = (packages || [])
-      .map((p: any, idx: number) => normalizePackage(p, `pkg-${idx + 1}`))
-      .filter((p) => {
-        const hasId = p.packingGroupId && p.packageId;
-        const isFallback =
-          typeof p.packingGroupId === "string" && p.packingGroupId.toLowerCase().startsWith("fallback-");
-        return hasId && !isFallback;
-      });
-    const packageGroupings = (() => {
-      const map = new Map<string, string[]>();
-      normalizedPackages.forEach((p) => {
-        const groupId = String(p.packingGroupId);
-        const pkgId = String(p.packageId);
-        if (!map.has(groupId)) map.set(groupId, []);
-        map.get(groupId)!.push(pkgId);
-      });
-      return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({
-        packingGroupId,
-        // Amazon acceptă fie quantity, fie packageIds; lăsăm doar packageIds pentru claritate
-        boxes: packageIds.map((pid) => ({ packageIds: [pid] }))
-      }));
-    })();
-    if (!requestId || !inboundPlanId || !packingOptionId) {
-      return new Response(JSON.stringify({ error: "request_id, inbound_plan_id și packing_option_id sunt necesare", traceId }), {
-        status: 400,
-        headers: { ...corsHeaders, "content-type": "application/json" }
-      });
-    }
-    if (!normalizedPackages.length) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "Lipsesc pachetele (packages) valide cu packingGroupId de la Amazon. Reîncarcă packingOptions (Step1b) și asigură-te că există packingGroupId (nu fallback).",
-          traceId
-        }),
-        {
-        status: 400,
-        headers: { ...corsHeaders, "content-type": "application/json" }
-        }
-      );
-    }
-
-    // Basic validation for single pack (length/width/height/weight)
-    const invalidPkg = normalizedPackages.find((p: any) => {
-      const dims = p?.dimensions || {};
-      const w = p?.weight || {};
-      return !(
-        p?.packingGroupId &&
-        Number(dims.length) > 0 &&
-        Number(dims.width) > 0 &&
-        Number(dims.height) > 0 &&
-        Number(w.value) > 0 &&
-        typeof dims.unit === "string" &&
-        typeof w.unit === "string"
-      );
-    });
-    if (invalidPkg) {
-      return new Response(JSON.stringify({ error: "Dimensiuni/greutate invalide pentru packages", traceId }), {
+    const directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
+    const packageGroupings = directGroupings.length
+      ? directGroupings
+      : buildPackageGroupingsFromPackingGroups(packingGroupsInput);
+    if (!requestId || !inboundPlanId) {
+      return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare", traceId }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
@@ -547,7 +529,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           error:
-            "Nu am putut construi packageGroupings pentru Amazon (packingGroupId lipsă). Reia Step1b pentru a reîncărca packing groups reale înainte de a confirma.",
+            "Nu am putut construi packageGroupings valide. Trimite packingGroups (cu dims/weight/items) din Step1b sau trimite direct packageGroupings în format SP-API.",
           traceId
         }),
         {
@@ -555,6 +537,30 @@ serve(async (req) => {
           headers: { ...corsHeaders, "content-type": "application/json" }
         }
       );
+    }
+
+    // Validare minimă pe schema reală: packageGroupings[].boxes[].dimensions.unitOfMeasurement + weight.unit/value
+    const invalidGrouping = packageGroupings.find((g: any) => {
+      if (!g?.packingGroupId) return true;
+      if (!Array.isArray(g?.boxes) || !g.boxes.length) return true;
+      return g.boxes.some((b: any) => {
+        const d = b?.dimensions || {};
+        const w = b?.weight || {};
+        const uom = d?.unitOfMeasurement;
+        if (!(Number(d.length) > 0 && Number(d.width) > 0 && Number(d.height) > 0)) return true;
+        if (!(typeof uom === "string" && uom.length)) return true;
+        if (!(Number(w.value) > 0 && typeof w.unit === "string" && w.unit.length)) return true;
+        if (b?.contentInformationSource === "BOX_CONTENT_PROVIDED") {
+          if (!Array.isArray(b?.items) || !b.items.length) return true;
+        }
+        return false;
+      });
+    });
+    if (invalidGrouping) {
+      return new Response(JSON.stringify({ error: "packageGroupings are invalid (missing boxes dimensions/weight/items)", traceId }), {
+        status: 400,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
     }
 
     const { data: profileRow, error: profileErr } = await supabase
@@ -654,19 +660,11 @@ serve(async (req) => {
     const basePath = "/inbound/fba/2024-03-20";
     console.log("set-packing payload-meta", {
       traceId,
-      packagesCount: normalizedPackages.length,
-      packageGroupingsCount: packageGroupings.length,
-      hasPlacementOptionId: Boolean(placementOptionId)
+      packageGroupingsCount: packageGroupings.length
     });
-    const payload = JSON.stringify({
-      packingOptionId,
-      placementOptionId: placementOptionId || undefined,
-      packages: normalizedPackages,
-      // Amazon validează că packageGroupings nu este null; trimitem grupările generate (cu quantity=1).
-      packageGroupings
-    });
+    const payload = JSON.stringify({ packageGroupings });
 
-    const res = await signedFetch({
+    const res = await signedFetchWithRetry({
       method: "POST",
       service: "execute-api",
       region: awsRegion,
