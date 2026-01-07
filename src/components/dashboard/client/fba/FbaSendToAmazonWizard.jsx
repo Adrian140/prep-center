@@ -83,7 +83,7 @@ export default function FbaSendToAmazonWizard({
   const [currentStep, setCurrentStep] = useState('1');
   const [completedSteps, setCompletedSteps] = useState([]);
   const [plan, setPlan] = useState(initialPlan);
-  const normalizePackGroups = (groups = []) =>
+  const normalizePackGroups = useCallback((groups = []) =>
     (Array.isArray(groups) ? groups : []).map((g, idx) => {
       const items = (g.items || []).map((it) => ({
         sku: it.sku || it.msku || it.SellerSKU || it.sellerSku || it.asin || '',
@@ -105,8 +105,8 @@ export default function FbaSendToAmazonWizard({
         boxWeight: g.boxWeight ?? null,
         packingConfirmed: Boolean(g.packingConfirmed)
       };
-    });
-  const mergePackGroups = (prev = [], incoming = []) => {
+    }), []);
+  const mergePackGroups = useCallback((prev = [], incoming = []) => {
     const prevByKey = new Map();
     prev.forEach((g) => {
       const key = g.id || g.packingGroupId;
@@ -123,7 +123,7 @@ export default function FbaSendToAmazonWizard({
         packingConfirmed: g.packingConfirmed || existing.packingConfirmed || false
       };
     });
-  };
+  }, []);
   const [packGroups, setPackGroups] = useState(normalizePackGroups(initialPacking));
   const [packingOptionId, setPackingOptionId] = useState(initialPlan?.packingOptionId || null);
   const [placementOptionId, setPlacementOptionId] = useState(initialPlan?.placementOptionId || null);
