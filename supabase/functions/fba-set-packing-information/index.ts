@@ -499,7 +499,8 @@ serve(async (req) => {
       });
       return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({
         packingGroupId,
-        boxes: packageIds.map((pid) => ({ quantity: 1, packageIds: [pid] }))
+        // Amazon acceptă fie quantity, fie packageIds; lăsăm doar packageIds pentru claritate
+        boxes: packageIds.map((pid) => ({ packageIds: [pid] }))
       }));
     })();
     if (!requestId || !inboundPlanId || !packingOptionId) {
