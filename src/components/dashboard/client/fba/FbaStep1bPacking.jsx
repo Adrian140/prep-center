@@ -12,11 +12,16 @@ export default function FbaStep1bPacking({
   onRetry,
   retryLoading = false
 }) {
-  const isEmpty = !loading && (!Array.isArray(packGroups) || packGroups.length === 0);
+  const isFallbackId = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
+  const visibleGroups = (Array.isArray(packGroups) ? packGroups : []).filter(
+    (g) => g?.packingGroupId && !isFallbackId(g.packingGroupId) && !isFallbackId(g.id)
+  );
+  const isEmpty = !loading && visibleGroups.length === 0;
+  const waitingForAmazon = loading || visibleGroups.length === 0;
   const showErrorOnly = Boolean(error) && !loading;
   const totals = useMemo(() => {
-    if (!Array.isArray(packGroups)) return { skus: 0, units: 0 };
-    return packGroups.reduce(
+    if (!Array.isArray(visibleGroups)) return { skus: 0, units: 0 };
+    return visibleGroups.reduce(
       (acc, g) => {
         const units = Array.isArray(g.items)
           ? g.items.reduce((s, it) => s + (Number(it.quantity || 0) || 0), 0)
@@ -147,9 +152,8 @@ export default function FbaStep1bPacking({
       commitDraft(g, ["boxes", "boxWeight", "boxDimensions"]);
     });
 
-    const isFallback = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
     const hasFallbackGroup = (packGroups || []).some(
-      (g) => isFallback(g.packingGroupId) || isFallback(g.id)
+      (g) => isFallbackId(g.packingGroupId) || isFallbackId(g.id)
     );
     if (hasFallbackGroup) {
       setContinueError("Amazon nu a returnat packingGroupId (packingOptions). Reia Step 1b ca să obții packing groups reale.");
@@ -211,6 +215,11 @@ export default function FbaStep1bPacking({
               {error}
             </div>
           )}
+          {waitingForAmazon && !error && (
+            <div className="px-4 py-3 mb-3 text-sm bg-slate-50 border border-slate-200 rounded text-slate-700">
+              Așteptăm packing groups reale de la Amazon (poate dura 10-15 secunde). Nu arătăm nimic local până le primim.
+            </div>
+          )}
           {onRetry && !loading && (error || isEmpty) && (
             <div className="px-4 py-3 mb-3 text-sm bg-blue-50 border border-blue-200 rounded flex flex-col gap-2">
               <div className="text-blue-800">
@@ -233,7 +242,7 @@ export default function FbaStep1bPacking({
             </div>
           )}
 
-          {!showErrorOnly && (packGroups || []).map((group) => (
+          {!showErrorOnly && visibleGroups.map((group) => (
             <div key={group.id} className="border border-slate-200 rounded-lg overflow-hidden mb-4">
               <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
                 <Box className="w-5 h-5 text-slate-500" />
