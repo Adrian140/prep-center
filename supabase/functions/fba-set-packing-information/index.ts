@@ -148,9 +148,11 @@ function normalizeItem(input: any) {
   const quantity = Number(input?.quantity ?? input?.qty ?? 0);
   if (!msku || !Number.isFinite(quantity) || quantity <= 0) return null;
 
-  const out: any = { msku: String(msku), quantity };
-  if (input?.prepOwner) out.prepOwner = String(input.prepOwner);
-  if (input?.labelOwner) out.labelOwner = String(input.labelOwner);
+  const prepOwner = input?.prepOwner ? String(input.prepOwner) : null;
+  const labelOwner = input?.labelOwner ? String(input.labelOwner) : null;
+  if (!prepOwner || !labelOwner) return null;
+
+  const out: any = { msku: String(msku), quantity, prepOwner, labelOwner };
   if (input?.expiration) out.expiration = String(input.expiration).slice(0, 10);
   if (input?.manufacturingLotCode) out.manufacturingLotCode = String(input.manufacturingLotCode);
   return out;
@@ -160,28 +162,37 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
   const out: any[] = [];
   (groups || []).forEach((g: any) => {
     const packingGroupId = g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
-    if (!packingGroupId) return;
-    if (typeof packingGroupId === "string" && packingGroupId.toLowerCase().startsWith("fallback-")) return;
+    const shipmentId = g?.shipmentId || g?.shipment_id || null;
+    if (!packingGroupId && !shipmentId) return;
+    if (packingGroupId && typeof packingGroupId === "string" && packingGroupId.toLowerCase().startsWith("fallback-")) return;
 
     const dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
     const weight = normalizeWeight(g?.weight || g?.boxWeight);
     if (!dims || !weight) return;
 
-    const rawItems = Array.isArray(g?.items) ? g.items : (Array.isArray(g?.expectedItems) ? g.expectedItems : []);
-    const items = rawItems.map(normalizeItem).filter(Boolean);
+    const rawSource = String(g?.contentInformationSource || "").toUpperCase();
+    const allowedSources = new Set(["BARCODE_2D", "BOX_CONTENT_PROVIDED", "MANUAL_PROCESS"]);
+    let contentInformationSource = allowedSources.has(rawSource) ? rawSource : "MANUAL_PROCESS";
+
+    let items: any[] = [];
+    if (contentInformationSource === "BOX_CONTENT_PROVIDED") {
+      const rawItems = Array.isArray(g?.items) ? g.items : (Array.isArray(g?.expectedItems) ? g.expectedItems : []);
+      items = rawItems.map(normalizeItem).filter(Boolean);
+      if (!items.length) contentInformationSource = "MANUAL_PROCESS";
+    }
 
     const boxCount = Math.max(1, Number(g?.boxCount || g?.boxes || 1) || 1);
-    const contentInformationSource = items.length ? "BOX_CONTENT_PROVIDED" : "BOX_CONTENT_NOT_PROVIDED";
     const boxes = Array.from({ length: boxCount }).map(() => ({
       quantity: 1,
       contentInformationSource,
-      ...(items.length ? { items } : {}),
+      ...(contentInformationSource === "BOX_CONTENT_PROVIDED" ? { items } : {}),
       dimensions: dims,
       weight
     }));
 
-    const grouping: any = { packingGroupId, boxes };
-    if (g?.shipmentId || g?.shipment_id) grouping.shipmentId = g?.shipmentId || g?.shipment_id;
+    const grouping: any = { boxes };
+    if (shipmentId) grouping.shipmentId = shipmentId;
+    else grouping.packingGroupId = packingGroupId;
     out.push(grouping);
   });
   return out;
@@ -541,7 +552,7 @@ serve(async (req) => {
 
     // Validare minimă pe schema reală: packageGroupings[].boxes[].dimensions.unitOfMeasurement + weight.unit/value
     const invalidGrouping = packageGroupings.find((g: any) => {
-      if (!g?.packingGroupId) return true;
+      if (!g?.packingGroupId && !g?.shipmentId) return true;
       if (!Array.isArray(g?.boxes) || !g.boxes.length) return true;
       return g.boxes.some((b: any) => {
         const d = b?.dimensions || {};
@@ -552,6 +563,8 @@ serve(async (req) => {
         if (!(Number(w.value) > 0 && typeof w.unit === "string" && w.unit.length)) return true;
         if (b?.contentInformationSource === "BOX_CONTENT_PROVIDED") {
           if (!Array.isArray(b?.items) || !b.items.length) return true;
+        } else {
+          if (Array.isArray(b?.items) && b.items.length) return true;
         }
         return false;
       });
