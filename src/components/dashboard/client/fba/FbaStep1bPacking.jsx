@@ -247,7 +247,7 @@ export default function FbaStep1bPacking({
             </div>
           )}
 
-          {!showErrorOnly && visibleGroups.map((group) => (
+          {!waitingForAmazon && !showErrorOnly && visibleGroups.map((group) => (
             <div key={group.id} className="border border-slate-200 rounded-lg overflow-hidden mb-4">
               <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
                 <Box className="w-5 h-5 text-slate-500" />

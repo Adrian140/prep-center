@@ -197,6 +197,8 @@ export default function FbaSendToAmazonWizard({
       const data = JSON.parse(raw);
       if (data?.plan) setPlan((prev) => ({ ...prev, ...data.plan }));
       if (Array.isArray(data?.packGroups)) setPackGroups(data.packGroups);
+      // Forțăm re-fetch de la Amazon după reload; nu afișăm grupuri cached
+      setPackGroupsLoaded(false);
       if (data?.shipmentMode) setShipmentMode((prev) => ({ ...prev, ...data.shipmentMode }));
       if (Array.isArray(data?.shipments)) setShipments(data.shipments);
       if (data?.labelFormat) setLabelFormat(data.labelFormat);
