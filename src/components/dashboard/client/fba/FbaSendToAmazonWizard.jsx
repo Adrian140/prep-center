@@ -362,7 +362,6 @@ export default function FbaSendToAmazonWizard({
 
   const handlePackGroupUpdate = (groupId, patch) => {
     setPackGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, ...patch } : g)));
-    invalidateFrom('1b');
   };
 
   const buildPackingPayload = (groups = packGroups) => {
