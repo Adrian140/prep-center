@@ -41,7 +41,7 @@ function Footer() {
   const warehouseName = withFallback(content.warehouse_name, 'EcomPrep Hub');
   const warehouseAddress = withFallback(
     content.warehouse_address,
-    '5 Rue des Enclos, Zone B, Cellule 7\n35350 La Gouesnière\nFrance'
+    '5 Rue des Enclos, Cellule 7\n35350 La Gouesnière\nFrance'
   );
   const warehousePhone = withFallback(content.warehouse_phone, '+33 6 75 11 62 18');
   const warehouseEmail = withFallback(content.warehouse_email, 'contact@prep-center.eu');

@@ -1336,7 +1336,7 @@ serve(async (req) => {
     const shipFromAddress = {
       name: "Bucur Adrian",
       addressLine1: "5 Rue des Enclos",
-      addressLine2: "Zone B, Cellule 7",
+      addressLine2: "Cellule 7",
       city: "La Gouesniere",
       stateOrProvinceCode: "35", // FR department code for Ille-et-Vilaine
       postalCode: "35350",
