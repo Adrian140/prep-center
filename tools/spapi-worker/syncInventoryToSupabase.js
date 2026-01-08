@@ -10,6 +10,9 @@ const LISTING_REPORT_TYPE = 'GET_MERCHANT_LISTINGS_ALL_DATA';
 const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 4000);
 const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 60);
 const ALLOWED_FBA_CHANNELS = new Set(['AMAZON_NA', 'AMAZON_EU', 'AFN']);
+const INVENTORY_TIME_BUDGET_MS = Number(
+  process.env.SPAPI_INVENTORY_TIME_BUDGET_MS || 5.5 * 60 * 60 * 1000
+);
 
 const normalizeIdentifier = (value) => {
   if (value == null) return null;
@@ -775,6 +778,8 @@ const ZERO_MISSING_STOCK = process.env.ZERO_MISSING_STOCK === 'true';
 
 async function main() {
   assertBaseEnv();
+  const startedAt = Date.now();
+  const hasTimeBudget = Number.isFinite(INVENTORY_TIME_BUDGET_MS) && INVENTORY_TIME_BUDGET_MS > 0;
   const integrations = await fetchActiveIntegrations();
   if (!integrations.length) {
     console.log('No active amazon_integrations found. Nothing to do.');
@@ -783,11 +788,25 @@ async function main() {
 
   const companySeenKeys = new Map();
   for (const integration of integrations) {
+    if (hasTimeBudget && Date.now() - startedAt >= INVENTORY_TIME_BUDGET_MS) {
+      console.warn(
+        `[inventory] Time budget reached (~${Math.round(INVENTORY_TIME_BUDGET_MS / 60000)}m); stopping early to avoid runner timeout.`
+      );
+      break;
+    }
+
     const result = await syncIntegration(integration);
     if (!result || !result.companyId) continue;
     const aggregated = companySeenKeys.get(result.companyId) || new Set();
     result.seenKeys.forEach((key) => aggregated.add(key));
     companySeenKeys.set(result.companyId, aggregated);
+  }
+
+  if (hasTimeBudget && Date.now() - startedAt >= INVENTORY_TIME_BUDGET_MS) {
+    console.log(
+      '[inventory] Skipping zeroing pass because time budget was reached; next workflow run will continue.'
+    );
+    return;
   }
 
   for (const [companyId, seenKeys] of companySeenKeys.entries()) {

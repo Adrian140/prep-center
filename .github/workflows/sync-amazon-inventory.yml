@@ -9,6 +9,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 330
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,17 +36,29 @@ jobs:
           SPAPI_REGION: ${{ secrets.SPAPI_REGION || 'eu' }}
           SPAPI_MARKETPLACE_ID: ${{ secrets.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH' }}
           SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
+          SPAPI_INVENTORY_TIME_BUDGET_MS: 19800000
         run: npm run sync-inventory
 
-      - name: Pause and relaunch
+      - name: Relaunch immediately
         if: ${{ always() }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
           script: |
-            const waitMs = 5 * 60 * 1000;
-            core.info(`Aștept ${waitMs / 1000}s înainte să pornesc următorul run.`);
-            await new Promise((resolve) => setTimeout(resolve, waitMs));
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'sync-amazon-inventory.yml',
+              per_page: 5
+            });
+            const hasActive = (data.workflow_runs || []).some((r) =>
+              r.id !== context.runId &&
+              ['in_progress', 'queued', 'waiting', 'requested'].includes(r.status)
+            );
+            if (hasActive) {
+              core.info('Există deja un run în desfășurare/queue; nu mai trimit unul nou.');
+              return;
+            }
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
