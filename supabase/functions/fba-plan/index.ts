@@ -1565,8 +1565,11 @@ serve(async (req) => {
     }
 
     const buildPlanBody = (overrides: Record<string, InboundFix> = {}) => {
+      // Amazon limitează câmpul name la 40 caractere; folosim un id scurt ca să evităm 400 InvalidInput.
+      const shortRequestId = (requestId || crypto.randomUUID()).toString().slice(0, 8);
+      const planName = `Prep-${shortRequestId}`;
       return {
-        name: `PrepRequest-${requestId}`,
+        name: planName,
         // Amazon requires `sourceAddress` for createInboundPlan payload
         sourceAddress: shipFromAddress,
         destinationMarketplaces: [marketplaceId],
