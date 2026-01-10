@@ -463,7 +463,6 @@ serve(async (req) => {
     const confirmOptionId = body?.transportation_option_id ?? body?.transportationOptionId;
     const shipmentTransportConfigs = body?.shipment_transportation_configurations ?? body?.shipmentTransportationConfigurations ?? [];
     const shippingModeInput = body?.shipping_mode ?? body?.shippingMode ?? null;
-    const readyToShipStart = body?.ship_date ?? body?.shipDate;
 
     logStep("fba-step2-confirm-shipping called", {
       traceId,
@@ -971,13 +970,13 @@ serve(async (req) => {
     }
 
     const readyStartIso = (() => {
-      // Amazon dă 400 dacă start e în trecut; clamp to now + small buffer
+      // Forțăm ship date pe ziua curentă; ignorăm input-ul din client și o mutăm cu 1h în viitor (max ora 23:59) ca să nu fie în trecut.
       const now = new Date();
-      const parsed = readyToShipStart ? new Date(readyToShipStart) : null;
-      const base = parsed && !isNaN(parsed.getTime()) ? parsed : now;
-      // dacă e în trecut, mută la azi + 1h
-      const start = base.getTime() < now.getTime() ? new Date(now.getTime() + 60 * 60 * 1000) : base;
-      return start.toISOString();
+      const plusOneHour = new Date(now.getTime() + 60 * 60 * 1000);
+      const endOfDay = new Date(now);
+      endOfDay.setHours(23, 59, 59, 999);
+      const clamped = plusOneHour > endOfDay ? endOfDay : plusOneHour;
+      return clamped.toISOString();
     })();
 
     const mapMode = (val: any) => {
