@@ -723,11 +723,31 @@ serve(async (req) => {
     });
 
     if (!res?.res?.ok) {
+      const status = res?.res?.status || null;
+      const bodyText = res?.text || "";
+      const placementAlreadyConfirmed =
+        status === 400 &&
+        bodyText.toLowerCase().includes("placement option is already confirmed");
+
+      // dacă placement-ul este deja confirmat, Amazon nu mai permite setPackingInformation;
+      // tratăm ca succes ca să nu blocăm flow-ul (Amazon are placement confirmat).
+      if (placementAlreadyConfirmed) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            skipped: true,
+            reason: "placement_already_confirmed",
+            traceId
+          }),
+          { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+
       return new Response(
         JSON.stringify({
           error: "SetPackingInformation failed",
-          status: res?.res?.status || null,
-          body: res?.text || null,
+          status,
+          body: bodyText || null,
           traceId
         }),
         { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
