@@ -1288,6 +1288,16 @@ serve(async (req) => {
       return pre.map((p) => String(p || "").toUpperCase()).includes("CONFIRMED_DELIVERY_WINDOW");
     };
 
+    if (!Array.isArray(options) || options.length === 0) {
+      return new Response(
+        JSON.stringify({
+          error: "Amazon nu a returnat placement/transportation options încă. Reîncearcă în câteva secunde (placementOptions goale).",
+          traceId
+        }),
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
     const optionsWithoutWindow = Array.isArray(options)
       ? options.filter((opt) => !hasDeliveryWindowPrecondition(opt))
       : [];
