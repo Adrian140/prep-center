@@ -138,6 +138,7 @@ export default function FbaSendToAmazonWizard({
   const [labelFormat, setLabelFormat] = useState('thermal');
   const [tracking, setTracking] = useState(initialTrackingList);
   const [loadingPlan, setLoadingPlan] = useState(false);
+  const [planLoaded, setPlanLoaded] = useState(false);
   const [planError, setPlanError] = useState('');
   const [step1Saving, setStep1Saving] = useState(false);
   const [step1SaveError, setStep1SaveError] = useState('');
@@ -266,6 +267,7 @@ export default function FbaSendToAmazonWizard({
 
   useEffect(() => {
     if (!autoLoadPlan && !fetchPlan) return;
+    if (planLoaded) return;
     let cancelled = false;
     loadPlan();
     return () => {
@@ -318,10 +320,13 @@ export default function FbaSendToAmazonWizard({
       } catch (e) {
         if (!cancelled) setPlanError(e?.message || 'Failed to load Amazon plan.');
       } finally {
-        if (!cancelled) setLoadingPlan(false);
+        if (!cancelled) {
+          setLoadingPlan(false);
+          setPlanLoaded(true);
+        }
       }
     }
-  }, [autoLoadPlan, fetchPlan, normalizePackGroups]);
+  }, [autoLoadPlan, fetchPlan, normalizePackGroups, planLoaded]);
 
   const warning = useMemo(() => {
     if (shippingSummary && shippingSummary.partneredAllowed === false) {
@@ -333,10 +338,17 @@ export default function FbaSendToAmazonWizard({
   // când intrăm în 1b și nu avem încă packing groups reale, declanșăm fetch automat
   useEffect(() => {
     if (currentStep !== '1b') return;
-    if (packGroupsLoaded) return;
+    if (packGroupsLoaded || (packGroups?.length || 0) > 0) return;
     if (packingRefreshLoading || loadingPlan) return;
     refreshPackingGroups();
-  }, [currentStep, packGroupsLoaded, packingRefreshLoading, loadingPlan]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentStep, packGroupsLoaded, packGroups?.length, packingRefreshLoading, loadingPlan]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dacă avem deja grupuri în memorie, marcăm ca loaded ca să nu le ștergem inutil.
+  useEffect(() => {
+    if ((packGroups?.length || 0) > 0) {
+      setPackGroupsLoaded(true);
+    }
+  }, [packGroups]);
 
   const handlePackingChange = (skuId, patch) => {
     // patch poate fi string (packing) sau obiect cu packing + template info
@@ -523,8 +535,8 @@ export default function FbaSendToAmazonWizard({
       setPackingReadyError('Lipsește inboundPlanId sau requestId; reîncarcă planul.');
       return;
     }
-      setPackGroups([]); // curățăm grupurile locale până sosesc cele reale de la Amazon
-      setPackGroupsLoaded(false);
+      // păstrăm grupurile existente; doar marcăm loading
+      setPackGroupsLoaded((packGroups?.length || 0) > 0);
       setPackingRefreshLoading(true);
       setPackingReadyError('');
       try {
@@ -837,6 +849,7 @@ export default function FbaSendToAmazonWizard({
         await fetchShippingOptions();
         return;
       }
+      setPlanLoaded(false);
       if (fetchPlan) {
         await fetchPlan().then((response) => {
           if (!response) return;
