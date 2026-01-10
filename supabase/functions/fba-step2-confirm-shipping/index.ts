@@ -1131,15 +1131,21 @@ serve(async (req) => {
         const placementAlreadyConfirmed =
           (setRes?.res?.status === 400) &&
           bodyPreview.toLowerCase().includes("placement option is already confirmed");
-        if (!placementAlreadyConfirmed) {
-          logStep("setPackingInformation_error", { traceId, status: setRes?.res?.status || null, body: bodyPreview });
-          return new Response(
-            JSON.stringify({ error: "SetPackingInformation failed before transportation", status: setRes?.res?.status || null, traceId }),
-            { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
-          );
+        if (placementAlreadyConfirmed) {
+          // tratăm placement confirmed ca ok (Amazon nu mai acceptă update, dar placement e valid)
+          logStep("setPackingInformation_skip", { traceId, reason: "placement_already_confirmed" });
+        } else {
+          // dacă Amazon răspunde 400 din alt motiv, nu blocăm transportul; doar logăm
+          if (setRes?.res?.status === 400) {
+            logStep("setPackingInformation_soft_fail", { traceId, status: setRes?.res?.status || null, body: bodyPreview });
+          } else {
+            logStep("setPackingInformation_error", { traceId, status: setRes?.res?.status || null, body: bodyPreview });
+            return new Response(
+              JSON.stringify({ error: "SetPackingInformation failed before transportation", status: setRes?.res?.status || null, traceId }),
+              { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+            );
+          }
         }
-        // tratăm placement confirmed ca ok (Amazon nu mai acceptă update, dar placement e valid)
-        logStep("setPackingInformation_skip", { traceId, reason: "placement_already_confirmed" });
       }
     }
 
