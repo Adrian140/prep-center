@@ -139,6 +139,8 @@ export default function FbaSendToAmazonWizard({
   const [tracking, setTracking] = useState(initialTrackingList);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [planError, setPlanError] = useState('');
+  const [step1Saving, setStep1Saving] = useState(false);
+  const [step1SaveError, setStep1SaveError] = useState('');
   const [skuStatuses, setSkuStatuses] = useState(initialSkuStatuses);
   const [blocking, setBlocking] = useState(false);
   const [shippingOptions, setShippingOptions] = useState([]);
@@ -151,6 +153,19 @@ export default function FbaSendToAmazonWizard({
   const [packingReadyError, setPackingReadyError] = useState('');
   const [step2Loaded, setStep2Loaded] = useState(false);
   const isFallbackId = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
+  const resolveRequestId = useCallback(() => {
+    return (
+      plan?.prepRequestId ||
+      initialPlan?.prepRequestId ||
+      plan?.requestId ||
+      plan?.request_id ||
+      initialPlan?.requestId ||
+      initialPlan?.request_id ||
+      plan?.id ||
+      initialPlan?.id ||
+      null
+    );
+  }, [initialPlan?.id, initialPlan?.prepRequestId, initialPlan?.requestId, initialPlan?.request_id, plan?.id, plan?.prepRequestId, plan?.requestId, plan?.request_id]);
 
   // Persistăm ultimul pas vizitat ca să nu se piardă la refresh.
   const stepStorageKey = useMemo(() => {
@@ -260,6 +275,7 @@ export default function FbaSendToAmazonWizard({
     async function loadPlan() {
       setLoadingPlan(true);
       setPlanError('');
+      setStep1SaveError('');
       setPackGroups([]); // nu afișăm nimic local până primim packing groups de la API
       try {
         const response = fetchPlan ? await fetchPlan() : null;
@@ -347,6 +363,7 @@ export default function FbaSendToAmazonWizard({
       skus: prev.skus.map((sku) => (sku.id === skuId ? { ...sku, units: Math.max(0, value) } : sku))
     }));
     invalidateFrom('1');
+    setStep1SaveError('');
   };
 
   const handleExpiryChange = (skuId, value) => {
@@ -368,6 +385,72 @@ export default function FbaSendToAmazonWizard({
   const handlePackGroupUpdate = (groupId, patch) => {
     setPackGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, ...patch } : g)));
   };
+
+  const persistStep1AndReloadPlan = useCallback(async () => {
+    const requestId = resolveRequestId();
+    const updates = (Array.isArray(plan?.skus) ? plan.skus : [])
+      .map((sku) => {
+        if (!sku?.id) return null;
+        const qty = Math.max(0, Number(sku.units) || 0);
+        return { id: sku.id, units_sent: qty };
+      })
+      .filter(Boolean);
+    const hasAnyQty = updates.some((u) => Number(u.units_sent || 0) > 0);
+    if (!updates.length || !hasAnyQty) {
+      setStep1SaveError('Setează cel puțin un produs cu cantitate > 0 înainte de a continua.');
+      return;
+    }
+    if (!requestId) {
+      completeAndNext('1');
+      return;
+    }
+    setStep1Saving(true);
+    setStep1SaveError('');
+    setPlanError('');
+    try {
+      const { error: saveErr } = await supabase
+        .from('prep_request_items')
+        .upsert(updates, { onConflict: 'id' });
+      if (saveErr) throw saveErr;
+
+      const { error: resetErr } = await supabase
+        .from('prep_requests')
+        .update({
+          inbound_plan_id: null,
+          placement_option_id: null,
+          packing_option_id: null,
+          fba_shipment_id: null
+        })
+        .eq('id', requestId);
+      if (resetErr) throw resetErr;
+
+      setPlan((prev) => ({
+        ...prev,
+        inboundPlanId: null,
+        inbound_plan_id: null,
+        placementOptionId: null,
+        placement_option_id: null,
+        packingOptionId: null,
+        packing_option_id: null
+      }));
+      setPackGroups([]);
+      setPackGroupsLoaded(false);
+      setShipments([]);
+      setTracking([]);
+      setShippingSummary(null);
+      setShippingOptions([]);
+      setStep2Loaded(false);
+
+      if (fetchPlan) {
+        await refreshStep('1');
+      }
+      completeAndNext('1');
+    } catch (e) {
+      setStep1SaveError(e?.message || 'Nu am putut salva cantitățile.');
+    } finally {
+      setStep1Saving(false);
+    }
+  }, [completeAndNext, fetchPlan, plan?.skus, refreshStep, resolveRequestId]);
 
   const buildPackingPayload = (groups = packGroups) => {
     if (!Array.isArray(groups) || groups.length === 0) {
@@ -905,12 +988,13 @@ export default function FbaSendToAmazonWizard({
           data={plan}
           skuStatuses={skuStatuses}
           blocking={blocking}
+          saving={step1Saving}
           onChangePacking={handlePackingChange}
           onChangeQuantity={handleQuantityChange}
           onChangeExpiry={handleExpiryChange}
           onChangePrep={handlePrepChange}
-          onNext={() => completeAndNext('1')}
-          error={planError}
+          onNext={persistStep1AndReloadPlan}
+          error={planError || step1SaveError}
         />
       );
     }

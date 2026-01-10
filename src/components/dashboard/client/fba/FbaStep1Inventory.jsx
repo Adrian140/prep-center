@@ -18,6 +18,7 @@ export default function FbaStep1Inventory({
   skuStatuses = [],
   blocking = false,
   error = '',
+  saving = false,
   onChangePacking,
   onChangeQuantity,
   onChangeExpiry,
@@ -342,7 +343,9 @@ export default function FbaStep1Inventory({
       </div>
 
       {(error || hasBlocking) && (
-        <div className="px-6 py-3 border-b border-amber-200 bg-amber-50 text-amber-800 text-sm">
+        <div
+          className={`px-6 py-3 border-b text-sm ${error ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}
+        >
           {error || 'Unele produse nu sunt eligibile pentru marketplace-ul selectat.'}
         </div>
       )}
@@ -624,9 +627,12 @@ export default function FbaStep1Inventory({
               }
               onNext?.();
             }}
-            className={`px-4 py-2 rounded-md font-semibold shadow-sm text-white ${hasBlocking ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+            disabled={hasBlocking || saving}
+            className={`px-4 py-2 rounded-md font-semibold shadow-sm text-white ${
+              hasBlocking || saving ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
-            {hasBlocking ? 'Rezolvă eligibilitatea în Amazon' : 'Continue to packing'}
+            {saving ? 'Se salvează…' : hasBlocking ? 'Rezolvă eligibilitatea în Amazon' : 'Continue to packing'}
           </button>
         </div>
       </div>
