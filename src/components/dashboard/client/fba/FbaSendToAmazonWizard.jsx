@@ -386,72 +386,6 @@ export default function FbaSendToAmazonWizard({
     setPackGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, ...patch } : g)));
   };
 
-  const persistStep1AndReloadPlan = useCallback(async () => {
-    const requestId = resolveRequestId();
-    const updates = (Array.isArray(plan?.skus) ? plan.skus : [])
-      .map((sku) => {
-        if (!sku?.id) return null;
-        const qty = Math.max(0, Number(sku.units) || 0);
-        return { id: sku.id, units_sent: qty };
-      })
-      .filter(Boolean);
-    const hasAnyQty = updates.some((u) => Number(u.units_sent || 0) > 0);
-    if (!updates.length || !hasAnyQty) {
-      setStep1SaveError('Setează cel puțin un produs cu cantitate > 0 înainte de a continua.');
-      return;
-    }
-    if (!requestId) {
-      completeAndNext('1');
-      return;
-    }
-    setStep1Saving(true);
-    setStep1SaveError('');
-    setPlanError('');
-    try {
-      const { error: saveErr } = await supabase
-        .from('prep_request_items')
-        .upsert(updates, { onConflict: 'id' });
-      if (saveErr) throw saveErr;
-
-      const { error: resetErr } = await supabase
-        .from('prep_requests')
-        .update({
-          inbound_plan_id: null,
-          placement_option_id: null,
-          packing_option_id: null,
-          fba_shipment_id: null
-        })
-        .eq('id', requestId);
-      if (resetErr) throw resetErr;
-
-      setPlan((prev) => ({
-        ...prev,
-        inboundPlanId: null,
-        inbound_plan_id: null,
-        placementOptionId: null,
-        placement_option_id: null,
-        packingOptionId: null,
-        packing_option_id: null
-      }));
-      setPackGroups([]);
-      setPackGroupsLoaded(false);
-      setShipments([]);
-      setTracking([]);
-      setShippingSummary(null);
-      setShippingOptions([]);
-      setStep2Loaded(false);
-
-      if (fetchPlan) {
-        await refreshStep('1');
-      }
-      completeAndNext('1');
-    } catch (e) {
-      setStep1SaveError(e?.message || 'Nu am putut salva cantitățile.');
-    } finally {
-      setStep1Saving(false);
-    }
-  }, [completeAndNext, fetchPlan, plan?.skus, refreshStep, resolveRequestId]);
-
   const buildPackingPayload = (groups = packGroups) => {
     if (!Array.isArray(groups) || groups.length === 0) {
       return { packingGroups: [], missingGroupId: false };
@@ -980,6 +914,70 @@ export default function FbaSendToAmazonWizard({
     if (!stepsOrder.includes(stepKey)) return;
     setCurrentStep(stepKey);
   };
+
+  const persistStep1AndReloadPlan = useCallback(async () => {
+    const requestId = resolveRequestId();
+    const updates = (Array.isArray(plan?.skus) ? plan.skus : [])
+      .map((sku) => {
+        if (!sku?.id) return null;
+        const qty = Math.max(0, Number(sku.units) || 0);
+        return { id: sku.id, units_sent: qty };
+      })
+      .filter(Boolean);
+    const hasAnyQty = updates.some((u) => Number(u.units_sent || 0) > 0);
+    if (!updates.length || !hasAnyQty) {
+      setStep1SaveError('Setează cel puțin un produs cu cantitate > 0 înainte de a continua.');
+      return;
+    }
+    if (!requestId) {
+      completeAndNext('1');
+      return;
+    }
+    setStep1Saving(true);
+    setStep1SaveError('');
+    setPlanError('');
+    try {
+      const { error: saveErr } = await supabase.from('prep_request_items').upsert(updates, { onConflict: 'id' });
+      if (saveErr) throw saveErr;
+
+      const { error: resetErr } = await supabase
+        .from('prep_requests')
+        .update({
+          inbound_plan_id: null,
+          placement_option_id: null,
+          packing_option_id: null,
+          fba_shipment_id: null
+        })
+        .eq('id', requestId);
+      if (resetErr) throw resetErr;
+
+      setPlan((prev) => ({
+        ...prev,
+        inboundPlanId: null,
+        inbound_plan_id: null,
+        placementOptionId: null,
+        placement_option_id: null,
+        packingOptionId: null,
+        packing_option_id: null
+      }));
+      setPackGroups([]);
+      setPackGroupsLoaded(false);
+      setShipments([]);
+      setTracking([]);
+      setShippingSummary(null);
+      setShippingOptions([]);
+      setStep2Loaded(false);
+
+      if (fetchPlan) {
+        await refreshStep('1');
+      }
+      completeAndNext('1');
+    } catch (e) {
+      setStep1SaveError(e?.message || 'Nu am putut salva cantitățile.');
+    } finally {
+      setStep1Saving(false);
+    }
+  }, [completeAndNext, fetchPlan, plan?.skus, refreshStep, resolveRequestId]);
 
   const renderContent = (stepKey) => {
     if (stepKey === '1') {
