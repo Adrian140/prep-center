@@ -1282,6 +1282,16 @@ serve(async (req) => {
 
     const options = optionsRaw;
 
+    const hasDeliveryWindowPrecondition = (opt: any) => {
+      const pre = opt?.preconditions || opt?.Preconditions || [];
+      if (!Array.isArray(pre)) return false;
+      return pre.map((p) => String(p || "").toUpperCase()).includes("CONFIRMED_DELIVERY_WINDOW");
+    };
+
+    const optionsWithoutWindow = Array.isArray(options)
+      ? options.filter((opt) => !hasDeliveryWindowPrecondition(opt))
+      : [];
+
     const extractCharge = (opt: any) => {
       const fromPath = [
         opt?.charge?.totalCharge?.amount,
@@ -1309,8 +1319,8 @@ serve(async (req) => {
       return Boolean(flags.find(Boolean) || nameHints);
     };
 
-    const normalizedOptions = Array.isArray(options)
-      ? options.map((opt: any) => ({
+    const normalizedOptions = Array.isArray(optionsWithoutWindow.length ? optionsWithoutWindow : options)
+      ? (optionsWithoutWindow.length ? optionsWithoutWindow : options).map((opt: any) => ({
           id: opt.transportationOptionId || opt.id || opt.optionId || null,
           partnered: detectPartnered(opt),
           mode: opt.mode || opt.shippingMode || opt.method || null,
@@ -1335,9 +1345,14 @@ serve(async (req) => {
 
     // 3) Confirm transportation option (Amazon cere confirmTransportationOptions)
     if (!normalizedOptions.length) {
+      logStep("transportation_requires_delivery_window", {
+        traceId,
+        totalOptions: Array.isArray(options) ? options.length : 0
+      });
       return new Response(
         JSON.stringify({
-          error: "Amazon nu a returnat transportationOptions încă. Reîncearcă în câteva secunde.",
+          error:
+            "Transportation options disponibile cer fereastră de livrare confirmată (CONFIRMED_DELIVERY_WINDOW), care nu este încă suportată în aplicație.",
           traceId
         }),
         { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
@@ -1399,6 +1414,21 @@ serve(async (req) => {
       confirmRes?.json?.payload?.operationId ||
       confirmRes?.json?.operationId ||
       null;
+    if (!confirmRes?.res?.ok && (confirmRes?.res?.status === 400)) {
+      const bodyPreview = (confirmRes?.text || "").slice(0, 400);
+      const needsWindow = bodyPreview.toLowerCase().includes("delivery window");
+      if (needsWindow) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "Transportation option solicită fereastră de livrare confirmată (CONFIRMED_DELIVERY_WINDOW). Selectează altă opțiune sau setează delivery window în Amazon.",
+            traceId,
+            status: confirmRes?.res?.status || null
+          }),
+          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+    }
     if (confirmOpId) {
       const confirmStatus = await pollOperationStatus(confirmOpId);
       const st = confirmStatus?.json?.payload?.state || confirmStatus?.json?.state || confirmStatus?.res?.status;
