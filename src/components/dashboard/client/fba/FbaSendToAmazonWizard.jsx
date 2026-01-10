@@ -84,28 +84,33 @@ export default function FbaSendToAmazonWizard({
   const [completedSteps, setCompletedSteps] = useState([]);
   const [plan, setPlan] = useState(initialPlan);
   const normalizePackGroups = useCallback((groups = []) =>
-    (Array.isArray(groups) ? groups : []).map((g, idx) => {
-      const items = (g.items || []).map((it) => ({
-        sku: it.sku || it.msku || it.SellerSKU || it.sellerSku || it.asin || '',
-        quantity: Number(it.quantity || it.units || 0) || 0,
-        image: it.image || it.thumbnail || it.main_image || it.img || null,
-        title: it.title || it.name || null
-      }));
-      const units = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
-      return {
-        id: g.id || g.packingGroupId || `group-${idx + 1}`,
-        packingGroupId: g.packingGroupId || g.id || `group-${idx + 1}`,
-        title: g.title || g.destLabel || `Pack group ${idx + 1}`,
-        items,
-        skuCount: g.skuCount || items.length || 0,
-        units: g.units || units || 0,
-        packMode: g.packMode || 'single',
-        boxes: g.boxes || 1,
-        boxDimensions: g.boxDimensions || null,
-        boxWeight: g.boxWeight ?? null,
-        packingConfirmed: Boolean(g.packingConfirmed)
-      };
-    }), []);
+    (Array.isArray(groups) ? groups : [])
+      .map((g, idx) => {
+        const items = (g.items || [])
+          .map((it) => ({
+            sku: it.sku || it.msku || it.SellerSKU || it.sellerSku || it.asin || '',
+            quantity: Number(it.quantity || it.units || 0) || 0,
+            image: it.image || it.thumbnail || it.main_image || it.img || null,
+            title: it.title || it.name || null
+          }))
+          .filter((it) => Number(it.quantity || 0) > 0); // ignorăm item-ele cu cantitate 0
+        const units = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+        return {
+          id: g.id || g.packingGroupId || `group-${idx + 1}`,
+          packingGroupId: g.packingGroupId || g.id || `group-${idx + 1}`,
+          title: g.title || g.destLabel || `Pack group ${idx + 1}`,
+          items,
+          skuCount: g.skuCount || items.length || 0,
+          units: g.units || units || 0,
+          packMode: g.packMode || 'single',
+          boxes: g.boxes || 1,
+          boxDimensions: g.boxDimensions || null,
+          boxWeight: g.boxWeight ?? null,
+          packingConfirmed: Boolean(g.packingConfirmed)
+        };
+      })
+      .filter((g) => Number(g.units || 0) > 0), // nu trimitem grupuri cu 0 unități
+  []);
   const mergePackGroups = useCallback((prev = [], incoming = []) => {
     const prevByKey = new Map();
     prev.forEach((g) => {
