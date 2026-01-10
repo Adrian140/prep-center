@@ -971,6 +971,14 @@ serve(async (req) => {
       requestId: planRes?.requestId || null
     });
 
+    const planPlacementId =
+      planRes?.json?.placementOptions?.[0]?.placementOptionId ||
+      planRes?.json?.payload?.placementOptions?.[0]?.placementOptionId ||
+      null;
+    if (planPlacementId) {
+      effectivePlacementOptionId = planPlacementId;
+    }
+
     if (!Array.isArray(placementShipments) || !placementShipments.length) {
       return new Response(JSON.stringify({
         error: "Placement confirmat, dar Amazon încă nu a generat shipments. Reîncearcă în câteva secunde.",
@@ -1041,18 +1049,23 @@ serve(async (req) => {
       return pkgs;
     })();
 
-    const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
-      const shId = sh.shipmentId || sh.id || `s-${idx + 1}`;
-      const cfg = (shipmentTransportConfigs || []).find(
-        (c: any) => c?.shipmentId === shId || c?.shipment_id === shId
-      ) || (shipmentTransportConfigs || [])[idx] || {};
-      const shippingMode = mapMode(cfg.shippingMode || cfg.shipping_mode || shippingModeInput || "SMALL_PARCEL");
-      return {
-        shipmentId: shId,
-        readyToShipWindow: { start: readyStartIso },
-        shippingMode
-      };
-    });
+  const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
+    const shId = sh.shipmentId || sh.id || `s-${idx + 1}`;
+    const cfg = (shipmentTransportConfigs || []).find(
+      (c: any) => c?.shipmentId === shId || c?.shipment_id === shId
+    ) || (shipmentTransportConfigs || [])[idx] || {};
+    const shippingMode = mapMode(cfg.shippingMode || cfg.shipping_mode || shippingModeInput || "SMALL_PARCEL");
+    const readyStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || readyStartIso;
+    const readyEnd =
+      cfg.readyToShipWindow?.end ||
+      cfg.ready_to_ship_window?.end ||
+      new Date(new Date(readyStart).getTime() + 24 * 60 * 60 * 1000).toISOString();
+    return {
+      shipmentId: shId,
+      readyToShipWindow: { start: readyStart, end: readyEnd },
+      shippingMode
+    };
+  });
 
     logStep("packingInfoFallback", {
       traceId,
@@ -1386,11 +1399,13 @@ serve(async (req) => {
     const selections = Array.isArray(selectedOption?.raw?.shipments)
       ? selectedOption.raw.shipments.map((sh: any) => ({
           shipmentId: sh.shipmentId || sh.id,
-          transportationOptionId: selectedOption?.id
+          transportationOptionId: selectedOption?.id,
+          deliveryWindow: configsByShipment.get(String(sh.shipmentId || sh.id))?.readyToShipWindow || null
         }))
       : placementShipments.map((sh: any, idx: number) => ({
           shipmentId: sh.shipmentId || sh.id || `s-${idx + 1}`,
-          transportationOptionId: selectedOption?.id
+          transportationOptionId: selectedOption?.id,
+          deliveryWindow: configsByShipment.get(String(sh.shipmentId || sh.id || `s-${idx + 1}`))?.readyToShipWindow || null
         }));
 
     const confirmPayload = JSON.stringify({
