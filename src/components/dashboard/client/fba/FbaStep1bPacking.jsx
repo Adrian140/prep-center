@@ -222,11 +222,6 @@ export default function FbaStep1bPacking({
               {error}
             </div>
           )}
-          {waitingForAmazon && !error && (
-            <div className="px-4 py-3 mb-3 text-sm bg-slate-50 border border-slate-200 rounded text-slate-700">
-              Așteptăm packing groups reale de la Amazon (poate dura 10-15 secunde). Nu arătăm nimic local până le primim.
-            </div>
-          )}
           {onRetry && !waitingForAmazon && (error || isEmpty) && (
             <div className="px-4 py-3 mb-3 text-sm bg-blue-50 border border-blue-200 rounded flex flex-col gap-2">
               <div className="text-blue-800">
