@@ -546,11 +546,10 @@ export default function FbaSendToAmazonWizard({
     if (!Array.isArray(packGroups)) return [];
 
     const shipmentIdForGroup = (g, idx) => {
-      if (Array.isArray(shipments) && shipments.length === 1) {
-        const sh = shipments[0];
-        return sh?.shipmentId || sh?.id || `s-1`;
-      }
-      return g.shipmentId || g.shipment_id || shipments?.[idx]?.shipmentId || shipments?.[idx]?.id || `s-${idx + 1}`;
+      if (g?.shipmentId || g?.shipment_id) return g.shipmentId || g.shipment_id;
+      const fromApi = Array.isArray(shipments) ? shipments?.[idx] || shipments?.[0] : null;
+      if (fromApi?.shipmentId || fromApi?.id) return fromApi.shipmentId || fromApi.id;
+      return `s-${idx + 1}`;
     };
 
     return packGroups.map((g, idx) => {
@@ -783,46 +782,33 @@ export default function FbaSendToAmazonWizard({
 
   const deriveShipmentsFromPacking = (baseShipments = []) => {
     if (!Array.isArray(packGroups) || !packGroups.length) return [];
-    const boxesDetail = [];
-    packGroups.forEach((g) => {
+    const baseList = Array.isArray(baseShipments) ? baseShipments : [];
+    return packGroups.map((g, idx) => {
       const boxCount = Math.max(1, Number(g.boxes) || 1);
       const dims = g.boxDimensions || {};
-      for (let i = 0; i < boxCount; i++) {
-        boxesDetail.push({
-          groupId: g.id,
-          length: dims.length || null,
-          width: dims.width || null,
-          height: dims.height || null,
-          weight: g.boxWeight || null
-        });
-      }
-    });
+      const base = baseList[idx] || baseList[0] || {};
+      const boxesDetail = Array.from({ length: boxCount }, () => ({
+        groupId: g.id,
+        length: dims.length || null,
+        width: dims.width || null,
+        height: dims.height || null,
+        weight: g.boxWeight || null
+      }));
 
-    const boxes = boxesDetail.length || packGroups.reduce((s, g) => s + (Number(g.boxes) || 0), 0);
-    const skuCount = packGroups.reduce((s, g) => s + (Number(g.skuCount) || 0), 0);
-    const units = packGroups.reduce((s, g) => s + (Number(g.units) || 0), 0);
-    const weight = boxesDetail.reduce((s, b) => s + (Number(b.weight) || 0), 0);
-
-    const baseShipment = Array.isArray(baseShipments) && baseShipments.length ? baseShipments[0] : null;
-    const id = baseShipment?.id || baseShipment?.shipmentId || '1';
-    const from = baseShipment?.from || formatAddress(plan?.shipFrom || {});
-    const to = baseShipment?.to || plan?.marketplace || plan?.destination || '—';
-
-    return [
-      {
-        id,
-        name: baseShipment?.name || 'Shipment #1',
-        from,
-        to,
-        boxes,
-        skuCount,
-        units,
-        weight,
-        capability: baseShipment?.capability || 'Standard',
+      return {
+        id: g?.shipmentId || g?.shipment_id || base?.shipmentId || base?.id || `s-${idx + 1}`,
+        name: base?.name || `Shipment #${idx + 1}`,
+        from: base?.from || formatAddress(plan?.shipFrom || {}),
+        to: base?.to || plan?.marketplace || plan?.destination || '—',
+        boxes: boxCount,
+        skuCount: Number(g.skuCount || 0) || 0,
+        units: Number(g.units || 0) || 0,
+        weight: Number(g.boxWeight || 0) || null,
+        capability: base?.capability || 'Standard',
         boxesDetail,
         source: 'local'
-      }
-    ];
+      };
+    });
   };
 
   // Dacă nu avem shipments din backend, sau avem doar cele derivate local, recalculăm din packGroups + shipFrom
