@@ -671,7 +671,20 @@ serve(async (req) => {
           genPlacement?.json?.operationId ||
           null;
         if (opId) {
-          await pollOperationStatus(opId);
+          const opStatus = await pollOperationStatus(opId);
+          const st = opStatus?.json?.payload?.state || opStatus?.json?.state || null;
+          const stUp = String(st || "").toUpperCase();
+          if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
+            return new Response(
+              JSON.stringify({
+                error: "generatePlacementOptions failed",
+                state: stUp,
+                traceId,
+                details: opStatus?.json?.payload?.operationProblems || opStatus?.json?.operationProblems || null
+              }),
+              { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+            );
+          }
         }
         const listPlacement = await signedFetch({
           method: "GET",
@@ -751,7 +764,7 @@ serve(async (req) => {
     };
 
     const listPlacementWithRetry = async () => {
-      for (let i = 1; i <= 8; i++) {
+      for (let i = 1; i <= 10; i++) {
         const listRes = await signedFetch({
           method: "GET",
           service: "execute-api",
@@ -783,7 +796,7 @@ serve(async (req) => {
         const pid = picked?.placementOptionId || picked?.id || null;
         if (pid) return pid;
 
-        await delay(350 * i);
+        await delay(Math.min(1000 * i, 5000));
       }
       return null;
     };
@@ -1125,6 +1138,22 @@ serve(async (req) => {
         sellerId
       });
       logStep("setPackingInformation", { traceId, status: setRes?.res?.status, requestId: setRes?.requestId || null });
+      const setOpId =
+        setRes?.json?.payload?.operationId ||
+        setRes?.json?.operationId ||
+        null;
+      if (setOpId) {
+        const opStatus = await pollOperationStatus(setOpId);
+        const st = opStatus?.json?.payload?.state || opStatus?.json?.state || null;
+        const stUp = String(st || "").toUpperCase();
+        if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
+          logStep("setPackingInformation_op_failed", { traceId, state: stUp, requestId: opStatus?.requestId || null, status: opStatus?.res?.status });
+          return new Response(
+            JSON.stringify({ error: "SetPackingInformation async op failed", state: stUp, traceId }),
+            { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
+      }
       if (!setRes?.res?.ok) {
         // log body for debugging (truncated)
         const bodyPreview = (setRes?.text || "").slice(0, 500);
