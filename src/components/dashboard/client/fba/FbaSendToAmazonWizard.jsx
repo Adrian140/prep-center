@@ -937,8 +937,15 @@ export default function FbaSendToAmazonWizard({
     setStep1SaveError('');
     setPlanError('');
     try {
-      const { error: saveErr } = await supabase.from('prep_request_items').upsert(updates, { onConflict: 'id' });
-      if (saveErr) throw saveErr;
+      // upsert declanșa RLS pe INSERT; facem update punctual pe fiecare id
+      for (const row of updates) {
+        // eslint-disable-next-line no-await-in-loop
+        const { error: saveErr } = await supabase
+          .from('prep_request_items')
+          .update({ units_sent: row.units_sent })
+          .eq('id', row.id);
+        if (saveErr) throw saveErr;
+      }
 
       const { error: resetErr } = await supabase
         .from('prep_requests')
@@ -973,7 +980,13 @@ export default function FbaSendToAmazonWizard({
       }
       completeAndNext('1');
     } catch (e) {
-      setStep1SaveError(e?.message || 'Nu am putut salva cantitățile.');
+      const message = e?.message || 'Nu am putut salva cantitățile.';
+      // cod 42501 -> RLS blocked (ex: insert din upsert)
+      if (String(e?.code) === '42501') {
+        setStep1SaveError(`${message} (permisie RLS; reautentifică-te sau contactează un admin).`);
+      } else {
+        setStep1SaveError(message);
+      }
     } finally {
       setStep1Saving(false);
     }
