@@ -456,7 +456,8 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const requestId = body?.request_id ?? body?.requestId;
     const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
-    let effectivePlacementOptionId = body?.placement_option_id ?? body?.placementOptionId;
+    const placementOptionId = body?.placement_option_id ?? body?.placementOptionId ?? null;
+    let effectivePlacementOptionId = placementOptionId;
     const packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
     const amazonIntegrationIdInput = body?.amazon_integration_id ?? body?.amazonIntegrationId;
     const confirmOptionId = body?.transportation_option_id ?? body?.transportationOptionId;
@@ -467,7 +468,7 @@ serve(async (req) => {
     logStep("fba-step2-confirm-shipping called", {
       traceId,
       keys: Object.keys(body || {}),
-      hasPlacement: Boolean(placementOptionId),
+      hasPlacement: Boolean(effectivePlacementOptionId),
       hasInbound: Boolean(inboundPlanId),
       hasRequest: Boolean(requestId)
     });
@@ -478,7 +479,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
-    if (!placementOptionId) {
+    if (!effectivePlacementOptionId) {
       return new Response(JSON.stringify({ error: "placement_option_id este necesar pentru Step 2", traceId }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
@@ -646,7 +647,7 @@ serve(async (req) => {
 
     const ensurePlacement = async () => {
       // dacă avem placementOptionId din client, îl folosim; altfel generăm + confirmăm prima opțiune
-      let placementId = placementOptionId || null;
+      let placementId = effectivePlacementOptionId || null;
       let placementShipments: any[] = [];
       if (!placementId) {
         const genPlacement = await signedFetch({
@@ -1189,7 +1190,7 @@ serve(async (req) => {
       let attempt = 0;
       do {
         attempt += 1;
-      const queryParts = [`placementOptionId=${encodeURIComponent(effectivePlacementOptionId)}`];
+        const queryParts = [`placementOptionId=${encodeURIComponent(effectivePlacementOptionId)}`];
         if (nextToken) queryParts.push(`nextToken=${encodeURIComponent(nextToken)}`);
         const res = await signedFetch({
           method: "GET",
@@ -1428,7 +1429,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         inboundPlanId,
-        placementOptionId: placementOptionId || null,
+        placementOptionId: effectivePlacementOptionId || null,
         options,
         shipments,
         summary,
