@@ -456,8 +456,8 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const requestId = body?.request_id ?? body?.requestId;
     const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
-    const placementOptionId = body?.placement_option_id ?? body?.placementOptionId ?? null;
-    let effectivePlacementOptionId = placementOptionId;
+    const placementOptionIdInput = body?.placement_option_id ?? body?.placementOptionId ?? null;
+    let effectivePlacementOptionId = placementOptionIdInput;
     const packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
     const amazonIntegrationIdInput = body?.amazon_integration_id ?? body?.amazonIntegrationId;
     const confirmOptionId = body?.transportation_option_id ?? body?.transportationOptionId;
