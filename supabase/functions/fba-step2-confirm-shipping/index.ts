@@ -1291,60 +1291,81 @@ serve(async (req) => {
       defaultCharge: defaultOpt?.charge ?? null
     };
 
-    // 3) If client asked to confirm an option, call confirmation endpoint
-    let confirmRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
-    if (confirmOptionId) {
-      const selectedOption = normalizedOptions.find((o) => o.id === confirmOptionId) || normalizedOptions[0] || null;
-      const selections = Array.isArray(selectedOption?.raw?.shipments)
-        ? selectedOption.raw.shipments.map((sh: any) => ({
-            shipmentId: sh.shipmentId || sh.id,
-            transportationOptionId: selectedOption?.id
-          }))
-        : placementShipments.map((sh: any, idx: number) => ({
-            shipmentId: sh.shipmentId || sh.id || `s-${idx + 1}`,
-            transportationOptionId: selectedOption?.id
-          }));
+    // 3) Confirm transportation option (Amazon cere confirmTransportationOptions)
+    if (!normalizedOptions.length) {
+      return new Response(
+        JSON.stringify({
+          error: "Amazon nu a returnat transportationOptions încă. Reîncearcă în câteva secunde.",
+          traceId
+        }),
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
-      const confirmPayload = JSON.stringify({
-        transportationSelections: selections
-      });
-      confirmRes = await signedFetch({
-        method: "POST",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions/confirmation`,
-        query: "",
-        payload: confirmPayload,
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.confirmTransportationOptions",
-        marketplaceId,
-        sellerId
-      });
-      logStep("confirmTransportationOptions", {
-        traceId,
-        status: confirmRes?.res?.status,
-        requestId: confirmRes?.requestId || null
-      });
+    const selectedOptionId = confirmOptionId || defaultOpt?.id || normalizedOptions[0]?.id || null;
+    const selectedOption =
+      normalizedOptions.find((o) => o.id === selectedOptionId) || normalizedOptions[0] || null;
 
-      const confirmOpId =
-        confirmRes?.json?.payload?.operationId ||
-        confirmRes?.json?.operationId ||
-        null;
-      if (confirmOpId) {
-        const confirmStatus = await pollOperationStatus(confirmOpId);
-        const st = confirmStatus?.json?.payload?.state || confirmStatus?.json?.state || confirmStatus?.res?.status;
-        const stateUp = String(st || "").toUpperCase();
-        if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
-          return new Response(JSON.stringify({ error: "Transportation confirmation failed", traceId, state: stateUp }), {
-            status: 502,
-            headers: { ...corsHeaders, "content-type": "application/json" }
-          });
-        }
+    if (!selectedOption?.id) {
+      return new Response(
+        JSON.stringify({
+          error: "Nu există transportationOption de confirmat (Amazon). Reîncearcă după re-generare.",
+          traceId
+        }),
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
+    const selections = Array.isArray(selectedOption?.raw?.shipments)
+      ? selectedOption.raw.shipments.map((sh: any) => ({
+          shipmentId: sh.shipmentId || sh.id,
+          transportationOptionId: selectedOption?.id
+        }))
+      : placementShipments.map((sh: any, idx: number) => ({
+          shipmentId: sh.shipmentId || sh.id || `s-${idx + 1}`,
+          transportationOptionId: selectedOption?.id
+        }));
+
+    const confirmPayload = JSON.stringify({
+      transportationSelections: selections
+    });
+    const confirmRes = await signedFetch({
+      method: "POST",
+      service: "execute-api",
+      region: awsRegion,
+      host,
+      path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions/confirmation`,
+      query: "",
+      payload: confirmPayload,
+      accessKey: tempCreds.accessKeyId,
+      secretKey: tempCreds.secretAccessKey,
+      sessionToken: tempCreds.sessionToken,
+      lwaToken: lwaAccessToken,
+      traceId,
+      operationName: "inbound.v20240320.confirmTransportationOptions",
+      marketplaceId,
+      sellerId
+    });
+    logStep("confirmTransportationOptions", {
+      traceId,
+      status: confirmRes?.res?.status,
+      requestId: confirmRes?.requestId || null,
+      optionId: selectedOption?.id || null
+    });
+
+    const confirmOpId =
+      confirmRes?.json?.payload?.operationId ||
+      confirmRes?.json?.operationId ||
+      null;
+    if (confirmOpId) {
+      const confirmStatus = await pollOperationStatus(confirmOpId);
+      const st = confirmStatus?.json?.payload?.state || confirmStatus?.json?.state || confirmStatus?.res?.status;
+      const stateUp = String(st || "").toUpperCase();
+      if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
+        return new Response(JSON.stringify({ error: "Transportation confirmation failed", traceId, state: stateUp }), {
+          status: 502,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
       }
     }
 
