@@ -1339,6 +1339,86 @@ serve(async (req) => {
       return pre.map((p) => String(p || "").toUpperCase()).includes("CONFIRMED_DELIVERY_WINDOW");
     };
 
+    const generateDeliveryWindowOptions = async (shipmentId: string) =>
+      signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shipmentId)}/deliveryWindowOptions`,
+        query: "",
+        payload: "{}",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.generateDeliveryWindowOptions",
+        marketplaceId,
+        sellerId
+      });
+
+    const listDeliveryWindowOptions = async (shipmentId: string) =>
+      signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shipmentId)}/deliveryWindowOptions`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.listDeliveryWindowOptions",
+        marketplaceId,
+        sellerId
+      });
+
+    const confirmDeliveryWindowOption = async (shipmentId: string, deliveryWindowOptionId: string) =>
+      signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shipmentId)}/deliveryWindowOptions/${encodeURIComponent(deliveryWindowOptionId)}/confirmation`,
+        query: "",
+        payload: "{}",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.confirmDeliveryWindowOption",
+        marketplaceId,
+        sellerId
+      });
+
+    const extractDeliveryWindowOptions = (res: Awaited<ReturnType<typeof signedFetch>> | null) =>
+      res?.json?.payload?.deliveryWindowOptions ||
+      res?.json?.deliveryWindowOptions ||
+      res?.json?.DeliveryWindowOptions ||
+      [];
+
+    const pickDeliveryWindowOptionId = (opts: any[]) => {
+      if (!Array.isArray(opts) || !opts.length) return null;
+      const withDates = opts
+        .map((o: any) => {
+          const window = o?.deliveryWindow || o?.window || null;
+          const start = window?.startDate || window?.start || o?.startDate || o?.start || null;
+          const end = window?.endDate || window?.end || o?.endDate || o?.end || null;
+          const ts = start ? Date.parse(String(start)) : NaN;
+          return { opt: o, ts, start, end };
+        })
+        .filter((o: any) => Number.isFinite(o.ts));
+      const picked = withDates.length
+        ? withDates.sort((a: any, b: any) => a.ts - b.ts)[0].opt
+        : opts[0];
+      return picked?.deliveryWindowOptionId || picked?.id || null;
+    };
+
     if (!Array.isArray(options) || options.length === 0) {
       return new Response(
         JSON.stringify({
@@ -1357,14 +1437,71 @@ serve(async (req) => {
         traceId,
         totalOptions: options.length
       });
-      return new Response(
-        JSON.stringify({
-          error:
-            "Toate transportation options cer CONFIRMED_DELIVERY_WINDOW. Trebuie confirmat delivery window in Amazon (Send to Amazon UI) sau ales un transport care nu cere aceasta preconditie.",
-          traceId
-        }),
-        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+      const shipmentIds = Array.from(
+        new Set(
+          options
+            .map((opt: any) => opt?.shipmentId)
+            .concat(placementShipments.map((s: any) => s?.shipmentId || s?.id))
+            .filter(Boolean)
+            .map((id: any) => String(id))
+        )
       );
+      for (const shipmentId of shipmentIds) {
+        const genRes = await generateDeliveryWindowOptions(shipmentId);
+        const genOpId =
+          genRes?.json?.payload?.operationId ||
+          genRes?.json?.operationId ||
+          null;
+        if (genOpId) {
+          const genStatus = await pollOperationStatus(genOpId);
+          const stUp = getOperationState(genStatus);
+          if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
+            logStep("deliveryWindow_generate_failed", { traceId, shipmentId, state: stUp });
+            continue;
+          }
+        }
+        let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+        let optionsList: any[] = [];
+        for (let i = 1; i <= 6; i++) {
+          listRes = await listDeliveryWindowOptions(shipmentId);
+          optionsList = extractDeliveryWindowOptions(listRes);
+          if (Array.isArray(optionsList) && optionsList.length) break;
+          await delay(Math.min(800 * i, 4000));
+        }
+        const dwOptionId = pickDeliveryWindowOptionId(optionsList);
+        if (!dwOptionId) {
+          logStep("deliveryWindow_missing_options", { traceId, shipmentId });
+          continue;
+        }
+        const confirmRes = await confirmDeliveryWindowOption(shipmentId, dwOptionId);
+        const confirmOpId =
+          confirmRes?.json?.payload?.operationId ||
+          confirmRes?.json?.operationId ||
+          null;
+        if (confirmOpId) {
+          const confirmStatus = await pollOperationStatus(confirmOpId);
+          const stUp = getOperationState(confirmStatus);
+          if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
+            logStep("deliveryWindow_confirm_failed", { traceId, shipmentId, state: stUp });
+          }
+        }
+      }
+      const retryList = await listAllTransportationOptions();
+      const refreshedOptions = retryList?.collected || [];
+      const refreshedWithoutWindow = Array.isArray(refreshedOptions)
+        ? refreshedOptions.filter((opt: any) => !hasDeliveryWindowPrecondition(opt))
+        : [];
+      if (!refreshedWithoutWindow.length) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "Toate transportation options cer CONFIRMED_DELIVERY_WINDOW si confirmarea automata nu a produs optiuni disponibile. Reincearca dupa cateva minute.",
+            traceId
+          }),
+          { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+      optionsWithoutWindow.splice(0, optionsWithoutWindow.length, ...refreshedWithoutWindow);
     }
 
     const extractCharge = (opt: any) => {
