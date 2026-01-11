@@ -1325,6 +1325,8 @@ serve(async (req) => {
       bodyPreview: (genRes?.text || "").slice(0, 400) || null
     });
 
+    let generateFailed = false;
+    let generateProblems: any = null;
     const opId =
       genRes?.json?.payload?.operationId ||
       genRes?.json?.operationId ||
@@ -1342,26 +1344,12 @@ serve(async (req) => {
         problems: getOperationProblems(genStatus) || null
       });
       if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
-        return new Response(
-          JSON.stringify({
-            error: "Generate transportation options failed",
-            traceId,
-            state: stateUp,
-            details: getOperationProblems(genStatus)
-          }),
-          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
-        );
+        generateFailed = true;
+        generateProblems = getOperationProblems(genStatus);
       }
     } else if (!genRes?.res?.ok) {
-      return new Response(
-        JSON.stringify({
-          error: "Generate transportation options failed",
-          traceId,
-          state: String(genRes?.res?.status || "UNKNOWN"),
-          details: genRes?.text || null
-        }),
-        { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
+      generateFailed = true;
+      generateProblems = genRes?.text || null;
     }
 
     // 2) List transportation options (paginat, ca să nu ratăm SPD/partnered)
@@ -1585,7 +1573,9 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: "Amazon nu a returnat placement/transportation options încă. Reîncearcă în câteva secunde (placementOptions goale).",
-          traceId
+          traceId,
+          generateFailed,
+          generateProblems
         }),
         { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
@@ -1671,6 +1661,8 @@ serve(async (req) => {
           status: {
             placementConfirm: placementConfirm?.res?.status ?? null,
             generate: genRes?.res.status ?? null,
+            generateFailed,
+            generateProblems,
             list: listRes?.res.status ?? null,
             confirm: null
           },
@@ -2011,6 +2003,8 @@ serve(async (req) => {
         status: {
           placementConfirm: placementConfirm?.res?.status ?? null,
           generate: genRes?.res.status ?? null,
+          generateFailed,
+          generateProblems,
           list: listRes?.res.status ?? null,
           confirm: confirmRes?.res.status ?? null
         },
