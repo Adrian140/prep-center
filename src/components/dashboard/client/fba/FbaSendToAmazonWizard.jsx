@@ -168,6 +168,7 @@ export default function FbaSendToAmazonWizard({
   const [packingRefreshLoading, setPackingRefreshLoading] = useState(false);
   const [packingReadyError, setPackingReadyError] = useState('');
   const [step2Loaded, setStep2Loaded] = useState(false);
+  const [shippingConfirming, setShippingConfirming] = useState(false);
   const forcePartneredOnly = true;
   const isFallbackId = useCallback((v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-"), []);
   const hasRealPackGroups = useCallback(
@@ -871,9 +872,9 @@ const fetchPartneredQuote = useCallback(
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
           ship_date: shipmentMode?.deliveryDate || null,
-          force_partnered_if_available: true,
-          force_partnered_only: forcePartneredOnly,
-          confirm: true
+          force_partnered_if_available: shipmentMode?.carrier?.partnered ?? true,
+          force_partnered_only: forcePartneredOnly && (shipmentMode?.carrier?.partnered ?? true),
+          confirm: false
         }
       });
       if (error) throw error;
@@ -962,6 +963,88 @@ const fetchPartneredQuote = useCallback(
       setShippingLoading(false);
     }
   };
+
+  const confirmShippingOptions = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    const inboundPlanId = resolveInboundPlanId();
+    const requestId = resolveRequestId();
+    const placementOptId = placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
+    if (!inboundPlanId || !requestId || !placementOptId) {
+      setShippingError('Lipsește inboundPlanId, requestId sau placementOptionId pentru confirmarea transportului.');
+      return;
+    }
+    setShippingConfirming(true);
+    setShippingError('');
+    try {
+      const configs = buildShipmentConfigs();
+      const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
+        body: {
+          request_id: requestId,
+          inbound_plan_id: inboundPlanId,
+          placement_option_id: placementOptId,
+          packing_option_id: packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null,
+          shipping_mode: shipmentMode?.method || null,
+          shipment_transportation_configurations: configs,
+          ship_date: shipmentMode?.deliveryDate || null,
+          force_partnered_if_available: shipmentMode?.carrier?.partnered ?? true,
+          force_partnered_only: forcePartneredOnly && (shipmentMode?.carrier?.partnered ?? true),
+          confirm: true
+        }
+      });
+      if (error) throw error;
+      if (json?.error) {
+        setShippingError(json.error);
+        return;
+      }
+      if (Array.isArray(json.shipments) && json.shipments.length) {
+        const fallbackShipments = deriveShipmentsFromPacking(shipments);
+        const fallbackById = new Map(
+          (fallbackShipments || []).map((sh) => [String(sh.id || ""), sh])
+        );
+        setShipments(
+          json.shipments.map((s) => {
+            const fb = fallbackById.get(String(s.id || "")) || {};
+            return {
+              ...fb,
+              ...s,
+              weight: s.weight ?? fb.weight ?? null,
+              source: "api"
+            };
+          })
+        );
+      }
+      setShippingOptions(json.options || []);
+      setShippingSummary(json.summary || null);
+      completeAndNext('2');
+    } catch (e) {
+      const detail =
+        e?.context?.error?.message ||
+        e?.context?.response?.error?.message ||
+        e?.context?.response?.data?.error ||
+        e?.message ||
+        "Failed to confirm shipping";
+      console.error("confirmShippingOptions failed", e);
+      setShippingError(detail);
+    } finally {
+      setShippingConfirming(false);
+    }
+  }, [
+    buildShipmentConfigs,
+    completeAndNext,
+    forcePartneredOnly,
+    packingOptionId,
+    placementOptionId,
+    plan?.packingOptionId,
+    plan?.packing_option_id,
+    plan?.placementOptionId,
+    plan?.placement_option_id,
+    resolveInboundPlanId,
+    resolveRequestId,
+    shipmentMode?.carrier?.partnered,
+    shipmentMode?.deliveryDate,
+    shipmentMode?.method,
+    shipments
+  ]);
 
 
   useEffect(() => {
@@ -1275,7 +1358,8 @@ const fetchPartneredQuote = useCallback(
           onModeChange={handleModeChange}
           onShipDateChange={(date) => setShipmentMode((prev) => ({ ...prev, deliveryDate: date }))}
           error={shippingError}
-          onNext={() => completeAndNext('2')}
+          confirming={shippingConfirming}
+          onNext={confirmShippingOptions}
           onBack={() => goToStep('1b')}
         />
       );

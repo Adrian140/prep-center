@@ -11,6 +11,7 @@ export default function FbaStep2Shipping({
   onShipDateChange,
   onNext,
   onBack,
+  confirming = false,
   error = ''
 }) {
   const { deliveryDate, method, carrier, shipments, warning } = shipment;
@@ -85,11 +86,13 @@ export default function FbaStep2Shipping({
   const partneredLabel = partneredReason || 'Estimated charge';
   const partneredChargeText =
     disablePartnered || partneredRate === null ? 'Not available' : `€${partneredRate.toFixed(2)}`;
-  const canContinue = forcePartneredOnly
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const needsTerms = Boolean(carrier?.partnered);
+  const canContinue = (forcePartneredOnly
     ? carrier?.partnered && partneredAllowed
     : carrier?.partnered
       ? partneredAllowed
-      : true;
+      : true) && (!needsTerms || acceptedTerms);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -206,6 +209,19 @@ export default function FbaStep2Shipping({
             <div className="text-xs text-slate-500">
               Review charges before continuing. You have up to 24h to void Amazon partnered shipping charges.
             </div>
+            {needsTerms && (
+              <label className="flex items-start gap-2 text-xs text-slate-600 pt-2">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  I agree to the Amazon Partnered Carrier Terms and Conditions and the Carrier Terms and Conditions.
+                </span>
+              </label>
+            )}
           </div>
         </div>
 
@@ -229,10 +245,10 @@ export default function FbaStep2Shipping({
           </button>
           <button
             onClick={onNext}
-            disabled={!canContinue}
-            className={`px-4 py-2 rounded-md font-semibold shadow-sm ${canContinue ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
+            disabled={!canContinue || confirming}
+            className={`px-4 py-2 rounded-md font-semibold shadow-sm ${canContinue && !confirming ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
           >
-            Continue to labels
+            {confirming ? 'Confirming…' : 'Accept charges and confirm shipping'}
           </button>
         </div>
       </div>
