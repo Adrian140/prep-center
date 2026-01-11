@@ -1681,19 +1681,18 @@ serve(async (req) => {
 
     const shipments = await normalizeShipmentsFromPlan();
 
-    try {
-      await supabase
-        .from("prep_requests")
-        .update({
-          placement_option_id: effectivePlacementOptionId,
-          transportation_option_id: selectedOption?.id || null,
-          step2_confirmed_at: new Date().toISOString(),
-          step2_summary: summary,
-          step2_shipments: shipments
-        })
-        .eq("id", requestId);
-    } catch (err) {
-      logStep("prepRequestUpdateFailed", { traceId, requestId, error: safeJson(err) });
+    const { error: updErr } = await supabase
+      .from("prep_requests")
+      .update({
+        placement_option_id: effectivePlacementOptionId,
+        transportation_option_id: selectedOption?.id || null,
+        step2_confirmed_at: new Date().toISOString(),
+        step2_summary: summary,
+        step2_shipments: shipments
+      })
+      .eq("id", requestId);
+    if (updErr) {
+      logStep("prepRequestUpdateFailed", { traceId, requestId, error: updErr.message });
     }
 
     return new Response(
@@ -1709,7 +1708,8 @@ serve(async (req) => {
           list: listRes?.res.status ?? null,
           confirm: confirmRes?.res.status ?? null
         },
-        requestId: confirmRes?.requestId || listRes?.requestId || genRes?.requestId || null,
+        amazonRequestId: confirmRes?.requestId || listRes?.requestId || genRes?.requestId || null,
+        prepRequestId: requestId || null,
         traceId
       }),
       { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
