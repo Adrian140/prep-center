@@ -24,16 +24,46 @@ const getSafeDims = (dims = {}) => {
 const detectPartneredOption = (opt = {}) => {
   const carrierName = String(opt?.carrierName || opt?.carrier?.name || opt?.carrier?.alphaCode || opt?.carrier || '');
   const shippingSolution = String(opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || '').toUpperCase();
+  const typeHints = [
+    opt?.transportationOptionType,
+    opt?.transportationOptionType?.type,
+    opt?.transportationOptionType?.transportationOptionType,
+    opt?.transportationOptionType?.transportationOptionType?.type,
+    opt?.carrierType,
+    opt?.carrier?.carrierType,
+    opt?.carrier?.type,
+    opt?.program,
+    opt?.carrierProgram,
+    opt?.partneredProgram,
+    opt?.shippingSolution,
+    opt?.shippingSolutionId,
+    opt?.shipping_solution,
+    opt?.shipping_solution_id
+  ]
+    .filter((v) => v !== undefined && v !== null)
+    .map((v) => String(v).toUpperCase());
   const flags = [
     opt?.partneredCarrier,
     opt?.isPartnered,
     opt?.partnered,
+    opt?.isAmazonPartnered,
+    opt?.amazonPartnered,
+    opt?.isAmazonPartneredCarrier,
     opt?.carrierType === 'AMAZON_PARTNERED',
     opt?.type === 'PARTNERED',
     opt?.program === 'AMAZON_PARTNERED',
     opt?.shippingSolution === 'AMAZON_PARTNERED_CARRIER'
   ];
-  return Boolean(flags.find(Boolean) || /partner/i.test(carrierName) || shippingSolution.includes('AMAZON_PARTNERED'));
+  const solutionHints =
+    shippingSolution.includes('AMAZON_PARTNERED') ||
+    shippingSolution.includes('PARTNERED_CARRIER');
+  const typeMatch = typeHints.some(
+    (v) => v.includes('AMAZON_PARTNERED') || v.includes('PARTNERED_CARRIER')
+  );
+  const nameHints =
+    /partner/i.test(carrierName) ||
+    /partner/i.test(String(opt?.partneredCarrierName || ''));
+  return Boolean(flags.find(Boolean) || solutionHints || typeMatch || nameHints);
 };
 
 const initialData = {
@@ -169,7 +199,7 @@ export default function FbaSendToAmazonWizard({
   const [packingReadyError, setPackingReadyError] = useState('');
   const [step2Loaded, setStep2Loaded] = useState(false);
   const [shippingConfirming, setShippingConfirming] = useState(false);
-  const forcePartneredOnly = Boolean(shippingSummary?.partneredAllowed);
+  const [forcePartneredOnly, setForcePartneredOnly] = useState(false);
   const isFallbackId = useCallback((v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-"), []);
   const hasRealPackGroups = useCallback(
     (groups) =>
@@ -220,6 +250,20 @@ export default function FbaSendToAmazonWizard({
       carrier: { partnered: true, name: 'UPS (Amazon-partnered carrier)', rate: prev?.carrier?.rate ?? null }
     }));
   }, [currentStep, forcePartneredOnly, shipmentMode?.carrier?.partnered]);
+  useEffect(() => {
+    const required = Boolean(
+      shippingSummary?.partneredRequired ||
+      shippingSummary?.forcePartneredOnly ||
+      shippingSummary?.partneredOnly ||
+      shippingSummary?.mustUsePartnered
+    );
+    setForcePartneredOnly(required);
+  }, [
+    shippingSummary?.partneredRequired,
+    shippingSummary?.forcePartneredOnly,
+    shippingSummary?.partneredOnly,
+    shippingSummary?.mustUsePartnered
+  ]);
   const resolveRequestId = useCallback(() => {
     return (
       plan?.prepRequestId ||
@@ -872,8 +916,8 @@ const fetchPartneredQuote = useCallback(
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
           ship_date: shipmentMode?.deliveryDate || null,
-          force_partnered_if_available: shipmentMode?.carrier?.partnered ?? true,
-          force_partnered_only: forcePartneredOnly && (shipmentMode?.carrier?.partnered ?? true),
+          force_partnered_if_available: true,
+          force_partnered_only: forcePartneredOnly,
           confirm: false
         }
       });
@@ -976,6 +1020,7 @@ const fetchPartneredQuote = useCallback(
     setShippingConfirming(true);
     setShippingError('');
     try {
+      const forcePartneredIfAvailable = forcePartneredOnly ? true : Boolean(shipmentMode?.carrier?.partnered);
       const configs = buildShipmentConfigs();
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
@@ -986,8 +1031,8 @@ const fetchPartneredQuote = useCallback(
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
           ship_date: shipmentMode?.deliveryDate || null,
-          force_partnered_if_available: shipmentMode?.carrier?.partnered ?? true,
-          force_partnered_only: forcePartneredOnly && (shipmentMode?.carrier?.partnered ?? true),
+          force_partnered_if_available: forcePartneredIfAvailable,
+          force_partnered_only: forcePartneredOnly,
           confirm: true
         }
       });

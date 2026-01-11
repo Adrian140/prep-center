@@ -896,35 +896,26 @@ serve(async (req) => {
       return { pid: null, placements: [] as any[] };
     };
 
-    // 0) Always generate placement options (Amazon workflow expects this call)
-    const genPlacement = await generatePlacementOptionsWithRetry();
-    if (!genPlacement.ok) {
-      logStep("generatePlacementOptions_failed", { traceId, state: genPlacement.state || null });
-    }
-
-    // 1) List placement options and pick one if missing
-    const { pid: listedPid, placements } = await listPlacementWithRetry();
-    const listedIds = new Set(
-      (Array.isArray(placements) ? placements : [])
-        .map((p: any) => p?.placementOptionId || p?.id || null)
-        .filter(Boolean)
-        .map((v: any) => String(v))
-    );
     if (!effectivePlacementOptionId) {
+      const genPlacement = await generatePlacementOptionsWithRetry();
+      if (!genPlacement.ok) {
+        return new Response(
+          JSON.stringify({
+            error: "generatePlacementOptions failed",
+            traceId,
+            state: genPlacement.state || null
+          }),
+          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+      const { pid: listedPid } = await listPlacementWithRetry();
       effectivePlacementOptionId = listedPid;
-    } else if (listedPid && !listedIds.has(String(effectivePlacementOptionId))) {
-      logStep("placementOptionMismatch", {
-        traceId,
-        incoming: effectivePlacementOptionId,
-        picked: listedPid
-      });
-      effectivePlacementOptionId = listedPid;
-    }
-    if (!effectivePlacementOptionId) {
-      return new Response(JSON.stringify({
-        error: "Nu pot determina placementOptionId (listPlacementOptions gol). Reîncearcă în câteva secunde.",
-        traceId
-      }), { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } });
+      if (!effectivePlacementOptionId) {
+        return new Response(JSON.stringify({
+          error: "Nu pot determina placementOptionId (listPlacementOptions gol). Reîncearcă în câteva secunde.",
+          traceId
+        }), { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } });
+      }
     }
 
     // 2) Confirm placement (idempotent; accept 400/409)
@@ -950,6 +941,32 @@ serve(async (req) => {
       status: placementConfirm?.res?.status,
       requestId: placementConfirm?.requestId || null
     });
+    if (!placementConfirm?.res?.ok && isGeneratePlacementRequired(placementConfirm)) {
+      const regenPlacement = await generatePlacementOptionsWithRetry();
+      if (regenPlacement.ok) {
+        const { pid: listedPid } = await listPlacementWithRetry();
+        if (listedPid) {
+          effectivePlacementOptionId = listedPid;
+          placementConfirm = await signedFetch({
+            method: "POST",
+            service: "execute-api",
+            region: awsRegion,
+            host,
+            path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(effectivePlacementOptionId)}/confirmation`,
+            query: "",
+            payload: "{}",
+            accessKey: tempCreds.accessKeyId,
+            secretKey: tempCreds.secretAccessKey,
+            sessionToken: tempCreds.sessionToken,
+            lwaToken: lwaAccessToken,
+            traceId,
+            operationName: "inbound.v20240320.confirmPlacementOption",
+            marketplaceId,
+            sellerId
+          });
+        }
+      }
+    }
 
     const placementOpId =
       placementConfirm?.json?.payload?.operationId ||
@@ -1607,19 +1624,42 @@ serve(async (req) => {
       const shippingSolution = (opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || "")
         .toString()
         .toUpperCase();
+      const typeHints = [
+        opt?.transportationOptionType,
+        opt?.transportationOptionType?.type,
+        opt?.transportationOptionType?.transportationOptionType,
+        opt?.transportationOptionType?.transportationOptionType?.type,
+        opt?.carrierType,
+        opt?.carrier?.carrierType,
+        opt?.carrier?.type,
+        opt?.program,
+        opt?.carrierProgram,
+        opt?.partneredProgram,
+        opt?.shippingSolution,
+        opt?.shippingSolutionId,
+        opt?.shipping_solution,
+        opt?.shipping_solution_id
+      ]
+        .filter((v) => v !== undefined && v !== null)
+        .map((v) => String(v).toUpperCase());
       const flags = [
         opt?.partneredCarrier,
         opt?.isPartnered,
         opt?.partnered,
-        opt?.carrierType === "AMAZON_PARTNERED",
-        opt?.type === "PARTNERED",
-        opt?.program === "AMAZON_PARTNERED",
-        opt?.shippingSolution === "AMAZON_PARTNERED_CARRIER",
-        opt?.shippingSolutionId === "AMAZON_PARTNERED_CARRIER"
+        opt?.isAmazonPartnered,
+        opt?.amazonPartnered,
+        opt?.isAmazonPartneredCarrier
       ];
-      const solutionHints = shippingSolution.includes("AMAZON_PARTNERED");
-      const nameHints = /partner/i.test(carrierName);
-      return Boolean(flags.find(Boolean) || solutionHints || nameHints);
+      const solutionHints =
+        shippingSolution.includes("AMAZON_PARTNERED") ||
+        shippingSolution.includes("PARTNERED_CARRIER");
+      const typeMatch = typeHints.some(
+        (v) => v.includes("AMAZON_PARTNERED") || v.includes("PARTNERED_CARRIER")
+      );
+      const nameHints =
+        /partner/i.test(carrierName) ||
+        /partner/i.test(String(opt?.partneredCarrierName || ""));
+      return Boolean(flags.find(Boolean) || solutionHints || typeMatch || nameHints);
     };
 
     const normalizedOptions = Array.isArray(options)
