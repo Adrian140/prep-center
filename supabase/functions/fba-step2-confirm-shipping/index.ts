@@ -1071,6 +1071,10 @@ serve(async (req) => {
       return baseCfg;
     });
 
+    const configsByShipment = new Map<string, any>(
+      shipmentTransportationConfigurations.map((c: any) => [String(c.shipmentId), c])
+    );
+
     if (!effectivePackingOptionId) {
       return new Response(
         JSON.stringify({
