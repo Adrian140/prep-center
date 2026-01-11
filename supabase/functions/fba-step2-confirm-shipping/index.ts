@@ -1371,7 +1371,71 @@ serve(async (req) => {
       shippingMode: shippingModeInput || null
     });
 
-    const options = optionsRaw;
+    let options = optionsRaw;
+
+    const allRequireDeliveryWindow =
+      Array.isArray(options) &&
+      options.length > 0 &&
+      options.every((opt: any) => hasDeliveryWindowPrecondition(opt));
+
+    if (allRequireDeliveryWindow) {
+      const shipmentIds = Array.from(
+        new Set(
+          placementShipments
+            .map((s: any) => s?.shipmentId || s?.id)
+            .filter(Boolean)
+            .map((id: any) => String(id))
+        )
+      );
+      for (const shipmentId of shipmentIds) {
+        const genRes = await generateDeliveryWindowOptions(shipmentId);
+        const genOpId =
+          genRes?.json?.payload?.operationId ||
+          genRes?.json?.operationId ||
+          null;
+        if (genOpId) {
+          const genStatus = await pollOperationStatus(genOpId);
+          const stUp = getOperationState(genStatus);
+          if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
+            logStep("deliveryWindow_generate_failed", { traceId, shipmentId, state: stUp });
+            continue;
+          }
+        }
+        let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+        let optionsList: any[] = [];
+        for (let i = 1; i <= 6; i++) {
+          listRes = await listDeliveryWindowOptions(shipmentId);
+          optionsList = extractDeliveryWindowOptions(listRes);
+          if (Array.isArray(optionsList) && optionsList.length) break;
+          await delay(Math.min(800 * i, 4000));
+        }
+        const dwOptionId = pickDeliveryWindowOptionId(optionsList);
+        if (!dwOptionId) {
+          logStep("deliveryWindow_missing_options", { traceId, shipmentId });
+          continue;
+        }
+        const confirmRes = await confirmDeliveryWindowOption(shipmentId, dwOptionId);
+        const confirmOpId =
+          confirmRes?.json?.payload?.operationId ||
+          confirmRes?.json?.operationId ||
+          null;
+        if (confirmOpId) {
+          const confirmStatus = await pollOperationStatus(confirmOpId);
+          const stUp = getOperationState(confirmStatus);
+          if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
+            logStep("deliveryWindow_confirm_failed", { traceId, shipmentId, state: stUp });
+          }
+        }
+      }
+      const relist = await listAllTransportationOptions();
+      options = relist.collected || [];
+      logStep("listTransportationOptions_after_deliveryWindow", {
+        traceId,
+        status: relist.firstRes?.res?.status,
+        requestId: relist.firstRes?.requestId || null,
+        count: options.length
+      });
+    }
 
     const hasDeliveryWindowPrecondition = (opt: any) => {
       const pre = opt?.preconditions || opt?.Preconditions || [];
