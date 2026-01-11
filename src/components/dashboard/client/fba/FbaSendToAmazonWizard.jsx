@@ -22,7 +22,7 @@ const getSafeDims = (dims = {}) => {
 };
 
 const detectPartneredOption = (opt = {}) => {
-  const carrierName = String(opt?.carrierName || opt?.carrier || '');
+  const carrierName = String(opt?.carrierName || opt?.carrier?.name || opt?.carrier?.alphaCode || opt?.carrier || '');
   const shippingSolution = String(opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || '').toUpperCase();
   const flags = [
     opt?.partneredCarrier,
@@ -463,33 +463,35 @@ export default function FbaSendToAmazonWizard({
     }
   }, [autoLoadPlan, fetchPlan, normalizePackGroups, planLoaded]);
 
-  const warning = useMemo(() => {
-    if (!step2Loaded || shippingLoading) return null;
-    if (shippingSummary && shippingSummary.partneredAllowed === false) {
-      return 'Amazon a indicat că transportul partenereat nu este disponibil pentru aceste expedieri.';
-    }
-    return null;
-  }, [shippingSummary, shippingLoading, step2Loaded]);
+const warning = useMemo(() => {
+  if (!step2Loaded || shippingLoading) return null;
+  if (shippingSummary && shippingSummary.partneredAllowed === false && !shippingSummary?.alreadyConfirmed) {
+    return 'Amazon a indicat că transportul partenereat nu este disponibil pentru aceste expedieri.';
+  }
+  return null;
+}, [shippingSummary, shippingLoading, step2Loaded]);
 
-  const fetchPartneredQuote = useCallback(
-    ({ hazmat }) => {
-      const allowed = shippingSummary?.partneredAllowed ?? !hazmat;
-      const rate =
-        typeof shippingSummary?.partneredRate === 'number'
-          ? shippingSummary.partneredRate
-          : typeof shippingSummary?.defaultCharge === 'number'
-            ? shippingSummary.defaultCharge
+const fetchPartneredQuote = useCallback(
+  ({ hazmat }) => {
+    const allowed = shippingSummary?.alreadyConfirmed ? true : (shippingSummary?.partneredAllowed ?? !hazmat);
+    const rate =
+      typeof shippingSummary?.partneredRate === 'number'
+        ? shippingSummary.partneredRate
+        : typeof shippingSummary?.defaultCharge === 'number'
+          ? shippingSummary.defaultCharge
             : null;
-      const reason =
-        shippingSummary?.partneredAllowed === false
+    const reason =
+      shippingSummary?.alreadyConfirmed
+        ? ''
+        : shippingSummary?.partneredAllowed === false
           ? 'Amazon partnered carrier not available for this plan.'
           : hazmat
             ? 'Hazmat items are not eligible for partnered carrier.'
             : '';
-      return { allowed, rate, reason };
-    },
-    [shippingSummary]
-  );
+    return { allowed, rate, reason };
+  },
+  [shippingSummary]
+);
 
   // când intrăm în 1b și nu avem încă packing groups reale, declanșăm fetch automat
   useEffect(() => {
@@ -921,15 +923,21 @@ export default function FbaSendToAmazonWizard({
       if (json.summary || Array.isArray(json.options)) {
         const preferredMode = shipmentMode.method || json.summary?.defaultMode;
         const preferredRate = json.summary?.defaultCharge ?? json.summary?.partneredRate ?? shipmentMode.carrier?.rate ?? null;
+        const alreadyConfirmed = Boolean(json.alreadyConfirmed || json.summary?.alreadyConfirmed);
         const partneredOpt = Array.isArray(json.options) ? json.options.find((o) => detectPartneredOption(o)) : null;
         const hasPartnered = Boolean(json.summary?.partneredAllowed || partneredOpt);
-        if (forcePartneredOnly && !hasPartnered) {
+        const allowPartnered = hasPartnered || alreadyConfirmed;
+        if (forcePartneredOnly && !allowPartnered) {
           setShippingError('Amazon partnered carrier nu este disponibil pentru acest shipment.');
         }
-        if (hasPartnered) {
+        if (allowPartnered) {
           setShipmentMode((prev) => ({
             ...prev,
-            carrier: { partnered: true, name: partneredOpt?.carrierName || json.summary?.defaultCarrier || "Amazon partnered", rate: preferredRate },
+            carrier: {
+              partnered: true,
+              name: partneredOpt?.carrierName || json.summary?.defaultCarrier || (alreadyConfirmed ? "Amazon confirmed carrier" : "Amazon partnered"),
+              rate: preferredRate
+            },
             method: preferredMode
           }));
         } else {

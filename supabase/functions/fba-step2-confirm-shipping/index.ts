@@ -1112,6 +1112,16 @@ serve(async (req) => {
       const { selectedTransportationOptionId } = await getSelectedTransportationOptionId(String(firstShipmentId));
       if (selectedTransportationOptionId) {
         const normalizedShipments = normalizePlacementShipments(placementShipments);
+        const summary = {
+          alreadyConfirmed: true,
+          selectedTransportationOptionId,
+          partneredAllowed: null,
+          partneredRate: null,
+          defaultOptionId: selectedTransportationOptionId,
+          defaultCarrier: "Amazon confirmed carrier",
+          defaultMode: shippingModeInput || null,
+          defaultCharge: null
+        };
         const { error: updErr } = await supabase
           .from("prep_requests")
           .update({
@@ -1133,7 +1143,7 @@ serve(async (req) => {
             inboundPlanId,
             placementOptionId: effectivePlacementOptionId || null,
             shipments: normalizedShipments,
-            summary: { alreadyConfirmed: true, selectedTransportationOptionId },
+            summary,
             alreadyConfirmed: true,
             selectedTransportationOptionId,
             prepRequestId: requestId || null,
@@ -1547,7 +1557,7 @@ serve(async (req) => {
     };
 
     const detectPartnered = (opt: any) => {
-      const carrierName = (opt?.carrierName || opt?.carrier || "").toString();
+      const carrierName = (opt?.carrierName || opt?.carrier?.name || opt?.carrier || "").toString();
       const shippingSolution = (opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || "")
         .toString()
         .toUpperCase();
@@ -1558,7 +1568,8 @@ serve(async (req) => {
         opt?.carrierType === "AMAZON_PARTNERED",
         opt?.type === "PARTNERED",
         opt?.program === "AMAZON_PARTNERED",
-        opt?.shippingSolution === "AMAZON_PARTNERED_CARRIER"
+        opt?.shippingSolution === "AMAZON_PARTNERED_CARRIER",
+        opt?.shippingSolutionId === "AMAZON_PARTNERED_CARRIER"
       ];
       const solutionHints = shippingSolution.includes("AMAZON_PARTNERED");
       const nameHints = /partner/i.test(carrierName);
@@ -1570,7 +1581,7 @@ serve(async (req) => {
           id: opt.transportationOptionId || opt.id || opt.optionId || null,
           partnered: detectPartnered(opt),
           mode: opt.mode || opt.shippingMode || opt.method || null,
-          carrierName: opt.carrierName || opt.carrier || null,
+          carrierName: opt.carrierName || opt.carrier?.name || opt.carrier?.alphaCode || opt.carrier || null,
           charge: extractCharge(opt),
           raw: opt
         }))
@@ -1799,6 +1810,16 @@ serve(async (req) => {
         const { selectedTransportationOptionId } = await getSelectedTransportationOptionId(String(firstShipmentId));
         if (selectedTransportationOptionId) {
           const normalizedShipments = normalizePlacementShipments(placementShipments);
+          const summary = {
+            alreadyConfirmed: true,
+            selectedTransportationOptionId,
+            partneredAllowed: null,
+            partneredRate: null,
+            defaultOptionId: selectedTransportationOptionId,
+            defaultCarrier: "Amazon confirmed carrier",
+            defaultMode: shippingModeInput || null,
+            defaultCharge: null
+          };
           const { error: updErr } = await supabase
             .from("prep_requests")
             .update({
@@ -1820,7 +1841,7 @@ serve(async (req) => {
               inboundPlanId,
               placementOptionId: effectivePlacementOptionId || null,
               shipments: normalizedShipments,
-              summary: { alreadyConfirmed: true, selectedTransportationOptionId },
+              summary,
               alreadyConfirmed: true,
               selectedTransportationOptionId,
               prepRequestId: requestId || null,
