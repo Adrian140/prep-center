@@ -503,12 +503,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
-    if (!effectivePlacementOptionId) {
-      return new Response(JSON.stringify({ error: "placement_option_id este necesar pentru Step 2", traceId }), {
-        status: 400,
-        headers: { ...corsHeaders, "content-type": "application/json" }
-      });
-    }
+    // dacă lipsește placement_option_id, îl vom alege după generate/list
 
     // dacă lipsește packing_option_id în body, încearcă să-l citești din prep_requests
     let effectivePackingOptionId = packingOptionId;
@@ -893,7 +888,25 @@ serve(async (req) => {
       return null;
     };
 
-    // Confirmăm placement-ul (cerință SP-API) înainte de transport, cu fallback generatePlacementOptions
+    // 0) Always generate placement options (Amazon workflow expects this call)
+    const genPlacement = await generatePlacementOptionsWithRetry();
+    if (!genPlacement.ok) {
+      logStep("generatePlacementOptions_failed", { traceId, state: genPlacement.state || null });
+    }
+
+    // 1) List placement options and pick one if missing
+    const listedPid = await listPlacementWithRetry();
+    if (!effectivePlacementOptionId) {
+      effectivePlacementOptionId = listedPid;
+    }
+    if (!effectivePlacementOptionId) {
+      return new Response(JSON.stringify({
+        error: "Nu pot determina placementOptionId (listPlacementOptions gol). Reîncearcă în câteva secunde.",
+        traceId
+      }), { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } });
+    }
+
+    // 2) Confirm placement (idempotent; accept 400/409)
     let placementConfirm = await signedFetch({
       method: "POST",
       service: "execute-api",
@@ -917,81 +930,27 @@ serve(async (req) => {
       requestId: placementConfirm?.requestId || null
     });
 
-    if (placementConfirm?.res?.status === 400 && isGeneratePlacementRequired(placementConfirm)) {
-      logStep("placementConfirm_requires_generatePlacementOptions", { traceId });
-      const genPlacement = await generatePlacementOptionsWithRetry();
-      if (!genPlacement.ok) {
-        return new Response(
-          JSON.stringify({
-            error: "generatePlacementOptions failed",
-            state: genPlacement.state || null,
-            traceId,
-            details: getOperationProblems(genPlacement.res as any)
-          }),
-          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
-        );
-      }
-
-      const newPid = await listPlacementWithRetry();
-      if (!newPid) {
-        return new Response(JSON.stringify({ error: "generatePlacementOptions ok, dar listPlacementOptions nu a returnat nimic încă", traceId }), {
-          status: 202,
+    const placementOpId =
+      placementConfirm?.json?.payload?.operationId ||
+      placementConfirm?.json?.operationId ||
+      null;
+    if (!placementConfirm?.res?.ok && ![400, 409].includes(placementConfirm?.res?.status || 0) && !placementOpId) {
+      return new Response(
+        JSON.stringify({ error: "Placement confirmation failed", traceId, status: placementConfirm?.res?.status }),
+        {
+          status: 502,
           headers: { ...corsHeaders, "content-type": "application/json" }
-        });
-      }
-      effectivePlacementOptionId = newPid;
-
-      placementConfirm = await signedFetch({
-        method: "POST",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(effectivePlacementOptionId)}/confirmation`,
-        query: "",
-        payload: "{}",
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.confirmPlacementOption",
-        marketplaceId,
-        sellerId
-      });
-      if (!placementConfirm?.res?.ok && ![400, 409].includes(placementConfirm?.res?.status || 0)) {
-        return new Response(JSON.stringify({ error: "Placement confirmation failed after generatePlacementOptions", traceId, status: placementConfirm?.res?.status }), {
+        }
+      );
+    }
+    if (placementOpId) {
+      const placementStatus = await pollOperationStatus(placementOpId);
+      const stateUp = getOperationState(placementStatus) || String(placementStatus?.res?.status || "").toUpperCase();
+      if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
+        return new Response(JSON.stringify({ error: "Placement confirmation failed", traceId, state: stateUp }), {
           status: 502,
           headers: { ...corsHeaders, "content-type": "application/json" }
         });
-      }
-    } else {
-      const placementOpId =
-        placementConfirm?.json?.payload?.operationId ||
-        placementConfirm?.json?.operationId ||
-        null;
-      if (!placementConfirm?.res?.ok && !placementOpId) {
-        // 409 sau 400 pot apărea dacă placement-ul este deja confirmat; le acceptăm ca idempotent
-        if (placementConfirm?.res?.status === 409 || placementConfirm?.res?.status === 400) {
-          console.warn("placement already confirmed or not needed", { traceId, status: placementConfirm.res.status });
-        } else {
-          return new Response(
-            JSON.stringify({ error: "Placement confirmation failed", traceId, status: placementConfirm?.res?.status }),
-            {
-              status: 502,
-              headers: { ...corsHeaders, "content-type": "application/json" }
-            }
-          );
-        }
-      }
-      if (placementOpId) {
-        const placementStatus = await pollOperationStatus(placementOpId);
-        const stateUp = getOperationState(placementStatus) || String(placementStatus?.res?.status || "").toUpperCase();
-        if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
-          return new Response(JSON.stringify({ error: "Placement confirmation failed", traceId, state: stateUp }), {
-            status: 502,
-            headers: { ...corsHeaders, "content-type": "application/json" }
-          });
-        }
       }
     }
 

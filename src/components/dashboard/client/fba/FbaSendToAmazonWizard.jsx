@@ -154,6 +154,8 @@ export default function FbaSendToAmazonWizard({
   const [packingReadyError, setPackingReadyError] = useState('');
   const [step2Loaded, setStep2Loaded] = useState(false);
   const isFallbackId = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
+  const hasRealPackGroups = (groups) =>
+    (Array.isArray(groups) ? groups : []).some((g) => g?.packingGroupId && !isFallbackId(g.packingGroupId));
   const resolveRequestId = useCallback(() => {
     return (
       plan?.prepRequestId ||
@@ -218,8 +220,8 @@ export default function FbaSendToAmazonWizard({
       const data = JSON.parse(raw);
       if (data?.plan) setPlan((prev) => ({ ...prev, ...data.plan }));
       if (Array.isArray(data?.packGroups)) setPackGroups(data.packGroups);
-      // Forțăm re-fetch de la Amazon după reload; nu afișăm grupuri cached
-      setPackGroupsLoaded(false);
+      const hasRealGroups = hasRealPackGroups(data?.packGroups);
+      setPackGroupsLoaded(hasRealGroups);
       if (data?.shipmentMode) setShipmentMode((prev) => ({ ...prev, ...data.shipmentMode }));
       if (Array.isArray(data?.shipments)) setShipments(data.shipments);
       if (data?.labelFormat) setLabelFormat(data.labelFormat);
@@ -278,11 +280,12 @@ export default function FbaSendToAmazonWizard({
       setLoadingPlan(true);
       setPlanError('');
       setStep1SaveError('');
-      const hasCachedGroups = (packGroups || []).some(
-        (g) => g?.packingGroupId && !isFallbackId(g.packingGroupId)
-      );
-      if (!hasCachedGroups) {
-        setPackGroups([]); // nu afișăm nimic local până primim packing groups de la API
+      const hasCachedGroups = hasRealPackGroups(packGroups);
+      const workflowAlreadyStarted =
+        Boolean(packingOptionId || plan?.packingOptionId || initialPlan?.packingOptionId) ||
+        Boolean(placementOptionId || plan?.placementOptionId || initialPlan?.placementOptionId);
+      if (!hasCachedGroups && !workflowAlreadyStarted) {
+        setPackGroups([]); // doar dacă e plan nou / încă neconfirmat
       }
       try {
         const response = fetchPlan ? await fetchPlan() : null;
@@ -308,7 +311,7 @@ export default function FbaSendToAmazonWizard({
         if (Array.isArray(pGroups)) {
           const normalized = normalizePackGroups(pGroups);
           setPackGroups((prev) => mergePackGroups(prev, normalized));
-          setPackGroupsLoaded(normalized.length > 0);
+          setPackGroupsLoaded(hasRealPackGroups(normalized));
         }
         if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
         if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
@@ -344,14 +347,16 @@ export default function FbaSendToAmazonWizard({
   // când intrăm în 1b și nu avem încă packing groups reale, declanșăm fetch automat
   useEffect(() => {
     if (currentStep !== '1b') return;
-    if (packGroupsLoaded || (packGroups?.length || 0) > 0) return;
+    const hasRealGroups = hasRealPackGroups(packGroups);
+    if (packGroupsLoaded || hasRealGroups) return;
     if (packingRefreshLoading || loadingPlan) return;
     refreshPackingGroups();
-  }, [currentStep, packGroupsLoaded, packGroups?.length, packingRefreshLoading, loadingPlan]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentStep, packGroupsLoaded, packGroups, packingRefreshLoading, loadingPlan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dacă avem deja grupuri în memorie, marcăm ca loaded ca să nu le ștergem inutil.
   useEffect(() => {
-    if ((packGroups?.length || 0) > 0) {
+    const hasRealGroups = hasRealPackGroups(packGroups);
+    if (hasRealGroups) {
       setPackGroupsLoaded(true);
     }
   }, [packGroups]);
@@ -542,7 +547,7 @@ export default function FbaSendToAmazonWizard({
       return;
     }
       // păstrăm grupurile existente; doar marcăm loading
-      setPackGroupsLoaded((packGroups?.length || 0) > 0);
+      setPackGroupsLoaded(hasRealPackGroups(packGroups));
       setPackingRefreshLoading(true);
       setPackingReadyError('');
       try {
@@ -558,7 +563,9 @@ export default function FbaSendToAmazonWizard({
         const trace = data?.traceId || data?.trace_id || null;
         const msg = data?.message || 'Amazon nu a returnat încă packing groups. Reîncearcă în câteva secunde.';
         setPackingReadyError(trace ? `${msg} · TraceId ${trace}` : msg);
-        setPackGroups([]); // nu afișăm nimic local dacă nu avem packing groups reale
+        if (!hasRealPackGroups(packGroups)) {
+          setPackGroups([]); // nu afișăm nimic local dacă nu avem packing groups reale
+        }
         return;
       }
       if (data?.code === 'PLACEMENT_ALREADY_ACCEPTED') {
@@ -919,8 +926,11 @@ export default function FbaSendToAmazonWizard({
           }
           if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
           if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
-          if (Array.isArray(pGroups)) setPackGroups(normalizePackGroups(pGroups));
-          if (Array.isArray(pGroups)) setPackGroupsLoaded(pGroups.length > 0);
+          if (Array.isArray(pGroups)) {
+            const normalized = normalizePackGroups(pGroups);
+            setPackGroups(normalized);
+            setPackGroupsLoaded(hasRealPackGroups(normalized));
+          }
           if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
           if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
           if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
