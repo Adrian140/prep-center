@@ -67,6 +67,30 @@ function safeJson(input: unknown) {
   }
 }
 
+function canonicalizeQuery(query: string) {
+  if (!query) return "";
+  const pairs = query
+    .split("&")
+    .filter(Boolean)
+    .map((part) => {
+      const [k, v = ""] = part.split("=");
+      const safeDecode = (val: string) => {
+        try {
+          return decodeURIComponent(val.replace(/\+/g, "%20"));
+        } catch {
+          return val;
+        }
+      };
+      const key = safeDecode(k);
+      const value = safeDecode(v);
+      return { key, value };
+    });
+  pairs.sort((a, b) => (a.key === b.key ? a.value.localeCompare(b.value) : a.key.localeCompare(b.key)));
+  return pairs
+    .map((p) => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`)
+    .join("&");
+}
+
 function regionHost(region: string) {
   switch ((region || "eu").toLowerCase()) {
     case "na":
@@ -215,19 +239,20 @@ async function signedFetch(opts: {
     marketplaceId,
     sellerId
   } = opts;
+  const canonicalQuery = canonicalizeQuery(query);
   const sigHeaders = await signRequest({
     method,
     service,
     region,
     host,
     path,
-    query,
+    query: canonicalQuery,
     payload,
     accessKey,
     secretKey,
     sessionToken
   });
-  const url = `https://${host}${path}${query ? `?${query}` : ""}`;
+  const url = `https://${host}${path}${canonicalQuery ? `?${canonicalQuery}` : ""}`;
   const requestHeaders = {
     ...sigHeaders,
     "x-amz-access-token": lwaToken,
@@ -454,7 +479,7 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const requestId = body?.request_id ?? body?.requestId;
+    let requestId = body?.request_id ?? body?.requestId;
     const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
     const placementOptionIdInput = body?.placement_option_id ?? body?.placementOptionId ?? null;
     let effectivePlacementOptionId = placementOptionIdInput;
@@ -499,11 +524,26 @@ serve(async (req) => {
       effectivePackingOptionId = reqRow?.packing_option_id || null;
     }
 
-    const { data: reqData, error: reqErr } = await supabase
+    let { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
       .select("id, destination_country, company_id, user_id")
       .eq("id", requestId)
       .maybeSingle();
+    if (!reqData && inboundPlanId) {
+      const alt = await supabase
+        .from("prep_requests")
+        .select("id, destination_country, company_id, user_id")
+        .eq("user_id", user.id)
+        .eq("inbound_plan_id", inboundPlanId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (alt?.data) {
+        requestId = alt.data.id;
+        reqData = alt.data;
+        logStep("prepRequestLookupFallback", { traceId, inboundPlanId, requestId });
+      }
+    }
     logStep("prepRequestLookup", {
       traceId,
       requestId,
@@ -514,7 +554,7 @@ serve(async (req) => {
     });
     if (reqErr) throw reqErr;
     if (!reqData) {
-      return new Response(JSON.stringify({ error: "Request not found" }), {
+      return new Response(JSON.stringify({ error: "Request not found", traceId, requestId, inboundPlanId }), {
         status: 404,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
@@ -1640,6 +1680,21 @@ serve(async (req) => {
     };
 
     const shipments = await normalizeShipmentsFromPlan();
+
+    try {
+      await supabase
+        .from("prep_requests")
+        .update({
+          placement_option_id: effectivePlacementOptionId,
+          transportation_option_id: selectedOption?.id || null,
+          step2_confirmed_at: new Date().toISOString(),
+          step2_summary: summary,
+          step2_shipments: shipments
+        })
+        .eq("id", requestId);
+    } catch (err) {
+      logStep("prepRequestUpdateFailed", { traceId, requestId, error: safeJson(err) });
+    }
 
     return new Response(
       JSON.stringify({
