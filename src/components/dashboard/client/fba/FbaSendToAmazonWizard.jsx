@@ -1211,12 +1211,12 @@ const fetchPartneredQuote = useCallback(
     }
   };
 
-  const completeAndNext = (stepKey) => {
+  function completeAndNext(stepKey) {
     const idx = stepsOrder.indexOf(stepKey);
     setCompletedSteps((prev) => Array.from(new Set([...prev, stepKey])));
     const nextKey = stepsOrder[idx + 1] || stepKey;
     setCurrentStep(nextKey);
-  };
+  }
 
   const goToStep = (stepKey) => {
     if (!stepsOrder.includes(stepKey)) return;
