@@ -859,7 +859,8 @@ export default function FbaSendToAmazonWizard({
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
           ship_date: shipmentMode?.deliveryDate || null,
-          force_partnered_if_available: true
+          force_partnered_if_available: true,
+          skip_confirm: true
         }
       });
       if (error) throw error;
@@ -934,6 +935,75 @@ export default function FbaSendToAmazonWizard({
         e?.message ||
         "Failed to load shipping options";
       console.error("fetchShippingOptions failed", e);
+      setShippingError(detail);
+    } finally {
+      setShippingLoading(false);
+    }
+  };
+
+  const confirmShippingOptions = async () => {
+    if (typeof window === 'undefined') return;
+    if (shippingLoading) return;
+    const inboundPlanId = resolveInboundPlanId();
+    const requestId = resolveRequestId();
+    const placementOptId =
+      placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
+    if (!inboundPlanId || !requestId || !placementOptId) {
+      setShippingError('Lipsește inboundPlanId, requestId sau placementOptionId.');
+      return;
+    }
+    const options = Array.isArray(shippingOptions) ? shippingOptions : [];
+    const getOptionId = (opt) => opt?.transportationOptionId || opt?.id || opt?.optionId || null;
+    const partneredOpt = options.find((o) => detectPartneredOption(o)) || null;
+    const nonPartneredOpt = options.find((o) => !detectPartneredOption(o)) || null;
+    const selectedOptionId = shipmentMode?.carrier?.partnered
+      ? (getOptionId(partneredOpt) || getOptionId(options[0]))
+      : (getOptionId(nonPartneredOpt) || getOptionId(options[0]));
+    if (!selectedOptionId) {
+      setShippingError('Nu există transportation option disponibil pentru confirmare.');
+      return;
+    }
+    setShippingLoading(true);
+    setShippingError('');
+    try {
+      const configs = buildShipmentConfigs();
+      const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
+        body: {
+          request_id: requestId,
+          inbound_plan_id: inboundPlanId,
+          placement_option_id: placementOptId,
+          packing_option_id: packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null,
+          transportation_option_id: selectedOptionId,
+          shipping_mode: shipmentMode?.method || null,
+          shipment_transportation_configurations: configs,
+          ship_date: shipmentMode?.deliveryDate || null,
+          force_partnered_if_available: true,
+          confirm: true
+        }
+      });
+      if (error) throw error;
+      if (json?.error) {
+        setShippingError(json.error);
+        return;
+      }
+      if (Array.isArray(json.shipments) && json.shipments.length) {
+        setShipments((prev) => {
+          const fallbackById = new Map((prev || []).map((s) => [String(s.id || ''), s]));
+          return json.shipments.map((s) => ({
+            ...(fallbackById.get(String(s.id || '')) || {}),
+            ...s,
+            source: 'api'
+          }));
+        });
+      }
+      completeAndNext('2');
+    } catch (e) {
+      const detail =
+        e?.context?.error?.message ||
+        e?.context?.response?.error?.message ||
+        e?.context?.response?.data?.error ||
+        e?.message ||
+        "Failed to confirm shipping option";
       setShippingError(detail);
     } finally {
       setShippingLoading(false);
@@ -1250,7 +1320,7 @@ export default function FbaSendToAmazonWizard({
           onModeChange={handleModeChange}
           onShipDateChange={(date) => setShipmentMode((prev) => ({ ...prev, deliveryDate: date }))}
           error={shippingError}
-          onNext={() => completeAndNext('2')}
+          onNext={confirmShippingOptions}
           onBack={() => goToStep('1b')}
         />
       );

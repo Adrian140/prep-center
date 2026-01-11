@@ -1532,6 +1532,33 @@ serve(async (req) => {
       defaultCharge: defaultOpt?.charge ?? null
     };
 
+    const shouldConfirm =
+      (body?.confirm ?? body?.confirmTransportation ?? true) &&
+      !(body?.skip_confirm ?? body?.skipConfirm ?? false);
+
+    if (!shouldConfirm) {
+      const normalizedShipments = normalizePlacementShipments(placementShipments);
+      return new Response(
+        JSON.stringify({
+          inboundPlanId,
+          placementOptionId: effectivePlacementOptionId || null,
+          options,
+          shipments: normalizedShipments,
+          summary,
+          status: {
+            placementConfirm: placementConfirm?.res?.status ?? null,
+            generate: genRes?.res.status ?? null,
+            list: listRes?.res.status ?? null,
+            confirm: null
+          },
+          amazonRequestId: listRes?.requestId || genRes?.requestId || null,
+          prepRequestId: requestId || null,
+          traceId
+        }),
+        { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
     // 3) Confirm transportation option (Amazon cere confirmTransportationOptions)
     if (!optionsForSelection.length) {
       return new Response(
