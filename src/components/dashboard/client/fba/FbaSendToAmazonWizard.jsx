@@ -169,7 +169,7 @@ export default function FbaSendToAmazonWizard({
   const [packingReadyError, setPackingReadyError] = useState('');
   const [step2Loaded, setStep2Loaded] = useState(false);
   const [shippingConfirming, setShippingConfirming] = useState(false);
-  const forcePartneredOnly = true;
+  const forcePartneredOnly = Boolean(shippingSummary?.partneredAllowed);
   const isFallbackId = useCallback((v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-"), []);
   const hasRealPackGroups = useCallback(
     (groups) =>
