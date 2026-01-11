@@ -1837,6 +1837,9 @@ serve(async (req) => {
     let _lastPackingOptions: any[] = [];
     let _lastPlacementOptions: any[] = [];
 
+    const inboundPlanErrored = (status: string | null) =>
+      String(status || "").toUpperCase() === "ERRORED";
+
     if (inboundPlanId) {
       const fetched = await fetchInboundPlanById(inboundPlanId);
       plans = fetched.fetchedPlans || [];
@@ -1844,7 +1847,30 @@ serve(async (req) => {
       _lastPackingOptions = fetched.fetchedPackingOptions || [];
       _lastPlacementOptions = fetched.fetchedPlacementOptions || [];
       appliedPlanBody = appliedPlanBody || buildPlanBody(appliedOverrides);
-    } else {
+
+      if (inboundPlanErrored(inboundPlanStatus)) {
+        logStep("inboundPlanErrored", {
+          traceId,
+          inboundPlanId,
+          inboundPlanStatus,
+          requestId,
+          marketplaceId,
+          region: awsRegion,
+          sellerId
+        });
+        await supabase
+          .from("prep_requests")
+          .update({ inbound_plan_id: null })
+          .eq("id", requestId);
+        inboundPlanId = null;
+        inboundPlanStatus = null;
+        plans = [];
+        _lastPackingOptions = [];
+        _lastPlacementOptions = [];
+      }
+    }
+
+    if (!inboundPlanId) {
       while (attempt < maxAttempts) {
         attempt += 1;
         const planBody = buildPlanBody(appliedOverrides);
