@@ -99,6 +99,14 @@ function safeJson(input: unknown) {
   }
 }
 
+function logStep(tag: string, payload: Record<string, unknown>) {
+  try {
+    console.log(JSON.stringify({ tag, ...payload, ts: new Date().toISOString() }));
+  } catch {
+    console.log(tag, payload);
+  }
+}
+
 function toBool(v: any): boolean | null {
   if (typeof v === "boolean") return v;
   if (typeof v === "number") return v === 1 ? true : v === 0 ? false : null;
