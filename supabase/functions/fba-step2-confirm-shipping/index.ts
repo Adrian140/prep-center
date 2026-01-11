@@ -881,11 +881,11 @@ serve(async (req) => {
           null;
 
         const pid = picked?.placementOptionId || picked?.id || null;
-        if (pid) return pid;
+        if (pid) return { pid, placements };
 
         await delay(Math.min(1000 * i, 5000));
       }
-      return null;
+      return { pid: null, placements: [] as any[] };
     };
 
     // 0) Always generate placement options (Amazon workflow expects this call)
@@ -895,8 +895,21 @@ serve(async (req) => {
     }
 
     // 1) List placement options and pick one if missing
-    const listedPid = await listPlacementWithRetry();
+    const { pid: listedPid, placements } = await listPlacementWithRetry();
+    const listedIds = new Set(
+      (Array.isArray(placements) ? placements : [])
+        .map((p: any) => p?.placementOptionId || p?.id || null)
+        .filter(Boolean)
+        .map((v: any) => String(v))
+    );
     if (!effectivePlacementOptionId) {
+      effectivePlacementOptionId = listedPid;
+    } else if (listedPid && !listedIds.has(String(effectivePlacementOptionId))) {
+      logStep("placementOptionMismatch", {
+        traceId,
+        incoming: effectivePlacementOptionId,
+        picked: listedPid
+      });
       effectivePlacementOptionId = listedPid;
     }
     if (!effectivePlacementOptionId) {
