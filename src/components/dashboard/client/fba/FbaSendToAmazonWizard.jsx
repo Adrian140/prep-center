@@ -168,9 +168,12 @@ export default function FbaSendToAmazonWizard({
   const [packingRefreshLoading, setPackingRefreshLoading] = useState(false);
   const [packingReadyError, setPackingReadyError] = useState('');
   const [step2Loaded, setStep2Loaded] = useState(false);
-  const isFallbackId = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
-  const hasRealPackGroups = (groups) =>
-    (Array.isArray(groups) ? groups : []).some((g) => g?.packingGroupId && !isFallbackId(g.packingGroupId));
+  const isFallbackId = useCallback((v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-"), []);
+  const hasRealPackGroups = useCallback(
+    (groups) =>
+      (Array.isArray(groups) ? groups : []).some((g) => g?.packingGroupId && !isFallbackId(g.packingGroupId)),
+    [isFallbackId]
+  );
   const packGroupsRef = useRef(packGroups);
   const planRef = useRef(plan);
   const packingOptionIdRef = useRef(packingOptionId);
@@ -233,33 +236,83 @@ export default function FbaSendToAmazonWizard({
     );
   }, [initialPlan?.inboundPlanId, initialPlan?.inbound_plan_id, initialPlan?.planId, initialPlan?.plan_id, plan?.inboundPlanId, plan?.inbound_plan_id, plan?.planId, plan?.plan_id]);
 
-  // Persistăm ultimul pas vizitat ca să nu se piardă la refresh.
+  // Persistăm ultimul pas vizitat ca să nu se piardă la refresh (cheie per shipment).
+  const storageKeyBase = useMemo(() => {
+    const inboundId =
+      plan?.inboundPlanId ||
+      plan?.inbound_plan_id ||
+      initialPlan?.inboundPlanId ||
+      initialPlan?.inbound_plan_id ||
+      null;
+    if (inboundId) return inboundId;
+    return (
+      plan?.requestId ||
+      plan?.request_id ||
+      initialPlan?.requestId ||
+      initialPlan?.request_id ||
+      plan?.id ||
+      initialPlan?.id ||
+      null
+    );
+  }, [
+    plan?.inboundPlanId,
+    plan?.inbound_plan_id,
+    initialPlan?.inboundPlanId,
+    initialPlan?.inbound_plan_id,
+    plan?.requestId,
+    plan?.request_id,
+    plan?.id,
+    initialPlan?.requestId,
+    initialPlan?.request_id,
+    initialPlan?.id
+  ]);
   const stepStorageKey = useMemo(() => {
-    const reqId =
-      plan?.requestId ||
-      plan?.request_id ||
-      initialPlan?.requestId ||
-      initialPlan?.request_id ||
-      plan?.id ||
-      initialPlan?.id ||
-      "default";
-    return `fba-wizard-step-${reqId}`;
-  }, [plan?.requestId, plan?.request_id, plan?.id, initialPlan?.requestId, initialPlan?.request_id, initialPlan?.id]);
+    if (!storageKeyBase) return null;
+    return `fba-wizard-step-${storageKeyBase}`;
+  }, [storageKeyBase]);
   const stateStorageKey = useMemo(() => {
-    const reqId =
-      plan?.requestId ||
-      plan?.request_id ||
-      initialPlan?.requestId ||
-      initialPlan?.request_id ||
-      plan?.id ||
-      initialPlan?.id ||
-      "default";
-    return `fba-wizard-state-${reqId}`;
-  }, [plan?.requestId, plan?.request_id, plan?.id, initialPlan?.requestId, initialPlan?.request_id, initialPlan?.id]);
+    if (!storageKeyBase) return null;
+    return `fba-wizard-state-${storageKeyBase}`;
+  }, [storageKeyBase]);
   const [restoredState, setRestoredState] = useState(false);
+  const prevStorageKeyRef = useRef(storageKeyBase);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (prevStorageKeyRef.current === storageKeyBase) return;
+    prevStorageKeyRef.current = storageKeyBase;
+    const normalized = normalizePackGroups(initialPackGroups || []);
+    setCurrentStep('1');
+    setCompletedSteps([]);
+    setPlan(initialPlan);
+    setPackGroups(normalized);
+    setPackGroupsLoaded(hasRealPackGroups(normalized));
+    setShipmentMode(initialShipmentMode);
+    setShipments(initialShipmentList);
+    setLabelFormat('thermal');
+    setTracking(initialTrackingList);
+    setPackingOptionId(initialPlan?.packingOptionId || null);
+    setPlacementOptionId(initialPlan?.placementOptionId || null);
+    setPlanError('');
+    setPackingSubmitError('');
+    setPackingReadyError('');
+    setShippingError('');
+    setShippingOptions([]);
+    setShippingSummary(null);
+    setStep2Loaded(false);
+    setRestoredState(false);
+  }, [
+    storageKeyBase,
+    initialPlan,
+    initialPackGroups,
+    initialShipmentMode,
+    initialShipmentList,
+    initialTrackingList,
+    normalizePackGroups,
+    hasRealPackGroups
+  ]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !stepStorageKey) return;
     const saved = window.localStorage.getItem(stepStorageKey);
     if (saved && stepsOrder.includes(saved)) {
       setCurrentStep(saved);
@@ -267,13 +320,13 @@ export default function FbaSendToAmazonWizard({
   }, [stepStorageKey]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !stepStorageKey) return;
     window.localStorage.setItem(stepStorageKey, String(currentStep));
   }, [currentStep, stepStorageKey]);
 
   // Rehidratează starea locală după refresh (similar cu "Active workflow" din Amazon)
   useEffect(() => {
-    if (typeof window === 'undefined' || restoredState) return;
+    if (typeof window === 'undefined' || restoredState || !stateStorageKey) return;
     const raw = window.localStorage.getItem(stateStorageKey);
     if (!raw) {
       setRestoredState(true);
@@ -303,6 +356,7 @@ export default function FbaSendToAmazonWizard({
   // Persistă starea curentă ca să poți relua workflow-ul după refresh.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!stateStorageKey) return;
     const snapshot = {
       plan,
       packGroups,
