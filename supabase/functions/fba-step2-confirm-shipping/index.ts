@@ -1371,6 +1371,12 @@ serve(async (req) => {
       shippingMode: shippingModeInput || null
     });
 
+    const hasDeliveryWindowPrecondition = (opt: any) => {
+      const pre = opt?.preconditions || opt?.Preconditions || [];
+      if (!Array.isArray(pre)) return false;
+      return pre.map((p) => String(p || "").toUpperCase()).includes("CONFIRMED_DELIVERY_WINDOW");
+    };
+
     let options = optionsRaw;
 
     const allRequireDeliveryWindow =
@@ -1436,12 +1442,6 @@ serve(async (req) => {
         count: options.length
       });
     }
-
-    const hasDeliveryWindowPrecondition = (opt: any) => {
-      const pre = opt?.preconditions || opt?.Preconditions || [];
-      if (!Array.isArray(pre)) return false;
-      return pre.map((p) => String(p || "").toUpperCase()).includes("CONFIRMED_DELIVERY_WINDOW");
-    };
 
     const generateDeliveryWindowOptions = async (shipmentId: string) =>
       signedFetch({
