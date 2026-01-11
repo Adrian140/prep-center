@@ -21,49 +21,72 @@ const getSafeDims = (dims = {}) => {
   return { length: length || 0, width: width || 0, height: height || 0 };
 };
 
+const normalizeShipDate = (val) => {
+  if (!val) return null;
+  const str = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return str;
+  const dd = String(match[1]).padStart(2, '0');
+  const mm = String(match[2]).padStart(2, '0');
+  const yyyy = match[3];
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 const detectPartneredOption = (opt = {}) => {
-  const carrierName = String(opt?.carrierName || opt?.carrier?.name || opt?.carrier?.alphaCode || opt?.carrier || '');
-  const shippingSolution = String(opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || '').toUpperCase();
-  const typeHints = [
-    opt?.transportationOptionType,
-    opt?.transportationOptionType?.type,
-    opt?.transportationOptionType?.transportationOptionType,
-    opt?.transportationOptionType?.transportationOptionType?.type,
-    opt?.carrierType,
-    opt?.carrier?.carrierType,
-    opt?.carrier?.type,
-    opt?.program,
-    opt?.carrierProgram,
-    opt?.partneredProgram,
-    opt?.shippingSolution,
-    opt?.shippingSolutionId,
-    opt?.shipping_solution,
-    opt?.shipping_solution_id
-  ]
-    .filter((v) => v !== undefined && v !== null)
-    .map((v) => String(v).toUpperCase());
-  const flags = [
-    opt?.partneredCarrier,
-    opt?.isPartnered,
-    opt?.partnered,
-    opt?.isAmazonPartnered,
-    opt?.amazonPartnered,
-    opt?.isAmazonPartneredCarrier,
-    opt?.carrierType === 'AMAZON_PARTNERED',
-    opt?.type === 'PARTNERED',
-    opt?.program === 'AMAZON_PARTNERED',
-    opt?.shippingSolution === 'AMAZON_PARTNERED_CARRIER'
-  ];
-  const solutionHints =
-    shippingSolution.includes('AMAZON_PARTNERED') ||
-    shippingSolution.includes('PARTNERED_CARRIER');
-  const typeMatch = typeHints.some(
-    (v) => v.includes('AMAZON_PARTNERED') || v.includes('PARTNERED_CARRIER')
-  );
-  const nameHints =
-    /partner/i.test(carrierName) ||
-    /partner/i.test(String(opt?.partneredCarrierName || ''));
-  return Boolean(flags.find(Boolean) || solutionHints || typeMatch || nameHints);
+  const explicit =
+    opt?.isPartnered ??
+    opt?.is_partnered ??
+    opt?.partneredCarrier ??
+    opt?.partnered ??
+    opt?.isAmazonPartnered ??
+    opt?.amazonPartnered ??
+    null;
+
+  if (explicit === true) return true;
+
+  const type = String(
+    opt?.transportationOptionType ||
+    opt?.transportation_option_type ||
+    opt?.transportationOption?.transportationOptionType ||
+    opt?.transportationOption?.type ||
+    opt?.type ||
+    ''
+  ).toUpperCase();
+
+  if (type.includes('AMAZON_PARTNERED') || type.includes('PARTNERED_CARRIER') || type === 'PARTNERED') {
+    return true;
+  }
+
+  const solution = String(
+    opt?.shippingSolution ||
+    opt?.shippingSolutionId ||
+    opt?.shipping_solution ||
+    opt?.shipping_solution_id ||
+    ''
+  ).toUpperCase();
+
+  if (solution.includes('AMAZON_PARTNERED') || solution.includes('PARTNERED_CARRIER')) {
+    return true;
+  }
+
+  const seen = new Set();
+  const stack = [opt];
+  while (stack.length) {
+    const cur = stack.pop();
+    if (cur == null) continue;
+    if (typeof cur === 'string') {
+      const s = cur.toUpperCase();
+      if (s.includes('AMAZON_PARTNERED') || s.includes('PARTNERED_CARRIER') || s === 'PARTNERED') return true;
+      continue;
+    }
+    if (typeof cur !== 'object') continue;
+    if (seen.has(cur)) continue;
+    seen.add(cur);
+    for (const v of Object.values(cur)) stack.push(v);
+  }
+
+  return false;
 };
 
 const initialData = {
@@ -915,7 +938,7 @@ const fetchPartneredQuote = useCallback(
           packing_option_id: packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null,
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
-          ship_date: shipmentMode?.deliveryDate || null,
+          ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
           force_partnered_if_available: true,
           force_partnered_only: forcePartneredOnly,
           confirm: false
@@ -969,8 +992,14 @@ const fetchPartneredQuote = useCallback(
         const preferredMode = shipmentMode.method || json.summary?.defaultMode;
         const preferredRate = json.summary?.defaultCharge ?? json.summary?.partneredRate ?? shipmentMode.carrier?.rate ?? null;
         const alreadyConfirmed = Boolean(json.alreadyConfirmed || json.summary?.alreadyConfirmed);
-        const partneredOpt = Array.isArray(json.options) ? json.options.find((o) => detectPartneredOption(o)) : null;
-        const hasPartnered = Boolean(json.summary?.partneredAllowed || partneredOpt);
+        const partneredOpt = Array.isArray(json.options)
+          ? json.options.find((o) => detectPartneredOption(o))
+          : null;
+        const hasPartnered = Boolean(
+          partneredOpt ||
+          json.summary?.partneredAllowed === true ||
+          typeof json.summary?.partneredRate === "number"
+        );
         const allowPartnered = hasPartnered || alreadyConfirmed;
         if (forcePartneredOnly && !allowPartnered) {
           setShippingError('Amazon partnered carrier nu este disponibil pentru acest shipment.');
@@ -1030,7 +1059,7 @@ const fetchPartneredQuote = useCallback(
           packing_option_id: packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null,
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
-          ship_date: shipmentMode?.deliveryDate || null,
+          ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
           force_partnered_if_available: forcePartneredIfAvailable,
           force_partnered_only: forcePartneredOnly,
           confirm: true
