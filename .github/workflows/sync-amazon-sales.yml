@@ -54,6 +54,7 @@ jobs:
           SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
           SPAPI_SALES_SYNC_LOOP: 'false'
           SPAPI_ORDER_WINDOW_DAYS: ${{ secrets.SPAPI_ORDER_WINDOW_DAYS || '30' }}
+          SPAPI_SALES_TIME_BUDGET_MS: 19800000
         run: npm run sync-sales
 
       - name: Relaunch immediately

@@ -14,6 +14,9 @@ const SALES_SYNC_LOOP = process.env.SPAPI_SALES_SYNC_LOOP !== 'false';
 const SALES_SYNC_INTERVAL_MS = Number(
   process.env.SPAPI_SALES_SYNC_INTERVAL_MS || 15 * 60 * 1000
 );
+const SALES_TIME_BUDGET_MS = Number(
+  process.env.SPAPI_SALES_TIME_BUDGET_MS || 5.5 * 60 * 60 * 1000
+);
 const SUPPORTED_MARKETPLACES = [
   'A13V1IB3VIYZZH', // FR
   'A1PA6795UKMFR9', // DE
@@ -357,7 +360,9 @@ async function fetchActiveIntegrations() {
 
   const { data, error } = await supabase
     .from('amazon_integrations')
-    .select('id, user_id, company_id, marketplace_id, region, selling_partner_id, refresh_token')
+    .select(
+      'id, user_id, company_id, marketplace_id, region, selling_partner_id, refresh_token, last_synced_at'
+    )
     .eq('status', 'active');
   if (error) throw error;
 
@@ -720,11 +725,6 @@ async function syncIntegration(integration) {
     throw err;
   }
 
-  await supabase
-    .from('amazon_integrations')
-    .update({ last_error: null, last_synced_at: new Date().toISOString() })
-    .eq('id', integration.id);
-
   console.log(
     `Done sales sync for integration ${integration.id}: ${sales.length} ASIN/SKU rows returned.`
   );
@@ -739,36 +739,89 @@ async function main() {
     return;
   }
 
-  const salesByCompany = new Map();
+  const startedAt = Date.now();
+  const hasTimeBudget = Number.isFinite(SALES_TIME_BUDGET_MS) && SALES_TIME_BUDGET_MS > 0;
 
+  const companies = new Map();
   for (const integration of integrations) {
-    let sales = [];
-    try {
-      sales = await syncIntegration(integration);
-    } catch (err) {
-      console.error(`Sales sync failed for integration ${integration.id}`, err);
-      await supabase
-        .from('amazon_integrations')
-        .update({ last_error: String(err?.message || err) })
-        .eq('id', integration.id);
+    if (!companies.has(integration.company_id)) {
+      companies.set(integration.company_id, []);
+    }
+    companies.get(integration.company_id).push(integration);
+  }
+
+  const companyEntries = Array.from(companies.entries())
+    .map(([companyId, rows]) => {
+      const times = rows
+        .map((row) => (row.last_synced_at ? new Date(row.last_synced_at).getTime() : null))
+        .filter((ts) => Number.isFinite(ts));
+      const oldest = times.length ? Math.min(...times) : Number.NEGATIVE_INFINITY;
+      return { companyId, integrations: rows, sortKey: oldest };
+    })
+    .sort((a, b) => a.sortKey - b.sortKey);
+
+  let timeBudgetReached = false;
+  for (const entry of companyEntries) {
+    if (hasTimeBudget && Date.now() - startedAt >= SALES_TIME_BUDGET_MS) {
+      timeBudgetReached = true;
+      break;
+    }
+
+    const sortedIntegrations = entry.integrations
+      .slice()
+      .sort((a, b) => {
+        const aTime = a.last_synced_at ? new Date(a.last_synced_at).getTime() : Number.NEGATIVE_INFINITY;
+        const bTime = b.last_synced_at ? new Date(b.last_synced_at).getTime() : Number.NEGATIVE_INFINITY;
+        return aTime - bTime;
+      });
+
+    const companyRows = new Map();
+    const completedIntegrationIds = [];
+    let companyFailed = false;
+
+    for (const integration of sortedIntegrations) {
+      if (hasTimeBudget && Date.now() - startedAt >= SALES_TIME_BUDGET_MS) {
+        companyFailed = true;
+        timeBudgetReached = true;
+        break;
+      }
+
+      try {
+        const sales = await syncIntegration(integration);
+        accumulateSalesRows(companyRows, sales || []);
+        completedIntegrationIds.push(integration.id);
+      } catch (err) {
+        companyFailed = true;
+        console.error(`Sales sync failed for integration ${integration.id}`, err);
+        await supabase
+          .from('amazon_integrations')
+          .update({ last_error: String(err?.message || err) })
+          .eq('id', integration.id);
+        break;
+      }
+    }
+
+    if (companyFailed || completedIntegrationIds.length !== sortedIntegrations.length) {
+      if (timeBudgetReached) {
+        break;
+      }
       continue;
     }
 
-    const companyId = integration.company_id;
-    if (!salesByCompany.has(companyId)) {
-      salesByCompany.set(companyId, { userId: integration.user_id, rows: new Map() });
-    }
-    const group = salesByCompany.get(companyId);
-    if (!group.userId && integration.user_id) {
-      group.userId = integration.user_id;
-    }
+    const aggregatedRows = Array.from(companyRows.values());
+    await upsertSales({ rows: aggregatedRows, companyId: entry.companyId, userId: sortedIntegrations[0]?.user_id });
 
-    accumulateSalesRows(group.rows, sales || []);
+    const syncedAt = new Date().toISOString();
+    await supabase
+      .from('amazon_integrations')
+      .update({ last_error: null, last_synced_at: syncedAt })
+      .in('id', completedIntegrationIds);
   }
 
-  for (const [companyId, group] of salesByCompany.entries()) {
-    const aggregatedRows = Array.from(group.rows.values());
-    await upsertSales({ rows: aggregatedRows, companyId, userId: group.userId });
+  if (timeBudgetReached) {
+    console.warn(
+      `[Sales sync] Time budget reached (~${Math.round(SALES_TIME_BUDGET_MS / 60000)}m); stopping early to avoid runner timeout.`
+    );
   }
 }
 

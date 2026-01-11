@@ -83,8 +83,11 @@ async function fetchActiveIntegrations() {
 
   const { data, error } = await supabase
     .from('amazon_integrations')
-    .select('id, user_id, company_id, marketplace_id, region, selling_partner_id, refresh_token, status')
-    .eq('status', 'active');
+    .select(
+      'id, user_id, company_id, marketplace_id, region, selling_partner_id, refresh_token, status, last_synced_at'
+    )
+    .eq('status', 'active')
+    .order('last_synced_at', { ascending: true, nullsFirst: true });
 
   if (error) throw error;
 
