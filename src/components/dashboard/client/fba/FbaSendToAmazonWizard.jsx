@@ -334,11 +334,12 @@ export default function FbaSendToAmazonWizard({
   }, [autoLoadPlan, fetchPlan, normalizePackGroups, planLoaded]);
 
   const warning = useMemo(() => {
+    if (!step2Loaded || shippingLoading) return null;
     if (shippingSummary && shippingSummary.partneredAllowed === false) {
       return 'Amazon a indicat că transportul partenereat nu este disponibil pentru aceste expedieri.';
     }
     return null;
-  }, [shippingSummary]);
+  }, [shippingSummary, shippingLoading, step2Loaded]);
 
   // când intrăm în 1b și nu avem încă packing groups reale, declanșăm fetch automat
   useEffect(() => {
