@@ -210,6 +210,15 @@ export default function FbaSendToAmazonWizard({
       }
     }
   }, [currentStep]);
+  useEffect(() => {
+    if (currentStep !== '2') return;
+    if (!forcePartneredOnly) return;
+    if (shipmentMode?.carrier?.partnered) return;
+    setShipmentMode((prev) => ({
+      ...prev,
+      carrier: { partnered: true, name: 'UPS (Amazon-partnered carrier)', rate: prev?.carrier?.rate ?? null }
+    }));
+  }, [currentStep, forcePartneredOnly, shipmentMode?.carrier?.partnered]);
   const resolveRequestId = useCallback(() => {
     return (
       plan?.prepRequestId ||
