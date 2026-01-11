@@ -1320,6 +1320,10 @@ serve(async (req) => {
       );
     }
 
+    const shouldConfirm =
+      (body?.confirm ?? body?.confirmTransportation ?? true) &&
+      !(body?.skip_confirm ?? body?.skipConfirm ?? false);
+
     // 1) Generate transportation options (idempotent)
     logStep("transportationOptions_payload", {
       traceId,
@@ -1571,7 +1575,7 @@ serve(async (req) => {
       options.length > 0 &&
       options.every((opt: any) => hasDeliveryWindowPrecondition(opt));
 
-    if (allRequireDeliveryWindow) {
+    if (allRequireDeliveryWindow && shouldConfirm) {
       const shipmentIds = Array.from(
         new Set(
           placementShipments
@@ -1748,10 +1752,6 @@ serve(async (req) => {
       defaultMode: defaultOpt?.mode || null,
       defaultCharge: defaultOpt?.charge ?? null
     };
-
-    const shouldConfirm =
-      (body?.confirm ?? body?.confirmTransportation ?? true) &&
-      !(body?.skip_confirm ?? body?.skipConfirm ?? false);
 
     if (!shouldConfirm) {
       const normalizedShipments = normalizePlacementShipments(placementShipments);

@@ -2280,18 +2280,7 @@ serve(async (req) => {
       }
     }
 
-    if (inboundPlanId && (!plans || !plans.length)) {
-      const packingResult = await fetchPackingGroups(inboundPlanId);
-      if (packingResult?.packingOptionId) {
-        packingOptionId = packingResult.packingOptionId;
-      }
-      if (Array.isArray(packingResult?.packingGroups) && packingResult.packingGroups.length) {
-        packingGroupsFromAmazon = packingResult.packingGroups;
-      }
-      if (packingResult?.warnings?.length) {
-        planWarnings.push(...packingResult.warnings);
-      }
-    }
+    // Packing options and groups are handled in Step 1b to match the documented flow.
 
     const normalizeItems = (p: any) => p?.items || p?.Items || p?.shipmentItems || p?.ShipmentItems || [];
 
