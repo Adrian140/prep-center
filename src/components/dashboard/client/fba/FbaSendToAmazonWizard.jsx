@@ -21,6 +21,21 @@ const getSafeDims = (dims = {}) => {
   return { length: length || 0, width: width || 0, height: height || 0 };
 };
 
+const detectPartneredOption = (opt = {}) => {
+  const carrierName = String(opt?.carrierName || opt?.carrier || '');
+  const shippingSolution = String(opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || '').toUpperCase();
+  const flags = [
+    opt?.partneredCarrier,
+    opt?.isPartnered,
+    opt?.partnered,
+    opt?.carrierType === 'AMAZON_PARTNERED',
+    opt?.type === 'PARTNERED',
+    opt?.program === 'AMAZON_PARTNERED',
+    opt?.shippingSolution === 'AMAZON_PARTNERED_CARRIER'
+  ];
+  return Boolean(flags.find(Boolean) || /partner/i.test(carrierName) || shippingSolution.includes('AMAZON_PARTNERED'));
+};
+
 const initialData = {
   shipFrom: {
     name: 'Bucur Adrian, 5B Rue des Enclos, Gouseniere, FR',
@@ -789,7 +804,8 @@ export default function FbaSendToAmazonWizard({
           packing_option_id: packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null,
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
-          ship_date: shipmentMode?.deliveryDate || null
+          ship_date: shipmentMode?.deliveryDate || null,
+          force_partnered_if_available: true
         }
       });
       if (error) throw error;
@@ -835,20 +851,22 @@ export default function FbaSendToAmazonWizard({
           })
         );
       }
-      // auto-select carrier from summary
-      if (json.summary) {
-        const preferredMode = shipmentMode.method || json.summary.defaultMode;
-        const preferredRate = json.summary.defaultCharge ?? json.summary.partneredRate ?? shipmentMode.carrier?.rate ?? null;
-        if (json.summary.partneredAllowed) {
+      // auto-select carrier (prefer partnered if available)
+      if (json.summary || Array.isArray(json.options)) {
+        const preferredMode = shipmentMode.method || json.summary?.defaultMode;
+        const preferredRate = json.summary?.defaultCharge ?? json.summary?.partneredRate ?? shipmentMode.carrier?.rate ?? null;
+        const partneredOpt = Array.isArray(json.options) ? json.options.find((o) => detectPartneredOption(o)) : null;
+        const hasPartnered = Boolean(json.summary?.partneredAllowed || partneredOpt);
+        if (hasPartnered) {
           setShipmentMode((prev) => ({
             ...prev,
-            carrier: { partnered: true, name: json.summary.defaultCarrier || "Amazon partnered", rate: preferredRate },
+            carrier: { partnered: true, name: partneredOpt?.carrierName || json.summary?.defaultCarrier || "Amazon partnered", rate: preferredRate },
             method: preferredMode
           }));
         } else {
           setShipmentMode((prev) => ({
             ...prev,
-            carrier: { partnered: false, name: json.summary.defaultCarrier || "Non Amazon partnered", rate: preferredRate },
+            carrier: { partnered: false, name: json.summary?.defaultCarrier || "Non Amazon partnered", rate: preferredRate },
             method: preferredMode
           }));
         }
