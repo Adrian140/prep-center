@@ -1379,6 +1379,17 @@ serve(async (req) => {
         requestId: genStatus?.requestId || null,
         problems: getOperationProblems(genStatus) || null
       });
+      if (stateUp === "IN_PROGRESS") {
+        return new Response(
+          JSON.stringify({
+            error: "Transportation options are still generating. Reîncearcă în câteva secunde.",
+            code: "TRANSPORT_OPTIONS_PENDING",
+            operationId: opId,
+            traceId
+          }),
+          { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
       if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
         generateFailed = true;
         generateProblems = getOperationProblems(genStatus);
