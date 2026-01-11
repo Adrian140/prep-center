@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../../../config/supabase';
 import { CheckCircle2, Circle, Eye } from 'lucide-react';
 import FbaStep1Inventory from './FbaStep1Inventory';
@@ -156,6 +156,22 @@ export default function FbaSendToAmazonWizard({
   const isFallbackId = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
   const hasRealPackGroups = (groups) =>
     (Array.isArray(groups) ? groups : []).some((g) => g?.packingGroupId && !isFallbackId(g.packingGroupId));
+  const packGroupsRef = useRef(packGroups);
+  const planRef = useRef(plan);
+  const packingOptionIdRef = useRef(packingOptionId);
+  const placementOptionIdRef = useRef(placementOptionId);
+  useEffect(() => {
+    packGroupsRef.current = packGroups;
+  }, [packGroups]);
+  useEffect(() => {
+    planRef.current = plan;
+  }, [plan]);
+  useEffect(() => {
+    packingOptionIdRef.current = packingOptionId;
+  }, [packingOptionId]);
+  useEffect(() => {
+    placementOptionIdRef.current = placementOptionId;
+  }, [placementOptionId]);
   const resolveRequestId = useCallback(() => {
     return (
       plan?.prepRequestId ||
@@ -169,6 +185,19 @@ export default function FbaSendToAmazonWizard({
       null
     );
   }, [initialPlan?.id, initialPlan?.prepRequestId, initialPlan?.requestId, initialPlan?.request_id, plan?.id, plan?.prepRequestId, plan?.requestId, plan?.request_id]);
+  const resolveInboundPlanId = useCallback(() => {
+    return (
+      plan?.inboundPlanId ||
+      plan?.inbound_plan_id ||
+      plan?.planId ||
+      plan?.plan_id ||
+      initialPlan?.inboundPlanId ||
+      initialPlan?.inbound_plan_id ||
+      initialPlan?.planId ||
+      initialPlan?.plan_id ||
+      null
+    );
+  }, [initialPlan?.inboundPlanId, initialPlan?.inbound_plan_id, initialPlan?.planId, initialPlan?.plan_id, plan?.inboundPlanId, plan?.inbound_plan_id, plan?.planId, plan?.plan_id]);
 
   // Persistăm ultimul pas vizitat ca să nu se piardă la refresh.
   const stepStorageKey = useMemo(() => {
@@ -280,10 +309,10 @@ export default function FbaSendToAmazonWizard({
       setLoadingPlan(true);
       setPlanError('');
       setStep1SaveError('');
-      const hasCachedGroups = hasRealPackGroups(packGroups);
+      const hasCachedGroups = hasRealPackGroups(packGroupsRef.current);
       const workflowAlreadyStarted =
-        Boolean(packingOptionId || plan?.packingOptionId || initialPlan?.packingOptionId) ||
-        Boolean(placementOptionId || plan?.placementOptionId || initialPlan?.placementOptionId);
+        Boolean(packingOptionIdRef.current || planRef.current?.packingOptionId || initialPlan?.packingOptionId) ||
+        Boolean(placementOptionIdRef.current || planRef.current?.placementOptionId || initialPlan?.placementOptionId);
       if (!hasCachedGroups && !workflowAlreadyStarted) {
         setPackGroups([]); // doar dacă e plan nou / încă neconfirmat
       }
@@ -451,20 +480,10 @@ export default function FbaSendToAmazonWizard({
   };
 
   const submitPackingInformation = async (payload = {}) => {
-    const inboundPlanId =
-      plan?.inboundPlanId || plan?.inbound_plan_id || plan?.planId || plan?.plan_id || null;
+    const inboundPlanId = resolveInboundPlanId();
     const packingOptId =
       packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null;
-    const requestId =
-      plan?.prepRequestId ||
-      initialPlan?.prepRequestId ||
-      plan?.requestId ||
-      plan?.request_id ||
-      initialPlan?.requestId ||
-      initialPlan?.request_id ||
-      plan?.id ||
-      initialPlan?.id ||
-      null;
+    const requestId = resolveRequestId();
     const placementOptId =
       placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
 
@@ -530,18 +549,8 @@ export default function FbaSendToAmazonWizard({
 
   const refreshPackingGroups = async () => {
     if (typeof window === 'undefined') return;
-    const inboundPlanId =
-      plan?.inboundPlanId || plan?.inbound_plan_id || plan?.planId || plan?.plan_id || null;
-    const requestId =
-      plan?.prepRequestId ||
-      initialPlan?.prepRequestId ||
-      plan?.requestId ||
-      plan?.request_id ||
-      initialPlan?.requestId ||
-      initialPlan?.request_id ||
-      plan?.id ||
-      initialPlan?.id ||
-      null;
+    const inboundPlanId = resolveInboundPlanId();
+    const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) {
       setPackingReadyError('Lipsește inboundPlanId sau requestId; reîncarcă planul.');
       return;
@@ -638,20 +647,10 @@ export default function FbaSendToAmazonWizard({
 
   const fetchShippingOptions = async () => {
     if (typeof window === 'undefined') return; // rulează doar în browser
-    const inboundPlanId =
-      plan?.inboundPlanId || plan?.inbound_plan_id || plan?.planId || plan?.plan_id || null;
+    const inboundPlanId = resolveInboundPlanId();
     let placementOptId =
       placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
-    const requestId =
-      plan?.prepRequestId ||
-      initialPlan?.prepRequestId ||
-      plan?.requestId ||
-      plan?.request_id ||
-      initialPlan?.requestId ||
-      initialPlan?.request_id ||
-      plan?.id ||
-      initialPlan?.id ||
-      null;
+    const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) {
       setShippingError('Lipsește inboundPlanId sau requestId; nu pot cere opțiunile de transport.');
       return;
@@ -901,6 +900,9 @@ export default function FbaSendToAmazonWizard({
     async (stepKey) => {
       if (stepKey === '2' || stepKey === '3' || stepKey === '4') {
         setStep2Loaded(false);
+        setShippingError('');
+        setShippingSummary(null);
+        setShippingOptions([]);
         await fetchShippingOptions();
         return;
       }
