@@ -1281,6 +1281,22 @@ serve(async (req) => {
     }
 
     // 1) Generate transportation options (idempotent)
+    logStep("transportationOptions_payload", {
+      traceId,
+      inboundPlanId,
+      placementOptionId: effectivePlacementOptionId,
+      packingOptionId: effectivePackingOptionId || null,
+      shippingMode: shippingModeInput || null,
+      shipDate: shipDateFromClient || null,
+      shipmentConfigCount: shipmentTransportationConfigurations.length,
+      shipments: shipmentTransportationConfigurations.map((c: any) => ({
+        shipmentId: c?.shipmentId || null,
+        readyStart: c?.readyToShipWindow?.start || null,
+        readyEnd: c?.readyToShipWindow?.end || null,
+        packages: Array.isArray(c?.packages) ? c.packages.length : 0,
+        hasContact: Boolean(c?.contactInformation)
+      }))
+    });
     const generatePayload = JSON.stringify({
       placementOptionId: effectivePlacementOptionId,
       shipmentTransportationConfigurations
