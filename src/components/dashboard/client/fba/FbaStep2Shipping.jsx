@@ -4,8 +4,6 @@ import { AlertTriangle, CheckCircle, Truck } from 'lucide-react';
 export default function FbaStep2Shipping({
   shipment,
   hazmat = false,
-  marketplaceId = null,
-  inboundPlanId = null,
   fetchPartneredQuote, // optional async ({ method, hazmat }) => { allowed: boolean; rate: number; reason?: string }
   onCarrierChange,
   onModeChange,
@@ -89,20 +87,6 @@ export default function FbaStep2Shipping({
     disablePartnered || partneredRate === null ? 'Not available' : `€${partneredRate.toFixed(2)}`;
   const canContinue = carrier?.partnered ? termsAccepted && partneredAllowed : true;
 
-  const needsDeliveryWindow = (error || '').toLowerCase().includes('confirmed_delivery_window');
-  const resolveSellerCentralHost = (id) => {
-    const map = {
-      A13V1IB3VIYZZH: 'sellercentral.amazon.fr',
-      A1PA6795UKMFR9: 'sellercentral.amazon.de',
-      APJ6JRA9NG5V4: 'sellercentral.amazon.it',
-      A1RKKUPIHCS9HS: 'sellercentral.amazon.es',
-      A1F83G8C2ARO7P: 'sellercentral.amazon.co.uk',
-      ATVPDKIKX0DER: 'sellercentral.amazon.com'
-    };
-    return map[id] || 'sellercentral.amazon.com';
-  };
-  const sellerCentralUrl = `https://${resolveSellerCentralHost(marketplaceId)}/`;
-
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
@@ -115,22 +99,6 @@ export default function FbaStep2Shipping({
         {error && (
           <div className="flex items-start gap-2 bg-red-50 text-red-800 border border-red-200 px-3 py-2 rounded-md text-sm">
             {error}
-          </div>
-        )}
-        {needsDeliveryWindow && (
-          <div className="border border-amber-200 bg-amber-50 rounded-md px-3 py-3 text-sm text-amber-900 space-y-2">
-            <div>
-              Amazon cere confirmarea delivery window in Send to Amazon. Deschide workflow-ul in Seller Central si confirma
-              pentru planul {inboundPlanId || 'curent'}.
-            </div>
-            <a
-              href={sellerCentralUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center px-3 py-2 rounded-md bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700"
-            >
-              Deschide Send to Amazon
-            </a>
           </div>
         )}
         {warning && (
