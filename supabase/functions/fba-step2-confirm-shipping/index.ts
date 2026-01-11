@@ -1042,6 +1042,73 @@ serve(async (req) => {
       });
     }
 
+    const normalizePlacementShipments = (list: any[]) =>
+      (Array.isArray(list) ? list : []).map((sh: any, idx: number) => {
+        const id = sh?.shipmentId || sh?.id || `s-${idx + 1}`;
+        return { ...sh, id, shipmentId: id };
+      });
+
+    const getSelectedTransportationOptionId = async (shipmentId: string) => {
+      const shDetail = await signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shipmentId)}`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.getShipment",
+        marketplaceId,
+        sellerId
+      });
+      const payload = shDetail?.json?.payload || shDetail?.json || {};
+      const selectedTransportationOptionId =
+        payload?.selectedTransportationOptionId || payload?.selectedTransportationOptionID || null;
+      return { selectedTransportationOptionId, requestId: shDetail?.requestId || null };
+    };
+
+    const firstShipmentId = placementShipments?.[0]?.shipmentId || placementShipments?.[0]?.id || null;
+    if (firstShipmentId) {
+      const { selectedTransportationOptionId } = await getSelectedTransportationOptionId(String(firstShipmentId));
+      if (selectedTransportationOptionId) {
+        const normalizedShipments = normalizePlacementShipments(placementShipments);
+        const { error: updErr } = await supabase
+          .from("prep_requests")
+          .update({
+            placement_option_id: effectivePlacementOptionId,
+            transportation_option_id: selectedTransportationOptionId,
+            step2_confirmed_at: new Date().toISOString(),
+            step2_summary: {
+              alreadyConfirmed: true,
+              selectedTransportationOptionId
+            },
+            step2_shipments: normalizedShipments
+          })
+          .eq("id", requestId);
+        if (updErr) {
+          logStep("prepRequestUpdateFailed", { traceId, requestId, error: updErr.message });
+        }
+        return new Response(
+          JSON.stringify({
+            inboundPlanId,
+            placementOptionId: effectivePlacementOptionId || null,
+            shipments: normalizedShipments,
+            summary: { alreadyConfirmed: true, selectedTransportationOptionId },
+            alreadyConfirmed: true,
+            selectedTransportationOptionId,
+            prepRequestId: requestId || null,
+            traceId
+          }),
+          { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+    }
+
     function parseShipDate(input: any): Date | null {
       if (!input) return null;
       const s = String(input).trim();
@@ -1555,6 +1622,43 @@ serve(async (req) => {
           }),
           { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
         );
+      }
+      const alreadyConfirmed =
+        /already been confirmed|has been confirmed|already confirmed/i.test(bodyPreview);
+      if (alreadyConfirmed && firstShipmentId) {
+        const { selectedTransportationOptionId } = await getSelectedTransportationOptionId(String(firstShipmentId));
+        if (selectedTransportationOptionId) {
+          const normalizedShipments = normalizePlacementShipments(placementShipments);
+          const { error: updErr } = await supabase
+            .from("prep_requests")
+            .update({
+              placement_option_id: effectivePlacementOptionId,
+              transportation_option_id: selectedTransportationOptionId,
+              step2_confirmed_at: new Date().toISOString(),
+              step2_summary: {
+                alreadyConfirmed: true,
+                selectedTransportationOptionId
+              },
+              step2_shipments: normalizedShipments
+            })
+            .eq("id", requestId);
+          if (updErr) {
+            logStep("prepRequestUpdateFailed", { traceId, requestId, error: updErr.message });
+          }
+          return new Response(
+            JSON.stringify({
+              inboundPlanId,
+              placementOptionId: effectivePlacementOptionId || null,
+              shipments: normalizedShipments,
+              summary: { alreadyConfirmed: true, selectedTransportationOptionId },
+              alreadyConfirmed: true,
+              selectedTransportationOptionId,
+              prepRequestId: requestId || null,
+              traceId
+            }),
+            { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
       }
     }
     if (confirmOpId) {
