@@ -654,6 +654,10 @@ serve(async (req) => {
         null;
       return String(state || "").toUpperCase();
     };
+    const isTerminalOperationState = (stateUp: string) =>
+      ["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(String(stateUp || "").toUpperCase());
+    const isInProgressOperationState = (stateUp: string) =>
+      ["IN_PROGRESS", "INPROGRESS", "PENDING"].includes(String(stateUp || "").toUpperCase());
 
     const getOperationProblems = (res: Awaited<ReturnType<typeof signedFetch>> | null) =>
       res?.json?.payload?.operationProblems || res?.json?.operationProblems || res?.json?.errors || null;
@@ -1379,13 +1383,27 @@ serve(async (req) => {
         requestId: genStatus?.requestId || null,
         problems: getOperationProblems(genStatus) || null
       });
-      if (stateUp === "IN_PROGRESS") {
+      if (isInProgressOperationState(stateUp)) {
         return new Response(
           JSON.stringify({
-            error: "Transportation options are still generating. Reîncearcă în câteva secunde.",
-            code: "TRANSPORT_OPTIONS_PENDING",
+            error: "Transportation options are still generating. Retry shortly.",
+            code: "TRANSPORTATION_OPTIONS_PENDING",
+            traceId,
             operationId: opId,
-            traceId
+            retryAfterMs: 4000
+          }),
+          { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+      if (!isTerminalOperationState(stateUp)) {
+        return new Response(
+          JSON.stringify({
+            error: "Unknown operation state for generateTransportationOptions. Retry shortly.",
+            code: "TRANSPORTATION_OPTIONS_UNKNOWN_STATE",
+            traceId,
+            operationId: opId,
+            state: stateUp || null,
+            retryAfterMs: 4000
           }),
           { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
         );
@@ -1619,10 +1637,12 @@ serve(async (req) => {
     if (!Array.isArray(options) || options.length === 0) {
       return new Response(
         JSON.stringify({
-          error: "Amazon nu a returnat placement/transportation options încă. Reîncearcă în câteva secunde (placementOptions goale).",
+          error: "Amazon nu a returnat transportation options încă. Reîncearcă în câteva secunde.",
+          code: "TRANSPORTATION_OPTIONS_EMPTY",
           traceId,
           generateFailed,
-          generateProblems
+          generateProblems,
+          retryAfterMs: 4000
         }),
         { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
