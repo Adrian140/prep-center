@@ -1043,8 +1043,58 @@ serve(async (req) => {
       });
     }
 
+    function parseShipDate(input: any): Date | null {
+      if (!input) return null;
+      const s = String(input).trim();
+      const iso = Date.parse(s);
+      if (!Number.isNaN(iso)) return new Date(iso);
+      const m = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+      if (m) {
+        const dd = Number(m[1]);
+        const mm = Number(m[2]);
+        const yy = Number(m[3]);
+        return new Date(Date.UTC(yy, mm - 1, dd, 9, 0, 0));
+      }
+      const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m2) {
+        const yy = Number(m2[1]);
+        const mm = Number(m2[2]);
+        const dd = Number(m2[3]);
+        return new Date(Date.UTC(yy, mm - 1, dd, 9, 0, 0));
+      }
+      return null;
+    }
+
+    function normalizePackages(packages: any) {
+      if (!Array.isArray(packages)) return null;
+      const cleaned = packages
+        .map((p: any) => {
+          const dims = p?.dimensions || p?.dimension || null;
+          const w = p?.weight || null;
+          const quantity = Number(p?.quantity ?? 1);
+          const length = Number(dims?.length);
+          const width = Number(dims?.width);
+          const height = Number(dims?.height);
+          const dimUnit = (dims?.unit || dims?.uom || "CM").toString().toUpperCase();
+          const weightValue = Number(w?.value);
+          const weightUnit = (w?.unit || w?.uom || "KG").toString().toUpperCase();
+          if (!Number.isFinite(length) || !Number.isFinite(width) || !Number.isFinite(height)) return null;
+          if (!Number.isFinite(weightValue)) return null;
+          return {
+            dimensions: { length, width, height, unit: dimUnit },
+            weight: { value: weightValue, unit: weightUnit },
+            quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1
+          };
+        })
+        .filter(Boolean);
+      return cleaned.length ? cleaned : null;
+    }
+
+    const shipDateFromClient = body?.ship_date ?? body?.shipDate ?? null;
+    const shipDateParsed = parseShipDate(shipDateFromClient);
+
     const readyStartIso = (() => {
-      // Forțăm ship date pe ziua curentă; ignorăm input-ul din client și o mutăm cu 1h în viitor (max ora 23:59) ca să nu fie în trecut.
+      if (shipDateParsed) return shipDateParsed.toISOString();
       const now = new Date();
       const plusOneHour = new Date(now.getTime() + 60 * 60 * 1000);
       const endOfDay = new Date(now);
@@ -1068,6 +1118,8 @@ serve(async (req) => {
         readyToShipWindow: { start: readyStart, end: readyEnd }
       };
       if (contactInformation) baseCfg.contactInformation = contactInformation;
+      const pkgs = normalizePackages(cfg?.packages);
+      if (pkgs) baseCfg.packages = pkgs;
       return baseCfg;
     });
 
@@ -1347,7 +1399,21 @@ serve(async (req) => {
       );
     }
 
-    const selectedOptionId = confirmOptionId || defaultOpt?.id || normalizedOptions[0]?.id || null;
+    const forcePartneredIfAvailable =
+      body?.force_partnered_if_available ?? body?.forcePartneredIfAvailable ?? true;
+
+    let selectedOptionId = confirmOptionId || defaultOpt?.id || normalizedOptions[0]?.id || null;
+
+    if (forcePartneredIfAvailable) {
+      const partneredOptPick = normalizedOptions.find((o) => o.partnered);
+      const requested = normalizedOptions.find((o) => o.id === confirmOptionId) || null;
+      if (partneredOptPick && requested && !requested.partnered) {
+        selectedOptionId = partneredOptPick.id;
+      }
+      if (partneredOptPick && !confirmOptionId) {
+        selectedOptionId = partneredOptPick.id;
+      }
+    }
     const selectedOption =
       normalizedOptions.find((o) => o.id === selectedOptionId) || normalizedOptions[0] || null;
 
