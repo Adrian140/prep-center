@@ -278,7 +278,12 @@ export default function FbaSendToAmazonWizard({
       setLoadingPlan(true);
       setPlanError('');
       setStep1SaveError('');
-      setPackGroups([]); // nu afișăm nimic local până primim packing groups de la API
+      const hasCachedGroups = (packGroups || []).some(
+        (g) => g?.packingGroupId && !isFallbackId(g.packingGroupId)
+      );
+      if (!hasCachedGroups) {
+        setPackGroups([]); // nu afișăm nimic local până primim packing groups de la API
+      }
       try {
         const response = fetchPlan ? await fetchPlan() : null;
         if (cancelled || !response) return;
@@ -555,6 +560,25 @@ export default function FbaSendToAmazonWizard({
         setPackGroups([]); // nu afișăm nimic local dacă nu avem packing groups reale
         return;
       }
+      if (data?.code === 'PLACEMENT_ALREADY_ACCEPTED') {
+        const cachedGroups = Array.isArray(data?.packingGroups) ? data.packingGroups : [];
+        const trace = data?.traceId || data?.trace_id || null;
+        if (!cachedGroups.length) {
+          const msg =
+            'Planul este deja ACCEPTED în Amazon, iar packing groups nu mai pot fi regenerate. Reia planul doar dacă ai packing groups salvate.';
+          setPackingReadyError(trace ? `${msg} · TraceId ${trace}` : msg);
+          return;
+        }
+        setPackingReadyError('Planul este deja ACCEPTED în Amazon; folosim packing groups salvate.');
+        if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
+        if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
+        const normalized = normalizePackGroups(cachedGroups);
+        setPackGroupsLoaded(true);
+        setPackGroups((prev) => mergePackGroups(prev, normalized));
+        if (Array.isArray(data?.shipments)) setShipments(data.shipments);
+        setPlanError('');
+        return;
+      }
       if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
       if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
       if (Array.isArray(data?.packingGroups)) {
@@ -649,15 +673,32 @@ export default function FbaSendToAmazonWizard({
           );
           return;
         }
-        placementOptId = step1b?.placementOptionId || step1b?.placement_option_id || null;
-        if (placementOptId) {
-          setPlacementOptionId(placementOptId);
-          if (Array.isArray(step1b?.packingGroups)) {
-            const normalized = normalizePackGroups(step1b.packingGroups);
-            setPackGroups((prev) => mergePackGroups(prev, normalized));
+        if (step1b?.code === 'PLACEMENT_ALREADY_ACCEPTED') {
+          const cachedGroups = Array.isArray(step1b?.packingGroups) ? step1b.packingGroups : [];
+          const trace = step1b?.traceId || step1b?.trace_id || null;
+          if (!cachedGroups.length) {
+            setShippingError(
+              `Planul este deja ACCEPTED în Amazon și nu avem packing groups salvate.${trace ? ` · TraceId ${trace}` : ''}`
+            );
+            return;
           }
-          if (Array.isArray(step1b?.shipments)) {
-            setShipments((prev) => (step1b.shipments.length ? step1b.shipments : prev));
+          if (step1b?.packingOptionId) setPackingOptionId(step1b.packingOptionId);
+          if (step1b?.placementOptionId) setPlacementOptionId(step1b.placementOptionId);
+          const normalized = normalizePackGroups(cachedGroups);
+          setPackGroups((prev) => mergePackGroups(prev, normalized));
+          if (Array.isArray(step1b?.shipments)) setShipments((prev) => (step1b.shipments.length ? step1b.shipments : prev));
+          placementOptId = step1b?.placementOptionId || step1b?.placement_option_id || null;
+        } else {
+          placementOptId = step1b?.placementOptionId || step1b?.placement_option_id || null;
+          if (placementOptId) {
+            setPlacementOptionId(placementOptId);
+            if (Array.isArray(step1b?.packingGroups)) {
+              const normalized = normalizePackGroups(step1b.packingGroups);
+              setPackGroups((prev) => mergePackGroups(prev, normalized));
+            }
+            if (Array.isArray(step1b?.shipments)) {
+              setShipments((prev) => (step1b.shipments.length ? step1b.shipments : prev));
+            }
           }
         }
       } catch (e) {

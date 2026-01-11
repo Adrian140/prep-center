@@ -501,7 +501,7 @@ serve(async (req) => {
 
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
-      .select("id, destination_country, company_id, user_id")
+      .select("id, destination_country, company_id, user_id, amazon_snapshot")
       .eq("id", requestId)
       .maybeSingle();
     if (reqErr) throw reqErr;
@@ -775,6 +775,22 @@ serve(async (req) => {
       ["ACCEPTED", "CONFIRMED"].includes(String(planPlacementStatus).toUpperCase());
 
     if (placementLocked) {
+      const snapshot = (reqData as any)?.amazon_snapshot || {};
+      const snapshotInbound = snapshot?.fba_inbound || {};
+      const cachedPackingGroups = Array.isArray(snapshotInbound?.packingGroups) ? snapshotInbound.packingGroups : [];
+      const cachedPackingOptionId =
+        snapshotInbound?.packingOptionId ||
+        planPackingOptionFromPlan?.packingOptionId ||
+        planPackingOptionFromPlan?.PackingOptionId ||
+        null;
+      const cachedPlacementOptionId =
+        snapshotInbound?.placementOptionId ||
+        planCheck?.json?.payload?.placementOptions?.[0]?.placementOptionId ||
+        planCheck?.json?.placementOptions?.[0]?.placementOptionId ||
+        null;
+      const cachedShipments = Array.isArray(snapshotInbound?.shipments)
+        ? snapshotInbound.shipments
+        : planCheck?.json?.payload?.shipments || planCheck?.json?.shipments || [];
       const lockWarning =
         "PlacementOption este deja ACCEPTED/CONFIRMED. Amazon blochează generate/list packing după confirmarea placement-ului. Creează un inbound plan nou pentru a reface packing-ul.";
       return new Response(
@@ -783,6 +799,10 @@ serve(async (req) => {
           code: "PLACEMENT_ALREADY_ACCEPTED",
           message: lockWarning,
           inboundPlanId,
+          packingOptionId: cachedPackingOptionId,
+          placementOptionId: cachedPlacementOptionId,
+          shipments: cachedShipments,
+          packingGroups: cachedPackingGroups,
           placementOptions: planCheck?.json?.payload?.placementOptions || planCheck?.json?.placementOptions || [],
           packingOptionsFromPlan: planCheck?.json?.payload?.packingOptions || planCheck?.json?.packingOptions || [],
           traceId,
@@ -1395,14 +1415,28 @@ serve(async (req) => {
 
     const warning = warnings.length ? warnings.join(" ") : null;
 
-    // Persist inbound/placement IDs on prep_requests to avoid losing context between steps
+    // Persist inbound/placement IDs + packing snapshot to avoid losing context between steps
     try {
+      const snapshotBase = (reqData as any)?.amazon_snapshot || {};
+      const nextSnapshot = {
+        ...(snapshotBase || {}),
+        fba_inbound: {
+          ...(snapshotBase?.fba_inbound || {}),
+          inboundPlanId,
+          packingOptionId,
+          placementOptionId,
+          shipments: planShipments,
+          packingGroups: effectivePackingGroups,
+          savedAt: new Date().toISOString()
+        }
+      };
       await supabase
         .from("prep_requests")
         .update({
           inbound_plan_id: inboundPlanId,
           placement_option_id: placementOptionId || null,
-          packing_option_id: packingOptionId || null
+          packing_option_id: packingOptionId || null,
+          amazon_snapshot: nextSnapshot
         })
         .eq("id", requestId);
     } catch (persistErr) {
