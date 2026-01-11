@@ -1249,16 +1249,13 @@ serve(async (req) => {
     const readyStartIso = (() => {
       if (shipDateParsed) return shipDateParsed.toISOString();
       const now = new Date();
-      const plusOneHour = new Date(now.getTime() + 60 * 60 * 1000);
-      const endOfDay = new Date(now);
-      endOfDay.setHours(23, 59, 59, 999);
-      const clamped = plusOneHour > endOfDay ? endOfDay : plusOneHour;
-      return clamped.toISOString();
+      const plus24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      return plus24Hours.toISOString();
     })();
 
     function clampReadyWindow(startIso: string, endIso?: string) {
       const now = new Date();
-      const minStart = new Date(now.getTime() + 60 * 60 * 1000);
+      const minStart = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
       let start = new Date(startIso);
       if (!Number.isFinite(start.getTime()) || start < minStart) {
