@@ -956,46 +956,55 @@ export default function FbaSendToAmazonWizard({
     setStep1SaveError('');
     setPlanError('');
     try {
-      // upsert declanșa RLS pe INSERT; facem update punctual pe fiecare id
-      for (const row of updates) {
-        // eslint-disable-next-line no-await-in-loop
-        const { error: saveErr } = await supabase
-          .from('prep_request_items')
-          .update({ units_sent: row.units_sent })
-          .eq('id', row.id);
-        if (saveErr) throw saveErr;
-      }
+      const prevUnitsById = new Map(
+        (plan?.skus || []).map((sku) => [String(sku.id), Number(sku.units ?? sku.units_sent ?? 0)])
+      );
+      const hasChanges = updates.some(
+        (row) => Number(prevUnitsById.get(String(row.id)) ?? 0) !== Number(row.units_sent || 0)
+      );
 
-      const { error: resetErr } = await supabase
-        .from('prep_requests')
-        .update({
+      if (hasChanges) {
+        // upsert declanșa RLS pe INSERT; facem update punctual pe fiecare id
+        for (const row of updates) {
+          // eslint-disable-next-line no-await-in-loop
+          const { error: saveErr } = await supabase
+            .from('prep_request_items')
+            .update({ units_sent: row.units_sent })
+            .eq('id', row.id);
+          if (saveErr) throw saveErr;
+        }
+
+        const { error: resetErr } = await supabase
+          .from('prep_requests')
+          .update({
+            inbound_plan_id: null,
+            placement_option_id: null,
+            packing_option_id: null,
+            fba_shipment_id: null
+          })
+          .eq('id', requestId);
+        if (resetErr) throw resetErr;
+
+        setPlan((prev) => ({
+          ...prev,
+          inboundPlanId: null,
           inbound_plan_id: null,
+          placementOptionId: null,
           placement_option_id: null,
-          packing_option_id: null,
-          fba_shipment_id: null
-        })
-        .eq('id', requestId);
-      if (resetErr) throw resetErr;
+          packingOptionId: null,
+          packing_option_id: null
+        }));
+        setPackGroups([]);
+        setPackGroupsLoaded(false);
+        setShipments([]);
+        setTracking([]);
+        setShippingSummary(null);
+        setShippingOptions([]);
+        setStep2Loaded(false);
 
-      setPlan((prev) => ({
-        ...prev,
-        inboundPlanId: null,
-        inbound_plan_id: null,
-        placementOptionId: null,
-        placement_option_id: null,
-        packingOptionId: null,
-        packing_option_id: null
-      }));
-      setPackGroups([]);
-      setPackGroupsLoaded(false);
-      setShipments([]);
-      setTracking([]);
-      setShippingSummary(null);
-      setShippingOptions([]);
-      setStep2Loaded(false);
-
-      if (fetchPlan) {
-        await refreshStep('1');
+        if (fetchPlan) {
+          await refreshStep('1');
+        }
       }
       completeAndNext('1');
     } catch (e) {
