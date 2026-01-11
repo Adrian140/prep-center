@@ -47,6 +47,12 @@ export default function FbaStep2Shipping({
     };
   }, [fetchPartneredQuote, hazmat, method]);
 
+  useEffect(() => {
+    if (method !== 'SPD') {
+      onModeChange?.('SPD');
+    }
+  }, [method, onModeChange]);
+
   const shipmentCount = shipments?.length || 0;
   const totalBoxes = shipments?.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0) || 0;
   const totalUnits = shipments?.reduce((s, sh) => s + (Number(sh.units) || 0), 0) || 0;
@@ -59,9 +65,8 @@ export default function FbaStep2Shipping({
       : 'Non Amazon partnered carrier';
 
   const summaryTitle = useMemo(() => {
-    const modeLabel = method === 'SPD' ? 'Small parcel delivery (SPD)' : 'Less than truckload (LTL/FTL)';
-    return `${carrierName} · ${modeLabel}`;
-  }, [carrierName, method]);
+    return `${carrierName} · Small parcel delivery (SPD)`;
+  }, [carrierName]);
 
   const renderShipmentCard = (s) => (
     <div key={s.id} className="border border-slate-200 rounded-lg overflow-hidden">
@@ -130,14 +135,13 @@ export default function FbaStep2Shipping({
           <div className="border border-slate-200 rounded-lg p-3">
             <div className="font-semibold text-slate-800 mb-1">Shipping mode</div>
             <div className="flex flex-col gap-2">
-              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${method === 'SPD' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border rounded-md border-blue-500 bg-blue-50">
                 <span className="flex items-center gap-2"><Truck className="w-4 h-4" /> Small parcel delivery (SPD)</span>
-                <input type="radio" checked={method === 'SPD'} onChange={() => onModeChange('SPD')} />
-              </label>
-              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${method === 'LTL' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
-                <span>Less than and full truckload (LTL/FTL)</span>
-                <input type="radio" checked={method === 'LTL'} onChange={() => onModeChange('LTL')} />
-              </label>
+                <input type="radio" checked readOnly />
+              </div>
+              <div className="text-xs text-slate-500">
+                LTL/FTL is disabled for this workflow.
+              </div>
             </div>
           </div>
           <div className="border border-slate-200 rounded-lg p-3">

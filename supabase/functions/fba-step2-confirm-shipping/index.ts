@@ -488,6 +488,14 @@ serve(async (req) => {
     const confirmOptionId = body?.transportation_option_id ?? body?.transportationOptionId;
     const shipmentTransportConfigs = body?.shipment_transportation_configurations ?? body?.shipmentTransportationConfigurations ?? [];
     const shippingModeInput = body?.shipping_mode ?? body?.shippingMode ?? null;
+    const effectiveShippingMode = "SPD";
+    if (shippingModeInput && String(shippingModeInput).toUpperCase() !== "SPD") {
+      logStep("shippingModeOverride", {
+        traceId,
+        incoming: shippingModeInput,
+        forced: effectiveShippingMode
+      });
+    }
 
     logStep("fba-step2-confirm-shipping called", {
       traceId,
@@ -1119,7 +1127,7 @@ serve(async (req) => {
           partneredRate: null,
           defaultOptionId: selectedTransportationOptionId,
           defaultCarrier: "Amazon confirmed carrier",
-          defaultMode: shippingModeInput || null,
+          defaultMode: effectiveShippingMode || null,
           defaultCharge: null
         };
         const { error: updErr } = await supabase
@@ -1286,7 +1294,7 @@ serve(async (req) => {
       inboundPlanId,
       placementOptionId: effectivePlacementOptionId,
       packingOptionId: effectivePackingOptionId || null,
-      shippingMode: shippingModeInput || null,
+      shippingMode: effectiveShippingMode,
       shipDate: shipDateFromClient || null,
       shipmentConfigCount: shipmentTransportationConfigurations.length,
       shipments: shipmentTransportationConfigurations.map((c: any) => ({
@@ -1406,7 +1414,7 @@ serve(async (req) => {
     logStep("shipmentTransportationConfigurations", {
       traceId,
       count: shipmentTransportationConfigurations.length,
-      shippingMode: shippingModeInput || null
+      shippingMode: effectiveShippingMode
     });
 
     const hasDeliveryWindowPrecondition = (opt: any) => {
@@ -1626,8 +1634,8 @@ serve(async (req) => {
       : [];
 
     const optionsForSelection = (() => {
-      if (!shippingModeInput) return normalizedOptions;
-      const mode = String(shippingModeInput).toUpperCase();
+      if (!effectiveShippingMode) return normalizedOptions;
+      const mode = String(effectiveShippingMode).toUpperCase();
       const filtered = normalizedOptions.filter((o) => String(o.mode || "").toUpperCase() === mode);
       return filtered.length ? filtered : normalizedOptions;
     })();
@@ -1861,7 +1869,7 @@ serve(async (req) => {
             partneredRate: null,
             defaultOptionId: selectedTransportationOptionId,
             defaultCarrier: "Amazon confirmed carrier",
-            defaultMode: shippingModeInput || null,
+            defaultMode: effectiveShippingMode || null,
             defaultCharge: null
           };
           const { error: updErr } = await supabase
