@@ -1333,10 +1333,15 @@ serve(async (req) => {
       const genStatus = await pollOperationStatus(opId);
       const stateUp = getOperationState(genStatus) || String(genStatus?.res?.status || "").toUpperCase();
       if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
-        return new Response(JSON.stringify({ error: "Generate transportation options failed", traceId, state: stateUp }), {
-          status: 502,
-          headers: { ...corsHeaders, "content-type": "application/json" }
-        });
+        return new Response(
+          JSON.stringify({
+            error: "Generate transportation options failed",
+            traceId,
+            state: stateUp,
+            details: getOperationProblems(genStatus)
+          }),
+          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
       }
     }
 
@@ -1401,6 +1406,10 @@ serve(async (req) => {
       const pre = opt?.preconditions || opt?.Preconditions || [];
       if (!Array.isArray(pre)) return false;
       return pre.map((p) => String(p || "").toUpperCase()).includes("CONFIRMED_DELIVERY_WINDOW");
+    };
+    const isDeliveryWindowGracePeriodError = (res?: Awaited<ReturnType<typeof signedFetch>> | null) => {
+      const body = res?.text || "";
+      return /outside of the grace period/i.test(body);
     };
 
     const generateDeliveryWindowOptions = async (shipmentId: string) =>
@@ -1527,6 +1536,10 @@ serve(async (req) => {
           continue;
         }
         const confirmRes = await confirmDeliveryWindowOption(shipmentId, dwOptionId);
+        if (!confirmRes?.res?.ok && isDeliveryWindowGracePeriodError(confirmRes)) {
+          logStep("deliveryWindow_confirm_skipped", { traceId, shipmentId, reason: "grace_period" });
+          continue;
+        }
         const confirmOpId =
           confirmRes?.json?.payload?.operationId ||
           confirmRes?.json?.operationId ||
@@ -1751,6 +1764,10 @@ serve(async (req) => {
           );
         }
         const confirmRes = await confirmDeliveryWindowOption(shipmentId, dwOptionId);
+        if (!confirmRes?.res?.ok && isDeliveryWindowGracePeriodError(confirmRes)) {
+          logStep("deliveryWindow_confirm_skipped", { traceId, shipmentId, reason: "grace_period" });
+          continue;
+        }
         const confirmOpId =
           confirmRes?.json?.payload?.operationId ||
           confirmRes?.json?.operationId ||
