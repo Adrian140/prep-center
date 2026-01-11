@@ -600,6 +600,84 @@ serve(async (req) => {
 
     const basePath = "/inbound/fba/2024-03-20";
 
+    const getOperationState = (res: Awaited<ReturnType<typeof signedFetch>> | null) => {
+      const state =
+        res?.json?.payload?.state ||
+        res?.json?.payload?.operationStatus ||
+        res?.json?.payload?.status ||
+        res?.json?.state ||
+        res?.json?.operationStatus ||
+        res?.json?.status ||
+        null;
+      return String(state || "").toUpperCase();
+    };
+
+    const getOperationProblems = (res: Awaited<ReturnType<typeof signedFetch>> | null) =>
+      res?.json?.payload?.operationProblems || res?.json?.operationProblems || res?.json?.errors || null;
+
+    const isRetryableOperationFailure = (res: Awaited<ReturnType<typeof signedFetch>> | null) => {
+      const probs = getOperationProblems(res);
+      if (!probs) return false;
+      const asText = Array.isArray(probs)
+        ? probs.map((p: any) => `${p?.code || ""} ${p?.message || ""}`).join(" ")
+        : typeof probs === "string"
+          ? probs
+          : safeJson(probs);
+      return asText.toLowerCase().includes("internalservererror");
+    };
+
+    const generatePlacementOptionsWithRetry = async (maxAttempts = 2) => {
+      let attempt = 0;
+      let lastGen: Awaited<ReturnType<typeof signedFetch>> | null = null;
+      let lastOp: Awaited<ReturnType<typeof signedFetch>> | null = null;
+      while (attempt < maxAttempts) {
+        attempt += 1;
+        const genPlacement = await signedFetch({
+          method: "POST",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
+          query: "",
+          payload: "{}",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.generatePlacementOptions",
+          marketplaceId,
+          sellerId
+        });
+        lastGen = genPlacement;
+        const opId =
+          genPlacement?.json?.payload?.operationId ||
+          genPlacement?.json?.operationId ||
+          null;
+        if (opId) {
+          const opStatus = await pollOperationStatus(opId);
+          lastOp = opStatus;
+          const stUp = getOperationState(opStatus);
+          if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
+            if (isRetryableOperationFailure(opStatus) && attempt < maxAttempts) {
+              await delay(600 * attempt);
+              continue;
+            }
+            return { ok: false, state: stUp, res: opStatus };
+          }
+        }
+        if (genPlacement?.res?.status && genPlacement.res.status >= 500) {
+          if (attempt < maxAttempts) {
+            await delay(600 * attempt);
+            continue;
+          }
+          return { ok: false, state: String(genPlacement.res.status), res: genPlacement };
+        }
+        return { ok: true, res: genPlacement, op: lastOp };
+      }
+      return { ok: false, state: "UNKNOWN", res: lastOp || lastGen };
+    };
+
     const pollOperationStatus = async (operationId: string) => {
       // Amazon poate întoarce operații asincrone; menținem polling-ul scurt pentru a nu depăși timeout-ul Edge.
       const maxAttempts = 10;
@@ -627,8 +705,7 @@ serve(async (req) => {
           sellerId
         });
         last = opRes;
-        const state = opRes.json?.payload?.state || opRes.json?.state || null;
-        const stateUp = String(state || "").toUpperCase();
+        const stateUp = getOperationState(opRes);
         if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp) || opRes.res.status >= 400) {
           return opRes;
         }
@@ -649,42 +726,17 @@ serve(async (req) => {
       let placementId = effectivePlacementOptionId || null;
       let placementShipments: any[] = [];
       if (!placementId) {
-        const genPlacement = await signedFetch({
-          method: "POST",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
-          query: "",
-          payload: "{}",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.generatePlacementOptions",
-          marketplaceId,
-          sellerId
-        });
-        const opId =
-          genPlacement?.json?.payload?.operationId ||
-          genPlacement?.json?.operationId ||
-          null;
-        if (opId) {
-          const opStatus = await pollOperationStatus(opId);
-          const st = opStatus?.json?.payload?.state || opStatus?.json?.state || null;
-          const stUp = String(st || "").toUpperCase();
-          if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
-            return new Response(
-              JSON.stringify({
-                error: "generatePlacementOptions failed",
-                state: stUp,
-                traceId,
-                details: opStatus?.json?.payload?.operationProblems || opStatus?.json?.operationProblems || null
-              }),
-              { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
-            );
-          }
+        const genPlacement = await generatePlacementOptionsWithRetry();
+        if (!genPlacement.ok) {
+          return new Response(
+            JSON.stringify({
+              error: "generatePlacementOptions failed",
+              state: genPlacement.state || null,
+              traceId,
+              details: getOperationProblems(genPlacement.res as any)
+            }),
+            { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
         }
         const listPlacement = await signedFetch({
           method: "GET",
@@ -827,29 +879,18 @@ serve(async (req) => {
 
     if (placementConfirm?.res?.status === 400 && isGeneratePlacementRequired(placementConfirm)) {
       logStep("placementConfirm_requires_generatePlacementOptions", { traceId });
-      const genPlacement = await signedFetch({
-        method: "POST",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
-        query: "",
-        payload: "{}",
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.generatePlacementOptions",
-        marketplaceId,
-        sellerId
-      });
-
-      const opId =
-        genPlacement?.json?.payload?.operationId ||
-        genPlacement?.json?.operationId ||
-        null;
-      if (opId) await pollOperationStatus(opId);
+      const genPlacement = await generatePlacementOptionsWithRetry();
+      if (!genPlacement.ok) {
+        return new Response(
+          JSON.stringify({
+            error: "generatePlacementOptions failed",
+            state: genPlacement.state || null,
+            traceId,
+            details: getOperationProblems(genPlacement.res as any)
+          }),
+          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
 
       const newPid = await listPlacementWithRetry();
       if (!newPid) {
@@ -904,8 +945,7 @@ serve(async (req) => {
       }
       if (placementOpId) {
         const placementStatus = await pollOperationStatus(placementOpId);
-        const st = placementStatus?.json?.payload?.state || placementStatus?.json?.state || placementStatus?.res?.status;
-        const stateUp = String(st || "").toUpperCase();
+        const stateUp = getOperationState(placementStatus) || String(placementStatus?.res?.status || "").toUpperCase();
         if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
           return new Response(JSON.stringify({ error: "Placement confirmation failed", traceId, state: stateUp }), {
             status: 502,
@@ -1157,8 +1197,7 @@ serve(async (req) => {
         null;
       if (setOpId) {
         const opStatus = await pollOperationStatus(setOpId);
-        const st = opStatus?.json?.payload?.state || opStatus?.json?.state || null;
-        const stUp = String(st || "").toUpperCase();
+        const stUp = getOperationState(opStatus);
         if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
           logStep("setPackingInformation_op_failed", { traceId, state: stUp, requestId: opStatus?.requestId || null, status: opStatus?.res?.status });
           return new Response(
@@ -1226,8 +1265,7 @@ serve(async (req) => {
 
     if (opId) {
       const genStatus = await pollOperationStatus(opId);
-      const st = genStatus?.json?.payload?.state || genStatus?.json?.state || genStatus?.res?.status;
-      const stateUp = String(st || "").toUpperCase();
+      const stateUp = getOperationState(genStatus) || String(genStatus?.res?.status || "").toUpperCase();
       if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
         return new Response(JSON.stringify({ error: "Generate transportation options failed", traceId, state: stateUp }), {
           status: 502,
@@ -1456,8 +1494,7 @@ serve(async (req) => {
     }
     if (confirmOpId) {
       const confirmStatus = await pollOperationStatus(confirmOpId);
-      const st = confirmStatus?.json?.payload?.state || confirmStatus?.json?.state || confirmStatus?.res?.status;
-      const stateUp = String(st || "").toUpperCase();
+      const stateUp = getOperationState(confirmStatus) || String(confirmStatus?.res?.status || "").toUpperCase();
       if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
         return new Response(JSON.stringify({ error: "Transportation confirmation failed", traceId, state: stateUp }), {
           status: 502,
