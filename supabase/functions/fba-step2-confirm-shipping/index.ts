@@ -1121,6 +1121,13 @@ serve(async (req) => {
         const yy = Number(m[3]);
         return new Date(Date.UTC(yy, mm - 1, dd, 9, 0, 0));
       }
+      const mSlash = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (mSlash) {
+        const dd = Number(mSlash[1]);
+        const mm = Number(mSlash[2]);
+        const yy = Number(mSlash[3]);
+        return new Date(Date.UTC(yy, mm - 1, dd, 9, 0, 0));
+      }
       const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
       if (m2) {
         const yy = Number(m2[1]);
@@ -1460,9 +1467,16 @@ serve(async (req) => {
         }))
       : [];
 
+    const optionsForSelection = (() => {
+      if (!shippingModeInput) return normalizedOptions;
+      const mode = String(shippingModeInput).toUpperCase();
+      const filtered = normalizedOptions.filter((o) => String(o.mode || "").toUpperCase() === mode);
+      return filtered.length ? filtered : normalizedOptions;
+    })();
+
     // pick a default: partnered if available, otherwise first option
-    const partneredOpt = normalizedOptions.find((o) => o.partnered);
-    const defaultOpt = partneredOpt || normalizedOptions[0] || null;
+    const partneredOpt = optionsForSelection.find((o) => o.partnered);
+    const defaultOpt = partneredOpt || optionsForSelection[0] || null;
 
     const summary = {
       partneredAllowed: Boolean(partneredOpt),
@@ -1474,7 +1488,7 @@ serve(async (req) => {
     };
 
     // 3) Confirm transportation option (Amazon cere confirmTransportationOptions)
-    if (!normalizedOptions.length) {
+    if (!optionsForSelection.length) {
       return new Response(
         JSON.stringify({
           error: "Nu există transportation options disponibile pentru confirmare.",
@@ -1487,11 +1501,11 @@ serve(async (req) => {
     const forcePartneredIfAvailable =
       body?.force_partnered_if_available ?? body?.forcePartneredIfAvailable ?? true;
 
-    let selectedOptionId = confirmOptionId || defaultOpt?.id || normalizedOptions[0]?.id || null;
+    let selectedOptionId = confirmOptionId || defaultOpt?.id || optionsForSelection[0]?.id || null;
 
     if (forcePartneredIfAvailable) {
-      const partneredOptPick = normalizedOptions.find((o) => o.partnered);
-      const requested = normalizedOptions.find((o) => o.id === confirmOptionId) || null;
+      const partneredOptPick = optionsForSelection.find((o) => o.partnered);
+      const requested = optionsForSelection.find((o) => o.id === confirmOptionId) || null;
       if (partneredOptPick && requested && !requested.partnered) {
         selectedOptionId = partneredOptPick.id;
       }
@@ -1500,7 +1514,7 @@ serve(async (req) => {
       }
     }
     const selectedOption =
-      normalizedOptions.find((o) => o.id === selectedOptionId) || normalizedOptions[0] || null;
+      optionsForSelection.find((o) => o.id === selectedOptionId) || optionsForSelection[0] || null;
 
     if (!selectedOption?.id) {
       return new Response(
