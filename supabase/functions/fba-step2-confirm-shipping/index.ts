@@ -1103,16 +1103,31 @@ serve(async (req) => {
       return clamped.toISOString();
     })();
 
+    function clampReadyWindow(startIso: string, endIso?: string) {
+      const now = new Date();
+      const minStart = new Date(now.getTime() + 60 * 60 * 1000);
+
+      let start = new Date(startIso);
+      if (!Number.isFinite(start.getTime()) || start < minStart) {
+        start = minStart;
+      }
+
+      let end = endIso ? new Date(endIso) : new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      if (!Number.isFinite(end.getTime()) || end <= start) {
+        end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      }
+
+      return { start: start.toISOString(), end: end.toISOString() };
+    }
+
     const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
       const shId = sh.shipmentId || sh.id || `s-${idx + 1}`;
       const cfg = (shipmentTransportConfigs || []).find(
         (c: any) => c?.shipmentId === shId || c?.shipment_id === shId
       ) || (shipmentTransportConfigs || [])[idx] || {};
-      const readyStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || readyStartIso;
-      const readyEnd =
-        cfg.readyToShipWindow?.end ||
-        cfg.ready_to_ship_window?.end ||
-        new Date(new Date(readyStart).getTime() + 24 * 60 * 60 * 1000).toISOString();
+      const rawStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || readyStartIso;
+      const rawEnd = cfg.readyToShipWindow?.end || cfg.ready_to_ship_window?.end || undefined;
+      const { start: readyStart, end: readyEnd } = clampReadyWindow(rawStart, rawEnd);
       const baseCfg: Record<string, any> = {
         shipmentId: shId,
         readyToShipWindow: { start: readyStart, end: readyEnd }
