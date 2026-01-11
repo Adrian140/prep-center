@@ -1249,20 +1249,20 @@ serve(async (req) => {
     const readyStartIso = (() => {
       if (shipDateParsed) return shipDateParsed.toISOString();
       const now = new Date();
-      const plus24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      return plus24Hours.toISOString();
+      const plus48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+      return plus48Hours.toISOString();
     })();
 
     function clampReadyWindow(startIso: string, endIso?: string) {
       const now = new Date();
-      const minStart = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const minStart = new Date(now.getTime() + 48 * 60 * 60 * 1000);
 
       let start = new Date(startIso);
       if (!Number.isFinite(start.getTime()) || start < minStart) {
         start = minStart;
       }
 
-      let end = endIso ? new Date(endIso) : new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      let end = endIso ? new Date(endIso) : new Date(start.getTime() + 48 * 60 * 60 * 1000);
       if (!Number.isFinite(end.getTime()) || end <= start) {
         end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
       }
@@ -1291,6 +1291,20 @@ serve(async (req) => {
     const configsByShipment = new Map<string, any>(
       shipmentTransportationConfigurations.map((c: any) => [String(c.shipmentId), c])
     );
+    const missingPkgs = shipmentTransportationConfigurations.some(
+      (c: any) => !Array.isArray(c?.packages) || c.packages.length === 0
+    );
+    if (missingPkgs) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Lipsesc coletele (packages: dimensiuni + greutate). Fără ele, Amazon poate returna doar USE_YOUR_OWN_CARRIER (non-partnered).",
+          code: "MISSING_PACKAGES",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
     if (!effectivePackingOptionId) {
       return new Response(
