@@ -1830,6 +1830,167 @@ serve(async (req) => {
       });
     };
 
+    const extractPackingOptionsFromResponse = (res: Awaited<ReturnType<typeof signedFetch>> | null) => {
+      if (!res) return [];
+      return res.json?.payload?.packingOptions || res.json?.packingOptions || res.json?.PackingOptions || [];
+    };
+
+    const pickPackingOption = (options: any[]) => {
+      if (!Array.isArray(options) || !options.length) return null;
+      const normalizeStatus = (val: any) => String(val || "").toUpperCase();
+      const offered = options.find((o: any) => ["OFFERED", "AVAILABLE", "READY"].includes(normalizeStatus(o?.status)));
+      return offered || options[0];
+    };
+
+    const extractPackingGroupIds = (option: any) => {
+      const ids = new Set<string>();
+      const direct = option?.packingGroups || option?.PackingGroups || [];
+      (Array.isArray(direct) ? direct : []).forEach((g: any) => {
+        if (typeof g === "string") {
+          ids.add(g);
+          return;
+        }
+        const id = g?.packingGroupId || g?.PackingGroupId || g?.id || g?.groupId || g?.group_id;
+        if (id) ids.add(String(id));
+      });
+      const rawIds =
+        option?.packingGroupIds ||
+        option?.PackingGroupIds ||
+        option?.packing_group_ids ||
+        option?.packing_group_id_list ||
+        [];
+      (Array.isArray(rawIds) ? rawIds : [rawIds]).forEach((id: any) => {
+        if (id) ids.add(String(id));
+      });
+      return Array.from(ids.values());
+    };
+
+    const confirmPackingOption = async (inboundPlanId: string, packingOptionId: string) =>
+      signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${path}/${encodeURIComponent(inboundPlanId)}/packingOptions/${encodeURIComponent(packingOptionId)}/confirmation`,
+        query: "",
+        payload: "{}",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.confirmPackingOption",
+        marketplaceId,
+        sellerId
+      });
+
+    const fetchPackingGroupItems = async (inboundPlanId: string, groupId: string) => {
+      const res = await signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${path}/${encodeURIComponent(inboundPlanId)}/packingGroups/${encodeURIComponent(groupId)}/items`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.getPackingGroupItems",
+        marketplaceId,
+        sellerId
+      });
+      if (!res.res.ok) {
+        return { packingGroupId: groupId, items: [], status: res.res.status, error: res.text };
+      }
+      const items =
+        res.json?.payload?.items ||
+        res.json?.items ||
+        res.json?.Items ||
+        [];
+      const normalizedItems = (Array.isArray(items) ? items : []).map((it: any) => ({
+        msku: it.msku || it.SellerSKU || it.sellerSku || it.sku || "",
+        quantity: Number(it.quantity || it.Quantity || 0) || 0
+      }));
+      return { packingGroupId: groupId, items: normalizedItems, status: res.res.status, requestId: res.requestId || null };
+    };
+
+    const fetchPackingGroups = async (inboundPlanId: string) => {
+      const warnings: string[] = [];
+      let listRes = await listPackingOptions(inboundPlanId);
+      let options = extractPackingOptionsFromResponse(listRes);
+      const hasPackingGroups = (opts: any[]) =>
+        (opts || []).some((opt) => {
+          const groups = Array.isArray(opt?.packingGroups || opt?.PackingGroups) ? opt.packingGroups || opt.PackingGroups : [];
+          const ids = opt?.packingGroupIds || opt?.PackingGroupIds || [];
+          return (Array.isArray(groups) && groups.length) || (Array.isArray(ids) && ids.length);
+        });
+
+      if (listRes.res.ok && (!options.length || !hasPackingGroups(options))) {
+        const genRes = await generatePackingOptions(inboundPlanId);
+        const opId =
+          genRes?.json?.payload?.operationId ||
+          genRes?.json?.operationId ||
+          null;
+        if (opId) await pollOperationStatus(opId);
+        listRes = await listPackingOptions(inboundPlanId);
+        options = extractPackingOptionsFromResponse(listRes);
+      }
+
+      if (!listRes.res.ok) {
+        warnings.push(`listPackingOptions a eșuat (${listRes.res.status}).`);
+      }
+
+      const chosen = pickPackingOption(options);
+      const packingOptionId =
+        chosen?.packingOptionId ||
+        chosen?.PackingOptionId ||
+        chosen?.id ||
+        null;
+      let packingGroupIds = extractPackingGroupIds(chosen || {});
+
+      if (!packingGroupIds.length && listRes.res.ok) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          await delay(200 * attempt);
+          const retryRes = await listPackingOptions(inboundPlanId);
+          if (retryRes?.res?.ok) {
+            const retryOptions = extractPackingOptionsFromResponse(retryRes);
+            const retryChosen = pickPackingOption(retryOptions);
+            const retryIds = extractPackingGroupIds(retryChosen || {});
+            if (retryIds.length) {
+              packingGroupIds = retryIds;
+              break;
+            }
+          }
+        }
+      }
+
+      if (packingOptionId) {
+        const confirmRes = await confirmPackingOption(inboundPlanId, packingOptionId);
+        if (confirmRes && !confirmRes.res.ok && confirmRes.res.status !== 409) {
+          warnings.push(`ConfirmPackingOption a eșuat (${confirmRes.res.status}).`);
+        }
+      }
+
+      if (!packingOptionId || !packingGroupIds.length) {
+        return { packingOptionId: packingOptionId || null, packingGroups: [], warnings };
+      }
+
+      const packingGroups: any[] = [];
+      for (const gid of packingGroupIds) {
+        const grp = await fetchPackingGroupItems(inboundPlanId, gid);
+        if (!grp.packingGroupId && gid) {
+          (grp as any).packingGroupId = gid;
+        }
+        packingGroups.push(grp);
+        await delay(50);
+      }
+
+      return { packingOptionId, packingGroups, warnings };
+    };
+
     let attempt = 0;
     const maxAttempts = 3;
     let amazonJson: any = null;
@@ -1844,6 +2005,8 @@ serve(async (req) => {
     let createHttpStatus: number | null = null;
     let _lastPackingOptions: any[] = [];
     let _lastPlacementOptions: any[] = [];
+    let packingOptionId: string | null = (reqData as any)?.packing_option_id || null;
+    let packingGroupsFromAmazon: any[] = [];
 
     const inboundPlanErrored = (status: string | null) =>
       String(status || "").toUpperCase() === "ERRORED";
@@ -2117,6 +2280,19 @@ serve(async (req) => {
       }
     }
 
+    if (inboundPlanId && (!plans || !plans.length)) {
+      const packingResult = await fetchPackingGroups(inboundPlanId);
+      if (packingResult?.packingOptionId) {
+        packingOptionId = packingResult.packingOptionId;
+      }
+      if (Array.isArray(packingResult?.packingGroups) && packingResult.packingGroups.length) {
+        packingGroupsFromAmazon = packingResult.packingGroups;
+      }
+      if (packingResult?.warnings?.length) {
+        planWarnings.push(...packingResult.warnings);
+      }
+    }
+
     const normalizeItems = (p: any) => p?.items || p?.Items || p?.shipmentItems || p?.ShipmentItems || [];
 
     if (prepGuidanceWarning) {
@@ -2215,10 +2391,52 @@ serve(async (req) => {
       }
     });
 
-    const packGroups = Array.from(packGroupsMap.values()).map((g, idx) => ({
-      ...g,
-      title: g.destLabel ? `Pack group ${idx + 1} · ${g.destLabel}` : `Pack group ${idx + 1}`
-    }));
+    const skuMeta = new Map<string, { title: string | null; image: string | null }>();
+    items.forEach((it) => {
+      const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+      const key = normalizeSku(it.sku || stock?.sku || it.asin || "");
+      if (!key) return;
+      skuMeta.set(key, {
+        title: it.product_name || stock?.name || key,
+        image: stock?.image_url || null
+      });
+    });
+
+    const normalizePackingGroups = (groups: any[]) =>
+      (Array.isArray(groups) ? groups : []).map((g: any, idx: number) => {
+        const pgId = g?.packingGroupId || g?.id || `group-${idx + 1}`;
+        const items = (Array.isArray(g?.items) ? g.items : []).map((it: any) => {
+          const skuKey = normalizeSku(it?.msku || it?.sku || it?.SellerSKU || it?.sellerSku || "");
+          const meta = skuMeta.get(skuKey);
+          return {
+            ...it,
+            sku: it?.sku || it?.msku || it?.SellerSKU || it?.sellerSku || "",
+            title: it?.title || meta?.title || null,
+            image: it?.image || meta?.image || null,
+            quantity: Number(it?.quantity || it?.Quantity || 0) || 0
+          };
+        });
+        const units = items.reduce((sum: number, it: any) => sum + (Number(it?.quantity || 0) || 0), 0);
+        const boxes = Number(g?.boxes || g?.boxCount || 1) || 1;
+        return {
+          ...g,
+          id: pgId,
+          packingGroupId: pgId,
+          items,
+          skuCount: items.length || 0,
+          units,
+          boxes,
+          packMode: boxes > 1 ? "multiple" : "single",
+          title: g?.title || `Pack group ${idx + 1}`
+        };
+      });
+
+    const packGroups = packingGroupsFromAmazon.length
+      ? normalizePackingGroups(packingGroupsFromAmazon)
+      : Array.from(packGroupsMap.values()).map((g, idx) => ({
+          ...g,
+          title: g.destLabel ? `Pack group ${idx + 1} · ${g.destLabel}` : `Pack group ${idx + 1}`
+        }));
 
     const shipments = plans.map((p: any, idx: number) => {
       const itemsList = normalizeItems(p);
@@ -2331,6 +2549,7 @@ serve(async (req) => {
       inboundPlanStatus: inboundPlanStatus || null,
       operationId: operationId || null,
       operationStatus: operationStatus || null,
+      packingOptionId: packingOptionId || null,
       shipmentsPending,
       shipFrom: {
         name: shipFromAddress.name,
@@ -2353,6 +2572,7 @@ serve(async (req) => {
         inboundPlanStatus,
         operationId,
         operationStatus,
+        packingOptionId,
         shipmentsPending,
         scopes: lwaScopes
       }),
