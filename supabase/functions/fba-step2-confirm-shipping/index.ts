@@ -1352,6 +1352,20 @@ serve(async (req) => {
     const optionsWithoutWindow = Array.isArray(options)
       ? options.filter((opt) => !hasDeliveryWindowPrecondition(opt))
       : [];
+    if (Array.isArray(options) && options.length > 0 && optionsWithoutWindow.length === 0) {
+      logStep("transportation_requires_delivery_window", {
+        traceId,
+        totalOptions: options.length
+      });
+      return new Response(
+        JSON.stringify({
+          error:
+            "Toate transportation options cer CONFIRMED_DELIVERY_WINDOW. Trebuie confirmat delivery window in Amazon (Send to Amazon UI) sau ales un transport care nu cere aceasta preconditie.",
+          traceId
+        }),
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
     const extractCharge = (opt: any) => {
       const fromPath = [
@@ -1406,14 +1420,9 @@ serve(async (req) => {
 
     // 3) Confirm transportation option (Amazon cere confirmTransportationOptions)
     if (!normalizedOptions.length) {
-      logStep("transportation_requires_delivery_window", {
-        traceId,
-        totalOptions: Array.isArray(options) ? options.length : 0
-      });
       return new Response(
         JSON.stringify({
-          error:
-            "Transportation options disponibile cer fereastră de livrare confirmată (CONFIRMED_DELIVERY_WINDOW), care nu este încă suportată în aplicație.",
+          error: "Nu există transportation options disponibile pentru confirmare.",
           traceId
         }),
         { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
