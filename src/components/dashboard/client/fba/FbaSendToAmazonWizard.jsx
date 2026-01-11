@@ -554,11 +554,16 @@ export default function FbaSendToAmazonWizard({
 
 const warning = useMemo(() => {
   if (!step2Loaded || shippingLoading) return null;
+  const returnedModes = shippingSummary?.returnedModes || [];
+  const wantsSpd = String(shipmentMode?.method || '').toUpperCase() === 'SPD';
+  if (wantsSpd && returnedModes.length && !returnedModes.includes('GROUND_SMALL_PARCEL')) {
+    return 'Amazon nu a returnat opțiuni SPD pentru aceste colete. Verifică dimensiuni/greutate sau alege LTL/FTL.';
+  }
   if (shippingSummary && shippingSummary.partneredAllowed === false && !shippingSummary?.alreadyConfirmed) {
     return 'Amazon a indicat că transportul partenereat nu este disponibil pentru aceste expedieri.';
   }
   return null;
-}, [shippingSummary, shippingLoading, step2Loaded]);
+}, [shippingSummary, shippingLoading, step2Loaded, shipmentMode?.method]);
 
 const fetchPartneredQuote = useCallback(
   ({ hazmat }) => {
@@ -1018,6 +1023,7 @@ const fetchPartneredQuote = useCallback(
         if (forcePartneredOnly && !allowPartnered) {
           setShippingError('Amazon partnered carrier nu este disponibil pentru acest shipment.');
         }
+        const nextMethod = shipmentMode.method || preferredMode;
         if (allowPartnered) {
           setShipmentMode((prev) => ({
             ...prev,
@@ -1026,13 +1032,13 @@ const fetchPartneredQuote = useCallback(
               name: partneredOpt?.carrierName || json.summary?.defaultCarrier || (alreadyConfirmed ? "Amazon confirmed carrier" : "Amazon partnered"),
               rate: preferredRate
             },
-            method: preferredMode
+            method: nextMethod
           }));
         } else {
           setShipmentMode((prev) => ({
             ...prev,
             carrier: { partnered: false, name: json.summary?.defaultCarrier || "Non Amazon partnered", rate: preferredRate },
-            method: preferredMode
+            method: nextMethod
           }));
         }
       }

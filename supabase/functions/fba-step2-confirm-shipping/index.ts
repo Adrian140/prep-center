@@ -1362,6 +1362,7 @@ serve(async (req) => {
       return { start: start.toISOString(), end: end.toISOString() };
     }
 
+    const includePackages = String(effectiveShippingMode || "").toUpperCase() !== "GROUND_SMALL_PARCEL";
     const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
       const shId = sh.shipmentId || sh.id || `s-${idx + 1}`;
       const cfg = (shipmentTransportConfigs || []).find(
@@ -1375,8 +1376,10 @@ serve(async (req) => {
         readyToShipWindow: { start: readyStart, end: readyEnd }
       };
       if (contactInformation) baseCfg.contactInformation = contactInformation;
-      const pkgs = normalizePackages(cfg?.packages);
-      if (pkgs) baseCfg.packages = pkgs;
+      if (includePackages) {
+        const pkgs = normalizePackages(cfg?.packages);
+        if (pkgs) baseCfg.packages = pkgs;
+      }
       const pallets = normalizePallets(cfg?.pallets);
       if (pallets) baseCfg.pallets = pallets;
       const freightInformation = normalizeFreightInformation(cfg?.freightInformation || cfg?.freight_information);
@@ -1422,7 +1425,7 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
-    if (!hasPallets && missingPkgs) {
+    if (includePackages && !hasPallets && missingPkgs) {
       return new Response(
         JSON.stringify({
           error:
