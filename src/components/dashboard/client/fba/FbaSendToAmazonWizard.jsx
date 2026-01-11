@@ -202,6 +202,19 @@ export default function FbaSendToAmazonWizard({
   const [packingOptionId, setPackingOptionId] = useState(initialPlan?.packingOptionId || null);
   const [placementOptionId, setPlacementOptionId] = useState(initialPlan?.placementOptionId || null);
   const [shipmentMode, setShipmentMode] = useState(initialShipmentMode);
+  const [palletDetails, setPalletDetails] = useState(
+    initialShipmentMode?.palletDetails || {
+      quantity: 1,
+      length: '',
+      width: '',
+      height: '',
+      weight: '',
+      stackability: 'STACKABLE',
+      freightClass: 'FC_XX',
+      declaredValue: '',
+      declaredValueCurrency: 'EUR'
+    }
+  );
   const [shipments, setShipments] = useState(initialShipmentList);
   const [labelFormat, setLabelFormat] = useState('thermal');
   const [tracking, setTracking] = useState(initialTrackingList);
@@ -420,7 +433,8 @@ export default function FbaSendToAmazonWizard({
       if (Array.isArray(data?.packGroups)) setPackGroups(data.packGroups);
       const hasRealGroups = hasRealPackGroups(data?.packGroups);
       setPackGroupsLoaded(hasRealGroups);
-      if (data?.shipmentMode) setShipmentMode((prev) => ({ ...prev, ...data.shipmentMode }));
+      if (data?.shipmentMode) setShipmentMode((prev) => ({ ...prev, ...normalizeShipmentModeFromData(data.shipmentMode) }));
+      if (data?.palletDetails) setPalletDetails((prev) => ({ ...prev, ...data.palletDetails }));
       if (Array.isArray(data?.shipments)) setShipments(data.shipments);
       if (data?.labelFormat) setLabelFormat(data.labelFormat);
       if (Array.isArray(data?.tracking)) setTracking(data.tracking);
@@ -443,6 +457,7 @@ export default function FbaSendToAmazonWizard({
       plan,
       packGroups,
       shipmentMode,
+      palletDetails,
       shipments,
       labelFormat,
       tracking,
@@ -456,6 +471,7 @@ export default function FbaSendToAmazonWizard({
     plan,
     packGroups,
     shipmentMode,
+    palletDetails,
     shipments,
     labelFormat,
     tracking,
@@ -513,7 +529,8 @@ export default function FbaSendToAmazonWizard({
           setPackGroupsLoaded(hasRealPackGroups(normalized));
         }
         if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
-        if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
+        if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...normalizeShipmentModeFromData(pShipmentMode) }));
+        if (response?.palletDetails) setPalletDetails((prev) => ({ ...prev, ...response.palletDetails }));
         if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
         setBlocking(Boolean(pBlocking));
         if (typeof pWarning === 'string') {
@@ -819,6 +836,34 @@ const fetchPartneredQuote = useCallback(
 
   const buildShipmentConfigs = () => {
     if (!Array.isArray(packGroups)) return [];
+    const usePallets = shipmentMode?.method && shipmentMode.method !== 'SPD';
+    const palletPayload = usePallets
+      ? [
+          {
+            quantity: Number(palletDetails.quantity || 1),
+            dimensions: {
+              length: Number(palletDetails.length || 0),
+              width: Number(palletDetails.width || 0),
+              height: Number(palletDetails.height || 0),
+              unit: 'CM'
+            },
+            weight: {
+              value: Number(palletDetails.weight || 0),
+              unit: 'KG'
+            },
+            stackability: palletDetails.stackability || 'STACKABLE'
+          }
+        ]
+      : null;
+    const freightInformation = usePallets
+      ? {
+          declaredValue: {
+            amount: Number(palletDetails.declaredValue || 0),
+            code: palletDetails.declaredValueCurrency || 'EUR'
+          },
+          freightClass: palletDetails.freightClass || 'FC_XX'
+        }
+      : null;
 
     const shipmentIdForGroup = (g, idx) => {
       if (g?.shipmentId || g?.shipment_id) return g.shipmentId || g.shipment_id;
@@ -840,7 +885,9 @@ const fetchPartneredQuote = useCallback(
       return {
         shipmentId: shipmentIdForGroup(g, idx),
         packingGroupId,
-        packages: Array.from({ length: boxCount }, () => pkg)
+        packages: usePallets ? null : Array.from({ length: boxCount }, () => pkg),
+        pallets: usePallets ? palletPayload : null,
+        freightInformation: usePallets ? freightInformation : null
       };
     }).filter(Boolean);
   };
@@ -864,18 +911,26 @@ const fetchPartneredQuote = useCallback(
 
     // placementOptionId poate lipsi; îl generează backend-ul în Step 2 (generatePlacementOptions)
 
-    // guard: avem nevoie de greutate + dimensiuni pentru toate grupurile
-    const missingPack = (packGroups || []).find((g) => {
-      const w = Number(g.boxWeight || 0);
-      const d = g.boxDimensions || {};
-      const L = Number(d.length || 0);
-      const W = Number(d.width || 0);
-      const H = Number(d.height || 0);
-      return !(w > 0 && L > 0 && W > 0 && H > 0);
-    });
-    if (missingPack) {
-      setShippingError('Completează greutatea și dimensiunile (L/W/H) pentru toate cutiile înainte de a cere tariful.');
-      return;
+    if (shipmentMode?.method && shipmentMode.method !== 'SPD') {
+      const palletError = validatePalletDetails();
+      if (palletError) {
+        setShippingError(palletError);
+        return;
+      }
+    } else {
+      // guard: avem nevoie de greutate + dimensiuni pentru toate grupurile
+      const missingPack = (packGroups || []).find((g) => {
+        const w = Number(g.boxWeight || 0);
+        const d = g.boxDimensions || {};
+        const L = Number(d.length || 0);
+        const W = Number(d.width || 0);
+        const H = Number(d.height || 0);
+        return !(w > 0 && L > 0 && W > 0 && H > 0);
+      });
+      if (missingPack) {
+        setShippingError('Completează greutatea și dimensiunile (L/W/H) pentru toate cutiile înainte de a cere tariful.');
+        return;
+      }
     }
 
     setShippingLoading(true);
@@ -948,7 +1003,7 @@ const fetchPartneredQuote = useCallback(
       }
       // auto-select carrier (prefer partnered if available)
       if (json.summary || Array.isArray(json.options)) {
-        const preferredMode = shipmentMode.method || json.summary?.defaultMode;
+        const preferredMode = normalizeUiMode(shipmentMode.method || json.summary?.defaultMode);
         const preferredRate = json.summary?.defaultCharge ?? json.summary?.partneredRate ?? shipmentMode.carrier?.rate ?? null;
         const alreadyConfirmed = Boolean(json.alreadyConfirmed || json.summary?.alreadyConfirmed);
         const partneredOpt = Array.isArray(json.options)
@@ -1004,6 +1059,13 @@ const fetchPartneredQuote = useCallback(
     if (!inboundPlanId || !requestId) {
       setShippingError('Lipsește inboundPlanId sau requestId pentru confirmarea transportului.');
       return;
+    }
+    if (shipmentMode?.method && shipmentMode.method !== 'SPD') {
+      const palletError = validatePalletDetails();
+      if (palletError) {
+        setShippingError(palletError);
+        return;
+      }
     }
     setShippingConfirming(true);
     setShippingError('');
@@ -1158,6 +1220,41 @@ const fetchPartneredQuote = useCallback(
   const handleModeChange = (mode) => {
     setShipmentMode((prev) => ({ ...prev, method: mode }));
     invalidateFrom('2');
+  };
+
+  const normalizeUiMode = (mode) => {
+    const up = String(mode || '').toUpperCase();
+    if (!up) return null;
+    if (up === 'GROUND_SMALL_PARCEL') return 'SPD';
+    if (up === 'FREIGHT_LTL') return 'LTL';
+    if (up === 'FREIGHT_FTL') return 'FTL';
+    return up;
+  };
+
+  const normalizeShipmentModeFromData = (mode) => {
+    if (!mode) return mode;
+    const normalized = { ...mode };
+    if (normalized?.method) {
+      normalized.method = normalizeUiMode(normalized.method);
+    }
+    return normalized;
+  };
+
+  const validatePalletDetails = () => {
+    if (!shipmentMode?.method || shipmentMode.method === 'SPD') return null;
+    const qty = Number(palletDetails.quantity || 0);
+    const length = Number(palletDetails.length || 0);
+    const width = Number(palletDetails.width || 0);
+    const height = Number(palletDetails.height || 0);
+    const weight = Number(palletDetails.weight || 0);
+    const declaredValue = Number(palletDetails.declaredValue || 0);
+    if (!(qty > 0 && length > 0 && width > 0 && height > 0 && weight > 0)) {
+      return 'Completează pallet quantity, dimensiuni și greutate pentru LTL/FTL.';
+    }
+    if (!(declaredValue > 0) || !palletDetails.freightClass) {
+      return 'Completează freight class și declared value pentru LTL/FTL.';
+    }
+    return null;
   };
 
   const formatToPageType = (format) => {
@@ -1561,6 +1658,7 @@ const fetchPartneredQuote = useCallback(
             deliveryDate: shipmentMode.deliveryDate,
             method: shipmentMode.method,
             carrier: shipmentMode.carrier,
+            palletDetails,
             shipments,
             warning
           }}
@@ -1568,6 +1666,7 @@ const fetchPartneredQuote = useCallback(
           forcePartneredOnly={forcePartneredOnly}
           onCarrierChange={handleCarrierChange}
           onModeChange={handleModeChange}
+          onPalletDetailsChange={setPalletDetails}
           onShipDateChange={(date) => setShipmentMode((prev) => ({ ...prev, deliveryDate: date }))}
           error={shippingError}
           confirming={shippingConfirming}

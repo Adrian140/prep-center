@@ -8,18 +8,34 @@ export default function FbaStep2Shipping({
   forcePartneredOnly = false,
   onCarrierChange,
   onModeChange,
+  onPalletDetailsChange,
   onShipDateChange,
   onNext,
   onBack,
   confirming = false,
   error = ''
 }) {
-  const { deliveryDate, method, carrier, shipments, warning } = shipment;
+  const { deliveryDate, method, carrier, shipments, warning, palletDetails } = shipment;
   const [shipDate, setShipDate] = useState(deliveryDate || '');
   const [partneredAllowed, setPartneredAllowed] = useState(true);
   const [partneredReason, setPartneredReason] = useState('');
   const [partneredRate, setPartneredRate] = useState(
     typeof carrier?.rate === 'number' ? carrier.rate : null
+  );
+  const safePalletDetails = useMemo(
+    () =>
+      palletDetails || {
+        quantity: 1,
+        length: '',
+        width: '',
+        height: '',
+        weight: '',
+        stackability: 'STACKABLE',
+        freightClass: 'FC_XX',
+        declaredValue: '',
+        declaredValueCurrency: 'EUR'
+      },
+    [palletDetails]
   );
 
   useEffect(() => {
@@ -47,12 +63,6 @@ export default function FbaStep2Shipping({
     };
   }, [fetchPartneredQuote, hazmat, method]);
 
-  useEffect(() => {
-    if (method !== 'SPD') {
-      onModeChange?.('SPD');
-    }
-  }, [method, onModeChange]);
-
   const shipmentCount = shipments?.length || 0;
   const totalBoxes = shipments?.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0) || 0;
   const totalUnits = shipments?.reduce((s, sh) => s + (Number(sh.units) || 0), 0) || 0;
@@ -65,8 +75,14 @@ export default function FbaStep2Shipping({
       : 'Non Amazon partnered carrier';
 
   const summaryTitle = useMemo(() => {
-    return `${carrierName} · Small parcel delivery (SPD)`;
-  }, [carrierName]);
+    const modeLabel =
+      method === 'LTL'
+        ? 'Less-than-truckload (LTL)'
+        : method === 'FTL'
+          ? 'Full truckload (FTL)'
+          : 'Small parcel delivery (SPD)';
+    return `${carrierName} · ${modeLabel}`;
+  }, [carrierName, method]);
 
   const renderShipmentCard = (s) => (
     <div key={s.id} className="border border-slate-200 rounded-lg overflow-hidden">
@@ -138,12 +154,20 @@ export default function FbaStep2Shipping({
           <div className="border border-slate-200 rounded-lg p-3">
             <div className="font-semibold text-slate-800 mb-1">Shipping mode</div>
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2 px-3 py-2 border rounded-md border-blue-500 bg-blue-50">
+              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${method === 'SPD' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
                 <span className="flex items-center gap-2"><Truck className="w-4 h-4" /> Small parcel delivery (SPD)</span>
-                <input type="radio" checked readOnly />
-              </div>
+                <input type="radio" checked={method === 'SPD'} onChange={() => onModeChange?.('SPD')} />
+              </label>
+              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${method === 'LTL' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
+                <span className="flex items-center gap-2"><Truck className="w-4 h-4" /> Less-than-truckload (LTL)</span>
+                <input type="radio" checked={method === 'LTL'} onChange={() => onModeChange?.('LTL')} />
+              </label>
+              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${method === 'FTL' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
+                <span className="flex items-center gap-2"><Truck className="w-4 h-4" /> Full truckload (FTL)</span>
+                <input type="radio" checked={method === 'FTL'} onChange={() => onModeChange?.('FTL')} />
+              </label>
               <div className="text-xs text-slate-500">
-                LTL/FTL is disabled for this workflow.
+                Pentru LTL/FTL sunt necesare paletizare și freight information.
               </div>
             </div>
           </div>
@@ -231,6 +255,111 @@ export default function FbaStep2Shipping({
             )}
           </div>
         </div>
+
+        {method !== 'SPD' && (
+          <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+            <div className="font-semibold text-slate-900">Pallet and freight information</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Pallet quantity</div>
+                <input
+                  type="number"
+                  min="1"
+                  value={safePalletDetails.quantity ?? 1}
+                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, quantity: e.target.value })}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Pallet weight (kg)</div>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={safePalletDetails.weight ?? ''}
+                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, weight: e.target.value })}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Stackability</div>
+                <select
+                  value={safePalletDetails.stackability || 'STACKABLE'}
+                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, stackability: e.target.value })}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="STACKABLE">STACKABLE</option>
+                  <option value="NON_STACKABLE">NON_STACKABLE</option>
+                </select>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Length (cm)</div>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={safePalletDetails.length ?? ''}
+                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, length: e.target.value })}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Width (cm)</div>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={safePalletDetails.width ?? ''}
+                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, width: e.target.value })}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Height (cm)</div>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={safePalletDetails.height ?? ''}
+                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, height: e.target.value })}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Freight class</div>
+                <input
+                  type="text"
+                  value={safePalletDetails.freightClass ?? ''}
+                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, freightClass: e.target.value })}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Declared value</div>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={safePalletDetails.declaredValue ?? ''}
+                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, declaredValue: e.target.value })}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Currency</div>
+                <input
+                  type="text"
+                  value={safePalletDetails.declaredValueCurrency ?? ''}
+                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, declaredValueCurrency: e.target.value })}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+            <div className="text-xs text-slate-500">
+              Amazon folosește aceste date pentru opțiuni LTL/FTL și tarife PCP.
+            </div>
+          </div>
+        )}
 
         <div className="space-y-3">
         <div className="font-semibold text-slate-900 text-sm">Number of shipments: {shipmentCount}</div>

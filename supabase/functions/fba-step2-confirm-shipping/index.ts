@@ -496,7 +496,7 @@ serve(async (req) => {
       if (up === "FTL") return "FREIGHT_FTL";
       return up;
     };
-    const effectiveShippingMode = normalizeShippingMode(shippingModeInput) || "GROUND_SMALL_PARCEL";
+    const effectiveShippingMode = normalizeShippingMode(shippingModeInput);
     if (shippingModeInput && String(shippingModeInput).toUpperCase() !== effectiveShippingMode) {
       logStep("shippingModeOverride", {
         traceId,
@@ -1286,6 +1286,54 @@ serve(async (req) => {
         .filter(Boolean);
       return cleaned.length ? cleaned : null;
     }
+    function normalizePallets(pallets: any) {
+      if (!Array.isArray(pallets)) return null;
+      const cleaned = pallets
+        .map((p: any) => {
+          const dims = p?.dimensions || p?.dimension || null;
+          const w = p?.weight || null;
+          const quantity = Number(p?.quantity ?? 1);
+          const length = Number(dims?.length);
+          const width = Number(dims?.width);
+          const height = Number(dims?.height);
+          const weightValue = Number(w?.value);
+          const dimUnit = (dims?.unit || dims?.unitOfMeasurement || dims?.uom || "CM").toString().toUpperCase();
+          const weightUnit = (w?.unit || w?.uom || "KG").toString().toUpperCase();
+          if (!Number.isFinite(length) || !Number.isFinite(width) || !Number.isFinite(height)) return null;
+          if (!Number.isFinite(weightValue)) return null;
+          const normalizedDims = {
+            length: dimUnit === "IN" ? length : cmToIn(length),
+            width: dimUnit === "IN" ? width : cmToIn(width),
+            height: dimUnit === "IN" ? height : cmToIn(height),
+            unitOfMeasurement: "IN"
+          };
+          const normalizedWeight = {
+            value: weightUnit === "LB" ? weightValue : kgToLb(weightValue),
+            unit: "LB"
+          };
+          const stackability = (p?.stackability || "STACKABLE").toString().toUpperCase();
+          return {
+            quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+            dimensions: normalizedDims,
+            weight: normalizedWeight,
+            stackability
+          };
+        })
+        .filter(Boolean);
+      return cleaned.length ? cleaned : null;
+    }
+    function normalizeFreightInformation(info: any) {
+      if (!info) return null;
+      const declared = info?.declaredValue || info?.declared_value || null;
+      const amount = Number(declared?.amount ?? declared?.value ?? null);
+      const code = (declared?.code || declared?.currency || "USD").toString().toUpperCase();
+      const freightClass = info?.freightClass || info?.freight_class || null;
+      if (!Number.isFinite(amount) || !freightClass) return null;
+      return {
+        declaredValue: { amount, code },
+        freightClass: String(freightClass)
+      };
+    }
 
     const shipDateFromClient = body?.ship_date ?? body?.shipDate ?? null;
     const shipDateParsed = parseShipDate(shipDateFromClient);
@@ -1329,16 +1377,52 @@ serve(async (req) => {
       if (contactInformation) baseCfg.contactInformation = contactInformation;
       const pkgs = normalizePackages(cfg?.packages);
       if (pkgs) baseCfg.packages = pkgs;
+      const pallets = normalizePallets(cfg?.pallets);
+      if (pallets) baseCfg.pallets = pallets;
+      const freightInformation = normalizeFreightInformation(cfg?.freightInformation || cfg?.freight_information);
+      if (freightInformation) baseCfg.freightInformation = freightInformation;
       return baseCfg;
     });
 
     const configsByShipment = new Map<string, any>(
       shipmentTransportationConfigurations.map((c: any) => [String(c.shipmentId), c])
     );
+    const hasPallets = shipmentTransportationConfigurations.some(
+      (c: any) => Array.isArray(c?.pallets) && c.pallets.length > 0
+    );
     const missingPkgs = shipmentTransportationConfigurations.some(
       (c: any) => !Array.isArray(c?.packages) || c.packages.length === 0
     );
-    if (missingPkgs) {
+    const missingPallets = shipmentTransportationConfigurations.some(
+      (c: any) => !Array.isArray(c?.pallets) || c.pallets.length === 0
+    );
+    const missingFreightInfo = shipmentTransportationConfigurations.some(
+      (c: any) => !c?.freightInformation
+    );
+    const requiresPallets = ["FREIGHT_LTL", "FREIGHT_FTL"].includes(String(effectiveShippingMode || "").toUpperCase());
+    if (requiresPallets && missingPallets) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Lipsesc paletii (pallets) și/sau freightInformation pentru LTL/FTL. Completează dimensiuni, greutate, stackability și freight class.",
+          code: "MISSING_PALLETS",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+    if (requiresPallets && missingFreightInfo) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Lipsește freightInformation (declared value + freight class) pentru LTL/FTL.",
+          code: "MISSING_FREIGHT_INFO",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+    if (!hasPallets && missingPkgs) {
       return new Response(
         JSON.stringify({
           error:
@@ -1373,11 +1457,13 @@ serve(async (req) => {
       shippingMode: effectiveShippingMode,
       shipDate: shipDateFromClient || null,
       shipmentConfigCount: shipmentTransportationConfigurations.length,
+      hasPallets,
       shipments: shipmentTransportationConfigurations.map((c: any) => ({
         shipmentId: c?.shipmentId || null,
         readyStart: c?.readyToShipWindow?.start || null,
         readyEnd: c?.readyToShipWindow?.end || null,
         packages: Array.isArray(c?.packages) ? c.packages.length : 0,
+        pallets: Array.isArray(c?.pallets) ? c.pallets.length : 0,
         hasContact: Boolean(c?.contactInformation)
       }))
     });
@@ -1766,25 +1852,19 @@ serve(async (req) => {
       const mode = String(effectiveShippingMode).toUpperCase();
       return normalizedOptions.filter((o) => String(o.mode || "").toUpperCase() === mode);
     })();
-    if (effectiveShippingMode && optionsForSelection.length === 0) {
-      const returnedModes = Array.from(
-        new Set(normalizedOptions.map((o) => String(o.mode || "").toUpperCase()))
-      )
-        .filter(Boolean)
-        .join(", ");
-      return new Response(
-        JSON.stringify({
-          error: `Amazon did not return options for requested shippingMode=${effectiveShippingMode}. Returned modes: ${returnedModes || "none"}`,
-          code: "SHIPPING_MODE_MISMATCH",
-          traceId
-        }),
-        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
+    const returnedModes = Array.from(
+      new Set(normalizedOptions.map((o) => String(o.mode || "").toUpperCase()))
+    ).filter(Boolean);
+    let effectiveOptionsForSelection = optionsForSelection;
+    let modeMismatch = false;
+    if (effectiveShippingMode && optionsForSelection.length === 0 && normalizedOptions.length) {
+      modeMismatch = true;
+      effectiveOptionsForSelection = normalizedOptions;
     }
 
     // pick a default: partnered if available, otherwise first option
-    const partneredOpt = optionsForSelection.find((o) => o.partnered);
-    const defaultOpt = partneredOpt || optionsForSelection[0] || null;
+    const partneredOpt = effectiveOptionsForSelection.find((o) => o.partnered);
+    const defaultOpt = partneredOpt || effectiveOptionsForSelection[0] || null;
 
     const summary = {
       partneredAllowed: Boolean(partneredOpt),
@@ -1792,7 +1872,9 @@ serve(async (req) => {
       defaultOptionId: defaultOpt?.id || null,
       defaultCarrier: defaultOpt?.carrierName || null,
       defaultMode: defaultOpt?.mode || null,
-      defaultCharge: defaultOpt?.charge ?? null
+      defaultCharge: defaultOpt?.charge ?? null,
+      returnedModes,
+      modeMismatch
     };
 
     if (!shouldConfirm) {
@@ -1821,7 +1903,7 @@ serve(async (req) => {
     }
 
     // 3) Confirm transportation option (Amazon cere confirmTransportationOptions)
-    if (!optionsForSelection.length) {
+    if (!effectiveOptionsForSelection.length) {
       return new Response(
         JSON.stringify({
           error: "Nu există transportation options disponibile pentru confirmare.",
@@ -1847,7 +1929,7 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
-    if (shouldConfirm && wantPartnered && !partneredOpt) {
+    if (shouldConfirm && forcePartneredOnly && !partneredOpt) {
       return new Response(
         JSON.stringify({
           error:
@@ -1867,11 +1949,11 @@ serve(async (req) => {
       );
     }
 
-    let selectedOptionId = confirmOptionId || defaultOpt?.id || optionsForSelection[0]?.id || null;
+    let selectedOptionId = confirmOptionId || defaultOpt?.id || effectiveOptionsForSelection[0]?.id || null;
 
     if (forcePartneredIfAvailable) {
-      const partneredOptPick = optionsForSelection.find((o) => o.partnered);
-      const requested = optionsForSelection.find((o) => o.id === confirmOptionId) || null;
+      const partneredOptPick = effectiveOptionsForSelection.find((o) => o.partnered);
+      const requested = effectiveOptionsForSelection.find((o) => o.id === confirmOptionId) || null;
       if (partneredOptPick && requested && !requested.partnered) {
         selectedOptionId = partneredOptPick.id;
       }
@@ -1883,7 +1965,7 @@ serve(async (req) => {
       selectedOptionId = partneredOpt.id;
     }
     const selectedOption =
-      optionsForSelection.find((o) => o.id === selectedOptionId) || optionsForSelection[0] || null;
+      effectiveOptionsForSelection.find((o) => o.id === selectedOptionId) || effectiveOptionsForSelection[0] || null;
 
     if (!selectedOption?.id) {
       return new Response(
@@ -2119,11 +2201,21 @@ serve(async (req) => {
           null;
         const cfg = configsByShipment.get(String(shId)) || {};
         const pkgList = Array.isArray(cfg?.packages) ? cfg.packages : [];
-        const weightFromCfg = pkgList.reduce((sum: number, p: any) => {
+        const palletList = Array.isArray(cfg?.pallets) ? cfg.pallets : [];
+        const weightFromPackages = pkgList.reduce((sum: number, p: any) => {
           const w = Number(p?.weight?.value || 0);
           return sum + (Number.isFinite(w) ? w : 0);
         }, 0);
-        const boxesFromCfg = pkgList.length ? pkgList.length : null;
+        const weightFromPallets = palletList.reduce((sum: number, p: any) => {
+          const w = Number(p?.weight?.value || 0);
+          return sum + (Number.isFinite(w) ? w : 0);
+        }, 0);
+        const weightFromCfg = weightFromPackages || weightFromPallets || 0;
+        const boxesFromCfg = pkgList.length
+          ? pkgList.length
+          : palletList.length
+            ? palletList.reduce((sum: number, p: any) => sum + Number(p?.quantity || 0), 0)
+            : null;
         list.push({
           id: shId,
           from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,

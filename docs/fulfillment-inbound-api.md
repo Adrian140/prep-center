@@ -88,8 +88,83 @@ flowchart TD
  Current version	Legacy versions	Availability	Sandbox
 v2024-03-20 (Reference | Model)	v0	Sellers only	Static 
 
-## Release Notes
- Add release notes here 
+## cancelInboundPlan
+ curl --request PUT \
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/cancellation \
+     --header 'accept: application/json'
+  {
+  "operationId": "string"
+  } 
+  cancelInboundPlan
+put
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/cancellation
+
+
+Cancels an Inbound Plan. Charges may apply if the cancellation is performed outside of a void window. The window for Amazon Partnered Carriers is 24 hours for Small Parcel Delivery (SPD) and one hour for Less-Than-Truckload (LTL) carrier shipments.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+Responses
+
+202
+CancelInboundPlan 202 response
+
+Response body
+object
+operationId
+string
+required
+length between 36 and 38
+UUID for the given operation.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
 
 ## Terminology
  Add terminology link/notes here 
@@ -97,11 +172,433 @@ v2024-03-20 (Reference | Model)	v0	Sellers only	Static
 ## Key Features
  Add key features here 
 
-## Important Notices
- Add important notices here 
+## getInboundPlan
+ curl --request GET \
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId \
+     --header 'accept: application/json'
+  {
+  "createdAt": "2024-03-20T12:01:00Z",
+  "inboundPlanId": "wf1234abcd-1234-abcd-5678-1234abcd5678",
+  "lastUpdatedAt": "2024-03-28T13:15:30Z",
+  "marketplaceIds": [
+    "A2EUQ1WTGCTBG2"
+  ],
+  "name": "FBA (03/20/2024, 12:01 PM)",
+  "packingOptions": [],
+  "placementOptions": [],
+  "shipments": [],
+  "sourceAddress": {
+    "addressLine1": "123 example street",
+    "addressLine2": "Floor 19",
+    "city": "Toronto",
+    "companyName": "Acme",
+    "countryCode": "CA",
+    "email": "email@email.com",
+    "name": "name",
+    "phoneNumber": "1234567890",
+    "postalCode": "M1M1M1",
+    "stateOrProvinceCode": "ON"
+  },
+  "status": "ACTIVE"
+}
+getInboundPlan
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}
 
-## Tips
- Add tips here 
+
+Fetches the top level information about an inbound plan.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+Responses
+
+200
+GetInboundPlan 200 response
+
+Response body
+object
+createdAt
+date-time
+required
+The time at which the inbound plan was created. In ISO 8601 datetime with pattern yyyy-MM-ddTHH:mm:ssZ.
+
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+lastUpdatedAt
+date-time
+required
+The time at which the inbound plan was last updated. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mm:ssZ.
+
+marketplaceIds
+array of strings
+required
+A list of marketplace IDs.
+
+name
+string
+required
+Human-readable name of the inbound plan.
+
+packingOptions
+array of objects
+Packing options for the inbound plan. This property will be populated when it has been generated via the corresponding operation. If there is a chosen placement option, only packing options for that placement option will be returned. If there are confirmed shipments, only packing options for those shipments will be returned. Query the packing option for more details.
+
+object
+packingOptionId
+string
+required
+length between 38 and 38
+Identifier of a packing option.
+
+status
+string
+required
+length between 1 and 1024
+The status of a packing option. Possible values: 'OFFERED', 'ACCEPTED', 'EXPIRED'.
+
+placementOptions
+array of objects
+Placement options for the inbound plan. This property will be populated when it has been generated via the corresponding operation. If there is a chosen placement option, that will be the only returned option. Query the placement option for more details.
+
+object
+placementOptionId
+string
+required
+length between 38 and 38
+The identifier of a placement option. A placement option represents the shipment splits and destinations of SKUs.
+
+status
+string
+required
+length between 1 and 1024
+The status of a placement option. Possible values: OFFERED, ACCEPTED.
+
+shipments
+array of objects
+A list of shipment IDs for the inbound plan. This property is populated when it has been generated with the confirmPlacementOptions operation. Only shipments from the chosen placement option are returned. Query the shipment for more details.
+
+object
+shipmentId
+string
+required
+length between 38 and 38
+Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+status
+string
+required
+length between 1 and 1024
+The status of a shipment. The state of the shipment will typically start as UNCONFIRMED, then transition to WORKING after a placement option has been confirmed, and then to READY_TO_SHIP once labels are generated.
+
+Possible values: ABANDONED, CANCELLED, CHECKED_IN, CLOSED, DELETED, DELIVERED, IN_TRANSIT, MIXED, READY_TO_SHIP, RECEIVING, SHIPPED, UNCONFIRMED, WORKING
+
+sourceAddress
+object
+required
+Specific details to identify a place.
+
+addressLine1
+string
+required
+length between 1 and 180
+Street address information.
+
+addressLine2
+string
+length between 1 and 60
+Additional street address information.
+
+city
+string
+required
+length between 1 and 30
+The city.
+
+companyName
+string
+length between 1 and 50
+The name of the business.
+
+countryCode
+string
+required
+length between 2 and 2
+The country code in two-character ISO 3166-1 alpha-2 format.
+
+districtOrCounty
+string
+length between 1 and 50
+The district or county.
+
+email
+string
+length between 1 and 1024
+The email address.
+
+name
+string
+required
+length between 1 and 50
+The name of the individual who is the primary contact.
+
+phoneNumber
+string
+length between 1 and 20
+The phone number.
+
+postalCode
+string
+required
+length between 1 and 32
+The postal code.
+
+stateOrProvinceCode
+string
+length between 1 and 64
+The state or province code.
+
+status
+string
+required
+length between 1 and 1024
+Current status of the inbound plan. Possible values: ACTIVE, VOIDED, SHIPPED, ERRORED.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+## listInboundPlanItems
+ curl --request GET \
+     --url 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/items?pageSize=10' \
+     --header 'accept: application/json'
+  {
+  "items": [
+    {
+      "asin": "string",
+      "expiration": "string",
+      "fnsku": "string",
+      "labelOwner": "string",
+      "manufacturingLotCode": "string",
+      "msku": "string",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": 0,
+            "code": "string"
+          },
+          "prepOwner": "string",
+          "prepType": "string"
+        }
+      ],
+      "quantity": 0
+    }
+  ],
+  "pagination": {
+    "nextToken": "string"
+  }
+}
+listInboundPlanItems
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/items
+
+
+Provides a paginated list of item packages in an inbound plan.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+Query Params
+pageSize
+integer
+1 to 1000
+Defaults to 10
+The number of items to return in the response matching the given query.
+
+10
+paginationToken
+string
+length between 0 and 1024
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+Responses
+
+200
+ListInboundPlanItems 200 response
+
+Response body
+object
+items
+array of objects
+required
+The items in an inbound plan.
+
+object
+asin
+string
+required
+length between 1 and 10
+The Amazon Standard Identification Number (ASIN) of the item.
+
+expiration
+string
+The expiration date of the MSKU. In ISO 8601 datetime format with patternYYYY-MM-DD. The same MSKU with different expiration dates cannot go into the same box.
+
+fnsku
+string
+required
+length between 1 and 10
+A unique identifier assigned by Amazon to products stored in and fulfilled from an Amazon fulfillment center.
+
+labelOwner
+string
+required
+length between 1 and 1024
+Specifies who will label the items. Options include AMAZON, SELLER, and NONE.
+
+manufacturingLotCode
+string
+length between 1 and 256
+The manufacturing lot code.
+
+msku
+string
+required
+length between 1 and 255
+The merchant-defined SKU ID.
+
+prepInstructions
+array of objects
+required
+Special preparations that are required for an item.
+
+object
+fee
+object
+The type and amount of currency.
+
+
+fee object
+prepOwner
+string
+length between 1 and 1024
+In some situations, special preparations are required for items and this field reflects the owner of the preparations. Options include AMAZON, SELLER or NONE.
+
+prepType
+string
+length between 1 and 1024
+Type of preparation that should be done.
+
+Possible values: ITEM_LABELING, ITEM_BUBBLEWRAP, ITEM_POLYBAGGING, ITEM_TAPING, ITEM_BLACK_SHRINKWRAP, ITEM_HANG_GARMENT, ITEM_BOXING, ITEM_SETCREAT, ITEM_RMOVHANG, ITEM_SUFFOSTK, ITEM_CAP_SEALING, ITEM_DEBUNDLE, ITEM_SETSTK, ITEM_SIOC, ITEM_NO_PREP, ADULT, BABY, TEXTILE, HANGER, FRAGILE, LIQUID, SHARP, SMALL, PERFORATED, GRANULAR, SET, FC_PROVIDED, UNKNOWN, NONE.
+
+quantity
+integer
+required
+1 to 500000
+The number of the specified MSKU.
+
+pagination
+object
+Contains tokens to fetch from a certain page.
+
+nextToken
+string
+length between 1 and 1024
+When present, pass this string token in the next request to return the next response page.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
 
 ## Use Cases
 The following use case examples are available for the Fulfillment Inbound API:
@@ -1532,167 +2029,6 @@ curl --request POST \
  {
   "operationId": "string"
 }Selling Partner API
-🌐
-Developer Hub
-API Status
-Support
-Home
-Documentation
-Code Samples
-API Reference
-Announcements
-Models
-Release Notes
-FAQ
-GitHub
-Videos
-
-Search
-⌘K
-JUMP TO
-⌘/
-Welcome to API References
-A+ Content Management
-Amazon Warehousing and Distribution
-App Integrations
-Application Management
-Catalog Items
-Customer Feedback
-Data Kiosk
-Delivery By Amazon
-Easy Ship
-External Fulfillment
-Feeds
-Finances
-Fulfillment by Amazon (FBA)
-Fulfillment Inbound
-Fulfillment Inbound v0
-getPrepInstructions
-get
-getLabels
-get
-getBillOfLading
-get
-getShipments
-get
-getShipmentItemsByShipmentId
-get
-getShipmentItems
-get
-Fulfillment Inbound v2024-03-20
-listInboundPlans
-get
-createInboundPlan
-post
-getInboundPlan
-get
-listInboundPlanBoxes
-get
-cancelInboundPlan
-put
-listInboundPlanItems
-get
-updateInboundPlanName
-put
-listPackingGroupBoxes
-get
-listPackingGroupItems
-get
-setPackingInformation
-post
-listPackingOptions
-get
-generatePackingOptions
-post
-confirmPackingOption
-post
-listInboundPlanPallets
-get
-listPlacementOptions
-get
-generatePlacementOptions
-post
-confirmPlacementOption
-post
-getShipment
-get
-listShipmentBoxes
-get
-listShipmentContentUpdatePreviews
-get
-generateShipmentContentUpdatePreviews
-post
-getShipmentContentUpdatePreview
-get
-confirmShipmentContentUpdatePreview
-post
-getDeliveryChallanDocument
-get
-listDeliveryWindowOptions
-get
-generateDeliveryWindowOptions
-post
-confirmDeliveryWindowOptions
-post
-listShipmentItems
-get
-updateShipmentName
-put
-listShipmentPallets
-get
-cancelSelfShipAppointment
-put
-getSelfShipAppointmentSlots
-get
-generateSelfShipAppointmentSlots
-post
-scheduleSelfShipAppointment
-post
-updateShipmentSourceAddress
-put
-updateShipmentTrackingDetails
-put
-listTransportationOptions
-get
-generateTransportationOptions
-post
-confirmTransportationOptions
-post
-listItemComplianceDetails
-get
-updateItemComplianceDetails
-put
-createMarketplaceItemLabels
-post
-listPrepDetails
-get
-setPrepDetails
-post
-getInboundOperationStatus
-get
-Fulfillment Outbound
-Invoices
-Listings
-Merchant Fulfillment
-Messaging
-Notifications
-Orders
-Product Fees
-Product Pricing
-Replenishment
-Reports
-Sales
-Seller Wallet
-Sellers
-Services
-Shipment Invoicing
-Solicitations
-Supply Sources
-Tokens
-Uploads
-Vehicles
-Vendor Direct Fulfillment
-Vendor Retail Procurement
 
 confirmTransportationOptions
 post
@@ -1745,13 +2081,190 @@ Transportation option being selected for the provided shipment.
 ADD object
     
 
-### createInboundPlanRole available to sellers? Yes
+### createInboundPlan
+curl --request POST \
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans \
+     --header 'accept: application/json' \
+     --header 'content-type: application/json' \
+     --data '
+{
+  "items": [
+    {
+      "labelOwner": "AMAZON",
+      "prepOwner": "AMAZON"
+    }
+  ]
+}
+{
+  "inboundPlanId": "string",
+  "operationId": "string"
+}
+createInboundPlan
+post
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans
 
-Role available to vendors? No
+
+Creates an inbound plan. An inbound plan contains all the necessary information to send shipments into Amazon's fufillment network.
+
+Body Params
+
+Expand All
+⬍
+The body of the request to createInboundPlan.
+
+destinationMarketplaces
+array of strings
+required
+length between 1 and 1
+Marketplaces where the items need to be shipped to. Currently only one marketplace can be selected in this request.
 
 
+string
+
+items
+array of objects
+required
+length between 1 and 2000
+Items included in this plan.
+
+
+object
+
+expiration
+string
+The expiration date of the MSKU. In ISO 8601 datetime format with pattern YYYY-MM-DD. Items with the same MSKU but different expiration dates cannot go into the same box.
+
+labelOwner
+string
+enum
+required
+Specifies who will label the items. Options include AMAZON, SELLER or NONE.
+
+Show Details
+AMAZON	Amazon provides the information.
+SELLER	Seller provides the information.
+NONE	No owner is required for the labelling.
+
+AMAZON
+Allowed:
+
+AMAZON
+
+SELLER
+
+NONE
+manufacturingLotCode
+string
+length between 1 and 256
+The manufacturing lot code.
+
+msku
+string
+required
+length between 1 and 255
+The merchant SKU, a merchant-supplied identifier of a specific SKU.
+
+prepOwner
+string
+enum
+required
+The owner of the preparations, if special preparations are required.
+
+Show Details
+AMAZON	Amazon provides the information.
+SELLER	The seller provides the information.
+NONE	No owner is required for the preparations.
+
+AMAZON
+Allowed:
+
+AMAZON
+
+SELLER
+
+NONE
+quantity
+integer
+required
+1 to 500000
+The number of units of the specified MSKU that will be shipped.
+
+
+ADD object
+name
+string
+length between 1 and 40
+Name for the Inbound Plan. If one isn't provided, a default name will be provided.
+
+sourceAddress
+object
+required
+Specific details to identify a place.
+
+
+sourceAddress object
+Responses
+
+202
+CreateInboundPlan 202 response
+
+Response body
+object
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+operationId
+string
+required
+length between 36 and 38
+UUID for the given operation.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
  
- ### listInboundPlanBoxes
+### listInboundPlanBoxes
  curl --request GET \
      --url 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/boxes?pageSize=10' \
      --header 'accept: application/json'
@@ -2028,8 +2541,157 @@ Temporary overloading or maintenance of the server.
 
 
  ### listInboundPlanPallets
+ curl --request GET \
+     --url 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/pallets?pageSize=10' \
+     --header 'accept: application/json'
+  {
+  "pagination": {
+    "nextToken": "string"
+  },
+  "pallets": [
+    {
+      "dimensions": {
+        "height": 0,
+        "length": 0,
+        "unitOfMeasurement": "IN",
+        "width": 0
+      },
+      "packageId": "string",
+      "quantity": 0,
+      "stackability": "STACKABLE",
+      "weight": {
+        "unit": "LB",
+        "value": 0
+      }
+    }
+  ]
+}
+listInboundPlanPallets
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/pallets
+
+
+Provides a paginated list of pallet packages in an inbound plan. An inbound plan will have pallets when the related details are provided after generating Less-Than-Truckload (LTL) carrier shipments.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+Query Params
+pageSize
+integer
+1 to 1000
+Defaults to 10
+The number of pallets to return in the response matching the given query.
+
+10
+paginationToken
+string
+length between 0 and 1024
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+Responses
+
+200
+ListInboundPlanPallets 200 response
+
+Response body
+object
+pagination
+object
+Contains tokens to fetch from a certain page.
+
+nextToken
+string
+length between 1 and 1024
+When present, pass this string token in the next request to return the next response page.
+
+pallets
+array of objects
+required
+The pallets in an inbound plan.
+
+object
+dimensions
+object
+Measurement of a package's dimensions.
+
+
+dimensions object
+packageId
+string
+required
+length between 38 and 38
+Primary key to uniquely identify a Package (Box or Pallet).
+
+quantity
+integer
+1 to 10000
+The number of containers where all other properties like weight or dimensions are identical.
+
+stackability
+string
+enum
+Indicates whether pallets will be stacked when carrier arrives for pick-up.
+
+STACKABLE NON_STACKABLE
+
+Show Details
+STACKABLE	A pallet that can be stacked on top of another pallet.
+NON_STACKABLE	A pallet that cannot be stacked on top of another pallet.
+weight
+object
+The weight of a package.
+
+
+weight object
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
  ### listInboundPlans
- listInboundPlans
 get
 https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans
 
@@ -2303,6 +2965,61 @@ Temporary overloading or maintenance of the server.
 
 
 ### listPackingGroupBoxes
+curl --request GET \
+     --url 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/packingGroups/packingGroupId/boxes?pageSize=10' \
+     --header 'accept: application/json'
+  {
+  "boxes": [
+    {
+      "boxId": "string",
+      "contentInformationSource": "BOX_CONTENT_PROVIDED",
+      "destinationRegion": {
+        "countryCode": "string",
+        "state": "string",
+        "warehouseId": "string"
+      },
+      "dimensions": {
+        "height": 0,
+        "length": 0,
+        "unitOfMeasurement": "IN",
+        "width": 0
+      },
+      "externalContainerIdentifier": "string",
+      "externalContainerIdentifierType": "string",
+      "items": [
+        {
+          "asin": "string",
+          "expiration": "string",
+          "fnsku": "string",
+          "labelOwner": "string",
+          "manufacturingLotCode": "string",
+          "msku": "string",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": 0,
+                "code": "string"
+              },
+              "prepOwner": "string",
+              "prepType": "string"
+            }
+          ],
+          "quantity": 0
+        }
+      ],
+      "packageId": "string",
+      "quantity": 0,
+      "templateName": "string",
+      "weight": {
+        "unit": "LB",
+        "value": 0
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "string"
+  }
+}
  istPackingGroupBoxes
 get
 https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/packingGroups/{packingGroupId}/boxes
@@ -2530,6 +3247,61 @@ Temporary overloading or maintenance of the server.
 
 
 ### listPackingGroupItems
+curl --request GET \
+     --url 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/packingGroups/packingGroupId/items?pageSize=10' \
+     --header 'accept: application/json'
+{
+  "items": [
+    {
+      "asin": "string",
+      "expiration": "string",
+      "fnsku": "string",
+      "labelOwner": "string",
+      "manufacturingLotCode": "string",
+      "msku": "string",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": 0,
+            "code": "string"
+          },
+          "prepOwner": "string",
+          "prepType": "string"
+        }
+      ],
+      "quantity": 0
+    }
+  ],
+  "pagination": {
+    "nextToken": "string"
+  }
+}
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+packingGroupId
+string
+required
+length between 38 and 38
+Identifier of a packing group.
+
+Query Params
+pageSize
+integer
+1 to 100
+Defaults to 10
+The number of packing group items to return in the response matching the given query.
+
+10
+paginationToken
+string
+length between 0 and 1024
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
 
 ### listPackingOptions
 
