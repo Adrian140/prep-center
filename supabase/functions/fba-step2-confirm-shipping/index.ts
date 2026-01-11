@@ -1718,9 +1718,23 @@ serve(async (req) => {
     const optionsForSelection = (() => {
       if (!effectiveShippingMode) return normalizedOptions;
       const mode = String(effectiveShippingMode).toUpperCase();
-      const filtered = normalizedOptions.filter((o) => String(o.mode || "").toUpperCase() === mode);
-      return filtered.length ? filtered : normalizedOptions;
+      return normalizedOptions.filter((o) => String(o.mode || "").toUpperCase() === mode);
     })();
+    if (effectiveShippingMode && optionsForSelection.length === 0) {
+      const returnedModes = Array.from(
+        new Set(normalizedOptions.map((o) => String(o.mode || "").toUpperCase()))
+      )
+        .filter(Boolean)
+        .join(", ");
+      return new Response(
+        JSON.stringify({
+          error: `Amazon did not return options for requested shippingMode=${effectiveShippingMode}. Returned modes: ${returnedModes || "none"}`,
+          code: "SHIPPING_MODE_MISMATCH",
+          traceId
+        }),
+        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
     // pick a default: partnered if available, otherwise first option
     const partneredOpt = optionsForSelection.find((o) => o.partnered);
@@ -1779,6 +1793,7 @@ serve(async (req) => {
       body?.force_partnered_if_available ?? body?.forcePartneredIfAvailable ?? true;
     const forcePartneredOnly =
       body?.force_partnered_only ?? body?.forcePartneredOnly ?? false;
+    const wantPartnered = Boolean(forcePartneredOnly || forcePartneredIfAvailable);
 
     if (forcePartneredOnly && !partneredOpt) {
       return new Response(
@@ -1788,6 +1803,25 @@ serve(async (req) => {
           traceId
         }),
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+    if (shouldConfirm && wantPartnered && !partneredOpt) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Amazon Partnered Carrier was not returned by SP-API for this inbound plan/options. Not confirming non-partnered.",
+          code: "PARTNERED_NOT_RETURNED",
+          traceId,
+          returnedSolutions: Array.from(
+            new Set(
+              normalizedOptions.map((o) => String(o.raw?.shippingSolution || "").toUpperCase())
+            )
+          ).filter(Boolean),
+          returnedModes: Array.from(
+            new Set(normalizedOptions.map((o) => String(o.mode || "").toUpperCase()))
+          ).filter(Boolean)
+        }),
+        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
 
