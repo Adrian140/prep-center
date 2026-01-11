@@ -1434,6 +1434,23 @@ serve(async (req) => {
       );
     }
 
+    const configsByShipment = new Map<string, any>();
+    shipmentTransportationConfigurations.forEach((cfg: any) => {
+      if (cfg?.shipmentId) configsByShipment.set(String(cfg.shipmentId), cfg);
+    });
+
+    const selections = Array.isArray(selectedOption?.raw?.shipments)
+      ? selectedOption.raw.shipments.map((sh: any) => ({
+          shipmentId: sh.shipmentId || sh.id,
+          transportationOptionId: selectedOption?.id,
+          deliveryWindow: configsByShipment.get(String(sh.shipmentId || sh.id))?.readyToShipWindow || null
+        }))
+      : placementShipments.map((sh: any, idx: number) => ({
+          shipmentId: sh.shipmentId || sh.id || `s-${idx + 1}`,
+          transportationOptionId: selectedOption?.id,
+          deliveryWindow: configsByShipment.get(String(sh.shipmentId || sh.id || `s-${idx + 1}`))?.readyToShipWindow || null
+        }));
+
     const confirmPayload = JSON.stringify({
       transportationSelections: selections
     });
@@ -1490,23 +1507,6 @@ serve(async (req) => {
         });
       }
     }
-
-    const configsByShipment = new Map<string, any>();
-    shipmentTransportationConfigurations.forEach((cfg: any) => {
-      if (cfg?.shipmentId) configsByShipment.set(String(cfg.shipmentId), cfg);
-    });
-
-    const selections = Array.isArray(selectedOption?.raw?.shipments)
-      ? selectedOption.raw.shipments.map((sh: any) => ({
-          shipmentId: sh.shipmentId || sh.id,
-          transportationOptionId: selectedOption?.id,
-          deliveryWindow: configsByShipment.get(String(sh.shipmentId || sh.id))?.readyToShipWindow || null
-        }))
-      : placementShipments.map((sh: any, idx: number) => ({
-          shipmentId: sh.shipmentId || sh.id || `s-${idx + 1}`,
-          transportationOptionId: selectedOption?.id,
-          deliveryWindow: configsByShipment.get(String(sh.shipmentId || sh.id || `s-${idx + 1}`))?.readyToShipWindow || null
-        }));
 
     const normalizeShipmentsFromPlan = async () => {
       const list: any[] = [];
