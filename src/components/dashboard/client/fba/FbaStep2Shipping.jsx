@@ -5,6 +5,7 @@ export default function FbaStep2Shipping({
   shipment,
   hazmat = false,
   fetchPartneredQuote, // optional async ({ method, hazmat }) => { allowed: boolean; rate: number; reason?: string }
+  forcePartneredOnly = false,
   onCarrierChange,
   onModeChange,
   onShipDateChange,
@@ -85,7 +86,7 @@ export default function FbaStep2Shipping({
   const partneredLabel = partneredReason || 'Estimated charge';
   const partneredChargeText =
     disablePartnered || partneredRate === null ? 'Not available' : `€${partneredRate.toFixed(2)}`;
-  const canContinue = carrier?.partnered ? termsAccepted && partneredAllowed : true;
+  const canContinue = carrier?.partnered ? termsAccepted && partneredAllowed : !forcePartneredOnly;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -155,28 +156,37 @@ export default function FbaStep2Shipping({
                   onChange={() => onCarrierChange({ partnered: true, name: 'UPS (Amazon-partnered carrier)', rate: partneredRate })}
                 />
               </label>
-              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${!carrier.partnered ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
-                <div className="flex flex-col">
-                  <span className="font-semibold">Non Amazon partnered carrier</span>
-                  <span className="text-xs text-slate-500">Select carrier</span>
+              {!forcePartneredOnly && (
+                <>
+                  <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${!carrier.partnered ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
+                    <div className="flex flex-col">
+                      <span className="font-semibold">Non Amazon partnered carrier</span>
+                      <span className="text-xs text-slate-500">Select carrier</span>
+                    </div>
+                    <input
+                      type="radio"
+                      checked={!carrier.partnered}
+                      onChange={() => onCarrierChange({ partnered: false, name: carrier.name || 'Non Amazon partnered carrier' })}
+                    />
+                  </label>
+                  {!carrier.partnered && (
+                    <select
+                      value={carrier.name || ''}
+                      onChange={(e) => onCarrierChange({ partnered: false, name: e.target.value })}
+                      className="border rounded-md px-3 py-2 text-sm"
+                    >
+                      <option value="">Select carrier</option>
+                      <option value="UPS (non-partnered)">UPS (non-partnered)</option>
+                      <option value="DHL">DHL</option>
+                      <option value="Chronopost">Chronopost</option>
+                    </select>
+                  )}
+                </>
+              )}
+              {forcePartneredOnly && (
+                <div className="text-xs text-slate-500">
+                  Non-partnered carriers are disabled. This shipment must use Amazon partnered carrier.
                 </div>
-                <input
-                  type="radio"
-                  checked={!carrier.partnered}
-                  onChange={() => onCarrierChange({ partnered: false, name: carrier.name || 'Non Amazon partnered carrier' })}
-                />
-              </label>
-              {!carrier.partnered && (
-                <select
-                  value={carrier.name || ''}
-                  onChange={(e) => onCarrierChange({ partnered: false, name: e.target.value })}
-                  className="border rounded-md px-3 py-2 text-sm"
-                >
-                  <option value="">Select carrier</option>
-                  <option value="UPS (non-partnered)">UPS (non-partnered)</option>
-                  <option value="DHL">DHL</option>
-                  <option value="Chronopost">Chronopost</option>
-                </select>
               )}
               <div className="text-xs text-slate-500">
                 The Amazon Partnered Carrier programme offers discounted rates, buying/printing labels, and automated tracking.

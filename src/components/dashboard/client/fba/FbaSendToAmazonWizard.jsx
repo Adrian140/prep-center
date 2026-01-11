@@ -168,6 +168,7 @@ export default function FbaSendToAmazonWizard({
   const [packingRefreshLoading, setPackingRefreshLoading] = useState(false);
   const [packingReadyError, setPackingReadyError] = useState('');
   const [step2Loaded, setStep2Loaded] = useState(false);
+  const forcePartneredOnly = true;
   const isFallbackId = useCallback((v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-"), []);
   const hasRealPackGroups = useCallback(
     (groups) =>
@@ -860,6 +861,7 @@ export default function FbaSendToAmazonWizard({
           shipment_transportation_configurations: configs,
           ship_date: shipmentMode?.deliveryDate || null,
           force_partnered_if_available: true,
+          force_partnered_only: forcePartneredOnly,
           skip_confirm: true
         }
       });
@@ -912,6 +914,9 @@ export default function FbaSendToAmazonWizard({
         const preferredRate = json.summary?.defaultCharge ?? json.summary?.partneredRate ?? shipmentMode.carrier?.rate ?? null;
         const partneredOpt = Array.isArray(json.options) ? json.options.find((o) => detectPartneredOption(o)) : null;
         const hasPartnered = Boolean(json.summary?.partneredAllowed || partneredOpt);
+        if (forcePartneredOnly && !hasPartnered) {
+          setShippingError('Amazon partnered carrier nu este disponibil pentru acest shipment.');
+        }
         if (hasPartnered) {
           setShipmentMode((prev) => ({
             ...prev,
@@ -956,7 +961,11 @@ export default function FbaSendToAmazonWizard({
     const getOptionId = (opt) => opt?.transportationOptionId || opt?.id || opt?.optionId || null;
     const partneredOpt = options.find((o) => detectPartneredOption(o)) || null;
     const nonPartneredOpt = options.find((o) => !detectPartneredOption(o)) || null;
-    const selectedOptionId = shipmentMode?.carrier?.partnered
+    if (forcePartneredOnly && !partneredOpt) {
+      setShippingError('Amazon partnered carrier nu este disponibil pentru acest shipment.');
+      return;
+    }
+    const selectedOptionId = shipmentMode?.carrier?.partnered || forcePartneredOnly
       ? (getOptionId(partneredOpt) || getOptionId(options[0]))
       : (getOptionId(nonPartneredOpt) || getOptionId(options[0]));
     if (!selectedOptionId) {
@@ -978,6 +987,7 @@ export default function FbaSendToAmazonWizard({
           shipment_transportation_configurations: configs,
           ship_date: shipmentMode?.deliveryDate || null,
           force_partnered_if_available: true,
+          force_partnered_only: forcePartneredOnly,
           confirm: true
         }
       });
@@ -1316,6 +1326,7 @@ export default function FbaSendToAmazonWizard({
             warning
           }}
           fetchPartneredQuote={fetchPartneredQuote}
+          forcePartneredOnly={forcePartneredOnly}
           onCarrierChange={handleCarrierChange}
           onModeChange={handleModeChange}
           onShipDateChange={(date) => setShipmentMode((prev) => ({ ...prev, deliveryDate: date }))}

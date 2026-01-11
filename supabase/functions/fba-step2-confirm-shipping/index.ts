@@ -1572,6 +1572,19 @@ serve(async (req) => {
 
     const forcePartneredIfAvailable =
       body?.force_partnered_if_available ?? body?.forcePartneredIfAvailable ?? true;
+    const forcePartneredOnly =
+      body?.force_partnered_only ?? body?.forcePartneredOnly ?? false;
+
+    if (forcePartneredOnly && !partneredOpt) {
+      return new Response(
+        JSON.stringify({
+          error: "Amazon partnered carrier nu este disponibil pentru acest shipment.",
+          code: "PARTNERED_NOT_AVAILABLE",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
     let selectedOptionId = confirmOptionId || defaultOpt?.id || optionsForSelection[0]?.id || null;
 
@@ -1584,6 +1597,9 @@ serve(async (req) => {
       if (partneredOptPick && !confirmOptionId) {
         selectedOptionId = partneredOptPick.id;
       }
+    }
+    if (forcePartneredOnly && partneredOpt?.id) {
+      selectedOptionId = partneredOpt.id;
     }
     const selectedOption =
       optionsForSelection.find((o) => o.id === selectedOptionId) || optionsForSelection[0] || null;
