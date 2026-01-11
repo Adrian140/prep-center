@@ -706,6 +706,12 @@ export default function FbaSendToAmazonWizard({
         }
       });
       if (error) throw error;
+      if (json?.error) {
+        setShippingError(json.error);
+        setShippingOptions([]);
+        setShippingSummary(null);
+        return;
+      }
       setShippingOptions(json.options || []);
       setShippingSummary(json.summary || null);
       if (Array.isArray(json.shipments) && json.shipments.length) {
