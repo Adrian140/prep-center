@@ -934,7 +934,27 @@ serve(async (req) => {
       placementConfirm?.json?.payload?.operationId ||
       placementConfirm?.json?.operationId ||
       null;
-    if (!placementConfirm?.res?.ok && ![400, 409].includes(placementConfirm?.res?.status || 0) && !placementOpId) {
+    const placementStatus = placementConfirm?.res?.status || 0;
+    const placementBody = placementConfirm?.text || "";
+    const placementAlreadyConfirmed =
+      /already been confirmed|has been confirmed|already confirmed|already accepted|placement option is already confirmed/i.test(
+        placementBody
+      );
+    if (!placementConfirm?.res?.ok && [400, 409].includes(placementStatus) && !placementOpId && !placementAlreadyConfirmed) {
+      return new Response(
+        JSON.stringify({
+          error: "Placement confirmation failed",
+          traceId,
+          status: placementStatus,
+          body: placementBody.slice(0, 400) || null
+        }),
+        {
+          status: 502,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        }
+      );
+    }
+    if (!placementConfirm?.res?.ok && ![400, 409].includes(placementStatus) && !placementOpId) {
       return new Response(
         JSON.stringify({ error: "Placement confirmation failed", traceId, status: placementConfirm?.res?.status }),
         {
@@ -1034,6 +1054,8 @@ serve(async (req) => {
     if (!Array.isArray(placementShipments) || !placementShipments.length) {
       return new Response(JSON.stringify({
         error: "Placement confirmat, dar Amazon încă nu a generat shipments. Reîncearcă în câteva secunde.",
+        code: "SHIPMENTS_PENDING",
+        retryAfterMs: 5000,
         traceId,
         placementOptionId: effectivePlacementOptionId
       }), {
@@ -1148,14 +1170,24 @@ serve(async (req) => {
           const length = Number(dims?.length);
           const width = Number(dims?.width);
           const height = Number(dims?.height);
-          const dimUnit = (dims?.unit || dims?.uom || "CM").toString().toUpperCase();
           const weightValue = Number(w?.value);
+          const dimUnit = (dims?.unit || dims?.uom || "CM").toString().toUpperCase();
           const weightUnit = (w?.unit || w?.uom || "KG").toString().toUpperCase();
           if (!Number.isFinite(length) || !Number.isFinite(width) || !Number.isFinite(height)) return null;
           if (!Number.isFinite(weightValue)) return null;
+          const normalizedDims = {
+            length: dimUnit === "IN" ? length : cmToIn(length),
+            width: dimUnit === "IN" ? width : cmToIn(width),
+            height: dimUnit === "IN" ? height : cmToIn(height),
+            unit: "IN"
+          };
+          const normalizedWeight = {
+            value: weightUnit === "LB" ? weightValue : kgToLb(weightValue),
+            unit: "LB"
+          };
           return {
-            dimensions: { length, width, height, unit: dimUnit },
-            weight: { value: weightValue, unit: weightUnit },
+            dimensions: normalizedDims,
+            weight: normalizedWeight,
             quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1
           };
         })

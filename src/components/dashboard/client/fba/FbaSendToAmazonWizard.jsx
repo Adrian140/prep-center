@@ -160,6 +160,8 @@ export default function FbaSendToAmazonWizard({
   const planRef = useRef(plan);
   const packingOptionIdRef = useRef(packingOptionId);
   const placementOptionIdRef = useRef(placementOptionId);
+  const shippingRetryRef = useRef(0);
+  const shippingRetryTimerRef = useRef(null);
   useEffect(() => {
     packGroupsRef.current = packGroups;
   }, [packGroups]);
@@ -172,6 +174,23 @@ export default function FbaSendToAmazonWizard({
   useEffect(() => {
     placementOptionIdRef.current = placementOptionId;
   }, [placementOptionId]);
+  useEffect(() => {
+    return () => {
+      if (shippingRetryTimerRef.current) {
+        clearTimeout(shippingRetryTimerRef.current);
+        shippingRetryTimerRef.current = null;
+      }
+    };
+  }, []);
+  useEffect(() => {
+    if (currentStep !== '2') {
+      shippingRetryRef.current = 0;
+      if (shippingRetryTimerRef.current) {
+        clearTimeout(shippingRetryTimerRef.current);
+        shippingRetryTimerRef.current = null;
+      }
+    }
+  }, [currentStep]);
   const resolveRequestId = useCallback(() => {
     return (
       plan?.prepRequestId ||
@@ -775,6 +794,22 @@ export default function FbaSendToAmazonWizard({
       });
       if (error) throw error;
       if (json?.error) {
+        if (json?.code === 'SHIPMENTS_PENDING') {
+          const maxRetries = 5;
+          const nextDelay = Number(json?.retryAfterMs || 5000);
+          const attempt = shippingRetryRef.current + 1;
+          if (attempt <= maxRetries) {
+            shippingRetryRef.current = attempt;
+            setShippingError(`Amazon generează shipments... încercare ${attempt}/${maxRetries}. Reîncerc automat.`);
+            if (shippingRetryTimerRef.current) clearTimeout(shippingRetryTimerRef.current);
+            shippingRetryTimerRef.current = setTimeout(() => {
+              fetchShippingOptions();
+            }, nextDelay);
+            return;
+          }
+          setShippingError('Amazon încă nu a generat shipments. Reîncearcă manual în câteva secunde.');
+          return;
+        }
         setShippingError(json.error);
         setShippingOptions([]);
         setShippingSummary(null);
@@ -782,6 +817,7 @@ export default function FbaSendToAmazonWizard({
       }
       setShippingOptions(json.options || []);
       setShippingSummary(json.summary || null);
+      shippingRetryRef.current = 0;
       if (Array.isArray(json.shipments) && json.shipments.length) {
         const fallbackShipments = deriveShipmentsFromPacking(shipments);
         const fallbackById = new Map(
