@@ -1432,6 +1432,9 @@ serve(async (req) => {
 
     const detectPartnered = (opt: any) => {
       const carrierName = (opt?.carrierName || opt?.carrier || "").toString();
+      const shippingSolution = (opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || "")
+        .toString()
+        .toUpperCase();
       const flags = [
         opt?.partneredCarrier,
         opt?.isPartnered,
@@ -1441,8 +1444,9 @@ serve(async (req) => {
         opt?.program === "AMAZON_PARTNERED",
         opt?.shippingSolution === "AMAZON_PARTNERED_CARRIER"
       ];
+      const solutionHints = shippingSolution.includes("AMAZON_PARTNERED");
       const nameHints = /partner/i.test(carrierName);
-      return Boolean(flags.find(Boolean) || nameHints);
+      return Boolean(flags.find(Boolean) || solutionHints || nameHints);
     };
 
     const normalizedOptions = Array.isArray(options)

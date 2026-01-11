@@ -373,6 +373,26 @@ export default function FbaSendToAmazonWizard({
     return null;
   }, [shippingSummary, shippingLoading, step2Loaded]);
 
+  const fetchPartneredQuote = useCallback(
+    ({ hazmat }) => {
+      const allowed = shippingSummary?.partneredAllowed ?? !hazmat;
+      const rate =
+        typeof shippingSummary?.partneredRate === 'number'
+          ? shippingSummary.partneredRate
+          : typeof shippingSummary?.defaultCharge === 'number'
+            ? shippingSummary.defaultCharge
+            : null;
+      const reason =
+        shippingSummary?.partneredAllowed === false
+          ? 'Amazon partnered carrier not available for this plan.'
+          : hazmat
+            ? 'Hazmat items are not eligible for partnered carrier.'
+            : '';
+      return { allowed, rate, reason };
+    },
+    [shippingSummary]
+  );
+
   // când intrăm în 1b și nu avem încă packing groups reale, declanșăm fetch automat
   useEffect(() => {
     if (currentStep !== '1b') return;
@@ -1117,7 +1137,7 @@ export default function FbaSendToAmazonWizard({
             shipments,
             warning
           }}
-          fetchPartneredQuote={shipmentMode.fetchPartneredQuote}
+          fetchPartneredQuote={fetchPartneredQuote}
           onCarrierChange={handleCarrierChange}
           onModeChange={handleModeChange}
           onShipDateChange={(date) => setShipmentMode((prev) => ({ ...prev, deliveryDate: date }))}
