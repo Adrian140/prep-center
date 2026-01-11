@@ -1011,6 +1011,19 @@ serve(async (req) => {
       requestId: planRes?.requestId || null
     });
 
+    const planSourceAddress =
+      planRes?.json?.sourceAddress ||
+      planRes?.json?.payload?.sourceAddress ||
+      null;
+    const contactInformation = (() => {
+      if (!planSourceAddress) return null;
+      const name = planSourceAddress.name || planSourceAddress.companyName || null;
+      const phoneNumber = planSourceAddress.phoneNumber || null;
+      const email = planSourceAddress.email || null;
+      if (!name && !phoneNumber && !email) return null;
+      return { name, phoneNumber, email };
+    })();
+
     const planPlacementId =
       planRes?.json?.placementOptions?.[0]?.placementOptionId ||
       planRes?.json?.payload?.placementOptions?.[0]?.placementOptionId ||
@@ -1040,97 +1053,23 @@ serve(async (req) => {
       return clamped.toISOString();
     })();
 
-    const mapMode = (val: any) => {
-      const v = String(val || "").toUpperCase();
-      if (["SPD", "SMALL_PARCEL", "SMALLPARCEL"].includes(v)) return "SMALL_PARCEL";
-      if (["LTL", "LESS_THAN_TRUCKLOAD", "TRUCKLOAD", "FTL"].includes(v)) return "LESS_THAN_TRUCKLOAD";
-      return null;
-    };
-
-    const isFallbackId = (val: any) => typeof val === "string" && val.toLowerCase().startsWith("fallback-");
-
-    const normalizedPackages = (() => {
-      const pkgs: any[] = [];
-      (shipmentTransportConfigs || []).forEach((cfg: any) => {
-        const packages = cfg?.packages || cfg?.Packages || [];
-        const packingGroupId =
-          cfg?.packingGroupId || cfg?.packing_group_id || cfg?.packing_groupid || null;
-        (Array.isArray(packages) ? packages : []).forEach((p: any) => {
-          const dims = p?.dimensions || p?.Dimensions || null;
-          const weight = p?.weight || p?.Weight || null;
-          const groupId =
-            p?.packingGroupId ||
-            p?.packing_group_id ||
-            packingGroupId ||
-            null;
-          const isFallback = isFallbackId(groupId);
-          const dimOk =
-            dims && Number(dims.length) > 0 && Number(dims.width) > 0 && Number(dims.height) > 0;
-          const wOk = weight && Number(weight.value) > 0;
-          if (!groupId || isFallback || !dimOk || !wOk) return;
-          const unitDim = String(dims.unit || "CM").toUpperCase();
-          const unitW = String(weight.unit || "KG").toUpperCase();
-          pkgs.push({
-            packageId: p?.packageId || p?.package_id || `pkg-${pkgs.length + 1}`,
-            packingGroupId: groupId,
-            dimensions: {
-              length: unitDim === "IN" ? Number(dims.length) : cmToIn(dims.length),
-              width: unitDim === "IN" ? Number(dims.width) : cmToIn(dims.width),
-              height: unitDim === "IN" ? Number(dims.height) : cmToIn(dims.height),
-              unit: "IN"
-            },
-            weight: {
-              value: unitW === "LB" ? Number(weight.value) : kgToLb(weight.value),
-              unit: "LB"
-            }
-          });
-        });
-      });
-      return pkgs;
-    })();
-
-  const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
-    const shId = sh.shipmentId || sh.id || `s-${idx + 1}`;
-    const cfg = (shipmentTransportConfigs || []).find(
-      (c: any) => c?.shipmentId === shId || c?.shipment_id === shId
-    ) || (shipmentTransportConfigs || [])[idx] || {};
-    const shippingMode = mapMode(cfg.shippingMode || cfg.shipping_mode || shippingModeInput || "SMALL_PARCEL");
-    const readyStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || readyStartIso;
-    const readyEnd =
-      cfg.readyToShipWindow?.end ||
-      cfg.ready_to_ship_window?.end ||
-      new Date(new Date(readyStart).getTime() + 24 * 60 * 60 * 1000).toISOString();
-    return {
-      shipmentId: shId,
-      readyToShipWindow: { start: readyStart, end: readyEnd },
-      shippingMode
-    };
-  });
-
-    logStep("packingInfoFallback", {
-      traceId,
-      packingOptionId: effectivePackingOptionId || null,
-      packagesCount: normalizedPackages.length
+    const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
+      const shId = sh.shipmentId || sh.id || `s-${idx + 1}`;
+      const cfg = (shipmentTransportConfigs || []).find(
+        (c: any) => c?.shipmentId === shId || c?.shipment_id === shId
+      ) || (shipmentTransportConfigs || [])[idx] || {};
+      const readyStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || readyStartIso;
+      const readyEnd =
+        cfg.readyToShipWindow?.end ||
+        cfg.ready_to_ship_window?.end ||
+        new Date(new Date(readyStart).getTime() + 24 * 60 * 60 * 1000).toISOString();
+      const baseCfg: Record<string, any> = {
+        shipmentId: shId,
+        readyToShipWindow: { start: readyStart, end: readyEnd }
+      };
+      if (contactInformation) baseCfg.contactInformation = contactInformation;
+      return baseCfg;
     });
-
-    const hasFallbackPackingGroup = (shipmentTransportConfigs || []).some((cfg: any) => {
-      const topLevelId =
-        cfg?.packingGroupId || cfg?.packing_group_id || cfg?.packing_groupid || null;
-      if (isFallbackId(topLevelId)) return true;
-      const packages = cfg?.packages || cfg?.Packages || [];
-      return (Array.isArray(packages) ? packages : []).some((p: any) =>
-        isFallbackId(p?.packingGroupId || p?.packing_group_id)
-      );
-    });
-    if (hasFallbackPackingGroup) {
-      return new Response(
-        JSON.stringify({
-          error: "PackingGroupId invalid (fallback) trimis din client. Reia Step1b ca să obții packing groups reale.",
-          traceId
-        }),
-        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
-    }
 
     if (!effectivePackingOptionId) {
       return new Response(
@@ -1140,94 +1079,6 @@ serve(async (req) => {
         }),
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
-    }
-
-    if (effectivePackingOptionId && !normalizedPackages.length) {
-      return new Response(
-        JSON.stringify({
-          error: "Nu există packingGroupId + packages valide (de la Amazon) pentru setPackingInformation. Reia Step1b ca să generezi packingOptions.",
-          traceId
-        }),
-        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
-    }
-
-    const packageGroupings = (() => {
-      const map = new Map<string, string[]>();
-      normalizedPackages.forEach((p) => {
-        const gid = String(p.packingGroupId);
-        const pid = String(p.packageId);
-        if (!map.has(gid)) map.set(gid, []);
-        map.get(gid)!.push(pid);
-      });
-      return Array.from(map.entries()).map(([packingGroupId, packageIds]) => ({
-        packingGroupId,
-        boxes: packageIds.map((pid) => ({ quantity: 1, packageIds: [pid] }))
-      }));
-    })();
-
-    // 0) Asigură packingInformation înainte de transport (ca fallback)
-  if (effectivePackingOptionId && normalizedPackages.length) {
-      const setPackPayload = JSON.stringify({
-        packingOptionId: effectivePackingOptionId,
-        packages: normalizedPackages,
-        packageGroupings
-      });
-      const setRes = await signedFetch({
-        method: "POST",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingInformation`,
-        query: "",
-        payload: setPackPayload,
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.setPackingInformation",
-        marketplaceId,
-        sellerId
-      });
-      logStep("setPackingInformation", { traceId, status: setRes?.res?.status, requestId: setRes?.requestId || null });
-      const setOpId =
-        setRes?.json?.payload?.operationId ||
-        setRes?.json?.operationId ||
-        null;
-      if (setOpId) {
-        const opStatus = await pollOperationStatus(setOpId);
-        const stUp = getOperationState(opStatus);
-        if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
-          logStep("setPackingInformation_op_failed", { traceId, state: stUp, requestId: opStatus?.requestId || null, status: opStatus?.res?.status });
-          return new Response(
-            JSON.stringify({ error: "SetPackingInformation async op failed", state: stUp, traceId }),
-            { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
-          );
-        }
-      }
-      if (!setRes?.res?.ok) {
-        // log body for debugging (truncated)
-        const bodyPreview = (setRes?.text || "").slice(0, 500);
-        const placementAlreadyConfirmed =
-          (setRes?.res?.status === 400) &&
-          bodyPreview.toLowerCase().includes("placement option is already confirmed");
-        if (placementAlreadyConfirmed) {
-          // tratăm placement confirmed ca ok (Amazon nu mai acceptă update, dar placement e valid)
-          logStep("setPackingInformation_skip", { traceId, reason: "placement_already_confirmed" });
-        } else {
-          // dacă Amazon răspunde 400 din alt motiv, nu blocăm transportul; doar logăm
-          if (setRes?.res?.status === 400) {
-            logStep("setPackingInformation_soft_fail", { traceId, status: setRes?.res?.status || null, body: bodyPreview });
-          } else {
-            logStep("setPackingInformation_error", { traceId, status: setRes?.res?.status || null, body: bodyPreview });
-            return new Response(
-              JSON.stringify({ error: "SetPackingInformation failed before transportation", status: setRes?.res?.status || null, traceId }),
-              { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
-            );
-          }
-        }
-      }
     }
 
     // 1) Generate transportation options (idempotent)
@@ -1429,80 +1280,6 @@ serve(async (req) => {
       );
     }
 
-    const optionsWithoutWindow = Array.isArray(options)
-      ? options.filter((opt) => !hasDeliveryWindowPrecondition(opt))
-      : [];
-    if (Array.isArray(options) && options.length > 0 && optionsWithoutWindow.length === 0) {
-      logStep("transportation_requires_delivery_window", {
-        traceId,
-        totalOptions: options.length
-      });
-      const shipmentIds = Array.from(
-        new Set(
-          options
-            .map((opt: any) => opt?.shipmentId)
-            .concat(placementShipments.map((s: any) => s?.shipmentId || s?.id))
-            .filter(Boolean)
-            .map((id: any) => String(id))
-        )
-      );
-      for (const shipmentId of shipmentIds) {
-        const genRes = await generateDeliveryWindowOptions(shipmentId);
-        const genOpId =
-          genRes?.json?.payload?.operationId ||
-          genRes?.json?.operationId ||
-          null;
-        if (genOpId) {
-          const genStatus = await pollOperationStatus(genOpId);
-          const stUp = getOperationState(genStatus);
-          if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
-            logStep("deliveryWindow_generate_failed", { traceId, shipmentId, state: stUp });
-            continue;
-          }
-        }
-        let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
-        let optionsList: any[] = [];
-        for (let i = 1; i <= 6; i++) {
-          listRes = await listDeliveryWindowOptions(shipmentId);
-          optionsList = extractDeliveryWindowOptions(listRes);
-          if (Array.isArray(optionsList) && optionsList.length) break;
-          await delay(Math.min(800 * i, 4000));
-        }
-        const dwOptionId = pickDeliveryWindowOptionId(optionsList);
-        if (!dwOptionId) {
-          logStep("deliveryWindow_missing_options", { traceId, shipmentId });
-          continue;
-        }
-        const confirmRes = await confirmDeliveryWindowOption(shipmentId, dwOptionId);
-        const confirmOpId =
-          confirmRes?.json?.payload?.operationId ||
-          confirmRes?.json?.operationId ||
-          null;
-        if (confirmOpId) {
-          const confirmStatus = await pollOperationStatus(confirmOpId);
-          const stUp = getOperationState(confirmStatus);
-          if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
-            logStep("deliveryWindow_confirm_failed", { traceId, shipmentId, state: stUp });
-          }
-        }
-      }
-      const retryList = await listAllTransportationOptions();
-      const refreshedOptions = retryList?.collected || [];
-      const refreshedWithoutWindow = Array.isArray(refreshedOptions)
-        ? refreshedOptions.filter((opt: any) => !hasDeliveryWindowPrecondition(opt))
-        : [];
-      if (!refreshedWithoutWindow.length) {
-        return new Response(
-          JSON.stringify({
-            error:
-              "Toate transportation options cer CONFIRMED_DELIVERY_WINDOW si confirmarea automata nu a produs optiuni disponibile. Reincearca dupa cateva minute.",
-            traceId
-          }),
-          { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
-        );
-      }
-      optionsWithoutWindow.splice(0, optionsWithoutWindow.length, ...refreshedWithoutWindow);
-    }
 
     const extractCharge = (opt: any) => {
       const fromPath = [
@@ -1531,8 +1308,8 @@ serve(async (req) => {
       return Boolean(flags.find(Boolean) || nameHints);
     };
 
-    const normalizedOptions = Array.isArray(optionsWithoutWindow.length ? optionsWithoutWindow : options)
-      ? (optionsWithoutWindow.length ? optionsWithoutWindow : options).map((opt: any) => ({
+    const normalizedOptions = Array.isArray(options)
+      ? options.map((opt: any) => ({
           id: opt.transportationOptionId || opt.id || opt.optionId || null,
           partnered: detectPartnered(opt),
           mode: opt.mode || opt.shippingMode || opt.method || null,
@@ -1580,21 +1357,74 @@ serve(async (req) => {
       );
     }
 
-    const configsByShipment = new Map<string, any>();
-    shipmentTransportationConfigurations.forEach((cfg: any) => {
-      if (cfg?.shipmentId) configsByShipment.set(String(cfg.shipmentId), cfg);
-    });
+    const requiresDeliveryWindow = hasDeliveryWindowPrecondition(selectedOption?.raw || selectedOption);
+    if (requiresDeliveryWindow) {
+      const shipmentIds = Array.from(
+        new Set(
+          (Array.isArray(selectedOption?.raw?.shipments)
+            ? selectedOption.raw.shipments.map((sh: any) => sh?.shipmentId || sh?.id)
+            : placementShipments.map((s: any) => s?.shipmentId || s?.id)
+          )
+            .filter(Boolean)
+            .map((id: any) => String(id))
+        )
+      );
+      for (const shipmentId of shipmentIds) {
+        const genRes = await generateDeliveryWindowOptions(shipmentId);
+        const genOpId =
+          genRes?.json?.payload?.operationId ||
+          genRes?.json?.operationId ||
+          null;
+        if (genOpId) {
+          const genStatus = await pollOperationStatus(genOpId);
+          const stUp = getOperationState(genStatus);
+          if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
+            logStep("deliveryWindow_generate_failed", { traceId, shipmentId, state: stUp });
+            continue;
+          }
+        }
+        let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+        let optionsList: any[] = [];
+        for (let i = 1; i <= 6; i++) {
+          listRes = await listDeliveryWindowOptions(shipmentId);
+          optionsList = extractDeliveryWindowOptions(listRes);
+          if (Array.isArray(optionsList) && optionsList.length) break;
+          await delay(Math.min(800 * i, 4000));
+        }
+        const dwOptionId = pickDeliveryWindowOptionId(optionsList);
+        if (!dwOptionId) {
+          logStep("deliveryWindow_missing_options", { traceId, shipmentId });
+          return new Response(
+            JSON.stringify({
+              error: "Nu am putut obține deliveryWindowOptionId pentru confirmare.",
+              traceId
+            }),
+            { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
+        const confirmRes = await confirmDeliveryWindowOption(shipmentId, dwOptionId);
+        const confirmOpId =
+          confirmRes?.json?.payload?.operationId ||
+          confirmRes?.json?.operationId ||
+          null;
+        if (confirmOpId) {
+          const confirmStatus = await pollOperationStatus(confirmOpId);
+          const stUp = getOperationState(confirmStatus);
+          if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
+            logStep("deliveryWindow_confirm_failed", { traceId, shipmentId, state: stUp });
+          }
+        }
+      }
+    }
 
     const selections = Array.isArray(selectedOption?.raw?.shipments)
       ? selectedOption.raw.shipments.map((sh: any) => ({
           shipmentId: sh.shipmentId || sh.id,
-          transportationOptionId: selectedOption?.id,
-          deliveryWindow: configsByShipment.get(String(sh.shipmentId || sh.id))?.readyToShipWindow || null
+          transportationOptionId: selectedOption?.id
         }))
       : placementShipments.map((sh: any, idx: number) => ({
           shipmentId: sh.shipmentId || sh.id || `s-${idx + 1}`,
-          transportationOptionId: selectedOption?.id,
-          deliveryWindow: configsByShipment.get(String(sh.shipmentId || sh.id || `s-${idx + 1}`))?.readyToShipWindow || null
+          transportationOptionId: selectedOption?.id
         }));
 
     const confirmPayload = JSON.stringify({
