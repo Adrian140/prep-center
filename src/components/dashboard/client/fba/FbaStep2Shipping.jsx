@@ -87,17 +87,20 @@ export default function FbaStep2Shipping({
     </div>
   );
 
-  const disablePartnered = !partneredAllowed;
+  const allowPartnered = partneredAllowed;
+  const allowNonPartnered = !forcePartneredOnly || !allowPartnered;
+  const disablePartnered = !allowPartnered;
   const partneredLabel = partneredReason || 'Estimated charge';
   const partneredChargeText =
     disablePartnered || partneredRate === null ? 'Not available' : `€${partneredRate.toFixed(2)}`;
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const needsTerms = Boolean(carrier?.partnered);
-  const canContinue = (forcePartneredOnly
-    ? carrier?.partnered && partneredAllowed
-    : carrier?.partnered
-      ? partneredAllowed
-      : true) && (!needsTerms || acceptedTerms);
+  const needsTerms = Boolean(carrier?.partnered && allowPartnered);
+  const canContinue = (carrier?.partnered ? allowPartnered : allowNonPartnered) && (!needsTerms || acceptedTerms);
+
+  useEffect(() => {
+    if (allowPartnered || !allowNonPartnered || !carrier?.partnered) return;
+    onCarrierChange?.({ partnered: false, name: carrier?.name || 'Non Amazon partnered carrier' });
+  }, [allowPartnered, allowNonPartnered, carrier?.partnered, carrier?.name, onCarrierChange]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -162,11 +165,11 @@ export default function FbaStep2Shipping({
                 <input
                   type="radio"
                   disabled={disablePartnered}
-                  checked={carrier.partnered && partneredAllowed}
+                  checked={carrier.partnered && allowPartnered}
                   onChange={() => onCarrierChange({ partnered: true, name: 'UPS (Amazon-partnered carrier)', rate: partneredRate })}
                 />
               </label>
-              {!forcePartneredOnly && (
+              {allowNonPartnered && (
                 <>
                   <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${!carrier.partnered ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
                     <div className="flex flex-col">
@@ -193,7 +196,7 @@ export default function FbaStep2Shipping({
                   )}
                 </>
               )}
-              {forcePartneredOnly && (
+              {!allowNonPartnered && (
                 <div className="text-xs text-slate-500">
                   Non-partnered carriers are disabled. This shipment must use Amazon partnered carrier.
                 </div>
