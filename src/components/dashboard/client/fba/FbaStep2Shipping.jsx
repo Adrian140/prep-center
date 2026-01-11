@@ -20,7 +20,6 @@ export default function FbaStep2Shipping({
   const [partneredRate, setPartneredRate] = useState(
     typeof carrier?.rate === 'number' ? carrier.rate : null
   );
-  const [termsAccepted, setTermsAccepted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,7 +85,11 @@ export default function FbaStep2Shipping({
   const partneredLabel = partneredReason || 'Estimated charge';
   const partneredChargeText =
     disablePartnered || partneredRate === null ? 'Not available' : `€${partneredRate.toFixed(2)}`;
-  const canContinue = carrier?.partnered ? termsAccepted && partneredAllowed : !forcePartneredOnly;
+  const canContinue = forcePartneredOnly
+    ? carrier?.partnered && partneredAllowed
+    : carrier?.partnered
+      ? partneredAllowed
+      : true;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -216,27 +219,6 @@ export default function FbaStep2Shipping({
         </div>
       </div>
 
-        {carrier.partnered && partneredAllowed && (
-          <div className="border border-slate-200 rounded-lg p-4 space-y-2 text-sm">
-            <div className="font-semibold text-slate-900">Ready to continue?</div>
-            <div className="text-xs text-slate-600">
-              Before we generate shipping labels, review details and confirm charges.
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={termsAccepted}
-                onChange={(e) => setTermsAccepted(e.target.checked)}
-              />
-              <span className="text-xs text-slate-700">
-                I agree to the Amazon Partnered Carrier Terms and Conditions and the Carrier Terms and Conditions.
-              </span>
-            </div>
-            <div className="text-xs text-slate-500">
-              When using an Amazon partnered carrier, you have up to 24 hours to void charges.
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
