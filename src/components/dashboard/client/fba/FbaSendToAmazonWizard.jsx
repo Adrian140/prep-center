@@ -1104,6 +1104,8 @@ export default function FbaSendToAmazonWizard({
             shipments,
             warning
           }}
+          marketplaceId={plan?.marketplace || null}
+          inboundPlanId={plan?.inboundPlanId || plan?.inbound_plan_id || null}
           fetchPartneredQuote={shipmentMode.fetchPartneredQuote}
           onCarrierChange={handleCarrierChange}
           onModeChange={handleModeChange}
