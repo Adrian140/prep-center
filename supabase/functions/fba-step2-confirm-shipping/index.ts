@@ -1321,7 +1321,8 @@ serve(async (req) => {
     logStep("generateTransportationOptions", {
       traceId,
       status: genRes?.res?.status,
-      requestId: genRes?.requestId || null
+      requestId: genRes?.requestId || null,
+      bodyPreview: (genRes?.text || "").slice(0, 400) || null
     });
 
     const opId =
@@ -1332,6 +1333,14 @@ serve(async (req) => {
     if (opId) {
       const genStatus = await pollOperationStatus(opId);
       const stateUp = getOperationState(genStatus) || String(genStatus?.res?.status || "").toUpperCase();
+      logStep("generateTransportationOptions_status", {
+        traceId,
+        operationId: opId,
+        state: stateUp,
+        status: genStatus?.res?.status || null,
+        requestId: genStatus?.requestId || null,
+        problems: getOperationProblems(genStatus) || null
+      });
       if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
         return new Response(
           JSON.stringify({
@@ -1343,6 +1352,16 @@ serve(async (req) => {
           { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
         );
       }
+    } else if (!genRes?.res?.ok) {
+      return new Response(
+        JSON.stringify({
+          error: "Generate transportation options failed",
+          traceId,
+          state: String(genRes?.res?.status || "UNKNOWN"),
+          details: genRes?.text || null
+        }),
+        { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
     }
 
     // 2) List transportation options (paginat, ca să nu ratăm SPD/partnered)
