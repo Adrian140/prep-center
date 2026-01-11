@@ -478,6 +478,10 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const requestId = body?.request_id as string | undefined;
     const inboundPlanId = body?.inbound_plan_id as string | undefined;
+    const includePlacement =
+      (body?.include_placement as boolean | undefined) ??
+      (body?.includePlacement as boolean | undefined) ??
+      false;
     if (!requestId || !inboundPlanId) {
       return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare" }), {
         status: 400,
@@ -1141,70 +1145,72 @@ serve(async (req) => {
       );
     }
 
-    // Placement options (necesare pentru Step 2 - shipping)
-    const extractPlacementOptions = (res: Awaited<ReturnType<typeof signedFetch>> | null) =>
-      (res?.json?.payload?.placementOptions ||
-        res?.json?.placementOptions ||
-        res?.json?.PlacementOptions ||
-        []) as any[];
+    if (includePlacement) {
+      // Placement options (necesare pentru Step 2 - shipping)
+      const extractPlacementOptions = (res: Awaited<ReturnType<typeof signedFetch>> | null) =>
+        (res?.json?.payload?.placementOptions ||
+          res?.json?.placementOptions ||
+          res?.json?.PlacementOptions ||
+          []) as any[];
 
-    const listPlacementOptions = async () =>
-      signedFetch({
-        method: "GET",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
-        query: "",
-        payload: "",
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.listPlacementOptions",
-        marketplaceId,
-        sellerId
-      });
+      const listPlacementOptions = async () =>
+        signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.listPlacementOptions",
+          marketplaceId,
+          sellerId
+        });
 
-    const generatePlacementOptions = async () =>
-      signedFetch({
-        method: "POST",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
-        query: "",
-        payload: "{}",
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.generatePlacementOptions",
-        marketplaceId,
-        sellerId
-      });
+      const generatePlacementOptions = async () =>
+        signedFetch({
+          method: "POST",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
+          query: "",
+          payload: "{}",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.generatePlacementOptions",
+          marketplaceId,
+          sellerId
+        });
 
-    let placementListRes: Awaited<ReturnType<typeof signedFetch>> | null = await listPlacementOptions();
-    if (!placementListRes || (placementListRes.res.ok && !extractPlacementOptions(placementListRes).length)) {
-      const genPlacement = await generatePlacementOptions();
-      const opId =
-        genPlacement?.json?.payload?.operationId ||
-        genPlacement?.json?.operationId ||
+      let placementListRes: Awaited<ReturnType<typeof signedFetch>> | null = await listPlacementOptions();
+      if (!placementListRes || (placementListRes.res.ok && !extractPlacementOptions(placementListRes).length)) {
+        const genPlacement = await generatePlacementOptions();
+        const opId =
+          genPlacement?.json?.payload?.operationId ||
+          genPlacement?.json?.operationId ||
+          null;
+        if (opId) await pollOperationStatus(opId);
+        placementListRes = await listPlacementOptions();
+      }
+      placementOptionsList = extractPlacementOptions(placementListRes);
+      placementOptionId =
+        placementOptionsList?.[0]?.placementOptionId ||
+        placementOptionsList?.[0]?.id ||
         null;
-      if (opId) await pollOperationStatus(opId);
-      placementListRes = await listPlacementOptions();
+      if (!placementOptionId) {
+        warnings.push("Nu am putut obține placementOptionId (generate/list).");
+      }
+      planShipments = planCheck?.json?.payload?.shipments || planCheck?.json?.shipments || [];
     }
-    placementOptionsList = extractPlacementOptions(placementListRes);
-    placementOptionId =
-      placementOptionsList?.[0]?.placementOptionId ||
-      placementOptionsList?.[0]?.id ||
-      null;
-    if (!placementOptionId) {
-      warnings.push("Nu am putut obține placementOptionId (generate/list).");
-    }
-    planShipments = planCheck?.json?.payload?.shipments || planCheck?.json?.shipments || [];
 
     const fetchGroupItems = async (groupId: string) => {
       const res = await signedFetch({

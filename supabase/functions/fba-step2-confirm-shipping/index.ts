@@ -488,8 +488,16 @@ serve(async (req) => {
     const confirmOptionId = body?.transportation_option_id ?? body?.transportationOptionId;
     const shipmentTransportConfigs = body?.shipment_transportation_configurations ?? body?.shipmentTransportationConfigurations ?? [];
     const shippingModeInput = body?.shipping_mode ?? body?.shippingMode ?? null;
-    const effectiveShippingMode = "SPD";
-    if (shippingModeInput && String(shippingModeInput).toUpperCase() !== "SPD") {
+    const normalizeShippingMode = (mode: string | null) => {
+      const up = String(mode || "").toUpperCase();
+      if (!up) return null;
+      if (up === "SPD") return "GROUND_SMALL_PARCEL";
+      if (up === "LTL") return "FREIGHT_LTL";
+      if (up === "FTL") return "FREIGHT_FTL";
+      return up;
+    };
+    const effectiveShippingMode = normalizeShippingMode(shippingModeInput) || "GROUND_SMALL_PARCEL";
+    if (shippingModeInput && String(shippingModeInput).toUpperCase() !== effectiveShippingMode) {
       logStep("shippingModeOverride", {
         traceId,
         incoming: shippingModeInput,

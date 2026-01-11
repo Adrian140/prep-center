@@ -205,6 +205,10 @@ export default function FbaSendToAmazonWizard({
   const [shipments, setShipments] = useState(initialShipmentList);
   const [labelFormat, setLabelFormat] = useState('thermal');
   const [tracking, setTracking] = useState(initialTrackingList);
+  const [labelsLoadingId, setLabelsLoadingId] = useState(null);
+  const [labelsError, setLabelsError] = useState('');
+  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [trackingError, setTrackingError] = useState('');
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [planLoaded, setPlanLoaded] = useState(false);
   const [planError, setPlanError] = useState('');
@@ -722,11 +726,13 @@ const fetchPartneredQuote = useCallback(
           inbound_plan_id: inboundPlanId,
           packing_option_id: packingOptId,
           placement_option_id: placementOptId,
-          packing_groups: packingGroupsPayload
+          packing_groups: packingGroupsPayload,
+          generate_placement_options: true
         }
       });
       if (error) throw error;
       if (data?.traceId) console.log('setPackingInformation traceId', data.traceId);
+      if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
       completeAndNext('1b');
     } catch (e) {
       setPackingSubmitError(e?.message || 'SetPackingInformation a eșuat.');
@@ -736,20 +742,20 @@ const fetchPartneredQuote = useCallback(
   };
 
   const refreshPackingGroups = async () => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return { ok: false, code: 'NO_WINDOW' };
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) {
       setPackingReadyError('Lipsește inboundPlanId sau requestId; reîncarcă planul.');
-      return;
+      return { ok: false, code: 'MISSING_IDS' };
     }
-      // păstrăm grupurile existente; doar marcăm loading
-      setPackGroupsLoaded(hasRealPackGroups(packGroups));
-      setPackingRefreshLoading(true);
-      setPackingReadyError('');
-      try {
-        const { data, error } = await supabase.functions.invoke('fba-plan-step1b', {
-          body: {
+    // păstrăm grupurile existente; doar marcăm loading
+    setPackGroupsLoaded(hasRealPackGroups(packGroups));
+    setPackingRefreshLoading(true);
+    setPackingReadyError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('fba-plan-step1b', {
+        body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
           amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null
@@ -763,7 +769,7 @@ const fetchPartneredQuote = useCallback(
         if (!hasRealPackGroups(packGroups)) {
           setPackGroups([]); // nu afișăm nimic local dacă nu avem packing groups reale
         }
-        return;
+        return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: msg, traceId: trace };
       }
       if (data?.code === 'PLACEMENT_ALREADY_ACCEPTED') {
         const cachedGroups = Array.isArray(data?.packingGroups) ? data.packingGroups : [];
@@ -772,7 +778,7 @@ const fetchPartneredQuote = useCallback(
           const msg =
             'Planul este deja ACCEPTED în Amazon, iar packing groups nu mai pot fi regenerate. Reia planul doar dacă ai packing groups salvate.';
           setPackingReadyError(trace ? `${msg} · TraceId ${trace}` : msg);
-          return;
+          return { ok: false, code: 'PLACEMENT_ALREADY_ACCEPTED', message: msg, traceId: trace };
         }
         setPackingReadyError('Planul este deja ACCEPTED în Amazon; folosim packing groups salvate.');
         if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
@@ -782,7 +788,7 @@ const fetchPartneredQuote = useCallback(
         setPackGroups((prev) => mergePackGroups(prev, normalized));
         if (Array.isArray(data?.shipments)) setShipments(data.shipments);
         setPlanError('');
-        return;
+        return { ok: true, code: 'PLACEMENT_ALREADY_ACCEPTED' };
       }
       if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
       if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
@@ -790,16 +796,22 @@ const fetchPartneredQuote = useCallback(
         const normalized = normalizePackGroups(data.packingGroups);
         const filtered = normalized.filter((g) => g.packingGroupId && !isFallbackId(g.packingGroupId));
         if (!filtered.length) {
-          setPackingReadyError('Packing groups lipsesc din răspunsul Amazon. Reîncearcă peste câteva secunde.');
+          const msg = 'Packing groups lipsesc din răspunsul Amazon. Reîncearcă peste câteva secunde.';
+          setPackingReadyError(msg);
+          return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: msg };
         } else {
           setPackGroupsLoaded(true);
         }
         setPackGroups((prev) => mergePackGroups(prev, filtered));
+        return { ok: true };
       }
       if (Array.isArray(data?.shipments)) setShipments(data.shipments);
       setPlanError('');
+      return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: 'Packing groups lipsesc din răspunsul Amazon.' };
     } catch (e) {
-      setPackingReadyError(e?.message || 'Nu am putut reîncărca packing groups.');
+      const msg = e?.message || 'Nu am putut reîncărca packing groups.';
+      setPackingReadyError(msg);
+      return { ok: false, code: 'ERROR', message: msg };
     } finally {
       setPackingRefreshLoading(false);
     }
@@ -850,60 +862,7 @@ const fetchPartneredQuote = useCallback(
       return;
     }
 
-    // fallback: dacă nu avem placementOptionId, reapelează step1b edge func pentru a-l obține
-    if (!placementOptId) {
-      try {
-        const { data: step1b, error: step1bErr } = await supabase.functions.invoke('fba-plan-step1b', {
-          body: {
-            request_id: requestId,
-            inbound_plan_id: inboundPlanId,
-            amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null
-          }
-        });
-        if (step1bErr) throw step1bErr;
-        if (step1b?.code === 'PACKING_GROUPS_NOT_READY') {
-          const trace = step1b?.traceId || step1b?.trace_id || null;
-          setShippingError(
-            `${step1b?.message || 'Packing groups nu sunt încă gata la Amazon.'}${trace ? ` · TraceId ${trace}` : ''}`
-          );
-          return;
-        }
-        if (step1b?.code === 'PLACEMENT_ALREADY_ACCEPTED') {
-          const cachedGroups = Array.isArray(step1b?.packingGroups) ? step1b.packingGroups : [];
-          const trace = step1b?.traceId || step1b?.trace_id || null;
-          if (!cachedGroups.length) {
-            setShippingError(
-              `Planul este deja ACCEPTED în Amazon și nu avem packing groups salvate.${trace ? ` · TraceId ${trace}` : ''}`
-            );
-            return;
-          }
-          if (step1b?.packingOptionId) setPackingOptionId(step1b.packingOptionId);
-          if (step1b?.placementOptionId) setPlacementOptionId(step1b.placementOptionId);
-          const normalized = normalizePackGroups(cachedGroups);
-          setPackGroups((prev) => mergePackGroups(prev, normalized));
-          if (Array.isArray(step1b?.shipments)) setShipments((prev) => (step1b.shipments.length ? step1b.shipments : prev));
-          placementOptId = step1b?.placementOptionId || step1b?.placement_option_id || null;
-        } else {
-          placementOptId = step1b?.placementOptionId || step1b?.placement_option_id || null;
-          if (placementOptId) {
-            setPlacementOptionId(placementOptId);
-            if (Array.isArray(step1b?.packingGroups)) {
-              const normalized = normalizePackGroups(step1b.packingGroups);
-              setPackGroups((prev) => mergePackGroups(prev, normalized));
-            }
-            if (Array.isArray(step1b?.shipments)) {
-              setShipments((prev) => (step1b.shipments.length ? step1b.shipments : prev));
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('Step2 fallback placement fetch failed', e);
-      }
-    }
-    if (!placementOptId) {
-      setShippingError('Lipsește placementOptionId; finalizează Step 1b (placement) înainte de transport.');
-      return;
-    }
+    // placementOptionId poate lipsi; îl generează backend-ul în Step 2 (generatePlacementOptions)
 
     // guard: avem nevoie de greutate + dimensiuni pentru toate grupurile
     const missingPack = (packGroups || []).find((g) => {
@@ -1042,8 +1001,8 @@ const fetchPartneredQuote = useCallback(
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
     const placementOptId = placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
-    if (!inboundPlanId || !requestId || !placementOptId) {
-      setShippingError('Lipsește inboundPlanId, requestId sau placementOptionId pentru confirmarea transportului.');
+    if (!inboundPlanId || !requestId) {
+      setShippingError('Lipsește inboundPlanId sau requestId pentru confirmarea transportului.');
       return;
     }
     setShippingConfirming(true);
@@ -1201,8 +1160,165 @@ const fetchPartneredQuote = useCallback(
     invalidateFrom('2');
   };
 
+  const formatToPageType = (format) => {
+    if (format === 'letter') return 'PackageLabel_Letter_2';
+    if (format === 'a4') return 'PackageLabel_A4_2';
+    return 'PackageLabel_Thermal';
+  };
+
+  const fetchShipmentDetails = async (shipmentId, inboundPlanId, requestId) => {
+    const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
+      body: {
+        action: 'get_shipment',
+        request_id: requestId,
+        inbound_plan_id: inboundPlanId,
+        shipment_id: shipmentId
+      }
+    });
+    if (error) throw error;
+    return data?.data || null;
+  };
+
+  const handlePrintLabels = async (shipment) => {
+    const inboundPlanId = resolveInboundPlanId();
+    const requestId = resolveRequestId();
+    if (!inboundPlanId || !requestId) {
+      setLabelsError('Lipsește inboundPlanId sau requestId pentru labels.');
+      return;
+    }
+    const shipmentId = shipment?.shipmentId || shipment?.id;
+    if (!shipmentId) {
+      setLabelsError('Lipsește shipmentId pentru labels.');
+      return;
+    }
+    setLabelsLoadingId(shipment?.id || shipmentId);
+    setLabelsError('');
+    try {
+      const details = await fetchShipmentDetails(shipmentId, inboundPlanId, requestId);
+      const confirmationId =
+        details?.shipmentConfirmationId ||
+        details?.shipmentConfirmedId ||
+        details?.shipmentConfirmationID ||
+        shipment?.shipmentConfirmationId ||
+        shipmentId;
+      const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
+        body: {
+          action: 'get_labels_v0',
+          request_id: requestId,
+          shipment_id: confirmationId,
+          page_type: formatToPageType(labelFormat),
+          label_type: 'BARCODE_2D',
+          number_of_packages: Number(shipment?.boxes || 0) || undefined
+        }
+      });
+      if (error) throw error;
+      const url =
+        data?.data?.payload?.DownloadURL ||
+        data?.data?.payload?.downloadUrl ||
+        data?.data?.DownloadURL ||
+        null;
+      if (url) {
+        window.open(url, '_blank', 'noopener');
+      } else {
+        setLabelsError('Amazon nu a returnat un URL pentru labels.');
+      }
+    } catch (e) {
+      setLabelsError(e?.message || 'Nu am putut genera labels.');
+    } finally {
+      setLabelsLoadingId(null);
+    }
+  };
+
+  const loadInboundPlanBoxes = async () => {
+    const inboundPlanId = resolveInboundPlanId();
+    const requestId = resolveRequestId();
+    if (!inboundPlanId || !requestId) return;
+    setTrackingLoading(true);
+    setTrackingError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
+        body: {
+          action: 'list_inbound_plan_boxes',
+          request_id: requestId,
+          inbound_plan_id: inboundPlanId
+        }
+      });
+      if (error) throw error;
+      const boxes =
+        data?.data?.payload?.boxes ||
+        data?.data?.boxes ||
+        data?.data?.payload?.boxList ||
+        [];
+      if (!Array.isArray(boxes) || boxes.length === 0) return;
+      const normalized = boxes.map((b, idx) => ({
+        id: b?.boxId || b?.packageId || b?.id || `box-${idx + 1}`,
+        boxId: b?.boxId || b?.packageId || b?.id || null,
+        box: idx + 1,
+        label: b?.packageId || b?.boxId || b?.externalContainerIdentifier || `BOX-${idx + 1}`,
+        trackingId: '',
+        status: 'Pending',
+        weight: b?.weight?.value || b?.weight?.amount || null,
+        dimensions: b?.dimensions
+          ? `${b.dimensions.length || ''} x ${b.dimensions.width || ''} x ${b.dimensions.height || ''}`
+          : ''
+      }));
+      setTracking(normalized);
+    } catch (e) {
+      setTrackingError(e?.message || 'Nu am putut încărca boxes.');
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentStep !== '4') return;
+    if (Array.isArray(tracking) && tracking.length) return;
+    loadInboundPlanBoxes();
+  }, [currentStep, tracking]);
+
   const handleTrackingChange = (id, value) => {
     setTracking((prev) => prev.map((row) => (row.id === id ? { ...row, trackingId: value } : row)));
+  };
+
+  const submitTrackingDetails = async () => {
+    const inboundPlanId = resolveInboundPlanId();
+    const requestId = resolveRequestId();
+    const shipmentId = (Array.isArray(shipments) && shipments[0]?.shipmentId) || shipments?.[0]?.id || null;
+    if (!inboundPlanId || !requestId || !shipmentId) {
+      setTrackingError('Lipsește inboundPlanId, requestId sau shipmentId pentru tracking.');
+      return;
+    }
+    const items = (tracking || [])
+      .filter((t) => t.trackingId && t.boxId)
+      .map((t) => ({ boxId: t.boxId, trackingId: t.trackingId }));
+    if (!items.length) {
+      setTrackingError('Adaugă tracking pentru cel puțin o cutie.');
+      return;
+    }
+    setTrackingLoading(true);
+    setTrackingError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
+        body: {
+          action: 'update_shipment_tracking_details',
+          request_id: requestId,
+          inbound_plan_id: inboundPlanId,
+          shipment_id: shipmentId,
+          tracking_details: {
+            spdTrackingDetail: {
+              spdTrackingItems: items
+            }
+          }
+        }
+      });
+      if (error) throw error;
+      if (data?.traceId) console.log('updateTracking traceId', data.traceId);
+      completeAndNext('4');
+    } catch (e) {
+      setTrackingError(e?.message || 'Nu am putut trimite tracking.');
+    } finally {
+      setTrackingLoading(false);
+    }
   };
 
   const refreshStep = useCallback(
@@ -1318,6 +1434,20 @@ const fetchPartneredQuote = useCallback(
     setStep1Saving(true);
     setStep1SaveError('');
     setPlanError('');
+    const waitForPackingGroups = async () => {
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        // eslint-disable-next-line no-await-in-loop
+        const res = await refreshPackingGroups();
+        if (res?.ok) return { ok: true };
+        if (res?.code !== 'PACKING_GROUPS_NOT_READY') return res;
+        if (attempt < maxAttempts) {
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
+        }
+      }
+      return { ok: false, code: 'PACKING_GROUPS_NOT_READY' };
+    };
     try {
       const prevUnitsById = new Map(
         (plan?.skus || []).map((sku) => [String(sku.id), Number(sku.units ?? sku.units_sent ?? 0)])
@@ -1368,6 +1498,14 @@ const fetchPartneredQuote = useCallback(
         if (fetchPlan) {
           await refreshStep('1');
         }
+      }
+      const packRes = await waitForPackingGroups();
+      if (!packRes?.ok) {
+        const msg =
+          packRes?.message ||
+          'Amazon nu a returnat încă packing groups. Reîncearcă în câteva secunde.';
+        setStep1SaveError(msg);
+        return;
       }
       completeAndNext('1');
     } catch (e) {
@@ -1444,6 +1582,8 @@ const fetchPartneredQuote = useCallback(
           shipments={shipments}
           labelFormat={labelFormat}
           onFormatChange={setLabelFormat}
+          onPrint={handlePrintLabels}
+          printLoadingId={labelsLoadingId}
           onBack={() => goToStep('2')}
           onNext={() => completeAndNext('3')}
         />
@@ -1454,7 +1594,7 @@ const fetchPartneredQuote = useCallback(
         tracking={tracking}
         onUpdateTracking={handleTrackingChange}
         onBack={() => goToStep('3')}
-        onFinish={() => completeAndNext('4')}
+        onFinish={submitTrackingDetails}
       />
     );
   };

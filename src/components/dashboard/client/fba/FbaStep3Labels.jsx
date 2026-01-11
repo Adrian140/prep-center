@@ -1,7 +1,15 @@
 import React from 'react';
 import { CheckCircle, Printer } from 'lucide-react';
 
-export default function FbaStep3Labels({ shipments, labelFormat, onFormatChange, onBack, onNext }) {
+export default function FbaStep3Labels({
+  shipments,
+  labelFormat,
+  onFormatChange,
+  onPrint,
+  printLoadingId,
+  onBack,
+  onNext
+}) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
@@ -37,8 +45,12 @@ export default function FbaStep3Labels({ shipments, labelFormat, onFormatChange,
                   <option value="a4">99.1 x 139 mm (A4)</option>
                   <option value="thermal">Thermal 4" x 6"</option>
                 </select>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold shadow-sm">
-                  Print
+                <button
+                  onClick={() => onPrint?.(s)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold shadow-sm"
+                  disabled={printLoadingId === s.id}
+                >
+                  {printLoadingId === s.id ? 'Generating…' : 'Print'}
                 </button>
               </div>
             </div>

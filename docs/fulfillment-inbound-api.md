@@ -1,0 +1,5344 @@
+# Fulfillment Inbound API v2024-03-20
+
+```mermaid
+flowchart TD
+  S1["Step 1: Create Inbound Plan"]
+  R1["Response: inboundPlanId, operationId"]
+  S1 |API call: createInboundPlan| R1
+
+  subgraph P["Generate and Confirm Packing Options"]
+    S2["Step 2: Generate Packing Options"]
+    R2["Response: operationId"]
+    S3["Step 3: List Packing Options"]
+    R3["Response: packingOptionId, packingGroupId"]
+    S4["Step 4: Confirm Packing Option"]
+    R4["Response: operationId"]
+    S5["Step 5: Set Packing Information"]
+    R5["Response: operationId"]
+
+    S2 |API call: generatePackingOptions| R2
+    S2  S3
+    S3 |API call: listPackingOptions| R3
+    S3  S4
+    S4 |API call: confirmPackingOption| R4
+    S4  S5
+    S5 |API call: setPackingInformation| R5
+  end
+
+  S1  S2
+
+  subgraph PL["Generate Placement Options"]
+    S6["Step 6: Generate Placement Options"]
+    R6["Response: operationId"]
+    S7["Step 7: List Placement Options"]
+    R7["Response: shipmentId, placementOptionId"]
+
+    S6 -->|API call: generatePlacementOptions| R6
+    S6 --> S7
+    S7 -->|API call: listPlacementOptions| R7
+  end
+
+  S5 --> S6
+
+  subgraph T["Generate Transportation Options"]
+    S8["Step 8: Generate Transportation Options"]
+    R8["Response: operationId"]
+    S9["Step 9: List Transportation Options"]
+    R9["Response: transportationOptionId"]
+    S10["Step 10: Get Shipment"]
+    R10["Response: shipment details"]
+
+    S8 -->|API call: generateTransportationOptions| R8
+    S8 --> S9
+    S9 -->|API call: listTransportationOptions| R9
+    S9 --> S10
+    S10 -->|API call: getShipment| R10
+  end
+
+  S7 --> S8
+
+  subgraph C["Confirm Placement and Transportation Options"]
+    S11["Step 11: Confirm Placement Option"]
+    R11["Response: operationId"]
+    S12["Step 12: Confirm Transportation Options"]
+    R12["Response: operationId"]
+
+    S11 -->|API call: confirmPlacementOption| R11
+    S11 --> S12
+    S12 -->|API call: confirmTransportationOptions| R12
+  end
+
+  S10 --> S11
+
+  subgraph L["Get Shipment Details and Labels"]
+    S13["Step 13: Get Shipment"]
+    R13["Response: shipmentConfirmationId"]
+    S14["Step 14: Get Labels"]
+    R14["Response: FBA box labels, carrier labels"]
+
+    S13 -->|API call: getShipment| R13
+    S13 --> S14
+    S14 -->|API call: getLabels| R14
+  end
+
+  S12 --> S13
+```
+
+## Current Version
+ Current version	Legacy versions	Availability	Sandbox
+v2024-03-20 (Reference | Model)	v0	Sellers only	Static 
+
+## Release Notes
+ Add release notes here 
+
+## Terminology
+ Add terminology link/notes here 
+
+## Key Features
+ Add key features here 
+
+## Important Notices
+ Add important notices here 
+
+## Tips
+ Add tips here 
+
+## Use Cases
+The following use case examples are available for the Fulfillment Inbound API:
+
+- Create a shipment when the seller knows the carton-level information up-front: Learn how to create a shipment with known carton-level information.
+- Create a shipment when the seller does not know the carton-level information up-front: Learn how to create a shipment when carton-level information is unknown.
+- Create a shipment with an Amazon-partnered carrier (PCP): Learn how to inbound Small Parcel Deliveries (SPD) or pallets (LTL/FTL) with an Amazon-partnered carrier.
+- Create a shipment with a non-partnered carrier: Learn how to inbound Small Parcel Deliveries (SPD) or pallets (LTL/FTL) with a non-partnered carrier.
+
+### Create a shipment when the seller knows the carton-level information up-front
+ Create a shipment when the seller knows the carton-level information up-front
+Learn how to create a shipment with known carton-level information.
+
+Learn how to create a shipment when the seller knows carton-level information.
+
+Prerequisites
+To complete this tutorial, you need:
+
+Authorization from the selling partner for whom you are making calls. For more information, refer to Authorizing Selling Partner API applications.
+Approval for the Amazon Fulfillment role and the Product Listing role in your developer profile.
+The Amazon Fulfillment role and Product Listing role selected in the App registration page for your application.
+To have created your listings and understand whether your items are eligible to be shipped to Amazon's fulfillment network (instructions included in optional step section)
+Workflow
+The following table outlines the steps to create a shipment when the seller knows carton-level information. This table is an illustrative example and does not include all of the optional operations.
+
+Step	Description	Operations
+Step 1. Create an inbound plan	Choose MSKU, quantity, and marketplace.	createInboundPlan
+Step 2. Determine which SKUs can be packed together	Review and select a packing option.	generatePackingOptions
+listPackingOptions
+listPackingGroupItems
+confirmPackingOption
+Step 3. Provide box content information	Provide SKUs, weights, dimensions.	setPackingInformation
+Step 4. Generate and view options for destination fulfillment centers	Amazon generates options for shipment splits based on boxes.	generatePlacementOptions
+listPlacementOptions
+Step 5. Input transportation data and generate transportation options	Input transportation data. Amazon generates options.	generateTransportationOptions
+Step 6. Generate delivery window options	Amazon generates delivery window options.	generateDeliveryWindowOptions
+Step 7. Review shipment splits and transportation options	Review placement, transportation, and delivery window options.	listPlacementOptions
+listTransportationOptions
+listDeliveryWindowOptions
+getShipment
+Step 8. Select shipping option	Select shipping option (shipment split).	confirmPlacementOption
+Step 9. Select transportation options	Select desired delivery window and and transportation options.	confirmDeliveryWindowOptions
+confirmTransportationOptions
+Step 10. Print labels	Amazon generates box labels, carrier label if SPD PCP, pallet label if LTL.	getLabels
+getBillOfLading
+Step 11. Send your shipments to Amazon's fulfillment network	Pack and ship inventory.	listInboundPlanBoxes
+Step 12. Providing tracking information	Provide tracking ID. Non-partnered carrier only.	updateShipmentTrackingDetails
+Step 1. Create an Inbound Plan
+Create an Inbound Plan by calling the asynchronous createInboundPlan operation. An Inbound Plan represents a collection of items that you intend to inbound into Amazon's fulfillment network. By calling the createInboundPlan operation, a seller must specify:
+
+The address from which the inbound shipments will be sent
+The marketplace where the product would be shipped
+A summary of the items that they intend to inbound
+The item summary must include MSKU, quantity, and an indication of who will prepare and label the item. Note that AMAZON can only be selected as the label owner if you are enrolled in the FBA Label Service. For more information about the FBA Label Service, refer to Seller Central Help for your marketplace.
+
+Make sure each item you're shipping conforms to Amazon's product packaging requirements. For more information, refer to Packaging and Prep Requirements in Seller Central Help. For more information about Amazon's product packaging requirements for your marketplace, refer to Seller Central URLs. Note that sellers can set the Prep Category for SKUs on Send to Amazon. This can be done one by one or up to 25 at a time. This is a one-time activity per SKU that carries over to all future inbound plans.
+
+📘
+Note
+
+Multiple expiration dates per SKU on a single inbound plan is not supported. To send a SKU with multiple expiration dates to the fulfillment network, you need to create multiple plans.
+
+Optionally, a seller can include each item's expiration date and manufacturing lot code. A successful response includes an inboundPlanId that uniquely identifies the inbound plan, synonymous with the concept of "workflow ID", which is generated on Send to Amazon (the shipment creation workflow on Seller Central).
+
+Check the status of a call
+Check the status of an inbound request by using the getInboundOperationStatus operation. For asynchronous operations, this operation provides the processing status. We omit this step for other asynchronous operations in this tutorial. By calling getInboundOperationStatus, a seller passes the operationId, which is a Universal Unique Identifier (UUID) for the operation.
+
+A successful response includes the request status and any non-blocking errors associated with the request. Non-blocking errors are warnings that can be ignored (for example, when the address is suspected to be wrong, but progression is allowed anyway).
+
+Step 2. Determine which SKUs can be packed together
+🚧
+Warning
+
+As of February 20, 2025, partial shipment splits are not available on the Send to Amazon workflow for standard-sized products. Partial shipment splits remain available for large bulky products. For more information, refer to 2025 FBA inbound placement service fee.
+
+This step is necessary to determine which items can be packed together. Some items cannot be packed together due to differing handling or fulfillment center requirements. There might be a discount for further separating items.
+
+📘
+Note
+
+There are only discounted options for Small Parcel Delivery (SPD) shipments in the EU. These discounted options can include additional requirements, including that each package must weigh less than 15 kilograms.
+
+To determine which SKUs can be physically packed together, use the following operations:
+
+generatePackingOptions
+listPackingOptions
+listPackingGroupItems
+confirmPackingOption
+A PackingGroup represents a set of SKUs that can be packed together. SKUs that cannot be packed together go into different pack groups. For example, SKUs that are classified as dangerous goods cannot be packed with other SKUs, because dangerous goods SKUs are shipped to special fulfillment centers that can receive them safely. Other factors that determine which SKUs can and cannot be packed together include SKU weights and dimensions, prep and labelling requirements, and barcode requirements.
+
+The PackingOptions object represents the set of options for how items are mapped to packing groups. Each PackingOption includes a set of PackingGroups, which each contain a list of SKUs. Each of these options can have discounts or fees associated with them. Also, each option can be limited to a subset of all possible shipping modes. These packing operations enable the seller to review and select an option.
+
+Step 2a. Generate packing options
+Generate packing options with the generatePackingOptions operation.
+
+Step 2b. List packing options
+Review a list of the packing options with the listPackingOptions operation. Packing options contain sets of pack groups that a seller can choose, along with additional information that can help a seller choose between these options. Additional information includes fees/discounts associated with each option, shipping modes supported by each option, packing modes supported by each option, package weights supported by each option, and the expiration date of each option.
+
+Step 2c. List items in each packing option
+To view the items in each packing group, use the listPackingGroupItems operation.
+
+Step 2d. Select a packing option
+Choose a packing option with the confirmPackingOption operation.
+
+Step 3. Provide box content information
+To provide information related to the items that will be packed into each box, use the setPackingInformation operation. Providing this information ensures that the shipment splits generated in the subsequent step (generatePlacementOptions) are accurate. If no box information is provided at this step, the shipment splits generated in the next step are based only on the unit information passed to Amazon as part of createInboundPlan. By calling setPackingInformation, a seller must pass the following information for each box that they intend to inbound:
+
+Packing group ID
+Box content information source
+Box contents (items, item quantities, prep/label owners for each item)
+Box information (dimensions, weight, and quantity of boxes)
+📘
+Note
+
+If a seller provides box packing information using setPackingInformation, generates placement options, and then edits their box packing information using setPackingInformation, then the seller needs to call generatePlacementOptions again prior to calling confirmPlacementOption. If a seller inputs their box packing information using setPackingInformation and then decides that they want to discard this information entirely, they need to start a new inbound plan with createInboundPlan. Discarding packing information is not currently supported.
+
+Box content information source indicates how the seller intends to provide box content information, which could be through one of three options:
+
+Populating the Contents field (BOX_CONTENT_PROVIDED)
+Paying Amazon a fee to enter this information during the receiving process (MANUAL_PROCESS)
+Affixing 2D barcodes to the boxes (BARCODE_2D)
+The seller must also provide box dimensions, box weight, and the quantity of each box. When boxAttribute is set toBARCODE_2D or MANUAL_PROCESS:
+
+You don't need to provide SKUs and quantities.
+You must leave items empty (provide a null value).
+A successful response includes the operationId that can be used to determine the status of the operation using getInboundOperationStatus.
+
+📘
+Note
+
+In this flow, pass in the PackingGroupId but omit the ShipmentId.
+
+Step 4. Generate and view options for destination fulfillment centers
+🚧
+Warning
+
+As of February 20, 2025, partial shipment splits are not available on the Send to Amazon workflow for standard-sized products. Partial shipment splits remain available for large bulky products. For more information, refer to 2025 FBA inbound placement service fee.
+
+Generate placement options for an inbound plan by calling the generatePlacementOptions operation. The PlacementOptions object represents the set of available placement options for an inbound plan, where each placement option describes the destination FCs and shipping options for each item in your inbound plan. These options help reduce the time it takes to receive a seller's items and make them available for sale. Refer to Seller Central Help for more details.
+
+📘
+Note
+
+This operation generates initial shipment IDs for the shipments within each inbound plan. These IDs are different from the shipmentConfirmationIDs that confirmPlacementOption generates. The shipmentConfirmationID is the ID that is present on labels (for example, FBA1234ABCD). You can retrieve both of these shipment ID types with the getShipment operation.
+
+Some of your options can include multiple destinations (refer to Seller Central Help for details). Each option can include fees or discounts, which are determined when your shipment is being created, and is not calculated using a set rate. The rebate value and ship-to location depend on multiple factors, including expected volume, the availability of carrier appointments, and fulfillment speed. The rebate that your shipment is eligible for is provided during shipment creation.
+
+The terms and conditions can change. Review the current Seller Central terms and conditions, including the Amazon Services Business Solutions Agreement.
+
+To view the options for shipment splits, call the listPlacementOptions operation. This operation provides the list of available placement options, which include:
+
+A placement option ID
+The option status ("offered" or "accepted")
+Any fees/discounts associated with this option
+The expiration date of the option
+The shipment IDs associated with each option
+When a placement option expires, you must regenerate placement options by calling generatePlacementOption. The placement option ID is required to generate transportation options with generateTransportationOptions, while shipment IDs are used to understand the contents of each shipment using getShipment.
+
+Step 5. Input transportation data and generate transportation options
+Generate transportation options with the generateTransportationOptions operation. A transportation option represents the list of shipping mode and carrier options that are available for each shipment within each placement option. By calling generateTransportationOptions, a seller must pass the following information:
+
+Placement option ID
+Shipment ID
+Ready-to-ship date
+Ship-from address
+Step 6. Generate delivery window options
+Call generateDeliveryWindowOptions with the shipmentID of the shipment for which you intend to generate delivery windows.
+
+🚧
+Important
+
+Sellers must confirm transportation options for all shipment types. For non-partnered shipments, sellers must also specify a delivery window.
+
+Delivery windows are periods during which a seller can deliver their shipment to the destination fulfillment center. If the seller uses a non-partnered carrier, they must specify a seven-day delivery window for domestic shipments or a 14-day window for international shipments. The window is used to provide a shipment's expected arrival date and time at an Amazon fulfillment center. An available delivery window option is necessary for shipments that don't have an appointment slot with a fulfillment center. For example, shipments through non-partnered carriers need a confirmed delivery window.
+
+Step 7. Review shipment splits and transportation options
+Review shipment and transportation options by calling the following operations:
+
+listPlacementOptions
+listTransportationOptions
+listDeliveryWindowOptions
+getShipment
+listPlacementOptions provides the list of available placement options, which includes a placement option ID, the status of the option (that is, offered vs. accepted), any fees/discounts associated with this option, the expiration date of the option, and the shipment IDs associated with each option.
+
+To call listTransportationOptions, a seller needs to pass the placement option ID and shipment ID for which they want to view transportation options. If transportation options are not available for a placement option, call listTransportationOptions again for an alternative placement option. A successful response includes all available transportation quotes for all available ship modes and carrier options. Shipping modes include:
+
+Ground small parcel
+Less-than-truckload freight
+Full truckload freight (palletized)
+Full truckload freight (non-palletized)
+Less than container load ocean
+Full container load ocean
+Air small parcel
+Air small parcel express
+Carrier options include Amazon-partnered and non-partnered carriers. Quotes include:
+
+Cost
+A void window (the period where a seller can cancel a shipment and receive a refund for their transportation quote)
+Expiration
+In regions where fulfillment center appointments are mandatory (for example, India), we provide available appointment slots.
+
+Where the Partnered Carrier Program (PCP) is available, sellers can take advantage of discounted rates by using an Amazon-partnered carrier for their inbound shipments. To use an Amazon-partnered carrier for an inbound shipment, select the transportation option where shippingSolution is AMAZON_PARTNERED_CARRIER.
+
+📘
+Note
+
+Before you use an Amazon-partnered carrier for an inbound shipment, you must read the Seller Central Help about Amazon's PCP to help ensure that you successfully follow the program instructions and guidelines (Europe) (US).
+
+In the EU region, you must first review and accept the terms and conditions of the carrier and the terms and conditions of Amazon's PCP. You can do this on Seller Central. If you attempt to use Amazon Selling Partner APIs to create an inbound shipment by using an Amazon-partnered carrier before accepting these terms and conditions, the service returns an error.
+
+If a seller doesn't want to participate in the PCP, they can view Choose your own carrier transportation options and available shipping modes.
+
+Amazon filters out partnered carrier transportation options in certain situations. For example, if there is a partnered carrier transportation option at a lower price for a placement option that has identical shipment splits, then Amazon filters out the more expensive transportation option. If you plan to use a partnered carrier, call listTransportationOptions for each placement option to see the available partnered carrier options.
+
+📘
+Note
+
+You can include a mix of Small Parcel Delivery (SPD) and LTL shipments in one inbound plan. You can also include a mix of PCP and non-PCP shipments in one inbound plan if:
+
+The different carrier selections are assigned to different shipping modes (for example SPD and LTL).
+All shipments in the inbound plan are eligible for PCP.
+For example, you can create an inbound plan with one PCP SPD shipment and one non-PCP LTL shipment, assuming that all shipments within the inbound plan are eligible for PCP.
+
+For more information about PCP eligibility, refer to the PCP help page.
+
+Review available delivery window options for each shipment within an inbound plan using the listDeliveryWindowOptions operation. To make this call, a seller passes the shipmentID. A successful response provides the startDate and endDate for each available delivery window and the level of congestion (availabilityType) for each option.
+
+🚧
+Important
+
+Sellers must confirm transportation options for all shipment types. For non-Amazon partnered shipments, they must also specify a delivery window.
+
+Each option has an expiration date (validUntil). You must confirm the delivery before this date. If you don't confirm the window by the validUntil date, you must generate a new window using listDeliveryWindowOptions.
+
+Review details related to the contents of a shipment within an inbound plan using the getShipment operation. To call getShipment, a seller needs to pass the inbound plan ID and shipment ID. A successful response includes the following:
+
+Placement option ID
+Shipment confirmed ID (the ID that shows up on labels)
+Shipment ID (the identifier for a shipment prior to the confirmPlacementOption operation)
+Amazon reference ID (identifier for scheduling fulfillment center appointments for truck deliveries)
+Selected transportation option ID
+Name
+Source
+Destination FC
+Ship date
+Estimated delivery date
+Status
+Tracking details
+Pallet information
+Contact information
+Destination region
+FC appointment details
+📘
+Note
+
+If the seller selects a partnered carrier, meaning that destinationType is AMAZON_OPTIMIZED, then the destination fulfillment center address may differ from the actual address, or this field may be empty. Refer to the carton label for the correct address.
+
+Step 8. Select shipping option
+Select shipment option (that is, shipment splits) with the confirmPlacementOption operation. This operation selects the placement splits for an inbound plan and creates confirmed shipment IDs for shipments within the inbound plan. The shipmentConfirmationID is the shipment identifier that appears on labels (for example, FBA1234ABCD). This ID is different from the shipment ID that is generated with createInboundPlan, which is used as an input to other operations, such as getShipment. This option cannot be reversed after it is selected. To call confirmPlacementOption, a seller must pass the inbound plan ID and the selected placement option ID.
+
+📘
+Note
+
+createInboundPlan generates initial shipment IDs for the shipments in each inbound plan. These IDs are different from the shipmentConfirmationIDs that confirmPlacementOption generates. The shipmentConfirmationID is the identifier that is present on labels (for example, FBA1234ABCD). You can retrieve both types of shipment IDs with the getShipment operation.
+
+Step 9. Select transportation options
+Select delivery windows for each shipment within a plan using the confirmDeliveryWindowOptions operation. To call this operation, pass the shipmentID and deliveryWindowOptionId (provided by listDeliveryWindowOptions).
+
+You must confirm a placement option for the shipment before you call this operation. After you confirm the delivery window, new delivery window options cannot be generated. However, you can update the selected delivery window option before shipment closure. For all transportation options that have the program DELIVERY_WINDOW_REQUIRED, you must confirm a delivery window before you confirm the transportation option. If you need to update your delivery window after you confirm the transportation option, you can call confirmDeliveryWindow.
+
+🚧
+Warning
+
+For non-partnered carrier shipments, sellers must confirm their anticipated delivery window by calling confirmTransportationOptions before they book their fulfillment center (FC) appointment.
+
+Sellers should ask their non-partnered carrier to book an FC appointment that is within their anticipated delivery window. If the FC appointment date does not fall within the delivery window, the seller can call confirmDeliveryWindow to select another delivery window that does contain their FC appointment date.
+
+This mandatory step allows you to select transportation options for each shipment within an inbound plan using the confirmTransportationOptions operation. For Amazon-partnered transportation options, this operation confirms that the seller accepts the Amazon-partnered shipping estimate, agrees to allow Amazon to charge their account for the shipping cost, and requests that the Amazon-partnered carrier ships the inbound shipment. Before this call, a seller must confirm a placement option for their inbound plan. To call confirmTransportationOptions, a seller must pass the shipment ID, selected transportation option ID, and contact information (needed for partnered carriers for LTL shipments). When a transportation option is confirmed, new transportation options cannot be generated or confirmed for an inbound plan. You must confirm a transportation option before printing labels.
+
+Cancel a shipment
+If a seller confirms the transportation request, then decides they don't want the Amazon-partnered carrier to ship the inbound shipment, you can call cancelInboundPlan to cancel the transportation request.
+
+For Small parcel shipments, the seller has 24 hours after confirming a transportation request to void the request. For Less Than Truckload / Full Truckload (LTL/FTL) shipments, the seller has one hour after confirming a transportation request to void the request. After the relevant time period expires, the seller's account is charged for the shipping cost.
+
+Step 10. Print labels
+Call the getLabels operation to request unique shipping labels for your inbound shipments. Each shipping label returned by the getLabels operation should be affixed to the package in the shipment that it corresponds to, so the labels indicate the package contents. This helps to ensure that your shipment is processed at the Amazon fulfillment center quickly and accurately.
+
+🚧
+Warning
+
+The value of shipmentId in the getLabels request must be the shipmentId (from v0) or the shipmentConfirmationId (from v2024-03-20). Do not use the shipmentId from v2024-03-20.
+
+To print labels for a specific box, specify the boxID (from the listShipmentBoxes response) as the PackageLabelsToPrint value.
+
+Note that the shipment status does not become ready_to_ship if you retrieve carton labels with getLabels. For a shipment status to become ready_to_ship, you must generate labels on Send to Amazon.
+
+Information included on shipping labels
+In all circumstances, the getLabels operation returns shipping labels that include a unique bar code and Package ID (the string located directly under the bar code). Depending on the contents of the packages in your shipments, the labels can also include an ASIN and an expiration date.
+
+Shipping labels include an ASIN and an expiration date in either of the following situations:
+
+Every item in the shipment shares the same ASIN and expiration date.
+The shipment includes multiple ASINs, but every package in the shipment contains items that share the same ASIN and expiration date.
+Shipping labels include an ASIN and no expiration date in either of the following situations:
+
+Every item in the shipment shares the same ASIN. The ASIN does not have an expiration date.
+The shipment includes multiple ASINs, but every package in the shipment contains items that share the same ASIN. The ASINs do not have expiration dates.
+Shipping labels do not include an ASIN or an expiration date when the shipment contains at least one package with items that do not share the same ASIN and expiration date.
+
+📘
+Construct a unique barcode for small parcel shipments
+
+For Small Parcel shipments, the shipping label for each package should have a unique barcode. This helps ensure that your shipment is processed in a timely manner when it reaches Amazon's fulfillment network. To construct unique barcode values for each package in a shipment, do the following:
+
+Start with the Shipment ID value and append U and 000001 to get the barcode value for the first package in the shipment.
+
+To get the barcode values for each successive package in the shipment, increment the trailing numerical value of the previous package by one. For example, If you have three packages in a shipment with a Shipment ID value of FBA1MMD8D0, your three barcode values would be FBA1MMD8D0U000001, FBA1MMD8D0U000002, and FBA1MMD8D0U000003. A box label identified with its own unique numerical identifier must follow the 6-digit number format after U, printed and affixed to each carton you send to a fulfillment center (for example, U000001, U000002, U000003).
+
+Step 11. Send your shipments to Amazon's fulfillment network
+Send your shipments to Amazon's fulfillment network using an Amazon-Partnered carrier or a non-Amazon-Partnered carrier that is registered with Amazon. For more information about sending shipments to Amazon's fulfillment network, refer to the Seller Central Help for your marketplace.
+
+As you prepare your shipment, you can retrieve all of the box-level information that you have entered for an inbound plan using the listInboundPlanBoxes operation.
+
+Step 12. Providing tracking information
+After sending a shipment to Amazon's fulfillment network using a non-partnered carrier, a seller must share the tracking ID using the updateShipmentTrackingDetails operation. To call this operation, a seller must pass the shipment ID and tracking details for their less-than-truckload or small parcel shipment. For less-than-truckload shipments, the seller must provide a PRO number (also known as Freight Bill number) and can optionally provide a BOL number. For small parcel shipments, the seller must share an array of box IDs and associated tracking IDs. 
+
+### Create a shipment when the seller does not know the carton-level information up-front
+ Create a shipment when the seller does not know the carton-level information up-front
+Learn how to create a shipment with unknown carton-level information.
+
+Learn how to create a shipment with unknown carton-level information.
+
+Prerequisites
+To complete this tutorial, you need:
+
+Authorization from the selling partner for whom you are making calls. For more information, refer to Authorizing Selling Partner API applications.
+Approval for the Amazon Fulfillment role and the Product Listing role in your developer profile.
+The Amazon Fulfillment role and Product Listing role selected in the App registration page for your application.
+To have created your listings and understand whether your items are eligible to be shipped to Amazon's fulfillment network (instructions included in optional step section)
+Workflow
+The following table outlines the steps to create a shipment when the seller does not know carton-level information. This table is an illustrative example and does not include all of the optional operations.
+
+Step	Description	Operations
+Step 1. Create an inbound plan	Choose MSKU, quantity, and marketplace.	createInboundPlan
+Step 2. Generate and view options for destination fulfillment centers	Amazon generates available options for shipment splits based on units.	generatePlacementOptions
+Step 3. Select shipping option	Select shipping option (shipment split).	listPlacementOptions
+getShipment
+listShipmentItems
+confirmPlacementOption
+Step 4. Provide box content information	Provide SKUs, weights, dimensions.	setPackingInformation
+Step 5. Input transportation data, generate transportation options, and view options	Input transportation data. Amazon generates options.	generateTransportationOptions
+generateDeliveryWindowOptions
+listTransportationOptions
+listDeliveryWindowOptions
+Step 6. Select transportation options	Select desired delivery window and transportation options.	confirmDeliveryWindowOptions
+confirmTransportationOptions
+Step 7. Print labels	Amazon generates box labels, carrier label if SPD PCP, pallet label if LTL.	getLabels
+getBillOfLading
+Step 8. Send your shipments to Amazon's fulfillment network	Pack and ship inventory.	listInboundPlanBoxes
+Step 9. Providing tracking information	Provide tracking ID. Non-partnered carrier only.	updateShipmentTrackingDetails
+Step 1. Create an Inbound Plan
+📘
+Note
+
+The process for creating a shipment when the carton-level information is not known upfront is only available for LTL shipments.
+
+Create an Inbound Plan by calling the asynchronous createInboundPlan operation. An Inbound Plan represents a collection of inbound shipments that contain items you intend to inbound into Amazon's fulfillment network. By calling the createInboundPlan operation, a seller must specify:
+
+The address from which the inbound shipments will be sent
+The marketplace where the product would be shipped
+Contact information (needed for partnered carriers for LTL shipments)
+A summary of the items they intend to inbound
+The item summary must include MSKU, quantity, and an indication of who will prepare/label the item. Note that AMAZON_LABEL is available only if you are enrolled in the FBA Label Service. For more information about the FBA Label Service, refer to the Seller Central Help for your marketplace.
+
+Make sure each item you ship conforms to Amazon's product packaging requirements. For more information, refer to Packaging and Prep Requirements in Seller Central Help. For more information about Amazon's product packaging requirements for your marketplace, refer to Seller Central URLs. You can set the Prep Category for SKUs on Send to Amazon Step 1. You can do this one at a time or up to 25 at a time. This is a one-time activity per SKU that carries over to all future inbound plans.
+
+📘
+Note
+
+Multiple expiration dates per SKU on a single inbound plan is not supported. To send a SKU with multiple expiration dates to the fulfillment network, you need to create multiple plans.
+
+Optionally, a seller can include each item's expiration date and manufacturing lot code. A successful response includes an inboundPlanId, which is a unique identifier for the inbound plan, synonymous with the concept of "workflow ID", which is generated on Send to Amazon (the shipment creation workflow on Seller Central).
+
+📘
+Note
+
+createInboundPlan generates initial shipment IDs for the shipments within each inbound plan. These IDs are different from the shipmentConfirmationIDs that are generated with the confirmPlacementOption operation. The shipmentConfirmationID is the identifier that appears on labels (for example, FBA1234ABCD). Both of these types of shipment IDs can be retrieved with the getShipment operation.
+
+Check the status of a call
+Check the status of an inbound request by using the getInboundOperationStatus operation. For asynchronous operations, this operation provides the processing status. We omit this step for other asynchronous operations in this tutorial. By calling getInboundOperationStatus, a seller passes the operationId, which is a Universal Unique Identifier (UUID) for the operation. A successful response includes the request status and can include a list of errors associated with the request.
+
+Step 2. Generate and view options for destination fulfillment centers
+Generate and view placement options for an inbound plan by calling the generatePlacementOptions, listPlacementOptions, and getShipment operations.
+
+🚧
+Warning
+
+Sellers cannot provide packing information using Send to Amazon after confirming placement options. They will not be able to access API-created shipments on Send to Amazon during this step.
+
+The placementOptions object represents the set of available placement options for an inbound plan, where each placement option describes the destination FCs and shipping options for each item in your inbound plan. These options are designed to help reduce the time that it takes to receive a seller's items and make them available for sale (refer to Seller Central Help for more details).
+
+Some of your options can include multiple destinations (refer to Seller Central Help for details). Each option can include fees or discounts, which are determined using an algorithm when your shipment is being created, and is not calculated using a set rate. The algorithm for the rebate value and the ship-to location uses multiple factors to optimize your shipments, including expected volume, the availability of carrier appointments, and fulfillment speed. The rebate that your shipment is eligible for is provided during shipment creation.
+
+The terms and conditions can change. Review the current Seller Central terms and conditions, including the Amazon Services Business Solutions Agreement.
+
+📘
+Note
+
+When a seller calls generatePlacementOptions without inputting box content information, Amazon provides placement options that are optimized for unit-level data (because Amazon does not yet have box data). These options can differ from the placement options that are generated after a seller provides box content information (using setPackingInformation).
+
+View the options for shipment splits by calling the listPlacementOptions operation. This operation provides the list of available placement options, which include:
+
+A placement option ID
+The option status ("offered" or "accepted")
+Any fees/discounts associated with this option
+The expiration date of the option
+The shipment IDs associated with each option
+When a placement option expires, you must regenerate placement options by calling generatePlacementOption. The placement option ID is required to generate transportation options with generateTransportationOptions, while shipment IDs are used to understand the contents of each shipment using getShipment (refer to the following).
+
+Review details related to the contents of a shipment within an inbound plan using the getShipment operation. To call getShipment, a seller needs to pass the inbound plan ID and shipment ID. A successful response includes placement option ID, shipment confirmed ID (that is, the ID that shows up on labels, created after confirmPlacementOption), shipment ID (that is, identifier for a shipment prior to the confirmPlacementOption operation), Amazon reference ID (identifier for scheduling fulfillment center appointments for truck deliveries), selected transportation option ID, name, source, destination FC, ship date, estimated delivery date, status, tracking details, pallet information, contact information, destination region, and FC appointment details.
+
+Step 3. Select shipping option
+Select shipping options with the confirmPlacementOption operation. This operation selects the placement option for an inbound plan and creates confirmed shipment IDs for shipments within the inbound plan. The shipmentConfirmationID is the shipment identifier that appears on labels (for example, FBA1234ABCD). This ID differs from the initial shipment ID generated by createInboundPlan. This option cannot be reversed after it is selected. To call confirmPlacementOption, a seller must pass the inbound plan ID and the selected placement option ID.
+
+📘
+Note
+
+Quotes are only returned for transportation options that are associated with PCP shipments. Expiry date and void window are only returned for transportation options that are confirmed with confirmTransportationOptions.
+
+Step 4. Provide box content information
+❗️
+Important
+
+This is a mandatory step. If you do not call setPackingInformation, there may be defects in the receiving process and fees for manual processing. For more information, refer to FBA manual processing fee.
+
+❗️
+Important
+
+Starting January 1, 2026, the prep and item label services will no longer be available for FBA in the US marketplace. The seller must prep and label all products before they send them to the Amazon fulfillment network in the US.
+
+📘
+Note
+
+You need to know which items are associated with each shipment before you call setPackingInformation. You can get this information on STA and from the API. If you pass incorrect information, you receive an error message with the expected quantities. You can also retrieve this information for your shipment on Send to Amazon.
+
+Provide information related to what items will be packed into each box by using the setPackingInformation operation. By calling setPackingInformation, a seller must pass the following information for boxes they intend to inbound:
+
+The package grouping ID (that is, the shipment ID of the confirmed placement option) of every shipment
+Box content information source
+Box contents (items, item quantities, prep/label owners for each item)
+Box information (dimensions, weight, and quantity of boxes)
+A successful response includes the operationId that can be used to determine the status of the operation using getInboundOperationStatus.
+
+⭐
+Tip
+
+In this flow, include ShipmentId and omit PackingGroupId.
+
+List shipment items
+View a paginated list of items in a shipment by calling the listShipmentItems operation. Sellers must pull this information to understand which items are in each shipment split when they haven't input the carton level information upfront. To call this API, a seller must pass the shipment ID. A successful response contains a paginated list of the products the user previously entered using the createInboundPlan operation. The response contains the prep instructions for their ASINs, such as prep type and owner. This allows users to conveniently check what items and prep requirements are in a given shipment. The response lists the product’s MSKU, ASIN, FNSKU, Manufacturer Code, quantity, and expiration date if needed. This can be used to generate a pick list which they can use to pull certain items from their inventory and group them into a shipment. The seller then uses the listShipmentBoxes operation to create a pack list that specifies which items go in which boxes.
+
+Step 5. Input transportation data, generate transportation options, and view options
+Generate transportation options with the generateTransportationOptions operation. A transportation option represents the list of available shipping mode and carrier options that are available for each shipment within each placement option. By calling generateTransportationOptions, a seller must pass the following information:
+
+Placement option ID
+Shipment ID
+Expected delivery date
+Ship-from address, and optionally
+Pallet information. If pallet information is not included, LTL transportation options aren't generated.
+Review shipment and transportation options by calling the listTransportationOptions, listDeliveryWindowOptions, and getShipment operations.
+
+To call listTransportationOptions, a seller needs to pass the placement option ID and shipment ID for which they want to view transportation options. A successful response includes all available transportation quotes for all available ship modes and carrier options. Shipping modes include:
+
+Ground small parcel
+Less-than-truckload freight
+Full truckload freight (palletized)
+Full truckload freight (non-palletized)
+Less than container load ocean
+Full container load ocean
+Air small parcel
+Air small parcel express
+Carrier options include Amazon-partnered and non-partnered carriers. Quotes include the cost, a void window (for example, duration where a seller can cancel a shipment and receive a refund for their transportation quote), and expiration for each quote. In regions where fulfillment center appointments are mandatory (for example, India), we provide available appointment slots.
+
+Where the Partnered Carrier Program (PCP) is available, sellers can take advantage of discounted rates by using an Amazon-partnered carrier for their inbound shipments.
+
+To use an Amazon-partnered carrier for an inbound shipment, select the transportation option where shippingSolution is AMAZON_PARTNERED_CARRIER.
+
+📘
+Note
+
+Before you can use an Amazon-partnered carrier for an inbound shipment, you must read the Seller Central Help about Amazon's PCP to help ensure that you successfully follow the program instructions and guidelines (Europe) (US).
+
+In the EU region, before using an Amazon-partnered carrier for an inbound shipment, you must first review and accept the terms and conditions of the carrier and the terms and conditions of Amazon's PCP. You can do this on Seller Central. If you attempt to use Amazon Selling Partner APIs to create an inbound shipment by using an Amazon-partnered carrier before accepting these terms and conditions, the service returns an error.
+
+If a seller doesn't want to participate in the PCP, they can view Choose your own carrier transportation options and available shipping modes.
+
+Review the available delivery window options for each shipment within an inbound plan using the listDeliveryWindowOptions operation. To make this call, a seller needs to pass the shipmentID. A successful response provides the startDate and endDate for each available delivery window and the level of congestion (availabilityType) for each option. Note that each option has an expiration date (validUntil). You must confirm the delivery before this date. If you don't confirm the window by the validUntil date, you must generate a new window using listDeliveryWindowOptions.
+
+Review the details related to the contents of a shipment within an inbound plan using the getShipment operation. To call getShipment, a seller needs to pass the inbound plan ID and shipment ID. A successful response includes:
+
+Placement option ID
+Shipment confirmed ID (that is, the ID that shows up on labels)
+Shipment ID (that is, identifier for a shipment prior to the confirmPlacementOption operation)
+Amazon reference ID (identifier for scheduling fulfillment center appointments for truck deliveries)
+Selected transportation option ID
+Name
+Source
+Destination FC
+Ship date
+Estimated delivery date
+Status
+Tracking details
+Pallet information
+Contact information
+Destination region
+FC appointment details
+Step 6. Select transportation options
+❗️
+Important
+
+For non-partnered carrier shipments, sellers must confirm their anticipated delivery window by calling confirmTransportationOptions before they book their fulfillment center (FC) appointment.
+
+Sellers should ask their non-partnered carrier to book an FC appointment that is within their anticipated delivery window. If the FC appointment date does not fall within the delivery window, the seller can call confirmDeliveryWindow to select another delivery window that does contain their FC appointment date.
+
+Select transportation options for each shipment within an inbound plan using the confirmTransportationOptions operation. For Amazon-partnered transportation options, this operation confirms that the seller accepts the Amazon-partnered shipping estimate, agrees to allow Amazon to charge their account for the shipping cost, and requests that the Amazon-partnered carrier ship the inbound shipment. Prior to this call, a seller must have confirmed a placement option for their inbound plan. To call confirmTransportationOptions, a seller must pass the shipment ID, selected transportation option ID, contact information (needed for partnered carriers for LTL shipments), and estimated delivery date. The estimated delivery date (delivery window) is a requirement for non-partnered carrier options and should not be populated for partnered carrier options. After a transportation option is been confirmed, new transportation options cannot be generated or confirmed for an inbound plan.
+
+Cancel a shipment
+If a seller confirms the transportation request, then decides they don't want the Amazon-partnered carrier to ship the inbound shipment, you can call cancelInboundPlan to cancel the transportation request.
+
+For Small parcel shipments, the seller has 24 hours after confirming a transportation request to void the request. For Less Than Truckload / Full Truckload (LTL/FTL) shipments, the seller has one hour after confirming a transportation request to void the request. After the relevant time period expires, the seller's account is charged for the shipping cost.
+
+Step 7. Print labels
+Call the getLabels operation to request unique shipping labels for your inbound shipments. Each shipping label returned by the getLabels operation should be affixed to the package in the shipment that it corresponds to, so the labels indicate the package contents. This helps to ensure that your shipment is processed at the Amazon fulfillment center quickly and accurately.
+
+🚧
+Warning
+
+The value of shipmentId in the getLabels request must be the shipmentId (from v0) or the shipmentConfirmationId (from v2024-03-20). Do not use the shipmentId from v2024-03-20.
+
+To print labels for a specific box, specify the boxID (from the listShipmentBoxes response) as the PackageLabelsToPrint value.
+
+Note that the shipment status does not become ready_to_ship if you retrieve carton labels with getLabels. For a shipment status to become ready_to_ship, you must generate labels on Send to Amazon.
+
+Information included on shipping labels
+In all circumstances, the getLabels operation returns shipping labels that include a unique bar code and Package ID (the string located directly under the bar code). Depending on the contents of the packages in your shipments, the labels can also include an ASIN and an expiration date.
+
+Shipping labels include an ASIN and an expiration date in either of the following situations:
+
+Every item in the shipment shares the same ASIN and expiration date.
+The shipment includes multiple ASINs, but every package in the shipment contains items that share the same ASIN and expiration date.
+Shipping labels include an ASIN and no expiration date in either of the following situations:
+
+Every item in the shipment shares the same ASIN. The ASIN does not have an expiration date.
+The shipment includes multiple ASINs, but every package in the shipment contains items that share the same ASIN. The ASINs do not have expiration dates.
+Shipping labels do not include an ASIN or an expiration date when the shipment contains at least one package with items that do not share the same ASIN and expiration date.
+
+📘
+Construct a unique barcode for small parcel shipments
+
+For Small Parcel shipments, the shipping label for each package should have a unique barcode. This helps ensure that your shipment is processed in a timely manner when it reaches Amazon's fulfillment network. To construct unique barcode values for each package in a shipment, do the following:
+
+Start with the Shipment ID value and append U and 000001 to get the barcode value for the first package in the shipment.
+
+To get the barcode values for each successive package in the shipment, increment the trailing numerical value of the previous package by one. For example, If you have three packages in a shipment with a Shipment ID value of FBA1MMD8D0, your three barcode values would be FBA1MMD8D0U000001, FBA1MMD8D0U000002, and FBA1MMD8D0U000003. A box label identified with its own unique numerical identifier must follow the 6-digit number format after U, printed and affixed to each carton you send to a fulfillment center (for example, U000001, U000002, U000003).
+
+Step 8. Send your shipments to Amazon's fulfillment network
+Send your shipments to Amazon's fulfillment network using an Amazon-Partnered carrier or a non-Amazon-Partnered carrier that is registered with Amazon. For more information about sending shipments to Amazon's fulfillment network, refer to the Seller Central Help for your marketplace.
+
+As you prepare your shipment, you can retrieve all of the box-level information that you have entered for an inbound plan using the listInboundPlanBoxes operation.
+
+Step 9. Providing tracking information
+After sending a shipment to Amazon's fulfillment network using a non-partnered carrier, a seller must share the tracking ID using the updateShipmentTrackingDetails operation. To call this operation, a seller must pass the shipment ID and tracking details for their less-than-truckload or small parcel shipment. For less-than-truckload shipments, the seller must provide a PRO number (also known as Freight Bill number) and can optionally provide a BOL number. For small parcel shipments, the seller must share an array of box IDs and associated tracking IDs. 
+
+### Create a shipment with an Amazon-partnered carrier (PCP)
+ Create a shipment with an Amazon-partnered carrier (PCP)
+Learn how to inbound small parcel deliveries or pallets with Amazon-partnered carriers
+
+Learn how to inbound Small Parcel Deliveries (SPD) or pallets (LTL/FTL) with an Amazon-partnered carrier using the Fulfillment Inbound API.
+
+Diagram of partnered carrier workflow
+
+Step 1. Create an inbound plan
+Operation
+createInboundPlan
+Parameters
+destinationMarketplaces: Target marketplaces for shipment.
+sourceAddress: Address from which items are shipped.
+items:
+prepOwner: Preparation owner.
+labelOwner: Labeling owner.
+msku: Merchant SKU.
+itemQuantity: Quantity of items.
+Response
+Includes inboundPlanId and operationId to check the status of inbound plan creation.
+Create Inbound Plan
+Open Recipe
+📘
+Note
+
+POST operations are asynchronous. Check the status of a POST operation by passing its operationId to getInboundOperationStatus.
+
+Get Inbound operation status
+Open Recipe
+Step 2. Generate packing options
+Operation
+generatePackingOptions
+Parameters
+inboundPlanId: Use the inbound plan ID created in Step 1.
+Response
+operationId: An ID that you can use to check the status of packing options generation.
+Generate packing options
+Open Recipe
+Step 3. List packing options
+Operation
+listPackingOptions
+Parameters
+inboundPlanId: Input the inbound plan ID.
+Response
+Includes available packingOptions. Each packing option is represented by a packingOptionId.
+Each packing option contains one or more packingGroups, identified by packingGroupId. Each packing group includes a list of SKUs that should be packed together.
+To view the SKU items in a packing group, call listPackingGroupItems with the packing group's packingGroupId.
+
+📘
+Note
+
+Choose only one packing option (packingOptionId).
+
+List packing options
+Open Recipe
+Step 4. Confirm packing option
+Operation
+confirmPackingOption
+Parameters
+inboundPlanId: The ID of the inbound plan.
+packingOptionId: The chosen packing option ID. You can only confirm one option per inbound plan.
+Response
+operationId: An ID that you can use to check the status of the packing confirmation.
+Confirm packing option
+Open Recipe
+Step 5. Set packing information
+Operation
+setPackingInformation
+Parameters
+inboundPlanId: ID of the inbound plan.
+packingGroupId: ID for each packing group within the chosen packing option.
+boxes: Includes box contents source, box dimensions (weight and quantity), items with prep info, and item quantities matching the inbound plan.
+Response
+operationId: An ID that you can use to check the status of the API call.
+Request example
+JSON
+
+{
+  "packageGroupings": [
+    {
+      "boxes": [
+        {
+          "contentInformationSource": "BOX_CONTENT_PROVIDED",
+          "dimensions": {
+            "height": 10,
+            "length": 10,
+            "unitOfMeasurement": "IN",
+            "width": 10
+          },
+          "quantity": 1,
+          "weight": {
+            "unit": "LB",
+            "value": 2
+          },
+          "items": [
+            {
+              "labelOwner": "AMAZON",
+              "msku": "SKU12345",
+              "prepOwner": "AMAZON",
+              "quantity": 1
+            }
+          ]
+        }
+      ],
+      "packingGroupId": "pg1xxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "boxes": [
+        {
+          "contentInformationSource": "BOX_CONTENT_PROVIDED",
+          "dimensions": {
+            "height": 10,
+            "length": 10,
+            "unitOfMeasurement": "IN",
+            "width": 10
+          },
+          "quantity": 1,
+          "weight": {
+            "unit": "LB",
+            "value": 1
+          },
+          "items": [
+            {
+              "labelOwner": "SELLER",
+              "msku": "SKU67890",
+              "prepOwner": "SELLER",
+              "quantity": 1
+            }
+          ]
+        }
+      ],
+      "packingGroupId": "pg2yyyyyyyyyyyyyyyyyyy"
+    }
+  ]
+}
+Set Packing Information
+Open Recipe
+Step 6. Generate placement options
+Operation
+generatePlacementOptions
+
+Parameters
+inboundPlanId: ID of the inbound plan.
+Response
+operationId: An ID that you can use to check the status of placement options generation.
+Generate packing options
+Open Recipe
+Step 7. List placement options
+Operation
+listPlacementOptions
+Parameters
+inboundPlanId: ID of the inbound plan.
+Response
+Includes available placementOptions, each represented by a placementOptionId.
+Each placementOptionId includes one or more shipmentIds and details on fees or discounts.
+📘
+Note
+
+Choose only one placement option (placementOptionId).
+
+Response example
+JSON
+
+"placementOptions": [
+  {
+    "fees": [
+      {
+        "description": "Placement service fee represents service to inbound with minimal shipment splits and destinations of skus",
+        "type": "FEE",
+        "value": {
+          "amount": 1.10,
+          "code": "USD"
+        },
+        "target": "Placement Services"
+      }
+    ],
+    "shipmentIds": [
+      "shxxxxxxxxxxxxxxx",
+      "shxxxxxxxxxxxxxxx"
+    ],
+    "discounts": [],
+    "expiration": "yyyy-mm-ddT00:00:00.00Z",
+    "placementOptionId": "plxxxxxxxxxxxxxxx",
+    "status": "OFFERED"
+  }
+]
+The following code sample demonstrates how to choose the least expensive placementOption. Customize this code to fit your own selection criteria.
+
+List placement options
+Open Recipe
+Step 8. Generate transportation options
+Operation
+generateTransportationOptions
+Parameters
+inboundPlanId: ID of the inbound plan.
+placementOptionId: The chosen placement option ID.
+shipmentTransportationConfigurations: Configuration details including:
+shipmentId: Each shipment ID within the chosen placement option. Include all shipment IDs within the selected placement option.
+readyToShipWindow: Start date for when shipments are ready for delivery.
+freightInformation (only if you want to ship pallets): The declared value and freight class.
+pallets (only if you want to ship pallets): Information about the pallets being shipped, including quantity, dimensions, weight, and stackability.
+Response
+Includes an operationId that you can use to check the status of transportation options generation.
+Request example for small parcel delivery
+JSON
+
+{
+  "placementOptionId": "plxxxxxxxxxxxxxxxxxxxx",
+  "shipmentTransportationConfigurations": [
+    {
+      "readyToShipWindow": {
+        "start": "yyyy-mm-ddT00:00:00Z"
+      },
+      "shipmentId": "sh1xxxxxxxxxxxxxxx"
+    },
+    {
+      "readyToShipWindow": {
+        "start": "yyyy-mm-T00:00:00Z"
+      },
+      "shipmentId": "sh2xxxxxxxxxxxxxx"
+    }
+  ]
+}
+Request example for pallet (LTL/FTL) delivery
+JSON
+
+{
+  "placementOptionId": "plxxxxxxxxxxxxxxxxxxxx",
+  "shipmentTransportationConfigurations": [
+    {
+      "readyToShipWindow": {
+        "start": "yyyy-mm-ddT00:00:00Z"
+      },
+      "shipmentId": "shxxxxxxxxxxxxxxxx",
+      "freightInformation": {
+        "declaredValue": {
+          "amount": 200,
+          "code": "USD"
+        },
+        "freightClass": "FC_XX"
+      },
+      "pallets": [
+        {
+          "quantity": 1,
+          "dimensions": {
+            "height": 48,
+            "length": 48,
+            "unitOfMeasurement": "IN",
+            "width": 40
+          },
+          "stackability": "STACKABLE",
+          "weight": {
+            "unit": "LB",
+            "value": 600
+          }
+        }
+      ]
+    }
+  ]
+}
+Generate Transportation Options
+Open Recipe
+Step 7. List transportation options
+Operation
+listTransportationOptions
+Parameters
+inboundPlanId: The ID of the inbound plan.
+placementOptionId: The ID of the chosen placement option.
+Response
+Includes different available transportationOptions, each represented by transportationOptionId per shipmentId. Each transportation option contains details about:
+carrier: Identifies the carrier.
+shippingMode: Identifies the shipment type (for example, Small Parcel Delivery or pallets).
+shippingSolution: Identifies whether the carrier is Amazon Partnered or your own transportation carrier.
+preconditions: Conditions that must be met to provide the delivery window. Only applicable to your own carrier options.
+📘
+Note
+
+If you have multiple shipmentIds from listPlacementOptions, choose a transportationOptionId for each shipmentId.
+
+To ship using the Amazon Partnered Carrier in this tutorial, you must select the transportationOption based on your shipment type:
+
+For small parcel deliveries, choose the option where shippingMode is GROUND_SMALL_PARCEL.
+For pallet shipments, choose the option where shippingMode is FREIGHT_LTL.
+In both cases, ensure that shippingSolution is AMAZON_PARTNERED_CARRIER.
+
+Response example for small parcel delivery
+JSON
+
+"transportationOptions": [
+  {
+    "carrier": {
+      "name": "United States Postal Service",
+      "alphaCode": "USPS"
+    },
+    "preconditions": [
+      "CONFIRMED_DELIVERY_WINDOW"
+    ],
+    "shipmentId": "shxxxxxxxxxxxxxx",
+    "shippingMode": "GROUND_SMALL_PARCEL",
+    "transportationOptionId": "toxxxxxxxxxxxxxx",
+    "shippingSolution": "USE_YOUR_OWN_CARRIER"
+  },
+  {
+    "carrier": {
+      "name": "UPS",
+      "alphaCode": "UPSN"
+    },
+    "quote": {
+      "cost": {
+        "amount": 19.6,
+        "code": "USD"
+      }
+    },
+    "preconditions": [],
+    "shipmentId": "shxxxxxxxxxxxxxx",
+    "shippingMode": "GROUND_SMALL_PARCEL",
+    "transportationOptionId": "toxxxxxxxxxxxxxx",
+    "shippingSolution": "AMAZON_PARTNERED_CARRIER"
+  }
+]
+Response example for pallet delivery
+JSON
+
+{
+  "carrier": {
+    "name": "XXXXX",
+    "alphaCode": "ABCD"
+  },
+  "carrierAppointment": {
+    "startTime": "2024-10-11T00:00Z",
+    "endTime": "2024-10-11T23:59Z"
+  },
+  "quote": {
+    "cost": {
+      "amount": 326.54,
+      "code": "USD"
+    },
+    "expiration": "2024-10-09T22:40Z"
+  },
+  "preconditions": [],
+  "shipmentId": "shxxxxxxxxxxxxxx",
+  "shippingMode": "FREIGHT_LTL",
+  "transportationOptionId": "toxxxxxxxxxxxxxx",
+  "shippingSolution": "AMAZON_PARTNERED_CARRIER"
+}
+List transportation options
+Open Recipe
+Step 8. Get shipment
+Operation
+getShipment
+Parameters
+inboundPlanId: ID of the inbound plan.
+shipmentId: ID of the shipment for which to retrieve details.
+Response
+Includes the source address from which the shipment originates.
+Includes the destination warehouse address for the shipment.
+Includes the current status of the shipment.
+📘
+Note
+
+If you are not satisfied with the chosen options, you can regenerate and select another placement option or transportation option before final confirmation. 
+
+### Create a shipment with a non-partnered carrier
+ Create a shipment with a non-partnered carrier
+Learn how to inbound small parcel deliveries or pallets with non-partnered carriers.
+
+Learn how to inbound Small Parcel Deliveries (SPD) or pallets (LTL/FTL) with a non-partnered carrier using the Fulfillment Inbound API.
+
+Diagram of non-partnered carrier workflow
+
+As a supplement to this guide, the FBA Inbound Sample Solution Code App provides all required resources to deploy a fully functional SP-API application that implements the new Fulfillment Inbound API v2024-03-20.
+
+Step 1. Create an inbound plan
+Operation
+createInboundPlan
+Parameters
+destinationMarketplaces: List of marketplaces where the items are sent.
+sourceAddress: The address from which the items are shipped.
+items: A list of items to include in the inbound plan. Each item should have the following attributes:
+prepOwner: The one responsible for prepping the item.
+labelOwner: The one responsible for the labeling process.
+msku: The Merchant Stock Keeping Unit (SKU) for the item.
+quantity: The quantity of items to ship.
+Response
+operationId: An ID that you can use to check the status of the inbound plan creation.
+inboundPlanId: An ID that uniquely identifies the inbound plan.
+Create Inbound Plan
+Open Recipe
+📘
+Note
+
+POST operations are asynchronous. Check the status of a POST operation by passing its operationId to getInboundOperationStatus.
+
+Get Inbound operation status
+Open Recipe
+Step 2. Generate packing options
+Operation
+generatePackingOptions
+Parameters
+inboundPlanId: Use the inbound plan ID created in Step 1.
+Response
+operationId: An ID that you can use to check the status of packing options generation.
+Generate packing options
+Open Recipe
+Step 3. List packing options
+Operation
+listPackingOptions
+Parameters
+inboundPlanId: The inbound plan ID.
+Response
+Includes available packingOptions. Each packingOption has a packingOptionId.
+Each packing option contains one or more packingGroups, identified by packingGroupId. Each packing group includes a list of SKUs that should be packed together.
+To view SKU items per packingGroupId, call listPackingGroupItems.
+
+📘
+Note
+
+Choose only one packing option (packingOptionId).
+
+List packing options
+Open Recipe
+Step 4. Confirm packing option
+Operation
+confirmPackingOption
+Parameters
+inboundPlanId: The ID of the inbound plan.
+packingOptionId: The chosen packing option ID. You can only confirm one option per inbound plan.
+Response
+operationId: An ID that you can use to check the status of the packing confirmation.
+Confirm packing option
+Open Recipe
+Step 5. Set packing information
+Operation
+setPackingInformation
+Parameters
+inboundPlanId: ID of the inbound plan.
+packingGroupId: ID for each packing group within the chosen packing option.
+boxes: Includes box contents source, box dimensions (weight and quantity), items with prep info, and item quantities that match the inbound plan.
+Response
+operationId: An ID that you can use to check the status of the API call.
+Set Packing Information
+Open Recipe
+Step 6. Generate placement options
+Operation
+generatePlacementOptions
+Parameters
+inboundPlanId: ID of the inbound plan.
+Response
+operationId: An ID that you can use to check the status of placement options generation.
+Generate placement options
+Open Recipe
+Step 7. List placement options
+Operation
+listPlacementOptions
+Parameters
+inboundPlanId: ID of the inbound plan.
+Response
+Includes available placementOptions, each represented by a placementOptionId.
+Each placementOptionId includes one or more shipmentIds and details on fees or discounts.
+📘
+Note
+
+Choose only one placement option (placementOptionId).
+
+Response example
+JSON
+
+"placementOptions": [
+  {
+    "fees": [
+      {
+        "description": "Placement service fee represents service to inbound with minimal shipment splits and destinations of skus",
+        "type": "FEE",
+        "value": {
+          "amount": 1.10,
+          "code": "USD"
+        },
+        "target": "Placement Services"
+      }
+    ],
+    "shipmentIds": [
+      "shxxxxxxxxxxxxxxx"
+    ],
+    "discounts": [],
+    "expiration": "yyyy-mm-ddT00:00:00.00Z",
+    "placementOptionId": "plxxxxxxxxxxxxxxx",
+    "status": "OFFERED"
+  }
+]
+The following code sample shows how to calculate and choose the least expensive placementOption. You can modify the code to have your own selection criteria.
+
+List placement options
+Open Recipe
+Step 8. Generate transportation options
+Operation
+generateTransportationOptions
+Parameters
+inboundPlanId: ID of the inbound plan.
+placementOptionId: Chosen placement option ID.
+shipmentTransportationConfigurations: Configuration details, which include:
+shipmentId: Each shipment ID within the chosen placement option. Include all shipment IDs within the selected placement option.
+readyToShipWindow: Start date for when shipments are ready for delivery.
+freightInformation (only if you want to ship pallets): Declared value and freight class.
+pallets (only if you want to ship pallets): Information about the shipped pallets, including quantity, dimensions, weight, and stackability.
+Response
+operationId: An ID that you can use to check the status of transportation options generation.
+Request example for small parcel delivery
+JSON
+
+{
+  "placementOptionId": "plxxxxxxxxxxxxxxxxxxxx",
+  "shipmentTransportationConfigurations": [
+    {
+      "readyToShipWindow": {
+        "start": "yyyy-mm-ddT00:00:00Z"
+      },
+      "shipmentId": "shxxxxxxxxxxxxxxxxxxxx",
+      "contactInformation": {
+        "name": "xxxxxxxx",
+        "phoneNumber": "1234567890",
+        "email": "test@email.com"
+      }
+    }
+  ]
+}
+Request example for pallet delivery
+JSON
+
+{
+  "placementOptionId": "plxxxxxxxxxxxxxxxxxxxx",
+  "shipmentTransportationConfigurations": [
+    {
+      "readyToShipWindow": {
+        "start": "yyyy-mm-ddT00:00:00Z"
+      },
+      "shipmentId": "shxxxxxxxxxxxxxxxx",
+      "contactInformation": {
+        "name": "TestName",
+        "phoneNumber": "1234567890",
+        "email": "test@email.com"
+      },
+      "freightInformation": {
+        "declaredValue": {
+          "amount": 200,
+          "code": "USD"
+        },
+        "freightClass": "FC_XX"
+      },
+      "pallets": [
+        {
+          "quantity": 1,
+          "dimensions": {
+            "height": 48,
+            "length": 48,
+            "unitOfMeasurement": "IN",
+            "width": 40
+          },
+          "stackability": "STACKABLE",
+          "weight": {
+            "unit": "LB",
+            "value": 600
+          }
+        }
+      ]
+    }
+  ]
+}
+Generate Transportation Options
+Open Recipe
+Step 9. List transportation options
+Operation
+listTransportationOptions
+Parameters
+inboundPlanId: The ID of the inbound plan.
+placementOptionId: The ID of the chosen placement option.
+Response
+Includes different available transportationOptions, each represented by transportationOptionId per shipmentId. Each transportation option contains details about:
+carrier: The carrier.
+shippingMode: The shipment type (for example, Small Parcel Delivery vs. pallets).
+shippingSolution: The shipping solution. Identifies whether the carrier is Amazon Partnered or your own transportation carrier.
+preconditions: Conditions that must be met to provide the delivery window. Only applicable to your own carrier options.
+📘
+Note
+
+If you have multiple shipmentIds from listPlacementOptions, choose a transportationOptionId for each shipmentId.
+
+To ship using a non-partnered carrier, you must select the transportationOption based on your shipment type:
+
+For small parcel deliveries, choose the option where shippingMode is GROUND_SMALL_PARCEL.
+For pallet shipments, choose the option where shippingMode is FREIGHT_LTL.
+In both cases, ensure that shippingSolution is USE_YOUR_OWN_CARRIER.
+preconditions lists the requirements for confirming the delivery windows. You must generate, list, and confirm a delivery window for each shipment that you send using your own carrier. Follow the tutorial for detailed steps.
+Response example for small parcel delivery
+JSON
+
+"transportationOptions": [
+  {
+    "carrier": {
+      "name": "United States Postal Service",
+      "alphaCode": "USPS"
+    },
+    "preconditions": [
+      "CONFIRMED_DELIVERY_WINDOW"
+    ],
+    "shipmentId": "shxxxxxxxxxxxxxx",
+    "shippingMode": "GROUND_SMALL_PARCEL",
+    "transportationOptionId": "toxxxxxxxxxxxxxx",
+    "shippingSolution": "USE_YOUR_OWN_CARRIER"
+  },
+  {
+    "carrier": {
+      "name": "UPS",
+      "alphaCode": "UPSN"
+    },
+    "quote": {
+      "cost": {
+        "amount": 19.6,
+        "code": "USD"
+      }
+    },
+    "preconditions": [],
+    "shipmentId": "shxxxxxxxxxxxxxx",
+    "shippingMode": "GROUND_SMALL_PARCEL",
+    "transportationOptionId": "toxxxxxxxxxxxxxx",
+    "shippingSolution": "AMAZON_PARTNERED_CARRIER"
+  }
+]
+Response example for pallet delivery
+JSON
+
+{
+  "carrier": {
+    "name": "XXXX",
+    "alphaCode": "ABCD"
+  },
+  "preconditions": [
+    "CONFIRMED_DELIVERY_WINDOW"
+  ],
+  "shipmentId": "shxxxxxxxxxxxxxx",
+  "shippingMode": "FREIGHT_LTL",
+  "transportationOptionId": "toxxxxxxxxxxxxxx",
+  "shippingSolution": "USE_YOUR_OWN_CARRIER"
+}
+List transportation options (non-PCP)
+Open Recipe
+Step 10. Generate delivery window options
+Operation
+generateDeliveryWindowOptions
+Parameters
+inboundPlanId: ID of the inbound plan.
+shipmentId: ID of the specific shipment for which to generate delivery windows.
+Response
+operationId: An ID that you can use to check the status of the delivery window options generation.
+📘
+Note
+
+You must generate delivery windows for all shipmentIds within the inbound plan.
+
+Generate delivery window options
+Open Recipe
+Step 11. List Delivery Window Options
+Operation
+listDeliveryWindowOptions
+Parameters
+inboundPlanId: ID of the inbound plan.
+shipmentId: ID of the specific shipment for which to retrieve delivery window options.
+Response
+Includes a list of available deliveryWindowOptions, each represented by a deliveryWindowOptionId.
+Each option includes startDate and endDate that indicate the time frame during which the shipment must arrive.
+📘
+Note
+
+You must schedule your shipment delivery within 45 days for domestic shipments and 75 days for international shipments. These time frames are reflected in the available delivery window options endDate. For non-partnered carriers, sellers must specify a delivery window of 7 days for domestic shipments or 14 days for international shipments.
+
+The following code sample shows how to choose the delivery window option with the latest endDate. You can modify the code to have your own selection criteria.
+
+List delivery window options
+Open Recipe
+Step 12. Get shipment
+Operation
+getShipment
+Parameters
+inboundPlanId: ID of the inbound plan.
+shipmentId: ID of the specific shipment for which to retrieve details.
+Response
+Includes the details related to the contents of the specified shipment, including:
+Source address: The address from which the shipment originates.
+Destination warehouse address: The address of the chosen destination warehouse.
+Status: The current status of the shipment.
+📘
+Note
+
+Before you confirm the placement and transportation options, call getShipment for each shipmentId to ensure all details are satisfactory. If you are not satisfied with your chosen options, you have the option to re-generate and select another placement option or transportation option.
+
+Get shipment details
+Open Recipe
+Step 13. Confirm placement option
+Operation
+confirmPlacementOption
+Parameters
+inboundPlanId: ID of the inbound plan.
+placementOptionId: The chosen placement option ID to confirm.
+Response
+operationId: An ID that you can use to check the status of the placement confirmation.
+📘
+Note
+
+You can only confirm one placement option per inbound plan.
+
+Confirm placement option
+Open Recipe
+Step 14. Confirm delivery window options
+Operation
+confirmDeliveryWindowOptions
+Parameters
+inboundPlanId: ID of the inbound plan.
+shipmentId: ID of the specific shipment for which the delivery window option is being confirmed.
+deliveryWindowOptionId: ID of the chosen delivery window option.
+Response
+operationId: An ID that you can use to check the status of the delivery window confirmation.
+📘
+Note
+
+You must confirm delivery windows for every shipmentId in the inbound plan. You can only confirm one delivery window option per shipment for the inbound plan.
+
+Confirm delivery window options
+Open Recipe
+Step 15. Confirm transportation options
+Operation
+confirmTransportationOptions
+Parameters
+inboundPlanId: ID of the inbound plan.
+transportationSelections: A list of selected transportation options for each shipment, including:
+shipmentId: The ID of the shipment.
+transportationOptionId: The chosen transportation option ID for that shipment.
+Response
+operationId: An ID that you can use to check the status of the transportation confirmation.
+Confirm transportation option
+Open Recipe
+Step 16. Get shipment
+Operation
+getShipment
+Parameters
+inboundPlanId: ID of the inbound plan.
+shipmentId: The ID of the shipment.
+Response
+Includes the details of shipment, including:
+sourceAddress: The origin address of the shipment.
+destinationWarehouseAddress: The address of the destination warehouse.
+amazonReferenceId: Amazon's reference ID for the shipment.
+selectedTransportationOptionId: The chosen transportation option ID.
+placementOptionId: The ID of the chosen placement option.
+shipmentConfirmationId: The ID that confirms the shipment.
+trackingDetails: Information regarding the shipment tracking.
+status: The current status of the shipment.
+📘
+Note
+
+If your inbound plan includes multiple shipment IDs, call getShipment for each shipment ID.
+
+Get shipment details
+Open Recipe
+Step 17. Get labels
+Operation
+getLabels
+Parameters
+shipmentConfirmationId: The ID confirming the shipment, retrieved from the getShipment response.
+PageType: Specifies the type of page for the labels.
+LabelType: Specifies the type of label to retrieve.
+For Pallet Shipments:
+
+NumberOfPallets: The total number of pallets included in the shipment.
+PageSize: Specifies the size of the label pages to retrieve.
+Response
+Includes a URL that you can use to download the labels associated with each shipment ID within your inbound plan.
+📘
+Note
+
+Call getLabels for each shipment ID and provide the necessary parameters based on whether the shipment is a small parcel delivery or involves pallets.
+
+Get labels to print
+Open Recipe
+Step 18. List inbound plan boxes
+Operation
+listInboundPlanBoxes
+Parameters
+inboundPlanId: ID of the inbound plan.
+Response
+Includes a list of box package-level information for the specified inbound plan, including box-level information including box IDs, package IDs, box weights, quantities, dimensions, items etc.
+List Inbound plan boxes
+Open Recipe
+Step 19. [Only for pallet shipments] List inbound plan pallets
+Call listInboundPlanPallets to retrieve the list of pallet packages per inbound plan. Input should include the inboundPlanId and the response includes all the pallet level information including packageId, dimensions, stackability, etc.
+
+Operation
+listInboundPlanPallets
+Parameters
+inboundPlanId: ID of the inbound plan.
+Response
+Includes a list of pallet package information for the specified inbound plan, including the package ID, dimensions, stackability, etc.
+Step 20. Update shipment tracking details
+Operation
+updateShipmentTrackingDetails
+Parameters
+inboundPlanId: ID of the inbound plan.
+shipmentId: ID of the shipment.
+trackingDetails: Details for updating tracking information based on shipment type.
+For Small Parcel Delivery (SPD):
+spdTrackingItems: A list that includes:
+boxId: The unique identifier for each box obtained from the listInboundPlanBoxes API.
+trackingId: The tracking ID provided by your carrier for each box.
+You must update the tracking IDs for all of the boxes within your inbound plan.
+For pallet (LTL/FTL) delivery:
+ltlTrackingDetail: Details that include the freightBillNumber that your carrier provides for the pallet shipment.
+Response
+operationId: An ID that you can use to check the status of the tracking details update.
+Request example for small parcel delivery
+JSON
+
+{
+  "trackingDetails": {
+    "spdTrackingDetail": {
+      "spdTrackingItems": [
+        {
+          "boxId": "FBAxxxxxxxxxxxxxxx",
+          "trackingId": "{{trackingId}}"
+        }
+      ]
+    }
+  }
+}
+Request example for pallet delivery
+JSON
+
+{
+  "trackingDetails": {
+    "ltlTrackingDetail": {
+      "freightBillNumber": [
+        "{{freightBillNumber}}"
+      ]
+    }
+  }
+}
+Update shipment tracking details
+Open Recipe
+This tutorial creates an inbound plan and sends your SKUs as individual boxes (small parcel delivery) or pallets (LTL/FTL) using your own transportation carrier. You can verify this inbound plan on Seller Central with Send to Amazon. 
+
+### confirmTransportationOptions
+curl --request POST \
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/transportationOptions/confirmation \
+     --header 'accept: application/json' \
+     --header 'content-type: application/json'
+
+ {
+  "operationId": "string"
+}Selling Partner API
+🌐
+Developer Hub
+API Status
+Support
+Home
+Documentation
+Code Samples
+API Reference
+Announcements
+Models
+Release Notes
+FAQ
+GitHub
+Videos
+
+Search
+⌘K
+JUMP TO
+⌘/
+Welcome to API References
+A+ Content Management
+Amazon Warehousing and Distribution
+App Integrations
+Application Management
+Catalog Items
+Customer Feedback
+Data Kiosk
+Delivery By Amazon
+Easy Ship
+External Fulfillment
+Feeds
+Finances
+Fulfillment by Amazon (FBA)
+Fulfillment Inbound
+Fulfillment Inbound v0
+getPrepInstructions
+get
+getLabels
+get
+getBillOfLading
+get
+getShipments
+get
+getShipmentItemsByShipmentId
+get
+getShipmentItems
+get
+Fulfillment Inbound v2024-03-20
+listInboundPlans
+get
+createInboundPlan
+post
+getInboundPlan
+get
+listInboundPlanBoxes
+get
+cancelInboundPlan
+put
+listInboundPlanItems
+get
+updateInboundPlanName
+put
+listPackingGroupBoxes
+get
+listPackingGroupItems
+get
+setPackingInformation
+post
+listPackingOptions
+get
+generatePackingOptions
+post
+confirmPackingOption
+post
+listInboundPlanPallets
+get
+listPlacementOptions
+get
+generatePlacementOptions
+post
+confirmPlacementOption
+post
+getShipment
+get
+listShipmentBoxes
+get
+listShipmentContentUpdatePreviews
+get
+generateShipmentContentUpdatePreviews
+post
+getShipmentContentUpdatePreview
+get
+confirmShipmentContentUpdatePreview
+post
+getDeliveryChallanDocument
+get
+listDeliveryWindowOptions
+get
+generateDeliveryWindowOptions
+post
+confirmDeliveryWindowOptions
+post
+listShipmentItems
+get
+updateShipmentName
+put
+listShipmentPallets
+get
+cancelSelfShipAppointment
+put
+getSelfShipAppointmentSlots
+get
+generateSelfShipAppointmentSlots
+post
+scheduleSelfShipAppointment
+post
+updateShipmentSourceAddress
+put
+updateShipmentTrackingDetails
+put
+listTransportationOptions
+get
+generateTransportationOptions
+post
+confirmTransportationOptions
+post
+listItemComplianceDetails
+get
+updateItemComplianceDetails
+put
+createMarketplaceItemLabels
+post
+listPrepDetails
+get
+setPrepDetails
+post
+getInboundOperationStatus
+get
+Fulfillment Outbound
+Invoices
+Listings
+Merchant Fulfillment
+Messaging
+Notifications
+Orders
+Product Fees
+Product Pricing
+Replenishment
+Reports
+Sales
+Seller Wallet
+Sellers
+Services
+Shipment Invoicing
+Solicitations
+Supply Sources
+Tokens
+Uploads
+Vehicles
+Vendor Direct Fulfillment
+Vendor Retail Procurement
+
+confirmTransportationOptions
+post
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/transportationOptions/confirmation
+
+
+Confirms all the transportation options for an inbound plan. A placement option must be confirmed prior to use of this API. Once confirmed, new transportation options can not be generated or confirmed for the Inbound Plan.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+Body Params
+
+Expand All
+⬍
+The body of the request to confirmTransportationOptions.
+
+transportationSelections
+array of objects
+required
+length ≥ 1
+Information needed to confirm one of the available transportation options.
+
+
+object
+
+contactInformation
+object
+The seller's contact information.
+
+
+contactInformation object
+shipmentId
+string
+required
+length between 38 and 38
+Shipment ID that the transportation Option is for.
+
+transportationOptionId
+string
+required
+length between 38 and 38
+Transportation option being selected for the provided shipment.
+
+
+ADD object
+    
+
+### createInboundPlanRole available to sellers? Yes
+
+Role available to vendors? No
+
+
+ 
+ ### listInboundPlanBoxes
+ curl --request GET \
+     --url 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/boxes?pageSize=10' \
+     --header 'accept: application/json'
+     {
+  "boxes": [
+    {
+      "boxId": "string",
+      "contentInformationSource": "BOX_CONTENT_PROVIDED",
+      "destinationRegion": {
+        "countryCode": "string",
+        "state": "string",
+        "warehouseId": "string"
+      },
+      "dimensions": {
+        "height": 0,
+        "length": 0,
+        "unitOfMeasurement": "IN",
+        "width": 0
+      },
+      "externalContainerIdentifier": "string",
+      "externalContainerIdentifierType": "string",
+      "items": [
+        {
+          "asin": "string",
+          "expiration": "string",
+          "fnsku": "string",
+          "labelOwner": "string",
+          "manufacturingLotCode": "string",
+          "msku": "string",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": 0,
+                "code": "string"
+              },
+              "prepOwner": "string",
+              "prepType": "string"
+            }
+          ],
+          "quantity": 0
+        }
+      ],
+      "packageId": "string",
+      "quantity": 0,
+      "templateName": "string",
+      "weight": {
+        "unit": "LB",
+        "value": 0
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "string"
+  }
+}
+listInboundPlanBoxes
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/boxes
+
+
+Provides a paginated list of box packages in an inbound plan.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+Query Params
+pageSize
+integer
+1 to 1000
+Defaults to 10
+The number of boxes to return in the response matching the given query.
+
+10
+paginationToken
+string
+length between 0 and 1024
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+Responses
+
+200
+ListInboundPlanBoxes 200 response
+
+Response body
+object
+boxes
+array of objects
+required
+A list of boxes in an inbound plan.
+
+object
+boxId
+string
+length between 1 and 1024
+The ID provided by Amazon that identifies a given box. This ID is comprised of the external shipment ID (which is generated after transportation has been confirmed) and the index of the box.
+
+contentInformationSource
+string
+enum
+Indication of how box content is meant to be provided.
+
+BOX_CONTENT_PROVIDED MANUAL_PROCESS BARCODE_2D
+
+Show Details
+BOX_CONTENT_PROVIDED	Box contents have been provided by the seller.
+MANUAL_PROCESS	Box contents will be manually processed during receive. This service incurs charges.
+BARCODE_2D	Box contents information is provided by a barcode on the shipment. For more information, refer to [Using 2D barcodes for box content information](https://sellercentral.amazon.com/help/hub/reference/GJWALJCN6JKWJX5A) on Seller Central.
+destinationRegion
+object
+Representation of a location used within the inbounding experience.
+
+
+destinationRegion object
+dimensions
+object
+Measurement of a package's dimensions.
+
+
+dimensions object
+externalContainerIdentifier
+string
+length between 1 and 1024
+The external identifier for this container / box.
+
+externalContainerIdentifierType
+string
+length between 1 and 1024
+Type of the external identifier used. Can be: AMAZON, SSCC.
+
+items
+array of objects
+Items contained within the box.
+
+object
+asin
+string
+required
+length between 1 and 10
+The Amazon Standard Identification Number (ASIN) of the item.
+
+expiration
+string
+The expiration date of the MSKU. In ISO 8601 datetime format with patternYYYY-MM-DD. The same MSKU with different expiration dates cannot go into the same box.
+
+fnsku
+string
+required
+length between 1 and 10
+A unique identifier assigned by Amazon to products stored in and fulfilled from an Amazon fulfillment center.
+
+labelOwner
+string
+required
+length between 1 and 1024
+Specifies who will label the items. Options include AMAZON, SELLER, and NONE.
+
+manufacturingLotCode
+string
+length between 1 and 256
+The manufacturing lot code.
+
+msku
+string
+required
+length between 1 and 255
+The merchant-defined SKU ID.
+
+prepInstructions
+array of objects
+required
+Special preparations that are required for an item.
+
+object
+fee
+object
+The type and amount of currency.
+
+
+fee object
+prepOwner
+string
+length between 1 and 1024
+In some situations, special preparations are required for items and this field reflects the owner of the preparations. Options include AMAZON, SELLER or NONE.
+
+prepType
+string
+length between 1 and 1024
+Type of preparation that should be done.
+
+Possible values: ITEM_LABELING, ITEM_BUBBLEWRAP, ITEM_POLYBAGGING, ITEM_TAPING, ITEM_BLACK_SHRINKWRAP, ITEM_HANG_GARMENT, ITEM_BOXING, ITEM_SETCREAT, ITEM_RMOVHANG, ITEM_SUFFOSTK, ITEM_CAP_SEALING, ITEM_DEBUNDLE, ITEM_SETSTK, ITEM_SIOC, ITEM_NO_PREP, ADULT, BABY, TEXTILE, HANGER, FRAGILE, LIQUID, SHARP, SMALL, PERFORATED, GRANULAR, SET, FC_PROVIDED, UNKNOWN, NONE.
+
+quantity
+integer
+required
+1 to 500000
+The number of the specified MSKU.
+
+packageId
+string
+required
+length between 38 and 38
+Primary key to uniquely identify a Package (Box or Pallet).
+
+quantity
+integer
+1 to 10000
+The number of containers where all other properties like weight or dimensions are identical.
+
+templateName
+string
+length between 1 and 1024
+Template name of the box.
+
+weight
+object
+The weight of a package.
+
+
+weight object
+pagination
+object
+Contains tokens to fetch from a certain page.
+
+nextToken
+string
+length between 1 and 1024
+When present, pass this string token in the next request to return the next response page.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+ ### listInboundPlanPallets
+ ### listInboundPlans
+ listInboundPlans
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans
+
+
+Provides a list of inbound plans with minimal information.
+
+Query Params
+pageSize
+integer
+1 to 30
+Defaults to 10
+The number of inbound plans to return in the response matching the given query.
+
+10
+paginationToken
+string
+length between 0 and 1024
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+status
+string
+enum
+The status of an inbound plan.
+
+
+Allowed:
+
+ACTIVE
+
+VOIDED
+
+SHIPPED
+sortBy
+string
+enum
+Sort by field.
+
+
+Allowed:
+
+LAST_UPDATED_TIME
+
+CREATION_TIME
+sortOrder
+string
+enum
+The sort order.
+
+
+Allowed:
+
+ASC
+
+DESC
+Responses
+
+200
+ListInboundPlans 200 response
+
+Response body
+object
+inboundPlans
+array of objects
+A list of inbound plans with minimal information.
+
+object
+createdAt
+date-time
+required
+The time at which the inbound plan was created. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mm:ssZ.
+
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+lastUpdatedAt
+date-time
+required
+The time at which the inbound plan was last updated. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mm:ssZ.
+
+marketplaceIds
+array of strings
+required
+A list of marketplace IDs.
+
+name
+string
+required
+Human-readable name of the inbound plan.
+
+sourceAddress
+object
+required
+Specific details to identify a place.
+
+
+sourceAddress object
+status
+string
+required
+length between 1 and 1024
+The current status of the inbound plan. Possible values: ACTIVE, VOIDED, SHIPPED, ERRORED.
+
+pagination
+object
+Contains tokens to fetch from a certain page.
+
+nextToken
+string
+length between 1 and 1024
+When present, pass this string token in the next request to return the next response page.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+Updated about 1 month ago
+
+Fulfillment Inbound v2024-03-20
+createInboundPlan
+
+### listItemComplianceDetails
+ listItemComplianceDetails
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/items/compliance
+
+
+List the inbound compliance details for MSKUs in a given marketplace.
+
+Note: MSKUs that contain certain characters must be encoded. For more information, refer to URL Encoding.
+
+The following characters must be double percent encoded:
+
+%
++
+,
+Examples: An MSKU value of test%msku is encoded as test%2525msku. An MSKU value of test,msku is encoded as test%252Cmsku.
+
+Query Params
+mskus
+array of strings
+required
+length between 1 and 100
+A list of merchant SKUs, a merchant-supplied identifier of a specific SKU.
+
+
+string
+
+
+ADD string
+marketplaceId
+string
+required
+length between 1 and 20
+The Marketplace ID. For a list of possible values, refer to Marketplace IDs.
+
+Responses
+
+200
+ListItemComplianceDetails 200 response
+
+Response body
+object
+complianceDetails
+array of objects
+List of compliance details.
+
+object
+asin
+string
+length between 1 and 10
+The Amazon Standard Identification Number, which identifies the detail page identifier.
+
+fnsku
+string
+length between 1 and 10
+The Fulfillment Network SKU, which identifies a real fulfillable item with catalog data and condition.
+
+msku
+string
+length between 1 and 255
+The merchant SKU, a merchant-supplied identifier for a specific SKU.
+
+taxDetails
+object
+Information used to determine the tax compliance.
+
+
+taxDetails object
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+### listPackingGroupBoxes
+ istPackingGroupBoxes
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/packingGroups/{packingGroupId}/boxes
+
+
+Retrieves a page of boxes from a given packing group. These boxes were previously provided through the setPackingInformation operation. This API is used for workflows where boxes are packed before Amazon determines shipment splits.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+packingGroupId
+string
+required
+length between 38 and 38
+Identifier of a packing group.
+
+Query Params
+pageSize
+integer
+1 to 100
+Defaults to 10
+The number of packing group boxes to return in the response matching the given query.
+
+10
+paginationToken
+string
+length between 0 and 1024
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+Responses
+
+200
+ListPackingGroupBoxes 200 response
+
+Response body
+object
+boxes
+array of objects
+required
+Provides the information about the list of boxes in the packing group.
+
+object
+boxId
+string
+length between 1 and 1024
+The ID provided by Amazon that identifies a given box. This ID is comprised of the external shipment ID (which is generated after transportation has been confirmed) and the index of the box.
+
+contentInformationSource
+string
+enum
+Indication of how box content is meant to be provided.
+
+BOX_CONTENT_PROVIDED MANUAL_PROCESS BARCODE_2D
+
+Show Details
+BOX_CONTENT_PROVIDED	Box contents have been provided by the seller.
+MANUAL_PROCESS	Box contents will be manually processed during receive. This service incurs charges.
+BARCODE_2D	Box contents information is provided by a barcode on the shipment. For more information, refer to [Using 2D barcodes for box content information](https://sellercentral.amazon.com/help/hub/reference/GJWALJCN6JKWJX5A) on Seller Central.
+destinationRegion
+object
+Representation of a location used within the inbounding experience.
+
+
+destinationRegion object
+dimensions
+object
+Measurement of a package's dimensions.
+
+
+dimensions object
+externalContainerIdentifier
+string
+length between 1 and 1024
+The external identifier for this container / box.
+
+externalContainerIdentifierType
+string
+length between 1 and 1024
+Type of the external identifier used. Can be: AMAZON, SSCC.
+
+items
+array of objects
+Items contained within the box.
+
+object
+asin
+string
+required
+length between 1 and 10
+The Amazon Standard Identification Number (ASIN) of the item.
+
+expiration
+string
+The expiration date of the MSKU. In ISO 8601 datetime format with patternYYYY-MM-DD. The same MSKU with different expiration dates cannot go into the same box.
+
+fnsku
+string
+required
+length between 1 and 10
+A unique identifier assigned by Amazon to products stored in and fulfilled from an Amazon fulfillment center.
+
+labelOwner
+string
+required
+length between 1 and 1024
+Specifies who will label the items. Options include AMAZON, SELLER, and NONE.
+
+manufacturingLotCode
+string
+length between 1 and 256
+The manufacturing lot code.
+
+msku
+string
+required
+length between 1 and 255
+The merchant-defined SKU ID.
+
+prepInstructions
+array of objects
+required
+Special preparations that are required for an item.
+
+object
+fee
+object
+The type and amount of currency.
+
+
+fee object
+prepOwner
+string
+length between 1 and 1024
+In some situations, special preparations are required for items and this field reflects the owner of the preparations. Options include AMAZON, SELLER or NONE.
+
+prepType
+string
+length between 1 and 1024
+Type of preparation that should be done.
+
+Possible values: ITEM_LABELING, ITEM_BUBBLEWRAP, ITEM_POLYBAGGING, ITEM_TAPING, ITEM_BLACK_SHRINKWRAP, ITEM_HANG_GARMENT, ITEM_BOXING, ITEM_SETCREAT, ITEM_RMOVHANG, ITEM_SUFFOSTK, ITEM_CAP_SEALING, ITEM_DEBUNDLE, ITEM_SETSTK, ITEM_SIOC, ITEM_NO_PREP, ADULT, BABY, TEXTILE, HANGER, FRAGILE, LIQUID, SHARP, SMALL, PERFORATED, GRANULAR, SET, FC_PROVIDED, UNKNOWN, NONE.
+
+quantity
+integer
+required
+1 to 500000
+The number of the specified MSKU.
+
+packageId
+string
+required
+length between 38 and 38
+Primary key to uniquely identify a Package (Box or Pallet).
+
+quantity
+integer
+1 to 10000
+The number of containers where all other properties like weight or dimensions are identical.
+
+templateName
+string
+length between 1 and 1024
+Template name of the box.
+
+weight
+object
+The weight of a package.
+
+
+weight object
+pagination
+object
+Contains tokens to fetch from a certain page.
+
+nextToken
+string
+length between 1 and 1024
+When present, pass this string token in the next request to return the next response page.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+### listPackingGroupItems
+
+### listPackingOptions
+
+ ### listPlacementOptions### listPrepDetails### listShipmentBoxes
+### listShipmentContentUpdatePreviews
+
+### listShipmentItems
+curl --request GET \
+     --url 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/shipments/shipmentId/items?pageSize=10' \
+     --header 'accept: application/json'
+
+     {
+  "items": [
+    {
+      "asin": "string",
+      "expiration": "string",
+      "fnsku": "string",
+      "labelOwner": "string",
+      "manufacturingLotCode": "string",
+      "msku": "string",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": 0,
+            "code": "string"
+          },
+          "prepOwner": "string",
+          "prepType": "string"
+        }
+      ],
+      "quantity": 0
+    }
+  ],
+  "pagination": {
+    "nextToken": "string"
+  }
+}
+listShipmentItems
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/shipments/{shipmentId}/items
+
+
+Provides a paginated list of item packages in a shipment.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+shipmentId
+string
+required
+length between 38 and 38
+Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Query Params
+pageSize
+integer
+1 to 1000
+Defaults to 10
+The number of items to return in the response matching the given query.
+
+10
+paginationToken
+string
+length between 0 and 1024
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+Responses
+
+200
+ListShipmentItems 200 response
+
+Response body
+object
+items
+array of objects
+required
+The items in a shipment.
+
+object
+asin
+string
+required
+length between 1 and 10
+The Amazon Standard Identification Number (ASIN) of the item.
+
+expiration
+string
+The expiration date of the MSKU. In ISO 8601 datetime format with patternYYYY-MM-DD. The same MSKU with different expiration dates cannot go into the same box.
+
+fnsku
+string
+required
+length between 1 and 10
+A unique identifier assigned by Amazon to products stored in and fulfilled from an Amazon fulfillment center.
+
+labelOwner
+string
+required
+length between 1 and 1024
+Specifies who will label the items. Options include AMAZON, SELLER, and NONE.
+
+manufacturingLotCode
+string
+length between 1 and 256
+The manufacturing lot code.
+
+msku
+string
+required
+length between 1 and 255
+The merchant-defined SKU ID.
+
+prepInstructions
+array of objects
+required
+Special preparations that are required for an item.
+
+object
+fee
+object
+The type and amount of currency.
+
+
+fee object
+prepOwner
+string
+length between 1 and 1024
+In some situations, special preparations are required for items and this field reflects the owner of the preparations. Options include AMAZON, SELLER or NONE.
+
+prepType
+string
+length between 1 and 1024
+Type of preparation that should be done.
+
+Possible values: ITEM_LABELING, ITEM_BUBBLEWRAP, ITEM_POLYBAGGING, ITEM_TAPING, ITEM_BLACK_SHRINKWRAP, ITEM_HANG_GARMENT, ITEM_BOXING, ITEM_SETCREAT, ITEM_RMOVHANG, ITEM_SUFFOSTK, ITEM_CAP_SEALING, ITEM_DEBUNDLE, ITEM_SETSTK, ITEM_SIOC, ITEM_NO_PREP, ADULT, BABY, TEXTILE, HANGER, FRAGILE, LIQUID, SHARP, SMALL, PERFORATED, GRANULAR, SET, FC_PROVIDED, UNKNOWN, NONE.
+
+quantity
+integer
+required
+1 to 500000
+The number of the specified MSKU.
+
+pagination
+object
+Contains tokens to fetch from a certain page.
+
+nextToken
+string
+length between 1 and 1024
+When present, pass this string token in the next request to return the next response page.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+### listShipmentPallets
+ Acurl --request GET \
+     --url 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/shipments/shipmentId/pallets?pageSize=10' \
+     --header 'accept: application/json'
+  {
+  "pagination": {
+    "nextToken": "string"
+  },
+  "pallets": [
+    {
+      "dimensions": {
+        "height": 0,
+        "length": 0,
+        "unitOfMeasurement": "IN",
+        "width": 0
+      },
+      "packageId": "string",
+      "quantity": 0,
+      "stackability": "STACKABLE",
+      "weight": {
+        "unit": "LB",
+        "value": 0
+      }
+    }
+  ]
+}
+listShipmentPallets
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/shipments/{shipmentId}/pallets
+
+
+Provides a paginated list of pallet packages in a shipment. A palletized shipment will have pallets when the related details are provided after generating Less-Than-Truckload (LTL) carrier shipments.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+shipmentId
+string
+required
+length between 38 and 38
+Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Query Params
+pageSize
+integer
+1 to 1000
+Defaults to 10
+The number of pallets to return in the response matching the given query.
+
+10
+paginationToken
+string
+length between 0 and 1024
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+Responses
+
+200
+ListShipmentPallets 200 response
+
+Response body
+object
+pagination
+object
+Contains tokens to fetch from a certain page.
+
+nextToken
+string
+length between 1 and 1024
+When present, pass this string token in the next request to return the next response page.
+
+pallets
+array of objects
+required
+The pallets in a shipment.
+
+object
+dimensions
+object
+Measurement of a package's dimensions.
+
+
+dimensions object
+packageId
+string
+required
+length between 38 and 38
+Primary key to uniquely identify a Package (Box or Pallet).
+
+quantity
+integer
+1 to 10000
+The number of containers where all other properties like weight or dimensions are identical.
+
+stackability
+string
+enum
+Indicates whether pallets will be stacked when carrier arrives for pick-up.
+
+STACKABLE NON_STACKABLE
+
+Show Details
+STACKABLE	A pallet that can be stacked on top of another pallet.
+NON_STACKABLE	A pallet that cannot be stacked on top of another pallet.
+weight
+object
+The weight of a package.
+
+
+weight object
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+### listTransportationOptions
+ curl --request GET \
+     --url 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/transportationOptions?pageSize=10' \
+     --header 'accept: application/json'
+  {
+  "pagination": {
+    "nextToken": "string"
+  },
+  "transportationOptions": [
+    {
+      "carrier": {
+        "alphaCode": "ABCD",
+        "name": "Carrier Name"
+      },
+      "carrierAppointment": {
+        "endTime": "2024-01-06T14:48:00.000Z",
+        "startTime": "2024-01-05T14:48:00.000Z"
+      },
+      "preconditions": [
+        "CONFIRMED_DELIVERY_WINDOW"
+      ],
+      "quote": {
+        "cost": {
+          "amount": 5.5,
+          "code": "CAD"
+        },
+        "expiration": "2024-01-06T14:48:00.000Z",
+        "voidableUntil": "2024-01-05T14:48:00.000Z"
+      },
+      "shipmentId": "sh1234abcd-1234-abcd-5678-1234abcd5678",
+      "shippingMode": "GROUND_SMALL_PARCEL",
+      "shippingSolution": "AMAZON_PARTNERED_CARRIER",
+      "transportationOptionId": "to1234abcd-1234-abcd-5678-1234abcd5678"
+    }
+  ]
+}
+listTransportationOptions
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/transportationOptions
+
+
+Retrieves all transportation options for a shipment. Transportation options must first be generated by the generateTransportationOptions operation before becoming available.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+Query Params
+pageSize
+integer
+1 to 20
+Defaults to 10
+The number of transportation options to return in the response matching the given query.
+
+10
+paginationToken
+string
+length between 0 and 1024
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+placementOptionId
+string
+length between 38 and 38
+The placement option to get transportation options for. Either placementOptionId or shipmentId must be specified.
+
+shipmentId
+string
+length between 38 and 38
+The shipment to get transportation options for. Either placementOptionId or shipmentId must be specified.
+
+Responses
+
+200
+ListTransportationOptions 200 response
+
+Response body
+object
+pagination
+object
+Contains tokens to fetch from a certain page.
+
+nextToken
+string
+length between 1 and 1024
+When present, pass this string token in the next request to return the next response page.
+
+transportationOptions
+array of objects
+required
+Transportation options generated for the placement option.
+
+object
+carrier
+object
+required
+The carrier for the inbound shipment.
+
+
+carrier object
+carrierAppointment
+object
+Contains details for a transportation carrier appointment. This appointment is vended out by Amazon and is an indicator for when a transportation carrier is accepting shipments to be picked up.
+
+
+carrierAppointment object
+preconditions
+array of strings
+required
+Identifies a list of preconditions for confirming the transportation option.
+
+quote
+object
+The estimated shipping cost associated with the transportation option.
+
+
+quote object
+shipmentId
+string
+required
+length between 38 and 38
+Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+shippingMode
+string
+required
+length between 1 and 1024
+Mode of shipment transportation that this option will provide.
+
+Possible values: GROUND_SMALL_PARCEL, FREIGHT_LTL, FREIGHT_FTL_PALLET, FREIGHT_FTL_NONPALLET, OCEAN_LCL, OCEAN_FCL, AIR_SMALL_PARCEL, AIR_SMALL_PARCEL_EXPRESS.
+
+shippingSolution
+string
+required
+length between 1 and 1024
+Shipping program for the option. Possible values: AMAZON_PARTNERED_CARRIER, USE_YOUR_OWN_CARRIER.
+
+transportationOptionId
+string
+required
+length between 38 and 38
+Identifier of a transportation option. A transportation option represent one option for how to send a shipment.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+### scheduleSelfShipAppointment
+curl --request POST \
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/shipments/shipmentId/selfShipAppointmentSlots/slotId/schedule \
+     --header 'accept: application/json' \
+     --header 'content-type: application/json'
+
+  {
+  "selfShipAppointmentDetails": {
+    "appointmentId": 1000,
+    "appointmentSlotTime": {
+      "endTime": "2023-03-09T13:15:30Z",
+      "startTime": "2023-03-08T13:15:30Z"
+    },
+    "appointmentStatus": "ARRIVAL_SCHEDULED"
+  }
+}
+scheduleSelfShipAppointment
+post
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/shipments/{shipmentId}/selfShipAppointmentSlots/{slotId}/schedule
+
+
+Confirms or reschedules a self-ship appointment slot against a shipment. Only available in the following marketplaces: MX, BR, EG, SA, AE, IN.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+shipmentId
+string
+required
+length between 38 and 38
+Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+slotId
+string
+required
+length between 38 and 38
+An identifier to a self-ship appointment slot.
+
+Body Params
+
+Expand All
+⬍
+The body of the request to scheduleSelfShipAppointment.
+
+reasonComment
+string
+enum
+Reason for cancelling or rescheduling a self-ship appointment.
+
+Show Details
+APPOINTMENT_REQUESTED_BY_MISTAKE	-
+VEHICLE_DELAY	-
+SLOT_NOT_SUITABLE	-
+OUTSIDE_CARRIER_BUSINESS_HOURS	-
+UNFAVOURABLE_EXTERNAL_CONDITIONS	-
+PROCUREMENT_DELAY	-
+SHIPPING_PLAN_CHANGED	-
+INCREASED_QUANTITY	-
+OTHER	-
+
+OTHER
+
+Show 9 enum values
+Responses
+
+200
+ScheduleSelfShipAppointment 200 response
+
+Response body
+object
+selfShipAppointmentDetails
+object
+required
+Appointment details for carrier pickup or fulfillment center appointments.
+
+appointmentId
+number
+Identifier for appointment.
+
+appointmentSlotTime
+object
+An appointment slot time with start and end.
+
+
+appointmentSlotTime object
+appointmentStatus
+string
+length between 1 and 1024
+Status of the appointment.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+### setPackingInformation
+ curl --request POST \
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/packingInformation \
+     --header 'accept: application/json' \
+     --header 'content-type: application/json' \
+     --data '
+{
+  "packageGroupings": [
+    {
+      "boxes": [
+        {
+          "contentInformationSource": "BOX_CONTENT_PROVIDED",
+          "dimensions": {
+            "unitOfMeasurement": "IN"
+          },
+          "weight": {
+            "unit": "LB"
+          }
+        }
+      ]
+    }
+  ]
+}
+{
+  "operationId": "string"
+}
+setPackingInformation
+post
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/packingInformation
+
+
+Sets packing information for an inbound plan. This should be called after an inbound plan is created to populate the box level information required for planning and transportation estimates.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+Body Params
+
+Expand All
+⬍
+The body of the request to setPackingInformation.
+
+packageGroupings
+array of objects
+required
+length ≥ 1
+List of packing information for the inbound plan.
+
+
+object
+
+boxes
+array of objects
+required
+length between 1 and 5000
+Box level information being provided.
+
+
+object
+
+contentInformationSource
+string
+enum
+required
+Indication of how box content is meant to be provided.
+
+Show Details
+BOX_CONTENT_PROVIDED	Box contents have been provided by the seller.
+MANUAL_PROCESS	Box contents will be manually processed during receive. This service incurs charges.
+BARCODE_2D	Box contents information is provided by a barcode on the shipment. For more information, refer to [Using 2D barcodes for box content information](https://sellercentral.amazon.com/help/hub/reference/GJWALJCN6JKWJX5A) on Seller Central.
+
+BOX_CONTENT_PROVIDED
+Allowed:
+
+BOX_CONTENT_PROVIDED
+
+MANUAL_PROCESS
+
+BARCODE_2D
+dimensions
+object
+required
+Measurement of a package's dimensions.
+
+
+dimensions object
+items
+array of objects
+The items and their quantity in the box. This must be empty if the box contentInformationSource is BARCODE_2D or MANUAL_PROCESS.
+
+
+ADD object
+quantity
+integer
+required
+1 to 10000
+The number of containers where all other properties like weight or dimensions are identical.
+
+weight
+object
+required
+The weight of a package.
+
+
+weight object
+
+ADD object
+packingGroupId
+string
+length between 38 and 38
+The ID of the packingGroup that packages are grouped according to. The PackingGroupId can only be provided before placement confirmation, and it must belong to the confirmed PackingOption. One of ShipmentId or PackingGroupId must be provided with every request.
+
+shipmentId
+string
+length between 38 and 38
+The ID of the shipment that packages are grouped according to. The ShipmentId can only be provided after placement confirmation, and the shipment must belong to the confirmed placement option. One of ShipmentId or PackingGroupId must be provided with every request.
+
+
+ADD object
+Responses
+
+202
+SetPackingInformation 202 response
+
+Response body
+object
+operationId
+string
+required
+length between 36 and 38
+UUID for the given operation.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+
+### setPrepDetails
+ curl --request POST \
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/items/prepDetails \
+     --header 'accept: application/json' \
+     --header 'content-type: application/json' \
+     --data '
+{
+  "mskuPrepDetails": [
+    {
+      "prepCategory": "ADULT"
+    }
+  ]
+}
+RESPONSE {
+  "operationId": "string"
+}setPrepDetails
+post
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/items/prepDetails
+
+
+Set the preparation details for a list of MSKUs in a specified marketplace.
+
+Body Params
+
+Expand All
+⬍
+The body of the request to setPrepDetails.
+
+marketplaceId
+string
+required
+length between 1 and 20
+The marketplace ID. For a list of possible values, refer to Marketplace IDs.
+
+mskuPrepDetails
+array of objects
+required
+length between 1 and 100
+A list of MSKUs and related prep details.
+
+
+object
+
+msku
+string
+required
+length between 1 and 255
+The merchant SKU, a merchant-supplied identifier for a specific SKU.
+
+prepCategory
+string
+enum
+required
+The preparation category for shipping an item to Amazon's fulfillment network.
+
+Show Details
+ADULT	Displays potentially offensive material such as profanity or nudity.
+BABY	Made for a child aged three years or younger, packaging with cutouts greater than one square inch.
+FC_PROVIDED	A prep type has been defined by the Fulfillment Center. This value is provided by Amazon and cannot be used as an input.
+FRAGILE	Glass or otherwise fragile, or a liquid in a glass container.
+GRANULAR	Made of powder, pellets, or granular material.
+HANGER	Made of cloth or fabric and intended to be put on a hanger.
+LIQUID	Liquid or viscous without a double seal.
+PERFORATED	In packaging that has a perforated opening.
+SET	Multiple items that are sold as one unit.
+SHARP	Sharp and easily exposed, not already contained in protective packaging.
+SMALL	Longest side less than 2 1/8 inches (width of a credit card).
+TEXTILE	Made of cloth or fabric that could be damaged by dirt, dust, moisture, or liquid.
+UNKNOWN	An unknown prep category was found and needs to be updated. This value is provided by Amazon and cannot be used as an input.
+NONE	Does not require prep.
+
+ADULT
+
+Show 14 enum values
+prepTypes
+array of strings
+required
+A list of preparation types associated with a preparation category.
+
+Show Details
+ITEM_BLACK_SHRINKWRAP	The item requires black shrink wrapping.
+ITEM_BLANKSTK	The item requires a blank sticker to obscure a bad barcode that cannot be covered by another sticker.
+ITEM_BOXING	Products may require overboxing when there are safety concerns over sharp items, fragile items, hazardous liquids, and vinyl records. For items over 4.5 kg, use double-wall corrugated boxes.
+ITEM_BUBBLEWRAP	The item requires bubble wrapping.
+ITEM_CAP_SEALING	To prevent leakage, the product needs to have a secondary seal in one of the following types: Induction seal, safety ring, clips, heat shrink plastic band, or boxing.
+ITEM_DEBUNDLE	The item requires taking apart a set of items labeled for individual sale. Remove tape or shrink wrap that groups multiple inventory units together.
+ITEM_HANG_GARMENT	The item must be placed on a hanger.
+ITEM_LABELING	The FNSKU label must be applied to the item.
+ITEM_NO_PREP	The item does not require any prep.
+ITEM_POLYBAGGING	The item requires polybagging.
+ITEM_RMOVHANG	The item cannot be shipped on a hanger.
+ITEM_SETCREAT	Units that are sets must be labeled as sets on their packaging. The barcodes on the individual items must not face outward and must not require covering.
+ITEM_SETSTK	Products that are sets must be marked as sets on their packaging. Add a label to the unit that clearly states that the products must be received and sold as a single unit. For example, if a set of six unique toy cars is sold as one unit, the packaging for each car must indicate that it is part of the set.
+ITEM_SIOC	The item ships in its original product packaging.
+ITEM_SUFFOSTK	Poly bags with an opening of 12 cm or larger (measured when flat) must have a suffocation warning. This warning must be printed on the bag or attached as a label.
+ITEM_TAPING	Indicates that taping is required.
+
+ADD string
+
+ADD object
+
+
+### updateInboundPlanName
+curl --request PUT \
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/name \
+     --header 'accept: application/json' \
+     --header 'content-type: application/json' 
+
+     Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+Body Params
+
+Expand All
+⬍
+The body of the request to updateInboundPlanName.
+
+name
+string
+required
+length between 1 and 40
+A human-readable name to update the inbound plan name to.
+
+
+### updateShipmentName
+curl --request PUT \
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/shipments/shipmentId/name \
+     --header 'accept: application/json' \
+     --header 'content-type: application/json'
+
+     RESPONSE 204 No Content
+
+    updateShipmentName
+put
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/shipments/{shipmentId}/name
+
+
+Updates the name of an existing shipment.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+shipmentId
+string
+required
+length between 38 and 38
+Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Body Params
+
+Expand All
+⬍
+The body of the request to updateShipmentName.
+
+name
+string
+required
+length between 1 and 100
+A human-readable name to update the shipment name to.
+
+Responses
+
+204
+UpdateShipmentName 204 response
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+### updateShipmentSourceAddress
+ curl --request PUT \
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/shipments/shipmentId/sourceAddress \
+     --header 'accept: application/json' \
+     --header 'content-type: application/json'
+
+     {
+  "operationId": "string"
+}
+updateShipmentSourceAddress
+put
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/shipments/{shipmentId}/sourceAddress
+
+
+Updates the source address of an existing shipment. The shipment source address can only be updated prior to the confirmation of the shipment carriers. As a result of the updated source address, existing transportation options will be invalidated and will need to be regenerated to capture the potential difference in transportation options and quotes due to the new source address.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+shipmentId
+string
+required
+length between 38 and 38
+Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Body Params
+
+Expand All
+⬍
+The body of the request to updateShipmentSourceAddress.
+
+address
+object
+required
+Specific details to identify a place.
+
+
+address object
+Responses
+
+202
+UpdateShipmentSourceAddress 202 response
+
+Response body
+object
+operationId
+string
+required
+length between 36 and 38
+UUID for the given operation.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+### updateShipmentTrackingDetails
+curl --request PUT \
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/shipments/shipmentId/trackingDetails \
+     --header 'accept: application/json' \
+     --header 'content-type: application/json'
+
+     {
+  "operationId": "string"
+}
+updateShipmentTrackingDetails
+put
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/shipments/{shipmentId}/trackingDetails
+
+
+Updates a shipment's tracking details.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+shipmentId
+string
+required
+length between 38 and 38
+Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Body Params
+
+Expand All
+⬍
+The body of the request to updateShipmentTrackingDetails.
+
+trackingDetails
+object
+required
+Tracking information input for Less-Than-Truckload (LTL) and Small Parcel Delivery (SPD) shipments.
+
+
+trackingDetails object
+Responses
+
+202
+UpdateShipmentTrackingDetails 202 response
+
+Response body
+object
+operationId
+string
+required
+length between 36 and 38
+UUID for the given operation.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+### getLabels
+ AgetLabels
+get
+https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/{shipmentId}/labels
+
+
+Returns package/pallet labels for faster and more accurate shipment processing at the Amazon fulfillment center.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2	30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, see Usage Plans and Rate Limits in the Selling Partner API.
+
+Path Params
+shipmentId
+string
+required
+A shipment identifier originally returned by the createInboundShipmentPlan operation.
+
+Query Params
+PageType
+string
+enum
+required
+The page type to use to print the labels. Submitting a PageType value that is not supported in your marketplace returns an error.
+
+Show Details
+PackageLabel_Letter_2	Two labels per US Letter label sheet. This is the only valid value for Amazon-partnered shipments in the US that use United Parcel Service (UPS) as the carrier. Supported in Canada and the US.
+PackageLabel_Letter_4	Four labels per US Letter label sheet. This is the only valid value for non-Amazon-partnered shipments in the US. Supported in Canada and the US.
+PackageLabel_Letter_6	Six labels per US Letter label sheet. This is the only valid value for non-Amazon-partnered shipments in the US. Supported in Canada and the US.
+PackageLabel_Letter_6_CarrierLeft	PackageLabel_Letter_6_CarrierLeft
+PackageLabel_A4_2	Two labels per A4 label sheet.
+PackageLabel_A4_4	Four labels per A4 label sheet.
+PackageLabel_Plain_Paper	One label per sheet of US Letter paper. Only for non-Amazon-partnered shipments.
+PackageLabel_Plain_Paper_CarrierBottom	PackageLabel_Plain_Paper_CarrierBottom
+PackageLabel_Thermal	For use of a thermal printer. Supports Amazon-partnered shipments with UPS.
+PackageLabel_Thermal_Unified	For use of a thermal printer. Supports shipments with ATS.
+PackageLabel_Thermal_NonPCP	For use of a thermal printer. Supports non-Amazon-partnered shipments.
+PackageLabel_Thermal_No_Carrier_Rotation	For use of a thermal printer. Supports Amazon-partnered shipments with DHL.
+
+PackageLabel_Letter_2
+
+Show 12 enum values
+LabelType
+string
+enum
+required
+The type of labels requested.
+
+
+BARCODE_2D
+Allowed:
+
+BARCODE_2D
+
+UNIQUE
+
+PALLET
+NumberOfPackages
+integer
+The number of packages in the shipment.
+
+PackageLabelsToPrint
+array of strings
+A list of identifiers that specify packages for which you want package labels printed.
+
+If you provide box content information with the FBA Inbound Shipment Carton Information Feed, then PackageLabelsToPrint must match the CartonId values you provide through that feed. If you provide box content information with the Fulfillment Inbound API v2024-03-20, then PackageLabelsToPrint must match the boxID values from the listShipmentBoxes response. If these values do not match as required, the operation returns the IncorrectPackageIdentifier error code.
+
+
+ADD string
+NumberOfPallets
+integer
+The number of pallets in the shipment. This returns four identical labels for each pallet.
+
+PageSize
+integer
+The page size for paginating through the total packages' labels. This is a required parameter for Non-Partnered LTL Shipments. Max value:1000.
+
+PageStartIndex
+integer
+The page start index for paginating through the total packages' labels. This is a required parameter for Non-Partnered LTL Shipments.
+
+Responses
+
+200
+Success.
+
+Response body
+object
+payload
+object
+Download URL for a label
+
+DownloadURL
+string
+URL to download the label for the package. Note: The URL will only be valid for 15 seconds
+
+errors
+array of objects
+A list of error responses returned when a request is unsuccessful.
+
+object
+code
+string
+required
+An error code that identifies the type of error that occured.
+
+message
+string
+required
+A message that describes the error condition in a human-readable form.
+
+details
+string
+Additional details that can help the caller understand or fix the issue.
+
+Headers
+object
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+401
+The request's Authorization header is not formatted correctly or does not contain a valid token.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The specified resource does not exist.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+curl --request GET \
+     --url 'https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/shipmentId/labels?PageType=PackageLabel_Letter_2&LabelType=BARCODE_2D' \
+     --header 'accept: application/json'
+     {
+  "payload": {
+    "DownloadURL": "string"
+  },
+  "errors": [
+    {
+      "code": "string",
+      "message": "string",
+      "details": "string"
+    }
+  ]
+}
+
+### getBillOfLading
+ curl --request GET \
+     --url https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/shipmentId/billOfLading \
+     --header 'accept: application/json'
+
+  {
+  "payload": {
+    "DownloadURL": "string"
+  },
+  "errors": [
+    {
+      "code": "string",
+      "message": "string",
+      "details": "string"
+    }
+  ]
+}
+getBillOfLading
+get
+https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/{shipmentId}/billOfLading
+
+
+Returns a bill of lading for a Less Than Truckload/Full Truckload (LTL/FTL) shipment. The getBillOfLading operation returns PDF document data for printing a bill of lading for an Amazon-partnered Less Than Truckload/Full Truckload (LTL/FTL) inbound shipment.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2	30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, see Usage Plans and Rate Limits in the Selling Partner API.
+
+Path Params
+shipmentId
+string
+required
+A shipment identifier originally returned by the createInboundShipmentPlan operation.
+
+Responses
+
+200
+Success.
+
+Response body
+object
+payload
+object
+Download URL for the bill of lading.
+
+DownloadURL
+string
+URL to download the bill of lading for the package. Note: The URL will only be valid for 15 seconds
+
+errors
+array of objects
+A list of error responses returned when a request is unsuccessful.
+
+object
+code
+string
+required
+An error code that identifies the type of error that occured.
+
+message
+string
+required
+A message that describes the error condition in a human-readable form.
+
+details
+string
+Additional details that can help the caller understand or fix the issue.
+
+Headers
+object
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+401
+The request's Authorization header is not formatted correctly or does not contain a valid token.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The specified resource does not exist.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+### getPrepInstructions
+ Acurl --request GET \
+     --url https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/prepInstructions \
+     --header 'accept: application/json'
+
+{
+  "payload": {
+    "SKUPrepInstructionsList": [
+      {
+        "SellerSKU": "string",
+        "ASIN": "string",
+        "BarcodeInstruction": "RequiresFNSKULabel",
+        "PrepGuidance": "ConsultHelpDocuments",
+        "PrepInstructionList": [
+          "Polybagging"
+        ],
+        "AmazonPrepFeesDetailsList": [
+          {
+            "PrepInstruction": "Polybagging",
+            "FeePerUnit": {
+              "CurrencyCode": "USD",
+              "Value": 0
+            }
+          }
+        ]
+      }
+    ],
+    "InvalidSKUList": [
+      {
+        "SellerSKU": "string",
+        "ErrorReason": "DoesNotExist"
+      }
+    ],
+    "ASINPrepInstructionsList": [
+      {
+        "ASIN": "string",
+        "BarcodeInstruction": "RequiresFNSKULabel",
+        "PrepGuidance": "ConsultHelpDocuments",
+        "PrepInstructionList": [
+          "Polybagging"
+        ]
+      }
+    ],
+    "InvalidASINList": [
+      {
+        "ASIN": "string",
+        "ErrorReason": "DoesNotExist"
+      }
+    ]
+  },
+  "errors": [
+    {
+      "code": "string",
+      "message": "string",
+      "details": "string"
+    }
+  ]
+}
+getPrepInstructions
+get
+https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/prepInstructions
+
+
+Returns labeling requirements and item preparation instructions to help prepare items for shipment to Amazon's fulfillment network.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2	30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, see Usage Plans and Rate Limits in the Selling Partner API.
+
+Query Params
+ShipToCountryCode
+string
+required
+The country code of the country to which the items will be shipped. Note that labeling requirements and item preparation instructions can vary by country.
+
+SellerSKUList
+array of strings
+length ≤ 50
+A list of SellerSKU values. Used to identify items for which you want labeling requirements and item preparation instructions for shipment to Amazon's fulfillment network. The SellerSKU is qualified by the Seller ID, which is included with every call to the Seller Partner API.
+
+Note: Include seller SKUs that you have used to list items on Amazon's retail website. If you include a seller SKU that you have never used to list an item on Amazon's retail website, the seller SKU is returned in the InvalidSKUList property in the response.
+
+
+ADD string
+ASINList
+array of strings
+length ≤ 50
+A list of ASIN values. Used to identify items for which you want item preparation instructions to help with item sourcing decisions.
+
+Note: ASINs must be included in the product catalog for at least one of the marketplaces that the seller participates in. Any ASIN that is not included in the product catalog for at least one of the marketplaces that the seller participates in is returned in the InvalidASINList property in the response. You can find out which marketplaces a seller participates in by calling the getMarketplaceParticipations operation in the Selling Partner API for Sellers.
+
+
+ADD string
+Responses
+
+200
+Success.
+
+Response body
+object
+payload
+object
+Result for the get prep instructions operation
+
+SKUPrepInstructionsList
+array of objects
+A list of SKU labeling requirements and item preparation instructions.
+
+object
+SellerSKU
+string
+The seller SKU of the item.
+
+ASIN
+string
+The Amazon Standard Identification Number (ASIN) of the item.
+
+BarcodeInstruction
+string
+enum
+Labeling requirements for the item. For more information about FBA labeling requirements, see the Seller Central Help for your marketplace.
+
+RequiresFNSKULabel CanUseOriginalBarcode MustProvideSellerSKU
+
+Show Details
+RequiresFNSKULabel	Indicates that a scannable FBA product label must be applied to the item. Cover any original bar codes on the item.
+CanUseOriginalBarcode	Indicates that the item does not require a scannable FBA product label. The original manufacturer's bar code can be used.
+MustProvideSellerSKU	Amazon is unable to return labeling requirements. To get labeling requirements for items, call the getPrepInstructions operation.
+PrepGuidance
+string
+enum
+Item preparation instructions.
+
+ConsultHelpDocuments NoAdditionalPrepRequired SeePrepInstructionsList
+
+Show Details
+ConsultHelpDocuments	Indicates that Amazon is currently unable to determine the preparation instructions for this item. Amazon might be able to provide guidance at a future date, after evaluating the item.
+NoAdditionalPrepRequired	Indicates that the item does not require preparation in addition to any item labeling that might be required.
+SeePrepInstructionsList	Indicates that the item requires preparation in addition to any item labeling that might be required. See the PrepInstructionList in the response for item preparation instructions.
+PrepInstructionList
+array of strings
+A list of preparation instructions to help with item sourcing decisions.
+
+Show Details
+Polybagging	Indicates that polybagging is required.
+BubbleWrapping	Indicates that bubble wrapping is required.
+Taping	Indicates that taping is required.
+BlackShrinkWrapping	Indicates that black shrink wrapping is required.
+Labeling	Indicates that the FNSKU label should be applied to the item.
+HangGarment	Indicates that the item should be placed on a hanger.
+SetCreation	Units that are sets must be labeled as sets on their packaging. The barcodes on the individual items must 1) not face outward and 2) not require covering.
+Boxing	Products may require overboxing when there are safety concerns over sharp items, fragile items, hazardous liquids, and vinyl records. For items over 4.5 kg, use double-wall corrugated boxes.
+RemoveFromHanger	Indicates that the item cannot be shipped on a hanger.
+Debundle	Indicates requiring taking apart a set of items labeled for individual sale. Remove tape or shrink wrap that groups multiple inventory units together.
+SuffocationStickering	Poly bags with an opening of 12 cm or larger (measured when flat) must have a suffocation warning. This warning must be printed on the bag or attached as a label.
+CapSealing	To prevent leakage, product needs to have a secondary seal in one of the following types: Induction seal, safety ring, clips, heat shrink plastic band, or boxing.
+SetStickering	Products that are sets (for example, a set of six unique toy cars that is sold as one unit) must be marked as sets on their packaging. Add a label to the unit that clearly states that the products are to be received and sold as a single unit.
+BlankStickering	Indicates applying a blank sticker to obscure a bad barcode that cannot be covered by another sticker.
+ShipsInProductPackaging	Indicates that item ships in its original product packaging.
+NoPrep	Indicates that the item does not require any prep.
+AmazonPrepFeesDetailsList
+array of objects
+A list of preparation instructions and fees for Amazon to prep goods for shipment.
+
+object
+PrepInstruction
+string
+enum
+Preparation instructions for shipping an item to Amazon's fulfillment network. For more information about preparing items for shipment to Amazon's fulfillment network, see the Seller Central Help for your marketplace.
+
+Polybagging BubbleWrapping Taping BlackShrinkWrapping Labeling HangGarment SetCreation Boxing RemoveFromHanger Debundle SuffocationStickering CapSealing SetStickering BlankStickering ShipsInProductPackaging NoPrep
+
+Show Details
+Polybagging	Indicates that polybagging is required.
+BubbleWrapping	Indicates that bubble wrapping is required.
+Taping	Indicates that taping is required.
+BlackShrinkWrapping	Indicates that black shrink wrapping is required.
+Labeling	Indicates that the FNSKU label should be applied to the item.
+HangGarment	Indicates that the item should be placed on a hanger.
+SetCreation	Units that are sets must be labeled as sets on their packaging. The barcodes on the individual items must 1) not face outward and 2) not require covering.
+Boxing	Products may require overboxing when there are safety concerns over sharp items, fragile items, hazardous liquids, and vinyl records. For items over 4.5 kg, use double-wall corrugated boxes.
+RemoveFromHanger	Indicates that the item cannot be shipped on a hanger.
+Debundle	Indicates requiring taking apart a set of items labeled for individual sale. Remove tape or shrink wrap that groups multiple inventory units together.
+SuffocationStickering	Poly bags with an opening of 12 cm or larger (measured when flat) must have a suffocation warning. This warning must be printed on the bag or attached as a label.
+CapSealing	To prevent leakage, product needs to have a secondary seal in one of the following types: Induction seal, safety ring, clips, heat shrink plastic band, or boxing.
+SetStickering	Products that are sets (for example, a set of six unique toy cars that is sold as one unit) must be marked as sets on their packaging. Add a label to the unit that clearly states that the products are to be received and sold as a single unit.
+BlankStickering	Indicates applying a blank sticker to obscure a bad barcode that cannot be covered by another sticker.
+ShipsInProductPackaging	Indicates that item ships in its original product packaging.
+NoPrep	Indicates that the item does not require any prep.
+FeePerUnit
+object
+The monetary value.
+
+
+FeePerUnit object
+InvalidSKUList
+array of objects
+A list of invalid SKU values and the reason they are invalid.
+
+object
+SellerSKU
+string
+The seller SKU of the item.
+
+ErrorReason
+string
+enum
+The reason that the ASIN is invalid.
+
+DoesNotExist InvalidASIN
+
+Show Details
+DoesNotExist	Indicates that the ASIN is not included in the Amazon product catalog for any of the marketplaces that the seller participates in.
+InvalidASIN	The ASIN is invalid.
+ASINPrepInstructionsList
+array of objects
+A list of item preparation instructions.
+
+object
+ASIN
+string
+The Amazon Standard Identification Number (ASIN) of the item.
+
+BarcodeInstruction
+string
+enum
+Labeling requirements for the item. For more information about FBA labeling requirements, see the Seller Central Help for your marketplace.
+
+RequiresFNSKULabel CanUseOriginalBarcode MustProvideSellerSKU
+
+Show Details
+RequiresFNSKULabel	Indicates that a scannable FBA product label must be applied to the item. Cover any original bar codes on the item.
+CanUseOriginalBarcode	Indicates that the item does not require a scannable FBA product label. The original manufacturer's bar code can be used.
+MustProvideSellerSKU	Amazon is unable to return labeling requirements. To get labeling requirements for items, call the getPrepInstructions operation.
+PrepGuidance
+string
+enum
+Item preparation instructions.
+
+ConsultHelpDocuments NoAdditionalPrepRequired SeePrepInstructionsList
+
+Show Details
+ConsultHelpDocuments	Indicates that Amazon is currently unable to determine the preparation instructions for this item. Amazon might be able to provide guidance at a future date, after evaluating the item.
+NoAdditionalPrepRequired	Indicates that the item does not require preparation in addition to any item labeling that might be required.
+SeePrepInstructionsList	Indicates that the item requires preparation in addition to any item labeling that might be required. See the PrepInstructionList in the response for item preparation instructions.
+PrepInstructionList
+array of strings
+A list of preparation instructions to help with item sourcing decisions.
+
+Show Details
+Polybagging	Indicates that polybagging is required.
+BubbleWrapping	Indicates that bubble wrapping is required.
+Taping	Indicates that taping is required.
+BlackShrinkWrapping	Indicates that black shrink wrapping is required.
+Labeling	Indicates that the FNSKU label should be applied to the item.
+HangGarment	Indicates that the item should be placed on a hanger.
+SetCreation	Units that are sets must be labeled as sets on their packaging. The barcodes on the individual items must 1) not face outward and 2) not require covering.
+Boxing	Products may require overboxing when there are safety concerns over sharp items, fragile items, hazardous liquids, and vinyl records. For items over 4.5 kg, use double-wall corrugated boxes.
+RemoveFromHanger	Indicates that the item cannot be shipped on a hanger.
+Debundle	Indicates requiring taking apart a set of items labeled for individual sale. Remove tape or shrink wrap that groups multiple inventory units together.
+SuffocationStickering	Poly bags with an opening of 12 cm or larger (measured when flat) must have a suffocation warning. This warning must be printed on the bag or attached as a label.
+CapSealing	To prevent leakage, product needs to have a secondary seal in one of the following types: Induction seal, safety ring, clips, heat shrink plastic band, or boxing.
+SetStickering	Products that are sets (for example, a set of six unique toy cars that is sold as one unit) must be marked as sets on their packaging. Add a label to the unit that clearly states that the products are to be received and sold as a single unit.
+BlankStickering	Indicates applying a blank sticker to obscure a bad barcode that cannot be covered by another sticker.
+ShipsInProductPackaging	Indicates that item ships in its original product packaging.
+NoPrep	Indicates that the item does not require any prep.
+InvalidASINList
+array of objects
+A list of invalid ASIN values and the reasons they are invalid.
+
+object
+ASIN
+string
+The Amazon Standard Identification Number (ASIN) of the item.
+
+ErrorReason
+string
+enum
+The reason that the ASIN is invalid.
+
+DoesNotExist InvalidASIN
+
+Show Details
+DoesNotExist	Indicates that the ASIN is not included in the Amazon product catalog for any of the marketplaces that the seller participates in.
+InvalidASIN	The ASIN is invalid.
+errors
+array of objects
+A list of error responses returned when a request is unsuccessful.
+
+object
+code
+string
+required
+An error code that identifies the type of error that occured.
+
+message
+string
+required
+A message that describes the error condition in a human-readable form.
+
+details
+string
+Additional details that can help the caller understand or fix the issue.
+
+Headers
+object
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+401
+The request's Authorization header is not formatted correctly or does not contain a valid token.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The specified resource does not exist.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+
+### getShipments
+ getShipments
+get
+https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments
+
+
+Returns a list of inbound shipments based on criteria that you specify.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2	30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, see Usage Plans and Rate Limits in the Selling Partner API.
+
+Query Params
+ShipmentStatusList
+array of strings
+A list of ShipmentStatus values. Used to select shipments with a current status that matches the status values that you specify.
+
+Show Details
+WORKING	The shipment was created by the seller, but has not yet shipped.
+READY_TO_SHIP	The seller has printed box labels (for Small parcel shipments) or pallet labels (for Less Than Truckload shipments).
+SHIPPED	The shipment was picked up by the carrier.
+RECEIVING	The shipment has arrived at the fulfillment center, but not all items have been marked as received.
+CANCELLED	The shipment was cancelled by the seller after the shipment was sent to the fulfillment center.
+DELETED	The shipment was cancelled by the seller before the shipment was sent to the fulfillment center.
+CLOSED	The shipment has arrived at the fulfillment center and all items have been marked as received.
+ERROR	There was an error with the shipment and it was not processed by Amazon.
+IN_TRANSIT	The carrier has notified the fulfillment center that it is aware of the shipment.
+DELIVERED	The shipment was delivered by the carrier to the fulfillment center.
+CHECKED_IN	The shipment was checked-in at the receiving dock of the fulfillment center.
+
+ADD string
+ShipmentIdList
+array of strings
+length ≤ 999
+A list of shipment IDs used to select the shipments that you want. If both ShipmentStatusList and ShipmentIdList are specified, only shipments that match both parameters are returned.
+
+
+ADD string
+LastUpdatedAfter
+date-time
+A date used for selecting inbound shipments that were last updated after (or at) a specified time. The selection includes updates made by Amazon and by the seller.
+
+LastUpdatedBefore
+date-time
+A date used for selecting inbound shipments that were last updated before (or at) a specified time. The selection includes updates made by Amazon and by the seller.
+
+QueryType
+string
+enum
+required
+Indicates whether shipments are returned using shipment information (by providing the ShipmentStatusList or ShipmentIdList parameters), using a date range (by providing the LastUpdatedAfter and LastUpdatedBefore parameters), or by using NextToken to continue returning items specified in a previous request.
+
+
+SHIPMENT
+Allowed:
+
+SHIPMENT
+
+DATE_RANGE
+
+NEXT_TOKEN
+NextToken
+string
+A string token returned in the response to your previous request.
+
+MarketplaceId
+string
+required
+A marketplace identifier. Specifies the marketplace where the product would be stored.
+
+Responses
+
+200
+Success.
+
+Response body
+object
+payload
+object
+Result for the get shipments operation
+
+ShipmentData
+array of objects
+A list of inbound shipment information.
+
+object
+ShipmentId
+string
+The shipment identifier submitted in the request.
+
+ShipmentName
+string
+The name for the inbound shipment.
+
+ShipFromAddress
+object
+required
+Specific details to identify a place.
+
+
+ShipFromAddress object
+DestinationFulfillmentCenterId
+string
+An Amazon fulfillment center identifier created by Amazon.
+
+ShipmentStatus
+string
+enum
+Indicates the status of the inbound shipment. When used with the createInboundShipment operation, WORKING is the only valid value. When used with the updateInboundShipment operation, possible values are WORKING, SHIPPED or CANCELLED.
+
+WORKING SHIPPED RECEIVING CANCELLED DELETED CLOSED ERROR IN_TRANSIT DELIVERED CHECKED_IN
+
+Show Details
+WORKING	The shipment was created by the seller, but has not yet shipped.
+SHIPPED	The shipment was picked up by the carrier.
+RECEIVING	The shipment has arrived at the fulfillment center, but not all items have been marked as received.
+CANCELLED	The shipment was cancelled by the seller after the shipment was sent to the fulfillment center.
+DELETED	The shipment was cancelled by the seller before the shipment was sent to the fulfillment center.
+CLOSED	The shipment has arrived at the fulfillment center and all items have been marked as received.
+ERROR	There was an error with the shipment and it was not processed by Amazon.
+IN_TRANSIT	The carrier has notified the fulfillment center that it is aware of the shipment.
+DELIVERED	The shipment was delivered by the carrier to the fulfillment center.
+CHECKED_IN	The shipment was checked-in at the receiving dock of the fulfillment center.
+LabelPrepType
+string
+enum
+The type of label preparation that is required for the inbound shipment.
+
+NO_LABEL SELLER_LABEL AMAZON_LABEL
+
+Show Details
+NO_LABEL	No label preparation is required. All items in this shipment will be handled as stickerless, commingled inventory.
+SELLER_LABEL	Label preparation by the seller is required.
+AMAZON_LABEL	Label preparation by Amazon is required. Note: AMAZON_LABEL is available only if you are enrolled in the FBA Label Service. For more information about the FBA Label Service, see the Seller Central Help for your marketplace.
+AreCasesRequired
+boolean
+required
+Indicates whether or not an inbound shipment contains case-packed boxes. When AreCasesRequired = true for an inbound shipment, all items in the inbound shipment must be case packed.
+
+ConfirmedNeedByDate
+date
+Type containing date in string format
+
+BoxContentsSource
+string
+enum
+Where the seller provided box contents information for a shipment.
+
+NONE FEED 2D_BARCODE INTERACTIVE
+
+Show Details
+NONE	There is no box contents information for this shipment. Amazon will manually process the box contents information. This may incur a fee.
+FEED	Box contents information is provided through the _POST_FBA_INBOUND_CARTON_CONTENTS_ feed.
+2D_BARCODE	Box contents information is provided by a barcode on the shipment. For more information, see Using 2D barcodes for box content information on Seller Central.
+INTERACTIVE	Box contents information is provided by an interactive source, such as a web tool.
+EstimatedBoxContentsFee
+object
+The manual processing fee per unit and total fee for a shipment.
+
+
+EstimatedBoxContentsFee object
+NextToken
+string
+When present and not empty, pass this string token in the next request to return the next response page.
+
+errors
+array of objects
+A list of error responses returned when a request is unsuccessful.
+
+object
+code
+string
+required
+An error code that identifies the type of error that occured.
+
+message
+string
+required
+A message that describes the error condition in a human-readable form.
+
+details
+string
+Additional details that can help the caller understand or fix the issue.
+
+Headers
+object
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+401
+The request's Authorization header is not formatted correctly or does not contain a valid token.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The specified resource does not exist.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+curl --request GET \
+     --url 'https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments?QueryType=SHIPMENT' \
+     --header 'accept: application/json'
+     {
+  "payload": {
+    "ShipmentData": [
+      {
+        "ShipmentId": "string",
+        "ShipmentName": "string",
+        "ShipFromAddress": {
+          "Name": "string",
+          "AddressLine1": "string",
+          "AddressLine2": "string",
+          "DistrictOrCounty": "string",
+          "City": "string",
+          "StateOrProvinceCode": "string",
+          "CountryCode": "string",
+          "PostalCode": "string"
+        },
+        "DestinationFulfillmentCenterId": "string",
+        "ShipmentStatus": "WORKING",
+        "LabelPrepType": "NO_LABEL",
+        "AreCasesRequired": true,
+        "ConfirmedNeedByDate": "2026-01-11",
+        "BoxContentsSource": "NONE",
+        "EstimatedBoxContentsFee": {
+          "TotalUnits": 0,
+          "FeePerUnit": {
+            "CurrencyCode": "USD",
+            "Value": 0
+          },
+          "TotalFee": {
+            "CurrencyCode": "USD",
+            "Value": 0
+          }
+        }
+      }
+    ],
+    "NextToken": "string"
+  },
+  "errors": [
+    {
+      "code": "string",
+      "message": "string",
+      "details": "string"
+    }
+  ]
+}
+
+### getShipmentItemsByShipmentId
+ getShipmentItemsByShipmentId
+get
+https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/{shipmentId}/items
+
+
+Returns a list of items in a specified inbound shipment.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2	30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, see Usage Plans and Rate Limits in the Selling Partner API.
+
+Path Params
+shipmentId
+string
+required
+A shipment identifier used for selecting items in a specific inbound shipment.
+
+Query Params
+MarketplaceId
+string
+Deprecated. Do not use.
+
+Responses
+
+200
+Success.
+
+Response body
+object
+payload
+object
+Result for the get shipment items operation
+
+ItemData
+array of objects
+A list of inbound shipment item information.
+
+object
+ShipmentId
+string
+A shipment identifier originally returned by the createInboundShipmentPlan operation.
+
+SellerSKU
+string
+required
+The seller SKU of the item.
+
+FulfillmentNetworkSKU
+string
+Amazon's fulfillment network SKU of the item.
+
+QuantityShipped
+int32
+required
+The item quantity.
+
+QuantityReceived
+int32
+The item quantity.
+
+QuantityInCase
+int32
+The item quantity.
+
+ReleaseDate
+date
+Type containing date in string format
+
+PrepDetailsList
+array of objects
+A list of preparation instructions and who is responsible for that preparation.
+
+object
+PrepInstruction
+string
+enum
+required
+Preparation instructions for shipping an item to Amazon's fulfillment network. For more information about preparing items for shipment to Amazon's fulfillment network, see the Seller Central Help for your marketplace.
+
+Polybagging BubbleWrapping Taping BlackShrinkWrapping Labeling HangGarment SetCreation Boxing RemoveFromHanger Debundle SuffocationStickering CapSealing SetStickering BlankStickering ShipsInProductPackaging NoPrep
+
+Show Details
+Polybagging	Indicates that polybagging is required.
+BubbleWrapping	Indicates that bubble wrapping is required.
+Taping	Indicates that taping is required.
+BlackShrinkWrapping	Indicates that black shrink wrapping is required.
+Labeling	Indicates that the FNSKU label should be applied to the item.
+HangGarment	Indicates that the item should be placed on a hanger.
+SetCreation	Units that are sets must be labeled as sets on their packaging. The barcodes on the individual items must 1) not face outward and 2) not require covering.
+Boxing	Products may require overboxing when there are safety concerns over sharp items, fragile items, hazardous liquids, and vinyl records. For items over 4.5 kg, use double-wall corrugated boxes.
+RemoveFromHanger	Indicates that the item cannot be shipped on a hanger.
+Debundle	Indicates requiring taking apart a set of items labeled for individual sale. Remove tape or shrink wrap that groups multiple inventory units together.
+SuffocationStickering	Poly bags with an opening of 12 cm or larger (measured when flat) must have a suffocation warning. This warning must be printed on the bag or attached as a label.
+CapSealing	To prevent leakage, product needs to have a secondary seal in one of the following types: Induction seal, safety ring, clips, heat shrink plastic band, or boxing.
+SetStickering	Products that are sets (for example, a set of six unique toy cars that is sold as one unit) must be marked as sets on their packaging. Add a label to the unit that clearly states that the products are to be received and sold as a single unit.
+BlankStickering	Indicates applying a blank sticker to obscure a bad barcode that cannot be covered by another sticker.
+ShipsInProductPackaging	Indicates that item ships in its original product packaging.
+NoPrep	Indicates that the item does not require any prep.
+PrepOwner
+string
+enum
+required
+Indicates who will prepare the item.
+
+AMAZON SELLER
+
+Show Details
+AMAZON	Indicates Amazon will prepare the item.
+SELLER	Indicates the seller will prepare the item.
+NextToken
+string
+When present and not empty, pass this string token in the next request to return the next response page.
+
+errors
+array of objects
+A list of error responses returned when a request is unsuccessful.
+
+object
+code
+string
+required
+An error code that identifies the type of error that occured.
+
+message
+string
+required
+A message that describes the error condition in a human-readable form.
+
+details
+string
+Additional details that can help the caller understand or fix the issue.
+
+Headers
+object
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+401
+The request's Authorization header is not formatted correctly or does not contain a valid token.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The specified resource does not exist.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+ 
+
+### getShipmentItems
+ Add doc details here 
+
+## Fulfillment Inbound Shipping Workflow
+ Add workflow details here 
+
+### Carton-Level Info Known
+ Add workflow details here 
+
+### Carton-Level Info Unknown (LTL only)
+ Add workflow details here 
+
+## Ship Inventory in India
+ Add India-specific workflow details here 
+
+## More Specific Shipment Flows
+ Add flow details here 
+
+### SPD with Amazon-Partnered Carrier (PCP)
+ Create a shipment with an Amazon-partnered carrier (PCP)
+Learn how to inbound small parcel deliveries or pallets with Amazon-partnered carriers
+
+Learn how to inbound Small Parcel Deliveries (SPD) or pallets (LTL/FTL) with an Amazon-partnered carrier using the Fulfillment Inbound API.
+
+Diagram of partnered carrier workflow
+
+Step 1. Create an inbound plan
+Operation
+createInboundPlan
+Parameters
+destinationMarketplaces: Target marketplaces for shipment.
+sourceAddress: Address from which items are shipped.
+items:
+prepOwner: Preparation owner.
+labelOwner: Labeling owner.
+msku: Merchant SKU.
+itemQuantity: Quantity of items.
+Response
+Includes inboundPlanId and operationId to check the status of inbound plan creation.
+Create Inbound Plan
+Open Recipe
+📘
+Note
+
+POST operations are asynchronous. Check the status of a POST operation by passing its operationId to getInboundOperationStatus.
+
+Get Inbound operation status
+Open Recipe
+Step 2. Generate packing options
+Operation
+generatePackingOptions
+Parameters
+inboundPlanId: Use the inbound plan ID created in Step 1.
+Response
+operationId: An ID that you can use to check the status of packing options generation.
+Generate packing options
+Open Recipe
+Step 3. List packing options
+Operation
+listPackingOptions
+Parameters
+inboundPlanId: Input the inbound plan ID.
+Response
+Includes available packingOptions. Each packing option is represented by a packingOptionId.
+Each packing option contains one or more packingGroups, identified by packingGroupId. Each packing group includes a list of SKUs that should be packed together.
+To view the SKU items in a packing group, call listPackingGroupItems with the packing group's packingGroupId.
+
+📘
+Note
+
+Choose only one packing option (packingOptionId).
+
+List packing options
+Open Recipe
+Step 4. Confirm packing option
+Operation
+confirmPackingOption
+Parameters
+inboundPlanId: The ID of the inbound plan.
+packingOptionId: The chosen packing option ID. You can only confirm one option per inbound plan.
+Response
+operationId: An ID that you can use to check the status of the packing confirmation.
+Confirm packing option
+Open Recipe
+Step 5. Set packing information
+Operation
+setPackingInformation
+Parameters
+inboundPlanId: ID of the inbound plan.
+packingGroupId: ID for each packing group within the chosen packing option.
+boxes: Includes box contents source, box dimensions (weight and quantity), items with prep info, and item quantities matching the inbound plan.
+Response
+operationId: An ID that you can use to check the status of the API call.
+Request example
+JSON
+
+{
+  "packageGroupings": [
+    {
+      "boxes": [
+        {
+          "contentInformationSource": "BOX_CONTENT_PROVIDED",
+          "dimensions": {
+            "height": 10,
+            "length": 10,
+            "unitOfMeasurement": "IN",
+            "width": 10
+          },
+          "quantity": 1,
+          "weight": {
+            "unit": "LB",
+            "value": 2
+          },
+          "items": [
+            {
+              "labelOwner": "AMAZON",
+              "msku": "SKU12345",
+              "prepOwner": "AMAZON",
+              "quantity": 1
+            }
+          ]
+        }
+      ],
+      "packingGroupId": "pg1xxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "boxes": [
+        {
+          "contentInformationSource": "BOX_CONTENT_PROVIDED",
+          "dimensions": {
+            "height": 10,
+            "length": 10,
+            "unitOfMeasurement": "IN",
+            "width": 10
+          },
+          "quantity": 1,
+          "weight": {
+            "unit": "LB",
+            "value": 1
+          },
+          "items": [
+            {
+              "labelOwner": "SELLER",
+              "msku": "SKU67890",
+              "prepOwner": "SELLER",
+              "quantity": 1
+            }
+          ]
+        }
+      ],
+      "packingGroupId": "pg2yyyyyyyyyyyyyyyyyyy"
+    }
+  ]
+}
+Set Packing Information
+Open Recipe
+Step 6. Generate placement options
+Operation
+generatePlacementOptions
+
+Parameters
+inboundPlanId: ID of the inbound plan.
+Response
+operationId: An ID that you can use to check the status of placement options generation.
+Generate packing options
+Open Recipe
+Step 7. List placement options
+Operation
+listPlacementOptions
+Parameters
+inboundPlanId: ID of the inbound plan.
+Response
+Includes available placementOptions, each represented by a placementOptionId.
+Each placementOptionId includes one or more shipmentIds and details on fees or discounts.
+📘
+Note
+
+Choose only one placement option (placementOptionId).
+
+Response example
+JSON
+
+"placementOptions": [
+  {
+    "fees": [
+      {
+        "description": "Placement service fee represents service to inbound with minimal shipment splits and destinations of skus",
+        "type": "FEE",
+        "value": {
+          "amount": 1.10,
+          "code": "USD"
+        },
+        "target": "Placement Services"
+      }
+    ],
+    "shipmentIds": [
+      "shxxxxxxxxxxxxxxx",
+      "shxxxxxxxxxxxxxxx"
+    ],
+    "discounts": [],
+    "expiration": "yyyy-mm-ddT00:00:00.00Z",
+    "placementOptionId": "plxxxxxxxxxxxxxxx",
+    "status": "OFFERED"
+  }
+]
+The following code sample demonstrates how to choose the least expensive placementOption. Customize this code to fit your own selection criteria.
+
+List placement options
+Open Recipe
+Step 8. Generate transportation options
+Operation
+generateTransportationOptions
+Parameters
+inboundPlanId: ID of the inbound plan.
+placementOptionId: The chosen placement option ID.
+shipmentTransportationConfigurations: Configuration details including:
+shipmentId: Each shipment ID within the chosen placement option. Include all shipment IDs within the selected placement option.
+readyToShipWindow: Start date for when shipments are ready for delivery.
+freightInformation (only if you want to ship pallets): The declared value and freight class.
+pallets (only if you want to ship pallets): Information about the pallets being shipped, including quantity, dimensions, weight, and stackability.
+Response
+Includes an operationId that you can use to check the status of transportation options generation.
+Request example for small parcel delivery
+JSON
+
+{
+  "placementOptionId": "plxxxxxxxxxxxxxxxxxxxx",
+  "shipmentTransportationConfigurations": [
+    {
+      "readyToShipWindow": {
+        "start": "yyyy-mm-ddT00:00:00Z"
+      },
+      "shipmentId": "sh1xxxxxxxxxxxxxxx"
+    },
+    {
+      "readyToShipWindow": {
+        "start": "yyyy-mm-T00:00:00Z"
+      },
+      "shipmentId": "sh2xxxxxxxxxxxxxx"
+    }
+  ]
+}
+Request example for pallet (LTL/FTL) delivery
+JSON
+
+{
+  "placementOptionId": "plxxxxxxxxxxxxxxxxxxxx",
+  "shipmentTransportationConfigurations": [
+    {
+      "readyToShipWindow": {
+        "start": "yyyy-mm-ddT00:00:00Z"
+      },
+      "shipmentId": "shxxxxxxxxxxxxxxxx",
+      "freightInformation": {
+        "declaredValue": {
+          "amount": 200,
+          "code": "USD"
+        },
+        "freightClass": "FC_XX"
+      },
+      "pallets": [
+        {
+          "quantity": 1,
+          "dimensions": {
+            "height": 48,
+            "length": 48,
+            "unitOfMeasurement": "IN",
+            "width": 40
+          },
+          "stackability": "STACKABLE",
+          "weight": {
+            "unit": "LB",
+            "value": 600
+          }
+        }
+      ]
+    }
+  ]
+}
+Generate Transportation Options
+Open Recipe
+Step 7. List transportation options
+Operation
+listTransportationOptions
+Parameters
+inboundPlanId: The ID of the inbound plan.
+placementOptionId: The ID of the chosen placement option.
+Response
+Includes different available transportationOptions, each represented by transportationOptionId per shipmentId. Each transportation option contains details about:
+carrier: Identifies the carrier.
+shippingMode: Identifies the shipment type (for example, Small Parcel Delivery or pallets).
+shippingSolution: Identifies whether the carrier is Amazon Partnered or your own transportation carrier.
+preconditions: Conditions that must be met to provide the delivery window. Only applicable to your own carrier options.
+📘
+Note
+
+If you have multiple shipmentIds from listPlacementOptions, choose a transportationOptionId for each shipmentId.
+
+To ship using the Amazon Partnered Carrier in this tutorial, you must select the transportationOption based on your shipment type:
+
+For small parcel deliveries, choose the option where shippingMode is GROUND_SMALL_PARCEL.
+For pallet shipments, choose the option where shippingMode is FREIGHT_LTL.
+In both cases, ensure that shippingSolution is AMAZON_PARTNERED_CARRIER.
+
+Response example for small parcel delivery
+JSON
+
+"transportationOptions": [
+  {
+    "carrier": {
+      "name": "United States Postal Service",
+      "alphaCode": "USPS"
+    },
+    "preconditions": [
+      "CONFIRMED_DELIVERY_WINDOW"
+    ],
+    "shipmentId": "shxxxxxxxxxxxxxx",
+    "shippingMode": "GROUND_SMALL_PARCEL",
+    "transportationOptionId": "toxxxxxxxxxxxxxx",
+    "shippingSolution": "USE_YOUR_OWN_CARRIER"
+  },
+  {
+    "carrier": {
+      "name": "UPS",
+      "alphaCode": "UPSN"
+    },
+    "quote": {
+      "cost": {
+        "amount": 19.6,
+        "code": "USD"
+      }
+    },
+    "preconditions": [],
+    "shipmentId": "shxxxxxxxxxxxxxx",
+    "shippingMode": "GROUND_SMALL_PARCEL",
+    "transportationOptionId": "toxxxxxxxxxxxxxx",
+    "shippingSolution": "AMAZON_PARTNERED_CARRIER"
+  }
+]
+Response example for pallet delivery
+JSON
+
+{
+  "carrier": {
+    "name": "XXXXX",
+    "alphaCode": "ABCD"
+  },
+  "carrierAppointment": {
+    "startTime": "2024-10-11T00:00Z",
+    "endTime": "2024-10-11T23:59Z"
+  },
+  "quote": {
+    "cost": {
+      "amount": 326.54,
+      "code": "USD"
+    },
+    "expiration": "2024-10-09T22:40Z"
+  },
+  "preconditions": [],
+  "shipmentId": "shxxxxxxxxxxxxxx",
+  "shippingMode": "FREIGHT_LTL",
+  "transportationOptionId": "toxxxxxxxxxxxxxx",
+  "shippingSolution": "AMAZON_PARTNERED_CARRIER"
+}
+List transportation options
+Open Recipe
+Step 8. Get shipment
+Operation
+getShipment
+Parameters
+inboundPlanId: ID of the inbound plan.
+shipmentId: ID of the shipment for which to retrieve details.
+Response
+Includes the source address from which the shipment originates.
+Includes the destination warehouse address for the shipment.
+Includes the current status of the shipment.
+📘
+Note
+
+If you are not satisfied with the chosen options, you can regenerate and select another placement option or transportation option before final confirmation.
+
+Get shipment details
+Open Recipe
+Step 9. Confirm placement option
+Operation
+confirmPlacementOption
+Parameters
+inboundPlanId: ID of the inbound plan.
+placementOptionId: The chosen placement option ID to confirm.
+Response
+operationId: An ID that you can use to check the status of the placement confirmation.
+📘
+Note
+
+You can only confirm one placement option per inbound plan.
+
+Confirm placement option
+Open Recipe
+Step 10. Confirm transportation options
+Operation
+confirmTransportationOptions
+Parameters
+inboundPlanId: ID of the inbound plan.
+transportationSelections: A list of selected transportation options for each shipment, including:
+shipmentId: The ID of the shipment.
+transportationOptionId: The chosen transportation option ID for that shipment.
+Response
+operationId: An ID that you can use to check the status of the transportation confirmation.
+Important considerations
+If your inbound plan includes multiple shipments:
+
+For small parcel deliveries, ensure that all shipments use the same carrier.
+For pallet deliveries, you can choose different carriers for each shipment.
+Confirm transportation option
+Open Recipe
+Step 11. Get shipment
+Operation
+getShipment
+Parameters
+inboundPlanId: ID of the inbound plan.
+shipmentId: ID of the shipment.
+Response
+Includes the following details of shipment:
+sourceAddress: The origin address of the shipment.
+destinationWarehouseAddress: The address of the destination warehouse.
+amazonReferenceId: Amazon's reference ID for the shipment.
+selectedTransportationOptionId: The chosen transportation option ID.
+placementOptionId: The ID of the chosen placement option.
+shipmentConfirmationId: The ID confirming the shipment.
+trackingDetails: Information regarding the shipment tracking.
+status: The current status of the shipment.
+📘
+Note
+
+If your inbound plan includes multiple shipment IDs, call getShipment for each shipment ID.
+
+Get shipment details
+Open Recipe
+Step 12. Get labels
+Operation
+getLabels
+Parameters
+shipmentConfirmationId: The ID that confirms the shipment, retrieved from the getShipment response.
+PageType: Specifies the type of page for the labels.
+LabelType: Specifies the type of label to retrieve.
+For Pallet Shipments:
+
+NumberOfPallets: The total number of pallets included in the shipment.
+PageSize: The size of the label pages to retrieve.
+Response
+Includes a URL that you can use to download the labels associated with each shipment ID within your inbound plan.
+📘
+Note
+
+Call getLabels for each shipment ID and provide the necessary parameters based on whether the shipment is a small parcel delivery or involves pallets.
+
+Get labels to print
+Open Recipe
+[Only for Pallet Shipments] Step 13. Get bill of lading
+Operation
+getBillOfLading
+Parameters
+shipmentConfirmationId: The ID that confirms the shipment, retrieved from getShipment response.
+Response
+Includes a URL that you can use to download the bill of lading associated with the Less Than Truckload (LTL) or Full Truckload (FTL) pallet shipment.
+This process completes the creation of your inbound plan, and sends your SKUs as either individual boxes (small parcel delivery) or pallets (LTL/FTL) using the Amazon Partnered Carrier. You can verify this inbound plan through the Seller Central Send to Amazon UI.
+
+

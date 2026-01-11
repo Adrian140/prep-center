@@ -102,114 +102,6 @@ function toHex(buffer: ArrayBuffer): string {
     .join("");
 }
 
-function normalizeDimensions(input: any) {
-  if (input == null) return null;
-  const shape = typeof input === "number" ? { length: input, width: input, height: input } : input;
-  const unit = String(shape.unit || shape.unitOfMeasurement || "CM").toUpperCase();
-  const length = Number(shape.length ?? shape.Length ?? shape.l ?? 0);
-  const width = Number(shape.width ?? shape.Width ?? shape.w ?? 0);
-  const height = Number(shape.height ?? shape.Height ?? shape.h ?? 0);
-  const dims = [length, width, height];
-  if (!dims.every((n) => Number.isFinite(n) && n > 0)) return null;
-  const toInches = (cm: number) => Number((cm / 2.54).toFixed(2));
-  if (unit === "IN") {
-    return {
-      length: Number(length.toFixed(2)),
-      width: Number(width.toFixed(2)),
-      height: Number(height.toFixed(2)),
-      unitOfMeasurement: "IN"
-    };
-  }
-  return {
-    length: toInches(length),
-    width: toInches(width),
-    height: toInches(height),
-    unitOfMeasurement: "IN"
-  };
-}
-
-function normalizeWeight(input: any) {
-  if (typeof input === "number") {
-    const toPounds = (kg: number) => Number((kg * 2.2046226218).toFixed(2));
-    return { value: toPounds(input), unit: "LB" };
-  }
-  if (!input) return null;
-  const unit = String(input.unit || "KG").toUpperCase();
-  const value = Number(input.value || 0);
-  if (!Number.isFinite(value)) return null;
-  if (unit === "LB") {
-    return { value: Number(value.toFixed(2)), unit: "LB" };
-  }
-  const toPounds = (kg: number) => Number((kg * 2.2046226218).toFixed(2));
-  return { value: toPounds(value), unit: "LB" };
-}
-
-function normalizeItem(input: any) {
-  if (!input) return null;
-  const msku = input?.msku || input?.MSKU || input?.sellerSku || input?.sku || null;
-  const quantity = Number(input?.quantity ?? input?.qty ?? input?.quantityInBox ?? 0);
-  if (!msku || !Number.isFinite(quantity) || quantity <= 0) return null;
-
-  const prepOwner = input?.prepOwner ? String(input.prepOwner) : null;
-  const labelOwner = input?.labelOwner ? String(input.labelOwner) : null;
-  if (!prepOwner || !labelOwner) return null;
-
-  const out: any = { msku: String(msku), quantity, prepOwner, labelOwner };
-  if (input?.expiration) out.expiration = String(input.expiration).slice(0, 10);
-  if (input?.manufacturingLotCode) out.manufacturingLotCode = String(input.manufacturingLotCode);
-  return out;
-}
-
-function buildPackageGroupingsFromPackingGroups(groups: any[]) {
-  const out: any[] = [];
-  (groups || []).forEach((g: any) => {
-    const packingGroupId = g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
-    if (!packingGroupId) return;
-    if (packingGroupId && typeof packingGroupId === "string" && packingGroupId.toLowerCase().startsWith("fallback-")) return;
-
-    const dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
-    const weight = normalizeWeight(g?.weight || g?.boxWeight);
-    if (!dims || !weight) return;
-
-    const rawSource = String(g?.contentInformationSource || "").toUpperCase();
-    const allowedSources = new Set(["BARCODE_2D", "BOX_CONTENT_PROVIDED", "MANUAL_PROCESS"]);
-    let contentInformationSource = allowedSources.has(rawSource) ? rawSource : "MANUAL_PROCESS";
-
-    let items: any[] = [];
-    if (contentInformationSource === "BOX_CONTENT_PROVIDED") {
-      const rawItems = Array.isArray(g?.items) ? g.items : (Array.isArray(g?.expectedItems) ? g.expectedItems : []);
-      items = rawItems.map(normalizeItem).filter(Boolean);
-      if (!items.length) contentInformationSource = "MANUAL_PROCESS";
-    }
-
-    const boxCount = Math.max(1, Number(g?.boxCount || g?.boxes || 1) || 1);
-    const boxes = [
-      {
-        quantity: boxCount,
-        contentInformationSource,
-        ...(contentInformationSource === "BOX_CONTENT_PROVIDED"
-          ? {
-              contents: items.map((it) => ({
-                msku: it.msku,
-                quantityInBox: it.quantity,
-                prepOwner: it.prepOwner,
-                labelOwner: it.labelOwner,
-                ...(it.expiration ? { expiration: it.expiration } : {}),
-                ...(it.manufacturingLotCode ? { manufacturingLotCode: it.manufacturingLotCode } : {})
-              }))
-            }
-          : {}),
-        dimensions: dims,
-        weight
-      }
-    ];
-
-    const grouping: any = { boxes, packingGroupId };
-    out.push(grouping);
-  });
-  return out;
-}
-
 async function sha256(message: string): Promise<string> {
   const data = new TextEncoder().encode(message);
   const hash = await crypto.subtle.digest("SHA-256", data);
@@ -228,6 +120,21 @@ async function getSignatureKey(secret: string, dateStamp: string, region: string
   const kService = await hmac(kRegion, service);
   const kSigning = await hmac(kService, "aws4_request");
   return kSigning;
+}
+
+function canonicalQueryString(query: string) {
+  if (!query) return "";
+  const params = new URLSearchParams(query);
+  const entries = Array.from(params.entries())
+    .map(([key, value]) => [encodeURIComponent(key), encodeURIComponent(value)] as const)
+    .sort(([aKey, aValue], [bKey, bValue]) => {
+      if (aKey < bKey) return -1;
+      if (aKey > bKey) return 1;
+      if (aValue < bValue) return -1;
+      if (aValue > bValue) return 1;
+      return 0;
+    });
+  return entries.map(([key, value]) => `${key}=${value}`).join("&");
 }
 
 async function signRequest(opts: {
@@ -251,7 +158,7 @@ async function signRequest(opts: {
   const canonicalHeaders =
     "host:" + host + "\n" + "x-amz-date:" + amzDate + "\n" + (sessionToken ? "x-amz-security-token:" + sessionToken + "\n" : "");
   const signedHeaders = sessionToken ? "host;x-amz-date;x-amz-security-token" : "host;x-amz-date";
-  const canonicalQuery = query;
+  const canonicalQuery = canonicalQueryString(query);
   const canonicalRequest =
     method +
     "\n" +
@@ -288,7 +195,10 @@ async function signRequest(opts: {
     "x-amz-date": amzDate,
     "content-type": "application/json"
   };
-  if (sessionToken) headers["x-amz-security-token"] = sessionToken;
+  if (sessionToken) {
+    headers["x-amz-security-token"] = sessionToken;
+  }
+
   return headers;
 }
 
@@ -326,9 +236,24 @@ async function signedFetch(opts: {
     marketplaceId,
     sellerId
   } = opts;
-  const sigHeaders = await signRequest({ method, service, region, host, path, query, payload, accessKey, secretKey, sessionToken });
+  const sigHeaders = await signRequest({
+    method,
+    service,
+    region,
+    host,
+    path,
+    query,
+    payload,
+    accessKey,
+    secretKey,
+    sessionToken
+  });
   const url = `https://${host}${path}${query ? `?${query}` : ""}`;
-  const requestHeaders = { ...sigHeaders, "x-amz-access-token": lwaToken, accept: "application/json" };
+  const requestHeaders = {
+    ...sigHeaders,
+    "x-amz-access-token": lwaToken,
+    accept: "application/json"
+  };
 
   console.log(
     JSON.stringify(
@@ -537,69 +462,18 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
+    const action = String(body?.action || "").trim();
     const requestId = body?.request_id ?? body?.requestId;
-    const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
-    const packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
-    const generatePlacementOptions =
-      body?.generate_placement_options ?? body?.generatePlacementOptions ?? true;
-    const packingGroupsInput =
-      (Array.isArray(body?.packing_groups) && body.packing_groups) ||
-      (Array.isArray(body?.packingGroups) && body.packingGroups) ||
-      [];
-    const directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
-    const packageGroupings = directGroupings.length
-      ? directGroupings
-      : buildPackageGroupingsFromPackingGroups(packingGroupsInput);
-    if (!requestId || !inboundPlanId) {
-      return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare", traceId }), {
+    const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId ?? null;
+    const shipmentId = body?.shipment_id ?? body?.shipmentId ?? null;
+    if (!action) {
+      return new Response(JSON.stringify({ error: "Missing action", traceId }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
-    if (!packingOptionId) {
-      return new Response(JSON.stringify({ error: "packing_option_id este necesar (confirmă packing option înainte de setPackingInformation)", traceId }), {
-        status: 400,
-        headers: { ...corsHeaders, "content-type": "application/json" }
-      });
-    }
-    if (!packageGroupings.length) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "Nu am putut construi packageGroupings valide. Trimite packingGroups (cu dims/weight/items) din Step1b sau trimite direct packageGroupings în format SP-API.",
-          traceId
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "content-type": "application/json" }
-        }
-      );
-    }
-
-  // Validare minimă pe schema reală: packageGroupings[].boxes[].dimensions.unitOfMeasurement + weight.unit/value
-  const invalidGrouping = packageGroupings.find((g: any) => {
-    if (!g?.packingGroupId) return true;
-    if (!Array.isArray(g?.boxes) || !g.boxes.length) return true;
-    return g.boxes.some((b: any) => {
-      const d = b?.dimensions || {};
-      const w = b?.weight || {};
-      const uom = d?.unitOfMeasurement;
-      if (!(Number(d.length) > 0 && Number(d.width) > 0 && Number(d.height) > 0)) return true;
-      if (!(typeof uom === "string" && uom.length)) return true;
-      if (!(Number(w.value) > 0 && typeof w.unit === "string" && w.unit.length)) return true;
-      if (!(Number(b?.quantity) > 0)) return true;
-      if (b?.contentInformationSource === "BOX_CONTENT_PROVIDED") {
-        if (!Array.isArray(b?.contents) || !b.contents.length) return true;
-        const badContent = b.contents.some((c: any) => !(c?.msku && Number(c?.quantityInBox) > 0));
-        if (badContent) return true;
-      } else {
-        if (Array.isArray(b?.contents) && b.contents.length) return true;
-      }
-      return false;
-    });
-  });
-    if (invalidGrouping) {
-      return new Response(JSON.stringify({ error: "packageGroupings are invalid (missing boxes dimensions/weight/items)", traceId }), {
+    if (!requestId) {
+      return new Response(JSON.stringify({ error: "request_id este necesar", traceId }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
@@ -626,7 +500,7 @@ serve(async (req) => {
       .maybeSingle();
     if (reqErr) throw reqErr;
     if (!reqData) {
-      return new Response(JSON.stringify({ error: "Request not found" }), {
+      return new Response(JSON.stringify({ error: "Request not found", traceId }), {
         status: 404,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
@@ -683,193 +557,183 @@ serve(async (req) => {
       throw new Error("No active Amazon integration found for this company");
     }
 
-    const refreshToken = integ.refresh_token;
     const marketplaceId = marketplaceOverride || inferredMarketplace || integ.marketplace_id || "A13V1IB3VIYZZH";
     const regionCode = (integ.region || "eu").toLowerCase();
     const awsRegion = regionCode === "na" ? "us-east-1" : regionCode === "fe" ? "us-west-2" : "eu-west-1";
     const host = regionHost(regionCode);
     const sellerId = await resolveSellerId(reqData.company_id, (integ as any).selling_partner_id);
     if (!sellerId) {
-      return new Response(JSON.stringify({ error: "Missing seller id. Set selling_partner_id in amazon_integrations or SPAPI_SELLER_ID env.", traceId }), {
+      return new Response(JSON.stringify({ error: "Missing seller id", traceId }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
 
     const tempCreds = await assumeRole(SPAPI_ROLE_ARN);
-    const lwaAccessToken = await getLwaAccessToken(refreshToken);
+    const lwaAccessToken = await getLwaAccessToken(integ.refresh_token);
 
-    const basePath = "/inbound/fba/2024-03-20";
-    console.log("set-packing payload-meta", {
-      traceId,
-      packageGroupingsCount: packageGroupings.length
-    });
-    const payload = JSON.stringify({ packageGroupings });
+    const v2024BasePath = "/inbound/fba/2024-03-20";
+    let method = "GET";
+    let path = "";
+    let query = "";
+    let payload = "";
+
+    switch (action) {
+      case "get_labels_v0": {
+        if (!shipmentId) {
+          return new Response(JSON.stringify({ error: "shipment_id este necesar pentru get_labels_v0", traceId }), {
+            status: 400,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+        const pageType = body?.page_type ?? body?.pageType ?? null;
+        const labelType = body?.label_type ?? body?.labelType ?? null;
+        if (!pageType || !labelType) {
+          return new Response(JSON.stringify({ error: "page_type și label_type sunt necesare", traceId }), {
+            status: 400,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+        const params = new URLSearchParams();
+        params.set("PageType", String(pageType));
+        params.set("LabelType", String(labelType));
+        if (body?.number_of_packages ?? body?.numberOfPackages) {
+          params.set("NumberOfPackages", String(body?.number_of_packages ?? body?.numberOfPackages));
+        }
+        if (Array.isArray(body?.package_labels_to_print ?? body?.packageLabelsToPrint)) {
+          for (const v of body?.package_labels_to_print ?? body?.packageLabelsToPrint) {
+            params.append("PackageLabelsToPrint", String(v));
+          }
+        }
+        if (body?.number_of_pallets ?? body?.numberOfPallets) {
+          params.set("NumberOfPallets", String(body?.number_of_pallets ?? body?.numberOfPallets));
+        }
+        if (body?.page_size ?? body?.pageSize) {
+          params.set("PageSize", String(body?.page_size ?? body?.pageSize));
+        }
+        if (body?.page_start_index ?? body?.pageStartIndex) {
+          params.set("PageStartIndex", String(body?.page_start_index ?? body?.pageStartIndex));
+        }
+        method = "GET";
+        path = `/fba/inbound/v0/shipments/${encodeURIComponent(String(shipmentId))}/labels`;
+        query = params.toString();
+        payload = "";
+        break;
+      }
+      case "list_inbound_plan_boxes": {
+        if (!inboundPlanId) {
+          return new Response(JSON.stringify({ error: "inbound_plan_id este necesar", traceId }), {
+            status: 400,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+        method = "GET";
+        path = `${v2024BasePath}/inboundPlans/${encodeURIComponent(String(inboundPlanId))}/boxes`;
+        query = "";
+        payload = "";
+        break;
+      }
+      case "list_shipment_boxes": {
+        if (!inboundPlanId || !shipmentId) {
+          return new Response(JSON.stringify({ error: "inbound_plan_id și shipment_id sunt necesare", traceId }), {
+            status: 400,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+        method = "GET";
+        path = `${v2024BasePath}/inboundPlans/${encodeURIComponent(String(inboundPlanId))}/shipments/${encodeURIComponent(String(shipmentId))}/boxes`;
+        query = "";
+        payload = "";
+        break;
+      }
+      case "list_shipment_items": {
+        if (!inboundPlanId || !shipmentId) {
+          return new Response(JSON.stringify({ error: "inbound_plan_id și shipment_id sunt necesare", traceId }), {
+            status: 400,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+        method = "GET";
+        path = `${v2024BasePath}/inboundPlans/${encodeURIComponent(String(inboundPlanId))}/shipments/${encodeURIComponent(String(shipmentId))}/items`;
+        query = "";
+        payload = "";
+        break;
+      }
+      case "get_shipment": {
+        if (!inboundPlanId || !shipmentId) {
+          return new Response(JSON.stringify({ error: "inbound_plan_id și shipment_id sunt necesare", traceId }), {
+            status: 400,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+        method = "GET";
+        path = `${v2024BasePath}/inboundPlans/${encodeURIComponent(String(inboundPlanId))}/shipments/${encodeURIComponent(String(shipmentId))}`;
+        query = "";
+        payload = "";
+        break;
+      }
+      case "update_shipment_tracking_details": {
+        if (!inboundPlanId || !shipmentId) {
+          return new Response(JSON.stringify({ error: "inbound_plan_id și shipment_id sunt necesare", traceId }), {
+            status: 400,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+        method = "PUT";
+        path = `${v2024BasePath}/inboundPlans/${encodeURIComponent(String(inboundPlanId))}/shipments/${encodeURIComponent(String(shipmentId))}/trackingDetails`;
+        payload = JSON.stringify({
+          trackingDetails: body?.tracking_details ?? body?.trackingDetails ?? {}
+        });
+        break;
+      }
+      default:
+        return new Response(JSON.stringify({ error: `Unknown action: ${action}`, traceId }), {
+          status: 400,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+    }
 
     const res = await signedFetchWithRetry({
-      method: "POST",
+      method,
       service: "execute-api",
       region: awsRegion,
       host,
-      path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingInformation`,
-      query: "",
+      path,
+      query,
       payload,
       accessKey: tempCreds.accessKeyId,
       secretKey: tempCreds.secretAccessKey,
       sessionToken: tempCreds.sessionToken,
       lwaToken: lwaAccessToken,
       traceId,
-      operationName: "inbound.v20240320.setPackingInformation",
+      operationName: action,
       marketplaceId,
       sellerId
     });
 
     if (!res?.res?.ok) {
-      const status = res?.res?.status || null;
-      const bodyText = res?.text || "";
-      const placementAlreadyConfirmed =
-        status === 400 &&
-        bodyText.toLowerCase().includes("placement option is already confirmed");
-
-      // dacă placement-ul este deja confirmat, Amazon nu mai permite setPackingInformation;
-      // tratăm ca succes ca să nu blocăm flow-ul (Amazon are placement confirmat).
-      if (placementAlreadyConfirmed) {
-        return new Response(
-          JSON.stringify({
-            ok: true,
-            skipped: true,
-            reason: "placement_already_confirmed",
-            traceId
-          }),
-          { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
-        );
-      }
-
       return new Response(
         JSON.stringify({
-          error: "SetPackingInformation failed",
-          status,
-          body: bodyText || null,
+          error: "Amazon request failed",
+          status: res?.res?.status || null,
+          body: res?.text || null,
           traceId
         }),
         { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
 
-    let placementOptionId: string | null = null;
-    let placementOptions: any[] = [];
-
-    const pollOperationStatus = async (operationId: string) => {
-      for (let attempt = 1; attempt <= 8; attempt++) {
-        const statusRes = await signedFetchWithRetry({
-          method: "GET",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/operations/${encodeURIComponent(operationId)}`,
-          query: "",
-          payload: "",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.getOperationStatus",
-          marketplaceId,
-          sellerId
-        });
-        const state =
-          statusRes?.json?.payload?.state ||
-          statusRes?.json?.payload?.operationStatus ||
-          statusRes?.json?.state ||
-          statusRes?.json?.operationStatus ||
-          null;
-        const stateUp = String(state || "").toUpperCase();
-        if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp) || statusRes?.res?.status >= 400) {
-          return statusRes;
-        }
-        await delay(Math.min(500 * attempt, 3000));
-      }
-      return null;
-    };
-
-    if (generatePlacementOptions) {
-      const genPlacement = await signedFetchWithRetry({
-        method: "POST",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
-        query: "",
-        payload: "{}",
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.generatePlacementOptions",
-        marketplaceId,
-        sellerId
-      });
-      const opId =
-        genPlacement?.json?.payload?.operationId ||
-        genPlacement?.json?.operationId ||
-        null;
-      if (opId) await pollOperationStatus(opId);
-
-      const listPlacement = await signedFetchWithRetry({
-        method: "GET",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
-        query: "",
-        payload: "",
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.listPlacementOptions",
-        marketplaceId,
-        sellerId
-      });
-      placementOptions =
-        listPlacement?.json?.payload?.placementOptions ||
-        listPlacement?.json?.placementOptions ||
-        [];
-      placementOptionId =
-        placementOptions?.[0]?.placementOptionId ||
-        placementOptions?.[0]?.id ||
-        null;
-    }
-
-    // persist inbound/packing IDs (idempotent)
-    try {
-      await supabase
-        .from("prep_requests")
-        .update({
-          inbound_plan_id: inboundPlanId,
-          packing_option_id: packingOptionId,
-          ...(placementOptionId ? { placement_option_id: placementOptionId } : {})
-        })
-        .eq("id", requestId);
-    } catch (persistErr) {
-      console.error("persist packing_option_id failed", { traceId, error: persistErr });
-    }
-
     return new Response(
       JSON.stringify({
         ok: true,
-        placementOptionId,
-        placementOptions,
+        data: res?.json || null,
         requestId: res?.requestId || null,
         traceId
       }),
       { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
     );
   } catch (e) {
-    console.error("fba-set-packing-information error", { traceId, error: e });
+    console.error("fba-inbound-actions error", { traceId, error: e });
     return new Response(JSON.stringify({ error: e?.message || "Server error", detail: `${e}`, traceId }), {
       status: 500,
       headers: { ...corsHeaders, "content-type": "application/json" }
