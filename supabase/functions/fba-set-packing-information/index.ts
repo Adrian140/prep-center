@@ -507,6 +507,21 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+  console.log(
+    JSON.stringify(
+      {
+        tag: "fba-set-packing-information:incoming",
+        traceId,
+        method: req.method,
+        url: req.url,
+        origin,
+        hasAuth: !!req.headers.get("authorization"),
+        timestamp: new Date().toISOString()
+      },
+      null,
+      2
+    )
+  );
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
@@ -538,6 +553,25 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
+    console.log(
+      JSON.stringify(
+        {
+          tag: "fba-set-packing-information:body",
+          traceId,
+          keys: Object.keys(body || {}),
+          inbound_plan_id: body?.inbound_plan_id ?? body?.inboundPlanId ?? null,
+          packing_option_id: body?.packing_option_id ?? body?.packingOptionId ?? null,
+          packing_groups_count: Array.isArray(body?.packing_groups)
+            ? body.packing_groups.length
+            : Array.isArray(body?.packingGroups)
+            ? body.packingGroups.length
+            : 0,
+          timestamp: new Date().toISOString()
+        },
+        null,
+        2
+      )
+    );
     const requestId = body?.request_id ?? body?.requestId;
     const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
     const packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
