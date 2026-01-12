@@ -120,6 +120,12 @@ function kgToLb(kg: any) {
   return num * 2.2046226218;
 }
 
+function lbToKg(lb: any) {
+  const num = Number(lb);
+  if (!Number.isFinite(num)) return 0;
+  return num / 2.2046226218;
+}
+
 async function sha256(message: string): Promise<string> {
   const data = new TextEncoder().encode(message);
   const hash = await crypto.subtle.digest("SHA-256", data);
@@ -1394,6 +1400,18 @@ serve(async (req) => {
     const configsByShipment = new Map<string, any>(
       shipmentTransportationConfigurations.map((c: any) => [String(c.shipmentId), c])
     );
+    const EU_MARKETPLACES = new Set([
+      "A13V1IB3VIYZZH", // FR
+      "A1RKKUPIHCS9HS", // ES
+      "APJ6JRA9NG5V4", // IT
+      "A1PA6795UKMFR9", // DE
+      "A1F83G8C2ARO7P", // UK
+      "A1805IZSGTT6HS", // NL
+      "A1C3SOZRARQ6R3", // PL
+      "A2Q3Y263D00KWC", // BE
+      "A2NODRKZP88ZB9" // SE
+    ]);
+    const isEuMarketplace = EU_MARKETPLACES.has(String(marketplaceId || "").trim());
     const hasPallets = shipmentTransportationConfigurations.some(
       (c: any) => Array.isArray(c?.pallets) && c.pallets.length > 0
     );
@@ -1439,6 +1457,64 @@ serve(async (req) => {
         }),
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
+    }
+
+    // EU SPD partnered hard limits (23 kg și max 63.5 cm pe latură) + avertizare non-blocantă la 15 kg
+    const spdWarnings: string[] = [];
+    if (includePackages && isEuMarketplace) {
+      const SPD_MAX_SIDE_IN = 25; // 63.5 cm
+      const SPD_HARD_MAX_WEIGHT_LB = kgToLb(23); // 23 kg limit
+      const SPD_WARN_WEIGHT_LB = kgToLb(15); // 15 kg: cere eticheta "Heavy package"
+      const spdErrors: string[] = [];
+
+      shipmentTransportationConfigurations.forEach((cfg, cfgIdx) => {
+        const pkgs = Array.isArray(cfg?.packages) ? cfg.packages : [];
+        pkgs.forEach((pkg, pkgIdx) => {
+          const weightLb = Number(pkg?.weight?.value || 0);
+          const dims = pkg?.dimensions || {};
+          const sides = [dims?.length, dims?.width, dims?.height].map((n) => Number(n || 0));
+          const maxSide = Math.max(...sides);
+
+          if (weightLb > SPD_HARD_MAX_WEIGHT_LB) {
+            spdErrors.push(
+              `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: ${weightLb.toFixed(
+                2
+              )} lb (${lbToKg(weightLb).toFixed(2)} kg) depășește 23 kg - împarte cutia sau folosește LTL.`
+            );
+          } else if (weightLb >= SPD_WARN_WEIGHT_LB) {
+            spdWarnings.push(
+              `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: ${weightLb.toFixed(
+                2
+              )} lb (${lbToKg(weightLb).toFixed(
+                2
+              )} kg) ≥ 15 kg - adaugă eticheta "Heavy package"; SPD PCP poate să nu fie disponibil.`
+            );
+          }
+
+          if (Number.isFinite(maxSide) && maxSide > SPD_MAX_SIDE_IN) {
+            spdErrors.push(
+              `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: latura maximă ${maxSide.toFixed(
+                2
+              )} in (${(maxSide * 2.54).toFixed(
+                2
+              )} cm) depășește 63.5 cm. SPD PCP nu este disponibil; ajustează cutia sau folosește LTL.`
+            );
+          }
+        });
+      });
+
+      if (spdErrors.length) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "Coletele nu respectă regulile SPD (EU): max 23 kg și max 63.5 cm pe latură.",
+            code: "SPD_PACKAGE_NOT_ELIGIBLE",
+            details: spdErrors,
+            traceId
+          }),
+          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
     }
 
     if (!effectivePackingOptionId) {
@@ -1925,6 +2001,10 @@ serve(async (req) => {
     const forcePartneredOnly =
       body?.force_partnered_only ?? body?.forcePartneredOnly ?? false;
     const wantPartnered = Boolean(forcePartneredOnly || forcePartneredIfAvailable);
+
+    if (spdWarnings.length) {
+      summary["warnings"] = spdWarnings;
+    }
 
     if (forcePartneredOnly && !partneredOpt) {
       return new Response(

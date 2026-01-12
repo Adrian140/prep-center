@@ -83,6 +83,263 @@ flowchart TD
 
   S12 --> S13
 ```
+### Small parcel delivery to Amazon
+Small parcel delivery to Amazon
+On this page
+Boxes preparation
+Guidelines for carriers
+Preferred small parcel carriers
+Amazon Partnered Carrier programme
+Important: For a one-year period starting April 12, 2022, we will provide an average discount of 50% on Amazon Partnered Carrier programme fees for domestic FBA shipments sent to fulfilment centres in Germany, France, Italy and Spain. To learn more about this discount, go to Amazon Partnered Carrier programme promotional discount FAQ.
+Important: Failure to comply with Fulfilment by Amazon product preparation requirements, safety requirements and product restrictions may result in the refusal of inventory at Amazon fulfilment centres, disposal or return of inventory, blocking of future shipments to fulfilment centres, or charging for preparation or for non-compliance. Share these requirements with your carrier or vendor to ensure that they fully understand and adhere to these requirements.
+The following requirements apply to all small parcel deliveries shipped to Amazon fulfilment centres.
+
+Boxes preparation
+All small parcel delivery boxes must have delivery labels.
+Indicate the number of box labels that you will need (one per box) and print them using a laser printer. Do not use inkjet printers as barcodes may become not scannable due to the ink smudging or running.
+Do not include messaging on shipment labels or other labels applied to boxes.
+Box dimensions must not exceed 63.5 cm on any side unless the dimension of a single shippable unit exceeds 63.5 cm in itself.
+Each box must weigh no more than 23 kg, unless it contains one single oversized product that exceeds 23 kg. Boxes weighing more than 15 kg must be marked as “Heavy package”, which must be visible from both the top and sides of each heavy weight container. Boxes that weigh more than 23 kg must be broken down into smaller shipment weights.
+Place each label on the outside of each box, taking care to ensure that the physical contents of the box match with the box number in the shipping plan.
+Position the labels so that they will be easily visible when receiving at the fulfilment centre and do not cross the box seam.
+Print the full set of labels. As each label is unique, do not photocopy, reuse or modify it for use on additional boxes.
+Shipment labels must not be placed on the seam of the box, where they can be damaged when the box is opened, which makes the barcodes not scannable.
+Whenever possible, place shipment labels no closer than 3 cm or 1.25’’ from any natural edge of the box, in such a way that the tape used to seal the box does not cover any barcode or critical information.
+Guidelines for carriers
+Only professional carriers are allowed to make delivery appointments with Amazon fulfilment centres. Amazon does not allow general public deliveries.
+Carriers must adhere to our delivery requirements and safety standards.
+All carriers must supply evidence that goods were handed over to the designated Amazon fulfilment centre. Proof is provided by a time stamp for drop-off at Amazon premises and the signature or name of an Amazon employee.
+Important: Bear in mind that your shipments to Germany that are assigned to fulfilment centres in Poland or Czechia and not using the Partnered Carrier programme with DHL will be directed to logistic service providers. The addresses will be automatically generated during the shipment creation in Seller Central on your shipping label.
+The address of the WRO5 fulfilment centre is the Finsterwalder hub in Halle/Saale:
+
+Finsterwalder Transport und Logistik GmbH
+Schieferstraße 16 
+06126 Halle/Saale 
+To schedule an appointment for a small-parcel shipment with the Finsterwalder hub, your carrier needs to book an appointment at Finsterwalder Booking to avoid waiting times.
+
+The address of the other fulfilment centre in Poland and Czechia is the SLAM hub in Oschatz:
+
+Slam Poland Sp. z o.o.
+Am Zeugamt 6
+04758 Oschatz 
+To schedule an appointment for a small-parcel shipment with the SLAM hub in Oschatz, your carrier needs to book an appointment at SLAM Booking and book a slot to avoid waiting times.
+
+Preferred small parcel carriers
+Only professional carriers can book a delivery slot with Amazon hubs. We strongly recommend using one of the preferred parcel carriers listed below. These carriers deliver at regular, pre-arranged times.
+
+You can find below a list of carriers that you can use for small parcel deliveries to Amazon fulfilment centres in the UK.
+
+Carrier	Milton Keynes	Dunfermline	Gourock	Peterborough	Swansea	Doncaster	Rugeley	Hemel Hempstead LTN2	Peterborough UNO-EUKA	Coalville BHX2	Dunstable LTN4	Manchester MAN1	Daventry XUKD
+LTN1	EDI4	GLA1	EUK5	CWL1	LBA1	BHX1
+Parceline/DPD	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes
+DHL	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	
+Business Post/UK Mail	Yes	Yes		Yes	Yes	Yes	Yes	Yes	Yes	Yes		Yes	
+TNT	Yes			Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	
+ParcelForce	Yes	Yes		Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	
+FedEx	Yes				Yes	Yes	Yes	Yes	Yes		Yes	Yes	
+UPS	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes	Yes
+City Link	Yes												
+“Yes” means that a standing appointment already exists at the location.
+
+Amazon Partnered Carrier programme
+With the Amazon Partnered Carrier programme, you can make small parcel deliveries at discounted rates.
+
+Carriers that provide this service are as follows:
+
+UPS in Germany, France, Italy, Spain, Sweden, Poland, the Netherlands, Belgium, Austria, Denmark, Portugal, Ireland and the Czech Republic
+
+DHL in Germany
+
+Learn more about the Amazon Partnered Carrier programme.
+
+If you are using an Amazon-partnered carrier, you must enter the dimensional data for your small parcel delivery boxes. These dimensions are used to calculate dimensional weight, which can be used to determine fees if the dimensional weight exceeds the actual weight.
+
+
+
+### LTL programme eligibility
+Amazon Partnered Carrier Programme (PCP) – Pallet deliveries, Less-Than-Truckload (LTL), Full-Truckload (FTL)
+On this page
+LTL/FTL Partnered Carrier Programme (PCP) – Overview and benefits
+LTL programme eligibility
+Less than truckload delivery programme benefits
+Less than truckload PCP cost calculation – Fees
+Booking a shipment with PCP less than truckload in Seller Central
+Tracking with PCP less than truckload delivery
+Other important programme information
+Frequently asked questions
+To learn more about shipping small parcels and pallets with the Amazon Partnered Carrier Programme, watch this Seller University video.
+
+
+
+LTL/FTL Partnered Carrier Programme (PCP) – Overview and benefits
+Important: On 1 January 2021, we updated the workflow for shipments between the UK and the EU using the Amazon Partnered Carrier Programme. For these shipments, you must be customs compliant and prepare documentation for customs clearance. For more information, go to Cross-border shipment workflow: FAQ.
+With the Amazon Partnered Carrier Programme (PCP), sellers using Fulfilment by Amazon (FBA) can send eligible shipments to fulfilment centres across Europe at discounted rates. The programme is available for both small parcel deliveries (SPD) and palletised less than truckload delivery/full truckload (LTL/FTL) shipments. This help page will specifically focus on the PCP LTL service.
+
+Before checking if your shipment is eligible for PCP less than truckload delivery, ensure that you have familiarised yourself with the general PCP guidelines that will apply next to the guidelines set below. For the general information about the PCP programme, go to Amazon Partnered Carrier Programme (PCP) – Overview help page.
+
+For more information on the Amazon small parcel delivery service, go to Amazon Partnered Carrier Programme (PCP) – Small parcel deliveries (SPD) help page.
+
+LTL programme eligibility
+For your shipment to be eligible to be inbounded with PCP LTL delivery, the following conditions must apply:
+
+Pallet guidelines – Pallets must be non-stackable. Pallet exchange is not offered with the programme. Oversized pallets are not accepted with the programme. Pallet dimensions are not allowed to exceed:
+Shipments to the UK: 120 x 100 x 180 cm GMA grade B or higher or CHEP (L x W x H) and a maximum number of 26 pallets per shipment
+Shipment to the EU: 120 x 80 x 180 Euro/CHEP (L x W x H) and a maximum number of 33 pallets per shipment
+Max. weight for all shipments: 500 kg per pallet
+It is now allowed to deliver products in pallets boxes (aka palletainers or bulk boxes) across the entire EU Customer Fulfilment (EU CF) network.
+Product guidelines – Dangerous and hazardous goods cannot be sent via PCP LTL even if you are part of the FBA Hazmat programme. Heavy and bulky items can only be sent via PCP LTL if the pallet guidelines above are adhered to.
+Postcode guidelines – Your fulfilment centre must be located in UK, Germany, France, Italy, Spain, Netherlands, Poland, Sweden or Czech Republic. Furthermore, the following postcodes cannot be serviced at all by PCP LTL at the moment:
+Territory	Postcodes
+Germany	18565, 25845, 25846–25847, 25849, 25859, 25863, 25869, 25929–25933, 25938–25942, 25946–25949, 25952–25955, 25961–25970, 25980, 25985–25986, 25988–25990, 25992–25994, 25996–25999, 26465, 26474, 26486, 26548, 26571, 26579, 26757, 27400, 27498, 83209, 83256
+Spain	Balears: 07000–07999, Canary Islands: 35000–35999, 38000–38999, Ceuta and Melilla: 51000–52999
+France	17410, 17580, 17590, 17630, 17670, 17740, 17880, 17940, 22870, 29242, 29253, 29259, 56360, 56590, 56780, 85330, 85350, Corsica: 20000–20999
+United Kingdom	BT1–82, BT92–94, BT99, GY1–9, HS1–9, IM1–9, IV1–28, IV 36, IV40–56, IV63, JE1–4, KA 27–28, KW1–17, PA20–38, PA41–78, PH18–26, PH31–44, PO30–41, TR20–25, ZE1–3
+Packaging guidelines – Your shipment must be prepared and packed according to the Fulfilment by Amazon guidelines. For more information, go to Arranging for an LTL or truckload delivery to Amazon.
+Fulfilment centre guidelines – Your fulfilment centre must be easily accessible and clearly identifiable with the information provided by you (name of fulfilment centre is clearly visible and communicated correctly to Amazon during booking process). When a forklift is not available, this is communicated to the carrier beforehand. Your fulfilment centre must be available on the day of pick-up between 08:00 and 16:00.
+Pick-up guidelines – During collection, the carrier driver will use the Amazon reference number (ARN) to identify your shipment. Ensure that your warehouse and security guard (if applicable) know the ARN to complete the pick-up. You can find the ARN in Seller Central.
+Carrier guidelines – Next to the general PCP guidelines and the PCP LTL guidelines mentioned above, ensure that you follow the carrier-specific guidelines too. For more information, go to RXO and Kuehne & Nagel help page.
+Less than truckload delivery programme benefits
+Sellers participating in the Amazon Partnered Carrier programme can benefit from the following:
+
+Access to competitive rates negotiated by Amazon with partnered carriers.
+Fast transit times from carriers with experience shipping into Amazon.
+Simplified booking experience by paying for shipments within Seller Central.
+Schedule collections in Seller Central for less than LTLs.
+Use Seller Central to print labels and track deliveries for less than truckload delivery deliveries.
+Have a direct line to the carrier servicing your shipment to receive quick resolutions.
+All shipments sent with the Partnered Carrier programme fall under the FBA lost and damaged inventory reimbursement policy.
+Less than truckload PCP cost calculation – Fees
+The best way to view partnered carrier fees for your shipment is to have a look in Seller Central once a shipment has been created:
+
+In the new shipment creation workflow, complete step 1, adding all ASIN and box information. Once finished, you will be able to see the estimated cost for the Partnered Carrier Programme by looking at Shipping mode > Less than truckload (LTL) > Select shipping carrier.
+For less than truckload delivery, fees are calculated based on pickup location postcode, destination fulfilment centre postcode and number of pallets being sent out. Take a look at the three examples below to get an idea of how fees are calculated and how the postcodes and number of pallets affects the price:
+Note: As fees may change over time, the examples below may only be used as a general indication of how fees are calculated. Do not use them as a standard rule.
+Fee calculation example 1 – Seller A is sending 1 pallet from their fulfilment centre in Germany with postcode 10023 to DTM2 (an Amazon fulfilment centre located near Dortmund, Germany).
+
+Pick-up postcode is 10023 in Germany and destination postcode is 44145
+Between those two postcodes, the price per pallet via PCP less than truckload delivery when sending 1 pallet = €49.44
+Total cost for seller A: €49.44
+Fee calculation example 2 – Seller A is sending a second shipment with 8 pallets from their fulfilment centre in Germany with postcode 10023 to DTM2 (an Amazon fulfilment centre located near Dortmund, Germany).
+
+Pick-up postcode is 10023 in Germany and destination postcode is 44145
+Between those two postcodes, the price per pallet via PCP less than truckload delivery when sending 8 pallets = €35.36
+Total cost for seller A: 8 X €35.36 = €282.88
+Fee calculation example 3 – Seller A is sending a third shipment with 8 pallets to DTM2 (an Amazon fulfilment centre located near Dortmund, Germany); however, they are using their second fulfilment centre located in France (25512).
+
+Pick-up postcode is 25512 in France and destination postcode is 44145
+Between those two postcodes, the price per pallet via PCP less than truckload delivery when sending 8 pallets = €78.98
+Total cost for seller A: 8 X €78.98 = €631.84
+Note: The examples shown above are excluding current promotions running on the programme. Amazon is running a promotion on inbounding stock into FBA. For more information, review the section Current FBA Promotions on the main Amazon Partnered Carrier Programme page.
+Booking a shipment with PCP less than truckload in Seller Central
+Booking a shipment in Seller Central
+
+To participate in this programme, follow these steps in Seller Central:
+
+Create a new shipment/replenishment in Seller Central.
+Select the SKUs that you want to send to Amazon.
+Select pick-up destination and destination store.
+Important: Ensure that you fill in all information when entering your address (company name, street, postcode) and that the correct address is entered when using a third-party warehouse. This information will be sent to the carrier to finalise your shipment. Incorrect and missing information will cause a failed collection.
+Select Amazon Partnered Carrier programme LTL in the shipment creation workflow.
+Enter the point of contact for the shipment.
+Important: Ensure that you fill in all information when entering your point of contact (name, email address, phone number) and that the person is easily reachable at all times. This information will be used by carriers to confirm your shipment or inform you of any delays/issues with your shipment. Incorrect contact details will result in a bad experience with the programme.
+Enter the details of your delivery and accept the terms and conditions for the programme.
+Important: Carefully review the Amazon Partnered Carrier terms and conditions and the carrier-specific terms and conditions. Go to the section above: LTL carrier you will work with .
+Click Accept charges.
+After finalising the shipment, you will be able to start tracking the shipment in Seller Central as well. For more information, refer to the Tracking with PCP less than truckload delivery section below.
+Tracking with PCP less than truckload delivery
+One of the main benefits of using PCP is that you will have end-to-end visibility into the shipping process until your goods have arrived at an Amazon fulfilment centre. For PCP less than truckload delivery, this is done via two portals that you can access: 1) Seller Central and 2) Carrier-specific tracking portals.
+
+Here is a quick overview on how to use the tracking with PCP LTL effectively:
+
+Tracking in Seller Central
+
+Once shipments have been created, we provide updates in Seller Central on the Shipment events tab of each shipment.
+
+On the same page, you will also see a tab called Track shipment. If you are using PCP less than truckload delivery and your shipment has been tendered to a carrier, you will receive the Amazon reference number (ARN) there. The ARN will be used by the carrier to identify your shipment during collection.
+
+Lastly, under the tab Contents, you will see if all units have been received by the fulfilment centre. If there is a discrepancy, you will be able to start an investigation from here with Amazon as well.
+
+Other important programme information
+Carrier and seller interactions – Investigate a missed collection with the carrier
+
+It is very important to note that all questions and issues will need to be handled directly with the carrier who is servicing your shipment until the goods have been shipped to an Amazon fulfilment centre. Queries that should be directly handled with the carrier are the following:
+
+Pickup appointment change (only if within two working days)
+Finalisation of shipment details
+Missed pick-up/failed pick-up enquiries (unless you had not received any confirmation email, in which case, it may mean the carrier is not yet ready to pick up from you).
+Pick-up confirmation
+Pickup time
+Shipment rejection reasons
+Pickup process clarifications
+Cross-border enquiries
+Shipping delays, that is, goods have been picked up at your warehouse, but still have not arrived at the Amazon fulfilment centre after 48 hours.
+Issues with accessing the carrier portal.
+To contact the PCP less than truckload delivery carriers, use contact details on carrier-specific help pages RXO (formerly UPS SCS) and Kuehne & Nagel.
+
+Amazon and seller interactions – Investigate a shipment that has arrived at an Amazon fulfilment centre
+
+When your shipment has been completed and has the status Closed, that means your goods have completed shipping and has arrived at an Amazon fulfilment centre. Enquiries need to be directed to Amazon Selling Partner Support via a case in Seller Central. Investigations that are supported by Amazon when a signed and stamped POD is provided are:
+
+Missing shipment investigations
+Missing unit investigations
+Reimbursement requests for PCP LTL costs
+Reimbursement requests for missing units
+To receive a signed and stamped POD (if available), go to the section Receiving a delivery confirmation for PCP LTL shipments below.
+
+Cancelling a shipment with PCP less than truckload delivery
+
+For PCP LTLs, you can cancel up to one hour after approving the estimated shipping charges. If your shipment pick-up date is more than two working days away, you must cancel your shipment in Seller Central and create a case with Selling Partner Support to request a refund. Go to your shipping queue and follow these steps:
+
+Locate the shipment and click Work on shipment.
+Click the Provide details tab.
+Click Void charges.
+Note: Cancelling the delivery does not cancel the charges. You must follow the instructions above to ensure that a pickup doesn’t take place and that charges don’t apply.
+Editing a PCP LTL
+
+Currently, we cannot process shipment changes through Seller Central. If your pick-up is within two working days (such as when you are enquiring on a Monday and your pick-up is on Wednesday), directly contact your carrier to reschedule/amend the shipment:
+
+If your pick-up date is in more than two working days away, cancel your shipment in Seller Central and create a case with Selling Partner Support to request a full refund. Then create a new shipment with the correct information.
+
+Documentation requirements for PCP less than truckload delivery – Labels and bill of lading (BOL)
+
+Each carrier requires different documentation for picking up pallets, please review details on carrier-specific help pages RXO (formerly UPS SCS) and Kuehne & Nagel.
+
+Furthermore, a bill of lading (BOL) will be required if two or more PCP LTLs are being picked up with the same truck. The BOL will be available in Seller Central on the day your shipment is being picked up by the carrier. Print the BOL and ensure that the driver signs off the document when you hand over the shipment.
+
+Note: Cross-border shipments require additional documentation. For more information, go to Amazon Partnered Carrier programme – Cross-border shipment workflow.
+Using a third-party warehouse for PCP LTLs
+
+If you are working with a third-party warehouse as the collection point for your PCP LTL, ensure the following:
+
+Pick-up address is correctly updated in Seller Central before the shipment is completed.
+The warehouse is aware of the pallet guidelines in the programme and adheres to them. Not following the pallet guidelines will result in rejection of the shipment at the fulfilment centre.
+Shipment has been prepared per the guidelines before the carrier appears for collection and is not only being prepared when the carrier arrives.
+The warehouse has been made aware of the pick-up date when this has been confirmed via email by the carrier.
+The warehouse is aware of the Amazon reference number (ARN) and carrier job number and knows that these references will be used when the shipment is being picked up by the carrier.
+The warehouse has been made aware of the carrier-specific requirements and will adhere to them.
+The warehouse has a direct contact to you if something needs to be clarified during the pick-up of the shipment.
+Frequently asked questions
+
+Will Amazon send me a confirmation of my shipment?
+Yes. On the day before the arranged pickup, we will send you an email confirming the contents of the shipment, the pickup date and the primary point of contact. If you don’t receive this email by 2 p.m., raise a case with Selling Partner Support.
+
+Can I get a confirmation receipt from the carrier after the driver picks up my shipment?
+Yes, all carriers can sign a printed copy of the shipment confirmation that we send (see question above). This document can be used as proof of collection for your shipment.
+
+Are there any restrictions on my pickup location?
+
+Amazon’s partnered carriers cannot pick up from any ocean shipping terminal or port location. You must transfer your products to a shipping location outside the terminal or port, that can accommodate the carrier’s equipment.
+
+Pickup from islands is excluded from the regular offer, and requires individual alignment with the carrier. For the full list, go to Amazon Partnered Carrier programme.
+
+I ship my products to Amazon directly from the manufacturer or distributor. Can I still use the Partnered Carrier Programme?
+
+Yes. All that you need are the shipment details when creating the shipment in Seller Central.
+
+For example, if you want to use the Small Parcel Delivery (SPD) service, you must provide the number of boxes, and the weight and dimensions of each box, to get an estimated rate and print the shipping labels. Enter the manufacturer’s address as the ships-from location. Once you have printed the labels, send them to your manufacturer. Either you or your manufacturer must contact the carrier to organise the pickup.
+
+Similarly, when selecting the Less than Truckload (LTL) service, you must provide the number of pallets, and the weight and dimensions of each pallet, to get an estimated rate. It’s best practice to include the supplier as the main point of contact for your business (provided in shipment booking) to organise the pickup. This will ensure that the carrier contacts the supplier to coordinate the pickup.
+
 ### generatePackingOptions
 curl --request POST \
      --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/packingOptions \
