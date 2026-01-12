@@ -966,6 +966,29 @@ serve(async (req) => {
     const packingOptions = extractPackingOptionsFromResponse(listRes);
     const mergedPackingOptions = packingOptions.length ? packingOptions : planPackingOptionFromPlan ? [planPackingOptionFromPlan] : [];
 
+    const extractPackingGroupIds = (option: any) => {
+      const ids = new Set<string>();
+      const direct = option?.packingGroups || option?.PackingGroups || [];
+      (Array.isArray(direct) ? direct : []).forEach((g: any) => {
+        if (typeof g === "string") {
+          ids.add(g);
+          return;
+        }
+        const id = g?.packingGroupId || g?.PackingGroupId || g?.id || g?.groupId || g?.group_id;
+        if (id) ids.add(String(id));
+      });
+      const rawIds =
+        option?.packingGroupIds ||
+        option?.PackingGroupIds ||
+        option?.packing_group_ids ||
+        option?.packing_group_id_list ||
+        [];
+      (Array.isArray(rawIds) ? rawIds : [rawIds]).forEach((id: any) => {
+        if (id) ids.add(String(id));
+      });
+      return Array.from(ids.values());
+    };
+
     const pickPackingOption = (options: any[]) => {
       if (!Array.isArray(options) || !options.length) return null;
       const normalizeStatus = (val: any) => String(val || "").toUpperCase();
@@ -992,11 +1015,18 @@ serve(async (req) => {
       const isOffered = (o: any) => ["OFFERED", "AVAILABLE", "READY"].includes(normalizeStatus(o?.status));
       const offered = options.filter(isOffered);
       const targets = offered.length ? offered : options;
-      const preferSpd = targets.filter((o: any) => {
+      const scored = targets.map((o, idx) => {
         const modes = extractModes(o);
-        return modes.has("GROUND_SMALL_PARCEL") || modes.has("SPD") || modes.has("SMALL_PARCEL");
+        const groupCount = extractPackingGroupIds(o).length;
+        const hasSpd = modes.has("GROUND_SMALL_PARCEL") || modes.has("SPD") || modes.has("SMALL_PARCEL");
+        return { option: o, groupCount: groupCount || Number.MAX_SAFE_INTEGER, hasSpd, idx };
       });
-      return preferSpd[0] || targets[0];
+      scored.sort((a, b) => {
+        if (a.groupCount !== b.groupCount) return a.groupCount - b.groupCount;
+        if (a.hasSpd !== b.hasSpd) return Number(b.hasSpd) - Number(a.hasSpd);
+        return a.idx - b.idx;
+      });
+      return scored[0]?.option || targets[0];
     };
 
     let chosen = pickPackingOption(mergedPackingOptions);
@@ -1005,29 +1035,6 @@ serve(async (req) => {
       chosen?.PackingOptionId ||
       chosen?.id ||
       null;
-
-    const extractPackingGroupIds = (option: any) => {
-      const ids = new Set<string>();
-      const direct = option?.packingGroups || option?.PackingGroups || [];
-      (Array.isArray(direct) ? direct : []).forEach((g: any) => {
-        if (typeof g === "string") {
-          ids.add(g);
-          return;
-        }
-        const id = g?.packingGroupId || g?.PackingGroupId || g?.id || g?.groupId || g?.group_id;
-        if (id) ids.add(String(id));
-      });
-      const rawIds =
-        option?.packingGroupIds ||
-        option?.PackingGroupIds ||
-        option?.packing_group_ids ||
-        option?.packing_group_id_list ||
-        [];
-      (Array.isArray(rawIds) ? rawIds : [rawIds]).forEach((id: any) => {
-        if (id) ids.add(String(id));
-      });
-      return Array.from(ids.values());
-    };
 
     let packingGroupIds = extractPackingGroupIds(chosen || {});
 
