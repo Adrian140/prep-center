@@ -1583,6 +1583,7 @@ serve(async (req) => {
         destinationMarketplaces: [marketplaceId],
         items: items.map((it) => {
           const key = normalizeSku(it.sku || it.asin || "");
+          const mskuKey = key;
           const prepInfo = prepGuidanceMap[key] || {};
           const prepRequired = !!prepInfo.prepRequired;
           const manufacturerBarcodeEligible =
@@ -1596,7 +1597,7 @@ serve(async (req) => {
           if (o?.labelOwner) labelOwner = o.labelOwner;
           if (o?.prepOwner) prepOwner = o.prepOwner;
           return {
-            msku: it.sku || "",
+            msku: mskuKey,
             quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
             expiration: expiryVal || undefined,
             prepOwner,
