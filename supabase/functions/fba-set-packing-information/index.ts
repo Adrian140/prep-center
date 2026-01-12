@@ -535,6 +535,13 @@ serve(async (req) => {
     }
     const authHeader = req.headers.get("Authorization") || "";
     if (!authHeader.toLowerCase().startsWith("bearer ")) {
+      console.log(
+        JSON.stringify(
+          { tag: "fba-set-packing-information:unauthorized", traceId, reason: "missing_bearer", headers: maskHeaders(req.headers) },
+          null,
+          2
+        )
+      );
       return new Response(JSON.stringify({ error: "Authorization required" }), {
         status: 401,
         headers: { ...corsHeaders, "content-type": "application/json" }
@@ -546,6 +553,18 @@ serve(async (req) => {
     const { data: authData, error: authErr } = await authSupabase.auth.getUser();
     const user = authData?.user ?? null;
     if (authErr || !user) {
+      console.log(
+        JSON.stringify(
+          {
+            tag: "fba-set-packing-information:unauthorized",
+            traceId,
+            reason: authErr ? "auth_error" : "no_user",
+            error: authErr || null
+          },
+          null,
+          2
+        )
+      );
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "content-type": "application/json" }
