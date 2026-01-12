@@ -455,6 +455,14 @@ serve(async (req) => {
       throw new Error("Missing Supabase configuration");
     }
 
+    // Basic request debug
+    console.log("fba-plan-step1b req", {
+      traceId,
+      method: req.method,
+      origin,
+      url: req.url
+    });
+
     const authHeader = req.headers.get("Authorization") || "";
     if (!authHeader.toLowerCase().startsWith("bearer ")) {
       return new Response(JSON.stringify({ error: "Authorization required" }), {
@@ -476,6 +484,13 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
+    console.log("fba-plan-step1b body", {
+      traceId,
+      keys: Object.keys(body || {}),
+      requestId: body?.request_id || body?.requestId,
+      inboundPlanId: body?.inbound_plan_id || body?.inboundPlanId,
+      includePlacement: body?.include_placement ?? body?.includePlacement ?? false
+    });
     const requestId = body?.request_id as string | undefined;
     const inboundPlanId = body?.inbound_plan_id as string | undefined;
     const includePlacement =
