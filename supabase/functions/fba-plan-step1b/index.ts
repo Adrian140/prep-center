@@ -1035,13 +1035,14 @@ serve(async (req) => {
         const groupCount = extractPackingGroupIds(o).length;
         const hasSpd = modes.has("GROUND_SMALL_PARCEL") || modes.has("SPD") || modes.has("SMALL_PARCEL");
         const discountCount = Array.isArray(o?.discounts || o?.Discounts) ? (o.discounts || o.Discounts).length : 0;
-        return { option: o, groupCount: groupCount || Number.MAX_SAFE_INTEGER, hasSpd, discountCount, idx };
+        const discountScore = discountCount > 0 ? 1 : 0; // nu vrem opțiuni cu discount (promo split) by default
+        return { option: o, groupCount: groupCount || Number.MAX_SAFE_INTEGER, hasSpd, discountCount, discountScore, idx };
       });
       scored.sort((a, b) => {
-        if (a.discountCount !== b.discountCount) return a.discountCount - b.discountCount;
-        if (a.groupCount !== b.groupCount) return a.groupCount - b.groupCount;
-        if (a.hasSpd !== b.hasSpd) return Number(b.hasSpd) - Number(a.hasSpd);
-        return a.idx - b.idx;
+        if (a.discountScore !== b.discountScore) return a.discountScore - b.discountScore; // întâi fără discount (Standard packing)
+        if (a.groupCount !== b.groupCount) return a.groupCount - b.groupCount; // apoi cele mai puține grupuri
+        if (a.hasSpd !== b.hasSpd) return Number(b.hasSpd) - Number(a.hasSpd); // abia apoi preferăm SPD
+        return a.idx - b.idx; // fallback determinist
       });
       return scored[0]?.option || targets[0];
     };
