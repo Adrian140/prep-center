@@ -19,6 +19,8 @@ const getPositiveNumber = (val) => {
 };
 
 const getSafeDims = (dims = {}) => {
+  // Accept null/undefined and bail out early to avoid runtime errors in callers.
+  if (!dims || typeof dims !== 'object') return null;
   const length = getPositiveNumber(dims.length);
   const width = getPositiveNumber(dims.width);
   const height = getPositiveNumber(dims.height);
