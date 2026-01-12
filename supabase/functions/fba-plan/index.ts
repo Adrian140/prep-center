@@ -794,12 +794,16 @@ async function checkSkuStatus(params: {
   traceId?: string;
 }) {
   const { sku, asin, marketplaceId, host, region, lwaToken, tempCreds, sellerId, traceId } = params;
+  const cleanSku = normalizeSku(sku);
+  if (!cleanSku) {
+    return { state: "unknown", reason: "SKU lipsă sau nevalid după normalizare" };
+  }
   const fallbackReason = "Nu am putut verifica statusul în Amazon";
 
   // Listings Items check
   let debug: Record<string, unknown> = {};
   try {
-    const listingsPath = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(sku)}`;
+    const listingsPath = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(cleanSku)}`;
     const listingsQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=attributes,summaries`;
     const { res, json, text } = await spapiGet({
       host,
@@ -944,8 +948,8 @@ async function fetchPrepGuidance(params: {
   sellerId: string;
 }): Promise<{ map: Record<string, PrepGuidance>; warning: string | null }> {
   const { items, shipFromCountry, shipToCountry, host, region, tempCreds, lwaToken, traceId, marketplaceId, sellerId } = params;
-  const skus = items.map((it) => it.sku).filter(Boolean) as string[];
-  const asins = items.map((it) => it.asin).filter(Boolean) as string[];
+  const skus = items.map((it) => normalizeSku(it.sku)).filter(Boolean) as string[];
+  const asins = items.map((it) => normalizeSku(it.asin)).filter(Boolean) as string[];
   if (!skus.length && !asins.length) return { map: {}, warning: null };
 
   const searchParams = new URLSearchParams();
