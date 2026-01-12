@@ -1019,9 +1019,11 @@ serve(async (req) => {
         const modes = extractModes(o);
         const groupCount = extractPackingGroupIds(o).length;
         const hasSpd = modes.has("GROUND_SMALL_PARCEL") || modes.has("SPD") || modes.has("SMALL_PARCEL");
-        return { option: o, groupCount: groupCount || Number.MAX_SAFE_INTEGER, hasSpd, idx };
+        const discountCount = Array.isArray(o?.discounts || o?.Discounts) ? (o.discounts || o.Discounts).length : 0;
+        return { option: o, groupCount: groupCount || Number.MAX_SAFE_INTEGER, hasSpd, discountCount, idx };
       });
       scored.sort((a, b) => {
+        if (a.discountCount !== b.discountCount) return a.discountCount - b.discountCount;
         if (a.groupCount !== b.groupCount) return a.groupCount - b.groupCount;
         if (a.hasSpd !== b.hasSpd) return Number(b.hasSpd) - Number(a.hasSpd);
         return a.idx - b.idx;
