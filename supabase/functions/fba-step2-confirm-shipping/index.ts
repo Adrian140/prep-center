@@ -1265,8 +1265,10 @@ serve(async (req) => {
           const weightValue = Number(w?.value);
           const dimUnit = (dims?.unit || dims?.uom || "CM").toString().toUpperCase();
           const weightUnit = (w?.unit || w?.uom || "KG").toString().toUpperCase();
-          if (!Number.isFinite(length) || !Number.isFinite(width) || !Number.isFinite(height)) return null;
-          if (!Number.isFinite(weightValue)) return null;
+          if (!Number.isFinite(length) || length <= 0) return null;
+          if (!Number.isFinite(width) || width <= 0) return null;
+          if (!Number.isFinite(height) || height <= 0) return null;
+          if (!Number.isFinite(weightValue) || weightValue <= 0) return null;
           const normalizedDims = {
             length: dimUnit === "IN" ? length : cmToIn(length),
             width: dimUnit === "IN" ? width : cmToIn(width),
@@ -1299,8 +1301,10 @@ serve(async (req) => {
           const weightValue = Number(w?.value);
           const dimUnit = (dims?.unit || dims?.unitOfMeasurement || dims?.uom || "CM").toString().toUpperCase();
           const weightUnit = (w?.unit || w?.uom || "KG").toString().toUpperCase();
-          if (!Number.isFinite(length) || !Number.isFinite(width) || !Number.isFinite(height)) return null;
-          if (!Number.isFinite(weightValue)) return null;
+          if (!Number.isFinite(length) || length <= 0) return null;
+          if (!Number.isFinite(width) || width <= 0) return null;
+          if (!Number.isFinite(height) || height <= 0) return null;
+          if (!Number.isFinite(weightValue) || weightValue <= 0) return null;
           const normalizedDims = {
             length: dimUnit === "IN" ? length : cmToIn(length),
             width: dimUnit === "IN" ? width : cmToIn(width),
@@ -1362,7 +1366,7 @@ serve(async (req) => {
       return { start: start.toISOString(), end: end.toISOString() };
     }
 
-    const includePackages = String(effectiveShippingMode || "").toUpperCase() !== "GROUND_SMALL_PARCEL";
+    const includePackages = String(effectiveShippingMode || "").toUpperCase() === "GROUND_SMALL_PARCEL";
     const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
       const shId = sh.shipmentId || sh.id || `s-${idx + 1}`;
       const cfg = (shipmentTransportConfigs || []).find(

@@ -130,13 +130,14 @@ function normalizeDimensions(input: any) {
 
 function normalizeWeight(input: any) {
   if (typeof input === "number") {
+    if (!Number.isFinite(input) || input <= 0) return null;
     const toPounds = (kg: number) => Number((kg * 2.2046226218).toFixed(2));
     return { value: toPounds(input), unit: "LB" };
   }
   if (!input) return null;
   const unit = String(input.unit || "KG").toUpperCase();
   const value = Number(input.value || 0);
-  if (!Number.isFinite(value)) return null;
+  if (!Number.isFinite(value) || value <= 0) return null;
   if (unit === "LB") {
     return { value: Number(value.toFixed(2)), unit: "LB" };
   }
@@ -189,9 +190,9 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
         contentInformationSource,
         ...(contentInformationSource === "BOX_CONTENT_PROVIDED"
           ? {
-              contents: items.map((it) => ({
+              items: items.map((it) => ({
                 msku: it.msku,
-                quantityInBox: it.quantity,
+                quantity: it.quantity,
                 prepOwner: it.prepOwner,
                 labelOwner: it.labelOwner,
                 ...(it.expiration ? { expiration: it.expiration } : {}),
@@ -589,11 +590,11 @@ serve(async (req) => {
       if (!(Number(w.value) > 0 && typeof w.unit === "string" && w.unit.length)) return true;
       if (!(Number(b?.quantity) > 0)) return true;
       if (b?.contentInformationSource === "BOX_CONTENT_PROVIDED") {
-        if (!Array.isArray(b?.contents) || !b.contents.length) return true;
-        const badContent = b.contents.some((c: any) => !(c?.msku && Number(c?.quantityInBox) > 0));
+        if (!Array.isArray(b?.items) || !b.items.length) return true;
+        const badContent = b.items.some((c: any) => !(c?.msku && Number(c?.quantity) > 0));
         if (badContent) return true;
       } else {
-        if (Array.isArray(b?.contents) && b.contents.length) return true;
+        if (Array.isArray(b?.items) && b.items.length) return true;
       }
       return false;
     });

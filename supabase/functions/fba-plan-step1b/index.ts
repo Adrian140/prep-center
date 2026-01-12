@@ -969,8 +969,34 @@ serve(async (req) => {
     const pickPackingOption = (options: any[]) => {
       if (!Array.isArray(options) || !options.length) return null;
       const normalizeStatus = (val: any) => String(val || "").toUpperCase();
-      const offered = options.find((o: any) => ["OFFERED", "AVAILABLE", "READY"].includes(normalizeStatus(o?.status)));
-      return offered || options[0];
+      const normalizeMode = (val: any) => String(val || "").toUpperCase();
+      const extractModes = (option: any) => {
+        const modes = new Set<string>();
+        const supportedConfigs = option?.supportedConfigurations || option?.SupportedConfigurations || [];
+        (Array.isArray(supportedConfigs) ? supportedConfigs : []).forEach((cfg: any) => {
+          const requirements = cfg?.shippingRequirements || cfg?.ShippingRequirements || [];
+          (Array.isArray(requirements) ? requirements : [requirements]).forEach((req: any) => {
+            const reqModes = req?.modes || req?.Modes || [];
+            (Array.isArray(reqModes) ? reqModes : [reqModes]).forEach((mode: any) => {
+              if (mode) modes.add(normalizeMode(mode));
+            });
+          });
+        });
+        const supportedShipping = option?.supportedShippingConfigurations || option?.SupportedShippingConfigurations || [];
+        (Array.isArray(supportedShipping) ? supportedShipping : [supportedShipping]).forEach((cfg: any) => {
+          const mode = cfg?.shippingMode || cfg?.shipping_mode || cfg?.mode;
+          if (mode) modes.add(normalizeMode(mode));
+        });
+        return modes;
+      };
+      const isOffered = (o: any) => ["OFFERED", "AVAILABLE", "READY"].includes(normalizeStatus(o?.status));
+      const offered = options.filter(isOffered);
+      const targets = offered.length ? offered : options;
+      const preferSpd = targets.filter((o: any) => {
+        const modes = extractModes(o);
+        return modes.has("GROUND_SMALL_PARCEL") || modes.has("SPD") || modes.has("SMALL_PARCEL");
+      });
+      return preferSpd[0] || targets[0];
     };
 
     let chosen = pickPackingOption(mergedPackingOptions);

@@ -13,12 +13,17 @@ const getSafeNumber = (val) => {
   return Number.isFinite(num) ? num : null;
 };
 
+const getPositiveNumber = (val) => {
+  const num = getSafeNumber(val);
+  return Number.isFinite(num) && num > 0 ? num : null;
+};
+
 const getSafeDims = (dims = {}) => {
-  const length = getSafeNumber(dims.length);
-  const width = getSafeNumber(dims.width);
-  const height = getSafeNumber(dims.height);
-  if (length === null && width === null && height === null) return null;
-  return { length: length || 0, width: width || 0, height: height || 0 };
+  const length = getPositiveNumber(dims.length);
+  const width = getPositiveNumber(dims.width);
+  const height = getPositiveNumber(dims.height);
+  if (!length || !width || !height) return null;
+  return { length, width, height };
 };
 
 const normalizeShipDate = (val) => {
@@ -179,24 +184,56 @@ export default function FbaSendToAmazonWizard({
       })
       .filter((g) => Number(g.units || 0) > 0), // nu trimitem grupuri cu 0 unități
   []);
+  const getPackGroupKey = useCallback((group) => group?.packingGroupId || group?.id || null, []);
+  const getPackGroupSignature = useCallback((group) => {
+    const items = Array.isArray(group?.items) ? group.items : [];
+    const parts = items
+      .map((it) => {
+        const sku = String(it?.sku || it?.msku || it?.SellerSKU || '').trim().toUpperCase();
+        const qty = Number(it?.quantity || it?.units || 0) || 0;
+        if (!sku || qty <= 0) return null;
+        return `${sku}:${qty}`;
+      })
+      .filter(Boolean)
+      .sort();
+    return parts.length ? parts.join('|') : null;
+  }, []);
   const mergePackGroups = useCallback((prev = [], incoming = []) => {
     const prevByKey = new Map();
+    const prevBySignature = new Map();
     prev.forEach((g) => {
-      const key = g.id || g.packingGroupId;
+      const key = getPackGroupKey(g);
       if (key) prevByKey.set(key, g);
+      const signature = getPackGroupSignature(g);
+      if (signature) prevBySignature.set(signature, g);
     });
-    return incoming.map((g) => {
-      const key = g.id || g.packingGroupId;
-      const existing = key ? prevByKey.get(key) : null;
+    return incoming.map((g, idx) => {
+      const key = getPackGroupKey(g);
+      let existing = key ? prevByKey.get(key) : null;
+      if (!existing) {
+        const signature = getPackGroupSignature(g);
+        if (signature) existing = prevBySignature.get(signature) || null;
+      }
+      if (!existing) {
+        existing = prev[idx] || null;
+      }
       if (!existing) return g;
+      const resolvedDims = getSafeDims(g.boxDimensions)
+        ? g.boxDimensions
+        : getSafeDims(existing.boxDimensions)
+          ? existing.boxDimensions
+          : null;
+      const incomingWeight = getPositiveNumber(g.boxWeight);
+      const existingWeight = getPositiveNumber(existing.boxWeight);
       return {
         ...g,
-        boxDimensions: g.boxDimensions || existing.boxDimensions || null,
-        boxWeight: g.boxWeight ?? existing.boxWeight ?? null,
+        boxDimensions: resolvedDims,
+        boxWeight: incomingWeight ?? existingWeight ?? null,
+        boxes: g.boxes ?? existing.boxes ?? 1,
         packingConfirmed: g.packingConfirmed || existing.packingConfirmed || false
       };
     });
-  }, []);
+  }, [getPackGroupKey, getPackGroupSignature]);
   const [packGroups, setPackGroups] = useState([]);
   const [packGroupsLoaded, setPackGroupsLoaded] = useState(false);
   const [packingOptionId, setPackingOptionId] = useState(initialPlan?.packingOptionId || null);
@@ -430,8 +467,9 @@ export default function FbaSendToAmazonWizard({
     try {
       const data = JSON.parse(raw);
       if (data?.plan) setPlan((prev) => ({ ...prev, ...data.plan }));
-      if (Array.isArray(data?.packGroups)) setPackGroups(data.packGroups);
-      const hasRealGroups = hasRealPackGroups(data?.packGroups);
+      const normalized = Array.isArray(data?.packGroups) ? normalizePackGroups(data.packGroups) : [];
+      if (normalized.length) setPackGroups((prev) => mergePackGroups(prev, normalized));
+      const hasRealGroups = hasRealPackGroups(normalized);
       setPackGroupsLoaded(hasRealGroups);
       if (data?.shipmentMode) setShipmentMode((prev) => ({ ...prev, ...normalizeShipmentModeFromData(data.shipmentMode) }));
       if (data?.palletDetails) setPalletDetails((prev) => ({ ...prev, ...data.palletDetails }));
@@ -649,7 +687,11 @@ const fetchPartneredQuote = useCallback(
   };
 
   const handlePackGroupUpdate = (groupId, patch) => {
-    setPackGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, ...patch } : g)));
+    setPackGroups((prev) =>
+      prev.map((g) =>
+        g.id === groupId || g.packingGroupId === groupId ? { ...g, ...patch } : g
+      )
+    );
   };
 
   const buildPackingPayload = (groups = packGroups) => {
@@ -662,12 +704,10 @@ const fetchPartneredQuote = useCallback(
 
     groups.forEach((g) => {
       const dims = getSafeDims(g.boxDimensions);
-      const weight = getSafeNumber(g.boxWeight);
+      const weight = getPositiveNumber(g.boxWeight);
       const count = Math.max(1, Number(g.boxes) || 1);
       const packingGroupId = g.packingGroupId || null;
-      const normalizedDims = dims
-        ? { length: dims.length || 0, width: dims.width || 0, height: dims.height || 0, unit: "CM" }
-        : null;
+      const normalizedDims = dims ? { length: dims.length, width: dims.width, height: dims.height, unit: "CM" } : null;
       const normalizedWeight = weight ? { value: weight, unit: "KG" } : null;
 
       if (!packingGroupId) {
@@ -879,18 +919,21 @@ const fetchPartneredQuote = useCallback(
 
     return packGroups.map((g, idx) => {
       const dims = getSafeDims(g.boxDimensions);
-      const weight = getSafeNumber(g.boxWeight);
+      const weight = getPositiveNumber(g.boxWeight);
       const boxCount = Math.max(1, Number(g.boxes) || 1);
-      const pkg = {
-        dimensions: dims ? { length: dims.length, width: dims.width, height: dims.height, unit: "CM" } : null,
-        weight: weight ? { value: weight, unit: "KG" } : null
-      };
+      const hasPackageSpec = Boolean(dims && weight);
+      const pkg = hasPackageSpec
+        ? {
+            dimensions: { length: dims.length, width: dims.width, height: dims.height, unit: "CM" },
+            weight: { value: weight, unit: "KG" }
+          }
+        : null;
       const packingGroupId = g.packingGroupId || null;
       if (!packingGroupId) return null;
       return {
         shipmentId: shipmentIdForGroup(g, idx),
         packingGroupId,
-        packages: usePallets ? null : Array.from({ length: boxCount }, () => pkg),
+        packages: usePallets ? null : hasPackageSpec ? Array.from({ length: boxCount }, () => pkg) : [],
         pallets: usePallets ? palletPayload : null,
         freightInformation: usePallets ? freightInformation : null
       };
@@ -905,6 +948,11 @@ const fetchPartneredQuote = useCallback(
     const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) {
       setShippingError('Lipsește inboundPlanId sau requestId; nu pot cere opțiunile de transport.');
+      return;
+    }
+
+    if (!Array.isArray(packGroups) || packGroups.length === 0) {
+      setShippingError('Nu avem packing groups încă. Reia Step 1b ca să obții packingOptions înainte de transport.');
       return;
     }
 
@@ -925,12 +973,9 @@ const fetchPartneredQuote = useCallback(
     } else {
       // guard: avem nevoie de greutate + dimensiuni pentru toate grupurile
       const missingPack = (packGroups || []).find((g) => {
-        const w = Number(g.boxWeight || 0);
-        const d = g.boxDimensions || {};
-        const L = Number(d.length || 0);
-        const W = Number(d.width || 0);
-        const H = Number(d.height || 0);
-        return !(w > 0 && L > 0 && W > 0 && H > 0);
+        const dims = getSafeDims(g.boxDimensions);
+        const w = getPositiveNumber(g.boxWeight);
+        return !(dims && w);
       });
       if (missingPack) {
         setShippingError('Completează greutatea și dimensiunile (L/W/H) pentru toate cutiile înainte de a cere tariful.');
@@ -1458,7 +1503,7 @@ const fetchPartneredQuote = useCallback(
           if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
           if (Array.isArray(pGroups)) {
             const normalized = normalizePackGroups(pGroups);
-            setPackGroups(normalized);
+            setPackGroups((prev) => mergePackGroups(prev, normalized));
             setPackGroupsLoaded(hasRealPackGroups(normalized));
           }
           if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
