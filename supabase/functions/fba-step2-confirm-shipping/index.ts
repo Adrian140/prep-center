@@ -946,6 +946,48 @@ serve(async (req) => {
     const confirmedPlacement = placementOptions.find((p: any) =>
       ["ACCEPTED", "CONFIRMED"].includes(normalizePlacementStatus(p))
     );
+    const listBoxes = async () =>
+      signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/boxes`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.listInboundPlanBoxes",
+        marketplaceId,
+        sellerId
+      });
+
+    // Dacă nu există încă box-uri în plan, nu confirmăm placement-ul și oprim fluxul: trebuie să ruleze setPackingInformation înainte.
+    const boxesRes = await listBoxes();
+    const boxes =
+      boxesRes?.json?.payload?.boxes ||
+      boxesRes?.json?.boxes ||
+      [];
+    const boxesCount = Array.isArray(boxes) ? boxes.length : 0;
+    logStep("listInboundPlanBoxes", {
+      traceId,
+      boxesCount,
+      requestId: boxesRes?.requestId || null
+    });
+    if (!boxesCount) {
+      return new Response(
+        JSON.stringify({
+          error: "Nu există box-uri trimise încă. Finalizează packing (setPackingInformation) înainte de confirmarea transportului.",
+          code: "PACKING_INCOMPLETE",
+          traceId
+        }),
+        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
     if (confirmedPlacement) {
       effectivePlacementOptionId = normalizePlacementId(confirmedPlacement) || effectivePlacementOptionId;
       logStep("placementConfirmSkipped", {
@@ -1430,11 +1472,15 @@ serve(async (req) => {
         {};
       const rawStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || readyStartIso;
       const rawEnd = cfg.readyToShipWindow?.end || cfg.ready_to_ship_window?.end || undefined;
-      const { start: readyStart, end: readyEnd } = clampReadyWindow(rawStart, rawEnd);
+      const { start: readyStart } = clampReadyWindow(rawStart, rawEnd);
       const baseCfg: Record<string, any> = {
         shipmentId: shId,
-        readyToShipWindow: { start: readyStart, end: readyEnd }
+        // SP-API doc: readyToShipWindow conține doar start; nu trimitem end ca să nu stricăm eligibilitatea SPD.
+        readyToShipWindow: { start: readyStart }
       };
+      if (effectiveShippingMode) {
+        baseCfg.shippingMode = effectiveShippingMode;
+      }
       if (contactInformation) baseCfg.contactInformation = contactInformation;
       if (includePackages) {
         const pkgs = normalizePackages(cfg?.packages);
