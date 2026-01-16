@@ -1730,6 +1730,7 @@ const fetchPartneredQuote = useCallback(
           skuStatuses={skuStatuses}
           blocking={blocking}
           saving={step1Saving}
+          loadingPlan={!planLoaded || loadingPlan}
           onChangePacking={handlePackingChange}
           onChangeQuantity={handleQuantityChange}
           onChangeExpiry={handleExpiryChange}

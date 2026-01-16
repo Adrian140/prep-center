@@ -18,6 +18,7 @@ export default function FbaStep1Inventory({
   skuStatuses = [],
   blocking = false,
   error = '',
+  loadingPlan = false,
   saving = false,
   onChangePacking,
   onChangeQuantity,
@@ -27,7 +28,8 @@ export default function FbaStep1Inventory({
 }) {
   const shipFrom = data?.shipFrom || {};
   const marketplaceRaw = data?.marketplace || '';
-  const skus = Array.isArray(data?.skus) ? data.skus : [];
+  const rawSkus = Array.isArray(data?.skus) ? data.skus : [];
+  const skus = loadingPlan ? [] : rawSkus; // nu afișăm SKU-uri până nu avem răspunsul curent de la Amazon
 
   const marketplaceIdByCountry = {
     FR: 'A13V1IB3VIYZZH',
@@ -349,6 +351,11 @@ export default function FbaStep1Inventory({
           {error || 'Unele produse nu sunt eligibile pentru marketplace-ul selectat.'}
         </div>
       )}
+      {loadingPlan && (
+        <div className="px-6 py-3 border-b text-sm bg-amber-50 text-amber-800 border-amber-200">
+          Planul Amazon este în curs de încărcare. Așteptăm SKU-urile/shipments generate; momentan nu afișăm produse.
+        </div>
+      )}
 
       <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 border-b border-slate-200">
         <FieldLabel label="Ship from">
@@ -383,6 +390,15 @@ export default function FbaStep1Inventory({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
+            {skus.length === 0 && (
+              <tr>
+                <td colSpan={4} className="py-4 text-center text-slate-500">
+                  {loadingPlan
+                    ? 'Așteptăm răspunsul Amazon pentru SKU-uri și shipments...'
+                    : 'Nu există SKU-uri de afișat.'}
+                </td>
+              </tr>
+            )}
             {skus.map((sku) => {
               const status = statusForSku(sku);
               const state = String(status.state || '').toLowerCase();
