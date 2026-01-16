@@ -1617,7 +1617,16 @@ useEffect(() => {
                   <td className="px-4 py-3">
                     <div className="flex items-center text-text-secondary">
                       <Clock className="w-4 h-4 mr-1" />
-                      <span>{new Date(shipment.created_at).toLocaleDateString('fr-FR')}</span>
+                      <span>
+                        {new Date(shipment.created_at).toLocaleString('fr-FR', {
+                          hour12: false,
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        })}
+                      </span>
                     </div>
                   </td>
            <td className="px-4 py-3 text-right">
