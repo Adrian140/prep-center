@@ -785,23 +785,31 @@ serve(async (req) => {
     };
 
     const ensurePlacement = async () => {
-      // dacă avem placementOptionId din client, îl folosim; altfel generăm + confirmăm prima opțiune
+      // dacă avem placementOptionId din client, îl folosim; altfel generăm + confirmăm prima opțiune.
       let placementId = effectivePlacementOptionId || null;
       let placementShipments: any[] = [];
-      if (!placementId) {
-        const genPlacement = await generatePlacementOptionsWithRetry();
-        if (!genPlacement.ok) {
-          return new Response(
-            JSON.stringify({
-              error: "generatePlacementOptions failed",
-              state: genPlacement.state || null,
-              traceId,
-              details: getOperationProblems(genPlacement.res as any)
-            }),
-            { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
-          );
-        }
-        const listPlacement = await signedFetch({
+
+      const confirmPlacement = async (pid: string) =>
+        signedFetch({
+          method: "POST",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(pid)}/confirmation`,
+          query: "",
+          payload: "{}",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.confirmPlacementOption",
+          marketplaceId,
+          sellerId
+        });
+
+      const listPlacements = async () => {
+        const res = await signedFetch({
           method: "GET",
           service: "execute-api",
           region: awsRegion,
@@ -818,32 +826,60 @@ serve(async (req) => {
           marketplaceId,
           sellerId
         });
-        const placements =
-          listPlacement?.json?.payload?.placementOptions ||
-          listPlacement?.json?.placementOptions ||
-          listPlacement?.json?.PlacementOptions ||
+        const list =
+          res?.json?.payload?.placementOptions ||
+          res?.json?.placementOptions ||
+          res?.json?.PlacementOptions ||
           [];
-        placementId = placements?.[0]?.placementOptionId || placements?.[0]?.id || placements?.[0]?.PlacementOptionId || null;
-        if (placementId) {
-          await signedFetch({
-            method: "POST",
-            service: "execute-api",
-            region: awsRegion,
-            host,
-            path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(placementId)}/confirmation`,
-            query: "",
-            payload: "{}",
-            accessKey: tempCreds.accessKeyId,
-            secretKey: tempCreds.secretAccessKey,
-            sessionToken: tempCreds.sessionToken,
-            lwaToken: lwaAccessToken,
-            traceId,
-            operationName: "inbound.v20240320.confirmPlacementOption",
-            marketplaceId,
-            sellerId
-          });
+        return { res, list };
+      };
+
+      const pickFirstPlacementId = (placements: any[]) =>
+        placements?.[0]?.placementOptionId || placements?.[0]?.id || placements?.[0]?.PlacementOptionId || null;
+
+      // helper care regenerează placement și confirmă primul
+      const regenAndConfirm = async () => {
+        const genPlacement = await generatePlacementOptionsWithRetry();
+        if (!genPlacement.ok) {
+          return {
+            ok: false,
+            res: genPlacement.res,
+            state: genPlacement.state
+          };
+        }
+        const { list } = await listPlacements();
+        const pid = pickFirstPlacementId(list);
+        if (pid) {
+          await confirmPlacement(pid);
+        }
+        return { ok: Boolean(pid), res: null, state: "REGENERATED", pid };
+      };
+
+      if (!placementId) {
+        // nu avem placementId – generăm, confirmăm primul
+        const regen = await regenAndConfirm();
+        placementId = regen.pid || placementId;
+      } else {
+        // avem placementId, îl confirmăm; dacă Amazon răspunde cu mesajul specific, re-generăm.
+        const { list: currentPlacements } = await listPlacements();
+        const current = currentPlacements.find(
+          (p: any) => (p?.placementOptionId || p?.id) === placementId
+        );
+        if (!current) {
+          const regen = await regenAndConfirm();
+          placementId = regen.pid || placementId;
+        } else {
+          const confirmRes = await confirmPlacement(placementId);
+          const bodyPreview = (confirmRes?.text || "").slice(0, 400);
+          const needsRegen = /placement options were initially generated on the Send to Amazon UI/i.test(bodyPreview);
+          if (!confirmRes?.res?.ok && needsRegen) {
+            logStep("placement_confirm_regen_retry", { traceId, placementId, reason: "stA UI flow" });
+            const regen = await regenAndConfirm();
+            placementId = regen.pid || placementId;
+          }
         }
       }
+
       // după confirm placement, citim planul pentru a obține shipments populate
       const planRes = await signedFetch({
         method: "GET",
@@ -1463,11 +1499,10 @@ serve(async (req) => {
         {};
       const rawStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || readyStartIso;
       const rawEnd = cfg.readyToShipWindow?.end || cfg.ready_to_ship_window?.end || undefined;
-      const { start: readyStart } = clampReadyWindow(rawStart, rawEnd);
+      const { start: readyStart, end: readyEnd } = clampReadyWindow(rawStart, rawEnd);
       const baseCfg: Record<string, any> = {
         shipmentId: shId,
-        // SP-API doc: readyToShipWindow conține doar start; nu trimitem end ca să nu stricăm eligibilitatea SPD.
-        readyToShipWindow: { start: readyStart }
+        readyToShipWindow: { start: readyStart, end: readyEnd }
       };
       if (effectiveShippingMode) {
         baseCfg.shippingMode = effectiveShippingMode;
@@ -2036,6 +2071,12 @@ serve(async (req) => {
           mode: opt.mode || opt.shippingMode || opt.method || null,
           carrierName: opt.carrierName || opt.carrier?.name || opt.carrier?.alphaCode || opt.carrier || null,
           charge: extractCharge(opt),
+          shippingSolution:
+            opt.shippingSolution ||
+            opt.shippingSolutionId ||
+            opt.shipping_solution ||
+            opt.shipping_solution_id ||
+            null,
           raw: opt
         }))
       : [];
@@ -2048,6 +2089,12 @@ serve(async (req) => {
     })();
     const returnedModes = Array.from(
       new Set(normalizedOptions.map((o) => String(o.mode || "").toUpperCase()))
+    ).filter(Boolean);
+    const returnedSolutions = Array.from(
+      new Set(
+        normalizedOptions
+          .map((o) => String(o.shippingSolution || o.raw?.shippingSolution || "").toUpperCase())
+      )
     ).filter(Boolean);
     let effectiveOptionsForSelection = optionsForSelection;
     let modeMismatch = false;
@@ -2068,8 +2115,13 @@ serve(async (req) => {
       defaultMode: defaultOpt?.mode || null,
       defaultCharge: defaultOpt?.charge ?? null,
       returnedModes,
+      returnedSolutions,
       modeMismatch
     };
+    if (!partneredOpt) {
+      summary["partneredMissingReason"] =
+        "Amazon nu a returnat AMAZON_PARTNERED_CARRIER pentru acest placement/transportation request.";
+    }
 
     if (!shouldConfirm) {
       const normalizedShipments = normalizePlacementShipments(placementShipments);
