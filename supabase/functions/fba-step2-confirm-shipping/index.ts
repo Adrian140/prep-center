@@ -2434,6 +2434,8 @@ serve(async (req) => {
           payload?.to ||
           payload?.destination?.address ||
           payload?.DestinationAddress ||
+          sh?.destination?.address ||
+          sh?.shipToAddress ||
           null;
         const sourceAddress =
           payload?.shipFromAddress ||
@@ -2448,6 +2450,7 @@ serve(async (req) => {
           payload?.destinationWarehouseId ||
           sh?.destinationWarehouseId ||
           sh?.destinationFc ||
+          sh?.destination?.warehouseId ||
           null;
         const cfg = configsByShipment.get(String(shId)) || {};
         const pkgList = Array.isArray(cfg?.packages) ? cfg.packages : [];
