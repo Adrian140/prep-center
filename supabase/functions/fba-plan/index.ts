@@ -1660,7 +1660,8 @@ serve(async (req) => {
       json?.payload?.operationId || json?.payload?.OperationId || json?.operationId || json?.OperationId || null;
 
     const fetchInboundPlanById = async (inboundPlanId: string) => {
-      const maxAttempts = 8;
+      // limităm polling-ul ca să nu lovim inutil SP-API când planul e deja ACTIV
+      const maxAttempts = 3;
       let attempt = 0;
       let fetchedJson: any = null;
       let fetchedPlans: any[] = [];
@@ -1693,7 +1694,7 @@ serve(async (req) => {
         fetchedPackingOptions = data.packingOptions;
         fetchedPlacementOptions = data.placementOptions;
         if (fetchedPlans.length || !res.res.ok) break;
-        await delay(500 * attempt);
+        await delay(300 * attempt);
       }
       return { fetchedJson, fetchedPlans, fetchedStatus, fetchedPackingOptions, fetchedPlacementOptions };
     };
