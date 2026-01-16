@@ -31,7 +31,7 @@ export default function FbaStep1Inventory({
   const shipFrom = data?.shipFrom || {};
   const marketplaceRaw = data?.marketplace || '';
   const rawSkus = Array.isArray(data?.skus) ? data.skus : [];
-  const skus = loadingPlan ? [] : rawSkus; // nu afișăm SKU-uri până nu avem răspunsul curent de la Amazon
+  const skus = rawSkus;
 
   const marketplaceIdByCountry = {
     FR: 'A13V1IB3VIYZZH',
@@ -353,7 +353,7 @@ export default function FbaStep1Inventory({
           {error || 'Unele produse nu sunt eligibile pentru marketplace-ul selectat.'}
         </div>
       )}
-      {loadingPlan && (
+      {loadingPlan && skus.length === 0 && (
         <div className="px-6 py-3 border-b text-sm bg-amber-50 text-amber-800 border-amber-200">
           Planul Amazon este în curs de încărcare. Așteptăm SKU-urile/shipments generate; momentan nu afișăm produse.
         </div>
@@ -648,18 +648,18 @@ export default function FbaStep1Inventory({
                 alert('Unele SKU-uri nu sunt eligibile în Amazon; rezolvă eligibilitatea și încearcă din nou.');
                 return;
               }
-              if (loadingPlan) return;
-              if (!inboundPlanId || !requestId) return;
+              const disabled = hasBlocking || saving || !inboundPlanId || !requestId || (loadingPlan && skus.length === 0);
+              if (disabled) return;
               onNext?.();
             }}
-            disabled={hasBlocking || saving || loadingPlan || !inboundPlanId || !requestId}
+            disabled={hasBlocking || saving || !inboundPlanId || !requestId || (loadingPlan && skus.length === 0)}
             className={`px-4 py-2 rounded-md font-semibold shadow-sm text-white ${
-              hasBlocking || saving || loadingPlan || !inboundPlanId || !requestId
+              hasBlocking || saving || !inboundPlanId || !requestId || (loadingPlan && skus.length === 0)
                 ? 'bg-slate-400 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            {loadingPlan
+            {loadingPlan && skus.length === 0
               ? 'Așteaptă răspunsul Amazon...'
               : saving
                 ? 'Se salvează…'
