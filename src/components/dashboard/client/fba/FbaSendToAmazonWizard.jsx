@@ -164,6 +164,7 @@ export default function FbaSendToAmazonWizard({
   const [currentStep, setCurrentStep] = useState('1');
   const [completedSteps, setCompletedSteps] = useState([]);
   const [plan, setPlan] = useState(initialPlan);
+  const allowPersistence = false; // forțează reluarea workflow-ului de la Step 1; nu restaurăm din localStorage
   const normalizePackGroups = useCallback((groups = []) =>
     (Array.isArray(groups) ? groups : [])
       .map((g, idx) => {
@@ -452,20 +453,26 @@ export default function FbaSendToAmazonWizard({
   ]);
 
   useEffect(() => {
+    if (!allowPersistence) return;
     if (typeof window === 'undefined' || !stepStorageKey) return;
     const saved = window.localStorage.getItem(stepStorageKey);
     if (saved && stepsOrder.includes(saved)) {
       setCurrentStep(saved);
     }
-  }, [stepStorageKey]);
+  }, [allowPersistence, stepStorageKey, stepsOrder]);
 
   useEffect(() => {
+    if (!allowPersistence) return;
     if (typeof window === 'undefined' || !stepStorageKey) return;
     window.localStorage.setItem(stepStorageKey, String(currentStep));
-  }, [currentStep, stepStorageKey]);
+  }, [allowPersistence, currentStep, stepStorageKey]);
 
   // Rehidratează starea locală după refresh (similar cu "Active workflow" din Amazon)
   useEffect(() => {
+    if (!allowPersistence) {
+      setRestoredState(true);
+      return;
+    }
     if (typeof window === 'undefined' || restoredState || !stateStorageKey) return;
     const raw = window.localStorage.getItem(stateStorageKey);
     if (!raw) {
@@ -493,10 +500,11 @@ export default function FbaSendToAmazonWizard({
     } finally {
       setRestoredState(true);
     }
-  }, [stateStorageKey, stepsOrder, restoredState]);
+  }, [allowPersistence, stateStorageKey, stepsOrder, restoredState, normalizePackGroups, mergePackGroups, hasRealPackGroups]);
 
   // Persistă starea curentă ca să poți relua workflow-ul după refresh.
   useEffect(() => {
+    if (!allowPersistence) return;
     if (typeof window === 'undefined') return;
     if (!stateStorageKey) return;
     const snapshot = {
@@ -514,6 +522,7 @@ export default function FbaSendToAmazonWizard({
     };
     window.localStorage.setItem(stateStorageKey, JSON.stringify(snapshot));
   }, [
+    allowPersistence,
     plan,
     packGroups,
     shipmentMode,
@@ -527,6 +536,15 @@ export default function FbaSendToAmazonWizard({
     currentStep,
     stateStorageKey
   ]);
+
+  // Curăță localStorage la mount pentru a forța reluarea de la Step 1
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (stepStorageKey) window.localStorage.removeItem(stepStorageKey);
+    if (stateStorageKey) window.localStorage.removeItem(stateStorageKey);
+    setCurrentStep('1');
+    setCompletedSteps([]);
+  }, [stateStorageKey, stepStorageKey]);
 
   useEffect(() => {
     if (!autoLoadPlan && !fetchPlan) return;
