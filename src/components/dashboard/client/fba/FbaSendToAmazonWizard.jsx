@@ -354,16 +354,26 @@ export default function FbaSendToAmazonWizard({
   const resolveRequestId = useCallback(() => {
     return (
       plan?.prepRequestId ||
+      plan?.requestId ||
+      plan?.id ||
       initialPlan?.prepRequestId ||
+      initialPlan?.requestId ||
+      initialPlan?.id ||
       plan?.requestId ||
       plan?.request_id ||
-      initialPlan?.requestId ||
       initialPlan?.request_id ||
-      plan?.id ||
-      initialPlan?.id ||
       null
     );
-  }, [initialPlan?.id, initialPlan?.prepRequestId, initialPlan?.requestId, initialPlan?.request_id, plan?.id, plan?.prepRequestId, plan?.requestId, plan?.request_id]);
+  }, [
+    plan?.prepRequestId,
+    plan?.requestId,
+    plan?.id,
+    plan?.request_id,
+    initialPlan?.prepRequestId,
+    initialPlan?.requestId,
+    initialPlan?.id,
+    initialPlan?.request_id
+  ]);
   const resolveInboundPlanId = useCallback(() => {
     return (
       plan?.inboundPlanId ||

@@ -1342,6 +1342,25 @@ serve(async (req) => {
     if (!items.length) {
       throw new Error("No items in request with quantity > 0");
     }
+    if (!marketplaceId) {
+      throw new Error("Missing destination marketplaceId");
+    }
+    // Validare minimă conform schema: labelOwner/prepOwner în enum
+    const allowedOwners = new Set(["AMAZON", "SELLER", "NONE"]);
+    const invalidOwners = items
+      .map((it) => {
+        const key = normalizeSku(it.sku || it.asin || "");
+        const prepInfo = prepGuidanceMap[key] || {};
+        const manufacturerBarcodeEligible =
+          prepInfo.barcodeInstruction ? isManufacturerBarcodeEligible(prepInfo.barcodeInstruction) : false;
+        const labelOwner: OwnerVal = manufacturerBarcodeEligible ? "NONE" : "SELLER";
+        const prepOwner: OwnerVal = prepInfo.prepRequired ? "SELLER" : "NONE";
+        return !allowedOwners.has(labelOwner) || !allowedOwners.has(prepOwner) ? key : null;
+      })
+      .filter(Boolean) as string[];
+    if (invalidOwners.length) {
+      throw new Error(`Invalid labelOwner/prepOwner pentru SKU-urile: ${invalidOwners.join(", ")}`);
+    }
 
     const fetchListingImages = async () => {
       const images: Record<string, string> = {};
@@ -1625,12 +1644,18 @@ serve(async (req) => {
     const buildPlanBody = (overrides: Record<string, InboundFix> = {}) => {
       // Amazon limitează câmpul name la 40 caractere; folosim un id scurt ca să evităm 400 InvalidInput.
       const shortRequestId = (requestId || crypto.randomUUID()).toString().slice(0, 8);
-      const planName = `Prep-${shortRequestId}`;
+      const planName = `Prep-${shortRequestId}`.slice(0, 40);
+      const contactInfo = {
+        name: shipFromAddress.name || "Prep Center",
+        email: shipFromAddress.email || "contact@prep-center.eu",
+        phoneNumber: shipFromAddress.phoneNumber || ""
+      };
       return {
         name: planName,
         // Amazon requires `sourceAddress` for createInboundPlan payload
         sourceAddress: shipFromAddress,
         destinationMarketplaces: [marketplaceId],
+        contactInformation: contactInfo,
         items: items.map((it) => {
           const key = normalizeSku(it.sku || it.asin || "");
           const mskuKey = key;
@@ -2587,6 +2612,8 @@ serve(async (req) => {
       amazonIntegrationId,
       marketplace: marketplaceId,
       companyId: reqData.company_id || null,
+      id: primaryRequestId || reqData.request_id || reqData.requestId || null,
+      requestId: primaryRequestId || reqData.request_id || reqData.requestId || null,
       inboundPlanId: inboundPlanId || null,
       inboundPlanStatus: inboundPlanStatus || null,
       operationId: operationId || null,
@@ -2609,7 +2636,7 @@ serve(async (req) => {
       JSON.stringify({
         plan,
         traceId,
-        requestId: primaryRequestId || null,
+        requestId: primaryRequestId || reqData.request_id || reqData.requestId || null,
         inboundPlanId,
         inboundPlanStatus,
         operationId,
