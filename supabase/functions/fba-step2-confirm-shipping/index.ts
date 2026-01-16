@@ -494,6 +494,8 @@ serve(async (req) => {
     const confirmOptionId = body?.transportation_option_id ?? body?.transportationOptionId;
     const shipmentTransportConfigs = body?.shipment_transportation_configurations ?? body?.shipmentTransportationConfigurations ?? [];
     const shippingModeInput = body?.shipping_mode ?? body?.shippingMode ?? null;
+    const deliveryWindowStartInput = body?.delivery_window_start ?? body?.deliveryWindowStart ?? null;
+    const deliveryWindowEndInput = body?.delivery_window_end ?? body?.deliveryWindowEnd ?? null;
     const normalizeShippingMode = (mode: string | null) => {
       const up = String(mode || "").toUpperCase();
       if (!up) return null;
@@ -1258,6 +1260,14 @@ serve(async (req) => {
       return null;
     }
 
+    const preferredDeliveryWindow = (() => {
+      const start = parseShipDate(deliveryWindowStartInput);
+      const end = parseShipDate(deliveryWindowEndInput);
+      if (!start || !end) return null;
+      if (start.getTime() > end.getTime()) return null;
+      return { start, end };
+    })();
+
     function normalizePackages(packages: any) {
       if (!Array.isArray(packages)) return null;
       const cleaned = packages
@@ -1373,11 +1383,36 @@ serve(async (req) => {
     }
 
     const includePackages = String(effectiveShippingMode || "").toUpperCase() === "GROUND_SMALL_PARCEL";
+    const mergedIncomingConfigs = (() => {
+      const map = new Map<string, any>();
+      (shipmentTransportConfigs || []).forEach((cfg: any, idx: number) => {
+        const fallbackId =
+          placementShipments?.[idx]?.shipmentId ||
+          placementShipments?.[idx]?.id ||
+          `s-${idx + 1}`;
+        const shIdRaw = cfg?.shipmentId || cfg?.shipment_id || fallbackId;
+        const shId = String(shIdRaw || fallbackId);
+        const existing = map.get(shId) || { packages: [], pallets: [], freightInformation: null, readyToShipWindow: null, contactInformation: cfg?.contactInformation || cfg?.contact_information || null };
+        if (Array.isArray(cfg?.packages)) existing.packages.push(...cfg.packages);
+        if (Array.isArray(cfg?.pallets)) existing.pallets.push(...cfg.pallets);
+        if (!existing.freightInformation && (cfg?.freightInformation || cfg?.freight_information)) {
+          existing.freightInformation = cfg?.freightInformation || cfg?.freight_information;
+        }
+        if (!existing.readyToShipWindow && (cfg?.readyToShipWindow || cfg?.ready_to_ship_window)) {
+          existing.readyToShipWindow = cfg?.readyToShipWindow || cfg?.ready_to_ship_window;
+        }
+        map.set(shId, existing);
+      });
+      return map;
+    })();
+
     const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
       const shId = sh.shipmentId || sh.id || `s-${idx + 1}`;
-      const cfg = (shipmentTransportConfigs || []).find(
-        (c: any) => c?.shipmentId === shId || c?.shipment_id === shId
-      ) || (shipmentTransportConfigs || [])[idx] || {};
+      const cfg =
+        mergedIncomingConfigs.get(String(shId)) ||
+        (shipmentTransportConfigs || []).find((c: any) => c?.shipmentId === shId || c?.shipment_id === shId) ||
+        (shipmentTransportConfigs || [])[idx] ||
+        {};
       const rawStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || readyStartIso;
       const rawEnd = cfg.readyToShipWindow?.end || cfg.ready_to_ship_window?.end || undefined;
       const { start: readyStart, end: readyEnd } = clampReadyWindow(rawStart, rawEnd);
@@ -1539,6 +1574,8 @@ serve(async (req) => {
       packingOptionId: effectivePackingOptionId || null,
       shippingMode: effectiveShippingMode,
       shipDate: shipDateFromClient || null,
+      deliveryWindowStart: deliveryWindowStartInput || null,
+      deliveryWindowEnd: deliveryWindowEndInput || null,
       shipmentConfigCount: shipmentTransportationConfigurations.length,
       hasPallets,
       shipments: shipmentTransportationConfigurations.map((c: any) => ({
@@ -1760,7 +1797,7 @@ serve(async (req) => {
       res?.json?.DeliveryWindowOptions ||
       [];
 
-    const pickDeliveryWindowOptionId = (opts: any[]) => {
+    const pickDeliveryWindowOptionId = (opts: any[], preferred?: { start?: Date | null; end?: Date | null }) => {
       if (!Array.isArray(opts) || !opts.length) return null;
       const withDates = opts
         .map((o: any) => {
@@ -1771,6 +1808,21 @@ serve(async (req) => {
           return { opt: o, ts, start, end };
         })
         .filter((o: any) => Number.isFinite(o.ts));
+
+      if (withDates.length && preferred?.start) {
+        const prefStart = preferred.start.getTime();
+        const prefEnd = preferred?.end ? preferred.end.getTime() : Number.MAX_SAFE_INTEGER;
+        const inRange = withDates.filter((o: any) => {
+          const startTs = o.ts;
+          const endTs = o.end ? Date.parse(String(o.end)) : startTs;
+          return Number.isFinite(startTs) && startTs >= prefStart && startTs <= prefEnd && Number.isFinite(endTs);
+        });
+        if (inRange.length) {
+          const picked = inRange.sort((a: any, b: any) => a.ts - b.ts)[0].opt;
+          return picked?.deliveryWindowOptionId || picked?.id || null;
+        }
+      }
+
       const picked = withDates.length
         ? withDates.sort((a: any, b: any) => a.ts - b.ts)[0].opt
         : opts[0];
@@ -1815,7 +1867,7 @@ serve(async (req) => {
           if (Array.isArray(optionsList) && optionsList.length) break;
           await delay(Math.min(800 * i, 4000));
         }
-        const dwOptionId = pickDeliveryWindowOptionId(optionsList);
+        const dwOptionId = pickDeliveryWindowOptionId(optionsList, preferredDeliveryWindow || undefined);
         if (!dwOptionId) {
           logStep("deliveryWindow_missing_options", { traceId, shipmentId });
           continue;
@@ -2064,6 +2116,17 @@ serve(async (req) => {
       );
     }
 
+    if (!selectedOption?.partnered && !preferredDeliveryWindow) {
+      return new Response(
+        JSON.stringify({
+          error: "Setează intervalul estimat de sosire (start/end) pentru transport non-partener.",
+          code: "DELIVERY_WINDOW_REQUIRED",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
     const requiresDeliveryWindow = hasDeliveryWindowPrecondition(selectedOption?.raw || selectedOption);
     if (requiresDeliveryWindow) {
       const shipmentIds = Array.from(
@@ -2098,7 +2161,7 @@ serve(async (req) => {
           if (Array.isArray(optionsList) && optionsList.length) break;
           await delay(Math.min(800 * i, 4000));
         }
-        const dwOptionId = pickDeliveryWindowOptionId(optionsList);
+        const dwOptionId = pickDeliveryWindowOptionId(optionsList, preferredDeliveryWindow || undefined);
         if (!dwOptionId) {
           logStep("deliveryWindow_missing_options", { traceId, shipmentId });
           return new Response(

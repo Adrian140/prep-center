@@ -147,7 +147,13 @@ const initialTracking = [
 export default function FbaSendToAmazonWizard({
   initialPlan = initialData,
   initialPacking = initialPackGroups,
-  initialShipmentMode = { method: 'SPD', deliveryDate: '01/12/2025', carrier: { partnered: false, name: 'UPS (non-partnered)' } },
+  initialShipmentMode = {
+    method: 'SPD',
+    deliveryDate: '01/12/2025',
+    deliveryWindowStart: '',
+    deliveryWindowEnd: '',
+    carrier: { partnered: false, name: 'UPS (non-partnered)' }
+  },
   initialShipmentList = initialShipments,
   initialTrackingList = initialTracking,
   initialSkuStatuses = [],
@@ -919,7 +925,8 @@ const fetchPartneredQuote = useCallback(
       return `s-${idx + 1}`;
     };
 
-    return packGroups.map((g, idx) => {
+    const byShipment = new Map();
+    packGroups.forEach((g, idx) => {
       const dims = getSafeDims(g.boxDimensions);
       const weight = getPositiveNumber(g.boxWeight);
       const boxCount = Math.max(1, Number(g.boxes) || 1);
@@ -931,15 +938,26 @@ const fetchPartneredQuote = useCallback(
           }
         : null;
       const packingGroupId = g.packingGroupId || null;
-      if (!packingGroupId) return null;
-      return {
-        shipmentId: shipmentIdForGroup(g, idx),
-        packingGroupId,
-        packages: usePallets ? null : hasPackageSpec ? Array.from({ length: boxCount }, () => pkg) : [],
-        pallets: usePallets ? palletPayload : null,
-        freightInformation: usePallets ? freightInformation : null
+      if (!packingGroupId) return;
+      const shId = shipmentIdForGroup(g, idx);
+      const existing = byShipment.get(shId) || {
+        shipmentId: shId,
+        packages: [],
+        pallets: null,
+        freightInformation: null
       };
-    }).filter(Boolean);
+      if (usePallets) {
+        existing.pallets = palletPayload;
+        existing.freightInformation = freightInformation;
+      } else if (pkg) {
+        for (let i = 0; i < boxCount; i += 1) {
+          existing.packages.push(pkg);
+        }
+      }
+      byShipment.set(shId, existing);
+    });
+
+    return Array.from(byShipment.values());
   };
 
   const fetchShippingOptions = async () => {
@@ -984,6 +1002,11 @@ const fetchPartneredQuote = useCallback(
         return;
       }
     }
+    const windowError = validateDeliveryWindow();
+    if (windowError) {
+      setShippingError(windowError);
+      return;
+    }
 
     setShippingLoading(true);
     setShippingError('');
@@ -1005,6 +1028,8 @@ const fetchPartneredQuote = useCallback(
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
+          delivery_window_start: normalizeShipDate(shipmentMode?.deliveryWindowStart) || shipmentMode?.deliveryWindowStart || null,
+          delivery_window_end: normalizeShipDate(shipmentMode?.deliveryWindowEnd) || shipmentMode?.deliveryWindowEnd || null,
           force_partnered_if_available: true,
           force_partnered_only: forcePartneredOnly,
           confirm: false
@@ -1120,6 +1145,11 @@ const fetchPartneredQuote = useCallback(
         return;
       }
     }
+    const windowError = validateDeliveryWindow();
+    if (windowError) {
+      setShippingError(windowError);
+      return;
+    }
     setShippingConfirming(true);
     setShippingError('');
     try {
@@ -1134,6 +1164,8 @@ const fetchPartneredQuote = useCallback(
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
+          delivery_window_start: normalizeShipDate(shipmentMode?.deliveryWindowStart) || shipmentMode?.deliveryWindowStart || null,
+          delivery_window_end: normalizeShipDate(shipmentMode?.deliveryWindowEnd) || shipmentMode?.deliveryWindowEnd || null,
           force_partnered_if_available: forcePartneredIfAvailable,
           force_partnered_only: forcePartneredOnly,
           confirm: true
@@ -1307,6 +1339,18 @@ const fetchPartneredQuote = useCallback(
     if (!(declaredValue > 0) || !palletDetails.freightClass) {
       return 'Completează freight class și declared value pentru LTL/FTL.';
     }
+    return null;
+  };
+
+  const validateDeliveryWindow = () => {
+    if (shipmentMode?.carrier?.partnered) return null;
+    const start = shipmentMode?.deliveryWindowStart || '';
+    const end = shipmentMode?.deliveryWindowEnd || '';
+    if (!start || !end) return 'Completează intervalul estimat de livrare pentru transport non-partener (start și end).';
+    const startDate = Date.parse(start);
+    const endDate = Date.parse(end);
+    if (Number.isNaN(startDate) || Number.isNaN(endDate)) return 'Format invalid pentru intervalul de livrare (use YYYY-MM-DD).';
+    if (startDate > endDate) return 'Data de start a intervalului nu poate fi după end.';
     return null;
   };
 
@@ -1709,6 +1753,8 @@ const fetchPartneredQuote = useCallback(
         <FbaStep2Shipping
           shipment={{
             deliveryDate: shipmentMode.deliveryDate,
+            deliveryWindowStart: shipmentMode.deliveryWindowStart,
+            deliveryWindowEnd: shipmentMode.deliveryWindowEnd,
             method: shipmentMode.method,
             carrier: shipmentMode.carrier,
             palletDetails,
@@ -1721,6 +1767,13 @@ const fetchPartneredQuote = useCallback(
           onModeChange={handleModeChange}
           onPalletDetailsChange={setPalletDetails}
           onShipDateChange={(date) => setShipmentMode((prev) => ({ ...prev, deliveryDate: date }))}
+          onDeliveryWindowChange={(window) =>
+            setShipmentMode((prev) => ({
+              ...prev,
+              deliveryWindowStart: window?.start || '',
+              deliveryWindowEnd: window?.end || ''
+            }))
+          }
           error={shippingError}
           confirming={shippingConfirming}
           onNext={confirmShippingOptions}

@@ -6,10 +6,13 @@ export default function FbaStep2Shipping({
   hazmat = false,
   fetchPartneredQuote, // optional async ({ method, hazmat }) => { allowed: boolean; rate: number; reason?: string }
   forcePartneredOnly = false,
+  deliveryWindowStart,
+  deliveryWindowEnd,
   onCarrierChange,
   onModeChange,
   onPalletDetailsChange,
   onShipDateChange,
+  onDeliveryWindowChange,
   onNext,
   onBack,
   confirming = false,
@@ -17,6 +20,8 @@ export default function FbaStep2Shipping({
 }) {
   const { deliveryDate, method, carrier, shipments, warning, palletDetails } = shipment;
   const [shipDate, setShipDate] = useState(deliveryDate || '');
+  const [etaStart, setEtaStart] = useState(deliveryWindowStart || '');
+  const [etaEnd, setEtaEnd] = useState(deliveryWindowEnd || '');
   const [partneredAllowed, setPartneredAllowed] = useState(true);
   const [partneredReason, setPartneredReason] = useState('');
   const [partneredRate, setPartneredRate] = useState(
@@ -63,11 +68,18 @@ export default function FbaStep2Shipping({
     };
   }, [fetchPartneredQuote, hazmat, method]);
 
+  useEffect(() => {
+    setEtaStart(deliveryWindowStart || '');
+    setEtaEnd(deliveryWindowEnd || '');
+  }, [deliveryWindowStart, deliveryWindowEnd]);
+
   const shipmentCount = shipments?.length || 0;
   const totalBoxes = shipments?.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0) || 0;
   const totalUnits = shipments?.reduce((s, sh) => s + (Number(sh.units) || 0), 0) || 0;
   const totalSkus = shipments?.reduce((s, sh) => s + (Number(sh.skuCount) || 0), 0) || 0;
   const totalWeight = shipments?.reduce((s, sh) => s + (Number(sh.weight) || 0), 0) || 0;
+  const needsEtaWindow = !carrier?.partnered;
+  const hasEtaWindow = Boolean(etaStart) && Boolean(etaEnd);
   const carrierName = carrier?.partnered
     ? 'UPS (Amazon-partnered carrier)'
     : typeof carrier?.name === 'string'
@@ -111,7 +123,10 @@ export default function FbaStep2Shipping({
     disablePartnered || partneredRate === null ? 'Not available' : `€${partneredRate.toFixed(2)}`;
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const needsTerms = Boolean(carrier?.partnered && allowPartnered);
-  const canContinue = (carrier?.partnered ? allowPartnered : allowNonPartnered) && (!needsTerms || acceptedTerms);
+  const canContinue =
+    (carrier?.partnered ? allowPartnered : allowNonPartnered) &&
+    (!needsTerms || acceptedTerms) &&
+    (!needsEtaWindow || hasEtaWindow);
 
   useEffect(() => {
     if (allowPartnered || !allowNonPartnered || !carrier?.partnered) return;
@@ -254,6 +269,46 @@ export default function FbaStep2Shipping({
               </label>
             )}
           </div>
+
+          {!carrier?.partnered && (
+            <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 space-y-3 text-sm">
+              <div className="font-semibold text-amber-900">Estimated delivery window (non-partnered)</div>
+              <div className="text-xs text-amber-800">
+                Pentru transport non-partener, Amazon cere intervalul estimat de sosire la depozit.
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-slate-600">Start (YYYY-MM-DD)</label>
+                  <input
+                    type="date"
+                    value={etaStart}
+                    onChange={(e) => {
+                      setEtaStart(e.target.value);
+                      onDeliveryWindowChange?.({ start: e.target.value, end: etaEnd });
+                    }}
+                    className="border rounded-md px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-slate-600">End (YYYY-MM-DD)</label>
+                  <input
+                    type="date"
+                    value={etaEnd}
+                    onChange={(e) => {
+                      setEtaEnd(e.target.value);
+                      onDeliveryWindowChange?.({ start: etaStart, end: e.target.value });
+                    }}
+                    className="border rounded-md px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+              </div>
+              {!hasEtaWindow && (
+                <div className="text-xs text-red-700">Setează ambele capete ale intervalului estimat.</div>
+              )}
+            </div>
+          )}
         </div>
 
         {method !== 'SPD' && (
