@@ -63,11 +63,6 @@ export default function FbaStep2Shipping({
     };
   }, [fetchPartneredQuote, hazmat, method]);
 
-  useEffect(() => {
-    setEtaStart(deliveryWindowStart || '');
-    setEtaEnd(deliveryWindowEnd || '');
-  }, [deliveryWindowStart, deliveryWindowEnd]);
-
   const shipmentCount = shipments?.length || 0;
   const totalBoxes = shipments?.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0) || 0;
   const totalUnits = shipments?.reduce((s, sh) => s + (Number(sh.units) || 0), 0) || 0;
