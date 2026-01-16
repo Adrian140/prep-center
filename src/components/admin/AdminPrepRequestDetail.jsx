@@ -706,6 +706,21 @@ const mapBoxRows = (rows = []) => {
     });
   }
 
+  const handleUnitsSentChange = (itemId, rawValue, max) => {
+    if (rawValue === "") {
+      onItemFieldChange(itemId, "units_sent", "");
+      return;
+    }
+    const parsed = Math.max(0, Math.floor(Number(rawValue)));
+    const clamped = Math.min(parsed, max);
+    onItemFieldChange(itemId, "units_sent", clamped);
+  };
+
+  const handleUnitsSentBlur = (item) => {
+    // Auto-save when leaving the field to avoid relying on the row save button.
+    saveItem(item);
+  };
+
   async function saveItem(item) {
     // coerce number & clamp between 0 and requested
     const req = Number(item.units_requested || 0);
@@ -1329,14 +1344,14 @@ onChanged?.();
                         <td className="px-3 py-2 text-right">
                           <input
                             type="number"
+                            step="1"
                             className="w-28 text-right border rounded px-2 py-1"
                             min={0}
                             max={req}
                             value={Number.isFinite(it.units_sent) ? it.units_sent : ""}
                             placeholder="0"
-                            onChange={(e) =>
-                              onItemFieldChange(it.id, "units_sent", e.target.value === "" ? "" : Number(e.target.value))
-                            }
+                            onChange={(e) => handleUnitsSentChange(it.id, e.target.value, req)}
+                            onBlur={() => handleUnitsSentBlur(it)}
                           />
                         </td>
 
