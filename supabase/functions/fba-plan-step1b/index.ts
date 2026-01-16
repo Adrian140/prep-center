@@ -1249,7 +1249,7 @@ serve(async (req) => {
         sessionToken: tempCreds.sessionToken,
         lwaToken: lwaAccessToken,
         traceId,
-        operationName: "inbound.v20240320.getPackingGroupItems",
+        operationName: "inbound.v20240320.listPackingGroupItems",
         marketplaceId,
         sellerId
       });
@@ -1263,9 +1263,17 @@ serve(async (req) => {
         [];
       const normalizedItems = (Array.isArray(items) ? items : []).map((it: any) => ({
         msku: it.msku || it.SellerSKU || it.sellerSku || it.sku || "",
+        asin: it.asin || it.ASIN || it.Asin || "",
+        fnsku: it.fnsku || it.fulfillmentNetworkSku || it.FulfillmentNetworkSku || "",
         quantity: Number(it.quantity || it.Quantity || 0) || 0
       }));
-      return { packingGroupId: groupId, items: normalizedItems, status: res.res.status, requestId: res.requestId || null };
+      return {
+        packingGroupId: groupId,
+        items: normalizedItems,
+        status: res.res.status,
+        requestId: res.requestId || null,
+        pagination: res.json?.pagination || res.json?.Pagination || null
+      };
     };
 
     const fetchGroupItemsWithRetry = async (groupId: string) => {
