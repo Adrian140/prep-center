@@ -1602,9 +1602,16 @@ serve(async (req) => {
         hasContact: Boolean(c?.contactInformation)
       }))
     });
+    const configsWithShipFrom = (() => {
+      if (!planSourceAddress) return shipmentTransportationConfigurations;
+      return shipmentTransportationConfigurations.map((cfg: any) => ({
+        ...cfg,
+        shipFromAddress: planSourceAddress
+      }));
+    })();
     const generatePayload = JSON.stringify({
       placementOptionId: effectivePlacementOptionId,
-      shipmentTransportationConfigurations
+      shipmentTransportationConfigurations: configsWithShipFrom
     });
     const genRes = await signedFetch({
       method: "POST",
