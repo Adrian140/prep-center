@@ -489,7 +489,8 @@ serve(async (req) => {
       keys: Object.keys(body || {}),
       requestId: body?.request_id || body?.requestId,
       inboundPlanId: body?.inbound_plan_id || body?.inboundPlanId,
-      includePlacement: body?.include_placement ?? body?.includePlacement ?? false
+      includePlacement: body?.include_placement ?? body?.includePlacement ?? false,
+      packingOptionId: body?.packing_option_id || body?.packingOptionId || null
     });
     const requestId = body?.request_id as string | undefined;
     const inboundPlanId = body?.inbound_plan_id as string | undefined;
@@ -497,6 +498,14 @@ serve(async (req) => {
       (body?.include_placement as boolean | undefined) ??
       (body?.includePlacement as boolean | undefined) ??
       false;
+    const requestedPackingOptionIdRaw =
+      (body?.packing_option_id as string | undefined) ??
+      (body?.packingOptionId as string | undefined) ??
+      null;
+    const requestedPackingOptionId =
+      requestedPackingOptionIdRaw && typeof requestedPackingOptionIdRaw === "string"
+        ? requestedPackingOptionIdRaw.trim()
+        : null;
     if (!requestId || !inboundPlanId) {
       return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare" }), {
         status: 400,

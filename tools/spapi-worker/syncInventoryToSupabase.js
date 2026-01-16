@@ -13,6 +13,10 @@ const ALLOWED_FBA_CHANNELS = new Set(['AMAZON_NA', 'AMAZON_EU', 'AFN']);
 const INVENTORY_TIME_BUDGET_MS = Number(
   process.env.SPAPI_INVENTORY_TIME_BUDGET_MS || 5.5 * 60 * 60 * 1000
 );
+const INVENTORY_SYNC_LOOP = process.env.SPAPI_INVENTORY_SYNC_LOOP !== 'false';
+const INVENTORY_SYNC_INTERVAL_MS = Number(
+  process.env.SPAPI_INVENTORY_SYNC_INTERVAL_MS || 60 * 1000
+);
 
 const normalizeIdentifier = (value) => {
   if (value == null) return null;
@@ -830,8 +834,33 @@ async function main() {
   console.log('All integrations processed ✅');
 }
 
+async function runForever() {
+  do {
+    try {
+      await main();
+    } catch (err) {
+      console.error('Inventory sync failed:', err?.response?.data || err);
+      if (!INVENTORY_SYNC_LOOP) {
+        throw err;
+      }
+    }
+
+    if (!INVENTORY_SYNC_LOOP) {
+      break;
+    }
+
+    const sleepMs = Number.isFinite(INVENTORY_SYNC_INTERVAL_MS)
+      ? Math.max(0, INVENTORY_SYNC_INTERVAL_MS)
+      : 0;
+    if (sleepMs > 0) {
+      console.log(`[inventory] Sleeping ${Math.round(sleepMs / 1000)}s before next run.`);
+      await delay(sleepMs);
+    }
+  } while (true);
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((err) => {
+  runForever().catch((err) => {
     console.error('Inventory sync failed:', err?.response?.data || err);
     process.exit(1);
   });
