@@ -802,44 +802,7 @@ serve(async (req) => {
       typeof planPlacementStatus === "string" &&
       ["ACCEPTED", "CONFIRMED"].includes(String(planPlacementStatus).toUpperCase());
 
-    if (placementLocked) {
-      const snapshot = (reqData as any)?.amazon_snapshot || {};
-      const snapshotInbound = snapshot?.fba_inbound || {};
-      const cachedPackingGroups = Array.isArray(snapshotInbound?.packingGroups) ? snapshotInbound.packingGroups : [];
-      const cachedPackingOptionId =
-        snapshotInbound?.packingOptionId ||
-        planPackingOptionFromPlan?.packingOptionId ||
-        planPackingOptionFromPlan?.PackingOptionId ||
-        null;
-      const cachedPlacementOptionId =
-        snapshotInbound?.placementOptionId ||
-        planCheck?.json?.payload?.placementOptions?.[0]?.placementOptionId ||
-        planCheck?.json?.placementOptions?.[0]?.placementOptionId ||
-        null;
-      const cachedShipments = Array.isArray(snapshotInbound?.shipments)
-        ? snapshotInbound.shipments
-        : planCheck?.json?.payload?.shipments || planCheck?.json?.shipments || [];
-      const lockWarning =
-        "PlacementOption este deja ACCEPTED/CONFIRMED. Amazon blochează generate/list packing după confirmarea placement-ului. Creează un inbound plan nou pentru a reface packing-ul.";
-      return new Response(
-        JSON.stringify({
-          ok: false,
-          code: "PLACEMENT_ALREADY_ACCEPTED",
-          message: lockWarning,
-          inboundPlanId,
-          packingOptionId: cachedPackingOptionId,
-          placementOptionId: cachedPlacementOptionId,
-          shipments: cachedShipments,
-          packingGroups: cachedPackingGroups,
-          placementOptions: planCheck?.json?.payload?.placementOptions || planCheck?.json?.placementOptions || [],
-          packingOptionsFromPlan: planCheck?.json?.payload?.packingOptions || planCheck?.json?.packingOptions || [],
-          traceId,
-          warning: lockWarning,
-          amazonIntegrationId: integId || null
-        }),
-        { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
-    }
+    // Nu mai ieșim prematur dacă placement-ul este ACCEPTED; încercăm totuși să listăm packingOptions
 
     if (!planCheck.res.ok) {
       warnings.push(
@@ -900,7 +863,7 @@ serve(async (req) => {
 
       if (placementLocked && (!packingOptionsSnapshot.length || !hasPackingGroups(packingOptionsSnapshot))) {
         warnings.push(
-          "PlacementOption este deja ACCEPTED/CONFIRMED și packingOptions nu conțin packingGroupIds. Amazon blochează GeneratePackingOptions după confirmarea placement-ului; reia planul sau trimite packingInformation înainte de confirmare."
+          "PlacementOption este deja ACCEPTED/CONFIRMED și packingOptions nu conțin packingGroupIds. Amazon poate să nu mai permită GeneratePackingOptions; încercăm să listăm ce există, dar dacă nu apar grupurile, creează un inbound plan nou."
         );
       }
       if (shouldGenerate) {
@@ -1460,7 +1423,7 @@ serve(async (req) => {
 
     if (!hasPackingGroups) {
       const message = packingGroupIds.length === 0
-        ? "packingGroupIds lipsesc după list/generate (posibil throttling sau permisiuni insuficiente)."
+        ? "packingGroupIds lipsesc după list/generate (plan posibil blocat după confirmarea placement-ului)."
         : "packingGroups nu sunt gata după list/generate.";
       return new Response(
         JSON.stringify({

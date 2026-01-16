@@ -20,6 +20,8 @@ export default function FbaStep1Inventory({
   error = '',
   loadingPlan = false,
   saving = false,
+  inboundPlanId = null,
+  requestId = null,
   onChangePacking,
   onChangeQuantity,
   onChangeExpiry,
@@ -635,6 +637,11 @@ export default function FbaStep1Inventory({
           SKUs confirmed to send: {skus.length} ({totalUnits} units)
         </div>
         <div className="flex gap-3 justify-end">
+          {!inboundPlanId && (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-md">
+              Așteptăm inboundPlanId de la Amazon; nu poți continua până nu este încărcat planul.
+            </div>
+          )}
           <button
             onClick={() => {
               if (hasBlocking) {
@@ -642,11 +649,14 @@ export default function FbaStep1Inventory({
                 return;
               }
               if (loadingPlan) return;
+              if (!inboundPlanId || !requestId) return;
               onNext?.();
             }}
-            disabled={hasBlocking || saving || loadingPlan}
+            disabled={hasBlocking || saving || loadingPlan || !inboundPlanId || !requestId}
             className={`px-4 py-2 rounded-md font-semibold shadow-sm text-white ${
-              hasBlocking || saving || loadingPlan ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+              hasBlocking || saving || loadingPlan || !inboundPlanId || !requestId
+                ? 'bg-slate-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
             {loadingPlan
@@ -655,6 +665,8 @@ export default function FbaStep1Inventory({
                 ? 'Se salvează…'
                 : hasBlocking
                   ? 'Rezolvă eligibilitatea în Amazon'
+                  : !inboundPlanId || !requestId
+                    ? 'Așteaptă planul Amazon'
                   : 'Continue to packing'}
           </button>
         </div>

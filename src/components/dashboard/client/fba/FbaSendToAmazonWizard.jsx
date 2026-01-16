@@ -298,6 +298,7 @@ export default function FbaSendToAmazonWizard({
   const placementOptionIdRef = useRef(placementOptionId);
   const shippingRetryRef = useRef(0);
   const shippingRetryTimerRef = useRef(null);
+  const planMissingRetryRef = useRef(0);
   useEffect(() => {
     packGroupsRef.current = packGroups;
   }, [packGroups]);
@@ -616,6 +617,44 @@ export default function FbaSendToAmazonWizard({
     }
   }, [autoLoadPlan, fetchPlan, normalizePackGroups, planLoaded]);
 
+  useEffect(() => {
+    if (!planLoaded) return;
+    if (!fetchPlan) return;
+    const inboundPlanId = resolveInboundPlanId();
+    const requestId = resolveRequestId();
+    if (inboundPlanId && requestId) {
+      planMissingRetryRef.current = 0;
+      return;
+    }
+    if (planMissingRetryRef.current >= 2) return;
+    planMissingRetryRef.current += 1;
+    let cancelled = false;
+    (async () => {
+      setLoadingPlan(true);
+      try {
+        const response = await fetchPlan();
+        if (cancelled || !response) return;
+        const {
+          shipFrom: pFrom,
+          marketplace: pMarket,
+          skus: pSkus
+        } = response;
+        if (pFrom && pMarket && Array.isArray(pSkus)) {
+          setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
+        } else {
+          setPlan((prev) => ({ ...prev, ...response }));
+        }
+      } catch (e) {
+        if (!cancelled) setPlanError((prev) => prev || e?.message || 'Failed to reload Amazon plan.');
+      } finally {
+        if (!cancelled) setLoadingPlan(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [planLoaded, fetchPlan, resolveInboundPlanId, resolveRequestId]);
+
 const warning = useMemo(() => {
   if (!step2Loaded || shippingLoading) return null;
   const returnedModes = shippingSummary?.returnedModes || [];
@@ -657,8 +696,11 @@ const fetchPartneredQuote = useCallback(
     const hasRealGroups = hasRealPackGroups(packGroups);
     if (packGroupsLoaded || hasRealGroups) return;
     if (packingRefreshLoading || loadingPlan) return;
+    const inboundPlanId = resolveInboundPlanId();
+    const requestId = resolveRequestId();
+    if (!inboundPlanId || !requestId) return;
     refreshPackingGroups();
-  }, [currentStep, packGroupsLoaded, packGroups, packingRefreshLoading, loadingPlan]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentStep, packGroupsLoaded, packGroups, packingRefreshLoading, loadingPlan, resolveInboundPlanId, resolveRequestId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dacă avem deja grupuri în memorie, marcăm ca loaded ca să nu le ștergem inutil.
   useEffect(() => {
@@ -1740,6 +1782,8 @@ const fetchPartneredQuote = useCallback(
           blocking={blocking}
           saving={step1Saving}
           loadingPlan={!planLoaded || loadingPlan}
+          inboundPlanId={resolveInboundPlanId()}
+          requestId={resolveRequestId()}
           onChangePacking={handlePackingChange}
           onChangeQuantity={handleQuantityChange}
           onChangeExpiry={handleExpiryChange}

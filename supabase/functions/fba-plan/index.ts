@@ -1343,6 +1343,52 @@ serve(async (req) => {
       throw new Error("No items in request with quantity > 0");
     }
 
+    const fetchListingImages = async () => {
+      const images: Record<string, string> = {};
+      const missing = items.filter((it) => {
+        const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+        const hasLocalImage = Boolean(it.amazon_image || it.image || stock?.image_url);
+        return it.sku && !hasLocalImage;
+      });
+      const limited = missing.slice(0, 6); // evităm rate limiting
+      for (const it of limited) {
+        const skuKey = normalizeSku(it.sku || "");
+        if (!skuKey) continue;
+        try {
+          const res = await signedFetch({
+            method: "GET",
+            service: "execute-api",
+            region: awsRegion,
+            host,
+            path: `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(it.sku)}`,
+            query: `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=attributes,summaries`,
+            payload: "",
+            accessKey: tempCreds.accessKeyId,
+            secretKey: tempCreds.secretAccessKey,
+            sessionToken: tempCreds.sessionToken,
+            lwaToken: lwaAccessToken,
+            traceId,
+            operationName: "listings.getItem",
+            marketplaceId,
+            sellerId
+          });
+          const mainImage =
+            res.json?.summaries?.[0]?.mainImage?.link ||
+            res.json?.attributes?.main_product_image_locator?.[0]?.media_location ||
+            res.json?.summaries?.[0]?.images?.[0]?.link ||
+            null;
+          if (mainImage) {
+            images[skuKey] = mainImage;
+          }
+        } catch (e) {
+          console.warn("listings.getItem image fallback failed", { traceId, sku: it.sku, error: `${e}` });
+        }
+      }
+      return images;
+    };
+
+    const listingImages = await fetchListingImages();
+
     // Ship-from: fixed prep center address (real location in FR, nu schimbăm după destinație)
     const shipFromCountry = "FR";
     const shipFromAddress = {
@@ -2391,9 +2437,10 @@ serve(async (req) => {
       const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
       const key = normalizeSku(it.sku || stock?.sku || it.asin || "");
       if (!key) return;
+      const listingImage = listingImages[key] || it.amazon_image || it.image || null;
       skuMeta.set(key, {
         title: it.product_name || stock?.name || key,
-        image: stock?.image_url || null
+        image: stock?.image_url || listingImage || null
       });
     });
 
