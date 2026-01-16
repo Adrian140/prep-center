@@ -579,7 +579,11 @@ export default function FbaSendToAmazonWizard({
       }
       try {
         const response = fetchPlan ? await fetchPlan() : null;
-        if (cancelled || !response) return;
+        if (cancelled) return;
+        if (!response) {
+          setPlanError((prev) => prev || 'Planul Amazon nu a răspuns. Reîncearcă refresh.');
+          return;
+        }
         const {
           shipFrom: pFrom,
           marketplace: pMarket,

@@ -1051,9 +1051,9 @@ serve(async (req) => {
 
     const packingOptionsCount = mergedPackingOptions?.length ?? 0;
 
-    // Confirmăm packingOption-ul înainte de a cere packingGroupItems, altfel SPAPI răspunde cu
-    // "Package grouping ID not found in the inbound plan. ... call ConfirmPackingOption".
-    if (packingOptionId) {
+    // Confirmăm packingOption-ul doar dacă placement NU este deja confirmat;
+    // când placement este ACCEPTED/CONFIRMED, ConfirmPackingOption întoarce 400.
+    if (packingOptionId && !placementLocked) {
       const confirmRes = await confirmPackingOption(packingOptionId);
       debugStatuses.confirmPackingOption = { status: confirmRes?.res?.status ?? null, requestId: confirmRes?.requestId || null };
       rawSamples.confirmPackingOption = sampleBody(confirmRes);

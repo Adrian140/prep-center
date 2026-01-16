@@ -1345,22 +1345,6 @@ serve(async (req) => {
     if (!marketplaceId) {
       throw new Error("Missing destination marketplaceId");
     }
-    // Validare minimă conform schema: labelOwner/prepOwner în enum
-    const allowedOwners = new Set(["AMAZON", "SELLER", "NONE"]);
-    const invalidOwners = items
-      .map((it) => {
-        const key = normalizeSku(it.sku || it.asin || "");
-        const prepInfo = prepGuidanceMap[key] || {};
-        const manufacturerBarcodeEligible =
-          prepInfo.barcodeInstruction ? isManufacturerBarcodeEligible(prepInfo.barcodeInstruction) : false;
-        const labelOwner: OwnerVal = manufacturerBarcodeEligible ? "NONE" : "SELLER";
-        const prepOwner: OwnerVal = prepInfo.prepRequired ? "SELLER" : "NONE";
-        return !allowedOwners.has(labelOwner) || !allowedOwners.has(prepOwner) ? key : null;
-      })
-      .filter(Boolean) as string[];
-    if (invalidOwners.length) {
-      throw new Error(`Invalid labelOwner/prepOwner pentru SKU-urile: ${invalidOwners.join(", ")}`);
-    }
 
     const fetchListingImages = async () => {
       const images: Record<string, string> = {};
