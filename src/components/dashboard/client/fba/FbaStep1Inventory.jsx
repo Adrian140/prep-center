@@ -641,14 +641,21 @@ export default function FbaStep1Inventory({
                 alert('Unele SKU-uri nu sunt eligibile în Amazon; rezolvă eligibilitatea și încearcă din nou.');
                 return;
               }
+              if (loadingPlan) return;
               onNext?.();
             }}
-            disabled={hasBlocking || saving}
+            disabled={hasBlocking || saving || loadingPlan}
             className={`px-4 py-2 rounded-md font-semibold shadow-sm text-white ${
-              hasBlocking || saving ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+              hasBlocking || saving || loadingPlan ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            {saving ? 'Se salvează…' : hasBlocking ? 'Rezolvă eligibilitatea în Amazon' : 'Continue to packing'}
+            {loadingPlan
+              ? 'Așteaptă răspunsul Amazon...'
+              : saving
+                ? 'Se salvează…'
+                : hasBlocking
+                  ? 'Rezolvă eligibilitatea în Amazon'
+                  : 'Continue to packing'}
           </button>
         </div>
       </div>

@@ -1533,6 +1533,7 @@ const fetchPartneredQuote = useCallback(
         return;
       }
       setPlanLoaded(false);
+      setLoadingPlan(true);
       if (fetchPlan) {
         await fetchPlan().then((response) => {
           if (!response) return;
@@ -1573,6 +1574,8 @@ const fetchPartneredQuote = useCallback(
           }
         });
       }
+      setLoadingPlan(false);
+      setPlanLoaded(true);
     },
     [fetchPlan, fetchShippingOptions, normalizePackGroups]
   );
@@ -1706,6 +1709,12 @@ const fetchPartneredQuote = useCallback(
           packRes?.message ||
           'Amazon nu a returnat încă packing groups. Reîncearcă în câteva secunde.';
         setStep1SaveError(msg);
+        return;
+      }
+      // asigură-te că avem inboundPlanId după reîncărcare, altfel nu trecem în 1b
+      const inboundPlanId = resolveInboundPlanId();
+      if (!inboundPlanId) {
+        setStep1SaveError('Așteptăm inboundPlanId de la Amazon. Reîncearcă după câteva secunde.');
         return;
       }
       completeAndNext('1');
