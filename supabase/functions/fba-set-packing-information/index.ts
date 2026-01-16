@@ -938,6 +938,51 @@ serve(async (req) => {
         placementOptions?.[0]?.placementOptionId ||
         placementOptions?.[0]?.id ||
         null;
+
+      // dacă placement-ul este doar "OFFERED", îl confirmăm automat ca să primim destinațiile/shipments
+      const firstPlacement = placementOptions?.[0];
+      if (placementOptionId && String(firstPlacement?.status || "").toUpperCase() === "OFFERED") {
+        await signedFetchWithRetry({
+          method: "POST",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(placementOptionId)}/confirmation`,
+          query: "",
+          payload: "{}",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.confirmPlacementOption",
+          marketplaceId,
+          sellerId
+        });
+
+        // re-listăm să returnăm statusul actualizat
+        const relistPlacement = await signedFetchWithRetry({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.listPlacementOptions",
+          marketplaceId,
+          sellerId
+        });
+        placementOptions =
+          relistPlacement?.json?.payload?.placementOptions ||
+          relistPlacement?.json?.placementOptions ||
+          placementOptions;
+      }
     }
 
     // persist inbound/packing IDs (idempotent)

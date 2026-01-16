@@ -226,6 +226,40 @@ function extractInboundErrors(primary: { json: any; text: string }): {
   return out;
 }
 
+function extractInboundUnavailableSkus(primary: { json: any; text: string }): string[] {
+  const collect = (obj: any) => {
+    const errs = obj?.errors || obj?.payload?.errors || [];
+    if (!Array.isArray(errs)) return [];
+    const skus: string[] = [];
+    for (const e of errs) {
+      const msg = String(e?.message || "");
+      if (!msg.toLowerCase().includes("not available for inbound")) continue;
+      const match = msg.match(/MSKUs:\s*\[([^\]]+)\]/i);
+      if (match && match[1]) {
+        match[1]
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .forEach((sku) => skus.push(normalizeSku(sku)));
+      }
+    }
+    return skus;
+  };
+
+  const fromJson = collect(primary.json);
+  if (fromJson.length) return fromJson;
+
+  if (primary.text) {
+    try {
+      const parsed = JSON.parse(primary.text);
+      return collect(parsed);
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 function chooseFixValue(field: InboundField, msg: string, accepted: OwnerVal[]): OwnerVal | null {
   const up = msg.toUpperCase();
   if (up.includes("DOES NOT REQUIRE") && accepted.includes("NONE")) return "NONE";
@@ -1571,58 +1605,69 @@ serve(async (req) => {
       skuStatuses.push({ sku, asin: it.asin || null, state: status.state, reason: status.reason });
     }
 
-    const blocking = skuStatuses.filter((s) => ["missing", "inactive", "restricted"].includes(String(s.state)));
-    if (blocking.length) {
-      const warningParts: string[] = [`Unele produse nu sunt eligibile pe marketplace-ul destinație (${marketplaceId}).`];
+    const blocking = skuStatuses.filter((s) => ["inactive", "restricted", "inbound_unavailable"].includes(String(s.state)));
+    if (skuStatuses.length) {
+      const warningParts: string[] = [];
+      if (blocking.length) {
+        warningParts.push(`Unele produse nu sunt eligibile pe marketplace-ul destinație (${marketplaceId}).`);
+      }
+      const missing = skuStatuses.filter((s) => s.state === "missing");
+      if (missing.length) {
+        warningParts.push(
+          `SKU fără listing pe marketplace (${missing.map((m) => m.sku).join(", ")}). Verifică dacă există ca FBA.`
+        );
+      }
       if (prepGuidanceWarning) warningParts.push(prepGuidanceWarning);
       const warning = warningParts.filter(Boolean).join(" ");
-      const skus = items.map((it, idx) => {
-        const key = normalizeSku(it.sku || it.asin || "");
-        const prepInfo = prepGuidanceMap[key] || {};
-        const requiresExpiryFromGuidance = (prepInfo.prepInstructions || []).some((p: string) =>
-          String(p || "").toLowerCase().includes("expir")
-        );
-        const expiryKey = normalizeSku(it.sku || "");
-        const requiresExpiry = requiresExpiryFromGuidance || expiryRequiredBySku[expiryKey] === true;
-        const expiryVal = expirations[expiryKey] || "";
-        return {
-          id: it.id || `sku-${idx + 1}`,
-          title: it.product_name || it.sku || `SKU ${idx + 1}`,
-          sku: it.sku || "",
-          asin: it.asin || "",
-          storageType: "Standard-size",
-          packing: "individual",
-          units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-          expiry: expiryVal,
-          expirySource: expirySourceBySku[expiryKey] || null,
-          expiryRequired: requiresExpiry,
-          prepRequired: prepInfo?.prepRequired || false,
-          prepNotes: (prepInfo?.prepInstructions || []).join(", "),
-          manufacturerBarcodeEligible:
-            (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
-          readyToPack: true
+      if (blocking.length || missing.length) {
+        const skus = items.map((it, idx) => {
+          const key = normalizeSku(it.sku || it.asin || "");
+          const prepInfo = prepGuidanceMap[key] || {};
+          const requiresExpiryFromGuidance = (prepInfo.prepInstructions || []).some((p: string) =>
+            String(p || "").toLowerCase().includes("expir")
+          );
+          const expiryKey = normalizeSku(it.sku || "");
+          const requiresExpiry = requiresExpiryFromGuidance || expiryRequiredBySku[expiryKey] === true;
+          const expiryVal = expirations[expiryKey] || "";
+          return {
+            id: it.id || `sku-${idx + 1}`,
+            title: it.product_name || it.sku || `SKU ${idx + 1}`,
+            sku: it.sku || "",
+            asin: it.asin || "",
+            storageType: "Standard-size",
+            packing: "individual",
+            units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+            expiry: expiryVal,
+            expirySource: expirySourceBySku[expiryKey] || null,
+            expiryRequired: requiresExpiry,
+            prepRequired: prepInfo?.prepRequired || false,
+            prepNotes: (prepInfo?.prepInstructions || []).join(", "),
+            manufacturerBarcodeEligible:
+              (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
+            readyToPack: true
+          };
+        });
+        const plan = {
+          source: "amazon",
+          amazonIntegrationId,
+          marketplace: marketplaceId,
+          shipFrom: {
+            name: shipFromAddress.name,
+            address: `${shipFromAddress.addressLine1}, ${shipFromAddress.postalCode}, ${shipFromAddress.countryCode}`
+          },
+          skus,
+          packGroups: [],
+          shipments: [],
+          raw: null,
+          skuStatuses,
+          warning,
+          blocking: blocking.length > 0
         };
-      });
-      const plan = {
-        source: "amazon",
-        amazonIntegrationId,
-        marketplace: marketplaceId,
-        shipFrom: {
-          name: shipFromAddress.name,
-          address: `${shipFromAddress.addressLine1}, ${shipFromAddress.postalCode}, ${shipFromAddress.countryCode}`
-        },
-        skus,
-        packGroups: [],
-        shipments: [],
-        raw: null,
-        skuStatuses,
-        warning,
-        blocking: true
-      };
-      return new Response(JSON.stringify({ plan, traceId, scopes: lwaScopes }), {
-        status: 200,
-        headers: { ...corsHeaders, "content-type": "application/json" }
-      });
+        return new Response(JSON.stringify({ plan, traceId, scopes: lwaScopes }), {
+          status: 200,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+      }
     }
 
     const buildPlanBody = (overrides: Record<string, InboundFix> = {}) => {
@@ -2055,6 +2100,7 @@ serve(async (req) => {
     let attempt = 0;
     const maxAttempts = 3;
     let amazonJson: any = null;
+    let lastResponseText: string | null = null;
     let primaryRequestId: string | null = null;
     let plans: any[] = [];
     let inboundPlanId: string | null = reqData.inbound_plan_id || null;
@@ -2130,6 +2176,7 @@ serve(async (req) => {
         createHttpStatus = res.res.status;
         if (!primaryRequestId) primaryRequestId = res.requestId || null;
         amazonJson = res.json;
+        lastResponseText = res.text || null;
         operationId = operationId || extractOperationId(res.json);
         const data = extractInboundPlanData(res.json);
         inboundPlanId = inboundPlanId || data.inboundPlanId;
@@ -2298,6 +2345,22 @@ serve(async (req) => {
             image: stock?.image_url || null
           };
         });
+        const inboundUnavailableSkus = extractInboundUnavailableSkus({
+          json: amazonJson,
+          text: lastResponseText || ""
+        });
+        if (inboundUnavailableSkus.length) {
+          for (const sku of inboundUnavailableSkus) {
+            const existing = skuStatuses.find((s) => normalizeSku(s.sku) === sku);
+            const reason = "SKU indisponibil pentru inbound (Amazon SP-API).";
+            if (existing) {
+              existing.state = "inbound_unavailable";
+              existing.reason = reason;
+            } else {
+              skuStatuses.push({ sku, asin: null, state: "inbound_unavailable", reason });
+            }
+          }
+        }
         const extraWarnings = planWarnings.length ? ` ${planWarnings.join(" ")}` : "";
         const statusInfo = inboundPlanStatus
           ? ` Status plan: ${inboundPlanStatus}${inboundPlanId ? ` (${inboundPlanId})` : ""}.`
@@ -2317,6 +2380,9 @@ serve(async (req) => {
               .map((p: any) => p?.message || p?.code || safeJson(p))
               .join(" | ")}`
           : "";
+        const inboundUnavailableInfo = inboundUnavailableSkus.length
+          ? ` SKU-uri indisponibile pentru inbound: ${inboundUnavailableSkus.join(", ")}.`
+          : "";
         const fallbackPlan = {
           source: "amazon",
           amazonIntegrationId,
@@ -2330,7 +2396,7 @@ serve(async (req) => {
           shipments: [],
           raw: null,
           skuStatuses,
-          warning: `Amazon a refuzat crearea planului. Încearcă din nou sau verifică permisiunile Inbound pe marketplace.${statusInfo}${operationInfo}${optionsInfo}${problemsInfo ? ` ${problemsInfo}` : ""}${extraWarnings}`,
+          warning: `Amazon a refuzat crearea planului. Încearcă din nou sau verifică permisiunile Inbound pe marketplace.${statusInfo}${operationInfo}${optionsInfo}${problemsInfo ? ` ${problemsInfo}` : ""}${inboundUnavailableInfo}${extraWarnings}`,
           blocking: true,
           requestId: primaryRequestId || null
         };

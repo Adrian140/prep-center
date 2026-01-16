@@ -965,7 +965,6 @@ serve(async (req) => {
         sellerId
       });
 
-    // Dacă nu există încă box-uri în plan, nu confirmăm placement-ul și oprim fluxul: trebuie să ruleze setPackingInformation înainte.
     const boxesRes = await listBoxes();
     const boxes =
       boxesRes?.json?.payload?.boxes ||
@@ -977,16 +976,6 @@ serve(async (req) => {
       boxesCount,
       requestId: boxesRes?.requestId || null
     });
-    if (!boxesCount) {
-      return new Response(
-        JSON.stringify({
-          error: "Nu există box-uri trimise încă. Finalizează packing (setPackingInformation) înainte de confirmarea transportului.",
-          code: "PACKING_INCOMPLETE",
-          traceId
-        }),
-        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
-    }
 
     if (confirmedPlacement) {
       effectivePlacementOptionId = normalizePlacementId(confirmedPlacement) || effectivePlacementOptionId;
@@ -1011,7 +1000,7 @@ serve(async (req) => {
 
     // 2) Confirm placement (idempotent; accept 400/409) only when not already confirmed
     let placementConfirm: Awaited<ReturnType<typeof signedFetch>> | null = null;
-    if (!confirmedPlacement) {
+    if (!confirmedPlacement && boxesCount > 0) {
       placementConfirm = await signedFetch({
         method: "POST",
         service: "execute-api",
@@ -1199,7 +1188,9 @@ serve(async (req) => {
     const normalizePlacementShipments = (list: any[]) =>
       (Array.isArray(list) ? list : []).map((sh: any, idx: number) => {
         const id = sh?.shipmentId || sh?.id || `s-${idx + 1}`;
-        return { ...sh, id, shipmentId: id };
+        const shipFromAddress = sh?.source?.address || planSourceAddress || null;
+        const shipToAddress = sh?.destination?.address || sh?.destination || null;
+        return { ...sh, id, shipmentId: id, shipFromAddress, shipToAddress };
       });
 
     const getSelectedTransportationOptionId = async (shipmentId: string) => {
