@@ -1028,8 +1028,6 @@ const fetchPartneredQuote = useCallback(
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
-          delivery_window_start: normalizeShipDate(shipmentMode?.deliveryWindowStart) || shipmentMode?.deliveryWindowStart || null,
-          delivery_window_end: normalizeShipDate(shipmentMode?.deliveryWindowEnd) || shipmentMode?.deliveryWindowEnd || null,
           force_partnered_if_available: true,
           force_partnered_only: forcePartneredOnly,
           confirm: false
@@ -1164,8 +1162,6 @@ const fetchPartneredQuote = useCallback(
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
-          delivery_window_start: normalizeShipDate(shipmentMode?.deliveryWindowStart) || shipmentMode?.deliveryWindowStart || null,
-          delivery_window_end: normalizeShipDate(shipmentMode?.deliveryWindowEnd) || shipmentMode?.deliveryWindowEnd || null,
           force_partnered_if_available: forcePartneredIfAvailable,
           force_partnered_only: forcePartneredOnly,
           confirm: true
@@ -1343,14 +1339,7 @@ const fetchPartneredQuote = useCallback(
   };
 
   const validateDeliveryWindow = () => {
-    if (shipmentMode?.carrier?.partnered) return null;
-    const start = shipmentMode?.deliveryWindowStart || '';
-    const end = shipmentMode?.deliveryWindowEnd || '';
-    if (!start || !end) return 'Completează intervalul estimat de livrare pentru transport non-partener (start și end).';
-    const startDate = Date.parse(start);
-    const endDate = Date.parse(end);
-    if (Number.isNaN(startDate) || Number.isNaN(endDate)) return 'Format invalid pentru intervalul de livrare (use YYYY-MM-DD).';
-    if (startDate > endDate) return 'Data de start a intervalului nu poate fi după end.';
+    // Delivery window va fi generată/confirmată via SP-API; nu mai cerem manual end-date în UI.
     return null;
   };
 

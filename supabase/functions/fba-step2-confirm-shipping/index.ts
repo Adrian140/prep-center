@@ -1263,9 +1263,24 @@ serve(async (req) => {
     const preferredDeliveryWindow = (() => {
       const start = parseShipDate(deliveryWindowStartInput);
       const end = parseShipDate(deliveryWindowEndInput);
-      if (!start || !end) return null;
-      if (start.getTime() > end.getTime()) return null;
-      return { start, end };
+      if (start && end && start.getTime() <= end.getTime()) return { start, end };
+      if (shipDateParsed) {
+        const destCountry = (planRes?.json?.destinationAddress?.countryCode ||
+          planRes?.json?.payload?.destinationAddress?.countryCode ||
+          planRes?.json?.payload?.destination?.address?.countryCode ||
+          null) as string | null;
+        const sourceCountry = (planRes?.json?.sourceAddress?.countryCode ||
+          planRes?.json?.payload?.sourceAddress?.countryCode ||
+          null) as string | null;
+        const domestic =
+          destCountry && sourceCountry
+            ? String(destCountry).toUpperCase() === String(sourceCountry).toUpperCase()
+            : false;
+        const days = domestic ? 7 : 14;
+        const fallbackEnd = new Date(shipDateParsed.getTime() + days * 24 * 60 * 60 * 1000);
+        return { start: shipDateParsed, end: fallbackEnd };
+      }
+      return null;
     })();
 
     function normalizePackages(packages: any) {
@@ -2113,17 +2128,6 @@ serve(async (req) => {
           traceId
         }),
         { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
-    }
-
-    if (!selectedOption?.partnered && !preferredDeliveryWindow) {
-      return new Response(
-        JSON.stringify({
-          error: "Setează intervalul estimat de sosire (start/end) pentru transport non-partener.",
-          code: "DELIVERY_WINDOW_REQUIRED",
-          traceId
-        }),
-        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
 
