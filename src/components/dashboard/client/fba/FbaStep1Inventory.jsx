@@ -28,6 +28,13 @@ export default function FbaStep1Inventory({
   onChangePrep,
   onNext
 }) {
+  const resolvedInboundPlanId =
+    inboundPlanId ||
+    data?.inboundPlanId ||
+    data?.inbound_plan_id ||
+    data?.planId ||
+    data?.plan_id ||
+    null;
   const shipFrom = data?.shipFrom || {};
   const marketplaceRaw = data?.marketplace || '';
   const rawSkus = Array.isArray(data?.skus) ? data.skus : [];
@@ -637,7 +644,7 @@ export default function FbaStep1Inventory({
           SKUs confirmed to send: {skus.length} ({totalUnits} units)
         </div>
         <div className="flex gap-3 justify-end">
-          {!inboundPlanId && (
+          {!resolvedInboundPlanId && (
             <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-md">
               Așteptăm inboundPlanId de la Amazon; nu poți continua până nu este încărcat planul.
             </div>
@@ -648,13 +655,13 @@ export default function FbaStep1Inventory({
                 alert('Unele SKU-uri nu sunt eligibile în Amazon; rezolvă eligibilitatea și încearcă din nou.');
                 return;
               }
-              const disabled = hasBlocking || saving || !inboundPlanId || !requestId || (loadingPlan && skus.length === 0);
+              const disabled = hasBlocking || saving || !resolvedInboundPlanId || !requestId || (loadingPlan && skus.length === 0);
               if (disabled) return;
               onNext?.();
             }}
-            disabled={hasBlocking || saving || !inboundPlanId || !requestId || (loadingPlan && skus.length === 0)}
+            disabled={hasBlocking || saving || !resolvedInboundPlanId || !requestId || (loadingPlan && skus.length === 0)}
             className={`px-4 py-2 rounded-md font-semibold shadow-sm text-white ${
-              hasBlocking || saving || !inboundPlanId || !requestId || (loadingPlan && skus.length === 0)
+              hasBlocking || saving || !resolvedInboundPlanId || !requestId || (loadingPlan && skus.length === 0)
                 ? 'bg-slate-400 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700'
             }`}
