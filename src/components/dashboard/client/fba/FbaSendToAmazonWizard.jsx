@@ -387,6 +387,15 @@ export default function FbaSendToAmazonWizard({
       null
     );
   }, [initialPlan?.inboundPlanId, initialPlan?.inbound_plan_id, initialPlan?.planId, initialPlan?.plan_id, plan?.inboundPlanId, plan?.inbound_plan_id, plan?.planId, plan?.plan_id]);
+  const initialRequestKey = useMemo(
+    () =>
+      initialPlan?.prepRequestId ||
+      initialPlan?.requestId ||
+      initialPlan?.request_id ||
+      initialPlan?.id ||
+      null,
+    [initialPlan?.id, initialPlan?.prepRequestId, initialPlan?.requestId, initialPlan?.request_id]
+  );
 
   // Persistăm ultimul pas vizitat ca să nu se piardă la refresh (cheie per shipment).
   const storageKeyBase = useMemo(() => {
@@ -428,16 +437,36 @@ export default function FbaSendToAmazonWizard({
   }, [storageKeyBase]);
   const [restoredState, setRestoredState] = useState(false);
   const prevStorageKeyRef = useRef(storageKeyBase);
+  const requestKeyRef = useRef(initialRequestKey);
 
   useEffect(() => {
     if (prevStorageKeyRef.current === storageKeyBase) return;
     prevStorageKeyRef.current = storageKeyBase;
-    const normalized = normalizePackGroups(initialPackGroups || []);
+
+    const normalizedInitialGroups = normalizePackGroups(initialPackGroups || []);
+    const hasInbound =
+      Boolean(planRef.current?.inboundPlanId || planRef.current?.inbound_plan_id || plan?.inboundPlanId || plan?.inbound_plan_id);
+    const hasRealGroups = hasRealPackGroups(packGroupsRef.current);
+
+    const currentRequestKey = initialRequestKey;
+    const isNewRequest = requestKeyRef.current !== currentRequestKey;
+    requestKeyRef.current = currentRequestKey;
+
+    // Dacă avem deja un inbound plan real pentru același request, nu resetăm planul/packing-ul.
+    if (!isNewRequest && hasInbound) {
+      if (hasRealGroups) {
+        setPackGroupsLoaded(true);
+      } else {
+        setPackGroupsLoaded(hasRealPackGroups(normalizedInitialGroups));
+      }
+      return;
+    }
+
     setCurrentStep('1');
     setCompletedSteps([]);
     setPlan(initialPlan);
-    setPackGroups(normalized);
-    setPackGroupsLoaded(hasRealPackGroups(normalized));
+    setPackGroups(normalizedInitialGroups);
+    setPackGroupsLoaded(hasRealPackGroups(normalizedInitialGroups));
     setShipmentMode(initialShipmentMode);
     setShipments(initialShipmentList);
     setLabelFormat('thermal');
@@ -460,7 +489,10 @@ export default function FbaSendToAmazonWizard({
     initialShipmentList,
     initialTrackingList,
     normalizePackGroups,
-    hasRealPackGroups
+    hasRealPackGroups,
+    initialRequestKey,
+    plan?.inboundPlanId,
+    plan?.inbound_plan_id
   ]);
 
   useEffect(() => {
