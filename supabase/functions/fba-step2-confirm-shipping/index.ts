@@ -1260,6 +1260,9 @@ serve(async (req) => {
       return null;
     }
 
+    const shipDateFromClient = body?.ship_date ?? body?.shipDate ?? null;
+    const shipDateParsed = parseShipDate(shipDateFromClient);
+
     const preferredDeliveryWindow = (() => {
       const start = parseShipDate(deliveryWindowStartInput);
       const end = parseShipDate(deliveryWindowEndInput);
@@ -1369,9 +1372,6 @@ serve(async (req) => {
         freightClass: String(freightClass)
       };
     }
-
-    const shipDateFromClient = body?.ship_date ?? body?.shipDate ?? null;
-    const shipDateParsed = parseShipDate(shipDateFromClient);
 
     const readyStartIso = (() => {
       if (shipDateParsed) return shipDateParsed.toISOString();
