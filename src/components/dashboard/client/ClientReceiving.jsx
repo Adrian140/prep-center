@@ -1279,6 +1279,8 @@ const buildHeaderState = (shipment) => ({
                   shipment.tracking_ids,
                   shipment.tracking_id
                 );
+                const status = shipment.derived_status || shipment.status;
+                const canDelete = !['processed', 'cancelled', 'received'].includes(status);
 
                 return (
                   <tr key={shipment.id} className="border-t">
@@ -1318,7 +1320,7 @@ const buildHeaderState = (shipment) => ({
                       >
                         {t('view_details')}
                       </button>
-                      {!['processed', 'cancelled'].includes(shipment.status) && (
+                      {canDelete && (
                         <button
                           onClick={() => handleDeleteShipment(shipment.id)}
                           disabled={deletingShipment}
