@@ -1202,7 +1202,6 @@ serve(async (req) => {
     if (!Array.isArray(placementShipments) || !placementShipments.length) {
       const enrichedPlanShipmentIds = planShipmentIds.length ? planShipmentIds : await listPlacementShipmentIds();
       const hasPlanShipmentIds = Array.isArray(enrichedPlanShipmentIds) && enrichedPlanShipmentIds.length > 0;
-      const hasPlanShipmentIds = Array.isArray(planShipmentIds) && planShipmentIds.length > 0;
       if (!hasPlanShipmentIds && packingGroupsForTransport.length === 0) {
         return new Response(JSON.stringify({
           error: "Placement încă nu are shipments și nu avem packingGroups cache. Reîncearcă după câteva secunde sau regenerează placement.",
