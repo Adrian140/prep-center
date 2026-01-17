@@ -43,8 +43,12 @@ export const normalizeCarriers = (rows = []) => {
   }
 
   const normalized = Array.from(registry.values());
-  normalized.sort((a, b) =>
-    a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
-  );
+  normalized.sort((a, b) => {
+    const isOtherA = a.code === 'OTHER';
+    const isOtherB = b.code === 'OTHER';
+    if (isOtherA && !isOtherB) return 1; // OTHER goes last
+    if (!isOtherA && isOtherB) return -1;
+    return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+  });
   return normalized;
 };
