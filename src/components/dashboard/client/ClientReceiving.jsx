@@ -786,7 +786,7 @@ const buildHeaderState = (shipment) => ({
 
             <div>
               <label className="block text-sm font-medium text-text-secondary">
-                {t('store_name') || 'Store / merchant'}
+                {t('ClientReceiving.store_name') || 'Store / merchant'}
               </label>
               {editMode ? (
                 <input
@@ -796,7 +796,7 @@ const buildHeaderState = (shipment) => ({
                     setEditHeader((prev) => ({ ...prev, store_name: e.target.value }))
                   }
                   className="w-full px-3 py-2 border rounded-lg"
-                  placeholder={t('store_name_ph') || 'Name of the store sending goods'}
+                  placeholder={t('ClientReceiving.store_name_ph') || 'Name of the store sending goods'}
                 />
               ) : (
                 <p className="text-text-primary">
@@ -1277,7 +1277,7 @@ const buildHeaderState = (shipment) => ({
                 {t('list_tracking')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
-                {t('store_name') || 'Store'}
+                {t('ClientReceiving.store_name') || 'Store'}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                 {t('list_status')}
