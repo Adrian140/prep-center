@@ -13,7 +13,8 @@ const ALLOWED_FBA_CHANNELS = new Set(['AMAZON_NA', 'AMAZON_EU', 'AFN']);
 const INVENTORY_TIME_BUDGET_MS = Number(
   process.env.SPAPI_INVENTORY_TIME_BUDGET_MS || 5.5 * 60 * 60 * 1000
 );
-const INVENTORY_SYNC_LOOP = process.env.SPAPI_INVENTORY_SYNC_LOOP !== 'false';
+// Implicitly run a single pass unless explicitly asked to loop forever.
+const INVENTORY_SYNC_LOOP = process.env.SPAPI_INVENTORY_SYNC_LOOP === 'true';
 const INVENTORY_SYNC_INTERVAL_MS = Number(
   process.env.SPAPI_INVENTORY_SYNC_INTERVAL_MS || 60 * 1000
 );
