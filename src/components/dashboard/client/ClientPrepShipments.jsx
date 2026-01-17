@@ -40,6 +40,9 @@ export default function ClientPrepShipments() {
   const [addingSel, setAddingSel] = useState('');
   const [addingQty, setAddingQty] = useState('');
   const amazonSnapshot = reqHeader?.amazon_snapshot || null;
+  const isAdmin = profile?.is_admin === true || profile?.account_type === 'admin';
+  const isLimitedAdmin = profile?.is_limited_admin === true;
+  const canAdminDelete = isAdmin && !isLimitedAdmin;
 
   const formatDateParts = (value) => {
     if (!value) return { date: '—', time: '' };
@@ -699,7 +702,7 @@ export default function ClientPrepShipments() {
                         View request
                         <ChevronDown className="w-4 h-4" />
                       </button>
-                        {pending && (
+                        {pending && canAdminDelete && (
                           <button
                             className="text-sm text-red-600 hover:underline disabled:opacity-50"
                             disabled={deletingId === row.id}
