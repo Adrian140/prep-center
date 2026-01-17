@@ -1417,6 +1417,14 @@ serve(async (req) => {
       const boxes = Number((g as any)?.boxes || (g as any)?.boxCount || 1) || 1;
       const items = normalizeItems((g as any)?.items);
       const pgId = (g as any)?.packingGroupId || (g as any)?.id || `group-${idx + 1}`;
+      const dims =
+        (g as any)?.dimensions ||
+        (g as any)?.boxDimensions ||
+        null;
+      const weight =
+        (g as any)?.weight ||
+        (g as any)?.boxWeight ||
+        null;
       return {
         ...g,
         id: pgId,
@@ -1424,7 +1432,9 @@ serve(async (req) => {
         boxes,
         packMode: boxes > 1 ? "multiple" : "single",
         title: (g as any)?.title || null,
-        items
+        items,
+        dimensions: dims || null,
+        weight: weight || null
       };
     });
     const hasPackingGroups = packingGroupIds.length > 0 && normalizedPackingGroups.length > 0;
@@ -1449,6 +1459,32 @@ serve(async (req) => {
     }
 
     const effectivePackingGroups = normalizedPackingGroups;
+
+    try {
+      console.log(
+        JSON.stringify(
+          {
+            tag: "packingGroups_debug",
+            traceId,
+            inboundPlanId,
+            packingOptionId,
+            placementOptionId,
+            count: effectivePackingGroups.length,
+            groups: effectivePackingGroups.map((g: any) => ({
+              id: g.packingGroupId,
+              boxes: g.boxes,
+              hasDimensions: Boolean(g.dimensions),
+              hasWeight: Boolean(g.weight),
+              items: Array.isArray(g.items) ? g.items.length : 0
+            }))
+          },
+          null,
+          2
+        )
+      );
+    } catch (_e) {
+      // ignore logging errors
+    }
 
     const warning = warnings.length ? warnings.join(" ") : null;
 
