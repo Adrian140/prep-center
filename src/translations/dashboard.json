@@ -1729,6 +1729,8 @@
       "delete_success": "Recepția a fost ștearsă.",
       "note_warning_label": "Notă client",
       "store_name": "Store Name",
+      "store_name_ph": "Magazin / referință comandă",
+      "store_name": "Store Name",
       "store_name_ph": "Magazin / referință comandă"
     },
     "ClientOtherReport": {
