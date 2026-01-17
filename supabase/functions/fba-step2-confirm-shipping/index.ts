@@ -1806,6 +1806,16 @@ serve(async (req) => {
     };
 
     const { firstRes: listRes, collected: optionsRaw } = await listAllTransportationOptions();
+    logStep("transportationOptions_raw_response", {
+      traceId,
+      placementOptionId: effectivePlacementOptionId,
+      shippingMode: effectiveShippingMode,
+      hasPallets,
+      hasPackages: !missingPkgs,
+      hasFreightInformation: !missingFreightInfo,
+      requestId: listRes?.requestId || null,
+      raw: listRes?.text || null
+    });
     logStep("listTransportationOptions", {
       traceId,
       status: listRes?.res?.status,
