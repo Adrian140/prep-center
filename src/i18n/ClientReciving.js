@@ -26,7 +26,7 @@ export const CLIENT_RECIVING_DICT = {
     fba_units_announced: "Marchandises à recevoir",
     fba_units_to_amazon: "Unités à envoyer à Amazon",
     fba_units_announced_label: "Marchandises à recevoir :",
-    store_name: "Nom du magasin",
+    store_name: "Magasin ou référence commande",
     store_name_ph: "Magasin ou référence commande",
 
     // Buttons (generic)
@@ -189,7 +189,7 @@ export const CLIENT_RECIVING_DICT = {
     fba_units_announced: "Goods expected",
     fba_units_to_amazon: "Units to send to Amazon",
     fba_units_announced_label: "Goods expected:",
-    store_name: "Store name",
+    store_name: "Store or order reference",
     store_name_ph: "Store or order reference",
     template_filename: "receiving_template.csv",
 
@@ -335,7 +335,7 @@ export const CLIENT_RECIVING_DICT = {
     fba_units_announced: "Wareneingang erwartet",
     fba_units_to_amazon: "Einheiten für Amazon",
     fba_units_announced_label: "Wareneingang erwartet:",
-    store_name: "Store-Name",
+    store_name: "Shop oder Bestellreferenz",
     store_name_ph: "Shop oder Bestellreferenz",
     template_filename: "vorlage_wareneingang.csv", 
 
@@ -482,7 +482,7 @@ export const CLIENT_RECIVING_DICT = {
     fba_units_announced: "Merce da ricevere",
     fba_units_to_amazon: "Unità da inviare ad Amazon",
     fba_units_announced_label: "Merce da ricevere:",
-    store_name: "Nome negozio",
+    store_name: "Negozio o riferimento ordine",
     store_name_ph: "Negozio o riferimento ordine",
 
     new_receipt: "Nuova ricezione",
@@ -629,7 +629,7 @@ export const CLIENT_RECIVING_DICT = {
     fba_units_announced: "Mercancía a recibir",
     fba_units_to_amazon: "Unidades para enviar a Amazon",
     fba_units_announced_label: "Mercancía a recibir:",
-    store_name: "Nombre de tienda",
+    store_name: "Tienda o referencia de pedido",
     store_name_ph: "Tienda o referencia de pedido",
 
     new_receipt: "Nueva recepción",
@@ -776,7 +776,7 @@ export const CLIENT_RECIVING_DICT = {
   fba_units_announced: "Marfă de primit",
   fba_units_to_amazon: "Unități pentru Amazon",
   fba_units_announced_label: "Marfă de primit:",
-  store_name: "Store Name",
+  store_name: "Magazin / referință comandă",
   store_name_ph: "Magazin / referință comandă",
 
     new_receipt: "Recepție nouă",
