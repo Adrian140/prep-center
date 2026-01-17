@@ -717,7 +717,7 @@ serve(async (req) => {
 
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
-      .select("id, destination_country, company_id, user_id")
+      .select("id, destination_country, company_id, user_id, amazon_snapshot")
       .eq("id", requestId)
       .maybeSingle();
     if (reqErr) throw reqErr;
@@ -790,6 +790,33 @@ serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
+    }
+
+    // Persist user-entered packing groups (dims/weight) so we can rehydrate later
+    try {
+      const currentSnap = (reqData as any)?.amazon_snapshot || {};
+      const packedGroupsForSnapshot = (packingGroupsInput || []).map((g: any) => ({
+        packingGroupId: g?.packingGroupId || g?.id || g?.groupId || null,
+        boxDimensions: g?.dimensions || g?.boxDimensions || null,
+        boxWeight: g?.weight || g?.boxWeight || null,
+        boxes: g?.boxes ?? g?.boxCount ?? 1,
+        packMode: g?.packMode || null,
+        items: Array.isArray(g?.items) ? g.items : []
+      }));
+      const nextSnapshot = {
+        ...(currentSnap || {}),
+        fba_inbound: {
+          ...(currentSnap?.fba_inbound || {}),
+          inboundPlanId,
+          packingOptionId,
+          placementOptionId: body?.placement_option_id ?? body?.placementOptionId ?? null,
+          packingGroups: packedGroupsForSnapshot,
+          savedAt: new Date().toISOString()
+        }
+      };
+      await supabase.from("prep_requests").update({ amazon_snapshot: nextSnapshot }).eq("id", requestId);
+    } catch (persistSnapErr) {
+      console.error("persist packing groups snapshot failed", { traceId, error: persistSnapErr });
     }
 
     const tempCreds = await assumeRole(SPAPI_ROLE_ARN);
@@ -1012,51 +1039,6 @@ serve(async (req) => {
         placementOptions?.[0]?.placementOptionId ||
         placementOptions?.[0]?.id ||
         null;
-
-      // dacă placement-ul este doar "OFFERED", îl confirmăm automat ca să primim destinațiile/shipments
-      const firstPlacement = placementOptions?.[0];
-      if (placementOptionId && String(firstPlacement?.status || "").toUpperCase() === "OFFERED") {
-        await signedFetchWithRetry({
-          method: "POST",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(placementOptionId)}/confirmation`,
-          query: "",
-          payload: "{}",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.confirmPlacementOption",
-          marketplaceId,
-          sellerId
-        });
-
-        // re-listăm să returnăm statusul actualizat
-        const relistPlacement = await signedFetchWithRetry({
-          method: "GET",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
-          query: "",
-          payload: "",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.listPlacementOptions",
-          marketplaceId,
-          sellerId
-        });
-        placementOptions =
-          relistPlacement?.json?.payload?.placementOptions ||
-          relistPlacement?.json?.placementOptions ||
-          placementOptions;
-      }
     }
 
     // persist inbound/packing IDs (idempotent)

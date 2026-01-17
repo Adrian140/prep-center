@@ -1413,24 +1413,40 @@ serve(async (req) => {
         };
       });
 
+    const cachedPackingGroups: any[] =
+      (reqData as any)?.amazon_snapshot?.fba_inbound?.packingGroups ||
+      (reqData as any)?.amazon_snapshot?.fba_inbound?.packing_groups ||
+      [];
+    const cachedById = cachedPackingGroups.reduce((acc: Record<string, any>, cg: any) => {
+      const id = cg?.packingGroupId || cg?.id || null;
+      if (id) acc[id] = cg;
+      return acc;
+    }, {});
+
     const normalizedPackingGroups = packingGroups.map((g, idx) => {
-      const boxes = Number((g as any)?.boxes || (g as any)?.boxCount || 1) || 1;
-      const items = normalizeItems((g as any)?.items);
       const pgId = (g as any)?.packingGroupId || (g as any)?.id || `group-${idx + 1}`;
+      const cached = cachedById[pgId] || {};
+      const boxes = Number((g as any)?.boxes || (g as any)?.boxCount || cached?.boxes || 1) || 1;
+      const items = normalizeItems((g as any)?.items);
       const dims =
         (g as any)?.dimensions ||
         (g as any)?.boxDimensions ||
+        cached?.boxDimensions ||
+        cached?.dimensions ||
         null;
       const weight =
         (g as any)?.weight ||
         (g as any)?.boxWeight ||
+        cached?.boxWeight ||
+        cached?.weight ||
         null;
+      const packModeRaw = (g as any)?.packMode || cached?.packMode || null;
       return {
         ...g,
         id: pgId,
         packingGroupId: pgId,
         boxes,
-        packMode: boxes > 1 ? "multiple" : "single",
+        packMode: packModeRaw || (boxes > 1 ? "multiple" : "single"),
         title: (g as any)?.title || null,
         items,
         dimensions: dims || null,
