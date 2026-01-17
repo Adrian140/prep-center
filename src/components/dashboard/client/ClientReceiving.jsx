@@ -208,14 +208,24 @@ function ClientReceiving() {
     });
   }, [shipments, shipmentsSearch]);
 
-  const safeLabel = (key, fallback) => {
-    const value = t(key);
-    if (!value) return fallback;
-    const text = String(value);
-    return text.includes('ClientReceiving.') ? fallback : text;
+  const resolveText = (keys, fallback) => {
+    for (const key of keys) {
+      const value = t(key);
+      if (!value) continue;
+      const text = String(value);
+      if (text.includes('ClientReceiving.')) continue;
+      return text;
+    }
+    return fallback;
   };
-  const storeLabel = safeLabel('ClientReceiving.store_name', 'Store or order reference');
-  const storePlaceholder = safeLabel('ClientReceiving.store_name_ph', 'Store or order reference');
+  const storeLabel = resolveText(
+    ['ClientReceiving.store_name', 'store_name'],
+    'Store or order reference'
+  );
+  const storePlaceholder = resolveText(
+    ['ClientReceiving.store_name_ph', 'store_name_ph'],
+    'Store or order reference'
+  );
 
 const buildHeaderState = (shipment) => ({
   carrier: shipment?.carrier || '',
