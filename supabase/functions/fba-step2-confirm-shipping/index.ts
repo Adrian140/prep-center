@@ -1136,10 +1136,11 @@ serve(async (req) => {
       return { name, phoneNumber, email };
     })();
 
-    const planPlacementId =
-      planRes?.json?.placementOptions?.[0]?.placementOptionId ||
-      planRes?.json?.payload?.placementOptions?.[0]?.placementOptionId ||
-      null;
+    const planPlacementOptions =
+      planRes?.json?.placementOptions ||
+      planRes?.json?.payload?.placementOptions ||
+      [];
+    const planPlacementId = planPlacementOptions?.[0]?.placementOptionId || null;
     if (planPlacementId) {
       effectivePlacementOptionId = planPlacementId;
     }
@@ -1158,9 +1159,16 @@ serve(async (req) => {
           })
           .filter((g: any) => g.packingGroupId && g.packageFromGroup)
       : [];
+    const planShipmentIds =
+      Array.isArray(planPlacementOptions) && planPlacementOptions.length
+        ? planPlacementOptions
+            .flatMap((p: any) => p?.shipmentIds || [])
+            .filter(Boolean)
+        : [];
 
     if (!Array.isArray(placementShipments) || !placementShipments.length) {
-      if (packingGroupsForTransport.length === 0) {
+      const hasPlanShipmentIds = Array.isArray(planShipmentIds) && planShipmentIds.length > 0;
+      if (!hasPlanShipmentIds && packingGroupsForTransport.length === 0) {
         return new Response(JSON.stringify({
           error: "Placement încă nu are shipments și nu avem packingGroups cache. Reîncearcă după câteva secunde sau regenerează placement.",
           code: "SHIPMENTS_PENDING",
@@ -1172,16 +1180,28 @@ serve(async (req) => {
           headers: { ...corsHeaders, "content-type": "application/json" }
         });
       }
-      // Folosește packingGroupId pentru a cota transportul fără să confirmăm placement.
-      placementShipments = packingGroupsForTransport.map((g: any) => ({
-        id: g.packingGroupId,
-        shipmentId: g.packingGroupId,
-        packingGroupId: g.packingGroupId,
-        packageFromGroup: g.packageFromGroup,
-        shipFromAddress: g.shipFromAddress,
-        boxes: g.boxes,
-        isPackingGroup: true
-      }));
+      // Folosește shipmentId-urile din placementOptions dacă există, altfel packingGroupId pentru quote.
+      if (hasPlanShipmentIds) {
+        placementShipments = planShipmentIds.map((sid: any, idx: number) => ({
+          id: sid,
+          shipmentId: sid,
+          packingGroupId: packingGroupsForTransport?.[idx]?.packingGroupId || null,
+          packageFromGroup: packingGroupsForTransport?.[idx]?.packageFromGroup || null,
+          shipFromAddress: packingGroupsForTransport?.[idx]?.shipFromAddress || planSourceAddress || null,
+          boxes: packingGroupsForTransport?.[idx]?.boxes || null,
+          isPackingGroup: Boolean(packingGroupsForTransport?.[idx])
+        }));
+      } else {
+        placementShipments = packingGroupsForTransport.map((g: any) => ({
+          id: g.packingGroupId,
+          shipmentId: g.packingGroupId,
+          packingGroupId: g.packingGroupId,
+          packageFromGroup: g.packageFromGroup,
+          shipFromAddress: g.shipFromAddress,
+          boxes: g.boxes,
+          isPackingGroup: true
+        }));
+      }
     }
 
     const normalizePlacementShipments = (list: any[]) =>
@@ -1497,6 +1517,8 @@ serve(async (req) => {
       };
       if (sh?.isPackingGroup) {
         baseCfg.packingGroupId = sh?.packingGroupId || shId;
+        // Unele validate Amazon cer shipmentId obligatoriu; populăm cu shipmentId de la placementOptions dacă există.
+        if (sh?.shipmentId) baseCfg.shipmentId = sh.shipmentId;
       } else {
         baseCfg.shipmentId = shId;
       }
