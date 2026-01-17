@@ -2093,6 +2093,12 @@ getAllReceivingShipments: async (options = {}) => {
 
     const { companies, receiving_shipment_items, receiving_items, ...rest } = r;
     const profileMeta = profilesById[r.user_id] || {};
+    const rawStore = (rest.client_store_name || rest.store_name || '').trim();
+    const profileStore = (profileMeta.store_name || '').trim();
+    const store_name =
+      rawStore && profileStore && rawStore.toLowerCase() === profileStore.toLowerCase()
+        ? null // ignore auto-filled profile store names
+        : rawStore || null;
 
     return {
       ...rest,
@@ -2107,7 +2113,7 @@ getAllReceivingShipments: async (options = {}) => {
           null,
       })),
       produits_count: items.length,
-      store_name: rest.client_store_name || rest.store_name || null,
+      store_name,
       client_name:
         profileMeta.store_name ||
         [profileMeta.first_name, profileMeta.last_name].filter(Boolean).join(' ') ||
