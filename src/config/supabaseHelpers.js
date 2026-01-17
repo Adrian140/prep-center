@@ -147,15 +147,7 @@ createReceptionRequest: async (data) => {
       : null;
   const primaryTrackingId = data.tracking_id || (trackingIds?.[0] || null);
 
-  let storeName = data.store_name || null;
-  if (!storeName && data.user_id) {
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('store_name')
-      .eq('id', data.user_id)
-      .single();
-    storeName = profileData?.store_name || null;
-  }
+  const storeName = data.store_name || null;
 
   const buildHeaderPayload = (withFbaMode, withArrays) => {
     const payload = {

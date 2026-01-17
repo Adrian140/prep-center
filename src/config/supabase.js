@@ -2107,7 +2107,7 @@ getAllReceivingShipments: async (options = {}) => {
           null,
       })),
       produits_count: items.length,
-      store_name: rest.client_store_name || profileMeta.store_name || rest.client_name || null,
+      store_name: rest.client_store_name || rest.store_name || null,
       client_name:
         profileMeta.store_name ||
         [profileMeta.first_name, profileMeta.last_name].filter(Boolean).join(' ') ||
