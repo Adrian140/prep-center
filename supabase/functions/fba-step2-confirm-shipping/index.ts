@@ -1012,6 +1012,23 @@ serve(async (req) => {
       boxesCount,
       requestId: boxesRes?.requestId || null
     });
+    logStep("shipping_precheck", {
+      traceId,
+      boxesCount,
+      placementStatus: confirmedPlacement ? normalizePlacementStatus(confirmedPlacement) : null
+    });
+
+    if (boxesCount === 0) {
+      return new Response(
+        JSON.stringify({
+          error: "Trebuie să setezi packingInformation (boxe) înainte de confirmarea transportului.",
+          code: "PACKING_REQUIRED",
+          traceId,
+          action: "apelează fba-set-packing-information cu packageGroupings înainte de step2-confirm-shipping"
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
     if (confirmedPlacement) {
       effectivePlacementOptionId = normalizePlacementId(confirmedPlacement) || effectivePlacementOptionId;

@@ -828,16 +828,29 @@ serve(async (req) => {
         bodyText.toLowerCase().includes("placement option is already confirmed");
 
       // dacă placement-ul este deja confirmat, Amazon nu mai permite setPackingInformation;
-      // tratăm ca succes ca să nu blocăm flow-ul (Amazon are placement confirmat).
       if (placementAlreadyConfirmed) {
+        console.log(
+          JSON.stringify(
+            {
+              tag: "setPackingInformation_placement_already_confirmed",
+              traceId,
+              inboundPlanId,
+              packingOptionId,
+              status,
+              bodyPreview: bodyText.slice(0, 300)
+            },
+            null,
+            2
+          )
+        );
         return new Response(
           JSON.stringify({
-            ok: true,
-            skipped: true,
-            reason: "placement_already_confirmed",
-            traceId
+            error: "Placement-ul este deja confirmat; Amazon nu permite setPackingInformation după confirmare.",
+            code: "PLACEMENT_ALREADY_CONFIRMED",
+            traceId,
+            hint: "trimite packingInformation înainte de confirmarea placement-ului"
           }),
-          { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
+          { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
         );
       }
 
