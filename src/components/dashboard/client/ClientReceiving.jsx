@@ -208,9 +208,14 @@ function ClientReceiving() {
     });
   }, [shipments, shipmentsSearch]);
 
-  const storeLabel = t('ClientReceiving.store_name') || t('store_name') || 'Store / order reference';
-  const storePlaceholder =
-    t('ClientReceiving.store_name_ph') || t('store_name_ph') || 'Store or order reference';
+  const safeLabel = (key, fallback) => {
+    const value = t(key);
+    if (!value) return fallback;
+    const text = String(value);
+    return text.includes('ClientReceiving.') ? fallback : text;
+  };
+  const storeLabel = safeLabel('ClientReceiving.store_name', 'Store or order reference');
+  const storePlaceholder = safeLabel('ClientReceiving.store_name_ph', 'Store or order reference');
 
 const buildHeaderState = (shipment) => ({
   carrier: shipment?.carrier || '',
