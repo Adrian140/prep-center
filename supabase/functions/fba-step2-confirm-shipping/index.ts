@@ -1159,6 +1159,39 @@ serve(async (req) => {
           })
           .filter((g: any) => g.packingGroupId && g.packageFromGroup)
       : [];
+    const listPlacementShipmentIds = async () => {
+      const listRes = await signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.listPlacementOptions",
+        marketplaceId,
+        sellerId
+      });
+      const list =
+        listRes?.json?.payload?.placementOptions ||
+        listRes?.json?.placementOptions ||
+        [];
+      const ids = Array.isArray(list)
+        ? list.flatMap((p: any) => p?.shipmentIds || []).filter(Boolean)
+        : [];
+      logStep("placementOptions_shipments_debug", {
+        traceId,
+        requestId: listRes?.requestId || null,
+        count: ids.length,
+        ids
+      });
+      return ids;
+    };
     const planShipmentIds =
       Array.isArray(planPlacementOptions) && planPlacementOptions.length
         ? planPlacementOptions
@@ -1167,6 +1200,8 @@ serve(async (req) => {
         : [];
 
     if (!Array.isArray(placementShipments) || !placementShipments.length) {
+      const enrichedPlanShipmentIds = planShipmentIds.length ? planShipmentIds : await listPlacementShipmentIds();
+      const hasPlanShipmentIds = Array.isArray(enrichedPlanShipmentIds) && enrichedPlanShipmentIds.length > 0;
       const hasPlanShipmentIds = Array.isArray(planShipmentIds) && planShipmentIds.length > 0;
       if (!hasPlanShipmentIds && packingGroupsForTransport.length === 0) {
         return new Response(JSON.stringify({
@@ -1182,7 +1217,7 @@ serve(async (req) => {
       }
       // Folosește shipmentId-urile din placementOptions dacă există, altfel packingGroupId pentru quote.
       if (hasPlanShipmentIds) {
-        placementShipments = planShipmentIds.map((sid: any, idx: number) => ({
+        placementShipments = enrichedPlanShipmentIds.map((sid: any, idx: number) => ({
           id: sid,
           shipmentId: sid,
           packingGroupId: packingGroupsForTransport?.[idx]?.packingGroupId || null,
@@ -1724,6 +1759,12 @@ serve(async (req) => {
       marketplaceId,
       sellerId
     });
+    logStep("generateTransportationOptions_raw", {
+      traceId,
+      status: genRes?.res?.status || null,
+      requestId: genRes?.requestId || null,
+      bodyPreview: (genRes?.text || "").slice(0, 600) || null
+    });
     logStep("generateTransportationOptions", {
       traceId,
       status: genRes?.res?.status,
@@ -2026,6 +2067,15 @@ serve(async (req) => {
     }
 
     if (!Array.isArray(options) || options.length === 0) {
+      logStep("transportationOptions_empty", {
+        traceId,
+        placementOptionId: effectivePlacementOptionId,
+        shippingMode: effectiveShippingMode,
+        generateStatus: genRes?.res?.status || null,
+        generateBodyPreview: (genRes?.text || "").slice(0, 600) || null,
+        hasPlanShipmentIds: Array.isArray(planShipmentIds) && planShipmentIds.length > 0,
+        hasPackedGroups: packingGroupsForTransport.length > 0
+      });
       return new Response(
         JSON.stringify({
           error: "Amazon nu a returnat transportation options încă. Reîncearcă în câteva secunde.",
