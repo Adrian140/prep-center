@@ -185,7 +185,9 @@ function ClientReceiving() {
         shipment.tracking_id,
         ...(Array.isArray(shipment.tracking_ids) ? shipment.tracking_ids : []),
         shipment.status,
-        shipment.notes
+        shipment.notes,
+        shipment.client_store_name,
+        shipment.store_name
       ]
         .filter(Boolean)
         .join(' ')
@@ -211,6 +213,7 @@ const buildHeaderState = (shipment) => ({
   carrier_other: shipment?.carrier_other || '',
   tracking_ids: buildEditableList(shipment?.tracking_ids, shipment?.tracking_id),
   fba_shipment_ids: buildEditableList(shipment?.fba_shipment_ids),
+  store_name: shipment?.client_store_name || shipment?.store_name || '',
   notes: shipment?.notes || '',
   fba_mode: shipment?.fba_mode || 'none',
   destination_country: shipment?.destination_country || 'FR'
@@ -338,6 +341,7 @@ const buildHeaderState = (shipment) => ({
         tracking_id: primaryTracking,
         tracking_ids: trackingValues.length ? trackingValues : null,
         fba_shipment_ids: fbaValues.length ? fbaValues : null,
+        client_store_name: toNull(editHeader.store_name),
         notes: toNull(editHeader.notes),
         fba_mode: editHeader.fba_mode || 'none',
         destination_country: editHeader.destination_country || 'FR'
@@ -777,6 +781,27 @@ const buildHeaderState = (shipment) => ({
                     </p>
                   ))}
                 </>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary">
+                {t('ClientReceiving.store_name') || 'Store / merchant'}
+              </label>
+              {editMode ? (
+                <input
+                  type="text"
+                  value={headerState.store_name || ''}
+                  onChange={(e) =>
+                    setEditHeader((prev) => ({ ...prev, store_name: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder={t('ClientReceiving.store_name_ph') || 'Name of the store sending goods'}
+                />
+              ) : (
+                <p className="text-text-primary">
+                  {selectedShipment.client_store_name || selectedShipment.store_name || '—'}
+                </p>
               )}
             </div>
 
@@ -1252,6 +1277,9 @@ const buildHeaderState = (shipment) => ({
                 {t('list_tracking')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                {t('ClientReceiving.store_name') || 'Store'}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                 {t('list_status')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
@@ -1268,7 +1296,7 @@ const buildHeaderState = (shipment) => ({
           <tbody>
             {filteredShipments.length === 0 ? (
               <tr className="border-t">
-                <td colSpan={6} className="px-6 py-8 text-center text-text-secondary">
+                <td colSpan={7} className="px-6 py-8 text-center text-text-secondary">
                   <div className="font-medium">{t('empty_list_title')}</div>
                   <div className="text-sm text-text-light">{t('empty_list_desc')}</div>
                 </td>
@@ -1301,6 +1329,11 @@ const buildHeaderState = (shipment) => ({
                           {tid}
                         </p>
                       ))}
+                </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-text-primary">
+                        {shipment.client_store_name || shipment.store_name || '—'}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(shipment.derived_status || shipment.status)}

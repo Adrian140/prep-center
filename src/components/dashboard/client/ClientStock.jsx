@@ -175,6 +175,7 @@ const createReceptionFormState = () => ({
   destinationCountry: 'FR',
   carrier: '',
   carrierOther: '',
+  storeName: '',
   trackingIds: [],
   notes: '',
   fbaMode: 'none'
@@ -1939,6 +1940,7 @@ const openReception = async () => {
       carrierCode === 'OTHER'
         ? (receptionForm.carrierOther || '').trim() || null
         : null,
+    store_name: (receptionForm.storeName || '').trim() || null,
     tracking_id: primaryTracking,
     tracking_ids: trackingValues.length ? trackingValues : null,
     notes: (receptionForm.notes || '').trim() || null,

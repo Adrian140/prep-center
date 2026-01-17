@@ -62,6 +62,7 @@ const ClientStockSelectionBar = ({
 
   const showReceptionFields = submitType === 'reception';
   const showCarrierOther = receptionForm.carrier === 'OTHER';
+  const showStoreName = showReceptionFields;
   const trackingSummary =
     trackingList.length > 0
       ? t('ClientStock.receptionForm.trackingCount', { count: trackingList.length })
@@ -140,6 +141,15 @@ const ClientStockSelectionBar = ({
                   value={receptionForm.carrierOther}
                   onChange={(e) => onReceptionFormChange('carrierOther', e.target.value)}
                   placeholder={t('ClientStock.receptionForm.carrierOther')}
+                  className="border rounded-md px-2 py-1 mt-2 w-full"
+                />
+              )}
+              {showStoreName && (
+                <input
+                  type="text"
+                  value={receptionForm.storeName}
+                  onChange={(e) => onReceptionFormChange('storeName', e.target.value)}
+                  placeholder={t('ClientReceiving.store_name_ph') || 'Store / merchant name'}
                   className="border rounded-md px-2 py-1 mt-2 w-full"
                 />
               )}
