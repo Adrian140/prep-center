@@ -2204,6 +2204,9 @@ serve(async (req) => {
         "Amazon nu a returnat AMAZON_PARTNERED_CARRIER pentru acest placement/transportation request.";
     }
 
+    // confirm placement/transportation tracking
+    let placementConfirm: Awaited<ReturnType<typeof signedFetch>> | null = null;
+
     // 2) Confirm placement (după ce avem opțiunile de transport), doar dacă vrem confirmare și nu e deja confirmat
     if (shouldConfirm && !confirmedPlacement && boxesCount > 0) {
       placementConfirm = await signedFetch({
