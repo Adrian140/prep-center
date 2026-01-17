@@ -865,11 +865,14 @@ serve(async (req) => {
       );
     }
 
-    let placementOptionId: string | null = null;
-    let placementOptions: any[] = [];
+    // Așteptăm operația să se finalizeze și verificăm că boxele au fost atașate pe plan
+    const opId =
+      res?.json?.payload?.operationId ||
+      res?.json?.operationId ||
+      null;
 
     const pollOperationStatus = async (operationId: string) => {
-      for (let attempt = 1; attempt <= 8; attempt++) {
+      for (let attempt = 1; attempt <= 10; attempt++) {
         const statusRes = await signedFetchWithRetry({
           method: "GET",
           service: "execute-api",
@@ -897,10 +900,68 @@ serve(async (req) => {
         if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp) || statusRes?.res?.status >= 400) {
           return statusRes;
         }
-        await delay(Math.min(500 * attempt, 3000));
+        await delay(Math.min(600 * attempt, 3000));
       }
       return null;
     };
+
+    if (opId) {
+      await pollOperationStatus(opId);
+    }
+
+    const listBoxes = async () =>
+      signedFetchWithRetry({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/boxes`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.listInboundPlanBoxes",
+        marketplaceId,
+        sellerId
+      });
+
+    const boxesRes = await listBoxes();
+    const boxes =
+      boxesRes?.json?.payload?.boxes ||
+      boxesRes?.json?.boxes ||
+      [];
+    const boxesCount = Array.isArray(boxes) ? boxes.length : 0;
+    console.log(
+      JSON.stringify(
+        {
+          tag: "setPackingInformation_boxes",
+          traceId,
+          inboundPlanId,
+          boxesCount,
+          requestId: boxesRes?.requestId || null
+        },
+        null,
+        2
+      )
+    );
+
+    if (boxesCount === 0) {
+      return new Response(
+        JSON.stringify({
+          code: "BOXES_NOT_READY",
+          message: "Amazon nu a atașat încă boxele după setPackingInformation. Reîncearcă în câteva secunde.",
+          traceId,
+          retryAfterMs: 3000
+        }),
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
+    let placementOptionId: string | null = null;
+    let placementOptions: any[] = [];
 
     if (generatePlacementOptions) {
       const genPlacement = await signedFetchWithRetry({
