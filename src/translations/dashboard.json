@@ -830,7 +830,7 @@
     },
     "reportsMenu": {
       "shipments": "Prep-center shipments",
-      "receiving": "Prep-center receiving",
+      "receiving": "Recepții prep-center",
       "returns": "Returns"
     },
     "ClientPrepShipments": {
@@ -904,7 +904,9 @@
       "deleting": "Deleting...",
       "confirm_delete": "Delete this reception?",
       "delete_success": "Reception deleted.",
-      "note_warning_label": "Client note"
+      "note_warning_label": "Client note",
+      "store_name": "Store name",
+      "store_name_ph": "Store or order reference"
     },
     "ClientOtherReport": {
       "title": "Other services",
@@ -1725,7 +1727,9 @@
       "deleting": "Se șterge...",
       "confirm_delete": "Ștergi această recepție?",
       "delete_success": "Recepția a fost ștearsă.",
-      "note_warning_label": "Notă client"
+      "note_warning_label": "Notă client",
+      "store_name": "Store Name",
+      "store_name_ph": "Magazin / referință comandă"
     },
     "ClientOtherReport": {
       "title": "Servicii diverse",
@@ -2518,7 +2522,9 @@
       "deleting": "Suppression...",
       "confirm_delete": "Supprimer cette réception ?",
       "delete_success": "Réception supprimée.",
-      "note_warning_label": "Note client"
+      "note_warning_label": "Note client",
+      "store_name": "Nom du magasin",
+      "store_name_ph": "Magasin ou référence commande"
     },
     "ClientOtherReport": {
       "title": "Autres services",
@@ -3259,7 +3265,9 @@
       "deleting": "Wird gelöscht...",
       "confirm_delete": "Diese Wareneingangsmeldung löschen?",
       "delete_success": "Wareneingang gelöscht.",
-      "note_warning_label": "Kundennotiz"
+      "note_warning_label": "Kundennotiz",
+      "store_name": "Store-Name",
+      "store_name_ph": "Shop oder Bestellreferenz"
     },
     "ClientOtherReport": {
       "title": "Weitere Leistungen",
@@ -4000,7 +4008,9 @@
       "deleting": "Eliminazione...",
       "confirm_delete": "Eliminare questa ricezione?",
       "delete_success": "Ricezione eliminata.",
-      "note_warning_label": "Nota cliente"
+      "note_warning_label": "Nota cliente",
+      "store_name": "Nome negozio",
+      "store_name_ph": "Negozio o riferimento ordine"
     },
     "ClientOtherReport": {
       "title": "Altri servizi",
@@ -4741,7 +4751,9 @@
       "deleting": "Eliminando...",
       "confirm_delete": "¿Eliminar esta recepción?",
       "delete_success": "Recepción eliminada.",
-      "note_warning_label": "Nota del cliente"
+      "note_warning_label": "Nota del cliente",
+      "store_name": "Nombre de tienda",
+      "store_name_ph": "Tienda o referencia de pedido"
     },
     "ClientOtherReport": {
       "title": "Otros servicios",
