@@ -38,8 +38,10 @@ jobs:
           SPAPI_MARKETPLACE_ID: ${{ secrets.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH' }}
           SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
           SPAPI_INVENTORY_SYNC_LOOP: 'false'
-          # Oprim scriptul la ~5h30m (sub limita GH de 6h), lăsând timp pentru relansarea automată.
-          SPAPI_INVENTORY_TIME_BUDGET_MS: 19800000
+          # Oprim scriptul la ~5h40m (sub limita GH de 6h), lăsând timp pentru relansarea automată.
+          SPAPI_INVENTORY_TIME_BUDGET_MS: 20400000
+          # Buffer înainte de prag pentru a evita kill-ul GH (10 minute).
+          SPAPI_INVENTORY_TIME_BUDGET_BUFFER_MS: 600000
         run: npm run sync-inventory
 
       - name: Relaunch immediately
