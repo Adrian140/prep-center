@@ -601,37 +601,8 @@ async function aggregateSales(spClient, integration, marketplaceIds) {
     }
 
     let refundRows = [];
-    try {
-      const refundEvents = await listRefundEvents(spClient, marketplaceId);
-      if (Array.isArray(refundEvents) && refundEvents.length) {
-        console.log(
-          `[Sales sync] ${integration.id} marketplace ${marketplaceId}: finances API returned ${refundEvents.length} refund events.`
-        );
-        refundRows = aggregateRefundEvents(
-          refundEvents,
-          mapMarketplaceToCountry(marketplaceId)
-        );
-      } else {
-        console.log(
-          `[Sales sync] ${integration.id} marketplace ${marketplaceId}: finances API returned 0 refund events.`
-        );
-      }
-    } catch (err) {
-      if (isUnauthorizedError(err)) {
-        console.warn(
-          `[Sales sync] Finances refunds unauthorized for ${integration.id} marketplace ${marketplaceId}; falling back to returns report.`
-        );
-        refundRows = await fetchRefundsViaReturnsReport(spClient, marketplaceId);
-      } else {
-        throw err;
-      }
-    }
-    console.log(
-      `[Sales sync] ${integration.id} marketplace ${marketplaceId}: refund rows merged=${refundRows?.length || 0}.`
-    );
-    if (refundRows?.length) {
-      accumulateSalesRows(aggregates, refundRows);
-    }
+    // Cerință: nu mai includem retururile/refundările în calculul Ventes sur 30 jours.
+    // Lăsăm refundRows gol și nu scădem unități.
   }
 
   return Array.from(aggregates.values());
