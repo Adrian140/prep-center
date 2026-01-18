@@ -197,127 +197,23 @@ function parseReturnsReport(tsvText) {
 }
 
 function aggregateReturnReportRows(rows, defaultCountry) {
-  const map = new Map();
-  for (const row of rows) {
-    const asinValue = (row.asin || '').trim();
-    const skuValue = (row.sku || '').trim();
-    if (!asinValue && !skuValue) continue;
-    const qty = Number(row.quantity ?? row.qty ?? row.units ?? 0) || 0;
-    const marketplaceValue = (row.marketplace || row['marketplace-name'] || '').trim();
-    const country =
-      (row.country || row['country-code'] || mapMarketplaceToCountry(marketplaceValue)) ||
-      defaultCountry ||
-      null;
-    const key = `${asinValue.toUpperCase()}::${skuValue.toUpperCase()}::${country || ''}`;
-    const current = map.get(key) || {
-      asin: asinValue || null,
-      sku: skuValue || null,
-      country,
-      total_units: 0,
-      pending_units: 0,
-      shipped_units: 0,
-      refund_units: 0,
-      payment_units: 0
-    };
-    current.refund_units += Math.abs(qty);
-    map.set(key, current);
-  }
-  return Array.from(map.values());
+  // Refund logic dezactivat.
+  return [];
 }
 
 async function fetchRefundsViaReturnsReport(spClient, marketplaceId) {
-  try {
-    const reportId = await createReturnsReport(spClient, marketplaceId);
-    const documentId = await waitForReturnsReport(spClient, reportId);
-    if (!documentId) {
-      return [];
-    }
-    const documentText = await downloadReturnsReportDocument(spClient, documentId);
-    const parsedRows = parseReturnsReport(documentText);
-    const countryFallback = mapMarketplaceToCountry(marketplaceId);
-    const aggregated = aggregateReturnReportRows(parsedRows, countryFallback);
-    console.log(
-      `[Sales sync] Returns report for marketplace ${marketplaceId}: parsed ${parsedRows.length} rows -> ${aggregated.length} aggregated entries.`
-    );
-    return aggregated;
-  } catch (err) {
-    const message = String(err?.message || '');
-    if (message.includes('status CANCELLED')) {
-      console.warn(
-        `[Sales sync] Returns report cancelled by Amazon for marketplace ${marketplaceId}; no refund data returned.`
-      );
-      return [];
-    }
-    console.warn(
-      `[Sales sync] Returns report fallback failed for marketplace ${marketplaceId}:`,
-      err?.response?.data || err
-    );
-    return [];
-  }
+  // Refund logic dezactivat.
+  return [];
 }
 
 async function listRefundEvents(spClient, marketplaceId) {
-  if (!marketplaceId) {
-    return [];
-  }
-  const postedAfter = isoDateDaysAgo(ORDER_WINDOW_DAYS);
-  const events = [];
-  let nextToken = null;
-
-  const ids = [marketplaceId];
-
-  do {
-    const res = await spClient.callAPI({
-      operation: nextToken ? 'listFinancialEventsByNextToken' : 'listFinancialEvents',
-      endpoint: 'finances',
-      query: nextToken ? { NextToken: nextToken } : { PostedAfter: postedAfter, MarketplaceIds: ids }
-    });
-
-    const payload = res?.payload || res || {};
-    const refunds = payload?.FinancialEvents?.RefundEventList || [];
-    if (Array.isArray(refunds) && refunds.length) {
-      events.push(...refunds);
-    }
-
-    nextToken =
-      payload?.NextToken ||
-      payload?.nextToken ||
-      null;
-  } while (nextToken);
-
-  return events;
+  // Refund logic dezactivat.
+  return [];
 }
 
 function aggregateRefundEvents(refundEvents, defaultCountry) {
-  const map = new Map();
-  for (const ev of refundEvents) {
-    const country = mapMarketplaceToCountry(ev.MarketplaceId) || defaultCountry || null;
-    const items =
-      ev.ShipmentItemAdjustmentList ||
-      ev.ShipmentItemList ||
-      [];
-    for (const it of items) {
-      const asin = (it.ASIN || '').toUpperCase();
-      const sku = (it.SellerSKU || '').toUpperCase();
-      if (!asin && !sku) continue;
-      const key = `${asin}::${sku}::${country || ''}`;
-      const qty =
-        Number(it.QuantityShipped ?? it.Quantity ?? it.QuantityOrdered ?? it.ItemQuantity ?? 0) || 0;
-      const current = map.get(key) || {
-        asin,
-        sku,
-        country,
-        total_units: 0,
-        pending_units: 0,
-        shipped_units: 0,
-        refund_units: 0,
-        payment_units: 0
-      };
-      current.refund_units += Math.abs(qty);
-      map.set(key, current);
-    }
-  }
-  return Array.from(map.values());
+  // Refund logic dezactivat.
+  return [];
 }
 
 function parseMarketplaceEnvList() {
@@ -617,7 +513,7 @@ function accumulateSalesRows(map, rows) {
       existing.total_units += toNumber(row.total_units);
       existing.pending_units += toNumber(row.pending_units);
       existing.shipped_units += toNumber(row.shipped_units);
-      existing.refund_units += toNumber(row.refund_units);
+      existing.refund_units += 0;
       existing.payment_units += toNumber(row.payment_units);
     } else {
       map.set(key, {
@@ -627,7 +523,7 @@ function accumulateSalesRows(map, rows) {
         total_units: toNumber(row.total_units),
         pending_units: toNumber(row.pending_units),
         shipped_units: toNumber(row.shipped_units),
-        refund_units: toNumber(row.refund_units),
+        refund_units: 0,
         payment_units: toNumber(row.payment_units)
       });
     }

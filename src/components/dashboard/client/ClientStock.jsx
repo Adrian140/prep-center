@@ -106,11 +106,8 @@ const InventoryBreakdown = ({ row, t }) => {
   );
 };
 
-const SalesBreakdown = ({ totalUnits, globalRefund, refreshedAt, countryLabel, t }) => {
+const SalesBreakdown = ({ totalUnits, refreshedAt, countryLabel, t }) => {
   const computedTotal = totalUnits ?? 0;
-  const statusList = [
-    { key: 'refund', label: t('ClientStock.sales.status.refund'), value: globalRefund ?? 0 }
-  ];
 
   return (
     <div className="border rounded-xl p-1.5 text-[11px] leading-5 text-gray-600 bg-white shadow-inner min-w-[130px] max-w-[160px]">
@@ -124,16 +121,7 @@ const SalesBreakdown = ({ totalUnits, globalRefund, refreshedAt, countryLabel, t
           {Number.isFinite(computedTotal) ? computedTotal : 0}
         </span>
       </div>
-      <div className="mt-1 space-y-0.5">
-        {statusList.map((item) => (
-          <div key={item.key} className="flex items-center justify-between">
-            <span>{item.label}</span>
-            <span className="text-[#008296] font-semibold">
-              {Number.isFinite(item.value) ? item.value : 0}
-            </span>
-          </div>
-        ))}
-      </div>
+      <div className="mt-1 space-y-0.5">{/* Refund logic removed from UI */}</div>
     </div>
   );
 };
@@ -218,30 +206,27 @@ const buildSalesSummary = (rows = []) => {
       total: 0,
       payment: 0,
       shipped: 0,
-      pending: 0,
-      refund: 0
+      pending: 0
     };
 
     map[key].countries[country] = {
       total: prev.total + (Number(entry.total_units) || 0),
       payment: prev.payment + (Number(entry.payment_units) || 0),
       shipped: prev.shipped + (Number(entry.shipped_units) || 0),
-      pending: prev.pending + (Number(entry.pending_units) || 0),
-      refund: prev.refund + (Number(entry.refund_units) || 0)
+      pending: prev.pending + (Number(entry.pending_units) || 0)
     };
   });
 
   Object.keys(map).forEach((key) => {
     const summary = map[key];
     if (!summary.countries.ALL) {
-      const totals = { total: 0, payment: 0, shipped: 0, pending: 0, refund: 0 };
+      const totals = { total: 0, payment: 0, shipped: 0, pending: 0 };
       Object.entries(summary.countries).forEach(([country, stats]) => {
         if (country === 'ALL') return;
         totals.total += stats.total;
         totals.payment += stats.payment;
         totals.shipped += stats.shipped;
         totals.pending += stats.pending;
-        totals.refund += stats.refund;
       });
       summary.countries.ALL = totals;
     }
@@ -1122,7 +1107,7 @@ const refreshStockData = useCallback(async () => {
   try {
     let salesQuery = supabase
       .from('amazon_sales_30d')
-      .select('asin, sku, country, total_units, pending_units, shipped_units, payment_units, refund_units, refreshed_at');
+      .select('asin, sku, country, total_units, pending_units, shipped_units, payment_units, refreshed_at');
     if (profile?.company_id) salesQuery = salesQuery.eq('company_id', profile.company_id);
     else salesQuery = salesQuery.eq('user_id', profile?.id || null);
     const { data: salesRows, error: salesErr } = await salesQuery;
@@ -2659,7 +2644,6 @@ const saveReqChanges = async () => {
               return (
                 <SalesBreakdown
                   totalUnits={stats?.total ?? 0}
-                  globalRefund={stats?.refund ?? 0}
                   refreshedAt={summary?.refreshed_at}
                   countryLabel={countryLabel}
                   t={t}
