@@ -555,22 +555,21 @@ serve(async (req) => {
     }
     const incomingToken = authHeader.slice("bearer ".length).trim();
     const isServiceRoleToken = !!incomingToken && incomingToken === SUPABASE_SERVICE_ROLE_KEY;
-    const isAnonToken = !!incomingToken && !!SUPABASE_ANON_KEY && incomingToken === SUPABASE_ANON_KEY;
-    const bypassAuth = isServiceRoleToken || isAnonToken;
+    const bypassAuth = isServiceRoleToken; // nu mai permitem bypass cu ANON KEY
 
     let user: any = null;
     let userCompanyId: string | null = null;
     let userIsAdmin = false;
 
     if (bypassAuth) {
-      user = { id: isServiceRoleToken ? "service-role" : "anon-key" };
+      user = { id: "service-role" };
       userIsAdmin = true;
       console.log(
         JSON.stringify(
           {
             tag: "fba-set-packing-information:auth-bypass",
             traceId,
-            reason: isServiceRoleToken ? "service_role_token" : "anon_token"
+            reason: "service_role_token"
           },
           null,
           2

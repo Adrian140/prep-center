@@ -67,6 +67,10 @@ function safeJson(input: unknown) {
   }
 }
 
+function awsPercentEncode(str: string) {
+  return encodeURIComponent(str).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+}
+
 function canonicalizeQuery(query: string) {
   if (!query) return "";
   const pairs = query
@@ -86,9 +90,7 @@ function canonicalizeQuery(query: string) {
       return { key, value };
     });
   pairs.sort((a, b) => (a.key === b.key ? a.value.localeCompare(b.value) : a.key.localeCompare(b.key)));
-  return pairs
-    .map((p) => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`)
-    .join("&");
+  return pairs.map((p) => `${awsPercentEncode(p.key)}=${awsPercentEncode(p.value)}`).join("&");
 }
 
 function regionHost(region: string) {
@@ -157,16 +159,23 @@ async function signRequest(opts: {
   accessKey: string;
   secretKey: string;
   sessionToken?: string | null;
+  lwaToken?: string | null;
 }) {
-  const { method, service, region, host, path, query, payload, accessKey, secretKey, sessionToken } = opts;
+  const { method, service, region, host, path, query, payload, accessKey, secretKey, sessionToken, lwaToken } = opts;
   const t = new Date();
   const amzDate = t.toISOString().replace(/[:-]|\.\d{3}/g, "");
   const dateStamp = amzDate.slice(0, 8);
 
   const hashedPayload = await sha256(payload);
-  const canonicalHeaders =
-    "host:" + host + "\n" + "x-amz-date:" + amzDate + "\n" + (sessionToken ? "x-amz-security-token:" + sessionToken + "\n" : "");
-  const signedHeaders = sessionToken ? "host;x-amz-date;x-amz-security-token" : "host;x-amz-date";
+  const headerMap: Record<string, string> = {
+    host,
+    "x-amz-date": amzDate
+  };
+  if (lwaToken) headerMap["x-amz-access-token"] = lwaToken;
+  if (sessionToken) headerMap["x-amz-security-token"] = sessionToken;
+  const sortedHeaderKeys = Object.keys(headerMap).sort();
+  const canonicalHeaders = sortedHeaderKeys.map((k) => `${k}:${headerMap[k]}`).join("\n") + "\n";
+  const signedHeaders = sortedHeaderKeys.join(";");
   const canonicalQuery = query;
   const canonicalRequest =
     method +
@@ -256,7 +265,8 @@ async function signedFetch(opts: {
     payload,
     accessKey,
     secretKey,
-    sessionToken
+    sessionToken,
+    lwaToken
   });
   const url = `https://${host}${path}${canonicalQuery ? `?${canonicalQuery}` : ""}`;
   const requestHeaders = {
@@ -484,6 +494,20 @@ serve(async (req) => {
       });
     }
 
+    const { data: profileRow, error: profileErr } = await supabase
+      .from("profiles")
+      .select("company_id, is_admin")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profileErr) {
+      return new Response(JSON.stringify({ error: "Unable to verify user profile", traceId }), {
+        status: 500,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+    const userCompanyId = profileRow?.company_id || null;
+    const userIsAdmin = Boolean(profileRow?.is_admin);
+
     const body = await req.json().catch(() => ({}));
     let requestId = body?.request_id ?? body?.requestId;
     const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
@@ -518,7 +542,11 @@ serve(async (req) => {
       keys: Object.keys(body || {}),
       hasPlacement: Boolean(effectivePlacementOptionId),
       hasInbound: Boolean(inboundPlanId),
-      hasRequest: Boolean(requestId)
+      hasRequest: Boolean(requestId),
+      shouldConfirmRaw: body?.confirm ?? body?.confirmTransportation ?? null,
+      skipConfirmRaw: body?.skip_confirm ?? body?.skipConfirm ?? null,
+      forcePartneredIfAvailableRaw: body?.force_partnered_if_available ?? body?.forcePartneredIfAvailable ?? null,
+      forcePartneredOnlyRaw: body?.force_partnered_only ?? body?.forcePartneredOnly ?? null
     });
 
     if (!requestId || !inboundPlanId) {
@@ -527,6 +555,11 @@ serve(async (req) => {
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
+    const shouldConfirm =
+      (body?.confirm ?? body?.confirmTransportation ?? true) &&
+      !(body?.skip_confirm ?? body?.skipConfirm ?? false);
+    const shouldConfirmPlacement =
+      !(body?.skip_placement_confirm ?? body?.skipPlacementConfirm ?? false);
     // dacă lipsește placement_option_id, îl vom alege după generate/list
 
     // dacă lipsește packing_option_id în body, încearcă să-l citești din prep_requests
@@ -545,7 +578,7 @@ serve(async (req) => {
 
     let { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
-      .select("id, destination_country, company_id, user_id, amazon_snapshot, packing_option_id, placement_option_id")
+      .select("id, destination_country, company_id, user_id, amazon_snapshot, packing_option_id, placement_option_id, inbound_plan_id")
       .eq("id", requestId)
       .maybeSingle();
     if (!reqData && inboundPlanId) {
@@ -575,6 +608,23 @@ serve(async (req) => {
     if (!reqData) {
       return new Response(JSON.stringify({ error: "Request not found", traceId, requestId, inboundPlanId }), {
         status: 404,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+    if (!userIsAdmin) {
+      const isOwner = !!reqData.user_id && reqData.user_id === user.id;
+      const isCompanyMember = !!reqData.company_id && !!userCompanyId && reqData.company_id === userCompanyId;
+      if (!isOwner && !isCompanyMember) {
+        return new Response(JSON.stringify({ error: "Forbidden", traceId }), {
+          status: 403,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+      }
+    }
+    const existingPlanId = (reqData as any)?.inbound_plan_id || null;
+    if (existingPlanId && inboundPlanId && existingPlanId !== inboundPlanId) {
+      return new Response(JSON.stringify({ error: "Inbound plan mismatch for this request", traceId }), {
+        status: 409,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
@@ -619,18 +669,7 @@ serve(async (req) => {
 
     // Fetch Amazon integration similar cu step1b
     let integ: AmazonIntegration | null = null;
-    if (inferredMarketplace) {
-      const { data: integRows } = await supabase
-        .from("amazon_integrations")
-        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
-        .eq("company_id", reqData.company_id)
-        .eq("status", "active")
-        .eq("marketplace_id", inferredMarketplace)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      integ = (integRows?.[0] as any) || null;
-    }
-    if (!integ && amazonIntegrationIdInput) {
+    if (amazonIntegrationIdInput) {
       const { data: integRowById } = await supabase
         .from("amazon_integrations")
         .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
@@ -640,7 +679,23 @@ serve(async (req) => {
         .maybeSingle();
       if (integRowById) {
         integ = integRowById as any;
+      } else {
+        return new Response(
+          JSON.stringify({ error: "Amazon integration not found or inactive", traceId }),
+          { status: 404, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
       }
+    }
+    if (!integ && inferredMarketplace) {
+      const { data: integRows } = await supabase
+        .from("amazon_integrations")
+        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .eq("company_id", reqData.company_id)
+        .eq("status", "active")
+        .eq("marketplace_id", inferredMarketplace)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      integ = (integRows?.[0] as any) || null;
     }
     if (!integ) {
       const { data: integRows } = await supabase
@@ -799,127 +854,6 @@ serve(async (req) => {
       return last;
     };
 
-    const ensurePlacement = async () => {
-      // dacă avem placementOptionId din client, îl folosim; altfel generăm + confirmăm prima opțiune.
-      let placementId = effectivePlacementOptionId || null;
-      let placementShipments: any[] = [];
-
-      const confirmPlacement = async (pid: string) =>
-        signedFetch({
-          method: "POST",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(pid)}/confirmation`,
-          query: "",
-          payload: "{}",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.confirmPlacementOption",
-          marketplaceId,
-          sellerId
-        });
-
-      const listPlacements = async () => {
-        const res = await signedFetch({
-          method: "GET",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions`,
-          query: "",
-          payload: "",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.listPlacementOptions",
-          marketplaceId,
-          sellerId
-        });
-        const list =
-          res?.json?.payload?.placementOptions ||
-          res?.json?.placementOptions ||
-          res?.json?.PlacementOptions ||
-          [];
-        return { res, list };
-      };
-
-      const pickFirstPlacementId = (placements: any[]) =>
-        placements?.[0]?.placementOptionId || placements?.[0]?.id || placements?.[0]?.PlacementOptionId || null;
-
-      // helper care regenerează placement și confirmă primul
-      const regenAndConfirm = async () => {
-        const genPlacement = await generatePlacementOptionsWithRetry();
-        if (!genPlacement.ok) {
-          return {
-            ok: false,
-            res: genPlacement.res,
-            state: genPlacement.state
-          };
-        }
-        const { list } = await listPlacements();
-        const pid = pickFirstPlacementId(list);
-        if (pid) {
-          await confirmPlacement(pid);
-        }
-        return { ok: Boolean(pid), res: null, state: "REGENERATED", pid };
-      };
-
-      if (!placementId) {
-        // nu avem placementId – generăm, confirmăm primul
-        const regen = await regenAndConfirm();
-        placementId = regen.pid || placementId;
-      } else {
-        // avem placementId, îl confirmăm; dacă Amazon răspunde cu mesajul specific, re-generăm.
-        const { list: currentPlacements } = await listPlacements();
-        const current = currentPlacements.find(
-          (p: any) => (p?.placementOptionId || p?.id) === placementId
-        );
-        if (!current) {
-          const regen = await regenAndConfirm();
-          placementId = regen.pid || placementId;
-        } else {
-          const confirmRes = await confirmPlacement(placementId);
-          const bodyPreview = (confirmRes?.text || "").slice(0, 400);
-          const needsRegen = /placement options were initially generated on the Send to Amazon UI/i.test(bodyPreview);
-          if (!confirmRes?.res?.ok && needsRegen) {
-            logStep("placement_confirm_regen_retry", { traceId, placementId, reason: "stA UI flow" });
-            const regen = await regenAndConfirm();
-            placementId = regen.pid || placementId;
-          }
-        }
-      }
-
-      // după confirm placement, citim planul pentru a obține shipments populate
-      const planRes = await signedFetch({
-        method: "GET",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}`,
-        query: "",
-        payload: "",
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.getInboundPlan",
-        marketplaceId,
-        sellerId
-      });
-      placementShipments =
-        planRes?.json?.shipments ||
-        planRes?.json?.payload?.shipments ||
-        [];
-      return { placementId, placementShipments };
-    };
-
     const isGeneratePlacementRequired = (pc: any) => {
       const msg =
         pc?.json?.errors?.[0]?.message ||
@@ -997,6 +931,7 @@ serve(async (req) => {
     const confirmedPlacement = placementOptions.find((p: any) =>
       ["ACCEPTED", "CONFIRMED"].includes(normalizePlacementStatus(p))
     );
+    let placementConfirm: Awaited<ReturnType<typeof signedFetch>> | null = null;
     const listBoxes = async () =>
       signedFetch({
         method: "GET",
@@ -1016,15 +951,30 @@ serve(async (req) => {
         sellerId
       });
 
-    const boxesRes = await listBoxes();
-    const boxes =
-      boxesRes?.json?.payload?.boxes ||
-      boxesRes?.json?.boxes ||
-      [];
-    const boxesCount = Array.isArray(boxes) ? boxes.length : 0;
+    const fetchBoxesWithRetry = async (attempts = 3) => {
+      let last: any = null;
+      for (let i = 1; i <= attempts; i++) {
+        last = await listBoxes();
+        const boxes =
+          last?.json?.payload?.boxes ||
+          last?.json?.boxes ||
+          [];
+        const count = Array.isArray(boxes) ? boxes.length : 0;
+        if (count > 0) return { last, boxes, count };
+        await delay(250 * i);
+      }
+      const boxes =
+        last?.json?.payload?.boxes ||
+        last?.json?.boxes ||
+        [];
+      const count = Array.isArray(boxes) ? boxes.length : 0;
+      return { last, boxes, count };
+    };
+
+    const { last: boxesRes, boxes, count: boxesCount } = await fetchBoxesWithRetry();
     logStep("listInboundPlanBoxes", {
       traceId,
-      boxesCount,
+      boxesCount: boxesCount,
       requestId: boxesRes?.requestId || null
     });
     logStep("shipping_precheck", {
@@ -1064,6 +1014,113 @@ serve(async (req) => {
         });
         effectivePlacementOptionId = placementPid;
       }
+    }
+
+    // Confirm placement înainte de a aștepta shipmentId-urile, altfel planul rămâne OFFERED și Amazon nu emite shipments.
+    if (shouldConfirmPlacement && !confirmedPlacement && boxesCount > 0) {
+      placementConfirm = await signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(effectivePlacementOptionId)}/confirmation`,
+        query: "",
+        payload: "{}",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.confirmPlacementOption",
+        marketplaceId,
+        sellerId
+      });
+      logStep("placementConfirm", {
+        traceId,
+        status: placementConfirm?.res?.status,
+        requestId: placementConfirm?.requestId || null
+      });
+      if (!placementConfirm?.res?.ok && isGeneratePlacementRequired(placementConfirm)) {
+        const regenPlacement = await generatePlacementOptionsWithRetry();
+        if (regenPlacement.ok) {
+          const { pid: listedPid } = await listPlacementWithRetry();
+          if (listedPid) {
+            effectivePlacementOptionId = listedPid;
+            placementConfirm = await signedFetch({
+              method: "POST",
+              service: "execute-api",
+              region: awsRegion,
+              host,
+              path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(effectivePlacementOptionId)}/confirmation`,
+              query: "",
+              payload: "{}",
+              accessKey: tempCreds.accessKeyId,
+              secretKey: tempCreds.secretAccessKey,
+              sessionToken: tempCreds.sessionToken,
+              lwaToken: lwaAccessToken,
+              traceId,
+              operationName: "inbound.v20240320.confirmPlacementOption",
+              marketplaceId,
+              sellerId
+            });
+          }
+        }
+      }
+
+      const placementOpId =
+        placementConfirm?.json?.payload?.operationId ||
+        placementConfirm?.json?.operationId ||
+        null;
+      const placementStatus = placementConfirm?.res?.status || 0;
+      const placementBody = placementConfirm?.text || "";
+      const placementAlreadyConfirmed =
+        /already been confirmed|has been confirmed|already confirmed|already accepted|placement option is already confirmed/i.test(
+          placementBody
+        );
+      if (!placementConfirm?.res?.ok && [400, 409].includes(placementStatus) && !placementOpId && !placementAlreadyConfirmed) {
+        return new Response(
+          JSON.stringify({
+            error: "Placement confirmation failed",
+            traceId,
+            status: placementStatus,
+            body: placementBody.slice(0, 400) || null
+          }),
+          {
+            status: 502,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          }
+        );
+      }
+      if (!placementConfirm?.res?.ok && ![400, 409].includes(placementStatus) && !placementOpId) {
+        return new Response(
+          JSON.stringify({ error: "Placement confirmation failed", traceId, status: placementConfirm?.res?.status }),
+          {
+            status: 502,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          }
+        );
+      }
+      if (placementOpId) {
+        const placementStatusRes = await pollOperationStatus(placementOpId);
+        const stateUp = getOperationState(placementStatusRes) || String(placementStatusRes?.res?.status || "").toUpperCase();
+        if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
+          return new Response(JSON.stringify({ error: "Placement confirmation failed", traceId, state: stateUp }), {
+            status: 502,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+      }
+    }
+
+    if (!confirmedPlacement && !shouldConfirmPlacement) {
+      return new Response(
+        JSON.stringify({
+          error: "Placement nu este confirmat. Confirmă placementOption înainte de a aștepta shipments.",
+          code: "PLACEMENT_NOT_CONFIRMED",
+          traceId
+        }),
+        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
     }
 
     // După confirm placement, citim planul pentru a obține shipments + IDs; retry ușor pe 429 și până apar shipments
@@ -1127,7 +1184,33 @@ serve(async (req) => {
       planRes?.json?.sourceAddress ||
       planRes?.json?.payload?.sourceAddress ||
       null;
+    const contactInformationFromBody = (() => {
+      const raw = body?.contact_information ?? body?.contactInformation ?? null;
+      if (!raw) return null;
+      const name =
+        raw?.name ||
+        raw?.contactName ||
+        raw?.person ||
+        null;
+      const phoneNumber =
+        raw?.phoneNumber ||
+        raw?.phone_number ||
+        raw?.phone ||
+        null;
+      const email =
+        raw?.email ||
+        raw?.emailAddress ||
+        raw?.email_address ||
+        null;
+      if (!name && !phoneNumber && !email) return null;
+      return {
+        name: name ? String(name).trim() : null,
+        phoneNumber: phoneNumber ? String(phoneNumber).trim() : null,
+        email: email ? String(email).trim() : null
+      };
+    })();
     const contactInformation = (() => {
+      if (contactInformationFromBody) return contactInformationFromBody;
       if (!planSourceAddress) return null;
       const name = planSourceAddress.name || planSourceAddress.companyName || null;
       const phoneNumber = planSourceAddress.phoneNumber || null;
@@ -1223,7 +1306,7 @@ serve(async (req) => {
           packageFromGroup: packingGroupsForTransport?.[idx]?.packageFromGroup || null,
           shipFromAddress: packingGroupsForTransport?.[idx]?.shipFromAddress || planSourceAddress || null,
           boxes: packingGroupsForTransport?.[idx]?.boxes || null,
-          isPackingGroup: Boolean(packingGroupsForTransport?.[idx])
+          isPackingGroup: false
         }));
       } else {
         placementShipments = packingGroupsForTransport.map((g: any) => ({
@@ -1388,7 +1471,7 @@ serve(async (req) => {
           const width = Number(dims?.width);
           const height = Number(dims?.height);
           const weightValue = Number(w?.value);
-          const dimUnit = (dims?.unit || dims?.uom || "CM").toString().toUpperCase();
+          const dimUnit = (dims?.unitOfMeasurement || dims?.unit || dims?.uom || "CM").toString().toUpperCase();
           const weightUnit = (w?.unit || w?.uom || "KG").toString().toUpperCase();
           if (!Number.isFinite(length) || length <= 0) return null;
           if (!Number.isFinite(width) || width <= 0) return null;
@@ -1398,12 +1481,14 @@ serve(async (req) => {
             length: dimUnit === "IN" ? length : cmToIn(length),
             width: dimUnit === "IN" ? width : cmToIn(width),
             height: dimUnit === "IN" ? height : cmToIn(height),
-            unit: "IN"
+            unit: "IN",
+            unitOfMeasurement: "IN"
           };
-          const normalizedWeight = {
-            value: weightUnit === "LB" ? weightValue : kgToLb(weightValue),
-            unit: "LB"
-          };
+      const normalizedWeight = {
+        value: weightUnit === "LB" ? weightValue : kgToLb(weightValue),
+        unit: "LB",
+        unitOfMeasurement: "LB"
+      };
           return {
             dimensions: normalizedDims,
             weight: normalizedWeight,
@@ -1434,12 +1519,14 @@ serve(async (req) => {
             length: dimUnit === "IN" ? length : cmToIn(length),
             width: dimUnit === "IN" ? width : cmToIn(width),
             height: dimUnit === "IN" ? height : cmToIn(height),
+            unit: "IN",
             unitOfMeasurement: "IN"
           };
-          const normalizedWeight = {
-            value: weightUnit === "LB" ? weightValue : kgToLb(weightValue),
-            unit: "LB"
-          };
+      const normalizedWeight = {
+        value: weightUnit === "LB" ? weightValue : kgToLb(weightValue),
+        unit: "LB",
+        unitOfMeasurement: "LB"
+      };
           const stackability = (p?.stackability || "STACKABLE").toString().toUpperCase();
           return {
             quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
@@ -1475,11 +1562,13 @@ serve(async (req) => {
         length: dimUnit === "IN" ? Number(dimsRaw?.length) : cmToIn(dimsRaw?.length),
         width: dimUnit === "IN" ? Number(dimsRaw?.width) : cmToIn(dimsRaw?.width),
         height: dimUnit === "IN" ? Number(dimsRaw?.height) : cmToIn(dimsRaw?.height),
-        unit: "IN"
+        unit: "IN",
+        unitOfMeasurement: "IN"
       };
       const normWeight = {
         value: weightUnit === "LB" ? Number(weightRaw?.value) : kgToLb(weightRaw?.value),
-        unit: "LB"
+        unit: "LB",
+        unitOfMeasurement: "LB"
       };
       return {
         quantity: boxes,
@@ -1513,6 +1602,22 @@ serve(async (req) => {
     }
 
     const includePackages = String(effectiveShippingMode || "").toUpperCase() === "GROUND_SMALL_PARCEL";
+    if (includePackages) {
+      const hasContactName = Boolean(contactInformation?.name && String(contactInformation.name).trim());
+      const hasContactPhone = Boolean(contactInformation?.phoneNumber && String(contactInformation.phoneNumber).trim());
+      const hasContactEmail = Boolean(contactInformation?.email && String(contactInformation.email).trim());
+      if (!hasContactName || !hasContactPhone || !hasContactEmail) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "Pentru SPD este necesar contactInformation complet (name, phoneNumber, email). Trimite contact_information în body sau setează datele în address.",
+            code: "CONTACT_INFORMATION_REQUIRED",
+            traceId
+          }),
+          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+    }
     const mergedIncomingConfigs = (() => {
       const map = new Map<string, any>();
       (shipmentTransportConfigs || []).forEach((cfg: any, idx: number) => {
@@ -1545,29 +1650,15 @@ serve(async (req) => {
         {};
       const rawStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || readyStartIso;
       const rawEnd = cfg.readyToShipWindow?.end || cfg.ready_to_ship_window?.end || undefined;
-      const { start: readyStart, end: readyEnd } = clampReadyWindow(rawStart, rawEnd);
+      const { start: readyStart } = clampReadyWindow(rawStart, rawEnd);
+      const { start, end } = clampReadyWindow(rawStart, rawEnd);
       const baseCfg: Record<string, any> = {
-        readyToShipWindow: { start: readyStart, end: readyEnd }
+        readyToShipWindow: { start, end },
+        shipmentId: shId
       };
-      if (sh?.isPackingGroup) {
-        baseCfg.packingGroupId = sh?.packingGroupId || shId;
-        // Unele validate Amazon cer shipmentId obligatoriu; populăm cu shipmentId de la placementOptions dacă există.
-        if (sh?.shipmentId) baseCfg.shipmentId = sh.shipmentId;
-      } else {
-        baseCfg.shipmentId = shId;
-      }
-      if (effectiveShippingMode) {
-        baseCfg.shippingMode = effectiveShippingMode;
-      }
       if (contactInformation) baseCfg.contactInformation = contactInformation;
-      if (includePackages) {
-        const pkgsFromCfg = normalizePackages(cfg?.packages);
-        if (pkgsFromCfg) {
-          baseCfg.packages = pkgsFromCfg;
-        } else if (sh?.isPackingGroup && sh?.packageFromGroup) {
-          baseCfg.packages = [sh.packageFromGroup];
-        }
-      }
+      const pkgsFromCfg = normalizePackages(cfg?.packages);
+      if (pkgsFromCfg) baseCfg.packages = pkgsFromCfg;
       const pallets = normalizePallets(cfg?.pallets);
       if (pallets) baseCfg.pallets = pallets;
       const freightInformation = normalizeFreightInformation(cfg?.freightInformation || cfg?.freight_information);
@@ -1705,9 +1796,17 @@ serve(async (req) => {
       );
     }
 
-    const shouldConfirm =
-      (body?.confirm ?? body?.confirmTransportation ?? true) &&
-      !(body?.skip_confirm ?? body?.skipConfirm ?? false);
+    if (placementShipments.some((s: any) => s?.isPackingGroup)) {
+      return new Response(
+        JSON.stringify({
+          error: "Amazon nu a emis încă shipmentId-urile. Reîncearcă în câteva secunde.",
+          code: "SHIPMENTS_PENDING_FOR_GENERATE_TRANSPORT",
+          traceId,
+          retryAfterMs: 4000
+        }),
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
     // 1) Generate transportation options (idempotent)
     logStep("transportationOptions_payload", {
@@ -1724,22 +1823,24 @@ serve(async (req) => {
       shipments: shipmentTransportationConfigurations.map((c: any) => ({
         shipmentId: c?.shipmentId || null,
         readyStart: c?.readyToShipWindow?.start || null,
-        readyEnd: c?.readyToShipWindow?.end || null,
-        packages: Array.isArray(c?.packages) ? c.packages.length : 0,
         pallets: Array.isArray(c?.pallets) ? c.pallets.length : 0,
         hasContact: Boolean(c?.contactInformation)
       }))
     });
-    const configsWithShipFrom = (() => {
-      if (!planSourceAddress) return shipmentTransportationConfigurations;
-      return shipmentTransportationConfigurations.map((cfg: any) => ({
-        ...cfg,
-        shipFromAddress: planSourceAddress
-      }));
-    })();
+    const payloadTransportConfigs = shipmentTransportationConfigurations.map((cfg: any) => {
+      const base: Record<string, any> = {
+        shipmentId: cfg?.shipmentId,
+        readyToShipWindow: { start: cfg?.readyToShipWindow?.start, end: cfg?.readyToShipWindow?.end }
+      };
+      if (cfg?.contactInformation) base.contactInformation = cfg.contactInformation;
+      if (Array.isArray(cfg?.packages) && cfg.packages.length) base.packages = cfg.packages;
+      if (Array.isArray(cfg?.pallets) && cfg.pallets.length) base.pallets = cfg.pallets;
+      if (cfg?.freightInformation) base.freightInformation = cfg.freightInformation;
+      return base;
+    });
     const generatePayload = JSON.stringify({
       placementOptionId: effectivePlacementOptionId,
-      shipmentTransportationConfigurations: configsWithShipFrom
+      shipmentTransportationConfigurations: payloadTransportConfigs
     });
     const genRes = await signedFetch({
       method: "POST",
@@ -1824,6 +1925,13 @@ serve(async (req) => {
     }
 
     // 2) List transportation options (paginat, ca să nu ratăm SPD/partnered)
+    const shipmentIdForListing =
+      firstShipmentId ||
+      shipmentTransportationConfigurations.find((c: any) => c?.shipmentId)?.shipmentId ||
+      placementShipments.find((s: any) => !s?.isPackingGroup && (s?.shipmentId || s?.id))?.shipmentId ||
+      placementShipments.find((s: any) => !s?.isPackingGroup && (s?.shipmentId || s?.id))?.id ||
+      null;
+
     const listAllTransportationOptions = async () => {
       let nextToken: string | null = null;
       const collected: any[] = [];
@@ -1832,6 +1940,7 @@ serve(async (req) => {
       do {
         attempt += 1;
         const queryParts = [`placementOptionId=${encodeURIComponent(effectivePlacementOptionId)}`];
+        if (shipmentIdForListing) queryParts.push(`shipmentId=${encodeURIComponent(shipmentIdForListing)}`);
         if (nextToken) queryParts.push(`nextToken=${encodeURIComponent(nextToken)}`);
         const res = await signedFetch({
           method: "GET",
@@ -1872,6 +1981,7 @@ serve(async (req) => {
       traceId,
       placementOptionId: effectivePlacementOptionId,
       shippingMode: effectiveShippingMode,
+      shipmentIdForListing,
       hasPallets,
       hasPackages: !missingPkgs,
       hasFreightInformation: !missingFreightInfo,
@@ -2204,111 +2314,6 @@ serve(async (req) => {
         "Amazon nu a returnat AMAZON_PARTNERED_CARRIER pentru acest placement/transportation request.";
     }
 
-    // confirm placement/transportation tracking
-    let placementConfirm: Awaited<ReturnType<typeof signedFetch>> | null = null;
-
-    // 2) Confirm placement (după ce avem opțiunile de transport), doar dacă vrem confirmare și nu e deja confirmat
-    if (shouldConfirm && !confirmedPlacement && boxesCount > 0) {
-      placementConfirm = await signedFetch({
-        method: "POST",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(effectivePlacementOptionId)}/confirmation`,
-        query: "",
-        payload: "{}",
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.confirmPlacementOption",
-        marketplaceId,
-        sellerId
-      });
-      logStep("placementConfirm", {
-        traceId,
-        status: placementConfirm?.res?.status,
-        requestId: placementConfirm?.requestId || null
-      });
-      if (!placementConfirm?.res?.ok && isGeneratePlacementRequired(placementConfirm)) {
-        const regenPlacement = await generatePlacementOptionsWithRetry();
-        if (regenPlacement.ok) {
-          const { pid: listedPid } = await listPlacementWithRetry();
-          if (listedPid) {
-            effectivePlacementOptionId = listedPid;
-            placementConfirm = await signedFetch({
-              method: "POST",
-              service: "execute-api",
-              region: awsRegion,
-              host,
-              path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(effectivePlacementOptionId)}/confirmation`,
-              query: "",
-              payload: "{}",
-              accessKey: tempCreds.accessKeyId,
-              secretKey: tempCreds.secretAccessKey,
-              sessionToken: tempCreds.sessionToken,
-              lwaToken: lwaAccessToken,
-              traceId,
-              operationName: "inbound.v20240320.confirmPlacementOption",
-              marketplaceId,
-              sellerId
-            });
-          }
-        }
-      }
-
-      const placementOpId =
-        placementConfirm?.json?.payload?.operationId ||
-        placementConfirm?.json?.operationId ||
-        null;
-      const placementStatus = placementConfirm?.res?.status || 0;
-      const placementBody = placementConfirm?.text || "";
-      const placementAlreadyConfirmed =
-        /already been confirmed|has been confirmed|already confirmed|already accepted|placement option is already confirmed/i.test(
-          placementBody
-        );
-      if (!placementConfirm?.res?.ok && [400, 409].includes(placementStatus) && !placementOpId && !placementAlreadyConfirmed) {
-        return new Response(
-          JSON.stringify({
-            error: "Placement confirmation failed",
-            traceId,
-            status: placementStatus,
-            body: placementBody.slice(0, 400) || null
-          }),
-          {
-            status: 502,
-            headers: { ...corsHeaders, "content-type": "application/json" }
-          }
-        );
-      }
-      if (!placementConfirm?.res?.ok && ![400, 409].includes(placementStatus) && !placementOpId) {
-        return new Response(
-          JSON.stringify({ error: "Placement confirmation failed", traceId, status: placementConfirm?.res?.status }),
-          {
-            status: 502,
-            headers: { ...corsHeaders, "content-type": "application/json" }
-          }
-        );
-      }
-      if (placementOpId) {
-        const placementStatusRes = await pollOperationStatus(placementOpId);
-        const stateUp = getOperationState(placementStatusRes) || String(placementStatusRes?.res?.status || "").toUpperCase();
-        if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
-          return new Response(JSON.stringify({ error: "Placement confirmation failed", traceId, state: stateUp }), {
-            status: 502,
-            headers: { ...corsHeaders, "content-type": "application/json" }
-          });
-        }
-      }
-      if (!hasRealShipments && Array.isArray(placementShipments)) {
-        const refreshed = await pollPlanForShipments();
-        if (Array.isArray(refreshed.shipments) && refreshed.shipments.length) {
-          placementShipments = refreshed.shipments;
-        }
-      }
-    }
-
     if (!shouldConfirm) {
       const normalizedShipments = normalizePlacementShipments(placementShipments);
       return new Response(
@@ -2360,7 +2365,9 @@ serve(async (req) => {
     const forcePartneredIfAvailable =
       body?.force_partnered_if_available ?? body?.forcePartneredIfAvailable ?? true;
     const forcePartneredOnly =
-      body?.force_partnered_only ?? body?.forcePartneredOnly ?? false;
+      body?.force_partnered_only ??
+      body?.forcePartneredOnly ??
+      (String(effectiveShippingMode || "").toUpperCase() === "GROUND_SMALL_PARCEL");
     const wantPartnered = Boolean(forcePartneredOnly || forcePartneredIfAvailable);
 
     if (spdWarnings.length) {

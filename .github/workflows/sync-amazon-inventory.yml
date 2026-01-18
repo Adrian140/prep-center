@@ -9,7 +9,8 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    # Lăsăm runner-ul cu o limită mai mare decât bugetul intern, ca să poată termina și să trimită relansarea.
+    timeout-minutes: 350
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,6 +38,7 @@ jobs:
           SPAPI_MARKETPLACE_ID: ${{ secrets.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH' }}
           SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
           SPAPI_INVENTORY_SYNC_LOOP: 'false'
+          # Oprim scriptul la ~5h30m (sub limita GH de 6h), lăsând timp pentru relansarea automată.
           SPAPI_INVENTORY_TIME_BUDGET_MS: 19800000
         run: npm run sync-inventory
 

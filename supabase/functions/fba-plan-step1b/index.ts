@@ -74,6 +74,30 @@ function safeJson(input: unknown) {
   }
 }
 
+function canonicalizeQuery(query: string) {
+  if (!query) return "";
+  const pairs = query
+    .split("&")
+    .filter(Boolean)
+    .map((part) => {
+      const [k, v = ""] = part.split("=");
+      const safeDecode = (val: string) => {
+        try {
+          return decodeURIComponent(val.replace(/\+/g, "%20"));
+        } catch {
+          return val;
+        }
+      };
+      const key = safeDecode(k);
+      const value = safeDecode(v);
+      return { key, value };
+    });
+  pairs.sort((a, b) => (a.key === b.key ? a.value.localeCompare(b.value) : a.key.localeCompare(b.key)));
+  return pairs
+    .map((p) => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`)
+    .join("&");
+}
+
 function regionHost(region: string) {
   switch ((region || "eu").toLowerCase()) {
     case "na":
@@ -210,19 +234,20 @@ async function signedFetch(opts: {
     marketplaceId,
     sellerId
   } = opts;
+  const canonicalQuery = canonicalizeQuery(query);
   const sigHeaders = await signRequest({
     method,
     service,
     region,
     host,
     path,
-    query,
+    query: canonicalQuery,
     payload,
     accessKey,
     secretKey,
     sessionToken
   });
-  const url = `https://${host}${path}${query ? `?${query}` : ""}`;
+  const url = `https://${host}${path}${canonicalQuery ? `?${canonicalQuery}` : ""}`;
   const requestHeaders = {
     ...sigHeaders,
     "x-amz-access-token": lwaToken,

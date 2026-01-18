@@ -13,6 +13,10 @@ const ALLOWED_FBA_CHANNELS = new Set(['AMAZON_NA', 'AMAZON_EU', 'AFN']);
 const INVENTORY_TIME_BUDGET_MS = Number(
   process.env.SPAPI_INVENTORY_TIME_BUDGET_MS || 5.5 * 60 * 60 * 1000
 );
+// Oprire preventivă cu un buffer înainte de limita GH Actions, ca să nu fim omorâți la milisecundă.
+const INVENTORY_TIME_BUDGET_BUFFER_MS = Number(
+  process.env.SPAPI_INVENTORY_TIME_BUDGET_BUFFER_MS || 20 * 60 * 1000
+);
 // Implicitly run a single pass unless explicitly asked to loop forever.
 const INVENTORY_SYNC_LOOP = process.env.SPAPI_INVENTORY_SYNC_LOOP === 'true';
 const INVENTORY_SYNC_INTERVAL_MS = Number(
@@ -796,9 +800,17 @@ async function main() {
 
   const companySeenKeys = new Map();
   for (const integration of integrations) {
-    if (hasTimeBudget && Date.now() - startedAt >= INVENTORY_TIME_BUDGET_MS) {
+    const elapsed = Date.now() - startedAt;
+    const remaining = INVENTORY_TIME_BUDGET_MS - elapsed;
+    if (hasTimeBudget && elapsed >= INVENTORY_TIME_BUDGET_MS) {
       console.warn(
         `[inventory] Time budget reached (~${Math.round(INVENTORY_TIME_BUDGET_MS / 60000)}m); stopping early to avoid runner timeout.`
+      );
+      break;
+    }
+    if (hasTimeBudget && remaining <= INVENTORY_TIME_BUDGET_BUFFER_MS) {
+      console.warn(
+        `[inventory] Time budget almost reached (remaining ${Math.round(remaining / 60000)}m); stopping before next integration to avoid runner timeout.`
       );
       break;
     }
