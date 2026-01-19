@@ -1741,6 +1741,17 @@ createPrepItem: async (requestId, item) => {
       .lte('created_at', endIso)
       .limit(5000);
 
+    const receivingTotalRpcPromise = supabase.rpc('get_receiving_units', {
+      p_start_date: dateFrom,
+      p_end_date: dateTo,
+      p_company_id: companyId || null
+    });
+    const receivingTodayRpcPromise = supabase.rpc('get_receiving_units', {
+      p_start_date: dateFrom,
+      p_end_date: dateFrom,
+      p_company_id: companyId || null
+    });
+
     const prepItemsPromise = supabase
       .from('prep_request_items')
       .select('units_requested, prep_requests!inner(created_at, company_id)')
@@ -1783,11 +1794,13 @@ createPrepItem: async (requestId, item) => {
       .lte('service_date', dateTo)
       .limit(20000);
 
-    const [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
+    const [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, receivingTotalRpcRes, receivingTodayRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
       stockPromise,
       stockAllPromise,
       clientStockPromise,
       stockTotalRpcPromise,
+      receivingTotalRpcPromise,
+      receivingTodayRpcPromise,
       invoicesPromise,
       returnsPromise,
       prepPromise,
@@ -1866,10 +1879,16 @@ createPrepItem: async (requestId, item) => {
       .filter((row) => (row.prep_requests?.created_at || '').slice(0, 10) === dateFrom)
       .reduce((acc, row) => acc + numberOrZero(row.units_requested), 0);
 
-    const receivingUnitsTotal = filteredReceivingItems.reduce((acc, row) => acc + numberOrZero(row.quantity_received), 0);
-    const receivingUnitsToday = filteredReceivingItems
+    const receivingUnitsTotalLocal = filteredReceivingItems.reduce((acc, row) => acc + numberOrZero(row.quantity_received), 0);
+    const receivingUnitsTodayLocal = filteredReceivingItems
       .filter((row) => (row.receiving_shipments?.created_at || '').slice(0, 10) === dateFrom)
       .reduce((acc, row) => acc + numberOrZero(row.quantity_received), 0);
+
+    const receivingUnitsTotalRpc = receivingTotalRpcRes?.data ? numberOrZero(receivingTotalRpcRes.data) : null;
+    const receivingUnitsTodayRpc = receivingTodayRpcRes?.data ? numberOrZero(receivingTodayRpcRes.data) : null;
+
+    const receivingUnitsTotal = receivingUnitsTotalRpc ?? receivingUnitsTotalLocal;
+    const receivingUnitsToday = receivingUnitsTodayRpc ?? receivingUnitsTodayLocal;
 
     const sumAmount = (rows, dateField, qtyField) =>
       rows.reduce((acc, row) => {
