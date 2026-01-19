@@ -30,6 +30,52 @@
       "accessDeniedTitle": "Access denied",
       "accessDeniedDesc": "Your account does not have administrator permissions."
     },
+    "adminDashboard": {
+      "title": "Dashboard",
+      "subtitle": "Operational overview",
+      "aggregateLabel": "All companies (aggregate)",
+      "companyLabel": "Company: {name}",
+      "searchPlaceholder": "Search company…",
+      "unknownCompany": "Unnamed",
+      "noCompaniesOption": "No companies found",
+      "allCompaniesOption": "All companies",
+      "loadingCompanies": "Loading companies…",
+      "noCompanies": "No companies to display.",
+      "loadingData": "Loading data…",
+      "noData": "No data for the selected interval.",
+      "errors": {
+        "loadCompanies": "Could not load companies.",
+        "loadData": "Could not load data.",
+        "loadChart": "Could not load chart data."
+      },
+      "quick": {
+        "today": "Today",
+        "last7": "7d",
+        "last30": "30d"
+      },
+      "balanceTitle": "Balance",
+      "balanceSubtitleSingle": "Interval: €{total}",
+      "balanceSubtitleInterval": "Interval total: €{total}",
+      "preparedTitle": "Prepared units",
+      "preparedSubtitleSingle": "Interval: {total}",
+      "preparedSubtitleInterval": "Interval total",
+      "receptionsTitle": "Receptions",
+      "receptionsSubtitleSingle": "Interval: {total}",
+      "receptionsSubtitleInterval": "Interval total",
+      "stockTitle": "Units in stock",
+      "stockSubtitleAll": "Current stock (all companies)",
+      "stockSubtitleCompany": "Current stock (global, no company filter)",
+      "chartTitle": "Daily stats",
+      "chartRangeLabel": "Last {days} days",
+      "loadingChart": "Loading chart…",
+      "noChartData": "No data for the selected range.",
+      "chartPrepared": "Prepared",
+      "chartReceiving": "Received",
+      "statusOrdersTitle": "Order statuses (interval)",
+      "statusShipmentsTitle": "Reception statuses (interval)",
+      "noOrdersStatus": "No orders in this interval.",
+      "noShipmentsStatus": "No receptions in this interval."
+    },
     "clients": {
       "filters": {
         "month": "Month",
@@ -874,6 +920,54 @@
       "deleteConfirm": "Ștergi acest cod? Clienții asignați vor pierde legătura.",
       "deleteSuccess": "Codul de afiliat a fost șters.",
       "deleteError": "Nu am putut șterge codul."
+    }
+  },
+  "fr": {
+    "adminDashboard": {
+      "title": "Tableau de bord",
+      "subtitle": "Vue opérationnelle",
+      "aggregateLabel": "Toutes les entreprises (agrégé)",
+      "companyLabel": "Entreprise : {name}",
+      "searchPlaceholder": "Rechercher une entreprise…",
+      "unknownCompany": "Sans nom",
+      "noCompaniesOption": "Aucune entreprise trouvée",
+      "allCompaniesOption": "Toutes les entreprises",
+      "loadingCompanies": "Chargement des entreprises…",
+      "noCompanies": "Aucune entreprise à afficher.",
+      "loadingData": "Chargement des données…",
+      "noData": "Pas de données pour l’intervalle sélectionné.",
+      "errors": {
+        "loadCompanies": "Impossible de charger les entreprises.",
+        "loadData": "Impossible de charger les données.",
+        "loadChart": "Impossible de charger les données du graphique."
+      },
+      "quick": {
+        "today": "Aujourd’hui",
+        "last7": "7j",
+        "last30": "30j"
+      },
+      "balanceTitle": "Balance",
+      "balanceSubtitleSingle": "Intervalle : €{total}",
+      "balanceSubtitleInterval": "Total intervalle : €{total}",
+      "preparedTitle": "Unités préparées",
+      "preparedSubtitleSingle": "Intervalle : {total}",
+      "preparedSubtitleInterval": "Total intervalle",
+      "receptionsTitle": "Réceptions",
+      "receptionsSubtitleSingle": "Intervalle : {total}",
+      "receptionsSubtitleInterval": "Total intervalle",
+      "stockTitle": "Unités en stock",
+      "stockSubtitleAll": "Stock actuel (toutes les entreprises)",
+      "stockSubtitleCompany": "Stock actuel (global, sans filtre société)",
+      "chartTitle": "Statistiques quotidiennes",
+      "chartRangeLabel": "Derniers {days} jours",
+      "loadingChart": "Chargement du graphique…",
+      "noChartData": "Pas de données pour la plage sélectionnée.",
+      "chartPrepared": "Préparé",
+      "chartReceiving": "Réceptionné",
+      "statusOrdersTitle": "Statuts des commandes (intervalle)",
+      "statusShipmentsTitle": "Statuts des réceptions (intervalle)",
+      "noOrdersStatus": "Aucune commande dans cet intervalle.",
+      "noShipmentsStatus": "Aucune réception dans cet intervalle."
     }
   }
 }

@@ -20,6 +20,7 @@ import {
   Tooltip,
   Legend
 } from 'recharts';
+import { useAdminTranslation } from '@/i18n/useAdminTranslation';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 const shiftDays = (days) => {
@@ -46,6 +47,7 @@ const Card = ({ title, value, subtitle, color = 'bg-white', accentClass = 'text-
 );
 
 export default function AdminCompanyDashboard() {
+  const { t, tp } = useAdminTranslation();
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [companiesError, setCompaniesError] = useState('');
@@ -75,11 +77,11 @@ export default function AdminCompanyDashboard() {
         .limit(500);
       if (cancelled) return;
       if (error) {
-        setCompaniesError(error.message || 'Nu am putut încărca companiile.');
+        setCompaniesError(error.message || t('adminDashboard.errors.loadCompanies'));
         setCompanies([]);
       } else {
         const list = data || [];
-        const allEntry = { id: 'ALL', name: 'All companies' };
+        const allEntry = { id: 'ALL', name: t('adminDashboard.allCompaniesOption') };
         setCompanies([allEntry, ...list]);
         setSelectedCompany(allEntry);
       }
@@ -100,7 +102,7 @@ export default function AdminCompanyDashboard() {
       endDate: dateTo
     });
     if (error) {
-      setDataError(error.message || 'Nu am putut încărca datele pentru companie.');
+      setDataError(error.message || t('adminDashboard.errors.loadData'));
       setSnapshot(null);
     } else {
       setSnapshot(data || null);
@@ -126,7 +128,7 @@ export default function AdminCompanyDashboard() {
       endDate: end
     });
     if (error) {
-      setChartError(error.message || 'Nu am putut încărca datele pentru grafic.');
+      setChartError(error.message || t('adminDashboard.errors.loadChart'));
       setChartSnapshot(null);
     } else {
       setChartSnapshot(data || null);
@@ -192,12 +194,12 @@ export default function AdminCompanyDashboard() {
         <div className="flex items-center gap-2 text-text-primary">
           <Package className="w-5 h-5" />
           <div>
-            <div className="text-xs uppercase tracking-wide text-text-light">Dashboard</div>
-            <h2 className="text-xl font-semibold">Monitorizare operațională</h2>
+            <div className="text-xs uppercase tracking-wide text-text-light">{t('adminDashboard.title')}</div>
+            <h2 className="text-xl font-semibold">{t('adminDashboard.subtitle')}</h2>
             <div className="text-xs text-text-secondary">
               {selectedCompany?.id === 'ALL'
-                ? 'Toate companiile (agregat)'
-                : `Companie: ${selectedCompany?.name || selectedCompany?.id || 'n/a'}`}
+                ? t('adminDashboard.aggregateLabel')
+                : tp('adminDashboard.companyLabel', { name: selectedCompany?.name || selectedCompany?.id || 'n/a' })}
             </div>
           </div>
         </div>
@@ -206,27 +208,27 @@ export default function AdminCompanyDashboard() {
             <Search className="w-4 h-4 text-text-secondary" />
             <input
               type="text"
-              placeholder="Caută companie..."
+              placeholder={t('adminDashboard.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="text-sm outline-none w-40"
             />
-              <Building2 className="w-4 h-4 text-text-secondary" />
-              <select
-                className="text-sm outline-none"
-                value={selectedCompany?.id || ''}
-                onChange={(e) => {
-                  const next = companies.find((c) => c.id === e.target.value) || null;
-                  setSelectedCompany(next);
-                }}
-              >
-                {filteredCompanies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name || 'Fără nume'}{c.id !== 'ALL' ? ` · ${c.id.slice(0, 6)}` : ''}
-                  </option>
-                ))}
-                {!filteredCompanies.length && <option value="">Nicio companie găsită</option>}
-              </select>
+            <Building2 className="w-4 h-4 text-text-secondary" />
+            <select
+              className="text-sm outline-none"
+              value={selectedCompany?.id || ''}
+              onChange={(e) => {
+                const next = companies.find((c) => c.id === e.target.value) || null;
+                setSelectedCompany(next);
+              }}
+            >
+              {filteredCompanies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name || t('adminDashboard.unknownCompany')}{c.id !== 'ALL' ? ` · ${c.id.slice(0, 6)}` : ''}
+                </option>
+              ))}
+              {!filteredCompanies.length && <option value="">{t('adminDashboard.noCompaniesOption')}</option>}
+            </select>
           </div>
           <div className="flex items-center gap-2 border rounded-lg px-2 py-1 bg-white">
             <CalendarIcon className="w-4 h-4 text-text-secondary" />
@@ -245,9 +247,9 @@ export default function AdminCompanyDashboard() {
             />
           </div>
           <div className="flex items-center gap-1 bg-white border rounded-lg px-1 py-1">
-            <button onClick={() => applyPreset(1)} className="text-xs px-2 py-1 rounded hover:bg-gray-50">Azi</button>
-            <button onClick={() => applyPreset(7)} className="text-xs px-2 py-1 rounded hover:bg-gray-50">7z</button>
-            <button onClick={() => applyPreset(30)} className="text-xs px-2 py-1 rounded hover:bg-gray-50">30z</button>
+            <button onClick={() => applyPreset(1)} className="text-xs px-2 py-1 rounded hover:bg-gray-50">{t('adminDashboard.quick.today')}</button>
+            <button onClick={() => applyPreset(7)} className="text-xs px-2 py-1 rounded hover:bg-gray-50">{t('adminDashboard.quick.last7')}</button>
+            <button onClick={() => applyPreset(30)} className="text-xs px-2 py-1 rounded hover:bg-gray-50">{t('adminDashboard.quick.last30')}</button>
           </div>
           <button
             onClick={loadSnapshot}
@@ -255,7 +257,7 @@ export default function AdminCompanyDashboard() {
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border bg-white text-sm"
           >
             <RefreshCcw className={`w-4 h-4 ${loadingData ? 'animate-spin' : ''}`} />
-            Reîmprospătează
+            {t('common.refresh')}
           </button>
         </div>
       </div>
@@ -272,23 +274,23 @@ export default function AdminCompanyDashboard() {
       )}
 
       {loadingCompanies ? (
-        <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">Se încarcă lista de companii…</div>
+        <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">{t('adminDashboard.loadingCompanies')}</div>
       ) : !selectedCompany ? (
-        <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">Nu există companii de afișat.</div>
+        <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">{t('adminDashboard.noCompanies')}</div>
       ) : loadingData ? (
-        <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">Se încarcă datele…</div>
+        <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">{t('adminDashboard.loadingData')}</div>
       ) : !snapshot ? (
-        <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">Nu există date pentru intervalul selectat.</div>
+        <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">{t('adminDashboard.noData')}</div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-4">
             <Card
-              title="Balance"
+              title={t('adminDashboard.balanceTitle')}
               value={isSingleDay ? `€${moneyToday.toFixed(2)}` : `€${moneyInterval.toFixed(2)}`}
               subtitle={
                 isSingleDay
-                  ? `Interval: €${moneyInterval.toFixed(2)}`
-                  : `Total interval: €${moneyInterval.toFixed(2)}`
+                  ? tp('adminDashboard.balanceSubtitleSingle', { total: moneyInterval.toFixed(2) })
+                  : tp('adminDashboard.balanceSubtitleInterval', { total: moneyInterval.toFixed(2) })
               }
               accentClass="text-orange-700"
             />
@@ -296,24 +298,32 @@ export default function AdminCompanyDashboard() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card
-              title="Prepared units"
+              title={t('adminDashboard.preparedTitle')}
               value={isSingleDay ? todayOrders : sumTotalPrepared}
-              subtitle={isSingleDay ? `Interval: ${sumTotalPrepared}` : 'Interval total'}
+              subtitle={
+                isSingleDay
+                  ? tp('adminDashboard.preparedSubtitleSingle', { total: sumTotalPrepared })
+                  : t('adminDashboard.preparedSubtitleInterval')
+              }
               accentClass="text-blue-700"
             />
             <Card
-              title="Receptions"
+              title={t('adminDashboard.receptionsTitle')}
               value={isSingleDay ? todayReceiving : sumTotalReceiving}
-              subtitle={isSingleDay ? `Interval: ${sumTotalReceiving}` : 'Interval total'}
+              subtitle={
+                isSingleDay
+                  ? tp('adminDashboard.receptionsSubtitleSingle', { total: sumTotalReceiving })
+                  : t('adminDashboard.receptionsSubtitleInterval')
+              }
               accentClass="text-blue-700"
             />
             <Card
-              title="Unități în depozit"
+              title={t('adminDashboard.stockTitle')}
               value={snapshot.inventory.unitsAll ?? snapshot.inventory.units}
               subtitle={
                 selectedCompany?.id === 'ALL'
-                  ? 'Stoc curent (toate companiile)'
-                  : 'Stoc curent (global, fără filtru companie)'
+                  ? t('adminDashboard.stockSubtitleAll')
+                  : t('adminDashboard.stockSubtitleCompany')
               }
               accentClass="text-blue-700"
             />
@@ -321,9 +331,9 @@ export default function AdminCompanyDashboard() {
 
           <div className="bg-white border rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-text-primary">Statistici zilnice</div>
+              <div className="text-sm font-semibold text-text-primary">{t('adminDashboard.chartTitle')}</div>
               <div className="flex items-center gap-2 text-xs text-text-secondary">
-                <span>Ultimele {chartRange} zile</span>
+                <span>{tp('adminDashboard.chartRangeLabel', { days: chartRange })}</span>
                 <select
                   className="border rounded px-2 py-1 text-xs"
                   value={chartRange}
@@ -337,7 +347,7 @@ export default function AdminCompanyDashboard() {
             </div>
             {chartError && <div className="text-sm text-red-600 mb-2">{chartError}</div>}
             {loadingChart ? (
-              <div className="text-sm text-text-secondary">Se încarcă graficul…</div>
+              <div className="text-sm text-text-secondary">{t('adminDashboard.loadingChart')}</div>
             ) : chartData.length ? (
               <div className="w-full h-72">
                 <ResponsiveContainer width="100%" height="100%">
@@ -354,7 +364,7 @@ export default function AdminCompanyDashboard() {
                             {payload.map((p) => (
                               <div key={p.dataKey} className="flex items-center gap-2">
                                 <span className="inline-block w-3 h-3 rounded-full" style={{ background: p.color }} />
-                                <span className="text-text-secondary">{p.dataKey}</span>
+                                <span className="text-text-secondary">{p.name || p.dataKey}</span>
                                 <span className="font-semibold text-text-primary">{p.value}</span>
                               </div>
                             ))}
@@ -370,7 +380,7 @@ export default function AdminCompanyDashboard() {
                       fill="#2563eb"
                       fillOpacity={0.15}
                       strokeWidth={1.5}
-                      name="Pregătit"
+                      name={t('adminDashboard.chartPrepared')}
                     />
                     <Area
                       type="monotone"
@@ -379,19 +389,19 @@ export default function AdminCompanyDashboard() {
                       fill="#10b981"
                       fillOpacity={0.15}
                       strokeWidth={1.5}
-                      name="Recepționat"
+                      name={t('adminDashboard.chartReceiving')}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="text-sm text-text-secondary">Nu există date în intervalul selectat.</div>
+              <div className="text-sm text-text-secondary">{t('adminDashboard.noChartData')}</div>
             )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white border rounded-xl p-4 shadow-sm">
-              <div className="text-sm font-semibold text-text-primary mb-2">Status comenzi (interval)</div>
+              <div className="text-sm font-semibold text-text-primary mb-2">{t('adminDashboard.statusOrdersTitle')}</div>
               <div className="divide-y">
                 {Object.entries(snapshot.series.orders.statusCounts || {}).map(([status, value]) => (
                   <div key={status} className="flex items-center justify-between py-2 text-sm">
@@ -400,12 +410,12 @@ export default function AdminCompanyDashboard() {
                   </div>
                 ))}
                 {!Object.keys(snapshot.series.orders.statusCounts || {}).length && (
-                  <div className="text-sm text-text-secondary py-2">Nicio comandă în interval.</div>
+                  <div className="text-sm text-text-secondary py-2">{t('adminDashboard.noOrdersStatus')}</div>
                 )}
               </div>
             </div>
             <div className="bg-white border rounded-xl p-4 shadow-sm">
-              <div className="text-sm font-semibold text-text-primary mb-2">Status recepții (interval)</div>
+              <div className="text-sm font-semibold text-text-primary mb-2">{t('adminDashboard.statusShipmentsTitle')}</div>
               <div className="divide-y">
                 {Object.entries(snapshot.series.shipments.statusCounts || {}).map(([status, value]) => (
                   <div key={status} className="flex items-center justify-between py-2 text-sm">
@@ -414,7 +424,7 @@ export default function AdminCompanyDashboard() {
                   </div>
                 ))}
                 {!Object.keys(snapshot.series.shipments.statusCounts || {}).length && (
-                  <div className="text-sm text-text-secondary py-2">Nicio recepție în interval.</div>
+                  <div className="text-sm text-text-secondary py-2">{t('adminDashboard.noShipmentsStatus')}</div>
                 )}
               </div>
             </div>

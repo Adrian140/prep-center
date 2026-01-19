@@ -23,8 +23,8 @@ begin
   into v_total
   from public.receiving_items ri
   join public.receiving_shipments rs on rs.id = ri.shipment_id
-  where rs.created_at >= coalesce(p_start_date::timestamp, now()::date)
-    and rs.created_at < (coalesce(p_end_date, now()::date) + 1)::timestamp
+  where coalesce(rs.processed_at, rs.received_at, rs.submitted_at, rs.created_at) >= coalesce(p_start_date::timestamp, now()::date)
+    and coalesce(rs.processed_at, rs.received_at, rs.submitted_at, rs.created_at) < (coalesce(p_end_date, now()::date) + 1)::timestamp
     and (p_company_id is null or rs.company_id = p_company_id);
 
   return v_total;

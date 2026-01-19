@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Edit3, Save, Trash2, X } from 'lucide-react';
 import Section from '../common/Section';
 import { supabaseHelpers } from '@/config/supabase';
@@ -43,6 +43,14 @@ export default function AdminOther({
     units: '',
     obs_admin: ''
   });
+
+  useEffect(() => {
+    const today = todayStr();
+    setForm((prev) => {
+      if (prev?.service_date === today) return prev;
+      return { ...prev, service_date: today };
+    });
+  }, [companyId, setForm]);
 
   const handleAdd = async () => {
     if (!companyId) return;

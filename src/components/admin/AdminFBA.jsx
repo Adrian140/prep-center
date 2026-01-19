@@ -60,8 +60,16 @@ export default function AdminFBA({
   const formStorageKey = companyId
     ? `admin-fba-form-${companyId}`
     : `admin-fba-form-${profile?.id || 'default'}`;
-  const defaultForm = useMemo(() => createDefaultForm(), [companyId, profile?.id]);
-  const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
+const defaultForm = useMemo(() => createDefaultForm(), [companyId, profile?.id]);
+const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
+
+  useEffect(() => {
+    const today = todayStr();
+    setForm((prev) => {
+      if (prev?.service_date === today) return prev;
+      return { ...prev, service_date: today };
+    });
+  }, [companyId, setForm]);
 
   useEffect(() => {
   const fetchServices = async () => {

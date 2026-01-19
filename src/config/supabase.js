@@ -1758,12 +1758,18 @@ createPrepItem: async (requestId, item) => {
       .gte('prep_requests.created_at', startIso)
       .lte('prep_requests.created_at', endIso)
       .limit(10000);
+    const receivingDateOr = [
+      `and(receiving_shipments.processed_at.gte.${startIso},receiving_shipments.processed_at.lte.${endIso})`,
+      `and(receiving_shipments.received_at.gte.${startIso},receiving_shipments.received_at.lte.${endIso})`,
+      `and(receiving_shipments.submitted_at.gte.${startIso},receiving_shipments.submitted_at.lte.${endIso})`,
+      `and(receiving_shipments.created_at.gte.${startIso},receiving_shipments.created_at.lte.${endIso})`
+    ].join(',');
+
     const receivingItemsPromise = supabase
       .from('receiving_items')
-      .select('quantity_received, receiving_shipments!inner(created_at, company_id)')
-      .gte('receiving_shipments.created_at', startIso)
-      .lte('receiving_shipments.created_at', endIso)
-      .limit(10000);
+      .select('quantity_received, receiving_shipments!inner(created_at, submitted_at, received_at, processed_at, company_id)')
+      .or(receivingDateOr)
+      .limit(20000);
 
     const balancePromise = userId
       ? supabase.from('profiles').select('current_balance').eq('id', userId).maybeSingle()
@@ -1879,9 +1885,24 @@ createPrepItem: async (requestId, item) => {
       .filter((row) => (row.prep_requests?.created_at || '').slice(0, 10) === dateFrom)
       .reduce((acc, row) => acc + numberOrZero(row.units_requested), 0);
 
-    const receivingUnitsTotalLocal = filteredReceivingItems.reduce((acc, row) => acc + numberOrZero(row.quantity_received), 0);
-    const receivingUnitsTodayLocal = filteredReceivingItems
-      .filter((row) => (row.receiving_shipments?.created_at || '').slice(0, 10) === dateFrom)
+    const getReceivingDate = (row) => {
+      const rs = row.receiving_shipments || {};
+      const date =
+        rs.processed_at ||
+        rs.received_at ||
+        rs.submitted_at ||
+        rs.created_at;
+      return (date || '').slice(0, 10);
+    };
+
+    const receivingItemsInRange = filteredReceivingItems.filter((row) => {
+      const d = getReceivingDate(row);
+      return d && d >= dateFrom && d <= dateTo;
+    });
+
+    const receivingUnitsTotalLocal = receivingItemsInRange.reduce((acc, row) => acc + numberOrZero(row.quantity_received), 0);
+    const receivingUnitsTodayLocal = receivingItemsInRange
+      .filter((row) => getReceivingDate(row) === dateFrom)
       .reduce((acc, row) => acc + numberOrZero(row.quantity_received), 0);
 
     const receivingUnitsTotalRpc = receivingTotalRpcRes?.data ? numberOrZero(receivingTotalRpcRes.data) : null;
@@ -1986,8 +2007,8 @@ createPrepItem: async (requestId, item) => {
       (row) => row.units_requested
     );
     const receivingDailyUnits = buildDailyUnits(
-      filteredReceivingItems,
-      (row) => (row.receiving_shipments?.created_at || '').slice(0, 10),
+      receivingItemsInRange,
+      (row) => getReceivingDate(row),
       (row) => row.quantity_received
     );
 
