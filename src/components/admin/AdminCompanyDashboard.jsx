@@ -296,15 +296,15 @@ export default function AdminCompanyDashboard() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card
-              title="Pregătit astăzi"
-              value={todayOrders}
-              subtitle={`Total în interval: ${sumTotalPrepared}`}
+              title="Prepared units"
+              value={isSingleDay ? todayOrders : sumTotalPrepared}
+              subtitle={isSingleDay ? `Interval: ${sumTotalPrepared}` : 'Interval total'}
               accentClass="text-blue-700"
             />
             <Card
-              title="Recepționat astăzi"
-              value={todayReceiving}
-              subtitle={`Total în interval: ${sumTotalReceiving}`}
+              title="Receptions"
+              value={isSingleDay ? todayReceiving : sumTotalReceiving}
+              subtitle={isSingleDay ? `Interval: ${sumTotalReceiving}` : 'Interval total'}
               accentClass="text-blue-700"
             />
             <Card
