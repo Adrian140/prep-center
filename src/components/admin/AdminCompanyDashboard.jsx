@@ -137,7 +137,14 @@ export default function AdminCompanyDashboard() {
     return Array.from(map.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [snapshot?.series]);
 
-  const moneyToday = Number(snapshot?.finance?.amountInvoicedToday || 0);
+  const moneyToday =
+    Number(snapshot?.finance?.prepAmountsToday?.fba || 0) +
+    Number(snapshot?.finance?.prepAmountsToday?.fbm || 0) +
+    Number(snapshot?.finance?.prepAmountsToday?.other || 0);
+  const moneyInterval =
+    Number(snapshot?.finance?.prepAmounts?.fba || 0) +
+    Number(snapshot?.finance?.prepAmounts?.fbm || 0) +
+    Number(snapshot?.finance?.prepAmounts?.other || 0);
 
   return (
     <div className="space-y-6">
@@ -243,8 +250,8 @@ export default function AdminCompanyDashboard() {
             />
             <Card
               title="Finance"
-              value={`€${Number(snapshot.finance.balance || 0).toFixed(2)}`}
-              subtitle={`Facturi neîncasate: ${snapshot.finance.pendingInvoices}`}
+              value={`€${moneyInterval.toFixed(2)}`}
+              subtitle={`Azi: €${moneyToday.toFixed(2)} · FBA: €${Number(snapshot.finance.prepAmounts?.fba || 0).toFixed(2)}, FBM: €${Number(snapshot.finance.prepAmounts?.fbm || 0).toFixed(2)}, Other: €${Number(snapshot.finance.prepAmounts?.other || 0).toFixed(2)}`}
               accentClass="text-orange-600"
             />
             <Card
@@ -253,12 +260,12 @@ export default function AdminCompanyDashboard() {
               subtitle="De confirmat"
               accentClass="text-emerald-700"
             />
-          <Card
-            title="Bani astăzi"
-            value={`€${moneyToday.toFixed(2)}`}
-            subtitle={`Total interval: €${Number(snapshot.finance.amountInvoiced || 0).toFixed(2)}`}
-            accentClass="text-orange-700"
-          />
+            <Card
+              title="Bani astăzi"
+              value={`€${moneyToday.toFixed(2)}`}
+              subtitle={`Total interval: €${moneyInterval.toFixed(2)}`}
+              accentClass="text-orange-700"
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

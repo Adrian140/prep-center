@@ -1753,7 +1753,32 @@ createPrepItem: async (requestId, item) => {
       ? supabase.from('profiles').select('current_balance').eq('id', userId).maybeSingle()
       : Promise.resolve({ data: null, error: null });
 
-    const [stockRes, stockAllRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, balanceRes] = await Promise.all([
+    const fbaLinesPromise = withCompany(
+      supabase
+        .from('fba_lines')
+        .select('total, unit_price, units, service_date')
+    )
+      .gte('service_date', dateFrom)
+      .lte('service_date', dateTo)
+      .limit(20000);
+    const fbmLinesPromise = withCompany(
+      supabase
+        .from('fbm_lines')
+        .select('total, unit_price, orders_units, service_date')
+    )
+      .gte('service_date', dateFrom)
+      .lte('service_date', dateTo)
+      .limit(20000);
+    const otherLinesPromise = withCompany(
+      supabase
+        .from('other_lines')
+        .select('total, unit_price, units, service_date')
+    )
+      .gte('service_date', dateFrom)
+      .lte('service_date', dateTo)
+      .limit(20000);
+
+    const [stockRes, stockAllRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
       stockPromise,
       stockAllPromise,
       invoicesPromise,
@@ -1762,6 +1787,9 @@ createPrepItem: async (requestId, item) => {
       receivingPromise,
       prepItemsPromise,
       receivingItemsPromise,
+      fbaLinesPromise,
+      fbmLinesPromise,
+      otherLinesPromise,
       balancePromise
     ]);
 
@@ -1808,6 +1836,9 @@ createPrepItem: async (requestId, item) => {
     const receivingRows = Array.isArray(receivingRes.data) ? receivingRes.data : [];
     const prepItemRows = Array.isArray(prepItemsRes.data) ? prepItemsRes.data : [];
     const receivingItemRows = Array.isArray(receivingItemsRes.data) ? receivingItemsRes.data : [];
+    const fbaLines = Array.isArray(fbaLinesRes.data) ? fbaLinesRes.data : [];
+    const fbmLines = Array.isArray(fbmLinesRes.data) ? fbmLinesRes.data : [];
+    const otherLines = Array.isArray(otherLinesRes.data) ? otherLinesRes.data : [];
 
     const filterCompanyJoin = (rows, extractor) => {
       if (!companyId) return rows;
@@ -1825,6 +1856,33 @@ createPrepItem: async (requestId, item) => {
     const receivingUnitsToday = filteredReceivingItems
       .filter((row) => (row.receiving_shipments?.created_at || '').slice(0, 10) === dateFrom)
       .reduce((acc, row) => acc + numberOrZero(row.quantity_received), 0);
+
+    const sumAmount = (rows, dateField, qtyField) =>
+      rows.reduce((acc, row) => {
+        const qty = qtyField ? numberOrZero(row[qtyField]) : 1;
+        const val = row.total != null ? numberOrZero(row.total) : numberOrZero(row.unit_price) * qty;
+        return acc + val;
+      }, 0);
+
+    const sumAmountByDate = (rows, dateField, qtyField) =>
+      rows
+        .filter((row) => (row[dateField] || '').slice(0, 10) === dateFrom)
+        .reduce((acc, row) => {
+          const qty = qtyField ? numberOrZero(row[qtyField]) : 1;
+          const val = row.total != null ? numberOrZero(row.total) : numberOrZero(row.unit_price) * qty;
+          return acc + val;
+        }, 0);
+
+    const financeAmounts = {
+      fba: sumAmount(fbaLines, 'service_date', 'units'),
+      fbm: sumAmount(fbmLines, 'service_date', 'orders_units'),
+      other: sumAmount(otherLines, 'service_date', 'units')
+    };
+    const financeAmountsToday = {
+      fba: sumAmountByDate(fbaLines, 'service_date', 'units'),
+      fbm: sumAmountByDate(fbmLines, 'service_date', 'orders_units'),
+      other: sumAmountByDate(otherLines, 'service_date', 'units')
+    };
 
     const balanceValue = balanceRes?.data?.current_balance ?? 0;
 
@@ -1892,7 +1950,9 @@ createPrepItem: async (requestId, item) => {
           balance: numberOrZero(balanceValue),
           pendingInvoices,
           amountInvoiced: invoicesTotalAmount,
-          amountInvoicedToday: invoicesTodayAmount
+          amountInvoicedToday: invoicesTodayAmount,
+          prepAmounts: financeAmounts,
+          prepAmountsToday: financeAmountsToday
         },
         returns: {
           pending: returnsRows.filter((r) => ['pending', 'processing'].includes((r.status || '').toLowerCase())).length
