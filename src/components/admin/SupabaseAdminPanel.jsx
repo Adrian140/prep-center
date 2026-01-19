@@ -4,6 +4,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import AdminProfiles from './AdminProfiles';
 import { supabaseHelpers } from '@/config/supabase';
 import AdminAnalytics from "./AdminAnalytics";
+import AdminCompanyDashboard from "./AdminCompanyDashboard";
 import AdminUserDetail from './AdminUserDetail';
 import AdminReceiving from './AdminReceiving';
 import { PlayCircle /* ...rest */ } from 'lucide-react';
@@ -76,7 +77,7 @@ useEffect(() => {
     saved = null;
   }
   const validTabs = [
-    'analytics', 'profiles', 'receiving', 'prep-requests', 'returns',
+    'analytics', 'dashboard', 'profiles', 'receiving', 'prep-requests', 'returns',
     'pricing', 'boxes', 'reviews', 'user-guide', 'security', 'settings'
   ];
   if (initialTab && validTabs.includes(initialTab)) return initialTab;
@@ -157,6 +158,7 @@ useEffect(() => {
   const [integrationContent, setIntegrationContent] = useState({});
   const tabs = useMemo(() => ([
     { id: 'analytics', label: t('sidebar.analytics'), icon: BarChart3 },
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'profiles', label: t('sidebar.profiles'), icon: Users },
     { id: 'receiving', label: t('sidebar.receiving'), icon: Truck },
     { id: 'prep-requests', label: t('sidebar.prepRequests'), icon: PackageCheck },
@@ -1280,6 +1282,7 @@ const renderSettingsTab = () => {
 const renderTabContent = () => {
   switch (activeTab) {
     case 'analytics': return <AdminAnalytics />;
+    case 'dashboard': return <AdminCompanyDashboard />;
     case 'profiles': return selectedProfile
       ? <AdminUserDetail profile={selectedProfile} onBack={handleCloseProfile} />
       : <AdminProfiles onSelect={handleSelectProfile} />;
