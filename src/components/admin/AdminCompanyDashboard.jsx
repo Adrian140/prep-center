@@ -280,19 +280,7 @@ export default function AdminCompanyDashboard() {
         <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">Nu există date pentru intervalul selectat.</div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-4">
-            <Card
-              title="Inventory"
-              value={`${snapshot.inventory.volumeM3} m³`}
-              subtitle={`Units: ${snapshot.inventory.units} • Active SKUs: ${snapshot.inventory.activeSkus}`}
-              accentClass="text-emerald-700"
-            />
-            <Card
-              title="Returns"
-              value={snapshot.returns.pending}
-              subtitle="De confirmat"
-              accentClass="text-emerald-700"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-4">
             <Card
               title="Bani astăzi"
               value={`€${moneyToday.toFixed(2)}`}
@@ -427,27 +415,6 @@ export default function AdminCompanyDashboard() {
             </div>
           </div>
 
-          <div className="bg-white border rounded-xl p-4 shadow-sm">
-            <div className="text-sm font-semibold text-text-primary mb-3">FBA Stock</div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              <div className="border rounded-lg px-3 py-2">
-                <div className="text-text-secondary text-xs">In stock</div>
-                <div className="font-semibold text-text-primary">{snapshot.fbaStock.inStock}</div>
-              </div>
-              <div className="border rounded-lg px-3 py-2">
-                <div className="text-text-secondary text-xs">Reserved</div>
-                <div className="font-semibold text-text-primary">{snapshot.fbaStock.reserved}</div>
-              </div>
-              <div className="border rounded-lg px-3 py-2">
-                <div className="text-text-secondary text-xs">Inbound</div>
-                <div className="font-semibold text-text-primary">{snapshot.fbaStock.inbound}</div>
-              </div>
-              <div className="border rounded-lg px-3 py-2">
-                <div className="text-text-secondary text-xs">Unfulfillable</div>
-                <div className="font-semibold text-text-primary">{snapshot.fbaStock.unfulfillable}</div>
-              </div>
-            </div>
-          </div>
         </>
       )}
     </div>
