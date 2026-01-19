@@ -276,8 +276,12 @@ export default function AdminCompanyDashboard() {
             />
             <Card
               title="Unități în depozit"
-              value={snapshot.inventory.units}
-              subtitle="Stoc curent"
+              value={snapshot.inventory.unitsAll ?? snapshot.inventory.units}
+              subtitle={
+                selectedCompany?.id === 'ALL'
+                  ? 'Stoc curent (toate companiile)'
+                  : 'Stoc curent (global, fără filtru companie)'
+              }
               accentClass="text-blue-700"
             />
           </div>

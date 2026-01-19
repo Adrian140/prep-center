@@ -1694,7 +1694,11 @@ createPrepItem: async (requestId, item) => {
       supabase
         .from('stock_items')
         .select('id, qty, length_cm, width_cm, height_cm, amazon_stock, amazon_reserved, amazon_inbound, amazon_unfulfillable')
-    ).limit(5000);
+    ).limit(20000);
+    const stockAllPromise = supabase
+      .from('stock_items')
+      .select('qty')
+      .limit(20000);
 
     const invoicesPromise = withCompany(
       supabase
@@ -1749,8 +1753,9 @@ createPrepItem: async (requestId, item) => {
       ? supabase.from('profiles').select('current_balance').eq('id', userId).maybeSingle()
       : Promise.resolve({ data: null, error: null });
 
-    const [stockRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, balanceRes] = await Promise.all([
+    const [stockRes, stockAllRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, balanceRes] = await Promise.all([
       stockPromise,
+      stockAllPromise,
       invoicesPromise,
       returnsPromise,
       prepPromise,
@@ -1777,6 +1782,10 @@ createPrepItem: async (requestId, item) => {
     const activeSkus = stockRows.filter((row) => numberOrZero(row.qty) > 0).length;
     const inventoryVolume = stockRows.reduce(
       (acc, row) => acc + volumeForRow(row) * Math.max(0, numberOrZero(row.qty)),
+      0
+    );
+    const inventoryUnitsAll = (Array.isArray(stockAllRes.data) ? stockAllRes.data : []).reduce(
+      (acc, row) => acc + Math.max(0, numberOrZero(row.qty)),
       0
     );
 
@@ -1868,6 +1877,7 @@ createPrepItem: async (requestId, item) => {
         dateTo,
         inventory: {
           units: inventoryUnits,
+          unitsAll: inventoryUnitsAll,
           activeSkus,
           volumeM3: Number(inventoryVolume.toFixed(3))
         },
