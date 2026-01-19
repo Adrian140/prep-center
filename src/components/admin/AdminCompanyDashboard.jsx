@@ -280,18 +280,12 @@ export default function AdminCompanyDashboard() {
         <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">Nu există date pentru intervalul selectat.</div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-4">
             <Card
               title="Inventory"
               value={`${snapshot.inventory.volumeM3} m³`}
               subtitle={`Units: ${snapshot.inventory.units} • Active SKUs: ${snapshot.inventory.activeSkus}`}
               accentClass="text-emerald-700"
-            />
-            <Card
-              title="Finance"
-              value={`€${moneyInterval.toFixed(2)}`}
-              subtitle={`Azi: €${moneyToday.toFixed(2)} · FBA: €${Number(snapshot.finance.prepAmounts?.fba || 0).toFixed(2)}, FBM: €${Number(snapshot.finance.prepAmounts?.fbm || 0).toFixed(2)}, Other: €${Number(snapshot.finance.prepAmounts?.other || 0).toFixed(2)}`}
-              accentClass="text-orange-600"
             />
             <Card
               title="Returns"
