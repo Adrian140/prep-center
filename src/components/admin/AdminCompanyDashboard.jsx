@@ -68,8 +68,10 @@ export default function AdminCompanyDashboard() {
         setCompaniesError(error.message || 'Nu am putut încărca companiile.');
         setCompanies([]);
       } else {
-        setCompanies(data || []);
-        setSelectedCompany((data || [])[0] || null);
+        const list = data || [];
+        const allEntry = { id: 'ALL', name: 'All companies' };
+        setCompanies([allEntry, ...list]);
+        setSelectedCompany(allEntry);
       }
       setLoadingCompanies(false);
     };
@@ -82,7 +84,7 @@ export default function AdminCompanyDashboard() {
     setLoadingData(true);
     setDataError('');
     const { data, error } = await supabaseHelpers.getClientAnalyticsSnapshot({
-      companyId: selectedCompany.id,
+      companyId: selectedCompany.id === 'ALL' ? null : selectedCompany.id,
       userId: null,
       startDate: dateFrom,
       endDate: dateTo
@@ -154,6 +156,11 @@ export default function AdminCompanyDashboard() {
           <div>
             <div className="text-xs uppercase tracking-wide text-text-light">Dashboard</div>
             <h2 className="text-xl font-semibold">Monitorizare operațională</h2>
+            <div className="text-xs text-text-secondary">
+              {selectedCompany?.id === 'ALL'
+                ? 'Toate companiile (agregat)'
+                : `Companie: ${selectedCompany?.name || selectedCompany?.id || 'n/a'}`}
+            </div>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -166,22 +173,22 @@ export default function AdminCompanyDashboard() {
               onChange={(e) => setSearch(e.target.value)}
               className="text-sm outline-none w-40"
             />
-            <Building2 className="w-4 h-4 text-text-secondary" />
-            <select
-              className="text-sm outline-none"
-              value={selectedCompany?.id || ''}
-              onChange={(e) => {
-                const next = companies.find((c) => c.id === e.target.value) || null;
-                setSelectedCompany(next);
-              }}
-            >
-              {filteredCompanies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name || 'Fără nume'} · {c.id.slice(0, 6)}
-                </option>
-              ))}
-              {!filteredCompanies.length && <option value="">Nicio companie găsită</option>}
-            </select>
+              <Building2 className="w-4 h-4 text-text-secondary" />
+              <select
+                className="text-sm outline-none"
+                value={selectedCompany?.id || ''}
+                onChange={(e) => {
+                  const next = companies.find((c) => c.id === e.target.value) || null;
+                  setSelectedCompany(next);
+                }}
+              >
+                {filteredCompanies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name || 'Fără nume'}{c.id !== 'ALL' ? ` · ${c.id.slice(0, 6)}` : ''}
+                  </option>
+                ))}
+                {!filteredCompanies.length && <option value="">Nicio companie găsită</option>}
+              </select>
           </div>
           <div className="flex items-center gap-2 border rounded-lg px-2 py-1 bg-white">
             <CalendarIcon className="w-4 h-4 text-text-secondary" />

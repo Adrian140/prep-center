@@ -1668,7 +1668,6 @@ createPrepItem: async (requestId, item) => {
     startDate,
     endDate
   } = {}) => {
-    if (!companyId) return { data: null, error: null };
 
     const normalizeDate = (value) => {
       if (!value) return formatSqlDate();
@@ -1684,40 +1683,51 @@ createPrepItem: async (requestId, item) => {
     const startIso = `${dateFrom}T00:00:00.000Z`;
     const endIso = `${dateTo}T23:59:59.999Z`;
 
-    const stockPromise = supabase
-      .from('stock_items')
-      .select('id, qty, length_cm, width_cm, height_cm, amazon_stock, amazon_reserved, amazon_inbound, amazon_unfulfillable')
-      .eq('company_id', companyId)
-      .limit(5000);
+    const withCompany = (query) => {
+      if (companyId) {
+        return query.eq('company_id', companyId);
+      }
+      return query;
+    };
 
-    const invoicesPromise = supabase
-      .from('invoices')
-      .select('id, status, amount, issue_date')
-      .eq('company_id', companyId)
+    const stockPromise = withCompany(
+      supabase
+        .from('stock_items')
+        .select('id, qty, length_cm, width_cm, height_cm, amazon_stock, amazon_reserved, amazon_inbound, amazon_unfulfillable')
+    ).limit(5000);
+
+    const invoicesPromise = withCompany(
+      supabase
+        .from('invoices')
+        .select('id, status, amount, issue_date')
+    )
       .gte('issue_date', dateFrom)
       .lte('issue_date', dateTo)
       .limit(2000);
 
-    const returnsPromise = supabase
-      .from('returns')
-      .select('id, status, created_at')
-      .eq('company_id', companyId)
+    const returnsPromise = withCompany(
+      supabase
+        .from('returns')
+        .select('id, status, created_at')
+    )
       .gte('created_at', startIso)
       .lte('created_at', endIso)
       .limit(2000);
 
-    const prepPromise = supabase
-      .from('prep_requests')
-      .select('id, status, created_at')
-      .eq('company_id', companyId)
+    const prepPromise = withCompany(
+      supabase
+        .from('prep_requests')
+        .select('id, status, created_at')
+    )
       .gte('created_at', startIso)
       .lte('created_at', endIso)
       .limit(5000);
 
-    const receivingPromise = supabase
-      .from('receiving_shipments')
-      .select('id, status, created_at')
-      .eq('company_id', companyId)
+    const receivingPromise = withCompany(
+      supabase
+        .from('receiving_shipments')
+        .select('id, status, created_at')
+    )
       .gte('created_at', startIso)
       .lte('created_at', endIso)
       .limit(5000);
