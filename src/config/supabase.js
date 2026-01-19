@@ -1759,17 +1759,9 @@ createPrepItem: async (requestId, item) => {
       .gte('prep_requests.created_at', startIso)
       .lte('prep_requests.created_at', endIso)
       .limit(10000);
-    const receivingDateOr = [
-      `and(receiving_shipments.processed_at.gte.${startIso},receiving_shipments.processed_at.lte.${endIso})`,
-      `and(receiving_shipments.received_at.gte.${startIso},receiving_shipments.received_at.lte.${endIso})`,
-      `and(receiving_shipments.submitted_at.gte.${startIso},receiving_shipments.submitted_at.lte.${endIso})`,
-      `and(receiving_shipments.created_at.gte.${startIso},receiving_shipments.created_at.lte.${endIso})`
-    ].join(',');
-
     const receivingItemsPromise = supabase
       .from('receiving_items')
       .select('quantity_received, receiving_shipments!inner(created_at, submitted_at, received_at, processed_at, company_id)')
-      .or(receivingDateOr)
       .limit(20000);
 
     const balancePromise = userId
