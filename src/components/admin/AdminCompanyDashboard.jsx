@@ -22,6 +22,12 @@ import {
 } from 'recharts';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
+const shiftDays = (days) => {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 const formatDisplayDate = (value) => {
   if (!value) return '—';
   try {
@@ -52,6 +58,10 @@ export default function AdminCompanyDashboard() {
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState('');
   const [snapshot, setSnapshot] = useState(null);
+  const [chartRange, setChartRange] = useState(30);
+  const [chartSnapshot, setChartSnapshot] = useState(null);
+  const [loadingChart, setLoadingChart] = useState(false);
+  const [chartError, setChartError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +113,32 @@ export default function AdminCompanyDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCompany?.id, dateFrom, dateTo]);
 
+  const loadChart = async () => {
+    if (!selectedCompany?.id) return;
+    setLoadingChart(true);
+    setChartError('');
+    const end = todayIso();
+    const start = shiftDays(chartRange - 1);
+    const { data, error } = await supabaseHelpers.getClientAnalyticsSnapshot({
+      companyId: selectedCompany.id === 'ALL' ? null : selectedCompany.id,
+      userId: null,
+      startDate: start,
+      endDate: end
+    });
+    if (error) {
+      setChartError(error.message || 'Nu am putut încărca datele pentru grafic.');
+      setChartSnapshot(null);
+    } else {
+      setChartSnapshot(data || null);
+    }
+    setLoadingChart(false);
+  };
+
+  useEffect(() => {
+    loadChart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCompany?.id, chartRange]);
+
   const applyPreset = (days) => {
     const end = new Date();
     const start = new Date();
@@ -124,18 +160,21 @@ export default function AdminCompanyDashboard() {
   const sumTotalPrepared = snapshot?.prepared?.unitsTotal ?? 0;
   const sumTotalReceiving = snapshot?.receiving?.unitsTotal ?? 0;
 
+  const chartSeriesSource = chartSnapshot?.series || snapshot?.series;
+
   const chartData = useMemo(() => {
+    if (!chartSeriesSource) return [];
     const map = new Map();
-    (snapshot?.series?.orders?.daily || []).forEach((row) => {
+    (chartSeriesSource.orders?.daily || []).forEach((row) => {
       map.set(row.date, { date: row.date, orders: row.total || 0, receiving: 0 });
     });
-    (snapshot?.series?.shipments?.daily || []).forEach((row) => {
+    (chartSeriesSource.shipments?.daily || []).forEach((row) => {
       const prev = map.get(row.date) || { date: row.date, orders: 0, receiving: 0 };
       prev.receiving = row.total || 0;
       map.set(row.date, prev);
     });
     return Array.from(map.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [snapshot?.series]);
+  }, [chartSeriesSource]);
 
   const moneyToday =
     Number(snapshot?.finance?.prepAmountsToday?.fba || 0) +
@@ -296,11 +335,23 @@ export default function AdminCompanyDashboard() {
           <div className="bg-white border rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <div className="text-sm font-semibold text-text-primary">Statistici zilnice</div>
-              <div className="text-xs text-text-secondary">
-                Interval: {formatDisplayDate(snapshot.dateFrom)} — {formatDisplayDate(snapshot.dateTo)}
+              <div className="flex items-center gap-2 text-xs text-text-secondary">
+                <span>Ultimele {chartRange} zile</span>
+                <select
+                  className="border rounded px-2 py-1 text-xs"
+                  value={chartRange}
+                  onChange={(e) => setChartRange(Number(e.target.value))}
+                >
+                  <option value={30}>30</option>
+                  <option value={60}>60</option>
+                  <option value={90}>90</option>
+                </select>
               </div>
             </div>
-            {chartData.length ? (
+            {chartError && <div className="text-sm text-red-600 mb-2">{chartError}</div>}
+            {loadingChart ? (
+              <div className="text-sm text-text-secondary">Se încarcă graficul…</div>
+            ) : chartData.length ? (
               <div className="w-full h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
