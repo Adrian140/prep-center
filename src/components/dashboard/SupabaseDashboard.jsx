@@ -10,7 +10,6 @@ import {
   MapPin,
   Package,
   Boxes,
-  BarChart3,
   RotateCcw,
   Download,
   Truck,
@@ -27,7 +26,6 @@ import SupabaseInvoicesList from './SupabaseInvoicesList';
 import SupabaseSecuritySettings from './SupabaseSecuritySettings';
 import SupabaseClientSettings from './SupabaseClientSettings';
 import SupabaseClientActivity from "./client/SupabaseClientActivity";
-import ClientAnalytics from "./client/ClientAnalytics";
 
 import ClientStock from './client/ClientStock';
 import ClientReturns from './client/ClientReturns';
@@ -56,7 +54,6 @@ function SupabaseDashboard() {
 
   const validTabs = [
     'activity',
-    'analytics',
     'stock',
     'exports',
     'profile',
@@ -137,7 +134,6 @@ useEffect(() => {
     const list = [
       // Operations
       { id: 'activity', label: t('sidebar.activity'), icon: FileText, group: 'Operations' },
-      { id: 'analytics', label: 'Analytics', icon: BarChart3, group: 'Operations' },
       { id: 'stock', label: t('sidebar.stock'), icon: Boxes, group: 'Operations' },
       { id: 'box-estimator', label: 'Box Estimator', icon: Truck, group: 'Operations' },
       { id: 'exports', label: t('sidebar.exports'), icon: Download, group: 'Operations' },
@@ -260,7 +256,6 @@ useEffect(() => {
 const renderTabContent = useMemo(() => {
   switch (activeTab) {
     case 'activity':  return <SupabaseClientActivity />;
-    case 'analytics': return <ClientAnalytics />;
     case 'stock':     return <ClientStock />;
     case 'exports':   return <ClientExports />;
     case 'box-estimator': return <ClientBoxEstimator />;

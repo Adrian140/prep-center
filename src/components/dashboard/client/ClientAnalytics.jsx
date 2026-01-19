@@ -36,10 +36,15 @@ const StatusPill = ({ label, value, color }) => (
   </div>
 );
 
-export default function ClientAnalytics() {
+export default function ClientAnalytics({
+  companyId: companyIdProp = null,
+  userId: userIdProp = null,
+  title = 'Dashboard cu date live',
+  subtitle = 'Filtrează pe interval; implicit ziua curentă.'
+} = {}) {
   const { user, profile, status } = useSupabaseAuth();
-  const companyId = profile?.company_id;
-  const userId = user?.id;
+  const companyId = companyIdProp || profile?.company_id;
+  const userId = userIdProp || user?.id;
 
   const [dateFrom, setDateFrom] = useState(todayIso());
   const [dateTo, setDateTo] = useState(todayIso());
@@ -122,8 +127,8 @@ export default function ClientAnalytics() {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div>
           <div className="text-sm uppercase tracking-wide text-text-light">Analytics</div>
-          <h2 className="text-2xl font-semibold text-text-primary">Dashboard cu date live</h2>
-          <p className="text-text-secondary text-sm">Filtrează pe interval; implicit ziua curentă.</p>
+          <h2 className="text-2xl font-semibold text-text-primary">{title}</h2>
+          <p className="text-text-secondary text-sm">{subtitle}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2">
