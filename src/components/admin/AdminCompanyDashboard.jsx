@@ -160,21 +160,21 @@ export default function AdminCompanyDashboard() {
   const sumTotalPrepared = snapshot?.prepared?.unitsTotal ?? 0;
   const sumTotalReceiving = snapshot?.receiving?.unitsTotal ?? 0;
 
-  const chartSeriesSource = chartSnapshot?.series || snapshot?.series;
+  const preparedDaily = chartSnapshot?.prepared?.dailyUnits || snapshot?.prepared?.dailyUnits || [];
+  const receivingDaily = chartSnapshot?.receiving?.dailyUnits || snapshot?.receiving?.dailyUnits || [];
 
   const chartData = useMemo(() => {
-    if (!chartSeriesSource) return [];
     const map = new Map();
-    (chartSeriesSource.orders?.daily || []).forEach((row) => {
-      map.set(row.date, { date: row.date, orders: row.total || 0, receiving: 0 });
+    preparedDaily.forEach((row) => {
+      map.set(row.date, { date: row.date, orders: row.units || 0, receiving: 0 });
     });
-    (chartSeriesSource.shipments?.daily || []).forEach((row) => {
+    receivingDaily.forEach((row) => {
       const prev = map.get(row.date) || { date: row.date, orders: 0, receiving: 0 };
-      prev.receiving = row.total || 0;
+      prev.receiving = row.units || 0;
       map.set(row.date, prev);
     });
     return Array.from(map.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [chartSeriesSource]);
+  }, [preparedDaily, receivingDaily]);
 
   const moneyToday =
     Number(snapshot?.finance?.prepAmountsToday?.fba || 0) +

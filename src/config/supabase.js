@@ -1925,9 +1925,38 @@ createPrepItem: async (requestId, item) => {
       return { statusCounts, statusKeys: allStatuses, daily, recent };
     };
 
+    const buildDailyUnits = (rows, getDate, getQty) => {
+      const map = new Map();
+      rows.forEach((row) => {
+        const dateKey = getDate(row);
+        if (!dateKey) return;
+        const qty = Math.max(0, numberOrZero(getQty(row)));
+        map.set(dateKey, (map.get(dateKey) || 0) + qty);
+      });
+      const daily = [];
+      const start = new Date(dateFrom);
+      const end = new Date(dateTo);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const key = formatSqlDate(d);
+        daily.push({ date: key, units: map.get(key) || 0 });
+      }
+      return daily;
+    };
+
     const ordersSeries = buildSeries(prepRows);
     const shipmentsSeries = buildSeries(receivingRows);
     const returnsSeries = buildSeries(returnsRows);
+
+    const preparedDailyUnits = buildDailyUnits(
+      filteredPrepItems,
+      (row) => (row.prep_requests?.created_at || '').slice(0, 10),
+      (row) => row.units_requested
+    );
+    const receivingDailyUnits = buildDailyUnits(
+      filteredReceivingItems,
+      (row) => (row.receiving_shipments?.created_at || '').slice(0, 10),
+      (row) => row.quantity_received
+    );
 
     return {
       data: {
@@ -1959,11 +1988,13 @@ createPrepItem: async (requestId, item) => {
         },
         prepared: {
           unitsToday: prepUnitsToday,
-          unitsTotal: prepUnitsTotal
+          unitsTotal: prepUnitsTotal,
+          dailyUnits: preparedDailyUnits
         },
         receiving: {
           unitsToday: receivingUnitsToday,
-          unitsTotal: receivingUnitsTotal
+          unitsTotal: receivingUnitsTotal,
+          dailyUnits: receivingDailyUnits
         },
         series: {
           orders: { label: 'Prep requests', ...ordersSeries },
