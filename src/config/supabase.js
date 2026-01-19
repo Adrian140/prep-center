@@ -1660,6 +1660,199 @@ createPrepItem: async (requestId, item) => {
       return { byDay: [], topPaths: [], topReferrers: [], totals: {}, error };
     }
   },
+
+  // ===== Client Analytics Snapshot =====
+  getClientAnalyticsSnapshot: async ({
+    companyId,
+    userId,
+    startDate,
+    endDate
+  } = {}) => {
+    if (!companyId) return { data: null, error: null };
+
+    const normalizeDate = (value) => {
+      if (!value) return formatSqlDate();
+      try {
+        return formatSqlDate(new Date(value));
+      } catch {
+        return String(value).slice(0, 10);
+      }
+    };
+
+    const dateFrom = normalizeDate(startDate || new Date());
+    const dateTo = normalizeDate(endDate || dateFrom);
+    const startIso = `${dateFrom}T00:00:00.000Z`;
+    const endIso = `${dateTo}T23:59:59.999Z`;
+
+    const stockPromise = supabase
+      .from('stock_items')
+      .select('id, qty, length_cm, width_cm, height_cm, amazon_stock, amazon_reserved, amazon_inbound, amazon_unfulfillable')
+      .eq('company_id', companyId)
+      .limit(5000);
+
+    const invoicesPromise = supabase
+      .from('invoices')
+      .select('id, status, amount, issue_date')
+      .eq('company_id', companyId)
+      .gte('issue_date', dateFrom)
+      .lte('issue_date', dateTo)
+      .limit(2000);
+
+    const returnsPromise = supabase
+      .from('returns')
+      .select('id, status, created_at')
+      .eq('company_id', companyId)
+      .gte('created_at', startIso)
+      .lte('created_at', endIso)
+      .limit(2000);
+
+    const prepPromise = supabase
+      .from('prep_requests')
+      .select('id, status, created_at')
+      .eq('company_id', companyId)
+      .gte('created_at', startIso)
+      .lte('created_at', endIso)
+      .limit(5000);
+
+    const receivingPromise = supabase
+      .from('receiving_shipments')
+      .select('id, status, created_at')
+      .eq('company_id', companyId)
+      .gte('created_at', startIso)
+      .lte('created_at', endIso)
+      .limit(5000);
+
+    const balancePromise = userId
+      ? supabase.from('profiles').select('current_balance').eq('id', userId).maybeSingle()
+      : Promise.resolve({ data: null, error: null });
+
+    const [stockRes, invoicesRes, returnsRes, prepRes, receivingRes, balanceRes] = await Promise.all([
+      stockPromise,
+      invoicesPromise,
+      returnsPromise,
+      prepPromise,
+      receivingPromise,
+      balancePromise
+    ]);
+
+    const numberOrZero = (value) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const volumeForRow = (row) => {
+      const l = numberOrZero(row.length_cm);
+      const w = numberOrZero(row.width_cm);
+      const h = numberOrZero(row.height_cm);
+      if (!l || !w || !h) return 0;
+      return (l * w * h) / 1_000_000; // cm3 -> m3
+    };
+
+    const stockRows = Array.isArray(stockRes.data) ? stockRes.data : [];
+    const inventoryUnits = stockRows.reduce((acc, row) => acc + Math.max(0, numberOrZero(row.qty)), 0);
+    const activeSkus = stockRows.filter((row) => numberOrZero(row.qty) > 0).length;
+    const inventoryVolume = stockRows.reduce(
+      (acc, row) => acc + volumeForRow(row) * Math.max(0, numberOrZero(row.qty)),
+      0
+    );
+
+    const fbaInStock = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_stock), 0);
+    const fbaReserved = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_reserved), 0);
+    const fbaIncoming = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_inbound), 0);
+    const fbaUnfulfillable = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_unfulfillable), 0);
+
+    const invoiceRows = Array.isArray(invoicesRes.data) ? invoicesRes.data : [];
+    const pendingInvoices = invoiceRows.filter(
+      (row) => (row.status || '').toLowerCase() !== 'paid'
+    ).length;
+
+    const returnsRows = Array.isArray(returnsRes.data) ? returnsRes.data : [];
+    const prepRows = Array.isArray(prepRes.data) ? prepRes.data : [];
+    const receivingRows = Array.isArray(receivingRes.data) ? receivingRes.data : [];
+
+    const balanceValue = balanceRes?.data?.current_balance ?? 0;
+
+    const buildSeries = (rows) => {
+      const byDate = new Map();
+      const statusCounts = {};
+      const statusKeys = new Set();
+
+      rows.forEach((row) => {
+        const status = (row.status || 'unknown').toLowerCase();
+        const dateKey = row.created_at ? new Date(row.created_at).toISOString().slice(0, 10) : dateFrom;
+        const bucket = byDate.get(dateKey) || { total: 0, byStatus: {} };
+        bucket.total += 1;
+        bucket.byStatus[status] = (bucket.byStatus[status] || 0) + 1;
+        byDate.set(dateKey, bucket);
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+        statusKeys.add(status);
+      });
+
+      const allStatuses = Array.from(statusKeys);
+      const daily = [];
+      let cursor = new Date(dateFrom);
+      const end = new Date(dateTo);
+      while (cursor <= end) {
+        const key = formatSqlDate(cursor);
+        const dayBucket = byDate.get(key) || { total: 0, byStatus: {} };
+        const entry = { date: key, total: dayBucket.total };
+        allStatuses.forEach((key) => {
+          entry[key] = dayBucket.byStatus[key] || 0;
+        });
+        daily.push(entry);
+        cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
+      }
+
+      const recent = rows
+        .slice()
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        .slice(0, 6);
+
+      return { statusCounts, statusKeys: allStatuses, daily, recent };
+    };
+
+    const ordersSeries = buildSeries(prepRows);
+    const shipmentsSeries = buildSeries(receivingRows);
+    const returnsSeries = buildSeries(returnsRows);
+
+    return {
+      data: {
+        dateFrom,
+        dateTo,
+        inventory: {
+          units: inventoryUnits,
+          activeSkus,
+          volumeM3: Number(inventoryVolume.toFixed(3))
+        },
+        fbaStock: {
+          inStock: fbaInStock,
+          reserved: fbaReserved,
+          inbound: fbaIncoming,
+          unfulfillable: fbaUnfulfillable,
+          total: fbaInStock + fbaReserved + fbaIncoming + fbaUnfulfillable
+        },
+        finance: {
+          balance: numberOrZero(balanceValue),
+          pendingInvoices
+        },
+        returns: {
+          pending: returnsRows.filter((r) => ['pending', 'processing'].includes((r.status || '').toLowerCase())).length
+        },
+        series: {
+          orders: { label: 'Prep requests', ...ordersSeries },
+          shipments: { label: 'Receiving shipments', ...shipmentsSeries },
+          returns: { label: 'Returns', ...returnsSeries }
+        }
+      },
+      error:
+        stockRes.error ||
+        invoicesRes.error ||
+        returnsRes.error ||
+        prepRes.error ||
+        receivingRes.error ||
+        balanceRes.error ||
+        null
+    };
+  },
   // ===== Analytics / Balances =====
   getPeriodBalances: async (...args) => {
     // compatibilitate: acceptă atât (companyId, startDate, endDate)
