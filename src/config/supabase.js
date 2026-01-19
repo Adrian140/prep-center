@@ -1680,6 +1680,7 @@ createPrepItem: async (requestId, item) => {
 
     const dateFrom = normalizeDate(startDate || new Date());
     const dateTo = normalizeDate(endDate || dateFrom);
+    const todayKey = formatSqlDate(new Date());
     const startIso = `${dateFrom}T00:00:00.000Z`;
     const endIso = `${dateTo}T23:59:59.999Z`;
 
@@ -1926,6 +1927,14 @@ createPrepItem: async (requestId, item) => {
           const val = row.total != null ? numberOrZero(row.total) : numberOrZero(row.unit_price) * qty;
           return acc + val;
         }, 0);
+    const sumAmountByExactDate = (rows, dateField, qtyField, target) =>
+      rows
+        .filter((row) => (row[dateField] || '').slice(0, 10) === target)
+        .reduce((acc, row) => {
+          const qty = qtyField ? numberOrZero(row[qtyField]) : 1;
+          const val = row.total != null ? numberOrZero(row.total) : numberOrZero(row.unit_price) * qty;
+          return acc + val;
+        }, 0);
 
     const financeAmounts = {
       fba: sumAmount(fbaLines, 'service_date', 'units'),
@@ -1936,6 +1945,11 @@ createPrepItem: async (requestId, item) => {
       fba: sumAmountByDate(fbaLines, 'service_date', 'units'),
       fbm: sumAmountByDate(fbmLines, 'service_date', 'orders_units'),
       other: sumAmountByDate(otherLines, 'service_date', 'units')
+    };
+    const financeAmountsTodayAbsolute = {
+      fba: sumAmountByExactDate(fbaLines, 'service_date', 'units', todayKey),
+      fbm: sumAmountByExactDate(fbmLines, 'service_date', 'orders_units', todayKey),
+      other: sumAmountByExactDate(otherLines, 'service_date', 'units', todayKey)
     };
 
     const balanceValue = balanceRes?.data?.current_balance ?? 0;
@@ -2035,7 +2049,8 @@ createPrepItem: async (requestId, item) => {
           amountInvoiced: invoicesTotalAmount,
           amountInvoicedToday: invoicesTodayAmount,
           prepAmounts: financeAmounts,
-          prepAmountsToday: financeAmountsToday
+          prepAmountsToday: financeAmountsToday,
+          prepAmountsTodayAbsolute: financeAmountsTodayAbsolute
         },
         returns: {
           pending: returnsRows.filter((r) => ['pending', 'processing'].includes((r.status || '').toLowerCase())).length
