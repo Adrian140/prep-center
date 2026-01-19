@@ -118,20 +118,11 @@ export default function AdminCompanyDashboard() {
         (c.id || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const todayOrders = useMemo(() => {
-    if (!snapshot?.series?.orders?.daily) return 0;
-    const row = snapshot.series.orders.daily.find((d) => d.date === dateFrom);
-    return row?.total || 0;
-  }, [snapshot?.series?.orders?.daily, dateFrom]);
+  const todayOrders = snapshot?.prepared?.unitsToday ?? 0;
+  const todayReceiving = snapshot?.receiving?.unitsToday ?? 0;
 
-  const todayReceiving = useMemo(() => {
-    if (!snapshot?.series?.shipments?.daily) return 0;
-    const row = snapshot.series.shipments.daily.find((d) => d.date === dateFrom);
-    return row?.total || 0;
-  }, [snapshot?.series?.shipments?.daily, dateFrom]);
-
-  const sumTotal = (series) =>
-    (series?.daily || []).reduce((acc, row) => acc + (row.total || 0), 0);
+  const sumTotalPrepared = snapshot?.prepared?.unitsTotal ?? 0;
+  const sumTotalReceiving = snapshot?.receiving?.unitsTotal ?? 0;
 
   const chartData = useMemo(() => {
     const map = new Map();
@@ -146,7 +137,7 @@ export default function AdminCompanyDashboard() {
     return Array.from(map.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [snapshot?.series]);
 
-  const moneyToday = 'N/A';
+  const moneyToday = Number(snapshot?.finance?.amountInvoicedToday || 0);
 
   return (
     <div className="space-y-6">
@@ -262,25 +253,25 @@ export default function AdminCompanyDashboard() {
               subtitle="De confirmat"
               accentClass="text-emerald-700"
             />
-            <Card
-              title="Bani astăzi"
-              value={moneyToday}
-              subtitle="Sursă încă neimplementată"
-              accentClass="text-text-secondary"
-            />
+          <Card
+            title="Bani astăzi"
+            value={`€${moneyToday.toFixed(2)}`}
+            subtitle={`Total interval: €${Number(snapshot.finance.amountInvoiced || 0).toFixed(2)}`}
+            accentClass="text-orange-700"
+          />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card
               title="Pregătit astăzi"
               value={todayOrders}
-              subtitle={`Total în interval: ${sumTotal(snapshot.series.orders)}`}
+              subtitle={`Total în interval: ${sumTotalPrepared}`}
               accentClass="text-blue-700"
             />
             <Card
               title="Recepționat astăzi"
               value={todayReceiving}
-              subtitle={`Total în interval: ${sumTotal(snapshot.series.shipments)}`}
+              subtitle={`Total în interval: ${sumTotalReceiving}`}
               accentClass="text-blue-700"
             />
             <Card

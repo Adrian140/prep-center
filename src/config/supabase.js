@@ -1703,7 +1703,7 @@ createPrepItem: async (requestId, item) => {
     )
       .gte('issue_date', dateFrom)
       .lte('issue_date', dateTo)
-      .limit(2000);
+      .limit(5000);
 
     const returnsPromise = withCompany(
       supabase
@@ -1732,16 +1732,31 @@ createPrepItem: async (requestId, item) => {
       .lte('created_at', endIso)
       .limit(5000);
 
+    const prepItemsPromise = supabase
+      .from('prep_request_items')
+      .select('units_requested, prep_requests!inner(created_at, company_id)')
+      .gte('prep_requests.created_at', startIso)
+      .lte('prep_requests.created_at', endIso)
+      .limit(10000);
+    const receivingItemsPromise = supabase
+      .from('receiving_items')
+      .select('quantity_received, receiving_shipments!inner(created_at, company_id)')
+      .gte('receiving_shipments.created_at', startIso)
+      .lte('receiving_shipments.created_at', endIso)
+      .limit(10000);
+
     const balancePromise = userId
       ? supabase.from('profiles').select('current_balance').eq('id', userId).maybeSingle()
       : Promise.resolve({ data: null, error: null });
 
-    const [stockRes, invoicesRes, returnsRes, prepRes, receivingRes, balanceRes] = await Promise.all([
+    const [stockRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, balanceRes] = await Promise.all([
       stockPromise,
       invoicesPromise,
       returnsPromise,
       prepPromise,
       receivingPromise,
+      prepItemsPromise,
+      receivingItemsPromise,
       balancePromise
     ]);
 
@@ -1774,10 +1789,33 @@ createPrepItem: async (requestId, item) => {
     const pendingInvoices = invoiceRows.filter(
       (row) => (row.status || '').toLowerCase() !== 'paid'
     ).length;
+    const invoicesTotalAmount = invoiceRows.reduce((acc, row) => acc + numberOrZero(row.amount), 0);
+    const invoicesTodayAmount = invoiceRows
+      .filter((row) => (row.issue_date || '').slice(0, 10) === dateFrom)
+      .reduce((acc, row) => acc + numberOrZero(row.amount), 0);
 
     const returnsRows = Array.isArray(returnsRes.data) ? returnsRes.data : [];
     const prepRows = Array.isArray(prepRes.data) ? prepRes.data : [];
     const receivingRows = Array.isArray(receivingRes.data) ? receivingRes.data : [];
+    const prepItemRows = Array.isArray(prepItemsRes.data) ? prepItemsRes.data : [];
+    const receivingItemRows = Array.isArray(receivingItemsRes.data) ? receivingItemsRes.data : [];
+
+    const filterCompanyJoin = (rows, extractor) => {
+      if (!companyId) return rows;
+      return rows.filter((row) => extractor(row) === companyId);
+    };
+    const filteredPrepItems = filterCompanyJoin(prepItemRows, (r) => r.prep_requests?.company_id);
+    const filteredReceivingItems = filterCompanyJoin(receivingItemRows, (r) => r.receiving_shipments?.company_id);
+
+    const prepUnitsTotal = filteredPrepItems.reduce((acc, row) => acc + numberOrZero(row.units_requested), 0);
+    const prepUnitsToday = filteredPrepItems
+      .filter((row) => (row.prep_requests?.created_at || '').slice(0, 10) === dateFrom)
+      .reduce((acc, row) => acc + numberOrZero(row.units_requested), 0);
+
+    const receivingUnitsTotal = filteredReceivingItems.reduce((acc, row) => acc + numberOrZero(row.quantity_received), 0);
+    const receivingUnitsToday = filteredReceivingItems
+      .filter((row) => (row.receiving_shipments?.created_at || '').slice(0, 10) === dateFrom)
+      .reduce((acc, row) => acc + numberOrZero(row.quantity_received), 0);
 
     const balanceValue = balanceRes?.data?.current_balance ?? 0;
 
@@ -1842,10 +1880,20 @@ createPrepItem: async (requestId, item) => {
         },
         finance: {
           balance: numberOrZero(balanceValue),
-          pendingInvoices
+          pendingInvoices,
+          amountInvoiced: invoicesTotalAmount,
+          amountInvoicedToday: invoicesTodayAmount
         },
         returns: {
           pending: returnsRows.filter((r) => ['pending', 'processing'].includes((r.status || '').toLowerCase())).length
+        },
+        prepared: {
+          unitsToday: prepUnitsToday,
+          unitsTotal: prepUnitsTotal
+        },
+        receiving: {
+          unitsToday: receivingUnitsToday,
+          unitsTotal: receivingUnitsTotal
         },
         series: {
           orders: { label: 'Prep requests', ...ordersSeries },
