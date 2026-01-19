@@ -599,7 +599,7 @@ async function syncIntegration(integration) {
   return sales;
 }
 
-async function main() {
+async function main(resumeCompanyId = null) {
   const integrations = await fetchActiveIntegrations();
   if (!integrations.length) {
     console.log('No active integrations found. Exiting.');
@@ -617,7 +617,7 @@ async function main() {
     companies.get(integration.company_id).push(integration);
   }
 
-  const companyEntries = Array.from(companies.entries())
+  let companyEntries = Array.from(companies.entries())
     .map(([companyId, rows]) => {
       const times = rows
         .map((row) => (row.last_synced_at ? new Date(row.last_synced_at).getTime() : null))
@@ -627,10 +627,20 @@ async function main() {
     })
     .sort((a, b) => a.sortKey - b.sortKey);
 
+  if (resumeCompanyId) {
+    const idx = companyEntries.findIndex((c) => c.companyId === resumeCompanyId);
+    if (idx > 0) {
+      companyEntries = [...companyEntries.slice(idx), ...companyEntries.slice(0, idx)];
+      console.log(`[Sales sync] Resuming from company ${resumeCompanyId}; queue length ${companyEntries.length}.`);
+    }
+  }
+
   let timeBudgetReached = false;
+  let resumeNextCompanyId = null;
   for (const entry of companyEntries) {
     if (hasTimeBudget && Date.now() - startedAt >= SALES_TIME_BUDGET_MS) {
       timeBudgetReached = true;
+      resumeNextCompanyId = entry.companyId;
       break;
     }
 
@@ -670,6 +680,7 @@ async function main() {
 
     if (companyFailed || completedIntegrationIds.length !== sortedIntegrations.length) {
       if (timeBudgetReached) {
+        resumeNextCompanyId = entry.companyId;
         break;
       }
       continue;
@@ -690,14 +701,17 @@ async function main() {
       `[Sales sync] Time budget reached (~${Math.round(SALES_TIME_BUDGET_MS / 60000)}m); stopping early to avoid runner timeout.`
     );
   }
+  return { resumeNextCompanyId };
 }
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function runForever() {
+  let resumeCompanyId = null;
   do {
     try {
-      await main();
+      const result = await main(resumeCompanyId);
+      resumeCompanyId = result?.resumeNextCompanyId || null;
     } catch (err) {
       console.error('Fatal error in sales sync', err);
       if (!SALES_SYNC_LOOP) {
@@ -712,9 +726,11 @@ async function runForever() {
     const sleepMs = Number.isFinite(SALES_SYNC_INTERVAL_MS)
       ? Math.max(0, SALES_SYNC_INTERVAL_MS)
       : 0;
-    if (sleepMs > 0) {
+    if (sleepMs > 0 && !resumeCompanyId) {
       console.log(`[Sales sync] Sleeping ${Math.round(sleepMs / 1000)}s before next run.`);
       await delay(sleepMs);
+    } else if (resumeCompanyId) {
+      console.log('[Sales sync] Resuming immediately with remaining companies.');
     }
   } while (true);
 }
