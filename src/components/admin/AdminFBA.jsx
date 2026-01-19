@@ -175,7 +175,7 @@ const handleAdd = async () => {
     <Section
       title="FBA"
       right={
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2 justify-end w-full md:w-auto">
           <input
             type="date"
             className="border rounded px-2 py-1"
