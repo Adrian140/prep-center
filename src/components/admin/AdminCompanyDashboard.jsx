@@ -184,6 +184,7 @@ export default function AdminCompanyDashboard() {
     Number(snapshot?.finance?.prepAmounts?.fba || 0) +
     Number(snapshot?.finance?.prepAmounts?.fbm || 0) +
     Number(snapshot?.finance?.prepAmounts?.other || 0);
+  const isSingleDay = dateFrom === dateTo;
 
   return (
     <div className="space-y-6">
@@ -282,9 +283,13 @@ export default function AdminCompanyDashboard() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-4">
             <Card
-              title="Bani astăzi"
-              value={`€${moneyToday.toFixed(2)}`}
-              subtitle={`Total interval: €${moneyInterval.toFixed(2)}`}
+              title="Balance"
+              value={isSingleDay ? `€${moneyToday.toFixed(2)}` : `€${moneyInterval.toFixed(2)}`}
+              subtitle={
+                isSingleDay
+                  ? `Interval: €${moneyInterval.toFixed(2)}`
+                  : `Total interval: €${moneyInterval.toFixed(2)}`
+              }
               accentClass="text-orange-700"
             />
           </div>
