@@ -1703,6 +1703,7 @@ createPrepItem: async (requestId, item) => {
       .from('client_stock_items')
       .select('qty, company_id')
       .limit(50000);
+    const stockTotalRpcPromise = supabase.rpc('get_total_stock_units');
 
     const invoicesPromise = withCompany(
       supabase
@@ -1782,10 +1783,11 @@ createPrepItem: async (requestId, item) => {
       .lte('service_date', dateTo)
       .limit(20000);
 
-    const [stockRes, stockAllRes, clientStockRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
+    const [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
       stockPromise,
       stockAllPromise,
       clientStockPromise,
+      stockTotalRpcPromise,
       invoicesPromise,
       returnsPromise,
       prepPromise,
@@ -1825,6 +1827,9 @@ createPrepItem: async (requestId, item) => {
       (acc, row) => acc + Math.max(0, numberOrZero(row.qty)),
       0
     );
+    const inventoryUnitsRpc = stockTotalRpcRes?.data
+      ? numberOrZero(Array.isArray(stockTotalRpcRes.data) ? stockTotalRpcRes.data[0]?.total_qty : stockTotalRpcRes.data.total_qty)
+      : 0;
 
     const fbaInStock = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_stock), 0);
     const fbaReserved = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_reserved), 0);
@@ -1973,7 +1978,7 @@ createPrepItem: async (requestId, item) => {
         dateTo,
         inventory: {
           units: inventoryUnits,
-          unitsAll: inventoryUnitsClientView || inventoryUnitsAll,
+          unitsAll: inventoryUnitsRpc || inventoryUnitsClientView || inventoryUnitsAll,
           activeSkus,
           volumeM3: Number(inventoryVolume.toFixed(3))
         },
