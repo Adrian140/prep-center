@@ -5,7 +5,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
 
-function AsinCell({ matches, onToggle, expanded, t }) {
+function AsinCell({ matches, onToggle, expanded, t, onSelect }) {
   if (!matches || matches.length === 0) {
     return <span className="text-text-secondary text-sm">—</span>;
   }
@@ -28,8 +28,8 @@ function AsinCell({ matches, onToggle, expanded, t }) {
             <div
               key={`${m.asin || 'N/A'}-${idx}`}
               className="text-xs text-text-secondary cursor-pointer hover:text-text-primary"
-              title="Double click to copy"
-              onDoubleClick={() => navigator.clipboard.writeText(String(m.asin || ''))}
+              title="Double click to set as primary"
+              onDoubleClick={() => onSelect?.(m)}
             >
               {m.asin || '—'} {m.sku ? `· ${m.sku}` : ''}
             </div>
@@ -165,6 +165,15 @@ export default function ClientQogitaShipments() {
     setReqDestination('FR');
     setReqFlash('');
     setReqModal({ shipment_code: ship.shipment_code, order_qid: ship.order_qid, fid: ship.fid, seller: ship.seller, tracking: ship.tracking_links || [], country: ship.country });
+  };
+
+  const setPrimaryAsin = (gtin, match) => {
+    if (!gtin || !match) return;
+    setAsinMap((prev) => {
+      const current = prev[gtin] || [];
+      const filtered = current.filter((m) => m.asin !== match.asin);
+      return { ...prev, [gtin]: [match, ...filtered] };
+    });
   };
 
   const fetchKeepaForLine = async (gtin) => {
@@ -384,6 +393,7 @@ export default function ClientQogitaShipments() {
                                 }))
                               }
                               t={t}
+                              onSelect={(m) => setPrimaryAsin(line.gtin, m)}
                             />
                             {!matches.length && line.gtin && (
                               <button
