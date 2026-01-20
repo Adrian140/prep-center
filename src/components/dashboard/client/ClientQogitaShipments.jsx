@@ -129,12 +129,14 @@ export default function ClientQogitaShipments() {
     const lines = (ship.sale_lines || []).map((line) => {
       const matches = asinMap[line.gtin] || [];
       const match = matches[0] || {};
+      const qty = line.shipped_qty ?? line.requested_qty ?? 0;
       return {
         gtin: line.gtin || '',
         name: line.name || '',
         shipped_qty: line.shipped_qty ?? line.requested_qty ?? 0,
         requested_qty: line.requested_qty ?? line.shipped_qty ?? 0,
-        units: line.shipped_qty ?? line.requested_qty ?? 0,
+        available_units: qty,
+        units: qty,
         stock_item_id: match.id || null,
         asin: match.asin || null,
         sku: match.sku || null,
@@ -345,7 +347,14 @@ export default function ClientQogitaShipments() {
                     <th className="px-3 py-2 text-left">Product</th>
                     <th className="px-3 py-2 text-left">GTIN</th>
                     <th className="px-3 py-2 text-left">ASIN/SKU</th>
-                    <th className="px-3 py-2 text-right">Units</th>
+                    {reqMode === 'partial' ? (
+                      <>
+                        <th className="px-3 py-2 text-right">Available</th>
+                        <th className="px-3 py-2 text-right">Units to send</th>
+                      </>
+                    ) : (
+                      <th className="px-3 py-2 text-right">Units</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -357,24 +366,30 @@ export default function ClientQogitaShipments() {
                         <div className="text-xs text-text-primary font-semibold">{line.asin || '—'}</div>
                         {line.sku && <div className="text-[11px] text-text-secondary">SKU: {line.sku}</div>}
                       </td>
-                      <td className="px-3 py-2 text-right">
-                        {reqMode === 'partial' ? (
-                          <input
-                            type="number"
-                            min={0}
-                            className="w-20 border rounded px-2 py-1 text-right"
-                            value={line.units}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setReqLines((prev) =>
-                                prev.map((l, i) => (i === idx ? { ...l, units: val } : l))
-                              );
-                            }}
-                          />
-                        ) : (
-                          <span>{line.units}</span>
-                        )}
-                      </td>
+                      {reqMode === 'partial' ? (
+                        <>
+                          <td className="px-3 py-2 text-right text-text-secondary">
+                            {line.available_units ?? line.units ?? 0}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <input
+                              type="number"
+                              min={0}
+                              max={line.available_units ?? undefined}
+                              className="w-24 border rounded px-2 py-1 text-right"
+                              value={line.units}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setReqLines((prev) =>
+                                  prev.map((l, i) => (i === idx ? { ...l, units: val } : l))
+                                );
+                              }}
+                            />
+                          </td>
+                        </>
+                      ) : (
+                        <td className="px-3 py-2 text-right">{line.units}</td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
