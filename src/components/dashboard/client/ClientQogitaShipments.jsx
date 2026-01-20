@@ -61,6 +61,7 @@ export default function ClientQogitaShipments() {
   const [completed, setCompleted] = useState({});
   const [asinLoading, setAsinLoading] = useState({});
   const [loginModal, setLoginModal] = useState({ open: false, email: '', password: '', loading: false, error: '' });
+  const [editAsin, setEditAsin] = useState({ gtin: '', value: '', saving: false, error: '' });
 
   const loadShipments = async () => {
     if (!user?.id) return;
@@ -203,6 +204,34 @@ export default function ClientQogitaShipments() {
           : l
       )
     );
+  };
+
+  const saveManualAsin = async () => {
+    if (!editAsin.gtin || !editAsin.value || !user?.id) return;
+    const asin = editAsin.value.trim().toUpperCase();
+    setEditAsin((p) => ({ ...p, saving: true, error: '' }));
+    try {
+      const { data: stockRow, error: stockErr } = await supabase
+        .from('stock_items')
+        .select('asin, sku, image_url')
+        .eq('user_id', user.id)
+        .eq('asin', asin)
+        .maybeSingle();
+      if (stockErr) throw stockErr;
+      const entry = {
+        asin,
+        sku: stockRow?.sku || '-',
+        image_url: stockRow?.image_url || null
+      };
+      setAsinMap((prev) => {
+        const current = prev[editAsin.gtin] || [];
+        const filtered = current.filter((m) => m.asin !== asin);
+        return { ...prev, [editAsin.gtin]: [entry, ...filtered] };
+      });
+      setEditAsin({ gtin: '', value: '', saving: false, error: '' });
+    } catch (err) {
+      setEditAsin((p) => ({ ...p, saving: false, error: err?.message || 'Save failed' }));
+    }
   };
 
   const fetchKeepaForLine = async (gtin) => {
@@ -459,6 +488,26 @@ export default function ClientQogitaShipments() {
                                   'Fetch ASIN'
                                 )}
                               </button>
+                            )}
+                            <div className="mt-2 flex items-center gap-2">
+                              <input
+                                className="border rounded px-2 py-1 text-xs w-32"
+                                placeholder="Set ASIN"
+                                value={editAsin.gtin === line.gtin ? editAsin.value : ''}
+                                onChange={(e) =>
+                                  setEditAsin({ gtin: line.gtin, value: e.target.value, saving: false, error: '' })
+                                }
+                              />
+                              <button
+                                className="text-[11px] text-primary underline disabled:opacity-60"
+                                disabled={!editAsin.value || editAsin.gtin !== line.gtin || editAsin.saving}
+                                onClick={saveManualAsin}
+                              >
+                                {editAsin.saving && editAsin.gtin === line.gtin ? 'Saving...' : 'Save'}
+                              </button>
+                            </div>
+                            {editAsin.error && editAsin.gtin === line.gtin && (
+                              <div className="text-[11px] text-rose-600">{editAsin.error}</div>
                             )}
                           </td>
                         </tr>
