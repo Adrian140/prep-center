@@ -128,6 +128,7 @@ export default function ClientIntegrations() {
   const [qogitaLoading, setQogitaLoading] = useState(false);
   const [qogitaConnections, setQogitaConnections] = useState([]);
   const [qogitaListLoading, setQogitaListLoading] = useState(true);
+  const [qogitaRefreshing, setQogitaRefreshing] = useState(false);
 
   const clientId = import.meta.env.VITE_SPAPI_CLIENT_ID || '';
   const applicationId = import.meta.env.VITE_AMZ_APP_ID || clientId || '';
@@ -295,6 +296,19 @@ export default function ClientIntegrations() {
     setQogitaLoading(false);
   };
 
+  const removeQogitaConnection = async (id) => {
+    if (!window.confirm(t('ClientIntegrations.confirmDisconnect'))) return;
+    setQogitaRefreshing(true);
+    const { error } = await supabase.from('qogita_connections').delete().eq('id', id);
+    if (error) {
+      setQogitaFlash(t('ClientIntegrations.qogita.error'));
+    } else {
+      setQogitaFlash(t('ClientIntegrations.flashRemoved'));
+      loadQogitaConnections();
+    }
+    setQogitaRefreshing(false);
+  };
+
   return (
     <div className="space-y-6 relative">
       <header className="flex items-center gap-3">
@@ -459,30 +473,39 @@ export default function ClientIntegrations() {
           ) : (
             <div className="grid gap-3">
               {qogitaConnections.map((row) => (
-                <div key={row.id} className="border rounded-lg p-4 flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold text-text-primary">{row.qogita_email}</div>
-                    <StatusBadge status={row.status || 'active'} t={t} />
+                <div key={row.id} className="border rounded-lg p-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="font-semibold text-text-primary">{row.qogita_email}</div>
+                      <StatusBadge status={row.status || 'active'} t={t} />
+                    </div>
+                    <div className="text-xs text-text-secondary">
+                      {tp('ClientIntegrations.fields.added', {
+                        date: new Date(row.created_at).toLocaleString()
+                      })}
+                      {row.last_sync_at && (
+                        <>
+                          {' · '}
+                          {tp('ClientIntegrations.fields.lastSync', {
+                            date: new Date(row.last_sync_at).toLocaleString()
+                          })}
+                        </>
+                      )}
+                      {row.expires_at && (
+                        <>
+                          {' · '}
+                          {t('ClientIntegrations.qogita.expires', 'Expires')}: {new Date(row.expires_at).toLocaleString()}
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs text-text-secondary">
-                    {tp('ClientIntegrations.fields.added', {
-                      date: new Date(row.created_at).toLocaleString()
-                    })}
-                    {row.last_sync_at && (
-                      <>
-                        {' · '}
-                        {tp('ClientIntegrations.fields.lastSync', {
-                          date: new Date(row.last_sync_at).toLocaleString()
-                        })}
-                      </>
-                    )}
-                    {row.expires_at && (
-                      <>
-                        {' · '}
-                        {t('ClientIntegrations.qogita.expires', 'Expires')}: {new Date(row.expires_at).toLocaleString()}
-                      </>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => removeQogitaConnection(row.id)}
+                    disabled={qogitaRefreshing}
+                    className="inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-700 mt-2 sm:mt-0"
+                  >
+                    <Unplug className="w-4 h-4" /> {t('ClientIntegrations.actions.disconnect')}
+                  </button>
                 </div>
               ))}
             </div>
