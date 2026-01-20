@@ -98,20 +98,33 @@ export default function ClientQogitaShipments() {
         setAsinMap({});
         return;
       }
-      const { data, error } = await supabase
+      const map = {};
+      // 1) stoc
+      const { data: stockData, error: stockErr } = await supabase
         .from('stock_items')
         .select('asin, sku, ean, name, image_url')
         .in('ean', gtins)
         .eq('user_id', user.id);
-      if (error) {
-        console.error('ASIN lookup error', error);
-        return;
-      }
-      const map = {};
-      (data || []).forEach((row) => {
+      if (stockErr) console.error('ASIN lookup error', stockErr);
+      (stockData || []).forEach((row) => {
         const key = row.ean;
         if (!map[key]) map[key] = [];
         map[key].push(row);
+      });
+      // 2) asin_eans fallback
+      const { data: asinMapRows, error: asinErr } = await supabase
+        .from('asin_eans')
+        .select('asin, ean')
+        .in('ean', gtins)
+        .eq('user_id', user.id);
+      if (asinErr) console.error('ASIN map error', asinErr);
+      (asinMapRows || []).forEach((row) => {
+        const key = row.ean;
+        if (!map[key]) map[key] = [];
+        // evită duplicate dacă există deja din stoc
+        if (!map[key].some((m) => m.asin === row.asin)) {
+          map[key].push({ asin: row.asin, ean: row.ean, sku: null, image_url: null });
+        }
       });
       setAsinMap(map);
     };
@@ -383,7 +396,7 @@ export default function ClientQogitaShipments() {
                                     <Loader2 className="w-3 h-3 animate-spin" /> {t('ClientIntegrations.qogita.fetching', 'Caut ASIN...')}
                                   </>
                                 ) : (
-                                  t('ClientIntegrations.qogita.fetchKeepa', 'Fetch ASIN')
+                                  'Fetch ASIN'
                                 )}
                               </button>
                             )}
