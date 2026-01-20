@@ -156,27 +156,36 @@ export default function ClientQogitaShipments() {
     setReqSubmitting(true);
     setReqFlash('');
     try {
-      const invalid = reqLines.find((l) => (!l.asin && !l.sku) || Number(l.units || 0) <= 0);
+      const invalid = reqLines.find((l) => Number(l.units || 0) <= 0);
       if (invalid) {
-        setReqFlash(t('ClientIntegrations.qogita.missingIdentifiers', 'Adaugă ASIN sau SKU și unități > 0 pentru fiecare linie.'));
+        setReqFlash(t('ClientIntegrations.qogita.missingIdentifiers', 'Adaugă unități > 0 pentru fiecare linie.'));
         setReqSubmitting(false);
         return;
       }
-      const items = reqLines.map((l) => ({
-        stock_item_id: l.stock_item_id,
-        ean: l.gtin || null,
-        product_name: l.product_name || l.name || null,
-        asin: l.asin || null,
-        sku: l.sku || l.gtin || null,
-        units_requested: reqMode === 'partial' ? Number(l.units || 0) : Number(l.shipped_qty || l.requested_qty || 0)
-      }));
-      await supabaseHelpers.createPrepRequest({
+      const items = reqLines.map((l) => {
+        const units = reqMode === 'partial' ? Number(l.units || 0) : Number(l.shipped_qty || l.requested_qty || 0);
+        return {
+          stock_item_id: l.stock_item_id,
+          ean: l.gtin || null,
+          product_name: l.product_name || l.name || null,
+          asin: l.asin || null,
+          sku: l.sku || l.gtin || null,
+          units_requested: units,
+          send_to_fba: false,
+          fba_qty: 0
+        };
+      });
+      const tracking = reqModal.tracking?.[0] || null;
+      await supabaseHelpers.createReceptionRequest({
         user_id: user.id,
-        company_id: user.id, // dacă ai company_id pe profil îl poți folosi
+        company_id: user.company_id || user.id,
         destination_country: reqDestination,
+        carrier: 'Qogita',
+        tracking_id: tracking,
+        tracking_ids: reqModal.tracking || (tracking ? [tracking] : []),
         items
       });
-      setReqFlash(t('ClientIntegrations.qogita.requestCreated', 'Request confirmed. Vezi în Prep Shipments.'));
+      setReqFlash(t('ClientIntegrations.qogita.requestCreated', 'Request confirmed. Vezi în Receptions.'));
       setTimeout(() => {
         setReqModal(null);
       }, 800);
