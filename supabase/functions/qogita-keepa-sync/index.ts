@@ -93,15 +93,32 @@ async function decryptToken(encrypted: string) {
 async function getQogitaToken(userId: string) {
   const { data, error } = await supabase
     .from("qogita_connections")
-    .select("access_token_encrypted")
+    .select("access_token_encrypted, refresh_token_encrypted")
     .eq("user_id", userId)
     .maybeSingle();
   if (error || !data?.access_token_encrypted) return null;
   try {
-    return await decryptToken(data.access_token_encrypted);
+    return {
+      access: await decryptToken(data.access_token_encrypted),
+      refresh: data.refresh_token_encrypted ? await decryptToken(data.refresh_token_encrypted) : null
+    };
   } catch {
     return null;
   }
+}
+
+async function refreshQogitaToken(refresh: string) {
+  const resp = await fetch(`${QOGITA_API_URL}/auth/refresh/`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Cookie: `Refresh-Token=${refresh}`
+    }
+  });
+  if (!resp.ok) return null;
+  const data = await resp.json();
+  const token = data.accessToken || data.access || data.access_token || data.token || null;
+  return token;
 }
 
 async function fetchJson(url: string, token: string) {
@@ -111,19 +128,20 @@ async function fetchJson(url: string, token: string) {
       Accept: "application/json"
     }
   });
-  if (!resp.ok) return null;
-  return await resp.json();
+  return { ok: resp.ok, status: resp.status, body: resp.ok ? await resp.json() : null };
 }
 
 async function fetchQogitaGtins(userId: string, token: string) {
   const results = new Set<string>();
-  const orders = await fetchJson(`${QOGITA_API_URL}/orders/?size=50`, token);
-  const list = orders?.results || [];
+  const ordersResp = await fetchJson(`${QOGITA_API_URL}/orders/?size=50`, token);
+  if (!ordersResp.ok) return { gtins: [], status: ordersResp.status };
+  const list = ordersResp.body?.results || [];
   for (const order of list) {
     const qid = order?.qid;
     if (!qid) continue;
-    const sales = await fetchJson(`${QOGITA_API_URL}/orders/${qid}/sales/?size=100`, token);
-    const saleList = sales?.results || [];
+    const salesResp = await fetchJson(`${QOGITA_API_URL}/orders/${qid}/sales/?size=100`, token);
+    if (!salesResp.ok) continue;
+    const saleList = salesResp.body?.results || [];
     for (const sale of saleList) {
       const lines = sale?.salelines || [];
       for (const line of lines) {
@@ -132,7 +150,7 @@ async function fetchQogitaGtins(userId: string, token: string) {
       }
     }
   }
-  return Array.from(results).slice(0, 30); // limit pentru costuri
+  return { gtins: Array.from(results).slice(0, 50), status: 200 }; // limit pentru costuri
 }
 
 async function gatherStockGtins(userId: string) {
@@ -148,9 +166,25 @@ async function gatherStockGtins(userId: string) {
 }
 
 async function processUser(userId: string, country?: string) {
-  const token = await getQogitaToken(userId);
-  if (!token) return 0;
-  const gtinsQogita = await fetchQogitaGtins(userId, token);
+  const tokens = await getQogitaToken(userId);
+  if (!tokens?.access) return { updated: 0, scanned: 0, details: [{ error: "no_token" }] };
+  let token = tokens.access;
+  const gtinResp = await fetchQogitaGtins(userId, token);
+  // dacă 401, încearcă refresh
+  if (gtinResp.status === 401 && tokens.refresh) {
+    const newToken = await refreshQogitaToken(tokens.refresh);
+    if (newToken) {
+      token = newToken;
+      await supabase
+        .from("qogita_connections")
+        .update({ access_token_encrypted: await encryptToken(token) })
+        .eq("user_id", userId);
+      const retry = await fetchQogitaGtins(userId, token);
+      gtinResp.gtins = retry.gtins;
+      gtinResp.status = retry.status;
+    }
+  }
+  const gtinsQogita = gtinResp.gtins || [];
   const gtinsStock = await gatherStockGtins(userId);
   const allGtins = Array.from(new Set([...gtinsQogita, ...gtinsStock])).slice(0, 200);
   if (!allGtins.length) return 0;
@@ -215,7 +249,7 @@ serve(async () => {
     const { updated, scanned, details: d } = (await processUser(uid)) as any;
     totalUpdated += updated || 0;
     totalScanned += scanned || 0;
-    details.push({ user_id: uid, updated, scanned, details: (d || []).slice(0, 20) });
+    details.push({ user_id: uid, updated, scanned, details: (d || []).slice(0, 50) });
   }
 
   return new Response(JSON.stringify({ ok: true, users: users.length, updated: totalUpdated, scanned: totalScanned, details }), {
