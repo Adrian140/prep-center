@@ -55,6 +55,7 @@ export default function ClientQogitaShipments() {
   const [reqSubmitting, setReqSubmitting] = useState(false);
   const [reqFlash, setReqFlash] = useState('');
   const [fetchingAsin, setFetchingAsin] = useState({});
+  const [completed, setCompleted] = useState({});
 
   const loadShipments = async () => {
     if (!user?.id) return;
@@ -212,6 +213,7 @@ export default function ClientQogitaShipments() {
         items
       });
       setReqFlash(t('ClientIntegrations.qogita.requestCreated', 'Request confirmed. Vezi în Receptions.'));
+      setCompleted((prev) => ({ ...prev, [reqModal.shipment_code || '']: true }));
       setTimeout(() => {
         setReqModal(null);
       }, 800);
@@ -279,12 +281,20 @@ export default function ClientQogitaShipments() {
                     ))}
                   </div>
                 ) : null}
-                <button
-                  onClick={() => openRequestModal(ship)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-primary text-primary hover:bg-primary hover:text-white transition-colors"
-                >
-                  {t('ClientIntegrations.qogita.createRequest', 'Create request')}
-                </button>
+                <div className="flex items-center gap-3">
+                  {completed[ship.shipment_code || ''] && (
+                    <div className="inline-flex items-center gap-1 text-emerald-700 text-xs font-medium">
+                      <span className="w-4 h-4 rounded-full border border-emerald-600 flex items-center justify-center text-[10px]">✓</span>
+                      Finalizat
+                    </div>
+                  )}
+                  <button
+                    onClick={() => openRequestModal(ship)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-primary text-primary hover:bg-primary hover:text-white transition-colors"
+                  >
+                    {t('ClientIntegrations.qogita.createRequest', 'Create request')}
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
