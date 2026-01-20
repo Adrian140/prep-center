@@ -440,9 +440,6 @@
       "errors": {
         "noPrepStock": "Some selected products have no Prep Center stock available: {products}"
       },
-      "errors": {
-        "noPrepStock": "Some selected products have no Prep Center stock available: {products}"
-      },
       "countries": {
         "FR": "France",
         "DE": "Germany",
@@ -600,56 +597,6 @@
       "modeLabel": "Mode",
       "nonDG": "Non-DG",
       "dg": "DG",
-      "errorMissingDims": "Renseignez longueur, largeur, hauteur et poids pour les produits sélectionnés afin d’estimer les cartons.",
-      "errorNoBoxes": "Aucun carton disponible pour le mode sélectionné.",
-      "summaryTitle": "Résumé d’emballage",
-      "summaryNone": "Pas encore de calcul. Ajoutez les quantités et cliquez Estimer.",
-      "summaryLine": "{count} × {name} ({l}×{w}×{h}, max {kg} kg)"
-    },
-    "BoxEstimator": {
-      "modeLabel": "Modo",
-      "nonDG": "No DG",
-      "dg": "DG",
-      "errorMissingDims": "Completa largo, ancho, alto y peso para los productos seleccionados para estimar las cajas.",
-      "errorNoBoxes": "No hay cajas disponibles para el modo seleccionado.",
-      "summaryTitle": "Resumen de empaque",
-      "summaryNone": "Aún no hay cálculo. Añade cantidades y pulsa Estimar.",
-      "summaryLine": "{count} × {name} ({l}×{w}×{h}, máx {kg} kg)"
-    },
-    "BoxEstimator": {
-      "modeLabel": "Modalità",
-      "nonDG": "Non-DG",
-      "dg": "DG",
-      "errorMissingDims": "Compila lunghezza, larghezza, altezza e peso per i prodotti selezionati per stimare le scatole.",
-      "errorNoBoxes": "Nessuna scatola disponibile per la modalità selezionata.",
-      "summaryTitle": "Riepilogo imballaggio",
-      "summaryNone": "Nessun calcolo ancora. Inserisci le quantità e premi Stima.",
-      "summaryLine": "{count} × {name} ({l}×{w}×{h}, max {kg} kg)"
-    },
-    "BoxEstimator": {
-      "modeLabel": "Modus",
-      "nonDG": "Non-DG",
-      "dg": "DG",
-      "errorMissingDims": "Bitte Länge, Breite, Höhe und Gewicht für die ausgewählten Produkte ausfüllen, um Kartons zu berechnen.",
-      "errorNoBoxes": "Keine Kartons für den gewählten Modus verfügbar.",
-      "summaryTitle": "Verpackungsübersicht",
-      "summaryNone": "Noch kein Ergebnis. Mengen eintragen und Estimate drücken.",
-      "summaryLine": "{count} × {name} ({l}×{w}×{h}, max {kg} kg)"
-    },
-    "BoxEstimator": {
-      "modeLabel": "Mod",
-      "nonDG": "Non-DG",
-      "dg": "DG",
-      "errorMissingDims": "Completează lungime, lățime, înălțime și greutate pentru produsele selectate ca să estimăm cutiile.",
-      "errorNoBoxes": "Nu există cutii pentru modul selectat.",
-      "summaryTitle": "Sumar împachetare",
-      "summaryNone": "Nu am calculat încă. Adaugă cantități și apasă Estimează.",
-      "summaryLine": "{count} × {name} ({l}×{w}×{h}, max {kg} kg)"
-    },
-    "BoxEstimator": {
-      "modeLabel": "Mode",
-      "nonDG": "Non-DG",
-      "dg": "DG",
       "errorMissingDims": "Complete length, width, height and weight for the selected products to estimate boxes.",
       "errorNoBoxes": "No boxes available for the selected mode.",
       "summaryTitle": "Packing summary",
@@ -727,7 +674,8 @@
       "confirmDisconnect": "Disconnect this Amazon account?",
       "flashRemoved": "Integration removed.",
       "actions": {
-        "disconnect": "Disconnect"
+        "disconnect": "Disconnect",
+        "disconnectAll": "Disconnect all"
       },
       "regions": {
         "eu": "Amazon EU",
@@ -746,6 +694,18 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
+      },
+      "amazonTitle": "Amazon Seller Central",
+      "qogita": {
+        "title": "Qogita",
+        "desc": "Connect your Qogita account to import orders and split shipments by supplier.",
+        "connect": "Connect Qogita",
+        "instructions": "Once connected, orders will surface in Box Estimator grouped by shipments.",
+        "notice": "Add {apiKey} and {baseUrl} in .env to enable the connect flow.",
+        "listTitle": "Qogita connections",
+        "listDesc": "We will show imported accounts and last sync details here.",
+        "empty": "No Qogita connections yet.",
+        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready."
       }
     },
     "ClientAffiliates": {
@@ -1552,7 +1512,8 @@
       "confirmDisconnect": "Deconectezi acest cont Amazon?",
       "flashRemoved": "Integrarea a fost eliminată.",
       "actions": {
-        "disconnect": "Deconectează"
+        "disconnect": "Deconectează",
+        "disconnectAll": "Disconnect all"
       },
       "regions": {
         "eu": "Amazon UE",
@@ -1571,6 +1532,18 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
+      },
+      "amazonTitle": "Amazon Seller Central",
+      "qogita": {
+        "title": "Qogita",
+        "desc": "Connect your Qogita account to import orders and split shipments by supplier.",
+        "connect": "Connect Qogita",
+        "instructions": "Once connected, orders will surface in Box Estimator grouped by shipments.",
+        "notice": "Add {apiKey} and {baseUrl} in .env to enable the connect flow.",
+        "listTitle": "Qogita connections",
+        "listDesc": "We will show imported accounts and last sync details here.",
+        "empty": "No Qogita connections yet.",
+        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready."
       }
     },
     "ClientAffiliates": {
@@ -1728,8 +1701,6 @@
       "confirm_delete": "Ștergi această recepție?",
       "delete_success": "Recepția a fost ștearsă.",
       "note_warning_label": "Notă client",
-      "store_name": "Store Name",
-      "store_name_ph": "Magazin / referință comandă",
       "store_name": "Store Name",
       "store_name_ph": "Magazin / referință comandă"
     },
@@ -2427,7 +2398,8 @@
       "confirmDisconnect": "Déconnecter ce compte Amazon ?",
       "flashRemoved": "Intégration supprimée.",
       "actions": {
-        "disconnect": "Déconnecter"
+        "disconnect": "Déconnecter",
+        "disconnectAll": "Disconnect all"
       },
       "regions": {
         "eu": "Amazon UE",
@@ -2446,6 +2418,18 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace : {id}"
+      },
+      "amazonTitle": "Amazon Seller Central",
+      "qogita": {
+        "title": "Qogita",
+        "desc": "Connect your Qogita account to import orders and split shipments by supplier.",
+        "connect": "Connect Qogita",
+        "instructions": "Once connected, orders will surface in Box Estimator grouped by shipments.",
+        "notice": "Add {apiKey} and {baseUrl} in .env to enable the connect flow.",
+        "listTitle": "Qogita connections",
+        "listDesc": "We will show imported accounts and last sync details here.",
+        "empty": "No Qogita connections yet.",
+        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready."
       }
     },
     "reportsMenu": {
@@ -3170,7 +3154,8 @@
       "confirmDisconnect": "Diesen Amazon-Account trennen?",
       "flashRemoved": "Integration entfernt.",
       "actions": {
-        "disconnect": "Trennen"
+        "disconnect": "Trennen",
+        "disconnectAll": "Disconnect all"
       },
       "regions": {
         "eu": "Amazon EU",
@@ -3189,6 +3174,18 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
+      },
+      "amazonTitle": "Amazon Seller Central",
+      "qogita": {
+        "title": "Qogita",
+        "desc": "Connect your Qogita account to import orders and split shipments by supplier.",
+        "connect": "Connect Qogita",
+        "instructions": "Once connected, orders will surface in Box Estimator grouped by shipments.",
+        "notice": "Add {apiKey} and {baseUrl} in .env to enable the connect flow.",
+        "listTitle": "Qogita connections",
+        "listDesc": "We will show imported accounts and last sync details here.",
+        "empty": "No Qogita connections yet.",
+        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready."
       }
     },
     "reportsMenu": {
@@ -3913,7 +3910,8 @@
       "confirmDisconnect": "Disconnettere questo account Amazon?",
       "flashRemoved": "Integrazione rimossa.",
       "actions": {
-        "disconnect": "Disconnetti"
+        "disconnect": "Disconnetti",
+        "disconnectAll": "Disconnect all"
       },
       "regions": {
         "eu": "Amazon UE",
@@ -3932,6 +3930,18 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
+      },
+      "amazonTitle": "Amazon Seller Central",
+      "qogita": {
+        "title": "Qogita",
+        "desc": "Connect your Qogita account to import orders and split shipments by supplier.",
+        "connect": "Connect Qogita",
+        "instructions": "Once connected, orders will surface in Box Estimator grouped by shipments.",
+        "notice": "Add {apiKey} and {baseUrl} in .env to enable the connect flow.",
+        "listTitle": "Qogita connections",
+        "listDesc": "We will show imported accounts and last sync details here.",
+        "empty": "No Qogita connections yet.",
+        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready."
       }
     },
     "reportsMenu": {
@@ -4656,7 +4666,8 @@
       "confirmDisconnect": "¿Desconectar esta cuenta de Amazon?",
       "flashRemoved": "Integración eliminada.",
       "actions": {
-        "disconnect": "Desconectar"
+        "disconnect": "Desconectar",
+        "disconnectAll": "Disconnect all"
       },
       "regions": {
         "eu": "Amazon UE",
@@ -4675,6 +4686,18 @@
       },
       "card": {
         "marketplaceAlt": "Marketplace: {id}"
+      },
+      "amazonTitle": "Amazon Seller Central",
+      "qogita": {
+        "title": "Qogita",
+        "desc": "Connect your Qogita account to import orders and split shipments by supplier.",
+        "connect": "Connect Qogita",
+        "instructions": "Once connected, orders will surface in Box Estimator grouped by shipments.",
+        "notice": "Add {apiKey} and {baseUrl} in .env to enable the connect flow.",
+        "listTitle": "Qogita connections",
+        "listDesc": "We will show imported accounts and last sync details here.",
+        "empty": "No Qogita connections yet.",
+        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready."
       }
     },
     "reportsMenu": {

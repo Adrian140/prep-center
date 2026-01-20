@@ -121,11 +121,15 @@ export default function ClientIntegrations() {
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [qogitaFlash, setQogitaFlash] = useState('');
 
   const clientId = import.meta.env.VITE_SPAPI_CLIENT_ID || '';
   const applicationId = import.meta.env.VITE_AMZ_APP_ID || clientId || '';
   const redirectUri =
     import.meta.env.VITE_SPAPI_REDIRECT_URI || `${window.location.origin}/auth/amazon/callback`;
+  const qogitaApiKey = import.meta.env.VITE_QOGITA_API_KEY || '';
+  const qogitaBaseUrl =
+    import.meta.env.VITE_QOGITA_BASE_URL || import.meta.env.VITE_QOGITA_API_BASE || 'https://api.qogita.com';
 
   const statePayload = useMemo(() => {
     if (!user?.id) return '';
@@ -237,6 +241,12 @@ export default function ClientIntegrations() {
     }
   };
 
+  const handleQogitaConnect = () => {
+    setQogitaFlash(t('ClientIntegrations.qogita.comingSoon'));
+  };
+
+  const qogitaReady = Boolean(qogitaApiKey);
+
   return (
     <div className="space-y-6">
       <header className="flex items-center gap-3">
@@ -262,47 +272,13 @@ export default function ClientIntegrations() {
         <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{flash}</div>
       )}
 
-      <section className="bg-white border rounded-xl p-5 space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-text-secondary">{t('ClientIntegrations.marketplaceLabel')}</label>
-            <select
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              className="border rounded-lg px-3 py-2"
-            >
-              {AMAZON_REGIONS.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {t(`ClientIntegrations.regions.${r.id}`)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            onClick={handleAmazonConnect}
-            disabled={!authorizeUrl}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
-          >
-            <ExternalLink className="w-4 h-4" /> {t('ClientIntegrations.connectButton')}
-          </button>
-          <button
-            onClick={removeAllIntegrations}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500 text-red-600 hover:bg-red-50"
-          >
-            <Unplug className="w-4 h-4" /> {t('ClientIntegrations.actions.disconnectAll', 'Disconnect all')}
-          </button>
-        </div>
-        {isIndividualAccount && (
-          <p className="text-sm text-red-600">{t('ClientIntegrations.individualBlocked')}</p>
-        )}
-        <p className="text-xs text-text-light">{t('ClientIntegrations.instructions')}</p>
-      </section>
-
-      <section className="bg-white border rounded-xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
+      <section className="bg-white border rounded-xl p-5 space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.listTitle')}</h2>
-            <p className="text-sm text-text-secondary">{t('ClientIntegrations.listDesc')}</p>
+            <h2 className="text-lg font-semibold text-text-primary">
+              {t('ClientIntegrations.amazonTitle', 'Amazon Seller Central')}
+            </h2>
+            <p className="text-sm text-text-secondary">{t('ClientIntegrations.instructions')}</p>
           </div>
           <button
             onClick={loadIntegrations}
@@ -311,57 +287,135 @@ export default function ClientIntegrations() {
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> {t('ClientIntegrations.refresh')}
           </button>
         </div>
-
-        {loading ? (
-          <div className="flex items-center gap-2 text-text-secondary text-sm">
-            <Loader2 className="w-4 h-4 animate-spin" /> {t('common.loading')}
+        <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-text-secondary">{t('ClientIntegrations.marketplaceLabel')}</label>
+                <select
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  className="border rounded-lg px-3 py-2"
+                >
+                  {AMAZON_REGIONS.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {t(`ClientIntegrations.regions.${r.id}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={handleAmazonConnect}
+                disabled={!authorizeUrl}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+              >
+                <ExternalLink className="w-4 h-4" /> {t('ClientIntegrations.connectButton')}
+              </button>
+              <button
+                onClick={removeAllIntegrations}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500 text-red-600 hover:bg-red-50"
+              >
+                <Unplug className="w-4 h-4" /> {t('ClientIntegrations.actions.disconnectAll', 'Disconnect all')}
+              </button>
+            </div>
+            {isIndividualAccount && (
+              <p className="text-sm text-red-600">{t('ClientIntegrations.individualBlocked')}</p>
+            )}
           </div>
-        ) : rows.length === 0 ? (
-          <div className="text-sm text-text-secondary">{t('ClientIntegrations.empty')}</div>
-        ) : (
-          <div className="grid gap-3">
-            {rows.map((row) => (
-              <div key={row.id} className="border rounded-lg p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="font-semibold text-text-primary flex items-center gap-2">
-                    {tp('ClientIntegrations.card.marketplaceAlt', {
-                      id: formatMarketplaceLabel(
-                        (row.marketplace_ids && row.marketplace_ids.length
-                          ? row.marketplace_ids
-                          : row.marketplace_id
-                          ? [row.marketplace_id]
-                          : [])
-                      )
-                    })}
-                    <StatusBadge status={row.status} t={t} />
-                  </div>
-                  <div className="text-xs text-text-secondary">
-                    {tp('ClientIntegrations.fields.added', { date: new Date(row.created_at).toLocaleString() })}
-                    {row.last_synced_at && (
-                      <>
-                        {' · '}
-                        {tp('ClientIntegrations.fields.lastSync', {
-                          date: new Date(row.last_synced_at).toLocaleString()
-                        })}
-                      </>
+          <div className="rounded-lg border border-dashed border-gray-200 p-3 text-xs text-text-secondary bg-gray-50">
+            <div className="font-semibold text-text-primary mb-1">{t('ClientIntegrations.listTitle')}</div>
+            <p>{t('ClientIntegrations.listDesc')}</p>
+          </div>
+        </div>
+
+        <div className="border-t pt-4 space-y-3">
+          {loading ? (
+            <div className="flex items-center gap-2 text-text-secondary text-sm">
+              <Loader2 className="w-4 h-4 animate-spin" /> {t('common.loading')}
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="text-sm text-text-secondary">{t('ClientIntegrations.empty')}</div>
+          ) : (
+            <div className="grid gap-3">
+              {rows.map((row) => (
+                <div key={row.id} className="border rounded-lg p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="font-semibold text-text-primary flex items-center gap-2">
+                      {tp('ClientIntegrations.card.marketplaceAlt', {
+                        id: formatMarketplaceLabel(
+                          (row.marketplace_ids && row.marketplace_ids.length
+                            ? row.marketplace_ids
+                            : row.marketplace_id
+                            ? [row.marketplace_id]
+                            : [])
+                        )
+                      })}
+                      <StatusBadge status={row.status} t={t} />
+                    </div>
+                    <div className="text-xs text-text-secondary">
+                      {tp('ClientIntegrations.fields.added', { date: new Date(row.created_at).toLocaleString() })}
+                      {row.last_synced_at && (
+                        <>
+                          {' · '}
+                          {tp('ClientIntegrations.fields.lastSync', {
+                            date: new Date(row.last_synced_at).toLocaleString()
+                          })}
+                        </>
+                      )}
+                    </div>
+                    {row.last_error && (
+                      <div className="text-xs text-red-600 mt-1">
+                        {t('ClientIntegrations.fields.lastError')} {supportError}
+                      </div>
                     )}
                   </div>
-                  {row.last_error && (
-                    <div className="text-xs text-red-600 mt-1">
-                      {t('ClientIntegrations.fields.lastError')} {supportError}
-                    </div>
-                  )}
+                  <button
+                    onClick={() => removeIntegration(row.integration_id || row.id)}
+                    className="inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-700"
+                  >
+                    <Unplug className="w-4 h-4" /> {t('ClientIntegrations.actions.disconnect')}
+                  </button>
                 </div>
-                <button
-                  onClick={() => removeIntegration(row.integration_id || row.id)}
-                  className="inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-700"
-                >
-                  <Unplug className="w-4 h-4" /> {t('ClientIntegrations.actions.disconnect')}
-                </button>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="bg-white border rounded-xl p-5 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.qogita.title')}</h2>
+            <p className="text-sm text-text-secondary">{t('ClientIntegrations.qogita.desc')}</p>
+          </div>
+          <button
+            onClick={handleQogitaConnect}
+            disabled={!qogitaReady}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+          >
+            <ExternalLink className="w-4 h-4" /> {t('ClientIntegrations.qogita.connect')}
+          </button>
+        </div>
+        {!qogitaReady && (
+          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
+            {tp('ClientIntegrations.qogita.notice', {
+              apiKey: 'VITE_QOGITA_API_KEY',
+              baseUrl: qogitaBaseUrl || 'https://api.qogita.com'
+            })}
           </div>
         )}
+        {qogitaFlash && (
+          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-sm">{qogitaFlash}</div>
+        )}
+        <p className="text-xs text-text-light">{t('ClientIntegrations.qogita.instructions')}</p>
+
+        <div className="border-t pt-4 space-y-2">
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">{t('ClientIntegrations.qogita.listTitle')}</h3>
+            <p className="text-sm text-text-secondary">{t('ClientIntegrations.qogita.listDesc')}</p>
+          </div>
+          <div className="text-sm text-text-secondary">{t('ClientIntegrations.qogita.empty')}</div>
+        </div>
       </section>
     </div>
   );
