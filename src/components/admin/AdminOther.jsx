@@ -43,6 +43,10 @@ export default function AdminOther({
     units: '',
     obs_admin: ''
   });
+  const [serviceOptions, setServiceOptions] = useSessionStorage('admin-other-service-options', [
+    'Extra Services',
+    'Add-ons for branding, paperwork and translations.'
+  ]);
 
   useEffect(() => {
     const today = todayStr();
@@ -144,12 +148,33 @@ export default function AdminOther({
       title="Other services"
       right={
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            placeholder="Denumire serviciu"
-            className="border rounded px-2 py-1 w-48"
-            value={form.service}
-            onChange={(e) => setForm((s) => ({ ...s, service: e.target.value }))}
-          />
+          <div className="flex items-center gap-2">
+            <select
+              className="border rounded px-2 py-1 w-48"
+              value={form.service}
+              onChange={(e) => setForm((s) => ({ ...s, service: e.target.value }))}
+            >
+              <option value="">Select service…</option>
+              {serviceOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+              {form.service && !serviceOptions.includes(form.service) && (
+                <option value={form.service}>{form.service}</option>
+              )}
+            </select>
+            <input
+              placeholder="Add custom service"
+              className="border rounded px-2 py-1 w-48"
+              value={form.service}
+              onChange={(e) => setForm((s) => ({ ...s, service: e.target.value }))}
+              onBlur={(e) => {
+                const v = (e.target.value || '').trim();
+                if (v && !serviceOptions.includes(v)) {
+                  setServiceOptions((prev) => Array.from(new Set([...prev, v])));
+                }
+              }}
+            />
+          </div>
           <input
             type="date"
             className="border rounded px-2 py-1"

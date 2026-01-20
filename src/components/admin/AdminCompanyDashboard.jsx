@@ -68,6 +68,7 @@ export default function AdminCompanyDashboard() {
   const [staleness, setStaleness] = useState([]);
   const [stalenessLoading, setStalenessLoading] = useState(false);
   const [stalenessError, setStalenessError] = useState('');
+  const [storageApplyId, setStorageApplyId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +138,29 @@ export default function AdminCompanyDashboard() {
     loadStaleness();
     return () => { cancelled = true; };
   }, []);
+
+  const handleApplyStorage = async (row) => {
+    if (!row?.company_id) return;
+    setStorageApplyId(row.company_id);
+    try {
+      const payload = {
+        company_id: row.company_id,
+        service: 'Storage fee (no inbound >10 days)',
+        service_date: todayIso(),
+        unit_price: 15,
+        units: 1,
+        total: 15,
+        obs_admin: `Auto-storage applied (days since last inbound: ${row.days_since_last_receiving ?? 'n/a'})`
+      };
+      const { error } = await supabaseHelpers.createOtherLine(payload);
+      if (error) throw error;
+      alert('Storage fee added to Other services for this client.');
+    } catch (e) {
+      alert(e?.message || 'Failed to apply storage fee.');
+    } finally {
+      setStorageApplyId(null);
+    }
+  };
 
   const loadChart = async () => {
     if (!selectedCompany?.id) return;
@@ -549,12 +573,11 @@ export default function AdminCompanyDashboard() {
                             <td className="py-2 pr-4 font-semibold text-orange-700">€15.00</td>
                             <td className="py-2 pr-4">
                               <button
-                                className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs hover:bg-blue-700"
-                                onClick={() => {
-                                  alert(`Apply storage for ${row.company_name || 'client'} (implement billing call)`);
-                                }}
+                                className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
+                                disabled={storageApplyId === row.company_id}
+                                onClick={() => handleApplyStorage(row)}
                               >
-                                Apply storage
+                                {storageApplyId === row.company_id ? 'Applying…' : 'Apply storage'}
                               </button>
                             </td>
                           </tr>
