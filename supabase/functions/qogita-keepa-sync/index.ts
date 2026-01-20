@@ -27,30 +27,43 @@ const buildImageUrl = (imageId: string | null, size = 500) => {
   return `https://images-na.ssl-images-amazon.com/images/I/${base}._SL${size}_.jpg`;
 };
 
-async function keepaLookupByEan(ean: string, domain = 4) {
-  const url = `https://api.keepa.com/query?key=${KEEPA_API_KEY}&domain=${domain}&type=product&code=${encodeURIComponent(
-    ean
-  )}&history=0`;
-  const resp = await fetch(url);
-  if (!resp.ok) {
-    const txt = await resp.text();
-    throw new Error(`Keepa query failed ${resp.status}: ${txt || resp.statusText}`);
+const normalizeEan = (ean: string) => {
+  const digits = ean.replace(/\D+/g, "");
+  if (!digits) return ean.trim();
+  if (digits.length >= 8 && digits.length < 13) {
+    return digits.padStart(13, "0");
   }
-  const payload = await resp.json();
-  const product = payload?.products?.[0];
-  if (!product) return null;
-  const asin = product.asin || product.asinList?.[0] || null;
-  const title = product.title || null;
-  let image: string | null = null;
-  if (typeof product.imagesCSV === "string" && product.imagesCSV.length) {
-    const first = product.imagesCSV.split(",")[0];
-    image = buildImageUrl(first);
-  } else if (Array.isArray(product.images) && product.images.length) {
-    const first = product.images[0];
-    const imgId = typeof first === "string" ? first : first?.l || first?.m || null;
-    image = buildImageUrl(imgId);
+  return ean.trim();
+};
+
+async function keepaLookupByEan(ean: string, domains: number[]) {
+  const results = [];
+  for (const domain of domains) {
+    const url = `https://api.keepa.com/query?key=${KEEPA_API_KEY}&domain=${domain}&type=product&code=${encodeURIComponent(
+      ean
+    )}&history=0`;
+    const resp = await fetch(url);
+    results.push({ domain, status: resp.status });
+    if (!resp.ok) {
+      continue;
+    }
+    const payload = await resp.json();
+    const product = payload?.products?.[0];
+    if (!product) continue;
+    const asin = product.asin || product.asinList?.[0] || null;
+    const title = product.title || null;
+    let image: string | null = null;
+    if (typeof product.imagesCSV === "string" && product.imagesCSV.length) {
+      const first = product.imagesCSV.split(",")[0];
+      image = buildImageUrl(first);
+    } else if (Array.isArray(product.images) && product.images.length) {
+      const first = product.images[0];
+      const imgId = typeof first === "string" ? first : first?.l || first?.m || null;
+      image = buildImageUrl(imgId);
+    }
+    if (asin) return { asin, title, image, domain, trace: results };
   }
-  return { asin, title, image };
+  return { asin: null, title: null, image: null, domain: null, trace: results };
 }
 
 async function deriveKey(secret: string) {
@@ -142,11 +155,16 @@ async function processUser(userId: string, country?: string) {
   const allGtins = Array.from(new Set([...gtinsQogita, ...gtinsStock])).slice(0, 200);
   if (!allGtins.length) return 0;
 
+  const domainBase = country ? countryToDomain[country.toUpperCase()] || 4 : 4;
+  const domainFallbacks = [domainBase, 4, 3, 8, 9, 2].filter((v, i, arr) => v && arr.indexOf(v) === i);
+
   let updated = 0;
-  for (const ean of allGtins) {
-    const domain = country ? countryToDomain[country.toUpperCase()] || 4 : 4;
+  const details: any[] = [];
+  for (const rawEan of allGtins) {
+    const ean = normalizeEan(rawEan);
     try {
-      const res = await keepaLookupByEan(ean, domain);
+      const res = await keepaLookupByEan(ean, domainFallbacks);
+      details.push({ ean, asin: res.asin, domain: res.domain, trace: res.trace });
       if (!res?.asin) continue;
       await supabase.from("asin_eans").upsert(
         {
@@ -164,13 +182,13 @@ async function processUser(userId: string, country?: string) {
           image_url: res.image || null
         })
         .eq("user_id", userId)
-        .eq("ean", ean);
+        .eq("ean", rawEan);
       updated += 1;
     } catch (err) {
-      console.error(`Keepa lookup failed for user ${userId} ean ${ean}:`, err);
+      details.push({ ean, error: `${err}` });
     }
   }
-  return { updated, scanned: allGtins.length };
+  return { updated, scanned: allGtins.length, details };
 }
 
 serve(async () => {
@@ -192,13 +210,15 @@ serve(async () => {
   const users = Array.from(new Set((conns || []).map((c) => c.user_id).filter(Boolean)));
   let totalUpdated = 0;
   let totalScanned = 0;
+  const details: any[] = [];
   for (const uid of users) {
-    const { updated, scanned } = await processUser(uid) as any;
+    const { updated, scanned, details: d } = (await processUser(uid)) as any;
     totalUpdated += updated || 0;
     totalScanned += scanned || 0;
+    details.push({ user_id: uid, updated, scanned, details: (d || []).slice(0, 20) });
   }
 
-  return new Response(JSON.stringify({ ok: true, users: users.length, updated: totalUpdated, scanned: totalScanned }), {
+  return new Response(JSON.stringify({ ok: true, users: users.length, updated: totalUpdated, scanned: totalScanned, details }), {
     status: 200,
     headers: { "Content-Type": "application/json" }
   });
