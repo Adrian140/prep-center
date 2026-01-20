@@ -2620,16 +2620,15 @@ getAllReceivingShipments: async (options = {}) => {
         ...fallback
       ];
 
-      const { companies, receiving_shipment_items, receiving_items, ...rest } = r;
-      const profileMeta = profilesById[r.user_id] || {};
-      const rawStore = (rest.client_store_name || rest.store_name || '').trim();
-      const profileStore = (profileMeta.store_name || '').trim();
-      const store_name = rawStore || profileStore || null;
+    const { companies, receiving_shipment_items, receiving_items, ...rest } = r;
+    const profileMeta = profilesById[r.user_id] || {};
+    const rawStore = (rest.client_store_name || rest.store_name || '').trim();
+    const store_name = rawStore || null; // explicit: store reference provided by client, not profile fallback
 
-      return {
-        ...rest,
-        receiving_items: items.map((it) => ({
-          ...it,
+    return {
+      ...rest,
+      receiving_items: items.map((it) => ({
+        ...it,
         stock_item:
           stockMap[it.stock_item_id] ||
           (it.asin && stockByAsin[it.asin]) ||
