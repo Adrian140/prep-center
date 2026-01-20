@@ -60,11 +60,21 @@ export default function ClientQogitaShipments() {
   const [fetchingAsin, setFetchingAsin] = useState({});
   const [completed, setCompleted] = useState({});
   const [asinLoading, setAsinLoading] = useState({});
+  const [loginModal, setLoginModal] = useState({ open: false, email: '', password: '', loading: false, error: '' });
 
   const loadShipments = async () => {
     if (!user?.id) return;
     setLoading(true);
     setFlash('');
+    // încercăm să aflăm emailul pentru autofill
+    const { data: connData } = await supabase
+      .from('qogita_connections')
+      .select('qogita_email, status')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (connData?.qogita_email && !loginModal.email) {
+      setLoginModal((prev) => ({ ...prev, email: connData.qogita_email }));
+    }
     const { data, error } = await supabase.functions.invoke('qogita-shipments', {
       body: { user_id: user.id }
     });
@@ -75,8 +85,12 @@ export default function ClientQogitaShipments() {
           : error.message || 'Nu am putut încărca livrările Qogita.';
       setFlash(msg);
       setShipments([]);
+      if (error?.message?.includes('auth_failed')) {
+        setLoginModal((prev) => ({ ...prev, open: true, error: '' }));
+      }
     } else {
       setShipments(data?.shipments || []);
+      setLoginModal((prev) => ({ ...prev, open: false, error: '' }));
     }
     setLoading(false);
   };
@@ -281,6 +295,27 @@ export default function ClientQogitaShipments() {
       setReqFlash(err?.message || 'Nu am putut crea request-ul.');
     }
     setReqSubmitting(false);
+  };
+
+  const submitLogin = async () => {
+    if (!loginModal.email || !loginModal.password) {
+      setLoginModal((prev) => ({ ...prev, error: 'Completează email și parolă.' }));
+      return;
+    }
+    setLoginModal((prev) => ({ ...prev, loading: true, error: '' }));
+    try {
+      const { error } = await supabase.functions.invoke('qogita-connect', {
+        body: { email: loginModal.email, password: loginModal.password, user_id: user?.id }
+      });
+      if (error) {
+        setLoginModal((prev) => ({ ...prev, error: error.message || 'Login failed', loading: false }));
+        return;
+      }
+      setLoginModal((prev) => ({ ...prev, loading: false, open: false, password: '', error: '' }));
+      await loadShipments();
+    } catch (err) {
+      setLoginModal((prev) => ({ ...prev, error: err?.message || 'Login error', loading: false }));
+    }
   };
 
   return (
@@ -563,6 +598,63 @@ export default function ClientQogitaShipments() {
               >
                 {reqSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {t('ClientIntegrations.qogita.createRequest', 'Create request')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loginModal.open && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <h3 className="text-lg font-semibold text-text-primary">Reconnect Qogita</h3>
+              <button onClick={() => setLoginModal((prev) => ({ ...prev, open: false }))} className="text-text-secondary hover:text-text-primary">✕</button>
+            </div>
+            {loginModal.error && (
+              <div className="text-sm text-rose-700 bg-rose-50 border border-rose-100 rounded px-3 py-2">
+                {loginModal.error}
+              </div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-text-secondary mb-1">Email Qogita</label>
+                <input
+                  name="email"
+                  autoComplete="email"
+                  type="email"
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  value={loginModal.email}
+                  onChange={(e) => setLoginModal((prev) => ({ ...prev, email: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-text-secondary mb-1">Parolă</label>
+                <input
+                  name="password"
+                  autoComplete="current-password"
+                  type="password"
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  value={loginModal.password}
+                  onChange={(e) => setLoginModal((prev) => ({ ...prev, password: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setLoginModal((prev) => ({ ...prev, open: false }))}
+                className="px-4 py-2 rounded-lg border text-sm text-text-secondary"
+                disabled={loginModal.loading}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={submitLogin}
+                disabled={loginModal.loading}
+                className="px-4 py-2 rounded-lg bg-primary text-white text-sm inline-flex items-center gap-2 disabled:opacity-60"
+              >
+                {loginModal.loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Reconnect
               </button>
             </div>
           </div>
