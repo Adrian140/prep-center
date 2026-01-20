@@ -5,7 +5,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
 
-function AsinCell({ matches, onToggle, expanded, t, onSelect }) {
+function AsinCell({ matches, onToggle, expanded, t, onSelect, gtin, onStartEdit }) {
   if (!matches || matches.length === 0) {
     return <span className="text-text-secondary text-sm">—</span>;
   }
@@ -15,7 +15,15 @@ function AsinCell({ matches, onToggle, expanded, t, onSelect }) {
     .filter((m) => !(m.asin === primary.asin && m.sku === primary.sku));
   return (
     <div className="text-sm text-text-primary">
-      <div className="font-semibold">{primary.asin || '—'}</div>
+      <div className="font-semibold flex items-center gap-2">
+        {primary.asin || '—'}
+        <button
+          className="text-[11px] text-primary underline underline-offset-2"
+          onClick={() => onStartEdit?.(gtin, primary.asin || '')}
+        >
+          Edit
+        </button>
+      </div>
       {primary.sku && <div className="text-xs text-text-secondary">SKU: {primary.sku}</div>}
       {rest.length > 0 && (
         <button
@@ -229,6 +237,13 @@ export default function ClientQogitaShipments() {
         return { ...prev, [editAsin.gtin]: [entry, ...filtered] };
       });
       setEditAsin({ gtin: '', value: '', saving: false, error: '' });
+      setReqLines((prev) =>
+        prev.map((l) =>
+          l.gtin === editAsin.gtin
+            ? { ...l, asin, sku: entry.sku, product_name: l.product_name }
+            : l
+        )
+      );
     } catch (err) {
       setEditAsin((p) => ({ ...p, saving: false, error: err?.message || 'Save failed' }));
     }
@@ -473,6 +488,10 @@ export default function ClientQogitaShipments() {
                               }
                               t={t}
                               onSelect={(m) => setPrimaryAsin(line.gtin, m)}
+                              gtin={line.gtin}
+                              onStartEdit={(gtin, val) =>
+                                setEditAsin({ gtin, value: val, saving: false, error: '' })
+                              }
                             />
                             {!matches.length && line.gtin && (
                               <button
@@ -506,6 +525,30 @@ export default function ClientQogitaShipments() {
                                 {editAsin.saving && editAsin.gtin === line.gtin ? 'Saving...' : 'Save'}
                               </button>
                             </div>
+                            {editAsin.gtin === line.gtin && (
+                              <div className="mt-1 flex items-center gap-2">
+                                <input
+                                  className="border rounded px-2 py-1 text-xs w-32"
+                                  placeholder="Set ASIN"
+                                  value={editAsin.value}
+                                  onChange={(e) => setEditAsin((p) => ({ ...p, value: e.target.value }))}
+                                />
+                                <button
+                                  className="text-[11px] text-primary underline disabled:opacity-60"
+                                  disabled={!editAsin.value || editAsin.saving}
+                                  onClick={saveManualAsin}
+                                >
+                                  {editAsin.saving ? 'Saving...' : 'Save'}
+                                </button>
+                                <button
+                                  className="text-[11px] text-text-secondary underline"
+                                  onClick={() => setEditAsin({ gtin: '', value: '', saving: false, error: '' })}
+                                  disabled={editAsin.saving}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
                             {editAsin.error && editAsin.gtin === line.gtin && (
                               <div className="text-[11px] text-rose-600">{editAsin.error}</div>
                             )}
