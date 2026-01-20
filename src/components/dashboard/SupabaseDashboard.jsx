@@ -54,16 +54,7 @@ function SupabaseDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const [hasQogita, setHasQogita] = useState(false);
-  const reportTabs = useMemo(
-    () =>
-      hasQogita
-        ? [
-            ...BASE_REPORT_TABS,
-            { id: 'reports-qogita', labelKey: 'reportsMenu.qogita', icon: Link2 }
-          ]
-        : BASE_REPORT_TABS,
-    [hasQogita]
-  );
+  const reportTabs = BASE_REPORT_TABS;
 
   const validTabs = [
     'activity',
@@ -76,7 +67,8 @@ function SupabaseDashboard() {
     'affiliates',
     'security',
     'settings',
-    ...reportTabs.map((rt) => rt.id)
+    ...reportTabs.map((rt) => rt.id),
+    'reports-qogita'
   ];
 
   const normalizeTab = (tab) => {
@@ -406,6 +398,20 @@ const renderTabContent = useMemo(() => {
                                 </div>
                               )}
                             </div>
+                          )}
+
+                          {g.key === 'Operations' && tab.id === 'stock' && hasQogita && (
+                            <button
+                              onClick={() => setActiveTab('reports-qogita')}
+                              className={`ml-2 w-[calc(100%-0.5rem)] flex items-center gap-2 px-3 py-2 text-left rounded-lg text-sm mt-2 border transition-colors ${
+                                activeTab === 'reports-qogita'
+                                  ? 'bg-primary/90 text-white'
+                                  : 'text-text-secondary hover:bg-gray-50'
+                              }`}
+                            >
+                              <Link2 className="w-4 h-4" />
+                              {t('reportsMenu.qogita', 'Qogita')}
+                            </button>
                           )}
                         </React.Fragment>
                       ))}
