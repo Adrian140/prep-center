@@ -25,7 +25,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE" \
             -H "apikey: $SUPABASE_SERVICE_ROLE" \
-            -d "{\"user_id\": \"$QOGITA_USER_ID\"}" \
+            -d "{\"user_id\": \"$QOGITA_USER_ID\", \"refresh_only\": true}" \
             | tee /tmp/resp.json
           status=$?
           test $status -eq 0 || exit $status

@@ -176,7 +176,7 @@ async function handleShipments(req: Request) {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
-  let body: { user_id?: string; page_size?: number };
+  let body: { user_id?: string; page_size?: number; refresh_only?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -185,6 +185,7 @@ async function handleShipments(req: Request) {
 
   const userId = body.user_id;
   const pageSize = body.page_size || 20;
+  const refreshOnly = !!body.refresh_only;
   if (!userId) return jsonResponse({ error: "Missing user_id" }, 400);
 
   try {
@@ -196,6 +197,26 @@ async function handleShipments(req: Request) {
       throw Object.assign(new Error("Qogita refresh expired"), { status: 401 });
     }
     let token = access;
+
+    if (refreshOnly) {
+      const expiresMs = expiresAt ? new Date(expiresAt).getTime() : null;
+      const needsRefresh = expiresMs && expiresMs - now < 5 * 60 * 1000;
+      if (needsRefresh && refresh) {
+        const refreshed = await refreshAccessToken(refresh);
+        token = refreshed.token;
+        await supabase
+          .from("qogita_connections")
+          .update({
+            access_token_encrypted: await encryptToken(token),
+            refresh_token_encrypted: refreshed.refreshToken ? await encryptToken(refreshed.refreshToken) : undefined,
+            expires_at: refreshed.expiresAt,
+            refresh_expires_at: refreshed.refreshExpires || null,
+            status: "active"
+          })
+          .eq("user_id", userId);
+      }
+      return jsonResponse({ ok: true, refreshed: needsRefresh ? true : false });
+    }
 
     const fetchOrders = async (tok: string) =>
       (await fetchJson(`${QOGITA_API_URL}/orders/?size=${pageSize}`, tok)) as { results?: OrderSummary[] };
