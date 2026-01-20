@@ -59,9 +59,16 @@ async function keepaLookupByEan(ean: string, domains: number[]) {
     const asins: string[] = [];
     const asinImages: Record<string, string | null> = {};
     products.forEach((product) => {
-      const asin = product.asin || product.asinList?.[0] || null;
-      if (!asin) return;
-      if (!asins.includes(asin)) asins.push(asin);
+      const candidates = new Set<string>();
+      if (product.asin) candidates.add(product.asin);
+      if (Array.isArray(product.asinList)) {
+        product.asinList.forEach((a: string) => {
+          if (a) candidates.add(a);
+        });
+      }
+      Array.from(candidates).forEach((asin) => {
+        if (!asins.includes(asin)) asins.push(asin);
+      });
       let image: string | null = null;
       if (typeof product.imagesCSV === "string" && product.imagesCSV.length) {
         const first = product.imagesCSV.split(",")[0];
@@ -71,7 +78,11 @@ async function keepaLookupByEan(ean: string, domains: number[]) {
         const imgId = typeof first === "string" ? first : first?.l || first?.m || null;
         image = buildImageUrl(imgId);
       }
-      if (image) asinImages[asin] = image;
+      if (image) {
+        Array.from(candidates).forEach((asin) => {
+          asinImages[asin] = image;
+        });
+      }
     });
     if (asins.length) return { asins, asinImages, domain, trace: results, rateLimited: false };
   }
