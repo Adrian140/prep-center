@@ -82,6 +82,22 @@ async function encryptToken(token: string) {
   return `${ivB64}.${base64}`;
 }
 
+function extractRefreshToken(setCookieHeader: string | null) {
+  if (!setCookieHeader) return null;
+  const match = setCookieHeader.match(/Refresh-Token=([^;]+)/i);
+  return match ? match[1] : null;
+}
+
+function extractRefreshExpiry(setCookieHeader: string | null) {
+  if (!setCookieHeader) return null;
+  const match = setCookieHeader.match(/Expires=([^;]+)/i);
+  if (match && match[1]) {
+    const dt = new Date(match[1]);
+    if (!isNaN(dt.getTime())) return dt.toISOString();
+  }
+  return null;
+}
+
 async function getTokenForUser(userId: string) {
   const { data, error } = await supabase
     .from("qogita_connections")
@@ -149,7 +165,9 @@ async function refreshAccessToken(refreshToken: string | null) {
     data.expires_at ||
     data.access_expires_at ||
     null;
-  return { token, expiresAt };
+  const refreshCookie = extractRefreshToken(resp.headers.get("set-cookie"));
+  const refreshExpires = extractRefreshExpiry(resp.headers.get("set-cookie"));
+  return { token, expiresAt, refreshToken: refreshCookie, refreshExpires };
 }
 
 async function handleShipments(req: Request) {
@@ -185,7 +203,9 @@ async function handleShipments(req: Request) {
           .from("qogita_connections")
           .update({
             access_token_encrypted: await encryptToken(token),
-            expires_at: refreshed.expiresAt
+            refresh_token_encrypted: refreshed.refreshToken ? await encryptToken(refreshed.refreshToken) : undefined,
+            expires_at: refreshed.expiresAt,
+            refresh_expires_at: refreshed.refreshExpires || null
           })
           .eq("user_id", userId);
         ordersData = await fetchOrders(token);
@@ -213,7 +233,9 @@ async function handleShipments(req: Request) {
             .from("qogita_connections")
             .update({
               access_token_encrypted: await encryptToken(token),
-              expires_at: refreshed.expiresAt
+              refresh_token_encrypted: refreshed.refreshToken ? await encryptToken(refreshed.refreshToken) : undefined,
+              expires_at: refreshed.expiresAt,
+              refresh_expires_at: refreshed.refreshExpires || null
             })
             .eq("user_id", userId);
           const salesData = (await fetchJson(

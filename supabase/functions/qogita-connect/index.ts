@@ -62,6 +62,16 @@ function extractRefreshToken(setCookieHeader: string | null) {
   return match ? match[1] : null;
 }
 
+function extractRefreshExpiry(setCookieHeader: string | null) {
+  if (!setCookieHeader) return null;
+  const match = setCookieHeader.match(/Expires=([^;]+)/i);
+  if (match && match[1]) {
+    const dt = new Date(match[1]);
+    if (!isNaN(dt.getTime())) return dt.toISOString();
+  }
+  return null;
+}
+
 async function handleConnect(req: Request) {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -117,6 +127,7 @@ async function handleConnect(req: Request) {
 
     const encrypted = await encryptToken(token);
     const encryptedRefresh = refreshCookie ? await encryptToken(refreshCookie) : null;
+    const refreshExpires = extractRefreshExpiry(loginResp.headers.get("set-cookie"));
 
     const { error } = await supabase.from("qogita_connections").upsert(
       {
@@ -124,6 +135,7 @@ async function handleConnect(req: Request) {
         qogita_email: email,
         access_token_encrypted: encrypted,
         refresh_token_encrypted: encryptedRefresh,
+        refresh_expires_at: refreshExpires,
         expires_at: expiresAt,
         status: "active"
       },
