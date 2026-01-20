@@ -6,6 +6,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 const KEEPA_API_KEY = Deno.env.get("KEEPA_API_KEY") || Deno.env.get("VITE_KEEPA_API_KEY") || "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const QOGITA_API_URL = Deno.env.get("QOGITA_API_URL") || "https://api.qogita.com";
+const QOGITA_ENC_KEY = Deno.env.get("QOGITA_ENC_KEY") || "";
 
 const countryToDomain: Record<string, number> = {
   FR: 4,
@@ -51,20 +53,83 @@ async function keepaLookupByEan(ean: string, domain = 4) {
   return { asin, title, image };
 }
 
-async function processUser(userId: string, country?: string) {
-  const { data: items, error } = await supabase
-    .from("stock_items")
-    .select("id, company_id, ean, asin, image_url")
+async function deriveKey(secret: string) {
+  if (!secret || secret.length < 32) throw new Error("Missing QOGITA_ENC_KEY");
+  const encoder = new TextEncoder();
+  const keyBytes = encoder.encode(secret).slice(0, 32);
+  return crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
+}
+
+function base64UrlToBytes(data: string): Uint8Array {
+  const base64 = data.replace(/-/g, "+").replace(/_/g, "/") + "==".slice(0, (4 - (data.length % 4)) % 4);
+  const raw = atob(base64);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  return bytes;
+}
+
+async function decryptToken(encrypted: string) {
+  const [ivB64, cipherB64] = encrypted.split(".");
+  const key = await deriveKey(QOGITA_ENC_KEY);
+  const iv = base64UrlToBytes(ivB64);
+  const cipherBytes = base64UrlToBytes(cipherB64);
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipherBytes);
+  return new TextDecoder().decode(plain);
+}
+
+async function getQogitaToken(userId: string) {
+  const { data, error } = await supabase
+    .from("qogita_connections")
+    .select("access_token_encrypted")
     .eq("user_id", userId)
-    .is("asin", null)
-    .not("ean", "is", null)
-    .limit(20);
-  if (error) throw error;
-  if (!items?.length) return 0;
+    .maybeSingle();
+  if (error || !data?.access_token_encrypted) return null;
+  try {
+    return await decryptToken(data.access_token_encrypted);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchJson(url: string, token: string) {
+  const resp = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json"
+    }
+  });
+  if (!resp.ok) return null;
+  return await resp.json();
+}
+
+async function fetchQogitaGtins(userId: string, token: string) {
+  const results = new Set<string>();
+  const orders = await fetchJson(`${QOGITA_API_URL}/orders/?size=20`, token);
+  const list = orders?.results || [];
+  for (const order of list) {
+    const qid = order?.qid;
+    if (!qid) continue;
+    const sales = await fetchJson(`${QOGITA_API_URL}/orders/${qid}/sales/?size=50`, token);
+    const saleList = sales?.results || [];
+    for (const sale of saleList) {
+      const lines = sale?.salelines || [];
+      for (const line of lines) {
+        const gtin = line?.variant?.gtin || line?.variant?.ean || line?.gtin || null;
+        if (gtin) results.add(gtin);
+      }
+    }
+  }
+  return Array.from(results).slice(0, 30); // limit pentru costuri
+}
+
+async function processUser(userId: string, country?: string) {
+  const token = await getQogitaToken(userId);
+  if (!token) return 0;
+  const gtins = await fetchQogitaGtins(userId, token);
+  if (!gtins.length) return 0;
 
   let updated = 0;
-  for (const row of items) {
-    const ean = row.ean as string;
+  for (const ean of gtins) {
     const domain = country ? countryToDomain[country.toUpperCase()] || 4 : 4;
     try {
       const res = await keepaLookupByEan(ean, domain);
@@ -72,7 +137,7 @@ async function processUser(userId: string, country?: string) {
       await supabase.from("asin_eans").upsert(
         {
           user_id: userId,
-          company_id: row.company_id,
+          company_id: null,
           asin: res.asin,
           ean
         },
@@ -82,9 +147,10 @@ async function processUser(userId: string, country?: string) {
         .from("stock_items")
         .update({
           asin: res.asin,
-          image_url: row.image_url || res.image || null
+          image_url: res.image || null
         })
-        .eq("id", row.id);
+        .eq("user_id", userId)
+        .eq("ean", ean);
       updated += 1;
     } catch (err) {
       console.error(`Keepa lookup failed for user ${userId} ean ${ean}:`, err);
