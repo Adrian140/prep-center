@@ -138,7 +138,7 @@ async function fetchJson(url: string, token: string) {
 async function fetchQogitaGtins(userId: string, token: string) {
   const results = new Set<string>();
   const ordersResp = await fetchJson(`${QOGITA_API_URL}/orders/?size=50`, token);
-  if (!ordersResp.ok) return { gtins: [], status: ordersResp.status };
+  if (!ordersResp.ok) return { gtins: [], status: ordersResp.status, error: ordersResp.error || null };
   const list = ordersResp.body?.results || [];
   for (const order of list) {
     const qid = order?.qid;
@@ -173,7 +173,7 @@ async function processUser(userId: string, country?: string) {
   const tokens = await getQogitaToken(userId);
   if (!tokens?.access) return { updated: 0, scanned: 0, details: [{ error: "no_token" }] };
   let token = tokens.access;
-  const gtinResp = await fetchQogitaGtins(userId, token);
+  let gtinResp = await fetchQogitaGtins(userId, token);
   // dacă 401, încearcă refresh
   if (gtinResp.status === 401 && tokens.refresh) {
     const newToken = await refreshQogitaToken(tokens.refresh);
@@ -184,14 +184,13 @@ async function processUser(userId: string, country?: string) {
         .update({ access_token_encrypted: await encryptToken(token) })
         .eq("user_id", userId);
       const retry = await fetchQogitaGtins(userId, token);
-      gtinResp.gtins = retry.gtins;
-      gtinResp.status = retry.status;
+      gtinResp = retry;
     }
   }
   const gtinsQogita = gtinResp.gtins || [];
   const gtinsStock = await gatherStockGtins(userId);
   const allGtins = Array.from(new Set([...gtinsQogita, ...gtinsStock])).slice(0, 200);
-  if (!allGtins.length) return 0;
+  if (!allGtins.length) return { updated: 0, scanned: 0, details: [{ notice: "no_gtin_found", status: gtinResp.status, error: gtinResp.error || null, stock_gtin_count: gtinsStock.length }] };
 
   const domainBase = country ? countryToDomain[country.toUpperCase()] || 4 : 4;
   const domainFallbacks = [domainBase, 4, 3, 8, 9, 2].filter((v, i, arr) => v && arr.indexOf(v) === i);
