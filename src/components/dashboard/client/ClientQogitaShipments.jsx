@@ -54,6 +54,7 @@ export default function ClientQogitaShipments() {
   const [reqLines, setReqLines] = useState([]);
   const [reqSubmitting, setReqSubmitting] = useState(false);
   const [reqFlash, setReqFlash] = useState('');
+  const [fetchingAsin, setFetchingAsin] = useState({});
 
   const loadShipments = async () => {
     if (!user?.id) return;
@@ -148,7 +149,32 @@ export default function ClientQogitaShipments() {
     setReqMode('none');
     setReqDestination('FR');
     setReqFlash('');
-    setReqModal({ shipment_code: ship.shipment_code, order_qid: ship.order_qid, fid: ship.fid, seller: ship.seller, tracking: ship.tracking_links || [] });
+    setReqModal({ shipment_code: ship.shipment_code, order_qid: ship.order_qid, fid: ship.fid, seller: ship.seller, tracking: ship.tracking_links || [], country: ship.country });
+  };
+
+  const fetchKeepaForLine = async (gtin) => {
+    if (!gtin || !user?.id || !reqModal) return;
+    setFetchingAsin((prev) => ({ ...prev, [gtin]: true }));
+    try {
+      const { data, error } = await supabase.functions.invoke('qogita-keepa', {
+        body: { user_id: user.id, company_id: user.company_id || user.id, ean: gtin, country: reqModal.country || 'FR' }
+      });
+      if (error) throw error;
+      if (data?.asin) {
+        setReqLines((prev) =>
+          prev.map((l) => (l.gtin === gtin ? { ...l, asin: data.asin, product_name: l.product_name || data.title || l.name } : l))
+        );
+        setAsinMap((prev) => ({
+          ...prev,
+          [gtin]: [{ asin: data.asin, sku: gtin, name: data.title || null, image_url: data.image || null }]
+        }));
+      } else {
+        setReqFlash('Keepa nu a găsit ASIN pentru acest EAN.');
+      }
+    } catch (err) {
+      setReqFlash(err?.message || 'Nu am putut lua ASIN din Keepa.');
+    }
+    setFetchingAsin((prev) => ({ ...prev, [gtin]: false }));
   };
 
   const submitRequest = async () => {
@@ -156,9 +182,9 @@ export default function ClientQogitaShipments() {
     setReqSubmitting(true);
     setReqFlash('');
     try {
-      const invalid = reqLines.find((l) => Number(l.units || 0) <= 0);
+      const invalid = reqLines.find((l) => Number(l.units || 0) <= 0 || !l.asin);
       if (invalid) {
-        setReqFlash(t('ClientIntegrations.qogita.missingIdentifiers', 'Adaugă unități > 0 pentru fiecare linie.'));
+        setReqFlash(t('ClientIntegrations.qogita.missingIdentifiers', 'Adaugă ASIN și unități > 0 pentru fiecare linie.'));
         setReqSubmitting(false);
         return;
       }
@@ -297,6 +323,21 @@ export default function ClientQogitaShipments() {
                               }
                               t={t}
                             />
+                            {!matches.length && line.gtin && (
+                              <button
+                                onClick={() => fetchKeepaForLine(line.gtin)}
+                                className="mt-2 text-[11px] text-primary underline inline-flex items-center gap-1 disabled:opacity-60"
+                                disabled={!!fetchingAsin[line.gtin]}
+                              >
+                                {fetchingAsin[line.gtin] ? (
+                                  <>
+                                    <Loader2 className="w-3 h-3 animate-spin" /> {t('ClientIntegrations.qogita.fetching', 'Caut ASIN...')}
+                                  </>
+                                ) : (
+                                  t('ClientIntegrations.qogita.fetchKeepa', 'Fetch ASIN (Keepa)')
+                                )}
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
