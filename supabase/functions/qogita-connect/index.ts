@@ -17,9 +17,11 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 type LoginResponse = {
   access?: string;
   access_token?: string;
+  accessToken?: string;
   token?: string;
   expires_at?: string | null;
   access_expires_at?: string | null;
+  accessExp?: number | null;
   [key: string]: unknown;
 };
 
@@ -91,6 +93,7 @@ async function handleConnect(req: Request) {
 
     const loginData = (await loginResp.json()) as LoginResponse;
     const token =
+      loginData.accessToken ||
       loginData.access ||
       loginData.access_token ||
       loginData.token ||
@@ -100,6 +103,7 @@ async function handleConnect(req: Request) {
     }
 
     const expiresAt =
+      (typeof loginData.accessExp === "number" ? new Date(loginData.accessExp).toISOString() : null) ||
       loginData.expires_at ||
       loginData.access_expires_at ||
       null;
