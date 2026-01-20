@@ -518,7 +518,7 @@ export default function AdminCompanyDashboard() {
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="text-text-secondary border-b">
-                      <th className="text-left py-2 pr-4">Client</th>
+                      <th className="text-left py-2 pr-4">Store / Company</th>
                       <th className="text-left py-2 pr-4">Units in stock</th>
                       <th className="text-left py-2 pr-4">Last receiving</th>
                       <th className="text-left py-2 pr-4">Days since</th>
@@ -535,7 +535,10 @@ export default function AdminCompanyDashboard() {
                         const highlight = typeof days === 'number' && days >= 10;
                         return (
                           <tr key={`${row.company_id || idx}`} className={`border-b last:border-b-0 ${highlight ? 'bg-red-50' : ''}`}>
-                            <td className="py-2 pr-4 text-text-primary">{row.company_name || row.company_id || 'Client'}</td>
+                            <td className="py-2 pr-4 text-text-primary">
+                              <div className="font-semibold">{row.company_name || row.company_id || 'Client'}</div>
+                              <div className="text-xs text-text-secondary">{row.company_id || ''}</div>
+                            </td>
                             <td className="py-2 pr-4 font-semibold text-text-primary">{row.units_in_stock ?? 0}</td>
                             <td className="py-2 pr-4 text-text-secondary">
                               {row.last_receiving_date ? formatDisplayDate(row.last_receiving_date) : '—'}
