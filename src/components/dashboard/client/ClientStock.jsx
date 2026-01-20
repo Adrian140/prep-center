@@ -2596,6 +2596,7 @@ const saveReqChanges = async () => {
     <div className="mt-2 text-xs text-gray-600 flex flex-col gap-1">
       {renderIdentifierField('ASIN', r.asin, 'asin', 'B0...', 'ASIN')}
       {renderIdentifierField('SKU', r.sku, 'sku', 'SKU...', 'SKU')}
+      {renderIdentifierField('EAN', r.ean, 'ean', 'EAN...', 'EAN')}
     </div>
 </td>
 {showPriceColumn && (
