@@ -150,7 +150,8 @@ export default function AdminCompanyDashboard() {
         unit_price: 15,
         units: 1,
         total: 15,
-        obs_admin: `Auto-storage applied (days since last inbound: ${row.days_since_last_receiving ?? 'n/a'})`
+        obs_admin: `Auto-storage applied: ${row.days_since_last_receiving ?? 'n/a'} days since last inbound` +
+          (row.last_receiving_date ? ` (last receiving: ${row.last_receiving_date})` : '')
       };
       const { error } = await supabaseHelpers.createOtherLine(payload);
       if (error) throw error;
