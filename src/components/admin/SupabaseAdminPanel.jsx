@@ -157,7 +157,6 @@ useEffect(() => {
   const [integrationLang, setIntegrationLang] = useState('ro');
   const [integrationContent, setIntegrationContent] = useState({});
   const tabs = useMemo(() => ([
-    { id: 'analytics', label: t('sidebar.analytics'), icon: BarChart3 },
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'profiles', label: t('sidebar.profiles'), icon: Users },
     { id: 'receiving', label: t('sidebar.receiving'), icon: Truck },
@@ -169,6 +168,7 @@ useEffect(() => {
     { id: 'user-guide', label: t('sidebar.userGuide'), icon: PlayCircle },
     { id: 'affiliates', label: t('sidebar.affiliates'), icon: Users },
     { id: 'security', label: t('sidebar.security'), icon: Shield },
+    { id: 'analytics', label: t('sidebar.analytics'), icon: BarChart3 },
     { id: 'settings', label: t('sidebar.settings'), icon: Settings }
   ]), [t]);
 
