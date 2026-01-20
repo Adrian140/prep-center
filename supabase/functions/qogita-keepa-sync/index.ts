@@ -104,12 +104,12 @@ async function fetchJson(url: string, token: string) {
 
 async function fetchQogitaGtins(userId: string, token: string) {
   const results = new Set<string>();
-  const orders = await fetchJson(`${QOGITA_API_URL}/orders/?size=20`, token);
+  const orders = await fetchJson(`${QOGITA_API_URL}/orders/?size=50`, token);
   const list = orders?.results || [];
   for (const order of list) {
     const qid = order?.qid;
     if (!qid) continue;
-    const sales = await fetchJson(`${QOGITA_API_URL}/orders/${qid}/sales/?size=50`, token);
+    const sales = await fetchJson(`${QOGITA_API_URL}/orders/${qid}/sales/?size=100`, token);
     const saleList = sales?.results || [];
     for (const sale of saleList) {
       const lines = sale?.salelines || [];
@@ -129,7 +129,7 @@ async function gatherStockGtins(userId: string) {
     .eq("user_id", userId)
     .is("asin", null)
     .not("ean", "is", null)
-    .limit(50);
+    .limit(200);
   if (error) return [];
   return (data || []).map((row) => row.ean as string).filter(Boolean);
 }
@@ -139,7 +139,7 @@ async function processUser(userId: string, country?: string) {
   if (!token) return 0;
   const gtinsQogita = await fetchQogitaGtins(userId, token);
   const gtinsStock = await gatherStockGtins(userId);
-  const allGtins = Array.from(new Set([...gtinsQogita, ...gtinsStock])).slice(0, 60);
+  const allGtins = Array.from(new Set([...gtinsQogita, ...gtinsStock])).slice(0, 200);
   if (!allGtins.length) return 0;
 
   let updated = 0;
@@ -170,7 +170,7 @@ async function processUser(userId: string, country?: string) {
       console.error(`Keepa lookup failed for user ${userId} ean ${ean}:`, err);
     }
   }
-  return updated;
+  return { updated, scanned: allGtins.length };
 }
 
 serve(async () => {
@@ -191,12 +191,14 @@ serve(async () => {
   }
   const users = Array.from(new Set((conns || []).map((c) => c.user_id).filter(Boolean)));
   let totalUpdated = 0;
+  let totalScanned = 0;
   for (const uid of users) {
-    const updated = await processUser(uid);
-    totalUpdated += updated;
+    const { updated, scanned } = await processUser(uid) as any;
+    totalUpdated += updated || 0;
+    totalScanned += scanned || 0;
   }
 
-  return new Response(JSON.stringify({ ok: true, users: users.length, updated: totalUpdated }), {
+  return new Response(JSON.stringify({ ok: true, users: users.length, updated: totalUpdated, scanned: totalScanned }), {
     status: 200,
     headers: { "Content-Type": "application/json" }
   });
