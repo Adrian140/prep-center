@@ -56,6 +56,7 @@ export default function ClientQogitaShipments() {
   const [reqFlash, setReqFlash] = useState('');
   const [fetchingAsin, setFetchingAsin] = useState({});
   const [completed, setCompleted] = useState({});
+  const [asinLoading, setAsinLoading] = useState({});
 
   const loadShipments = async () => {
     if (!user?.id) return;
@@ -176,6 +177,28 @@ export default function ClientQogitaShipments() {
       setReqFlash(err?.message || 'Nu am putut lua ASIN din Keepa.');
     }
     setFetchingAsin((prev) => ({ ...prev, [gtin]: false }));
+  };
+
+  const handleAsinChange = async (idx, newAsinRaw) => {
+    const asin = (newAsinRaw || '').trim().toUpperCase();
+    setReqLines((prev) =>
+      prev.map((l, i) => (i === idx ? { ...l, asin, sku: asin ? l.sku : '-' } : l))
+    );
+    if (!asin || !user?.id) {
+      setReqLines((prev) => prev.map((l, i) => (i === idx ? { ...l, sku: '-' } : l)));
+      return;
+    }
+    setAsinLoading((prev) => ({ ...prev, [idx]: true }));
+    const { data } = await supabase
+      .from('stock_items')
+      .select('sku')
+      .eq('asin', asin)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    setReqLines((prev) =>
+      prev.map((l, i) => (i === idx ? { ...l, sku: data?.sku || '-' } : l))
+    );
+    setAsinLoading((prev) => ({ ...prev, [idx]: false }));
   };
 
   const submitRequest = async () => {
@@ -446,8 +469,16 @@ export default function ClientQogitaShipments() {
                       <td className="px-3 py-2">{line.name || line.product_name || '—'}</td>
                       <td className="px-3 py-2 font-mono text-xs">{line.gtin || '—'}</td>
                       <td className="px-3 py-2">
-                        <div className="text-xs text-text-primary font-semibold">{line.asin || '—'}</div>
-                        {line.sku && <div className="text-[11px] text-text-secondary">SKU: {line.sku}</div>}
+                        <div className="flex items-center gap-2">
+                          <input
+                            className="border rounded px-2 py-1 text-xs w-32"
+                            value={line.asin || ''}
+                            placeholder="B0..."
+                            onChange={(e) => handleAsinChange(idx, e.target.value)}
+                          />
+                          {asinLoading[idx] && <Loader2 className="w-4 h-4 animate-spin text-text-secondary" />}
+                        </div>
+                        <div className="text-[11px] text-text-secondary mt-1">SKU: {line.sku || '-'}</div>
                       </td>
                       {reqMode === 'partial' ? (
                         <>
