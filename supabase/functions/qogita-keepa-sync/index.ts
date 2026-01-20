@@ -122,13 +122,17 @@ async function refreshQogitaToken(refresh: string) {
 }
 
 async function fetchJson(url: string, token: string) {
-  const resp = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json"
-    }
-  });
-  return { ok: resp.ok, status: resp.status, body: resp.ok ? await resp.json() : null };
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json"
+      }
+    });
+    return { ok: resp.ok, status: resp.status, body: resp.ok ? await resp.json() : null };
+  } catch (err) {
+    return { ok: false, status: 0, body: null, error: `${err}` };
+  }
 }
 
 async function fetchQogitaGtins(userId: string, token: string) {
@@ -226,34 +230,41 @@ async function processUser(userId: string, country?: string) {
 }
 
 serve(async () => {
-  if (!KEEPA_API_KEY) {
-    return new Response(JSON.stringify({ error: "Missing KEEPA_API_KEY" }), {
+  try {
+    if (!KEEPA_API_KEY) {
+      return new Response(JSON.stringify({ error: "Missing KEEPA_API_KEY" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    // utilizatori care au conexiune Qogita
+    const { data: conns, error } = await supabase.from("qogita_connections").select("user_id").eq("status", "active");
+    if (error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    const users = Array.from(new Set((conns || []).map((c) => c.user_id).filter(Boolean)));
+    let totalUpdated = 0;
+    let totalScanned = 0;
+    const details: any[] = [];
+    for (const uid of users) {
+      const { updated, scanned, details: d } = (await processUser(uid)) as any;
+      totalUpdated += updated || 0;
+      totalScanned += scanned || 0;
+      details.push({ user_id: uid, updated, scanned, details: (d || []).slice(0, 50) });
+    }
+
+    return new Response(JSON.stringify({ ok: true, users: users.length, updated: totalUpdated, scanned: totalScanned, details }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: "Internal", details: `${err}` }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });
   }
-
-  // utilizatori care au conexiune Qogita
-  const { data: conns, error } = await supabase.from("qogita_connections").select("user_id").eq("status", "active");
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-  const users = Array.from(new Set((conns || []).map((c) => c.user_id).filter(Boolean)));
-  let totalUpdated = 0;
-  let totalScanned = 0;
-  const details: any[] = [];
-  for (const uid of users) {
-    const { updated, scanned, details: d } = (await processUser(uid)) as any;
-    totalUpdated += updated || 0;
-    totalScanned += scanned || 0;
-    details.push({ user_id: uid, updated, scanned, details: (d || []).slice(0, 50) });
-  }
-
-  return new Response(JSON.stringify({ ok: true, users: users.length, updated: totalUpdated, scanned: totalScanned, details }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" }
-  });
 });
