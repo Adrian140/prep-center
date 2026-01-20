@@ -1961,6 +1961,31 @@ createPrepItem: async (requestId, item) => {
       other: sumAmountByExactDate(otherLines, 'service_date', 'units', todayKey)
     };
 
+    const buildDailyAmounts = (rows, dateField, qtyField) => {
+      const map = new Map();
+      rows.forEach((row) => {
+        const dateKey = (row[dateField] || '').slice(0, 10);
+        if (!dateKey) return;
+        const qty = qtyField ? numberOrZero(row[qtyField]) : 1;
+        const val = row.total != null ? numberOrZero(row.total) : numberOrZero(row.unit_price) * qty;
+        map.set(dateKey, (map.get(dateKey) || 0) + val);
+      });
+      const daily = [];
+      const start = new Date(dateFrom);
+      const end = new Date(dateTo);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const key = formatSqlDate(d);
+        daily.push({ date: key, amount: map.get(key) || 0 });
+      }
+      return daily;
+    };
+
+    const financeDailyAmounts = buildDailyAmounts(
+      [...fbaLines, ...fbmLines, ...otherLines],
+      'service_date',
+      'units'
+    );
+
     const balanceValue = balanceRes?.data?.current_balance ?? 0;
 
     const buildSeries = (rows) => {
@@ -2059,7 +2084,8 @@ createPrepItem: async (requestId, item) => {
           amountInvoicedToday: invoicesTodayAmount,
           prepAmounts: financeAmounts,
           prepAmountsToday: financeAmountsToday,
-          prepAmountsTodayAbsolute: financeAmountsTodayAbsolute
+          prepAmountsTodayAbsolute: financeAmountsTodayAbsolute,
+          dailyAmounts: financeDailyAmounts
         },
         returns: {
           pending: returnsRows.filter((r) => ['pending', 'processing'].includes((r.status || '').toLowerCase())).length

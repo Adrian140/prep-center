@@ -195,19 +195,25 @@ export default function AdminCompanyDashboard() {
 
   const preparedDaily = chartSnapshot?.prepared?.dailyUnits || snapshot?.prepared?.dailyUnits || [];
   const receivingDaily = chartSnapshot?.receiving?.dailyUnits || snapshot?.receiving?.dailyUnits || [];
+  const balanceDaily = chartSnapshot?.finance?.dailyAmounts || snapshot?.finance?.dailyAmounts || [];
 
   const chartData = useMemo(() => {
     const map = new Map();
     preparedDaily.forEach((row) => {
-      map.set(row.date, { date: row.date, orders: row.units || 0, receiving: 0 });
+      map.set(row.date, { date: row.date, orders: row.units || 0, receiving: 0, balance: 0 });
     });
     receivingDaily.forEach((row) => {
-      const prev = map.get(row.date) || { date: row.date, orders: 0, receiving: 0 };
+      const prev = map.get(row.date) || { date: row.date, orders: 0, receiving: 0, balance: 0 };
       prev.receiving = row.units || 0;
       map.set(row.date, prev);
     });
+    balanceDaily.forEach((row) => {
+      const prev = map.get(row.date) || { date: row.date, orders: 0, receiving: 0, balance: 0 };
+      prev.balance = row.amount || 0;
+      map.set(row.date, prev);
+    });
     return Array.from(map.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [preparedDaily, receivingDaily]);
+  }, [preparedDaily, receivingDaily, balanceDaily]);
 
   const moneyToday =
     monthFinance?.today ??
@@ -425,6 +431,15 @@ export default function AdminCompanyDashboard() {
                       fillOpacity={0.15}
                       strokeWidth={1.5}
                       name={t('adminDashboard.chartReceiving')}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="balance"
+                      stroke="#f59e0b"
+                      fill="#f59e0b"
+                      fillOpacity={0.15}
+                      strokeWidth={1.5}
+                      name={t('adminDashboard.chartBalance')}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
