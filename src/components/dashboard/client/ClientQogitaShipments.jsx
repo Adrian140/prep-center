@@ -130,6 +130,7 @@ export default function ClientQogitaShipments() {
       const matches = asinMap[line.gtin] || [];
       const match = matches[0] || {};
       const qty = line.shipped_qty ?? line.requested_qty ?? 0;
+      const fallbackSku = line.gtin || '';
       return {
         gtin: line.gtin || '',
         name: line.name || '',
@@ -139,7 +140,7 @@ export default function ClientQogitaShipments() {
         units: qty,
         stock_item_id: match.id || null,
         asin: match.asin || null,
-        sku: match.sku || null,
+        sku: match.sku || fallbackSku || null,
         product_name: match.name || line.name || ''
       };
     });
@@ -166,7 +167,7 @@ export default function ClientQogitaShipments() {
         ean: l.gtin || null,
         product_name: l.product_name || l.name || null,
         asin: l.asin || null,
-        sku: l.sku || null,
+        sku: l.sku || l.gtin || null,
         units_requested: reqMode === 'partial' ? Number(l.units || 0) : Number(l.shipped_qty || l.requested_qty || 0)
       }));
       await supabaseHelpers.createPrepRequest({
