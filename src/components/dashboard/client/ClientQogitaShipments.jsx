@@ -10,11 +10,12 @@ function AsinCell({ matches, onToggle, expanded, t, onSelect }) {
     return <span className="text-text-secondary text-sm">—</span>;
   }
   const primary = matches[0];
+  const rest = matches.slice(1);
   return (
     <div className="text-sm text-text-primary">
       <div className="font-semibold">{primary.asin || '—'}</div>
       {primary.sku && <div className="text-xs text-text-secondary">SKU: {primary.sku}</div>}
-      {matches.length > 1 && (
+      {rest.length > 0 && (
         <button
           onClick={onToggle}
           className="text-[11px] text-primary underline underline-offset-2"
@@ -22,9 +23,9 @@ function AsinCell({ matches, onToggle, expanded, t, onSelect }) {
           {expanded ? t('common.hide', 'Hide') : t('ClientIntegrations.qogita.seeAll', 'see all')}
         </button>
       )}
-      {expanded && matches.length > 1 && (
+      {expanded && rest.length > 0 && (
         <div className="mt-1 border rounded-lg p-2 bg-gray-50 space-y-1">
-          {matches.map((m, idx) => (
+          {rest.map((m, idx) => (
             <div
               key={`${m.asin || 'N/A'}-${idx}`}
               className="text-xs text-text-secondary cursor-pointer hover:text-text-primary"

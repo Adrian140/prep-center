@@ -47,8 +47,8 @@ async function keepaLookupByEan(ean: string, domains: number[]) {
     const resp = await fetch(url);
     results.push({ domain, status: resp.status });
     if (resp.status === 429) {
-      // rate limit, nu mai continuăm pe alte domenii pentru acest EAN
-      return { asins: [], asinImages: {}, domain: null, trace: results, rateLimited: true };
+      // rate limit, notăm și încercăm alte domenii (poate unul e liber)
+      continue;
     }
     if (!resp.ok) {
       continue;
@@ -75,7 +75,9 @@ async function keepaLookupByEan(ean: string, domains: number[]) {
     });
     if (asins.length) return { asins, asinImages, domain, trace: results, rateLimited: false };
   }
-  return { asins: [], asinImages: {}, domain: null, trace: results, rateLimited: false };
+  // dacă toate au returnat 429, marcăm rateLimited
+  const only429 = results.length && results.every((r) => r.status === 429);
+  return { asins: [], asinImages: {}, domain: null, trace: results, rateLimited: only429 };
 }
 
 async function deriveKey(secret: string) {
@@ -226,8 +228,8 @@ async function processUser(userId: string, country?: string) {
       const res = await keepaLookupByEan(ean, domainFallbacks);
       details.push({ ean, asins: res.asins, domain: res.domain, trace: res.trace });
       if (res.rateLimited) {
-        // nu penalizăm, dar oprim procesarea celorlalte EAN-uri în această rulare
-        break;
+        // rate limit: sărim peste acest EAN, încercăm următoarele
+        continue;
       }
       if (!res?.asins?.length) continue;
 
