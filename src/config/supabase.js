@@ -2188,7 +2188,7 @@ createPrepItem: async (requestId, item) => {
 
         const rows = [];
         unitsByCompany.forEach((units, companyId) => {
-          if (units <= 1) return;
+          if (units <= 0) return; // only skip zero/negative stock
           const last = lastRecvByCompany.get(companyId) || null;
           const lastDate = last ? new Date(last) : null;
           const days =
