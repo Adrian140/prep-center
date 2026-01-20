@@ -56,7 +56,11 @@ export default function ClientQogitaShipments() {
       body: { user_id: user.id }
     });
     if (error) {
-      setFlash(error.message || 'Nu am putut încărca livrările Qogita.');
+      const msg =
+        error?.message?.includes('auth_failed')
+          ? t('ClientIntegrations.qogita.authFailed', 'Token expirat/invalid. Te rog reconectează din Integrations.')
+          : error.message || 'Nu am putut încărca livrările Qogita.';
+      setFlash(msg);
       setShipments([]);
     } else {
       setShipments(data?.shipments || []);

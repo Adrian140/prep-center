@@ -720,7 +720,8 @@
         "shipped": "Shipped",
         "requested": "Requested",
         "asin": "ASIN",
-        "seeAll": "see all"
+        "seeAll": "see all",
+        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations."
       }
     },
     "ClientAffiliates": {
@@ -1574,7 +1575,8 @@
         "shipped": "Shipped",
         "requested": "Requested",
         "asin": "ASIN",
-        "seeAll": "see all"
+        "seeAll": "see all",
+        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations."
       }
     },
     "ClientAffiliates": {
@@ -2476,7 +2478,8 @@
         "shipped": "Shipped",
         "requested": "Requested",
         "asin": "ASIN",
-        "seeAll": "see all"
+        "seeAll": "see all",
+        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations."
       }
     },
     "reportsMenu": {
@@ -3248,7 +3251,8 @@
         "shipped": "Shipped",
         "requested": "Requested",
         "asin": "ASIN",
-        "seeAll": "see all"
+        "seeAll": "see all",
+        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations."
       }
     },
     "reportsMenu": {
@@ -4020,7 +4024,8 @@
         "shipped": "Shipped",
         "requested": "Requested",
         "asin": "ASIN",
-        "seeAll": "see all"
+        "seeAll": "see all",
+        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations."
       }
     },
     "reportsMenu": {
@@ -4792,7 +4797,8 @@
         "shipped": "Shipped",
         "requested": "Requested",
         "asin": "ASIN",
-        "seeAll": "see all"
+        "seeAll": "see all",
+        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations."
       }
     },
     "reportsMenu": {

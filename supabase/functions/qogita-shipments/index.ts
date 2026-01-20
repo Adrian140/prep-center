@@ -85,7 +85,10 @@ async function fetchJson(url: string, token: string) {
   });
   if (!resp.ok) {
     const text = await resp.text();
-    throw new Error(`Qogita request failed ${resp.status}: ${text || resp.statusText}`);
+    const err = new Error(`Qogita request failed ${resp.status}: ${text || resp.statusText}`);
+    // @ts-ignore custom status for upstream handling
+    (err as any).status = resp.status;
+    throw err;
   }
   return resp.json();
 }
@@ -158,6 +161,13 @@ async function handleShipments(req: Request) {
 
     return jsonResponse({ shipments });
   } catch (err) {
+    const status = (err as any)?.status || 400;
+    if (status === 401) {
+      return jsonResponse(
+        { error: "auth_failed", message: "Qogita token invalid/expired. Reconnect from Integrations.", details: `${err}` },
+        401
+      );
+    }
     return jsonResponse({ error: "Failed to fetch shipments", details: `${err}` }, 400);
   }
 }
