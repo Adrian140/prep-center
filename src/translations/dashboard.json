@@ -714,7 +714,13 @@
         "listDesc": "We will show imported accounts and last sync details here.",
         "empty": "No Qogita connections yet.",
         "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready.",
-        "expires": "Expires"
+        "expires": "Expires",
+        "tracking": "Tracking",
+        "product": "Product",
+        "shipped": "Shipped",
+        "requested": "Requested",
+        "asin": "ASIN",
+        "seeAll": "see all"
       }
     },
     "ClientAffiliates": {
@@ -800,7 +806,8 @@
     "reportsMenu": {
       "shipments": "Prep-center shipments",
       "receiving": "Recepții prep-center",
-      "returns": "Returns"
+      "returns": "Returns",
+      "qogita": "Qogita"
     },
     "ClientPrepShipments": {
       "title": "Prep-center shipments",
@@ -1561,7 +1568,13 @@
         "listDesc": "We will show imported accounts and last sync details here.",
         "empty": "No Qogita connections yet.",
         "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready.",
-        "expires": "Expires"
+        "expires": "Expires",
+        "tracking": "Tracking",
+        "product": "Product",
+        "shipped": "Shipped",
+        "requested": "Requested",
+        "asin": "ASIN",
+        "seeAll": "see all"
       }
     },
     "ClientAffiliates": {
@@ -1645,7 +1658,8 @@
     "reportsMenu": {
       "shipments": "Expedieri prep-center",
       "receiving": "Recepții prep-center",
-      "returns": "Retururi"
+      "returns": "Retururi",
+      "qogita": "Qogita"
     },
     "ClientPrepShipments": {
       "title": "Expedieri prep-center",
@@ -2456,13 +2470,20 @@
         "listDesc": "We will show imported accounts and last sync details here.",
         "empty": "No Qogita connections yet.",
         "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready.",
-        "expires": "Expires"
+        "expires": "Expires",
+        "tracking": "Tracking",
+        "product": "Product",
+        "shipped": "Shipped",
+        "requested": "Requested",
+        "asin": "ASIN",
+        "seeAll": "see all"
       }
     },
     "reportsMenu": {
       "shipments": "Expéditions prep-center",
       "receiving": "Réceptions prep-center",
-      "returns": "Retours"
+      "returns": "Retours",
+      "qogita": "Qogita"
     },
     "ClientPrepShipments": {
       "title": "Expéditions prep-center",
@@ -3221,13 +3242,20 @@
         "listDesc": "We will show imported accounts and last sync details here.",
         "empty": "No Qogita connections yet.",
         "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready.",
-        "expires": "Expires"
+        "expires": "Expires",
+        "tracking": "Tracking",
+        "product": "Product",
+        "shipped": "Shipped",
+        "requested": "Requested",
+        "asin": "ASIN",
+        "seeAll": "see all"
       }
     },
     "reportsMenu": {
       "shipments": "Prep-Center Sendungen",
       "receiving": "Prep-Center Wareneingang",
-      "returns": "Retouren"
+      "returns": "Retouren",
+      "qogita": "Qogita"
     },
     "ClientPrepShipments": {
       "title": "Prep-Center Sendungen",
@@ -3986,13 +4014,20 @@
         "listDesc": "We will show imported accounts and last sync details here.",
         "empty": "No Qogita connections yet.",
         "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready.",
-        "expires": "Expires"
+        "expires": "Expires",
+        "tracking": "Tracking",
+        "product": "Product",
+        "shipped": "Shipped",
+        "requested": "Requested",
+        "asin": "ASIN",
+        "seeAll": "see all"
       }
     },
     "reportsMenu": {
       "shipments": "Spedizioni prep-center",
       "receiving": "Ricezioni prep-center",
-      "returns": "Resi"
+      "returns": "Resi",
+      "qogita": "Qogita"
     },
     "ClientPrepShipments": {
       "title": "Spedizioni prep-center",
@@ -4751,13 +4786,20 @@
         "listDesc": "We will show imported accounts and last sync details here.",
         "empty": "No Qogita connections yet.",
         "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready.",
-        "expires": "Expires"
+        "expires": "Expires",
+        "tracking": "Tracking",
+        "product": "Product",
+        "shipped": "Shipped",
+        "requested": "Requested",
+        "asin": "ASIN",
+        "seeAll": "see all"
       }
     },
     "reportsMenu": {
       "shipments": "Envíos del prep-center",
       "receiving": "Recepciones del prep-center",
-      "returns": "Devoluciones"
+      "returns": "Devoluciones",
+      "qogita": "Qogita"
     },
     "ClientPrepShipments": {
       "title": "Envíos del prep-center",

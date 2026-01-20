@@ -37,11 +37,13 @@ import ClientDealsPopover from './client/ClientDealsPopover';
 import ClientBalanceBar from './client/ClientBalanceBar';
 import ClientAffiliates from './client/ClientAffiliates';
 import ClientBoxEstimator from './client/ClientBoxEstimator';
+import ClientQogitaShipments from './client/ClientQogitaShipments';
 import { tabSessionStorage } from '@/utils/tabStorage';
 import { supabaseHelpers } from '@/config/supabase';
+import { supabase } from '@/config/supabase';
 import { Star, X } from 'lucide-react';
 
-const REPORT_TABS = [
+const BASE_REPORT_TABS = [
   { id: 'reports-shipments', labelKey: 'reportsMenu.shipments', icon: Package },
   { id: 'reports-receiving', labelKey: 'reportsMenu.receiving', icon: Truck },
   { id: 'reports-returns', labelKey: 'reportsMenu.returns', icon: RotateCcw }
@@ -51,6 +53,17 @@ function SupabaseDashboard() {
   const { t } = useDashboardTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const [hasQogita, setHasQogita] = useState(false);
+  const reportTabs = useMemo(
+    () =>
+      hasQogita
+        ? [
+            ...BASE_REPORT_TABS,
+            { id: 'reports-qogita', labelKey: 'reportsMenu.qogita', icon: Link2 }
+          ]
+        : BASE_REPORT_TABS,
+    [hasQogita]
+  );
 
   const validTabs = [
     'activity',
@@ -63,7 +76,7 @@ function SupabaseDashboard() {
     'affiliates',
     'security',
     'settings',
-    ...REPORT_TABS.map((rt) => rt.id)
+    ...reportTabs.map((rt) => rt.id)
   ];
 
   const normalizeTab = (tab) => {
@@ -88,9 +101,7 @@ function SupabaseDashboard() {
     if (initialTab && validTabs.includes(initialTab)) return initialTab;
     return validTabs.includes(saved) ? saved : 'activity';
   });
-  const [reportsOpen, setReportsOpen] = useState(() =>
-    REPORT_TABS.some((rt) => rt.id === activeTab)
-  );
+  const [reportsOpen, setReportsOpen] = useState(false);
 
 useEffect(() => {
   try {
@@ -105,10 +116,10 @@ useEffect(() => {
 }, [activeTab, location.search, navigate]);
 
 useEffect(() => {
-  if (REPORT_TABS.some((rt) => rt.id === activeTab)) {
+  if (reportTabs.some((rt) => rt.id === activeTab)) {
     setReportsOpen(true);
   }
-}, [activeTab]);
+}, [activeTab, reportTabs]);
 
   const { user, profile } = useSupabaseAuth();
   const isLimitedAdmin = Boolean(profile?.is_limited_admin);
@@ -118,6 +129,34 @@ useEffect(() => {
       setActiveTab('activity');
     }
   }, [isLimitedAdmin, activeTab]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadQogita = async () => {
+      if (!user?.id) {
+        setHasQogita(false);
+        return;
+      }
+      const { data } = await supabase
+        .from('qogita_connections')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle();
+      if (cancelled) return;
+      setHasQogita(!!data);
+    };
+    loadQogita();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (activeTab === 'reports-qogita' && !hasQogita) {
+      setActiveTab('activity');
+    }
+  }, [activeTab, hasQogita]);
 
   const companyId = profile?.company_id;
   const [reviewPrompt, setReviewPrompt] = useState({
@@ -260,6 +299,7 @@ const renderTabContent = useMemo(() => {
     case 'exports':   return <ClientExports />;
     case 'box-estimator': return <ClientBoxEstimator />;
     case 'reports-shipments': return <ClientPrepShipments />;
+    case 'reports-qogita': return <ClientQogitaShipments />;
     case 'reports-receiving': return <ClientReceiving />;
     case 'reports-returns': return <ClientReturns />;
 
@@ -349,7 +389,7 @@ const renderTabContent = useMemo(() => {
                               </button>
                               {reportsOpen && (
                                 <div className="mt-2 space-y-1.5 pl-5">
-                                  {REPORT_TABS.map((reportTab) => (
+                                  {reportTabs.map((reportTab) => (
                                     <button
                                       key={reportTab.id}
                                       onClick={() => setActiveTab(reportTab.id)}
