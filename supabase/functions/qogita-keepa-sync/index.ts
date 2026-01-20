@@ -36,34 +36,46 @@ const normalizeEan = (ean: string) => {
   return ean.trim();
 };
 
+type KeepaProduct = { asin?: string | null; title?: string | null; imagesCSV?: string | null; images?: any[] | null };
+
 async function keepaLookupByEan(ean: string, domains: number[]) {
-  const results = [];
+  const results: any[] = [];
   for (const domain of domains) {
     const url = `https://api.keepa.com/product?key=${KEEPA_API_KEY}&domain=${domain}&code=${encodeURIComponent(
       ean
     )}&history=0&stats=0`;
     const resp = await fetch(url);
     results.push({ domain, status: resp.status });
+    if (resp.status === 429) {
+      // rate limit, nu mai continuăm pe alte domenii pentru acest EAN
+      return { asins: [], asinImages: {}, domain: null, trace: results, rateLimited: true };
+    }
     if (!resp.ok) {
       continue;
     }
     const payload = await resp.json();
-    const product = payload?.products?.[0];
-    if (!product) continue;
-    const asin = product.asin || product.asinList?.[0] || null;
-    const title = product.title || null;
-    let image: string | null = null;
-    if (typeof product.imagesCSV === "string" && product.imagesCSV.length) {
-      const first = product.imagesCSV.split(",")[0];
-      image = buildImageUrl(first);
-    } else if (Array.isArray(product.images) && product.images.length) {
-      const first = product.images[0];
-      const imgId = typeof first === "string" ? first : first?.l || first?.m || null;
-      image = buildImageUrl(imgId);
-    }
-    if (asin) return { asin, title, image, domain, trace: results };
+    const products: KeepaProduct[] = payload?.products || [];
+    if (!products.length) continue;
+    const asins: string[] = [];
+    const asinImages: Record<string, string | null> = {};
+    products.forEach((product) => {
+      const asin = product.asin || product.asinList?.[0] || null;
+      if (!asin) return;
+      if (!asins.includes(asin)) asins.push(asin);
+      let image: string | null = null;
+      if (typeof product.imagesCSV === "string" && product.imagesCSV.length) {
+        const first = product.imagesCSV.split(",")[0];
+        image = buildImageUrl(first);
+      } else if (Array.isArray(product.images) && product.images.length) {
+        const first = product.images[0];
+        const imgId = typeof first === "string" ? first : first?.l || first?.m || null;
+        image = buildImageUrl(imgId);
+      }
+      if (image) asinImages[asin] = image;
+    });
+    if (asins.length) return { asins, asinImages, domain, trace: results, rateLimited: false };
   }
-  return { asin: null, title: null, image: null, domain: null, trace: results };
+  return { asins: [], asinImages: {}, domain: null, trace: results, rateLimited: false };
 }
 
 async function deriveKey(secret: string) {
@@ -212,22 +224,41 @@ async function processUser(userId: string, country?: string) {
     const ean = normalizeEan(rawEan);
     try {
       const res = await keepaLookupByEan(ean, domainFallbacks);
-      details.push({ ean, asin: res.asin, domain: res.domain, trace: res.trace });
-      if (!res?.asin) continue;
-      await supabase.from("asin_eans").upsert(
-        {
-          user_id: userId,
-          company_id: null,
-          asin: res.asin,
-          ean
-        },
-        { onConflict: "user_id,asin,ean" }
-      );
+      details.push({ ean, asins: res.asins, domain: res.domain, trace: res.trace });
+      if (res.rateLimited) {
+        // nu penalizăm, dar oprim procesarea celorlalte EAN-uri în această rulare
+        break;
+      }
+      if (!res?.asins?.length) continue;
+
+      // insert all ASINs mapped to EAN
+      const rows = res.asins.map((asin) => ({
+        user_id: userId,
+        company_id: null,
+        asin,
+        ean
+      }));
+      await supabase.from("asin_eans").upsert(rows, { onConflict: "user_id,asin,ean" });
+
+      // prefer asin deja existent in stock, altfel primul
+      let preferred = res.asins[0];
+      const { data: stockAsin } = await supabase
+        .from("stock_items")
+        .select("asin, image_url")
+        .in("asin", res.asins)
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle();
+      if (stockAsin?.asin) preferred = stockAsin.asin;
+
+      const preferredImage =
+        stockAsin?.image_url || res.asinImages?.[preferred] || res.asinImages?.[res.asins[0]] || null;
+
       await supabase
         .from("stock_items")
         .update({
-          asin: res.asin,
-          image_url: res.image || null
+          asin: preferred,
+          image_url: preferredImage || null
         })
         .eq("user_id", userId)
         .eq("ean", rawEan);
