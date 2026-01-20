@@ -110,6 +110,14 @@ export default function ClientQogitaShipments() {
 
   const shipmentsWithLines = useMemo(() => shipments || [], [shipments]);
 
+  const handleCreateRequest = (ship) => {
+    // Placeholder până legăm cu fluxul de prep requests.
+    setFlash(
+      t('ClientIntegrations.qogita.createRequestPending', 'Request flow pentru Qogita va fi conectat în curând.')
+    );
+    console.debug('Create request (todo) for shipment', ship);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -168,6 +176,12 @@ export default function ClientQogitaShipments() {
                     ))}
                   </div>
                 ) : null}
+                <button
+                  onClick={() => handleCreateRequest(ship)}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-primary text-primary hover:bg-primary hover:text-white transition-colors"
+                >
+                  {t('ClientIntegrations.qogita.createRequest', 'Create request')}
+                </button>
               </div>
 
               <div className="overflow-x-auto">

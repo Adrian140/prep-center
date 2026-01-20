@@ -721,7 +721,9 @@
         "requested": "Requested",
         "asin": "ASIN",
         "seeAll": "see all",
-        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations."
+        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations.",
+        "createRequest": "Create request",
+        "createRequestPending": "Request flow for Qogita will be connected soon."
       }
     },
     "ClientAffiliates": {
@@ -1576,7 +1578,9 @@
         "requested": "Requested",
         "asin": "ASIN",
         "seeAll": "see all",
-        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations."
+        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations.",
+        "createRequest": "Create request",
+        "createRequestPending": "Request flow for Qogita will be connected soon."
       }
     },
     "ClientAffiliates": {
@@ -2479,7 +2483,9 @@
         "requested": "Requested",
         "asin": "ASIN",
         "seeAll": "see all",
-        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations."
+        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations.",
+        "createRequest": "Create request",
+        "createRequestPending": "Request flow for Qogita will be connected soon."
       }
     },
     "reportsMenu": {
@@ -3252,7 +3258,9 @@
         "requested": "Requested",
         "asin": "ASIN",
         "seeAll": "see all",
-        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations."
+        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations.",
+        "createRequest": "Create request",
+        "createRequestPending": "Request flow for Qogita will be connected soon."
       }
     },
     "reportsMenu": {
@@ -4025,7 +4033,9 @@
         "requested": "Requested",
         "asin": "ASIN",
         "seeAll": "see all",
-        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations."
+        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations.",
+        "createRequest": "Create request",
+        "createRequestPending": "Request flow for Qogita will be connected soon."
       }
     },
     "reportsMenu": {
@@ -4798,7 +4808,9 @@
         "requested": "Requested",
         "asin": "ASIN",
         "seeAll": "see all",
-        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations."
+        "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations.",
+        "createRequest": "Create request",
+        "createRequestPending": "Request flow for Qogita will be connected soon."
       }
     },
     "reportsMenu": {
