@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link2, ExternalLink, CheckCircle, AlertTriangle, Loader2, RefreshCw, Unplug } from 'lucide-react';
+import { Link2, ExternalLink, CheckCircle, AlertTriangle, Loader2, RefreshCw, Unplug, Lock } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
@@ -122,14 +122,15 @@ export default function ClientIntegrations() {
   const [flash, setFlash] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [qogitaFlash, setQogitaFlash] = useState('');
+  const [showQogitaModal, setShowQogitaModal] = useState(false);
+  const [qogitaEmail, setQogitaEmail] = useState('');
+  const [qogitaPassword, setQogitaPassword] = useState('');
+  const [qogitaLoading, setQogitaLoading] = useState(false);
 
   const clientId = import.meta.env.VITE_SPAPI_CLIENT_ID || '';
   const applicationId = import.meta.env.VITE_AMZ_APP_ID || clientId || '';
   const redirectUri =
     import.meta.env.VITE_SPAPI_REDIRECT_URI || `${window.location.origin}/auth/amazon/callback`;
-  const qogitaApiKey = import.meta.env.VITE_QOGITA_API_KEY || '';
-  const qogitaBaseUrl =
-    import.meta.env.VITE_QOGITA_BASE_URL || import.meta.env.VITE_QOGITA_API_BASE || 'https://api.qogita.com';
 
   const statePayload = useMemo(() => {
     if (!user?.id) return '';
@@ -242,13 +243,34 @@ export default function ClientIntegrations() {
   };
 
   const handleQogitaConnect = () => {
-    setQogitaFlash(t('ClientIntegrations.qogita.comingSoon'));
+    setQogitaFlash('');
+    setShowQogitaModal(true);
   };
 
-  const qogitaReady = Boolean(qogitaApiKey);
+  const submitQogitaConnect = async () => {
+    if (!qogitaEmail || !qogitaPassword) {
+      setQogitaFlash(t('ClientIntegrations.qogita.error'));
+      return;
+    }
+    setQogitaLoading(true);
+    setQogitaFlash('');
+    const { error, data } = await supabase.functions.invoke('qogita-connect', {
+      body: { email: qogitaEmail, password: qogitaPassword, user_id: user?.id }
+    });
+    if (error) {
+      setQogitaFlash(`${t('ClientIntegrations.qogita.error')} ${error.message || ''}`.trim());
+    } else {
+      setQogitaFlash(t('ClientIntegrations.qogita.success'));
+      setShowQogitaModal(false);
+      setQogitaEmail('');
+      setQogitaPassword('');
+      console.debug('Qogita connect response', data);
+    }
+    setQogitaLoading(false);
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       <header className="flex items-center gap-3">
         <div className="p-2 rounded-full bg-primary/10 text-primary">
           <Link2 className="w-5 h-5" />
@@ -388,22 +410,10 @@ export default function ClientIntegrations() {
             <h2 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.qogita.title')}</h2>
             <p className="text-sm text-text-secondary">{t('ClientIntegrations.qogita.desc')}</p>
           </div>
-          <button
-            onClick={handleQogitaConnect}
-            disabled={!qogitaReady}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
-          >
+          <button onClick={handleQogitaConnect} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white">
             <ExternalLink className="w-4 h-4" /> {t('ClientIntegrations.qogita.connect')}
           </button>
         </div>
-        {!qogitaReady && (
-          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
-            {tp('ClientIntegrations.qogita.notice', {
-              apiKey: 'VITE_QOGITA_API_KEY',
-              baseUrl: qogitaBaseUrl || 'https://api.qogita.com'
-            })}
-          </div>
-        )}
         {qogitaFlash && (
           <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-sm">{qogitaFlash}</div>
         )}
@@ -417,6 +427,62 @@ export default function ClientIntegrations() {
           <div className="text-sm text-text-secondary">{t('ClientIntegrations.qogita.empty')}</div>
         </div>
       </section>
+
+      {showQogitaModal && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Lock className="w-5 h-5 text-primary" />
+              <div>
+                <h3 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.qogita.modalTitle')}</h3>
+                <p className="text-sm text-text-secondary">{t('ClientIntegrations.qogita.modalDesc')}</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm text-text-secondary">{t('ClientIntegrations.qogita.emailLabel')}</span>
+                <input
+                  type="email"
+                  value={qogitaEmail}
+                  onChange={(e) => setQogitaEmail(e.target.value)}
+                  className="border rounded-lg px-3 py-2"
+                  placeholder="you@example.com"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm text-text-secondary">{t('ClientIntegrations.qogita.passwordLabel')}</span>
+                <input
+                  type="password"
+                  value={qogitaPassword}
+                  onChange={(e) => setQogitaPassword(e.target.value)}
+                  className="border rounded-lg px-3 py-2"
+                  placeholder="••••••••"
+                />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setShowQogitaModal(false);
+                  setQogitaEmail('');
+                  setQogitaPassword('');
+                }}
+                className="px-4 py-2 rounded-lg border text-sm"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={submitQogitaConnect}
+                disabled={qogitaLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+              >
+                {qogitaLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {qogitaLoading ? t('ClientIntegrations.qogita.submitting') : t('ClientIntegrations.qogita.submit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
