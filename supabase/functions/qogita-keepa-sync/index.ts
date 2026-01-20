@@ -39,9 +39,9 @@ const normalizeEan = (ean: string) => {
 async function keepaLookupByEan(ean: string, domains: number[]) {
   const results = [];
   for (const domain of domains) {
-    const url = `https://api.keepa.com/query?key=${KEEPA_API_KEY}&domain=${domain}&type=product&code=${encodeURIComponent(
+    const url = `https://api.keepa.com/product?key=${KEEPA_API_KEY}&domain=${domain}&code=${encodeURIComponent(
       ean
-    )}&history=0`;
+    )}&history=0&stats=0`;
     const resp = await fetch(url);
     results.push({ domain, status: resp.status });
     if (!resp.ok) {
