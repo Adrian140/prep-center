@@ -2150,7 +2150,64 @@ createPrepItem: async (requestId, item) => {
   getInventoryStaleness: async () => {
     try {
       const { data, error } = await supabase.rpc('get_inventory_staleness');
-      return { data: Array.isArray(data) ? data : [], error };
+      if (!error) return { data: Array.isArray(data) ? data : [], error: null };
+
+      // Fallback dacă funcția nu există în schema cache
+      if (String(error?.message || '').toLowerCase().includes('get_inventory_staleness')) {
+        const [companiesRes, stockRes, recvRes] = await Promise.all([
+          supabase.from('companies').select('id,name').limit(1000),
+          supabase.from('stock_items').select('company_id, qty').limit(50000),
+          supabase
+            .from('receiving_shipments')
+            .select('company_id, processed_at, received_at, submitted_at, created_at')
+            .limit(20000)
+        ]);
+
+        const companies = Array.isArray(companiesRes.data) ? companiesRes.data : [];
+        const stockRows = Array.isArray(stockRes.data) ? stockRes.data : [];
+        const recvRows = Array.isArray(recvRes.data) ? recvRes.data : [];
+
+        const nameById = new Map(companies.map((c) => [c.id, c.name]));
+        const unitsByCompany = new Map();
+        stockRows.forEach((row) => {
+          if (!row?.company_id) return;
+          const qty = Number(row.qty) || 0;
+          if (qty <= 0) return;
+          unitsByCompany.set(row.company_id, (unitsByCompany.get(row.company_id) || 0) + qty);
+        });
+        const lastRecvByCompany = new Map();
+        recvRows.forEach((row) => {
+          if (!row?.company_id) return;
+          const d = row.processed_at || row.received_at || row.submitted_at || row.created_at;
+          if (!d) return;
+          const prev = lastRecvByCompany.get(row.company_id);
+          if (!prev || new Date(d) > new Date(prev)) {
+            lastRecvByCompany.set(row.company_id, d);
+          }
+        });
+
+        const rows = [];
+        unitsByCompany.forEach((units, companyId) => {
+          if (units <= 1) return;
+          const last = lastRecvByCompany.get(companyId) || null;
+          const lastDate = last ? new Date(last) : null;
+          const days =
+            lastDate != null
+              ? Math.floor((new Date().setHours(0, 0, 0, 0) - lastDate.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24))
+              : null;
+          rows.push({
+            company_id: companyId,
+            company_name: nameById.get(companyId) || companyId,
+            units_in_stock: units,
+            last_receiving_date: lastDate ? lastDate.toISOString().slice(0, 10) : null,
+            days_since_last_receiving: days
+          });
+        });
+
+        return { data: rows, error: null };
+      }
+
+      return { data: [], error };
     } catch (e) {
       return { data: [], error: e };
     }
