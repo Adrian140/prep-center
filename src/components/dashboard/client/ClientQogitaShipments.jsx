@@ -315,9 +315,23 @@ export default function ClientQogitaShipments() {
                       return (
                         <tr key={`${line.gtin || 'line'}-${idx}`}>
                           <td className="py-2 pr-3 align-top">
-                            <div className="flex flex-col">
-                              <span className="font-medium text-text-primary text-sm">{line.name || '—'}</span>
-                              <span className="text-xs text-text-secondary">GTIN: {line.gtin || '—'}</span>
+                            <div className="flex items-start gap-2">
+                              {matches[0]?.image_url ? (
+                                <img
+                                  src={matches[0].image_url}
+                                  alt={line.name || 'img'}
+                                  className="w-10 h-10 rounded object-cover border"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded border bg-gray-50 flex items-center justify-center text-[10px] text-text-secondary">
+                                  —
+                                </div>
+                              )}
+                              <div className="flex flex-col">
+                                <span className="font-medium text-text-primary text-sm">{line.name || '—'}</span>
+                                <span className="text-xs text-text-secondary">GTIN: {line.gtin || '—'}</span>
+                              </div>
                             </div>
                           </td>
                           <td className="py-2 pr-3 align-top">{line.shipped_qty ?? '—'}</td>
