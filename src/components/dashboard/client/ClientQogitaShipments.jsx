@@ -10,7 +10,9 @@ function AsinCell({ matches, onToggle, expanded, t, onSelect }) {
     return <span className="text-text-secondary text-sm">—</span>;
   }
   const primary = matches[0];
-  const rest = matches.slice(1);
+  const rest = matches
+    .slice(1)
+    .filter((m) => !(m.asin === primary.asin && m.sku === primary.sku));
   return (
     <div className="text-sm text-text-primary">
       <div className="font-semibold">{primary.asin || '—'}</div>
@@ -175,6 +177,18 @@ export default function ClientQogitaShipments() {
       const filtered = current.filter((m) => m.asin !== match.asin);
       return { ...prev, [gtin]: [match, ...filtered] };
     });
+    // sincronizează și liniile din modal, dacă e deschis
+    setReqLines((prev) =>
+      prev.map((l) =>
+        l.gtin === gtin
+          ? {
+              ...l,
+              asin: match.asin || l.asin,
+              sku: match.sku || l.sku
+            }
+          : l
+      )
+    );
   };
 
   const fetchKeepaForLine = async (gtin) => {
