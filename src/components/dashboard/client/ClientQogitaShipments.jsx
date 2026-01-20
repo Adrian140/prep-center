@@ -174,7 +174,7 @@ export default function ClientQogitaShipments() {
     if (!gtin || !match) return;
     setAsinMap((prev) => {
       const current = prev[gtin] || [];
-      const filtered = current.filter((m) => m.asin !== match.asin);
+      const filtered = current.filter((m) => !(m.asin === match.asin && m.sku === match.sku));
       return { ...prev, [gtin]: [match, ...filtered] };
     });
     // sincronizează și liniile din modal, dacă e deschis
