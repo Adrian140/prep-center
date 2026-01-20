@@ -148,7 +148,7 @@ export default function ClientQogitaShipments() {
                   </div>
                   <div className="text-xs text-text-secondary">
                     {ship.seller ? `${ship.seller}` : ''}
-                    {ship.order_qid ? ` · Order ${ship.order_qid}` : ''}
+                    {ship.order_qid ? ` · Order ${ship.fid || ship.order_qid}` : ''}
                   </div>
                 </div>
                 {ship.tracking_links?.length ? (
