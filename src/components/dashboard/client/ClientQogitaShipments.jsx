@@ -10,10 +10,21 @@ function AsinCell({ matches, onToggle, expanded, t }) {
     return <span className="text-text-secondary text-sm">—</span>;
   }
   const primary = matches[0];
+  const thumb = primary.image_url || null;
   return (
-    <div className="text-sm text-text-primary">
-      <div className="font-semibold">{primary.asin || '—'}</div>
-      {primary.sku && <div className="text-xs text-text-secondary">SKU: {primary.sku}</div>}
+    <div className="text-sm text-text-primary flex items-start gap-2">
+      {thumb && (
+        <img
+          src={thumb}
+          alt={primary.asin || 'thumb'}
+          className="w-10 h-10 rounded object-cover border"
+          loading="lazy"
+        />
+      )}
+      <div>
+        <div className="font-semibold">{primary.asin || '—'}</div>
+        {primary.sku && <div className="text-xs text-text-secondary">SKU: {primary.sku}</div>}
+      </div>
       {matches.length > 1 && (
         <button
           onClick={onToggle}
