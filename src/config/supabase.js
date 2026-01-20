@@ -1552,6 +1552,23 @@ createPrepItem: async (requestId, item) => {
       const start = new Date(end);
       start.setDate(start.getDate() - (days - 1));
 
+      // Prefer server-side aggregation (admin-only RPC). Falls back to client aggregation if RPC fails.
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('get_analytics_admin', { p_days: days });
+        if (!rpcError && rpcData) {
+          const payload = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
+          return {
+            byDay: payload?.byDay || [],
+            topPaths: payload?.topPaths || [],
+            topReferrers: payload?.topReferrers || [],
+            totals: payload?.totals || {},
+            error: null
+          };
+        }
+      } catch (err) {
+        console.warn('get_analytics_admin rpc failed, falling back to client aggregation', err);
+      }
+
       const { data, error, count } = await supabase
         .from('analytics_visits')
         .select('id, created_at, path, referrer, visitor_id', { count: 'exact' })
