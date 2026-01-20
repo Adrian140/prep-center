@@ -155,6 +155,12 @@ export default function ClientQogitaShipments() {
     setReqSubmitting(true);
     setReqFlash('');
     try {
+      const invalid = reqLines.find((l) => (!l.asin && !l.sku) || Number(l.units || 0) <= 0);
+      if (invalid) {
+        setReqFlash(t('ClientIntegrations.qogita.missingIdentifiers', 'Adaugă ASIN sau SKU și unități > 0 pentru fiecare linie.'));
+        setReqSubmitting(false);
+        return;
+      }
       const items = reqLines.map((l) => ({
         stock_item_id: l.stock_item_id,
         ean: l.gtin || null,
@@ -169,7 +175,7 @@ export default function ClientQogitaShipments() {
         destination_country: reqDestination,
         items
       });
-      setReqFlash(t('ClientIntegrations.qogita.requestCreated', 'Request created. Vezi în Prep Shipments.'));
+      setReqFlash(t('ClientIntegrations.qogita.requestCreated', 'Request confirmed. Vezi în Prep Shipments.'));
       setTimeout(() => {
         setReqModal(null);
       }, 800);
