@@ -723,7 +723,11 @@
         "seeAll": "see all",
         "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations.",
         "createRequest": "Create request",
-        "createRequestPending": "Request flow for Qogita will be connected soon."
+        "createRequestPending": "Request flow for Qogita will be connected soon.",
+        "modeNone": "Do not send now",
+        "modeFull": "Send all units to Amazon",
+        "modePartial": "Partial shipment",
+        "requestCreated": "Request created. Check Prep Shipments."
       }
     },
     "ClientAffiliates": {
@@ -1580,7 +1584,11 @@
         "seeAll": "see all",
         "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations.",
         "createRequest": "Create request",
-        "createRequestPending": "Request flow for Qogita will be connected soon."
+        "createRequestPending": "Request flow for Qogita will be connected soon.",
+        "modeNone": "Do not send now",
+        "modeFull": "Send all units to Amazon",
+        "modePartial": "Partial shipment",
+        "requestCreated": "Request created. Check Prep Shipments."
       }
     },
     "ClientAffiliates": {
@@ -2485,7 +2493,11 @@
         "seeAll": "see all",
         "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations.",
         "createRequest": "Create request",
-        "createRequestPending": "Request flow for Qogita will be connected soon."
+        "createRequestPending": "Request flow for Qogita will be connected soon.",
+        "modeNone": "Do not send now",
+        "modeFull": "Send all units to Amazon",
+        "modePartial": "Partial shipment",
+        "requestCreated": "Request created. Check Prep Shipments."
       }
     },
     "reportsMenu": {
@@ -3260,7 +3272,11 @@
         "seeAll": "see all",
         "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations.",
         "createRequest": "Create request",
-        "createRequestPending": "Request flow for Qogita will be connected soon."
+        "createRequestPending": "Request flow for Qogita will be connected soon.",
+        "modeNone": "Do not send now",
+        "modeFull": "Send all units to Amazon",
+        "modePartial": "Partial shipment",
+        "requestCreated": "Request created. Check Prep Shipments."
       }
     },
     "reportsMenu": {
@@ -4035,7 +4051,11 @@
         "seeAll": "see all",
         "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations.",
         "createRequest": "Create request",
-        "createRequestPending": "Request flow for Qogita will be connected soon."
+        "createRequestPending": "Request flow for Qogita will be connected soon.",
+        "modeNone": "Do not send now",
+        "modeFull": "Send all units to Amazon",
+        "modePartial": "Partial shipment",
+        "requestCreated": "Request created. Check Prep Shipments."
       }
     },
     "reportsMenu": {
@@ -4810,7 +4830,11 @@
         "seeAll": "see all",
         "authFailed": "Token expirat/invalid. Te rog reconectează din Integrations.",
         "createRequest": "Create request",
-        "createRequestPending": "Request flow for Qogita will be connected soon."
+        "createRequestPending": "Request flow for Qogita will be connected soon.",
+        "modeNone": "Do not send now",
+        "modeFull": "Send all units to Amazon",
+        "modePartial": "Partial shipment",
+        "requestCreated": "Request created. Check Prep Shipments."
       }
     },
     "reportsMenu": {
