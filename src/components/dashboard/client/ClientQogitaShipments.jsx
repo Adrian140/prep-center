@@ -19,7 +19,7 @@ function AsinCell({ matches, onToggle, expanded, t, onSelect, gtin, onStartEdit 
         {primary.asin || '—'}
         <button
           className="text-[11px] text-primary underline underline-offset-2"
-          onClick={() => onStartEdit?.(gtin, primary.asin || '')}
+          onClick={() => onStartEdit?.(gtin)}
         >
           Edit
         </button>
@@ -489,8 +489,8 @@ export default function ClientQogitaShipments() {
                               t={t}
                               onSelect={(m) => setPrimaryAsin(line.gtin, m)}
                               gtin={line.gtin}
-                              onStartEdit={(gtin, val) =>
-                                setEditAsin({ gtin, value: val, saving: false, error: '' })
+                              onStartEdit={(gtin) =>
+                                setEditAsin({ gtin, value: '', saving: false, error: '' })
                               }
                             />
                             {!matches.length && line.gtin && (
