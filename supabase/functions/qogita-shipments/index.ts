@@ -19,6 +19,9 @@ type LoginResponse = {
   access?: string;
   access_token?: string;
   token?: string;
+  expires_at?: string | null;
+  access_expires_at?: string | null;
+  accessExp?: number | null;
 };
 
 type OrderSummary = {
@@ -63,17 +66,36 @@ async function decryptToken(encrypted: string) {
   return new TextDecoder().decode(plain);
 }
 
+async function encryptToken(token: string) {
+  const key = await deriveKey(QOGITA_ENC_KEY);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(token);
+  const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(cipher)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  const ivB64 = btoa(String.fromCharCode(...iv))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  return `${ivB64}.${base64}`;
+}
+
 async function getTokenForUser(userId: string) {
   const { data, error } = await supabase
     .from("qogita_connections")
-    .select("access_token_encrypted")
+    .select("access_token_encrypted, refresh_token_encrypted")
     .eq("user_id", userId)
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw error;
   if (!data?.access_token_encrypted) throw new Error("No Qogita connection found.");
-  return decryptToken(data.access_token_encrypted);
+  return {
+    access: await decryptToken(data.access_token_encrypted),
+    refresh: data.refresh_token_encrypted ? await decryptToken(data.refresh_token_encrypted) : null
+  };
 }
 
 async function fetchJson(url: string, token: string) {
@@ -93,6 +115,43 @@ async function fetchJson(url: string, token: string) {
   return resp.json();
 }
 
+async function refreshAccessToken(refreshToken: string | null) {
+  if (!refreshToken) throw new Error("Missing refresh token");
+  const resp = await fetch(`${QOGITA_API_URL}/auth/refresh/`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Cookie: `Refresh-Token=${refreshToken}`
+    }
+  });
+  if (!resp.ok) {
+    const txt = await resp.text();
+    const err = new Error(`Qogita refresh failed ${resp.status}: ${txt || resp.statusText}`);
+    // @ts-ignore
+    (err as any).status = resp.status;
+    throw err;
+  }
+  const data = (await resp.json()) as LoginResponse;
+  const token =
+    data.accessToken ||
+    data.access ||
+    data.access_token ||
+    data.token ||
+    null;
+  if (!token) {
+    const err = new Error("Qogita refresh did not return access token");
+    // @ts-ignore
+    (err as any).status = 401;
+    throw err;
+  }
+  const expiresAt =
+    (typeof data.accessExp === "number" ? new Date(data.accessExp).toISOString() : null) ||
+    data.expires_at ||
+    data.access_expires_at ||
+    null;
+  return { token, expiresAt };
+}
+
 async function handleShipments(req: Request) {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
@@ -109,27 +168,69 @@ async function handleShipments(req: Request) {
   if (!userId) return jsonResponse({ error: "Missing user_id" }, 400);
 
   try {
-    const token = await getTokenForUser(userId);
-    const ordersData = (await fetchJson(`${QOGITA_API_URL}/orders/?size=${pageSize}`, token)) as {
-      results?: OrderSummary[];
-    };
-    const orders = ordersData?.results || [];
+    const { access, refresh } = await getTokenForUser(userId);
+    let token = access;
+
+    const fetchOrders = async (tok: string) =>
+      (await fetchJson(`${QOGITA_API_URL}/orders/?size=${pageSize}`, tok)) as { results?: OrderSummary[] };
+
+    let ordersData;
+    try {
+      ordersData = await fetchOrders(token);
+    } catch (err) {
+      if ((err as any)?.status === 401 && refresh) {
+        const refreshed = await refreshAccessToken(refresh);
+        token = refreshed.token;
+        await supabase
+          .from("qogita_connections")
+          .update({
+            access_token_encrypted: await encryptToken(token),
+            expires_at: refreshed.expiresAt
+          })
+          .eq("user_id", userId);
+        ordersData = await fetchOrders(token);
+      } else {
+        throw err;
+      }
+    }
+
+    const orders = (ordersData as { results?: OrderSummary[] })?.results || [];
 
     const shipments: Record<string, unknown>[] = [];
 
-    for (const order of orders) {
-      const orderQid = (order as Record<string, unknown>).qid as string | undefined;
-      if (!orderQid) continue;
-      let sales: any[] = [];
+    const fetchSales = async (orderQid: string) => {
       try {
         const salesData = (await fetchJson(
           `${QOGITA_API_URL}/orders/${orderQid}/sales/?size=50`,
           token
         )) as { results?: any[] };
-        sales = salesData?.results || [];
+        return salesData?.results || [];
       } catch (err) {
-        console.warn("sales fetch error", err);
+        if ((err as any)?.status === 401 && refresh) {
+          const refreshed = await refreshAccessToken(refresh);
+          token = refreshed.token;
+          await supabase
+            .from("qogita_connections")
+            .update({
+              access_token_encrypted: await encryptToken(token),
+              expires_at: refreshed.expiresAt
+            })
+            .eq("user_id", userId);
+          const salesData = (await fetchJson(
+            `${QOGITA_API_URL}/orders/${orderQid}/sales/?size=50`,
+            token
+          )) as { results?: any[] };
+          return salesData?.results || [];
+        }
+        throw err;
       }
+    };
+
+    for (const order of orders) {
+      const orderQid = (order as Record<string, unknown>).qid as string | undefined;
+      if (!orderQid) continue;
+      let sales: any[] = [];
+      sales = await fetchSales(orderQid);
 
       for (const sale of sales) {
         const saleLines = (sale.salelines || []).map((line: any) => ({

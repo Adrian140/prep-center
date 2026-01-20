@@ -56,6 +56,12 @@ async function encryptToken(token: string) {
   return `${base64Url(iv)}.${base64Url(cipher)}`;
 }
 
+function extractRefreshToken(setCookieHeader: string | null) {
+  if (!setCookieHeader) return null;
+  const match = setCookieHeader.match(/Refresh-Token=([^;]+)/i);
+  return match ? match[1] : null;
+}
+
 async function handleConnect(req: Request) {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -91,6 +97,7 @@ async function handleConnect(req: Request) {
       return jsonResponse({ error: "Qogita login failed", details: text || loginResp.statusText }, 400);
     }
 
+    const refreshCookie = extractRefreshToken(loginResp.headers.get("set-cookie"));
     const loginData = (await loginResp.json()) as LoginResponse;
     const token =
       loginData.accessToken ||
@@ -109,12 +116,14 @@ async function handleConnect(req: Request) {
       null;
 
     const encrypted = await encryptToken(token);
+    const encryptedRefresh = refreshCookie ? await encryptToken(refreshCookie) : null;
 
     const { error } = await supabase.from("qogita_connections").upsert(
       {
         user_id: userId,
         qogita_email: email,
         access_token_encrypted: encrypted,
+        refresh_token_encrypted: encryptedRefresh,
         expires_at: expiresAt,
         status: "active"
       },
