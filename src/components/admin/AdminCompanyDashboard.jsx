@@ -196,6 +196,8 @@ export default function AdminCompanyDashboard() {
   const preparedDaily = chartSnapshot?.prepared?.dailyUnits || snapshot?.prepared?.dailyUnits || [];
   const receivingDaily = chartSnapshot?.receiving?.dailyUnits || snapshot?.receiving?.dailyUnits || [];
   const balanceDaily = chartSnapshot?.finance?.dailyAmounts || snapshot?.finance?.dailyAmounts || [];
+  const inventoryUnits = snapshot?.inventory?.units ?? 0;
+  const lastReceivingDate = snapshot?.receiving?.lastReceivingDate || null;
 
   const chartData = useMemo(() => {
     const map = new Map();
@@ -214,6 +216,22 @@ export default function AdminCompanyDashboard() {
     });
     return Array.from(map.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [preparedDaily, receivingDaily, balanceDaily]);
+
+  const storageRows = useMemo(() => {
+    if (!lastReceivingDate || inventoryUnits <= 1) return [];
+    const daysSince =
+      Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(lastReceivingDate).setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+    if (Number.isNaN(daysSince) || daysSince < 10) return [];
+    return [
+      {
+        description: 'Storage fee (no movement >10 days)',
+        lastReceivingDate,
+        daysSince,
+        units: inventoryUnits,
+        amount: 15
+      }
+    ];
+  }, [inventoryUnits, lastReceivingDate]);
 
   const moneyToday =
     monthFinance?.today ??
@@ -477,6 +495,40 @@ export default function AdminCompanyDashboard() {
                   <div className="text-sm text-text-secondary py-2">{t('adminDashboard.noShipmentsStatus')}</div>
                 )}
               </div>
+            </div>
+            <div className="bg-white border rounded-xl p-4 shadow-sm">
+              <div className="text-sm font-semibold text-text-primary mb-2">Storage auto-billing (rule: no inbound 10+ days &gt; 1 unit in stock)</div>
+              {storageRows.length ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-text-secondary border-b">
+                        <th className="text-left py-2 pr-4">Description</th>
+                        <th className="text-left py-2 pr-4">Last receiving</th>
+                        <th className="text-left py-2 pr-4">Days since</th>
+                        <th className="text-left py-2 pr-4">Units in stock</th>
+                        <th className="text-left py-2 pr-4">Charge (€)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {storageRows.map((row, idx) => (
+                        <tr key={idx} className="border-b last:border-b-0">
+                          <td className="py-2 pr-4 text-text-primary">{row.description}</td>
+                          <td className="py-2 pr-4 text-text-secondary">{formatDisplayDate(row.lastReceivingDate)}</td>
+                          <td className="py-2 pr-4 font-semibold text-text-primary">{row.daysSince}</td>
+                          <td className="py-2 pr-4 font-semibold text-text-primary">{row.units}</td>
+                          <td className="py-2 pr-4 font-semibold text-orange-700">€{Number(row.amount).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="text-xs text-text-secondary mt-2">
+                    Se facturează 15€ dacă nu a existat recepție nouă în ultimele 10 zile și există stoc &gt; 1 unitate.
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-text-secondary">Nicio facturare storage necesară după regula de 10 zile.</div>
+              )}
             </div>
           </div>
 

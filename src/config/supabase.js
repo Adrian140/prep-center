@@ -1915,6 +1915,14 @@ createPrepItem: async (requestId, item) => {
       .filter((row) => getReceivingDate(row) === dateFrom)
       .reduce((acc, row) => acc + numberOrZero(row.quantity_received), 0);
 
+    const lastReceivingDateAll = (() => {
+      const dates = filteredReceivingItems
+        .map((row) => getReceivingDate(row))
+        .filter(Boolean)
+        .sort();
+      return dates.length ? dates[dates.length - 1] : null;
+    })();
+
     const receivingUnitsTotalRpc = receivingTotalRpcRes?.data ? numberOrZero(receivingTotalRpcRes.data) : null;
     const receivingUnitsTodayRpc = receivingTodayRpcRes?.data ? numberOrZero(receivingTodayRpcRes.data) : null;
 
@@ -2098,7 +2106,8 @@ createPrepItem: async (requestId, item) => {
         receiving: {
           unitsToday: receivingUnitsToday,
           unitsTotal: receivingUnitsTotal,
-          dailyUnits: receivingDailyUnits
+          dailyUnits: receivingDailyUnits,
+          lastReceivingDate: lastReceivingDateAll
         },
         series: {
           orders: { label: 'Prep requests', ...ordersSeries },
