@@ -329,11 +329,37 @@ function parseListingRows(tsvText) {
   });
 }
 
+const looksLikeEan = (value) => {
+  const digits = String(value || '').replace(/\D+/g, '');
+  if (!digits) return null;
+  if (digits.length < 8 || digits.length > 15) return null;
+  return digits;
+};
+
+function extractEan(productId, productIdType) {
+  const idType = String(productIdType || '').trim().toUpperCase();
+  const raw = productId || '';
+  if (!raw) return null;
+  // If type is explicitly EAN/UPC/GTIN or not ASIN, keep digits.
+  if (idType && idType !== 'ASIN' && idType !== '1') {
+    return looksLikeEan(raw);
+  }
+  // If no type, try to infer by length (non-ASIN).
+  return looksLikeEan(raw);
+}
+
 function normalizeListings(rawRows = []) {
   const normalized = [];
   for (const row of rawRows) {
     const sku = (row.sku || '').trim();
     let asin = (row.asin || '').trim();
+    const productId = row.productId || row['product-id'] || row['id-produit'] || row['id-prodotto'];
+    const productIdType =
+      row.productIdType ||
+      row['product-id-type'] ||
+      row['type-id-produit'] ||
+      row['tipo-id-prodotto'];
+    const ean = extractEan(productId, productIdType);
     // fallback: dacă ASIN lipsește, încearcă product-id când tipul este ASIN
     if (!asin && row.productId) {
       const type = String(row.productIdType || '').trim();
@@ -349,6 +375,7 @@ function normalizeListings(rawRows = []) {
       key,
       sku: sku || null,
       asin: asin || null,
+      ean: ean || null,
       name: sanitizeText(row.name) || null,
       status: (row.status || '').trim(),
       fulfillmentChannel: (row.fulfillmentChannel || '').trim()
@@ -462,6 +489,22 @@ async function insertListingRows(rows) {
   }
 }
 
+async function insertAsinEans(rows) {
+  if (!rows.length) return;
+  const chunkSize = 500;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const { error } = await supabase
+      .from('asin_eans')
+      .insert(chunk, { ignoreDuplicates: true, onConflict: 'user_id,asin,ean' });
+    if (error) {
+      // ignore duplicate conflicts
+      if (error.code === '23505') continue;
+      throw error;
+    }
+  }
+}
+
 async function syncListingsIntegration(integration) {
   const marketplaceId = resolveMarketplaceId(integration);
   if (!marketplaceId) {
@@ -532,6 +575,7 @@ async function syncListingsIntegration(integration) {
     const seen = new Set();
     const inserts = [];
     const updatesById = new Map();
+    const asinEanRows = [];
     const queueUpdate = (patch) => {
       if (!patch?.id) return;
       const prev = updatesById.get(patch.id) || { id: patch.id };
@@ -549,6 +593,11 @@ async function syncListingsIntegration(integration) {
         let shouldPatch = false;
         const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
         const hasExistingName = row.name && String(row.name).trim().length > 0;
+        const needsEan = listing.ean && (!row.ean || !String(row.ean).trim().length);
+        if (needsEan) {
+          patch.ean = listing.ean;
+          shouldPatch = true;
+        }
         const needsNameReplace = isCorruptedName(row.name);
         const hasExistingSku = row.sku && String(row.sku).trim().length > 0;
         if (!hasExistingSku && (!hasExistingName || needsNameReplace) && hasIncomingName) {
@@ -571,6 +620,12 @@ async function syncListingsIntegration(integration) {
           const needsNameReplace = isCorruptedName(r.name);
           const patch = { id: r.id };
           let shouldPatch = false;
+          const needsEan = listing.ean && (!r.ean || !String(r.ean).trim().length);
+          if (needsEan) {
+            patch.ean = listing.ean;
+            r.ean = listing.ean;
+            shouldPatch = true;
+          }
           // Dacă rândul din stoc nu are SKU, dar raportul Amazon îl are, îl completăm.
           if (
             incomingSku &&
@@ -623,14 +678,25 @@ async function syncListingsIntegration(integration) {
             user_id: integration.user_id,
             asin: listing.asin || null,
             sku: listing.sku || null,
+            ean: listing.ean || null,
             name: listing.name || listing.asin || listing.sku,
             qty: 0
           });
         }
       }
+
+      if (listing.asin && listing.ean) {
+        asinEanRows.push({
+          user_id: integration.user_id,
+          company_id: integration.company_id,
+          asin: listing.asin,
+          ean: listing.ean
+        });
+      }
     }
 
     await insertListingRows(inserts);
+    await insertAsinEans(asinEanRows);
 
     const updates = Array.from(updatesById.values());
     if (updates.length) {
