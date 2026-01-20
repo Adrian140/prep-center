@@ -65,6 +65,9 @@ export default function AdminCompanyDashboard() {
   const [loadingChart, setLoadingChart] = useState(false);
   const [chartError, setChartError] = useState('');
   const [monthFinance, setMonthFinance] = useState(null);
+  const [staleness, setStaleness] = useState([]);
+  const [stalenessLoading, setStalenessLoading] = useState(false);
+  const [stalenessError, setStalenessError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +118,25 @@ export default function AdminCompanyDashboard() {
     loadSnapshot();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCompany?.id, dateFrom, dateTo]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadStaleness = async () => {
+      setStalenessLoading(true);
+      setStalenessError('');
+      const { data, error } = await supabaseHelpers.getInventoryStaleness();
+      if (cancelled) return;
+      if (error) {
+        setStaleness([]);
+        setStalenessError(error.message || 'Could not load inventory staleness.');
+      } else {
+        setStaleness(Array.isArray(data) ? data : []);
+      }
+      setStalenessLoading(false);
+    };
+    loadStaleness();
+    return () => { cancelled = true; };
+  }, []);
 
   const loadChart = async () => {
     if (!selectedCompany?.id) return;
@@ -216,22 +238,6 @@ export default function AdminCompanyDashboard() {
     });
     return Array.from(map.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [preparedDaily, receivingDaily, balanceDaily]);
-
-  const storageRows = useMemo(() => {
-    if (!lastReceivingDate || inventoryUnits <= 1) return [];
-    const daysSince =
-      Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(lastReceivingDate).setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
-    if (Number.isNaN(daysSince) || daysSince < 10) return [];
-    return [
-      {
-        description: 'Storage fee (no inbound for 10+ days)',
-        lastReceivingDate,
-        daysSince,
-        units: inventoryUnits,
-        amount: 15
-      }
-    ];
-  }, [inventoryUnits, lastReceivingDate]);
 
   const moneyToday =
     monthFinance?.today ??
@@ -496,87 +502,68 @@ export default function AdminCompanyDashboard() {
                 )}
               </div>
             </div>
-            <div className="bg-white border rounded-xl p-4 shadow-sm">
-              <div className="text-sm font-semibold text-text-primary mb-2">Storage auto-billing (rule: no inbound 10+ days &gt; 1 unit in stock)</div>
-              {storageRows.length ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="text-text-secondary border-b">
-                        <th className="text-left py-2 pr-4">Description</th>
-                        <th className="text-left py-2 pr-4">Last receiving</th>
-                        <th className="text-left py-2 pr-4">Days since</th>
-                        <th className="text-left py-2 pr-4">Units in stock</th>
-                        <th className="text-left py-2 pr-4">Charge (€)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {storageRows.map((row, idx) => (
-                        <tr key={idx} className="border-b last:border-b-0">
-                          <td className="py-2 pr-4 text-text-primary">{row.description}</td>
-                          <td className="py-2 pr-4 text-text-secondary">{formatDisplayDate(row.lastReceivingDate)}</td>
-                          <td className="py-2 pr-4 font-semibold text-text-primary">{row.daysSince}</td>
-                          <td className="py-2 pr-4 font-semibold text-text-primary">{row.units}</td>
-                          <td className="py-2 pr-4 font-semibold text-orange-700">€{Number(row.amount).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="text-xs text-text-secondary mt-2">
-                    Se facturează 15€ dacă nu a existat recepție nouă în ultimele 10 zile și există stoc &gt; 1 unitate.
-                  </div>
-                </div>
-              ) : (
-                <div className="text-sm text-text-secondary">Nicio facturare storage necesară după regula de 10 zile.</div>
-              )}
+          </div>
+
+          <div className="bg-white border rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-semibold text-text-primary">Storage auto-billing (all clients)</div>
+              {stalenessLoading && <div className="text-xs text-text-secondary">Loading…</div>}
             </div>
-            <div className="bg-white border rounded-xl p-4 shadow-sm">
-              <div className="text-sm font-semibold text-text-primary mb-2">Storage auto-billing (per client)</div>
-              {storageRows.length ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="text-text-secondary border-b">
-                        <th className="text-left py-2 pr-4">Client</th>
-                        <th className="text-left py-2 pr-4">Last receiving</th>
-                        <th className="text-left py-2 pr-4">Days since</th>
-                        <th className="text-left py-2 pr-4">Units in stock</th>
-                        <th className="text-left py-2 pr-4">Charge (€)</th>
-                        <th className="text-left py-2 pr-4">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {storageRows.map((row, idx) => (
-                        <tr key={idx} className="border-b last:border-b-0">
-                          <td className="py-2 pr-4 text-text-primary">
-                            {selectedCompany?.id === 'ALL' ? 'Selected company' : (selectedCompany?.name || 'Client')}
-                          </td>
-                          <td className="py-2 pr-4 text-text-secondary">{formatDisplayDate(row.lastReceivingDate)}</td>
-                          <td className="py-2 pr-4 font-semibold text-text-primary">{row.daysSince}</td>
-                          <td className="py-2 pr-4 font-semibold text-text-primary">{row.units}</td>
-                          <td className="py-2 pr-4 font-semibold text-orange-700">€{Number(row.amount).toFixed(2)}</td>
-                          <td className="py-2 pr-4">
-                            <button
-                              className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs hover:bg-blue-700"
-                              onClick={() => {
-                                alert('Manual storage fee action triggered (implement billing call)');
-                              }}
-                            >
-                              Apply storage
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="text-xs text-text-secondary mt-2">
-                    Auto-billing rule: if no inbound for 10+ days and stock &gt; 1 unit, propose a €15 storage fee. Use the button to apply manually.
-                  </div>
+            {stalenessError && <div className="text-sm text-red-600 mb-2">{stalenessError}</div>}
+            {!stalenessLoading && !staleness.length && !stalenessError && (
+              <div className="text-sm text-text-secondary">No clients with stock found.</div>
+            )}
+            {staleness.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-text-secondary border-b">
+                      <th className="text-left py-2 pr-4">Client</th>
+                      <th className="text-left py-2 pr-4">Units in stock</th>
+                      <th className="text-left py-2 pr-4">Last receiving</th>
+                      <th className="text-left py-2 pr-4">Days since</th>
+                      <th className="text-left py-2 pr-4">Charge (€)</th>
+                      <th className="text-left py-2 pr-4">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {staleness
+                      .slice()
+                      .sort((a, b) => (b.days_since_last_receiving || 0) - (a.days_since_last_receiving || 0))
+                      .map((row, idx) => {
+                        const days = row.days_since_last_receiving ?? null;
+                        const highlight = typeof days === 'number' && days >= 10;
+                        return (
+                          <tr key={`${row.company_id || idx}`} className={`border-b last:border-b-0 ${highlight ? 'bg-red-50' : ''}`}>
+                            <td className="py-2 pr-4 text-text-primary">{row.company_name || row.company_id || 'Client'}</td>
+                            <td className="py-2 pr-4 font-semibold text-text-primary">{row.units_in_stock ?? 0}</td>
+                            <td className="py-2 pr-4 text-text-secondary">
+                              {row.last_receiving_date ? formatDisplayDate(row.last_receiving_date) : '—'}
+                            </td>
+                            <td className={`py-2 pr-4 font-semibold ${highlight ? 'text-red-700' : 'text-text-primary'}`}>
+                              {days != null ? days : '—'}
+                            </td>
+                            <td className="py-2 pr-4 font-semibold text-orange-700">€15.00</td>
+                            <td className="py-2 pr-4">
+                              <button
+                                className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs hover:bg-blue-700"
+                                onClick={() => {
+                                  alert(`Apply storage for ${row.company_name || 'client'} (implement billing call)`);
+                                }}
+                              >
+                                Apply storage
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+                <div className="text-xs text-text-secondary mt-2">
+                  Rule: highlight in red if no inbound for 10+ days and stock &gt; 1 unit. Use the button to apply the €15 storage fee manually.
                 </div>
-              ) : (
-                <div className="text-sm text-text-secondary">No clients qualify for storage billing under the 10-day rule.</div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
         </>

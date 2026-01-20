@@ -2147,6 +2147,15 @@ createPrepItem: async (requestId, item) => {
   return { data: row, error };
 },
 
+  getInventoryStaleness: async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_inventory_staleness');
+      return { data: Array.isArray(data) ? data : [], error };
+    } catch (e) {
+      return { data: [], error: e };
+    }
+  },
+
   // ===== NEW: Receiving System =====
   
   // Carriers
