@@ -69,6 +69,7 @@ export default function AdminCompanyDashboard() {
   const [stalenessLoading, setStalenessLoading] = useState(false);
   const [stalenessError, setStalenessError] = useState('');
   const [storageApplyId, setStorageApplyId] = useState(null);
+  const [storeByCompany, setStoreByCompany] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -125,13 +126,26 @@ export default function AdminCompanyDashboard() {
     const loadStaleness = async () => {
       setStalenessLoading(true);
       setStalenessError('');
-      const { data, error } = await supabaseHelpers.getInventoryStaleness();
+      const [staleRes, profilesRes] = await Promise.all([
+        supabaseHelpers.getInventoryStaleness(),
+        supabase.from('profiles').select('company_id, store_name').limit(5000)
+      ]);
+      const { data, error } = staleRes;
       if (cancelled) return;
-      if (error) {
+      if (error || profilesRes.error) {
         setStaleness([]);
-        setStalenessError(error.message || 'Could not load inventory staleness.');
+        setStoreByCompany({});
+        setStalenessError(error?.message || profilesRes.error?.message || 'Could not load inventory staleness.');
       } else {
         setStaleness(Array.isArray(data) ? data : []);
+        const map = {};
+        (profilesRes.data || []).forEach((p) => {
+          if (!p?.company_id) return;
+          const name = (p.store_name || '').trim();
+          if (!name) return;
+          if (!map[p.company_id]) map[p.company_id] = name;
+        });
+        setStoreByCompany(map);
       }
       setStalenessLoading(false);
     };
@@ -561,7 +575,9 @@ export default function AdminCompanyDashboard() {
                         return (
                           <tr key={`${row.company_id || idx}`} className={`border-b last:border-b-0 ${highlight ? 'bg-red-50' : ''}`}>
                             <td className="py-2 pr-4 text-text-primary">
-                              <div className="font-semibold">{row.company_name || row.company_id || 'Client'}</div>
+                              <div className="font-semibold">
+                                {storeByCompany[row.company_id] || row.company_name || row.company_id || 'Client'}
+                              </div>
                               <div className="text-xs text-text-secondary">{row.company_id || ''}</div>
                             </td>
                             <td className="py-2 pr-4 font-semibold text-text-primary">{row.units_in_stock ?? 0}</td>
