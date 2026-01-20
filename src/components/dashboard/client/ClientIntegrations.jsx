@@ -126,6 +126,8 @@ export default function ClientIntegrations() {
   const [qogitaEmail, setQogitaEmail] = useState('');
   const [qogitaPassword, setQogitaPassword] = useState('');
   const [qogitaLoading, setQogitaLoading] = useState(false);
+  const [qogitaConnections, setQogitaConnections] = useState([]);
+  const [qogitaListLoading, setQogitaListLoading] = useState(true);
 
   const clientId = import.meta.env.VITE_SPAPI_CLIENT_ID || '';
   const applicationId = import.meta.env.VITE_AMZ_APP_ID || clientId || '';
@@ -208,6 +210,29 @@ export default function ClientIntegrations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  const loadQogitaConnections = async () => {
+    if (!user?.id) return;
+    setQogitaListLoading(true);
+    const { data, error } = await supabase
+      .from('qogita_connections')
+      .select('id, user_id, qogita_email, status, expires_at, last_sync_at, created_at, updated_at')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false });
+    if (error) {
+      setQogitaFlash(t('ClientIntegrations.qogita.error'));
+      setQogitaConnections([]);
+    } else {
+      setQogitaFlash('');
+      setQogitaConnections(data || []);
+    }
+    setQogitaListLoading(false);
+  };
+
+  useEffect(() => {
+    loadQogitaConnections();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   const removeIntegration = async (id) => {
     if (!window.confirm(t('ClientIntegrations.confirmDisconnect'))) return;
     setFlash('');
@@ -265,6 +290,7 @@ export default function ClientIntegrations() {
       setQogitaEmail('');
       setQogitaPassword('');
       console.debug('Qogita connect response', data);
+      loadQogitaConnections();
     }
     setQogitaLoading(false);
   };
@@ -424,7 +450,43 @@ export default function ClientIntegrations() {
             <h3 className="text-sm font-semibold text-text-primary">{t('ClientIntegrations.qogita.listTitle')}</h3>
             <p className="text-sm text-text-secondary">{t('ClientIntegrations.qogita.listDesc')}</p>
           </div>
-          <div className="text-sm text-text-secondary">{t('ClientIntegrations.qogita.empty')}</div>
+          {qogitaListLoading ? (
+            <div className="flex items-center gap-2 text-text-secondary text-sm">
+              <Loader2 className="w-4 h-4 animate-spin" /> {t('common.loading')}
+            </div>
+          ) : qogitaConnections.length === 0 ? (
+            <div className="text-sm text-text-secondary">{t('ClientIntegrations.qogita.empty')}</div>
+          ) : (
+            <div className="grid gap-3">
+              {qogitaConnections.map((row) => (
+                <div key={row.id} className="border rounded-lg p-4 flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-text-primary">{row.qogita_email}</div>
+                    <StatusBadge status={row.status || 'active'} t={t} />
+                  </div>
+                  <div className="text-xs text-text-secondary">
+                    {tp('ClientIntegrations.fields.added', {
+                      date: new Date(row.created_at).toLocaleString()
+                    })}
+                    {row.last_sync_at && (
+                      <>
+                        {' · '}
+                        {tp('ClientIntegrations.fields.lastSync', {
+                          date: new Date(row.last_sync_at).toLocaleString()
+                        })}
+                      </>
+                    )}
+                    {row.expires_at && (
+                      <>
+                        {' · '}
+                        {t('ClientIntegrations.qogita.expires', 'Expires')}: {new Date(row.expires_at).toLocaleString()}
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

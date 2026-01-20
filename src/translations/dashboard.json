@@ -713,7 +713,8 @@
         "listTitle": "Qogita connections",
         "listDesc": "We will show imported accounts and last sync details here.",
         "empty": "No Qogita connections yet.",
-        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready."
+        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready.",
+        "expires": "Expires"
       }
     },
     "ClientAffiliates": {
@@ -1559,7 +1560,8 @@
         "listTitle": "Qogita connections",
         "listDesc": "We will show imported accounts and last sync details here.",
         "empty": "No Qogita connections yet.",
-        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready."
+        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready.",
+        "expires": "Expires"
       }
     },
     "ClientAffiliates": {
@@ -2453,7 +2455,8 @@
         "listTitle": "Qogita connections",
         "listDesc": "We will show imported accounts and last sync details here.",
         "empty": "No Qogita connections yet.",
-        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready."
+        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready.",
+        "expires": "Expires"
       }
     },
     "reportsMenu": {
@@ -3217,7 +3220,8 @@
         "listTitle": "Qogita connections",
         "listDesc": "We will show imported accounts and last sync details here.",
         "empty": "No Qogita connections yet.",
-        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready."
+        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready.",
+        "expires": "Expires"
       }
     },
     "reportsMenu": {
@@ -3981,7 +3985,8 @@
         "listTitle": "Qogita connections",
         "listDesc": "We will show imported accounts and last sync details here.",
         "empty": "No Qogita connections yet.",
-        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready."
+        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready.",
+        "expires": "Expires"
       }
     },
     "reportsMenu": {
@@ -4745,7 +4750,8 @@
         "listTitle": "Qogita connections",
         "listDesc": "We will show imported accounts and last sync details here.",
         "empty": "No Qogita connections yet.",
-        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready."
+        "comingSoon": "Qogita UI is ready. We will wire the connect flow as soon as API keys/back-end are ready.",
+        "expires": "Expires"
       }
     },
     "reportsMenu": {
