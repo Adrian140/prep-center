@@ -224,7 +224,7 @@ export default function AdminCompanyDashboard() {
     if (Number.isNaN(daysSince) || daysSince < 10) return [];
     return [
       {
-        description: 'Storage fee (no movement >10 days)',
+        description: 'Storage fee (no inbound for 10+ days)',
         lastReceivingDate,
         daysSince,
         units: inventoryUnits,
@@ -528,6 +528,53 @@ export default function AdminCompanyDashboard() {
                 </div>
               ) : (
                 <div className="text-sm text-text-secondary">Nicio facturare storage necesară după regula de 10 zile.</div>
+              )}
+            </div>
+            <div className="bg-white border rounded-xl p-4 shadow-sm">
+              <div className="text-sm font-semibold text-text-primary mb-2">Storage auto-billing (per client)</div>
+              {storageRows.length ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-text-secondary border-b">
+                        <th className="text-left py-2 pr-4">Client</th>
+                        <th className="text-left py-2 pr-4">Last receiving</th>
+                        <th className="text-left py-2 pr-4">Days since</th>
+                        <th className="text-left py-2 pr-4">Units in stock</th>
+                        <th className="text-left py-2 pr-4">Charge (€)</th>
+                        <th className="text-left py-2 pr-4">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {storageRows.map((row, idx) => (
+                        <tr key={idx} className="border-b last:border-b-0">
+                          <td className="py-2 pr-4 text-text-primary">
+                            {selectedCompany?.id === 'ALL' ? 'Selected company' : (selectedCompany?.name || 'Client')}
+                          </td>
+                          <td className="py-2 pr-4 text-text-secondary">{formatDisplayDate(row.lastReceivingDate)}</td>
+                          <td className="py-2 pr-4 font-semibold text-text-primary">{row.daysSince}</td>
+                          <td className="py-2 pr-4 font-semibold text-text-primary">{row.units}</td>
+                          <td className="py-2 pr-4 font-semibold text-orange-700">€{Number(row.amount).toFixed(2)}</td>
+                          <td className="py-2 pr-4">
+                            <button
+                              className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs hover:bg-blue-700"
+                              onClick={() => {
+                                alert('Manual storage fee action triggered (implement billing call)');
+                              }}
+                            >
+                              Apply storage
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="text-xs text-text-secondary mt-2">
+                    Auto-billing rule: if no inbound for 10+ days and stock &gt; 1 unit, propose a €15 storage fee. Use the button to apply manually.
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-text-secondary">No clients qualify for storage billing under the 10-day rule.</div>
               )}
             </div>
           </div>
