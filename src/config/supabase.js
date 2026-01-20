@@ -2612,27 +2612,24 @@ getAllReceivingShipments: async (options = {}) => {
   }
 
   // combinăm datele din ambele tabele (receiving_shipment_items și receiving_items)
-  const processed = shipments.map(r => {
-    const fallback = fallbackItemsMap[r.id] || [];
-    const items = [
-      ...(r.receiving_shipment_items || []),
-      ...(r.receiving_items || []),
-      ...fallback
-    ];
+    const processed = shipments.map(r => {
+      const fallback = fallbackItemsMap[r.id] || [];
+      const items = [
+        ...(r.receiving_shipment_items || []),
+        ...(r.receiving_items || []),
+        ...fallback
+      ];
 
-    const { companies, receiving_shipment_items, receiving_items, ...rest } = r;
-    const profileMeta = profilesById[r.user_id] || {};
-    const rawStore = (rest.client_store_name || rest.store_name || '').trim();
-    const profileStore = (profileMeta.store_name || '').trim();
-    const store_name =
-      rawStore && profileStore && rawStore.toLowerCase() === profileStore.toLowerCase()
-        ? null // ignore auto-filled profile store names
-        : rawStore || null;
+      const { companies, receiving_shipment_items, receiving_items, ...rest } = r;
+      const profileMeta = profilesById[r.user_id] || {};
+      const rawStore = (rest.client_store_name || rest.store_name || '').trim();
+      const profileStore = (profileMeta.store_name || '').trim();
+      const store_name = rawStore || profileStore || null;
 
-    return {
-      ...rest,
-      receiving_items: items.map((it) => ({
-        ...it,
+      return {
+        ...rest,
+        receiving_items: items.map((it) => ({
+          ...it,
         stock_item:
           stockMap[it.stock_item_id] ||
           (it.asin && stockByAsin[it.asin]) ||
