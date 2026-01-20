@@ -18,6 +18,8 @@ const countryToDomain: Record<string, number> = {
   GB: 2
 };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const buildImageUrl = (imageId: string | null, size = 500) => {
   if (!imageId) return null;
   const id = imageId.trim();
@@ -44,47 +46,52 @@ async function keepaLookupByEan(ean: string, domains: number[]) {
     const url = `https://api.keepa.com/product?key=${KEEPA_API_KEY}&domain=${domain}&code=${encodeURIComponent(
       ean
     )}&history=0&stats=0`;
-    const resp = await fetch(url);
-    results.push({ domain, status: resp.status });
-    if (resp.status === 429) {
-      // rate limit, notăm și încercăm alte domenii (poate unul e liber)
-      continue;
-    }
-    if (!resp.ok) {
-      continue;
-    }
-    const payload = await resp.json();
-    const products: KeepaProduct[] = payload?.products || [];
-    if (!products.length) continue;
-    const asins: string[] = [];
-    const asinImages: Record<string, string | null> = {};
-    products.forEach((product) => {
-      const candidates = new Set<string>();
-      if (product.asin) candidates.add(product.asin);
-      if (Array.isArray(product.asinList)) {
-        product.asinList.forEach((a: string) => {
-          if (a) candidates.add(a);
-        });
-      }
-      Array.from(candidates).forEach((asin) => {
-        if (!asins.includes(asin)) asins.push(asin);
-      });
-      let image: string | null = null;
-      if (typeof product.imagesCSV === "string" && product.imagesCSV.length) {
-        const first = product.imagesCSV.split(",")[0];
-        image = buildImageUrl(first);
-      } else if (Array.isArray(product.images) && product.images.length) {
-        const first = product.images[0];
-        const imgId = typeof first === "string" ? first : first?.l || first?.m || null;
-        image = buildImageUrl(imgId);
-      }
-      if (image) {
+    const attempt = async () => {
+      const resp = await fetch(url);
+      results.push({ domain, status: resp.status });
+      if (resp.status === 429) return { asins: [], asinImages: {}, ok: false, rateLimited: true };
+      if (!resp.ok) return { asins: [], asinImages: {}, ok: false, rateLimited: false };
+      const payload = await resp.json();
+      const products: KeepaProduct[] = payload?.products || [];
+      if (!products.length) return { asins: [], asinImages: {}, ok: true, rateLimited: false };
+      const asins: string[] = [];
+      const asinImages: Record<string, string | null> = {};
+      products.forEach((product) => {
+        const candidates = new Set<string>();
+        if (product.asin) candidates.add(product.asin);
+        if (Array.isArray(product.asinList)) {
+          product.asinList.forEach((a: string) => {
+            if (a) candidates.add(a);
+          });
+        }
         Array.from(candidates).forEach((asin) => {
-          asinImages[asin] = image;
+          if (!asins.includes(asin)) asins.push(asin);
         });
-      }
-    });
-    if (asins.length) return { asins, asinImages, domain, trace: results, rateLimited: false };
+        let image: string | null = null;
+        if (typeof product.imagesCSV === "string" && product.imagesCSV.length) {
+          const first = product.imagesCSV.split(",")[0];
+          image = buildImageUrl(first);
+        } else if (Array.isArray(product.images) && product.images.length) {
+          const first = product.images[0];
+          const imgId = typeof first === "string" ? first : first?.l || first?.m || null;
+          image = buildImageUrl(imgId);
+        }
+        if (image) {
+          Array.from(candidates).forEach((asin) => {
+            asinImages[asin] = image;
+          });
+        }
+      });
+      return { asins, asinImages, ok: true, rateLimited: false };
+    };
+
+    let res = await attempt();
+    if (res.rateLimited) {
+      await sleep(5000);
+      res = await attempt();
+      if (res.rateLimited) continue;
+    }
+    if (res.asins.length) return { asins: res.asins, asinImages: res.asinImages, domain, trace: results, rateLimited: false };
   }
   // dacă toate au returnat 429, marcăm rateLimited
   const only429 = results.length && results.every((r) => r.status === 429);
@@ -229,7 +236,7 @@ async function processUser(userId: string, country?: string) {
   if (!allGtins.length) return { updated: 0, scanned: 0, details: [{ notice: "no_gtin_found", status: gtinResp.status, error: gtinResp.error || null, stock_gtin_count: gtinsStock.length, local_gtin_count: gtinsLocal.length }] };
 
   const domainBase = country ? countryToDomain[country.toUpperCase()] || 4 : 4;
-  const domainFallbacks = [domainBase, 4, 3, 8, 9, 2].filter((v, i, arr) => v && arr.indexOf(v) === i);
+  const domainFallbacks = [domainBase || 4].filter(Boolean);
 
   let updated = 0;
   const details: any[] = [];
