@@ -101,7 +101,7 @@ function extractRefreshExpiry(setCookieHeader: string | null) {
 async function getTokenForUser(userId: string) {
   const { data, error } = await supabase
     .from("qogita_connections")
-    .select("access_token_encrypted, refresh_token_encrypted")
+    .select("access_token_encrypted, refresh_token_encrypted, expires_at, refresh_expires_at")
     .eq("user_id", userId)
     .order("updated_at", { ascending: false })
     .limit(1)
@@ -110,7 +110,9 @@ async function getTokenForUser(userId: string) {
   if (!data?.access_token_encrypted) throw new Error("No Qogita connection found.");
   return {
     access: await decryptToken(data.access_token_encrypted),
-    refresh: data.refresh_token_encrypted ? await decryptToken(data.refresh_token_encrypted) : null
+    refresh: data.refresh_token_encrypted ? await decryptToken(data.refresh_token_encrypted) : null,
+    expiresAt: data.expires_at || null,
+    refreshExpiresAt: data.refresh_expires_at || null
   };
 }
 
@@ -186,13 +188,42 @@ async function handleShipments(req: Request) {
   if (!userId) return jsonResponse({ error: "Missing user_id" }, 400);
 
   try {
-    const { access, refresh } = await getTokenForUser(userId);
+    const { access, refresh, expiresAt, refreshExpiresAt } = await getTokenForUser(userId);
+    const now = Date.now();
+    const refreshExpiryMs = refreshExpiresAt ? new Date(refreshExpiresAt).getTime() : null;
+    if (refreshExpiryMs && refreshExpiryMs < now) {
+      await supabase.from("qogita_connections").update({ status: "expired" }).eq("user_id", userId);
+      throw Object.assign(new Error("Qogita refresh expired"), { status: 401 });
+    }
     let token = access;
 
     const fetchOrders = async (tok: string) =>
       (await fetchJson(`${QOGITA_API_URL}/orders/?size=${pageSize}`, tok)) as { results?: OrderSummary[] };
 
     let ordersData;
+    // pre-refresh dacă expiră în <5 minute
+    const expiresMs = expiresAt ? new Date(expiresAt).getTime() : null;
+    const needsRefresh = expiresMs && expiresMs - now < 5 * 60 * 1000;
+    if (needsRefresh && refresh) {
+      try {
+        const refreshed = await refreshAccessToken(refresh);
+        token = refreshed.token;
+        await supabase
+          .from("qogita_connections")
+          .update({
+            access_token_encrypted: await encryptToken(token),
+            refresh_token_encrypted: refreshed.refreshToken ? await encryptToken(refreshed.refreshToken) : undefined,
+            expires_at: refreshed.expiresAt,
+            refresh_expires_at: refreshed.refreshExpires || null,
+            status: "active"
+          })
+          .eq("user_id", userId);
+      } catch (err) {
+        await supabase.from("qogita_connections").update({ status: "expired" }).eq("user_id", userId);
+        throw err;
+      }
+    }
+
     try {
       ordersData = await fetchOrders(token);
     } catch (err) {
@@ -205,11 +236,15 @@ async function handleShipments(req: Request) {
             access_token_encrypted: await encryptToken(token),
             refresh_token_encrypted: refreshed.refreshToken ? await encryptToken(refreshed.refreshToken) : undefined,
             expires_at: refreshed.expiresAt,
-            refresh_expires_at: refreshed.refreshExpires || null
+            refresh_expires_at: refreshed.refreshExpires || null,
+            status: "active"
           })
           .eq("user_id", userId);
         ordersData = await fetchOrders(token);
       } else {
+        if ((err as any)?.status === 401) {
+          await supabase.from("qogita_connections").update({ status: "expired" }).eq("user_id", userId);
+        }
         throw err;
       }
     }
