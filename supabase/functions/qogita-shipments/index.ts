@@ -218,6 +218,8 @@ async function handleShipments(req: Request) {
 
     const shipments: Record<string, unknown>[] = [];
 
+    const persistRows: any[] = [];
+
     const fetchSales = async (orderQid: string) => {
       try {
         const salesData = (await fetchJson(
@@ -268,6 +270,18 @@ async function handleShipments(req: Request) {
 
         const saleShipments = sale?.shipments || [];
         saleShipments.forEach((shipment: any) => {
+          persistRows.push({
+            user_id: userId,
+            order_qid: orderQid,
+            shipment_code: shipment?.code || sale?.code || null,
+            country: shipment?.country || sale?.country || (order as any)?.country || null,
+            tracking_links: shipment?.url ? [shipment.url] : shipment?.tracking_links || [],
+            gtin: saleLines[0]?.gtin || null,
+            product_name: saleLines[0]?.name || null,
+            shipped_qty: saleLines[0]?.shipped_qty ?? saleLines[0]?.quantity ?? null,
+            requested_qty: saleLines[0]?.requested_qty ?? saleLines[0]?.quantity ?? null,
+            last_seen_at: new Date().toISOString()
+          });
           shipments.push({
             order_qid: orderQid,
             fid: (order as any)?.fid || null,
@@ -279,6 +293,19 @@ async function handleShipments(req: Request) {
             sale_lines: saleLines
           });
         });
+      }
+    }
+
+    if (persistRows.length) {
+      const upsertRows = persistRows
+        .filter((r) => r.user_id && r.shipment_code && r.gtin)
+        .map((r) => ({
+          ...r,
+          tracking_links: Array.isArray(r.tracking_links) ? r.tracking_links : [],
+          last_seen_at: r.last_seen_at || new Date().toISOString()
+        }));
+      if (upsertRows.length) {
+        await supabase.from("qogita_shipment_lines").upsert(upsertRows, { onConflict: "user_id,shipment_code,gtin" });
       }
     }
 

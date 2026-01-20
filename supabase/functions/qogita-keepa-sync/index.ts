@@ -169,6 +169,16 @@ async function gatherStockGtins(userId: string) {
   return (data || []).map((row) => row.ean as string).filter(Boolean);
 }
 
+async function gatherLocalShipmentGtins(userId: string) {
+  const { data, error } = await supabase
+    .from("qogita_shipment_lines")
+    .select("gtin")
+    .eq("user_id", userId)
+    .not("gtin", "is", null);
+  if (error) return [];
+  return (data || []).map((row) => row.gtin as string).filter(Boolean);
+}
+
 async function processUser(userId: string, country?: string) {
   const tokens = await getQogitaToken(userId);
   if (!tokens?.access) return { updated: 0, scanned: 0, details: [{ error: "no_token" }] };
@@ -189,8 +199,9 @@ async function processUser(userId: string, country?: string) {
   }
   const gtinsQogita = gtinResp.gtins || [];
   const gtinsStock = await gatherStockGtins(userId);
-  const allGtins = Array.from(new Set([...gtinsQogita, ...gtinsStock])).slice(0, 200);
-  if (!allGtins.length) return { updated: 0, scanned: 0, details: [{ notice: "no_gtin_found", status: gtinResp.status, error: gtinResp.error || null, stock_gtin_count: gtinsStock.length }] };
+  const gtinsLocal = await gatherLocalShipmentGtins(userId);
+  const allGtins = Array.from(new Set([...gtinsQogita, ...gtinsStock, ...gtinsLocal])).slice(0, 300);
+  if (!allGtins.length) return { updated: 0, scanned: 0, details: [{ notice: "no_gtin_found", status: gtinResp.status, error: gtinResp.error || null, stock_gtin_count: gtinsStock.length, local_gtin_count: gtinsLocal.length }] };
 
   const domainBase = country ? countryToDomain[country.toUpperCase()] || 4 : 4;
   const domainFallbacks = [domainBase, 4, 3, 8, 9, 2].filter((v, i, arr) => v && arr.indexOf(v) === i);
