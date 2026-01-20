@@ -40,117 +40,6 @@ function AsinCell({ matches, onToggle, expanded, t }) {
   );
 }
 
-      {reqModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6 space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-xs text-text-secondary mb-1">
-                  {reqModal.shipment_code || 'Shipment'} {reqModal.fid ? `· Order ${reqModal.fid}` : ''}
-                </div>
-                <h3 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.qogita.createRequest', 'Create request')}</h3>
-                {reqFlash && (
-                  <div className="mt-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-3 py-2">
-                    {reqFlash}
-                  </div>
-                )}
-              </div>
-              <button onClick={() => setReqModal(null)} className="text-text-secondary hover:text-text-primary text-sm">✕</button>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-text-secondary mb-1">Destination country</label>
-                <select
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                  value={reqDestination}
-                  onChange={(e) => setReqDestination(e.target.value)}
-                >
-                  {DESTINATION_OPTIONS.map((opt) => (
-                    <option key={opt.code} value={opt.code}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center gap-4 text-sm">
-                <label className="flex items-center gap-2">
-                  <input type="radio" checked={reqMode === 'none'} onChange={() => setReqMode('none')} />
-                  {t('ClientIntegrations.qogita.modeNone', 'Do not send now')}
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="radio" checked={reqMode === 'full'} onChange={() => setReqMode('full')} />
-                  {t('ClientIntegrations.qogita.modeFull', 'Send all units to Amazon')}
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="radio" checked={reqMode === 'partial'} onChange={() => setReqMode('partial')} />
-                  {t('ClientIntegrations.qogita.modePartial', 'Partial shipment')}
-                </label>
-              </div>
-            </div>
-
-            <div className="border rounded-lg overflow-hidden">
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-50 text-text-secondary">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Product</th>
-                    <th className="px-3 py-2 text-left">GTIN</th>
-                    <th className="px-3 py-2 text-left">ASIN/SKU</th>
-                    <th className="px-3 py-2 text-right">Units</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {reqLines.map((line, idx) => (
-                    <tr key={`${line.gtin || 'line'}-${idx}`}>
-                      <td className="px-3 py-2">{line.name || line.product_name || '—'}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{line.gtin || '—'}</td>
-                      <td className="px-3 py-2">
-                        <div className="text-xs text-text-primary font-semibold">{line.asin || '—'}</div>
-                        {line.sku && <div className="text-[11px] text-text-secondary">SKU: {line.sku}</div>}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        {reqMode === 'partial' ? (
-                          <input
-                            type="number"
-                            min={0}
-                            className="w-20 border rounded px-2 py-1 text-right"
-                            value={line.units}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setReqLines((prev) =>
-                                prev.map((l, i) => (i === idx ? { ...l, units: val } : l))
-                              );
-                            }}
-                          />
-                        ) : (
-                          <span>{line.units}</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex items-center justify-end gap-3">
-              <button
-                onClick={() => setReqModal(null)}
-                className="px-4 py-2 rounded-lg border text-sm text-text-secondary"
-                disabled={reqSubmitting}
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={submitRequest}
-                disabled={reqSubmitting}
-                className="px-4 py-2 rounded-lg bg-primary text-white text-sm inline-flex items-center gap-2 disabled:opacity-60"
-              >
-                {reqSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {t('ClientIntegrations.qogita.createRequest', 'Create request')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
 export default function ClientQogitaShipments() {
   const { user } = useSupabaseAuth();
   const { t } = useDashboardTranslation();
@@ -399,6 +288,117 @@ export default function ClientQogitaShipments() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {reqModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs text-text-secondary mb-1">
+                  {reqModal.shipment_code || 'Shipment'} {reqModal.fid ? `· Order ${reqModal.fid}` : ''}
+                </div>
+                <h3 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.qogita.createRequest', 'Create request')}</h3>
+                {reqFlash && (
+                  <div className="mt-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-3 py-2">
+                    {reqFlash}
+                  </div>
+                )}
+              </div>
+              <button onClick={() => setReqModal(null)} className="text-text-secondary hover:text-text-primary text-sm">✕</button>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-text-secondary mb-1">Destination country</label>
+                <select
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  value={reqDestination}
+                  onChange={(e) => setReqDestination(e.target.value)}
+                >
+                  {DESTINATION_OPTIONS.map((opt) => (
+                    <option key={opt.code} value={opt.code}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-4 text-sm">
+                <label className="flex items-center gap-2">
+                  <input type="radio" checked={reqMode === 'none'} onChange={() => setReqMode('none')} />
+                  {t('ClientIntegrations.qogita.modeNone', 'Do not send now')}
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="radio" checked={reqMode === 'full'} onChange={() => setReqMode('full')} />
+                  {t('ClientIntegrations.qogita.modeFull', 'Send all units to Amazon')}
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="radio" checked={reqMode === 'partial'} onChange={() => setReqMode('partial')} />
+                  {t('ClientIntegrations.qogita.modePartial', 'Partial shipment')}
+                </label>
+              </div>
+            </div>
+
+            <div className="border rounded-lg overflow-hidden">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 text-text-secondary">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Product</th>
+                    <th className="px-3 py-2 text-left">GTIN</th>
+                    <th className="px-3 py-2 text-left">ASIN/SKU</th>
+                    <th className="px-3 py-2 text-right">Units</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {reqLines.map((line, idx) => (
+                    <tr key={`${line.gtin || 'line'}-${idx}`}>
+                      <td className="px-3 py-2">{line.name || line.product_name || '—'}</td>
+                      <td className="px-3 py-2 font-mono text-xs">{line.gtin || '—'}</td>
+                      <td className="px-3 py-2">
+                        <div className="text-xs text-text-primary font-semibold">{line.asin || '—'}</div>
+                        {line.sku && <div className="text-[11px] text-text-secondary">SKU: {line.sku}</div>}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {reqMode === 'partial' ? (
+                          <input
+                            type="number"
+                            min={0}
+                            className="w-20 border rounded px-2 py-1 text-right"
+                            value={line.units}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setReqLines((prev) =>
+                                prev.map((l, i) => (i === idx ? { ...l, units: val } : l))
+                              );
+                            }}
+                          />
+                        ) : (
+                          <span>{line.units}</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setReqModal(null)}
+                className="px-4 py-2 rounded-lg border text-sm text-text-secondary"
+                disabled={reqSubmitting}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={submitRequest}
+                disabled={reqSubmitting}
+                className="px-4 py-2 rounded-lg bg-primary text-white text-sm inline-flex items-center gap-2 disabled:opacity-60"
+              >
+                {reqSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t('ClientIntegrations.qogita.createRequest', 'Create request')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
