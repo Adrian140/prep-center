@@ -23,7 +23,7 @@ jobs:
         run: |
           curl -s -X POST "$SUPABASE_URL/functions/v1/qogita-shipments" \
             -H "Content-Type: application/json" \
-            -H "Authorization: $SUPABASE_SERVICE_ROLE" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE" \
             -H "apikey: $SUPABASE_SERVICE_ROLE" \
             -d "{\"user_id\": \"$QOGITA_USER_ID\"}" \
             | tee /tmp/resp.json
