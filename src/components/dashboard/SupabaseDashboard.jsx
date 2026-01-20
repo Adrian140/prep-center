@@ -54,6 +54,7 @@ function SupabaseDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const [hasQogita, setHasQogita] = useState(false);
+  const [qogitaLoading, setQogitaLoading] = useState(true);
   const reportTabs = BASE_REPORT_TABS;
 
   const validTabs = [
@@ -125,8 +126,10 @@ useEffect(() => {
   useEffect(() => {
     let cancelled = false;
     const loadQogita = async () => {
+      setQogitaLoading(true);
       if (!user?.id) {
         setHasQogita(false);
+        setQogitaLoading(false);
         return;
       }
       const { data } = await supabase
@@ -137,6 +140,7 @@ useEffect(() => {
         .maybeSingle();
       if (cancelled) return;
       setHasQogita(!!data);
+      setQogitaLoading(false);
     };
     loadQogita();
     return () => {
@@ -145,10 +149,10 @@ useEffect(() => {
   }, [user?.id]);
 
   useEffect(() => {
-    if (activeTab === 'reports-qogita' && !hasQogita) {
+    if (activeTab === 'reports-qogita' && !qogitaLoading && !hasQogita) {
       setActiveTab('activity');
     }
-  }, [activeTab, hasQogita]);
+  }, [activeTab, hasQogita, qogitaLoading]);
 
   const companyId = profile?.company_id;
   const [reviewPrompt, setReviewPrompt] = useState({
