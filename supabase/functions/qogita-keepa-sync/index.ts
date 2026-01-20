@@ -122,14 +122,28 @@ async function fetchQogitaGtins(userId: string, token: string) {
   return Array.from(results).slice(0, 30); // limit pentru costuri
 }
 
+async function gatherStockGtins(userId: string) {
+  const { data, error } = await supabase
+    .from("stock_items")
+    .select("ean")
+    .eq("user_id", userId)
+    .is("asin", null)
+    .not("ean", "is", null)
+    .limit(50);
+  if (error) return [];
+  return (data || []).map((row) => row.ean as string).filter(Boolean);
+}
+
 async function processUser(userId: string, country?: string) {
   const token = await getQogitaToken(userId);
   if (!token) return 0;
-  const gtins = await fetchQogitaGtins(userId, token);
-  if (!gtins.length) return 0;
+  const gtinsQogita = await fetchQogitaGtins(userId, token);
+  const gtinsStock = await gatherStockGtins(userId);
+  const allGtins = Array.from(new Set([...gtinsQogita, ...gtinsStock])).slice(0, 60);
+  if (!allGtins.length) return 0;
 
   let updated = 0;
-  for (const ean of gtins) {
+  for (const ean of allGtins) {
     const domain = country ? countryToDomain[country.toUpperCase()] || 4 : 4;
     try {
       const res = await keepaLookupByEan(ean, domain);
