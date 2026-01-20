@@ -292,6 +292,7 @@ export default function FbaSendToAmazonWizard({
       (Array.isArray(groups) ? groups : []).some((g) => g?.packingGroupId && !isFallbackId(g.packingGroupId)),
     [isFallbackId]
   );
+  const serverUnitsRef = useRef(new Map());
   const packGroupsRef = useRef(packGroups);
   const planRef = useRef(plan);
   const packingOptionIdRef = useRef(packingOptionId);
@@ -305,6 +306,15 @@ export default function FbaSendToAmazonWizard({
   useEffect(() => {
     planRef.current = plan;
   }, [plan]);
+  const snapshotServerUnits = useCallback((skus = []) => {
+    const map = new Map();
+    (Array.isArray(skus) ? skus : []).forEach((sku) => {
+      if (!sku?.id) return;
+      const qty = Number(sku.units ?? sku.units_sent ?? sku.units_requested ?? 0) || 0;
+      map.set(String(sku.id), qty);
+    });
+    serverUnitsRef.current = map;
+  }, []);
   useEffect(() => {
     packingOptionIdRef.current = packingOptionId;
   }, [packingOptionId]);
@@ -465,6 +475,7 @@ export default function FbaSendToAmazonWizard({
     setCurrentStep('1');
     setCompletedSteps([]);
     setPlan(initialPlan);
+    snapshotServerUnits(initialPlan?.skus || []);
     setPackGroups(normalizedInitialGroups);
     setPackGroupsLoaded(hasRealPackGroups(normalizedInitialGroups));
     setShipmentMode(initialShipmentMode);
@@ -492,7 +503,8 @@ export default function FbaSendToAmazonWizard({
     hasRealPackGroups,
     initialRequestKey,
     plan?.inboundPlanId,
-    plan?.inbound_plan_id
+    plan?.inbound_plan_id,
+    snapshotServerUnits
   ]);
 
   useEffect(() => {
@@ -629,8 +641,10 @@ export default function FbaSendToAmazonWizard({
         } = response;
         if (pFrom && pMarket && Array.isArray(pSkus)) {
           setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
+          snapshotServerUnits(pSkus);
         } else {
           setPlan((prev) => ({ ...prev, ...response }));
+          if (Array.isArray(response?.skus)) snapshotServerUnits(response.skus);
         }
         if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
         if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
@@ -661,7 +675,7 @@ export default function FbaSendToAmazonWizard({
         }
       }
     }
-  }, [autoLoadPlan, fetchPlan, normalizePackGroups, planLoaded]);
+  }, [autoLoadPlan, fetchPlan, normalizePackGroups, planLoaded, snapshotServerUnits]);
 
   useEffect(() => {
     if (!planLoaded) return;
@@ -687,8 +701,10 @@ export default function FbaSendToAmazonWizard({
         } = response;
         if (pFrom && pMarket && Array.isArray(pSkus)) {
           setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
+          snapshotServerUnits(pSkus);
         } else {
           setPlan((prev) => ({ ...prev, ...response }));
+          if (Array.isArray(response?.skus)) snapshotServerUnits(response.skus);
         }
       } catch (e) {
         if (!cancelled) setPlanError((prev) => prev || e?.message || 'Failed to reload Amazon plan.');
@@ -699,7 +715,11 @@ export default function FbaSendToAmazonWizard({
     return () => {
       cancelled = true;
     };
-  }, [planLoaded, fetchPlan, resolveInboundPlanId, resolveRequestId]);
+  }, [planLoaded, fetchPlan, resolveInboundPlanId, resolveRequestId, snapshotServerUnits]);
+  useEffect(() => {
+    if (serverUnitsRef.current.size) return;
+    snapshotServerUnits(initialPlan?.skus || []);
+  }, [initialPlan?.skus, snapshotServerUnits]);
 
 const warning = useMemo(() => {
   if (!step2Loaded || shippingLoading) return null;
@@ -1638,8 +1658,10 @@ const fetchPartneredQuote = useCallback(
           } = response;
           if (pFrom && pMarket && Array.isArray(pSkus)) {
             setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
+            snapshotServerUnits(pSkus);
           } else {
             setPlan((prev) => ({ ...prev, ...response }));
+            if (Array.isArray(response?.skus)) snapshotServerUnits(response.skus);
           }
           if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
           if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
@@ -1665,7 +1687,7 @@ const fetchPartneredQuote = useCallback(
       setLoadingPlan(false);
       setPlanLoaded(true);
     },
-    [fetchPlan, fetchShippingOptions, normalizePackGroups]
+    [fetchPlan, fetchShippingOptions, normalizePackGroups, snapshotServerUnits]
   );
 
   const invalidateFrom = (stepKey) => {
@@ -1741,12 +1763,13 @@ const fetchPartneredQuote = useCallback(
       return { ok: false, code: 'PACKING_GROUPS_NOT_READY' };
     };
     try {
-      const prevUnitsById = new Map(
-        (plan?.skus || []).map((sku) => [String(sku.id), Number(sku.units ?? sku.units_sent ?? 0)])
-      );
-      const hasChanges = updates.some(
-        (row) => Number(prevUnitsById.get(String(row.id)) ?? 0) !== Number(row.units_sent || 0)
-      );
+      const prevUnitsById = serverUnitsRef.current || new Map();
+      const hasBaseline = prevUnitsById.size > 0;
+      const hasChanges =
+        !hasBaseline ||
+        updates.some(
+          (row) => Number(prevUnitsById.get(String(row.id)) ?? 0) !== Number(row.units_sent || 0)
+        );
 
       if (hasChanges) {
         // upsert declanșa RLS pe INSERT; facem update punctual pe fiecare id
@@ -1786,6 +1809,7 @@ const fetchPartneredQuote = useCallback(
         setShippingSummary(null);
         setShippingOptions([]);
         setStep2Loaded(false);
+        snapshotServerUnits(updates.map((u) => ({ id: u.id, units: u.units_sent })));
 
         if (fetchPlan) {
           await refreshStep('1');
@@ -1817,7 +1841,7 @@ const fetchPartneredQuote = useCallback(
     } finally {
       setStep1Saving(false);
     }
-  }, [completeAndNext, fetchPlan, plan?.skus, refreshStep, resolveRequestId]);
+  }, [completeAndNext, fetchPlan, plan?.skus, refreshStep, resolveRequestId, snapshotServerUnits]);
 
   const renderContent = (stepKey) => {
     if (stepKey === '1') {
