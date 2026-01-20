@@ -1717,10 +1717,8 @@ createPrepItem: async (requestId, item) => {
       .from('stock_items')
       .select('qty')
       .limit(20000);
-    const clientStockPromise = supabase
-      .from('client_stock_items')
-      .select('qty, company_id')
-      .limit(50000);
+    // client_stock_items view nu are coloana qty; evităm apelul direct ca să nu generăm 400
+    const clientStockPromise = Promise.resolve({ data: [], error: null });
     const stockTotalRpcPromise = supabase.rpc('get_total_stock_units');
 
     const invoicesPromise = withCompany(
