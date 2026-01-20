@@ -53,7 +53,7 @@ async function deriveKey(secret: string) {
   }
   const encoder = new TextEncoder();
   const keyBytes = encoder.encode(secret).slice(0, 32);
-  return crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
+  return crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
 }
 
 async function decryptToken(encrypted: string) {
