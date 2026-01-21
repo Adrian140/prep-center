@@ -1317,16 +1317,6 @@ serve(async (req) => {
       return last;
     };
 
-    const currentSnap = (reqData as any)?.amazon_snapshot || {};
-    const cachedPackingGroups: any[] =
-      currentSnap?.fba_inbound?.packingGroups ||
-      currentSnap?.fba_inbound?.packing_groups ||
-      [];
-    const cachedPackingOptionId: string | null =
-      currentSnap?.fba_inbound?.packingOptionId ||
-      currentSnap?.fba_inbound?.packing_option_id ||
-      null;
-
     const packingGroups = [];
     for (const gid of packingGroupIds) {
       // sequential to respect throttling limits
@@ -1340,30 +1330,25 @@ serve(async (req) => {
     }
 
     const failedGroupFetch = packingGroups.some((g: any) => Number(g?.status || 0) >= 400);
-    const hasCachedGroups = Array.isArray(cachedPackingGroups) && cachedPackingGroups.length > 0;
     if (!packingGroupIds.length || !packingGroups.length || failedGroupFetch) {
-      if (hasCachedGroups) {
-        warnings.push("Folosim packing groups din cache deoarece Amazon nu a returnat încă packingGroupIds/grupuri.");
-      } else {
-        const message = failedGroupFetch
-          ? "getPackingGroupItems a eșuat pentru unul sau mai multe grupuri."
-          : !packingGroupIds.length
-            ? "packingGroupIds lipsesc (list/generate indisponibil sau throttled)."
-            : "packingGroups nu sunt gata (list/generate nu a populat grupurile).";
-        return new Response(
-          JSON.stringify({
-            code: "PACKING_GROUPS_NOT_READY",
-            message,
-            traceId,
-            inboundPlanId,
-            packingOptionId,
-            placementOptionId,
-            amazonIntegrationId: integId || null,
-            debug: debugSnapshot(failedGroupFetch)
-          }),
-          { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
-        );
-      }
+      const message = failedGroupFetch
+        ? "getPackingGroupItems a eșuat pentru unul sau mai multe grupuri."
+        : !packingGroupIds.length
+          ? "packingGroupIds lipsesc (list/generate indisponibil sau throttled)."
+          : "packingGroups nu sunt gata (list/generate nu a populat grupurile).";
+      return new Response(
+        JSON.stringify({
+          code: "PACKING_GROUPS_NOT_READY",
+          message,
+          traceId,
+          inboundPlanId,
+          packingOptionId,
+          placementOptionId,
+          amazonIntegrationId: integId || null,
+          debug: debugSnapshot(failedGroupFetch)
+        }),
+        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
     }
 
     // Fetch metadata for SKUs to show images/titles in UI
@@ -1453,32 +1438,19 @@ serve(async (req) => {
         };
       });
 
-    const cachedById = cachedPackingGroups.reduce((acc: Record<string, any>, cg: any) => {
-      const id = cg?.packingGroupId || cg?.id || null;
-      if (id) acc[id] = cg;
-      return acc;
-    }, {});
-
-    const sourceGroups = packingGroups.length ? packingGroups : cachedPackingGroups;
-
-    const normalizedPackingGroups = sourceGroups.map((g, idx) => {
+    const normalizedPackingGroups = packingGroups.map((g, idx) => {
       const pgId = (g as any)?.packingGroupId || (g as any)?.id || `group-${idx + 1}`;
-      const cached = cachedById[pgId] || {};
-      const boxes = Number((g as any)?.boxes || (g as any)?.boxCount || cached?.boxes || 1) || 1;
+      const boxes = Number((g as any)?.boxes || (g as any)?.boxCount || 1) || 1;
       const items = normalizeItems((g as any)?.items);
       const dims =
         (g as any)?.dimensions ||
         (g as any)?.boxDimensions ||
-        cached?.boxDimensions ||
-        cached?.dimensions ||
         null;
       const weight =
         (g as any)?.weight ||
         (g as any)?.boxWeight ||
-        cached?.boxWeight ||
-        cached?.weight ||
         null;
-      const packModeRaw = (g as any)?.packMode || cached?.packMode || null;
+      const packModeRaw = (g as any)?.packMode || null;
       return {
         ...g,
         id: pgId,
@@ -1491,7 +1463,7 @@ serve(async (req) => {
         weight: weight || null
       };
     });
-    const hasPackingGroups = normalizedPackingGroups.length > 0;
+    const hasPackingGroups = packingGroupIds.length > 0 && normalizedPackingGroups.length > 0;
 
     if (!hasPackingGroups) {
       const message = packingGroupIds.length === 0
@@ -1550,7 +1522,7 @@ serve(async (req) => {
         fba_inbound: {
           ...(snapshotBase?.fba_inbound || {}),
           inboundPlanId,
-          packingOptionId: packingOptionId || cachedPackingOptionId || null,
+          packingOptionId,
           placementOptionId,
           shipments: planShipments,
           packingGroups: effectivePackingGroups,
@@ -1562,7 +1534,7 @@ serve(async (req) => {
         .update({
           inbound_plan_id: inboundPlanId,
           placement_option_id: placementOptionId || null,
-          packing_option_id: packingOptionId || cachedPackingOptionId || null,
+          packing_option_id: packingOptionId || null,
           amazon_snapshot: nextSnapshot
         })
         .eq("id", requestId);
@@ -1573,7 +1545,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         inboundPlanId,
-        packingOptionId: packingOptionId || cachedPackingOptionId || null,
+        packingOptionId,
         placementOptionId,
         shipments: planShipments,
         packingGroups: effectivePackingGroups,
