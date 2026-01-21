@@ -94,9 +94,7 @@ export default function ClientQogitaShipments() {
           : error.message || 'Nu am putut încărca livrările Qogita.';
       setFlash(msg);
       setShipments([]);
-      if (error?.message?.includes('auth_failed')) {
-        setLoginModal((prev) => ({ ...prev, open: true, error: '' }));
-      }
+      setLoginModal((prev) => ({ ...prev, open: true, error: '' }));
     } else {
       setShipments(data?.shipments || []);
       setLoginModal((prev) => ({ ...prev, open: false, error: '' }));
@@ -388,7 +386,15 @@ export default function ClientQogitaShipments() {
           <Loader2 className="w-4 h-4 animate-spin" /> {t('common.loading')}
         </div>
       ) : shipmentsWithLines.length === 0 ? (
-        <div className="text-sm text-text-secondary">{t('ClientIntegrations.qogita.empty')}</div>
+        <div className="text-sm text-text-secondary flex items-center gap-3">
+          {t('ClientIntegrations.qogita.empty')}
+          <button
+            className="px-3 py-1.5 rounded-lg border text-sm text-primary"
+            onClick={() => setLoginModal((prev) => ({ ...prev, open: true }))}
+          >
+            Reconnect
+          </button>
+        </div>
       ) : (
         <div className="grid gap-4">
           {shipmentsWithLines.map((ship) => (
