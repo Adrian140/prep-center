@@ -569,6 +569,13 @@ serve(async (req) => {
     if (reqData?.inbound_plan_id && reqData.inbound_plan_id !== inboundPlanId) {
       inboundPlanId = reqData.inbound_plan_id;
     }
+    // dacă avem inboundPlanId din payload și nu e salvat încă, persistă-l imediat (idempotent)
+    if (!reqData?.inbound_plan_id && inboundPlanId) {
+      await supabase
+        .from("prep_requests")
+        .update({ inbound_plan_id: inboundPlanId })
+        .eq("id", requestId);
+    }
     if (!userIsAdmin) {
       const isOwner = !!reqData.user_id && reqData.user_id === user.id;
       const isCompanyMember = !!reqData.company_id && !!userCompanyId && reqData.company_id === userCompanyId;
