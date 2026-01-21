@@ -1029,14 +1029,14 @@ const fetchPartneredQuote = useCallback(
 
     try {
       // Reîncercări agresive dacă Amazon întârzie packingGroupIds.
-      const maxAttempts = 5;
+      const maxAttempts = 8;
       for (let i = 1; i <= maxAttempts; i += 1) {
         const res = await attemptFetch();
         if (res?.ok) return res;
         if (res?.code !== 'PACKING_GROUPS_NOT_READY') return res;
         // backoff mic înainte de următoarea încercare
         // eslint-disable-next-line no-await-in-loop
-        await new Promise((resolve) => setTimeout(resolve, 600 * i));
+        await new Promise((resolve) => setTimeout(resolve, 800 * i));
       }
       return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: 'Amazon nu a returnat packing groups după mai multe încercări.' };
     } catch (e) {
