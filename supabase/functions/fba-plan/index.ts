@@ -1692,8 +1692,9 @@ serve(async (req) => {
           const prepRequired = !!prepInfo.prepRequired;
           const manufacturerBarcodeEligible =
             prepInfo.barcodeInstruction ? isManufacturerBarcodeEligible(prepInfo.barcodeInstruction) : false;
-          // Default: SELLER; dacă e barcode producător, NONE; restul se corectează din overrides după erori
-          let labelOwner: OwnerVal = manufacturerBarcodeEligible ? "NONE" : "SELLER";
+          // Pentru workflow-ul cu packing options, păstrăm SELLER chiar dacă e eligibil manufacturer barcode,
+          // altfel Amazon poate refuza generatePackingOptions.
+          let labelOwner: OwnerVal = "SELLER";
           let prepOwner: OwnerVal = prepRequired ? "SELLER" : "NONE";
           const expiryVal = expirations[key] || null;
 
