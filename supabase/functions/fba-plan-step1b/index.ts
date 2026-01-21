@@ -1496,6 +1496,25 @@ serve(async (req) => {
         weight: weight || null
       };
     });
+
+    // Dacă packing groups vin fără dimensiuni/greutate, încearcă să rehidratezi din snapshot-ul salvat pe request.
+    const snapshotGroups =
+      (reqData as any)?.amazon_snapshot?.fba_inbound?.packingGroups ||
+      (reqData as any)?.amazon_snapshot?.packingGroups ||
+      [];
+    if (Array.isArray(snapshotGroups) && snapshotGroups.length) {
+      const byId = new Map<string, any>();
+      snapshotGroups.forEach((sg: any) => {
+        const id = sg?.packingGroupId || sg?.id;
+        if (id) byId.set(String(id), sg);
+      });
+      normalizedPackingGroups.forEach((g) => {
+        const cached = byId.get(String(g.packingGroupId));
+        if (!cached) return;
+        if (!g.dimensions && cached.boxDimensions) g.dimensions = cached.boxDimensions;
+        if (!g.weight && cached.boxWeight) g.weight = cached.boxWeight;
+      });
+    }
     const hasPackingGroups = packingGroupIds.length > 0 && normalizedPackingGroups.length > 0;
 
     if (!hasPackingGroups) {
