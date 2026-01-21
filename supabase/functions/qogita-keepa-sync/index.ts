@@ -235,12 +235,28 @@ async function processUser(userId: string, country?: string) {
   const allGtins = Array.from(new Set([...gtinsQogita, ...gtinsStock, ...gtinsLocal])).slice(0, 300);
   if (!allGtins.length) return { updated: 0, scanned: 0, details: [{ notice: "no_gtin_found", status: gtinResp.status, error: gtinResp.error || null, stock_gtin_count: gtinsStock.length, local_gtin_count: gtinsLocal.length }] };
 
+  // dacă deja avem mapări în asin_eans, evităm să consumăm token
+  const { data: mappedRows } = await supabase
+    .from("asin_eans")
+    .select("ean")
+    .eq("user_id", userId)
+    .in("ean", allGtins);
+  const mappedSet = new Set((mappedRows || []).map((r: any) => r.ean));
+  const gtinsToProcess = allGtins.filter((g) => !mappedSet.has(g));
+  if (!gtinsToProcess.length) {
+    return {
+      updated: 0,
+      scanned: allGtins.length,
+      details: [{ notice: "all_gtins_already_mapped", count: allGtins.length }]
+    };
+  }
+
   const domainBase = country ? countryToDomain[country.toUpperCase()] || 4 : 4;
   const domainFallbacks = [domainBase || 4].filter(Boolean);
 
   let updated = 0;
   const details: any[] = [];
-  for (const rawEan of allGtins) {
+  for (const rawEan of gtinsToProcess) {
     const ean = normalizeEan(rawEan);
     try {
       const res = await keepaLookupByEan(ean, domainFallbacks);
