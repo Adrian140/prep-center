@@ -970,7 +970,7 @@ const fetchPartneredQuote = useCallback(
     setPackGroupsLoaded(hasRealPackGroups(packGroups));
     setPackingRefreshLoading(true);
     setPackingReadyError('');
-    try {
+    const attemptFetch = async () => {
       const { data, error } = await supabase.functions.invoke('fba-plan-step1b', {
         body: {
           request_id: requestId,
@@ -1025,6 +1025,20 @@ const fetchPartneredQuote = useCallback(
       if (Array.isArray(data?.shipments)) setShipments(data.shipments);
       setPlanError('');
       return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: 'Packing groups lipsesc din răspunsul Amazon.' };
+    };
+
+    try {
+      // Reîncercări agresive dacă Amazon întârzie packingGroupIds.
+      const maxAttempts = 5;
+      for (let i = 1; i <= maxAttempts; i += 1) {
+        const res = await attemptFetch();
+        if (res?.ok) return res;
+        if (res?.code !== 'PACKING_GROUPS_NOT_READY') return res;
+        // backoff mic înainte de următoarea încercare
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => setTimeout(resolve, 600 * i));
+      }
+      return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: 'Amazon nu a returnat packing groups după mai multe încercări.' };
     } catch (e) {
       const msg = e?.message || 'Nu am putut reîncărca packing groups.';
       setPackingReadyError(msg);
