@@ -518,7 +518,7 @@ serve(async (req) => {
       packingOptionId: body?.packing_option_id || body?.packingOptionId || null
     });
     const requestId = body?.request_id as string | undefined;
-    const inboundPlanId = body?.inbound_plan_id as string | undefined;
+    let inboundPlanId = body?.inbound_plan_id as string | undefined;
     const includePlacement =
       (body?.include_placement as boolean | undefined) ??
       (body?.includePlacement as boolean | undefined) ??
@@ -554,7 +554,7 @@ serve(async (req) => {
 
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
-      .select("id, destination_country, company_id, user_id, amazon_snapshot")
+      .select("id, destination_country, company_id, user_id, amazon_snapshot, inbound_plan_id")
       .eq("id", requestId)
       .maybeSingle();
     if (reqErr) throw reqErr;
@@ -563,6 +563,11 @@ serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
+    }
+
+    // Dacă există deja un inbound_plan_id stocat pe request și diferă de cel trimis, folosește-l (idempotent)
+    if (reqData?.inbound_plan_id && reqData.inbound_plan_id !== inboundPlanId) {
+      inboundPlanId = reqData.inbound_plan_id;
     }
     if (!userIsAdmin) {
       const isOwner = !!reqData.user_id && reqData.user_id === user.id;
