@@ -70,6 +70,7 @@ export default function ClientQogitaShipments() {
   const [asinLoading, setAsinLoading] = useState({});
   const [loginModal, setLoginModal] = useState({ open: false, email: '', password: '', loading: false, error: '' });
   const [editAsin, setEditAsin] = useState({ gtin: '', value: '', saving: false, error: '' });
+  const [lastEmail, setLastEmail] = useState('');
 
   const loadShipments = async () => {
     if (!user?.id) return;
@@ -83,6 +84,7 @@ export default function ClientQogitaShipments() {
       .maybeSingle();
     if (connData?.qogita_email && !loginModal.email) {
       setLoginModal((prev) => ({ ...prev, email: connData.qogita_email }));
+      setLastEmail(connData.qogita_email);
     }
     const { data, error } = await supabase.functions.invoke('qogita-shipments', {
       body: { user_id: user.id }
@@ -705,7 +707,7 @@ export default function ClientQogitaShipments() {
                   autoComplete="email"
                   type="email"
                   className="w-full border rounded-lg px-3 py-2 text-sm"
-                  value={loginModal.email}
+                  value={loginModal.email || lastEmail}
                   onChange={(e) => setLoginModal((prev) => ({ ...prev, email: e.target.value }))}
                 />
               </div>
