@@ -508,23 +508,6 @@ export default function ClientQogitaShipments() {
                                 )}
                               </button>
                             )}
-                            <div className="mt-2 flex items-center gap-2">
-                              <input
-                                className="border rounded px-2 py-1 text-xs w-32"
-                                placeholder="Set ASIN"
-                                value={editAsin.gtin === line.gtin ? editAsin.value : ''}
-                                onChange={(e) =>
-                                  setEditAsin({ gtin: line.gtin, value: e.target.value, saving: false, error: '' })
-                                }
-                              />
-                              <button
-                                className="text-[11px] text-primary underline disabled:opacity-60"
-                                disabled={!editAsin.value || editAsin.gtin !== line.gtin || editAsin.saving}
-                                onClick={saveManualAsin}
-                              >
-                                {editAsin.saving && editAsin.gtin === line.gtin ? 'Saving...' : 'Save'}
-                              </button>
-                            </div>
                             {editAsin.gtin === line.gtin && (
                               <div className="mt-1 flex items-center gap-2">
                                 <input
