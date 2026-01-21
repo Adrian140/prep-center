@@ -1019,12 +1019,21 @@ const fetchPartneredQuote = useCallback(
         } else {
           setPackGroupsLoaded(true);
         }
-        setPackGroups((prev) => mergePackGroups(prev, filtered));
-        return { ok: true };
-      }
-      if (Array.isArray(data?.shipments)) setShipments(data.shipments);
-      setPlanError('');
-      return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: 'Packing groups lipsesc din răspunsul Amazon.' };
+          // înlocuim cu grupurile noi de la Amazon (evităm să rămână ID-uri vechi din alte planuri)
+          setPackGroups(filtered);
+          // sincronizează packingOptionId în plan ca să nu trimitem un ID vechi la setPackingInformation
+          setPlan((prev) => ({
+            ...prev,
+            packingOptionId: data?.packingOptionId || prev?.packingOptionId || null,
+            packing_option_id: data?.packingOptionId || prev?.packing_option_id || null,
+            inboundPlanId,
+            inbound_plan_id: inboundPlanId
+          }));
+          return { ok: true };
+        }
+        if (Array.isArray(data?.shipments)) setShipments(data.shipments);
+        setPlanError('');
+        return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: 'Packing groups lipsesc din răspunsul Amazon.' };
     };
 
     try {
