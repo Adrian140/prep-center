@@ -235,7 +235,10 @@ export default function FbaSendToAmazonWizard({
       const incomingWeight = getPositiveNumber(g.boxWeight);
       const existingWeight = getPositiveNumber(existing.boxWeight);
       return {
+        ...existing,
         ...g,
+        // păstrează items/dims/weight locale dacă Amazon nu le trimite
+        items: Array.isArray(g.items) && g.items.length ? g.items : existing.items || [],
         boxDimensions: resolvedDims,
         boxWeight: incomingWeight ?? existingWeight ?? null,
         boxes: g.boxes ?? existing.boxes ?? 1,
