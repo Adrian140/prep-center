@@ -937,6 +937,16 @@ const fetchPartneredQuote = useCallback(
     setPackingSubmitLoading(true);
     setPackingSubmitError('');
     try {
+      // forțează o reîmprospătare rapidă a packing groups ca să nu trimitem ID-uri vechi
+      const refreshRes = await refreshPackingGroups();
+      if (!refreshRes?.ok) {
+        const trace = refreshRes?.traceId ? ` TraceId ${refreshRes.traceId}` : '';
+        throw new Error(
+          refreshRes?.message ||
+          `Packing groups nu sunt gata încă.${trace}`
+        );
+      }
+
       const { data, error } = await supabase.functions.invoke('fba-set-packing-information', {
         body: {
           request_id: requestId,
