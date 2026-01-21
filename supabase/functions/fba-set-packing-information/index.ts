@@ -152,9 +152,9 @@ function normalizeItem(input: any) {
   const quantity = Number(input?.quantity ?? input?.qty ?? input?.quantityInBox ?? 0);
   if (!msku || !Number.isFinite(quantity) || quantity <= 0) return null;
 
-  const prepOwner = input?.prepOwner ? String(input.prepOwner) : null;
-  const labelOwner = input?.labelOwner ? String(input.labelOwner) : null;
-  if (!prepOwner || !labelOwner) return null;
+  // Dacă nu vin prepOwner/labelOwner de la UI/Amazon, folosim valori implicite conforme createInboundPlan (SELLER).
+  const prepOwner = input?.prepOwner ? String(input.prepOwner) : "SELLER";
+  const labelOwner = input?.labelOwner ? String(input.labelOwner) : "SELLER";
 
   const out: any = { msku: String(msku), quantity, prepOwner, labelOwner };
   if (input?.expiration) out.expiration = String(input.expiration).slice(0, 10);
@@ -178,10 +178,14 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
     let contentInformationSource = allowedSources.has(rawSource) ? rawSource : "MANUAL_PROCESS";
 
     let items: any[] = [];
-    if (contentInformationSource === "BOX_CONTENT_PROVIDED") {
-      const rawItems = Array.isArray(g?.items) ? g.items : (Array.isArray(g?.expectedItems) ? g.expectedItems : []);
-      items = rawItems.map(normalizeItem).filter(Boolean);
-      if (!items.length) contentInformationSource = "MANUAL_PROCESS";
+    const rawItems = Array.isArray(g?.items) ? g.items : (Array.isArray(g?.expectedItems) ? g.expectedItems : []);
+    items = rawItems.map(normalizeItem).filter(Boolean);
+    if (items.length) {
+      // Dacă avem conținut mapat, forțăm BOX_CONTENT_PROVIDED ca Amazon să primească SKUs+qty/prep/label.
+      contentInformationSource = "BOX_CONTENT_PROVIDED";
+    } else if (contentInformationSource === "BOX_CONTENT_PROVIDED") {
+      // Source cerut dar fără items -> fallback la manual.
+      contentInformationSource = "MANUAL_PROCESS";
     }
 
     const boxCount = Math.max(1, Number(g?.boxCount || g?.boxes || 1) || 1);
