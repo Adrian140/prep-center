@@ -298,6 +298,7 @@ export default function FbaSendToAmazonWizard({
   const packingOptionIdRef = useRef(packingOptionId);
   const placementOptionIdRef = useRef(placementOptionId);
   const packingRefreshLockRef = useRef({ inFlight: false, planId: null });
+  const packingAutoRetryTimerRef = useRef(null);
   const shippingRetryRef = useRef(0);
   const shippingRetryTimerRef = useRef(null);
   const planMissingRetryRef = useRef(0);
@@ -789,6 +790,44 @@ const fetchPartneredQuote = useCallback(
     if (!inboundPlanId || !requestId) return;
     refreshPackingGroups();
   }, [currentStep, packGroupsLoaded, packGroups, packingRefreshLoading, loadingPlan, resolveInboundPlanId, resolveRequestId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // retry automat la interval scurt până primim packing groups reale
+  useEffect(() => {
+    if (currentStep !== '1b') {
+      if (packingAutoRetryTimerRef.current) {
+        clearTimeout(packingAutoRetryTimerRef.current);
+        packingAutoRetryTimerRef.current = null;
+      }
+      return;
+    }
+    const hasRealGroups = hasRealPackGroups(packGroups);
+    if (packGroupsLoaded || hasRealGroups) {
+      if (packingAutoRetryTimerRef.current) {
+        clearTimeout(packingAutoRetryTimerRef.current);
+        packingAutoRetryTimerRef.current = null;
+      }
+      return;
+    }
+    if (packingRefreshLoading || loadingPlan) return;
+    packingAutoRetryTimerRef.current = setTimeout(() => {
+      packingAutoRetryTimerRef.current = null;
+      refreshPackingGroups();
+    }, 1500);
+    return () => {
+      if (packingAutoRetryTimerRef.current) {
+        clearTimeout(packingAutoRetryTimerRef.current);
+        packingAutoRetryTimerRef.current = null;
+      }
+    };
+  }, [
+    currentStep,
+    packGroupsLoaded,
+    packGroups,
+    packingRefreshLoading,
+    loadingPlan,
+    hasRealPackGroups,
+    refreshPackingGroups
+  ]);
 
   // Dacă avem deja grupuri în memorie, marcăm ca loaded ca să nu le ștergem inutil.
   useEffect(() => {

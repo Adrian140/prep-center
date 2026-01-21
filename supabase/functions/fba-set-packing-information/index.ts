@@ -152,9 +152,18 @@ function normalizeItem(input: any) {
   const quantity = Number(input?.quantity ?? input?.qty ?? input?.quantityInBox ?? 0);
   if (!msku || !Number.isFinite(quantity) || quantity <= 0) return null;
 
-  // Dacă nu vin prepOwner/labelOwner de la UI/Amazon, folosim valori implicite conforme createInboundPlan (SELLER).
-  const prepOwner = input?.prepOwner ? String(input.prepOwner) : "SELLER";
-  const labelOwner = input?.labelOwner ? String(input.labelOwner) : "SELLER";
+  // Dacă nu vin prepOwner/labelOwner de la UI/Amazon, folosim NONE/SELLER ca fallback sigur pentru Amazon.
+  const prepOwnerRaw =
+    input?.prepOwner ??
+    input?.prep_owner ??
+    input?.PrepOwner ??
+    (Array.isArray(input?.prepInstructions)
+      ? input.prepInstructions.find((p: any) => p?.prepOwner)?.prepOwner
+      : null);
+  const labelOwnerRaw = input?.labelOwner ?? input?.label_owner ?? input?.LabelOwner;
+
+  const prepOwner = String((prepOwnerRaw || "NONE") as string).toUpperCase();
+  const labelOwner = String((labelOwnerRaw || "SELLER") as string).toUpperCase();
 
   const out: any = { msku: String(msku), quantity, prepOwner, labelOwner };
   if (input?.expiration) out.expiration = String(input.expiration).slice(0, 10);

@@ -1321,7 +1321,9 @@ serve(async (req) => {
         msku: it.msku || it.SellerSKU || it.sellerSku || it.sku || "",
         asin: it.asin || it.ASIN || it.Asin || "",
         fnsku: it.fnsku || it.fulfillmentNetworkSku || it.FulfillmentNetworkSku || "",
-        quantity: Number(it.quantity || it.Quantity || 0) || 0
+        quantity: Number(it.quantity || it.Quantity || 0) || 0,
+        labelOwner: it.labelOwner || it.LabelOwner || null,
+        prepOwner: it.prepOwner || it.PrepOwner || null
       }));
       return {
         packingGroupId: groupId,

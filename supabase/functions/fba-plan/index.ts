@@ -226,6 +226,10 @@ function extractInboundErrors(primary: { json: any; text: string }): {
   return out;
 }
 
+function isLockId(val: string | null | undefined): boolean {
+  return typeof val === "string" && val.startsWith("LOCK-");
+}
+
 function extractInboundUnavailableSkus(primary: { json: any; text: string }): string[] {
   const collect = (obj: any) => {
     const errs = obj?.errors || obj?.payload?.errors || [];
@@ -2098,6 +2102,8 @@ serve(async (req) => {
       return { packingOptionId, packingGroups, warnings };
     };
 
+    const lockId = `LOCK-${traceId}`;
+    let hasPlanLock = false;
     let attempt = 0;
     const maxAttempts = 3;
     let amazonJson: any = null;
@@ -2127,9 +2133,9 @@ serve(async (req) => {
       _lastPlacementOptions = fetched.fetchedPlacementOptions || [];
       appliedPlanBody = appliedPlanBody || buildPlanBody(appliedOverrides);
 
-      if (inboundPlanErrored(inboundPlanStatus)) {
-        logStep("inboundPlanErrored", {
-          traceId,
+    if (inboundPlanErrored(inboundPlanStatus)) {
+      logStep("inboundPlanErrored", {
+        traceId,
           inboundPlanId,
           inboundPlanStatus,
           requestId,
@@ -2145,7 +2151,39 @@ serve(async (req) => {
         inboundPlanStatus = null;
         plans = [];
         _lastPackingOptions = [];
-        _lastPlacementOptions = [];
+      _lastPlacementOptions = [];
+    }
+    }
+
+    // Acquire a lightweight lock to avoid creating multiple inbound plans in parallel for același request.
+    if (!inboundPlanId) {
+      const { data: claimedRow, error: claimErr } = await supabase
+        .from("prep_requests")
+        .update({ inbound_plan_id: lockId })
+        .eq("id", requestId)
+        .is("inbound_plan_id", null)
+        .select("inbound_plan_id")
+        .maybeSingle();
+      if (claimErr) {
+        console.warn("fba-plan lock claim failed", { traceId, error: claimErr?.message || null });
+      }
+      if (claimedRow?.inbound_plan_id === lockId) {
+        hasPlanLock = true;
+        inboundPlanId = null; // keep null to trigger create with the lock held
+      } else if (claimedRow?.inbound_plan_id) {
+        // Alt proces a setat deja planul, îl reutilizăm.
+        inboundPlanId = claimedRow.inbound_plan_id;
+        hasPlanLock = false;
+      } else if (!claimedRow) {
+        // Nimeni nu a fost actualizat; poate un alt proces a setat deja planul între timp.
+        const { data: refetchRow, error: refetchErr } = await supabase
+          .from("prep_requests")
+          .select("inbound_plan_id")
+          .eq("id", requestId)
+          .maybeSingle();
+        if (!refetchErr && refetchRow?.inbound_plan_id) {
+          inboundPlanId = refetchRow.inbound_plan_id;
+        }
       }
     }
 
@@ -2651,12 +2689,58 @@ serve(async (req) => {
     const combinedWarning = planWarnings.length ? planWarnings.join(" ") : null;
     const shipmentsPending = !plans?.length;
     // Persist inboundPlanId when newly created so viitoarele apeluri nu mai generează plan nou
-    if (inboundPlanId && inboundPlanId !== reqData.inbound_plan_id) {
-      await supabase
+    if (inboundPlanId && !isLockId(inboundPlanId) && inboundPlanId !== reqData.inbound_plan_id) {
+      const { data: updRow, error: updErr } = await supabase
         .from("prep_requests")
         .update({ inbound_plan_id: inboundPlanId })
-        .eq("id", requestId);
+        .eq("id", requestId)
+        .in("inbound_plan_id", hasPlanLock ? [lockId, null] : [null])
+        .select("inbound_plan_id")
+        .maybeSingle();
+      if (updErr) {
+        console.warn("fba-plan persist inbound_plan_id failed", { traceId, error: updErr?.message || null });
+      } else if (updRow?.inbound_plan_id) {
+        inboundPlanId = updRow.inbound_plan_id;
+      } else {
+        // If another process beat us, reuse its plan id
+        const { data: refetchRow } = await supabase
+          .from("prep_requests")
+          .select("inbound_plan_id")
+          .eq("id", requestId)
+          .maybeSingle();
+        if (refetchRow?.inbound_plan_id && !isLockId(refetchRow.inbound_plan_id)) {
+          inboundPlanId = refetchRow.inbound_plan_id;
+        }
+      }
     }
+
+    // Resolve lock placeholders to real plan id, dacă există
+    if (isLockId(inboundPlanId)) {
+      const { data: refetchRow, error: refetchErr } = await supabase
+        .from("prep_requests")
+        .select("inbound_plan_id")
+        .eq("id", requestId)
+        .maybeSingle();
+      if (refetchErr) {
+        console.warn("fba-plan refetch after lock failed", { traceId, error: refetchErr?.message || null });
+      }
+      if (refetchRow?.inbound_plan_id && !isLockId(refetchRow.inbound_plan_id)) {
+        inboundPlanId = refetchRow.inbound_plan_id;
+      } else {
+        inboundPlanId = null;
+      }
+    }
+
+    // Release lock if we held it and failed to create a plan
+    if (!inboundPlanId && hasPlanLock) {
+      await supabase
+        .from("prep_requests")
+        .update({ inbound_plan_id: null })
+        .eq("id", requestId)
+        .eq("inbound_plan_id", lockId);
+    }
+
+    const safeInboundPlanId = isLockId(inboundPlanId) ? null : inboundPlanId;
 
     const plan = {
       source: "amazon",
@@ -2665,8 +2749,8 @@ serve(async (req) => {
       companyId: reqData.company_id || null,
       id: primaryRequestId || reqData.request_id || reqData.requestId || null,
       requestId: primaryRequestId || reqData.request_id || reqData.requestId || null,
-      inboundPlanId: inboundPlanId || null,
-      inboundPlanStatus: inboundPlanStatus || null,
+      inboundPlanId: safeInboundPlanId,
+      inboundPlanStatus: safeInboundPlanId ? inboundPlanStatus || null : null,
       operationId: operationId || null,
       operationStatus: operationStatus || null,
       packingOptionId: packingOptionId || null,
@@ -2688,8 +2772,8 @@ serve(async (req) => {
         plan,
         traceId,
         requestId: primaryRequestId || reqData.request_id || reqData.requestId || null,
-        inboundPlanId,
-        inboundPlanStatus,
+        inboundPlanId: safeInboundPlanId,
+        inboundPlanStatus: safeInboundPlanId ? inboundPlanStatus || null : null,
         operationId,
         operationStatus,
         packingOptionId,
