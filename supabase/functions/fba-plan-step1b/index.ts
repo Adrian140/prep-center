@@ -955,9 +955,9 @@ serve(async (req) => {
           return hasPackingGroups(opts);
         };
         if (!hasGroups(listRes)) {
-          const maxListRetries = 4;
+          const maxListRetries = 8;
           for (let i = 1; i <= maxListRetries; i += 1) {
-            await delay(300 * i);
+            await delay(400 * i);
             const retryRes = await listPackingOptions();
             recordSample(`listPackingOptionsAfterGenerateRetry${i}`, retryRes);
             if (retryRes?.res?.status === 429) break;
