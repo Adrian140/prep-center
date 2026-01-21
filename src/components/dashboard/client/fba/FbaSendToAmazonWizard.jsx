@@ -1008,7 +1008,7 @@ const fetchPartneredQuote = useCallback(
     }
   };
 
-  const refreshPackingGroups = async () => {
+  async function refreshPackingGroups() {
     if (typeof window === 'undefined') return { ok: false, code: 'NO_WINDOW' };
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
@@ -1111,7 +1111,7 @@ const fetchPartneredQuote = useCallback(
       setPackingRefreshLoading(false);
       packingRefreshLockRef.current = { inFlight: false, planId: null };
     }
-  };
+  }
 
   const buildShipmentConfigs = () => {
     if (!Array.isArray(packGroups)) return [];
