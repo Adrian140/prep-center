@@ -385,18 +385,39 @@ export default function FbaSendToAmazonWizard({
     initialPlan?.request_id
   ]);
   const resolveInboundPlanId = useCallback(() => {
+    // Evită revenirea la inboundPlanId din props atunci când am resetat planul curent (ex: după editarea cantităților).
+    const currentPlan = planRef.current || plan;
+    const hasExplicitInbound =
+      currentPlan &&
+      ('inboundPlanId' in currentPlan ||
+        'inbound_plan_id' in currentPlan ||
+        'planId' in currentPlan ||
+        'plan_id' in currentPlan);
+
+    if (hasExplicitInbound) {
+      return (
+        currentPlan?.inboundPlanId ||
+        currentPlan?.inbound_plan_id ||
+        currentPlan?.planId ||
+        currentPlan?.plan_id ||
+        null
+      );
+    }
+
     return (
-      plan?.inboundPlanId ||
-      plan?.inbound_plan_id ||
-      plan?.planId ||
-      plan?.plan_id ||
       initialPlan?.inboundPlanId ||
       initialPlan?.inbound_plan_id ||
       initialPlan?.planId ||
       initialPlan?.plan_id ||
       null
     );
-  }, [initialPlan?.inboundPlanId, initialPlan?.inbound_plan_id, initialPlan?.planId, initialPlan?.plan_id, plan?.inboundPlanId, plan?.inbound_plan_id, plan?.planId, plan?.plan_id]);
+  }, [
+    initialPlan?.inboundPlanId,
+    initialPlan?.inbound_plan_id,
+    initialPlan?.planId,
+    initialPlan?.plan_id,
+    plan
+  ]);
   const initialRequestKey = useMemo(
     () =>
       initialPlan?.prepRequestId ||
