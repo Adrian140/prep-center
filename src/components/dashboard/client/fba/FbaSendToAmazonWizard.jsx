@@ -297,6 +297,7 @@ export default function FbaSendToAmazonWizard({
   const planRef = useRef(plan);
   const packingOptionIdRef = useRef(packingOptionId);
   const placementOptionIdRef = useRef(placementOptionId);
+  const packingRefreshLockRef = useRef({ inFlight: false, planId: null });
   const shippingRetryRef = useRef(0);
   const shippingRetryTimerRef = useRef(null);
   const planMissingRetryRef = useRef(0);
@@ -978,6 +979,10 @@ const fetchPartneredQuote = useCallback(
     }
     // păstrăm grupurile existente; doar marcăm loading
     setPackGroupsLoaded(hasRealPackGroups(packGroups));
+    if (packingRefreshLockRef.current.inFlight && packingRefreshLockRef.current.planId === inboundPlanId) {
+      return { ok: false, code: 'IN_FLIGHT' };
+    }
+    packingRefreshLockRef.current = { inFlight: true, planId: inboundPlanId };
     setPackingRefreshLoading(true);
     setPackingReadyError('');
     const attemptFetch = async () => {
@@ -1064,6 +1069,7 @@ const fetchPartneredQuote = useCallback(
       return { ok: false, code: 'ERROR', message: msg };
     } finally {
       setPackingRefreshLoading(false);
+      packingRefreshLockRef.current = { inFlight: false, planId: null };
     }
   };
 
