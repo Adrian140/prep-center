@@ -1036,6 +1036,7 @@ const fetchPartneredQuote = useCallback(
         }
           // înlocuim cu grupurile noi de la Amazon (evităm să rămână ID-uri vechi din alte planuri)
           setPackGroups(filtered);
+          setPackingReadyError('');
           // sincronizează packingOptionId în plan ca să nu trimitem un ID vechi la setPackingInformation
           setPlan((prev) => ({
             ...prev,
