@@ -1222,6 +1222,22 @@ serve(async (req) => {
       throw new Error("Missing SP-API environment variables");
     }
 
+    let snapshotBase = (reqData as any)?.amazon_snapshot || {};
+    let inboundPlanId: string | null = reqData.inbound_plan_id || null;
+    let inboundPlanStatus: string | null = null;
+    let packingOptionId: string | null = (reqData as any)?.packing_option_id || null;
+    let _lastPackingOptions: any[] = [];
+    let _lastPlacementOptions: any[] = [];
+    const buildItemsSignature = (list: typeof reqData.prep_request_items) => {
+      const entries = (list || []).map((it: any) => ({
+        sku: normalizeSku(it.sku || it.asin || ""),
+        units: Number(it.units_sent ?? it.units_requested ?? 0) || 0
+      }));
+      entries.sort((a, b) => a.sku.localeCompare(b.sku) || a.units - b.units);
+      return JSON.stringify(entries);
+    };
+    const currentItemsSignature = buildItemsSignature(reqData.prep_request_items || []);
+    const previousItemsSignature = snapshotBase?.fba_inbound?.planItemsSignature || null;
     const body = await req.json().catch(() => ({}));
     const requestId = body?.request_id as string | undefined;
     const expirationsInput = (body?.expirations as Record<string, string | undefined | null>) || {};
@@ -1236,7 +1252,7 @@ serve(async (req) => {
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
       .select(
-        "id, destination_country, company_id, user_id, inbound_plan_id, placement_option_id, fba_shipment_id, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
+        "id, destination_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
       )
       .eq("id", requestId)
       .maybeSingle();
@@ -1256,6 +1272,33 @@ serve(async (req) => {
           JSON.stringify({ error: "Forbidden", traceId }),
           { status: 403, headers: { ...corsHeaders, "content-type": "application/json" } }
         );
+      }
+    }
+
+    // Dacă planul existent are semnătură de iteme diferită (qty/sku schimbate), resetăm inbound/packing/placement.
+    if (reqData.inbound_plan_id && previousItemsSignature && previousItemsSignature !== currentItemsSignature) {
+      try {
+        const clearedSnapshot = {
+          ...(snapshotBase || {}),
+          fba_inbound: {}
+        };
+        await supabase
+          .from("prep_requests")
+          .update({
+            inbound_plan_id: null,
+            placement_option_id: null,
+            packing_option_id: null,
+            amazon_snapshot: clearedSnapshot
+          })
+          .eq("id", requestId);
+        snapshotBase = clearedSnapshot;
+        inboundPlanId = null;
+        packingOptionId = null;
+        inboundPlanStatus = null;
+        _lastPackingOptions = [];
+        _lastPlacementOptions = [];
+      } catch (resetErr) {
+        console.error("reset inbound plan after item change failed", { traceId, error: resetErr });
       }
     }
 
@@ -2110,16 +2153,11 @@ serve(async (req) => {
     let lastResponseText: string | null = null;
     let primaryRequestId: string | null = null;
     let plans: any[] = [];
-    let inboundPlanId: string | null = reqData.inbound_plan_id || null;
-    let inboundPlanStatus: string | null = null;
     let operationId: string | null = null;
     let operationStatus: string | null = null;
     let operationProblems: any[] = [];
     let operationRaw: any = null;
     let createHttpStatus: number | null = null;
-    let _lastPackingOptions: any[] = [];
-    let _lastPlacementOptions: any[] = [];
-    let packingOptionId: string | null = (reqData as any)?.packing_option_id || null;
     let packingGroupsFromAmazon: any[] = [];
 
     const inboundPlanErrored = (status: string | null) =>
@@ -2741,6 +2779,23 @@ serve(async (req) => {
     }
 
     const safeInboundPlanId = isLockId(inboundPlanId) ? null : inboundPlanId;
+
+    // Persist semnătura itemelor pentru a detecta schimbări viitoare și a evita planuri desincronizate.
+    try {
+      const nextSnapshot = {
+        ...(snapshotBase || {}),
+        fba_inbound: {
+          ...(snapshotBase?.fba_inbound || {}),
+          planItemsSignature: currentItemsSignature,
+          inboundPlanId: safeInboundPlanId,
+          packingOptionId: packingOptionId || null,
+          placementOptionId: reqData.placement_option_id || null
+        }
+      };
+      await supabase.from("prep_requests").update({ amazon_snapshot: nextSnapshot }).eq("id", requestId);
+    } catch (persistSnapErr) {
+      console.error("persist plan items signature failed", { traceId, error: persistSnapErr });
+    }
 
     const plan = {
       source: "amazon",
