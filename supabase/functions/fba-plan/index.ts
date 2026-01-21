@@ -1222,22 +1222,6 @@ serve(async (req) => {
       throw new Error("Missing SP-API environment variables");
     }
 
-    let snapshotBase = (reqData as any)?.amazon_snapshot || {};
-    let inboundPlanId: string | null = reqData.inbound_plan_id || null;
-    let inboundPlanStatus: string | null = null;
-    let packingOptionId: string | null = (reqData as any)?.packing_option_id || null;
-    let _lastPackingOptions: any[] = [];
-    let _lastPlacementOptions: any[] = [];
-    const buildItemsSignature = (list: typeof reqData.prep_request_items) => {
-      const entries = (list || []).map((it: any) => ({
-        sku: normalizeSku(it.sku || it.asin || ""),
-        units: Number(it.units_sent ?? it.units_requested ?? 0) || 0
-      }));
-      entries.sort((a, b) => a.sku.localeCompare(b.sku) || a.units - b.units);
-      return JSON.stringify(entries);
-    };
-    const currentItemsSignature = buildItemsSignature(reqData.prep_request_items || []);
-    const previousItemsSignature = snapshotBase?.fba_inbound?.planItemsSignature || null;
     const body = await req.json().catch(() => ({}));
     const requestId = body?.request_id as string | undefined;
     const expirationsInput = (body?.expirations as Record<string, string | undefined | null>) || {};
@@ -1274,6 +1258,23 @@ serve(async (req) => {
         );
       }
     }
+
+    let snapshotBase = (reqData as any)?.amazon_snapshot || {};
+    let inboundPlanId: string | null = reqData.inbound_plan_id || null;
+    let inboundPlanStatus: string | null = null;
+    let packingOptionId: string | null = (reqData as any)?.packing_option_id || null;
+    let _lastPackingOptions: any[] = [];
+    let _lastPlacementOptions: any[] = [];
+    const buildItemsSignature = (list: typeof reqData.prep_request_items) => {
+      const entries = (list || []).map((it: any) => ({
+        sku: normalizeSku(it.sku || it.asin || ""),
+        units: Number(it.units_sent ?? it.units_requested ?? 0) || 0
+      }));
+      entries.sort((a, b) => a.sku.localeCompare(b.sku) || a.units - b.units);
+      return JSON.stringify(entries);
+    };
+    const currentItemsSignature = buildItemsSignature(reqData.prep_request_items || []);
+    const previousItemsSignature = snapshotBase?.fba_inbound?.planItemsSignature || null;
 
     // Dacă planul existent are semnătură de iteme diferită (qty/sku schimbate), resetăm inbound/packing/placement.
     if (reqData.inbound_plan_id && previousItemsSignature && previousItemsSignature !== currentItemsSignature) {
