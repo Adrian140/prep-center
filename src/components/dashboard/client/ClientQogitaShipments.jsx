@@ -221,7 +221,7 @@ export default function ClientQogitaShipments() {
     try {
       const { data: stockRow, error: stockErr } = await supabase
         .from('stock_items')
-        .select('asin, sku, image_url')
+        .select('asin, sku, image_url, ean, name')
         .eq('user_id', user.id)
         .eq('asin', asin)
         .maybeSingle();
@@ -229,8 +229,17 @@ export default function ClientQogitaShipments() {
       const entry = {
         asin,
         sku: stockRow?.sku || '-',
-        image_url: stockRow?.image_url || null
+        image_url: stockRow?.image_url || null,
+        name: stockRow?.name || ''
       };
+      // atașează EAN în inventar dacă lipsește
+      if (stockRow?.asin && (!stockRow.ean || stockRow.ean === '')) {
+        await supabase
+          .from('stock_items')
+          .update({ ean: editAsin.gtin })
+          .eq('user_id', user.id)
+          .eq('asin', stockRow.asin);
+      }
       setAsinMap((prev) => {
         const current = prev[editAsin.gtin] || [];
         const filtered = current.filter((m) => m.asin !== asin);
