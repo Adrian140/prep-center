@@ -948,6 +948,25 @@ serve(async (req) => {
             { status: 429, headers: { ...corsHeaders, "content-type": "application/json" } }
           );
         }
+        // Dacă după generate packing options încă nu conțin packingGroupIds, mai listăm cu backoff scurt (Amazon poate întârzia popularea).
+        const hasGroups = (res: Awaited<ReturnType<typeof listPackingOptions>> | null) => {
+          if (!res) return false;
+          const opts = extractPackingOptionsFromResponse(res) || [];
+          return hasPackingGroups(opts);
+        };
+        if (!hasGroups(listRes)) {
+          const maxListRetries = 4;
+          for (let i = 1; i <= maxListRetries; i += 1) {
+            await delay(300 * i);
+            const retryRes = await listPackingOptions();
+            recordSample(`listPackingOptionsAfterGenerateRetry${i}`, retryRes);
+            if (retryRes?.res?.status === 429) break;
+            if (hasGroups(retryRes)) {
+              listRes = retryRes;
+              break;
+            }
+          }
+        }
         if (listRes?.res?.ok && Array.isArray(listRes?.json?.packingOptions) && listRes.json.packingOptions.length === 0) {
           warnings.push("Amazon nu a returnat packingOptions (posibil lipsă permisiuni GeneratePackingOptions).");
         }
