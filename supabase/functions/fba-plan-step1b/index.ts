@@ -926,6 +926,25 @@ serve(async (req) => {
 
         if (genRes && !genRes.res.ok && genRes.res.status !== 409) {
           const errMsg = extractErrorDetail(genRes);
+          const notSupported =
+            String(genRes?.text || "")
+              .toLowerCase()
+              .includes("does not support packing options") ||
+            String(errMsg || "").toLowerCase().includes("does not support packing options");
+          if (genRes.res.status === 400 && notSupported) {
+            return new Response(
+              JSON.stringify({
+                code: "PACKING_OPTIONS_NOT_SUPPORTED",
+                message:
+                  "Amazon a răspuns că acest inbound plan nu suportă packing options. Creează un plan nou sau continuă fără packing options.",
+                inboundPlanId,
+                traceId,
+                amazonIntegrationId: integId || null,
+                debug: { statuses: debugStatuses, rawSamples }
+              }),
+              { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+            );
+          }
           warnings.push(
             `Amazon a refuzat generatePackingOptions (${genRes.res.status}). Verifică permisiunile Inbound/packing pe cont. ${errMsg ? `Detaliu: ${errMsg}` : ""}`
           );
