@@ -2133,6 +2133,11 @@ serve(async (req) => {
             break;
           }
         }
+        // Fallback: folosește packingOptions returnate de getInboundPlan (cache) dacă există.
+        if (!recovered && _lastPackingOptions.length) {
+          options = _lastPackingOptions;
+          recovered = true;
+        }
         if (!recovered) {
           warnings.push(`listPackingOptions a eșuat (${listRes.res.status}).`);
         }
