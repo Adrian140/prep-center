@@ -2076,6 +2076,16 @@ serve(async (req) => {
       const warnings: string[] = [];
       let listRes = await listPackingOptions(inboundPlanId);
       let options = extractPackingOptionsFromResponse(listRes);
+      const isBenignGenerateError = (res: Awaited<ReturnType<typeof signedFetch>> | null) => {
+        if (!res || res.res.status !== 400) return false;
+        const msg =
+          res.json?.errors?.[0]?.message ||
+          res.json?.payload?.errors?.[0]?.message ||
+          res.json?.message ||
+          res.text ||
+          "";
+        return String(msg).toLowerCase().includes("does not support packing options");
+      };
       const hasPackingGroups = (opts: any[]) =>
         (opts || []).some((opt) => {
           const groups = Array.isArray(opt?.packingGroups || opt?.PackingGroups) ? opt.packingGroups || opt.PackingGroups : [];
@@ -2089,9 +2099,24 @@ serve(async (req) => {
           genRes?.json?.payload?.operationId ||
           genRes?.json?.operationId ||
           null;
+        const benignGenerate = isBenignGenerateError(genRes);
         if (opId) await pollOperationStatus(opId);
-        listRes = await listPackingOptions(inboundPlanId);
-        options = extractPackingOptionsFromResponse(listRes);
+        if (!genRes.res.ok && !benignGenerate) {
+          warnings.push(`generatePackingOptions a eșuat (${genRes.res.status}).`);
+        }
+
+        // Poll listPackingOptions câteva secunde; Amazon uneori întoarce packingGroups fără generate.
+        const maxListPolls = 5;
+        options = [];
+        for (let attempt = 0; attempt < maxListPolls; attempt++) {
+          const retryRes = attempt === 0 ? await listPackingOptions(inboundPlanId) : await listPackingOptions(inboundPlanId);
+          listRes = retryRes;
+          if (retryRes?.res?.ok) {
+            options = extractPackingOptionsFromResponse(retryRes);
+            if (options.length && hasPackingGroups(options)) break;
+          }
+          await delay(300 + attempt * 150);
+        }
       }
 
       if (!listRes.res.ok) {
@@ -2485,6 +2510,20 @@ serve(async (req) => {
       }
     }
 
+    // Packing options and groups sunt tratate aici pentru Step 1b, dar dacă nu avem shipments încercăm totuși să scoatem packing groups.
+    if (inboundPlanId && !packingGroupsFromAmazon.length) {
+      const pgRes = await fetchPackingGroups(inboundPlanId);
+      if (pgRes.warnings?.length) {
+        planWarnings.push(...pgRes.warnings);
+      }
+      if (pgRes.packingOptionId && !packingOptionId) {
+        packingOptionId = pgRes.packingOptionId;
+      }
+      if (pgRes.packingGroups?.length) {
+        packingGroupsFromAmazon = pgRes.packingGroups;
+      }
+    }
+
     // Packing options and groups are handled in Step 1b to match the documented flow.
 
     const normalizeItems = (p: any) => p?.items || p?.Items || p?.shipmentItems || p?.ShipmentItems || [];
@@ -2726,7 +2765,7 @@ serve(async (req) => {
     });
 
     const combinedWarning = planWarnings.length ? planWarnings.join(" ") : null;
-    const shipmentsPending = !plans?.length;
+    const shipmentsPending = !plans?.length && !packingGroupsFromAmazon.length;
     // Persist inboundPlanId when newly created so viitoarele apeluri nu mai generează plan nou
     if (inboundPlanId && !isLockId(inboundPlanId) && inboundPlanId !== reqData.inbound_plan_id) {
       // Persist always, even dacă există un inbound_plan_id vechi – altfel UI/step1b rămâne blocat pe planul anterior.
