@@ -2120,7 +2120,22 @@ serve(async (req) => {
       }
 
       if (!listRes.res.ok) {
-        warnings.push(`listPackingOptions a eșuat (${listRes.res.status}).`);
+        // Retry câteva ori înainte de a declara eșec.
+        const maxRetries = 3;
+        let recovered = false;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          await delay(200 * attempt);
+          const retryRes = await listPackingOptions(inboundPlanId);
+          if (retryRes.res.ok) {
+            listRes = retryRes;
+            options = extractPackingOptionsFromResponse(listRes);
+            recovered = true;
+            break;
+          }
+        }
+        if (!recovered) {
+          warnings.push(`listPackingOptions a eșuat (${listRes.res.status}).`);
+        }
       }
 
       const chosen = pickPackingOption(options);
