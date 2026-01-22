@@ -1243,6 +1243,25 @@ serve(async (req) => {
       );
     }
 
+    // Dacă după generate/poll Amazon continuă să returneze 200 cu packingOptions goale și nu există operație în curs,
+    // considerăm planul ca fiind nesuportat pentru packing options și trimitem răspuns explicit.
+    if (!packingGroupIds.length && packingOptionsCount === 0 && listRes?.res?.ok && !generationInFlight) {
+      return new Response(
+        JSON.stringify({
+          code: "PACKING_OPTIONS_NOT_AVAILABLE",
+          message:
+            "Amazon nu a returnat packingOptions pentru acest inbound plan (posibil plan nesuportat pentru packing options). Creează un plan nou sau continuă fluxul fără pack groups.",
+          traceId,
+          inboundPlanId,
+          packingOptionId: null,
+          placementOptionId: null,
+          amazonIntegrationId: integId || null,
+          debug: debugSnapshot()
+        }),
+        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
     if (includePlacement) {
       // Placement options (necesare pentru Step 2 - shipping)
       const extractPlacementOptions = (res: Awaited<ReturnType<typeof signedFetch>> | null) =>

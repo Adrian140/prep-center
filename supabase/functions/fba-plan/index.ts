@@ -2729,11 +2729,11 @@ serve(async (req) => {
     const shipmentsPending = !plans?.length;
     // Persist inboundPlanId when newly created so viitoarele apeluri nu mai generează plan nou
     if (inboundPlanId && !isLockId(inboundPlanId) && inboundPlanId !== reqData.inbound_plan_id) {
+      // Persist always, even dacă există un inbound_plan_id vechi – altfel UI/step1b rămâne blocat pe planul anterior.
       const { data: updRow, error: updErr } = await supabase
         .from("prep_requests")
         .update({ inbound_plan_id: inboundPlanId })
         .eq("id", requestId)
-        .in("inbound_plan_id", hasPlanLock ? [lockId, null] : [null])
         .select("inbound_plan_id")
         .maybeSingle();
       if (updErr) {
