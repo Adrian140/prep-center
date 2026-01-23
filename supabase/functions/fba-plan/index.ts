@@ -2804,11 +2804,8 @@ serve(async (req) => {
 
     const combinedWarning = planWarnings.length ? planWarnings.join(" ") : null;
     const safeInboundPlanId = isLockId(inboundPlanId) ? null : inboundPlanId;
-    // Nu bloca UI pe lipsa shipments; pentru step1 este suficient să existe inboundPlanId
-    // și să fi apucat să salvăm packing options/grupuri în snapshot sau să le ia step1b.
-    const hasPackingArtifacts =
-      (packingGroupsFromAmazon?.length || 0) > 0 || (_lastPackingOptions?.length || 0) > 0;
-    const shipmentsPending = !safeInboundPlanId ? true : !plans?.length && !hasPackingArtifacts;
+    // Nu bloca UI pe lipsa shipments; pentru step1 este suficient să existe inboundPlanId.
+    const shipmentsPending = !safeInboundPlanId;
     // Persist inboundPlanId when newly created so viitoarele apeluri nu mai generează plan nou
     if (inboundPlanId && !isLockId(inboundPlanId) && inboundPlanId !== reqData.inbound_plan_id) {
       // Persist always, even dacă există un inbound_plan_id vechi – altfel UI/step1b rămâne blocat pe planul anterior.
