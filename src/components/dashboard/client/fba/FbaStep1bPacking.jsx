@@ -64,6 +64,12 @@ export default function FbaStep1bPacking({
     return Number.isFinite(num) ? num : 0;
   };
 
+  const clampBoxes = (value) => {
+    const n = Math.floor(resolveGroupNumber(value));
+    if (n <= 0) return 1;
+    return Math.min(10, n);
+  };
+
   const resolveBoxState = (group) => {
     const key = group.packingGroupId || group.id;
     const draft = drafts[key] || {};
@@ -77,7 +83,24 @@ export default function FbaStep1bPacking({
     return {
       dims,
       weight: draft.boxWeight ?? group.boxWeight ?? '',
-      boxes: draft.boxes ?? group.boxes ?? 1
+      boxes: clampBoxes(draft.boxes ?? group.boxes ?? 1),
+      perBoxDetails: (() => {
+        const boxCount = clampBoxes(draft.boxes ?? group.boxes ?? 1);
+        const draftPer = Array.isArray(draft.perBoxDetails) ? draft.perBoxDetails : null;
+        const groupPer = Array.isArray(group.perBoxDetails) ? group.perBoxDetails : null;
+        const sharedDims = group.boxDimensions || {};
+        const sharedWeight = group.boxWeight ?? '';
+
+        return Array.from({ length: boxCount }).map((_, idx) => {
+          const src = draftPer?.[idx] ?? groupPer?.[idx] ?? {};
+          return {
+            length: src.length ?? sharedDims.length ?? '',
+            width: src.width ?? sharedDims.width ?? '',
+            height: src.height ?? sharedDims.height ?? '',
+            weight: src.weight ?? sharedWeight ?? ''
+          };
+        });
+      })()
     };
   };
 
@@ -87,19 +110,34 @@ export default function FbaStep1bPacking({
     let missingGroupId = false;
     (visibleGroups || []).forEach((group) => {
       const packingGroupId = group.packingGroupId || null;
-      const { dims, weight, boxes } = resolveBoxState(group);
+      const { dims, weight, boxes, perBoxDetails } = resolveBoxState(group);
       const dimsNum = {
         length: resolveGroupNumber(dims.length),
         width: resolveGroupNumber(dims.width),
         height: resolveGroupNumber(dims.height)
       };
       const weightNum = resolveGroupNumber(weight);
-      const boxCount = Math.max(1, resolveGroupNumber(boxes) || 1);
+      const boxCount = clampBoxes(boxes);
 
       if (!packingGroupId) {
         missingGroupId = true;
         return;
       }
+
+      const perBoxNormalized = Array.from({ length: boxCount }).map((_, idx) => {
+        const src = perBoxDetails?.[idx] || {};
+        const l = resolveGroupNumber(src.length);
+        const w = resolveGroupNumber(src.width);
+        const h = resolveGroupNumber(src.height);
+        const wt = resolveGroupNumber(src.weight);
+        return {
+          dimensions: l && w && h ? { length: l, width: w, height: h, unit: 'CM' } : null,
+          weight: wt ? { value: wt, unit: 'KG' } : null
+        };
+      });
+      const allPerBoxComplete = perBoxNormalized.every(
+        (b) => b.dimensions && b.weight
+      );
 
       packingGroups.push({
         packingGroupId,
@@ -115,15 +153,25 @@ export default function FbaStep1bPacking({
               sku: it.sku || it.msku || it.SellerSKU || null,
               quantity: Number(it.quantity || 0) || 0
             }))
-          : []
+          : [],
+        perBoxDetails: perBoxNormalized
       });
 
-      if (dimsNum.length > 0 && dimsNum.width > 0 && dimsNum.height > 0 && weightNum > 0) {
-        for (let i = 0; i < boxCount; i++) {
+      const baseDimensions =
+        dimsNum.length > 0 && dimsNum.width > 0 && dimsNum.height > 0
+          ? { ...dimsNum, unit: 'CM' }
+          : null;
+      const baseWeight = weightNum > 0 ? { value: weightNum, unit: 'KG' } : null;
+
+      for (let i = 0; i < boxCount; i++) {
+        const perBox = perBoxNormalized[i] || {};
+        const dimsUse = perBox.dimensions || baseDimensions;
+        const weightUse = perBox.weight || baseWeight;
+        if (dimsUse && weightUse) {
           packages.push({
             packingGroupId,
-            dimensions: { ...dimsNum, unit: 'CM' },
-            weight: { value: weightNum, unit: 'KG' }
+            dimensions: dimsUse,
+            weight: weightUse
           });
         }
       }
@@ -140,7 +188,25 @@ export default function FbaStep1bPacking({
       return 'Amazon nu a returnat packingGroupId pentru unul din grupuri. Reia Step 1b ca să obții packing groups reale.';
     }
     const missing = visibleGroups.find((group) => {
-      const { dims, weight } = resolveBoxState(group);
+      const { dims, weight, boxes, perBoxDetails } = resolveBoxState(group);
+      const boxCount = clampBoxes(boxes);
+
+      if (boxCount > 10) {
+        return true;
+      }
+
+      // For multiple boxes we want per-box details complete
+      if ((group.packMode || 'single') === 'multiple' && boxCount > 1) {
+        const perBox = (perBoxDetails || []).slice(0, boxCount);
+        return perBox.some((b) => {
+          const l = resolveGroupNumber(b.length);
+          const w = resolveGroupNumber(b.width);
+          const h = resolveGroupNumber(b.height);
+          const wt = resolveGroupNumber(b.weight);
+          return !(l > 0 && w > 0 && h > 0 && wt > 0);
+        });
+      }
+
       const length = resolveGroupNumber(dims.length);
       const width = resolveGroupNumber(dims.width);
       const height = resolveGroupNumber(dims.height);
@@ -148,7 +214,7 @@ export default function FbaStep1bPacking({
       return !(length > 0 && width > 0 && height > 0 && w > 0);
     });
     if (missing) {
-      return 'Completează dimensiunile și greutatea pentru fiecare grup (cutie) înainte de a continua.';
+      return 'Completează dimensiunile și greutatea pentru fiecare cutie înainte de a continua. Maxim 10 cutii per grup.';
     }
     return '';
   };
@@ -156,7 +222,7 @@ export default function FbaStep1bPacking({
   const handleContinue = async () => {
     // commit toate draft-urile în state înainte de validare
     (visibleGroups || []).forEach((g) => {
-      commitDraft(g, ["boxes", "boxWeight", "boxDimensions"]);
+      commitDraft(g, ["boxes", "boxWeight", "boxDimensions", "perBoxDetails"]);
     });
 
     const hasFallbackGroup = (visibleGroups || []).some(
@@ -291,7 +357,7 @@ export default function FbaStep1bPacking({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 text-sm text-emerald-700 font-semibold">
-                  <CheckCircle className="w-4 h-4" /> {group.boxes} boxes
+                  <CheckCircle className="w-4 h-4" /> {resolveBoxState(group).boxes} boxes
                 </div>
 
                 {group.warning && (
@@ -454,12 +520,13 @@ export default function FbaStep1bPacking({
                       <input
                         type="number"
                         min={1}
+                        max={10}
                         value={getDraft(group).boxes ?? group.boxes}
                         onChange={(e) => setDraftValue(group.id, { boxes: e.target.value })}
-                        onBlur={() => commitDraft(group, ["boxes"])}
-                        className="border rounded-md px-3 py-2 w-28"
+                        onBlur={() => commitDraft(group, ["boxes", "perBoxDetails"])}
+                        className="border rounded-md px-3 py-2 w-20"
                       />
-                      <div className="text-xs text-slate-500">Exact number not needed</div>
+                      <div className="text-xs text-slate-500">Maxim 10 cutii per grup</div>
                     </div>
                     {(() => {
                       const draftDims = getDraft(group).boxDimensions || {};
@@ -487,7 +554,7 @@ export default function FbaStep1bPacking({
                                   })
                                 }
                                 onBlur={() => commitDraft(group, ["boxDimensions"])}
-                                className="border rounded-md px-3 py-2 w-20"
+                                className="border rounded-md px-2.5 py-2 w-16"
                                 placeholder="L"
                               />
                               <span className="text-slate-500 text-sm">×</span>
@@ -505,7 +572,7 @@ export default function FbaStep1bPacking({
                                   })
                                 }
                                 onBlur={() => commitDraft(group, ["boxDimensions"])}
-                                className="border rounded-md px-3 py-2 w-20"
+                                className="border rounded-md px-2.5 py-2 w-16"
                                 placeholder="W"
                               />
                               <span className="text-slate-500 text-sm">×</span>
@@ -523,7 +590,7 @@ export default function FbaStep1bPacking({
                                   })
                                 }
                                 onBlur={() => commitDraft(group, ["boxDimensions"])}
-                                className="border rounded-md px-3 py-2 w-20"
+                                className="border rounded-md px-2.5 py-2 w-16"
                                 placeholder="H"
                               />
                             </div>
@@ -540,10 +607,67 @@ export default function FbaStep1bPacking({
                         value={getDraft(group).boxWeight ?? group.boxWeight ?? ''}
                         onChange={(e) => setDraftValue(group.id, { boxWeight: e.target.value })}
                         onBlur={() => commitDraft(group, ["boxWeight"])}
-                        className="border rounded-md px-3 py-2 w-24"
+                        className="border rounded-md px-2.5 py-2 w-20"
                         placeholder="kg"
                       />
                     </div>
+                    {(() => {
+                      const { perBoxDetails, boxes } = resolveBoxState(group);
+                      const rows = perBoxDetails.slice(0, clampBoxes(boxes));
+                      if (rows.length <= 1) return null;
+                      return (
+                        <div className="space-y-2">
+                          <div className="text-xs text-slate-600">
+                            Completează dimensiunile și greutatea pentru fiecare cutie (până la 10).
+                          </div>
+                          <div className="overflow-auto">
+                            <table className="min-w-full text-xs">
+                              <thead>
+                                <tr className="text-slate-600">
+                                  <th className="text-left py-1 pr-2">Box</th>
+                                  <th className="text-left py-1 pr-2">L (cm)</th>
+                                  <th className="text-left py-1 pr-2">W (cm)</th>
+                                  <th className="text-left py-1 pr-2">H (cm)</th>
+                                  <th className="text-left py-1 pr-2">Weight (kg)</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((row, idx) => {
+                                  const updateRow = (field, value) => {
+                                    const key = group.packingGroupId || group.id;
+                                    const draft = getDraft(group);
+                                    const base = Array.isArray(draft.perBoxDetails)
+                                      ? [...draft.perBoxDetails]
+                                      : [...perBoxDetails];
+                                    base[idx] = { ...(base[idx] || {}), [field]: value };
+                                    setDraftValue(key, { perBoxDetails: base });
+                                  };
+                                  const commitRow = () => commitDraft(group, ["perBoxDetails"]);
+                                  return (
+                                    <tr key={idx} className="border-t border-slate-200">
+                                      <td className="py-1 pr-2 font-semibold text-slate-700">#{idx + 1}</td>
+                                      {['length', 'width', 'height', 'weight'].map((field) => (
+                                        <td key={field} className="py-1 pr-2">
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            step="0.1"
+                                            value={row[field] ?? ''}
+                                            onChange={(e) => updateRow(field, e.target.value)}
+                                            onBlur={commitRow}
+                                            className="border rounded px-2 py-1 w-16"
+                                          />
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
