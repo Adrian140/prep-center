@@ -215,7 +215,7 @@ export default function FbaSendToAmazonWizard({
     });
     return incoming.map((g, idx) => {
       const key = getPackGroupKey(g);
-      const existing = key ? prevByKey.get(key) : null;
+      let existing = key ? prevByKey.get(key) : null;
       if (!existing) {
         existing = prev[idx] || null;
       }
