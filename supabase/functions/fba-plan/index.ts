@@ -1263,7 +1263,8 @@ serve(async (req) => {
     let snapshotBase = (reqData as any)?.amazon_snapshot || {};
     // Folosește snapshot-ul Amazon ca fallback dacă request-ul are deja context salvat.
     const snapshotFbaInbound = snapshotBase?.fba_inbound || {};
-    let inboundPlanId: string | null = reqData.inbound_plan_id || snapshotFbaInbound?.inboundPlanId || null;
+    const snapshotInboundPlanId = snapshotFbaInbound?.inboundPlanId || null;
+    let inboundPlanId: string | null = reqData.inbound_plan_id || snapshotInboundPlanId || null;
     let inboundPlanStatus: string | null = null;
     let packingOptionId: string | null =
       (reqData as any)?.packing_option_id || snapshotFbaInbound?.packingOptionId || null;
@@ -2553,6 +2554,11 @@ serve(async (req) => {
           headers: { ...corsHeaders, "content-type": "application/json" }
         });
       }
+    }
+
+    // Dacă inboundPlanId este un lock, dar snapshot-ul are deja plan-ul real, folosește-l ca fallback.
+    if (isLockId(inboundPlanId) && snapshotInboundPlanId && !isLockId(snapshotInboundPlanId)) {
+      inboundPlanId = snapshotInboundPlanId;
     }
 
     // Packing options and groups sunt tratate aici pentru Step 1b, dar dacă nu avem shipments încercăm totuși să scoatem packing groups.
