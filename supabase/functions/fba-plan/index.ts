@@ -2704,6 +2704,7 @@ serve(async (req) => {
         };
       });
 
+    const safeInboundPlanId = isLockId(inboundPlanId) ? null : inboundPlanId;
     const packGroups = packingGroupsFromAmazon.length
       ? normalizePackingGroups(packingGroupsFromAmazon)
       : Array.from(packGroupsMap.values()).map((g, idx) => ({
@@ -2809,7 +2810,6 @@ serve(async (req) => {
     });
 
     const combinedWarning = planWarnings.length ? planWarnings.join(" ") : null;
-    const safeInboundPlanId = isLockId(inboundPlanId) ? null : inboundPlanId;
     // Nu bloca UI pe lipsa shipments; pentru step1 este suficient să existe inboundPlanId.
     const shipmentsPending = !safeInboundPlanId;
     // Persist inboundPlanId when newly created so viitoarele apeluri nu mai generează plan nou
