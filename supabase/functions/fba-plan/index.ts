@@ -2854,6 +2854,20 @@ serve(async (req) => {
       }
     }
 
+    // Persist packingOptionId so Step 1b UI can continue without re-picking the option on every call.
+    if (packingOptionId && packingOptionId !== reqData.packing_option_id) {
+      const { error: packErr } = await supabase
+        .from("prep_requests")
+        .update({ packing_option_id: packingOptionId })
+        .eq("id", requestId);
+      if (packErr) {
+        console.warn("fba-plan persist packing_option_id failed", {
+          traceId,
+          error: packErr?.message || null
+        });
+      }
+    }
+
     // Resolve lock placeholders to real plan id, dacă există
     if (isLockId(inboundPlanId)) {
       const { data: refetchRow, error: refetchErr } = await supabase
