@@ -166,7 +166,17 @@ function normalizeItem(input: any) {
   const labelOwner = String((labelOwnerRaw || "SELLER") as string).toUpperCase();
 
   const out: any = { msku: String(msku), quantity, prepOwner, labelOwner };
-  if (input?.expiration) out.expiration = String(input.expiration).slice(0, 10);
+
+  const expirationVal =
+    input?.expiration ??
+    input?.expirationDate ??
+    input?.expiry ??
+    input?.expiryDate ??
+    (Array.isArray(input?.prepInstructions)
+      ? input.prepInstructions.find((p: any) => p?.expiration)?.expiration
+      : null);
+  if (expirationVal) out.expiration = String(expirationVal).slice(0, 10);
+
   if (input?.manufacturingLotCode) out.manufacturingLotCode = String(input.manufacturingLotCode);
   return out;
 }
