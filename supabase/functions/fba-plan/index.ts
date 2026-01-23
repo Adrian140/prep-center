@@ -2247,6 +2247,16 @@ serve(async (req) => {
     }
     }
 
+    // Dacă inbound_plan_id a rămas un placeholder LOCK de la o execuție anterioară, eliberează-l și recreează planul.
+    if (inboundPlanId && isLockId(inboundPlanId)) {
+      await supabase
+        .from("prep_requests")
+        .update({ inbound_plan_id: null })
+        .eq("id", requestId)
+        .eq("inbound_plan_id", inboundPlanId);
+      inboundPlanId = null;
+    }
+
     // Acquire a lightweight lock to avoid creating multiple inbound plans in parallel for același request.
     if (!inboundPlanId) {
       const { data: claimedRow, error: claimErr } = await supabase
@@ -2793,7 +2803,12 @@ serve(async (req) => {
     });
 
     const combinedWarning = planWarnings.length ? planWarnings.join(" ") : null;
-    const shipmentsPending = !plans?.length && !packingGroupsFromAmazon.length;
+    const safeInboundPlanId = isLockId(inboundPlanId) ? null : inboundPlanId;
+    // Nu bloca UI pe lipsa shipments; pentru step1 este suficient să existe inboundPlanId
+    // și să fi apucat să salvăm packing options/grupuri în snapshot sau să le ia step1b.
+    const hasPackingArtifacts =
+      (packingGroupsFromAmazon?.length || 0) > 0 || (_lastPackingOptions?.length || 0) > 0;
+    const shipmentsPending = !safeInboundPlanId ? true : !plans?.length && !hasPackingArtifacts;
     // Persist inboundPlanId when newly created so viitoarele apeluri nu mai generează plan nou
     if (inboundPlanId && !isLockId(inboundPlanId) && inboundPlanId !== reqData.inbound_plan_id) {
       // Persist always, even dacă există un inbound_plan_id vechi – altfel UI/step1b rămâne blocat pe planul anterior.
@@ -2845,8 +2860,6 @@ serve(async (req) => {
         .eq("id", requestId)
         .eq("inbound_plan_id", lockId);
     }
-
-    const safeInboundPlanId = isLockId(inboundPlanId) ? null : inboundPlanId;
 
     // Persist semnătura itemelor pentru a detecta schimbări viitoare și a evita planuri desincronizate.
     try {
