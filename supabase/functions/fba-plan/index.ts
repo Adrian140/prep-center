@@ -1261,11 +1261,18 @@ serve(async (req) => {
     }
 
     let snapshotBase = (reqData as any)?.amazon_snapshot || {};
-    let inboundPlanId: string | null = reqData.inbound_plan_id || null;
+    // Folosește snapshot-ul Amazon ca fallback dacă request-ul are deja context salvat.
+    const snapshotFbaInbound = snapshotBase?.fba_inbound || {};
+    let inboundPlanId: string | null = reqData.inbound_plan_id || snapshotFbaInbound?.inboundPlanId || null;
     let inboundPlanStatus: string | null = null;
-    let packingOptionId: string | null = (reqData as any)?.packing_option_id || null;
+    let packingOptionId: string | null =
+      (reqData as any)?.packing_option_id || snapshotFbaInbound?.packingOptionId || null;
     let _lastPackingOptions: any[] = [];
     let _lastPlacementOptions: any[] = [];
+    let packingGroupsFromAmazon: any[] =
+      (Array.isArray(snapshotFbaInbound?.packingGroups) && snapshotFbaInbound.packingGroups.length
+        ? snapshotFbaInbound.packingGroups
+        : []);
     const buildItemsSignature = (list: typeof reqData.prep_request_items) => {
       const entries = (list || []).map((it: any) => ({
         sku: normalizeSku(it.sku || it.asin || ""),
@@ -2213,7 +2220,6 @@ serve(async (req) => {
     let operationProblems: any[] = [];
     let operationRaw: any = null;
     let createHttpStatus: number | null = null;
-    let packingGroupsFromAmazon: any[] = [];
 
     const inboundPlanErrored = (status: string | null) =>
       String(status || "").toUpperCase() === "ERRORED";
