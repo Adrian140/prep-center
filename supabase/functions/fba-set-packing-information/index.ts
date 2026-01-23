@@ -208,6 +208,13 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
     }
 
     const boxCount = Math.max(1, Number(g?.boxCount || g?.boxes || 1) || 1);
+    if (boxCount > 1 && items.length) {
+      // Dacă UI a trimis cantitățile totale și un boxCount > 1, Amazon așteaptă cantitatea per box.
+      const canSplitEvenly = items.every((it) => Number.isFinite(it.quantity) && it.quantity % boxCount === 0);
+      if (canSplitEvenly) {
+        items = items.map((it) => ({ ...it, quantity: it.quantity / boxCount }));
+      }
+    }
     const boxes = [
       {
         quantity: boxCount,
