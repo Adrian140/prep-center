@@ -2073,6 +2073,14 @@ serve(async (req) => {
     };
 
     const fetchPackingGroups = async (inboundPlanId: string) => {
+      if (!inboundPlanId || isLockId(inboundPlanId)) {
+        return {
+          packingOptionId: null,
+          packingGroups: [],
+          warnings: inboundPlanId ? ["Planul Amazon este încă în curs de creare. Reîncearcă în câteva secunde."] : []
+        };
+      }
+
       const warnings: string[] = [];
       let listRes = await listPackingOptions(inboundPlanId);
       let options = extractPackingOptionsFromResponse(listRes);
