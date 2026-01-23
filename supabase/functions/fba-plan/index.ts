@@ -2704,6 +2704,22 @@ serve(async (req) => {
         };
       });
 
+    // Dacă planul a intrat în status ERRORED în Amazon, resetăm inbound_plan_id ca următorul apel să creeze un plan nou.
+    if (inboundPlanStatus && String(inboundPlanStatus).toUpperCase() === "ERRORED" && inboundPlanId) {
+      try {
+        await supabase
+          .from("prep_requests")
+          .update({ inbound_plan_id: null })
+          .eq("id", requestId)
+          .eq("inbound_plan_id", inboundPlanId);
+        planWarnings.push("Planul Amazon a intrat în status ERRORED. Am resetat planul; încearcă din nou.");
+      } catch (resetErr) {
+        console.warn("reset inbound_plan_id after ERRORED status failed", { traceId, error: resetErr });
+      }
+      inboundPlanId = null;
+      inboundPlanStatus = null;
+    }
+
     const safeInboundPlanId = isLockId(inboundPlanId) ? null : inboundPlanId;
     const packGroups = packingGroupsFromAmazon.length
       ? normalizePackingGroups(packingGroupsFromAmazon)
