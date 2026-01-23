@@ -923,7 +923,15 @@ const fetchPartneredQuote = useCallback(
         items: Array.isArray(g.items)
           ? g.items.map((it) => ({
               sku: it.sku || it.msku || it.SellerSKU || null,
-              quantity: Number(it.quantity || 0) || 0
+              quantity: Number(it.quantity || 0) || 0,
+              expiration:
+                it.expiration ||
+                it.expiry ||
+                it.expiryDate ||
+                it.expirationDate ||
+                null,
+              prepOwner: it.prepOwner || it.prep_owner || it.prep || null,
+              labelOwner: it.labelOwner || it.label_owner || it.label || null
             }))
           : []
       });
