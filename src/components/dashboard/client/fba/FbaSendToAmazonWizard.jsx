@@ -209,20 +209,13 @@ export default function FbaSendToAmazonWizard({
   }, []);
   const mergePackGroups = useCallback((prev = [], incoming = []) => {
     const prevByKey = new Map();
-    const prevBySignature = new Map();
     prev.forEach((g) => {
       const key = getPackGroupKey(g);
       if (key) prevByKey.set(key, g);
-      const signature = getPackGroupSignature(g);
-      if (signature) prevBySignature.set(signature, g);
     });
     return incoming.map((g, idx) => {
       const key = getPackGroupKey(g);
-      let existing = key ? prevByKey.get(key) : null;
-      if (!existing) {
-        const signature = getPackGroupSignature(g);
-        if (signature) existing = prevBySignature.get(signature) || null;
-      }
+      const existing = key ? prevByKey.get(key) : null;
       if (!existing) {
         existing = prev[idx] || null;
       }
