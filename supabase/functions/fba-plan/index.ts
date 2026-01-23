@@ -2710,6 +2710,11 @@ serve(async (req) => {
           title: g.destLabel ? `Pack group ${idx + 1} · ${g.destLabel}` : `Pack group ${idx + 1}`
         }));
 
+    // Dacă avem deja inboundPlanId și cel puțin un packing group, nu mai afișăm warning-uri de creare/încărcare.
+    if (safeInboundPlanId && packGroups.length) {
+      planWarnings.length = 0;
+    }
+
     const shipments = plans.map((p: any, idx: number) => {
       const itemsList = normalizeItems(p);
       const totalUnits = itemsList.reduce((s: number, it: any) => s + (Number(it.quantity || it.Quantity) || 0), 0);
