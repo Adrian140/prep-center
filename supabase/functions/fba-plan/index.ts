@@ -1223,10 +1223,11 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const requestId = body?.request_id as string | undefined;
+    const requestId = typeof body?.request_id === "string" ? body.request_id.trim() : "";
     const expirationsInput = (body?.expirations as Record<string, string | undefined | null>) || {};
-    if (!requestId) {
-      return new Response(JSON.stringify({ error: "request_id is required" }), {
+    const isUuid = /^[0-9a-fA-F-]{36}$/.test(requestId);
+    if (!requestId || !isUuid) {
+      return new Response(JSON.stringify({ error: "request_id is required and must be a UUID" }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
