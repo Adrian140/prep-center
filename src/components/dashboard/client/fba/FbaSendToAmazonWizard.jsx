@@ -173,7 +173,15 @@ export default function FbaSendToAmazonWizard({
             sku: it.sku || it.msku || it.SellerSKU || it.sellerSku || it.asin || '',
             quantity: Number(it.quantity || it.units || 0) || 0,
             image: it.image || it.thumbnail || it.main_image || it.img || null,
-            title: it.title || it.name || null
+            title: it.title || it.name || null,
+            expiration:
+              it.expiration ||
+              it.expiry ||
+              it.expiryDate ||
+              it.expirationDate ||
+              null,
+            prepOwner: it.prepOwner || it.prep_owner || it.prep || null,
+            labelOwner: it.labelOwner || it.label_owner || it.label || null
           }))
           .filter((it) => Number(it.quantity || 0) > 0); // ignorăm item-ele cu cantitate 0
         const units = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
