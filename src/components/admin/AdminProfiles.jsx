@@ -104,29 +104,34 @@ async function fetchOtherLineSums(companyId, startDate, endDate) {
   };
 }
 
+const getBalanceState = (value) => {
+  if (!Number.isFinite(value) || Math.abs(value) < 1e-9) return "neutral";
+  return value > 0 ? "overdue" : "advance";
+};
+
 // --- UI
 function MoneyPill({ value }) {
   const numeric = Number(value);
   const state = getBalanceState(numeric);
   const isZero = state === "neutral";
-  const cls =
+ const cls =
     state === "advance"
       ? "bg-green-100 text-green-800"
-      : state === "overdue"
+     : state === "overdue"
       ? "bg-red-100 text-red-800"
       : "bg-gray-100 text-gray-700";
-  let display = "0.00";
+ let display = "0.00";
   if (!isZero) {
     const abs = Math.abs(numeric).toFixed(2);
     display = numeric > 0 ? `-${abs}` : abs;
   }
-  return <span className={`px-2 py-1 rounded-md text-sm font-medium ${cls}`}>{display}</span>;
+  return (
+    <span className={`px-2 py-1 rounded-md text-sm font-medium ${cls}`}>
+      {display}
+    </span>
+  );
 }
 
-const getBalanceState = (value) => {
-  if (!Number.isFinite(value) || Math.abs(value) < 1e-9) return "neutral";
-  return value > 0 ? "overdue" : "advance";
-};
 
 const STORAGE_KEY = 'admin-clients-filters';
 const BALANCE_FILTERS = ["all", "advance", "overdue"];
