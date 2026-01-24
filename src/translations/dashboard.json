@@ -1156,7 +1156,7 @@
       "otherTitle": "Altele",
       "group": {
         "noId": "Fără ID (—)",
-        "lines": "{count} linii pentru acest shipment"
+        "lines": "{count} linii pentru această expediere"
       }
     },
     "ClientFBAReport": {
