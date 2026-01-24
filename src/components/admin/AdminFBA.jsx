@@ -371,7 +371,7 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
                             </span>
                             <span className="text-text-secondary text-xs inline-flex items-center gap-1">
                               <ChevronDown className="w-4 h-4" />
-                              {group.items.length} linie{group.items.length > 1 ? 'e' : ''} în acest bloc
+                              {group.items.length} linie{group.items.length === 1 ? '' : 'i'} pentru această expediere
                             </span>
                           </span>
                         ) : (
