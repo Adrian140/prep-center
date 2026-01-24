@@ -31,12 +31,6 @@ const fmtMoney = (n, currency = 'EUR', locale = 'fr-FR') =>
   new Intl.NumberFormat(locale, { style: 'currency', currency }).format(Number(n || 0));
 const fmtMoneyHT = (n, currency = 'EUR') => `${fmtMoney(n, currency)} HT`;
 
-const extractShipmentId = (value) => {
-  const text = String(value || '').toUpperCase();
-  const match = text.match(/FBA[A-Z0-9]{5,}/);
-  return match ? match[0] : null;
-};
-
 const splitObs = (value) => {
   const raw = String(value || '').trim();
   if (!raw) return { id: '', note: '' };
@@ -44,64 +38,6 @@ const splitObs = (value) => {
   const id = parts[0] || '';
   const note = parts.slice(1).join(' | ') || '';
   return { id, note };
-};
-
-const groupFbaRowsByShipment = (rows = []) => {
-  const groups = new Map();
-  const passthrough = [];
-
-  rows.forEach((row, idx) => {
-    const { id: parsedId, note } = splitObs(row?.obs_admin);
-    const shipmentId = extractShipmentId(parsedId);
-    if (!shipmentId) {
-      passthrough.push({ ...row, _order: idx, _note: note });
-      return;
-    }
-    if (!groups.has(shipmentId)) {
-      groups.set(shipmentId, { items: [], firstIndex: idx });
-    }
-    groups.get(shipmentId).items.push({ ...row, _note: note });
-  });
-
-  const grouped = Array.from(groups.entries()).map(([shipmentId, { items, firstIndex }]) => {
-    const totals = items.reduce(
-      (acc, item) => {
-        const qty = Number(item?.units || 0);
-        const lineTotal =
-          item?.total != null
-            ? Number(item.total)
-            : Number(item?.unit_price || 0) * (Number.isFinite(qty) ? qty : 0);
-        acc.qty += Number.isFinite(qty) ? qty : 0;
-        acc.total += Number.isFinite(lineTotal) ? lineTotal : 0;
-        return acc;
-      },
-      { qty: 0, total: 0 }
-    );
-    const serviceLabel =
-      items.length > 1
-        ? `Shipment ${shipmentId} (${items.length} linii)`
-        : items[0]?.service || `Shipment ${shipmentId}`;
-    const primaryDate = items[0]?.service_date || '';
-
-    return {
-      ...items[0],
-      id: `shipment-${shipmentId}`,
-      _groupKey: shipmentId,
-      _lineCount: items.length,
-      _order: firstIndex,
-      service_date: primaryDate,
-      service: serviceLabel,
-      unit_price: null,
-      units: totals.qty,
-      total: totals.total,
-      obs_admin: shipmentId,
-      _note: items[0]?._note || ''
-    };
-  });
-
-  const merged = [...grouped, ...passthrough];
-  merged.sort((a, b) => (a._order ?? 0) - (b._order ?? 0));
-  return merged;
 };
 
 const currentMonthStr = () => {
@@ -224,8 +160,12 @@ export default function SupabaseClientActivity() {
     () => filterRowsByMonth(fba, effectiveFbaMonth),
     [fba, effectiveFbaMonth]
   );
-  const fbaGroupedMonthRows = useMemo(
-    () => groupFbaRowsByShipment(fbaMonthRows),
+  const fbaDecoratedRows = useMemo(
+    () =>
+      fbaMonthRows.map((row, idx) => {
+        const { id: parsedId, note } = splitObs(row?.obs_admin);
+        return { ...row, _order: idx, _groupKey: parsedId || '', _note: note };
+      }),
     [fbaMonthRows]
   );
   const fbmMonthRows = useMemo(
@@ -238,8 +178,8 @@ export default function SupabaseClientActivity() {
   );
 
   const fbaMonthTotals = useMemo(
-    () => calcReportTotals(fbaGroupedMonthRows, 'units'),
-    [fbaGroupedMonthRows]
+    () => calcReportTotals(fbaDecoratedRows, 'units'),
+    [fbaDecoratedRows]
   );
   const fbmMonthTotals = useMemo(
     () => calcReportTotals(fbmMonthRows, 'orders_units'),
@@ -360,7 +300,7 @@ export default function SupabaseClientActivity() {
   const isFbaView = activeReport === 'fba';
   const isFbmView = activeReport === 'fbm';
   const activeRows = isFbaView
-    ? fbaGroupedMonthRows
+    ? fbaDecoratedRows
     : isFbmView
       ? fbmMonthRows
       : otherMonthRows;
@@ -511,7 +451,7 @@ export default function SupabaseClientActivity() {
 
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-text-primary">{reportTitle}</h2>
-          <p className="text-sm text-text-secondary">{reportSubtitle}</p>
+          {reportSubtitle ? <p className="text-sm text-text-secondary">{reportSubtitle}</p> : null}
         </div>
 
         <div className="overflow-auto">
@@ -539,7 +479,7 @@ export default function SupabaseClientActivity() {
                     {emptyState}
                   </td>
                 </tr>
-              ) : (
+              ) : !isFbaView ? (
                 activeRows.map((r) => {
                   const qty = Number(
                     isFbaView ? r.units || 0 : isFbmView ? r.orders_units || 0 : r.units || 0
@@ -548,16 +488,10 @@ export default function SupabaseClientActivity() {
                     r.total != null
                       ? Number(r.total)
                       : Number(r.unit_price || 0) * (Number.isFinite(qty) ? qty : 0);
-                  const serviceLabel = r._groupKey
-                    ? t('SupabaseClientActivity.group.shipmentService', {
-                        id: r._groupKey,
-                        count: r._lineCount || 1
-                      })
-                    : formatOtherServiceName(r.service, t);
                   return (
                     <tr key={r.id} className="border-t">
                       <td className="px-3 py-2">{r.service_date}</td>
-                      <td className="px-3 py-2">{serviceLabel}</td>
+                      <td className="px-3 py-2">{formatOtherServiceName(r.service, t)}</td>
                       <td className="px-3 py-2 text-right">
                         {r.unit_price != null ? fmt2(Number(r.unit_price)) : '—'}
                       </td>
@@ -567,10 +501,74 @@ export default function SupabaseClientActivity() {
                       <td className="px-3 py-2 text-right">
                         {Number.isFinite(lineTotal) ? fmt2(lineTotal) : '—'}
                       </td>
-                      <td className="px-3 py-2">{r._note || '—'}</td>
+                      <td className="px-3 py-2">{r.obs_admin || '—'}</td>
                     </tr>
                   );
                 })
+              ) : (
+                (() => {
+                  const groups = [];
+                  const seen = new Set();
+                  activeRows.forEach((row, idx) => {
+                    const key = (row._groupKey || '').trim() || '—';
+                    if (!seen.has(key)) {
+                      groups.push({ key, order: idx, items: [] });
+                      seen.add(key);
+                    }
+                    const grp = groups.find((g) => g.key === key);
+                    grp.items.push(row);
+                  });
+                  return groups.map((group) => (
+                    <React.Fragment key={group.key || group.order}>
+                      <tr className="bg-slate-50/70 border-t border-slate-200">
+                        <td colSpan={6} className="px-3 py-2 text-sm text-text-primary font-semibold">
+                          {group.key && group.key !== '—' ? (
+                            <span className="inline-flex items-center gap-2">
+                              <span className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold uppercase">
+                                {group.key}
+                              </span>
+                              <span className="text-text-secondary text-xs">
+                                {t('SupabaseClientActivity.group.lines', { count: group.items.length })}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-text-secondary">
+                              {t('SupabaseClientActivity.group.noId')}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                      {group.items.map((r, idx) => {
+                        const isFirst = idx === 0;
+                        const isLast = idx === group.items.length - 1;
+                        const qty = Number(r.units || 0);
+                        const lineTotal =
+                          r.total != null
+                            ? Number(r.total)
+                            : Number(r.unit_price || 0) * (Number.isFinite(qty) ? qty : 0);
+                        return (
+                          <tr
+                            key={r.id}
+                            className={`${isFirst ? 'border-t' : 'border-t-0'} ${isLast ? 'border-b' : ''}`}
+                          >
+                            <td className="px-3 py-2">{r.service_date}</td>
+                            <td className="px-3 py-2">{formatOtherServiceName(r.service, t)}</td>
+                            <td className="px-3 py-2 text-right">
+                              {r.unit_price != null ? fmt2(Number(r.unit_price)) : '—'}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {Number.isFinite(qty) ? qty : '—'}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {Number.isFinite(lineTotal) ? fmt2(lineTotal) : '—'}
+                            </td>
+                            <td className="px-3 py-2">{r._note || '—'}</td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  ));
+                })()
               )}
             </tbody>
             <tfoot>

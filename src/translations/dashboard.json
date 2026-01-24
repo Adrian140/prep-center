@@ -282,14 +282,14 @@
     },
     "ClientFBAReport": {
       "title": "FBA Report",
-      "readonly": "Read-only view.",
+      "readonly": "",
       "monthLabel": "Month:",
       "currentMonth": "Current month",
       "noDataMonth": "No data for the selected month."
     },
     "ClientFBMReport": {
       "title": "FBM Report",
-      "readonly": "Read-only view.",
+      "readonly": "",
       "monthLabel": "Month:",
       "currentMonth": "Current month",
       "noDataMonth": "No data for the selected month."
@@ -1161,14 +1161,14 @@
     },
     "ClientFBAReport": {
       "title": "Raport FBA",
-      "readonly": "Vizualizare doar în citire.",
+      "readonly": "",
       "monthLabel": "Luna:",
       "currentMonth": "Luna curentă",
       "noDataMonth": "Nu există date pentru luna selectată."
     },
     "ClientFBMReport": {
       "title": "Raport FBM",
-      "readonly": "Vizualizare doar în citire.",
+      "readonly": "",
       "monthLabel": "Luna:",
       "currentMonth": "Luna curentă",
       "noDataMonth": "Nu există date pentru luna selectată."
@@ -2074,14 +2074,14 @@
     },
     "ClientFBAReport": {
       "title": "Rapport FBA",
-      "readonly": "Vue en lecture seule.",
+      "readonly": "",
       "monthLabel": "Mois :",
       "currentMonth": "Mois en cours",
       "noDataMonth": "Aucune donnée pour le mois sélectionné."
     },
     "ClientFBMReport": {
       "title": "Rapport FBM",
-      "readonly": "Vue en lecture seule.",
+      "readonly": "",
       "monthLabel": "Mois :",
       "currentMonth": "Mois en cours",
       "noDataMonth": "Aucune donnée pour le mois sélectionné."
@@ -2857,14 +2857,14 @@
     },
     "ClientFBAReport": {
       "title": "FBA-Bericht",
-      "readonly": "Nur Leseansicht.",
+      "readonly": "",
       "monthLabel": "Monat:",
       "currentMonth": "Aktueller Monat",
       "noDataMonth": "Keine Daten für den gewählten Monat."
     },
     "ClientFBMReport": {
       "title": "FBM-Bericht",
-      "readonly": "Nur Leseansicht.",
+      "readonly": "",
       "monthLabel": "Monat:",
       "currentMonth": "Aktueller Monat",
       "noDataMonth": "Keine Daten für den gewählten Monat."
@@ -3640,14 +3640,14 @@
     },
     "ClientFBAReport": {
       "title": "Report FBA",
-      "readonly": "Solo visualizzazione.",
+      "readonly": "",
       "monthLabel": "Mese:",
       "currentMonth": "Mese corrente",
       "noDataMonth": "Nessun dato per il mese selezionato."
     },
     "ClientFBMReport": {
       "title": "Report FBM",
-      "readonly": "Solo visualizzazione.",
+      "readonly": "",
       "monthLabel": "Mese:",
       "currentMonth": "Mese corrente",
       "noDataMonth": "Nessun dato per il mese selezionato."
@@ -4423,14 +4423,14 @@
     },
     "ClientFBAReport": {
       "title": "Informe FBA",
-      "readonly": "Vista de solo lectura.",
+      "readonly": "",
       "monthLabel": "Mes:",
       "currentMonth": "Mes actual",
       "noDataMonth": "No hay datos para el mes seleccionado."
     },
     "ClientFBMReport": {
       "title": "Informe FBM",
-      "readonly": "Vista de solo lectura.",
+      "readonly": "",
       "monthLabel": "Mes:",
       "currentMonth": "Mes actual",
       "noDataMonth": "No hay datos para el mes seleccionado."
