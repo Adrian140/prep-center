@@ -1,6 +1,6 @@
 // Returnează XLSX ca octet-stream (nu salvează în bucket)
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2.48.0";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
