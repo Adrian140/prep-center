@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Trash2, Edit3, Save, X, Star } from 'lucide-react';
+import { Trash2, Edit3, Save, X, Star, ChevronDown } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import Section from '../common/Section';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
@@ -20,6 +20,7 @@ const createDefaultForm = () => ({
   service_date: todayStr(),
   unit_price: '',
   units: '',
+  fba_id: '',
   obs_admin: '',
   custom_service: ''
 });
@@ -63,6 +64,15 @@ export default function AdminFBA({
     : `admin-fba-form-${profile?.id || 'default'}`;
 const defaultForm = useMemo(() => createDefaultForm(), [companyId, profile?.id]);
 const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
+
+  const splitObs = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return { id: '', note: '' };
+    const parts = raw.split('|').map((p) => p.trim()).filter(Boolean);
+    const id = parts[0] || '';
+    const note = parts.slice(1).join(' | ') || '';
+    return { id, note };
+  };
 
   useEffect(() => {
     const today = todayStr();
@@ -123,7 +133,7 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
 
   useEffect(() => {
     const latestWithId = (rows || []).find((r) => (r?.obs_admin || '').trim() !== '');
-    const latestId = latestWithId ? (latestWithId.obs_admin || '').trim() : '';
+    const latestId = latestWithId ? splitObs(latestWithId.obs_admin || '').id : '';
     setLastObsAdmin(latestId);
   }, [rows]);
 
@@ -131,7 +141,7 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
     if (!lastObsAdmin) return;
     setForm((prev) => {
       if ((prev?.obs_admin || '').trim()) return prev;
-      return { ...prev, obs_admin: lastObsAdmin };
+      return { ...prev, fba_id: lastObsAdmin };
     });
   }, [lastObsAdmin, setForm]);
 
@@ -147,13 +157,17 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
       form.service === 'Other'
         ? (form.custom_service && form.custom_service.trim()) || 'Other'
         : form.service;
+    const fbaId = (form.fba_id || '').trim();
+    const note = (form.obs_admin || '').trim();
+    const obsPayload = [fbaId, note].filter(Boolean).join(note ? ' | ' : '');
+
     const payload = {
       company_id: companyId,
       service: selectedService,
       service_date: form.service_date || todayStr(),
       unit_price: Number(form.unit_price || 0),
       units: Number(form.units || 0),
-      obs_admin: form.obs_admin || null,
+      obs_admin: obsPayload || null,
       created_by: profile.id,
     };
     const { error } = await supabase.from('fba_lines').insert(payload);
@@ -161,7 +175,8 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
   // reset form (data rămâne azi) și păstrează obs_admin curent
   setForm((prev) => ({
     ...createDefaultForm(),
-    obs_admin: (prev?.obs_admin || '').trim() || lastObsAdmin
+    fba_id: (prev?.fba_id || '').trim() || lastObsAdmin,
+    obs_admin: ''
   }));
   reload?.();
 };
@@ -290,11 +305,18 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
             inputMode="numeric"
           />
           <input
-            placeholder="Obs admin"
+            placeholder="FBA ID"
+            className="border rounded px-2 py-1 w-56"
+            value={form.fba_id}
+            onChange={(e) => setForm((s) => ({ ...s, fba_id: e.target.value }))}
+            title="ID folosit pentru grupare (ex: FBA15LCP6YNC)"
+          />
+          <input
+            placeholder="Obs admin (note)"
             className="border rounded px-2 py-1 w-56"
             value={form.obs_admin}
             onChange={(e) => setForm((s) => ({ ...s, obs_admin: e.target.value }))}
-            title="Dacă schimbi ID-ul, se creează un nou bloc la salvare"
+            title="Note adiționale"
           />
           <button onClick={handleAdd} className="bg-primary text-white px-3 py-1 rounded">
             Adaugă
@@ -329,13 +351,14 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
                 const groups = [];
                 const seen = new Set();
                 (rows || []).forEach((row, idx) => {
-                  const key = normalizeId(row.obs_admin) || '—';
+                  const { id: parsedId, note } = splitObs(row.obs_admin);
+                  const key = normalizeId(parsedId) || '—';
                   if (!seen.has(key)) {
                     groups.push({ key, order: idx, items: [] });
                     seen.add(key);
                   }
                   const grp = groups.find((g) => g.key === key);
-                  grp.items.push(row);
+                  grp.items.push({ ...row, _note: note, _parsedId: parsedId });
                 });
                 return groups.map((group) => (
                   <React.Fragment key={group.key || group.order}>
@@ -346,7 +369,8 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
                             <span className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold uppercase">
                               {group.key}
                             </span>
-                            <span className="text-text-secondary text-xs">
+                            <span className="text-text-secondary text-xs inline-flex items-center gap-1">
+                              <ChevronDown className="w-4 h-4" />
                               {group.items.length} linie{group.items.length > 1 ? 'e' : ''} în acest bloc
                             </span>
                           </span>
@@ -355,7 +379,9 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
                         )}
                       </td>
                     </tr>
-                    {group.items.map((l) => {
+                    {group.items.map((l, idx) => {
+                      const isFirst = idx === 0;
+                      const isLast = idx === group.items.length - 1;
                       const isEdit = edit?.id === l.id;
                       const total = l.total != null
                         ? Number(l.total)
@@ -363,7 +389,9 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
                       return (
                         <tr
                           key={l.id}
-                          className={`border-t ${
+                          className={`${
+                            isFirst ? 'border-t' : 'border-t-0'
+                          } ${isLast ? 'border-b' : ''} ${
                             l.billing_invoice_id ? 'bg-blue-50 hover:bg-blue-50' : 'hover:bg-gray-50'
                           }`}
                           title={formatInvoiceTooltip(l.billing_invoice)}
@@ -429,7 +457,7 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
                                 value={edit.obs_admin || ''}
                                 onChange={(e)=>setEdit(s=>({...s,obs_admin:e.target.value}))}
                               />
-                            ) : (l.obs_admin || '—')}
+                            ) : (l._note || '—')}
                           </td>
                           <td className="px-3 py-2 text-right">
                             {isEdit ? (

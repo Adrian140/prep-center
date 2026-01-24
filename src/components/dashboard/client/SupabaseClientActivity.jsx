@@ -37,20 +37,30 @@ const extractShipmentId = (value) => {
   return match ? match[0] : null;
 };
 
+const splitObs = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return { id: '', note: '' };
+  const parts = raw.split('|').map((p) => p.trim()).filter(Boolean);
+  const id = parts[0] || '';
+  const note = parts.slice(1).join(' | ') || '';
+  return { id, note };
+};
+
 const groupFbaRowsByShipment = (rows = []) => {
   const groups = new Map();
   const passthrough = [];
 
   rows.forEach((row, idx) => {
-    const shipmentId = extractShipmentId(row?.obs_admin);
+    const { id: parsedId, note } = splitObs(row?.obs_admin);
+    const shipmentId = extractShipmentId(parsedId);
     if (!shipmentId) {
-      passthrough.push({ ...row, _order: idx });
+      passthrough.push({ ...row, _order: idx, _note: note });
       return;
     }
     if (!groups.has(shipmentId)) {
       groups.set(shipmentId, { items: [], firstIndex: idx });
     }
-    groups.get(shipmentId).items.push(row);
+    groups.get(shipmentId).items.push({ ...row, _note: note });
   });
 
   const grouped = Array.from(groups.entries()).map(([shipmentId, { items, firstIndex }]) => {
@@ -84,7 +94,8 @@ const groupFbaRowsByShipment = (rows = []) => {
       unit_price: null,
       units: totals.qty,
       total: totals.total,
-      obs_admin: shipmentId
+      obs_admin: shipmentId,
+      _note: items[0]?._note || ''
     };
   });
 
@@ -467,11 +478,11 @@ export default function SupabaseClientActivity() {
       <div className="bg-white rounded-xl shadow-sm p-5">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-3 mb-4">
           <div className="flex items-center gap-2">
-            {reportTabs.map((opt) => (
-              <button
-                key={opt.id}
-                onClick={() => setActiveReport(opt.id)}
-                className={`px-4 py-1.5 rounded-lg text-sm border transition-colors ${
+              {reportTabs.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => setActiveReport(opt.id)}
+                  className={`px-4 py-1.5 rounded-lg text-sm border transition-colors ${
                   activeReport === opt.id
                     ? 'bg-primary text-white border-primary'
                     : 'bg-white text-text-primary border-gray-300 hover:bg-gray-50'
@@ -550,7 +561,7 @@ export default function SupabaseClientActivity() {
                       <td className="px-3 py-2 text-right">
                         {Number.isFinite(lineTotal) ? fmt2(lineTotal) : '—'}
                       </td>
-                      <td className="px-3 py-2">{r.obs_admin || '—'}</td>
+                      <td className="px-3 py-2">{r._note || '—'}</td>
                     </tr>
                   );
                 })
