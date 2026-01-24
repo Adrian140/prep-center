@@ -314,27 +314,28 @@ export default function AdminProfiles({ onSelect }) {
   }, [rows, q]);
 
 // GLOBAL sort (pe tot searchedRows), apoi filter, apoi pagination
-  const sortedRows = useMemo(() => {
-    const list = [...searchedRows];
-    if (!showBalances) {
-      list.sort((a, b) => (a._order ?? 0) - (b._order ?? 0));
-      return list;
-    }
-    const getBal = (row) => {
-      const v = Number(calc[row.id]?.diff);
-      return Number.isFinite(v) ? v : null;
-    };
-    list.sort((a, b) => {
-      const balA = getBal(a);
-      const balB = getBal(b);
-      if (balA === null && balB === null) return (a._order ?? 0) - (b._order ?? 0);
-      if (balA === null) return 1;
-      if (balB === null) return -1;
-      if (balA !== balB) return balB - balA; // DESC global
-      return (a._order ?? 0) - (b._order ?? 0);
-    });
+ const sortedRows = useMemo(() => {
+  const list = [...searchedRows];
+  if (!showBalances) {
+    list.sort((a, b) => (a._order ?? 0) - (b._order ?? 0));
     return list;
-  }, [searchedRows, calc, showBalances]);
+  }
+  const getBal = (row) => {
+    const v = Number(calc[row.id]?.diff);
+    return Number.isFinite(v) ? v : null;
+  };
+  list.sort((a, b) => {
+    const balA = getBal(a);
+    const balB = getBal(b);
+    if (balA === null && balB === null) return (a._order ?? 0) - (b._order ?? 0);
+    if (balA === null) return 1;
+    if (balB === null) return -1;
+    if (balA !== balB) return balB - balA; // DESC global
+    return (a._order ?? 0) - (b._order ?? 0);
+  });
+  return list;
+}, [searchedRows, calc, showBalances]);
+
 
   const filteredRows = useMemo(() => {
     if (!showBalances || restFilter === "all") return sortedRows;
