@@ -1,5 +1,6 @@
 // FILE: src/components/dashboard/client/SupabaseClientActivity.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useSupabaseAuth } from "../../../contexts/SupabaseAuthContext";
 import { supabaseHelpers } from "../../../config/supabase";
 import {
@@ -527,7 +528,8 @@ export default function SupabaseClientActivity() {
                               <span className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold uppercase">
                                 {group.key}
                               </span>
-                              <span className="text-text-secondary text-xs">
+                              <span className="text-text-secondary text-xs inline-flex items-center gap-1">
+                                <ChevronDown className="w-4 h-4" />
                                 {t('SupabaseClientActivity.group.lines', { count: group.items.length })}
                               </span>
                             </span>
