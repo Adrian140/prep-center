@@ -31,6 +31,68 @@ const fmtMoney = (n, currency = 'EUR', locale = 'fr-FR') =>
   new Intl.NumberFormat(locale, { style: 'currency', currency }).format(Number(n || 0));
 const fmtMoneyHT = (n, currency = 'EUR') => `${fmtMoney(n, currency)} HT`;
 
+const extractShipmentId = (value) => {
+  const text = String(value || '').toUpperCase();
+  const match = text.match(/FBA[A-Z0-9]{5,}/);
+  return match ? match[0] : null;
+};
+
+const groupFbaRowsByShipment = (rows = []) => {
+  const groups = new Map();
+  const passthrough = [];
+
+  rows.forEach((row, idx) => {
+    const shipmentId = extractShipmentId(row?.obs_admin);
+    if (!shipmentId) {
+      passthrough.push({ ...row, _order: idx });
+      return;
+    }
+    if (!groups.has(shipmentId)) {
+      groups.set(shipmentId, { items: [], firstIndex: idx });
+    }
+    groups.get(shipmentId).items.push(row);
+  });
+
+  const grouped = Array.from(groups.entries()).map(([shipmentId, { items, firstIndex }]) => {
+    const totals = items.reduce(
+      (acc, item) => {
+        const qty = Number(item?.units || 0);
+        const lineTotal =
+          item?.total != null
+            ? Number(item.total)
+            : Number(item?.unit_price || 0) * (Number.isFinite(qty) ? qty : 0);
+        acc.qty += Number.isFinite(qty) ? qty : 0;
+        acc.total += Number.isFinite(lineTotal) ? lineTotal : 0;
+        return acc;
+      },
+      { qty: 0, total: 0 }
+    );
+    const serviceLabel =
+      items.length > 1
+        ? `Shipment ${shipmentId} (${items.length} linii)`
+        : items[0]?.service || `Shipment ${shipmentId}`;
+    const primaryDate = items[0]?.service_date || '';
+
+    return {
+      ...items[0],
+      id: `shipment-${shipmentId}`,
+      _groupKey: shipmentId,
+      _lineCount: items.length,
+      _order: firstIndex,
+      service_date: primaryDate,
+      service: serviceLabel,
+      unit_price: null,
+      units: totals.qty,
+      total: totals.total,
+      obs_admin: shipmentId
+    };
+  });
+
+  const merged = [...grouped, ...passthrough];
+  merged.sort((a, b) => (a._order ?? 0) - (b._order ?? 0));
+  return merged;
+};
+
 const currentMonthStr = () => {
   const now = new Date();
   const pad = (v) => String(v).padStart(2, '0');
@@ -151,6 +213,10 @@ export default function SupabaseClientActivity() {
     () => filterRowsByMonth(fba, effectiveFbaMonth),
     [fba, effectiveFbaMonth]
   );
+  const fbaGroupedMonthRows = useMemo(
+    () => groupFbaRowsByShipment(fbaMonthRows),
+    [fbaMonthRows]
+  );
   const fbmMonthRows = useMemo(
     () => filterRowsByMonth(fbm, effectiveFbmMonth),
     [fbm, effectiveFbmMonth]
@@ -160,7 +226,10 @@ export default function SupabaseClientActivity() {
     [other, effectiveOtherMonth]
   );
 
-  const fbaMonthTotals = useMemo(() => calcReportTotals(fbaMonthRows, 'units'), [fbaMonthRows]);
+  const fbaMonthTotals = useMemo(
+    () => calcReportTotals(fbaGroupedMonthRows, 'units'),
+    [fbaGroupedMonthRows]
+  );
   const fbmMonthTotals = useMemo(
     () => calcReportTotals(fbmMonthRows, 'orders_units'),
     [fbmMonthRows]
@@ -279,7 +348,11 @@ export default function SupabaseClientActivity() {
 
   const isFbaView = activeReport === 'fba';
   const isFbmView = activeReport === 'fbm';
-  const activeRows = isFbaView ? fbaMonthRows : isFbmView ? fbmMonthRows : otherMonthRows;
+  const activeRows = isFbaView
+    ? fbaGroupedMonthRows
+    : isFbmView
+      ? fbmMonthRows
+      : otherMonthRows;
   const activeTotals = isFbaView
     ? fbaMonthTotals
     : isFbmView
