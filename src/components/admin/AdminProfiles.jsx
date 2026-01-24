@@ -47,6 +47,18 @@ const sumPaidInvoices = (rows = []) =>
     }
     return acc;
   }, 0);
+async function mapWithConcurrency(items, limit, mapper) {
+  const results = new Array(items.length);
+  let idx = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (idx < items.length) {
+      const current = idx++;
+      results[current] = await mapper(items[current], current);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
 
 async function fetchLiveBalance(companyId) {
   if (!companyId) return 0;
@@ -79,6 +91,7 @@ async function fetchLiveBalance(companyId) {
 }
 
 async function fetchOtherLineSums(companyId, startDate, endDate) {
+
   if (!companyId) {
     return { monthTotal: 0, carryTotal: 0 };
   }
@@ -300,47 +313,45 @@ export default function AdminProfiles({ onSelect }) {
     });
   }, [rows, q]);
 
-  const totalPages = Math.max(1, Math.ceil(searchedRows.length / PER_PAGE));
-  const pageClamped = Math.min(page, totalPages);
-  const pageRows = useMemo(() => {
-    const start = (pageClamped - 1) * PER_PAGE;
-    return searchedRows.slice(start, start + PER_PAGE);
-  }, [searchedRows, pageClamped]);
-
-  const sortedPageRows = useMemo(() => {
-    const rowsWithFallback = [...pageRows];
-
+// GLOBAL sort (pe tot searchedRows), apoi filter, apoi pagination
+  const sortedRows = useMemo(() => {
+    const list = [...searchedRows];
+    if (!showBalances) {
+      list.sort((a, b) => (a._order ?? 0) - (b._order ?? 0));
+      return list;
+    }
     const getBal = (row) => {
       const v = Number(calc[row.id]?.diff);
       return Number.isFinite(v) ? v : null;
     };
-
-    rowsWithFallback.sort((a, b) => {
+    list.sort((a, b) => {
       const balA = getBal(a);
       const balB = getBal(b);
-
-      // păstrează rândurile fără balance la final
       if (balA === null && balB === null) return (a._order ?? 0) - (b._order ?? 0);
       if (balA === null) return 1;
       if (balB === null) return -1;
-
-     // sortare crescătoare după balance (liveBalance)
-      if (balA !== balB) return balB - balA;
+      if (balA !== balB) return balB - balA; // DESC global
       return (a._order ?? 0) - (b._order ?? 0);
     });
+    return list;
+  }, [searchedRows, calc, showBalances]);
 
-    return rowsWithFallback;
-  }, [pageRows, calc]);
-
-  const displayRows = useMemo(() => {
-    if (!showBalances || restFilter === "all") return sortedPageRows;
-    const hasAllBalances = sortedPageRows.every((row) => calc[row.id]);
-    if (!hasAllBalances) return sortedPageRows;
-    return sortedPageRows.filter((row) => {
+  const filteredRows = useMemo(() => {
+    if (!showBalances || restFilter === "all") return sortedRows;
+    const hasAllBalances = sortedRows.every((row) => calc[row.id]);
+    if (!hasAllBalances) return sortedRows;
+    return sortedRows.filter((row) => {
       const liveBalance = Number(calc[row.id]?.diff ?? 0);
       return getBalanceState(liveBalance) === restFilter;
     });
-  }, [sortedPageRows, restFilter, calc, showBalances]);
+  }, [sortedRows, restFilter, calc, showBalances]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PER_PAGE));
+  const pageClamped = Math.min(page, totalPages);
+  const displayRows = useMemo(() => {
+    const start = (pageClamped - 1) * PER_PAGE;
+    return filteredRows.slice(start, start + PER_PAGE);
+  }, [filteredRows, pageClamped]);
 
 const tableTotals = useMemo(() => {
   if (!showBalances) {
@@ -364,31 +375,33 @@ const tableTotals = useMemo(() => {
     let mounted = true;
 
     (async () => {
-      if (!showBalances || pageRows.length === 0) return;
+      if (!showBalances || rows.length === 0) return;
 
       const [y, m] = selectedMonth.split("-").map(Number);
       const start = isoLocal(new Date(y, m - 1, 1));        // inclusiv
        const end   = isoLocal(new Date(y, m, 0));            // inclusiv (ultima zi a lunii)
 
-      const entries = await Promise.all(
-        pageRows.map(async (p) => {
+        const entries = await mapWithConcurrency(rows, 8, async (p) => {
           if (!p.company_id) return [p.id, { currentSold: 0, carry: 0, diff: 0 }];
 
           const [{ data, error }, liveBalance] = await Promise.all([
             supabaseHelpers.getPeriodBalances(p.id, p.company_id, start, end),
-            fetchLiveBalance(p.company_id)
+            fetchLiveBalance(p.company_id),
           ]);
-          if (error || !data) return [p.id, { currentSold: 0, carry: 0, diff: liveBalance || 0 }];
+
+          if (error || !data) {
+            return [p.id, { currentSold: 0, carry: 0, diff: liveBalance || 0 }];
+          }
 
           let current = Number((data.sold_current ?? data.sold_curent) ?? 0);
           let carry = -Number(data.sold_restant ?? 0);
+
           const otherSums = await fetchOtherLineSums(p.company_id, start, end);
           current += otherSums.monthTotal;
           carry += otherSums.carryTotal;
 
           return [p.id, { currentSold: current, carry, diff: liveBalance }];
-        })
-      );
+        });
 
       if (mounted) {
         setCalc((prev) => {
@@ -403,15 +416,8 @@ const tableTotals = useMemo(() => {
 
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageRows, selectedMonth, showBalances]);
+ }, [rows, selectedMonth, showBalances]);
 
-  const toggleClient = (id) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
   const startEditStore = (profile) => {
     setEditingStoreId(profile.id);
     setStoreDraft(profile.store_name || "");
