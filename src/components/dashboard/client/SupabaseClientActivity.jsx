@@ -54,10 +54,22 @@ const deriveMonth = (serviceDate) => {
   return currentMonthStr();
 };
 
+const sortByServiceDateDesc = (rows = []) => {
+  const toDate = (val) => {
+    const d = new Date(val);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  return [...rows].sort((a, b) => {
+    const da = toDate(a?.service_date) || toDate(a?.created_at) || new Date(0);
+    const db = toDate(b?.service_date) || toDate(b?.created_at) || new Date(0);
+    return db - da || 0;
+  });
+};
+
 const filterRowsByMonth = (rows, month) => {
   if (!month) return rows;
   const prefix = `${month}-`;
-  return rows.filter((r) => (r?.service_date || '').startsWith(prefix));
+  return sortByServiceDateDesc(rows.filter((r) => (r?.service_date || '').startsWith(prefix)));
 };
 
 const calcReportTotals = (rows, qtyField) =>
@@ -121,9 +133,9 @@ export default function SupabaseClientActivity() {
       supabaseHelpers.listFbmLinesByCompany(companyId),
       supabaseHelpers.listOtherLinesByCompany(companyId)
     ]);
-    const safeFba = fbaData || [];
-    const safeFbm = fbmData || [];
-    const safeOther = otherData || [];
+    const safeFba = sortByServiceDateDesc(fbaData || []);
+    const safeFbm = sortByServiceDateDesc(fbmData || []);
+    const safeOther = sortByServiceDateDesc(otherData || []);
     setFba(safeFba);
     setFbm(safeFbm);
     setOther(safeOther);

@@ -12,7 +12,7 @@ import { useAdminTranslation } from "@/i18n/useAdminTranslation";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
 
-const PER_PAGE = 100;
+const PER_PAGE = 50;
 const fmt2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "0.00");
 
 // --- date helpers (LOCAL, fără UTC drift)

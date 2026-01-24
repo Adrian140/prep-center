@@ -164,10 +164,10 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
   }, []);
 
   useEffect(() => {
-    const latestWithId = (rows || []).find((r) => (r?.obs_admin || '').trim() !== '');
+    const latestWithId = (orderedRows || []).find((r) => (r?.obs_admin || '').trim() !== '');
     const latestId = latestWithId ? splitObs(latestWithId.obs_admin || '').id : '';
     setLastObsAdmin(latestId);
-  }, [rows]);
+  }, [orderedRows]);
 
   useEffect(() => {
     if (!lastObsAdmin) return;
@@ -182,6 +182,18 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
     const { error } = await supabase.from('fba_lines').delete().eq('id', id);
     if (error) alert(error.message); else reload?.();
   };
+
+  const orderedRows = useMemo(() => {
+    const toDate = (val) => {
+      const d = new Date(val);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+    return [...(rows || [])].sort((a, b) => {
+      const da = toDate(a?.service_date) || toDate(a?.created_at) || new Date(0);
+      const db = toDate(b?.service_date) || toDate(b?.created_at) || new Date(0);
+      return db - da || 0;
+    });
+  }, [rows]);
 
   const handleAdd = async () => {
     if (!companyId) return;
@@ -235,14 +247,14 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
   };
 
   const totalSum = useMemo(() => {
-    return (rows || []).reduce((acc, row) => {
+    return (orderedRows || []).reduce((acc, row) => {
       const total =
         row.total != null
           ? Number(row.total)
           : Number(row.unit_price || 0) * Number(row.units || 0);
       return acc + (Number.isFinite(total) ? total : 0);
     }, 0);
-  }, [rows]);
+  }, [orderedRows]);
 
   return (
     <Section
@@ -371,7 +383,7 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {orderedRows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-3 py-4 text-center text-text-secondary">
                   Fără înregistrări.
@@ -382,7 +394,7 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
                 const normalizeId = (val) => (val || '').trim();
                 const groups = [];
                 const seen = new Set();
-                (rows || []).forEach((row, idx) => {
+                (orderedRows || []).forEach((row, idx) => {
                   const { id: parsedId, note } = splitObs(row.obs_admin);
                   const key = normalizeId(parsedId) || '—';
                   if (!seen.has(key)) {

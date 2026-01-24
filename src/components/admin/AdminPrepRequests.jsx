@@ -66,20 +66,20 @@ export default function AdminPrepRequests() {
   }
 };
 
- const load = async (p = page) => {
+ const load = async (p = page, fetchAll = false) => {
   setLoading(true);
   setFlash('');
   try {
     const { data, error, count: c } = await supabaseHelpers.listPrepRequests({
       status: status === 'all' ? undefined : status,
-      page: p,
-      pageSize,
+      page: fetchAll ? undefined : p,
+      pageSize: fetchAll ? undefined : pageSize,
     });
     if (error) throw error;
 
     setRows(Array.isArray(data) ? data : []);
     setCount(c || 0);
-    setPage(p);
+    setPage(fetchAll ? 1 : p);
   } catch (e) {
     console.error('listPrepRequests failed:', e?.message || e);
     setRows([]);
@@ -90,17 +90,25 @@ export default function AdminPrepRequests() {
   }
 };
 
+  const trimmedQuery = q.trim();
+
   useEffect(() => {
-    load(initialPageRef.current);
+    load(initialPageRef.current, !!trimmedQuery);
     firstLoadRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (firstLoadRef.current) return;
-    load(1);
+    load(1, !!trimmedQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
+
+  useEffect(() => {
+    if (firstLoadRef.current) return;
+    load(1, !!trimmedQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trimmedQuery]);
 
   useEffect(() => {
     writeJSON(tabSessionStorage, STORAGE_KEY, { status, q, page, selectedId });
@@ -109,28 +117,38 @@ export default function AdminPrepRequests() {
   const STATUS_PRIORITY = { pending: 0, confirmed: 1, cancelled: 2 };
 
   const filtered = useMemo(() => {
-    const search = q.trim().toLowerCase();
-    const base = !search
-      ? rows.slice()
-      : rows.filter((r) => {
-          const items = r.prep_request_items || [];
-          const hitItem = items.some(
-            (it) =>
-              (it.asin || '').toLowerCase().includes(search) ||
-              (it.sku || '').toLowerCase().includes(search)
-          );
-          const email = (r.user_email || '').toLowerCase();
-          const comp = (r.company_name || '').toLowerCase();
-          const cname = (r.client_name || '').toLowerCase();
-          const clientCompany = (r.client_company_name || '').toLowerCase();
-          return (
-            hitItem ||
-            email.includes(search) ||
-            comp.includes(search) ||
-            cname.includes(search) ||
-            clientCompany.includes(search)
-          );
-        });
+    const tokens = trimmedQuery
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    const matchesSearch = (row) => {
+      if (!tokens.length) return true;
+      const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
+      const itemHit = items.some((it) => {
+        const asin = (it.asin || '').toLowerCase();
+        const sku = (it.sku || '').toLowerCase();
+        return tokens.some((t) => asin.includes(t) || sku.includes(t));
+      });
+
+      const fields = [
+        row.id,
+        row.user_email,
+        row.company_name,
+        row.store_name,
+        row.client_company_name,
+        row.client_name,
+        row.destination_country,
+        row.status,
+      ]
+        .filter(Boolean)
+        .map((v) => String(v).toLowerCase());
+
+      // A row matches if every token is found in any field (OR items).
+      return tokens.every((t) => itemHit || fields.some((f) => f.includes(t)));
+    };
+
+    const base = rows.filter(matchesSearch);
 
     return base
       .slice()
@@ -142,7 +160,8 @@ export default function AdminPrepRequests() {
       });
   }, [rows, q]);
 
-  const totalPages = Math.max(1, Math.ceil((status === 'all' ? count : filtered.length) / pageSize));
+  const totalBase = trimmedQuery || status !== 'all' ? filtered.length : count;
+  const totalPages = Math.max(1, Math.ceil(Math.max(1, totalBase) / pageSize));
 
   if (selectedId) {
     return (
@@ -169,7 +188,7 @@ export default function AdminPrepRequests() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Caută în ASIN / SKU / nume / email / companie…"
+            placeholder="Caută în ASIN / SKU / nume / email / companie / store / status / țară…"
             className="pl-9 pr-3 py-2 w-80 border rounded-lg"
           />
         </div>
