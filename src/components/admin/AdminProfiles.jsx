@@ -325,7 +325,7 @@ export default function AdminProfiles({ onSelect }) {
       if (balB === null) return -1;
 
      // sortare crescătoare după balance (liveBalance)
-      if (balA !== balB) return balA - balB;
+      if (balA !== balB) return balB - balA;
       return (a._order ?? 0) - (b._order ?? 0);
     });
 
