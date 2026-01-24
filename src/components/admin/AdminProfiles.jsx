@@ -295,12 +295,30 @@ export default function AdminProfiles({ onSelect }) {
     });
   }, [rows, q]);
 
-  const totalPages = Math.max(1, Math.ceil(searchedRows.length / PER_PAGE));
+  // global sort by balance (currentSold) desc; when balance missing, keep original order
+  const balanceSortedRows = useMemo(() => {
+    if (!showBalances) return searchedRows;
+    const rowsWithScore = searchedRows.map((r) => {
+      const score = Number.isFinite(calc[r.id]?.currentSold) ? Number(calc[r.id].currentSold) : null;
+      return { row: r, score };
+    });
+    rowsWithScore.sort((a, b) => {
+      const sa = a.score;
+      const sb = b.score;
+      if (sa === null && sb === null) return (a.row._order ?? 0) - (b.row._order ?? 0);
+      if (sa === null) return 1;
+      if (sb === null) return -1;
+      return sb - sa;
+    });
+    return rowsWithScore.map((item) => item.row);
+  }, [searchedRows, calc, showBalances]);
+
+  const totalPages = Math.max(1, Math.ceil(balanceSortedRows.length / PER_PAGE));
   const pageClamped = Math.min(page, totalPages);
   const pageRows = useMemo(() => {
     const start = (pageClamped - 1) * PER_PAGE;
-    return searchedRows.slice(start, start + PER_PAGE);
-  }, [searchedRows, pageClamped]);
+    return balanceSortedRows.slice(start, start + PER_PAGE);
+  }, [balanceSortedRows, pageClamped]);
 
   const sortedPageRows = useMemo(() => {
     const rowsWithFallback = [...pageRows];
@@ -367,14 +385,15 @@ const tableTotals = useMemo(() => {
     let mounted = true;
 
     (async () => {
-      if (!showBalances || pageRows.length === 0) return;
+      const targetRows = showBalances ? balanceSortedRows : pageRows;
+      if (!showBalances || targetRows.length === 0) return;
 
       const [y, m] = selectedMonth.split("-").map(Number);
       const start = isoLocal(new Date(y, m - 1, 1));        // inclusiv
        const end   = isoLocal(new Date(y, m, 0));            // inclusiv (ultima zi a lunii)
 
       const entries = await Promise.all(
-        pageRows.map(async (p) => {
+        targetRows.map(async (p) => {
           if (!p.company_id) return [p.id, { currentSold: 0, carry: 0, diff: 0 }];
 
           const [{ data, error }, liveBalance] = await Promise.all([
@@ -406,7 +425,7 @@ const tableTotals = useMemo(() => {
 
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageRows, selectedMonth, showBalances]);
+  }, [pageRows, balanceSortedRows, selectedMonth, showBalances]);
 
   const toggleClient = (id) => {
     setSelectedIds((prev) => {
