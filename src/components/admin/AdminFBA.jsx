@@ -56,6 +56,7 @@ export default function AdminFBA({
   const [edit, setEdit] = useState(null);
   const [presets, setPresets] = useState(loadPresets());
   const [serviceOptions, setServiceOptions] = useState([]);
+  const [lastObsAdmin, setLastObsAdmin] = useState('');
 
   const formStorageKey = companyId
     ? `admin-fba-form-${companyId}`
@@ -120,13 +121,27 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
+  useEffect(() => {
+    const latestWithId = (rows || []).find((r) => (r?.obs_admin || '').trim() !== '');
+    const latestId = latestWithId ? (latestWithId.obs_admin || '').trim() : '';
+    setLastObsAdmin(latestId);
+  }, [rows]);
+
+  useEffect(() => {
+    if (!lastObsAdmin) return;
+    setForm((prev) => {
+      if ((prev?.obs_admin || '').trim()) return prev;
+      return { ...prev, obs_admin: lastObsAdmin };
+    });
+  }, [lastObsAdmin, setForm]);
+
   const confirmAndDelete = async (id) => {
     if (!window.confirm('Sigur vrei să ștergi această linie?')) return;
     const { error } = await supabase.from('fba_lines').delete().eq('id', id);
     if (error) alert(error.message); else reload?.();
   };
 
-const handleAdd = async () => {
+  const handleAdd = async () => {
     if (!companyId) return;
     const selectedService =
       form.service === 'Other'
@@ -143,8 +158,11 @@ const handleAdd = async () => {
     };
     const { error } = await supabase.from('fba_lines').insert(payload);
     if (error) return alert(error.message);
-  // reset form (data rămâne azi)
-  setForm(() => createDefaultForm());
+  // reset form (data rămâne azi) și păstrează obs_admin curent
+  setForm((prev) => ({
+    ...createDefaultForm(),
+    obs_admin: (prev?.obs_admin || '').trim() || lastObsAdmin
+  }));
   reload?.();
 };
 
@@ -276,6 +294,7 @@ const handleAdd = async () => {
             className="border rounded px-2 py-1 w-56"
             value={form.obs_admin}
             onChange={(e) => setForm((s) => ({ ...s, obs_admin: e.target.value }))}
+            title="Dacă schimbi ID-ul, se creează un nou bloc la salvare"
           />
           <button onClick={handleAdd} className="bg-primary text-white px-3 py-1 rounded">
             Adaugă
@@ -304,118 +323,154 @@ const handleAdd = async () => {
                   Fără înregistrări.
                 </td>
               </tr>
-            ) : rows.map((l) => {
-              const isEdit = edit?.id === l.id;
-              const total = l.total != null
-                ? Number(l.total)
-                : Number(l.unit_price || 0) * Number(l.units || 0);
-              return (
-                <tr
-                  key={l.id}
-                  className={`border-t ${
-                    l.billing_invoice_id ? 'bg-blue-50 hover:bg-blue-50' : 'hover:bg-gray-50'
-                  }`}
-                  title={formatInvoiceTooltip(l.billing_invoice)}
-                >
-                  <td className="px-3 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(billingSelectedLines[`fba:${l.id}`])}
-                      disabled={Boolean(l.billing_invoice_id) || !canSelectForBilling}
-                      onChange={() => canSelectForBilling && onToggleBillingSelection?.('fba', l)}
-                      className="rounded border-gray-300 focus:ring-2 focus:ring-primary"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    {isEdit ? (
-                      <input
-                        type="date"
-                        className="border rounded px-2 py-1"
-                        value={edit.service_date || todayStr()}
-                        onChange={(e)=>setEdit(s=>({...s,service_date:e.target.value}))}
-                      />
-                    ) : l.service_date}
-                  </td>
-                  <td className="px-3 py-2">
-                    {isEdit ? (
-                      <input
-                        className="border rounded px-2 py-1 w-48"
-                        value={edit.service || ''}
-                        onChange={(e)=>setEdit(s=>({...s,service:e.target.value}))}
-                      />
-                    ) : l.service}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {isEdit ? (
-                      <>
-                        <input
-                          className="border rounded px-2 py-1 w-24 text-right"
-                          value={edit.unit_price ?? ''}
-                          onChange={(e)=>setEdit(s=>({...s,unit_price:Number(e.target.value||0)}))}
-                          list="fba-price-presets"
-                          inputMode="decimal"
-                        />
-                      </>
-                    ) : Number(l.unit_price).toFixed(2)}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {isEdit ? (
-                      <input
-                        className="border rounded px-2 py-1 w-20 text-right"
-                        value={edit.units ?? ''}
-                        onChange={(e)=>setEdit(s=>({...s,units:Number(e.target.value||0)}))}
-                        inputMode="numeric"
-                      />
-                    ) : l.units}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {isFinite(total) ? total.toFixed(2) : '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    {isEdit ? (
-                      <input
-                        className="border rounded px-2 py-1 w-56"
-                        value={edit.obs_admin || ''}
-                        onChange={(e)=>setEdit(s=>({...s,obs_admin:e.target.value}))}
-                      />
-                    ) : (l.obs_admin || '—')}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {isEdit ? (
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={saveEdit}
-                          className="px-2 py-1 bg-primary text-white rounded inline-flex items-center gap-1"
+            ) : (
+              (() => {
+                const normalizeId = (val) => (val || '').trim();
+                const groups = [];
+                const seen = new Set();
+                (rows || []).forEach((row, idx) => {
+                  const key = normalizeId(row.obs_admin) || '—';
+                  if (!seen.has(key)) {
+                    groups.push({ key, order: idx, items: [] });
+                    seen.add(key);
+                  }
+                  const grp = groups.find((g) => g.key === key);
+                  grp.items.push(row);
+                });
+                return groups.map((group) => (
+                  <React.Fragment key={group.key || group.order}>
+                    <tr className="bg-slate-50/70 border-t border-slate-200">
+                      <td colSpan={8} className="px-3 py-2 text-sm text-text-primary font-semibold">
+                        {group.key && group.key !== '—' ? (
+                          <span className="inline-flex items-center gap-2">
+                            <span className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold uppercase">
+                              {group.key}
+                            </span>
+                            <span className="text-text-secondary text-xs">
+                              {group.items.length} linie{group.items.length > 1 ? 'e' : ''} în acest bloc
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-text-secondary">Fără ID (—)</span>
+                        )}
+                      </td>
+                    </tr>
+                    {group.items.map((l) => {
+                      const isEdit = edit?.id === l.id;
+                      const total = l.total != null
+                        ? Number(l.total)
+                        : Number(l.unit_price || 0) * Number(l.units || 0);
+                      return (
+                        <tr
+                          key={l.id}
+                          className={`border-t ${
+                            l.billing_invoice_id ? 'bg-blue-50 hover:bg-blue-50' : 'hover:bg-gray-50'
+                          }`}
+                          title={formatInvoiceTooltip(l.billing_invoice)}
                         >
-                          <Save className="w-4 h-4" /> Salvează
-                        </button>
-                        <button
-                          onClick={()=>setEdit(null)}
-                          className="px-2 py-1 border rounded inline-flex items-center gap-1"
-                        >
-                          <X className="w-4 h-4" /> Anulează
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={()=>setEdit({...l})}
-                          className="px-2 py-1 border rounded inline-flex items-center gap-1"
-                        >
-                          <Edit3 className="w-4 h-4" /> Edit
-                        </button>
-                        <button
-                          onClick={()=>confirmAndDelete(l.id)}
-                          className="px-2 py-1 border rounded text-red-600 inline-flex items-center gap-1"
-                        >
-                          <Trash2 className="w-4 h-4" /> Delete
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+                          <td className="px-3 py-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(billingSelectedLines[`fba:${l.id}`])}
+                              disabled={Boolean(l.billing_invoice_id) || !canSelectForBilling}
+                              onChange={() => canSelectForBilling && onToggleBillingSelection?.('fba', l)}
+                              className="rounded border-gray-300 focus:ring-2 focus:ring-primary"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            {isEdit ? (
+                              <input
+                                type="date"
+                                className="border rounded px-2 py-1"
+                                value={edit.service_date || todayStr()}
+                                onChange={(e)=>setEdit(s=>({...s,service_date:e.target.value}))}
+                              />
+                            ) : l.service_date}
+                          </td>
+                          <td className="px-3 py-2">
+                            {isEdit ? (
+                              <input
+                                className="border rounded px-2 py-1 w-48"
+                                value={edit.service || ''}
+                                onChange={(e)=>setEdit(s=>({...s,service:e.target.value}))}
+                              />
+                            ) : l.service}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {isEdit ? (
+                              <>
+                                <input
+                                  className="border rounded px-2 py-1 w-24 text-right"
+                                  value={edit.unit_price ?? ''}
+                                  onChange={(e)=>setEdit(s=>({...s,unit_price:Number(e.target.value||0)}))}
+                                  list="fba-price-presets"
+                                  inputMode="decimal"
+                                />
+                              </>
+                            ) : Number(l.unit_price).toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {isEdit ? (
+                              <input
+                                className="border rounded px-2 py-1 w-20 text-right"
+                                value={edit.units ?? ''}
+                                onChange={(e)=>setEdit(s=>({...s,units:Number(e.target.value||0)}))}
+                                inputMode="numeric"
+                              />
+                            ) : l.units}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {isFinite(total) ? total.toFixed(2) : '—'}
+                          </td>
+                          <td className="px-3 py-2">
+                            {isEdit ? (
+                              <input
+                                className="border rounded px-2 py-1 w-56"
+                                value={edit.obs_admin || ''}
+                                onChange={(e)=>setEdit(s=>({...s,obs_admin:e.target.value}))}
+                              />
+                            ) : (l.obs_admin || '—')}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {isEdit ? (
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={saveEdit}
+                                  className="px-2 py-1 bg-primary text-white rounded inline-flex items-center gap-1"
+                                >
+                                  <Save className="w-4 h-4" /> Salvează
+                                </button>
+                                <button
+                                  onClick={()=>setEdit(null)}
+                                  className="px-2 py-1 border rounded inline-flex items-center gap-1"
+                                >
+                                  <X className="w-4 h-4" /> Anulează
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={()=>setEdit({...l})}
+                                  className="px-2 py-1 border rounded inline-flex items-center gap-1"
+                                >
+                                  <Edit3 className="w-4 h-4" /> Edit
+                                </button>
+                                <button
+                                  onClick={()=>confirmAndDelete(l.id)}
+                                  className="px-2 py-1 border rounded text-red-600 inline-flex items-center gap-1"
+                                >
+                                  <Trash2 className="w-4 h-4" /> Delete
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
+                ));
+              })()
+            )}
           </tbody>
           <tfoot className="bg-gray-50 border-t font-semibold">
             <tr>
