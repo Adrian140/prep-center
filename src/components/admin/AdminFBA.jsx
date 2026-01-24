@@ -163,6 +163,18 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
+  const orderedRows = useMemo(() => {
+    const toDate = (val) => {
+      const d = new Date(val);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+    return [...(rows || [])].sort((a, b) => {
+      const da = toDate(a?.service_date) || toDate(a?.created_at) || new Date(0);
+      const db = toDate(b?.service_date) || toDate(b?.created_at) || new Date(0);
+      return db - da || 0;
+    });
+  }, [rows]);
+
   useEffect(() => {
     const latestWithId = (orderedRows || []).find((r) => (r?.obs_admin || '').trim() !== '');
     const latestId = latestWithId ? splitObs(latestWithId.obs_admin || '').id : '';
@@ -182,18 +194,6 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
     const { error } = await supabase.from('fba_lines').delete().eq('id', id);
     if (error) alert(error.message); else reload?.();
   };
-
-  const orderedRows = useMemo(() => {
-    const toDate = (val) => {
-      const d = new Date(val);
-      return Number.isNaN(d.getTime()) ? null : d;
-    };
-    return [...(rows || [])].sort((a, b) => {
-      const da = toDate(a?.service_date) || toDate(a?.created_at) || new Date(0);
-      const db = toDate(b?.service_date) || toDate(b?.created_at) || new Date(0);
-      return db - da || 0;
-    });
-  }, [rows]);
 
   const handleAdd = async () => {
     if (!companyId) return;
