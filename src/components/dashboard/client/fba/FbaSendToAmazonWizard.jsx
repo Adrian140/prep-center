@@ -250,6 +250,7 @@ export default function FbaSendToAmazonWizard({
   const [packGroups, setPackGroups] = useState([]);
   const [packGroupsLoaded, setPackGroupsLoaded] = useState(false);
   const [packingOptionId, setPackingOptionId] = useState(initialPlan?.packingOptionId || null);
+  const [packingOptions, setPackingOptions] = useState([]);
   const [placementOptionId, setPlacementOptionId] = useState(initialPlan?.placementOptionId || null);
   const [shipmentMode, setShipmentMode] = useState(initialShipmentMode);
   const [palletDetails, setPalletDetails] = useState(
@@ -574,6 +575,7 @@ export default function FbaSendToAmazonWizard({
       if (data?.labelFormat) setLabelFormat(data.labelFormat);
       if (Array.isArray(data?.tracking)) setTracking(data.tracking);
       if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
+      if (Array.isArray(data?.packingOptions)) setPackingOptions(data.packingOptions);
       if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
       if (Array.isArray(data?.completedSteps)) setCompletedSteps(data.completedSteps);
       if (data?.currentStep && stepsOrder.includes(data.currentStep)) setCurrentStep(data.currentStep);
@@ -598,6 +600,7 @@ export default function FbaSendToAmazonWizard({
       labelFormat,
       tracking,
       packingOptionId,
+      packingOptions,
       placementOptionId,
       completedSteps,
       currentStep
@@ -893,6 +896,13 @@ const fetchPartneredQuote = useCallback(
     );
   };
 
+  const handleSelectPackingOption = (id) => {
+    if (!id) return;
+    if (packingOptionIdRef.current && String(packingOptionIdRef.current) === String(id)) return;
+    setPackingOptionId(id);
+    refreshPackingGroups(id);
+  };
+
   const buildPackingPayload = (groups = packGroups) => {
     if (!Array.isArray(groups) || groups.length === 0) {
       return { packingGroups: [], missingGroupId: false };
@@ -1020,7 +1030,7 @@ const fetchPartneredQuote = useCallback(
     }
   };
 
-  async function refreshPackingGroups() {
+  async function refreshPackingGroups(selectedPackingOptionId = null) {
     if (typeof window === 'undefined') return { ok: false, code: 'NO_WINDOW' };
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
@@ -1041,10 +1051,12 @@ const fetchPartneredQuote = useCallback(
         body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
-          amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null
+          amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null,
+          packing_option_id: selectedPackingOptionId || packingOptionId || null
         }
       });
       if (error) throw error;
+      if (Array.isArray(data?.packingOptions)) setPackingOptions(data.packingOptions);
       if (data?.code === 'PACKING_GROUPS_NOT_READY') {
         const trace = data?.traceId || data?.trace_id || null;
         const msg = data?.message || 'Amazon nu a returnat încă packing groups. Reîncearcă în câteva secunde.';
@@ -1075,6 +1087,7 @@ const fetchPartneredQuote = useCallback(
       }
       if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
       if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
+      if (Array.isArray(data?.packingOptions)) setPackingOptions(data.packingOptions);
       if (Array.isArray(data?.packingGroups)) {
         const normalized = normalizePackGroups(data.packingGroups);
         const filtered = normalized.filter((g) => g.packingGroupId && !isFallbackId(g.packingGroupId));
@@ -1979,6 +1992,9 @@ const fetchPartneredQuote = useCallback(
           onUpdateGroup={handlePackGroupUpdate}
           onNext={submitPackingInformation}
           onBack={() => goToStep('1')}
+          packingOptions={packingOptions}
+          packingOptionId={packingOptionId}
+          onSelectPackingOption={handleSelectPackingOption}
         />
       );
     }

@@ -1051,10 +1051,15 @@ serve(async (req) => {
       return Array.from(ids.values());
     };
 
-    const pickPackingOption = (options: any[]) => {
+    const pickPackingOption = (options: any[], preferredId: string | null = null) => {
       if (!Array.isArray(options) || !options.length) return null;
       const normalizeStatus = (val: any) => String(val || "").toUpperCase();
       const normalizeMode = (val: any) => String(val || "").toUpperCase();
+      const matchesPreferred = options.find((o) => {
+        const id = o?.packingOptionId || o?.PackingOptionId || o?.id || null;
+        return preferredId && id && String(id) === preferredId;
+      });
+      if (matchesPreferred) return matchesPreferred;
       const extractModes = (option: any) => {
         const modes = new Set<string>();
         const supportedConfigs = option?.supportedConfigurations || option?.SupportedConfigurations || [];
@@ -1094,7 +1099,7 @@ serve(async (req) => {
       return scored[0]?.option || targets[0];
     };
 
-    let chosen = pickPackingOption(mergedPackingOptions);
+    let chosen = pickPackingOption(mergedPackingOptions, requestedPackingOptionId);
     const packingOptionId =
       chosen?.packingOptionId ||
       chosen?.PackingOptionId ||
@@ -1637,6 +1642,7 @@ serve(async (req) => {
         inboundPlanId,
         packingOptionId,
         placementOptionId,
+        packingOptions: mergedPackingOptions,
         shipments: planShipments,
         packingGroups: effectivePackingGroups,
         traceId,

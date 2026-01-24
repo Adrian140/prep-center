@@ -11,7 +11,10 @@ export default function FbaStep1bPacking({
   onNext,
   onBack,
   onRetry,
-  retryLoading = false
+  retryLoading = false,
+  packingOptions = [],
+  packingOptionId = null,
+  onSelectPackingOption = () => {}
 }) {
   const isFallbackId = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
   const isAmazonGroupId = (v) => typeof v === "string" && v.toLowerCase().startsWith("pg");
@@ -37,6 +40,33 @@ export default function FbaStep1bPacking({
       { skus: 0, units: 0 }
     );
   }, [visibleGroups]);
+
+  const normalizedPackingOptions = useMemo(() => {
+    const normalizeStatus = (val) => String(val || '').toUpperCase();
+    const shippingModes = (opt) => {
+      const modes = new Set();
+      const supportedShipping = opt?.supportedShippingConfigurations || opt?.SupportedShippingConfigurations || [];
+      (Array.isArray(supportedShipping) ? supportedShipping : [supportedShipping]).forEach((cfg) => {
+        const mode = cfg?.shippingMode || cfg?.shipping_mode || cfg?.mode;
+        if (mode) modes.add(String(mode));
+      });
+      return Array.from(modes);
+    };
+    return (Array.isArray(packingOptions) ? packingOptions : []).map((opt, idx) => {
+      const id = opt?.packingOptionId || opt?.PackingOptionId || opt?.id || `opt-${idx + 1}`;
+      const status = normalizeStatus(opt?.status);
+      const groups = Array.isArray(opt?.packingGroups || opt?.PackingGroups) ? opt.packingGroups || opt.PackingGroups : [];
+      const discounts = Array.isArray(opt?.discounts || opt?.Discounts) ? opt.discounts || opt.Discounts : [];
+      return {
+        id,
+        status,
+        groupsCount: groups.length || 0,
+        discounts,
+        modes: shippingModes(opt),
+        raw: opt
+      };
+    });
+  }, [packingOptions]);
 
   // Draft state to allow multi-digit input without instant save
   const [drafts, setDrafts] = useState({});
@@ -301,6 +331,48 @@ export default function FbaStep1bPacking({
               >
                 {retryLoading ? 'Retry…' : 'Retry fetch packing groups'}
               </button>
+            </div>
+          )}
+
+          {normalizedPackingOptions.length > 0 && (
+            <div className="px-4 py-3 mb-3 border border-slate-200 rounded-lg bg-slate-50 space-y-3">
+              <div className="font-semibold text-slate-900">Select packing method</div>
+              <div className="text-xs text-slate-600">
+                Amazon poate oferi mai multe packing options (ex. recomandat vs. standard). Alege varianta cu care vrei să continui.
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {normalizedPackingOptions.map((opt) => {
+                  const selected = packingOptionId && String(packingOptionId) === String(opt.id);
+                  const isDiscounted = (opt.discounts || []).length > 0;
+                  const modesLabel = opt.modes.length ? opt.modes.join(', ') : 'N/A';
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => onSelectPackingOption(opt.id)}
+                      className={`text-left border rounded-lg p-3 transition ${
+                        selected ? 'border-blue-500 ring-2 ring-blue-200 bg-white' : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-sm font-semibold text-slate-900">
+                          {isDiscounted ? 'Amazon recommended' : 'Standard packing method'}
+                        </div>
+                        <div className="text-xs text-slate-500">Groups: {opt.groupsCount || 0}</div>
+                      </div>
+                      <div className="text-xs text-slate-600 mt-1">
+                        Status: {opt.status || 'N/A'} · Shipping: {modesLabel}
+                      </div>
+                      {isDiscounted && (
+                        <div className="text-xs text-emerald-700 font-semibold mt-1">
+                          Packing discount disponibil ({opt.discounts.length})
+                        </div>
+                      )}
+                      {selected && <div className="text-xs text-blue-600 mt-2">Selected</div>}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
