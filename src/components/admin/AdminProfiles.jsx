@@ -316,23 +316,45 @@ export default function AdminProfiles({ onSelect }) {
 // GLOBAL sort (pe tot searchedRows), apoi filter, apoi pagination
  const sortedRows = useMemo(() => {
   const list = [...searchedRows];
+
   if (!showBalances) {
     list.sort((a, b) => (a._order ?? 0) - (b._order ?? 0));
     return list;
   }
-  const getBal = (row) => {
+
+  // Sort GLOBAL by "Balance" column (currentSold) DESC.
+  // Tie-breaker: live balance (diff) DESC, then original order.
+  const getCurrentSold = (row) => {
+    const v = Number(calc[row.id]?.currentSold);
+    return Number.isFinite(v) ? v : null;
+  };
+
+  const getLiveDiff = (row) => {
     const v = Number(calc[row.id]?.diff);
     return Number.isFinite(v) ? v : null;
   };
+
   list.sort((a, b) => {
-    const balA = getBal(a);
-    const balB = getBal(b);
+    const balA = getCurrentSold(a);
+    const balB = getCurrentSold(b);
+
     if (balA === null && balB === null) return (a._order ?? 0) - (b._order ?? 0);
     if (balA === null) return 1;
     if (balB === null) return -1;
-    if (balA !== balB) return balB - balA; // DESC global
+
+    if (balA !== balB) return balB - balA; // DESC by Balance (currentSold)
+
+    const diffA = getLiveDiff(a);
+    const diffB = getLiveDiff(b);
+
+    if (diffA === null && diffB === null) return (a._order ?? 0) - (b._order ?? 0);
+    if (diffA === null) return 1;
+    if (diffB === null) return -1;
+
+    if (diffA !== diffB) return diffB - diffA; // tie-break DESC by Live balance
     return (a._order ?? 0) - (b._order ?? 0);
   });
+
   return list;
 }, [searchedRows, calc, showBalances]);
 
