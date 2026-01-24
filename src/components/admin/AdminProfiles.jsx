@@ -309,20 +309,26 @@ export default function AdminProfiles({ onSelect }) {
 
   const sortedPageRows = useMemo(() => {
     const rowsWithFallback = [...pageRows];
-      const balA = Number(calc[a.id]?.diff);
-        const balB = Number(calc[b.id]?.diff);
-        const hasA = Number.isFinite(balA);
-        const hasB = Number.isFinite(balB);
 
-    // păstrează rândurile fără balance la final
-    if (!hasA && !hasB) return (a._order ?? 0) - (b._order ?? 0);
-    if (!hasA) return 1;
-    if (!hasB) return -1;
+    const getBal = (row) => {
+      const v = Number(calc[row.id]?.diff);
+      return Number.isFinite(v) ? v : null;
+    };
 
-    // sortare crescătoare după balance (liveBalance)
-    if (balA !== balB) return balA - balB;
-    return (a._order ?? 0) - (b._order ?? 0);
+    rowsWithFallback.sort((a, b) => {
+      const balA = getBal(a);
+      const balB = getBal(b);
+
+      // păstrează rândurile fără balance la final
+      if (balA === null && balB === null) return (a._order ?? 0) - (b._order ?? 0);
+      if (balA === null) return 1;
+      if (balB === null) return -1;
+
+     // sortare crescătoare după balance (liveBalance)
+      if (balA !== balB) return balA - balB;
+      return (a._order ?? 0) - (b._order ?? 0);
     });
+
     return rowsWithFallback;
   }, [pageRows, calc]);
 
