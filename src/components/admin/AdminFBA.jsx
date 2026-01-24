@@ -5,6 +5,7 @@ import Section from '../common/Section';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { tabLocalStorage, readJSON, writeJSON } from '@/utils/tabStorage';
 import { getTabId } from '@/utils/tabIdentity';
+import { useAdminTranslation } from '@/i18n/useAdminTranslation';
 
 const pick = (obj, keys) => Object.fromEntries(keys.map(k => [k, obj[k]]));
 
@@ -54,6 +55,7 @@ export default function AdminFBA({
   onToggleBillingSelection,
   canSelectForBilling = true
 }) {
+  const { t, tp, lang } = useAdminTranslation();
   const [edit, setEdit] = useState(null);
   const [presets, setPresets] = useState(loadPresets());
   const [serviceOptions, setServiceOptions] = useState([]);
@@ -72,6 +74,36 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
     const id = parts[0] || '';
     const note = parts.slice(1).join(' | ') || '';
     return { id, note };
+  };
+
+  const fallbackGroupLabels = useMemo(
+    () => ({
+      en: {
+        noId: 'No ID (—)',
+        lines: (count) => `${count} lines for this shipment`
+      },
+      ro: {
+        noId: 'Fără ID (—)',
+        lines: (count) => `${count} linii pentru această expediere`
+      },
+      fr: {
+        noId: 'Sans ID (—)',
+        lines: (count) => `${count} lignes pour cette expédition`
+      }
+    }),
+    []
+  );
+
+  const resolveGroupLinesLabel = (count) => {
+    const fb = fallbackGroupLabels[lang] || fallbackGroupLabels.en;
+    const raw = tp('adminFBA.group.lines', { count });
+    return raw && !raw.includes('adminFBA.group.lines') ? raw : fb.lines(count);
+  };
+
+  const resolveNoIdLabel = () => {
+    const fb = fallbackGroupLabels[lang] || fallbackGroupLabels.en;
+    const raw = t('adminFBA.group.noId');
+    return raw && raw !== 'adminFBA.group.noId' ? raw : fb.noId;
   };
 
   useEffect(() => {
@@ -371,11 +403,11 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
                             </span>
                             <span className="text-text-secondary text-xs inline-flex items-center gap-1">
                               <ChevronDown className="w-4 h-4" />
-                              {group.items.length} linie{group.items.length === 1 ? '' : 'i'} pentru această expediere
+                              {resolveGroupLinesLabel(group.items.length)}
                             </span>
                           </span>
                         ) : (
-                          <span className="text-text-secondary">Fără ID (—)</span>
+                          <span className="text-text-secondary">{resolveNoIdLabel()}</span>
                         )}
                       </td>
                     </tr>
