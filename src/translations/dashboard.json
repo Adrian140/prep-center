@@ -277,7 +277,7 @@
       "otherTitle": "Other",
       "group": {
         "noId": "No ID (—)",
-        "lines": "{count} lines in this block"
+        "lines": "{count} lines for this shipment"
       }
     },
     "ClientFBAReport": {
@@ -1156,7 +1156,7 @@
       "otherTitle": "Altele",
       "group": {
         "noId": "Fără ID (—)",
-        "lines": "{count} linii în acest bloc"
+        "lines": "{count} linii pentru acest shipment"
       }
     },
     "ClientFBAReport": {
@@ -2069,7 +2069,7 @@
       "otherTitle": "Autres",
       "group": {
         "noId": "Pas d'ID (—)",
-        "lines": "{count} lignes dans ce bloc"
+        "lines": "{count} lignes pour cet envoi"
       }
     },
     "ClientFBAReport": {
@@ -2852,7 +2852,7 @@
       "otherTitle": "Sonstiges",
       "group": {
         "noId": "Keine ID (—)",
-        "lines": "{count} Zeilen in diesem Block"
+        "lines": "{count} Zeilen für diese Sendung"
       }
     },
     "ClientFBAReport": {
@@ -3635,7 +3635,7 @@
       "otherTitle": "Altro",
       "group": {
         "noId": "Senza ID (—)",
-        "lines": "{count} righe in questo blocco"
+        "lines": "{count} righe per questa spedizione"
       }
     },
     "ClientFBAReport": {
@@ -4418,7 +4418,7 @@
       "otherTitle": "Otros",
       "group": {
         "noId": "Sin ID (—)",
-        "lines": "{count} líneas en este bloque"
+        "lines": "{count} líneas para este envío"
       }
     },
     "ClientFBAReport": {
