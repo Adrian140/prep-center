@@ -308,34 +308,19 @@ export default function AdminProfiles({ onSelect }) {
   }, [searchedRows, pageClamped]);
 
   const sortedPageRows = useMemo(() => {
-    const rowsWithFallback = [...pageRows];
-    const getSolde = (row) => {
-      const soldeVal = calc[row.id]?.currentSold;
-      return Number.isFinite(soldeVal) ? Number(soldeVal) : null;
-    };
-    rowsWithFallback.sort((a, b) => {
-      const soldeA = getSolde(a);
-      const soldeB = getSolde(b);
-      if (soldeA === null && soldeB === null) {
-        return (a._order ?? 0) - (b._order ?? 0);
-      }
-      if (soldeA === null) return 1;
-      if (soldeB === null) return -1;
+   st balA = Number(calc[a.id]?.diff);
+    const balB = Number(calc[b.id]?.diff);
+    const hasA = Number.isFinite(balA);
+    const hasB = Number.isFinite(balB);
 
-      if (soldeA === soldeB) {
-        return (a._order ?? 0) - (b._order ?? 0);
-      }
+    // păstrează rândurile fără balance la final
+    if (!hasA && !hasB) return (a._order ?? 0) - (b._order ?? 0);
+    if (!hasA) return 1;
+    if (!hasB) return -1;
 
-      const bucket = (value) => {
-        if (value > 0) return 0;
-        if (value < 0) return 1;
-        return 2; // zero balances sit after negatives
-      };
-
-      const bucketDiff = bucket(soldeA) - bucket(soldeB);
-      if (bucketDiff !== 0) return bucketDiff;
-
-      return soldeB - soldeA;
+    // sortare crescătoare după balance (liveBalance)
+    if (balA !== balB) return balA - balB;
+    return (a._order ?? 0) - (b._order ?? 0);
     });
     return rowsWithFallback;
   }, [pageRows, calc]);
