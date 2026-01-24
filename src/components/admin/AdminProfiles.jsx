@@ -308,7 +308,7 @@ export default function AdminProfiles({ onSelect }) {
   }, [searchedRows, pageClamped]);
 
   const sortedPageRows = useMemo(() => {
-   st balA = Number(calc[a.id]?.diff);
+   const balA = Number(calc[a.id]?.diff);
     const balB = Number(calc[b.id]?.diff);
     const hasA = Number.isFinite(balA);
     const hasB = Number.isFinite(balB);
