@@ -87,7 +87,7 @@ const formatOtherServiceName = (service, t) => {
 };
 
 export default function SupabaseClientActivity() {
-  const { t } = useDashboardTranslation();
+  const { t, tp } = useDashboardTranslation();
   const { profile } = useSupabaseAuth();
   const companyId = profile?.company_id;
 
@@ -530,7 +530,7 @@ export default function SupabaseClientActivity() {
                               </span>
                               <span className="text-text-secondary text-xs inline-flex items-center gap-1">
                                 <ChevronDown className="w-4 h-4" />
-                                {t('SupabaseClientActivity.group.lines', {
+                                {tp('SupabaseClientActivity.group.lines', {
                                   count: Array.isArray(group.items) ? group.items.length : 0
                                 })}
                               </span>
