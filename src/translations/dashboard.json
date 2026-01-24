@@ -274,7 +274,11 @@
         "date": "Date"
       },
       "companyMissing": "Your account is not linked to a company yet. Please contact support to activate it.",
-      "otherTitle": "Other"
+      "otherTitle": "Other",
+      "group": {
+        "noId": "No ID (—)",
+        "lines": "{count} lines in this block"
+      }
     },
     "ClientFBAReport": {
       "title": "FBA Report",
@@ -1149,7 +1153,11 @@
         "date": "Data"
       },
       "companyMissing": "Contul tău nu este încă asociat unei companii. Scrie-ne pentru activare.",
-      "otherTitle": "Altele"
+      "otherTitle": "Altele",
+      "group": {
+        "noId": "Fără ID (—)",
+        "lines": "{count} linii în acest bloc"
+      }
     },
     "ClientFBAReport": {
       "title": "Raport FBA",
@@ -2058,7 +2066,11 @@
         "date": "Date"
       },
       "companyMissing": "Votre compte n’est pas encore lié à une société. Contactez le support pour l’activer.",
-      "otherTitle": "Autres"
+      "otherTitle": "Autres",
+      "group": {
+        "noId": "Pas d'ID (—)",
+        "lines": "{count} lignes dans ce bloc"
+      }
     },
     "ClientFBAReport": {
       "title": "Rapport FBA",
@@ -2837,7 +2849,11 @@
         "date": "Datum"
       },
       "companyMissing": "Ihr Konto ist noch keiner Firma zugeordnet. Bitte Support zur Aktivierung kontaktieren.",
-      "otherTitle": "Sonstiges"
+      "otherTitle": "Sonstiges",
+      "group": {
+        "noId": "Keine ID (—)",
+        "lines": "{count} Zeilen in diesem Block"
+      }
     },
     "ClientFBAReport": {
       "title": "FBA-Bericht",
@@ -3616,7 +3632,11 @@
         "date": "Data"
       },
       "companyMissing": "Il tuo account non è ancora collegato a un’azienda. Contatta il supporto per l’attivazione.",
-      "otherTitle": "Altro"
+      "otherTitle": "Altro",
+      "group": {
+        "noId": "Senza ID (—)",
+        "lines": "{count} righe in questo blocco"
+      }
     },
     "ClientFBAReport": {
       "title": "Report FBA",
@@ -4395,7 +4415,11 @@
         "date": "Fecha"
       },
       "companyMissing": "Tu cuenta aún no está vinculada a una empresa. Contacta con soporte para activarla.",
-      "otherTitle": "Otros"
+      "otherTitle": "Otros",
+      "group": {
+        "noId": "Sin ID (—)",
+        "lines": "{count} líneas en este bloque"
+      }
     },
     "ClientFBAReport": {
       "title": "Informe FBA",

@@ -548,10 +548,16 @@ export default function SupabaseClientActivity() {
                     r.total != null
                       ? Number(r.total)
                       : Number(r.unit_price || 0) * (Number.isFinite(qty) ? qty : 0);
+                  const serviceLabel = r._groupKey
+                    ? t('SupabaseClientActivity.group.shipmentService', {
+                        id: r._groupKey,
+                        count: r._lineCount || 1
+                      })
+                    : formatOtherServiceName(r.service, t);
                   return (
                     <tr key={r.id} className="border-t">
                       <td className="px-3 py-2">{r.service_date}</td>
-                      <td className="px-3 py-2">{formatOtherServiceName(r.service, t)}</td>
+                      <td className="px-3 py-2">{serviceLabel}</td>
                       <td className="px-3 py-2 text-right">
                         {r.unit_price != null ? fmt2(Number(r.unit_price)) : '—'}
                       </td>
