@@ -530,7 +530,9 @@ export default function SupabaseClientActivity() {
                               </span>
                               <span className="text-text-secondary text-xs inline-flex items-center gap-1">
                                 <ChevronDown className="w-4 h-4" />
-                                {t('SupabaseClientActivity.group.lines', { count: group.items.length })}
+                                {t('SupabaseClientActivity.group.lines', {
+                                  count: Array.isArray(group.items) ? group.items.length : 0
+                                })}
                               </span>
                             </span>
                           ) : (
@@ -540,9 +542,9 @@ export default function SupabaseClientActivity() {
                           )}
                         </td>
                       </tr>
-                      {group.items.map((r, idx) => {
+                      {(Array.isArray(group.items) ? group.items : []).map((r, idx, arr) => {
                         const isFirst = idx === 0;
-                        const isLast = idx === group.items.length - 1;
+                        const isLast = idx === arr.length - 1;
                         const qty = Number(r.units || 0);
                         const lineTotal =
                           r.total != null
