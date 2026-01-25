@@ -967,6 +967,23 @@ const fetchPartneredQuote = useCallback(
     const packingGroupsPayload =
       Array.isArray(payload.packingGroups) && payload.packingGroups.length ? payload.packingGroups : derivedPayload.packingGroups;
 
+    // dacă UI a trimis un payload manual (include dimensiuni), sincronizăm imediat în state ca să nu le pierdem la refresh
+    if (Array.isArray(payload.packingGroups) && payload.packingGroups.length) {
+      const asStateShape = payload.packingGroups.map((g, idx) => ({
+        id: g.packingGroupId || g.id || `pg-${idx + 1}`,
+        packingGroupId: g.packingGroupId || g.id || `pg-${idx + 1}`,
+        boxes: g.boxes ?? 1,
+        packMode: g.packMode || g.pack_mode || 'single',
+        boxDimensions: g.dimensions
+          ? { length: g.dimensions.length, width: g.dimensions.width, height: g.dimensions.height }
+          : null,
+        boxWeight: g.weight?.value ?? g.weight?.amount ?? g.boxWeight ?? g.weight ?? null,
+        items: g.items || [],
+        perBoxDetails: g.perBoxDetails || g.per_box_details || null
+      }));
+      setPackGroups((prev) => mergePackGroups(prev, asStateShape));
+    }
+
     const isFallback = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
     const hasFallback = packingGroupsPayload.some((g) => isFallback(g.packingGroupId));
     const missingGroupId = derivedPayload.missingGroupId || packingGroupsPayload.some((g) => !g.packingGroupId);
@@ -1132,8 +1149,8 @@ const fetchPartneredQuote = useCallback(
         } else {
           setPackGroupsLoaded(true);
         }
-          // înlocuim cu grupurile noi de la Amazon (evităm să rămână ID-uri vechi din alte planuri)
-          setPackGroups(filtered);
+          // combinăm grupurile noi de la Amazon cu valorile introduse în UI (dimensiuni/greutate) ca să nu le pierdem
+          setPackGroups((prev) => mergePackGroups(prev, filtered));
           setPackingReadyError('');
           // sincronizează packingOptionId în plan ca să nu trimitem un ID vechi la setPackingInformation
           setPlan((prev) => ({
