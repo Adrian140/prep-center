@@ -1325,10 +1325,10 @@ serve(async (req) => {
       (reqData as any)?.packing_option_id || snapshotFbaInbound?.packingOptionId || null;
     let _lastPackingOptions: any[] = [];
     let _lastPlacementOptions: any[] = [];
-    let packingGroupsFromAmazon: any[] =
-      (Array.isArray(snapshotFbaInbound?.packingGroups) && snapshotFbaInbound.packingGroups.length
-        ? snapshotFbaInbound.packingGroups
-        : []);
+    // IMPORTANT: packing groups din snapshot pot fi stale; pornim de la gol și doar eventual fallback.
+    let packingGroupsFromAmazon: any[] = [];
+    const snapshotPackingGroupsFallback =
+      Array.isArray(snapshotFbaInbound?.packingGroups) ? snapshotFbaInbound.packingGroups : [];
     const buildItemsSignature = (list: typeof reqData.prep_request_items) => {
       const entries = (list || []).map((it: any) => ({
         id: String(it.id || ""),
@@ -1349,7 +1349,13 @@ serve(async (req) => {
       try {
         const clearedSnapshot = {
           ...(snapshotBase || {}),
-          fba_inbound: {}
+          fba_inbound: {
+            planItemsSignature: null,
+            inboundPlanId: null,
+            packingOptionId: null,
+            placementOptionId: null,
+            packingGroups: []
+          }
         };
         await supabase
           .from("prep_requests")
@@ -1469,6 +1475,38 @@ serve(async (req) => {
     const items: PrepRequestItem[] = (Array.isArray(reqData.prep_request_items) ? reqData.prep_request_items : []).filter(
       (it) => Number(it.units_sent ?? it.units_requested ?? 0) > 0
     );
+    // Collapse duplicate SKUs: Amazon folosește MSKU ca cheie și comasează cantitățile, deci agregăm local.
+    type CollapsedItem = {
+      sku: string;
+      asin: string | null;
+      product_name: string | null;
+      units: number;
+      itemIds: string[];
+    };
+    const collapsedItems: CollapsedItem[] = (() => {
+      const map = new Map<string, CollapsedItem>();
+      for (const it of items) {
+        const skuKey = normalizeSku(it.sku || "");
+        if (!skuKey) continue;
+        const qty = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
+        const existing = map.get(skuKey);
+        if (existing) {
+          existing.units += qty;
+          existing.itemIds.push(String(it.id));
+          if (!existing.asin && it.asin) existing.asin = it.asin;
+          if (!existing.product_name && it.product_name) existing.product_name = it.product_name;
+        } else {
+          map.set(skuKey, {
+            sku: skuKey,
+            asin: it.asin || null,
+            product_name: it.product_name || null,
+            units: qty,
+            itemIds: [String(it.id)]
+          });
+        }
+      }
+      return Array.from(map.values()).filter((x) => x.units > 0);
+    })();
     const missingSkuItems = items.filter((it) => !normalizeSku(it.sku || ""));
     if (missingSkuItems.length) {
       return new Response(
@@ -1578,7 +1616,14 @@ serve(async (req) => {
     let prepGuidanceMap: Record<string, PrepGuidance> = {};
     if (shouldAttemptPrepGuidance) {
       const prepGuidanceResult = await fetchPrepGuidance({
-        items,
+        items: collapsedItems.map((c) => ({
+          id: c.sku,
+          asin: c.asin,
+          sku: c.sku,
+          product_name: c.product_name,
+          units_requested: c.units,
+          units_sent: c.units
+        })) as any,
         shipFromCountry,
         shipToCountry: destCountry || shipFromCountry,
         host,
@@ -1594,9 +1639,7 @@ serve(async (req) => {
     } else {
       prepGuidanceWarning = "Token LWA fără scope fba_inbound; instrucțiunile de pregătire au fost omise.";
     }
-    const skuItems = items
-      .map((it) => ({ sku: it.sku || "", asin: it.asin || null }))
-      .filter((entry) => entry.sku);
+    const skuItems = collapsedItems.map((c) => ({ sku: c.sku, asin: c.asin || null }));
     const expiryRequiredBySku = await fetchListingsExpiryRequired({
       items: skuItems,
       host,
@@ -1710,15 +1753,10 @@ serve(async (req) => {
 
     // Pre-eligibility check per SKU for destination marketplace
     const skuStatuses: { sku: string; asin: string | null; state: string; reason: string }[] = [];
-    for (const it of items) {
-      const sku = it.sku || "";
-      if (!sku) {
-        skuStatuses.push({ sku: "", asin: it.asin || null, state: "unknown", reason: "SKU lipsă în prep request" });
-        continue;
-      }
+    for (const c of collapsedItems) {
       const status = await checkSkuStatus({
-        sku,
-        asin: it.asin,
+        sku: c.sku,
+        asin: c.asin,
         marketplaceId,
         host,
         region: awsRegion,
@@ -1727,7 +1765,7 @@ serve(async (req) => {
         sellerId,
         traceId
       });
-      skuStatuses.push({ sku, asin: it.asin || null, state: status.state, reason: status.reason });
+      skuStatuses.push({ sku: c.sku, asin: c.asin || null, state: status.state, reason: status.reason });
     }
 
     const blocking = skuStatuses.filter((s) => ["inactive", "restricted", "inbound_unavailable"].includes(String(s.state)));
@@ -1745,33 +1783,33 @@ serve(async (req) => {
       if (prepGuidanceWarning) warningParts.push(prepGuidanceWarning);
       const warning = warningParts.filter(Boolean).join(" ");
       if (blocking.length || missing.length) {
-        const skus = items.map((it, idx) => {
-          const key = normalizeSku(it.sku || it.asin || "");
-          const prepInfo = prepGuidanceMap[key] || {};
-          const requiresExpiryFromGuidance = (prepInfo.prepInstructions || []).some((p: string) =>
-            String(p || "").toLowerCase().includes("expir")
-          );
-          const expiryKey = normalizeSku(it.sku || "");
-          const requiresExpiry = requiresExpiryFromGuidance || expiryRequiredBySku[expiryKey] === true;
-          const expiryVal = expirations[expiryKey] || "";
-          return {
-            id: it.id || `sku-${idx + 1}`,
-            title: it.product_name || it.sku || `SKU ${idx + 1}`,
-            sku: it.sku || "",
-            asin: it.asin || "",
-            storageType: "Standard-size",
-            packing: "individual",
-            units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-            expiry: expiryVal,
-            expirySource: expirySourceBySku[expiryKey] || null,
-            expiryRequired: requiresExpiry,
-            prepRequired: prepInfo?.prepRequired || false,
-            prepNotes: (prepInfo?.prepInstructions || []).join(", "),
-            manufacturerBarcodeEligible:
-              (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
-            readyToPack: true
-          };
-        });
+      const skus = collapsedItems.map((c, idx) => {
+        const key = normalizeSku(c.sku || c.asin || "");
+        const prepInfo = prepGuidanceMap[key] || {};
+        const requiresExpiryFromGuidance = (prepInfo.prepInstructions || []).some((p: string) =>
+          String(p || "").toLowerCase().includes("expir")
+        );
+        const expiryKey = normalizeSku(c.sku || "");
+        const requiresExpiry = requiresExpiryFromGuidance || expiryRequiredBySku[expiryKey] === true;
+        const expiryVal = expirations[expiryKey] || "";
+        return {
+          id: c.itemIds?.[0] || `sku-${idx + 1}`,
+          title: c.product_name || c.sku || `SKU ${idx + 1}`,
+          sku: c.sku || "",
+          asin: c.asin || "",
+          storageType: "Standard-size",
+          packing: "individual",
+          units: Number(c.units) || 0,
+          expiry: expiryVal,
+          expirySource: expirySourceBySku[expiryKey] || null,
+          expiryRequired: requiresExpiry,
+          prepRequired: prepInfo?.prepRequired || false,
+          prepNotes: (prepInfo?.prepInstructions || []).join(", "),
+          manufacturerBarcodeEligible:
+            (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
+          readyToPack: true
+        };
+      });
         const plan = {
           source: "amazon",
           amazonIntegrationId,
@@ -1810,9 +1848,8 @@ serve(async (req) => {
         sourceAddress: shipFromAddress,
         destinationMarketplaces: [marketplaceId],
         contactInformation: contactInfo,
-        items: items.map((it) => {
-          const key = normalizeSku(it.sku || it.asin || "");
-          const mskuKey = key;
+        items: collapsedItems.map((c) => {
+          const key = normalizeSku(c.sku);
           const prepInfo = prepGuidanceMap[key] || {};
           const prepRequired = !!prepInfo.prepRequired;
           const manufacturerBarcodeEligible =
@@ -1827,8 +1864,8 @@ serve(async (req) => {
           if (o?.labelOwner) labelOwner = o.labelOwner;
           if (o?.prepOwner) prepOwner = o.prepOwner;
           return {
-            msku: mskuKey,
-            quantity: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+            msku: key,
+            quantity: Number(c.units) || 0,
             expiration: expiryVal || undefined,
             prepOwner,
             labelOwner
@@ -2430,13 +2467,12 @@ serve(async (req) => {
       }
     }
 
-    const missingExpiry = items
-      .map((it) => {
-        const key = normalizeSku(it.sku || it.asin || "");
-      const skuOnly = normalizeSku(it.sku || "");
-      const requiresExpiry =
-        (prepGuidanceMap[key]?.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
-        expiryRequiredBySku[skuOnly] === true;
+    const missingExpiry = collapsedItems
+      .map((c) => {
+        const key = normalizeSku(c.sku || c.asin || "");
+        const requiresExpiry =
+          (prepGuidanceMap[key]?.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
+          expiryRequiredBySku[normalizeSku(c.sku || "")] === true;
         const hasExpiry = !!expirations[key];
         return requiresExpiry && !hasExpiry ? key : null;
       })
@@ -2444,20 +2480,20 @@ serve(async (req) => {
 
     if (missingExpiry.length) {
       const warn = `Unele SKU-uri necesită dată de expirare: ${missingExpiry.join(", ")}. Completează expirarea și reîncearcă.`;
-      const skus = items.map((it, idx) => {
-        const key = normalizeSku(it.sku || it.asin || "");
+      const skus = collapsedItems.map((c, idx) => {
+        const key = normalizeSku(c.sku || c.asin || "");
         const prepInfo = prepGuidanceMap[key] || {};
         const requiresExpiry =
           (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
-          expiryRequiredBySku[normalizeSku(it.sku || "")] === true;
+          expiryRequiredBySku[normalizeSku(c.sku || "")] === true;
         return {
-          id: it.id || `sku-${idx + 1}`,
-          title: it.product_name || it.sku || `SKU ${idx + 1}`,
-          sku: it.sku || "",
-          asin: it.asin || "",
+          id: c.itemIds?.[0] || `sku-${idx + 1}`,
+          title: c.product_name || c.sku || `SKU ${idx + 1}`,
+          sku: c.sku || "",
+          asin: c.asin || "",
           storageType: "Standard-size",
           packing: "individual",
-          units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+          units: Number(c.units) || 0,
           expiry: expirations[key] || "",
           expirySource: expirySourceBySku[key] || null,
           expiryRequired: requiresExpiry,
@@ -2641,6 +2677,9 @@ serve(async (req) => {
       }
       if (pgRes.packingGroups?.length) {
         packingGroupsFromAmazon = pgRes.packingGroups;
+      } else if (!pgRes.packingGroups?.length && snapshotPackingGroupsFallback.length) {
+        packingGroupsFromAmazon = snapshotPackingGroupsFallback;
+        planWarnings.push("Folosim packingGroups din snapshot (fallback posibil depășit).");
       }
     }
 
@@ -2866,9 +2905,8 @@ serve(async (req) => {
       });
     }
 
-    const skus = items.map((it, idx) => {
-      const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
-      const skuKey = normalizeSku(it.sku || stock?.sku || it.asin || "");
+    const skus = collapsedItems.map((c, idx) => {
+      const skuKey = normalizeSku(c.sku);
       const prepInfo = prepGuidanceMap[skuKey] || {};
       const prepRequired = !!prepInfo.prepRequired;
       const manufacturerBarcodeEligible = prepInfo.barcodeInstruction
@@ -2885,14 +2923,14 @@ serve(async (req) => {
         expiryRequiredBySku[skuKey] === true;
       const expiryVal = expirations[skuKey] || "";
       return {
-        id: it.id || `sku-${idx + 1}`,
-        title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
-        sku: it.sku || stock?.sku || "",
-        asin: it.asin || stock?.asin || "",
+        id: `sku-${idx + 1}`,
+        title: c.product_name || c.sku || `SKU ${idx + 1}`,
+        sku: c.sku,
+        asin: c.asin || "",
         storageType: "Standard-size",
-        fnsku: fnskuBySku[it.sku || ""] || null,
+        fnsku: fnskuBySku[c.sku] || null,
         packing: "individual",
-        units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+        units: Number(c.units) || 0,
         expiry: expiryVal,
         expirySource: expirySourceBySku[skuKey] || null,
         expiryRequired: requiresExpiry,
@@ -2902,7 +2940,7 @@ serve(async (req) => {
         labelOwner,
         labelOwnerSource,
         readyToPack: true,
-        image: stock?.image_url || null
+        image: null
       };
     });
 
