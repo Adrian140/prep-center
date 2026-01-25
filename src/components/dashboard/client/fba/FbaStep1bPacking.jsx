@@ -501,6 +501,13 @@ export default function FbaStep1bPacking({
       validationMessages.push('Completeaza greutatea pentru fiecare cutie.');
     }
 
+    const hasDimensionSelection = dimensionSets.some(
+      (set) => Array.isArray(set.boxes) && set.boxes.some(Boolean)
+    );
+    if (!hasDimensionSelection) {
+      validationMessages.push('Selecteaza cutiile pentru fiecare set de dimensiuni.');
+    }
+
     const hasDimensions = perBoxDetails.every((d) => {
       const l = resolveGroupNumber(d?.length);
       const w = resolveGroupNumber(d?.width);
