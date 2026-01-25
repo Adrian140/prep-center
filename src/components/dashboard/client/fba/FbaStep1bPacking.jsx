@@ -485,6 +485,14 @@ export default function FbaStep1bPacking({
         boxedBySku.set(sku, (boxedBySku.get(sku) || 0) + q);
       });
     });
+    const perBoxTotals = perBoxMatrix.map((box) => {
+      let total = 0;
+      Object.values(box || {}).forEach((qty) => {
+        const q = resolveGroupNumber(qty);
+        if (q > 0) total += q;
+      });
+      return total;
+    });
 
     const validationMessages = [];
     let hasOverfill = false;
@@ -501,6 +509,9 @@ export default function FbaStep1bPacking({
     }
     if (hasOverfill) {
       validationMessages.push('Ai alocat mai multe unitati decat exista in plan.');
+    }
+    if (perBoxTotals.some((t) => t <= 0)) {
+      validationMessages.push('Fiecare cutie trebuie sa contina cel putin o unitate.');
     }
 
     const hasWeights = perBoxDetails.every((d) => resolveGroupNumber(d?.weight) > 0);
