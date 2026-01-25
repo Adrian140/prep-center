@@ -1806,22 +1806,24 @@ const fetchPartneredQuote = useCallback(
       setLoadingPlan(true);
       if (fetchPlan) {
         await fetchPlan().then((response) => {
-          if (!response) return;
-          const {
-            shipFrom: pFrom,
-            marketplace: pMarket,
-            skus: pSkus,
-            packGroups: pGroups,
-            shipments: pShipments,
-            warning: pWarning,
-            shipmentMode: pShipmentMode,
-            skuStatuses: pSkuStatuses,
-            blocking: pBlocking
-          } = response;
-          if (pFrom && pMarket && Array.isArray(pSkus)) {
-            setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
-            snapshotServerUnits(pSkus);
-          } else {
+      if (!response) return;
+      const {
+        shipFrom: pFrom,
+        marketplace: pMarket,
+        skus: pSkus,
+        packGroups: pGroups,
+        shipments: pShipments,
+        warning: pWarning,
+        shipmentMode: pShipmentMode,
+        skuStatuses: pSkuStatuses,
+        blocking: pBlocking,
+        requestId: respReqId,
+        inboundPlanId: respInboundId
+      } = response;
+      if (pFrom && pMarket && Array.isArray(pSkus)) {
+        setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
+        snapshotServerUnits(pSkus);
+      } else {
             setPlan((prev) => ({ ...prev, ...response }));
             if (Array.isArray(response?.skus)) snapshotServerUnits(response.skus);
           }
@@ -1839,13 +1841,17 @@ const fetchPartneredQuote = useCallback(
           if (typeof pWarning === 'string') {
             const reqId = response.requestId || response.request_id || null;
             const trId = response.traceId || response.trace_id || null;
-            const extra = [pWarning, reqId ? `RequestId: ${reqId}` : null, trId ? `TraceId: ${trId}` : null]
-              .filter(Boolean)
-              .join(' · ');
-            setPlanError((prevError) => prevError || extra);
-          }
-        });
+        const extra = [pWarning, reqId ? `RequestId: ${reqId}` : null, trId ? `TraceId: ${trId}` : null]
+          .filter(Boolean)
+          .join(' · ');
+        setPlanError((prevError) => prevError || extra);
       }
+      // dacă backend a întors inbound plan care nu corespunde cantităților noi, forțăm re-fetch
+      if (!respInboundId && !hasRealPackGroups(normalizePackGroups(pGroups || []))) {
+        await refreshPackingGroups();
+      }
+    });
+  }
       setLoadingPlan(false);
       setPlanLoaded(true);
     },
@@ -1942,7 +1948,9 @@ const fetchPartneredQuote = useCallback(
           inbound_plan_id: null,
           placement_option_id: null,
           packing_option_id: null,
-          fba_shipment_id: null
+          fba_shipment_id: null,
+          // ștergem snapshot-ul Amazon ca să forțăm recrearea planului cu cantitățile noi
+          amazon_snapshot: {}
         })
         .eq('id', requestId);
       if (resetErr) throw resetErr;
