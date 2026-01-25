@@ -1113,7 +1113,9 @@ const fetchPartneredQuote = useCallback(
         if (Array.isArray(data?.quantityMismatches) && data.quantityMismatches.length) {
           const first = data.quantityMismatches[0];
           const msg = `Cantitățile diferă între UI și Amazon (${first.sku}: Amazon ${first.amazon} vs confirmat ${first.confirmed}).`;
+          setPackGroups([]); // nu folosi grupuri Amazon cu cantități vechi
           setPackingReadyError(msg);
+          return { ok: false, code: 'PACKING_QTY_MISMATCH', quantityMismatches: data.quantityMismatches };
         }
         return { ok: true, code: 'PLACEMENT_ALREADY_ACCEPTED' };
       }
@@ -1144,7 +1146,9 @@ const fetchPartneredQuote = useCallback(
           if (Array.isArray(data?.quantityMismatches) && data.quantityMismatches.length) {
             const first = data.quantityMismatches[0];
             const msg = `Cantitățile diferă între UI și Amazon (${first.sku}: Amazon ${first.amazon} vs confirmat ${first.confirmed}).`;
+            setPackGroups([]); // evităm afișarea grupurilor cu cantități vechi
             setPackingReadyError(msg);
+            return { ok: false, code: 'PACKING_QTY_MISMATCH', quantityMismatches: data.quantityMismatches };
           }
           return { ok: true };
         }
