@@ -1052,11 +1052,25 @@ const fetchPartneredQuote = useCallback(
       const packingGroupUpdates = {};
       (uiPayload.packingGroups || []).forEach((g) => {
         if (!g?.packingGroupId) return;
-        packingGroupUpdates[String(g.packingGroupId)] = {
-          dimensions: g.dimensions || null,
-          weight: g.weight || null,
-          boxes: g.boxes || null
-        };
+        const next = {};
+        const dims = g.dimensions;
+        const length = Number(dims?.length || 0);
+        const width = Number(dims?.width || 0);
+        const height = Number(dims?.height || 0);
+        if (length > 0 && width > 0 && height > 0) {
+          next.dimensions = dims;
+        }
+        const weightVal = Number(g?.weight?.value ?? g?.weight?.amount ?? g?.weight ?? 0);
+        if (weightVal > 0) {
+          next.weight = g.weight;
+        }
+        const boxes = Number(g?.boxes || 0);
+        if (boxes > 0) {
+          next.boxes = boxes;
+        }
+        if (Object.keys(next).length) {
+          packingGroupUpdates[String(g.packingGroupId)] = next;
+        }
       });
       const { data, error } = await supabase.functions.invoke('fba-plan-step1b', {
         body: {
@@ -1096,6 +1110,11 @@ const fetchPartneredQuote = useCallback(
         setPackGroups((prev) => mergePackGroups(prev, normalized));
         if (Array.isArray(data?.shipments)) setShipments(data.shipments);
         setPlanError('');
+        if (Array.isArray(data?.quantityMismatches) && data.quantityMismatches.length) {
+          const first = data.quantityMismatches[0];
+          const msg = `Cantitățile diferă între UI și Amazon (${first.sku}: Amazon ${first.amazon} vs confirmat ${first.confirmed}).`;
+          setPackingReadyError(msg);
+        }
         return { ok: true, code: 'PLACEMENT_ALREADY_ACCEPTED' };
       }
       if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
@@ -1122,6 +1141,11 @@ const fetchPartneredQuote = useCallback(
             inboundPlanId,
             inbound_plan_id: inboundPlanId
           }));
+          if (Array.isArray(data?.quantityMismatches) && data.quantityMismatches.length) {
+            const first = data.quantityMismatches[0];
+            const msg = `Cantitățile diferă între UI și Amazon (${first.sku}: Amazon ${first.amazon} vs confirmat ${first.confirmed}).`;
+            setPackingReadyError(msg);
+          }
           return { ok: true };
         }
         if (Array.isArray(data?.shipments)) setShipments(data.shipments);

@@ -1630,7 +1630,7 @@ serve(async (req) => {
           packingOptionId,
           placementOptionId,
           amazonIntegrationId: integId || null,
-          debug: debugSnapshot(failedGroupFetch)
+          debug: debugSnapshot(transientGroupProblem || hardGroupProblem)
         }),
         { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
