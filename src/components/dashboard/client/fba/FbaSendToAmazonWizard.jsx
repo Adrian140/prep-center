@@ -1047,12 +1047,25 @@ const fetchPartneredQuote = useCallback(
     setPackingRefreshLoading(true);
     setPackingReadyError('');
     const attemptFetch = async () => {
+      // trimite ultimele valori din UI ca snapshot override (dims/weight/boxes)
+      const uiPayload = buildPackingPayload();
+      const packingGroupUpdates = {};
+      (uiPayload.packingGroups || []).forEach((g) => {
+        if (!g?.packingGroupId) return;
+        packingGroupUpdates[String(g.packingGroupId)] = {
+          dimensions: g.dimensions || null,
+          weight: g.weight || null,
+          boxes: g.boxes || null
+        };
+      });
       const { data, error } = await supabase.functions.invoke('fba-plan-step1b', {
         body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
           amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null,
-          packing_option_id: selectedPackingOptionId || packingOptionId || null
+          packing_option_id: selectedPackingOptionId || packingOptionId || null,
+          reset_snapshot: true,
+          packing_group_updates: packingGroupUpdates
         }
       });
       if (error) throw error;

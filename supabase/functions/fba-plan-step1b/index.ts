@@ -531,6 +531,47 @@ serve(async (req) => {
       requestedPackingOptionIdRaw && typeof requestedPackingOptionIdRaw === "string"
         ? requestedPackingOptionIdRaw.trim()
         : null;
+    const resetSnapshot =
+      (body?.reset_snapshot as boolean | undefined) ??
+      (body?.resetSnapshot as boolean | undefined) ??
+      false;
+
+    // Varianta 1: map pe packingGroupId
+    const packingGroupUpdatesRaw =
+      (body?.packing_group_updates as Record<string, any> | undefined) ??
+      (body?.packingGroupUpdates as Record<string, any> | undefined) ??
+      null;
+
+    // Varianta 2: array de groups (dacă preferi din UI)
+    const packingGroupsArray =
+      (body?.packing_groups as any[] | undefined) ??
+      (body?.packingGroups as any[] | undefined) ??
+      null;
+
+    const packingGroupUpdates: Record<string, any> = {};
+    if (packingGroupUpdatesRaw && typeof packingGroupUpdatesRaw === "object") {
+      for (const [k, v] of Object.entries(packingGroupUpdatesRaw)) {
+        if (!k) continue;
+        packingGroupUpdates[String(k)] = v;
+      }
+    }
+    if (Array.isArray(packingGroupsArray)) {
+      for (const g of packingGroupsArray) {
+        const id = g?.packingGroupId || g?.id;
+        if (!id) continue;
+        packingGroupUpdates[String(id)] = {
+          dimensions: g?.dimensions ?? g?.boxDimensions ?? null,
+          weight: g?.weight ?? g?.boxWeight ?? null,
+          boxes: g?.boxes ?? g?.boxCount ?? null
+        };
+      }
+    }
+
+    console.log("fba-plan-step1b ui-updates", {
+      traceId,
+      resetSnapshot,
+      updatesCount: Object.keys(packingGroupUpdates).length
+    });
     const confirmPackingOptionFlag =
       (body?.confirmPackingOption as boolean | undefined) ??
       (body?.confirm_packing_option as boolean | undefined) ??
@@ -1544,10 +1585,11 @@ serve(async (req) => {
     });
 
     // Dacă packing groups vin fără dimensiuni/greutate, încearcă să rehidratezi din snapshot-ul salvat pe request.
-    const snapshotGroups =
-      (reqData as any)?.amazon_snapshot?.fba_inbound?.packingGroups ||
-      (reqData as any)?.amazon_snapshot?.packingGroups ||
-      [];
+    const snapshotGroups = resetSnapshot
+      ? []
+      : (reqData as any)?.amazon_snapshot?.fba_inbound?.packingGroups ||
+        (reqData as any)?.amazon_snapshot?.packingGroups ||
+        [];
     if (Array.isArray(snapshotGroups) && snapshotGroups.length) {
       const byId = new Map<string, any>();
       snapshotGroups.forEach((sg: any) => {
@@ -1555,9 +1597,20 @@ serve(async (req) => {
         if (id) byId.set(String(id), sg);
       });
       normalizedPackingGroups.forEach((g) => {
-        const cached = byId.get(String(g.packingGroupId));
+        const gid = String(g.packingGroupId);
+        const ui = packingGroupUpdates[gid] || null;
+
+        // 1) valorile din UI au prioritate
+        if (ui) {
+          if (ui?.dimensions !== undefined) g.dimensions = ui.dimensions;
+          if (ui?.weight !== undefined) g.weight = ui.weight;
+          if (ui?.boxes !== undefined && ui.boxes !== null) g.boxes = Number(ui.boxes) || g.boxes;
+          return;
+        }
+
+        // 2) fallback la snapshot
+        const cached = byId.get(gid);
         if (!cached) return;
-        // Rehidratează dimensiunile/greutatea din snapshot, indiferent de denumirea câmpului.
         if (!g.dimensions) g.dimensions = cached.boxDimensions || cached.dimensions || null;
         if (!g.weight) g.weight = cached.boxWeight || cached.weight || null;
       });
@@ -1646,12 +1699,14 @@ serve(async (req) => {
         if (id) prevById.set(String(id), pg);
       });
       const mergedGroups = (effectivePackingGroups || []).map((g: any) => {
-        const prev = prevById.get(String(g.packingGroupId || g.id)) || null;
-        if (!prev) return g;
+        const gid = String(g.packingGroupId || g.id);
+        const ui = packingGroupUpdates[gid] || null;
+
+        const prev = resetSnapshot ? null : (prevById.get(gid) || null);
         const prevDims =
-          prev.boxDimensions ||
-          prev.dimensions ||
-          (prev.length && prev.width && prev.height
+          prev?.boxDimensions ||
+          prev?.dimensions ||
+          (prev?.length && prev?.width && prev?.height
             ? {
                 length: prev.length,
                 width: prev.width,
@@ -1659,11 +1714,20 @@ serve(async (req) => {
                 unitOfMeasurement: prev.unit || prev.unitOfMeasurement || "IN"
               }
             : null);
-        const prevWeight = prev.boxWeight || prev.weight || prev.weightLb || null;
+        const prevWeight = prev?.boxWeight || prev?.weight || prev?.weightLb || null;
+
+        const nextDims =
+          ui?.dimensions !== undefined ? ui.dimensions : (g.dimensions ?? prevDims ?? null);
+        const nextWeight =
+          ui?.weight !== undefined ? ui.weight : (g.weight ?? prevWeight ?? null);
+        const nextBoxes =
+          ui?.boxes !== undefined && ui.boxes !== null ? (Number(ui.boxes) || g.boxes) : g.boxes;
+
         return {
           ...g,
-          dimensions: g.dimensions ?? prevDims ?? null,
-          weight: g.weight ?? prevWeight ?? null
+          boxes: nextBoxes,
+          dimensions: nextDims,
+          weight: nextWeight
         };
       });
 
