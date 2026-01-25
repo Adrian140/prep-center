@@ -199,20 +199,27 @@ export default function FbaStep1bPacking({
         return;
       }
 
-      const perBoxNormalized = Array.from({ length: boxCount }).map((_, idx) => {
+      const perBoxRaw = Array.from({ length: boxCount }).map((_, idx) => {
         const src = perBoxDetails?.[idx] || {};
         const l = resolveGroupNumber(src.length);
         const w = resolveGroupNumber(src.width);
         const h = resolveGroupNumber(src.height);
         const wt = resolveGroupNumber(src.weight);
         return {
-          dimensions: l && w && h ? { length: l, width: w, height: h, unit: 'CM' } : null,
-          weight: wt ? { value: wt, unit: 'KG' } : null
+          length: l || null,
+          width: w || null,
+          height: h || null,
+          weight: wt || null
         };
       });
-      const allPerBoxComplete = perBoxNormalized.every(
-        (b) => b.dimensions && b.weight
-      );
+      const perBoxNormalized = perBoxRaw.map((box) => {
+        if (!(box.length && box.width && box.height && box.weight)) return null;
+        return {
+          dimensions: { length: box.length, width: box.width, height: box.height, unit: 'CM' },
+          weight: { value: box.weight, unit: 'KG' }
+        };
+      });
+      const allPerBoxComplete = perBoxNormalized.every((b) => b && b.dimensions && b.weight);
       const normalizedPackMode = group.packMode || 'single';
       const normalizedContentSource =
         contentInformationSource || (normalizedPackMode === 'multiple' ? 'BOX_CONTENT_PROVIDED' : null);
@@ -233,7 +240,7 @@ export default function FbaStep1bPacking({
               quantity: Number(it.quantity || 0) || 0
             }))
           : [],
-        perBoxDetails: perBoxNormalized,
+        perBoxDetails: perBoxRaw,
         perBoxItems
       });
 
@@ -244,9 +251,9 @@ export default function FbaStep1bPacking({
       const baseWeight = weightNum > 0 ? { value: weightNum, unit: 'KG' } : null;
 
       for (let i = 0; i < boxCount; i++) {
-        const perBox = perBoxNormalized[i] || {};
-        const dimsUse = perBox.dimensions || baseDimensions;
-        const weightUse = perBox.weight || baseWeight;
+        const perBox = perBoxNormalized[i] || null;
+        const dimsUse = perBox?.dimensions || baseDimensions;
+        const weightUse = perBox?.weight || baseWeight;
         if (dimsUse && weightUse) {
           packages.push({
             packingGroupId,
