@@ -1329,6 +1329,89 @@ serve(async (req) => {
         return { ...sh, id, shipmentId: id, shipFromAddress, shipToAddress };
       });
 
+    const normalizeShipmentsFromPlan = async () => {
+      const list: any[] = [];
+      for (const sh of placementShipments) {
+        const shId = sh.shipmentId || sh.id;
+        if (!shId) continue;
+        const shDetail = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shId)}`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.getShipment",
+          marketplaceId,
+          sellerId
+        });
+        const shJson = shDetail?.json || {};
+        const payload = shJson?.payload || shJson;
+        const destinationAddress =
+          payload?.destinationAddress ||
+          payload?.to ||
+          payload?.destination?.address ||
+          payload?.DestinationAddress ||
+          sh?.destination?.address ||
+          sh?.shipToAddress ||
+          null;
+        const sourceAddress =
+          payload?.shipFromAddress ||
+          payload?.from ||
+          payload?.source?.address ||
+          payload?.SourceAddress ||
+          null;
+        const contents = payload?.contents || payload?.Contents || {};
+        const destinationFc =
+          payload?.destination?.warehouseId ||
+          payload?.destination?.warehouseCode ||
+          payload?.destinationWarehouseId ||
+          sh?.destinationWarehouseId ||
+          sh?.destinationFc ||
+          sh?.destination?.warehouseId ||
+          null;
+        const cfg = configsByShipment.get(String(shId)) || {};
+        const pkgList = Array.isArray(cfg?.packages) ? cfg.packages : [];
+        const palletList = Array.isArray(cfg?.pallets) ? cfg.pallets : [];
+        const weightFromPackages = pkgList.reduce((sum: number, p: any) => {
+          const w = Number(p?.weight?.value || 0);
+          return sum + (Number.isFinite(w) ? w : 0);
+        }, 0);
+        const weightFromPallets = palletList.reduce((sum: number, p: any) => {
+          const w = Number(p?.weight?.value || 0);
+          return sum + (Number.isFinite(w) ? w : 0);
+        }, 0);
+        const weightFromCfg = weightFromPackages || weightFromPallets || 0;
+        const boxesFromCfg = pkgList.length
+          ? pkgList.length
+          : palletList.length
+            ? palletList.reduce((sum: number, p: any) => sum + Number(p?.quantity || 0), 0)
+            : null;
+        list.push({
+          id: shId,
+          from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
+          to: (() => {
+            const addr = formatAddress(destinationAddress) || formatAddress(sh?.destinationAddress || sh?.to) || null;
+            if (addr && destinationFc) return `${destinationFc} - ${addr}`;
+            if (addr) return addr;
+            return destinationFc || null;
+          })(),
+          destinationWarehouseId: destinationFc || null,
+          boxes: contents?.boxes || contents?.cartons || boxesFromCfg || null,
+          skuCount: contents?.skuCount || null,
+          units: contents?.units || null,
+          weight: contents?.weight || weightFromCfg || null
+        });
+      }
+      return list;
+    };
+
     const getSelectedTransportationOptionId = async (shipmentId: string) => {
       const shDetail = await signedFetch({
         method: "GET",
@@ -2315,7 +2398,7 @@ serve(async (req) => {
     }
 
     if (!shouldConfirm) {
-      const normalizedShipments = normalizePlacementShipments(placementShipments);
+      const normalizedShipments = await normalizeShipmentsFromPlan();
       return new Response(
         JSON.stringify({
           inboundPlanId,
@@ -2609,89 +2692,6 @@ serve(async (req) => {
         });
       }
     }
-
-    const normalizeShipmentsFromPlan = async () => {
-      const list: any[] = [];
-      for (const sh of placementShipments) {
-        const shId = sh.shipmentId || sh.id;
-        if (!shId) continue;
-        const shDetail = await signedFetch({
-          method: "GET",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shId)}`,
-          query: "",
-          payload: "",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.getShipment",
-          marketplaceId,
-          sellerId
-        });
-        const shJson = shDetail?.json || {};
-        const payload = shJson?.payload || shJson;
-        const destinationAddress =
-          payload?.destinationAddress ||
-          payload?.to ||
-          payload?.destination?.address ||
-          payload?.DestinationAddress ||
-          sh?.destination?.address ||
-          sh?.shipToAddress ||
-          null;
-        const sourceAddress =
-          payload?.shipFromAddress ||
-          payload?.from ||
-          payload?.source?.address ||
-          payload?.SourceAddress ||
-          null;
-        const contents = payload?.contents || payload?.Contents || {};
-        const destinationFc =
-          payload?.destination?.warehouseId ||
-          payload?.destination?.warehouseCode ||
-          payload?.destinationWarehouseId ||
-          sh?.destinationWarehouseId ||
-          sh?.destinationFc ||
-          sh?.destination?.warehouseId ||
-          null;
-        const cfg = configsByShipment.get(String(shId)) || {};
-        const pkgList = Array.isArray(cfg?.packages) ? cfg.packages : [];
-        const palletList = Array.isArray(cfg?.pallets) ? cfg.pallets : [];
-        const weightFromPackages = pkgList.reduce((sum: number, p: any) => {
-          const w = Number(p?.weight?.value || 0);
-          return sum + (Number.isFinite(w) ? w : 0);
-        }, 0);
-        const weightFromPallets = palletList.reduce((sum: number, p: any) => {
-          const w = Number(p?.weight?.value || 0);
-          return sum + (Number.isFinite(w) ? w : 0);
-        }, 0);
-        const weightFromCfg = weightFromPackages || weightFromPallets || 0;
-        const boxesFromCfg = pkgList.length
-          ? pkgList.length
-          : palletList.length
-            ? palletList.reduce((sum: number, p: any) => sum + Number(p?.quantity || 0), 0)
-            : null;
-        list.push({
-          id: shId,
-          from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
-          to: (() => {
-            const addr = formatAddress(destinationAddress) || formatAddress(sh?.destinationAddress || sh?.to) || null;
-            if (addr && destinationFc) return `${destinationFc} - ${addr}`;
-            if (addr) return addr;
-            return destinationFc || null;
-          })(),
-          destinationWarehouseId: destinationFc || null,
-          boxes: contents?.boxes || contents?.cartons || boxesFromCfg || null,
-          skuCount: contents?.skuCount || null,
-          units: contents?.units || null,
-          weight: contents?.weight || weightFromCfg || null
-        });
-      }
-      return list;
-    };
 
     const shipments = await normalizeShipmentsFromPlan();
 
