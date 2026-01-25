@@ -2826,6 +2826,9 @@ serve(async (req) => {
         });
         const units = items.reduce((sum: number, it: any) => sum + (Number(it?.quantity || 0) || 0), 0);
         const boxes = Number(g?.boxes || g?.boxCount || 1) || 1;
+        const rawDims = g?.dimensions || g?.boxDimensions || null;
+        const rawWeight = g?.weight || g?.boxWeight || null;
+        const packMode = g?.packMode || g?.pack_mode || (boxes > 1 ? "multiple" : "single");
         return {
           ...g,
           id: pgId,
@@ -2834,8 +2837,13 @@ serve(async (req) => {
           skuCount: items.length || 0,
           units,
           boxes,
-          packMode: boxes > 1 ? "multiple" : "single",
-          title: g?.title || `Pack group ${idx + 1}`
+          packMode,
+          title: g?.title || `Pack group ${idx + 1}`,
+          boxDimensions: rawDims || null,
+          boxWeight: rawWeight ?? null,
+          perBoxDetails: g?.perBoxDetails || g?.per_box_details || null,
+          perBoxItems: g?.perBoxItems || g?.per_box_items || null,
+          contentInformationSource: g?.contentInformationSource || g?.content_information_source || null
         };
       });
 
