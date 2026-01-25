@@ -1152,6 +1152,18 @@ const fetchPartneredQuote = useCallback(
         if (boxes > 0) {
           next.boxes = boxes;
         }
+        if (Array.isArray(g?.perBoxDetails) && g.perBoxDetails.length) {
+          next.perBoxDetails = g.perBoxDetails;
+        }
+        if (Array.isArray(g?.perBoxItems) && g.perBoxItems.length) {
+          next.perBoxItems = g.perBoxItems;
+        }
+        if (g?.contentInformationSource) {
+          next.contentInformationSource = g.contentInformationSource;
+        }
+        if (g?.packMode) {
+          next.packMode = g.packMode;
+        }
         if (Object.keys(next).length) {
           packingGroupUpdates[String(g.packingGroupId)] = next;
         }

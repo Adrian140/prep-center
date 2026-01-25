@@ -210,9 +210,26 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
     if (!packingGroupId) return;
     if (packingGroupId && typeof packingGroupId === "string" && packingGroupId.toLowerCase().startsWith("fallback-")) return;
 
+    const perBoxItemsRaw = Array.isArray(g?.perBoxItems)
+      ? g.perBoxItems
+      : Array.isArray(g?.per_box_items)
+      ? g.per_box_items
+      : [];
+    const perBoxDetailsRaw = Array.isArray(g?.perBoxDetails)
+      ? g.perBoxDetails
+      : Array.isArray(g?.per_box_details)
+      ? g.per_box_details
+      : [];
     const dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
     const weight = normalizeWeight(g?.weight || g?.boxWeight);
-    if (!dims || !weight) return;
+    const hasPerBoxDetails = perBoxDetailsRaw.some((d: any) => {
+      const l = Number(d?.length || 0);
+      const w = Number(d?.width || 0);
+      const h = Number(d?.height || 0);
+      const wt = Number(d?.weight || 0);
+      return l > 0 && w > 0 && h > 0 && wt > 0;
+    });
+    if ((!dims || !weight) && !(hasPerBoxDetails && perBoxItemsRaw.length)) return;
 
     const rawSource = String(g?.contentInformationSource || "").toUpperCase();
     const allowedSources = new Set(["BARCODE_2D", "BOX_CONTENT_PROVIDED", "MANUAL_PROCESS"]);
@@ -252,17 +269,13 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
       contentInformationSource = "MANUAL_PROCESS";
     }
 
-    const boxCount = Math.max(1, Number(g?.boxCount || g?.boxes || 1) || 1);
-    const perBoxItemsRaw = Array.isArray(g?.perBoxItems)
-      ? g.perBoxItems
-      : Array.isArray(g?.per_box_items)
-      ? g.per_box_items
-      : [];
-    const perBoxDetailsRaw = Array.isArray(g?.perBoxDetails)
-      ? g.perBoxDetails
-      : Array.isArray(g?.per_box_details)
-      ? g.per_box_details
-      : [];
+    const boxCount = Math.max(
+      1,
+      Number(g?.boxCount || g?.boxes || perBoxItemsRaw.length || perBoxDetailsRaw.length || 1) || 1
+    );
+    if (perBoxItemsRaw.length) {
+      contentInformationSource = "BOX_CONTENT_PROVIDED";
+    }
     if (contentInformationSource === "BOX_CONTENT_PROVIDED" && perBoxItemsRaw.length) {
       const boxes = perBoxItemsRaw.map((box: any, idx: number) => {
         const boxItemEntries = Array.isArray(box?.items)
@@ -292,7 +305,7 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
         });
         const boxDims = perDims || dims;
         const boxWeight = perWeight || weight;
-        if (!boxDims || !boxWeight) return null;
+        if (!boxDims || !boxWeight || !normalizedBoxItems.length) return null;
 
         return {
           quantity: 1,
@@ -310,7 +323,7 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
         };
       }).filter(Boolean);
 
-      if (boxes.length) {
+      if (boxes.length && boxes.length === perBoxItemsRaw.length) {
         out.push({ boxes, packingGroupId });
         return;
       }

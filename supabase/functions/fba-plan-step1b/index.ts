@@ -566,7 +566,11 @@ serve(async (req) => {
         packingGroupUpdates[String(id)] = {
           dimensions: g?.dimensions ?? g?.boxDimensions ?? null,
           weight: g?.weight ?? g?.boxWeight ?? null,
-          boxes: g?.boxes ?? g?.boxCount ?? null
+          boxes: g?.boxes ?? g?.boxCount ?? null,
+          perBoxDetails: g?.perBoxDetails ?? g?.per_box_details ?? null,
+          perBoxItems: g?.perBoxItems ?? g?.per_box_items ?? null,
+          contentInformationSource: g?.contentInformationSource ?? g?.content_information_source ?? null,
+          packMode: g?.packMode ?? g?.pack_mode ?? null
         };
       }
     }
@@ -875,6 +879,7 @@ serve(async (req) => {
     let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
     let genRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
     let genOpId: string | null = null;
+    let generateNotSupported = false;
 
     recordSample("planCheck", planCheck);
     if (planCheck?.res?.status === 429) {
@@ -998,18 +1003,12 @@ serve(async (req) => {
               .includes("does not support packing options") ||
             String(errMsg || "").toLowerCase().includes("does not support packing options");
           if (genRes.res.status === 400 && notSupported) {
-            return new Response(
-              JSON.stringify({
-                code: "PACKING_OPTIONS_NOT_SUPPORTED",
-                message:
-                  "Amazon a răspuns că acest inbound plan nu suportă packing options. Creează un plan nou sau continuă fără packing options.",
-                inboundPlanId,
-                traceId,
-                amazonIntegrationId: integId || null,
-                debug: { statuses: debugStatuses, rawSamples }
-              }),
-              { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+            generateNotSupported = true;
+            warnings.push(
+              "Amazon a răspuns că acest inbound plan nu suportă packing options. Continuăm cu datele locale dacă există packingGroupIds."
             );
+            genRes = null;
+            genOpId = null;
           }
           warnings.push(
             `Amazon a refuzat generatePackingOptions (${genRes.res.status}). Verifică permisiunile Inbound/packing pe cont. ${errMsg ? `Detaliu: ${errMsg}` : ""}`
@@ -1169,6 +1168,15 @@ serve(async (req) => {
             break;
           }
         }
+      }
+    }
+    if (!packingGroupIds.length) {
+      const fallbackIds = Object.keys(packingGroupUpdates || {});
+      if (fallbackIds.length) {
+        packingGroupIds = fallbackIds;
+        warnings.push(
+          "Nu am primit packingGroupIds din Amazon; folosim packingGroupIds din datele trimise de UI."
+        );
       }
     }
 
@@ -1638,6 +1646,10 @@ serve(async (req) => {
           if (ui?.dimensions !== undefined) g.dimensions = ui.dimensions;
           if (ui?.weight !== undefined) g.weight = ui.weight;
           if (ui?.boxes !== undefined && ui.boxes !== null) g.boxes = Number(ui.boxes) || g.boxes;
+          if (ui?.perBoxDetails !== undefined) g.perBoxDetails = ui.perBoxDetails;
+          if (ui?.perBoxItems !== undefined) g.perBoxItems = ui.perBoxItems;
+          if (ui?.contentInformationSource !== undefined) g.contentInformationSource = ui.contentInformationSource;
+          if (ui?.packMode !== undefined) g.packMode = ui.packMode;
           return;
         }
 
