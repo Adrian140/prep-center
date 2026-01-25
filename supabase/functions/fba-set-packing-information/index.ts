@@ -234,7 +234,17 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
           : [];
 
     items = rawItems.map(normalizeItem).filter(Boolean);
-    if (items.length) {
+    const itemMetaBySku = new Map<string, any>();
+    rawItems.forEach((it: any) => {
+      const sku = normalizeSku(it?.msku || it?.sku || it?.sellerSku || it?.MSKU || "");
+      if (!sku) return;
+      itemMetaBySku.set(sku.toUpperCase(), it);
+    });
+    const skipItems =
+      contentInformationSource === "MANUAL_PROCESS" || contentInformationSource === "BARCODE_2D";
+    if (skipItems) {
+      items = [];
+    } else if (items.length) {
       // Dacă avem conținut mapat, forțăm BOX_CONTENT_PROVIDED ca Amazon să primească SKUs+qty/prep/label.
       contentInformationSource = "BOX_CONTENT_PROVIDED";
     } else if (contentInformationSource === "BOX_CONTENT_PROVIDED") {
@@ -243,6 +253,68 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
     }
 
     const boxCount = Math.max(1, Number(g?.boxCount || g?.boxes || 1) || 1);
+    const perBoxItemsRaw = Array.isArray(g?.perBoxItems)
+      ? g.perBoxItems
+      : Array.isArray(g?.per_box_items)
+      ? g.per_box_items
+      : [];
+    const perBoxDetailsRaw = Array.isArray(g?.perBoxDetails)
+      ? g.perBoxDetails
+      : Array.isArray(g?.per_box_details)
+      ? g.per_box_details
+      : [];
+    if (contentInformationSource === "BOX_CONTENT_PROVIDED" && perBoxItemsRaw.length) {
+      const boxes = perBoxItemsRaw.map((box: any, idx: number) => {
+        const boxItemEntries = Array.isArray(box?.items)
+          ? box.items
+          : box && typeof box === "object"
+          ? Object.entries(box).map(([sku, quantity]) => ({ sku, quantity }))
+          : [];
+        const normalizedBoxItems = boxItemEntries
+          .map((entry: any) => {
+            const sku = normalizeSku(entry?.msku || entry?.sku || entry?.sellerSku || entry?.MSKU || "");
+            if (!sku) return null;
+            const meta = itemMetaBySku.get(sku.toUpperCase()) || {};
+            return normalizeItem({ ...meta, msku: sku, quantity: entry?.quantity ?? entry?.qty ?? 0 });
+          })
+          .filter(Boolean);
+
+        const perBoxMeta = perBoxDetailsRaw?.[idx] || {};
+        const perDims = normalizeDimensions({
+          length: perBoxMeta.length,
+          width: perBoxMeta.width,
+          height: perBoxMeta.height,
+          unit: perBoxMeta.unit || "CM"
+        });
+        const perWeight = normalizeWeight({
+          value: perBoxMeta.weight,
+          unit: perBoxMeta.unitWeight || perBoxMeta.unit || "KG"
+        });
+        const boxDims = perDims || dims;
+        const boxWeight = perWeight || weight;
+        if (!boxDims || !boxWeight) return null;
+
+        return {
+          quantity: 1,
+          contentInformationSource: "BOX_CONTENT_PROVIDED",
+          items: normalizedBoxItems.map((it: any) => ({
+            msku: it.msku,
+            quantity: it.quantity,
+            prepOwner: it.prepOwner,
+            labelOwner: it.labelOwner,
+            ...(it.expiration ? { expiration: it.expiration } : {}),
+            ...(it.manufacturingLotCode ? { manufacturingLotCode: it.manufacturingLotCode } : {})
+          })),
+          dimensions: boxDims,
+          weight: boxWeight
+        };
+      }).filter(Boolean);
+
+      if (boxes.length) {
+        out.push({ boxes, packingGroupId });
+        return;
+      }
+    }
     if (boxCount > 1 && items.length) {
       // Dacă UI a trimis cantitățile totale și un boxCount > 1, Amazon așteaptă cantitatea per box.
       const canSplitEvenly = items.every((it) => Number.isFinite(it.quantity) && it.quantity % boxCount === 0);
@@ -914,7 +986,18 @@ serve(async (req) => {
         boxWeight: g?.weight || g?.boxWeight || null,
         boxes: g?.boxes ?? g?.boxCount ?? 1,
         packMode: g?.packMode || null,
-        items: Array.isArray(g?.items) ? g.items : []
+        items: Array.isArray(g?.items) ? g.items : [],
+        perBoxDetails: Array.isArray(g?.perBoxDetails)
+          ? g.perBoxDetails
+          : Array.isArray(g?.per_box_details)
+          ? g.per_box_details
+          : [],
+        perBoxItems: Array.isArray(g?.perBoxItems)
+          ? g.perBoxItems
+          : Array.isArray(g?.per_box_items)
+          ? g.per_box_items
+          : [],
+        contentInformationSource: g?.contentInformationSource || g?.content_information_source || null
       }));
       const nextSnapshot = {
         ...(currentSnap || {}),

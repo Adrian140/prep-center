@@ -111,13 +111,16 @@ export default function FbaStep2Shipping({
     disablePartnered || partneredRate === null ? 'Not available' : `€${partneredRate.toFixed(2)}`;
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const needsTerms = Boolean(carrier?.partnered && allowPartnered);
+  const needsCarrierSelection = Boolean(!carrier?.partnered && allowNonPartnered);
+  const hasCarrierSelection = !needsCarrierSelection || Boolean(String(carrier?.name || '').trim());
   const canContinue =
     (carrier?.partnered ? allowPartnered : allowNonPartnered) &&
-    (!needsTerms || acceptedTerms);
+    (!needsTerms || acceptedTerms) &&
+    hasCarrierSelection;
 
   useEffect(() => {
     if (allowPartnered || !allowNonPartnered || !carrier?.partnered) return;
-    onCarrierChange?.({ partnered: false, name: carrier?.name || 'Non Amazon partnered carrier' });
+    onCarrierChange?.({ partnered: false, name: carrier?.name || '' });
   }, [allowPartnered, allowNonPartnered, carrier?.partnered, carrier?.name, onCarrierChange]);
 
   return (
@@ -205,7 +208,7 @@ export default function FbaStep2Shipping({
                     <input
                       type="radio"
                       checked={!carrier.partnered}
-                      onChange={() => onCarrierChange({ partnered: false, name: carrier.name || 'Non Amazon partnered carrier' })}
+                      onChange={() => onCarrierChange({ partnered: false, name: carrier.name || '' })}
                     />
                   </label>
                   {!carrier.partnered && (
@@ -215,10 +218,22 @@ export default function FbaStep2Shipping({
                       className="border rounded-md px-3 py-2 text-sm"
                     >
                       <option value="">Select carrier</option>
-                      <option value="UPS (non-partnered)">UPS (non-partnered)</option>
-                      <option value="DHL">DHL</option>
                       <option value="Chronopost">Chronopost</option>
+                      <option value="Exapaq">Exapaq</option>
+                      <option value="FedEx">FedEx</option>
+                      <option value="FedEx Ground">FedEx Ground</option>
+                      <option value="France Express">France Express</option>
+                      <option value="Global Logistics Services (GLS)">Global Logistics Services (GLS)</option>
+                      <option value="La Poste">La Poste</option>
+                      <option value="TNT">TNT</option>
+                      <option value="UPS (non-partnered carrier)">UPS (non-partnered carrier)</option>
+                      <option value="Other">Other</option>
                     </select>
+                  )}
+                  {!carrier.partnered && !hasCarrierSelection && (
+                    <div className="text-xs text-red-600">
+                      Selectează un curier non-partener înainte de a continua.
+                    </div>
                   )}
                 </>
               )}

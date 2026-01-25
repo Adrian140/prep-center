@@ -2444,7 +2444,13 @@ serve(async (req) => {
       body?.force_partnered_only ??
       body?.forcePartneredOnly ??
       false;
-    const wantPartnered = Boolean(forcePartneredOnly || forcePartneredIfAvailable);
+    const preferNonPartneredRaw =
+      body?.prefer_non_partnered ?? body?.preferNonPartnered ?? false;
+    const preferNonPartnered = !forcePartneredOnly && Boolean(preferNonPartneredRaw);
+    const preferredCarrierName =
+      body?.preferred_carrier_name ?? body?.preferredCarrierName ?? null;
+    const effectiveForcePartneredIfAvailable = preferNonPartnered ? false : forcePartneredIfAvailable;
+    const wantPartnered = Boolean(forcePartneredOnly || effectiveForcePartneredIfAvailable);
 
     if (spdWarnings.length) {
       summary["warnings"] = spdWarnings;
@@ -2482,7 +2488,20 @@ serve(async (req) => {
 
     let selectedOptionId = confirmOptionId || defaultOpt?.id || effectiveOptionsForSelection[0]?.id || null;
 
-    if (forcePartneredIfAvailable) {
+    if (preferNonPartnered) {
+      const wantedName = String(preferredCarrierName || '').trim().toLowerCase();
+      const nonPartnered = effectiveOptionsForSelection.filter((o) => !o.partnered);
+      let pick = null;
+      if (wantedName) {
+        pick = nonPartnered.find((o) =>
+          String(o.carrierName || '').trim().toLowerCase() === wantedName ||
+          String(o.carrierName || '').trim().toLowerCase().includes(wantedName) ||
+          wantedName.includes(String(o.carrierName || '').trim().toLowerCase())
+        ) || null;
+      }
+      if (!pick) pick = nonPartnered[0] || null;
+      if (pick?.id) selectedOptionId = pick.id;
+    } else if (effectiveForcePartneredIfAvailable) {
       const partneredOptPick = effectiveOptionsForSelection.find((o) => o.partnered);
       const requested = effectiveOptionsForSelection.find((o) => o.id === confirmOptionId) || null;
       if (partneredOptPick && requested && !requested.partnered) {

@@ -1601,7 +1601,19 @@ serve(async (req) => {
         title: (g as any)?.title || null,
         items,
         dimensions: dims || null,
-        weight: weight || null
+        weight: weight || null,
+        perBoxDetails:
+          (g as any)?.perBoxDetails ||
+          (g as any)?.per_box_details ||
+          null,
+        perBoxItems:
+          (g as any)?.perBoxItems ||
+          (g as any)?.per_box_items ||
+          null,
+        contentInformationSource:
+          (g as any)?.contentInformationSource ||
+          (g as any)?.content_information_source ||
+          null
       };
     });
 
@@ -1634,6 +1646,15 @@ serve(async (req) => {
         if (!cached) return;
         if (!g.dimensions) g.dimensions = cached.boxDimensions || cached.dimensions || null;
         if (!g.weight) g.weight = cached.boxWeight || cached.weight || null;
+        if (!g.perBoxDetails && Array.isArray(cached.perBoxDetails || cached.per_box_details)) {
+          g.perBoxDetails = cached.perBoxDetails || cached.per_box_details;
+        }
+        if (!g.perBoxItems && Array.isArray(cached.perBoxItems || cached.per_box_items)) {
+          g.perBoxItems = cached.perBoxItems || cached.per_box_items;
+        }
+        if (!g.contentInformationSource && cached.contentInformationSource) {
+          g.contentInformationSource = cached.contentInformationSource;
+        }
       });
     }
     const hasPackingGroups = packingGroupIds.length > 0 && normalizedPackingGroups.length > 0;

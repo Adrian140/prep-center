@@ -71,6 +71,15 @@ export default function FbaStep1bPacking({
   // Draft state to allow multi-digit input without instant save
   const [drafts, setDrafts] = useState({});
   const [continueError, setContinueError] = useState('');
+  const [activeWebFormGroupId, setActiveWebFormGroupId] = useState(null);
+
+  const contentOptions = [
+    { value: 'BOX_CONTENT_PROVIDED', label: 'Enter through a web form', enabled: true },
+    { value: 'EXCEL_UPLOAD', label: 'Upload Excel file (.xls)', enabled: false },
+    { value: 'MANUAL_PROCESS', label: 'Amazon manually processes box contents (€0.18 per unit)', enabled: false },
+    { value: 'BARCODE_2D', label: 'Use 2D barcodes', enabled: false },
+    { value: 'SCAN_AND_PACK', label: 'Use scan and pack', enabled: false }
+  ];
 
   const getDraft = (group) => drafts[group.packingGroupId || group.id] || {};
   const setDraftValue = (groupId, patch) => {
@@ -114,6 +123,10 @@ export default function FbaStep1bPacking({
       dims,
       weight: draft.boxWeight ?? group.boxWeight ?? '',
       boxes: clampBoxes(draft.boxes ?? group.boxes ?? 1),
+      contentInformationSource:
+        draft.contentInformationSource ??
+        group.contentInformationSource ??
+        'BOX_CONTENT_PROVIDED',
       perBoxDetails: (() => {
         const boxCount = clampBoxes(draft.boxes ?? group.boxes ?? 1);
         const draftPer = Array.isArray(draft.perBoxDetails) ? draft.perBoxDetails : null;
@@ -130,6 +143,15 @@ export default function FbaStep1bPacking({
             weight: src.weight ?? sharedWeight ?? ''
           };
         });
+      })(),
+      perBoxItems: (() => {
+        const boxCount = clampBoxes(draft.boxes ?? group.boxes ?? 1);
+        const draftItems = Array.isArray(draft.perBoxItems) ? draft.perBoxItems : null;
+        const groupItems = Array.isArray(group.perBoxItems) ? group.perBoxItems : null;
+        return Array.from({ length: boxCount }).map((_, idx) => {
+          const src = draftItems?.[idx] ?? groupItems?.[idx] ?? {};
+          return { ...(src || {}) };
+        });
       })()
     };
   };
@@ -140,7 +162,7 @@ export default function FbaStep1bPacking({
     let missingGroupId = false;
     (visibleGroups || []).forEach((group) => {
       const packingGroupId = group.packingGroupId || null;
-      const { dims, weight, boxes, perBoxDetails } = resolveBoxState(group);
+      const { dims, weight, boxes, perBoxDetails, perBoxItems, contentInformationSource } = resolveBoxState(group);
       const dimsNum = {
         length: resolveGroupNumber(dims.length),
         width: resolveGroupNumber(dims.width),
@@ -178,13 +200,15 @@ export default function FbaStep1bPacking({
             ? { ...dimsNum, unit: 'CM' }
             : null,
         weight: weightNum ? { value: weightNum, unit: 'KG' } : null,
+        contentInformationSource,
         items: Array.isArray(group.items)
           ? group.items.map((it) => ({
               sku: it.sku || it.msku || it.SellerSKU || null,
               quantity: Number(it.quantity || 0) || 0
             }))
           : [],
-        perBoxDetails: perBoxNormalized
+        perBoxDetails: perBoxNormalized,
+        perBoxItems
       });
 
       const baseDimensions =
@@ -218,7 +242,7 @@ export default function FbaStep1bPacking({
       return 'Amazon nu a returnat packingGroupId pentru unul din grupuri. Reia Step 1b ca să obții packing groups reale.';
     }
     const missing = visibleGroups.find((group) => {
-      const { dims, weight, boxes, perBoxDetails } = resolveBoxState(group);
+      const { dims, weight, boxes, perBoxDetails, perBoxItems, contentInformationSource } = resolveBoxState(group);
       const boxCount = clampBoxes(boxes);
 
       if (boxCount > 10) {
@@ -241,7 +265,41 @@ export default function FbaStep1bPacking({
       const width = resolveGroupNumber(dims.width);
       const height = resolveGroupNumber(dims.height);
       const w = resolveGroupNumber(weight);
-      return !(length > 0 && width > 0 && height > 0 && w > 0);
+      if (!(length > 0 && width > 0 && height > 0 && w > 0)) return true;
+      if ((group.packMode || 'single') !== 'multiple' || boxCount <= 1) return false;
+      if (contentInformationSource !== 'BOX_CONTENT_PROVIDED') return false;
+
+      const items = Array.isArray(group.items) ? group.items : [];
+      const perBox = Array.isArray(perBoxItems) ? perBoxItems.slice(0, boxCount) : [];
+      if (items.length === 0 || perBox.length !== boxCount) return true;
+
+      const totals = new Map();
+      items.forEach((it) => {
+        const sku = String(it.sku || it.msku || it.SellerSKU || '').trim().toUpperCase();
+        if (!sku) return;
+        totals.set(sku, Number(it.quantity || 0) || 0);
+      });
+
+      const boxedTotals = new Map();
+      let boxHasUnits = Array(boxCount).fill(false);
+      perBox.forEach((box, idx) => {
+        Object.entries(box || {}).forEach(([sku, qty]) => {
+          const key = String(sku || '').trim().toUpperCase();
+          const q = resolveGroupNumber(qty);
+          if (!key || q <= 0) return;
+          boxedTotals.set(key, (boxedTotals.get(key) || 0) + q);
+          boxHasUnits[idx] = true;
+        });
+      });
+
+      const totalsMismatch = Array.from(totals.entries()).some(([sku, qty]) => {
+        const boxed = boxedTotals.get(sku) || 0;
+        return qty !== boxed;
+      });
+      if (totalsMismatch) return true;
+      if (boxHasUnits.some((has) => !has)) return true;
+
+      return false;
     });
     if (missing) {
       return 'Completează dimensiunile și greutatea pentru fiecare cutie înainte de a continua. Maxim 10 cutii per grup.';
@@ -252,7 +310,7 @@ export default function FbaStep1bPacking({
   const handleContinue = async () => {
     // commit toate draft-urile în state înainte de validare
     (visibleGroups || []).forEach((g) => {
-      commitDraft(g, ["boxes", "boxWeight", "boxDimensions", "perBoxDetails"]);
+      commitDraft(g, ["boxes", "boxWeight", "boxDimensions", "perBoxDetails", "perBoxItems", "contentInformationSource"]);
     });
 
     const hasFallbackGroup = (visibleGroups || []).some(
@@ -295,6 +353,187 @@ export default function FbaStep1bPacking({
     return (
       <div className="w-10 h-10 rounded bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-semibold text-slate-600">
         {label}
+      </div>
+    );
+  };
+
+  const getSkuKey = (item) =>
+    String(item?.sku || item?.msku || item?.SellerSKU || '').trim().toUpperCase();
+
+  const renderWebFormModal = (group) => {
+    const { boxes, perBoxDetails, perBoxItems } = resolveBoxState(group);
+    const boxCount = clampBoxes(boxes);
+    const items = Array.isArray(group.items) ? group.items : [];
+    const skuList = items
+      .map((it) => ({ ...it, key: getSkuKey(it) }))
+      .filter((it) => it.key);
+    const key = group.packingGroupId || group.id;
+
+    const ensurePerBoxItems = () =>
+      Array.from({ length: boxCount }).map((_, idx) => ({
+        ...(perBoxItems?.[idx] || {})
+      }));
+
+    const perBoxMatrix = ensurePerBoxItems();
+
+    const updateBoxQty = (boxIdx, skuKey, value) => {
+      const next = ensurePerBoxItems();
+      next[boxIdx] = { ...(next[boxIdx] || {}), [skuKey]: value };
+      setDraftValue(key, { perBoxItems: next });
+    };
+
+    const commitItems = () => commitDraft(group, ["perBoxItems"]);
+
+    const updateBoxDetails = (boxIdx, field, value) => {
+      const draft = getDraft(group);
+      const base = Array.isArray(draft.perBoxDetails)
+        ? [...draft.perBoxDetails]
+        : [...perBoxDetails];
+      base[boxIdx] = { ...(base[boxIdx] || {}), [field]: value };
+      setDraftValue(key, { perBoxDetails: base });
+    };
+
+    const totalsBySku = new Map();
+    skuList.forEach((it) => {
+      totalsBySku.set(it.key, Number(it.quantity || 0) || 0);
+    });
+    const boxedBySku = new Map();
+    perBoxMatrix.forEach((box) => {
+      Object.entries(box || {}).forEach(([sku, qty]) => {
+        const q = resolveGroupNumber(qty);
+        if (q <= 0) return;
+        boxedBySku.set(sku, (boxedBySku.get(sku) || 0) + q);
+      });
+    });
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+            <div>
+              <div className="font-semibold text-slate-900">Web form for pack group {group.title || group.id}</div>
+              <div className="text-xs text-slate-500">Enter box contents and box dimensions/weight.</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveWebFormGroupId(null)}
+              className="text-slate-500 hover:text-slate-700 text-xl leading-none"
+            >
+              ×
+            </button>
+          </div>
+          <div className="px-5 py-4 space-y-4">
+            <div className="overflow-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="text-slate-600">
+                    <th className="text-left py-2 pr-3">SKU details</th>
+                    <th className="text-left py-2 pr-3">Units boxed</th>
+                    {Array.from({ length: boxCount }).map((_, idx) => (
+                      <th key={idx} className="text-left py-2 pr-3">
+                        Box {idx + 1}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {skuList.map((item) => {
+                    const total = totalsBySku.get(item.key) || 0;
+                    const boxed = boxedBySku.get(item.key) || 0;
+                    return (
+                      <tr key={item.key} className="border-t border-slate-200">
+                        <td className="py-2 pr-3">
+                          <div className="flex items-center gap-3">
+                            {renderItemAvatar(item)}
+                            <div>
+                              <div className="font-semibold text-slate-800">{item.title || item.sku || item.msku}</div>
+                              <div className="text-xs text-slate-500">SKU: {item.sku || item.msku || item.SellerSKU}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2 pr-3 font-semibold text-slate-700">
+                          {boxed} of {total}
+                        </td>
+                        {Array.from({ length: boxCount }).map((_, boxIdx) => (
+                          <td key={boxIdx} className="py-2 pr-3">
+                            <input
+                              type="number"
+                              min={0}
+                              step="1"
+                              value={perBoxMatrix?.[boxIdx]?.[item.key] ?? ''}
+                              onChange={(e) => updateBoxQty(boxIdx, item.key, e.target.value)}
+                              onBlur={commitItems}
+                              className="border rounded-md px-2 py-1 w-20"
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="border-t border-slate-200 pt-4 space-y-3">
+              <div className="text-sm text-slate-700 font-semibold">Box weight (kg)</div>
+              <div className="flex flex-wrap gap-3">
+                {Array.from({ length: boxCount }).map((_, idx) => (
+                  <input
+                    key={idx}
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    value={perBoxDetails?.[idx]?.weight ?? ''}
+                    onChange={(e) => updateBoxDetails(idx, 'weight', e.target.value)}
+                    onBlur={() => commitDraft(group, ["perBoxDetails"])}
+                    className="border rounded-md px-2 py-1 w-20"
+                    placeholder={`Box ${idx + 1}`}
+                  />
+                ))}
+              </div>
+
+              <div className="text-sm text-slate-700 font-semibold">Box dimensions (cm)</div>
+              {Array.from({ length: boxCount }).map((_, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <div className="text-xs text-slate-500 w-16">Box {idx + 1}</div>
+                  {['length', 'width', 'height'].map((field) => (
+                    <input
+                      key={field}
+                      type="number"
+                      min={0}
+                      step="0.1"
+                      value={perBoxDetails?.[idx]?.[field] ?? ''}
+                      onChange={(e) => updateBoxDetails(idx, field, e.target.value)}
+                      onBlur={() => commitDraft(group, ["perBoxDetails"])}
+                      className="border rounded-md px-2 py-1 w-20"
+                      placeholder={field.toUpperCase()}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="px-5 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setActiveWebFormGroupId(null)}
+              className="border border-slate-300 text-slate-700 px-3 py-2 rounded-md"
+            >
+              Save as draft
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                commitDraft(group, ["perBoxItems", "perBoxDetails", "boxes"]);
+                onUpdateGroup(group.id, { packingConfirmed: true });
+                setActiveWebFormGroupId(null);
+              }}
+              className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded-md"
+            >
+              Confirm packing information
+            </button>
+          </div>
+        </div>
       </div>
     );
   };
@@ -451,7 +690,9 @@ export default function FbaStep1bPacking({
                           boxes: 1,
                           boxDimensions: null,
                           boxWeight: null,
-                          packingConfirmed: false
+                          packingConfirmed: false,
+                          perBoxDetails: null,
+                          perBoxItems: null
                         })
                       }
                     />
@@ -462,7 +703,12 @@ export default function FbaStep1bPacking({
                       type="radio"
                       name={`boxes-${group.id}`}
                       checked={group.packMode === 'multiple'}
-                      onChange={() => onUpdateGroup(group.id, { packMode: 'multiple' })}
+                      onChange={() =>
+                        onUpdateGroup(group.id, {
+                          packMode: 'multiple',
+                          contentInformationSource: 'BOX_CONTENT_PROVIDED'
+                        })
+                      }
                     />
                     Multiple boxes will be needed
                   </label>
@@ -587,6 +833,27 @@ export default function FbaStep1bPacking({
                 {group.packMode === 'multiple' && (
                   <div className="flex flex-col gap-3 text-sm text-slate-700 border border-slate-200 rounded-lg p-3 bg-slate-50">
                     <div className="font-semibold text-slate-900 text-sm">Packing information for multiple boxes</div>
+                    <div className="flex flex-col gap-2">
+                      <label className="font-semibold">How will box content information be provided?</label>
+                      <select
+                        value={resolveBoxState(group).contentInformationSource}
+                        onChange={(e) =>
+                          onUpdateGroup(group.id, {
+                            contentInformationSource: e.target.value
+                          })
+                        }
+                        className="border rounded-md px-3 py-2 text-sm max-w-md"
+                      >
+                        {contentOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value} disabled={!opt.enabled}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="text-xs text-slate-500">
+                        You can enter box content information for up to 10 boxes using a web form.
+                      </div>
+                    </div>
                     <div className="flex flex-wrap items-center gap-3">
                       <label className="font-semibold">How many boxes?</label>
                       <input
@@ -595,10 +862,38 @@ export default function FbaStep1bPacking({
                         max={10}
                         value={getDraft(group).boxes ?? group.boxes}
                         onChange={(e) => setDraftValue(group.id, { boxes: e.target.value })}
-                        onBlur={() => commitDraft(group, ["boxes", "perBoxDetails"])}
+                        onBlur={() => commitDraft(group, ["boxes", "perBoxDetails", "perBoxItems"])}
                         className="border rounded-md px-3 py-2 w-20"
                       />
                       <div className="text-xs text-slate-500">Maxim 10 cutii per grup</div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setActiveWebFormGroupId(group.id)}
+                        disabled={resolveBoxState(group).contentInformationSource !== 'BOX_CONTENT_PROVIDED'}
+                        className={`inline-flex items-center gap-2 text-sm px-3 py-2 rounded-md ${
+                          resolveBoxState(group).contentInformationSource === 'BOX_CONTENT_PROVIDED'
+                            ? 'bg-slate-900 hover:bg-slate-800 text-white'
+                            : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                        }`}
+                      >
+                        Open web form
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onUpdateGroup(group.id, {
+                            boxes: 1,
+                            packMode: 'single',
+                            perBoxItems: null,
+                            perBoxDetails: null
+                          });
+                        }}
+                        className="text-sm text-blue-700 hover:text-blue-800"
+                      >
+                        Restart
+                      </button>
                     </div>
                     {(() => {
                       const draftDims = getDraft(group).boxDimensions || {};
@@ -748,6 +1043,13 @@ export default function FbaStep1bPacking({
         </div>
 
       </div>
+      {activeWebFormGroupId &&
+        (() => {
+          const activeGroup = visibleGroups.find(
+            (g) => g.id === activeWebFormGroupId || g.packingGroupId === activeWebFormGroupId
+          );
+          return activeGroup ? renderWebFormModal(activeGroup) : null;
+        })()}
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="text-sm text-slate-600 space-y-1">

@@ -152,7 +152,7 @@ export default function FbaSendToAmazonWizard({
     deliveryDate: '01/12/2025',
     deliveryWindowStart: '',
     deliveryWindowEnd: '',
-    carrier: { partnered: false, name: 'UPS (non-partnered)' }
+    carrier: { partnered: false, name: '' }
   },
   initialShipmentList = initialShipments,
   initialTrackingList = initialTracking,
@@ -198,7 +198,10 @@ export default function FbaSendToAmazonWizard({
           boxes: g.boxes || 1,
           boxDimensions: g.boxDimensions || null,
           boxWeight: g.boxWeight ?? null,
-          packingConfirmed: Boolean(g.packingConfirmed)
+          packingConfirmed: Boolean(g.packingConfirmed),
+          perBoxDetails: g.perBoxDetails || g.per_box_details || null,
+          perBoxItems: g.perBoxItems || g.per_box_items || null,
+          contentInformationSource: g.contentInformationSource || g.content_information_source || null
         };
       })
       .filter((g) => Number(g.units || 0) > 0), // nu trimitem grupuri cu 0 unități
@@ -245,7 +248,10 @@ export default function FbaSendToAmazonWizard({
         boxDimensions: resolvedDims,
         boxWeight: incomingWeight ?? existingWeight ?? null,
         boxes: g.boxes ?? existing.boxes ?? 1,
-        packingConfirmed: g.packingConfirmed || existing.packingConfirmed || false
+        packingConfirmed: g.packingConfirmed || existing.packingConfirmed || false,
+        perBoxDetails: g.perBoxDetails || existing.perBoxDetails || null,
+        perBoxItems: g.perBoxItems || existing.perBoxItems || null,
+        contentInformationSource: g.contentInformationSource || existing.contentInformationSource || null
       };
     });
   }, [getPackGroupKey, getPackGroupSignature]);
@@ -953,12 +959,16 @@ const fetchPartneredQuote = useCallback(
         return;
       }
 
+      const contentInformationSource =
+        g.contentInformationSource ||
+        (g.packMode === "multiple" ? "BOX_CONTENT_PROVIDED" : null);
       packingGroupsPayload.push({
         packingGroupId,
         boxes: count,
         packMode: g.packMode || "single",
         dimensions: normalizedDims,
         weight: normalizedWeight,
+        contentInformationSource,
         items: Array.isArray(g.items)
           ? g.items.map((it) => ({
               sku: it.sku || it.msku || it.SellerSKU || null,
@@ -978,7 +988,9 @@ const fetchPartneredQuote = useCallback(
                 it.label ||
                 (planLabelOwnerBySku.get(String(it.sku || it.msku || it.SellerSKU || '').trim().toUpperCase()) || null)
             }))
-          : []
+          : [],
+        perBoxDetails: Array.isArray(g.perBoxDetails) ? g.perBoxDetails : null,
+        perBoxItems: Array.isArray(g.perBoxItems) ? g.perBoxItems : null
       });
     });
 
@@ -1014,7 +1026,9 @@ const fetchPartneredQuote = useCallback(
           : null,
         boxWeight: g.weight?.value ?? g.weight?.amount ?? g.boxWeight ?? g.weight ?? null,
         items: g.items || [],
-        perBoxDetails: g.perBoxDetails || g.per_box_details || null
+        perBoxDetails: g.perBoxDetails || g.per_box_details || null,
+        perBoxItems: g.perBoxItems || g.per_box_items || null,
+        contentInformationSource: g.contentInformationSource || g.content_information_source || null
       }));
       setPackGroups((prev) => mergePackGroups(prev, asStateShape));
     }
@@ -1362,11 +1376,17 @@ const fetchPartneredQuote = useCallback(
     try {
       const configs = buildShipmentConfigs();
       // log local pentru debug (nu trimite date sensibile)
+      const preferNonPartnered = shipmentMode?.carrier?.partnered === false;
+      const preferredCarrierName = String(shipmentMode?.carrier?.name || '').trim() || null;
+      const forcePartneredIfAvailable = forcePartneredOnly ? true : Boolean(shipmentMode?.carrier?.partnered);
       console.log('Step2 invoke fba-step2-confirm-shipping', {
         requestId,
         inboundPlanId,
         placementOptionId: placementOptId,
-        configsCount: configs.length
+        configsCount: configs.length,
+        preferNonPartnered,
+        preferredCarrierName,
+        forcePartneredIfAvailable
       });
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
@@ -1377,8 +1397,10 @@ const fetchPartneredQuote = useCallback(
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
-          force_partnered_if_available: true,
+          force_partnered_if_available: preferNonPartnered ? false : forcePartneredIfAvailable,
           force_partnered_only: forcePartneredOnly,
+          prefer_non_partnered: preferNonPartnered,
+          preferred_carrier_name: preferredCarrierName,
           confirm: false
         }
       });
@@ -1425,7 +1447,7 @@ const fetchPartneredQuote = useCallback(
           })
         );
       }
-      // auto-select carrier (prefer partnered if available)
+      // auto-select carrier (prefer partnered if available unless user chose non-partnered)
       if (json.summary || Array.isArray(json.options)) {
         const preferredMode = normalizeUiMode(shipmentMode.method || json.summary?.defaultMode);
         const preferredRate = json.summary?.defaultCharge ?? json.summary?.partneredRate ?? shipmentMode.carrier?.rate ?? null;
@@ -1443,7 +1465,7 @@ const fetchPartneredQuote = useCallback(
           setShippingError('Amazon partnered carrier nu este disponibil pentru acest shipment.');
         }
         const nextMethod = shipmentMode.method || preferredMode;
-        if (allowPartnered) {
+        if (allowPartnered && !preferNonPartnered) {
           setShipmentMode((prev) => ({
             ...prev,
             carrier: {
@@ -1456,7 +1478,11 @@ const fetchPartneredQuote = useCallback(
         } else {
           setShipmentMode((prev) => ({
             ...prev,
-            carrier: { partnered: false, name: json.summary?.defaultCarrier || "Non Amazon partnered", rate: preferredRate },
+            carrier: {
+              partnered: false,
+              name: prev?.carrier?.name || "",
+              rate: preferredRate
+            },
             method: nextMethod
           }));
         }
@@ -1485,6 +1511,10 @@ const fetchPartneredQuote = useCallback(
       setShippingError('Lipsește inboundPlanId sau requestId pentru confirmarea transportului.');
       return;
     }
+    if (shipmentMode?.carrier?.partnered === false && !String(shipmentMode?.carrier?.name || '').trim()) {
+      setShippingError('Selectează curierul non-partener înainte de confirmare.');
+      return;
+    }
     if (shipmentMode?.method && shipmentMode.method !== 'SPD') {
       const palletError = validatePalletDetails();
       if (palletError) {
@@ -1500,6 +1530,8 @@ const fetchPartneredQuote = useCallback(
     setShippingConfirming(true);
     setShippingError('');
     try {
+      const preferNonPartnered = shipmentMode?.carrier?.partnered === false;
+      const preferredCarrierName = String(shipmentMode?.carrier?.name || '').trim() || null;
       const forcePartneredIfAvailable = forcePartneredOnly ? true : Boolean(shipmentMode?.carrier?.partnered);
       const configs = buildShipmentConfigs();
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
@@ -1511,8 +1543,10 @@ const fetchPartneredQuote = useCallback(
           shipping_mode: shipmentMode?.method || null,
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
-          force_partnered_if_available: forcePartneredIfAvailable,
+          force_partnered_if_available: preferNonPartnered ? false : forcePartneredIfAvailable,
           force_partnered_only: forcePartneredOnly,
+          prefer_non_partnered: preferNonPartnered,
+          preferred_carrier_name: preferredCarrierName,
           confirm: true
         }
       });
