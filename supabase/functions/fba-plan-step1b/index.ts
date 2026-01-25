@@ -1554,8 +1554,9 @@ serve(async (req) => {
       normalizedPackingGroups.forEach((g) => {
         const cached = byId.get(String(g.packingGroupId));
         if (!cached) return;
-        if (!g.dimensions && cached.boxDimensions) g.dimensions = cached.boxDimensions;
-        if (!g.weight && cached.boxWeight) g.weight = cached.boxWeight;
+        // Rehidratează dimensiunile/greutatea din snapshot, indiferent de denumirea câmpului.
+        if (!g.dimensions) g.dimensions = cached.boxDimensions || cached.dimensions || null;
+        if (!g.weight) g.weight = cached.boxWeight || cached.weight || null;
       });
     }
     const hasPackingGroups = packingGroupIds.length > 0 && normalizedPackingGroups.length > 0;
