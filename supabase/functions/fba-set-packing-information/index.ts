@@ -64,6 +64,14 @@ function normalizeSku(val: string | null | undefined) {
   return (val || "").trim();
 }
 
+function parseNumber(input: unknown) {
+  if (input == null) return 0;
+  if (typeof input === "number") return Number.isFinite(input) ? input : 0;
+  const normalized = String(input).replace(",", ".").trim();
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : 0;
+}
+
 function maskHeaders(headers: Headers | Record<string, string>) {
   const entries: Record<string, string> = {};
   if (headers instanceof Headers) {
@@ -292,17 +300,17 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
           })
           .filter(Boolean);
 
-        const perBoxMeta = perBoxDetailsRaw?.[idx] || {};
-        const perDims = normalizeDimensions({
-          length: perBoxMeta.length,
-          width: perBoxMeta.width,
-          height: perBoxMeta.height,
-          unit: perBoxMeta.unit || "CM"
-        });
-        const perWeight = normalizeWeight({
-          value: perBoxMeta.weight,
-          unit: perBoxMeta.unitWeight || perBoxMeta.unit || "KG"
-        });
+      const perBoxMeta = perBoxDetailsRaw?.[idx] || {};
+      const perDims = normalizeDimensions({
+        length: parseNumber(perBoxMeta.length),
+        width: parseNumber(perBoxMeta.width),
+        height: parseNumber(perBoxMeta.height),
+        unit: perBoxMeta.unit || perBoxMeta.unitOfMeasurement || "CM"
+      });
+      const perWeight = normalizeWeight({
+        value: parseNumber(perBoxMeta.weight),
+        unit: perBoxMeta.unitWeight || perBoxMeta.unit || "KG"
+      });
         const boxDims = perDims || dims;
         const boxWeight = perWeight || weight;
         if (!boxDims || !boxWeight || !normalizedBoxItems.length) return null;
@@ -896,6 +904,22 @@ serve(async (req) => {
       (Array.isArray(body?.packing_groups) && body.packing_groups) ||
       (Array.isArray(body?.packingGroups) && body.packingGroups) ||
       [];
+    const packingGroupsSummary = Array.isArray(packingGroupsInput)
+      ? packingGroupsInput.map((g: any) => ({
+          packingGroupId: g?.packingGroupId || g?.id || g?.groupId || null,
+          boxes: g?.boxes ?? g?.boxCount ?? null,
+          packMode: g?.packMode || g?.pack_mode || null,
+          contentInformationSource: g?.contentInformationSource || g?.content_information_source || null,
+          hasDimensions: !!(g?.dimensions || g?.boxDimensions),
+          hasWeight: !!(g?.weight || g?.boxWeight),
+          perBoxDetailsCount: Array.isArray(g?.perBoxDetails || g?.per_box_details)
+            ? (g?.perBoxDetails || g?.per_box_details).length
+            : 0,
+          perBoxItemsCount: Array.isArray(g?.perBoxItems || g?.per_box_items)
+            ? (g?.perBoxItems || g?.per_box_items).length
+            : 0
+        }))
+      : [];
     const directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
     let packageGroupings: any[] = [];
     if (!requestId || !inboundPlanId) {
@@ -1065,7 +1089,10 @@ serve(async (req) => {
         JSON.stringify({
           error:
             "Nu am putut construi packageGroupings valide. Trimite packingGroups (cu dims/weight) din Step1b sau trimite direct packageGroupings în format SP-API.",
-          traceId
+          traceId,
+          debug: {
+            packingGroupsSummary
+          }
         }),
         {
           status: 400,
