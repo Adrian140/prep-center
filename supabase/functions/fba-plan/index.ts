@@ -2923,7 +2923,9 @@ serve(async (req) => {
         expiryRequiredBySku[skuKey] === true;
       const expiryVal = expirations[skuKey] || "";
       return {
-        id: `sku-${idx + 1}`,
+        // Folosim id-ul real din prep_request_items pentru a evita erorile de tip UUID în UI/DB.
+        id: c.itemIds?.[0] || `sku-${idx + 1}`,
+        itemIds: c.itemIds || [],
         title: c.product_name || c.sku || `SKU ${idx + 1}`,
         sku: c.sku,
         asin: c.asin || "",
