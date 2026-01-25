@@ -1525,18 +1525,7 @@ serve(async (req) => {
       const end = parseShipDate(deliveryWindowEndInput);
       if (start && end && start.getTime() <= end.getTime()) return { start, end };
       if (shipDateParsed) {
-        const destCountry = (planRes?.json?.destinationAddress?.countryCode ||
-          planRes?.json?.payload?.destinationAddress?.countryCode ||
-          planRes?.json?.payload?.destination?.address?.countryCode ||
-          null) as string | null;
-        const sourceCountry = (planRes?.json?.sourceAddress?.countryCode ||
-          planRes?.json?.payload?.sourceAddress?.countryCode ||
-          null) as string | null;
-        const domestic =
-          destCountry && sourceCountry
-            ? String(destCountry).toUpperCase() === String(sourceCountry).toUpperCase()
-            : false;
-        const days = domestic ? 7 : 14;
+        const days = 13;
         const fallbackEnd = new Date(shipDateParsed.getTime() + days * 24 * 60 * 60 * 1000);
         return { start: shipDateParsed, end: fallbackEnd };
       }
@@ -2450,7 +2439,7 @@ serve(async (req) => {
     const forcePartneredOnly =
       body?.force_partnered_only ??
       body?.forcePartneredOnly ??
-      (String(effectiveShippingMode || "").toUpperCase() === "GROUND_SMALL_PARCEL");
+      false;
     const wantPartnered = Boolean(forcePartneredOnly || forcePartneredIfAvailable);
 
     if (spdWarnings.length) {
