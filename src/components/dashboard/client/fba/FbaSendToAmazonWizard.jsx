@@ -1923,18 +1923,13 @@ const fetchPartneredQuote = useCallback(
 
   const persistStep1AndReloadPlan = useCallback(async () => {
     const requestId = resolveRequestId();
-    const isUuid = (val) => typeof val === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val);
     const updates = (Array.isArray(plan?.skus) ? plan.skus : [])
       .map((sku) => {
-        if (!sku?.id || !isUuid(sku.id)) return null;
+        if (!sku?.id) return null;
         const qty = Math.max(0, Number(sku.units) || 0);
         return { id: sku.id, units_sent: qty };
       })
       .filter(Boolean);
-    if (!updates.length) {
-      setStep1SaveError('SKU-urile din plan nu au id-uri valide (uuid). Reîncarcă planul Amazon înainte de a continua.');
-      return;
-    }
     const hasAnyQty = updates.some((u) => Number(u.units_sent || 0) > 0);
     if (!updates.length || !hasAnyQty) {
       setStep1SaveError('Setează cel puțin un produs cu cantitate > 0 înainte de a continua.');
