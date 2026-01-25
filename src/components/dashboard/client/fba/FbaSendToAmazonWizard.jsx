@@ -1852,7 +1852,7 @@ const fetchPartneredQuote = useCallback(
       }
       // dacă backend a întors inbound plan care nu corespunde cantităților noi, forțăm re-fetch
       if (!respInboundId && !hasRealPackGroups(normalizePackGroups(pGroups || []))) {
-        await refreshPackingGroups();
+        refreshPackingGroups();
       }
     });
   }
