@@ -1692,10 +1692,12 @@ const fetchPartneredQuote = useCallback(
     return null;
   };
 
-  const formatToPageType = (format) => {
-    if (format === 'letter') return 'PackageLabel_Letter_2';
+  const formatToPageType = (format, partnered) => {
+    if (format === 'letter') {
+      return partnered ? 'PackageLabel_Letter_2' : 'PackageLabel_Letter_4';
+    }
     if (format === 'a4') return 'PackageLabel_A4_2';
-    return 'PackageLabel_Thermal';
+    return partnered ? 'PackageLabel_Thermal' : 'PackageLabel_Thermal_NonPCP';
   };
 
   const fetchShipmentDetails = async (shipmentId, inboundPlanId, requestId) => {
@@ -1732,13 +1734,18 @@ const fetchPartneredQuote = useCallback(
         details?.shipmentConfirmedId ||
         details?.shipmentConfirmationID ||
         shipment?.shipmentConfirmationId ||
-        shipmentId;
+        null;
+      if (!confirmationId) {
+        setLabelsError('Lipsește shipmentConfirmationId pentru labels. Reîncearcă după confirmarea transportului.');
+        return;
+      }
+      const partnered = Boolean(shipmentMode?.carrier?.partnered);
       const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
         body: {
           action: 'get_labels_v0',
           request_id: requestId,
           shipment_id: confirmationId,
-          page_type: formatToPageType(labelFormat),
+          page_type: formatToPageType(labelFormat, partnered),
           label_type: 'BARCODE_2D',
           number_of_packages: Number(shipment?.boxes || 0) || undefined
         }
