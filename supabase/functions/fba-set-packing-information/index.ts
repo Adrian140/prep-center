@@ -169,9 +169,13 @@ function normalizeItem(input: any) {
   let derivedLabel: string | null = null;
   const prepInstructions = Array.isArray(input?.prepInstructions) ? input.prepInstructions : [];
   const hasItemLabeling = prepInstructions.some((p: any) => String(p?.prepType || "").toUpperCase() === "ITEM_LABELING");
+  const prepOwnerFromPrep =
+    prepInstructions.find((p: any) => p?.prepOwner)?.prepOwner &&
+    String(prepInstructions.find((p: any) => p?.prepOwner)?.prepOwner).toUpperCase();
+
   if (labelOwnerRaw) {
     derivedLabel = String(labelOwnerRaw).toUpperCase();
-  } else if (prepOwner === "SELLER" || hasItemLabeling) {
+  } else if (prepOwner === "SELLER" || hasItemLabeling || prepOwnerFromPrep === "SELLER") {
     derivedLabel = "SELLER";
   } else {
     derivedLabel = "NONE";
