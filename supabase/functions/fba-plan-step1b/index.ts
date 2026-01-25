@@ -912,6 +912,20 @@ serve(async (req) => {
 
     // Nu mai ieșim prematur dacă placement-ul este ACCEPTED; încercăm totuși să listăm packingOptions
 
+    if (!planCheck || !planCheck.res) {
+      return new Response(
+        JSON.stringify({
+          code: "SPAPI_REQUEST_FAILED",
+          message: "Amazon getInboundPlan nu a returnat un raspuns valid.",
+          inboundPlanId,
+          traceId,
+          amazonIntegrationId: integId || null,
+          debug: { statuses: debugStatuses, rawSamples }
+        }),
+        { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
     if (!planCheck.res.ok) {
       warnings.push(
         `Nu am acces la inboundPlanId cu integrarea selectată (${planCheck.res.status}). Verifică seller/token.`
@@ -932,6 +946,19 @@ serve(async (req) => {
             debug: { statuses: debugStatuses, rawSamples }
           }),
           { status: 429, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+      if (!listRes || !listRes.res) {
+        return new Response(
+          JSON.stringify({
+            code: "SPAPI_LIST_PACKING_FAILED",
+            message: "listPackingOptions nu a returnat un raspuns valid.",
+            inboundPlanId,
+            traceId,
+            amazonIntegrationId: integId || null,
+            debug: { statuses: debugStatuses, rawSamples }
+          }),
+          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
         );
       }
       if (!listRes.res.ok) {
