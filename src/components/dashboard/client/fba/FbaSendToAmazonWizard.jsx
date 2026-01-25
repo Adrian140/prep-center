@@ -1325,6 +1325,21 @@ const fetchPartneredQuote = useCallback(
             weight: { value: weight, unit: "KG" }
           }
         : null;
+      const isMultiple = String(g?.packMode || '').toLowerCase() === 'multiple';
+      const perBoxDetails = Array.isArray(g?.perBoxDetails) ? g.perBoxDetails : [];
+      const perBoxPackages = isMultiple && perBoxDetails.length
+        ? perBoxDetails
+            .map((box) => {
+              const perDims = getSafeDims(box);
+              const perWeight = getPositiveNumber(box?.weight);
+              if (!perDims || !perWeight) return null;
+              return {
+                dimensions: { length: perDims.length, width: perDims.width, height: perDims.height, unit: "CM" },
+                weight: { value: perWeight, unit: "KG" }
+              };
+            })
+            .filter(Boolean)
+        : [];
       const packingGroupId = g.packingGroupId || null;
       if (!packingGroupId) return;
       const shId = shipmentIdForGroup(g, idx);
@@ -1337,6 +1352,8 @@ const fetchPartneredQuote = useCallback(
       if (usePallets) {
         existing.pallets = palletPayload;
         existing.freightInformation = freightInformation;
+      } else if (perBoxPackages.length) {
+        existing.packages.push(...perBoxPackages);
       } else if (pkg) {
         for (let i = 0; i < boxCount; i += 1) {
           existing.packages.push(pkg);
@@ -1381,6 +1398,16 @@ const fetchPartneredQuote = useCallback(
     } else {
       // guard: avem nevoie de greutate + dimensiuni pentru toate grupurile
       const missingPack = (packGroups || []).find((g) => {
+        const isMultiple = String(g?.packMode || '').toLowerCase() === 'multiple';
+        if (isMultiple) {
+          const perBox = Array.isArray(g?.perBoxDetails) ? g.perBoxDetails : [];
+          if (!perBox.length) return true;
+          return perBox.some((b) => {
+            const perDims = getSafeDims(b);
+            const perWeight = getPositiveNumber(b?.weight);
+            return !(perDims && perWeight);
+          });
+        }
         const dims = getSafeDims(g.boxDimensions);
         const w = getPositiveNumber(g.boxWeight);
         return !(dims && w);
