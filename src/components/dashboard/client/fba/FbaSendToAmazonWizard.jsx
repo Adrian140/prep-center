@@ -1171,13 +1171,14 @@ const fetchPartneredQuote = useCallback(
           packingGroupUpdates[String(g.packingGroupId)] = next;
         }
       });
+      const resetSnapshot = false;
       const { data, error } = await supabase.functions.invoke('fba-plan-step1b', {
         body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
           amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null,
           packing_option_id: selectedPackingOptionId || packingOptionId || null,
-          reset_snapshot: true,
+          reset_snapshot: resetSnapshot,
           packing_group_updates: packingGroupUpdates
         }
       });
