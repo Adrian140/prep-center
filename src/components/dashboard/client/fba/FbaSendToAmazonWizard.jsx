@@ -1764,6 +1764,19 @@ const fetchPartneredQuote = useCallback(
     if (normalized?.method) {
       normalized.method = normalizeUiMode(normalized.method);
     }
+    if (normalized?.carrier) {
+      const carrierName = String(normalized.carrier.name || '');
+      const isNonPartneredLabel =
+        normalized.carrier.partnered === false &&
+        (!carrierName || carrierName.toLowerCase().includes('non-partnered'));
+      if (isNonPartneredLabel) {
+        normalized.carrier = {
+          partnered: true,
+          name: 'UPS (Amazon-partnered carrier)',
+          rate: normalized.carrier.rate ?? null
+        };
+      }
+    }
     return normalized;
   };
 
