@@ -1740,6 +1740,8 @@ const fetchPartneredQuote = useCallback(
         return;
       }
       const partnered = Boolean(shipmentMode?.carrier?.partnered);
+      const packageCount = Number(shipment?.boxes || 0) || 1;
+      const needsPageParams = !partnered || (shipmentMode?.method && shipmentMode.method !== 'SPD');
       const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
         body: {
           action: 'get_labels_v0',
@@ -1747,7 +1749,10 @@ const fetchPartneredQuote = useCallback(
           shipment_id: confirmationId,
           page_type: formatToPageType(labelFormat, partnered),
           label_type: 'BARCODE_2D',
-          number_of_packages: Number(shipment?.boxes || 0) || undefined
+          number_of_packages: packageCount || undefined,
+          ...(needsPageParams
+            ? { page_size: Math.min(1000, packageCount), page_start_index: 0 }
+            : {})
         }
       });
       if (error) throw error;
