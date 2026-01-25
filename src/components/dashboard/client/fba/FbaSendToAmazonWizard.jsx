@@ -1980,15 +1980,21 @@ const fetchPartneredQuote = useCallback(
     setStep1SaveError('');
     setPlanError('');
     const waitForPackingGroups = async () => {
-      const maxAttempts = 5;
+      const maxAttempts = 6;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const haveInbound = Boolean(resolveInboundPlanId());
+        if (!haveInbound && fetchPlan) {
+          // eslint-disable-next-line no-await-in-loop
+          await refreshStep('1');
+        }
         // eslint-disable-next-line no-await-in-loop
         const res = await refreshPackingGroups();
         if (res?.ok) return { ok: true };
-        if (res?.code !== 'PACKING_GROUPS_NOT_READY') return res;
+        const transientCodes = ['PACKING_GROUPS_NOT_READY', 'PLAN_STILL_CREATING', 'MISSING_IDS'];
+        if (!transientCodes.includes(res?.code)) return res;
         if (attempt < maxAttempts) {
           // eslint-disable-next-line no-await-in-loop
-          await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
+          await new Promise((resolve) => setTimeout(resolve, 700 * attempt));
         }
       }
       return { ok: false, code: 'PACKING_GROUPS_NOT_READY' };
