@@ -67,7 +67,9 @@ export default function FbaStep2Shipping({
   const totalBoxes = shipments?.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0) || 0;
   const totalUnits = shipments?.reduce((s, sh) => s + (Number(sh.units) || 0), 0) || 0;
   const totalSkus = shipments?.reduce((s, sh) => s + (Number(sh.skuCount) || 0), 0) || 0;
-  const totalWeight = shipments?.reduce((s, sh) => s + (Number(sh.weight) || 0), 0) || 0;
+  const lbToKg = (lb) => Number(lb || 0) * 0.45359237;
+  const toKg = (weight, unit) => (String(unit || 'KG').toUpperCase() === 'LB' ? lbToKg(weight) : Number(weight || 0));
+  const totalWeight = shipments?.reduce((s, sh) => s + toKg(sh.weight, sh.weight_unit), 0) || 0;
   const carrierName = carrier?.partnered
     ? 'UPS (Amazon-partnered carrier)'
     : typeof carrier?.name === 'string'
@@ -88,7 +90,12 @@ export default function FbaStep2Shipping({
     <div key={s.id} className="border border-slate-200 rounded-lg overflow-hidden">
       <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
         <div className="font-semibold text-slate-900">Shipment #{s.id}</div>
-        <div className="text-sm text-slate-600">Boxes: {s.boxes} · SKUs: {s.skuCount} · Units: {s.units} · Weight: {s.weight || '—'} kg</div>
+        <div className="text-sm text-slate-600">
+          Boxes: {s.boxes} · SKUs: {s.skuCount} · Units: {s.units} · Weight:{' '}
+          {Number.isFinite(toKg(s.weight, s.weight_unit)) && toKg(s.weight, s.weight_unit) > 0
+            ? `${toKg(s.weight, s.weight_unit).toFixed(2)} kg`
+            : '—'}
+        </div>
       </div>
       <div className="px-4 py-3 text-sm text-slate-700 space-y-1">
         <div>Ship from: {s.from}</div>

@@ -152,7 +152,7 @@ export default function FbaSendToAmazonWizard({
     deliveryDate: '01/12/2025',
     deliveryWindowStart: '',
     deliveryWindowEnd: '',
-    carrier: { partnered: false, name: '' }
+    carrier: { partnered: true, name: 'UPS (Amazon-partnered carrier)' }
   },
   initialShipmentList = initialShipments,
   initialTrackingList = initialTracking,

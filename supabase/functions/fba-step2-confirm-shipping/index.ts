@@ -1379,15 +1379,28 @@ serve(async (req) => {
         const cfg = configsByShipment.get(String(shId)) || {};
         const pkgList = Array.isArray(cfg?.packages) ? cfg.packages : [];
         const palletList = Array.isArray(cfg?.pallets) ? cfg.pallets : [];
-        const weightFromPackages = pkgList.reduce((sum: number, p: any) => {
+        let weightFromPackages = 0;
+        let weightFromPackagesUnit: string | null = null;
+        pkgList.forEach((p: any) => {
           const w = Number(p?.weight?.value || 0);
-          return sum + (Number.isFinite(w) ? w : 0);
-        }, 0);
-        const weightFromPallets = palletList.reduce((sum: number, p: any) => {
+          if (!Number.isFinite(w) || w <= 0) return;
+          const unit = (p?.weight?.unit || p?.weight?.uom || "LB").toString().toUpperCase();
+          weightFromPackages += w;
+          if (!weightFromPackagesUnit) weightFromPackagesUnit = unit;
+        });
+        let weightFromPallets = 0;
+        let weightFromPalletsUnit: string | null = null;
+        palletList.forEach((p: any) => {
           const w = Number(p?.weight?.value || 0);
-          return sum + (Number.isFinite(w) ? w : 0);
-        }, 0);
+          if (!Number.isFinite(w) || w <= 0) return;
+          const unit = (p?.weight?.unit || p?.weight?.uom || "LB").toString().toUpperCase();
+          weightFromPallets += w;
+          if (!weightFromPalletsUnit) weightFromPalletsUnit = unit;
+        });
         const weightFromCfg = weightFromPackages || weightFromPallets || 0;
+        const weightFromCfgUnit = weightFromPackagesUnit || weightFromPalletsUnit || null;
+        const weightFromCfgKg =
+          weightFromCfgUnit === "LB" ? lbToKg(weightFromCfg) : weightFromCfg || 0;
         const boxesFromCfg = pkgList.length
           ? pkgList.length
           : palletList.length
@@ -1406,7 +1419,8 @@ serve(async (req) => {
           boxes: contents?.boxes || contents?.cartons || boxesFromCfg || null,
           skuCount: contents?.skuCount || null,
           units: contents?.units || null,
-          weight: contents?.weight || weightFromCfg || null
+          weight: contents?.weight ?? (weightFromCfgKg || null),
+          weight_unit: contents?.weight_unit || "KG"
         });
       }
       return list;
