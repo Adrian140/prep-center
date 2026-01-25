@@ -214,7 +214,29 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
     let contentInformationSource = allowedSources.has(rawSource) ? rawSource : "MANUAL_PROCESS";
 
     let items: any[] = [];
-    const rawItems = Array.isArray(g?.items) ? g.items : (Array.isArray(g?.expectedItems) ? g.expectedItems : []);
+    const expectedItemsRaw = Array.isArray(g?.expectedItems) ? g.expectedItems : Array.isArray(g?.expected_items) ? g.expected_items : [];
+    const expectedBySku = new Map<string, any>();
+    expectedItemsRaw.forEach((it: any) => {
+      const sku = normalizeItem(it)?.msku || normalizeSku(it?.msku || it?.sku || "");
+      if (sku) expectedBySku.set(sku.toUpperCase(), it);
+    });
+
+    const rawItems =
+      Array.isArray(g?.items) && g.items.length
+        ? g.items.map((it: any) => {
+            const sku = normalizeSku(it?.msku || it?.sku || "");
+            const expected = expectedBySku.get(sku.toUpperCase());
+            if (expected) {
+              return {
+                ...expected,
+                ...it,
+                prepInstructions: it?.prepInstructions || expected?.prepInstructions || []
+              };
+            }
+            return it;
+          })
+        : expectedItemsRaw;
+
     items = rawItems.map(normalizeItem).filter(Boolean);
     if (items.length) {
       // Dacă avem conținut mapat, forțăm BOX_CONTENT_PROVIDED ca Amazon să primească SKUs+qty/prep/label.
