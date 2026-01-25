@@ -73,6 +73,7 @@ export default function FbaStep1bPacking({
   const [continueError, setContinueError] = useState('');
   const [activeWebFormGroupId, setActiveWebFormGroupId] = useState(null);
   const lastActiveGroupRef = useRef(null);
+  const webFormDismissedRef = useRef(false);
 
   const contentOptions = [
     { value: 'BOX_CONTENT_PROVIDED', label: 'Enter through a web form', enabled: true },
@@ -95,6 +96,25 @@ export default function FbaStep1bPacking({
       lastActiveGroupRef.current = activeGroup;
     }
   }, [activeWebFormGroupId, visibleGroups]);
+
+  useEffect(() => {
+    if (activeWebFormGroupId) return;
+    if (!webFormDismissedRef.current && lastActiveGroupRef.current) {
+      const key = getGroupKey(lastActiveGroupRef.current);
+      if (key) setActiveWebFormGroupId(key);
+    }
+  }, [activeWebFormGroupId]);
+
+  const openWebForm = (groupKey) => {
+    if (!groupKey) return;
+    webFormDismissedRef.current = false;
+    setActiveWebFormGroupId(groupKey);
+  };
+
+  const closeWebForm = () => {
+    webFormDismissedRef.current = true;
+    setActiveWebFormGroupId(null);
+  };
 
   const commitDraft = (group, fields) => {
     const key = group.packingGroupId || group.id;
@@ -463,6 +483,40 @@ export default function FbaStep1bPacking({
       });
     });
 
+    const validationMessages = [];
+    let hasOverfill = false;
+    let hasMissingUnits = false;
+    skuList.forEach((item) => {
+      const total = totalsBySku.get(item.key) || 0;
+      const boxed = boxedBySku.get(item.key) || 0;
+      if (boxed > total) hasOverfill = true;
+      if (boxed < total) hasMissingUnits = true;
+    });
+
+    if (hasMissingUnits) {
+      validationMessages.push('Toate unitatile trebuie alocate in cutii.');
+    }
+    if (hasOverfill) {
+      validationMessages.push('Ai alocat mai multe unitati decat exista in plan.');
+    }
+
+    const hasWeights = perBoxDetails.every((d) => resolveGroupNumber(d?.weight) > 0);
+    if (!hasWeights) {
+      validationMessages.push('Completeaza greutatea pentru fiecare cutie.');
+    }
+
+    const hasDimensions = perBoxDetails.every((d) => {
+      const l = resolveGroupNumber(d?.length);
+      const w = resolveGroupNumber(d?.width);
+      const h = resolveGroupNumber(d?.height);
+      return l > 0 && w > 0 && h > 0;
+    });
+    if (!hasDimensions) {
+      validationMessages.push('Completeaza dimensiunile pentru fiecare cutie.');
+    }
+
+    const canConfirm = validationMessages.length === 0;
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
         <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl">
@@ -473,7 +527,7 @@ export default function FbaStep1bPacking({
             </div>
             <button
               type="button"
-              onClick={() => setActiveWebFormGroupId(null)}
+              onClick={closeWebForm}
               className="text-slate-500 hover:text-slate-700 text-xl leading-none"
             >
               ×
@@ -639,11 +693,18 @@ export default function FbaStep1bPacking({
                 </div>
               ))}
             </div>
+            {validationMessages.length > 0 && (
+              <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                {validationMessages.map((msg) => (
+                  <div key={msg}>{msg}</div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="px-5 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
             <button
               type="button"
-              onClick={() => setActiveWebFormGroupId(null)}
+              onClick={closeWebForm}
               className="border border-slate-300 text-slate-700 px-3 py-2 rounded-md"
             >
               Save as draft
@@ -653,9 +714,14 @@ export default function FbaStep1bPacking({
               onClick={() => {
                 commitDraft(group, ["perBoxItems", "perBoxDetails", "boxes"]);
                 onUpdateGroup(group.id, { packingConfirmed: true });
-                setActiveWebFormGroupId(null);
+                closeWebForm();
               }}
-              className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded-md"
+              disabled={!canConfirm}
+              className={`px-3 py-2 rounded-md ${
+                canConfirm
+                  ? 'bg-slate-900 hover:bg-slate-800 text-white'
+                  : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+              }`}
             >
               Confirm packing information
             </button>
@@ -997,7 +1063,7 @@ export default function FbaStep1bPacking({
                   <div className="flex flex-wrap items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => setActiveWebFormGroupId(getGroupKey(group))}
+                        onClick={() => openWebForm(getGroupKey(group))}
                         disabled={resolveBoxState(group).contentInformationSource !== 'BOX_CONTENT_PROVIDED'}
                         className={`inline-flex items-center gap-2 text-sm px-3 py-2 rounded-md ${
                           resolveBoxState(group).contentInformationSource === 'BOX_CONTENT_PROVIDED'
