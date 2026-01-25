@@ -60,6 +60,10 @@ function maskValue(val: string) {
   return `${val.slice(0, 4)}***${val.slice(-4)}`;
 }
 
+function normalizeSku(val: string | null | undefined) {
+  return (val || "").trim();
+}
+
 function maskHeaders(headers: Headers | Record<string, string>) {
   const entries: Record<string, string> = {};
   if (headers instanceof Headers) {
