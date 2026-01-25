@@ -313,6 +313,25 @@ export default function FbaSendToAmazonWizard({
   useEffect(() => {
     planRef.current = plan;
   }, [plan]);
+  const normalizeSkus = useCallback((skus = []) => {
+    const firstMedia = (val) => (Array.isArray(val) && val.length ? val[0] : null);
+    return (Array.isArray(skus) ? skus : []).map((sku) => {
+      const image =
+        sku?.image ||
+        sku?.thumbnail ||
+        sku?.img ||
+        sku?.main_image ||
+        sku?.mainImage?.link ||
+        sku?.mainImage ||
+        firstMedia(sku?.main_product_image_locator)?.media_location ||
+        sku?.main_product_image_locator ||
+        null;
+      if (image && !sku.image) {
+        return { ...sku, image };
+      }
+      return sku;
+    });
+  }, []);
   const snapshotServerUnits = useCallback((skus = []) => {
     const map = new Map();
     (Array.isArray(skus) ? skus : []).forEach((sku) => {
@@ -670,11 +689,12 @@ export default function FbaSendToAmazonWizard({
           blocking: pBlocking
         } = response;
         if (pFrom && pMarket && Array.isArray(pSkus)) {
-          setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
-          snapshotServerUnits(pSkus);
+          const normSkus = normalizeSkus(pSkus);
+          setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: normSkus }));
+          snapshotServerUnits(normSkus);
         } else {
           setPlan((prev) => ({ ...prev, ...response }));
-          if (Array.isArray(response?.skus)) snapshotServerUnits(response.skus);
+          if (Array.isArray(response?.skus)) snapshotServerUnits(normalizeSkus(response.skus));
         }
         if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
         if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
@@ -730,11 +750,12 @@ export default function FbaSendToAmazonWizard({
           skus: pSkus
         } = response;
         if (pFrom && pMarket && Array.isArray(pSkus)) {
-          setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
-          snapshotServerUnits(pSkus);
+          const normSkus = normalizeSkus(pSkus);
+          setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: normSkus }));
+          snapshotServerUnits(normSkus);
         } else {
           setPlan((prev) => ({ ...prev, ...response }));
-          if (Array.isArray(response?.skus)) snapshotServerUnits(response.skus);
+          if (Array.isArray(response?.skus)) snapshotServerUnits(normalizeSkus(response.skus));
         }
       } catch (e) {
         if (!cancelled) setPlanError((prev) => prev || e?.message || 'Failed to reload Amazon plan.');
