@@ -152,7 +152,7 @@ export default function FbaSendToAmazonWizard({
     deliveryDate: '01/12/2025',
     deliveryWindowStart: '',
     deliveryWindowEnd: '',
-    carrier: { partnered: true, name: 'UPS (Amazon-partnered carrier)' }
+    carrier: null
   },
   initialShipmentList = initialShipments,
   initialTrackingList = initialTracking,
@@ -377,11 +377,8 @@ export default function FbaSendToAmazonWizard({
   useEffect(() => {
     if (currentStep !== '2') return;
     if (!forcePartneredOnly) return;
-    if (shipmentMode?.carrier?.partnered) return;
-    setShipmentMode((prev) => ({
-      ...prev,
-      carrier: { partnered: true, name: 'UPS (Amazon-partnered carrier)', rate: prev?.carrier?.rate ?? null }
-    }));
+    if (shipmentMode?.carrier?.partnered !== false) return;
+    setShipmentMode((prev) => ({ ...prev, carrier: null }));
   }, [currentStep, forcePartneredOnly, shipmentMode?.carrier?.partnered]);
   useEffect(() => {
     const required = Boolean(
@@ -1510,45 +1507,17 @@ const fetchPartneredQuote = useCallback(
           })
         );
       }
-      // auto-select carrier (prefer partnered if available unless user chose non-partnered)
       if (json.summary || Array.isArray(json.options)) {
         const preferredMode = normalizeUiMode(shipmentMode.method || json.summary?.defaultMode);
-        const preferredRate = json.summary?.defaultCharge ?? json.summary?.partneredRate ?? shipmentMode.carrier?.rate ?? null;
-        const alreadyConfirmed = Boolean(json.alreadyConfirmed || json.summary?.alreadyConfirmed);
-        const partneredOpt = Array.isArray(json.options)
-          ? json.options.find((o) => detectPartneredOption(o))
-          : null;
-        const hasPartnered = Boolean(
-          partneredOpt ||
-          json.summary?.partneredAllowed === true ||
-          typeof json.summary?.partneredRate === "number"
-        );
-        const allowPartnered = hasPartnered || alreadyConfirmed;
-        if (forcePartneredOnly && !allowPartnered) {
-          setShippingError('Amazon partnered carrier nu este disponibil pentru acest shipment.');
-        }
+        const preferredRate = json.summary?.defaultCharge ?? json.summary?.partneredRate ?? shipmentMode?.carrier?.rate ?? null;
         const nextMethod = shipmentMode.method || preferredMode;
-        if (allowPartnered && !preferNonPartnered) {
-          setShipmentMode((prev) => ({
-            ...prev,
-            carrier: {
-              partnered: true,
-              name: partneredOpt?.carrierName || json.summary?.defaultCarrier || (alreadyConfirmed ? "Amazon confirmed carrier" : "Amazon partnered"),
-              rate: preferredRate
-            },
-            method: nextMethod
-          }));
-        } else {
-          setShipmentMode((prev) => ({
-            ...prev,
-            carrier: {
-              partnered: false,
-              name: prev?.carrier?.name || "",
-              rate: preferredRate
-            },
-            method: nextMethod
-          }));
-        }
+        setShipmentMode((prev) => {
+          const next = { ...prev, method: nextMethod };
+          if (prev?.carrier && typeof preferredRate === 'number') {
+            next.carrier = { ...prev.carrier, rate: preferredRate };
+          }
+          return next;
+        });
       }
     } catch (e) {
       // Supabase aruncă "Edge Function returned a non-2xx status code" fără detalii; încercăm să extragem mesajul din payload.
@@ -1763,19 +1732,6 @@ const fetchPartneredQuote = useCallback(
     const normalized = { ...mode };
     if (normalized?.method) {
       normalized.method = normalizeUiMode(normalized.method);
-    }
-    if (normalized?.carrier) {
-      const carrierName = String(normalized.carrier.name || '');
-      const isNonPartneredLabel =
-        normalized.carrier.partnered === false &&
-        (!carrierName || carrierName.toLowerCase().includes('non-partnered'));
-      if (isNonPartneredLabel) {
-        normalized.carrier = {
-          partnered: true,
-          name: 'UPS (Amazon-partnered carrier)',
-          rate: normalized.carrier.rate ?? null
-        };
-      }
     }
     return normalized;
   };

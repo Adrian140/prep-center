@@ -22,6 +22,7 @@ export default function FbaStep2Shipping({
   const [partneredRate, setPartneredRate] = useState(
     typeof carrier?.rate === 'number' ? carrier.rate : null
   );
+  const safeCarrier = carrier || { partnered: null, name: '', rate: null };
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
@@ -70,10 +71,10 @@ export default function FbaStep2Shipping({
   const lbToKg = (lb) => Number(lb || 0) * 0.45359237;
   const toKg = (weight, unit) => (String(unit || 'KG').toUpperCase() === 'LB' ? lbToKg(weight) : Number(weight || 0));
   const totalWeight = shipments?.reduce((s, sh) => s + toKg(sh.weight, sh.weight_unit), 0) || 0;
-  const carrierName = carrier?.partnered
+  const carrierName = safeCarrier.partnered
     ? 'UPS (Amazon-partnered carrier)'
-    : typeof carrier?.name === 'string'
-      ? carrier.name
+    : typeof safeCarrier.name === 'string'
+      ? safeCarrier.name
       : 'Non Amazon partnered carrier';
 
   const summaryTitle = useMemo(() => {
@@ -117,18 +118,21 @@ export default function FbaStep2Shipping({
   const partneredChargeText =
     disablePartnered || partneredRate === null ? 'Not available' : `€${partneredRate.toFixed(2)}`;
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const needsTerms = Boolean(carrier?.partnered && allowPartnered);
-  const needsCarrierSelection = Boolean(!carrier?.partnered && allowNonPartnered);
-  const hasCarrierSelection = !needsCarrierSelection || Boolean(String(carrier?.name || '').trim());
+  const needsTerms = Boolean(safeCarrier.partnered && allowPartnered);
+  const hasPartneredSelection = safeCarrier.partnered === true;
+  const hasNonPartneredSelection =
+    safeCarrier.partnered === false && Boolean(String(safeCarrier.name || '').trim());
+  const hasCarrierSelection = hasPartneredSelection || hasNonPartneredSelection;
+  const needsCarrierSelection = !hasCarrierSelection;
   const canContinue =
-    (carrier?.partnered ? allowPartnered : allowNonPartnered) &&
+    (safeCarrier.partnered ? allowPartnered : allowNonPartnered) &&
     (!needsTerms || acceptedTerms) &&
     hasCarrierSelection;
 
   useEffect(() => {
-    if (allowPartnered || !allowNonPartnered || !carrier?.partnered) return;
-    onCarrierChange?.({ partnered: false, name: carrier?.name || '' });
-  }, [allowPartnered, allowNonPartnered, carrier?.partnered, carrier?.name, onCarrierChange]);
+    if (allowPartnered || !allowNonPartnered || safeCarrier.partnered !== false) return;
+    onCarrierChange?.({ partnered: false, name: safeCarrier.name || '' });
+  }, [allowPartnered, allowNonPartnered, safeCarrier.partnered, safeCarrier.name, onCarrierChange]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -193,7 +197,7 @@ export default function FbaStep2Shipping({
           <div className="border border-slate-200 rounded-lg p-4 space-y-3">
             <div className="font-semibold text-slate-900">Select shipping carrier</div>
             <div className="flex flex-col gap-2 text-sm">
-              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${carrier.partnered ? 'border-blue-500 bg-blue-50' : 'border-slate-200'} ${disablePartnered ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${safeCarrier.partnered ? 'border-blue-500 bg-blue-50' : 'border-slate-200'} ${disablePartnered ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 <div className="flex flex-col">
                   <span className="font-semibold">UPS (Amazon-partnered carrier)</span>
                   <span className="text-xs text-slate-500">{partneredLabel}: {partneredChargeText}</span>
@@ -201,26 +205,26 @@ export default function FbaStep2Shipping({
                 <input
                   type="radio"
                   disabled={disablePartnered}
-                  checked={carrier.partnered && allowPartnered}
+                  checked={safeCarrier.partnered === true && allowPartnered}
                   onChange={() => onCarrierChange({ partnered: true, name: 'UPS (Amazon-partnered carrier)', rate: partneredRate })}
                 />
               </label>
               {allowNonPartnered && (
                 <>
-                  <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${!carrier.partnered ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
+                  <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${safeCarrier.partnered === false ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
                     <div className="flex flex-col">
                       <span className="font-semibold">Non Amazon partnered carrier</span>
                       <span className="text-xs text-slate-500">Select carrier</span>
                     </div>
                     <input
                       type="radio"
-                      checked={!carrier.partnered}
-                      onChange={() => onCarrierChange({ partnered: false, name: carrier.name || '' })}
+                      checked={safeCarrier.partnered === false}
+                      onChange={() => onCarrierChange({ partnered: false, name: safeCarrier.name || '' })}
                     />
                   </label>
-                  {!carrier.partnered && (
+                  {safeCarrier.partnered === false && (
                     <select
-                      value={carrier.name || ''}
+                      value={safeCarrier.name || ''}
                       onChange={(e) => onCarrierChange({ partnered: false, name: e.target.value })}
                       className="border rounded-md px-3 py-2 text-sm"
                     >
@@ -237,7 +241,7 @@ export default function FbaStep2Shipping({
                       <option value="Other">Other</option>
                     </select>
                   )}
-                  {!carrier.partnered && !hasCarrierSelection && (
+                  {safeCarrier.partnered === false && !hasCarrierSelection && (
                     <div className="text-xs text-red-600">
                       Selectează un curier non-partener înainte de a continua.
                     </div>
@@ -247,6 +251,11 @@ export default function FbaStep2Shipping({
               {!allowNonPartnered && (
                 <div className="text-xs text-slate-500">
                   Non-partnered carriers are disabled. This shipment must use Amazon partnered carrier.
+                </div>
+              )}
+              {safeCarrier.partnered == null && (
+                <div className="text-xs text-red-600">
+                  Selectează Amazon partnered sau non-partnered înainte de a continua.
                 </div>
               )}
               <div className="text-xs text-slate-500">
@@ -279,7 +288,7 @@ export default function FbaStep2Shipping({
             )}
           </div>
 
-          {!carrier?.partnered && (
+          {safeCarrier.partnered === false && (
             <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 space-y-2 text-sm">
               <div className="font-semibold text-amber-900">Delivery window</div>
               <div className="text-xs text-amber-800">
