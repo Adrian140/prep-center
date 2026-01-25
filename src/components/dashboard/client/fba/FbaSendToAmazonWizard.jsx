@@ -1942,6 +1942,7 @@ const fetchPartneredQuote = useCallback(
   };
 
   const persistStep1AndReloadPlan = useCallback(async () => {
+    const isUuid = (val) => typeof val === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val);
     const requestId = resolveRequestId();
     const updates = (Array.isArray(plan?.skus) ? plan.skus : [])
       .map((sku) => {
@@ -1950,6 +1951,7 @@ const fetchPartneredQuote = useCallback(
         return { id: sku.id, units_sent: qty };
       })
       .filter(Boolean);
+    const updatesForDb = updates.filter((u) => isUuid(u.id));
     const hasAnyQty = updates.some((u) => Number(u.units_sent || 0) > 0);
     if (!updates.length || !hasAnyQty) {
       setStep1SaveError('Setează cel puțin un produs cu cantitate > 0 înainte de a continua.');
@@ -1979,7 +1981,7 @@ const fetchPartneredQuote = useCallback(
     try {
       // upsert declanșa RLS pe INSERT; facem update punctual pe fiecare id (chiar dacă aparent nu s-au schimbat,
       // ca să sincronizăm serverul înainte de a recrea inbound plan-ul)
-      for (const row of updates) {
+      for (const row of updatesForDb) {
         // eslint-disable-next-line no-await-in-loop
         const { error: saveErr } = await supabase
           .from('prep_request_items')
