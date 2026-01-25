@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { AlertTriangle, Box, CheckCircle } from 'lucide-react';
 
 export default function FbaStep1bPacking({
@@ -72,6 +72,7 @@ export default function FbaStep1bPacking({
   const [drafts, setDrafts] = useState({});
   const [continueError, setContinueError] = useState('');
   const [activeWebFormGroupId, setActiveWebFormGroupId] = useState(null);
+  const lastActiveGroupRef = useRef(null);
 
   const contentOptions = [
     { value: 'BOX_CONTENT_PROVIDED', label: 'Enter through a web form', enabled: true },
@@ -82,9 +83,18 @@ export default function FbaStep1bPacking({
   ];
 
   const getDraft = (group) => drafts[group.packingGroupId || group.id] || {};
+  const getGroupKey = (group) => group?.packingGroupId || group?.id || null;
   const setDraftValue = (groupId, patch) => {
     setDrafts((prev) => ({ ...prev, [groupId]: { ...(prev[groupId] || {}), ...patch } }));
   };
+
+  useEffect(() => {
+    if (!activeWebFormGroupId) return;
+    const activeGroup = visibleGroups.find((g) => getGroupKey(g) === activeWebFormGroupId);
+    if (activeGroup) {
+      lastActiveGroupRef.current = activeGroup;
+    }
+  }, [activeWebFormGroupId, visibleGroups]);
 
   const commitDraft = (group, fields) => {
     const key = group.packingGroupId || group.id;
@@ -367,7 +377,7 @@ export default function FbaStep1bPacking({
     const skuList = items
       .map((it) => ({ ...it, key: getSkuKey(it) }))
       .filter((it) => it.key);
-    const key = group.packingGroupId || group.id;
+    const key = getGroupKey(group);
 
     const ensurePerBoxItems = () =>
       Array.from({ length: boxCount }).map((_, idx) => ({
@@ -984,10 +994,10 @@ export default function FbaStep1bPacking({
                       />
                       <div className="text-xs text-slate-500">Maxim 10 cutii per grup</div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => setActiveWebFormGroupId(group.id)}
+                        onClick={() => setActiveWebFormGroupId(getGroupKey(group))}
                         disabled={resolveBoxState(group).contentInformationSource !== 'BOX_CONTENT_PROVIDED'}
                         className={`inline-flex items-center gap-2 text-sm px-3 py-2 rounded-md ${
                           resolveBoxState(group).contentInformationSource === 'BOX_CONTENT_PROVIDED'
@@ -1023,9 +1033,11 @@ export default function FbaStep1bPacking({
       {activeWebFormGroupId &&
         (() => {
           const activeGroup = visibleGroups.find(
-            (g) => g.id === activeWebFormGroupId || g.packingGroupId === activeWebFormGroupId
+            (g) => getGroupKey(g) === activeWebFormGroupId
           );
-          return activeGroup ? renderWebFormModal(activeGroup) : null;
+          const fallbackGroup = lastActiveGroupRef.current;
+          const target = activeGroup || fallbackGroup;
+          return target ? renderWebFormModal(target) : null;
         })()}
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
