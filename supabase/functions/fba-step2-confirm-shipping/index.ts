@@ -1524,10 +1524,14 @@ serve(async (req) => {
       const start = parseShipDate(deliveryWindowStartInput);
       const end = parseShipDate(deliveryWindowEndInput);
       if (start && end && start.getTime() <= end.getTime()) return { start, end };
+      if (start && !end) {
+        const fallbackEnd = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000);
+        return { start, end: fallbackEnd };
+      }
       if (shipDateParsed) {
-        const days = 13;
-        const fallbackEnd = new Date(shipDateParsed.getTime() + days * 24 * 60 * 60 * 1000);
-        return { start: shipDateParsed, end: fallbackEnd };
+        const arrivalStart = new Date(shipDateParsed.getTime() + 24 * 60 * 60 * 1000);
+        const fallbackEnd = new Date(arrivalStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+        return { start: arrivalStart, end: fallbackEnd };
       }
       return null;
     })();
