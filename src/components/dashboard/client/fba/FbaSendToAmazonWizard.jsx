@@ -316,6 +316,7 @@ export default function FbaSendToAmazonWizard({
   const normalizeSkus = useCallback((skus = []) => {
     const firstMedia = (val) => (Array.isArray(val) && val.length ? val[0] : null);
     return (Array.isArray(skus) ? skus : []).map((sku) => {
+      const locator = firstMedia(sku?.main_product_image_locator)?.media_location || null;
       const image =
         sku?.image ||
         sku?.thumbnail ||
@@ -323,9 +324,7 @@ export default function FbaSendToAmazonWizard({
         sku?.main_image ||
         sku?.mainImage?.link ||
         sku?.mainImage ||
-        firstMedia(sku?.main_product_image_locator)?.media_location ||
-        sku?.main_product_image_locator ||
-        null;
+        locator;
       if (image && !sku.image) {
         return { ...sku, image };
       }
