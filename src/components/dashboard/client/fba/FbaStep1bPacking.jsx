@@ -1,6 +1,8 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { AlertTriangle, Box, CheckCircle } from 'lucide-react';
 
+const MAX_STANDARD_BOX_KG = 23; // 50.71 lb, Amazon standard-size limit
+
 export default function FbaStep1bPacking({
   packGroups,
   packGroupsLoaded = false,
@@ -285,6 +287,10 @@ export default function FbaStep1bPacking({
       // For multiple boxes we want per-box details complete
       if ((group.packMode || 'single') === 'multiple') {
         const perBox = (perBoxDetails || []).slice(0, boxCount);
+        const overweight = perBox.some((b) => resolveGroupNumber(b.weight) > MAX_STANDARD_BOX_KG);
+        if (overweight) {
+          return true;
+        }
         return perBox.some((b) => {
           const l = resolveGroupNumber(b.length);
           const w = resolveGroupNumber(b.width);
@@ -299,6 +305,7 @@ export default function FbaStep1bPacking({
       const height = resolveGroupNumber(dims.height);
       const w = resolveGroupNumber(weight);
       if (!(length > 0 && width > 0 && height > 0 && w > 0)) return true;
+      if (w > MAX_STANDARD_BOX_KG) return true;
       if ((group.packMode || 'single') !== 'multiple') return false;
       if (contentInformationSource !== 'BOX_CONTENT_PROVIDED') return false;
 
@@ -335,7 +342,7 @@ export default function FbaStep1bPacking({
       return false;
     });
     if (missing) {
-      return 'Completează dimensiunile și greutatea pentru fiecare cutie înainte de a continua. Maxim 10 cutii per grup.';
+      return 'Completează dimensiunile și greutatea pentru fiecare cutie înainte de a continua (max 10 cutii/grup, max 23 kg per cutie).';
     }
     return '';
   };
@@ -517,6 +524,10 @@ export default function FbaStep1bPacking({
     const hasWeights = perBoxDetails.every((d) => resolveGroupNumber(d?.weight) > 0);
     if (!hasWeights) {
       validationMessages.push('Completeaza greutatea pentru fiecare cutie.');
+    }
+    const overweightBoxes = perBoxDetails.some((d) => resolveGroupNumber(d?.weight) > MAX_STANDARD_BOX_KG);
+    if (overweightBoxes) {
+      validationMessages.push('Greutatea depaseste 23 kg (50.71 lb) pentru cutii standard. Imparte in mai multe cutii.');
     }
 
     const hasDimensionSelection = dimensionSets.some(
@@ -1020,6 +1031,10 @@ export default function FbaStep1bPacking({
                         const w = resolveGroupNumber(weight);
                         if (!(length > 0 && width > 0 && height > 0 && w > 0)) {
                           setContinueError('Completează dimensiunile și greutatea înainte de a salva grupul.');
+                          return;
+                        }
+                        if (w > MAX_STANDARD_BOX_KG) {
+                          setContinueError('Greutatea depășește 23 kg (50.71 lb) pentru cutii standard. Împarte în mai multe cutii.');
                           return;
                         }
                         const key = group.packingGroupId || group.id;
