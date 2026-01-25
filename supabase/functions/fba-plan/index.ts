@@ -2439,19 +2439,40 @@ serve(async (req) => {
         (operationStatus || "").toUpperCase() === "SUCCESS" || (inboundPlanStatus || "").toUpperCase() === "ACTIVE";
 
       if (planActive) {
-        console.warn("createInboundPlan missing shipments but operation/plan success", {
-          traceId,
-          status: createHttpStatus,
-          inboundPlanId,
-          inboundPlanStatus,
-          operationId,
-          operationStatus,
-          marketplaceId,
-          region: awsRegion,
-          sellerId,
-          requestId: primaryRequestId
-        });
-        // Step 1 se oprește aici; nu mai afișăm warning-ul repetitiv din UI.
+        // Poll scurt pentru shipments/packingGroups înainte de a ceda controlul către UI
+        let polled = false;
+        if (inboundPlanId) {
+          const maxPolls = 6;
+          for (let i = 1; i <= maxPolls; i += 1) {
+            await delay(450 * i);
+            const fetched = await fetchInboundPlanById(inboundPlanId);
+            const polledPlans = fetched.fetchedPlans || [];
+            if (polledPlans.length) {
+              plans = polledPlans;
+              inboundPlanStatus = fetched.fetchedStatus || inboundPlanStatus;
+              _lastPackingOptions = fetched.fetchedPackingOptions || _lastPackingOptions;
+              _lastPlacementOptions = fetched.fetchedPlacementOptions || _lastPlacementOptions;
+              polled = true;
+              break;
+            }
+          }
+        }
+        if (!plans?.length) {
+          return new Response(
+            JSON.stringify({
+              code: "INBOUND_PLAN_PENDING",
+              message: "Amazon nu a returnat încă shipments/packingGroups. Reîncearcă în câteva secunde.",
+              traceId,
+              inboundPlanId,
+              inboundPlanStatus,
+              operationId,
+              operationStatus,
+              retryAfterMs: 800,
+              requestId: primaryRequestId || null
+            }),
+            { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
       } else {
         console.error("createInboundPlan primary error", {
           traceId,
