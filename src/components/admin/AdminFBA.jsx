@@ -164,14 +164,25 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
   }, []);
 
   const orderedRows = useMemo(() => {
-    const toDate = (val) => {
-      const d = new Date(val);
-      return Number.isNaN(d.getTime()) ? null : d;
+    const score = (row) => {
+      const sd = row?.service_date || null;
+      const created = row?.created_at || null;
+      // prefer service_date string for stable, tz-free sorting
+      if (sd) return { key: sd, fallback: created };
+      return { key: null, fallback: created };
     };
     return [...(rows || [])].sort((a, b) => {
-      const da = toDate(a?.service_date) || toDate(a?.created_at) || new Date(0);
-      const db = toDate(b?.service_date) || toDate(b?.created_at) || new Date(0);
-      return db - da || 0;
+      const sa = score(a);
+      const sb = score(b);
+      if (sa.key && sb.key && sa.key !== sb.key) {
+        return sb.key.localeCompare(sa.key); // desc by service_date
+      }
+      if (sa.key && !sb.key) return -1;
+      if (!sa.key && sb.key) return 1;
+      if (sa.fallback && sb.fallback && sa.fallback !== sb.fallback) {
+        return sb.fallback.localeCompare(sa.fallback); // desc by created_at
+      }
+      return 0;
     });
   }, [rows]);
 
