@@ -393,6 +393,53 @@ export default function FbaStep1bPacking({
       setDraftValue(key, { perBoxDetails: base });
     };
 
+    const resolveDimensionSets = () => {
+      const draft = getDraft(group);
+      const existing = Array.isArray(draft.dimensionSets) ? draft.dimensionSets : [];
+      const normalized = existing.map((set) => ({
+        length: set?.length ?? '',
+        width: set?.width ?? '',
+        height: set?.height ?? '',
+        boxes: Array.from({ length: boxCount }).map((_, idx) => Boolean(set?.boxes?.[idx]))
+      }));
+      if (normalized.length) return normalized;
+      return [
+        {
+          length: '',
+          width: '',
+          height: '',
+          boxes: Array.from({ length: boxCount }).map(() => false)
+        }
+      ];
+    };
+
+    const updateDimensionSets = (next) => {
+      const normalized = (next || []).map((set) => ({
+        length: set?.length ?? '',
+        width: set?.width ?? '',
+        height: set?.height ?? '',
+        boxes: Array.from({ length: boxCount }).map((_, idx) => Boolean(set?.boxes?.[idx]))
+      }));
+      setDraftValue(key, { dimensionSets: normalized });
+
+      const base = Array.isArray(getDraft(group).perBoxDetails)
+        ? [...getDraft(group).perBoxDetails]
+        : [...perBoxDetails];
+      normalized.forEach((set) => {
+        const l = resolveGroupNumber(set.length);
+        const w = resolveGroupNumber(set.width);
+        const h = resolveGroupNumber(set.height);
+        if (!(l > 0 && w > 0 && h > 0)) return;
+        set.boxes.forEach((checked, idx) => {
+          if (!checked) return;
+          base[idx] = { ...(base[idx] || {}), length: l, width: w, height: h };
+        });
+      });
+      setDraftValue(key, { perBoxDetails: base });
+    };
+
+    const dimensionSets = resolveDimensionSets();
+
     const totalsBySku = new Map();
     skuList.forEach((it) => {
       totalsBySku.set(it.key, Number(it.quantity || 0) || 0);
@@ -423,6 +470,30 @@ export default function FbaStep1bPacking({
             </button>
           </div>
           <div className="px-5 py-4 space-y-4">
+            <div className="flex items-center justify-end gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = Math.min(10, boxCount + 1);
+                  setDraftValue(key, { boxes: next });
+                  onUpdateGroup(key, { boxes: next });
+                }}
+                className="border border-slate-200 rounded px-2 py-1 hover:border-slate-300"
+              >
+                Add a new box
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = Math.max(1, boxCount - 1);
+                  setDraftValue(key, { boxes: next });
+                  onUpdateGroup(key, { boxes: next });
+                }}
+                className="border border-slate-200 rounded px-2 py-1 hover:border-slate-300"
+              >
+                Remove last box
+              </button>
+            </div>
             <div className="overflow-auto">
               <table className="min-w-full text-sm">
                 <thead>
@@ -492,23 +563,69 @@ export default function FbaStep1bPacking({
                 ))}
               </div>
 
-              <div className="text-sm text-slate-700 font-semibold">Box dimensions (cm)</div>
-              {Array.from({ length: boxCount }).map((_, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <div className="text-xs text-slate-500 w-16">Box {idx + 1}</div>
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-slate-700 font-semibold">Box dimensions (cm)</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = [...dimensionSets, { length: '', width: '', height: '', boxes: Array(boxCount).fill(false) }];
+                    updateDimensionSets(next);
+                  }}
+                  className="text-xs text-blue-700 hover:text-blue-800"
+                >
+                  + Add another box dimension
+                </button>
+              </div>
+              {dimensionSets.map((set, setIdx) => (
+                <div key={setIdx} className="flex items-center gap-3">
                   {['length', 'width', 'height'].map((field) => (
                     <input
                       key={field}
                       type="number"
                       min={0}
                       step="0.1"
-                      value={perBoxDetails?.[idx]?.[field] ?? ''}
-                      onChange={(e) => updateBoxDetails(idx, field, e.target.value)}
-                      onBlur={() => commitDraft(group, ["perBoxDetails"])}
+                      value={set[field] ?? ''}
+                      onChange={(e) => {
+                        const next = [...dimensionSets];
+                        next[setIdx] = { ...next[setIdx], [field]: e.target.value };
+                        updateDimensionSets(next);
+                      }}
+                      onBlur={() => commitDraft(group, ["dimensionSets", "perBoxDetails"])}
                       className="border rounded-md px-2 py-1 w-20"
                       placeholder={field.toUpperCase()}
                     />
                   ))}
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: boxCount }).map((_, idx) => (
+                      <label key={idx} className="flex items-center gap-1 text-xs text-slate-500">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(set.boxes?.[idx])}
+                          onChange={() => {
+                            const next = [...dimensionSets];
+                            const row = { ...next[setIdx] };
+                            const boxesFlags = Array.from({ length: boxCount }).map((_, boxIdx) =>
+                              boxIdx === idx ? !row.boxes?.[boxIdx] : Boolean(row.boxes?.[boxIdx])
+                            );
+                            row.boxes = boxesFlags;
+                            next[setIdx] = row;
+                            updateDimensionSets(next);
+                          }}
+                        />
+                        {idx + 1}
+                      </label>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = dimensionSets.filter((_, idx) => idx !== setIdx);
+                      updateDimensionSets(next);
+                    }}
+                    className="text-xs text-slate-500 hover:text-slate-700"
+                  >
+                    Remove
+                  </button>
                 </div>
               ))}
             </div>
@@ -895,146 +1012,6 @@ export default function FbaStep1bPacking({
                         Restart
                       </button>
                     </div>
-                    {(() => {
-                      const draftDims = getDraft(group).boxDimensions || {};
-                      const currentDims = {
-                        length: draftDims.length ?? group.boxDimensions?.length ?? '',
-                        width: draftDims.width ?? group.boxDimensions?.width ?? '',
-                        height: draftDims.height ?? group.boxDimensions?.height ?? ''
-                      };
-                      return (
-                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-                          <div className="sm:col-span-3">
-                            <label className="text-xs text-slate-600 block mb-1">Box dimensions (cm)</label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                min={0}
-                                step="0.1"
-                                value={currentDims.length}
-                                onChange={(e) =>
-                                  setDraftValue(group.id, {
-                                    boxDimensions: {
-                                      ...(getDraft(group).boxDimensions || group.boxDimensions || {}),
-                                      length: e.target.value
-                                    }
-                                  })
-                                }
-                                onBlur={() => commitDraft(group, ["boxDimensions"])}
-                                className="border rounded-md px-2.5 py-2 w-16"
-                                placeholder="L"
-                              />
-                              <span className="text-slate-500 text-sm">×</span>
-                              <input
-                                type="number"
-                                min={0}
-                                step={0.1}
-                                value={currentDims.width}
-                                onChange={(e) =>
-                                  setDraftValue(group.id, {
-                                    boxDimensions: {
-                                      ...(getDraft(group).boxDimensions || group.boxDimensions || {}),
-                                      width: e.target.value
-                                    }
-                                  })
-                                }
-                                onBlur={() => commitDraft(group, ["boxDimensions"])}
-                                className="border rounded-md px-2.5 py-2 w-16"
-                                placeholder="W"
-                              />
-                              <span className="text-slate-500 text-sm">×</span>
-                              <input
-                                type="number"
-                                min={0}
-                                step="0.1"
-                                value={currentDims.height}
-                                onChange={(e) =>
-                                  setDraftValue(group.id, {
-                                    boxDimensions: {
-                                      ...(getDraft(group).boxDimensions || group.boxDimensions || {}),
-                                      height: e.target.value
-                                    }
-                                  })
-                                }
-                                onBlur={() => commitDraft(group, ["boxDimensions"])}
-                                className="border rounded-md px-2.5 py-2 w-16"
-                                placeholder="H"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    <div>
-                      <label className="text-xs text-slate-600 block mb-1">Box weight (kg)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.1"
-                        value={getDraft(group).boxWeight ?? group.boxWeight ?? ''}
-                        onChange={(e) => setDraftValue(group.id, { boxWeight: e.target.value })}
-                        onBlur={() => commitDraft(group, ["boxWeight"])}
-                        className="border rounded-md px-2.5 py-2 w-20"
-                        placeholder="kg"
-                      />
-                    </div>
-                    {(() => {
-                      const { perBoxDetails, boxes } = resolveBoxState(group);
-                      const rows = perBoxDetails.slice(0, clampBoxes(boxes));
-                      if (rows.length <= 1) return null;
-                      return (
-                        <div className="space-y-2">
-                          <div className="text-xs text-slate-600">
-                            Completează dimensiunile și greutatea pentru fiecare cutie (până la 10).
-                          </div>
-                          <div className="overflow-auto">
-                            <table className="min-w-full text-xs">
-                              <thead>
-                                <tr className="text-slate-600">
-                                  <th className="text-left py-1 pr-2">Box</th>
-                                  <th className="text-left py-1 pr-2">L (cm)</th>
-                                  <th className="text-left py-1 pr-2">W (cm)</th>
-                                  <th className="text-left py-1 pr-2">H (cm)</th>
-                                  <th className="text-left py-1 pr-2">Weight (kg)</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {rows.map((row, idx) => {
-                                  const updateRow = (field, value) => {
-                                    const key = group.packingGroupId || group.id;
-                                    const draft = getDraft(group);
-                                    const base = Array.isArray(draft.perBoxDetails)
-                                      ? [...draft.perBoxDetails]
-                                      : [...perBoxDetails];
-                                    base[idx] = { ...(base[idx] || {}), [field]: value };
-                                    setDraftValue(key, { perBoxDetails: base });
-                                  };
-                                  const commitRow = () => commitDraft(group, ["perBoxDetails"]);
-                                  return (
-                                    <tr key={idx} className="border-t border-slate-200">
-                                      <td className="py-1 pr-2 font-semibold text-slate-700">#{idx + 1}</td>
-                                      {['length', 'width', 'height', 'weight'].map((field) => (
-                                        <td key={field} className="py-1 pr-2">
-                                          <input
-                                            type="number"
-                                            min={0}
-                                            step="0.1"
-                                            value={row[field] ?? ''}
-                                            onChange={(e) => updateRow(field, e.target.value)}
-                                            onBlur={commitRow}
-                                            className="border rounded px-2 py-1 w-16"
-                                          />
-                                        </td>
-                                      ))}
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </div>
                 )}
               </div>
