@@ -1733,6 +1733,12 @@ const fetchPartneredQuote = useCallback(
     if (normalized?.method) {
       normalized.method = normalizeUiMode(normalized.method);
     }
+    if (normalized?.carrier) {
+      const name = String(normalized.carrier.name || '').trim();
+      if (normalized.carrier.partnered === false && !name) {
+        normalized.carrier = null;
+      }
+    }
     return normalized;
   };
 
