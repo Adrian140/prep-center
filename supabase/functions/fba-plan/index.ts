@@ -1225,6 +1225,16 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const requestId = typeof body?.request_id === "string" ? body.request_id.trim() : "";
     const expirationsInput = (body?.expirations as Record<string, string | undefined | null>) || {};
+    const quantitiesByItemIdRaw = (body?.quantitiesByItemId as Record<string, unknown>) || {};
+    const quantitiesByItemId: Record<string, number> = {};
+    Object.entries(quantitiesByItemIdRaw).forEach(([k, v]) => {
+      const key = String(k || "").trim();
+      const num = Number(v);
+      if (!key) return;
+      if (!Number.isFinite(num) || num < 0) return;
+      const qty = Math.floor(num);
+      quantitiesByItemId[key] = qty;
+    });
     const isUuid = /^[0-9a-fA-F-]{36}$/.test(requestId);
     if (!requestId || !isUuid) {
       return new Response(JSON.stringify({ error: "request_id is required and must be a UUID" }), {
@@ -1234,7 +1244,7 @@ serve(async (req) => {
     }
 
     // Fetch prep request + items
-    const { data: reqData, error: reqErr } = await supabase
+    const { data: reqDataRaw, error: reqErr } = await supabase
       .from("prep_requests")
       .select(
         "id, destination_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
@@ -1242,12 +1252,13 @@ serve(async (req) => {
       .eq("id", requestId)
       .maybeSingle();
     if (reqErr) throw reqErr;
-    if (!reqData) {
+    if (!reqDataRaw) {
       return new Response(JSON.stringify({ error: "Request not found" }), {
         status: 404,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
+    let reqData = reqDataRaw as typeof reqDataRaw & { prep_request_items: any[] };
     if (!userIsAdmin) {
       const isOwner = !!reqData.user_id && reqData.user_id === user.id;
       const isCompanyMember =
@@ -1257,6 +1268,50 @@ serve(async (req) => {
           JSON.stringify({ error: "Forbidden", traceId }),
           { status: 403, headers: { ...corsHeaders, "content-type": "application/json" } }
         );
+      }
+    }
+
+    // Persist quantity overrides from UI (units_sent) before any signature checks
+    let appliedQuantityOverrides = false;
+    if (Object.keys(quantitiesByItemId).length) {
+      const itemsById = new Map<string, any>();
+      (reqData.prep_request_items || []).forEach((it: any) => {
+        itemsById.set(String(it.id), it);
+      });
+      const overrideUpdates: { id: string; units_sent: number }[] = [];
+      for (const [id, qty] of Object.entries(quantitiesByItemId)) {
+        const existing = itemsById.get(id);
+        if (!existing) continue;
+        const currentQty = Number(existing.units_sent ?? existing.units_requested ?? 0) || 0;
+        if (currentQty !== qty) {
+          overrideUpdates.push({ id, units_sent: qty });
+        }
+      }
+      if (overrideUpdates.length) {
+        appliedQuantityOverrides = true;
+        for (const row of overrideUpdates) {
+          const { error: updErr } = await supabase
+            .from("prep_request_items")
+            .update({ units_sent: row.units_sent })
+            .eq("id", row.id);
+          if (updErr) {
+            console.error("fba-plan quantity override save failed", { traceId, error: updErr });
+            return new Response(
+              JSON.stringify({ error: "Nu am putut salva cantitățile ajustate", traceId }),
+              { status: 500, headers: { ...corsHeaders, "content-type": "application/json" } }
+            );
+          }
+        }
+        // Re-fetch request with updated quantities
+        const { data: refetchReq, error: refetchErr } = await supabase
+          .from("prep_requests")
+          .select(
+            "id, destination_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
+          )
+          .eq("id", requestId)
+          .maybeSingle();
+        if (refetchErr) throw refetchErr;
+        if (refetchReq) reqData = refetchReq as any;
       }
     }
 
@@ -1286,7 +1341,10 @@ serve(async (req) => {
     const previousItemsSignature = snapshotBase?.fba_inbound?.planItemsSignature || null;
 
     // Dacă planul existent are semnătură de iteme diferită (qty/sku schimbate), resetăm inbound/packing/placement.
-    if (reqData.inbound_plan_id && previousItemsSignature && previousItemsSignature !== currentItemsSignature) {
+    const signatureChanged = !!previousItemsSignature && previousItemsSignature !== currentItemsSignature;
+    const forceResetFromOverrides =
+      appliedQuantityOverrides && !!reqData.inbound_plan_id && (!previousItemsSignature || signatureChanged);
+    if (reqData.inbound_plan_id && (signatureChanged || forceResetFromOverrides)) {
       try {
         const clearedSnapshot = {
           ...(snapshotBase || {}),
@@ -1410,6 +1468,18 @@ serve(async (req) => {
     const items: PrepRequestItem[] = (Array.isArray(reqData.prep_request_items) ? reqData.prep_request_items : []).filter(
       (it) => Number(it.units_sent ?? it.units_requested ?? 0) > 0
     );
+    const missingSkuItems = items.filter((it) => !normalizeSku(it.sku || ""));
+    if (missingSkuItems.length) {
+      return new Response(
+        JSON.stringify({
+          error: "Există linii fără SKU. Completează SKU înainte de a crea planul.",
+          blocking: true,
+          missing: missingSkuItems.map((it) => ({ id: it.id, asin: it.asin || null, product_name: it.product_name || null })),
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
     const stockItemIds = Array.from(
       new Set(
         items
@@ -2948,6 +3018,12 @@ serve(async (req) => {
       warning: combinedWarning
     };
 
+    const serverQuantities = items.map((it) => ({
+      itemId: it.id,
+      sku: normalizeSku(it.sku || ""),
+      units: Number(it.units_sent ?? it.units_requested ?? 0) || 0
+    }));
+
     return new Response(
       JSON.stringify({
         plan,
@@ -2959,7 +3035,8 @@ serve(async (req) => {
         operationStatus,
         packingOptionId,
         shipmentsPending,
-        scopes: lwaScopes
+        scopes: lwaScopes,
+        serverQuantities
       }),
       {
         status: 200,
