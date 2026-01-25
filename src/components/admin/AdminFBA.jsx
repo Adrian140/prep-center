@@ -164,14 +164,17 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
   }, []);
 
   const orderedRows = useMemo(() => {
-    const parseDateVal = (val) => {
+    const parseDateVal = (rawVal) => {
+      if (!rawVal) return Number.NEGATIVE_INFINITY;
+      const val = String(rawVal).trim();
       if (!val) return Number.NEGATIVE_INFINITY;
-      // Support ISO yyyy-mm-dd and localized dd.mm.yyyy
+      // ISO yyyy-mm-dd
       if (/^\d{4}-\d{2}-\d{2}/.test(val)) {
         const t = Date.parse(val);
         return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
       }
-      const m = val.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+      // dd.MM.yyyy or dd/MM/yyyy
+      const m = val.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
       if (m) {
         const [_, dd, mm, yyyy] = m;
         const iso = `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
@@ -183,10 +186,12 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
     };
 
     return [...(rows || [])].sort((a, b) => {
-      const da = parseDateVal(a?.service_date) || parseDateVal(a?.created_at);
-      const db = parseDateVal(b?.service_date) || parseDateVal(b?.created_at);
-      if (db !== da) return db - da; // desc
-      return 0;
+      const da = parseDateVal(a?.service_date);
+      const db = parseDateVal(b?.service_date);
+      if (db !== da) return db - da; // desc by service_date
+      const ca = parseDateVal(a?.created_at);
+      const cb = parseDateVal(b?.created_at);
+      return cb - ca; // desc fallback by created_at
     });
   }, [rows]);
 
