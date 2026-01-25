@@ -959,13 +959,18 @@ const fetchPartneredQuote = useCallback(
         return;
       }
 
+      const hasPerBoxItems = Array.isArray(g.perBoxItems) && g.perBoxItems.length > 0;
+      const hasPerBoxDetails = Array.isArray(g.perBoxDetails) && g.perBoxDetails.length > 0;
+      const normalizedPackMode =
+        g.packMode ||
+        (hasPerBoxItems || hasPerBoxDetails || count > 1 ? "multiple" : "single");
       const contentInformationSource =
         g.contentInformationSource ||
-        (g.packMode === "multiple" ? "BOX_CONTENT_PROVIDED" : null);
+        (hasPerBoxItems ? "BOX_CONTENT_PROVIDED" : normalizedPackMode === "multiple" ? "BOX_CONTENT_PROVIDED" : null);
       packingGroupsPayload.push({
         packingGroupId,
         boxes: count,
-        packMode: g.packMode || "single",
+        packMode: normalizedPackMode,
         dimensions: normalizedDims,
         weight: normalizedWeight,
         contentInformationSource,
@@ -1050,6 +1055,18 @@ const fetchPartneredQuote = useCallback(
       return;
     }
     const invalid = packingGroupsPayload.find((g) => {
+      const isMultiple = String(g.packMode || '').toLowerCase() === 'multiple';
+      if (isMultiple) {
+        const perBox = Array.isArray(g.perBoxDetails) ? g.perBoxDetails : [];
+        if (!perBox.length) return true;
+        return perBox.some((b) => {
+          const l = Number(b?.length || 0);
+          const w = Number(b?.width || 0);
+          const h = Number(b?.height || 0);
+          const wt = Number(b?.weight || 0);
+          return !(l > 0 && w > 0 && h > 0 && wt > 0);
+        });
+      }
       return !(
         Number(g.dimensions?.length) > 0 &&
         Number(g.dimensions?.width) > 0 &&
