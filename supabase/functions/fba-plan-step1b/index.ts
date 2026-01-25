@@ -531,6 +531,10 @@ serve(async (req) => {
       requestedPackingOptionIdRaw && typeof requestedPackingOptionIdRaw === "string"
         ? requestedPackingOptionIdRaw.trim()
         : null;
+    const confirmPackingOptionFlag =
+      (body?.confirmPackingOption as boolean | undefined) ??
+      (body?.confirm_packing_option as boolean | undefined) ??
+      false;
     if (!requestId || !inboundPlanId) {
       return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare" }), {
         status: 400,
@@ -900,7 +904,7 @@ serve(async (req) => {
 
       if (placementLocked && (!packingOptionsSnapshot.length || !hasPackingGroups(packingOptionsSnapshot))) {
         warnings.push(
-          "PlacementOption este deja ACCEPTED/CONFIRMED și packingOptions nu conțin packingGroupIds. Amazon poate să nu mai permită GeneratePackingOptions; încercăm să listăm ce există, dar dacă nu apar grupurile, creează un inbound plan nou."
+          "PlacementOption este deja ACCEPTED/CONFIRMED și packingOptions nu conțin packingGroupIds. Amazon poate să nu mai permită GeneratePackingOptions; încercăm să listăm ce există."
         );
       }
       if (shouldGenerate) {
@@ -1051,52 +1055,29 @@ serve(async (req) => {
       return Array.from(ids.values());
     };
 
+    const getOptionId = (o: any) => String(o?.packingOptionId || o?.PackingOptionId || o?.id || "");
+    const getStatus = (o: any) => String(o?.status || o?.Status || "").toUpperCase();
+    const discountsArr = (o: any) => (o?.discounts || o?.Discounts || []);
+    const hasDiscount = (o: any) => Array.isArray(discountsArr(o)) && discountsArr(o).length > 0;
     const pickPackingOption = (options: any[], preferredId: string | null = null) => {
       if (!Array.isArray(options) || !options.length) return null;
-      const normalizeStatus = (val: any) => String(val || "").toUpperCase();
-      const normalizeMode = (val: any) => String(val || "").toUpperCase();
-      const matchesPreferred = options.find((o) => {
-        const id = o?.packingOptionId || o?.PackingOptionId || o?.id || null;
-        return preferredId && id && String(id) === preferredId;
-      });
-      if (matchesPreferred) return matchesPreferred;
-      const extractModes = (option: any) => {
-        const modes = new Set<string>();
-        const supportedConfigs = option?.supportedConfigurations || option?.SupportedConfigurations || [];
-        (Array.isArray(supportedConfigs) ? supportedConfigs : []).forEach((cfg: any) => {
-          const requirements = cfg?.shippingRequirements || cfg?.ShippingRequirements || [];
-          (Array.isArray(requirements) ? requirements : [requirements]).forEach((req: any) => {
-            const reqModes = req?.modes || req?.Modes || [];
-            (Array.isArray(reqModes) ? reqModes : [reqModes]).forEach((mode: any) => {
-              if (mode) modes.add(normalizeMode(mode));
-            });
-          });
-        });
-        const supportedShipping = option?.supportedShippingConfigurations || option?.SupportedShippingConfigurations || [];
-        (Array.isArray(supportedShipping) ? supportedShipping : [supportedShipping]).forEach((cfg: any) => {
-          const mode = cfg?.shippingMode || cfg?.shipping_mode || cfg?.mode;
-          if (mode) modes.add(normalizeMode(mode));
-        });
-        return modes;
-      };
-      const isOffered = (o: any) => ["OFFERED", "AVAILABLE", "READY"].includes(normalizeStatus(o?.status));
-      const offered = options.filter(isOffered);
-      const targets = offered.length ? offered : options;
-      const scored = targets.map((o, idx) => {
-        const modes = extractModes(o);
-        const groupCount = extractPackingGroupIds(o).length;
-        const hasSpd = modes.has("GROUND_SMALL_PARCEL") || modes.has("SPD") || modes.has("SMALL_PARCEL");
-        const discountCount = Array.isArray(o?.discounts || o?.Discounts) ? (o.discounts || o.Discounts).length : 0;
-        const discountScore = discountCount > 0 ? 1 : 0; // nu vrem opțiuni cu discount (promo split) by default
-        return { option: o, groupCount: groupCount || Number.MAX_SAFE_INTEGER, hasSpd, discountCount, discountScore, idx };
-      });
-      scored.sort((a, b) => {
-        if (a.discountScore !== b.discountScore) return a.discountScore - b.discountScore; // întâi fără discount (Standard packing)
-        if (a.groupCount !== b.groupCount) return a.groupCount - b.groupCount; // apoi cele mai puține grupuri
-        if (a.hasSpd !== b.hasSpd) return Number(b.hasSpd) - Number(a.hasSpd); // abia apoi preferăm SPD
-        return a.idx - b.idx; // fallback determinist
-      });
-      return scored[0]?.option || targets[0];
+
+      // 1) respectă preferința din UI
+      if (preferredId) {
+        const m = options.find((o) => getOptionId(o) === preferredId);
+        if (m) return m;
+      }
+
+      // 2) candidate OFFERED/AVAILABLE/READY
+      const offered = options.filter((o) => ["OFFERED", "AVAILABLE", "READY"].includes(getStatus(o)));
+      const pool = offered.length ? offered : options;
+
+      // 3) preferă Standard (fără discount/split)
+      const standard = pool.find((o) => !hasDiscount(o));
+      if (standard) return standard;
+
+      // 4) fallback
+      return pool[0];
     };
 
     let chosen = pickPackingOption(mergedPackingOptions, requestedPackingOptionId);
@@ -1133,7 +1114,7 @@ serve(async (req) => {
 
     // Confirmăm packingOption-ul doar dacă placement NU este deja confirmat;
     // când placement este ACCEPTED/CONFIRMED, ConfirmPackingOption întoarce 400.
-    if (packingOptionId && !placementLocked) {
+    if (packingOptionId && !placementLocked && confirmPackingOptionFlag) {
       const confirmRes = await confirmPackingOption(packingOptionId);
       debugStatuses.confirmPackingOption = { status: confirmRes?.res?.status ?? null, requestId: confirmRes?.requestId || null };
       rawSamples.confirmPackingOption = sampleBody(confirmRes);
@@ -1380,14 +1361,14 @@ serve(async (req) => {
     const fetchGroupItemsWithRetry = async (groupId: string) => {
       const transientStatuses = new Set([0, 202, 404, 429, 500, 502, 503, 504]);
       let last: any = null;
-      const maxAttempts = 3;
+      const maxAttempts = 5;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         last = await fetchGroupItems(groupId);
         if (!transientStatuses.has(Number(last?.status || 0)) && Number(last?.status || 0) < 400) {
           break;
         }
         if (attempt < maxAttempts) {
-          await delay(150 * attempt);
+          await delay(300 * attempt); // 300ms, 600ms, 900ms, 1200ms, 1500ms
         }
       }
       return last;
@@ -1405,23 +1386,40 @@ serve(async (req) => {
       await delay(50);
     }
 
-    const failedGroupFetch = packingGroups.some((g: any) => Number(g?.status || 0) >= 400);
-    if (!packingGroupIds.length || !packingGroups.length || failedGroupFetch) {
-      const message = failedGroupFetch
-        ? "getPackingGroupItems a eșuat pentru unul sau mai multe grupuri."
-        : !packingGroupIds.length
-          ? "packingGroupIds lipsesc (list/generate indisponibil sau throttled)."
-          : "packingGroups nu sunt gata (list/generate nu a populat grupurile).";
+    const transientStatuses = new Set([202, 404, 429, 500, 502, 503, 504]);
+    const transientGroupProblem = packingGroups.some((g: any) => transientStatuses.has(Number(g?.status || 0)));
+    const hardGroupProblem = packingGroups.some((g: any) => {
+      const s = Number(g?.status || 0);
+      return s >= 400 && !transientStatuses.has(s);
+    });
+    if (!packingGroupIds.length || !packingGroups.length || transientGroupProblem) {
+      const retryAfterMs = 2500;
       return new Response(
         JSON.stringify({
-          code: "PACKING_GROUPS_NOT_READY",
-          message,
+          code: "PACKING_GROUPS_PROCESSING",
+          message: "Packing groups sunt încă în procesare la Amazon. Reîncearcă.",
           traceId,
           inboundPlanId,
           packingOptionId,
           placementOptionId,
           amazonIntegrationId: integId || null,
-          debug: debugSnapshot(failedGroupFetch)
+          retryAfterMs,
+          debug: debugSnapshot(transientGroupProblem)
+        }),
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+    if (hardGroupProblem) {
+      return new Response(
+        JSON.stringify({
+          code: "PACKING_GROUPS_NOT_READY",
+          message: "Amazon a returnat eroare non-transient pentru packing groups.",
+          traceId,
+          inboundPlanId,
+          packingOptionId,
+          placementOptionId,
+          amazonIntegrationId: integId || null,
+          debug: debugSnapshot(true)
         }),
         { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
@@ -1670,12 +1668,15 @@ serve(async (req) => {
       console.error("prep_requests persist inbound/placement failed", { traceId, error: persistErr });
     }
 
+    const filteredPackingOptions = (mergedPackingOptions || []).filter((o: any) => !hasDiscount(o));
+    const packingOptionsToReturn = filteredPackingOptions.length ? filteredPackingOptions : mergedPackingOptions || [];
+
     return new Response(
       JSON.stringify({
         inboundPlanId,
         packingOptionId,
         placementOptionId,
-        packingOptions: mergedPackingOptions,
+        packingOptions: packingOptionsToReturn,
         shipments: planShipments,
         packingGroups: effectivePackingGroups,
         traceId,
