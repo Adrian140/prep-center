@@ -152,7 +152,9 @@ function normalizeItem(input: any) {
   const quantity = Number(input?.quantity ?? input?.qty ?? input?.quantityInBox ?? 0);
   if (!msku || !Number.isFinite(quantity) || quantity <= 0) return null;
 
-  // Dacă nu vin prepOwner/labelOwner de la UI/Amazon, folosim NONE/SELLER ca fallback sigur pentru Amazon.
+  // Dacă nu vin prepOwner/labelOwner de la UI/Amazon, derivăm:
+  //  - prepOwner: implicit NONE
+  //  - labelOwner: SELLER doar dacă există prep/item labeling; altfel NONE (pentru barcode eligibile)
   const prepOwnerRaw =
     input?.prepOwner ??
     input?.prep_owner ??
@@ -163,7 +165,18 @@ function normalizeItem(input: any) {
   const labelOwnerRaw = input?.labelOwner ?? input?.label_owner ?? input?.LabelOwner;
 
   const prepOwner = String((prepOwnerRaw || "NONE") as string).toUpperCase();
-  const labelOwner = String((labelOwnerRaw || "SELLER") as string).toUpperCase();
+
+  let derivedLabel: string | null = null;
+  const prepInstructions = Array.isArray(input?.prepInstructions) ? input.prepInstructions : [];
+  const hasItemLabeling = prepInstructions.some((p: any) => String(p?.prepType || "").toUpperCase() === "ITEM_LABELING");
+  if (labelOwnerRaw) {
+    derivedLabel = String(labelOwnerRaw).toUpperCase();
+  } else if (prepOwner === "SELLER" || hasItemLabeling) {
+    derivedLabel = "SELLER";
+  } else {
+    derivedLabel = "NONE";
+  }
+  const labelOwner = derivedLabel;
 
   const out: any = { msku: String(msku), quantity, prepOwner, labelOwner };
 
