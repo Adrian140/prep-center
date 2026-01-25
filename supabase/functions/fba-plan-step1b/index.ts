@@ -109,6 +109,10 @@ function regionHost(region: string) {
   }
 }
 
+function isLockId(val: string | null | undefined): boolean {
+  return typeof val === "string" && val.startsWith("LOCK-");
+}
+
 function toHex(buffer: ArrayBuffer): string {
   return Array.prototype.map
     .call(new Uint8Array(buffer), (x: number) => ("00" + x.toString(16)).slice(-2))
@@ -620,6 +624,23 @@ serve(async (req) => {
         .from("prep_requests")
         .update({ inbound_plan_id: inboundPlanId })
         .eq("id", requestId);
+    }
+
+    // Dacă ID-ul este încă un lock placeholder, nu lovim Amazon; așteptăm recrearea planului.
+    if (isLockId(inboundPlanId)) {
+      await supabase
+        .from("prep_requests")
+        .update({ inbound_plan_id: null })
+        .eq("id", requestId)
+        .eq("inbound_plan_id", inboundPlanId);
+      return new Response(
+        JSON.stringify({
+          code: "PLAN_STILL_CREATING",
+          message: "Planul Amazon se creează. Reîncearcă în câteva secunde.",
+          traceId
+        }),
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
     }
     if (!userIsAdmin) {
       const isOwner = !!reqData.user_id && reqData.user_id === user.id;

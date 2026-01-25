@@ -1591,6 +1591,14 @@ serve(async (req) => {
     };
 
     const listingImages = await fetchListingImages();
+    const stockImageBySku: Record<string, string> = {};
+    items.forEach((it) => {
+      const skuKey = normalizeSku(it.sku || "");
+      if (!skuKey) return;
+      if (stockImageBySku[skuKey]) return;
+      const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+      if (stock?.image_url) stockImageBySku[skuKey] = stock.image_url;
+    });
 
     // Ship-from: fixed prep center address (real location in FR, nu schimbăm după destinație)
     const shipFromCountry = "FR";
@@ -2228,16 +2236,16 @@ serve(async (req) => {
         }
 
         // Poll listPackingOptions câteva secunde; Amazon uneori întoarce packingGroups fără generate.
-        const maxListPolls = 5;
+        const maxListPolls = 10;
         options = [];
         for (let attempt = 0; attempt < maxListPolls; attempt++) {
-          const retryRes = attempt === 0 ? await listPackingOptions(inboundPlanId) : await listPackingOptions(inboundPlanId);
+          const retryRes = await listPackingOptions(inboundPlanId);
           listRes = retryRes;
           if (retryRes?.res?.ok) {
             options = extractPackingOptionsFromResponse(retryRes);
             if (options.length && hasPackingGroups(options)) break;
           }
-          await delay(300 + attempt * 150);
+          await delay(300 + attempt * 200);
         }
       }
 
@@ -2329,6 +2337,13 @@ serve(async (req) => {
 
     const inboundPlanErrored = (status: string | null) =>
       String(status || "").toUpperCase() === "ERRORED";
+
+    if (inboundPlanId) {
+      // Dacă inbound_plan_id este încă un LOCK local, nu încerca să îl citești din Amazon.
+      if (isLockId(inboundPlanId)) {
+        inboundPlanId = null;
+      }
+    }
 
     if (inboundPlanId) {
       const fetched = await fetchInboundPlanById(inboundPlanId);
@@ -2881,29 +2896,16 @@ serve(async (req) => {
       };
     });
 
-    const labelOwnerBySku: Record<string, "SELLER" | "NONE"> = {};
-    const labelOwnerSourceBySku: Record<string, "prep-guidance" | "amazon-override" | "assumed"> = {};
-    (appliedPlanBody?.items || []).forEach((it: any) => {
-      if (it?.msku) {
-        const key = normalizeSku(it.msku);
-        labelOwnerBySku[key] = (it.labelOwner as "SELLER" | "NONE") || "SELLER";
-        if (appliedOverrides[key]) {
-          labelOwnerSourceBySku[key] = "amazon-override";
-        } else {
-          labelOwnerSourceBySku[key] = "prep-guidance";
-        }
-      }
-    });
-    // Dacă retry a aplicat inversări, completăm map-ul cu override-urile folosite
-    if (plans?.length && appliedPlanBody?.items) {
-      appliedPlanBody.items.forEach((it: any) => {
-        if (it?.msku && it.labelOwner && !labelOwnerBySku[it.msku]) {
-          const key = normalizeSku(it.msku);
-          labelOwnerBySku[key] = it.labelOwner as "SELLER" | "NONE";
-          labelOwnerSourceBySku[key] = appliedOverrides[key] ? "amazon-override" : "prep-guidance";
-        }
-      });
-    }
+    const deriveLabelOwner = (prepInfo: any): "SELLER" | "NONE" => {
+      const barcodeInstruction = String(prepInfo?.barcodeInstruction || "").toUpperCase();
+      const prepList: string[] = Array.isArray(prepInfo?.prepInstructions) ? prepInfo.prepInstructions : [];
+      const hasItemLabeling = prepList.some((p) => String(p || "").toUpperCase().includes("LABEL"));
+      if (barcodeInstruction.includes("CANUSEORIGINALBARCODE")) return "NONE";
+      if (barcodeInstruction.includes("REQUIRESFNSKU") || hasItemLabeling) return "SELLER";
+      if (prepInfo?.prepRequired) return "SELLER";
+      if (isManufacturerBarcodeEligible(barcodeInstruction)) return "NONE";
+      return "SELLER";
+    };
 
     const skus = collapsedItems.map((c, idx) => {
       const skuKey = normalizeSku(c.sku);
@@ -2912,15 +2914,12 @@ serve(async (req) => {
       const manufacturerBarcodeEligible = prepInfo.barcodeInstruction
         ? isManufacturerBarcodeEligible(prepInfo.barcodeInstruction)
         : false;
-      const labelOwner =
-        labelOwnerBySku[skuKey] ||
-        (prepRequired ? "SELLER" : manufacturerBarcodeEligible ? "NONE" : "SELLER");
-      const labelOwnerSource =
-        labelOwnerSourceBySku[skuKey] ||
-        (prepInfo.barcodeInstruction ? "prep-guidance" : "assumed");
+      const labelOwner = deriveLabelOwner({ ...prepInfo, prepRequired, manufacturerBarcodeEligible });
+      const labelOwnerSource = "prep-guidance";
       const requiresExpiry =
         (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
         expiryRequiredBySku[skuKey] === true;
+      const image = stockImageBySku[skuKey] || listingImages[skuKey] || null;
       const expiryVal = expirations[skuKey] || "";
       return {
         // Folosim id-ul real din prep_request_items pentru a evita erorile de tip UUID în UI/DB.
@@ -2942,7 +2941,7 @@ serve(async (req) => {
         labelOwner,
         labelOwnerSource,
         readyToPack: true,
-        image: null
+        image
       };
     });
 

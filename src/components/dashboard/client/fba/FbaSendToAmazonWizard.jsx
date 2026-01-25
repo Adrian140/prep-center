@@ -930,6 +930,13 @@ const fetchPartneredQuote = useCallback(
       return { packingGroups: [], missingGroupId: false };
     }
 
+    const planLabelOwnerBySku = new Map();
+    (Array.isArray(plan?.skus) ? plan.skus : []).forEach((sku) => {
+      const key = String(sku?.sku || sku?.msku || sku?.SellerSKU || '').trim().toUpperCase();
+      if (!key) return;
+      if (sku?.labelOwner) planLabelOwnerBySku.set(key, sku.labelOwner);
+    });
+
     const packingGroupsPayload = [];
     let missingGroupId = false;
 
@@ -964,7 +971,12 @@ const fetchPartneredQuote = useCallback(
                 null,
               prepOwner: it.prepOwner || it.prep_owner || it.prep || null,
               // dacă avem valoarea din Amazon, trimite-o prioritar
-              labelOwner: it.apiLabelOwner || it.labelOwner || it.label_owner || it.label || null
+              labelOwner:
+                it.apiLabelOwner ||
+                it.labelOwner ||
+                it.label_owner ||
+                it.label ||
+                (planLabelOwnerBySku.get(String(it.sku || it.msku || it.SellerSKU || '').trim().toUpperCase()) || null)
             }))
           : []
       });
@@ -1968,7 +1980,7 @@ const fetchPartneredQuote = useCallback(
     setStep1SaveError('');
     setPlanError('');
     const waitForPackingGroups = async () => {
-      const maxAttempts = 3;
+      const maxAttempts = 5;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         // eslint-disable-next-line no-await-in-loop
         const res = await refreshPackingGroups();
