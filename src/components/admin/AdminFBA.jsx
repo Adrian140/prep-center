@@ -164,24 +164,28 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
   }, []);
 
   const orderedRows = useMemo(() => {
-    const score = (row) => {
-      const sd = row?.service_date || null;
-      const created = row?.created_at || null;
-      // prefer service_date string for stable, tz-free sorting
-      if (sd) return { key: sd, fallback: created };
-      return { key: null, fallback: created };
+    const parseDateVal = (val) => {
+      if (!val) return Number.NEGATIVE_INFINITY;
+      // Support ISO yyyy-mm-dd and localized dd.mm.yyyy
+      if (/^\d{4}-\d{2}-\d{2}/.test(val)) {
+        const t = Date.parse(val);
+        return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
+      }
+      const m = val.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+      if (m) {
+        const [_, dd, mm, yyyy] = m;
+        const iso = `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+        const t = Date.parse(iso);
+        return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
+      }
+      const t = Date.parse(val);
+      return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
     };
+
     return [...(rows || [])].sort((a, b) => {
-      const sa = score(a);
-      const sb = score(b);
-      if (sa.key && sb.key && sa.key !== sb.key) {
-        return sb.key.localeCompare(sa.key); // desc by service_date
-      }
-      if (sa.key && !sb.key) return -1;
-      if (!sa.key && sb.key) return 1;
-      if (sa.fallback && sb.fallback && sa.fallback !== sb.fallback) {
-        return sb.fallback.localeCompare(sa.fallback); // desc by created_at
-      }
+      const da = parseDateVal(a?.service_date) || parseDateVal(a?.created_at);
+      const db = parseDateVal(b?.service_date) || parseDateVal(b?.created_at);
+      if (db !== da) return db - da; // desc
       return 0;
     });
   }, [rows]);
