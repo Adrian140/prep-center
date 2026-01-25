@@ -1331,10 +1331,10 @@ serve(async (req) => {
         : []);
     const buildItemsSignature = (list: typeof reqData.prep_request_items) => {
       const entries = (list || []).map((it: any) => ({
-        sku: normalizeSku(it.sku || it.asin || ""),
+        id: String(it.id || ""),
         units: Number(it.units_sent ?? it.units_requested ?? 0) || 0
       }));
-      entries.sort((a, b) => a.sku.localeCompare(b.sku) || a.units - b.units);
+      entries.sort((a, b) => a.id.localeCompare(b.id));
       return JSON.stringify(entries);
     };
     const currentItemsSignature = buildItemsSignature(reqData.prep_request_items || []);
@@ -1342,9 +1342,10 @@ serve(async (req) => {
 
     // Dacă planul existent are semnătură de iteme diferită (qty/sku schimbate), resetăm inbound/packing/placement.
     const signatureChanged = !!previousItemsSignature && previousItemsSignature !== currentItemsSignature;
+    const hasAnyPlanId = !!reqData.inbound_plan_id || !!snapshotInboundPlanId;
     const forceResetFromOverrides =
-      appliedQuantityOverrides && !!reqData.inbound_plan_id && (!previousItemsSignature || signatureChanged);
-    if (reqData.inbound_plan_id && (signatureChanged || forceResetFromOverrides)) {
+      appliedQuantityOverrides && (!previousItemsSignature || signatureChanged);
+    if (hasAnyPlanId && (signatureChanged || forceResetFromOverrides)) {
       try {
         const clearedSnapshot = {
           ...(snapshotBase || {}),
@@ -1511,7 +1512,7 @@ serve(async (req) => {
       const images: Record<string, string> = {};
       const missing = items.filter((it) => {
         const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
-        const hasLocalImage = Boolean(it.amazon_image || it.image || stock?.image_url);
+        const hasLocalImage = Boolean(stock?.image_url);
         return it.sku && !hasLocalImage;
       });
       const limited = missing.slice(0, 6); // evităm rate limiting
@@ -1650,9 +1651,10 @@ serve(async (req) => {
     const today = new Date();
     items.forEach((it) => {
       const key = normalizeSku(it.sku || it.asin || "");
+      const skuOnly = normalizeSku(it.sku || "");
       const requiresExpiry =
         (prepGuidanceMap[key]?.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
-        expiryRequiredBySku[normalizeSku(it.sku || "")] === true;
+        expiryRequiredBySku[skuOnly] === true;
       if (requiresExpiry && !expirations[key]) {
         const auto = addMonths(today, 16).toISOString().split("T")[0];
         expirations[key] = auto;
@@ -1677,22 +1679,18 @@ serve(async (req) => {
     });
 
     if (expiryUpdates.length) {
-      // Use update to avoid accidental inserts that would violate non-null prep_request_id
-      const { error: expirySaveErr } = await supabase
-        .from("prep_request_items")
-        .update(
-          expiryUpdates.map((row) => ({
-            id: row.id,
-            expiration_date: row.expiration_date,
-            expiration_source: row.expiration_source
-          }))
-        )
-        .in(
-          "id",
-          expiryUpdates.map((row) => row.id)
-        );
-      if (expirySaveErr) {
-        console.warn("fba-plan expiration save failed", { traceId, error: expirySaveErr, updates: expiryUpdates.length });
+      for (const row of expiryUpdates) {
+        const { error: expirySaveErr } = await supabase
+          .from("prep_request_items")
+          .update({ expiration_date: row.expiration_date, expiration_source: row.expiration_source })
+          .eq("id", row.id);
+        if (expirySaveErr) {
+          console.warn("fba-plan expiration save failed", {
+            traceId,
+            error: expirySaveErr,
+            id: row.id
+          });
+        }
       }
     }
 
@@ -2435,9 +2433,10 @@ serve(async (req) => {
     const missingExpiry = items
       .map((it) => {
         const key = normalizeSku(it.sku || it.asin || "");
-        const requiresExpiry =
-          (prepGuidanceMap[key]?.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
-          expiryRequiredBySku[normalizeSku(it.sku || "")] === true;
+      const skuOnly = normalizeSku(it.sku || "");
+      const requiresExpiry =
+        (prepGuidanceMap[key]?.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
+        expiryRequiredBySku[skuOnly] === true;
         const hasExpiry = !!expirations[key];
         return requiresExpiry && !hasExpiry ? key : null;
       })
@@ -2911,7 +2910,8 @@ serve(async (req) => {
     // Nu bloca UI pe lipsa shipments; pentru step1 este suficient să existe inboundPlanId.
     const shipmentsPending = !safeInboundPlanId;
     // Persist inboundPlanId when newly created so viitoarele apeluri nu mai generează plan nou
-    if (inboundPlanId && !isLockId(inboundPlanId) && inboundPlanId !== reqData.inbound_plan_id) {
+    const dbPlanId = reqData.inbound_plan_id;
+    if (inboundPlanId && !isLockId(inboundPlanId) && (inboundPlanId !== dbPlanId || isLockId(dbPlanId))) {
       // Persist always, even dacă există un inbound_plan_id vechi – altfel UI/step1b rămâne blocat pe planul anterior.
       const { data: updRow, error: updErr } = await supabase
         .from("prep_requests")
