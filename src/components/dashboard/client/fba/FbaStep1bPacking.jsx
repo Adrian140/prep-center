@@ -213,17 +213,20 @@ export default function FbaStep1bPacking({
       const allPerBoxComplete = perBoxNormalized.every(
         (b) => b.dimensions && b.weight
       );
+      const normalizedPackMode = group.packMode || 'single';
+      const normalizedContentSource =
+        contentInformationSource || (normalizedPackMode === 'multiple' ? 'BOX_CONTENT_PROVIDED' : null);
 
       packingGroups.push({
         packingGroupId,
         boxes: boxCount,
-        packMode: group.packMode || 'single',
+        packMode: normalizedPackMode,
         dimensions:
           dimsNum.length || dimsNum.width || dimsNum.height
             ? { ...dimsNum, unit: 'CM' }
             : null,
         weight: weightNum ? { value: weightNum, unit: 'KG' } : null,
-        contentInformationSource,
+        contentInformationSource: normalizedContentSource,
         items: Array.isArray(group.items)
           ? group.items.map((it) => ({
               sku: it.sku || it.msku || it.SellerSKU || null,
@@ -273,7 +276,7 @@ export default function FbaStep1bPacking({
       }
 
       // For multiple boxes we want per-box details complete
-      if ((group.packMode || 'single') === 'multiple' && boxCount > 1) {
+      if ((group.packMode || 'single') === 'multiple') {
         const perBox = (perBoxDetails || []).slice(0, boxCount);
         return perBox.some((b) => {
           const l = resolveGroupNumber(b.length);
@@ -289,7 +292,7 @@ export default function FbaStep1bPacking({
       const height = resolveGroupNumber(dims.height);
       const w = resolveGroupNumber(weight);
       if (!(length > 0 && width > 0 && height > 0 && w > 0)) return true;
-      if ((group.packMode || 'single') !== 'multiple' || boxCount <= 1) return false;
+      if ((group.packMode || 'single') !== 'multiple') return false;
       if (contentInformationSource !== 'BOX_CONTENT_PROVIDED') return false;
 
       const items = Array.isArray(group.items) ? group.items : [];

@@ -959,14 +959,10 @@ const fetchPartneredQuote = useCallback(
         return;
       }
 
-      const hasPerBoxItems = Array.isArray(g.perBoxItems) && g.perBoxItems.length > 0;
-      const hasPerBoxDetails = Array.isArray(g.perBoxDetails) && g.perBoxDetails.length > 0;
-      const normalizedPackMode =
-        g.packMode ||
-        (hasPerBoxItems || hasPerBoxDetails || count > 1 ? "multiple" : "single");
+      const normalizedPackMode = g.packMode || "single";
       const contentInformationSource =
         g.contentInformationSource ||
-        (hasPerBoxItems ? "BOX_CONTENT_PROVIDED" : normalizedPackMode === "multiple" ? "BOX_CONTENT_PROVIDED" : null);
+        (normalizedPackMode === "multiple" ? "BOX_CONTENT_PROVIDED" : null);
       packingGroupsPayload.push({
         packingGroupId,
         boxes: count,
