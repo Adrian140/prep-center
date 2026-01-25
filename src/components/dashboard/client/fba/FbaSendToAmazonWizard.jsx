@@ -1019,11 +1019,16 @@ const fetchPartneredQuote = useCallback(
       // forțează o reîmprospătare rapidă a packing groups ca să nu trimitem ID-uri vechi
       const refreshRes = await refreshPackingGroups();
       if (!refreshRes?.ok) {
-        const trace = refreshRes?.traceId ? ` TraceId ${refreshRes.traceId}` : '';
-        throw new Error(
-          refreshRes?.message ||
-          `Packing groups nu sunt gata încă.${trace}`
-        );
+        // dacă avem deja packing groups încărcate în UI, nu mai blocăm user-ul; continuăm cu ceea ce avem
+        const hasLocalGroups = Array.isArray(packGroups) && packGroups.length > 0;
+        if (!hasLocalGroups) {
+          const trace = refreshRes?.traceId ? ` TraceId ${refreshRes.traceId}` : '';
+          throw new Error(
+            refreshRes?.message ||
+            `Packing groups nu sunt gata încă.${trace}`
+          );
+        }
+        console.warn('Proceeding with existing packing groups because Amazon refresh not ready', refreshRes);
       }
 
       const { data, error } = await supabase.functions.invoke('fba-set-packing-information', {
