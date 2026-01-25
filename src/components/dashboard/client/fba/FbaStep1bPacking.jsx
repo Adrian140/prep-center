@@ -72,8 +72,8 @@ export default function FbaStep1bPacking({
   const [drafts, setDrafts] = useState({});
   const [continueError, setContinueError] = useState('');
   const [activeWebFormGroupId, setActiveWebFormGroupId] = useState(null);
+  const [isWebFormOpen, setIsWebFormOpen] = useState(false);
   const lastActiveGroupRef = useRef(null);
-  const webFormDismissedRef = useRef(false);
 
   const contentOptions = [
     { value: 'BOX_CONTENT_PROVIDED', label: 'Enter through a web form', enabled: true },
@@ -92,28 +92,21 @@ export default function FbaStep1bPacking({
   useEffect(() => {
     if (!activeWebFormGroupId) return;
     const activeGroup = visibleGroups.find((g) => getGroupKey(g) === activeWebFormGroupId);
-    if (activeGroup) {
-      lastActiveGroupRef.current = activeGroup;
-    }
+    if (activeGroup) lastActiveGroupRef.current = activeGroup;
   }, [activeWebFormGroupId, visibleGroups]);
 
-  useEffect(() => {
-    if (activeWebFormGroupId) return;
-    if (!webFormDismissedRef.current && lastActiveGroupRef.current) {
-      const key = getGroupKey(lastActiveGroupRef.current);
-      if (key) setActiveWebFormGroupId(key);
-    }
-  }, [activeWebFormGroupId]);
-
-  const openWebForm = (groupKey) => {
-    if (!groupKey) return;
-    webFormDismissedRef.current = false;
-    setActiveWebFormGroupId(groupKey);
+  const openWebForm = (group) => {
+    const key = getGroupKey(group);
+    if (!key) return;
+    lastActiveGroupRef.current = group;
+    setActiveWebFormGroupId(key);
+    setIsWebFormOpen(true);
   };
 
   const closeWebForm = () => {
-    webFormDismissedRef.current = true;
+    setIsWebFormOpen(false);
     setActiveWebFormGroupId(null);
+    lastActiveGroupRef.current = null;
   };
 
   const commitDraft = (group, fields) => {
@@ -1063,7 +1056,7 @@ export default function FbaStep1bPacking({
                   <div className="flex flex-wrap items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => openWebForm(getGroupKey(group))}
+                        onClick={() => openWebForm(group)}
                         disabled={resolveBoxState(group).contentInformationSource !== 'BOX_CONTENT_PROVIDED'}
                         className={`inline-flex items-center gap-2 text-sm px-3 py-2 rounded-md ${
                           resolveBoxState(group).contentInformationSource === 'BOX_CONTENT_PROVIDED'
@@ -1096,7 +1089,7 @@ export default function FbaStep1bPacking({
         </div>
 
       </div>
-      {activeWebFormGroupId &&
+      {isWebFormOpen &&
         (() => {
           const activeGroup = visibleGroups.find(
             (g) => getGroupKey(g) === activeWebFormGroupId
