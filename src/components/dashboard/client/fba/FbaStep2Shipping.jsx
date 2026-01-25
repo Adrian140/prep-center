@@ -6,6 +6,8 @@ export default function FbaStep2Shipping({
   hazmat = false,
   fetchPartneredQuote, // optional async ({ method, hazmat }) => { allowed: boolean; rate: number; reason?: string }
   forcePartneredOnly = false,
+  carrierTouched = false,
+  shippingConfirmed = false,
   onCarrierChange,
   onModeChange,
   onPalletDetailsChange,
@@ -23,13 +25,17 @@ export default function FbaStep2Shipping({
     typeof carrier?.rate === 'number' ? carrier.rate : null
   );
   const safeCarrier = carrier || { partnered: null, name: '', rate: null };
+  const carrierReady = carrierTouched || shippingConfirmed;
   const normalizedCarrier = useMemo(() => {
     const name = String(safeCarrier.name || '').trim();
+    if (!carrierReady) {
+      return { ...safeCarrier, partnered: null, name: '' };
+    }
     if (safeCarrier.partnered === false && !name) {
       return { ...safeCarrier, partnered: null, name: '' };
     }
     return safeCarrier;
-  }, [safeCarrier]);
+  }, [carrierReady, safeCarrier]);
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
@@ -135,11 +141,6 @@ export default function FbaStep2Shipping({
     (normalizedCarrier.partnered ? allowPartnered : allowNonPartnered) &&
     (!needsTerms || acceptedTerms) &&
     hasCarrierSelection;
-
-  useEffect(() => {
-    if (allowPartnered || !allowNonPartnered || normalizedCarrier.partnered !== false) return;
-    onCarrierChange?.({ partnered: false, name: normalizedCarrier.name || '' });
-  }, [allowPartnered, allowNonPartnered, normalizedCarrier.partnered, normalizedCarrier.name, onCarrierChange]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">

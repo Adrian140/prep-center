@@ -164,6 +164,8 @@ export default function FbaSendToAmazonWizard({
   const [currentStep, setCurrentStep] = useState('1');
   const [completedSteps, setCompletedSteps] = useState([]);
   const [plan, setPlan] = useState(initialPlan);
+  const [carrierTouched, setCarrierTouched] = useState(false);
+  const [shippingConfirmed, setShippingConfirmed] = useState(false);
   const allowPersistence = false; // forțează reluarea workflow-ului de la Step 1; nu restaurăm din localStorage
   const normalizePackGroups = useCallback((groups = []) =>
     (Array.isArray(groups) ? groups : [])
@@ -1490,6 +1492,11 @@ const fetchPartneredQuote = useCallback(
       setShippingOptions(json.options || []);
       setShippingSummary(json.summary || null);
       shippingRetryRef.current = 0;
+      if (json?.summary?.alreadyConfirmed) {
+        setShippingConfirmed(true);
+        setCarrierTouched(true);
+        setCompletedSteps((prev) => (prev.includes('2') ? prev : [...prev, '2']));
+      }
       if (Array.isArray(json.shipments) && json.shipments.length) {
         const fallbackShipments = deriveShipmentsFromPacking(shipments);
         const fallbackById = new Map(
@@ -1606,6 +1613,8 @@ const fetchPartneredQuote = useCallback(
       }
       setShippingOptions(json.options || []);
       setShippingSummary(json.summary || null);
+      setShippingConfirmed(true);
+      setCarrierTouched(true);
       completeAndNext('2');
     } catch (e) {
       const detail =
@@ -1709,6 +1718,7 @@ const fetchPartneredQuote = useCallback(
   }, [packGroups, plan?.shipFrom, plan?.marketplace, shipments]);
 
   const handleCarrierChange = (carrier) => {
+    setCarrierTouched(true);
     setShipmentMode((prev) => ({ ...prev, carrier }));
     invalidateFrom('2');
   };
@@ -2019,12 +2029,17 @@ const fetchPartneredQuote = useCallback(
       setTracking([]);
       setPackingOptionId(null);
       setPlacementOptionId(null);
+      setCarrierTouched(false);
+      setShippingConfirmed(false);
     } else if (stepKey === '1b') {
       setShipments([]);
       setTracking([]);
       setPackGroupsLoaded(false);
+      setCarrierTouched(false);
+      setShippingConfirmed(false);
     } else if (stepKey === '2') {
       setTracking([]);
+      setShippingConfirmed(false);
     }
   };
 
@@ -2209,6 +2224,8 @@ const fetchPartneredQuote = useCallback(
             shipments,
             warning
           }}
+          carrierTouched={carrierTouched}
+          shippingConfirmed={shippingConfirmed}
           fetchPartneredQuote={fetchPartneredQuote}
           forcePartneredOnly={forcePartneredOnly}
           onCarrierChange={handleCarrierChange}
@@ -2282,9 +2299,9 @@ const fetchPartneredQuote = useCallback(
   }, [shipments, tracking]);
 
   const isCompleted = (key) => completedSteps.includes(key);
-  const step2Complete = isCompleted('2');
-  const step3Complete = isCompleted('3');
-  const step4Complete = isCompleted('4');
+  const step2Complete = isCompleted('2') && shippingConfirmed;
+  const step3Complete = isCompleted('3') && Boolean(labelFormat);
+  const step4Complete = isCompleted('4') && trackingSummary.tracked > 0;
 
   const StepRow = ({ stepKey, title, subtitle, summary }) => {
     const active = currentStep === stepKey;
