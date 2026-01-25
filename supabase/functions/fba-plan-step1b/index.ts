@@ -1425,7 +1425,7 @@ serve(async (req) => {
       );
     }
 
-    // Fetch metadata for SKUs to show images/titles in UI
+    // Fetch metadata for SKUs + confirmed quantities from DB
     const fetchSkuMeta = async () => {
       const { data: prepItems } = await supabase
         .from("prep_request_items")
@@ -1456,19 +1456,20 @@ serve(async (req) => {
           .select("id, sku, image_url")
           .in("id", stockIds);
         if (Array.isArray(stockRows)) {
-          stockById = stockRows.reduce((acc: Record<number, { image_url?: string | null; sku?: string | null }>, row: any) => {
+          stockById = stockRows.reduce((acc: any, row: any) => {
             acc[row.id] = row;
             return acc;
           }, {});
         }
       }
+
       if (skuList.length) {
         const { data: stockRowsBySku } = await supabase
           .from("stock_items")
           .select("id, sku, image_url")
           .in("sku", skuList);
         if (Array.isArray(stockRowsBySku)) {
-          stockBySku = stockRowsBySku.reduce((acc: Record<string, { image_url?: string | null; sku?: string | null }>, row: any) => {
+          stockBySku = stockRowsBySku.reduce((acc: any, row: any) => {
             const key = normalizeSku(row.sku);
             if (key) acc[key] = row;
             return acc;
@@ -1476,27 +1477,31 @@ serve(async (req) => {
         }
       }
 
-      const skuMeta = new Map<
-        string,
-        { title: string | null; image: string | null; defaultQty: number }
-      >();
+      const skuMeta = new Map<string, { title: string | null; image: string | null; defaultQty: number }>();
+      const confirmedQuantities: Record<string, number> = {};
+
       (prepItems || []).forEach((it: any) => {
         const skuKey = normalizeSku(it.sku);
         if (!skuKey) return;
-        const qty = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
+
+        const confirmedQty = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
+        confirmedQuantities[skuKey] = confirmedQty;
+
         const fromId = it.stock_item_id ? stockById[it.stock_item_id] : null;
         const fromSku = stockBySku[skuKey] || null;
         const image = fromId?.image_url || fromSku?.image_url || null;
+
         skuMeta.set(skuKey, {
           title: it.product_name || skuKey,
           image,
-          defaultQty: qty
+          defaultQty: confirmedQty
         });
       });
-      return skuMeta;
+
+      return { skuMeta, confirmedQuantities };
     };
 
-    const skuMeta = await fetchSkuMeta();
+    const { skuMeta, confirmedQuantities } = await fetchSkuMeta();
 
     // Normalize packing groups for UI (ensure id/boxes/packMode fields exist) and decorate items
     const normalizeItems = (items: any[] = []) =>
@@ -1579,6 +1584,25 @@ serve(async (req) => {
     }
 
     const effectivePackingGroups = normalizedPackingGroups;
+
+    // Compare confirmed quantities (DB) vs quantities in packing groups (Amazon)
+    const summedFromAmazon: Record<string, number> = {};
+    (effectivePackingGroups || []).forEach((g: any) => {
+      (g?.items || []).forEach((it: any) => {
+        const sku = normalizeSku(it?.sku || it?.msku || "");
+        const q = Number(it?.quantity || 0) || 0;
+        if (!sku) return;
+        summedFromAmazon[sku] = (summedFromAmazon[sku] || 0) + q;
+      });
+    });
+
+    const quantityMismatches = Object.keys(confirmedQuantities || {})
+      .map((sku) => {
+        const confirmed = Number(confirmedQuantities[sku] || 0) || 0;
+        const amazon = Number(summedFromAmazon[sku] || 0) || 0;
+        return { sku, confirmed, amazon, delta: amazon - confirmed };
+      })
+      .filter((r) => r.delta !== 0);
 
     try {
       console.log(
@@ -1688,7 +1712,9 @@ serve(async (req) => {
         requestId: listRes?.requestId || genRes?.requestId || planCheck.requestId || null,
         warning,
         packingConfirmDenied,
-        amazonIntegrationId: integId || null
+        amazonIntegrationId: integId || null,
+        confirmedQuantities,
+        quantityMismatches
       }),
       { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
     );

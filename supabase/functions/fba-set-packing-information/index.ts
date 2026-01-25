@@ -756,6 +756,63 @@ serve(async (req) => {
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
+
+    // Server-side guard: payload quantities must match confirmed quantities from DB
+    const { data: dbItems, error: dbItemsErr } = await supabase
+      .from("prep_request_items")
+      .select("sku, units_sent, units_requested")
+      .eq("prep_request_id", requestId);
+
+    if (dbItemsErr) {
+      return new Response(JSON.stringify({ error: "Unable to load confirmed quantities", traceId }), {
+        status: 500,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+
+    const confirmed: Record<string, number> = {};
+    (dbItems || []).forEach((it: any) => {
+      const sku = String(it?.sku || "").trim();
+      if (!sku) return;
+      confirmed[sku] = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
+    });
+
+    const summed: Record<string, number> = {};
+    (packageGroupings || []).forEach((g: any) => {
+      (g?.boxes || []).forEach((b: any) => {
+        if (b?.contentInformationSource !== "BOX_CONTENT_PROVIDED") return;
+        (b?.items || []).forEach((it: any) => {
+          const sku = String(it?.msku || "").trim();
+          const q = Number(it?.quantity || 0) || 0;
+          if (!sku || q <= 0) return;
+          const boxQty = Number(b?.quantity || 1) || 1;
+          summed[sku] = (summed[sku] || 0) + q * boxQty;
+        });
+      });
+    });
+
+    const mismatches = Object.keys(confirmed)
+      .map((sku) => {
+        const c = Number(confirmed[sku] || 0) || 0;
+        const p = Number(summed[sku] || 0) || 0;
+        return { sku, confirmed: c, payload: p, delta: p - c };
+      })
+      .filter((r) => r.delta !== 0);
+    const extraSkus = Object.keys(summed).filter((sku) => !(sku in confirmed));
+
+    if (mismatches.length || extraSkus.length) {
+      return new Response(
+        JSON.stringify({
+          error: "Packing quantities mismatch between confirmed inventory (Step 1) and packing payload (Step 1b).",
+          code: "PACKING_QTY_MISMATCH",
+          traceId,
+          mismatches,
+          extraSkus
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
     if (!userIsAdmin) {
       const isOwner = !!reqData.user_id && reqData.user_id === user.id;
       const isCompanyMember = !!reqData.company_id && !!userCompanyId && reqData.company_id === userCompanyId;
