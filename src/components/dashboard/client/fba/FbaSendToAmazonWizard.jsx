@@ -174,6 +174,8 @@ export default function FbaSendToAmazonWizard({
             quantity: Number(it.quantity || it.units || 0) || 0,
             image: it.image || it.thumbnail || it.main_image || it.img || null,
             title: it.title || it.name || null,
+            // stochează labelOwner din Amazon ca să nu-l suprascriem în payload
+            apiLabelOwner: it.labelOwner || it.label_owner || it.label || null,
             expiration:
               it.expiration ||
               it.expiry ||
@@ -961,7 +963,8 @@ const fetchPartneredQuote = useCallback(
                 it.expirationDate ||
                 null,
               prepOwner: it.prepOwner || it.prep_owner || it.prep || null,
-              labelOwner: it.labelOwner || it.label_owner || it.label || null
+              // dacă avem valoarea din Amazon, trimite-o prioritar
+              labelOwner: it.apiLabelOwner || it.labelOwner || it.label_owner || it.label || null
             }))
           : []
       });
