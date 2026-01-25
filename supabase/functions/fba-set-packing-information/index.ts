@@ -226,21 +226,11 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
     });
 
     const rawItems =
-      Array.isArray(g?.items) && g.items.length
-        ? g.items.map((it: any) => {
-            const sku = normalizeSku(it?.msku || it?.sku || "");
-            const expected = expectedBySku.get(sku.toUpperCase());
-            if (expected) {
-              return {
-                ...it,
-                ...expected,
-                // păstrează prepInstructions de la UI dacă există, altfel cele așteptate
-                prepInstructions: it?.prepInstructions || expected?.prepInstructions || []
-              };
-            }
-            return it;
-          })
-        : expectedItemsRaw;
+      expectedItemsRaw.length
+        ? expectedItemsRaw
+        : Array.isArray(g?.items) && g.items.length
+          ? g.items
+          : [];
 
     items = rawItems.map(normalizeItem).filter(Boolean);
     if (items.length) {
@@ -570,6 +560,97 @@ async function signedFetchWithRetry(opts: Parameters<typeof signedFetch>[0], max
   return last;
 }
 
+async function fetchPackingGroupItems(opts: {
+  inboundPlanId: string;
+  packingGroupId: string;
+  awsRegion: string;
+  host: string;
+  accessKey: string;
+  secretKey: string;
+  sessionToken?: string | null;
+  lwaToken: string;
+  traceId: string;
+  marketplaceId: string;
+  sellerId: string;
+}) {
+  const basePath = "/inbound/fba/2024-03-20";
+  const res = await signedFetchWithRetry({
+    method: "GET",
+    service: "execute-api",
+    region: opts.awsRegion,
+    host: opts.host,
+    path: `${basePath}/inboundPlans/${encodeURIComponent(opts.inboundPlanId)}/packingGroups/${encodeURIComponent(
+      opts.packingGroupId
+    )}/items`,
+    query: "",
+    payload: "",
+    accessKey: opts.accessKey,
+    secretKey: opts.secretKey,
+    sessionToken: opts.sessionToken,
+    lwaToken: opts.lwaToken,
+    traceId: opts.traceId,
+    operationName: "inbound.v20240320.listPackingGroupItems",
+    marketplaceId: opts.marketplaceId,
+    sellerId: opts.sellerId
+  });
+
+  if (!res?.res?.ok) {
+    throw new Error(`listPackingGroupItems failed (${res?.res?.status || "unknown"}): ${res?.text || ""}`);
+  }
+  const items = (res?.json?.items || res?.json?.payload?.items || []) as any[];
+  return Array.isArray(items) ? items : [];
+}
+
+async function attachExpectedItemsToPackingGroups(opts: {
+  inboundPlanId: string;
+  packingGroups: any[];
+  awsRegion: string;
+  host: string;
+  accessKey: string;
+  secretKey: string;
+  sessionToken?: string | null;
+  lwaToken: string;
+  traceId: string;
+  marketplaceId: string;
+  sellerId: string;
+}) {
+  const groups = Array.isArray(opts.packingGroups) ? opts.packingGroups : [];
+  const ids = Array.from(
+    new Set(
+      groups
+        .map((g: any) => g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null)
+        .filter((id: string | null) => id && !String(id).toLowerCase().startsWith("fallback-"))
+        .map((id: string) => String(id))
+    )
+  );
+
+  const expectedByGroup = new Map<string, any[]>();
+  await Promise.all(
+    ids.map(async (packingGroupId) => {
+      const items = await fetchPackingGroupItems({
+        inboundPlanId: opts.inboundPlanId,
+        packingGroupId,
+        awsRegion: opts.awsRegion,
+        host: opts.host,
+        accessKey: opts.accessKey,
+        secretKey: opts.secretKey,
+        sessionToken: opts.sessionToken,
+        lwaToken: opts.lwaToken,
+        traceId: opts.traceId,
+        marketplaceId: opts.marketplaceId,
+        sellerId: opts.sellerId
+      });
+      expectedByGroup.set(packingGroupId, items);
+    })
+  );
+
+  return groups.map((g: any) => {
+    const id = g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
+    if (!id) return g;
+    return { ...g, expectedItems: expectedByGroup.get(String(id)) || [] };
+  });
+}
+
 serve(async (req) => {
   const traceId = crypto.randomUUID();
   const origin = req.headers.get("origin") || "*";
@@ -730,9 +811,7 @@ serve(async (req) => {
       (Array.isArray(body?.packingGroups) && body.packingGroups) ||
       [];
     const directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
-    const packageGroupings = directGroupings.length
-      ? directGroupings
-      : buildPackageGroupingsFromPackingGroups(packingGroupsInput);
+    let packageGroupings: any[] = [];
     if (!requestId || !inboundPlanId) {
       return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare", traceId }), {
         status: 400,
@@ -745,48 +824,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
-    if (!packageGroupings.length) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "Nu am putut construi packageGroupings valide. Trimite packingGroups (cu dims/weight/items) din Step1b sau trimite direct packageGroupings în format SP-API.",
-          traceId
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "content-type": "application/json" }
-        }
-      );
-    }
 
-  // Validare minimă pe schema reală: packageGroupings[].boxes[].dimensions.unitOfMeasurement + weight.unit/value
-  const invalidGrouping = packageGroupings.find((g: any) => {
-    if (!g?.packingGroupId) return true;
-    if (!Array.isArray(g?.boxes) || !g.boxes.length) return true;
-    return g.boxes.some((b: any) => {
-      const d = b?.dimensions || {};
-      const w = b?.weight || {};
-      const uom = d?.unitOfMeasurement;
-      if (!(Number(d.length) > 0 && Number(d.width) > 0 && Number(d.height) > 0)) return true;
-      if (!(typeof uom === "string" && uom.length)) return true;
-      if (!(Number(w.value) > 0 && typeof w.unit === "string" && w.unit.length)) return true;
-      if (!(Number(b?.quantity) > 0)) return true;
-      if (b?.contentInformationSource === "BOX_CONTENT_PROVIDED") {
-        if (!Array.isArray(b?.items) || !b.items.length) return true;
-        const badContent = b.items.some((c: any) => !(c?.msku && Number(c?.quantity) > 0));
-        if (badContent) return true;
-      } else {
-        if (Array.isArray(b?.items) && b.items.length) return true;
-      }
-      return false;
-    });
-  });
-    if (invalidGrouping) {
-      return new Response(JSON.stringify({ error: "packageGroupings are invalid (missing boxes dimensions/weight/items)", traceId }), {
-        status: 400,
-        headers: { ...corsHeaders, "content-type": "application/json" }
-      });
-    }
 
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
@@ -951,6 +989,78 @@ serve(async (req) => {
 
     const tempCreds = await assumeRole(SPAPI_ROLE_ARN);
     const lwaAccessToken = await getLwaAccessToken(refreshToken);
+
+    if (directGroupings.length) {
+      packageGroupings = directGroupings;
+    } else {
+      try {
+        const hydratedGroups = await attachExpectedItemsToPackingGroups({
+          inboundPlanId,
+          packingGroups: packingGroupsInput,
+          awsRegion,
+          host,
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          marketplaceId,
+          sellerId
+        });
+        packageGroupings = buildPackageGroupingsFromPackingGroups(hydratedGroups);
+      } catch (err) {
+        console.error("fetch packing group items failed", { traceId, error: err });
+        return new Response(
+          JSON.stringify({
+            error: "Nu am putut citi packing group items din Amazon. Reincearca in cateva secunde.",
+            traceId
+          }),
+          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+    }
+    if (!packageGroupings.length) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Nu am putut construi packageGroupings valide. Trimite packingGroups (cu dims/weight) din Step1b sau trimite direct packageGroupings în format SP-API.",
+          traceId
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        }
+      );
+    }
+
+    // Validare minimă pe schema reală: packageGroupings[].boxes[].dimensions.unitOfMeasurement + weight.unit/value
+    const invalidGrouping = packageGroupings.find((g: any) => {
+      if (!g?.packingGroupId) return true;
+      if (!Array.isArray(g?.boxes) || !g.boxes.length) return true;
+      return g.boxes.some((b: any) => {
+        const d = b?.dimensions || {};
+        const w = b?.weight || {};
+        const uom = d?.unitOfMeasurement;
+        if (!(Number(d.length) > 0 && Number(d.width) > 0 && Number(d.height) > 0)) return true;
+        if (!(typeof uom === "string" && uom.length)) return true;
+        if (!(Number(w.value) > 0 && typeof w.unit === "string" && w.unit.length)) return true;
+        if (!(Number(b?.quantity) > 0)) return true;
+        if (b?.contentInformationSource === "BOX_CONTENT_PROVIDED") {
+          if (!Array.isArray(b?.items) || !b.items.length) return true;
+          const badContent = b.items.some((c: any) => !(c?.msku && Number(c?.quantity) > 0));
+          if (badContent) return true;
+        } else {
+          if (Array.isArray(b?.items) && b.items.length) return true;
+        }
+        return false;
+      });
+    });
+    if (invalidGrouping) {
+      return new Response(JSON.stringify({ error: "packageGroupings are invalid (missing boxes dimensions/weight/items)", traceId }), {
+        status: 400,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
 
     const basePath = "/inbound/fba/2024-03-20";
     console.log("set-packing payload-meta", {
