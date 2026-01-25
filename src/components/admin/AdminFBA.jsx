@@ -412,23 +412,26 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
             ) : (
               (() => {
                 const normalizeId = (val) => (val || '').trim();
-                const groups = [];
-                const seen = new Set();
+                const groupsMap = new Map();
+                const groupsArr = [];
+
                 (orderedRows || []).forEach((row, idx) => {
                   const { id: parsedId, note } = splitObs(row.obs_admin);
-                  const key = normalizeId(parsedId) || '—';
-                  if (!seen.has(key)) {
-                    groups.push({ key, order: idx, items: [] });
-                    seen.add(key);
+                  const normalized = normalizeId(parsedId);
+                  const key = normalized ? normalized : `__noid__:${row.id}`;
+                  if (!groupsMap.has(key)) {
+                    const g = { key, order: idx, items: [] };
+                    groupsMap.set(key, g);
+                    groupsArr.push(g);
                   }
-                  const grp = groups.find((g) => g.key === key);
-                  grp.items.push({ ...row, _note: note, _parsedId: parsedId });
+                  groupsMap.get(key).items.push({ ...row, _note: note, _parsedId: parsedId });
                 });
-                return groups.map((group) => (
+
+                return groupsArr.map((group) => (
                   <React.Fragment key={group.key || group.order}>
-                    <tr className="bg-slate-50/70 border-t border-slate-200">
-                      <td colSpan={8} className="px-3 py-2 text-sm text-text-primary font-semibold">
-                        {group.key && group.key !== '—' ? (
+                    {!group.key.startsWith('__noid__') && (
+                      <tr className="bg-slate-50/70 border-t border-slate-200">
+                        <td colSpan={8} className="px-3 py-2 text-sm text-text-primary font-semibold">
                           <span className="inline-flex items-center gap-2">
                             <span className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold uppercase">
                               {group.key}
@@ -438,11 +441,9 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
                               {resolveGroupLinesLabel(group.items.length)}
                             </span>
                           </span>
-                        ) : (
-                          <span className="text-text-secondary">{resolveNoIdLabel()}</span>
-                        )}
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                    )}
                     {group.items.map((l, idx) => {
                       const isFirst = idx === 0;
                       const isLast = idx === group.items.length - 1;
