@@ -240,6 +240,8 @@ export default function FbaSendToAmazonWizard({
           : null;
       const incomingWeight = getPositiveNumber(g.boxWeight);
       const existingWeight = getPositiveNumber(existing.boxWeight);
+      const resolvedPackMode = g.packMode ?? existing.packMode ?? 'single';
+      const resolvedContentSource = g.contentInformationSource || existing.contentInformationSource || null;
       return {
         ...existing,
         ...g,
@@ -248,10 +250,11 @@ export default function FbaSendToAmazonWizard({
         boxDimensions: resolvedDims,
         boxWeight: incomingWeight ?? existingWeight ?? null,
         boxes: g.boxes ?? existing.boxes ?? 1,
+        packMode: resolvedPackMode,
         packingConfirmed: g.packingConfirmed || existing.packingConfirmed || false,
         perBoxDetails: g.perBoxDetails || existing.perBoxDetails || null,
         perBoxItems: g.perBoxItems || existing.perBoxItems || null,
-        contentInformationSource: g.contentInformationSource || existing.contentInformationSource || null
+        contentInformationSource: resolvedContentSource
       };
     });
   }, [getPackGroupKey, getPackGroupSignature]);
