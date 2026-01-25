@@ -533,7 +533,6 @@ export default function FbaStep1bPacking({
                 onClick={() => {
                   const next = Math.min(10, boxCount + 1);
                   setDraftValue(key, { boxes: next });
-                  onUpdateGroup(key, { boxes: next });
                 }}
                 className="border border-slate-200 rounded px-2 py-1 hover:border-slate-300"
               >
@@ -544,7 +543,6 @@ export default function FbaStep1bPacking({
                 onClick={() => {
                   const next = Math.max(1, boxCount - 1);
                   setDraftValue(key, { boxes: next });
-                  onUpdateGroup(key, { boxes: next });
                 }}
                 className="border border-slate-200 rounded px-2 py-1 hover:border-slate-300"
               >
@@ -590,7 +588,6 @@ export default function FbaStep1bPacking({
                               step="1"
                               value={perBoxMatrix?.[boxIdx]?.[item.key] ?? ''}
                               onChange={(e) => updateBoxQty(boxIdx, item.key, e.target.value)}
-                              onBlur={commitItems}
                               className="border rounded-md px-2 py-1 w-20"
                             />
                           </td>
@@ -613,7 +610,6 @@ export default function FbaStep1bPacking({
                     step="0.1"
                     value={perBoxDetails?.[idx]?.weight ?? ''}
                     onChange={(e) => updateBoxDetails(idx, 'weight', e.target.value)}
-                    onBlur={() => commitDraft(group, ["perBoxDetails"])}
                     className="border rounded-md px-2 py-1 w-20"
                     placeholder={`Box ${idx + 1}`}
                   />
@@ -647,7 +643,6 @@ export default function FbaStep1bPacking({
                         next[setIdx] = { ...next[setIdx], [field]: e.target.value };
                         updateDimensionSets(next);
                       }}
-                      onBlur={() => commitDraft(group, ["dimensionSets", "perBoxDetails"])}
                       className="border rounded-md px-2 py-1 w-20"
                       placeholder={field.toUpperCase()}
                     />
