@@ -228,8 +228,9 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
             const expected = expectedBySku.get(sku.toUpperCase());
             if (expected) {
               return {
-                ...expected,
                 ...it,
+                ...expected,
+                // păstrează prepInstructions de la UI dacă există, altfel cele așteptate
                 prepInstructions: it?.prepInstructions || expected?.prepInstructions || []
               };
             }
