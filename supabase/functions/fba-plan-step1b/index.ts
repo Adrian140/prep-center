@@ -1610,9 +1610,41 @@ serve(async (req) => {
 
     const warning = warnings.length ? warnings.join(" ") : null;
 
-    // Persist inbound/placement IDs + packing snapshot to avoid losing context between steps
+    // Persist inbound/placement IDs + packing snapshot to avoid losing context between steps.
+    // Nu suprascrie dimensiunile/greutatea dacă SP-API nu le furnizează.
     try {
       const snapshotBase = (reqData as any)?.amazon_snapshot || {};
+      const prevGroups =
+        Array.isArray(snapshotBase?.fba_inbound?.packingGroups) && snapshotBase.fba_inbound.packingGroups.length
+          ? snapshotBase.fba_inbound.packingGroups
+          : [];
+      const prevById = new Map<string, any>();
+      prevGroups.forEach((pg: any) => {
+        const id = pg?.packingGroupId || pg?.id;
+        if (id) prevById.set(String(id), pg);
+      });
+      const mergedGroups = (effectivePackingGroups || []).map((g: any) => {
+        const prev = prevById.get(String(g.packingGroupId || g.id)) || null;
+        if (!prev) return g;
+        const prevDims =
+          prev.boxDimensions ||
+          prev.dimensions ||
+          (prev.length && prev.width && prev.height
+            ? {
+                length: prev.length,
+                width: prev.width,
+                height: prev.height,
+                unitOfMeasurement: prev.unit || prev.unitOfMeasurement || "IN"
+              }
+            : null);
+        const prevWeight = prev.boxWeight || prev.weight || prev.weightLb || null;
+        return {
+          ...g,
+          dimensions: g.dimensions ?? prevDims ?? null,
+          weight: g.weight ?? prevWeight ?? null
+        };
+      });
+
       const nextSnapshot = {
         ...(snapshotBase || {}),
         fba_inbound: {
@@ -1621,7 +1653,7 @@ serve(async (req) => {
           packingOptionId,
           placementOptionId,
           shipments: planShipments,
-          packingGroups: effectivePackingGroups,
+          packingGroups: mergedGroups,
           savedAt: new Date().toISOString()
         }
       };
