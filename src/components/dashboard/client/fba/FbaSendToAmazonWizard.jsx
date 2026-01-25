@@ -1416,6 +1416,13 @@ const fetchPartneredQuote = useCallback(
         return !(dims && w);
       });
       if (missingPack) {
+        console.log('Step2 missing pack details', (packGroups || []).map((g) => ({
+          packingGroupId: g?.packingGroupId || g?.id || null,
+          packMode: g?.packMode || null,
+          perBoxDetailsCount: Array.isArray(g?.perBoxDetails) ? g.perBoxDetails.length : 0,
+          boxDimensions: g?.boxDimensions || null,
+          boxWeight: g?.boxWeight ?? null
+        })));
         setShippingError('Completează greutatea și dimensiunile (L/W/H) pentru toate cutiile înainte de a cere tariful.');
         return;
       }
