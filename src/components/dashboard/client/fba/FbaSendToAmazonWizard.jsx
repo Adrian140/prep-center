@@ -2276,6 +2276,9 @@ const fetchPartneredQuote = useCallback(
   }, [shipments, tracking]);
 
   const isCompleted = (key) => completedSteps.includes(key);
+  const step2Complete = isCompleted('2');
+  const step3Complete = isCompleted('3');
+  const step4Complete = isCompleted('4');
 
   const StepRow = ({ stepKey, title, subtitle, summary }) => {
     const active = currentStep === stepKey;
@@ -2345,20 +2348,28 @@ const fetchPartneredQuote = useCallback(
         <StepRow
           stepKey="2"
           title="Step 2 - Confirm shipping"
-          subtitle={`Destinations: ${shipmentSummary.dests} · Method: ${shipmentSummary.method} · Carrier: ${shipmentSummary.carrierName}`}
-          summary={shipmentMode?.deliveryDate ? `Delivery date: ${shipmentMode.deliveryDate}` : null}
+          subtitle={
+            step2Complete
+              ? `Destinations: ${shipmentSummary.dests} · Method: ${shipmentSummary.method} · Carrier: ${shipmentSummary.carrierName}`
+              : 'Not started'
+          }
+          summary={step2Complete && shipmentMode?.deliveryDate ? `Delivery date: ${shipmentMode.deliveryDate}` : null}
         />
         <StepRow
           stepKey="3"
           title="Step 3 - Box labels printed"
-          subtitle={`Shipments: ${shipments?.length || 0}`}
-          summary={`Label format: ${labelFormat}`}
+          subtitle={step3Complete ? `Shipments: ${shipments?.length || 0}` : 'Not started'}
+          summary={step3Complete ? `Label format: ${labelFormat}` : null}
         />
         <StepRow
           stepKey="4"
           title="Final step: Tracking details"
-          subtitle={`Boxes: ${trackingSummary.totalBoxes} · Tracking IDs: ${trackingSummary.tracked}`}
-          summary={trackingSummary.tracked ? 'Tracking captured' : 'Enter tracking details'}
+          subtitle={
+            step4Complete
+              ? `Boxes: ${trackingSummary.totalBoxes} · Tracking IDs: ${trackingSummary.tracked}`
+              : 'Not started'
+          }
+          summary={step4Complete ? 'Tracking captured' : null}
         />
       </div>
     </div>
