@@ -372,7 +372,7 @@ async function fetchAllStockItems(companyId, { filter } = {}) {
 async function syncToSupabase({ items, companyId, userId, seenSkus }) {
   if (items.length === 0) {
     console.log('Amazon returned no inventory rows. Nothing to sync.');
-    return { affected: 0, seenKeys: new Set() };
+    return { affected: 0, seenKeys: new Map() };
   }
 
   const existing = await fetchAllStockItems(companyId);
@@ -382,15 +382,27 @@ async function syncToSupabase({ items, companyId, userId, seenSkus }) {
     if (key) existingByKey.set(key, row);
   });
 
-  const seenKeys = seenSkus || new Set();
+  const seenKeys = seenSkus || new Map();
   const insertsOrUpdates = [];
   const inserts = [];
 
   for (const item of items) {
     const key = item.key;
     if (!key) continue;
-    if (seenKeys.has(key)) continue;
-    seenKeys.add(key);
+    const hasStock =
+      Number(item.amazon_stock || 0) > 0 ||
+      Number(item.amazon_inbound || 0) > 0 ||
+      Number(item.amazon_reserved || 0) > 0 ||
+      Number(item.amazon_unfulfillable || 0) > 0;
+    if (seenKeys.has(key)) {
+      const existingHasStock = Boolean(seenKeys.get(key));
+      if (existingHasStock) continue;
+      if (!hasStock) continue;
+      // Dacă anterior am văzut doar zero, dar acum există stoc, îl acceptăm.
+      seenKeys.set(key, true);
+    } else {
+      seenKeys.set(key, hasStock);
+    }
     const row = existingByKey.get(key);
     if (!row) {
       inserts.push({
@@ -595,7 +607,7 @@ async function main() {
       break;
     }
 
-    const seenSkus = companySeenKeys.get(integration.company_id) || new Set();
+    const seenSkus = companySeenKeys.get(integration.company_id) || new Map();
     const result = await syncIntegration(integration, seenSkus);
     if (!result || !result.companyId) continue;
     companySeenKeys.set(result.companyId, result.seenKeys || seenSkus);
