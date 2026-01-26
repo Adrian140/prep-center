@@ -327,6 +327,17 @@ async function updateStockRows(rows) {
   }
 }
 
+async function insertStockRows(rows) {
+  if (!rows.length) return;
+  const chunkSize = 500;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize).map((row) => ({ ...row }));
+    if (!chunk.length) continue;
+    const { error } = await supabase.from('stock_items').insert(chunk);
+    if (error) throw error;
+  }
+}
+
 async function cleanupInvalidRows(companyId) {
   // Nu mai ștergem automat rânduri; păstrăm stocurile manuale intacte.
   console.log(`[inventory] Skip cleanup for company ${companyId} (no deletes).`);
@@ -358,7 +369,7 @@ async function fetchAllStockItems(companyId, { filter } = {}) {
   return rows;
 }
 
-async function syncToSupabase({ items, companyId, seenSkus }) {
+async function syncToSupabase({ items, companyId, userId, seenSkus }) {
   if (items.length === 0) {
     console.log('Amazon returned no inventory rows. Nothing to sync.');
     return { affected: 0, seenKeys: new Set() };
@@ -373,6 +384,7 @@ async function syncToSupabase({ items, companyId, seenSkus }) {
 
   const seenKeys = seenSkus || new Set();
   const insertsOrUpdates = [];
+  const inserts = [];
 
   for (const item of items) {
     const key = item.key;
@@ -381,7 +393,17 @@ async function syncToSupabase({ items, companyId, seenSkus }) {
     seenKeys.add(key);
     const row = existingByKey.get(key);
     if (!row) {
-      // Nu creăm rânduri noi din inventar.
+      inserts.push({
+        company_id: companyId,
+        user_id: userId,
+        sku: item.sku || null,
+        asin: item.asin || null,
+        name: item.name || null,
+        amazon_stock: item.amazon_stock,
+        amazon_inbound: item.amazon_inbound,
+        amazon_reserved: item.amazon_reserved,
+        amazon_unfulfillable: item.amazon_unfulfillable
+      });
       continue;
     }
     // Actualizăm strict stocurile Amazon pe SKU.
@@ -395,6 +417,7 @@ async function syncToSupabase({ items, companyId, seenSkus }) {
   }
 
   await cleanupInvalidRows(companyId);
+  await insertStockRows(inserts);
   await updateStockRows(insertsOrUpdates);
   return { affected: insertsOrUpdates.length, seenKeys };
 }
@@ -506,6 +529,7 @@ async function syncIntegration(integration, seenSkus) {
     const stats = await syncToSupabase({
       items: normalized,
       companyId: integration.company_id,
+      userId: integration.user_id,
       seenSkus
     });
 
