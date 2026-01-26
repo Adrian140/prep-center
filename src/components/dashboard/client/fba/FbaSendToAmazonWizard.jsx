@@ -790,12 +790,17 @@ export default function FbaSendToAmazonWizard({
 const warning = useMemo(() => {
   if (!step2Loaded || shippingLoading) return null;
   const returnedModes = shippingSummary?.returnedModes || [];
+  const returnedSolutions = (shippingSummary?.returnedSolutions || []).map((s) => String(s || '').toUpperCase());
   const wantsSpd = String(shipmentMode?.method || '').toUpperCase() === 'SPD';
+  const hasPartnered = returnedSolutions.some((s) => s.includes('AMAZON_PARTNERED'));
   if (wantsSpd && returnedModes.length && !returnedModes.includes('GROUND_SMALL_PARCEL')) {
     return 'Amazon nu a returnat opțiuni SPD pentru aceste colete. Verifică dimensiuni/greutate sau alege LTL/FTL.';
   }
   if (shippingSummary && shippingSummary.partneredAllowed === false && !shippingSummary?.alreadyConfirmed) {
     return 'Amazon a indicat că transportul partenereat nu este disponibil pentru aceste expedieri.';
+  }
+  if (shippingSummary && !shippingSummary?.alreadyConfirmed && returnedSolutions.length && !hasPartnered) {
+    return 'Amazon nu a returnat AMAZON_PARTNERED_CARRIER. Next steps: verifică dimensiuni/greutate, contact information, packing options confirmate și regenerează transportation options.';
   }
   return null;
 }, [shippingSummary, shippingLoading, step2Loaded, shipmentMode?.method]);

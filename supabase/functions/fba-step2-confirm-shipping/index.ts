@@ -548,6 +548,11 @@ serve(async (req) => {
       forcePartneredIfAvailableRaw: body?.force_partnered_if_available ?? body?.forcePartneredIfAvailable ?? null,
       forcePartneredOnlyRaw: body?.force_partnered_only ?? body?.forcePartneredOnly ?? null
     });
+    logStep("shippingMode_resolved", {
+      traceId,
+      shippingModeInput,
+      effectiveShippingMode
+    });
 
     if (!requestId || !inboundPlanId) {
       return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare", traceId }), {
@@ -1401,6 +1406,32 @@ serve(async (req) => {
         const weightFromCfgUnit = weightFromPackagesUnit || weightFromPalletsUnit || null;
         const weightFromCfgKg =
           weightFromCfgUnit === "LB" ? lbToKg(weightFromCfg) : weightFromCfg || 0;
+        const contentsWeightRaw = contents?.weight ?? contents?.Weight ?? null;
+        const contentsWeightUnitRaw =
+          contents?.weight_unit ||
+          contents?.weightUnit ||
+          contents?.weightUnitOfMeasurement ||
+          contents?.weightUom ||
+          null;
+        const contentsWeight = Number(contentsWeightRaw);
+        const hasContentsWeight = Number.isFinite(contentsWeight) && contentsWeight > 0;
+        let resolvedWeight: number | null = null;
+        let resolvedWeightUnit: string | null = null;
+        if (hasContentsWeight) {
+          resolvedWeight = contentsWeight;
+          if (contentsWeightUnitRaw) {
+            resolvedWeightUnit = String(contentsWeightUnitRaw).toUpperCase();
+          } else if (weightFromCfg > 0) {
+            const diffLb = Math.abs(contentsWeight - weightFromCfg);
+            const diffKg = Math.abs(contentsWeight - weightFromCfgKg);
+            resolvedWeightUnit = diffKg < diffLb ? "KG" : weightFromCfgUnit || "LB";
+          } else {
+            resolvedWeightUnit = weightFromCfgUnit || "LB";
+          }
+        } else if (weightFromCfg > 0) {
+          resolvedWeight = weightFromCfg;
+          resolvedWeightUnit = weightFromCfgUnit || "LB";
+        }
         const boxesFromCfg = pkgList.length
           ? pkgList.length
           : palletList.length
@@ -1419,8 +1450,8 @@ serve(async (req) => {
           boxes: contents?.boxes || contents?.cartons || boxesFromCfg || null,
           skuCount: contents?.skuCount || null,
           units: contents?.units || null,
-          weight: contents?.weight ?? (weightFromCfgKg || null),
-          weight_unit: contents?.weight_unit || "KG"
+          weight: resolvedWeight ?? null,
+          weight_unit: resolvedWeight ? resolvedWeightUnit || "LB" : null
         });
       }
       return list;
@@ -2021,8 +2052,23 @@ serve(async (req) => {
       placementShipments.find((s: any) => !s?.isPackingGroup && (s?.shipmentId || s?.id))?.shipmentId ||
       placementShipments.find((s: any) => !s?.isPackingGroup && (s?.shipmentId || s?.id))?.id ||
       null;
+    logStep("transportationOptions_query_context", {
+      traceId,
+      inboundPlanId,
+      placementOptionId: effectivePlacementOptionId,
+      shippingMode: effectiveShippingMode,
+      shipmentIdForListing,
+      isEuMarketplace,
+      hasPallets,
+      missingPkgs,
+      missingPallets,
+      missingFreightInfo,
+      shipDate: shipDateFromClient || null,
+      deliveryWindowStart: deliveryWindowStartInput || null,
+      deliveryWindowEnd: deliveryWindowEndInput || null
+    });
 
-    const listAllTransportationOptions = async () => {
+    const listAllTransportationOptions = async (shipmentIdParam?: string | null) => {
       let nextToken: string | null = null;
       const collected: any[] = [];
       let firstRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
@@ -2030,7 +2076,7 @@ serve(async (req) => {
       do {
         attempt += 1;
         const queryParts = [`placementOptionId=${encodeURIComponent(effectivePlacementOptionId)}`];
-        if (shipmentIdForListing) queryParts.push(`shipmentId=${encodeURIComponent(shipmentIdForListing)}`);
+        if (shipmentIdParam) queryParts.push(`shipmentId=${encodeURIComponent(shipmentIdParam)}`);
         if (nextToken) queryParts.push(`nextToken=${encodeURIComponent(nextToken)}`);
         const res = await signedFetch({
           method: "GET",
@@ -2066,7 +2112,40 @@ serve(async (req) => {
       return { firstRes, collected };
     };
 
-    const { firstRes: listRes, collected: optionsRaw } = await listAllTransportationOptions();
+    const hasPartneredSolution = (opts: any[]) =>
+      Array.isArray(opts)
+        ? opts.some((opt) => {
+            const solution = String(
+              opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || ""
+            ).toUpperCase();
+            return solution.includes("AMAZON_PARTNERED") || solution.includes("PARTNERED_CARRIER");
+          })
+        : false;
+
+    const { firstRes: listRes, collected: optionsRawInitial } = await listAllTransportationOptions(shipmentIdForListing);
+    let optionsRaw = optionsRawInitial;
+    if (!hasPartneredSolution(optionsRawInitial) && shipmentIdForListing) {
+      const { firstRes: listResFallback, collected: optionsRawFallback } =
+        await listAllTransportationOptions(null);
+      const byId = new Map<string, any>();
+      const add = (opt: any) => {
+        const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
+        if (!id) return;
+        if (!byId.has(id)) byId.set(id, opt);
+      };
+      optionsRawInitial.forEach(add);
+      optionsRawFallback.forEach(add);
+      optionsRaw = Array.from(byId.values());
+      logStep("listTransportationOptions_fallback", {
+        traceId,
+        placementOptionId: effectivePlacementOptionId,
+        shipmentIdForListing,
+        initialCount: optionsRawInitial.length,
+        fallbackCount: optionsRawFallback.length,
+        mergedCount: optionsRaw.length,
+        requestId: listResFallback?.requestId || null
+      });
+    }
     logStep("transportationOptions_raw_response", {
       traceId,
       placementOptionId: effectivePlacementOptionId,
@@ -2363,13 +2442,26 @@ serve(async (req) => {
       : [];
     const optionsPayload = normalizedOptions;
 
+    const normalizeOptionMode = (mode: any) => {
+      const up = String(mode || "").toUpperCase();
+      if (!up) return "";
+      if (
+        ["SPD", "SMALL_PARCEL_DELIVERY", "SMALL_PARCEL", "GROUND_SMALL_PARCEL", "PARCEL"].includes(up)
+      ) {
+        return "GROUND_SMALL_PARCEL";
+      }
+      if (["LTL", "FREIGHT_LTL"].includes(up)) return "FREIGHT_LTL";
+      if (["FTL", "FREIGHT_FTL"].includes(up)) return "FREIGHT_FTL";
+      return up;
+    };
+
     const optionsForSelection = (() => {
       if (!effectiveShippingMode) return normalizedOptions;
-      const mode = String(effectiveShippingMode).toUpperCase();
-      return normalizedOptions.filter((o) => String(o.mode || "").toUpperCase() === mode);
+      const mode = normalizeOptionMode(effectiveShippingMode);
+      return normalizedOptions.filter((o) => normalizeOptionMode(o.mode) === mode);
     })();
     const returnedModes = Array.from(
-      new Set(normalizedOptions.map((o) => String(o.mode || "").toUpperCase()))
+      new Set(normalizedOptions.map((o) => normalizeOptionMode(o.mode)))
     ).filter(Boolean);
     const returnedSolutions = Array.from(
       new Set(
@@ -2402,6 +2494,19 @@ serve(async (req) => {
     if (!partneredOpt) {
       summary["partneredMissingReason"] =
         "Amazon nu a returnat AMAZON_PARTNERED_CARRIER pentru acest placement/transportation request.";
+      logStep("partnered_missing", {
+        traceId,
+        placementOptionId: effectivePlacementOptionId,
+        shippingMode: effectiveShippingMode,
+        returnedSolutions,
+        returnedModes,
+        modeMismatch,
+        hasPackages: !missingPkgs,
+        hasPallets,
+        hasFreightInformation: !missingFreightInfo,
+        contactInformationPresent: Boolean(contactInformation),
+        spdWarningsCount: spdWarnings.length
+      });
     }
 
     if (!shouldConfirm) {
