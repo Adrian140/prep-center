@@ -798,9 +798,9 @@ const [salesCountry, setSalesCountry] = useSessionStorage(
   `${storagePrefix}-salesCountry`,
   'ALL'
 );
-const [salesSortDirection, setSalesSortDirection] = useSessionStorage(
-  `${storagePrefix}-salesSortDirection`,
-  'none'
+const [sortSpec, setSortSpec] = useSessionStorage(
+  `${storagePrefix}-sortSpec`,
+  { key: 'none', direction: 'none' }
 );
 const showSalesColumn = true;
 const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
@@ -824,11 +824,6 @@ const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
     `${storagePrefix}-productSearch`,
     ''
   );
-  const [sortMode, setSortMode] = useSessionStorage(
-    `${storagePrefix}-sortMode`,
-    'prep'
-  );
-
   const [selectedIdList, setSelectedIdList] = useSessionStorage(
     `${storagePrefix}-selectedIds`,
     []
@@ -847,16 +842,6 @@ const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
     },
     [setSelectedIdList]
   );
-
-  const sortModeInitializedRef = useRef(false);
-  useEffect(() => {
-    if (!sortModeInitializedRef.current) {
-      sortModeInitializedRef.current = true;
-      if (sortMode !== 'prep') {
-        setSortMode('prep');
-      }
-    }
-  }, [setSortMode, sortMode]);
 
   const [page, setPage] = useSessionStorage(`${storagePrefix}-page`, 1);
   const [perPage, setPerPage] = useSessionStorage(
@@ -1279,11 +1264,21 @@ useEffect(() => {
 
       let result = scored.map(({ row }) => row);
 
-      if (salesSortDirection !== 'none') {
+      if (sortSpec?.direction && sortSpec.direction !== 'none') {
         result = [...result].sort((a, b) => {
-          const ta = getSalesTotal(a);
-          const tb = getSalesTotal(b);
-          return salesSortDirection === 'asc' ? ta - tb : tb - ta;
+          const getSortValue = (row) => {
+            if (sortSpec.key === 'sales') return getSalesTotal(row);
+            if (sortSpec.key === 'inventory') return Number(row.amazon_stock || 0);
+            if (sortSpec.key === 'prep') return Number(row.qty || 0);
+            if (sortSpec.key === 'units') {
+              const edit = rowEdits[row.id] || {};
+              return Number(edit.units_to_send ?? row.units_to_send ?? 0);
+            }
+            return 0;
+          };
+          const ta = getSortValue(a);
+          const tb = getSortValue(b);
+          return sortSpec.direction === 'asc' ? ta - tb : tb - ta;
         });
       }
 
@@ -1292,22 +1287,28 @@ useEffect(() => {
 
     let ordered = [...stockFiltered];
 
-    if (salesSortDirection !== 'none') {
+    if (sortSpec?.direction && sortSpec.direction !== 'none') {
       ordered.sort((a, b) => {
-        const ta = getSalesTotal(a);
-        const tb = getSalesTotal(b);
-        return salesSortDirection === 'asc' ? ta - tb : tb - ta;
+        const getSortValue = (row) => {
+          if (sortSpec.key === 'sales') return getSalesTotal(row);
+          if (sortSpec.key === 'inventory') return Number(row.amazon_stock || 0);
+          if (sortSpec.key === 'prep') return Number(row.qty || 0);
+          if (sortSpec.key === 'units') {
+            const edit = rowEdits[row.id] || {};
+            return Number(edit.units_to_send ?? row.units_to_send ?? 0);
+          }
+          return 0;
+        };
+        const ta = getSortValue(a);
+        const tb = getSortValue(b);
+        return sortSpec.direction === 'asc' ? ta - tb : tb - ta;
       });
-    } else if (sortMode === 'prep') {
-      ordered.sort((a, b) => Number(b.qty || 0) - Number(a.qty || 0));
-    } else if (sortMode === 'amazon') {
-      ordered.sort((a, b) => Number(b.amazon_stock || 0) - Number(a.amazon_stock || 0));
     }
     if (stockFilter !== 'all') return ordered;
 
     // Dacă sortăm după vânzări pe 30 de zile, nu mai
     // regrupăm după stoc în prep‑center; vrem ordonare pură după vânzări.
-    if (salesSortDirection !== 'none') {
+    if (sortSpec?.direction && sortSpec.direction !== 'none') {
       return ordered;
     }
 
@@ -1317,13 +1318,13 @@ useEffect(() => {
   }, [
     stockFiltered,
     productSearch,
-    sortMode,
+    sortSpec,
     stockFilter,
     matchScore,
     normalize,
     salesSummary,
     salesCountry,
-    salesSortDirection
+    rowEdits
   ]);
 
   const totalPages = Math.max(1, Math.ceil(quickFiltered.length / perPage));
@@ -1345,14 +1346,31 @@ useEffect(() => {
     });
   };
 
-  const toggleSalesSortDirection = useCallback(() => {
-    setSalesSortDirection((prev) => {
-      if (prev === 'none') return 'desc';
-      if (prev === 'desc') return 'asc';
-      return 'none';
+  const toggleSort = useCallback((key) => {
+    setSortSpec((prev) => {
+      if (!prev || prev.key !== key) {
+        return { key, direction: 'asc' };
+      }
+      if (prev.direction === 'asc') return { key, direction: 'desc' };
+      if (prev.direction === 'desc') return { key: 'none', direction: 'none' };
+      return { key, direction: 'asc' };
     });
     setPage(1);
-  }, [setSalesSortDirection, setPage]);
+  }, [setSortSpec, setPage]);
+  const renderSortIcon = useCallback(
+    (key) => {
+      const direction = sortSpec?.key === key ? sortSpec.direction : 'none';
+      if (direction === 'asc') return <ChevronUp className="w-3 h-3" />;
+      if (direction === 'desc') return <ChevronDown className="w-3 h-3" />;
+      return (
+        <>
+          <ChevronUp className="w-3 h-2 opacity-40" />
+          <ChevronDown className="w-3 h-2 -mt-1 opacity-40" />
+        </>
+      );
+    },
+    [sortSpec]
+  );
   const toggleSelectOne = (id) => {
     mutateSelectedIds((set) => {
       if (set.has(id)) set.delete(id);
@@ -2310,37 +2328,6 @@ const saveReqChanges = async () => {
           </label>
           <span className="text-xs text-text-secondary">Total: {rows.length}</span>
         </div>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-text-secondary">{t('ClientStock.quickSort.label')}</span>
-          <button
-            onClick={() => {
-              setSortMode('prep');
-              setSalesSortDirection('none');
-              setPage(1);
-            }}
-            className={`px-3 py-1 rounded border ${
-              sortMode === 'prep'
-                ? 'bg-primary text-white border-primary'
-                : 'text-text-secondary border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            {t('ClientStock.quickSort.prep')}
-          </button>
-          <button
-            onClick={() => {
-              setSortMode('amazon');
-              setSalesSortDirection('none');
-              setPage(1);
-            }}
-            className={`px-3 py-1 rounded border ${
-              sortMode === 'amazon'
-                ? 'bg-primary text-white border-primary'
-                : 'text-text-secondary border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            {t('ClientStock.quickSort.amazon')}
-          </button>
-        </div>
       </div>
 
       <ClientStockSelectionBar
@@ -2436,23 +2423,12 @@ const saveReqChanges = async () => {
         <div className="flex flex-col gap-1 items-center text-center">
           <button
             type="button"
-            onClick={toggleSalesSortDirection}
+            onClick={() => toggleSort('sales')}
             className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-primary"
           >
             <span>{t('ClientStock.sales.heading')}</span>
             <span className="inline-flex flex-col leading-none">
-              {salesSortDirection === 'asc' && (
-                <ChevronUp className="w-3 h-3" />
-              )}
-              {salesSortDirection === 'desc' && (
-                <ChevronDown className="w-3 h-3" />
-              )}
-              {salesSortDirection === 'none' && (
-                <>
-                  <ChevronUp className="w-3 h-2 opacity-40" />
-                  <ChevronDown className="w-3 h-2 -mt-1 opacity-40" />
-                </>
-              )}
+              {renderSortIcon('sales')}
             </span>
           </button>
           <select
@@ -2470,12 +2446,41 @@ const saveReqChanges = async () => {
       </th>
       )}
       <th className="px-2 py-2 text-left w-40">
-        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-pre-line text-center">
-          {t('ClientStock.inventory.subtitle')}
-        </div>
+        <button
+          type="button"
+          onClick={() => toggleSort('inventory')}
+          className="w-full inline-flex items-center justify-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-primary whitespace-pre-line"
+        >
+          <span>{t('ClientStock.inventory.subtitle')}</span>
+          <span className="inline-flex flex-col leading-none">
+            {renderSortIcon('inventory')}
+          </span>
+        </button>
       </th>
-      <th className="px-2 py-2 text-right w-24">PrepCenter stock</th>
-      <th className="px-2 py-2 text-right w-32">Units to Send / Receive</th>
+      <th className="px-2 py-2 text-right w-24">
+        <button
+          type="button"
+          onClick={() => toggleSort('prep')}
+          className="w-full inline-flex items-center justify-end gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-primary"
+        >
+          <span>PrepCenter stock</span>
+          <span className="inline-flex flex-col leading-none">
+            {renderSortIcon('prep')}
+          </span>
+        </button>
+      </th>
+      <th className="px-2 py-2 text-right w-32">
+        <button
+          type="button"
+          onClick={() => toggleSort('units')}
+          className="w-full inline-flex items-center justify-end gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-primary"
+        >
+          <span>Units to Send / Receive</span>
+          <span className="inline-flex flex-col leading-none">
+            {renderSortIcon('units')}
+          </span>
+        </button>
+      </th>
     </tr>
   </thead>
     <tbody>
