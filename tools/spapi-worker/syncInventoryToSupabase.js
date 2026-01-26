@@ -317,23 +317,12 @@ function keyFromRow(row) {
   return sku || null;
 }
 
-async function upsertStockRows(rows) {
+async function updateStockRows(rows) {
   if (!rows.length) return;
-  const chunkSize = 500;
-  for (let i = 0; i < rows.length; i += chunkSize) {
-    const chunk = rows.slice(i, i + chunkSize).reduce((acc, row) => {
-      const { key, id, ...rest } = row;
-      const payload = { ...rest };
-      if (id !== undefined && id !== null) {
-        payload.id = id;
-      }
-      acc.push(payload);
-      return acc;
-    }, []);
-    if (!chunk.length) continue;
-    const { error } = await supabase
-      .from('stock_items')
-      .upsert(chunk, { defaultToNull: false, onConflict: 'id' });
+  for (const row of rows) {
+    const { id, ...payload } = row || {};
+    if (!id) continue;
+    const { error } = await supabase.from('stock_items').update(payload).eq('id', id);
     if (error) throw error;
   }
 }
@@ -406,7 +395,7 @@ async function syncToSupabase({ items, companyId, seenSkus }) {
   }
 
   await cleanupInvalidRows(companyId);
-  await upsertStockRows(insertsOrUpdates);
+  await updateStockRows(insertsOrUpdates);
   return { affected: insertsOrUpdates.length, seenKeys };
 }
 
@@ -549,7 +538,7 @@ async function zeroAmazonStockForCompany(companyId, seenKeys = new Set()) {
   });
   if (!rowsToZero.length) return 0;
 
-  await upsertStockRows(rowsToZero.map((row) => ({ id: row.id, amazon_stock: 0 })));
+  await updateStockRows(rowsToZero.map((row) => ({ id: row.id, amazon_stock: 0 })));
   return rowsToZero.length;
 }
 
