@@ -6,10 +6,8 @@ import { supabase } from './supabaseClient.js';
 
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
 const REPORT_TYPE = 'GET_FBA_MYI_ALL_INVENTORY_DATA';
-const LISTING_REPORT_TYPE = 'GET_MERCHANT_LISTINGS_ALL_DATA';
 const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 4000);
 const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 60);
-const ALLOWED_FBA_CHANNELS = new Set(['AMAZON_NA', 'AMAZON_EU', 'AFN']);
 const INVENTORY_TIME_BUDGET_MS = Number(
   process.env.SPAPI_INVENTORY_TIME_BUDGET_MS || 5.5 * 60 * 60 * 1000
 );
@@ -22,12 +20,6 @@ const INVENTORY_SYNC_LOOP = process.env.SPAPI_INVENTORY_SYNC_LOOP === 'true';
 const INVENTORY_SYNC_INTERVAL_MS = Number(
   process.env.SPAPI_INVENTORY_SYNC_INTERVAL_MS || 60 * 1000
 );
-
-const normalizeIdentifier = (value) => {
-  if (value == null) return null;
-  const text = String(value).trim();
-  return text.length ? text.toUpperCase() : null;
-};
 
 export const sanitizeText = (value) => {
   if (!value) return value;
@@ -267,17 +259,6 @@ const COLUMN_ALIASES = new Map([
   ['afn-unsellable-quantity', 'unsellable']
 ]);
 
-const LISTING_COLUMN_ALIASES = new Map([
-  ['seller-sku', 'sku'],
-  ['sku', 'sku'],
-  ['asin', 'asin'],
-  ['asin1', 'asin'],
-  ['item-name', 'name'],
-  ['status', 'status'],
-  ['item-status', 'status'],
-  ['fulfillment-channel', 'fulfillmentChannel']
-]);
-
 function parseInventoryRows(tsvText) {
   const lines = tsvText
     .split(/\r?\n/)
@@ -300,35 +281,13 @@ function parseInventoryRows(tsvText) {
   });
 }
 
-function parseListingRows(tsvText) {
-  const lines = tsvText
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (!lines.length) return [];
-
-  const headers = lines
-    .shift()
-    .split('\t')
-    .map((header) => LISTING_COLUMN_ALIASES.get(header.trim().toLowerCase()) || header.trim().toLowerCase());
-
-  return lines.map((line) => {
-    const cols = line.split('\t');
-    const row = {};
-    headers.forEach((header, idx) => {
-      row[header] = cols[idx];
-    });
-    return row;
-  });
-}
-
 function normalizeInventory(rawRows = []) {
   const normalized = [];
   for (const row of rawRows) {
     const sku = (row.sku || '').trim();
     const asin = (row.asin || '').trim();
-    // cerință: nu importăm în inventar nimic fără ASIN + SKU
-    if (!sku || !asin) continue;
+    // Cerință: folosim doar SKU pentru update-ul de inventar.
+    if (!sku) continue;
 
     const fulfillable = Number(row.fulfillable ?? 0);
     const inboundTotal =
@@ -340,7 +299,7 @@ function normalizeInventory(rawRows = []) {
     const unfulfillable = Number(row.unsellable ?? 0);
 
     normalized.push({
-      key: (sku || asin).toLowerCase(),
+      key: sku.toLowerCase(),
       sku: sku || null,
       asin: asin || null,
       amazon_stock: fulfillable,
@@ -353,50 +312,9 @@ function normalizeInventory(rawRows = []) {
   return normalized;
 }
 
-function normalizeListings(rawRows = []) {
-  const normalized = [];
-  for (const row of rawRows) {
-    const sku = (row.sku || '').trim();
-    const asin = (row.asin || '').trim();
-    // Pentru coloana de stoc avem nevoie de un ASIN real și un SKU.
-    // Dacă lipsește oricare, nu mai adăugăm rândul; evităm SKU-uri fără ASIN în inventar.
-    if (!asin || !sku) continue;
-
-    normalized.push({
-      key: (sku || asin).toLowerCase(),
-      sku: sku || null,
-      asin: asin || null,
-      name: sanitizeText(row.name) || null,
-      status: (row.status || '').trim(),
-      fulfillmentChannel: (row.fulfillmentChannel || '').trim()
-    });
-  }
-  return normalized;
-}
-
-function filterListings(listings = []) {
-  return listings.filter((row) => {
-    const status = (row.status || '').toLowerCase();
-    const denyList = ['blocked', 'suppressed', 'closed', 'deleted', 'stranded'];
-    if (denyList.some((token) => status.includes(token))) return false;
-
-    // Păstrăm doar listările FBA; FBM sunt cele care vin de obicei fără ASIN
-    // și cu titluri „stricate”, nu ne interesează în coloana de stoc.
-    const fc = String(row.fulfillmentChannel || '').toUpperCase();
-    if (!fc || !ALLOWED_FBA_CHANNELS.has(fc)) return false;
-
-    const wantedStatus =
-      status.startsWith('active') ||
-      status.includes('out of stock') ||
-      status.includes('inactive');
-    return wantedStatus;
-  });
-}
-
 function keyFromRow(row) {
   const sku = row?.sku ? String(row.sku).toLowerCase() : '';
-  const asin = row?.asin ? String(row.asin).toLowerCase() : '';
-  return sku || asin || null;
+  return sku || null;
 }
 
 async function upsertStockRows(rows) {
@@ -404,7 +322,6 @@ async function upsertStockRows(rows) {
   const chunkSize = 500;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize).reduce((acc, row) => {
-      if (!row.asin || !row.sku) return acc;
       const { key, id, ...rest } = row;
       const payload = { ...rest };
       if (id !== undefined && id !== null) {
@@ -416,7 +333,7 @@ async function upsertStockRows(rows) {
     if (!chunk.length) continue;
     const { error } = await supabase
       .from('stock_items')
-      .upsert(chunk, { defaultToNull: false, onConflict: 'company_id,sku,asin' });
+      .upsert(chunk, { defaultToNull: false, onConflict: 'id' });
     if (error) throw error;
   }
 }
@@ -435,9 +352,7 @@ async function fetchAllStockItems(companyId, { filter } = {}) {
   while (true) {
     const query = supabase
       .from('stock_items')
-      .select(
-        'id, company_id, user_id, sku, asin, name, amazon_stock, amazon_inbound, amazon_reserved, amazon_unfulfillable, qty'
-      )
+      .select('id, company_id, user_id, sku, amazon_stock, amazon_inbound, amazon_reserved, amazon_unfulfillable')
       .eq('company_id', companyId)
       .range(from, to);
 
@@ -454,7 +369,7 @@ async function fetchAllStockItems(companyId, { filter } = {}) {
   return rows;
 }
 
-async function syncToSupabase({ items, companyId, userId }) {
+async function syncToSupabase({ items, companyId, seenSkus }) {
   if (items.length === 0) {
     console.log('Amazon returned no inventory rows. Nothing to sync.');
     return { affected: 0, seenKeys: new Set() };
@@ -462,115 +377,32 @@ async function syncToSupabase({ items, companyId, userId }) {
 
   const existing = await fetchAllStockItems(companyId);
   const existingByKey = new Map();
-  const asinToExistingWithSku = new Map(); // pentru migrare manual -> automat
-  const manualAsinOnly = [];
   existing.forEach((row) => {
     const key = keyFromRow(row);
     if (key) existingByKey.set(key, row);
-    const asinKey = row?.asin ? String(row.asin).toUpperCase() : null;
-    if (row?.sku && asinKey) {
-      if (!asinToExistingWithSku.has(asinKey)) {
-        asinToExistingWithSku.set(asinKey, row);
-      }
-    }
-    const hasQty = Number(row.qty ?? 0) > 0;
-    const hasSku = Boolean(row.sku && String(row.sku).trim());
-    const hasAsin = Boolean(row.asin && String(row.asin).trim());
-    if (!hasSku && hasAsin && hasQty) {
-      manualAsinOnly.push(row);
-    }
   });
 
-  const seenKeys = new Set();
-  const hasManualPrepStock = (row) => {
-    if (!row) return false;
-    const qty = Number(row.qty ?? 0);
-    if (!Number.isFinite(qty) || qty <= 0) return false;
-    const hasIdentifier =
-      Boolean(row.sku && String(row.sku).trim()) || Boolean(row.asin && String(row.asin).trim());
-    return hasIdentifier;
-  };
-  const shouldUpdateName = (current, incoming, row) => {
-    if (!incoming || !String(incoming).trim()) return false;
-    if (!current || !String(current).trim()) return true;
-    const cur = String(current).trim();
-    const inc = String(incoming).trim();
-    if (cur === inc) return false;
-    const asin = String(row?.asin || '').trim();
-    const sku = String(row?.sku || '').trim();
-    // dacă numele actual este doar ASIN/SKU, îl înlocuim cu cel nou
-    return cur === asin || cur === sku;
-  };
+  const seenKeys = seenSkus || new Set();
   const insertsOrUpdates = [];
-  const asinToPayloadWithSku = new Map(); // asin -> payload target (cu SKU)
 
   for (const item of items) {
     const key = item.key;
     if (!key) continue;
+    if (seenKeys.has(key)) continue;
     seenKeys.add(key);
     const row = existingByKey.get(key);
-    const sanitizedSku = normalizeIdentifier(item.sku);
-    const sanitizedAsin = normalizeIdentifier(item.asin);
-
-    if (row) {
-      seenKeys.add(key);
-      // Pentru rânduri existente: actualizăm doar stocurile Amazon. Titlu/poza se gestionează în alte sync-uri.
-      const patch = {
-        id: row.id,
-        amazon_stock: item.amazon_stock,
-        amazon_inbound: item.amazon_inbound,
-        amazon_reserved: item.amazon_reserved,
-        amazon_unfulfillable: item.amazon_unfulfillable
-      };
-      insertsOrUpdates.push(patch);
-      if (row.asin && row.sku) {
-        asinToPayloadWithSku.set(normalizeIdentifier(row.asin), {
-          id: row.id,
-          qty: Number(row.qty ?? 0)
-        });
-      }
-    } else {
-      // Nu creăm rânduri noi din inventar; doar marcăm ca văzut pentru zeroing.
-      seenKeys.add(key);
+    if (!row) {
+      // Nu creăm rânduri noi din inventar.
       continue;
     }
-  }
-
-  // Migrare: mută qty din rândurile manuale fără SKU către rândurile cu SKU (aceeași ASIN).
-  for (const manualRow of manualAsinOnly) {
-    const asinKey = normalizeIdentifier(manualRow.asin);
-    if (!asinKey) continue;
-    const manualQty = Number(manualRow.qty ?? 0);
-    if (!Number.isFinite(manualQty) || manualQty <= 0) continue;
-
-    // Caut payload deja pregătit cu SKU.
-    let targetPayload = asinToPayloadWithSku.get(asinKey);
-
-    // Dacă nu există payload, verific rând existent cu SKU pentru acest ASIN.
-    if (!targetPayload) {
-      const existingSkuRow = asinToExistingWithSku.get(asinKey);
-      if (existingSkuRow) {
-        targetPayload = {
-          id: existingSkuRow.id,
-          company_id: existingSkuRow.company_id || companyId,
-          user_id: existingSkuRow.user_id || userId,
-          asin: normalizeIdentifier(existingSkuRow.asin),
-          sku: normalizeIdentifier(existingSkuRow.sku),
-          qty: Number(existingSkuRow.qty ?? 0)
-        };
-        insertsOrUpdates.push(targetPayload);
-        asinToPayloadWithSku.set(asinKey, targetPayload);
-      }
-    }
-
-    if (!targetPayload) {
-      // Nu există încă SKU pentru acest ASIN; păstrăm rândul manual.
-      continue;
-    }
-
-    const currentQty = Number(targetPayload.qty ?? 0);
-    const nextQty = Number.isFinite(currentQty) ? currentQty + manualQty : manualQty;
-    targetPayload.qty = nextQty;
+    // Actualizăm strict stocurile Amazon pe SKU.
+    insertsOrUpdates.push({
+      id: row.id,
+      amazon_stock: item.amazon_stock,
+      amazon_inbound: item.amazon_inbound,
+      amazon_reserved: item.amazon_reserved,
+      amazon_unfulfillable: item.amazon_unfulfillable
+    });
   }
 
   await cleanupInvalidRows(companyId);
@@ -652,36 +484,7 @@ async function fetchInventorySummaries(spClient, marketplaceId = DEFAULT_MARKETP
   return all;
 }
 
-async function createListingReport(spClient, marketplaceId) {
-  const body = {
-    reportType: LISTING_REPORT_TYPE,
-    marketplaceIds: [marketplaceId]
-  };
-
-  const response = await spClient.callAPI({
-    operation: 'createReport',
-    endpoint: 'reports',
-    body
-  });
-
-  if (!response?.reportId) {
-    throw new Error('Failed to create listing report');
-  }
-
-  return response.reportId;
-}
-
-async function fetchListingRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
-  if (!marketplaceId) {
-    throw new Error('Marketplace ID is required for listing reports');
-  }
-  const reportId = await createListingReport(spClient, marketplaceId);
-  const documentId = await waitForReport(spClient, reportId);
-  const documentText = await downloadReportDocument(spClient, documentId);
-  return parseListingRows(documentText);
-}
-
-async function syncIntegration(integration) {
+async function syncIntegration(integration, seenSkus) {
   const marketplaceId = resolveMarketplaceId(integration);
   if (!marketplaceId) {
     console.warn(
@@ -701,7 +504,6 @@ async function syncIntegration(integration) {
 
   try {
     let normalized = [];
-    let listingRows = [];
     try {
       const rawRows = await fetchInventoryRows(spClient, marketplaceId);
       normalized = normalizeInventory(rawRows);
@@ -712,45 +514,10 @@ async function syncIntegration(integration) {
       normalized = normalizeInventory(summaries);
     }
 
-    try {
-      const listingRaw = await fetchListingRows(spClient, marketplaceId);
-      listingRows = filterListings(normalizeListings(listingRaw));
-    } catch (err) {
-      console.error(`Listing report failed for ${integration.id}:`, err?.message || err);
-    }
-
-    if (listingRows.length) {
-      const stockByKey = new Map();
-      normalized.forEach((item) => {
-        if (item.key) stockByKey.set(item.key, item);
-      });
-
-      const merged = [];
-      const seen = new Set();
-      for (const listing of listingRows) {
-        if (!listing.key || seen.has(listing.key)) continue;
-        seen.add(listing.key);
-        const inv = stockByKey.get(listing.key);
-        // Păstrăm doar listingurile care apar și în inventarul FBA (raport sau summaries).
-        if (!inv) continue;
-        merged.push({
-          key: listing.key,
-          asin: listing.asin || inv?.asin || null,
-          sku: listing.sku || inv?.sku || null,
-          name: listing.name || inv?.name || null,
-          amazon_stock: inv?.amazon_stock ?? 0,
-          amazon_inbound: inv?.amazon_inbound ?? 0,
-          amazon_reserved: inv?.amazon_reserved ?? 0,
-          amazon_unfulfillable: inv?.amazon_unfulfillable ?? 0
-        });
-      }
-      normalized = merged;
-    }
-
     const stats = await syncToSupabase({
       items: normalized,
       companyId: integration.company_id,
-      userId: integration.user_id
+      seenSkus
     });
 
     await supabase
@@ -759,7 +526,7 @@ async function syncIntegration(integration) {
       .eq('id', integration.id);
 
     console.log(
-      `Integration ${integration.id} synced (${normalized.length} items, ${stats.affected} rows). Listings filter: ${listingRows.length}.`
+      `Integration ${integration.id} synced (${normalized.length} items, ${stats.affected} rows).`
     );
     return { companyId: integration.company_id, seenKeys: stats.seenKeys };
   } catch (err) {
@@ -815,11 +582,10 @@ async function main() {
       break;
     }
 
-    const result = await syncIntegration(integration);
+    const seenSkus = companySeenKeys.get(integration.company_id) || new Set();
+    const result = await syncIntegration(integration, seenSkus);
     if (!result || !result.companyId) continue;
-    const aggregated = companySeenKeys.get(result.companyId) || new Set();
-    result.seenKeys.forEach((key) => aggregated.add(key));
-    companySeenKeys.set(result.companyId, aggregated);
+    companySeenKeys.set(result.companyId, result.seenKeys || seenSkus);
   }
 
   if (hasTimeBudget && Date.now() - startedAt >= INVENTORY_TIME_BUDGET_MS) {
