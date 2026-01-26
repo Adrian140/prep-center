@@ -1849,48 +1849,118 @@ serve(async (req) => {
       );
     }
 
-    // EU SPD partnered hard limits (23 kg și max 63.5 cm pe latură) + avertizare non-blocantă la 15 kg
+    // SPD partnered limits/eligibility checks (EU vs NA)
     const spdWarnings: string[] = [];
-    if (includePackages && isEuMarketplace) {
-      const SPD_MAX_SIDE_IN = 25; // 63.5 cm
-      const SPD_HARD_MAX_WEIGHT_LB = kgToLb(23); // 23 kg limit
-      const SPD_WARN_WEIGHT_LB = kgToLb(15); // 15 kg: cere eticheta "Heavy package"
+    if (includePackages) {
       const spdErrors: string[] = [];
+      let maxWeightLb = 0;
+      let maxSideIn = 0;
+      let maxLengthIn = 0;
+      let maxLengthGirthIn = 0;
+      let packagesCount = 0;
 
       shipmentTransportationConfigurations.forEach((cfg, cfgIdx) => {
         const pkgs = Array.isArray(cfg?.packages) ? cfg.packages : [];
+        packagesCount += pkgs.length;
         pkgs.forEach((pkg, pkgIdx) => {
           const weightLb = Number(pkg?.weight?.value || 0);
           const dims = pkg?.dimensions || {};
           const sides = [dims?.length, dims?.width, dims?.height].map((n) => Number(n || 0));
+          const sorted = [...sides].sort((a, b) => b - a);
+          const lengthIn = Number(sorted?.[0] || 0);
+          const girthIn = 2 * ((Number(sorted?.[1] || 0)) + (Number(sorted?.[2] || 0)));
+          const lengthGirthIn = lengthIn + girthIn;
           const maxSide = Math.max(...sides);
 
-          if (weightLb > SPD_HARD_MAX_WEIGHT_LB) {
-            spdErrors.push(
-              `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: ${weightLb.toFixed(
-                2
-              )} lb (${lbToKg(weightLb).toFixed(2)} kg) depășește 23 kg - împarte cutia sau folosește LTL.`
-            );
-          } else if (weightLb >= SPD_WARN_WEIGHT_LB) {
-            spdWarnings.push(
-              `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: ${weightLb.toFixed(
-                2
-              )} lb (${lbToKg(weightLb).toFixed(
-                2
-              )} kg) ≥ 15 kg - adaugă eticheta "Heavy package"; SPD PCP poate să nu fie disponibil.`
-            );
-          }
+          if (weightLb > maxWeightLb) maxWeightLb = weightLb;
+          if (maxSide > maxSideIn) maxSideIn = maxSide;
+          if (lengthIn > maxLengthIn) maxLengthIn = lengthIn;
+          if (lengthGirthIn > maxLengthGirthIn) maxLengthGirthIn = lengthGirthIn;
 
-          if (Number.isFinite(maxSide) && maxSide > SPD_MAX_SIDE_IN) {
-            spdErrors.push(
-              `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: latura maximă ${maxSide.toFixed(
-                2
-              )} in (${(maxSide * 2.54).toFixed(
-                2
-              )} cm) depășește 63.5 cm. SPD PCP nu este disponibil; ajustează cutia sau folosește LTL.`
-            );
+          if (isEuMarketplace) {
+            const SPD_MAX_SIDE_IN = 25; // 63.5 cm
+            const SPD_HARD_MAX_WEIGHT_LB = kgToLb(23); // 23 kg limit
+            const SPD_WARN_WEIGHT_LB = kgToLb(15); // 15 kg: cere eticheta "Heavy package"
+
+            if (weightLb > SPD_HARD_MAX_WEIGHT_LB) {
+              spdErrors.push(
+                `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: ${weightLb.toFixed(
+                  2
+                )} lb (${lbToKg(weightLb).toFixed(2)} kg) depășește 23 kg - împarte cutia sau folosește LTL.`
+              );
+            } else if (weightLb >= SPD_WARN_WEIGHT_LB) {
+              spdWarnings.push(
+                `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: ${weightLb.toFixed(
+                  2
+                )} lb (${lbToKg(weightLb).toFixed(
+                  2
+                )} kg) ≥ 15 kg - adaugă eticheta "Heavy package"; SPD PCP poate să nu fie disponibil.`
+              );
+            }
+
+            if (Number.isFinite(maxSide) && maxSide > SPD_MAX_SIDE_IN) {
+              spdErrors.push(
+                `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: latura maximă ${maxSide.toFixed(
+                  2
+                )} in (${(maxSide * 2.54).toFixed(
+                  2
+                )} cm) depășește 63.5 cm. SPD PCP nu este disponibil; ajustează cutia sau folosește LTL.`
+              );
+            }
+          } else {
+            const SPD_MAX_WEIGHT_LB = 150;
+            const SPD_MAX_LENGTH_IN = 108;
+            const SPD_MAX_LENGTH_GIRTH_IN = 165;
+
+            if (weightLb > SPD_MAX_WEIGHT_LB) {
+              spdWarnings.push(
+                `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: ${weightLb.toFixed(
+                  2
+                )} lb depășește 150 lb - SPD PCP poate să nu fie disponibil.`
+              );
+            }
+            if (lengthIn > SPD_MAX_LENGTH_IN || lengthGirthIn > SPD_MAX_LENGTH_GIRTH_IN) {
+              spdWarnings.push(
+                `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: length ${lengthIn.toFixed(
+                  2
+                )} in, length+girth ${lengthGirthIn.toFixed(
+                  2
+                )} in depășește limitele SPD (108 in / 165 in).`
+              );
+            }
           }
         });
+      });
+
+      const effectiveBoxesCount = boxesCount > 0 ? boxesCount : packagesCount;
+      if (effectiveBoxesCount > 200) {
+        spdWarnings.push(
+          `Număr cutii ${effectiveBoxesCount} > 200. SPD PCP poate fi indisponibil (limită 200 boxes/shipment).`
+        );
+      }
+
+      const usCaMarketplaces = new Set(["ATVPDKIKX0DER", "A2EUQ1WTGCTBG2"]);
+      if (usCaMarketplaces.has(String(marketplaceId || "").trim())) {
+        const stateCode = String(planSourceAddress?.stateOrProvinceCode || "").trim();
+        if (stateCode && !/^[A-Z]{2}$/.test(stateCode)) {
+          spdWarnings.push(
+            `stateOrProvinceCode invalid (${stateCode}). Pentru US/CA folosește cod ISO (ex: MI, CA).`
+          );
+        }
+      }
+
+      logStep("spd_eligibility", {
+        traceId,
+        marketplaceId,
+        isEuMarketplace,
+        boxesCount: effectiveBoxesCount,
+        packagesCount,
+        maxWeightLb: maxWeightLb ? Number(maxWeightLb.toFixed(2)) : 0,
+        maxSideIn: maxSideIn ? Number(maxSideIn.toFixed(2)) : 0,
+        maxLengthIn: maxLengthIn ? Number(maxLengthIn.toFixed(2)) : 0,
+        maxLengthGirthIn: maxLengthGirthIn ? Number(maxLengthGirthIn.toFixed(2)) : 0,
+        warningsCount: spdWarnings.length,
+        errorsCount: spdErrors.length
       });
 
       if (spdErrors.length) {
@@ -2491,6 +2561,9 @@ serve(async (req) => {
       returnedSolutions,
       modeMismatch
     };
+    if (spdWarnings.length) {
+      summary["warnings"] = spdWarnings;
+    }
     if (!partneredOpt) {
       summary["partneredMissingReason"] =
         "Amazon nu a returnat AMAZON_PARTNERED_CARRIER pentru acest placement/transportation request.";
@@ -2570,10 +2643,6 @@ serve(async (req) => {
       body?.preferred_carrier_name ?? body?.preferredCarrierName ?? null;
     const effectiveForcePartneredIfAvailable = preferNonPartnered ? false : forcePartneredIfAvailable;
     const wantPartnered = Boolean(forcePartneredOnly || effectiveForcePartneredIfAvailable);
-
-    if (spdWarnings.length) {
-      summary["warnings"] = spdWarnings;
-    }
 
     if (forcePartneredOnly && !partneredOpt) {
       return new Response(

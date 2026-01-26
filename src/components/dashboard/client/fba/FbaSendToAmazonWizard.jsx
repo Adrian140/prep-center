@@ -789,6 +789,10 @@ export default function FbaSendToAmazonWizard({
 
 const warning = useMemo(() => {
   if (!step2Loaded || shippingLoading) return null;
+  const summaryWarnings = Array.isArray(shippingSummary?.warnings) ? shippingSummary.warnings.filter(Boolean) : [];
+  if (summaryWarnings.length && !shippingSummary?.alreadyConfirmed) {
+    return summaryWarnings.map((w) => String(w)).join(' | ');
+  }
   const returnedModes = shippingSummary?.returnedModes || [];
   const returnedSolutions = (shippingSummary?.returnedSolutions || []).map((s) => String(s || '').toUpperCase());
   const wantsSpd = String(shipmentMode?.method || '').toUpperCase() === 'SPD';
