@@ -26,6 +26,9 @@ export default function FbaStep2Shipping({
   );
   const safeCarrier = carrier || { partnered: null, name: '', rate: null };
   const carrierReady = carrierTouched || shippingConfirmed;
+  useEffect(() => {
+    setShipDate(deliveryDate || '');
+  }, [deliveryDate]);
   const normalizedCarrier = useMemo(() => {
     const name = String(safeCarrier.name || '').trim();
     if (!carrierReady) {

@@ -40,6 +40,12 @@ const normalizeShipDate = (val) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const getTomorrowIsoDate = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
+
 const detectPartneredOption = (opt = {}) => {
   const explicit =
     opt?.isPartnered ??
@@ -149,7 +155,7 @@ export default function FbaSendToAmazonWizard({
   initialPacking = initialPackGroups,
   initialShipmentMode = {
     method: 'SPD',
-    deliveryDate: '01/12/2025',
+    deliveryDate: getTomorrowIsoDate(),
     deliveryWindowStart: '',
     deliveryWindowEnd: '',
     carrier: null
@@ -1653,6 +1659,9 @@ const fetchPartneredQuote = useCallback(
       return;
     }
     if (step2Loaded) return;
+    if (!shipmentMode?.deliveryDate) {
+      setShipmentMode((prev) => ({ ...prev, deliveryDate: getTomorrowIsoDate() }));
+    }
     fetchShippingOptions().finally(() => setStep2Loaded(true));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, step2Loaded]);
