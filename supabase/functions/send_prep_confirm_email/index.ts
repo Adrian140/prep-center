@@ -191,6 +191,15 @@ function renderHtml(p: Payload, prepId: string) {
     <p style="margin:0 0 12px 0">
       Your prep request has been confirmed. Below you can find the shipped / removed units.
     </p>
+    <div style="margin:12px 0 14px 0;padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc">
+      <div style="font-weight:600;margin-bottom:6px">English</div>
+      <div>The receipt of your goods has been confirmed.</div>
+      <div>The items have been prepared and are ready for shipment.</div>
+      <div style="height:10px"></div>
+      <div style="font-weight:600;margin-bottom:6px">Français</div>
+      <div>La réception de vos marchandises a été confirmée.</div>
+      <div>Les produits ont été préparés et sont prêts à être expédiés.</div>
+    </div>
 
     ${headerNote}
     ${shipmentBlock}
