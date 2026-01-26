@@ -407,7 +407,7 @@ export default function AdminCompanyDashboard() {
               subtitle={
                 isSingleDay
                   ? tp('adminDashboard.preparedSubtitleSingle', { total: sumTotalPrepared })
-                  : t('adminDashboard.preparedSubtitleInterval')
+                  : tp('adminDashboard.preparedSubtitleInterval', { total: sumTotalPrepared })
               }
               accentClass="text-blue-700"
             />
@@ -417,7 +417,7 @@ export default function AdminCompanyDashboard() {
               subtitle={
                 isSingleDay
                   ? tp('adminDashboard.receptionsSubtitleSingle', { total: sumTotalReceiving })
-                  : t('adminDashboard.receptionsSubtitleInterval')
+                  : tp('adminDashboard.receptionsSubtitleInterval', { total: sumTotalReceiving })
               }
               accentClass="text-blue-700"
             />
