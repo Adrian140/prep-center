@@ -33,6 +33,7 @@ export default function AdminPrepRequests() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(initialState.selectedId || null); // request id pt. detail
   const [flash, setFlash] = useState('');
+  const [useClientPaging, setUseClientPaging] = useState(false);
   const firstLoadRef = useRef(true);
   const initialPageRef = useRef(initialPage);
 
@@ -79,12 +80,14 @@ export default function AdminPrepRequests() {
 
     setRows(Array.isArray(data) ? data : []);
     setCount(c || 0);
+    setUseClientPaging(fetchAll);
     setPage(fetchAll ? 1 : p);
   } catch (e) {
     console.error('listPrepRequests failed:', e?.message || e);
     setRows([]);
     setCount(0);
     setFlash(e?.message || 'Eroare la încărcare.');
+    setUseClientPaging(false);
   } finally {
     setLoading(false);
   }
@@ -93,20 +96,20 @@ export default function AdminPrepRequests() {
   const trimmedQuery = q.trim();
 
   useEffect(() => {
-    load(initialPageRef.current, !!trimmedQuery);
+    load(initialPageRef.current, !!trimmedQuery || status === 'all');
     firstLoadRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (firstLoadRef.current) return;
-    load(1, !!trimmedQuery);
+    load(1, !!trimmedQuery || status === 'all');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
   useEffect(() => {
     if (firstLoadRef.current) return;
-    load(1, !!trimmedQuery);
+    load(1, !!trimmedQuery || status === 'all');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trimmedQuery]);
 
@@ -148,20 +151,35 @@ export default function AdminPrepRequests() {
       return tokens.every((t) => itemHit || fields.some((f) => f.includes(t)));
     };
 
-    const base = rows.filter(matchesSearch);
+    const base = rows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => matchesSearch(row));
 
     return base
       .slice()
       .sort((a, b) => {
-        const pa = STATUS_PRIORITY[a.status] ?? 99;
-        const pb = STATUS_PRIORITY[b.status] ?? 99;
+        const pa = STATUS_PRIORITY[a.row.status] ?? 99;
+        const pb = STATUS_PRIORITY[b.row.status] ?? 99;
         if (pa !== pb) return pa - pb;
-        return new Date(b.created_at) - new Date(a.created_at);
-      });
+        return a.index - b.index;
+      })
+      .map(({ row }) => row);
   }, [rows, q]);
 
-  const totalBase = trimmedQuery || status !== 'all' ? filtered.length : count;
+  const totalBase = useClientPaging || trimmedQuery || status !== 'all' ? filtered.length : count;
   const totalPages = Math.max(1, Math.ceil(Math.max(1, totalBase) / pageSize));
+  const displayRows = useMemo(() => {
+    if (!useClientPaging) return filtered;
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, useClientPaging]);
+  const handlePageChange = (next) => {
+    if (useClientPaging) {
+      setPage(next);
+    } else {
+      load(next);
+    }
+  };
 
   if (selectedId) {
     return (
@@ -231,14 +249,14 @@ export default function AdminPrepRequests() {
                   Se încarcă…
                 </td>
               </tr>
-            ) : filtered.length === 0 ? (
+            ) : displayRows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-center text-text-secondary">
                   Nimic de afișat.
                 </td>
               </tr>
             ) : (
-              filtered.map((r) => (
+              displayRows.map((r) => (
                 <tr key={r.id} className="border-t align-top">
                   <td className="px-4 py-3">{new Date(r.created_at).toLocaleString()}</td>
                   <td className="px-4 py-3">
@@ -284,7 +302,7 @@ export default function AdminPrepRequests() {
       <div className="flex items-center justify-end gap-2">
         <button
           className="px-2 py-1 border rounded disabled:opacity-50"
-          onClick={() => load(Math.max(1, page - 1))}
+          onClick={() => handlePageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
           title="Pagina anterioară"
         >
@@ -295,7 +313,7 @@ export default function AdminPrepRequests() {
         </span>
         <button
           className="px-2 py-1 border rounded disabled:opacity-50"
-          onClick={() => load(Math.min(totalPages, page + 1))}
+          onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
           title="Pagina următoare"
         >
