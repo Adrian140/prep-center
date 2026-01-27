@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Package, ChevronDown } from 'lucide-react';
+import { Package, ChevronDown, Search } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
 import { supabase, supabaseHelpers } from '../../../config/supabase';
@@ -54,6 +54,7 @@ export default function ClientPrepShipments() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [stock, setStock] = useState([]);
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryDraftQty, setInventoryDraftQty] = useState({});
@@ -507,6 +508,9 @@ export default function ClientPrepShipments() {
             prep_request_tracking(tracking_id),
             prep_request_items(
               units_requested,
+              asin,
+              sku,
+              product_name,
               amazon_units_expected,
               amazon_units_received
             )
@@ -551,6 +555,38 @@ export default function ClientPrepShipments() {
   }, [profile?.id, profile?.company_id]);
 
   const reqClientNote = parseHeaderNotes(reqHeader?.obs_admin).clientNote;
+  const filteredRows = useMemo(() => {
+    const raw = searchTerm.trim().toLowerCase();
+    if (!raw) return rows;
+    const tokens = raw.split(/\s+/).filter(Boolean);
+    return rows.filter((row) => {
+      const snapshot = row.amazon_snapshot || {};
+      const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
+      const itemText = items
+        .map((it) => [it.asin, it.sku, it.product_name].filter(Boolean).join(' '))
+        .join(' ')
+        .toLowerCase();
+      const headerText = [
+        row.id,
+        row.fba_shipment_id,
+        row.amazon_reference_id,
+        row.amazon_shipment_name,
+        row.amazon_destination_code,
+        row.amazon_status,
+        snapshot.shipment_id,
+        snapshot.reference_id,
+        snapshot.shipment_reference_id,
+        snapshot.shipment_name,
+        snapshot.destination_code,
+        snapshot.status
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      const haystack = `${headerText} ${itemText}`;
+      return tokens.every((token) => haystack.includes(token));
+    });
+  }, [rows, searchTerm]);
 
   return (
     <div className="space-y-6">
@@ -578,11 +614,23 @@ export default function ClientPrepShipments() {
       </header>
 
       <div className="border rounded-xl bg-white overflow-hidden">
-        <div className="border-b px-5 py-3 flex items-center justify-between">
+        <div className="border-b px-5 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">
             {t('ClientPrepShipments.table.title')}
           </h2>
-          {loading && <span className="text-xs text-text-light">{t('common.loading')}</span>}
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="w-4 h-4 text-text-secondary absolute left-2 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search shipments..."
+                className="pl-8 pr-3 py-1.5 border rounded-md text-sm w-64"
+              />
+            </div>
+            {loading && <span className="text-xs text-text-light">{t('common.loading')}</span>}
+          </div>
       </div>
 
       {error && (
@@ -607,14 +655,14 @@ export default function ClientPrepShipments() {
               </tr>
             </thead>
             <tbody>
-                      {!loading && rows.length === 0 && (
+                      {!loading && filteredRows.length === 0 && (
                         <tr>
                           <td colSpan={9} className="px-4 py-8 text-center text-text-light">
                             {t('ClientPrepShipments.table.empty')}
                           </td>
                         </tr>
                       )}
-              {rows.map((row) => {
+              {filteredRows.map((row) => {
                 const status = row.status || 'pending';
                 const destCode = (row.destination_country || 'FR').toUpperCase();
                 const destLabel = t(`ClientStock.countries.${destCode}`) || destCode;
