@@ -21,6 +21,11 @@ import {
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
+const daysAgoIso = (days) => {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+};
 const formatDisplayDate = (value) => {
   if (!value) return '—';
   try {
@@ -46,8 +51,8 @@ export default function AdminCompanyDashboard() {
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [search, setSearch] = useState('');
 
-  const [dateFrom, setDateFrom] = useState(todayIso());
-  const [dateTo, setDateTo] = useState(todayIso());
+  const [dateFrom, setDateFrom] = useState(() => daysAgoIso(29));
+  const [dateTo, setDateTo] = useState(() => todayIso());
 
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState('');

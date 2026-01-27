@@ -151,6 +151,8 @@ useEffect(() => {
   const [editForm, setEditForm] = useState({});
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(''); // Changed to message
+  const [pendingPrepCount, setPendingPrepCount] = useState(0);
+  const [pendingReturnsCount, setPendingReturnsCount] = useState(0);
   const [reviews, setReviews] = useState([]); // Added reviews state
   const [contentData, setContentData] = useState({}); // Added contentData state
   const [servicesLanguage, setServicesLanguage] = useState('en');
@@ -181,6 +183,31 @@ useEffect(() => {
      fetchMaintenance();
     }
    }, [user, integrationLang]); // Changed to user
+
+  useEffect(() => {
+    let mounted = true;
+    const loadPendingCounts = async () => {
+      const [prepRes, returnsRes] = await Promise.all([
+        supabase
+          .from('prep_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending'),
+        supabase
+          .from('returns')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending')
+      ]);
+      if (!mounted) return;
+      setPendingPrepCount(prepRes?.count || 0);
+      setPendingReturnsCount(returnsRes?.count || 0);
+    };
+    loadPendingCounts();
+    const intervalId = setInterval(loadPendingCounts, 60 * 1000);
+    return () => {
+      mounted = false;
+      clearInterval(intervalId);
+    };
+  }, []);
 
   const fetchServices = async () => {
     try {
@@ -1353,9 +1380,17 @@ if (!isAdmin) {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full flex items-center px-3 py-2 text-left rounded-lg text-sm transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-primary text-white'
-                        : 'text-text-secondary hover:bg-gray-50'
+                      tab.id === 'prep-requests' && pendingPrepCount > 0
+                        ? activeTab === tab.id
+                          ? 'bg-green-600 text-white'
+                          : 'bg-green-50 text-green-700 hover:bg-green-100'
+                        : tab.id === 'returns' && pendingReturnsCount > 0
+                          ? activeTab === tab.id
+                            ? 'bg-green-600 text-white'
+                            : 'bg-green-50 text-green-700 hover:bg-green-100'
+                          : activeTab === tab.id
+                            ? 'bg-primary text-white'
+                            : 'text-text-secondary hover:bg-gray-50'
                     }`}
                   >
                     <tab.icon className="w-4 h-4 mr-2" />
