@@ -43,6 +43,12 @@ const buildDisplayList = (values, fallback) => {
   return fallbackValue ? [fallbackValue] : [];
 };
 
+const truncateLabel = (value, max = 15) => {
+  const text = String(value || '');
+  if (text.length <= max) return text;
+  return `${text.slice(0, max)}...`;
+};
+
 const buildEditableList = (values, fallback) => {
   const list = buildDisplayList(values, fallback);
   return list.length ? list : [''];
@@ -166,6 +172,18 @@ function ClientReceiving() {
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryDraftQty, setInventoryDraftQty] = useState({});
   const [shipmentsSearch, setShipmentsSearch] = useState('');
+  const copyToClipboard = async (label, value) => {
+    const text = String(value || '').trim();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setMessage(`${label} copied.`);
+      setMessageType('info');
+    } catch (err) {
+      setMessage('Copy failed.');
+      setMessageType('error');
+    }
+  };
   const filteredInventory = useMemo(() => {
     const term = inventorySearch.trim().toLowerCase();
     if (!term) return stock;
@@ -1344,15 +1362,31 @@ const buildHeaderState = (shipment) => ({
                     <td className="px-6 py-4 whitespace-nowrap">
                       {trackingList.length === 0 && <span className="text-text-secondary">—</span>}
                       {trackingList.map((tid) => (
-                        <p key={tid} className="font-mono text-xs">
-                          {tid}
-                        </p>
+                        <button
+                          key={tid}
+                          type="button"
+                          title={tid}
+                          onDoubleClick={() => copyToClipboard('Tracking ID', tid)}
+                          className="block font-mono text-xs text-left text-text-primary hover:text-primary"
+                        >
+                          {truncateLabel(tid)}
+                        </button>
                       ))}
                 </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-text-primary">
-                        {shipment.client_store_name || shipment.store_name || '—'}
-                      </div>
+                      <button
+                        type="button"
+                        title={shipment.client_store_name || shipment.store_name || '—'}
+                        onDoubleClick={() =>
+                          copyToClipboard(
+                            'Store reference',
+                            shipment.client_store_name || shipment.store_name || ''
+                          )
+                        }
+                        className="block text-text-primary text-left hover:text-primary"
+                      >
+                        {truncateLabel(shipment.client_store_name || shipment.store_name || '—')}
+                      </button>
                       {shipment.notes && (
                         <div className="text-xs text-text-secondary line-clamp-2">
                           {shipment.notes}
