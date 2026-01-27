@@ -1766,8 +1766,8 @@ createPrepItem: async (requestId, item) => {
       .lte('prep_requests.confirmed_at', endIso)
       .limit(10000);
     const receivingItemsPromise = supabase
-      .from('receiving_items')
-      .select('quantity_received, received_units, received_at, receiving_shipments!inner(company_id, received_at, processed_at)')
+      .from('receiving_to_stock_log')
+      .select('quantity_moved, moved_at, receiving_items!inner(shipment_id, receiving_shipments!inner(company_id))')
       .limit(20000);
 
     const balancePromise = userId
@@ -1875,7 +1875,10 @@ createPrepItem: async (requestId, item) => {
       return rows.filter((row) => extractor(row) === companyId);
     };
     const filteredPrepItems = filterCompanyJoin(prepItemRows, (r) => r.prep_requests?.company_id);
-    const filteredReceivingItems = filterCompanyJoin(receivingItemRows, (r) => r.receiving_shipments?.company_id);
+    const filteredReceivingItems = filterCompanyJoin(
+      receivingItemRows,
+      (r) => r.receiving_items?.receiving_shipments?.company_id
+    );
 
     const prepUnitsTotal = filteredPrepItems.reduce(
       (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
@@ -1885,27 +1888,20 @@ createPrepItem: async (requestId, item) => {
       .filter((row) => (row.prep_requests?.confirmed_at || '').slice(0, 10) === dateFrom)
       .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
 
-    const getReceivingDate = (row) => {
-      const rs = row.receiving_shipments || {};
-      const date = row.received_at || rs.processed_at || rs.received_at;
-      return (date || '').slice(0, 10);
-    };
+    const getReceivingDate = (row) => (row.moved_at || '').slice(0, 10);
 
     const receivingItemsInRange = filteredReceivingItems.filter((row) => {
       const d = getReceivingDate(row);
       return d && d >= dateFrom && d <= dateTo;
     });
 
-    const receivingUnitsTotalLocal = receivingItemsInRange.reduce((acc, row) => {
-      const units = numberOrZero(row.received_units ?? 0);
-      return units > 0 ? acc + units : acc;
-    }, 0);
+    const receivingUnitsTotalLocal = receivingItemsInRange.reduce(
+      (acc, row) => acc + numberOrZero(row.quantity_moved ?? 0),
+      0
+    );
     const receivingUnitsTodayLocal = receivingItemsInRange
       .filter((row) => getReceivingDate(row) === dateFrom)
-      .reduce((acc, row) => {
-        const units = numberOrZero(row.received_units ?? 0);
-        return units > 0 ? acc + units : acc;
-      }, 0);
+      .reduce((acc, row) => acc + numberOrZero(row.quantity_moved ?? 0), 0);
 
     const lastReceivingDateAll = (() => {
       const dates = filteredReceivingItems
@@ -2056,7 +2052,7 @@ createPrepItem: async (requestId, item) => {
     const receivingDailyUnits = buildDailyUnits(
       receivingItemsInRange,
       (row) => getReceivingDate(row),
-      (row) => row.quantity_received
+      (row) => row.quantity_moved
     );
 
     return {
