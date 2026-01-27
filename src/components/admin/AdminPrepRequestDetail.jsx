@@ -38,6 +38,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
   // header fields
   const [shipmentId, setShipmentId] = useState("");
   const [headerNote, setHeaderNote] = useState("");
+  const [showHeaderNote, setShowHeaderNote] = useState(false);
 
   // tracking
   const [newTracking, setNewTracking] = useState("");
@@ -1170,22 +1171,43 @@ onChanged?.();
 
         {/* Admin note (header) */}
         <div className="mt-6 border rounded-lg p-4">
-          <h4 className="font-semibold mb-2">Admin note (header)</h4>
-          <textarea
-            className="w-full border rounded p-2 min-h-[80px]"
-            placeholder="Explain why some units were removed / any packaging notes…"
-            value={headerNote}
-            onChange={(e) => setHeaderNote(e.target.value)}
-          />
-          <div className="mt-2">
+          <div className="flex items-center justify-between">
+            <h4 className="font-semibold">Admin note (header)</h4>
             <button
-              onClick={saveHeaderNote}
-              disabled={saving}
-              className="px-3 py-2 bg-primary text-white rounded inline-flex items-center gap-1"
+              type="button"
+              onClick={() => setShowHeaderNote((prev) => !prev)}
+              className="text-sm text-primary hover:underline"
             >
-              <Save className="w-4 h-4" /> Save note
+              {showHeaderNote ? "Hide note" : headerNote ? "Edit note" : "Add note"}
             </button>
           </div>
+
+          {headerNote && (
+            <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <span className="font-semibold">Noted by client:</span>{' '}
+              <span className="whitespace-pre-line">{headerNote}</span>
+            </div>
+          )}
+
+          {showHeaderNote && (
+            <>
+              <textarea
+                className="mt-3 w-full border rounded p-2 min-h-[80px]"
+                placeholder="Explain why some units were removed / any packaging notes…"
+                value={headerNote}
+                onChange={(e) => setHeaderNote(e.target.value)}
+              />
+              <div className="mt-2">
+                <button
+                  onClick={saveHeaderNote}
+                  disabled={saving}
+                  className="px-3 py-2 bg-primary text-white rounded inline-flex items-center gap-1"
+                >
+                  <Save className="w-4 h-4" /> Save note
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Items editable */}
