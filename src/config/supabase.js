@@ -1742,10 +1742,11 @@ createPrepItem: async (requestId, item) => {
     const prepPromise = withCompany(
       supabase
         .from('prep_requests')
-        .select('id, status, created_at')
+        .select('id, status, confirmed_at')
+        .eq('status', 'confirmed')
     )
-      .gte('created_at', startIso)
-      .lte('created_at', endIso)
+      .gte('confirmed_at', startIso)
+      .lte('confirmed_at', endIso)
       .limit(5000);
 
     const receivingPromise = withCompany(
@@ -1757,26 +1758,16 @@ createPrepItem: async (requestId, item) => {
       .lte('created_at', endIso)
       .limit(5000);
 
-    const receivingTotalRpcPromise = supabase.rpc('get_receiving_units', {
-      p_start_date: dateFrom,
-      p_end_date: dateTo,
-      p_company_id: companyId || null
-    });
-    const receivingTodayRpcPromise = supabase.rpc('get_receiving_units', {
-      p_start_date: dateFrom,
-      p_end_date: dateFrom,
-      p_company_id: companyId || null
-    });
-
     const prepItemsPromise = supabase
       .from('prep_request_items')
-      .select('units_requested, prep_requests!inner(created_at, company_id)')
-      .gte('prep_requests.created_at', startIso)
-      .lte('prep_requests.created_at', endIso)
+      .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status)')
+      .eq('prep_requests.status', 'confirmed')
+      .gte('prep_requests.confirmed_at', startIso)
+      .lte('prep_requests.confirmed_at', endIso)
       .limit(10000);
     const receivingItemsPromise = supabase
       .from('receiving_items')
-      .select('quantity_received, receiving_shipments!inner(created_at, submitted_at, received_at, processed_at, company_id)')
+      .select('quantity_received, received_at, receiving_shipments!inner(created_at, submitted_at, received_at, processed_at, company_id)')
       .limit(20000);
 
     const balancePromise = userId
@@ -1808,13 +1799,11 @@ createPrepItem: async (requestId, item) => {
       .lte('service_date', dateTo)
       .limit(20000);
 
-    const [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, receivingTotalRpcRes, receivingTodayRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
+    const [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
       stockPromise,
       stockAllPromise,
       clientStockPromise,
       stockTotalRpcPromise,
-      receivingTotalRpcPromise,
-      receivingTodayRpcPromise,
       invoicesPromise,
       returnsPromise,
       prepPromise,
@@ -1888,18 +1877,17 @@ createPrepItem: async (requestId, item) => {
     const filteredPrepItems = filterCompanyJoin(prepItemRows, (r) => r.prep_requests?.company_id);
     const filteredReceivingItems = filterCompanyJoin(receivingItemRows, (r) => r.receiving_shipments?.company_id);
 
-    const prepUnitsTotal = filteredPrepItems.reduce((acc, row) => acc + numberOrZero(row.units_requested), 0);
+    const prepUnitsTotal = filteredPrepItems.reduce(
+      (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
+      0
+    );
     const prepUnitsToday = filteredPrepItems
-      .filter((row) => (row.prep_requests?.created_at || '').slice(0, 10) === dateFrom)
-      .reduce((acc, row) => acc + numberOrZero(row.units_requested), 0);
+      .filter((row) => (row.prep_requests?.confirmed_at || '').slice(0, 10) === dateFrom)
+      .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
 
     const getReceivingDate = (row) => {
       const rs = row.receiving_shipments || {};
-      const date =
-        rs.processed_at ||
-        rs.received_at ||
-        rs.submitted_at ||
-        rs.created_at;
+      const date = row.received_at || rs.processed_at || rs.received_at;
       return (date || '').slice(0, 10);
     };
 
@@ -1921,11 +1909,8 @@ createPrepItem: async (requestId, item) => {
       return dates.length ? dates[dates.length - 1] : null;
     })();
 
-    const receivingUnitsTotalRpc = receivingTotalRpcRes?.data ? numberOrZero(receivingTotalRpcRes.data) : null;
-    const receivingUnitsTodayRpc = receivingTodayRpcRes?.data ? numberOrZero(receivingTodayRpcRes.data) : null;
-
-    const receivingUnitsTotal = receivingUnitsTotalRpc ?? receivingUnitsTotalLocal;
-    const receivingUnitsToday = receivingUnitsTodayRpc ?? receivingUnitsTodayLocal;
+    const receivingUnitsTotal = receivingUnitsTotalLocal;
+    const receivingUnitsToday = receivingUnitsTodayLocal;
 
     const sumAmount = (rows, dateField, qtyField) =>
       rows.reduce((acc, row) => {
@@ -1994,14 +1979,16 @@ createPrepItem: async (requestId, item) => {
 
     const balanceValue = balanceRes?.data?.current_balance ?? 0;
 
-    const buildSeries = (rows) => {
+    const buildSeries = (rows, getDate) => {
       const byDate = new Map();
       const statusCounts = {};
       const statusKeys = new Set();
+      const pickDate = getDate || ((row) => row.created_at);
 
       rows.forEach((row) => {
         const status = (row.status || 'unknown').toLowerCase();
-        const dateKey = row.created_at ? new Date(row.created_at).toISOString().slice(0, 10) : dateFrom;
+        const value = pickDate(row);
+        const dateKey = value ? new Date(value).toISOString().slice(0, 10) : dateFrom;
         const bucket = byDate.get(dateKey) || { total: 0, byStatus: {} };
         bucket.total += 1;
         bucket.byStatus[status] = (bucket.byStatus[status] || 0) + 1;
@@ -2027,7 +2014,7 @@ createPrepItem: async (requestId, item) => {
 
       const recent = rows
         .slice()
-        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        .sort((a, b) => new Date(pickDate(b) || 0) - new Date(pickDate(a) || 0))
         .slice(0, 6);
 
       return { statusCounts, statusKeys: allStatuses, daily, recent };
@@ -2051,14 +2038,14 @@ createPrepItem: async (requestId, item) => {
       return daily;
     };
 
-    const ordersSeries = buildSeries(prepRows);
+    const ordersSeries = buildSeries(prepRows, (row) => row.confirmed_at);
     const shipmentsSeries = buildSeries(receivingRows);
     const returnsSeries = buildSeries(returnsRows);
 
     const preparedDailyUnits = buildDailyUnits(
       filteredPrepItems,
-      (row) => (row.prep_requests?.created_at || '').slice(0, 10),
-      (row) => row.units_requested
+      (row) => (row.prep_requests?.confirmed_at || '').slice(0, 10),
+      (row) => row.units_sent ?? row.units_requested
     );
     const receivingDailyUnits = buildDailyUnits(
       receivingItemsInRange,
