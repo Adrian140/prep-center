@@ -436,7 +436,8 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
         user_id: shipment.user_id || shipment.created_by || profile.id,
         destination_country: shipment.destination_country || 'FR',
         status: 'pending',
-        items: fbaLines
+        items: fbaLines,
+        obs_admin: shipment.notes || null
       });
       await supabase
         .from('receiving_items')

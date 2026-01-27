@@ -1353,6 +1353,11 @@ const buildHeaderState = (shipment) => ({
                       <div className="text-text-primary">
                         {shipment.client_store_name || shipment.store_name || '—'}
                       </div>
+                      {shipment.notes && (
+                        <div className="text-xs text-text-secondary line-clamp-2">
+                          {shipment.notes}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(shipment.derived_status || shipment.status)}

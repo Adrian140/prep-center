@@ -298,6 +298,7 @@ export default function ClientPrepShipments() {
         status: 'pending',
         created_at: new Date().toISOString(),
         fba_shipment_id: null,
+        obs_admin: null,
         amazon_status: null,
         amazon_units_expected: null,
         amazon_units_located: null,
@@ -323,6 +324,7 @@ export default function ClientPrepShipments() {
         status: data.status,
         created_at: data.created_at,
         fba_shipment_id: data.fba_shipment_id || null,
+        obs_admin: data.obs_admin || null,
         amazon_status: data.amazon_status || null,
         amazon_units_expected: data.amazon_units_expected ?? null,
         amazon_units_located: data.amazon_units_located ?? null,
@@ -462,6 +464,7 @@ export default function ClientPrepShipments() {
             status,
             prep_status,
             fba_shipment_id,
+            obs_admin,
             amazon_status,
             amazon_units_expected,
             amazon_units_located,
@@ -643,6 +646,11 @@ export default function ClientPrepShipments() {
                         {shipmentId}
                         {referenceId ? `, ${referenceId}` : ''}
                       </div>
+                      {row.obs_admin && (
+                        <div className="text-xs text-text-secondary mt-1 line-clamp-2">
+                          {row.obs_admin}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 align-top">
                       <div className="font-medium text-text-primary">{createdParts.date}</div>
@@ -834,6 +842,12 @@ export default function ClientPrepShipments() {
               <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.shipment')}:</span> {reqHeader?.fba_shipment_id || '—'}</div>
             </div>
           )}
+
+                {reqHeader?.obs_admin && (
+                  <div className="mx-6 mb-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 whitespace-pre-line">
+                    {reqHeader.obs_admin}
+                  </div>
+                )}
 
                 {reqErrors.length > 0 && (
                   <div className="mx-6 mb-4 rounded-md border border-red-200 bg-red-50 text-red-700 p-3 text-sm space-y-1">

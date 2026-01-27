@@ -64,6 +64,7 @@ export const supabaseHelpers = {
           company_id: data.company_id,
           destination_country: data.destination_country || "FR",
           status: data.status || "pending",
+          obs_admin: data.obs_admin || null,
           created_at: new Date().toISOString(),
         },
       ])

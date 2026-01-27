@@ -145,13 +145,22 @@ const ClientStockSelectionBar = ({
                 />
               )}
               {showStoreName && (
-                <input
-                  type="text"
-                  value={receptionForm.storeName}
-                  onChange={(e) => onReceptionFormChange('storeName', e.target.value)}
-                  placeholder={t('ClientReceiving.store_name_ph') || 'Store / merchant name'}
-                  className="border rounded-md px-2 py-1 mt-2 w-full"
-                />
+                <>
+                  <input
+                    type="text"
+                    value={receptionForm.storeName}
+                    onChange={(e) => onReceptionFormChange('storeName', e.target.value)}
+                    placeholder={t('ClientReceiving.store_name_ph') || 'Store / merchant name'}
+                    className="border rounded-md px-2 py-1 mt-2 w-full"
+                  />
+                  <textarea
+                    value={receptionForm.notes}
+                    onChange={(e) => onReceptionFormChange('notes', e.target.value)}
+                    placeholder={t('notes_ph') || 'Notes / info for the team'}
+                    className="border rounded-md px-2 py-1 mt-2 w-full"
+                    rows={2}
+                  />
+                </>
               )}
               {selectedCount > 0 && (
                 <div className="mt-2 flex items-center">
