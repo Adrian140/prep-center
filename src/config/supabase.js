@@ -1767,7 +1767,7 @@ createPrepItem: async (requestId, item) => {
       .limit(10000);
     const receivingItemsPromise = supabase
       .from('receiving_items')
-      .select('quantity_received, received_units, received_at, receiving_shipments!inner(company_id)')
+      .select('quantity_received, received_units, received_at, receiving_shipments!inner(company_id, received_at, processed_at)')
       .limit(20000);
 
     const balancePromise = userId
@@ -1885,20 +1885,27 @@ createPrepItem: async (requestId, item) => {
       .filter((row) => (row.prep_requests?.confirmed_at || '').slice(0, 10) === dateFrom)
       .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
 
-    const getReceivingDate = (row) => (row.received_at || '').slice(0, 10);
+    const getReceivingDate = (row) => {
+      const rs = row.receiving_shipments || {};
+      const date = row.received_at || rs.processed_at || rs.received_at;
+      return (date || '').slice(0, 10);
+    };
 
     const receivingItemsInRange = filteredReceivingItems.filter((row) => {
       const d = getReceivingDate(row);
       return d && d >= dateFrom && d <= dateTo;
     });
 
-    const receivingUnitsTotalLocal = receivingItemsInRange.reduce(
-      (acc, row) => acc + numberOrZero(row.received_units ?? 0),
-      0
-    );
+    const receivingUnitsTotalLocal = receivingItemsInRange.reduce((acc, row) => {
+      const units = numberOrZero(row.received_units ?? 0);
+      return units > 0 ? acc + units : acc;
+    }, 0);
     const receivingUnitsTodayLocal = receivingItemsInRange
       .filter((row) => getReceivingDate(row) === dateFrom)
-      .reduce((acc, row) => acc + numberOrZero(row.received_units ?? 0), 0);
+      .reduce((acc, row) => {
+        const units = numberOrZero(row.received_units ?? 0);
+        return units > 0 ? acc + units : acc;
+      }, 0);
 
     const lastReceivingDateAll = (() => {
       const dates = filteredReceivingItems
