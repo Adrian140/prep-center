@@ -1697,7 +1697,7 @@ createPrepItem: async (requestId, item) => {
 
     const dateFrom = normalizeDate(startDate || new Date());
     const dateTo = normalizeDate(endDate || dateFrom);
-    const todayKey = formatSqlDate(new Date());
+    const endKey = dateTo;
     const startIso = `${dateFrom}T00:00:00.000Z`;
     const endIso = `${dateTo}T23:59:59.999Z`;
 
@@ -1947,9 +1947,9 @@ createPrepItem: async (requestId, item) => {
       other: sumAmountByDate(otherLines, 'service_date', 'units')
     };
     const financeAmountsTodayAbsolute = {
-      fba: sumAmountByExactDate(fbaLines, 'service_date', 'units', todayKey),
-      fbm: sumAmountByExactDate(fbmLines, 'service_date', 'orders_units', todayKey),
-      other: sumAmountByExactDate(otherLines, 'service_date', 'units', todayKey)
+      fba: sumAmountByExactDate(fbaLines, 'service_date', 'units', endKey),
+      fbm: sumAmountByExactDate(fbmLines, 'service_date', 'orders_units', endKey),
+      other: sumAmountByExactDate(otherLines, 'service_date', 'units', endKey)
     };
 
     const buildDailyAmounts = (rows, dateField, qtyField) => {

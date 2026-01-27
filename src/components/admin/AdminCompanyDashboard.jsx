@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Package,
-  TrendingUp,
-  RotateCcw,
   RefreshCcw,
   Calendar as CalendarIcon,
   Building2,
@@ -23,12 +21,6 @@ import {
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
-const shiftDays = (days) => {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  const pad = (v) => String(v).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
 const formatDisplayDate = (value) => {
   if (!value) return '—';
   try {
@@ -181,8 +173,8 @@ export default function AdminCompanyDashboard() {
     if (!selectedCompany?.id) return;
     setLoadingChart(true);
     setChartError('');
-    const end = todayIso();
-    const start = shiftDays(chartRange - 1);
+    const start = dateFrom;
+    const end = dateTo;
     const { data, error } = await supabaseHelpers.getClientAnalyticsSnapshot({
       companyId: selectedCompany.id === 'ALL' ? null : selectedCompany.id,
       userId: null,
@@ -201,17 +193,15 @@ export default function AdminCompanyDashboard() {
   useEffect(() => {
     loadChart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompany?.id, chartRange]);
+  }, [selectedCompany?.id, dateFrom, dateTo]);
 
   const loadMonthFinance = async () => {
     if (!selectedCompany?.id) return;
-    const today = todayIso();
-    const monthStart = `${today.slice(0, 8)}01`;
     const { data, error } = await supabaseHelpers.getClientAnalyticsSnapshot({
       companyId: selectedCompany.id === 'ALL' ? null : selectedCompany.id,
       userId: null,
-      startDate: monthStart,
-      endDate: today
+      startDate: dateFrom,
+      endDate: dateTo
     });
     if (error) {
       setMonthFinance(null);
@@ -231,7 +221,7 @@ export default function AdminCompanyDashboard() {
   useEffect(() => {
     loadMonthFinance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompany?.id]);
+  }, [selectedCompany?.id, dateFrom, dateTo]);
 
   const applyPreset = (days) => {
     const end = new Date();
@@ -239,7 +229,23 @@ export default function AdminCompanyDashboard() {
     start.setDate(end.getDate() - (days - 1));
     setDateFrom(start.toISOString().slice(0, 10));
     setDateTo(end.toISOString().slice(0, 10));
+    setChartRange(days);
   };
+
+  useEffect(() => {
+    if (!dateFrom || !dateTo) return;
+    const start = new Date(dateFrom);
+    const end = new Date(dateTo);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+    const diff = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    const presets = new Set([1, 7, 30, 60, 90]);
+    if (diff > 0 && presets.has(diff)) {
+      setChartRange(diff);
+    } else if (chartRange !== 0) {
+      setChartRange(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo]);
 
   const filteredCompanies = companies.filter((c) =>
     !search
@@ -295,6 +301,14 @@ export default function AdminCompanyDashboard() {
       Number(snapshot?.finance?.prepAmounts?.fbm || 0) +
       Number(snapshot?.finance?.prepAmounts?.other || 0));
   const isSingleDay = dateFrom === dateTo;
+  const chartDays = useMemo(() => {
+    if (!dateFrom || !dateTo) return chartRange;
+    const start = new Date(dateFrom);
+    const end = new Date(dateTo);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return chartRange;
+    const diff = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    return diff > 0 ? diff : chartRange;
+  }, [dateFrom, dateTo, chartRange]);
 
   return (
     <div className="space-y-6">
@@ -437,15 +451,22 @@ export default function AdminCompanyDashboard() {
             <div className="flex items-center justify-between mb-3">
               <div className="text-sm font-semibold text-text-primary">{t('adminDashboard.chartTitle')}</div>
               <div className="flex items-center gap-2 text-xs text-text-secondary">
-                <span>{tp('adminDashboard.chartRangeLabel', { days: chartRange })}</span>
+                <span>{tp('adminDashboard.chartRangeLabel', { days: chartDays })}</span>
                 <select
                   className="border rounded px-2 py-1 text-xs"
                   value={chartRange}
-                  onChange={(e) => setChartRange(Number(e.target.value))}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    if (!next) return;
+                    applyPreset(next);
+                  }}
                 >
+                  <option value={1}>1</option>
+                  <option value={7}>7</option>
                   <option value={30}>30</option>
                   <option value={60}>60</option>
                   <option value={90}>90</option>
+                  <option value={0}>Custom</option>
                 </select>
               </div>
             </div>
