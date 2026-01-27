@@ -21,10 +21,11 @@ import {
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
-const daysAgoIso = (days) => {
+const shiftDays = (days) => {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 const formatDisplayDate = (value) => {
   if (!value) return '—';
@@ -51,7 +52,7 @@ export default function AdminCompanyDashboard() {
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [search, setSearch] = useState('');
 
-  const [dateFrom, setDateFrom] = useState(() => daysAgoIso(29));
+  const [dateFrom, setDateFrom] = useState(() => todayIso());
   const [dateTo, setDateTo] = useState(() => todayIso());
 
   const [loadingData, setLoadingData] = useState(false);
@@ -178,8 +179,8 @@ export default function AdminCompanyDashboard() {
     if (!selectedCompany?.id) return;
     setLoadingChart(true);
     setChartError('');
-    const start = dateFrom;
-    const end = dateTo;
+    const end = todayIso();
+    const start = shiftDays(chartRange - 1);
     const { data, error } = await supabaseHelpers.getClientAnalyticsSnapshot({
       companyId: selectedCompany.id === 'ALL' ? null : selectedCompany.id,
       userId: null,
@@ -198,7 +199,7 @@ export default function AdminCompanyDashboard() {
   useEffect(() => {
     loadChart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompany?.id, dateFrom, dateTo]);
+  }, [selectedCompany?.id, chartRange]);
 
   const loadMonthFinance = async () => {
     if (!selectedCompany?.id) return;
@@ -234,23 +235,8 @@ export default function AdminCompanyDashboard() {
     start.setDate(end.getDate() - (days - 1));
     setDateFrom(start.toISOString().slice(0, 10));
     setDateTo(end.toISOString().slice(0, 10));
-    setChartRange(days);
   };
 
-  useEffect(() => {
-    if (!dateFrom || !dateTo) return;
-    const start = new Date(dateFrom);
-    const end = new Date(dateTo);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
-    const diff = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
-    const presets = new Set([1, 7, 30, 60, 90]);
-    if (diff > 0 && presets.has(diff)) {
-      setChartRange(diff);
-    } else if (chartRange !== 0) {
-      setChartRange(0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom, dateTo]);
 
   const filteredCompanies = companies.filter((c) =>
     !search
@@ -306,14 +292,7 @@ export default function AdminCompanyDashboard() {
       Number(snapshot?.finance?.prepAmounts?.fbm || 0) +
       Number(snapshot?.finance?.prepAmounts?.other || 0));
   const isSingleDay = dateFrom === dateTo;
-  const chartDays = useMemo(() => {
-    if (!dateFrom || !dateTo) return chartRange;
-    const start = new Date(dateFrom);
-    const end = new Date(dateTo);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return chartRange;
-    const diff = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
-    return diff > 0 ? diff : chartRange;
-  }, [dateFrom, dateTo, chartRange]);
+  const chartDays = chartRange;
 
   return (
     <div className="space-y-6">
@@ -460,18 +439,13 @@ export default function AdminCompanyDashboard() {
                 <select
                   className="border rounded px-2 py-1 text-xs"
                   value={chartRange}
-                  onChange={(e) => {
-                    const next = Number(e.target.value);
-                    if (!next) return;
-                    applyPreset(next);
-                  }}
+                  onChange={(e) => setChartRange(Number(e.target.value))}
                 >
                   <option value={1}>1</option>
                   <option value={7}>7</option>
                   <option value={30}>30</option>
                   <option value={60}>60</option>
                   <option value={90}>90</option>
-                  <option value={0}>Custom</option>
                 </select>
               </div>
             </div>
