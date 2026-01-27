@@ -15,6 +15,7 @@ import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (value) => typeof value === 'string' && UUID_REGEX.test(value);
 const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
+const CLIENT_NOTE_MARKER = "[CLIENT_NOTE]";
 
 const STATUS_PRIORITY = {
   draft: 1,
@@ -437,7 +438,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
         destination_country: shipment.destination_country || 'FR',
         status: 'pending',
         items: fbaLines,
-        obs_admin: shipment.notes || null
+        obs_admin: shipment.notes ? `${CLIENT_NOTE_MARKER}\n${shipment.notes}` : null
       });
       await supabase
         .from('receiving_items')

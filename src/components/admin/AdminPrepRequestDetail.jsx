@@ -28,6 +28,42 @@ const StatusPill = ({ s }) => {
   );
 };
 
+const CLIENT_NOTE_MARKER = "[CLIENT_NOTE]";
+const ADMIN_NOTE_MARKER = "[ADMIN_NOTE]";
+
+const parseHeaderNotes = (raw) => {
+  const text = String(raw || "");
+  if (!text) return { clientNote: "", adminNote: "" };
+  const hasMarkers =
+    text.includes(CLIENT_NOTE_MARKER) || text.includes(ADMIN_NOTE_MARKER);
+  if (!hasMarkers) {
+    return { clientNote: "", adminNote: text };
+  }
+  const extract = (marker) => {
+    const idx = text.indexOf(marker);
+    if (idx === -1) return "";
+    const after = text.slice(idx + marker.length);
+    const nextIdxCandidates = [
+      after.indexOf(`\n${CLIENT_NOTE_MARKER}`),
+      after.indexOf(`\n${ADMIN_NOTE_MARKER}`)
+    ].filter((i) => i >= 0);
+    const nextIdx = nextIdxCandidates.length ? Math.min(...nextIdxCandidates) : -1;
+    const body = nextIdx >= 0 ? after.slice(0, nextIdx) : after;
+    return body.replace(/^\n/, "").trim();
+  };
+  return {
+    clientNote: extract(CLIENT_NOTE_MARKER),
+    adminNote: extract(ADMIN_NOTE_MARKER)
+  };
+};
+
+const serializeHeaderNotes = ({ clientNote, adminNote }) => {
+  const parts = [];
+  if (clientNote) parts.push(`${CLIENT_NOTE_MARKER}\n${clientNote}`);
+  if (adminNote) parts.push(`${ADMIN_NOTE_MARKER}\n${adminNote}`);
+  return parts.join("\n");
+};
+
 export default function AdminPrepRequestDetail({ requestId, onBack, onChanged }) {
   const { profile, session } = useSupabaseAuth();
 
@@ -38,6 +74,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
   // header fields
   const [shipmentId, setShipmentId] = useState("");
   const [headerNote, setHeaderNote] = useState("");
+  const [clientNote, setClientNote] = useState("");
   const [showHeaderNote, setShowHeaderNote] = useState(false);
 
   // tracking
@@ -439,7 +476,9 @@ const mapBoxRows = (rows = []) => {
     } else {
       setRow(data);
       setShipmentId(data?.fba_shipment_id || "");
-      setHeaderNote(data?.obs_admin || "");
+      const parsed = parseHeaderNotes(data?.obs_admin || "");
+      setHeaderNote(parsed.adminNote || "");
+      setClientNote(parsed.clientNote || "");
       await loadBoxesFromServer(data?.prep_request_items || []);
 
       // ---- DEBUG
@@ -670,7 +709,11 @@ const mapBoxRows = (rows = []) => {
 
   async function saveHeaderNote() {
     setSaving(true);
-    const { error } = await supabaseHelpers.updatePrepHeader(requestId, { obs_admin: headerNote });
+    const obsAdmin = serializeHeaderNotes({
+      clientNote,
+      adminNote: headerNote
+    });
+    const { error } = await supabaseHelpers.updatePrepHeader(requestId, { obs_admin: obsAdmin || null });
     setSaving(false);
     if (error) return setFlash(error.message);
     setFlash("Admin note saved.");
@@ -1182,10 +1225,10 @@ onChanged?.();
             </button>
           </div>
 
-          {headerNote && (
+          {clientNote && (
             <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               <span className="font-semibold">Noted by client:</span>{' '}
-              <span className="whitespace-pre-line">{headerNote}</span>
+              <span className="whitespace-pre-line">{clientNote}</span>
             </div>
           )}
 

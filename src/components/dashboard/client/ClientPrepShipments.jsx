@@ -4,6 +4,35 @@ import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
 import { supabase, supabaseHelpers } from '../../../config/supabase';
 
+const CLIENT_NOTE_MARKER = "[CLIENT_NOTE]";
+const ADMIN_NOTE_MARKER = "[ADMIN_NOTE]";
+
+const parseHeaderNotes = (raw) => {
+  const text = String(raw || "");
+  if (!text) return { clientNote: "", adminNote: "" };
+  const hasMarkers =
+    text.includes(CLIENT_NOTE_MARKER) || text.includes(ADMIN_NOTE_MARKER);
+  if (!hasMarkers) {
+    return { clientNote: "", adminNote: text };
+  }
+  const extract = (marker) => {
+    const idx = text.indexOf(marker);
+    if (idx === -1) return "";
+    const after = text.slice(idx + marker.length);
+    const nextIdxCandidates = [
+      after.indexOf(`\n${CLIENT_NOTE_MARKER}`),
+      after.indexOf(`\n${ADMIN_NOTE_MARKER}`)
+    ].filter((i) => i >= 0);
+    const nextIdx = nextIdxCandidates.length ? Math.min(...nextIdxCandidates) : -1;
+    const body = nextIdx >= 0 ? after.slice(0, nextIdx) : after;
+    return body.replace(/^\n/, "").trim();
+  };
+  return {
+    clientNote: extract(CLIENT_NOTE_MARKER),
+    adminNote: extract(ADMIN_NOTE_MARKER)
+  };
+};
+
 const toIsoDate = (value) => {
   if (!value) return '—';
   try {
@@ -521,8 +550,13 @@ export default function ClientPrepShipments() {
     };
   }, [profile?.id, profile?.company_id]);
 
+  const reqClientNote = parseHeaderNotes(reqHeader?.obs_admin).clientNote;
+
   return (
     <div className="space-y-6">
+      {/*
+        Notes parsing is used in multiple places; compute on render to keep it simple.
+      */}
       <header className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 text-primary rounded-xl">
@@ -636,6 +670,7 @@ export default function ClientPrepShipments() {
                   : prepStatus === 'anulat'
                   ? 'bg-red-50 text-red-700'
                   : 'bg-emerald-50 text-emerald-700';
+                const { clientNote } = parseHeaderNotes(row.obs_admin);
                 return (
                   <tr key={row.id} className="border-t even:bg-gray-50/60">
                     <td className="px-4 py-3 align-top">
@@ -646,9 +681,9 @@ export default function ClientPrepShipments() {
                         {shipmentId}
                         {referenceId ? `, ${referenceId}` : ''}
                       </div>
-                      {row.obs_admin && (
+                      {clientNote && (
                         <div className="text-xs text-text-secondary mt-1 line-clamp-2">
-                          {row.obs_admin}
+                          {clientNote}
                         </div>
                       )}
                     </td>
@@ -843,9 +878,9 @@ export default function ClientPrepShipments() {
             </div>
           )}
 
-                {reqHeader?.obs_admin && (
+                {reqClientNote && (
                   <div className="mx-6 mb-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 whitespace-pre-line">
-                    {reqHeader.obs_admin}
+                    {reqClientNote}
                   </div>
                 )}
 
