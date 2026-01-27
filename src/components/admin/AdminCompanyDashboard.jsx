@@ -203,11 +203,13 @@ export default function AdminCompanyDashboard() {
 
   const loadMonthFinance = async () => {
     if (!selectedCompany?.id) return;
+    const today = todayIso();
+    const monthStart = `${today.slice(0, 8)}01`;
     const { data, error } = await supabaseHelpers.getClientAnalyticsSnapshot({
       companyId: selectedCompany.id === 'ALL' ? null : selectedCompany.id,
       userId: null,
-      startDate: dateFrom,
-      endDate: dateTo
+      startDate: monthStart,
+      endDate: today
     });
     if (error) {
       setMonthFinance(null);
@@ -227,7 +229,7 @@ export default function AdminCompanyDashboard() {
   useEffect(() => {
     loadMonthFinance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompany?.id, dateFrom, dateTo]);
+  }, [selectedCompany?.id]);
 
   const applyPreset = (days) => {
     const end = new Date();
