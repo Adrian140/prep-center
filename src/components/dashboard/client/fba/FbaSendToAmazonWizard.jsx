@@ -1383,6 +1383,46 @@ const fetchPartneredQuote = useCallback(
     return Array.from(byShipment.values());
   };
 
+  const resolveContactInformation = () => {
+    const candidates = [
+      plan?.shipFrom,
+      shipments?.[0]?.shipFromAddress,
+      shipments?.[0]?.sourceAddress,
+      shipments?.[0]?.source?.address
+    ].filter(Boolean);
+
+    const normalize = (src = {}) => {
+      const name =
+        src.name ||
+        src.contactName ||
+        src.companyName ||
+        src.person ||
+        null;
+      const phoneNumber =
+        src.phoneNumber ||
+        src.phone ||
+        src.phone_number ||
+        null;
+      const email =
+        src.email ||
+        src.emailAddress ||
+        src.email_address ||
+        null;
+      if (!name || !phoneNumber || !email) return null;
+      return {
+        name: String(name).trim(),
+        phoneNumber: String(phoneNumber).trim(),
+        email: String(email).trim()
+      };
+    };
+
+    for (const src of candidates) {
+      const info = normalize(src);
+      if (info) return info;
+    }
+    return null;
+  };
+
   const fetchShippingOptions = async () => {
     if (typeof window === 'undefined') return; // rulează doar în browser
     const inboundPlanId = resolveInboundPlanId();
@@ -1452,6 +1492,11 @@ const fetchPartneredQuote = useCallback(
     setShippingError('');
     try {
       const configs = buildShipmentConfigs();
+      const contactInformation = resolveContactInformation();
+      if (!contactInformation) {
+        setShippingError('contactInformation (name, phoneNumber, email) este obligatoriu pentru Amazon.');
+        return;
+      }
       // log local pentru debug (nu trimite date sensibile)
       const { preferNonPartnered, preferredCarrierName, forcePartneredIfAvailable } = computeCarrierPreferences();
       console.log('Step2 invoke fba-step2-confirm-shipping', {
@@ -1470,6 +1515,7 @@ const fetchPartneredQuote = useCallback(
           placement_option_id: placementOptId,
           packing_option_id: packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null,
           shipping_mode: shipmentMode?.method || null,
+          contact_information: contactInformation,
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
           force_partnered_if_available: preferNonPartnered ? false : forcePartneredIfAvailable,
@@ -1584,6 +1630,11 @@ const fetchPartneredQuote = useCallback(
     try {
       const { preferNonPartnered, preferredCarrierName, forcePartneredIfAvailable } = computeCarrierPreferences();
       const configs = buildShipmentConfigs();
+      const contactInformation = resolveContactInformation();
+      if (!contactInformation) {
+        setShippingError('contactInformation (name, phoneNumber, email) este obligatoriu pentru Amazon.');
+        return;
+      }
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
           request_id: requestId,
@@ -1591,6 +1642,7 @@ const fetchPartneredQuote = useCallback(
           placement_option_id: placementOptId,
           packing_option_id: packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null,
           shipping_mode: shipmentMode?.method || null,
+          contact_information: contactInformation,
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
           force_partnered_if_available: preferNonPartnered ? false : forcePartneredIfAvailable,
