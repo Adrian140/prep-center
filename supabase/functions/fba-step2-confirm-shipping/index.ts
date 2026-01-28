@@ -2366,7 +2366,7 @@ serve(async (req) => {
       body?.confirm_delivery_window_on_list ?? body?.confirmDeliveryWindowOnList ?? true;
     const allowDeliveryWindowConfirmation = shouldConfirm || confirmDeliveryWindowOnList;
 
-    if (allRequireDeliveryWindow && allowDeliveryWindowConfirmation) {
+    if (allRequireDeliveryWindow && allowDeliveryWindowConfirmation && confirmedPlacement) {
       const shipmentIds = Array.from(
         new Set<string>(
           placementShipments
@@ -2426,6 +2426,12 @@ serve(async (req) => {
         status: relist.firstRes?.res?.status,
         requestId: relist.firstRes?.requestId || null,
         count: options.length
+      });
+    } else if (allRequireDeliveryWindow && allowDeliveryWindowConfirmation && !confirmedPlacement) {
+      logStep("deliveryWindow_deferred", {
+        traceId,
+        reason: "placement_not_confirmed",
+        placementOptionId: effectivePlacementOptionId || null
       });
     }
 
