@@ -1535,10 +1535,6 @@ const fetchPartneredQuote = useCallback(
     try {
       const configs = buildShipmentConfigs();
       const contactInformation = resolveContactInformation();
-      if (!contactInformation) {
-        setShippingError('contactInformation (name, phoneNumber, email) este obligatoriu pentru Amazon.');
-        return;
-      }
       // log local pentru debug (nu trimite date sensibile)
       const { preferNonPartnered, preferredCarrierName, forcePartneredIfAvailable } = computeCarrierPreferences();
       console.log('Step2 invoke fba-step2-confirm-shipping', {
@@ -1557,7 +1553,7 @@ const fetchPartneredQuote = useCallback(
           placement_option_id: placementOptId,
           packing_option_id: packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null,
           shipping_mode: shipmentMode?.method || null,
-          contact_information: contactInformation,
+          ...(contactInformation ? { contact_information: contactInformation } : {}),
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
           force_partnered_if_available: preferNonPartnered ? false : forcePartneredIfAvailable,
@@ -1673,10 +1669,6 @@ const fetchPartneredQuote = useCallback(
       const { preferNonPartnered, preferredCarrierName, forcePartneredIfAvailable } = computeCarrierPreferences();
       const configs = buildShipmentConfigs();
       const contactInformation = resolveContactInformation();
-      if (!contactInformation) {
-        setShippingError('contactInformation (name, phoneNumber, email) este obligatoriu pentru Amazon.');
-        return;
-      }
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
           request_id: requestId,
@@ -1684,7 +1676,7 @@ const fetchPartneredQuote = useCallback(
           placement_option_id: placementOptId,
           packing_option_id: packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null,
           shipping_mode: shipmentMode?.method || null,
-          contact_information: contactInformation,
+          ...(contactInformation ? { contact_information: contactInformation } : {}),
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
           force_partnered_if_available: preferNonPartnered ? false : forcePartneredIfAvailable,
