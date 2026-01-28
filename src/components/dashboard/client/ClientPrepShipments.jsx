@@ -375,6 +375,7 @@ export default function ClientPrepShipments() {
           asin: line.asin ?? '',
           sku: line.sku ?? '',
           units_requested: Number(line.units_requested || 0),
+          units_sent: Number(line.units_sent ?? line.units_requested ?? 0),
           product_name: line.product_name || line.stock_item?.name || '',
           ean: line.ean || line.stock_item?.ean || '',
           amazon_units_expected: line.amazon_units_expected ?? null,
@@ -508,6 +509,7 @@ export default function ClientPrepShipments() {
             prep_request_tracking(tracking_id),
             prep_request_items(
               units_requested,
+              units_sent,
               asin,
               sku,
               product_name,
@@ -682,7 +684,7 @@ export default function ClientPrepShipments() {
                 const unitsExpectedRaw = Number(row.amazon_units_expected ?? snapshot.units_expected);
                 const unitsExpected = Number.isFinite(unitsExpectedRaw)
                   ? unitsExpectedRaw
-                  : items.reduce((acc, it) => acc + Number(it.units_requested || 0), 0);
+                  : items.reduce((acc, it) => acc + Number(it.units_sent ?? it.units_requested ?? 0), 0);
                 const unitsLocatedRaw = Number(
                   row.amazon_units_located ?? snapshot.units_located ?? snapshot.units_received
                 );
@@ -901,7 +903,11 @@ export default function ClientPrepShipments() {
                     {reqHeader?.amazon_skus ?? amazonSnapshot.skus ?? '—'} MSKUs
                   </div>
                   <div className="text-sm text-text-primary">
-                    {reqHeader?.amazon_units_expected ?? amazonSnapshot.units_expected ?? '—'} units expected
+                    {(reqHeader?.amazon_units_expected ??
+                      amazonSnapshot.units_expected ??
+                      (reqLines.length
+                        ? reqLines.reduce((acc, it) => acc + Number(it.units_sent ?? it.units_requested ?? 0), 0)
+                        : null)) ?? '—'} units expected
                   </div>
                   <div className="text-xs text-text-secondary">
                     Units located: {reqHeader?.amazon_units_located ?? amazonSnapshot.units_located ?? '—'}
@@ -1010,7 +1016,7 @@ export default function ClientPrepShipments() {
                                 ) : (
                                   <div className="text-right">
                                     <div className="text-base font-semibold text-text-primary leading-5">
-                                      {line.amazon_units_expected ?? line.units_requested ?? '—'}
+                                      {line.amazon_units_expected ?? line.units_sent ?? line.units_requested ?? '—'}
                                     </div>
                                     <div
                                       className={`text-sm font-semibold ${
