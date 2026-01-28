@@ -9293,6 +9293,8 @@ shipmentId: Each shipment ID within the chosen placement option. Include all shi
 readyToShipWindow: Start date for when shipments are ready for delivery.
 freightInformation (only if you want to ship pallets): The declared value and freight class.
 pallets (only if you want to ship pallets): Information about the pallets being shipped, including quantity, dimensions, weight, and stackability.
+Note: For Small Parcel (SPD), do not send pallets/freightInformation. Ensure box dimensions + weight are set in setPackingInformation; PCP options may be missing if box data is incomplete.
+Note: For Small Parcel (SPD), do not send pallets/freightInformation. Make sure box dimensions + weight are set in setPackingInformation; PCP options may be missing if box data is incomplete.
 Response
 Includes an operationId that you can use to check the status of transportation options generation.
 Request example for small parcel delivery
@@ -9625,6 +9627,7 @@ shipmentId: Each shipment ID within the chosen placement option. Include all shi
 readyToShipWindow: Start date for when shipments are ready for delivery.
 freightInformation (only if you want to ship pallets): Declared value and freight class.
 pallets (only if you want to ship pallets): Information about the shipped pallets, including quantity, dimensions, weight, and stackability.
+Note: For Small Parcel (SPD), do not send pallets/freightInformation. Ensure box dimensions + weight are set in setPackingInformation; PCP options may be missing if box data is incomplete.
 Response
 operationId: An ID that you can use to check the status of transportation options generation.
 Request example for small parcel delivery
@@ -17036,4 +17039,3 @@ shipmentConfirmationId: The ID that confirms the shipment, retrieved from getShi
 Response
 Includes a URL that you can use to download the bill of lading associated with the Less Than Truckload (LTL) or Full Truckload (FTL) pallet shipment.
 This process completes the creation of your inbound plan, and sends your SKUs as either individual boxes (small parcel delivery) or pallets (LTL/FTL) using the Amazon Partnered Carrier. You can verify this inbound plan through the Seller Central Send to Amazon UI.
-

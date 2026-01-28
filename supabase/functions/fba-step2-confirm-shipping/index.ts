@@ -1876,7 +1876,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           error:
-            "Lipsesc paletii (pallets) și/sau freightInformation pentru LTL/FTL. Completează dimensiuni, greutate, stackability și freight class.",
+            "Lipsesc paletii (pallets) și/sau freightInformation pentru LTL/FTL. Pentru SPD nu se trimit paleti. Completează dimensiuni, greutate, stackability și freight class.",
           code: "MISSING_PALLETS",
           traceId
         }),
@@ -1898,7 +1898,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           error:
-            "Lipsesc coletele (packages: dimensiuni + greutate). Amazon nu va oferi PCP fără box details.",
+            "Lipsesc coletele (packages: dimensiuni + greutate). Pentru SPD paletii nu sunt necesari, dar box details sunt obligatorii pentru PCP.",
           code: "MISSING_PACKAGES",
           traceId
         }),

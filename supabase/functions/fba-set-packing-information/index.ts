@@ -237,7 +237,7 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
       const wt = Number(d?.weight || 0);
       return l > 0 && w > 0 && h > 0 && wt > 0;
     });
-    if ((!dims || !weight) && !(hasPerBoxDetails && perBoxItemsRaw.length)) return;
+    if ((!dims || !weight) && !hasPerBoxDetails) return;
 
     const rawSource = String(g?.contentInformationSource || "").toUpperCase();
     const allowedSources = new Set(["BARCODE_2D", "BOX_CONTENT_PROVIDED", "MANUAL_PROCESS"]);
@@ -332,6 +332,33 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
       }).filter(Boolean);
 
       if (boxes.length && boxes.length === perBoxItemsRaw.length) {
+        out.push({ boxes, packingGroupId });
+        return;
+      }
+    }
+    if (hasPerBoxDetails && !perBoxItemsRaw.length) {
+      const boxes = perBoxDetailsRaw
+        .map((box: any) => {
+          const perDims = normalizeDimensions({
+            length: parseNumber(box?.length),
+            width: parseNumber(box?.width),
+            height: parseNumber(box?.height),
+            unit: box?.unit || box?.unitOfMeasurement || "CM"
+          });
+          const perWeight = normalizeWeight({
+            value: parseNumber(box?.weight),
+            unit: box?.unitWeight || box?.unit || "KG"
+          });
+          if (!perDims || !perWeight) return null;
+          return {
+            quantity: 1,
+            contentInformationSource,
+            dimensions: perDims,
+            weight: perWeight
+          };
+        })
+        .filter(Boolean);
+      if (boxes.length) {
         out.push({ boxes, packingGroupId });
         return;
       }

@@ -847,13 +847,13 @@ export default function FbaSendToAmazonWizard({
     const wantsSpd = String(shipmentMode?.method || '').toUpperCase() === 'SPD';
     const hasPartnered = returnedSolutions.some((s) => s.includes('AMAZON_PARTNERED'));
     if (wantsSpd && returnedModes.length && !returnedModes.includes('GROUND_SMALL_PARCEL')) {
-    return 'Amazon nu a returnat opțiuni SPD pentru aceste colete. Verifică dimensiuni/greutate sau alege LTL/FTL.';
+    return 'Amazon nu a returnat opțiuni SPD pentru aceste colete. Verifică dimensiuni/greutate la cutii (setPackingInformation). Paletii sunt doar pentru LTL/FTL.';
   }
   if (shippingSummary && shippingSummary.partneredAllowed === false && !shippingSummary?.alreadyConfirmed) {
     return 'Amazon a indicat că transportul partenereat nu este disponibil pentru aceste expedieri.';
   }
   if (shippingSummary && !shippingSummary?.alreadyConfirmed && returnedSolutions.length && !hasPartnered) {
-    return 'Amazon nu a returnat AMAZON_PARTNERED_CARRIER. Next steps: verifică dimensiuni/greutate, contact information, packing options confirmate și regenerează transportation options.';
+    return 'Amazon nu a returnat AMAZON_PARTNERED_CARRIER. Verifică dimensiuni/greutate la cutii (setPackingInformation), contact information, packing options confirmate și regenerează transportation options. Paletii/freight info sunt doar pentru LTL/FTL.';
   }
   return null;
 }, [shippingSummary, shippingLoading, step2Loaded, shipmentMode?.method]);
