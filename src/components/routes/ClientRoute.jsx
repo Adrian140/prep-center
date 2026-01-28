@@ -16,7 +16,7 @@ export default function ClientRoute({ children }) {
 
   // Dacă nu există utilizator autenticat → trimitem la /login și păstrăm from=...
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    return <Navigate to="/login" state={{ from: location }} />;
   }
 
   // Autentificat → randăm pagina protejată

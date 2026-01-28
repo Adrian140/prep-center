@@ -1,9 +1,10 @@
 import React from 'react';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 
 function AdminRoute({ children }) {
   const { loading, profileLoading, profile, user } = useSupabaseAuth();
+  const location = useLocation();
 
   if (loading || profileLoading) {
     return (
@@ -20,7 +21,7 @@ function AdminRoute({ children }) {
     return children;
   }
 
-  return <Navigate to="/admin-login" replace />;
+  return <Navigate to="/admin-login" state={{ from: location }} />;
 }
 
 export default AdminRoute;
