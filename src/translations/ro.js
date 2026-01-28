@@ -125,7 +125,7 @@ export const ro = {
   privateLabelPartnershipTitle: 'Parteneriat Private Label',
   customPackaging: 'Ambalare și branding personalizate',
   productSourcing: 'Consultanță sourcing produse',
-  qualityCompliance: 'Control calitate și conformitate (QC)',
+  qualityCompliance: 'Control calitate și conformitate (doar verificare vizuală)',
   endToEndFulfillment: 'Soluții de fulfillment end-to-end',
   multiPlatformTitle: 'Fulfillment multi-platformă',
   amazonFbmFulfillment: 'Fulfillment marketplace',

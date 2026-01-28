@@ -125,7 +125,7 @@ export const es = {
   privateLabelPartnershipTitle: 'Asociación Private Label',
   customPackaging: 'Empaquetado y branding personalizado',
   productSourcing: 'Consultoría de sourcing de productos',
-  qualityCompliance: 'Control de calidad y cumplimiento (QC)',
+  qualityCompliance: 'Control de calidad y cumplimiento (solo verificación visual)',
   endToEndFulfillment: 'Soluciones de fulfillment end-to-end',
   multiPlatformTitle: 'Fulfillment multi-plataforma',
   amazonFbmFulfillment: 'Fulfillment marketplace',

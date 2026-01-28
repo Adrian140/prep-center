@@ -22,7 +22,7 @@ export const aboutEn = {
   ourValues: 'Our Values',
   speedEfficiency: 'Speed & Efficiency',
   speedEfficiencyDesc: '24-hour turnaround times with same-day processing for orders received before noon.',
-  qualityCompliance: 'Quality & Compliance (QC)',
+  qualityCompliance: 'Quality & Compliance (visual check only)',
   qualityComplianceDesc: 'Rigorous quality control and full compliance with European regulations.',
   partnershipSupport: 'Partnership & Support',
   partnershipSupportDesc: 'We work as your logistics partner, providing transparent communication and reliable support.',

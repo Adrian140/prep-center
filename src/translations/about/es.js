@@ -22,7 +22,7 @@ export const aboutEs = {
   ourValues: 'Nuestros Valores',
   speedEfficiency: 'Velocidad y Eficiencia',
   speedEfficiencyDesc: 'Tiempos de procesamiento de 24 horas con procesamiento el mismo día para pedidos recibidos antes del mediodía.',
-  qualityCompliance: 'Calidad y Cumplimiento (QC)',
+  qualityCompliance: 'Calidad y Cumplimiento (solo verificación visual)',
   qualityComplianceDesc: 'Control de calidad riguroso y pleno cumplimiento con regulaciones europeas.',
   partnershipSupport: 'Asociación y Soporte',
   partnershipSupportDesc: 'Trabajamos como su socio logístico, proporcionando comunicación transparente y soporte confiable.',
