@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import AdminProfiles from './AdminProfiles';
@@ -66,6 +66,7 @@ useEffect(() => {
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedProfile, setSelectedProfile] = useState(null);
+  const lastUrlTabRef = useRef(null);
   const validTabs = [
     'analytics', 'dashboard', 'profiles', 'receiving', 'prep-requests', 'returns',
     'pricing', 'boxes', 'reviews', 'user-guide', 'security', 'settings'
@@ -95,9 +96,10 @@ useEffect(() => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const urlTab = params.get('tab');
-    if (urlTab && validTabs.includes(urlTab) && urlTab !== activeTab) {
-      setActiveTab(urlTab);
-    }
+    if (!urlTab || !validTabs.includes(urlTab)) return;
+    if (lastUrlTabRef.current === urlTab) return;
+    lastUrlTabRef.current = urlTab;
+    if (urlTab !== activeTab) setActiveTab(urlTab);
   }, [location.search, activeTab, validTabs]);
 
   useEffect(() => {
@@ -113,6 +115,7 @@ useEffect(() => {
       if (!params.get('tabId')) params.set('tabId', tabId);
       navigate(`/admin?${params.toString()}`);
     }
+    lastUrlTabRef.current = activeTab;
   }, [activeTab, navigate, tabId]);
 
   const syncProfileParam = (profileId) => {

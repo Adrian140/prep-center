@@ -1,5 +1,5 @@
 // FILE: src/components/dashboard/SupabaseDashboard.jsx
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   User,
@@ -95,13 +95,15 @@ function SupabaseDashboard() {
     return validTabs.includes(saved) ? saved : 'activity';
   });
   const [reportsOpen, setReportsOpen] = useState(false);
+  const lastUrlTabRef = useRef(null);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const urlTab = normalizeTab(params.get('tab'));
-    if (urlTab && validTabs.includes(urlTab) && urlTab !== activeTab) {
-      setActiveTab(urlTab);
-    }
+    if (!urlTab || !validTabs.includes(urlTab)) return;
+    if (lastUrlTabRef.current === urlTab) return;
+    lastUrlTabRef.current = urlTab;
+    if (urlTab !== activeTab) setActiveTab(urlTab);
   }, [location.search, activeTab, validTabs]);
 
   useEffect(() => {
@@ -116,6 +118,7 @@ function SupabaseDashboard() {
       params.set('tab', activeTab);
       navigate(`/dashboard?${params.toString()}`);
     }
+    lastUrlTabRef.current = activeTab;
   }, [activeTab, navigate]);
 
   useEffect(() => {
