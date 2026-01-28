@@ -66,50 +66,58 @@ useEffect(() => {
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedProfile, setSelectedProfile] = useState(null);
-  // ✅ Save & restore last selected admin tab
-  const [activeTab, setActiveTab] = useState(() => {
-  const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
-  const initialTab = params.get('tab');
-  let saved = null;
-  try {
-    saved = tabSessionStorage.getItem('adminDashboardTab');
-  } catch (err) {
-    saved = null;
-  }
   const validTabs = [
     'analytics', 'dashboard', 'profiles', 'receiving', 'prep-requests', 'returns',
     'pricing', 'boxes', 'reviews', 'user-guide', 'security', 'settings'
   ];
-  if (initialTab && validTabs.includes(initialTab)) return initialTab;
-  return validTabs.includes(saved) ? saved : 'profiles';
-});
+  // ✅ Save & restore last selected admin tab
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+    const initialTab = params.get('tab');
+    let saved = null;
+    try {
+      saved = tabSessionStorage.getItem('adminDashboardTab');
+    } catch (err) {
+      saved = null;
+    }
+    if (initialTab && validTabs.includes(initialTab)) return initialTab;
+    return validTabs.includes(saved) ? saved : 'profiles';
+  });
 
-useEffect(() => {
-  const params = new URLSearchParams(location.search);
-  if (params.get('tabId') !== tabId) {
-    params.set('tabId', tabId);
-    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
-  }
-}, [location.pathname, location.search, navigate, tabId]);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('tabId') !== tabId) {
+      params.set('tabId', tabId);
+      navigate(`${location.pathname}?${params.toString()}`);
+    }
+  }, [location.pathname, location.search, navigate, tabId]);
 
-useEffect(() => {
-  try {
-    tabSessionStorage.setItem('adminDashboardTab', activeTab);
-  } catch (err) {
-    // ignore storage write failures
-  }
-  const current = new URLSearchParams(location.search).get('tab');
-  if (current !== activeTab) {
-    navigate(`/admin?tab=${activeTab}`, { replace: true });
-  }
-}, [activeTab, location.search, navigate]);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const urlTab = params.get('tab');
+    if (urlTab && validTabs.includes(urlTab) && urlTab !== activeTab) {
+      setActiveTab(urlTab);
+    }
+  }, [location.search, activeTab, validTabs]);
+
+  useEffect(() => {
+    try {
+      tabSessionStorage.setItem('adminDashboardTab', activeTab);
+    } catch (err) {
+      // ignore storage write failures
+    }
+    const current = new URLSearchParams(location.search).get('tab');
+    if (current !== activeTab) {
+      navigate(`/admin?tab=${activeTab}`);
+    }
+  }, [activeTab, location.search, navigate]);
 
   const syncProfileParam = (profileId) => {
     const params = new URLSearchParams(location.search);
     if (profileId) params.set('profile', profileId);
     else params.delete('profile');
     if (!params.get('tab')) params.set('tab', activeTab);
-    navigate(`/admin?${params.toString()}`, { replace: true });
+    navigate(`/admin?${params.toString()}`);
   };
 
   const handleSelectProfile = (profile) => {
@@ -122,25 +130,25 @@ useEffect(() => {
     setSelectedProfile(null);
     syncProfileParam(null);
   };
-useEffect(() => {
-  const params = new URLSearchParams(location.search);
-  const profileId = params.get('profile');
-  if (activeTab !== 'profiles' || !profileId) return;
-  if (selectedProfile?.id === profileId) return;
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const profileId = params.get('profile');
+    if (activeTab !== 'profiles' || !profileId) return;
+    if (selectedProfile?.id === profileId) return;
 
-  let mounted = true;
-  (async () => {
-    const { data, error } = await supabaseHelpers.getProfile(profileId);
-    if (!mounted) return;
-    if (!error && data) {
-      setSelectedProfile(data);
-    }
-  })();
+    let mounted = true;
+    (async () => {
+      const { data, error } = await supabaseHelpers.getProfile(profileId);
+      if (!mounted) return;
+      if (!error && data) {
+        setSelectedProfile(data);
+      }
+    })();
 
-  return () => {
-    mounted = false;
-  };
-}, [activeTab, location.search, selectedProfile?.id]);
+    return () => {
+      mounted = false;
+    };
+  }, [activeTab, location.search, selectedProfile?.id]);
 
   const [services, setServices] = useState([]);
   const [maintenance, setMaintenance] = useState({

@@ -96,23 +96,31 @@ function SupabaseDashboard() {
   });
   const [reportsOpen, setReportsOpen] = useState(false);
 
-useEffect(() => {
-  try {
-    tabSessionStorage.setItem('clientDashboardTab', activeTab);
-  } catch (err) {
-    // ignore storage errors
-  }
-  const current = new URLSearchParams(location.search).get('tab');
-  if (current !== activeTab) {
-    navigate(`/dashboard?tab=${activeTab}`, { replace: true });
-  }
-}, [activeTab, location.search, navigate]);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const urlTab = normalizeTab(params.get('tab'));
+    if (urlTab && validTabs.includes(urlTab) && urlTab !== activeTab) {
+      setActiveTab(urlTab);
+    }
+  }, [location.search, activeTab, validTabs]);
 
-useEffect(() => {
-  if (reportTabs.some((rt) => rt.id === activeTab)) {
-    setReportsOpen(true);
-  }
-}, [activeTab, reportTabs]);
+  useEffect(() => {
+    try {
+      tabSessionStorage.setItem('clientDashboardTab', activeTab);
+    } catch (err) {
+      // ignore storage errors
+    }
+    const current = normalizeTab(new URLSearchParams(location.search).get('tab'));
+    if (current !== activeTab) {
+      navigate(`/dashboard?tab=${activeTab}`);
+    }
+  }, [activeTab, location.search, navigate]);
+
+  useEffect(() => {
+    if (reportTabs.some((rt) => rt.id === activeTab)) {
+      setReportsOpen(true);
+    }
+  }, [activeTab, reportTabs]);
 
   const { user, profile } = useSupabaseAuth();
   const isLimitedAdmin = Boolean(profile?.is_limited_admin);

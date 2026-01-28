@@ -1612,12 +1612,10 @@ serve(async (req) => {
             length: dimUnit === "IN" ? round2(length) : cmToIn(length),
             width: dimUnit === "IN" ? round2(width) : cmToIn(width),
             height: dimUnit === "IN" ? round2(height) : cmToIn(height),
-            unit: "IN",
             unitOfMeasurement: "IN"
           };
           const normalizedWeight = {
             value: weightUnit === "LB" ? round2(weightValue) : kgToLb(weightValue),
-            unit: "LB",
             unitOfMeasurement: "LB"
           };
           return {
@@ -1650,12 +1648,10 @@ serve(async (req) => {
             length: dimUnit === "IN" ? round2(length) : cmToIn(length),
             width: dimUnit === "IN" ? round2(width) : cmToIn(width),
             height: dimUnit === "IN" ? round2(height) : cmToIn(height),
-            unit: "IN",
             unitOfMeasurement: "IN"
           };
           const normalizedWeight = {
             value: weightUnit === "LB" ? round2(weightValue) : kgToLb(weightValue),
-            unit: "LB",
             unitOfMeasurement: "LB"
           };
           const stackability = (p?.stackability || "STACKABLE").toString().toUpperCase();
@@ -1693,12 +1689,10 @@ serve(async (req) => {
         length: dimUnit === "IN" ? round2(Number(dimsRaw?.length)) : cmToIn(dimsRaw?.length),
         width: dimUnit === "IN" ? round2(Number(dimsRaw?.width)) : cmToIn(dimsRaw?.width),
         height: dimUnit === "IN" ? round2(Number(dimsRaw?.height)) : cmToIn(dimsRaw?.height),
-        unit: "IN",
         unitOfMeasurement: "IN"
       };
       const normWeight = {
         value: weightUnit === "LB" ? round2(Number(weightRaw?.value)) : kgToLb(weightRaw?.value),
-        unit: "LB",
         unitOfMeasurement: "LB"
       };
       return {
