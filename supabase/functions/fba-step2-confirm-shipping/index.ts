@@ -2144,10 +2144,10 @@ serve(async (req) => {
     const payloadTransportConfigs = shipmentTransportationConfigurations.map((cfg: any) => {
       const base: Record<string, any> = {
         shipmentId: cfg?.shipmentId,
-        readyToShipWindow: { start: cfg?.readyToShipWindow?.start, end: cfg?.readyToShipWindow?.end }
+        // SP-API expects only `start` for readyToShipWindow.
+        readyToShipWindow: { start: cfg?.readyToShipWindow?.start }
       };
       if (cfg?.contactInformation) base.contactInformation = cfg.contactInformation;
-      if (Array.isArray(cfg?.packages) && cfg.packages.length) base.packages = cfg.packages;
       if (Array.isArray(cfg?.pallets) && cfg.pallets.length) base.pallets = cfg.pallets;
       if (cfg?.freightInformation) base.freightInformation = cfg.freightInformation;
       return base;
