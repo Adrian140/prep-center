@@ -2042,14 +2042,17 @@ serve(async (req) => {
       deliveryWindowEnd: deliveryWindowEndInput || null
     });
 
-    const listAllTransportationOptions = async (shipmentIdParam?: string | null) => {
+    const listAllTransportationOptions = async (
+      placementOptionIdParam: string,
+      shipmentIdParam?: string | null
+    ) => {
       let nextToken: string | null = null;
       const collected: any[] = [];
       let firstRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
       let attempt = 0;
       do {
         attempt += 1;
-        const queryParts = [`placementOptionId=${encodeURIComponent(effectivePlacementOptionId)}`];
+        const queryParts = [`placementOptionId=${encodeURIComponent(placementOptionIdParam)}`];
         if (shipmentIdParam) queryParts.push(`shipmentId=${encodeURIComponent(shipmentIdParam)}`);
         if (nextToken) queryParts.push(`nextToken=${encodeURIComponent(nextToken)}`);
         const res = await signedFetch({
@@ -2096,11 +2099,14 @@ serve(async (req) => {
           })
         : false;
 
-    const { firstRes: listRes, collected: optionsRawInitial } = await listAllTransportationOptions(shipmentIdForListing);
+    const { firstRes: listRes, collected: optionsRawInitial } = await listAllTransportationOptions(
+      effectivePlacementOptionId,
+      shipmentIdForListing
+    );
     let optionsRaw = optionsRawInitial;
     if (!hasPartneredSolution(optionsRawInitial) && shipmentIdForListing) {
       const { firstRes: listResFallback, collected: optionsRawFallback } =
-        await listAllTransportationOptions(null);
+        await listAllTransportationOptions(effectivePlacementOptionId, null);
       const byId = new Map<string, any>();
       const add = (opt: any) => {
         const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
@@ -2142,6 +2148,63 @@ serve(async (req) => {
       count: shipmentTransportationConfigurations.length,
       shippingMode: effectiveShippingMode
     });
+
+    const placementOptionIds = Array.from(
+      new Set(
+        (placementOptions || [])
+          .map((p: any) => normalizePlacementId(p))
+          .filter(Boolean)
+          .map((pid: any) => String(pid))
+      )
+    );
+    if (placementOptionIds.length > 1) {
+      for (const pid of placementOptionIds) {
+        if (String(pid) === String(effectivePlacementOptionId)) continue;
+        const placement = placementOptions.find((p: any) => normalizePlacementId(p) === pid) || null;
+        const shipmentIdHint =
+          (placement?.shipmentIds && placement.shipmentIds[0]) ||
+          (Array.isArray(placement?.shipments) && (placement.shipments[0]?.shipmentId || placement.shipments[0]?.id)) ||
+          null;
+        const { firstRes, collected } = await listAllTransportationOptions(pid, shipmentIdHint);
+        let merged = collected;
+        if (!hasPartneredSolution(collected) && shipmentIdHint) {
+          const fallback = await listAllTransportationOptions(pid, null);
+          const byId = new Map<string, any>();
+          const add = (opt: any) => {
+            const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
+            if (!id) return;
+            if (!byId.has(id)) byId.set(id, opt);
+          };
+          collected.forEach(add);
+          fallback.collected.forEach(add);
+          merged = Array.from(byId.values());
+        }
+        const returnedSolutions = Array.from(
+          new Set(
+            (merged || [])
+              .map((o: any) => String(o?.shippingSolution || o?.shippingSolutionId || "").toUpperCase())
+              .filter(Boolean)
+          )
+        );
+        const returnedModes = Array.from(
+          new Set(
+            (merged || [])
+              .map((o: any) => String(o?.shippingMode || o?.mode || "").toUpperCase())
+              .filter(Boolean)
+          )
+        );
+        logStep("listTransportationOptions_by_placement", {
+          traceId,
+          placementOptionId: pid,
+          shipmentIdForListing: shipmentIdHint || null,
+          status: firstRes?.res?.status || null,
+          requestId: firstRes?.requestId || null,
+          count: merged.length,
+          returnedSolutions,
+          returnedModes
+        });
+      }
+    }
 
     const hasDeliveryWindowPrecondition = (opt: any) => {
       const pre = opt?.preconditions || opt?.Preconditions || [];
