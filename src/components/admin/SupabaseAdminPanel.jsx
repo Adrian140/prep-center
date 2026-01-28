@@ -88,7 +88,7 @@ useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('tabId') !== tabId) {
       params.set('tabId', tabId);
-      navigate(`${location.pathname}?${params.toString()}`);
+      navigate(`${location.pathname}?${params.toString()}`, { replace: true });
     }
   }, [location.pathname, location.search, navigate, tabId]);
 
@@ -106,17 +106,21 @@ useEffect(() => {
     } catch (err) {
       // ignore storage write failures
     }
-    const current = new URLSearchParams(location.search).get('tab');
+    const params = new URLSearchParams(location.search);
+    const current = params.get('tab');
     if (current !== activeTab) {
-      navigate(`/admin?tab=${activeTab}`);
+      params.set('tab', activeTab);
+      if (!params.get('tabId')) params.set('tabId', tabId);
+      navigate(`/admin?${params.toString()}`);
     }
-  }, [activeTab, location.search, navigate]);
+  }, [activeTab, navigate, tabId]);
 
   const syncProfileParam = (profileId) => {
     const params = new URLSearchParams(location.search);
     if (profileId) params.set('profile', profileId);
     else params.delete('profile');
     if (!params.get('tab')) params.set('tab', activeTab);
+    if (!params.get('tabId')) params.set('tabId', tabId);
     navigate(`/admin?${params.toString()}`);
   };
 

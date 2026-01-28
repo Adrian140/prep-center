@@ -110,11 +110,13 @@ function SupabaseDashboard() {
     } catch (err) {
       // ignore storage errors
     }
-    const current = normalizeTab(new URLSearchParams(location.search).get('tab'));
+    const params = new URLSearchParams(location.search);
+    const current = normalizeTab(params.get('tab'));
     if (current !== activeTab) {
-      navigate(`/dashboard?tab=${activeTab}`);
+      params.set('tab', activeTab);
+      navigate(`/dashboard?${params.toString()}`);
     }
-  }, [activeTab, location.search, navigate]);
+  }, [activeTab, navigate]);
 
   useEffect(() => {
     if (reportTabs.some((rt) => rt.id === activeTab)) {
