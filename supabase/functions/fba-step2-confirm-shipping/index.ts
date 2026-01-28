@@ -1787,6 +1787,23 @@ serve(async (req) => {
       return baseCfg;
     });
 
+    console.log(JSON.stringify({
+      tag: "transportation_payload_preview",
+      traceId,
+      inboundPlanId,
+      placementOptionId: effectivePlacementOptionId,
+      shippingMode: effectiveShippingMode || null,
+      shipmentCount: shipmentTransportationConfigurations.length,
+      shipments: shipmentTransportationConfigurations.map((cfg: any) => ({
+        shipmentId: cfg?.shipmentId || null,
+        packages: Array.isArray(cfg?.packages) ? cfg.packages.length : 0,
+        pallets: Array.isArray(cfg?.pallets) ? cfg.pallets.length : 0,
+        readyStart: cfg?.readyToShipWindow?.start || null,
+        hasContact: Boolean(cfg?.contactInformation),
+        samplePackage: Array.isArray(cfg?.packages) && cfg.packages.length ? cfg.packages[0] : null
+      }))
+    }));
+
     const configsByShipment = new Map<string, any>(
       shipmentTransportationConfigurations.map((c: any) => [String(c.shipmentId || c.packingGroupId), c])
     );
@@ -2156,6 +2173,19 @@ serve(async (req) => {
       placementOptionId: effectivePlacementOptionId,
       shipmentTransportationConfigurations: payloadTransportConfigs
     });
+
+    console.log(JSON.stringify({
+      tag: "transportation_generate_payload",
+      traceId,
+      placementOptionId: effectivePlacementOptionId,
+      shipmentConfigs: payloadTransportConfigs.map((cfg: any) => ({
+        shipmentId: cfg?.shipmentId || null,
+        readyStart: cfg?.readyToShipWindow?.start || null,
+        packages: Array.isArray(cfg?.packages) ? cfg.packages.length : 0,
+        pallets: Array.isArray(cfg?.pallets) ? cfg.pallets.length : 0,
+        hasContact: Boolean(cfg?.contactInformation)
+      }))
+    }));
     const genRes = await signedFetch({
       method: "POST",
       service: "execute-api",
