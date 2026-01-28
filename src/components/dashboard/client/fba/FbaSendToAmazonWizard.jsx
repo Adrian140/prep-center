@@ -860,55 +860,7 @@ export default function FbaSendToAmazonWizard({
 }, [shippingSummary, shippingLoading, step2Loaded, shipmentMode?.method]);
 
 
-  // când intrăm în 1b și nu avem încă packing groups reale, declanșăm fetch automat
-  useEffect(() => {
-    if (currentStep !== '1b') return;
-    const hasRealGroups = hasRealPackGroups(packGroups);
-    if (packGroupsLoaded || hasRealGroups) return;
-    if (packingRefreshLoading || loadingPlan) return;
-    const inboundPlanId = resolveInboundPlanId();
-    const requestId = resolveRequestId();
-    if (!inboundPlanId || !requestId) return;
-    refreshPackingGroups();
-  }, [currentStep, packGroupsLoaded, packGroups, packingRefreshLoading, loadingPlan, resolveInboundPlanId, resolveRequestId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // retry automat la interval scurt până primim packing groups reale
-  useEffect(() => {
-    if (currentStep !== '1b') {
-      if (packingAutoRetryTimerRef.current) {
-        clearTimeout(packingAutoRetryTimerRef.current);
-        packingAutoRetryTimerRef.current = null;
-      }
-      return;
-    }
-    const hasRealGroups = hasRealPackGroups(packGroups);
-    if (packGroupsLoaded || hasRealGroups) {
-      if (packingAutoRetryTimerRef.current) {
-        clearTimeout(packingAutoRetryTimerRef.current);
-        packingAutoRetryTimerRef.current = null;
-      }
-      return;
-    }
-    if (packingRefreshLoading || loadingPlan) return;
-    packingAutoRetryTimerRef.current = setTimeout(() => {
-      packingAutoRetryTimerRef.current = null;
-      refreshPackingGroups();
-    }, 1500);
-    return () => {
-      if (packingAutoRetryTimerRef.current) {
-        clearTimeout(packingAutoRetryTimerRef.current);
-        packingAutoRetryTimerRef.current = null;
-      }
-    };
-  }, [
-    currentStep,
-    packGroupsLoaded,
-    packGroups,
-    packingRefreshLoading,
-    loadingPlan,
-    hasRealPackGroups,
-    refreshPackingGroups
-  ]);
+  // Step 1b este încărcat doar la acțiune explicită a userului (View/Edit sau Refresh).
 
   // Dacă avem deja grupuri în memorie, marcăm ca loaded ca să nu le ștergem inutil.
   useEffect(() => {
@@ -2097,6 +2049,10 @@ export default function FbaSendToAmazonWizard({
         await fetchShippingOptions();
         return;
       }
+      if (stepKey === '1b') {
+        await refreshPackingGroups();
+        return;
+      }
       setPlanLoaded(false);
       setLoadingPlan(true);
       if (fetchPlan) {
@@ -2141,10 +2097,7 @@ export default function FbaSendToAmazonWizard({
           .join(' · ');
         setPlanError((prevError) => prevError || extra);
       }
-      // dacă backend a întors inbound plan care nu corespunde cantităților noi, forțăm re-fetch
-      if (!respInboundId && !hasRealPackGroups(normalizePackGroups(pGroups || []))) {
-        refreshPackingGroups();
-      }
+      // Nu declanșăm automat Step 1b la refresh Step 1.
     });
   }
       setLoadingPlan(false);
@@ -2193,6 +2146,9 @@ export default function FbaSendToAmazonWizard({
   const goToStep = (stepKey) => {
     if (!stepsOrder.includes(stepKey)) return;
     setCurrentStep(stepKey);
+    if (stepKey === '1b') {
+      refreshPackingGroups();
+    }
   };
 
   const persistStep1AndReloadPlan = useCallback(async () => {
