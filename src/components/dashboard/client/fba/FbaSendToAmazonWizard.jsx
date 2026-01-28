@@ -1580,6 +1580,7 @@ const fetchPartneredQuote = useCallback(
           force_partnered_only: forcePartneredOnly,
           prefer_non_partnered: preferNonPartnered,
           preferred_carrier_name: preferredCarrierName,
+          auto_confirm_placement: true,
           confirm: false
         }
       });

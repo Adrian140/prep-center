@@ -252,7 +252,7 @@ export default function FbaStep2Shipping({
                       <option value="Other">Other</option>
                     </select>
                   )}
-                  {normalizedCarrier.partnered === false && !hasCarrierSelection && (
+                  {carrierReady && normalizedCarrier.partnered === false && !hasCarrierSelection && (
                     <div className="text-xs text-red-600">
                       Selectează un curier non-partener înainte de a continua.
                     </div>
@@ -264,7 +264,7 @@ export default function FbaStep2Shipping({
                   Non-partnered carriers are disabled. This shipment must use Amazon partnered carrier.
                 </div>
               )}
-              {normalizedCarrier.partnered == null && (
+              {carrierReady && normalizedCarrier.partnered == null && (
                 <div className="text-xs text-red-600">
                   Selectează Amazon partnered sau non-partnered înainte de a continua.
                 </div>
