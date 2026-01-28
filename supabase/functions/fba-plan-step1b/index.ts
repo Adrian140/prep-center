@@ -1869,11 +1869,11 @@ serve(async (req) => {
         packingGroups: effectivePackingGroups,
         traceId,
         status: {
-          planCheck: planCheck.res.status,
-          generate: genRes?.res.status ?? null,
-          list: listRes?.res.status ?? null
+          planCheck: planCheck?.res?.status ?? null,
+          generate: genRes?.res?.status ?? null,
+          list: listRes?.res?.status ?? null
         },
-        requestId: listRes?.requestId || genRes?.requestId || planCheck.requestId || null,
+        requestId: listRes?.requestId || genRes?.requestId || planCheck?.requestId || null,
         warning,
         packingConfirmDenied,
         amazonIntegrationId: integId || null,
