@@ -2305,7 +2305,27 @@ serve(async (req) => {
           null;
         if (nextToken) await delay(150 * attempt);
       } while (nextToken && attempt < 10);
-      return { firstRes, collected };
+      const deduped = (() => {
+        const byId = new Map<string, any>();
+        const byComposite = new Map<string, any>();
+        const buildComposite = (opt: any) => {
+          const carrier = opt?.carrier?.alphaCode || opt?.carrier?.name || opt?.carrier || "";
+          const mode = opt?.shippingMode || opt?.mode || "";
+          const solution = opt?.shippingSolution || opt?.shippingSolutionId || "";
+          return `${String(carrier)}|${String(mode)}|${String(solution)}`;
+        };
+        (collected || []).forEach((opt: any) => {
+          const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
+          if (id) {
+            if (!byId.has(id)) byId.set(id, opt);
+            return;
+          }
+          const key = buildComposite(opt);
+          if (!byComposite.has(key)) byComposite.set(key, opt);
+        });
+        return [...byId.values(), ...byComposite.values()];
+      })();
+      return { firstRes, collected: deduped };
     };
 
     const hasPartneredSolution = (opts: any[]) =>
