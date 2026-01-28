@@ -110,22 +110,26 @@ function toHex(buffer: ArrayBuffer): string {
     .join("");
 }
 
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
 function cmToIn(cm: any) {
   const num = Number(cm);
   if (!Number.isFinite(num)) return 0;
-  return num / 2.54;
+  return round2(num / 2.54);
 }
 
 function kgToLb(kg: any) {
   const num = Number(kg);
   if (!Number.isFinite(num)) return 0;
-  return num * 2.2046226218;
+  return round2(num * 2.2046226218);
 }
 
 function lbToKg(lb: any) {
   const num = Number(lb);
   if (!Number.isFinite(num)) return 0;
-  return num / 2.2046226218;
+  return round2(num / 2.2046226218);
 }
 
 async function sha256(message: string): Promise<string> {
@@ -210,9 +214,12 @@ async function signRequest(opts: {
 
   const headers: Record<string, string> = {
     Authorization: authorizationHeader,
-    "x-amz-date": amzDate,
-    "content-type": "application/json"
+    "x-amz-date": amzDate
   };
+  const hasBody = payload !== "";
+  if (hasBody && ["POST", "PUT", "PATCH"].includes(method.toUpperCase())) {
+    headers["content-type"] = "application/json";
+  }
   if (sessionToken) {
     headers["x-amz-security-token"] = sessionToken;
   }
@@ -1459,128 +1466,6 @@ serve(async (req) => {
         return { ...sh, id, shipmentId: id, shipFromAddress, shipToAddress };
       });
 
-    const normalizeShipmentsFromPlan = async () => {
-      const list: any[] = [];
-      for (const sh of placementShipments) {
-        const shId = sh.shipmentId || sh.id;
-        if (!shId) continue;
-        const shDetail = await signedFetch({
-          method: "GET",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shId)}`,
-          query: "",
-          payload: "",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.getShipment",
-          marketplaceId,
-          sellerId
-        });
-        const shJson = shDetail?.json || {};
-        const payload = shJson?.payload || shJson;
-        const destinationAddress =
-          payload?.destinationAddress ||
-          payload?.to ||
-          payload?.destination?.address ||
-          payload?.DestinationAddress ||
-          sh?.destination?.address ||
-          sh?.shipToAddress ||
-          null;
-        const sourceAddress =
-          payload?.shipFromAddress ||
-          payload?.from ||
-          payload?.source?.address ||
-          payload?.SourceAddress ||
-          null;
-        const contents = payload?.contents || payload?.Contents || {};
-        const destinationFc =
-          payload?.destination?.warehouseId ||
-          payload?.destination?.warehouseCode ||
-          payload?.destinationWarehouseId ||
-          sh?.destinationWarehouseId ||
-          sh?.destinationFc ||
-          sh?.destination?.warehouseId ||
-          null;
-        const cfg = configsByShipment.get(String(shId)) || {};
-        const pkgList = Array.isArray(cfg?.packages) ? cfg.packages : [];
-        const palletList = Array.isArray(cfg?.pallets) ? cfg.pallets : [];
-        let weightFromPackages = 0;
-        let weightFromPackagesUnit: string | null = null;
-        pkgList.forEach((p: any) => {
-          const w = Number(p?.weight?.value || 0);
-          if (!Number.isFinite(w) || w <= 0) return;
-          const unit = (p?.weight?.unit || p?.weight?.uom || "LB").toString().toUpperCase();
-          weightFromPackages += w;
-          if (!weightFromPackagesUnit) weightFromPackagesUnit = unit;
-        });
-        let weightFromPallets = 0;
-        let weightFromPalletsUnit: string | null = null;
-        palletList.forEach((p: any) => {
-          const w = Number(p?.weight?.value || 0);
-          if (!Number.isFinite(w) || w <= 0) return;
-          const unit = (p?.weight?.unit || p?.weight?.uom || "LB").toString().toUpperCase();
-          weightFromPallets += w;
-          if (!weightFromPalletsUnit) weightFromPalletsUnit = unit;
-        });
-        const weightFromCfg = weightFromPackages || weightFromPallets || 0;
-        const weightFromCfgUnit = weightFromPackagesUnit || weightFromPalletsUnit || null;
-        const weightFromCfgKg =
-          weightFromCfgUnit === "LB" ? lbToKg(weightFromCfg) : weightFromCfg || 0;
-        const contentsWeightRaw = contents?.weight ?? contents?.Weight ?? null;
-        const contentsWeightUnitRaw =
-          contents?.weight_unit ||
-          contents?.weightUnit ||
-          contents?.weightUnitOfMeasurement ||
-          contents?.weightUom ||
-          null;
-        const contentsWeight = Number(contentsWeightRaw);
-        const hasContentsWeight = Number.isFinite(contentsWeight) && contentsWeight > 0;
-        let resolvedWeight: number | null = null;
-        let resolvedWeightUnit: string | null = null;
-        if (hasContentsWeight) {
-          resolvedWeight = contentsWeight;
-          if (contentsWeightUnitRaw) {
-            resolvedWeightUnit = String(contentsWeightUnitRaw).toUpperCase();
-          } else if (weightFromCfg > 0) {
-            const diffLb = Math.abs(contentsWeight - weightFromCfg);
-            const diffKg = Math.abs(contentsWeight - weightFromCfgKg);
-            resolvedWeightUnit = diffKg < diffLb ? "KG" : weightFromCfgUnit || "LB";
-          } else {
-            resolvedWeightUnit = weightFromCfgUnit || "LB";
-          }
-        } else if (weightFromCfg > 0) {
-          resolvedWeight = weightFromCfg;
-          resolvedWeightUnit = weightFromCfgUnit || "LB";
-        }
-        const boxesFromCfg = pkgList.length
-          ? pkgList.length
-          : palletList.length
-            ? palletList.reduce((sum: number, p: any) => sum + Number(p?.quantity || 0), 0)
-            : null;
-        list.push({
-          id: shId,
-          from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
-          to: (() => {
-            const addr = formatAddress(destinationAddress) || formatAddress(sh?.destinationAddress || sh?.to) || null;
-            if (addr && destinationFc) return `${destinationFc} - ${addr}`;
-            if (addr) return addr;
-            return destinationFc || null;
-          })(),
-          destinationWarehouseId: destinationFc || null,
-          boxes: contents?.boxes || contents?.cartons || boxesFromCfg || null,
-          skuCount: contents?.skuCount || null,
-          units: contents?.units || null,
-          weight: resolvedWeight ?? null,
-          weight_unit: resolvedWeight ? resolvedWeightUnit || "LB" : null
-        });
-      }
-      return list;
-    };
 
     const getSelectedTransportationOptionId = async (shipmentId: string) => {
       const shDetail = await signedFetch({
@@ -1724,17 +1609,17 @@ serve(async (req) => {
           if (!Number.isFinite(height) || height <= 0) return null;
           if (!Number.isFinite(weightValue) || weightValue <= 0) return null;
           const normalizedDims = {
-            length: dimUnit === "IN" ? length : cmToIn(length),
-            width: dimUnit === "IN" ? width : cmToIn(width),
-            height: dimUnit === "IN" ? height : cmToIn(height),
+            length: dimUnit === "IN" ? round2(length) : cmToIn(length),
+            width: dimUnit === "IN" ? round2(width) : cmToIn(width),
+            height: dimUnit === "IN" ? round2(height) : cmToIn(height),
             unit: "IN",
             unitOfMeasurement: "IN"
           };
-      const normalizedWeight = {
-        value: weightUnit === "LB" ? weightValue : kgToLb(weightValue),
-        unit: "LB",
-        unitOfMeasurement: "LB"
-      };
+          const normalizedWeight = {
+            value: weightUnit === "LB" ? round2(weightValue) : kgToLb(weightValue),
+            unit: "LB",
+            unitOfMeasurement: "LB"
+          };
           return {
             dimensions: normalizedDims,
             weight: normalizedWeight,
@@ -1762,17 +1647,17 @@ serve(async (req) => {
           if (!Number.isFinite(height) || height <= 0) return null;
           if (!Number.isFinite(weightValue) || weightValue <= 0) return null;
           const normalizedDims = {
-            length: dimUnit === "IN" ? length : cmToIn(length),
-            width: dimUnit === "IN" ? width : cmToIn(width),
-            height: dimUnit === "IN" ? height : cmToIn(height),
+            length: dimUnit === "IN" ? round2(length) : cmToIn(length),
+            width: dimUnit === "IN" ? round2(width) : cmToIn(width),
+            height: dimUnit === "IN" ? round2(height) : cmToIn(height),
             unit: "IN",
             unitOfMeasurement: "IN"
           };
-      const normalizedWeight = {
-        value: weightUnit === "LB" ? weightValue : kgToLb(weightValue),
-        unit: "LB",
-        unitOfMeasurement: "LB"
-      };
+          const normalizedWeight = {
+            value: weightUnit === "LB" ? round2(weightValue) : kgToLb(weightValue),
+            unit: "LB",
+            unitOfMeasurement: "LB"
+          };
           const stackability = (p?.stackability || "STACKABLE").toString().toUpperCase();
           return {
             quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
@@ -1805,14 +1690,14 @@ serve(async (req) => {
       const dimUnit = (dimsRaw?.unit || dimsRaw?.unitOfMeasurement || dimsRaw?.uom || "CM").toString().toUpperCase();
       const weightUnit = (weightRaw?.unit || weightRaw?.uom || "KG").toString().toUpperCase();
       const normDims = {
-        length: dimUnit === "IN" ? Number(dimsRaw?.length) : cmToIn(dimsRaw?.length),
-        width: dimUnit === "IN" ? Number(dimsRaw?.width) : cmToIn(dimsRaw?.width),
-        height: dimUnit === "IN" ? Number(dimsRaw?.height) : cmToIn(dimsRaw?.height),
+        length: dimUnit === "IN" ? round2(Number(dimsRaw?.length)) : cmToIn(dimsRaw?.length),
+        width: dimUnit === "IN" ? round2(Number(dimsRaw?.width)) : cmToIn(dimsRaw?.width),
+        height: dimUnit === "IN" ? round2(Number(dimsRaw?.height)) : cmToIn(dimsRaw?.height),
         unit: "IN",
         unitOfMeasurement: "IN"
       };
       const normWeight = {
-        value: weightUnit === "LB" ? Number(weightRaw?.value) : kgToLb(weightRaw?.value),
+        value: weightUnit === "LB" ? round2(Number(weightRaw?.value)) : kgToLb(weightRaw?.value),
         unit: "LB",
         unitOfMeasurement: "LB"
       };
@@ -1894,7 +1779,6 @@ serve(async (req) => {
         {};
       const rawStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || readyStartIso;
       const rawEnd = cfg.readyToShipWindow?.end || cfg.ready_to_ship_window?.end || undefined;
-      const { start: readyStart } = clampReadyWindow(rawStart, rawEnd);
       const { start, end } = clampReadyWindow(rawStart, rawEnd);
       const baseCfg: Record<string, any> = {
         readyToShipWindow: { start, end },
@@ -1913,6 +1797,129 @@ serve(async (req) => {
     const configsByShipment = new Map<string, any>(
       shipmentTransportationConfigurations.map((c: any) => [String(c.shipmentId || c.packingGroupId), c])
     );
+
+    const normalizeShipmentsFromPlan = async () => {
+      const list: any[] = [];
+      for (const sh of placementShipments) {
+        const shId = sh.shipmentId || sh.id;
+        if (!shId) continue;
+        const shDetail = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shId)}`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.getShipment",
+          marketplaceId,
+          sellerId
+        });
+        const shJson = shDetail?.json || {};
+        const payload = shJson?.payload || shJson;
+        const destinationAddress =
+          payload?.destinationAddress ||
+          payload?.to ||
+          payload?.destination?.address ||
+          payload?.DestinationAddress ||
+          sh?.destination?.address ||
+          sh?.shipToAddress ||
+          null;
+        const sourceAddress =
+          payload?.shipFromAddress ||
+          payload?.from ||
+          payload?.source?.address ||
+          payload?.SourceAddress ||
+          null;
+        const contents = payload?.contents || payload?.Contents || {};
+        const destinationFc =
+          payload?.destination?.warehouseId ||
+          payload?.destination?.warehouseCode ||
+          payload?.destinationWarehouseId ||
+          sh?.destinationWarehouseId ||
+          sh?.destinationFc ||
+          sh?.destination?.warehouseId ||
+          null;
+        const cfg = configsByShipment.get(String(shId)) || {};
+        const pkgList = Array.isArray(cfg?.packages) ? cfg.packages : [];
+        const palletList = Array.isArray(cfg?.pallets) ? cfg.pallets : [];
+        let weightFromPackages = 0;
+        let weightFromPackagesUnit: string | null = null;
+        pkgList.forEach((p: any) => {
+          const w = Number(p?.weight?.value || 0);
+          if (!Number.isFinite(w) || w <= 0) return;
+          const unit = (p?.weight?.unit || p?.weight?.uom || "LB").toString().toUpperCase();
+          weightFromPackages += w;
+          if (!weightFromPackagesUnit) weightFromPackagesUnit = unit;
+        });
+        let weightFromPallets = 0;
+        let weightFromPalletsUnit: string | null = null;
+        palletList.forEach((p: any) => {
+          const w = Number(p?.weight?.value || 0);
+          if (!Number.isFinite(w) || w <= 0) return;
+          const unit = (p?.weight?.unit || p?.weight?.uom || "LB").toString().toUpperCase();
+          weightFromPallets += w;
+          if (!weightFromPalletsUnit) weightFromPalletsUnit = unit;
+        });
+        const weightFromCfg = weightFromPackages || weightFromPallets || 0;
+        const weightFromCfgUnit = weightFromPackagesUnit || weightFromPalletsUnit || null;
+        const weightFromCfgKg =
+          weightFromCfgUnit === "LB" ? lbToKg(weightFromCfg) : weightFromCfg || 0;
+        const contentsWeightRaw = contents?.weight ?? contents?.Weight ?? null;
+        const contentsWeightUnitRaw =
+          contents?.weight_unit ||
+          contents?.weightUnit ||
+          contents?.weightUnitOfMeasurement ||
+          contents?.weightUom ||
+          null;
+        const contentsWeight = Number(contentsWeightRaw);
+        const hasContentsWeight = Number.isFinite(contentsWeight) && contentsWeight > 0;
+        let resolvedWeight: number | null = null;
+        let resolvedWeightUnit: string | null = null;
+        if (hasContentsWeight) {
+          resolvedWeight = contentsWeight;
+          if (contentsWeightUnitRaw) {
+            resolvedWeightUnit = String(contentsWeightUnitRaw).toUpperCase();
+          } else if (weightFromCfg > 0) {
+            const diffLb = Math.abs(contentsWeight - weightFromCfg);
+            const diffKg = Math.abs(contentsWeight - weightFromCfgKg);
+            resolvedWeightUnit = diffKg < diffLb ? "KG" : weightFromCfgUnit || "LB";
+          } else {
+            resolvedWeightUnit = weightFromCfgUnit || "LB";
+          }
+        } else if (weightFromCfg > 0) {
+          resolvedWeight = weightFromCfg;
+          resolvedWeightUnit = weightFromCfgUnit || "LB";
+        }
+        const boxesFromCfg = pkgList.length
+          ? pkgList.length
+          : palletList.length
+            ? palletList.reduce((sum: number, p: any) => sum + Number(p?.quantity || 0), 0)
+            : null;
+        list.push({
+          id: shId,
+          from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
+          to: (() => {
+            const addr = formatAddress(destinationAddress) || formatAddress(sh?.destinationAddress || sh?.to) || null;
+            if (addr && destinationFc) return `${destinationFc} - ${addr}`;
+            if (addr) return addr;
+            return destinationFc || null;
+          })(),
+          destinationWarehouseId: destinationFc || null,
+          boxes: contents?.boxes || contents?.cartons || boxesFromCfg || null,
+          skuCount: contents?.skuCount || null,
+          units: contents?.units || null,
+          weight: resolvedWeight ?? null,
+          weight_unit: resolvedWeight ? resolvedWeightUnit || "LB" : null
+        });
+      }
+      return list;
+    };
     const EU_MARKETPLACES = new Set([
       "A13V1IB3VIYZZH", // FR
       "A1RKKUPIHCS9HS", // ES
@@ -2342,7 +2349,8 @@ serve(async (req) => {
       effectivePlacementOptionId,
       shipmentIdForListing
     );
-    let optionsRaw = optionsRawInitial;
+    let optionsRawForSelection = optionsRawInitial;
+    let optionsRawForDisplay = optionsRawInitial;
     if (!hasPartneredSolution(optionsRawInitial) && shipmentIdForListing) {
       const { firstRes: listResFallback, collected: optionsRawFallback } =
         await listAllTransportationOptions(effectivePlacementOptionId, null);
@@ -2354,17 +2362,29 @@ serve(async (req) => {
       };
       optionsRawInitial.forEach(add);
       optionsRawFallback.forEach(add);
-      optionsRaw = Array.from(byId.values());
+      optionsRawForDisplay = Array.from(byId.values());
       logStep("listTransportationOptions_fallback", {
         traceId,
         placementOptionId: effectivePlacementOptionId,
         shipmentIdForListing,
         initialCount: optionsRawInitial.length,
         fallbackCount: optionsRawFallback.length,
-        mergedCount: optionsRaw.length,
+        mergedCount: optionsRawForDisplay.length,
         requestId: listResFallback?.requestId || null
       });
     }
+    if (!optionsRawForSelection.length) {
+      optionsRawForSelection = optionsRawForDisplay;
+    }
+    const compactOptionsForLog = (opts: any[]) =>
+      (opts || []).map((opt) => ({
+        id: opt?.transportationOptionId || opt?.id || opt?.optionId || null,
+        shipmentId: opt?.shipmentId || opt?.shipment_id || null,
+        shippingSolution: opt?.shippingSolution || opt?.shippingSolutionId || null,
+        shippingMode: opt?.shippingMode || opt?.mode || null,
+        carrier: opt?.carrier?.alphaCode || opt?.carrier?.name || opt?.carrier || null,
+        preconditions: opt?.preconditions || null
+      }));
     logStep("transportationOptions_raw_response", {
       traceId,
       placementOptionId: effectivePlacementOptionId,
@@ -2374,13 +2394,17 @@ serve(async (req) => {
       hasPackages: !missingPkgs,
       hasFreightInformation: !missingFreightInfo,
       requestId: listRes?.requestId || null,
-      raw: listRes?.text || null
+      counts: {
+        initial: optionsRawInitial.length,
+        display: optionsRawForDisplay.length
+      },
+      options: compactOptionsForLog(optionsRawForDisplay)
     });
     logStep("listTransportationOptions", {
       traceId,
       status: listRes?.res?.status,
       requestId: listRes?.requestId || null,
-      count: optionsRaw.length
+      count: optionsRawForDisplay.length
     });
     logStep("shipmentTransportationConfigurations", {
       traceId,
@@ -2550,7 +2574,8 @@ serve(async (req) => {
       return picked?.deliveryWindowOptionId || picked?.id || null;
     };
 
-    let options = optionsRaw;
+    let options = optionsRawForDisplay;
+    let optionsForSelectionRaw = optionsRawForSelection;
 
     const allRequireDeliveryWindow =
       Array.isArray(options) &&
@@ -2616,6 +2641,7 @@ serve(async (req) => {
       }
       const relist = await listAllTransportationOptions(String(effectivePlacementOptionId), null);
       options = relist.collected || [];
+      optionsForSelectionRaw = options;
       logStep("listTransportationOptions_after_deliveryWindow", {
         traceId,
         status: relist.firstRes?.res?.status,
@@ -2667,28 +2693,11 @@ serve(async (req) => {
     };
 
     const detectPartnered = (opt: any) => {
-      const carrierName = (opt?.carrierName || opt?.carrier?.name || opt?.carrier || "").toString();
-      const shippingSolution = (opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || "")
-        .toString()
-        .toUpperCase();
-      const typeHints = [
-        opt?.transportationOptionType,
-        opt?.transportationOptionType?.type,
-        opt?.transportationOptionType?.transportationOptionType,
-        opt?.transportationOptionType?.transportationOptionType?.type,
-        opt?.carrierType,
-        opt?.carrier?.carrierType,
-        opt?.carrier?.type,
-        opt?.program,
-        opt?.carrierProgram,
-        opt?.partneredProgram,
-        opt?.shippingSolution,
-        opt?.shippingSolutionId,
-        opt?.shipping_solution,
-        opt?.shipping_solution_id
-      ]
-        .filter((v) => v !== undefined && v !== null)
-        .map((v) => String(v).toUpperCase());
+      const shippingSolution = String(
+        opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || ""
+      ).toUpperCase();
+      if (shippingSolution.includes("AMAZON_PARTNERED")) return true;
+      if (shippingSolution.includes("USE_YOUR_OWN_CARRIER")) return false;
       const flags = [
         opt?.partneredCarrier,
         opt?.isPartnered,
@@ -2696,36 +2705,32 @@ serve(async (req) => {
         opt?.isAmazonPartnered,
         opt?.amazonPartnered,
         opt?.isAmazonPartneredCarrier
-      ];
-      const solutionHints =
-        shippingSolution.includes("AMAZON_PARTNERED") ||
-        shippingSolution.includes("PARTNERED_CARRIER");
-      const typeMatch = typeHints.some(
-        (v) => v.includes("AMAZON_PARTNERED") || v.includes("PARTNERED_CARRIER")
-      );
-      const nameHints =
-        /partner/i.test(carrierName) ||
-        /partner/i.test(String(opt?.partneredCarrierName || ""));
-      return Boolean(flags.find(Boolean) || solutionHints || typeMatch || nameHints);
+      ].filter((v) => v !== undefined);
+      if (flags.length) return Boolean(flags.find(Boolean));
+      return false;
     };
 
-    const normalizedOptions = Array.isArray(options)
-      ? options.map((opt: any) => ({
-          id: opt.transportationOptionId || opt.id || opt.optionId || null,
-          isPartnered: detectPartnered(opt),
-          partnered: detectPartnered(opt),
-          mode: opt.mode || opt.shippingMode || opt.method || null,
-          carrierName: opt.carrierName || opt.carrier?.name || opt.carrier?.alphaCode || opt.carrier || null,
-          charge: extractCharge(opt),
-          shippingSolution:
-            opt.shippingSolution ||
-            opt.shippingSolutionId ||
-            opt.shipping_solution ||
-            opt.shipping_solution_id ||
-            null,
-          raw: opt
-        }))
-      : [];
+    const normalizeOptions = (opts: any[]) =>
+      Array.isArray(opts)
+        ? opts.map((opt: any) => ({
+            id: opt.transportationOptionId || opt.id || opt.optionId || null,
+            isPartnered: detectPartnered(opt),
+            partnered: detectPartnered(opt),
+            mode: opt.mode || opt.shippingMode || opt.method || null,
+            carrierName: opt.carrierName || opt.carrier?.name || opt.carrier?.alphaCode || opt.carrier || null,
+            charge: extractCharge(opt),
+            shippingSolution:
+              opt.shippingSolution ||
+              opt.shippingSolutionId ||
+              opt.shipping_solution ||
+              opt.shipping_solution_id ||
+              null,
+            raw: opt
+          }))
+        : [];
+
+    const normalizedOptions = normalizeOptions(options);
+    const normalizedOptionsSelection = normalizeOptions(optionsForSelectionRaw);
     const optionsPayload = normalizedOptions;
 
     const normalizeOptionMode = (mode: any) => {
@@ -2741,18 +2746,21 @@ serve(async (req) => {
       return up;
     };
 
-    const optionsForSelection = normalizedOptions;
+    const optionsForSelection = normalizedOptionsSelection;
     const returnedModes = Array.from(
-      new Set(normalizedOptions.map((o) => normalizeOptionMode(o.mode)))
+      new Set(normalizedOptionsSelection.map((o) => normalizeOptionMode(o.mode)))
     ).filter(Boolean);
     const returnedSolutions = Array.from(
       new Set(
-        normalizedOptions
+        normalizedOptionsSelection
           .map((o) => String(o.shippingSolution || o.raw?.shippingSolution || "").toUpperCase())
       )
     ).filter(Boolean);
     const effectiveOptionsForSelection = optionsForSelection;
-    const modeMismatch = false;
+    const normalizedRequestedMode = normalizeOptionMode(effectiveShippingMode);
+    const modeMismatch = Boolean(
+      normalizedRequestedMode && returnedModes.length && !returnedModes.includes(normalizedRequestedMode)
+    );
 
     // Nu alegem implicit; doar expunem optiunile disponibile.
     const partneredOpt = effectiveOptionsForSelection.find((o) => o.partnered) || null;
@@ -2764,6 +2772,7 @@ serve(async (req) => {
       defaultCarrier: null,
       defaultMode: null,
       defaultCharge: null,
+      requestedMode: normalizedRequestedMode || null,
       returnedModes,
       returnedSolutions,
       modeMismatch
@@ -2811,6 +2820,19 @@ serve(async (req) => {
           traceId
         }),
         { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
+    if (modeMismatch) {
+      return new Response(
+        JSON.stringify({
+          error: "Shipping mode nu corespunde opțiunilor returnate de Amazon.",
+          code: "SHIPPING_MODE_MISMATCH",
+          requestedMode: normalizedRequestedMode || null,
+          returnedModes,
+          traceId
+        }),
+        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
 
@@ -2915,6 +2937,9 @@ serve(async (req) => {
       );
     }
 
+    const isValidShipmentId = (val: any) =>
+      typeof val === "string" && val.length >= 10 && !val.startsWith("s-");
+
     const requiresDeliveryWindow = hasDeliveryWindowPrecondition(selectedOption?.raw || selectedOption);
     if (requiresDeliveryWindow) {
       const shipmentIds = Array.from(
@@ -2925,8 +2950,19 @@ serve(async (req) => {
           )
             .filter(Boolean)
             .map((id: any) => String(id))
+            .filter(isValidShipmentId)
         )
       );
+      if (!shipmentIds.length) {
+        return new Response(
+          JSON.stringify({
+            error: "ShipmentId-urile nu sunt încă disponibile. Reîncearcă în câteva secunde.",
+            code: "SHIPMENTS_PENDING_FOR_CONFIRM",
+            traceId
+          }),
+          { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
       for (const shipmentId of shipmentIds) {
         const genRes = await generateDeliveryWindowOptions(shipmentId);
         const genOpId =
@@ -2980,14 +3016,30 @@ serve(async (req) => {
     }
 
     const selections = Array.isArray(selectedOption?.raw?.shipments)
-      ? selectedOption.raw.shipments.map((sh: any) => ({
-          shipmentId: sh.shipmentId || sh.id,
-          transportationOptionId: selectedOption?.id
-        }))
-      : placementShipments.map((sh: any, idx: number) => ({
-          shipmentId: sh.shipmentId || sh.id || `s-${idx + 1}`,
-          transportationOptionId: selectedOption?.id
-        }));
+      ? selectedOption.raw.shipments
+          .map((sh: any) => sh?.shipmentId || sh?.id)
+          .filter((id: any) => isValidShipmentId(String(id)))
+          .map((shipmentId: string) => ({
+            shipmentId,
+            transportationOptionId: selectedOption?.id
+          }))
+      : placementShipments
+          .map((sh: any) => sh?.shipmentId || sh?.id)
+          .filter((id: any) => isValidShipmentId(String(id)))
+          .map((shipmentId: string) => ({
+            shipmentId,
+            transportationOptionId: selectedOption?.id
+          }));
+    if (!selections.length) {
+      return new Response(
+        JSON.stringify({
+          error: "ShipmentId-urile nu sunt încă disponibile. Reîncearcă în câteva secunde.",
+          code: "SHIPMENTS_PENDING_FOR_CONFIRM",
+          traceId
+        }),
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
     const confirmPayload = JSON.stringify({
       transportationSelections: selections
