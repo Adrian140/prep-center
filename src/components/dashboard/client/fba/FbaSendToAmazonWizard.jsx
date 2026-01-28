@@ -817,17 +817,37 @@ export default function FbaSendToAmazonWizard({
     snapshotServerUnits(initialPlan?.skus || []);
   }, [initialPlan?.skus, snapshotServerUnits]);
 
-const warning = useMemo(() => {
-  if (!step2Loaded || shippingLoading) return null;
-  const summaryWarnings = Array.isArray(shippingSummary?.warnings) ? shippingSummary.warnings.filter(Boolean) : [];
-  if (summaryWarnings.length && !shippingSummary?.alreadyConfirmed) {
-    return summaryWarnings.map((w) => String(w)).join(' | ');
-  }
-  const returnedModes = shippingSummary?.returnedModes || [];
-  const returnedSolutions = (shippingSummary?.returnedSolutions || []).map((s) => String(s || '').toUpperCase());
-  const wantsSpd = String(shipmentMode?.method || '').toUpperCase() === 'SPD';
-  const hasPartnered = returnedSolutions.some((s) => s.includes('AMAZON_PARTNERED'));
-  if (wantsSpd && returnedModes.length && !returnedModes.includes('GROUND_SMALL_PARCEL')) {
+  const warning = useMemo(() => {
+    if (!step2Loaded || shippingLoading) return null;
+    const summaryWarnings = Array.isArray(shippingSummary?.warnings) ? shippingSummary.warnings.filter(Boolean) : [];
+    if (summaryWarnings.length && !shippingSummary?.alreadyConfirmed) {
+      return summaryWarnings.map((w) => String(w)).join(' | ');
+    }
+    if (currentStep === '1b') {
+      const missingPack = (packGroups || []).some((g) => {
+        const isMultiple = String(g?.packMode || '').toLowerCase() === 'multiple';
+        if (isMultiple) {
+          const perBox = Array.isArray(g?.perBoxDetails) ? g.perBoxDetails : [];
+          if (!perBox.length) return true;
+          return perBox.some((b) => {
+            const perDims = getSafeDims(b);
+            const perWeight = getPositiveNumber(b?.weight);
+            return !(perDims && perWeight);
+          });
+        }
+        const dims = getSafeDims(g.boxDimensions);
+        const w = getPositiveNumber(g.boxWeight);
+        return !(dims && w);
+      });
+      if (missingPack) {
+        return 'Completează dimensiunile și greutatea pentru toate cutiile înainte de Step 2.';
+      }
+    }
+    const returnedModes = shippingSummary?.returnedModes || [];
+    const returnedSolutions = (shippingSummary?.returnedSolutions || []).map((s) => String(s || '').toUpperCase());
+    const wantsSpd = String(shipmentMode?.method || '').toUpperCase() === 'SPD';
+    const hasPartnered = returnedSolutions.some((s) => s.includes('AMAZON_PARTNERED'));
+    if (wantsSpd && returnedModes.length && !returnedModes.includes('GROUND_SMALL_PARCEL')) {
     return 'Amazon nu a returnat opțiuni SPD pentru aceste colete. Verifică dimensiuni/greutate sau alege LTL/FTL.';
   }
   if (shippingSummary && shippingSummary.partneredAllowed === false && !shippingSummary?.alreadyConfirmed) {
@@ -1565,20 +1585,25 @@ const fetchPartneredQuote = useCallback(
       });
       if (error) throw error;
       if (json?.error) {
-        if (json?.code === 'SHIPMENTS_PENDING') {
+        if (
+          json?.code === 'SHIPMENTS_PENDING' ||
+          json?.code === 'SHIPMENTS_PENDING_FOR_GENERATE_TRANSPORT' ||
+          json?.code === 'TRANSPORTATION_OPTIONS_PENDING' ||
+          json?.code === 'TRANSPORTATION_OPTIONS_UNKNOWN_STATE'
+        ) {
           const maxRetries = 5;
           const nextDelay = Number(json?.retryAfterMs || 5000);
           const attempt = shippingRetryRef.current + 1;
           if (attempt <= maxRetries) {
             shippingRetryRef.current = attempt;
-            setShippingError(`Amazon generează shipments... încercare ${attempt}/${maxRetries}. Reîncerc automat.`);
+            setShippingError(`Amazon procesează requestul... încercare ${attempt}/${maxRetries}. Reîncerc automat.`);
             if (shippingRetryTimerRef.current) clearTimeout(shippingRetryTimerRef.current);
             shippingRetryTimerRef.current = setTimeout(() => {
               fetchShippingOptions();
             }, nextDelay);
             return;
           }
-          setShippingError('Amazon încă nu a generat shipments. Reîncearcă manual în câteva secunde.');
+          setShippingError('Amazon încă procesează opțiunile. Reîncearcă manual în câteva secunde.');
           return;
         }
         setShippingError(json.error);
@@ -1688,6 +1713,15 @@ const fetchPartneredQuote = useCallback(
       });
       if (error) throw error;
       if (json?.error) {
+        if (
+          json?.code === 'SHIPMENTS_PENDING' ||
+          json?.code === 'SHIPMENTS_PENDING_FOR_CONFIRM' ||
+          json?.code === 'TRANSPORTATION_OPTIONS_PENDING' ||
+          json?.code === 'TRANSPORTATION_OPTIONS_UNKNOWN_STATE'
+        ) {
+          setShippingError('Amazon procesează încă transportul. Reîncearcă confirmarea în câteva secunde.');
+          return;
+        }
         setShippingError(json.error);
         return;
       }
