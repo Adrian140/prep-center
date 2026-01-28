@@ -701,14 +701,29 @@ export default function FbaSendToAmazonWizard({
           warning: pWarning,
           shipmentMode: pShipmentMode,
           skuStatuses: pSkuStatuses,
-          blocking: pBlocking
+          blocking: pBlocking,
+          sourceAddress: pSourceAddress,
+          source_address: pSourceAddressAlt
         } = response;
+        const sourceAddress = pSourceAddress || pSourceAddressAlt || null;
         if (pFrom && pMarket && Array.isArray(pSkus)) {
           const normSkus = normalizeSkus(pSkus);
-          setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: normSkus }));
+          setPlan((prev) => ({
+            ...prev,
+            ...response,
+            shipFrom: mergeShipFromWithSource(pFrom, sourceAddress),
+            marketplace: pMarket,
+            skus: normSkus,
+            sourceAddress: sourceAddress || prev?.sourceAddress || null
+          }));
           snapshotServerUnits(normSkus);
         } else {
-          setPlan((prev) => ({ ...prev, ...response }));
+          setPlan((prev) => ({
+            ...prev,
+            ...response,
+            shipFrom: mergeShipFromWithSource(pFrom || prev?.shipFrom, sourceAddress),
+            sourceAddress: sourceAddress || prev?.sourceAddress || null
+          }));
           if (Array.isArray(response?.skus)) snapshotServerUnits(normalizeSkus(response.skus));
         }
         if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
@@ -762,14 +777,29 @@ export default function FbaSendToAmazonWizard({
         const {
           shipFrom: pFrom,
           marketplace: pMarket,
-          skus: pSkus
+          skus: pSkus,
+          sourceAddress: pSourceAddress,
+          source_address: pSourceAddressAlt
         } = response;
+        const sourceAddress = pSourceAddress || pSourceAddressAlt || null;
         if (pFrom && pMarket && Array.isArray(pSkus)) {
           const normSkus = normalizeSkus(pSkus);
-          setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: normSkus }));
+          setPlan((prev) => ({
+            ...prev,
+            ...response,
+            shipFrom: mergeShipFromWithSource(pFrom, sourceAddress),
+            marketplace: pMarket,
+            skus: normSkus,
+            sourceAddress: sourceAddress || prev?.sourceAddress || null
+          }));
           snapshotServerUnits(normSkus);
         } else {
-          setPlan((prev) => ({ ...prev, ...response }));
+          setPlan((prev) => ({
+            ...prev,
+            ...response,
+            shipFrom: mergeShipFromWithSource(pFrom || prev?.shipFrom, sourceAddress),
+            sourceAddress: sourceAddress || prev?.sourceAddress || null
+          }));
           if (Array.isArray(response?.skus)) snapshotServerUnits(normalizeSkus(response.skus));
         }
       } catch (e) {
@@ -1385,7 +1415,9 @@ const fetchPartneredQuote = useCallback(
 
   const resolveContactInformation = () => {
     const candidates = [
+      plan?.sourceAddress,
       plan?.shipFrom,
+      plan?.shipFrom?.address,
       shipments?.[0]?.shipFromAddress,
       shipments?.[0]?.sourceAddress,
       shipments?.[0]?.source?.address
@@ -1421,6 +1453,16 @@ const fetchPartneredQuote = useCallback(
       if (info) return info;
     }
     return null;
+  };
+
+  const mergeShipFromWithSource = (shipFrom, sourceAddress) => {
+    if (!shipFrom || typeof shipFrom !== 'object' || !sourceAddress) return shipFrom;
+    return {
+      ...shipFrom,
+      phoneNumber: shipFrom.phoneNumber || sourceAddress.phoneNumber || null,
+      email: shipFrom.email || sourceAddress.email || null,
+      name: shipFrom.name || sourceAddress.name || null
+    };
   };
 
   const fetchShippingOptions = async () => {
