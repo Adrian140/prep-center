@@ -1772,10 +1772,9 @@ serve(async (req) => {
         (shipmentTransportConfigs || [])[idx] ||
         {};
       const rawStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || readyStartIso;
-      const rawEnd = cfg.readyToShipWindow?.end || cfg.ready_to_ship_window?.end || undefined;
-      const { start, end } = clampReadyWindow(rawStart, rawEnd);
+      const { start } = clampReadyWindow(rawStart);
       const baseCfg: Record<string, any> = {
-        readyToShipWindow: { start, end },
+        readyToShipWindow: { start },
         shipmentId: shId
       };
       if (contactInformation) baseCfg.contactInformation = contactInformation;
@@ -2274,7 +2273,7 @@ serve(async (req) => {
         attempt += 1;
         const queryParts = [`placementOptionId=${encodeURIComponent(placementOptionIdParam)}`];
         if (shipmentIdParam) queryParts.push(`shipmentId=${encodeURIComponent(shipmentIdParam)}`);
-        if (nextToken) queryParts.push(`nextToken=${encodeURIComponent(nextToken)}`);
+        if (nextToken) queryParts.push(`paginationToken=${encodeURIComponent(nextToken)}`);
         const res = await signedFetch({
           method: "GET",
           service: "execute-api",
