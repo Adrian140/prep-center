@@ -1453,9 +1453,7 @@ const fetchPartneredQuote = useCallback(
     try {
       const configs = buildShipmentConfigs();
       // log local pentru debug (nu trimite date sensibile)
-      const preferNonPartnered = shipmentMode?.carrier?.partnered === false;
-      const preferredCarrierName = String(shipmentMode?.carrier?.name || '').trim() || null;
-      const forcePartneredIfAvailable = forcePartneredOnly ? true : Boolean(shipmentMode?.carrier?.partnered);
+      const { preferNonPartnered, preferredCarrierName, forcePartneredIfAvailable } = computeCarrierPreferences();
       console.log('Step2 invoke fba-step2-confirm-shipping', {
         requestId,
         inboundPlanId,
@@ -1584,9 +1582,7 @@ const fetchPartneredQuote = useCallback(
     setShippingConfirming(true);
     setShippingError('');
     try {
-      const preferNonPartnered = shipmentMode?.carrier?.partnered === false;
-      const preferredCarrierName = String(shipmentMode?.carrier?.name || '').trim() || null;
-      const forcePartneredIfAvailable = forcePartneredOnly ? true : Boolean(shipmentMode?.carrier?.partnered);
+      const { preferNonPartnered, preferredCarrierName, forcePartneredIfAvailable } = computeCarrierPreferences();
       const configs = buildShipmentConfigs();
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
@@ -1768,6 +1764,18 @@ const fetchPartneredQuote = useCallback(
       }
     }
     return normalized;
+  };
+
+  const computeCarrierPreferences = () => {
+    const preferredCarrierName = String(shipmentMode?.carrier?.name || '').trim() || null;
+    const userChoseNonPartnered = shipmentMode?.carrier?.partnered === false;
+    const partneredAllowed = shippingSummary?.partneredAllowed;
+    const preferNonPartnered = userChoseNonPartnered && partneredAllowed === false;
+    return {
+      preferNonPartnered,
+      preferredCarrierName,
+      forcePartneredIfAvailable: true
+    };
   };
 
   const validatePalletDetails = () => {
