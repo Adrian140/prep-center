@@ -867,6 +867,7 @@ serve(async (req) => {
         sellerId
       })
     );
+    const planCheckRes = planCheck?.res ?? null;
 
     const debugStatuses: Record<string, { status: number | null; requestId: string | null }> = {};
     const rawSamples: Record<string, string | null> = {};
@@ -912,7 +913,7 @@ serve(async (req) => {
 
     // Nu mai ieșim prematur dacă placement-ul este ACCEPTED; încercăm totuși să listăm packingOptions
 
-    if (!planCheck || !planCheck.res) {
+    if (!planCheckRes) {
       return new Response(
         JSON.stringify({
           code: "SPAPI_REQUEST_FAILED",
@@ -926,9 +927,9 @@ serve(async (req) => {
       );
     }
 
-    if (!planCheck.res.ok) {
+    if (!planCheckRes.ok) {
       warnings.push(
-        `Nu am acces la inboundPlanId cu integrarea selectată (${planCheck.res.status}). Verifică seller/token.`
+        `Nu am acces la inboundPlanId cu integrarea selectată (${planCheckRes.status}). Verifică seller/token.`
       );
     } else {
       listRes = await listPackingOptions();
@@ -1311,7 +1312,7 @@ serve(async (req) => {
     }
 
     // Upstream failure (auth/perm/5xx) before we even have packingGroupIds
-    if (planCheck && !planCheck.res.ok) {
+    if (planCheckRes && !planCheckRes.ok) {
       const status = planStatus && planStatus >= 500 ? 503 : 502;
       return new Response(
         JSON.stringify({
@@ -1869,7 +1870,7 @@ serve(async (req) => {
         packingGroups: effectivePackingGroups,
         traceId,
         status: {
-          planCheck: planCheck?.res?.status ?? null,
+          planCheck: planCheckRes?.status ?? null,
           generate: genRes?.res?.status ?? null,
           list: listRes?.res?.status ?? null
         },
