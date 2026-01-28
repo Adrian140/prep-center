@@ -988,15 +988,16 @@ serve(async (req) => {
       placementStatus: confirmedPlacement ? normalizePlacementStatus(confirmedPlacement) : null
     });
 
-    if (boxesCount === 0 && shouldConfirm) {
+    if (boxesCount === 0) {
       return new Response(
         JSON.stringify({
-          error: "Trebuie să setezi packingInformation (boxe) înainte de confirmarea transportului.",
+          error: "Trebuie să setezi packingInformation (boxe) înainte de generateTransportationOptions.",
           code: "PACKING_REQUIRED",
           traceId,
-          action: "apelează fba-set-packing-information cu packageGroupings înainte de step2-confirm-shipping"
+          action: "apelează fba-set-packing-information cu packageGroupings înainte de step2-confirm-shipping",
+          retryAfterMs: 4000
         }),
-        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
 
@@ -1032,103 +1033,7 @@ serve(async (req) => {
       );
     }
 
-    // Confirm placement înainte de generateTransportationOptions (conform fluxului Amazon).
-    if (shouldConfirmPlacement && !confirmedPlacement && boxesCount > 0) {
-      placementConfirm = await signedFetch({
-        method: "POST",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(effectivePlacementOptionId)}/confirmation`,
-        query: "",
-        payload: "{}",
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.confirmPlacementOption",
-        marketplaceId,
-        sellerId
-      });
-      logStep("placementConfirm", {
-        traceId,
-        status: placementConfirm?.res?.status,
-        requestId: placementConfirm?.requestId || null
-      });
-      if (!placementConfirm?.res?.ok && isGeneratePlacementRequired(placementConfirm)) {
-        const regenPlacement = await generatePlacementOptionsWithRetry();
-        if (regenPlacement.ok) {
-          const { pid: listedPid } = await listPlacementWithRetry();
-          if (listedPid) {
-            effectivePlacementOptionId = listedPid;
-            placementConfirm = await signedFetch({
-              method: "POST",
-              service: "execute-api",
-              region: awsRegion,
-              host,
-              path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(effectivePlacementOptionId)}/confirmation`,
-              query: "",
-              payload: "{}",
-              accessKey: tempCreds.accessKeyId,
-              secretKey: tempCreds.secretAccessKey,
-              sessionToken: tempCreds.sessionToken,
-              lwaToken: lwaAccessToken,
-              traceId,
-              operationName: "inbound.v20240320.confirmPlacementOption",
-              marketplaceId,
-              sellerId
-            });
-          }
-        }
-      }
-
-      const placementOpId =
-        placementConfirm?.json?.payload?.operationId ||
-        placementConfirm?.json?.operationId ||
-        null;
-      const placementStatus = placementConfirm?.res?.status || 0;
-      const placementBody = placementConfirm?.text || "";
-      const placementAlreadyConfirmed =
-        /already been confirmed|has been confirmed|already confirmed|already accepted|placement option is already confirmed/i.test(
-          placementBody
-        );
-      if (!placementConfirm?.res?.ok && [400, 409].includes(placementStatus) && !placementOpId && !placementAlreadyConfirmed) {
-        return new Response(
-          JSON.stringify({
-            error: "Placement confirmation failed",
-            traceId,
-            status: placementStatus,
-            body: placementBody.slice(0, 400) || null
-          }),
-          {
-            status: 502,
-            headers: { ...corsHeaders, "content-type": "application/json" }
-          }
-        );
-      }
-      if (!placementConfirm?.res?.ok && ![400, 409].includes(placementStatus) && !placementOpId) {
-        return new Response(
-          JSON.stringify({ error: "Placement confirmation failed", traceId, status: placementConfirm?.res?.status }),
-          {
-            status: 502,
-            headers: { ...corsHeaders, "content-type": "application/json" }
-          }
-        );
-      }
-      if (placementOpId) {
-        const placementStatusRes = await pollOperationStatus(placementOpId);
-        const stateUp = getOperationState(placementStatusRes) || String(placementStatusRes?.res?.status || "").toUpperCase();
-        if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
-          return new Response(JSON.stringify({ error: "Placement confirmation failed", traceId, state: stateUp }), {
-            status: 502,
-            headers: { ...corsHeaders, "content-type": "application/json" }
-          });
-        }
-      }
-    }
-
-    // După confirm placement, citim planul pentru a obține shipments + IDs; retry ușor pe 429 și până apar shipments
+    // Citim planul pentru a obține shipments + IDs; retry ușor pe 429 și până apar shipments
     const fetchPlanWithRetry = async () => {
       const maxAttempts = 5;
       let attempt = 0;
@@ -1179,7 +1084,7 @@ serve(async (req) => {
 
     const { res: planRes, shipments: placementShipmentsInitial } = await pollPlanForShipments();
     let placementShipments = placementShipmentsInitial;
-    logStep("getInboundPlan after placement", {
+    logStep("getInboundPlan snapshot", {
       traceId,
       status: planRes?.res?.status,
       requestId: planRes?.requestId || null
@@ -1768,21 +1673,19 @@ serve(async (req) => {
     }
 
     const includePackages = String(effectiveShippingMode || "").toUpperCase() === "GROUND_SMALL_PARCEL";
-    if (includePackages) {
-      const hasContactName = Boolean(contactInformation?.name && String(contactInformation.name).trim());
-      const hasContactPhone = Boolean(contactInformation?.phoneNumber && String(contactInformation.phoneNumber).trim());
-      const hasContactEmail = Boolean(contactInformation?.email && String(contactInformation.email).trim());
-      if (!hasContactName || !hasContactPhone || !hasContactEmail) {
-        return new Response(
-          JSON.stringify({
-            error:
-              "Pentru SPD este necesar contactInformation complet (name, phoneNumber, email). Trimite contact_information în body sau setează datele în address.",
-            code: "CONTACT_INFORMATION_REQUIRED",
-            traceId
-          }),
-          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
-        );
-      }
+    const hasContactName = Boolean(contactInformation?.name && String(contactInformation.name).trim());
+    const hasContactPhone = Boolean(contactInformation?.phoneNumber && String(contactInformation.phoneNumber).trim());
+    const hasContactEmail = Boolean(contactInformation?.email && String(contactInformation.email).trim());
+    if (!hasContactName || !hasContactPhone || !hasContactEmail) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "contactInformation complet (name, phoneNumber, email) este obligatoriu pentru generateTransportationOptions.",
+          code: "CONTACT_INFORMATION_REQUIRED",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
     }
     const mergedIncomingConfigs = (() => {
       const map = new Map<string, any>();
@@ -1882,11 +1785,11 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
-    if (includePackages && !hasPallets && missingPkgs) {
+    if (!requiresPallets && missingPkgs) {
       return new Response(
         JSON.stringify({
           error:
-            "Lipsesc coletele (packages: dimensiuni + greutate). Fără ele, Amazon poate returna doar USE_YOUR_OWN_CARRIER (non-partnered).",
+            "Lipsesc coletele (packages: dimensiuni + greutate). Amazon nu va oferi PCP fără box details.",
           code: "MISSING_PACKAGES",
           traceId
         }),
@@ -2717,6 +2620,112 @@ serve(async (req) => {
         }),
         { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
+    }
+
+    // Confirm placement înainte de confirmTransportationOptions (după ce avem transportation options).
+    if (shouldConfirmPlacement && !confirmedPlacement) {
+      placementConfirm = await signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(effectivePlacementOptionId)}/confirmation`,
+        query: "",
+        payload: "{}",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.confirmPlacementOption",
+        marketplaceId,
+        sellerId
+      });
+      logStep("placementConfirm", {
+        traceId,
+        status: placementConfirm?.res?.status,
+        requestId: placementConfirm?.requestId || null
+      });
+      if (!placementConfirm?.res?.ok && isGeneratePlacementRequired(placementConfirm)) {
+        const regenPlacement = await generatePlacementOptionsWithRetry();
+        if (regenPlacement.ok) {
+          const { pid: listedPid } = await listPlacementWithRetry();
+          if (listedPid) {
+            effectivePlacementOptionId = listedPid;
+            placementConfirm = await signedFetch({
+              method: "POST",
+              service: "execute-api",
+              region: awsRegion,
+              host,
+              path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/placementOptions/${encodeURIComponent(effectivePlacementOptionId)}/confirmation`,
+              query: "",
+              payload: "{}",
+              accessKey: tempCreds.accessKeyId,
+              secretKey: tempCreds.secretAccessKey,
+              sessionToken: tempCreds.sessionToken,
+              lwaToken: lwaAccessToken,
+              traceId,
+              operationName: "inbound.v20240320.confirmPlacementOption",
+              marketplaceId,
+              sellerId
+            });
+          }
+        }
+      }
+
+      const placementOpId =
+        placementConfirm?.json?.payload?.operationId ||
+        placementConfirm?.json?.operationId ||
+        null;
+      const placementStatus = placementConfirm?.res?.status || 0;
+      const placementBody = placementConfirm?.text || "";
+      const placementAlreadyConfirmed =
+        /already been confirmed|has been confirmed|already confirmed|already accepted|placement option is already confirmed/i.test(
+          placementBody
+        );
+      if (!placementConfirm?.res?.ok && [400, 409].includes(placementStatus) && !placementOpId && !placementAlreadyConfirmed) {
+        return new Response(
+          JSON.stringify({
+            error: "Placement confirmation failed",
+            traceId,
+            status: placementStatus,
+            body: placementBody.slice(0, 400) || null
+          }),
+          {
+            status: 502,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          }
+        );
+      }
+      if (!placementConfirm?.res?.ok && ![400, 409].includes(placementStatus) && !placementOpId) {
+        return new Response(
+          JSON.stringify({ error: "Placement confirmation failed", traceId, status: placementConfirm?.res?.status }),
+          {
+            status: 502,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          }
+        );
+      }
+      if (placementOpId) {
+        const placementStatusRes = await pollOperationStatus(placementOpId);
+        const stateUp = getOperationState(placementStatusRes) || String(placementStatusRes?.res?.status || "").toUpperCase();
+        if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
+          return new Response(JSON.stringify({ error: "Placement confirmation failed", traceId, state: stateUp }), {
+            status: 502,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+      }
+
+      const { res: planResAfterConfirm, shipments: placementShipmentsAfter } = await pollPlanForShipments();
+      if (Array.isArray(placementShipmentsAfter) && placementShipmentsAfter.length) {
+        placementShipments = placementShipmentsAfter;
+        logStep("getInboundPlan after placement confirm", {
+          traceId,
+          status: planResAfterConfirm?.res?.status,
+          requestId: planResAfterConfirm?.requestId || null
+        });
+      }
     }
 
     if (placementShipments.some((s: any) => s?.isPackingGroup)) {

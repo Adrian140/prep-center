@@ -83,6 +83,7 @@ flowchart TD
 
   S12 --> S13
 ```
+
 ### Small parcel delivery to Amazon
 Small parcel delivery to Amazon
 On this page
@@ -153,6 +154,2190 @@ DHL in Germany
 Learn more about the Amazon Partnered Carrier programme.
 
 If you are using an Amazon-partnered carrier, you must enter the dimensional data for your small parcel delivery boxes. These dimensions are used to calculate dimensional weight, which can be used to determine fees if the dimensional weight exceeds the actual weight.
+
+### listInboundPlans
+GET /inbound/fba/2024-03-20/inboundPlans
+[Fulfillment Inbound API v2024] Fetch Inbound Plan Details Documentation
+Overview
+This Selling Partner APIs (SP API) collection includes all the GET API operations. Use these APIs to fetch your inbound plans, shipments and much more using the new Fulfillment by Amazon (FBA) Inbound v2024 API operations.
+
+This collection supports below operations,
+
+Access token retrieval.
+Complete FBA Inbound GET API requests, including listing all your inbound plans, details to specific inbound plan including its shipments, packing, placement, transportation and labels details.
+Get Inbound Level Details
+﻿
+
+GET
+list Inbound Plans
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans?status=ACTIVE&sortBy=LAST_UPDATED_TIME&sortOrder=ASC
+Provides a list of inbound plans with minimal information.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of inbound plans to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+status
+ACTIVE
+The status of an inbound plan.
+
+sortBy
+LAST_UPDATED_TIME
+Sort by field.
+
+sortOrder
+ASC
+The sort order.
+
+Example
+ListInboundPlans 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans?pageSize=10&paginationToken=%3Cstring%3E&status=ACTIVE&sortBy=LAST_UPDATED_TIME&sortOrder=ASC' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "inboundPlans": [
+    {
+      "createdAt": "<dateTime>",
+      "inboundPlanId": "6Q6avxM6Q6avxM6Q6avxM6Q6avxM6Q6avxM6Q6",
+      "lastUpdatedAt": "<dateTime>",
+      "marketplaceIds": [
+        "<string>",
+        "<string>"
+      ],
+      "name": "<string>",
+      "sourceAddress": {
+        "addressLine1": "<string>",
+        "city": "<string>",
+        "countryCode": "ZG",
+        "name": "<string>",
+        "postalCode": "<string>",
+        "addressLine2": "<string>",
+        "companyName": "<string>",
+        "email": "<string>",
+        "phoneNumber": "<string>",
+        "stateOrProvinceCode": "<string>"
+      },
+      "status": "<string>"
+    },
+    {
+      "createdAt": "<dateTime>",
+      "inboundPlanId": "SvUtTawTzSvUtTawTzSvUtTawTzSvUtTawTzSv",
+      "lastUpdatedAt": "<dateTime>",
+      "marketplaceIds": [
+        "<string>",
+        "<string>"
+      ],
+      "name": "<string>",
+      "sourceAddress": {
+        "addressLine1": "<string>",
+        "city": "<string>",
+        "countryCode": "IO",
+        "name": "<string>",
+        "postalCode": "<string>",
+        "addressLine2": "<string>",
+        "companyName": "<string>",
+        "email": "<string>",
+        "phoneNumber": "<string>",
+        "stateOrProvinceCode": "<string>"
+      },
+      "status": "<string>"
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+get Inbound Plan
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId
+Fetches the top level information about an inbound plan.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+GetInboundPlan 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "createdAt": "<dateTime>",
+  "inboundPlanId": "13s13s13s13s13s13s13s13s13s13s13s13s13",
+  "lastUpdatedAt": "<dateTime>",
+  "marketplaceIds": [
+    "<string>",
+    "<string>"
+  ],
+  "name": "<string>",
+  "sourceAddress": {
+    "addressLine1": "<string>",
+    "city": "<string>",
+    "countryCode": "WA",
+    "name": "<string>",
+    "postalCode": "<string>",
+    "addressLine2": "<string>",
+    "companyName": "<string>",
+    "email": "<string>",
+    "phoneNumber": "<string>",
+    "stateOrProvinceCode": "<string>"
+  },
+  "status": "<string>",
+  "packingOptions": [
+    {
+      "packingOptionId": "jAumsjAumsjAumsjAumsjAumsjAumsjAumsjAu",
+      "status": "<string>"
+    },
+    {
+      "packingOptionId": "Z4obN80rZ4obN80rZ4obN80rZ4obN80rZ4obN8",
+      "status": "<string>"
+    }
+  ],
+  "placementOptions": [
+    {
+      "placementOptionId": "5CgQRKlK5CgQRKlK5CgQRKlK5CgQRKlK5CgQRK",
+      "status": "<string>"
+    },
+    {
+      "placementOptionId": "J4tVJ4tVJ4tVJ4tVJ4tVJ4tVJ4tVJ4tVJ4tVJ4",
+      "status": "<string>"
+    }
+  ],
+  "shipments": [
+    {
+      "shipmentId": "uA8UILuA8UILuA8UILuA8UILuA8UILuA8UILuA",
+      "status": "<string>"
+    },
+    {
+      "shipmentId": "jQZJ7H4RjQZJ7H4RjQZJ7H4RjQZJ7H4RjQZJ7H",
+      "status": "<string>"
+    }
+  ]
+}
+GET
+list Inbound Plan Items
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/items
+Provides a paginated list of item packages in an inbound plan.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of items to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+ListInboundPlanItems 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/items?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "items": [
+    {
+      "asin": "<string>",
+      "fnsku": "<string>",
+      "labelOwner": "<string>",
+      "msku": "<string>",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        },
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "expiration": "6596-12-08",
+      "manufacturingLotCode": "<string>"
+    },
+    {
+      "asin": "<string>",
+      "fnsku": "<string>",
+      "labelOwner": "<string>",
+      "msku": "<string>",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        },
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "expiration": "3247-11-30",
+      "manufacturingLotCode": "<string>"
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+list Inbound Plan Pallets
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/pallets
+Provides a paginated list of pallet packages in an inbound plan. An inbound plan will have pallets when the related details are provided after generating Less-Than-Truckload (LTL) carrier shipments.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of pallets to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+ListInboundPlanPallets 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/pallets?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "pallets": [
+    {
+      "packageId": "JcfPETD4JcfPETD4JcfPETD4JcfPETD4JcfPET",
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "CM",
+        "width": "<number>"
+      },
+      "quantity": "<integer>",
+      "stackability": "NON_STACKABLE",
+      "weight": {
+        "unit": "LB",
+        "value": "<number>"
+      }
+    },
+    {
+      "packageId": "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH",
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "IN",
+        "width": "<number>"
+      },
+      "quantity": "<integer>",
+      "stackability": "NON_STACKABLE",
+      "weight": {
+        "unit": "LB",
+        "value": "<number>"
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+list Inbound Plan Boxes
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/boxes
+Provides a paginated list of box packages in an inbound plan.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of boxes to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+ListInboundPlanBoxes 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/boxes?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "boxes": [
+    {
+      "packageId": "vAp3vAp3vAp3vAp3vAp3vAp3vAp3vAp3vAp3vA",
+      "boxId": "<string>",
+      "contentInformationSource": "BOX_CONTENT_PROVIDED",
+      "destinationRegion": {
+        "countryCode": "<string>",
+        "state": "<string>",
+        "warehouseId": "<string>"
+      },
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "IN",
+        "width": "<number>"
+      },
+      "items": [
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "7487-10-07",
+          "manufacturingLotCode": "<string>"
+        },
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "8234-09-30",
+          "manufacturingLotCode": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "templateName": "<string>",
+      "weight": {
+        "unit": "KG",
+        "value": "<number>"
+      }
+    },
+    {
+      "packageId": "0q7ct50q7ct50q7ct50q7ct50q7ct50q7ct50q",
+      "boxId": "<string>",
+      "contentInformationSource": "MANUAL_PROCESS",
+      "destinationRegion": {
+        "countryCode": "<string>",
+        "state": "<string>",
+        "warehouseId": "<string>"
+      },
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "IN",
+        "width": "<number>"
+      },
+      "items": [
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "1620-11-29",
+          "manufacturingLotCode": "<string>"
+        },
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "8084-08-27",
+          "manufacturingLotCode": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "templateName": "<string>",
+      "weight": {
+        "unit": "LB",
+        "value": "<number>"
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+Get Shipment Level Details
+﻿
+
+GET
+get Shipment
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId
+Provides the full details for a specific shipment within an inbound plan. The transportationOptionId inside acceptedTransportationSelection can be used to retrieve the transportation details for the shipment.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+shipmentId
+shXXXXXXXXXXXXXXX
+(Required) Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Example
+GetShipment 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "destination": {
+    "destinationType": "<string>",
+    "address": {
+      "addressLine1": "<string>",
+      "city": "<string>",
+      "countryCode": "FB",
+      "name": "<string>",
+      "postalCode": "<string>",
+      "addressLine2": "<string>",
+      "companyName": "<string>",
+      "email": "<string>",
+      "phoneNumber": "<string>",
+      "stateOrProvinceCode": "<string>"
+    },
+    "warehouseId": "<string>"
+  },
+  "placementOptionId": "XZRnmnNXZRnmnNXZRnmnNXZRnmnNXZRnmnNXZR",
+  "shipmentId": "rABuJrABuJrABuJrABuJrABuJrABuJrABuJrAB",
+  "source": {
+    "sourceType": "<string>",
+    "address": {
+      "addressLine1": "<string>",
+      "city": "<string>",
+      "countryCode": "KO",
+      "name": "<string>",
+      "postalCode": "<string>",
+      "addressLine2": "<string>",
+      "companyName": "<string>",
+      "email": "<string>",
+      "phoneNumber": "<string>",
+      "stateOrProvinceCode": "<string>"
+    }
+  },
+  "amazonReferenceId": "<string>",
+  "contactInformation": {
+    "name": "<string>",
+    "phoneNumber": "<string>",
+    "email": "<string>"
+  },
+  "dates": {
+    "readyToShipWindow": {
+      "end": "<dateTime>",
+      "start": "<dateTime>",
+      "editableUntil": "<dateTime>"
+    }
+  },
+  "freightInformation": {
+    "declaredValue": {
+      "amount": "<number>",
+      "code": "<string>"
+    },
+    "freightClass": "<string>"
+  },
+  "name": "<string>",
+  "selectedDeliveryWindow": {
+    "availabilityType": "<string>",
+    "deliveryWindowOptionId": "ybFg1XBybFg1XBybFg1XBybFg1XBybFg1XBybF",
+    "endDate": "<dateTime>",
+    "startDate": "<dateTime>",
+    "editableUntil": "<dateTime>"
+  },
+  "selectedTransportationOptionId": "3kkV-Xdk3kkV-Xdk3kkV-Xdk3kkV-Xdk3kkV-X",
+  "selfShipAppointmentDetails": [
+    {
+      "appointmentId": "<number>",
+      "appointmentSlotTime": {
+        "endTime": "<dateTime>",
+        "startTime": "<dateTime>"
+      },
+      "appointmentStatus": "<string>"
+    },
+    {
+      "appointmentId": "<number>",
+      "appointmentSlotTime": {
+        "endTime": "<dateTime>",
+        "startTime": "<dateTime>"
+      },
+      "appointmentStatus": "<string>"
+    }
+  ],
+  "shipmentConfirmationId": "<string>",
+  "status": "<string>",
+  "trackingDetails": {
+    "ltlTrackingDetail": {
+      "billOfLadingNumber": "<string>",
+      "freightBillNumber": [
+        " -j",
+        "xs  F 2B"
+      ]
+    },
+    "spdTrackingDetail": {
+      "spdTrackingItems": [
+        {
+          "boxId": "<string>",
+          "trackingId": "<string>",
+          "trackingNumberValidationStatus": "<string>"
+        },
+        {
+          "boxId": "<string>",
+          "trackingId": "<string>",
+          "trackingNumberValidationStatus": "<string>"
+        }
+      ]
+    }
+  }
+}
+GET
+list Shipment Items
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId/items
+Provides a paginated list of item packages in a shipment.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of items to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+shipmentId
+shXXXXXXXXXXXXXXX
+(Required) Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Example
+ListShipmentItems 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId/items?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "items": [
+    {
+      "asin": "<string>",
+      "fnsku": "<string>",
+      "labelOwner": "<string>",
+      "msku": "<string>",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        },
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "expiration": "9371-11-09",
+      "manufacturingLotCode": "<string>"
+    },
+    {
+      "asin": "<string>",
+      "fnsku": "<string>",
+      "labelOwner": "<string>",
+      "msku": "<string>",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        },
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "expiration": "8505-10-07",
+      "manufacturingLotCode": "<string>"
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+list Shipment Pallets
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId/pallets
+Provides a paginated list of pallet packages in a shipment. A palletized shipment will have pallets when the related details are provided after generating Less-Than-Truckload (LTL) carrier shipments.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of pallets to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+shipmentId
+shXXXXXXXXXXXXXXX
+(Required) Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Example
+ListShipmentPallets 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId/pallets?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "pallets": [
+    {
+      "packageId": "DBD-J98cVBDBD-J98cVBDBD-J98cVBDBD-J98c",
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "CM",
+        "width": "<number>"
+      },
+      "quantity": "<integer>",
+      "stackability": "NON_STACKABLE",
+      "weight": {
+        "unit": "KG",
+        "value": "<number>"
+      }
+    },
+    {
+      "packageId": "AOAOAOAOAOAOAOAOAOAOAOAOAOAOAOAOAOAOAO",
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "CM",
+        "width": "<number>"
+      },
+      "quantity": "<integer>",
+      "stackability": "NON_STACKABLE",
+      "weight": {
+        "unit": "LB",
+        "value": "<number>"
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+list Shipment Boxes
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId/boxes
+Provides a paginated list of box packages in a shipment.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of boxes to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+shipmentId
+shXXXXXXXXXXXXXXX
+(Required) Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Example
+ListShipmentBoxes 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId/boxes?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "boxes": [
+    {
+      "packageId": "m6UIDLn3Bm6UIDLn3Bm6UIDLn3Bm6UIDLn3Bm6",
+      "boxId": "<string>",
+      "contentInformationSource": "MANUAL_PROCESS",
+      "destinationRegion": {
+        "countryCode": "<string>",
+        "state": "<string>",
+        "warehouseId": "<string>"
+      },
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "CM",
+        "width": "<number>"
+      },
+      "items": [
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "6235-02-04",
+          "manufacturingLotCode": "<string>"
+        },
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "5707-08-04",
+          "manufacturingLotCode": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "templateName": "<string>",
+      "weight": {
+        "unit": "KG",
+        "value": "<number>"
+      }
+    },
+    {
+      "packageId": "                                      ",
+      "boxId": "<string>",
+      "contentInformationSource": "BOX_CONTENT_PROVIDED",
+      "destinationRegion": {
+        "countryCode": "<string>",
+        "state": "<string>",
+        "warehouseId": "<string>"
+      },
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "IN",
+        "width": "<number>"
+      },
+      "items": [
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "5871-10-31",
+          "manufacturingLotCode": "<string>"
+        },
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "9147-02-25",
+          "manufacturingLotCode": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "templateName": "<string>",
+      "weight": {
+        "unit": "KG",
+        "value": "<number>"
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+Get Packing Details
+﻿
+
+GET
+list Packing Group Items
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/packingGroups/:packingGroupId/items
+Retrieves a page of items in a given packing group. Packing options must first be generated by the corresponding operation before packing group items can be listed.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Query Params
+pageSize
+10
+The number of packing group items to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+packingGroupId
+pgXXXXXXXXXXXXXXX
+(Required) Identifier of a packing group.
+
+Example
+ListPackingGroupItems 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/packingGroups/:packingGroupId/items?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "items": [
+    {
+      "asin": "<string>",
+      "fnsku": "<string>",
+      "labelOwner": "<string>",
+      "msku": "<string>",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        },
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "expiration": "2983-03-07",
+      "manufacturingLotCode": "<string>"
+    },
+    {
+      "asin": "<string>",
+      "fnsku": "<string>",
+      "labelOwner": "<string>",
+      "msku": "<string>",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        },
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "expiration": "2309-08-30",
+      "manufacturingLotCode": "<string>"
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+list Packing Group Boxes
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/packingGroups/:packingGroupId/boxes
+Retrieves a page of boxes from a given packing group. These boxes were previously provided through the setPackingInformation operation. This API is used for workflows where boxes are packed before Amazon determines shipment splits.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of packing group boxes to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+packingGroupId
+pgXXXXXXXXXXXXXXX
+(Required) Identifier of a packing group.
+
+Example
+ListPackingGroupBoxes 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/packingGroups/:packingGroupId/boxes?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "boxes": [
+    {
+      "packageId": "k-cmsLk-cmsLk-cmsLk-cmsLk-cmsLk-cmsLk-",
+      "boxId": "<string>",
+      "contentInformationSource": "MANUAL_PROCESS",
+      "destinationRegion": {
+        "countryCode": "<string>",
+        "state": "<string>",
+        "warehouseId": "<string>"
+      },
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "CM",
+        "width": "<number>"
+      },
+      "items": [
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "1180-01-24",
+          "manufacturingLotCode": "<string>"
+        },
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "5600-03-30",
+          "manufacturingLotCode": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "templateName": "<string>",
+      "weight": {
+        "unit": "LB",
+        "value": "<number>"
+      }
+    },
+    {
+      "packageId": "gxVI5u1gxVI5u1gxVI5u1gxVI5u1gxVI5u1gxV",
+      "boxId": "<string>",
+      "contentInformationSource": "BOX_CONTENT_PROVIDED",
+      "destinationRegion": {
+        "countryCode": "<string>",
+        "state": "<string>",
+        "warehouseId": "<string>"
+      },
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "IN",
+        "width": "<number>"
+      },
+      "items": [
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "9500-12-31",
+          "manufacturingLotCode": "<string>"
+        },
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "1863-02-15",
+          "manufacturingLotCode": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "templateName": "<string>",
+      "weight": {
+        "unit": "LB",
+        "value": "<number>"
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+list Packing Options
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/packingOptions
+Retrieves a list of all packing options for an inbound plan. Packing options must first be generated by the corresponding operation before becoming available.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Query Params
+pageSize
+10
+The number of packing options to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+ListPackingOptions 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/packingOptions?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "packingOptions": [
+    {
+      "discounts": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "fees": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "packingGroups": [
+        "iJiJiJiJiJiJiJiJiJiJiJiJiJiJiJiJiJiJiJ",
+        "Mik6gMik6gMik6gMik6gMik6gMik6gMik6gMik"
+      ],
+      "packingOptionId": "NWeNWeNWeNWeNWeNWeNWeNWeNWeNWeNWeNWeNW",
+      "status": "<string>",
+      "supportedShippingConfigurations": [
+        {
+          "shippingMode": "<string>",
+          "shippingSolution": "<string>"
+        },
+        {
+          "shippingMode": "<string>",
+          "shippingSolution": "<string>"
+        }
+      ],
+      "expiration": "<dateTime>"
+    },
+    {
+      "discounts": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "fees": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "packingGroups": [
+        "oLioLioLioLioLioLioLioLioLioLioLioLioL",
+        "G82m86LIG82m86LIG82m86LIG82m86LIG82m86"
+      ],
+      "packingOptionId": "8Ogw78Ogw78Ogw78Ogw78Ogw78Ogw78Ogw78Og",
+      "status": "<string>",
+      "supportedShippingConfigurations": [
+        {
+          "shippingMode": "<string>",
+          "shippingSolution": "<string>"
+        },
+        {
+          "shippingMode": "<string>",
+          "shippingSolution": "<string>"
+        }
+      ],
+      "expiration": "<dateTime>"
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+Get Placement Details
+﻿
+
+GET
+list Placement Options
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/placementOptions
+Provides a list of all placement options for an inbound plan. Placement options must first be generated by the corresponding operation before becoming available.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Query Params
+pageSize
+10
+The number of placement options to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+ListPlacementOptions 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/placementOptions?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "placementOptions": [
+    {
+      "discounts": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "fees": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "placementOptionId": "NgG-Z3NgG-Z3NgG-Z3NgG-Z3NgG-Z3NgG-Z3Ng",
+      "shipmentIds": [
+        "JiDJiDJiDJiDJiDJiDJiDJiDJiDJiDJiDJiDJi",
+        "sOIWiWwSm-sOIWiWwSm-sOIWiWwSm-sOIWiWwS"
+      ],
+      "status": "<string>",
+      "expiration": "<dateTime>"
+    },
+    {
+      "discounts": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "fees": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "placementOptionId": "0GawvG0GawvG0GawvG0GawvG0GawvG0GawvG0G",
+      "shipmentIds": [
+        "jRVBuzKejRVBuzKejRVBuzKejRVBuzKejRVBuz",
+        "WamVjfWamVjfWamVjfWamVjfWamVjfWamVjfWa"
+      ],
+      "status": "<string>",
+      "expiration": "<dateTime>"
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+Get Transportation Details
+﻿
+
+GET
+list Transportation Options
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/transportationOptions?placementOptionId=poXXXXXXXXXXXXXXX
+Retrieves all transportation options for a shipment. Transportation options must first be generated by the generateTransportationOptions operation before becoming available.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Query Params
+pageSize
+10
+The number of transportation options to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+placementOptionId
+poXXXXXXXXXXXXXXX
+The placement option to get transportation options for. Either placementOptionId or shipmentId must be specified.
+
+shipmentId
+shXXXXXXXXXXXXXXX
+The shipment to get transportation options for. Either placementOptionId or shipmentId must be specified.
+
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+ListTransportationOptions 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/transportationOptions?pageSize=10&paginationToken=%3Cstring%3E&placementOptionId=PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP&shipmentId=PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "transportationOptions": [
+    {
+      "carrier": {
+        "alphaCode": "<string>",
+        "name": "<string>"
+      },
+      "preconditions": [
+        "<string>",
+        "<string>"
+      ],
+      "shipmentId": "Us9ADjQOUs9ADjQOUs9ADjQOUs9ADjQOUs9ADj",
+      "shippingMode": "<string>",
+      "shippingSolution": "<string>",
+      "transportationOptionId": "l9-TKfntJl9-TKfntJl9-TKfntJl9-TKfntJl9",
+      "carrierAppointment": {
+        "endTime": "<dateTime>",
+        "startTime": "<dateTime>"
+      },
+      "quote": {
+        "cost": {
+          "amount": "<number>",
+          "code": "<string>"
+        },
+        "expiration": "<dateTime>",
+        "voidableUntil": "<dateTime>"
+      }
+    },
+    {
+      "carrier": {
+        "alphaCode": "<string>",
+        "name": "<string>"
+      },
+      "preconditions": [
+        "<string>",
+        "<string>"
+      ],
+      "shipmentId": "rvYXc6Y4nrvYXc6Y4nrvYXc6Y4nrvYXc6Y4nrv",
+      "shippingMode": "<string>",
+      "shippingSolution": "<string>",
+      "transportationOptionId": "BvZakp1PwdBvZakp1PwdBvZakp1PwdBvZakp1P",
+      "carrierAppointment": {
+        "endTime": "<dateTime>",
+        "startTime": "<dateTime>"
+      },
+      "quote": {
+        "cost": {
+          "amount": "<number>",
+          "code": "<string>"
+        },
+        "expiration": "<dateTime>",
+        "voidableUntil": "<dateTime>"
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+Get Prep Instructions
+﻿
+
+GET
+get Prep Instructions
+https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/prepInstructions?ShipToCountryCode=<string>&SellerSKUList=<string>,<string>&ASINList=<string>,<string>
+Returns labeling requirements and item preparation instructions to help prepare items for shipment to Amazon's fulfillment network.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, see Usage Plans and Rate Limits in the Selling Partner API.
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+ShipToCountryCode
+<string>
+(Required) The country code of the country to which the items will be shipped. Note that labeling requirements and item preparation instructions can vary by country.
+
+SellerSKUList
+<string>,<string>
+A list of SellerSKU values. Used to identify items for which you want labeling requirements and item preparation instructions for shipment to Amazon's fulfillment network. The SellerSKU is qualified by the Seller ID, which is included with every call to the Seller Partner API.
+
+Note: Include seller SKUs that you have used to list items on Amazon's retail website. If you include a seller SKU that you have never used to list an item on Amazon's retail website, the seller SKU is returned in the InvalidSKUList property in the response.
+
+...more
+ASINList
+<string>,<string>
+A list of ASIN values. Used to identify items for which you want item preparation instructions to help with item sourcing decisions.
+
+Note: ASINs must be included in the product catalog for at least one of the marketplaces that the seller participates in. Any ASIN that is not included in the product catalog for at least one of the marketplaces that the seller participates in is returned in the InvalidASINList property in the response. You can find out which marketplaces a seller participates in by calling the getMarketplaceParticipations operation in the Selling Partner API for Sellers.
+
+...more
+Example
+Success.
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/prepInstructions?ShipToCountryCode=%3Cstring%3E&SellerSKUList=%3Cstring%3E%2C%3Cstring%3E&ASINList=%3Cstring%3E%2C%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "payload": {
+    "SKUPrepInstructionsList": [
+      {
+        "SellerSKU": "<string>",
+        "ASIN": "<string>",
+        "BarcodeInstruction": "MustProvideSellerSKU",
+        "PrepGuidance": "NoAdditionalPrepRequired",
+        "PrepInstructionList": [
+          "CapSealing",
+          "Debundle"
+        ],
+        "AmazonPrepFeesDetailsList": [
+          {
+            "PrepInstruction": "BlackShrinkWrapping",
+            "FeePerUnit": {
+              "CurrencyCode": "USD",
+              "Value": "<double>"
+            }
+          },
+          {
+            "PrepInstruction": "HangGarment",
+            "FeePerUnit": {
+              "CurrencyCode": "USD",
+              "Value": "<double>"
+            }
+          }
+        ]
+      },
+      {
+        "SellerSKU": "<string>",
+        "ASIN": "<string>",
+        "BarcodeInstruction": "CanUseOriginalBarcode",
+        "PrepGuidance": "SeePrepInstructionsList",
+        "PrepInstructionList": [
+          "BlankStickering",
+          "Debundle"
+        ],
+        "AmazonPrepFeesDetailsList": [
+          {
+            "PrepInstruction": "Debundle",
+            "FeePerUnit": {
+              "CurrencyCode": "GBP",
+              "Value": "<double>"
+            }
+          },
+          {
+            "PrepInstruction": "Labeling",
+            "FeePerUnit": {
+              "CurrencyCode": "USD",
+              "Value": "<double>"
+            }
+          }
+        ]
+      }
+    ],
+    "InvalidSKUList": [
+      {
+        "SellerSKU": "<string>",
+        "ErrorReason": "DoesNotExist"
+      },
+      {
+        "SellerSKU": "<string>",
+        "ErrorReason": "InvalidASIN"
+      }
+    ],
+    "ASINPrepInstructionsList": [
+      {
+        "ASIN": "<string>",
+        "BarcodeInstruction": "RequiresFNSKULabel",
+        "PrepGuidance": "SeePrepInstructionsList",
+        "PrepInstructionList": [
+          "BlankStickering",
+          "BubbleWrapping"
+        ]
+      },
+      {
+        "ASIN": "<string>",
+        "BarcodeInstruction": "CanUseOriginalBarcode",
+        "PrepGuidance": "NoAdditionalPrepRequired",
+        "PrepInstructionList": [
+          "Labeling",
+          "Labeling"
+        ]
+      }
+    ],
+    "InvalidASINList": [
+      {
+        "ASIN": "<string>",
+        "ErrorReason": "DoesNotExist"
+      },
+      {
+        "ASIN": "<string>",
+        "ErrorReason": "DoesNotExist"
+      }
+    ]
+  },
+  "errors": [
+    {
+      "code": "<string>",
+      "message": "<string>",
+      "details": "<string>"
+    },
+    {
+      "code": "<string>",
+      "message": "<string>",
+      "details": "<string>"
+    }
+  ]
+}
+Get Labels and Bill of Landing
+﻿
+
+GET
+get Labels
+https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/:shipmentId/labels?PageType=PageType&PageSize=PageSize
+Returns package/pallet labels for faster and more accurate shipment processing at the Amazon fulfillment center.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, see Usage Plans and Rate Limits in the Selling Partner API.
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+PageType
+PageType
+(Required) The page type to use to print the labels. Submitting a PageType value that is not supported in your marketplace returns an error.
+
+LabelType
+(Required) The type of labels requested.
+
+NumberOfPackages
+<integer>
+The number of packages in the shipment.
+
+PackageLabelsToPrint
+<string>,<string>
+A list of identifiers that specify packages for which you want package labels printed.
+
+Must match CartonId values previously passed using the FBA Inbound Shipment Carton Information Feed. If not, the operation returns the IncorrectPackageIdentifier error code.
+
+...more
+NumberOfPallets
+<integer>
+The number of pallets in the shipment. This returns four identical labels for each pallet.
+
+PageSize
+PageSize
+The page size for paginating through the total packages' labels. This is a required parameter for Non-Partnered LTL Shipments. Max value:1000.
+
+PageStartIndex
+<integer>
+The page start index for paginating through the total packages' labels. This is a required parameter for Non-Partnered LTL Shipments.
+
+Path Variables
+shipmentId
+FBAXXXXXXXXX
+(Required) A shipment identifier originally returned by the createInboundShipmentPlan operation.
+
+Example
+Success.
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/:shipmentId/labels?PageType=PackageLabel_Letter_6&LabelType=BARCODE_2D&NumberOfPackages=%3Cinteger%3E&PackageLabelsToPrint=%3Cstring%3E%2C%3Cstring%3E&NumberOfPallets=%3Cinteger%3E&PageSize=%3Cinteger%3E&PageStartIndex=%3Cinteger%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "payload": {
+    "DownloadURL": "<string>"
+  },
+  "errors": [
+    {
+      "code": "<string>",
+      "message": "<string>",
+      "details": "<string>"
+    },
+    {
+      "code": "<string>",
+      "message": "<string>",
+      "details": "<string>"
+    }
+  ]
+}
+GET
+get Bill Of Lading
+https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/:shipmentId/billOfLading
+Returns a bill of lading for a Less Than Truckload/Full Truckload (LTL/FTL) shipment. The getBillOfLading operation returns PDF document data for printing a bill of lading for an Amazon-partnered Less Than Truckload/Full Truckload (LTL/FTL) inbound shipment.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, see Usage Plans and Rate Limits in the Selling Partner API.
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Path Variables
+shipmentId
+FBAXXXXXXXXX
+(Required) A shipment identifier originally returned by the createInboundShipmentPlan operation.
+
+Example
+Success.
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/:shipmentId/billOfLading' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "payload": {
+    "DownloadURL": "<string>"
+  },
+  "errors": [
+    {
+      "code": "<string>",
+      "message": "<string>",
+      "details": "<string>"
+    },
+    {
+      "code": "<string>",
+      "message": "<string>",
+      "details": "<string>"
+    }
+  ]
+}
+Authorization to get Access Token
+Call this API to get the access token in exchange to the refresh token for authorizing SP API.
+
+POST
+https://api.amazon.com/auth/o2/token
+https://api.amazon.com/auth/o2/token
+﻿
 
 
 
@@ -858,6 +3043,2599 @@ An unexpected condition occurred that prevented the server from fulfilling the r
 
 503
 Temporary overloading or maintenance of the server.
+
+### [Fulfillment Inbound API v2024] Fetch Inbound Plan Details Documentation
+Overview
+This Selling Partner APIs (SP API) collection includes all the GET API operations. Use these APIs to fetch your inbound plans, shipments and much more using the new Fulfillment by Amazon (FBA) Inbound v2024 API operations.
+
+This collection supports below operations,
+
+Access token retrieval.
+Complete FBA Inbound GET API requests, including listing all your inbound plans, details to specific inbound plan including its shipments, packing, placement, transportation and labels details.
+Get Inbound Level Details
+﻿
+
+GET
+list Inbound Plans
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans?status=ACTIVE&sortBy=LAST_UPDATED_TIME&sortOrder=ASC
+Provides a list of inbound plans with minimal information.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of inbound plans to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+status
+ACTIVE
+The status of an inbound plan.
+
+sortBy
+LAST_UPDATED_TIME
+Sort by field.
+
+sortOrder
+ASC
+The sort order.
+
+Example
+ListInboundPlans 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans?pageSize=10&paginationToken=%3Cstring%3E&status=ACTIVE&sortBy=LAST_UPDATED_TIME&sortOrder=ASC' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "inboundPlans": [
+    {
+      "createdAt": "<dateTime>",
+      "inboundPlanId": "6Q6avxM6Q6avxM6Q6avxM6Q6avxM6Q6avxM6Q6",
+      "lastUpdatedAt": "<dateTime>",
+      "marketplaceIds": [
+        "<string>",
+        "<string>"
+      ],
+      "name": "<string>",
+      "sourceAddress": {
+        "addressLine1": "<string>",
+        "city": "<string>",
+        "countryCode": "ZG",
+        "name": "<string>",
+        "postalCode": "<string>",
+        "addressLine2": "<string>",
+        "companyName": "<string>",
+        "email": "<string>",
+        "phoneNumber": "<string>",
+        "stateOrProvinceCode": "<string>"
+      },
+      "status": "<string>"
+    },
+    {
+      "createdAt": "<dateTime>",
+      "inboundPlanId": "SvUtTawTzSvUtTawTzSvUtTawTzSvUtTawTzSv",
+      "lastUpdatedAt": "<dateTime>",
+      "marketplaceIds": [
+        "<string>",
+        "<string>"
+      ],
+      "name": "<string>",
+      "sourceAddress": {
+        "addressLine1": "<string>",
+        "city": "<string>",
+        "countryCode": "IO",
+        "name": "<string>",
+        "postalCode": "<string>",
+        "addressLine2": "<string>",
+        "companyName": "<string>",
+        "email": "<string>",
+        "phoneNumber": "<string>",
+        "stateOrProvinceCode": "<string>"
+      },
+      "status": "<string>"
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+get Inbound Plan
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId
+Fetches the top level information about an inbound plan.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+GetInboundPlan 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "createdAt": "<dateTime>",
+  "inboundPlanId": "13s13s13s13s13s13s13s13s13s13s13s13s13",
+  "lastUpdatedAt": "<dateTime>",
+  "marketplaceIds": [
+    "<string>",
+    "<string>"
+  ],
+  "name": "<string>",
+  "sourceAddress": {
+    "addressLine1": "<string>",
+    "city": "<string>",
+    "countryCode": "WA",
+    "name": "<string>",
+    "postalCode": "<string>",
+    "addressLine2": "<string>",
+    "companyName": "<string>",
+    "email": "<string>",
+    "phoneNumber": "<string>",
+    "stateOrProvinceCode": "<string>"
+  },
+  "status": "<string>",
+  "packingOptions": [
+    {
+      "packingOptionId": "jAumsjAumsjAumsjAumsjAumsjAumsjAumsjAu",
+      "status": "<string>"
+    },
+    {
+      "packingOptionId": "Z4obN80rZ4obN80rZ4obN80rZ4obN80rZ4obN8",
+      "status": "<string>"
+    }
+  ],
+  "placementOptions": [
+    {
+      "placementOptionId": "5CgQRKlK5CgQRKlK5CgQRKlK5CgQRKlK5CgQRK",
+      "status": "<string>"
+    },
+    {
+      "placementOptionId": "J4tVJ4tVJ4tVJ4tVJ4tVJ4tVJ4tVJ4tVJ4tVJ4",
+      "status": "<string>"
+    }
+  ],
+  "shipments": [
+    {
+      "shipmentId": "uA8UILuA8UILuA8UILuA8UILuA8UILuA8UILuA",
+      "status": "<string>"
+    },
+    {
+      "shipmentId": "jQZJ7H4RjQZJ7H4RjQZJ7H4RjQZJ7H4RjQZJ7H",
+      "status": "<string>"
+    }
+  ]
+}
+GET
+list Inbound Plan Items
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/items
+Provides a paginated list of item packages in an inbound plan.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of items to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+ListInboundPlanItems 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/items?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "items": [
+    {
+      "asin": "<string>",
+      "fnsku": "<string>",
+      "labelOwner": "<string>",
+      "msku": "<string>",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        },
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "expiration": "6596-12-08",
+      "manufacturingLotCode": "<string>"
+    },
+    {
+      "asin": "<string>",
+      "fnsku": "<string>",
+      "labelOwner": "<string>",
+      "msku": "<string>",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        },
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "expiration": "3247-11-30",
+      "manufacturingLotCode": "<string>"
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+list Inbound Plan Pallets
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/pallets
+Provides a paginated list of pallet packages in an inbound plan. An inbound plan will have pallets when the related details are provided after generating Less-Than-Truckload (LTL) carrier shipments.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of pallets to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+ListInboundPlanPallets 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/pallets?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "pallets": [
+    {
+      "packageId": "JcfPETD4JcfPETD4JcfPETD4JcfPETD4JcfPET",
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "CM",
+        "width": "<number>"
+      },
+      "quantity": "<integer>",
+      "stackability": "NON_STACKABLE",
+      "weight": {
+        "unit": "LB",
+        "value": "<number>"
+      }
+    },
+    {
+      "packageId": "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH",
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "IN",
+        "width": "<number>"
+      },
+      "quantity": "<integer>",
+      "stackability": "NON_STACKABLE",
+      "weight": {
+        "unit": "LB",
+        "value": "<number>"
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+list Inbound Plan Boxes
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/boxes
+Provides a paginated list of box packages in an inbound plan.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of boxes to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+ListInboundPlanBoxes 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/boxes?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "boxes": [
+    {
+      "packageId": "vAp3vAp3vAp3vAp3vAp3vAp3vAp3vAp3vAp3vA",
+      "boxId": "<string>",
+      "contentInformationSource": "BOX_CONTENT_PROVIDED",
+      "destinationRegion": {
+        "countryCode": "<string>",
+        "state": "<string>",
+        "warehouseId": "<string>"
+      },
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "IN",
+        "width": "<number>"
+      },
+      "items": [
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "7487-10-07",
+          "manufacturingLotCode": "<string>"
+        },
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "8234-09-30",
+          "manufacturingLotCode": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "templateName": "<string>",
+      "weight": {
+        "unit": "KG",
+        "value": "<number>"
+      }
+    },
+    {
+      "packageId": "0q7ct50q7ct50q7ct50q7ct50q7ct50q7ct50q",
+      "boxId": "<string>",
+      "contentInformationSource": "MANUAL_PROCESS",
+      "destinationRegion": {
+        "countryCode": "<string>",
+        "state": "<string>",
+        "warehouseId": "<string>"
+      },
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "IN",
+        "width": "<number>"
+      },
+      "items": [
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "1620-11-29",
+          "manufacturingLotCode": "<string>"
+        },
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "8084-08-27",
+          "manufacturingLotCode": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "templateName": "<string>",
+      "weight": {
+        "unit": "LB",
+        "value": "<number>"
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+Get Shipment Level Details
+﻿
+
+GET
+get Shipment
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId
+Provides the full details for a specific shipment within an inbound plan. The transportationOptionId inside acceptedTransportationSelection can be used to retrieve the transportation details for the shipment.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+shipmentId
+shXXXXXXXXXXXXXXX
+(Required) Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Example
+GetShipment 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "destination": {
+    "destinationType": "<string>",
+    "address": {
+      "addressLine1": "<string>",
+      "city": "<string>",
+      "countryCode": "FB",
+      "name": "<string>",
+      "postalCode": "<string>",
+      "addressLine2": "<string>",
+      "companyName": "<string>",
+      "email": "<string>",
+      "phoneNumber": "<string>",
+      "stateOrProvinceCode": "<string>"
+    },
+    "warehouseId": "<string>"
+  },
+  "placementOptionId": "XZRnmnNXZRnmnNXZRnmnNXZRnmnNXZRnmnNXZR",
+  "shipmentId": "rABuJrABuJrABuJrABuJrABuJrABuJrABuJrAB",
+  "source": {
+    "sourceType": "<string>",
+    "address": {
+      "addressLine1": "<string>",
+      "city": "<string>",
+      "countryCode": "KO",
+      "name": "<string>",
+      "postalCode": "<string>",
+      "addressLine2": "<string>",
+      "companyName": "<string>",
+      "email": "<string>",
+      "phoneNumber": "<string>",
+      "stateOrProvinceCode": "<string>"
+    }
+  },
+  "amazonReferenceId": "<string>",
+  "contactInformation": {
+    "name": "<string>",
+    "phoneNumber": "<string>",
+    "email": "<string>"
+  },
+  "dates": {
+    "readyToShipWindow": {
+      "end": "<dateTime>",
+      "start": "<dateTime>",
+      "editableUntil": "<dateTime>"
+    }
+  },
+  "freightInformation": {
+    "declaredValue": {
+      "amount": "<number>",
+      "code": "<string>"
+    },
+    "freightClass": "<string>"
+  },
+  "name": "<string>",
+  "selectedDeliveryWindow": {
+    "availabilityType": "<string>",
+    "deliveryWindowOptionId": "ybFg1XBybFg1XBybFg1XBybFg1XBybFg1XBybF",
+    "endDate": "<dateTime>",
+    "startDate": "<dateTime>",
+    "editableUntil": "<dateTime>"
+  },
+  "selectedTransportationOptionId": "3kkV-Xdk3kkV-Xdk3kkV-Xdk3kkV-Xdk3kkV-X",
+  "selfShipAppointmentDetails": [
+    {
+      "appointmentId": "<number>",
+      "appointmentSlotTime": {
+        "endTime": "<dateTime>",
+        "startTime": "<dateTime>"
+      },
+      "appointmentStatus": "<string>"
+    },
+    {
+      "appointmentId": "<number>",
+      "appointmentSlotTime": {
+        "endTime": "<dateTime>",
+        "startTime": "<dateTime>"
+      },
+      "appointmentStatus": "<string>"
+    }
+  ],
+  "shipmentConfirmationId": "<string>",
+  "status": "<string>",
+  "trackingDetails": {
+    "ltlTrackingDetail": {
+      "billOfLadingNumber": "<string>",
+      "freightBillNumber": [
+        " -j",
+        "xs  F 2B"
+      ]
+    },
+    "spdTrackingDetail": {
+      "spdTrackingItems": [
+        {
+          "boxId": "<string>",
+          "trackingId": "<string>",
+          "trackingNumberValidationStatus": "<string>"
+        },
+        {
+          "boxId": "<string>",
+          "trackingId": "<string>",
+          "trackingNumberValidationStatus": "<string>"
+        }
+      ]
+    }
+  }
+}
+GET
+list Shipment Items
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId/items
+Provides a paginated list of item packages in a shipment.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of items to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+shipmentId
+shXXXXXXXXXXXXXXX
+(Required) Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Example
+ListShipmentItems 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId/items?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "items": [
+    {
+      "asin": "<string>",
+      "fnsku": "<string>",
+      "labelOwner": "<string>",
+      "msku": "<string>",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        },
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "expiration": "9371-11-09",
+      "manufacturingLotCode": "<string>"
+    },
+    {
+      "asin": "<string>",
+      "fnsku": "<string>",
+      "labelOwner": "<string>",
+      "msku": "<string>",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        },
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "expiration": "8505-10-07",
+      "manufacturingLotCode": "<string>"
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+list Shipment Pallets
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId/pallets
+Provides a paginated list of pallet packages in a shipment. A palletized shipment will have pallets when the related details are provided after generating Less-Than-Truckload (LTL) carrier shipments.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of pallets to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+shipmentId
+shXXXXXXXXXXXXXXX
+(Required) Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Example
+ListShipmentPallets 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId/pallets?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "pallets": [
+    {
+      "packageId": "DBD-J98cVBDBD-J98cVBDBD-J98cVBDBD-J98c",
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "CM",
+        "width": "<number>"
+      },
+      "quantity": "<integer>",
+      "stackability": "NON_STACKABLE",
+      "weight": {
+        "unit": "KG",
+        "value": "<number>"
+      }
+    },
+    {
+      "packageId": "AOAOAOAOAOAOAOAOAOAOAOAOAOAOAOAOAOAOAO",
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "CM",
+        "width": "<number>"
+      },
+      "quantity": "<integer>",
+      "stackability": "NON_STACKABLE",
+      "weight": {
+        "unit": "LB",
+        "value": "<number>"
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+list Shipment Boxes
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId/boxes
+Provides a paginated list of box packages in a shipment.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of boxes to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+shipmentId
+shXXXXXXXXXXXXXXX
+(Required) Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+Example
+ListShipmentBoxes 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/shipments/:shipmentId/boxes?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "boxes": [
+    {
+      "packageId": "m6UIDLn3Bm6UIDLn3Bm6UIDLn3Bm6UIDLn3Bm6",
+      "boxId": "<string>",
+      "contentInformationSource": "MANUAL_PROCESS",
+      "destinationRegion": {
+        "countryCode": "<string>",
+        "state": "<string>",
+        "warehouseId": "<string>"
+      },
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "CM",
+        "width": "<number>"
+      },
+      "items": [
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "6235-02-04",
+          "manufacturingLotCode": "<string>"
+        },
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "5707-08-04",
+          "manufacturingLotCode": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "templateName": "<string>",
+      "weight": {
+        "unit": "KG",
+        "value": "<number>"
+      }
+    },
+    {
+      "packageId": "                                      ",
+      "boxId": "<string>",
+      "contentInformationSource": "BOX_CONTENT_PROVIDED",
+      "destinationRegion": {
+        "countryCode": "<string>",
+        "state": "<string>",
+        "warehouseId": "<string>"
+      },
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "IN",
+        "width": "<number>"
+      },
+      "items": [
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "5871-10-31",
+          "manufacturingLotCode": "<string>"
+        },
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "9147-02-25",
+          "manufacturingLotCode": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "templateName": "<string>",
+      "weight": {
+        "unit": "KG",
+        "value": "<number>"
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+Get Packing Details
+﻿
+
+GET
+list Packing Group Items
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/packingGroups/:packingGroupId/items
+Retrieves a page of items in a given packing group. Packing options must first be generated by the corresponding operation before packing group items can be listed.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Query Params
+pageSize
+10
+The number of packing group items to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+packingGroupId
+pgXXXXXXXXXXXXXXX
+(Required) Identifier of a packing group.
+
+Example
+ListPackingGroupItems 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/packingGroups/:packingGroupId/items?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "items": [
+    {
+      "asin": "<string>",
+      "fnsku": "<string>",
+      "labelOwner": "<string>",
+      "msku": "<string>",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        },
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "expiration": "2983-03-07",
+      "manufacturingLotCode": "<string>"
+    },
+    {
+      "asin": "<string>",
+      "fnsku": "<string>",
+      "labelOwner": "<string>",
+      "msku": "<string>",
+      "prepInstructions": [
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        },
+        {
+          "fee": {
+            "amount": "<number>",
+            "code": "<string>"
+          },
+          "prepOwner": "<string>",
+          "prepType": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "expiration": "2309-08-30",
+      "manufacturingLotCode": "<string>"
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+list Packing Group Boxes
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/packingGroups/:packingGroupId/boxes
+Retrieves a page of boxes from a given packing group. These boxes were previously provided through the setPackingInformation operation. This API is used for workflows where boxes are packed before Amazon determines shipment splits.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+pageSize
+10
+The number of packing group boxes to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+packingGroupId
+pgXXXXXXXXXXXXXXX
+(Required) Identifier of a packing group.
+
+Example
+ListPackingGroupBoxes 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/packingGroups/:packingGroupId/boxes?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "boxes": [
+    {
+      "packageId": "k-cmsLk-cmsLk-cmsLk-cmsLk-cmsLk-cmsLk-",
+      "boxId": "<string>",
+      "contentInformationSource": "MANUAL_PROCESS",
+      "destinationRegion": {
+        "countryCode": "<string>",
+        "state": "<string>",
+        "warehouseId": "<string>"
+      },
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "CM",
+        "width": "<number>"
+      },
+      "items": [
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "1180-01-24",
+          "manufacturingLotCode": "<string>"
+        },
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "5600-03-30",
+          "manufacturingLotCode": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "templateName": "<string>",
+      "weight": {
+        "unit": "LB",
+        "value": "<number>"
+      }
+    },
+    {
+      "packageId": "gxVI5u1gxVI5u1gxVI5u1gxVI5u1gxVI5u1gxV",
+      "boxId": "<string>",
+      "contentInformationSource": "BOX_CONTENT_PROVIDED",
+      "destinationRegion": {
+        "countryCode": "<string>",
+        "state": "<string>",
+        "warehouseId": "<string>"
+      },
+      "dimensions": {
+        "height": "<number>",
+        "length": "<number>",
+        "unitOfMeasurement": "IN",
+        "width": "<number>"
+      },
+      "items": [
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "9500-12-31",
+          "manufacturingLotCode": "<string>"
+        },
+        {
+          "asin": "<string>",
+          "fnsku": "<string>",
+          "labelOwner": "<string>",
+          "msku": "<string>",
+          "prepInstructions": [
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            },
+            {
+              "fee": {
+                "amount": "<number>",
+                "code": "<string>"
+              },
+              "prepOwner": "<string>",
+              "prepType": "<string>"
+            }
+          ],
+          "quantity": "<integer>",
+          "expiration": "1863-02-15",
+          "manufacturingLotCode": "<string>"
+        }
+      ],
+      "quantity": "<integer>",
+      "templateName": "<string>",
+      "weight": {
+        "unit": "LB",
+        "value": "<number>"
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+GET
+list Packing Options
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/packingOptions
+Retrieves a list of all packing options for an inbound plan. Packing options must first be generated by the corresponding operation before becoming available.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Query Params
+pageSize
+10
+The number of packing options to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+ListPackingOptions 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/packingOptions?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "packingOptions": [
+    {
+      "discounts": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "fees": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "packingGroups": [
+        "iJiJiJiJiJiJiJiJiJiJiJiJiJiJiJiJiJiJiJ",
+        "Mik6gMik6gMik6gMik6gMik6gMik6gMik6gMik"
+      ],
+      "packingOptionId": "NWeNWeNWeNWeNWeNWeNWeNWeNWeNWeNWeNWeNW",
+      "status": "<string>",
+      "supportedShippingConfigurations": [
+        {
+          "shippingMode": "<string>",
+          "shippingSolution": "<string>"
+        },
+        {
+          "shippingMode": "<string>",
+          "shippingSolution": "<string>"
+        }
+      ],
+      "expiration": "<dateTime>"
+    },
+    {
+      "discounts": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "fees": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "packingGroups": [
+        "oLioLioLioLioLioLioLioLioLioLioLioLioL",
+        "G82m86LIG82m86LIG82m86LIG82m86LIG82m86"
+      ],
+      "packingOptionId": "8Ogw78Ogw78Ogw78Ogw78Ogw78Ogw78Ogw78Og",
+      "status": "<string>",
+      "supportedShippingConfigurations": [
+        {
+          "shippingMode": "<string>",
+          "shippingSolution": "<string>"
+        },
+        {
+          "shippingMode": "<string>",
+          "shippingSolution": "<string>"
+        }
+      ],
+      "expiration": "<dateTime>"
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+Get Placement Details
+﻿
+
+GET
+list Placement Options
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/placementOptions
+Provides a list of all placement options for an inbound plan. Placement options must first be generated by the corresponding operation before becoming available.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Query Params
+pageSize
+10
+The number of placement options to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+ListPlacementOptions 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/placementOptions?pageSize=10&paginationToken=%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "placementOptions": [
+    {
+      "discounts": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "fees": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "placementOptionId": "NgG-Z3NgG-Z3NgG-Z3NgG-Z3NgG-Z3NgG-Z3Ng",
+      "shipmentIds": [
+        "JiDJiDJiDJiDJiDJiDJiDJiDJiDJiDJiDJiDJi",
+        "sOIWiWwSm-sOIWiWwSm-sOIWiWwSm-sOIWiWwS"
+      ],
+      "status": "<string>",
+      "expiration": "<dateTime>"
+    },
+    {
+      "discounts": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "fees": [
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        },
+        {
+          "description": "<string>",
+          "target": "<string>",
+          "type": "<string>",
+          "value": {
+            "amount": "<number>",
+            "code": "<string>"
+          }
+        }
+      ],
+      "placementOptionId": "0GawvG0GawvG0GawvG0GawvG0GawvG0GawvG0G",
+      "shipmentIds": [
+        "jRVBuzKejRVBuzKejRVBuzKejRVBuzKejRVBuz",
+        "WamVjfWamVjfWamVjfWamVjfWamVjfWamVjfWa"
+      ],
+      "status": "<string>",
+      "expiration": "<dateTime>"
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+Get Transportation Details
+﻿
+
+GET
+list Transportation Options
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/transportationOptions?placementOptionId=poXXXXXXXXXXXXXXX
+Retrieves all transportation options for a shipment. Transportation options must first be generated by the generateTransportationOptions operation before becoming available.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+6
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Query Params
+pageSize
+10
+The number of transportation options to return in the response matching the given query.
+
+paginationToken
+<string>
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+...more
+placementOptionId
+poXXXXXXXXXXXXXXX
+The placement option to get transportation options for. Either placementOptionId or shipmentId must be specified.
+
+shipmentId
+shXXXXXXXXXXXXXXX
+The shipment to get transportation options for. Either placementOptionId or shipmentId must be specified.
+
+Path Variables
+inboundPlanId
+wXXXXXXXXXXXXXXX
+(Required) Identifier of an inbound plan.
+
+Example
+ListTransportationOptions 200 response
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/:inboundPlanId/transportationOptions?pageSize=10&paginationToken=%3Cstring%3E&placementOptionId=PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP&shipmentId=PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "transportationOptions": [
+    {
+      "carrier": {
+        "alphaCode": "<string>",
+        "name": "<string>"
+      },
+      "preconditions": [
+        "<string>",
+        "<string>"
+      ],
+      "shipmentId": "Us9ADjQOUs9ADjQOUs9ADjQOUs9ADjQOUs9ADj",
+      "shippingMode": "<string>",
+      "shippingSolution": "<string>",
+      "transportationOptionId": "l9-TKfntJl9-TKfntJl9-TKfntJl9-TKfntJl9",
+      "carrierAppointment": {
+        "endTime": "<dateTime>",
+        "startTime": "<dateTime>"
+      },
+      "quote": {
+        "cost": {
+          "amount": "<number>",
+          "code": "<string>"
+        },
+        "expiration": "<dateTime>",
+        "voidableUntil": "<dateTime>"
+      }
+    },
+    {
+      "carrier": {
+        "alphaCode": "<string>",
+        "name": "<string>"
+      },
+      "preconditions": [
+        "<string>",
+        "<string>"
+      ],
+      "shipmentId": "rvYXc6Y4nrvYXc6Y4nrvYXc6Y4nrvYXc6Y4nrv",
+      "shippingMode": "<string>",
+      "shippingSolution": "<string>",
+      "transportationOptionId": "BvZakp1PwdBvZakp1PwdBvZakp1PwdBvZakp1P",
+      "carrierAppointment": {
+        "endTime": "<dateTime>",
+        "startTime": "<dateTime>"
+      },
+      "quote": {
+        "cost": {
+          "amount": "<number>",
+          "code": "<string>"
+        },
+        "expiration": "<dateTime>",
+        "voidableUntil": "<dateTime>"
+      }
+    }
+  ],
+  "pagination": {
+    "nextToken": "<string>"
+  }
+}
+Get Prep Instructions
+﻿
+
+GET
+get Prep Instructions
+https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/prepInstructions?ShipToCountryCode=<string>&SellerSKUList=<string>,<string>&ASINList=<string>,<string>
+Returns labeling requirements and item preparation instructions to help prepare items for shipment to Amazon's fulfillment network.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, see Usage Plans and Rate Limits in the Selling Partner API.
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+ShipToCountryCode
+<string>
+(Required) The country code of the country to which the items will be shipped. Note that labeling requirements and item preparation instructions can vary by country.
+
+SellerSKUList
+<string>,<string>
+A list of SellerSKU values. Used to identify items for which you want labeling requirements and item preparation instructions for shipment to Amazon's fulfillment network. The SellerSKU is qualified by the Seller ID, which is included with every call to the Seller Partner API.
+
+Note: Include seller SKUs that you have used to list items on Amazon's retail website. If you include a seller SKU that you have never used to list an item on Amazon's retail website, the seller SKU is returned in the InvalidSKUList property in the response.
+
+...more
+ASINList
+<string>,<string>
+A list of ASIN values. Used to identify items for which you want item preparation instructions to help with item sourcing decisions.
+
+Note: ASINs must be included in the product catalog for at least one of the marketplaces that the seller participates in. Any ASIN that is not included in the product catalog for at least one of the marketplaces that the seller participates in is returned in the InvalidASINList property in the response. You can find out which marketplaces a seller participates in by calling the getMarketplaceParticipations operation in the Selling Partner API for Sellers.
+
+...more
+Example
+Success.
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/prepInstructions?ShipToCountryCode=%3Cstring%3E&SellerSKUList=%3Cstring%3E%2C%3Cstring%3E&ASINList=%3Cstring%3E%2C%3Cstring%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "payload": {
+    "SKUPrepInstructionsList": [
+      {
+        "SellerSKU": "<string>",
+        "ASIN": "<string>",
+        "BarcodeInstruction": "MustProvideSellerSKU",
+        "PrepGuidance": "NoAdditionalPrepRequired",
+        "PrepInstructionList": [
+          "CapSealing",
+          "Debundle"
+        ],
+        "AmazonPrepFeesDetailsList": [
+          {
+            "PrepInstruction": "BlackShrinkWrapping",
+            "FeePerUnit": {
+              "CurrencyCode": "USD",
+              "Value": "<double>"
+            }
+          },
+          {
+            "PrepInstruction": "HangGarment",
+            "FeePerUnit": {
+              "CurrencyCode": "USD",
+              "Value": "<double>"
+            }
+          }
+        ]
+      },
+      {
+        "SellerSKU": "<string>",
+        "ASIN": "<string>",
+        "BarcodeInstruction": "CanUseOriginalBarcode",
+        "PrepGuidance": "SeePrepInstructionsList",
+        "PrepInstructionList": [
+          "BlankStickering",
+          "Debundle"
+        ],
+        "AmazonPrepFeesDetailsList": [
+          {
+            "PrepInstruction": "Debundle",
+            "FeePerUnit": {
+              "CurrencyCode": "GBP",
+              "Value": "<double>"
+            }
+          },
+          {
+            "PrepInstruction": "Labeling",
+            "FeePerUnit": {
+              "CurrencyCode": "USD",
+              "Value": "<double>"
+            }
+          }
+        ]
+      }
+    ],
+    "InvalidSKUList": [
+      {
+        "SellerSKU": "<string>",
+        "ErrorReason": "DoesNotExist"
+      },
+      {
+        "SellerSKU": "<string>",
+        "ErrorReason": "InvalidASIN"
+      }
+    ],
+    "ASINPrepInstructionsList": [
+      {
+        "ASIN": "<string>",
+        "BarcodeInstruction": "RequiresFNSKULabel",
+        "PrepGuidance": "SeePrepInstructionsList",
+        "PrepInstructionList": [
+          "BlankStickering",
+          "BubbleWrapping"
+        ]
+      },
+      {
+        "ASIN": "<string>",
+        "BarcodeInstruction": "CanUseOriginalBarcode",
+        "PrepGuidance": "NoAdditionalPrepRequired",
+        "PrepInstructionList": [
+          "Labeling",
+          "Labeling"
+        ]
+      }
+    ],
+    "InvalidASINList": [
+      {
+        "ASIN": "<string>",
+        "ErrorReason": "DoesNotExist"
+      },
+      {
+        "ASIN": "<string>",
+        "ErrorReason": "DoesNotExist"
+      }
+    ]
+  },
+  "errors": [
+    {
+      "code": "<string>",
+      "message": "<string>",
+      "details": "<string>"
+    },
+    {
+      "code": "<string>",
+      "message": "<string>",
+      "details": "<string>"
+    }
+  ]
+}
+Get Labels and Bill of Landing
+﻿
+
+GET
+get Labels
+https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/:shipmentId/labels?PageType=PageType&PageSize=PageSize
+Returns package/pallet labels for faster and more accurate shipment processing at the Amazon fulfillment center.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, see Usage Plans and Rate Limits in the Selling Partner API.
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Query Params
+PageType
+PageType
+(Required) The page type to use to print the labels. Submitting a PageType value that is not supported in your marketplace returns an error.
+
+LabelType
+(Required) The type of labels requested.
+
+NumberOfPackages
+<integer>
+The number of packages in the shipment.
+
+PackageLabelsToPrint
+<string>,<string>
+A list of identifiers that specify packages for which you want package labels printed.
+
+Must match CartonId values previously passed using the FBA Inbound Shipment Carton Information Feed. If not, the operation returns the IncorrectPackageIdentifier error code.
+
+...more
+NumberOfPallets
+<integer>
+The number of pallets in the shipment. This returns four identical labels for each pallet.
+
+PageSize
+PageSize
+The page size for paginating through the total packages' labels. This is a required parameter for Non-Partnered LTL Shipments. Max value:1000.
+
+PageStartIndex
+<integer>
+The page start index for paginating through the total packages' labels. This is a required parameter for Non-Partnered LTL Shipments.
+
+Path Variables
+shipmentId
+FBAXXXXXXXXX
+(Required) A shipment identifier originally returned by the createInboundShipmentPlan operation.
+
+Example
+Success.
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/:shipmentId/labels?PageType=PackageLabel_Letter_6&LabelType=BARCODE_2D&NumberOfPackages=%3Cinteger%3E&PackageLabelsToPrint=%3Cstring%3E%2C%3Cstring%3E&NumberOfPallets=%3Cinteger%3E&PageSize=%3Cinteger%3E&PageStartIndex=%3Cinteger%3E' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "payload": {
+    "DownloadURL": "<string>"
+  },
+  "errors": [
+    {
+      "code": "<string>",
+      "message": "<string>",
+      "details": "<string>"
+    },
+    {
+      "code": "<string>",
+      "message": "<string>",
+      "details": "<string>"
+    }
+  ]
+}
+GET
+get Bill Of Lading
+https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/:shipmentId/billOfLading
+Returns a bill of lading for a Less Than Truckload/Full Truckload (LTL/FTL) shipment. The getBillOfLading operation returns PDF document data for printing a bill of lading for an Amazon-partnered Less Than Truckload/Full Truckload (LTL/FTL) inbound shipment.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, see Usage Plans and Rate Limits in the Selling Partner API.
+
+Request Headers
+x-amz-access-token
+Atza|XXXXXXXXXXXXXXX
+Path Variables
+shipmentId
+FBAXXXXXXXXX
+(Required) A shipment identifier originally returned by the createInboundShipmentPlan operation.
+
+Example
+Success.
+Request
+View More
+Postman CLI
+postman request 'https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/shipments/:shipmentId/billOfLading' \
+  --header 'Accept: application/json'
+200 OK
+Response
+Body
+Headers (3)
+View More
+json
+{
+  "payload": {
+    "DownloadURL": "<string>"
+  },
+  "errors": [
+    {
+      "code": "<string>",
+      "message": "<string>",
+      "details": "<string>"
+    },
+    {
+      "code": "<string>",
+      "message": "<string>",
+      "details": "<string>"
+    }
+  ]
+}
+Authorization to get Access Token
+Call this API to get the access token in exchange to the refresh token for authorizing SP API.
+
+POST
+https://api.amazon.com/auth/o2/token
+https://api.amazon.com/auth/o2/token
+﻿
+
+### 🔸 listInboundPlanBoxes
+Request
+Authorization
+API Key
+Add parameter in query api_key
+Example:
+api_key: ********************
+or
+API Key
+Add parameter in header X-Api-Key
+Example:
+X-Api-Key: ********************
+Path Params
+inboundPlanId
+required
+Inbound Plan id (Workflow Id).
+Example:
+wf64bdf98e-986d-4bbe-8e20-7196e3aaa1d2
+Query Params
+pageSize
+optional
+Integer 1 to 1000. Defaults to 10. The number of boxes to return in the response matching the given query.
+Example:
+20
+paginationToken
+optional
+String length between 0 and 1024. A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+domain
+optional
+Amazon marketplace domain. Domain amazon.com is used by default if domain and marketplaceId are not provided. If both domain and marketplaceId are chosen, domain has bigger priority. Options: amazon.com, amazon.ca, amazon.co.uk, amazon.de, amazon.es, amazon.it, amazon.fr, amazon.in, amazon.com.mx, amazon.com.br.
+Example:
+amazon.com
+marketplaceId
+optional
+Amazon marketplace id. Domain amazon.com is used by default if domain and marketplaceId are not provided. If both domain and marketplaceId are chosen, domain has bigger priority. See all options here.
+Example:
+ATVPDKIKX0DER
+Request Code Samples
+Responses
+🟢200
+OK
+application/json
+Successful response
+Body
+boxes
+array[object (Box)] 
+required
+A list of boxes in an inbound plan.
+packageId
+string 
+required
+Primary key to uniquely identify a Package (Box or Pallet).
+Example:
+pk6949947a-ffd4-4bfa-a55a-c73b3403d633
+boxId
+string  | 
+null 
+optional
+The ID provided by Amazon that identifies a given box. This ID is comprised of the external shipment ID and the index of the box.
+Example:
+FBA18XW7GGHWU000001
+contentInformationSource
+enum<string>  | 
+enum<null> 
+optional
+Indication of how box content is meant to be provided.
+Allowed values:
+INTERACTIVE
+FEED
+NONE
+Example:
+INTERACTIVE
+destinationRegion
+optional
+Representation of a location used within the inbounding experience.
+dimensions
+optional
+Measurement of a package's dimensions.
+externalContainerIdentifier
+string  | 
+null 
+optional
+The external identifier for this container / box.
+Example:
+FBA18XW7GGHWU000001
+externalContainerIdentifierType
+string  | 
+null 
+optional
+Type of the external identifier used. Can be: AMAZON, SSCC.
+Example:
+AMAZON
+items
+array[object (ShipmentItem)]  | 
+null 
+optional
+Items contained within the box.
+quantity
+integer  | 
+null 
+optional
+The number of containers where all other properties like weight or dimensions are identical.
+Example:
+1
+templateName
+string  | 
+null 
+optional
+Template name of the box.
+Example:
+Standard Box
+weight
+optional
+The weight of a package.
+pagination
+object  | 
+null 
+optional
+nextToken
+string  | 
+null 
+optional
+When present, pass this string token in the next request to return the next response page.
+>= 1 characters
+<= 1024 characters
+Example
+{
+    "boxes": [
+        {
+            "packageId": "pk6949947a-ffd4-4bfa-a55a-c73b3403d633",
+            "boxId": "FBA18XW7GGHWU000001",
+            "contentInformationSource": "INTERACTIVE",
+            "destinationRegion": {
+                "countryCode": "US",
+                "state": "WA",
+                "warehouseId": "ABE1"
+            },
+            "dimensions": {
+                "height": 10.5,
+                "length": 15.2,
+                "unitOfMeasurement": "in",
+                "width": 12.8
+            },
+            "externalContainerIdentifier": "FBA18XW7GGHWU000001",
+            "externalContainerIdentifierType": "AMAZON",
+            "items": [
+                {
+                    "asin": "B00U26V4VQ",
+                    "expiration": "2025-12-31",
+                    "fnsku": "X004PJ3U37",
+                    "labelOwner": "AMAZON",
+                    "manufacturingLotCode": "LOT12345",
+                    "msku": "M.Cornell Import 14-03-2025 B00U26V4VQ",
+                    "prepInstructions": [
+                        {
+                            "fee": {
+                                "amount": 10.5,
+                                "code": "USD"
+                            },
+                            "prepOwner": "AMAZON",
+                            "prepType": "ITEM_LABELING"
+                        }
+                    ],
+                    "quantity": 10
+                }
+            ],
+            "quantity": 1,
+            "templateName": "Standard Box",
+            "weight": {
+                "unit": "LB",
+                "value": 10
+            }
+        }
+    ],
+    "pagination": {
+        "nextToken": "string"
+    }
+}
+🟠402
+Payment Required
+🟠403
+Forbidden
+🟠422
+Unprocessable Entity
+🟠429
+Too Many Requests
+🔴500
+Internal Server Error
+Modified at about 2 months ago
+Previous
+Get inbound plan
+
+### listPackingGroupItems
+List inbound plans
+GET
+https://app.sellerassistant.app/api/v1/sp-api/inbound/fba/2024-03-20/inboundPlans
+Proxy to https://developer-docs.amazon.com/sp-api/reference/listinboundplans. The limit is 60 requests per minute. Amazon seller account integration is required to make this request. You can do it here.
+Request
+Authorization
+API Key
+Add parameter in query api_key
+Example:
+api_key: ********************
+or
+API Key
+Add parameter in header X-Api-Key
+Example:
+X-Api-Key: ********************
+Query Params
+pageSize
+optional
+1 to 30. Defaults to 10. The number of inbound plans to return in the response matching the given query.
+Example:
+10
+paginationToken
+optional
+String length between 0 and 1024. A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+status
+optional
+ACTIVE or VOIDED or SHIPPED. The status of an inbound plan.
+Example:
+ACTIVE
+sortBy
+optional
+LAST_UPDATED_TIME or CREATION_TIME. Sort by field
+Example:
+LAST_UPDATED_TIME
+sortOrder
+optional
+ASC or DESC. The sort order.
+Example:
+DESC
+domain
+optional
+Amazon marketplace domain. Domain amazon.com is used by default if domain and marketplaceId are not provided. If both domain and marketplaceId are chosen, domain has bigger priority. Options: amazon.com, amazon.ca, amazon.co.uk, amazon.de, amazon.es, amazon.it, amazon.fr, amazon.in, amazon.com.mx, amazon.com.br.
+Example:
+amazon.com
+marketplaceId
+optional
+Amazon marketplace id. Domain amazon.com is used by default if domain and marketplaceId are not provided. If both domain and marketplaceId are chosen, domain has bigger priority. See all options here.
+Example:
+ATVPDKIKX0DER
+Request Code Samples
+Responses
+🟢200
+OK
+application/json
+Successful response
+Body
+inboundPlans
+array[object (InboundPlanSummary)] 
+optional
+A list of inbound plans.
+createdAt
+string <date-time>
+required
+The time at which the inbound plan was created. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mm:ssZ.
+Example:
+2025-05-26T09:36:00Z
+inboundPlanId
+string 
+required
+Identifier of an inbound plan.
+>= 38 characters
+<= 38 characters
+Example:
+ABCDEFGH1234567890ABCDEFGH1234567890
+lastUpdatedAt
+string <date-time>
+required
+The time at which the inbound plan was last updated. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mm:ssZ.
+Example:
+2025-05-26T10:36:00Z
+marketplaceIds
+array[string]
+required
+A list of marketplace IDs.
+Example:
+["ATVPDKIKX0DER"]
+name
+string 
+required
+Human-readable name of the inbound plan.
+Example:
+Summer 2025 Inventory Shipment
+sourceAddress
+object 
+(Address)
+Address
+required
+status
+enum<string> 
+required
+The current status of the inbound plan.
+>= 1 characters
+<= 1024 characters
+Allowed values:
+ACTIVE
+VOIDED
+SHIPPED
+ERRORED
+Example:
+ACTIVE
+pagination
+object  | 
+null 
+optional
+nextToken
+string  | 
+null 
+optional
+When present, pass this string token in the next request to return the next response page.
+>= 1 characters
+<= 1024 characters
+Example:
+eyJNYXJrZXJ...
+Example
+{
+    "inboundPlans": [
+        {
+            "createdAt": "2025-05-26T09:36:00Z",
+            "inboundPlanId": "ABCDEFGH1234567890ABCDEFGH1234567890",
+            "lastUpdatedAt": "2025-05-26T10:36:00Z",
+            "marketplaceIds": [
+                "ATVPDKIKX0DER"
+            ],
+            "name": "Summer 2025 Inventory Shipment",
+            "sourceAddress": {
+                "addressLine1": "123 Main St",
+                "addressLine2": "Suite 100",
+                "city": "Seattle",
+                "companyName": "Acme Inc",
+                "countryCode": "US",
+                "email": "contact@example.com",
+                "name": "John Doe",
+                "phoneNumber": "+12065551234",
+                "postalCode": "98109",
+                "stateOrProvinceCode": "WA"
+            },
+            "status": "ACTIVE"
+        }
+    ],
+    "pagination": {
+        "nextToken": "eyJNYXJrZXJ..."
+    }
+}
+🟠402
+Payment Required
+🟠403
+Forbidden
+🟠422
+Unprocessable Entity
+🟠429
+Too Many Requests
+🔴500
+Internal Server Error
+Modified at about 2 months ago
+
+### list Shipment Items
+View complete documentation
+Provides a paginated list of item packages in a shipment.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+2
+30
+The x-amzn-RateLimit-Limit response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits in the Selling Partner API. 
+
+Show More
+Set up
+Variables, params, and headers
+Variables
+inboundPlanId
+{{inboundPlanId}}
+shipmentId
+{{shipmentId}}
+baseUrl
+https://sellingpartnerapi-na.amazon.com
+x-amz-access-token
+••••••••••••••••••••
+inboundPlanId
+wXXXXXXXXXXXXXXX
+shipmentId
+shXXXXXXXXXXXXXXX
+Path Variables
+inboundPlanId
+(Required) Identifier of an inbound plan.
+
+{{inboundPlanId}}
+shipmentId
+(Required) Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+{{shipmentId}}
+Query Params
+pageSize
+The number of items to return in the response matching the given query.
+
+10
+paginationToken
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+••••••••
+Headers
+Accept
+application/json
+x-amz-access-token
+{{x-amz-access-token}}
+Everything all set?
+Press "Send" to make magic!
 
  ### confirmPackingOption
 curl --request POST \
@@ -1584,6 +6362,2230 @@ As you prepare your shipment, you can retrieve all of the box-level information 
 
 Step 12. Providing tracking information
 After sending a shipment to Amazon's fulfillment network using a non-partnered carrier, a seller must share the tracking ID using the updateShipmentTrackingDetails operation. To call this operation, a seller must pass the shipment ID and tracking details for their less-than-truckload or small parcel shipment. For less-than-truckload shipments, the seller must provide a PRO number (also known as Freight Bill number) and can optionally provide a BOL number. For small parcel shipments, the seller must share an array of box IDs and associated tracking IDs. 
+### getInboundOperationStatus
+getInboundOperationStatus
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/operations/{operationId}
+
+
+Gets the status of the processing of an asynchronous API call.
+
+Recipes
+Get inbound operation status
+Open Recipe
+Path Params
+operationId
+string
+required
+length between 36 and 38
+Identifier of an asynchronous operation.
+
+Responses
+
+200
+GetInboundOperationStatus 200 response
+
+Response body
+object
+operation
+string
+required
+length between 1 and 1024
+The name of the operation in the asynchronous API call.
+
+operationId
+string
+required
+length between 36 and 38
+The operation ID returned by the asynchronous API call.
+
+operationProblems
+array of objects
+required
+The problems in the processing of the asynchronous operation.
+
+object
+code
+string
+required
+length between 1 and 256
+An error code that identifies the type of error that occurred.
+
+details
+string
+length between 0 and 8192
+Additional details that can help the caller understand or fix the issue.
+
+message
+string
+required
+length between 1 and 2048
+A message that describes the error condition.
+
+severity
+string
+required
+length between 1 and 1024
+The severity of the problem. Possible values: WARNING, ERROR.
+
+operationStatus
+string
+enum
+required
+The status of an operation.
+
+SUCCESS FAILED IN_PROGRESS
+
+Show Details
+SUCCESS	Indicates a request has successfully finished processing.
+FAILED	Indicates a request has finished processing but is in a failed state.
+IN_PROGRESS	Indicates a request is still processing.
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+Updated about 2 months ago
+
+setPrepDetails
+Fulfillment Outbound v2020-07-01
+Did this page help you?
+Language
+
+Shell
+
+Node
+
+Ruby
+
+PHP
+
+Python
+1
+curl --request GET \
+2
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/operations/operationId \
+3
+     --header 'accept: application/json'
+
+Response
+1
+{
+2
+  "operation": "string",
+3
+  "operationId": "string",
+4
+  "operationProblems": [
+5
+    {
+6
+      "code": "string",
+7
+      "details": "string",
+8
+      "message": "string",
+9
+      "severity": "string"
+10
+    }
+11
+  ],
+12
+  "operationStatus": "SUCCESS"
+13
+}
+
+
+Headers
+
+### getPrepInstructions (deprecated v0)
+Python / Selling Partner API for Fulfillment Inbound / get Prep Instructions
+Back to Collection Items
+
+import sys
+import chilkat
+
+# This example assumes the Chilkat API to have been previously unlocked.
+# See Global Unlock Sample for sample code.
+
+http = chilkat.CkHttp()
+
+queryParams = chilkat.CkJsonObject()
+queryParams.UpdateString("ShipToCountryCode","<string>")
+queryParams.UpdateString("SellerSKUList","<string>,<string>")
+queryParams.UpdateString("ASINList","<string>,<string>")
+
+http.SetRequestHeader("Accept","application/json")
+
+resp = chilkat.CkHttpResponse()
+success = http.HttpParams("GET","https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/prepInstructions",queryParams,resp)
+if (success == False):
+    print(http.lastErrorText())
+    sys.exit()
+
+sbResponseBody = chilkat.CkStringBuilder()
+resp.GetBodySb(sbResponseBody)
+
+jResp = chilkat.CkJsonObject()
+jResp.LoadSb(sbResponseBody)
+jResp.put_EmitCompact(False)
+
+print("Response Body:")
+print(jResp.emit())
+
+respStatusCode = resp.get_StatusCode()
+print("Response Status Code = " + str(respStatusCode))
+if (respStatusCode >= 400):
+    print("Response Header:")
+    print(resp.header())
+    print("Failed.")
+    sys.exit()
+
+# Sample JSON response:
+# (Sample code for parsing the JSON response is shown below)
+
+# {
+#   "payload": {
+#     "SKUPrepInstructionsList": [
+#       {
+#         "SellerSKU": "<string>",
+#         "ASIN": "<string>",
+#         "BarcodeInstruction": "CanUseOriginalBarcode",
+#         "PrepGuidance": "NoAdditionalPrepRequired",
+#         "PrepInstructionList": [
+#           "BlankStickering",
+#           "Labeling"
+#         ],
+#         "AmazonPrepFeesDetailsList": [
+#           {
+#             "PrepInstruction": "Polybagging",
+#             "FeePerUnit": {
+#               "CurrencyCode": "GBP",
+#               "Value": "<double>"
+#             }
+#           },
+#           {
+#             "PrepInstruction": "Labeling",
+#             "FeePerUnit": {
+#               "CurrencyCode": "GBP",
+#               "Value": "<double>"
+#             }
+#           }
+#         ]
+#       },
+#       {
+#         "SellerSKU": "<string>",
+#         "ASIN": "<string>",
+#         "BarcodeInstruction": "RequiresFNSKULabel",
+#         "PrepGuidance": "SeePrepInstructionsList",
+#         "PrepInstructionList": [
+#           "BubbleWrapping",
+#           "BlackShrinkWrapping"
+#         ],
+#         "AmazonPrepFeesDetailsList": [
+#           {
+#             "PrepInstruction": "HangGarment",
+#             "FeePerUnit": {
+#               "CurrencyCode": "USD",
+#               "Value": "<double>"
+#             }
+#           },
+#           {
+#             "PrepInstruction": "Polybagging",
+#             "FeePerUnit": {
+#               "CurrencyCode": "USD",
+#               "Value": "<double>"
+#             }
+#           }
+#         ]
+#       }
+#     ],
+#     "InvalidSKUList": [
+#       {
+#         "SellerSKU": "<string>",
+#         "ErrorReason": "InvalidASIN"
+#       },
+#       {
+#         "SellerSKU": "<string>",
+#         "ErrorReason": "InvalidASIN"
+#       }
+#     ],
+#     "ASINPrepInstructionsList": [
+#       {
+#         "ASIN": "<string>",
+#         "BarcodeInstruction": "RequiresFNSKULabel",
+#         "PrepGuidance": "SeePrepInstructionsList",
+#         "PrepInstructionList": [
+#           "BlackShrinkWrapping",
+#           "BubbleWrapping"
+#         ]
+#       },
+#       {
+#         "ASIN": "<string>",
+#         "BarcodeInstruction": "RequiresFNSKULabel",
+#         "PrepGuidance": "SeePrepInstructionsList",
+#         "PrepInstructionList": [
+#           "Taping",
+#           "HangGarment"
+#         ]
+#       }
+#     ],
+#     "InvalidASINList": [
+#       {
+#         "ASIN": "<string>",
+#         "ErrorReason": "DoesNotExist"
+#       },
+#       {
+#         "ASIN": "<string>",
+#         "ErrorReason": "InvalidASIN"
+#       }
+#     ]
+#   },
+#   "errors": [
+#     {
+#       "code": "<string>",
+#       "message": "<string>",
+#       "details": "<string>"
+#     },
+#     {
+#       "code": "<string>",
+#       "message": "<string>",
+#       "details": "<string>"
+#     }
+#   ]
+# }
+
+# Sample code for parsing the JSON response...
+# Use this online tool to generate parsing code from sample JSON: Generate JSON Parsing Code
+
+i = 0
+count_i = jResp.SizeOfArray("payload.SKUPrepInstructionsList")
+while i < count_i :
+    jResp.put_I(i)
+    SellerSKU = jResp.stringOf("payload.SKUPrepInstructionsList[i].SellerSKU")
+    ASIN = jResp.stringOf("payload.SKUPrepInstructionsList[i].ASIN")
+    BarcodeInstruction = jResp.stringOf("payload.SKUPrepInstructionsList[i].BarcodeInstruction")
+    PrepGuidance = jResp.stringOf("payload.SKUPrepInstructionsList[i].PrepGuidance")
+    j = 0
+    count_j = jResp.SizeOfArray("payload.SKUPrepInstructionsList[i].PrepInstructionList")
+    while j < count_j :
+        jResp.put_J(j)
+        strVal = jResp.stringOf("payload.SKUPrepInstructionsList[i].PrepInstructionList[j]")
+        j = j + 1
+
+    j = 0
+    count_j = jResp.SizeOfArray("payload.SKUPrepInstructionsList[i].AmazonPrepFeesDetailsList")
+    while j < count_j :
+        jResp.put_J(j)
+        PrepInstruction = jResp.stringOf("payload.SKUPrepInstructionsList[i].AmazonPrepFeesDetailsList[j].PrepInstruction")
+        CurrencyCode = jResp.stringOf("payload.SKUPrepInstructionsList[i].AmazonPrepFeesDetailsList[j].FeePerUnit.CurrencyCode")
+        Value = jResp.stringOf("payload.SKUPrepInstructionsList[i].AmazonPrepFeesDetailsList[j].FeePerUnit.Value")
+        j = j + 1
+
+    i = i + 1
+
+i = 0
+count_i = jResp.SizeOfArray("payload.InvalidSKUList")
+while i < count_i :
+    jResp.put_I(i)
+    SellerSKU = jResp.stringOf("payload.InvalidSKUList[i].SellerSKU")
+    ErrorReason = jResp.stringOf("payload.InvalidSKUList[i].ErrorReason")
+    i = i + 1
+
+i = 0
+count_i = jResp.SizeOfArray("payload.ASINPrepInstructionsList")
+while i < count_i :
+    jResp.put_I(i)
+    ASIN = jResp.stringOf("payload.ASINPrepInstructionsList[i].ASIN")
+    BarcodeInstruction = jResp.stringOf("payload.ASINPrepInstructionsList[i].BarcodeInstruction")
+    PrepGuidance = jResp.stringOf("payload.ASINPrepInstructionsList[i].PrepGuidance")
+    j = 0
+    count_j = jResp.SizeOfArray("payload.ASINPrepInstructionsList[i].PrepInstructionList")
+    while j < count_j :
+        jResp.put_J(j)
+        strVal = jResp.stringOf("payload.ASINPrepInstructionsList[i].PrepInstructionList[j]")
+        j = j + 1
+
+    i = i + 1
+
+i = 0
+count_i = jResp.SizeOfArray("payload.InvalidASINList")
+while i < count_i :
+    jResp.put_I(i)
+    ASIN = jResp.stringOf("payload.InvalidASINList[i].ASIN")
+    ErrorReason = jResp.stringOf("payload.InvalidASINList[i].ErrorReason")
+    i = i + 1
+
+i = 0
+count_i = jResp.SizeOfArray("errors")
+while i < count_i :
+    jResp.put_I(i)
+    code = jResp.stringOf("errors[i].code")
+    message = jResp.stringOf("errors[i].message")
+    details = jResp.stringOf("errors[i].details")
+    i = i + 1
+
+Curl Command
+curl -G -d "ShipToCountryCode=%3Cstring%3E"
+	-d "SellerSKUList=%3Cstring%3E,%3Cstring%3E"
+	-d "ASINList=%3Cstring%3E,%3Cstring%3E"
+	-H "Accept: application/json"
+https://sellingpartnerapi-na.amazon.com/fba/inbound/v0/prepInstructions
+Postman Collection Item JSON
+{
+  "name": "get Prep Instructions",
+  "request": {
+    "method": "GET",
+    "header": [
+      {
+        "key": "Accept",
+        "value": "application/json"
+      }
+    ],
+    "url": {
+      "raw": "{{baseUrl}}/fba/inbound/v0/prepInstructions?ShipToCountryCode=<string>&SellerSKUList=<string>,<string>&ASINList=<string>,<string>",
+      "host": [
+        "{{baseUrl}}"
+      ],
+      "path": [
+        "fba",
+        "inbound",
+        "v0",
+        "prepInstructions"
+      ],
+      "query": [
+        {
+          "key": "ShipToCountryCode",
+          "value": "<string>",
+          "description": "(Required) The country code of the country to which the items will be shipped. Note that labeling requirements and item preparation instructions can vary by country."
+        },
+        {
+          "key": "SellerSKUList",
+          "value": "<string>,<string>",
+          "description": "A list of SellerSKU values. Used to identify items for which you want labeling requirements and item preparation instructions for shipment to Amazon's fulfillment network. The SellerSKU is qualified by the Seller ID, which is included with every call to the Seller Partner API.\n\nNote: Include seller SKUs that you have used to list items on Amazon's retail website. If you include a seller SKU that you have never used to list an item on Amazon's retail website, the seller SKU is returned in the InvalidSKUList property in the response."
+        },
+        {
+          "key": "ASINList",
+          "value": "<string>,<string>",
+          "description": "A list of ASIN values. Used to identify items for which you want item preparation instructions to help with item sourcing decisions.\n\nNote: ASINs must be included in the product catalog for at least one of the marketplaces that the seller  participates in. Any ASIN that is not included in the product catalog for at least one of the marketplaces that the seller participates in is returned in the InvalidASINList property in the response. You can find out which marketplaces a seller participates in by calling the getMarketplaceParticipations operation in the Selling Partner API for Sellers."
+        }
+      ]
+    },
+    "description": "Returns labeling requirements and item preparation instructions to help prepare items for shipment to Amazon's fulfillment network.\n\n**Usage Plan:**\n\n| Rate (requests per second) | Burst |\n| ---- | ---- |\n| 2 | 30 |\n\nThe `x-amzn-RateLimit-Limit` response header returns the usage plan rate limits that were applied to the requested operation, when available. The table above indicates the default rate and burst values for this operation. Selling partners whose business demands require higher throughput may see higher rate and burst values than those shown here. For more information, see [Usage Plans and Rate Limits in the Selling Partner API](https://developer-docs.amazon.com/sp-api/docs/usage-plans-and-rate-limits-in-the-sp-api)."
+  },
+  "response": [
+    {
+      "name": "Success.",
+      "originalRequest": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/fba/inbound/v0/prepInstructions?ShipToCountryCode=<string>&SellerSKUList=<string>,<string>&ASINList=<string>,<string>",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fba",
+            "inbound",
+            "v0",
+            "prepInstructions"
+          ],
+          "query": [
+            {
+              "key": "ShipToCountryCode",
+              "value": "<string>",
+              "description": "(Required) The country code of the country to which the items will be shipped. Note that labeling requirements and item preparation instructions can vary by country."
+            },
+            {
+              "key": "SellerSKUList",
+              "value": "<string>,<string>",
+              "description": "A list of SellerSKU values. Used to identify items for which you want labeling requirements and item preparation instructions for shipment to Amazon's fulfillment network. The SellerSKU is qualified by the Seller ID, which is included with every call to the Seller Partner API.\n\nNote: Include seller SKUs that you have used to list items on Amazon's retail website. If you include a seller SKU that you have never used to list an item on Amazon's retail website, the seller SKU is returned in the InvalidSKUList property in the response."
+            },
+            {
+              "key": "ASINList",
+              "value": "<string>,<string>",
+              "description": "A list of ASIN values. Used to identify items for which you want item preparation instructions to help with item sourcing decisions.\n\nNote: ASINs must be included in the product catalog for at least one of the marketplaces that the seller  participates in. Any ASIN that is not included in the product catalog for at least one of the marketplaces that the seller participates in is returned in the InvalidASINList property in the response. You can find out which marketplaces a seller participates in by calling the getMarketplaceParticipations operation in the Selling Partner API for Sellers."
+            }
+          ]
+        }
+      },
+      "status": "OK",
+      "code": 200,
+      "_postman_previewlanguage": "json",
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "x-amzn-RateLimit-Limit",
+          "value": "<string>",
+          "description": {
+            "content": "Your rate limit (requests per second) for this operation.",
+            "type": "text/plain"
+          }
+        },
+        {
+          "key": "x-amzn-RequestId",
+          "value": "<string>",
+          "description": {
+            "content": "Unique request reference identifier.",
+            "type": "text/plain"
+          }
+        }
+      ],
+      "cookie": [
+      ],
+      "body": "{\n  \"payload\": {\n    \"SKUPrepInstructionsList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"CanUseOriginalBarcode\",\n        \"PrepGuidance\": \"NoAdditionalPrepRequired\",\n        \"PrepInstructionList\": [\n          \"BlankStickering\",\n          \"Labeling\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Labeling\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BubbleWrapping\",\n          \"BlackShrinkWrapping\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"HangGarment\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      }\n    ],\n    \"InvalidSKUList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ],\n    \"ASINPrepInstructionsList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BlackShrinkWrapping\",\n          \"BubbleWrapping\"\n        ]\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"Taping\",\n          \"HangGarment\"\n        ]\n      }\n    ],\n    \"InvalidASINList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"DoesNotExist\"\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ]\n  },\n  \"errors\": [\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    },\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    }\n  ]\n}"
+    },
+    {
+      "name": "Request has missing or invalid parameters and cannot be parsed.",
+      "originalRequest": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/fba/inbound/v0/prepInstructions?ShipToCountryCode=<string>&SellerSKUList=<string>,<string>&ASINList=<string>,<string>",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fba",
+            "inbound",
+            "v0",
+            "prepInstructions"
+          ],
+          "query": [
+            {
+              "key": "ShipToCountryCode",
+              "value": "<string>",
+              "description": "(Required) The country code of the country to which the items will be shipped. Note that labeling requirements and item preparation instructions can vary by country."
+            },
+            {
+              "key": "SellerSKUList",
+              "value": "<string>,<string>",
+              "description": "A list of SellerSKU values. Used to identify items for which you want labeling requirements and item preparation instructions for shipment to Amazon's fulfillment network. The SellerSKU is qualified by the Seller ID, which is included with every call to the Seller Partner API.\n\nNote: Include seller SKUs that you have used to list items on Amazon's retail website. If you include a seller SKU that you have never used to list an item on Amazon's retail website, the seller SKU is returned in the InvalidSKUList property in the response."
+            },
+            {
+              "key": "ASINList",
+              "value": "<string>,<string>",
+              "description": "A list of ASIN values. Used to identify items for which you want item preparation instructions to help with item sourcing decisions.\n\nNote: ASINs must be included in the product catalog for at least one of the marketplaces that the seller  participates in. Any ASIN that is not included in the product catalog for at least one of the marketplaces that the seller participates in is returned in the InvalidASINList property in the response. You can find out which marketplaces a seller participates in by calling the getMarketplaceParticipations operation in the Selling Partner API for Sellers."
+            }
+          ]
+        }
+      },
+      "status": "Bad Request",
+      "code": 400,
+      "_postman_previewlanguage": "json",
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "x-amzn-RateLimit-Limit",
+          "value": "<string>",
+          "description": {
+            "content": "Your rate limit (requests per second) for this operation.",
+            "type": "text/plain"
+          }
+        },
+        {
+          "key": "x-amzn-RequestId",
+          "value": "<string>",
+          "description": {
+            "content": "Unique request reference identifier.",
+            "type": "text/plain"
+          }
+        }
+      ],
+      "cookie": [
+      ],
+      "body": "{\n  \"payload\": {\n    \"SKUPrepInstructionsList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"CanUseOriginalBarcode\",\n        \"PrepGuidance\": \"NoAdditionalPrepRequired\",\n        \"PrepInstructionList\": [\n          \"BlankStickering\",\n          \"Labeling\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Labeling\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BubbleWrapping\",\n          \"BlackShrinkWrapping\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"HangGarment\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      }\n    ],\n    \"InvalidSKUList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ],\n    \"ASINPrepInstructionsList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BlackShrinkWrapping\",\n          \"BubbleWrapping\"\n        ]\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"Taping\",\n          \"HangGarment\"\n        ]\n      }\n    ],\n    \"InvalidASINList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"DoesNotExist\"\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ]\n  },\n  \"errors\": [\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    },\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    }\n  ]\n}"
+    },
+    {
+      "name": "The request's Authorization header is not formatted correctly or does not contain a valid token.",
+      "originalRequest": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/fba/inbound/v0/prepInstructions?ShipToCountryCode=<string>&SellerSKUList=<string>,<string>&ASINList=<string>,<string>",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fba",
+            "inbound",
+            "v0",
+            "prepInstructions"
+          ],
+          "query": [
+            {
+              "key": "ShipToCountryCode",
+              "value": "<string>",
+              "description": "(Required) The country code of the country to which the items will be shipped. Note that labeling requirements and item preparation instructions can vary by country."
+            },
+            {
+              "key": "SellerSKUList",
+              "value": "<string>,<string>",
+              "description": "A list of SellerSKU values. Used to identify items for which you want labeling requirements and item preparation instructions for shipment to Amazon's fulfillment network. The SellerSKU is qualified by the Seller ID, which is included with every call to the Seller Partner API.\n\nNote: Include seller SKUs that you have used to list items on Amazon's retail website. If you include a seller SKU that you have never used to list an item on Amazon's retail website, the seller SKU is returned in the InvalidSKUList property in the response."
+            },
+            {
+              "key": "ASINList",
+              "value": "<string>,<string>",
+              "description": "A list of ASIN values. Used to identify items for which you want item preparation instructions to help with item sourcing decisions.\n\nNote: ASINs must be included in the product catalog for at least one of the marketplaces that the seller  participates in. Any ASIN that is not included in the product catalog for at least one of the marketplaces that the seller participates in is returned in the InvalidASINList property in the response. You can find out which marketplaces a seller participates in by calling the getMarketplaceParticipations operation in the Selling Partner API for Sellers."
+            }
+          ]
+        }
+      },
+      "status": "Unauthorized",
+      "code": 401,
+      "_postman_previewlanguage": "json",
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "x-amzn-RateLimit-Limit",
+          "value": "<string>",
+          "description": {
+            "content": "Your rate limit (requests per second) for this operation.\n_Note:_ For this status code, the rate limit header is deprecated and no longer returned.",
+            "type": "text/plain"
+          }
+        },
+        {
+          "key": "x-amzn-RequestId",
+          "value": "<string>",
+          "description": {
+            "content": "Unique request reference identifier.",
+            "type": "text/plain"
+          }
+        }
+      ],
+      "cookie": [
+      ],
+      "body": "{\n  \"payload\": {\n    \"SKUPrepInstructionsList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"CanUseOriginalBarcode\",\n        \"PrepGuidance\": \"NoAdditionalPrepRequired\",\n        \"PrepInstructionList\": [\n          \"BlankStickering\",\n          \"Labeling\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Labeling\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BubbleWrapping\",\n          \"BlackShrinkWrapping\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"HangGarment\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      }\n    ],\n    \"InvalidSKUList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ],\n    \"ASINPrepInstructionsList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BlackShrinkWrapping\",\n          \"BubbleWrapping\"\n        ]\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"Taping\",\n          \"HangGarment\"\n        ]\n      }\n    ],\n    \"InvalidASINList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"DoesNotExist\"\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ]\n  },\n  \"errors\": [\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    },\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    }\n  ]\n}"
+    },
+    {
+      "name": "Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.",
+      "originalRequest": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/fba/inbound/v0/prepInstructions?ShipToCountryCode=<string>&SellerSKUList=<string>,<string>&ASINList=<string>,<string>",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fba",
+            "inbound",
+            "v0",
+            "prepInstructions"
+          ],
+          "query": [
+            {
+              "key": "ShipToCountryCode",
+              "value": "<string>",
+              "description": "(Required) The country code of the country to which the items will be shipped. Note that labeling requirements and item preparation instructions can vary by country."
+            },
+            {
+              "key": "SellerSKUList",
+              "value": "<string>,<string>",
+              "description": "A list of SellerSKU values. Used to identify items for which you want labeling requirements and item preparation instructions for shipment to Amazon's fulfillment network. The SellerSKU is qualified by the Seller ID, which is included with every call to the Seller Partner API.\n\nNote: Include seller SKUs that you have used to list items on Amazon's retail website. If you include a seller SKU that you have never used to list an item on Amazon's retail website, the seller SKU is returned in the InvalidSKUList property in the response."
+            },
+            {
+              "key": "ASINList",
+              "value": "<string>,<string>",
+              "description": "A list of ASIN values. Used to identify items for which you want item preparation instructions to help with item sourcing decisions.\n\nNote: ASINs must be included in the product catalog for at least one of the marketplaces that the seller  participates in. Any ASIN that is not included in the product catalog for at least one of the marketplaces that the seller participates in is returned in the InvalidASINList property in the response. You can find out which marketplaces a seller participates in by calling the getMarketplaceParticipations operation in the Selling Partner API for Sellers."
+            }
+          ]
+        }
+      },
+      "status": "Forbidden",
+      "code": 403,
+      "_postman_previewlanguage": "json",
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "x-amzn-RequestId",
+          "value": "<string>",
+          "description": {
+            "content": "Unique request reference identifier.",
+            "type": "text/plain"
+          }
+        }
+      ],
+      "cookie": [
+      ],
+      "body": "{\n  \"payload\": {\n    \"SKUPrepInstructionsList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"CanUseOriginalBarcode\",\n        \"PrepGuidance\": \"NoAdditionalPrepRequired\",\n        \"PrepInstructionList\": [\n          \"BlankStickering\",\n          \"Labeling\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Labeling\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BubbleWrapping\",\n          \"BlackShrinkWrapping\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"HangGarment\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      }\n    ],\n    \"InvalidSKUList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ],\n    \"ASINPrepInstructionsList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BlackShrinkWrapping\",\n          \"BubbleWrapping\"\n        ]\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"Taping\",\n          \"HangGarment\"\n        ]\n      }\n    ],\n    \"InvalidASINList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"DoesNotExist\"\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ]\n  },\n  \"errors\": [\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    },\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    }\n  ]\n}"
+    },
+    {
+      "name": "The specified resource does not exist.",
+      "originalRequest": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/fba/inbound/v0/prepInstructions?ShipToCountryCode=<string>&SellerSKUList=<string>,<string>&ASINList=<string>,<string>",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fba",
+            "inbound",
+            "v0",
+            "prepInstructions"
+          ],
+          "query": [
+            {
+              "key": "ShipToCountryCode",
+              "value": "<string>",
+              "description": "(Required) The country code of the country to which the items will be shipped. Note that labeling requirements and item preparation instructions can vary by country."
+            },
+            {
+              "key": "SellerSKUList",
+              "value": "<string>,<string>",
+              "description": "A list of SellerSKU values. Used to identify items for which you want labeling requirements and item preparation instructions for shipment to Amazon's fulfillment network. The SellerSKU is qualified by the Seller ID, which is included with every call to the Seller Partner API.\n\nNote: Include seller SKUs that you have used to list items on Amazon's retail website. If you include a seller SKU that you have never used to list an item on Amazon's retail website, the seller SKU is returned in the InvalidSKUList property in the response."
+            },
+            {
+              "key": "ASINList",
+              "value": "<string>,<string>",
+              "description": "A list of ASIN values. Used to identify items for which you want item preparation instructions to help with item sourcing decisions.\n\nNote: ASINs must be included in the product catalog for at least one of the marketplaces that the seller  participates in. Any ASIN that is not included in the product catalog for at least one of the marketplaces that the seller participates in is returned in the InvalidASINList property in the response. You can find out which marketplaces a seller participates in by calling the getMarketplaceParticipations operation in the Selling Partner API for Sellers."
+            }
+          ]
+        }
+      },
+      "status": "Not Found",
+      "code": 404,
+      "_postman_previewlanguage": "json",
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "x-amzn-RateLimit-Limit",
+          "value": "<string>",
+          "description": {
+            "content": "Your rate limit (requests per second) for this operation.",
+            "type": "text/plain"
+          }
+        },
+        {
+          "key": "x-amzn-RequestId",
+          "value": "<string>",
+          "description": {
+            "content": "Unique request reference identifier.",
+            "type": "text/plain"
+          }
+        }
+      ],
+      "cookie": [
+      ],
+      "body": "{\n  \"payload\": {\n    \"SKUPrepInstructionsList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"CanUseOriginalBarcode\",\n        \"PrepGuidance\": \"NoAdditionalPrepRequired\",\n        \"PrepInstructionList\": [\n          \"BlankStickering\",\n          \"Labeling\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Labeling\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BubbleWrapping\",\n          \"BlackShrinkWrapping\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"HangGarment\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      }\n    ],\n    \"InvalidSKUList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ],\n    \"ASINPrepInstructionsList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BlackShrinkWrapping\",\n          \"BubbleWrapping\"\n        ]\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"Taping\",\n          \"HangGarment\"\n        ]\n      }\n    ],\n    \"InvalidASINList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"DoesNotExist\"\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ]\n  },\n  \"errors\": [\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    },\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    }\n  ]\n}"
+    },
+    {
+      "name": "The frequency of requests was greater than allowed.",
+      "originalRequest": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/fba/inbound/v0/prepInstructions?ShipToCountryCode=<string>&SellerSKUList=<string>,<string>&ASINList=<string>,<string>",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fba",
+            "inbound",
+            "v0",
+            "prepInstructions"
+          ],
+          "query": [
+            {
+              "key": "ShipToCountryCode",
+              "value": "<string>",
+              "description": "(Required) The country code of the country to which the items will be shipped. Note that labeling requirements and item preparation instructions can vary by country."
+            },
+            {
+              "key": "SellerSKUList",
+              "value": "<string>,<string>",
+              "description": "A list of SellerSKU values. Used to identify items for which you want labeling requirements and item preparation instructions for shipment to Amazon's fulfillment network. The SellerSKU is qualified by the Seller ID, which is included with every call to the Seller Partner API.\n\nNote: Include seller SKUs that you have used to list items on Amazon's retail website. If you include a seller SKU that you have never used to list an item on Amazon's retail website, the seller SKU is returned in the InvalidSKUList property in the response."
+            },
+            {
+              "key": "ASINList",
+              "value": "<string>,<string>",
+              "description": "A list of ASIN values. Used to identify items for which you want item preparation instructions to help with item sourcing decisions.\n\nNote: ASINs must be included in the product catalog for at least one of the marketplaces that the seller  participates in. Any ASIN that is not included in the product catalog for at least one of the marketplaces that the seller participates in is returned in the InvalidASINList property in the response. You can find out which marketplaces a seller participates in by calling the getMarketplaceParticipations operation in the Selling Partner API for Sellers."
+            }
+          ]
+        }
+      },
+      "status": "Too Many Requests",
+      "code": 429,
+      "_postman_previewlanguage": "json",
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "x-amzn-RateLimit-Limit",
+          "value": "<string>",
+          "description": {
+            "content": "Your rate limit (requests per second) for this operation.\n_Note:_ For this status code, the rate limit header is deprecated and no longer returned.",
+            "type": "text/plain"
+          }
+        },
+        {
+          "key": "x-amzn-RequestId",
+          "value": "<string>",
+          "description": {
+            "content": "Unique request reference identifier.",
+            "type": "text/plain"
+          }
+        }
+      ],
+      "cookie": [
+      ],
+      "body": "{\n  \"payload\": {\n    \"SKUPrepInstructionsList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"CanUseOriginalBarcode\",\n        \"PrepGuidance\": \"NoAdditionalPrepRequired\",\n        \"PrepInstructionList\": [\n          \"BlankStickering\",\n          \"Labeling\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Labeling\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BubbleWrapping\",\n          \"BlackShrinkWrapping\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"HangGarment\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      }\n    ],\n    \"InvalidSKUList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ],\n    \"ASINPrepInstructionsList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BlackShrinkWrapping\",\n          \"BubbleWrapping\"\n        ]\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"Taping\",\n          \"HangGarment\"\n        ]\n      }\n    ],\n    \"InvalidASINList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"DoesNotExist\"\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ]\n  },\n  \"errors\": [\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    },\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    }\n  ]\n}"
+    },
+    {
+      "name": "An unexpected condition occurred that prevented the server from fulfilling the request.",
+      "originalRequest": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/fba/inbound/v0/prepInstructions?ShipToCountryCode=<string>&SellerSKUList=<string>,<string>&ASINList=<string>,<string>",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fba",
+            "inbound",
+            "v0",
+            "prepInstructions"
+          ],
+          "query": [
+            {
+              "key": "ShipToCountryCode",
+              "value": "<string>",
+              "description": "(Required) The country code of the country to which the items will be shipped. Note that labeling requirements and item preparation instructions can vary by country."
+            },
+            {
+              "key": "SellerSKUList",
+              "value": "<string>,<string>",
+              "description": "A list of SellerSKU values. Used to identify items for which you want labeling requirements and item preparation instructions for shipment to Amazon's fulfillment network. The SellerSKU is qualified by the Seller ID, which is included with every call to the Seller Partner API.\n\nNote: Include seller SKUs that you have used to list items on Amazon's retail website. If you include a seller SKU that you have never used to list an item on Amazon's retail website, the seller SKU is returned in the InvalidSKUList property in the response."
+            },
+            {
+              "key": "ASINList",
+              "value": "<string>,<string>",
+              "description": "A list of ASIN values. Used to identify items for which you want item preparation instructions to help with item sourcing decisions.\n\nNote: ASINs must be included in the product catalog for at least one of the marketplaces that the seller  participates in. Any ASIN that is not included in the product catalog for at least one of the marketplaces that the seller participates in is returned in the InvalidASINList property in the response. You can find out which marketplaces a seller participates in by calling the getMarketplaceParticipations operation in the Selling Partner API for Sellers."
+            }
+          ]
+        }
+      },
+      "status": "Internal Server Error",
+      "code": 500,
+      "_postman_previewlanguage": "json",
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "x-amzn-RateLimit-Limit",
+          "value": "<string>",
+          "description": {
+            "content": "Your rate limit (requests per second) for this operation.\n_Note:_ For this status code, the rate limit header is deprecated and no longer returned.",
+            "type": "text/plain"
+          }
+        },
+        {
+          "key": "x-amzn-RequestId",
+          "value": "<string>",
+          "description": {
+            "content": "Unique request reference identifier.",
+            "type": "text/plain"
+          }
+        }
+      ],
+      "cookie": [
+      ],
+      "body": "{\n  \"payload\": {\n    \"SKUPrepInstructionsList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"CanUseOriginalBarcode\",\n        \"PrepGuidance\": \"NoAdditionalPrepRequired\",\n        \"PrepInstructionList\": [\n          \"BlankStickering\",\n          \"Labeling\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Labeling\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BubbleWrapping\",\n          \"BlackShrinkWrapping\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"HangGarment\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      }\n    ],\n    \"InvalidSKUList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ],\n    \"ASINPrepInstructionsList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BlackShrinkWrapping\",\n          \"BubbleWrapping\"\n        ]\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"Taping\",\n          \"HangGarment\"\n        ]\n      }\n    ],\n    \"InvalidASINList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"DoesNotExist\"\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ]\n  },\n  \"errors\": [\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    },\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    }\n  ]\n}"
+    },
+    {
+      "name": "Temporary overloading or maintenance of the server.",
+      "originalRequest": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/fba/inbound/v0/prepInstructions?ShipToCountryCode=<string>&SellerSKUList=<string>,<string>&ASINList=<string>,<string>",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fba",
+            "inbound",
+            "v0",
+            "prepInstructions"
+          ],
+          "query": [
+            {
+              "key": "ShipToCountryCode",
+              "value": "<string>",
+              "description": "(Required) The country code of the country to which the items will be shipped. Note that labeling requirements and item preparation instructions can vary by country."
+            },
+            {
+              "key": "SellerSKUList",
+              "value": "<string>,<string>",
+              "description": "A list of SellerSKU values. Used to identify items for which you want labeling requirements and item preparation instructions for shipment to Amazon's fulfillment network. The SellerSKU is qualified by the Seller ID, which is included with every call to the Seller Partner API.\n\nNote: Include seller SKUs that you have used to list items on Amazon's retail website. If you include a seller SKU that you have never used to list an item on Amazon's retail website, the seller SKU is returned in the InvalidSKUList property in the response."
+            },
+            {
+              "key": "ASINList",
+              "value": "<string>,<string>",
+              "description": "A list of ASIN values. Used to identify items for which you want item preparation instructions to help with item sourcing decisions.\n\nNote: ASINs must be included in the product catalog for at least one of the marketplaces that the seller  participates in. Any ASIN that is not included in the product catalog for at least one of the marketplaces that the seller participates in is returned in the InvalidASINList property in the response. You can find out which marketplaces a seller participates in by calling the getMarketplaceParticipations operation in the Selling Partner API for Sellers."
+            }
+          ]
+        }
+      },
+      "status": "Service Unavailable",
+      "code": 503,
+      "_postman_previewlanguage": "json",
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "x-amzn-RateLimit-Limit",
+          "value": "<string>",
+          "description": {
+            "content": "Your rate limit (requests per second) for this operation.\n_Note:_ For this status code, the rate limit header is deprecated and no longer returned.",
+            "type": "text/plain"
+          }
+        },
+        {
+          "key": "x-amzn-RequestId",
+          "value": "<string>",
+          "description": {
+            "content": "Unique request reference identifier.",
+            "type": "text/plain"
+          }
+        }
+      ],
+      "cookie": [
+      ],
+      "body": "{\n  \"payload\": {\n    \"SKUPrepInstructionsList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"CanUseOriginalBarcode\",\n        \"PrepGuidance\": \"NoAdditionalPrepRequired\",\n        \"PrepInstructionList\": [\n          \"BlankStickering\",\n          \"Labeling\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Labeling\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"GBP\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BubbleWrapping\",\n          \"BlackShrinkWrapping\"\n        ],\n        \"AmazonPrepFeesDetailsList\": [\n          {\n            \"PrepInstruction\": \"HangGarment\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          },\n          {\n            \"PrepInstruction\": \"Polybagging\",\n            \"FeePerUnit\": {\n              \"CurrencyCode\": \"USD\",\n              \"Value\": \"<double>\"\n            }\n          }\n        ]\n      }\n    ],\n    \"InvalidSKUList\": [\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      },\n      {\n        \"SellerSKU\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ],\n    \"ASINPrepInstructionsList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"BlackShrinkWrapping\",\n          \"BubbleWrapping\"\n        ]\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"BarcodeInstruction\": \"RequiresFNSKULabel\",\n        \"PrepGuidance\": \"SeePrepInstructionsList\",\n        \"PrepInstructionList\": [\n          \"Taping\",\n          \"HangGarment\"\n        ]\n      }\n    ],\n    \"InvalidASINList\": [\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"DoesNotExist\"\n      },\n      {\n        \"ASIN\": \"<string>\",\n        \"ErrorReason\": \"InvalidASIN\"\n      }\n    ]\n  },\n  \"errors\": [\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    },\n    {\n      \"code\": \"<string>\",\n      \"message\": \"<string>\",\n      \"details\": \"<string>\"\n    }\n  ]\n}"
+    }
+  ]
+}
+### getInboundOperationStatus
+👉 Operația din doc oficial pentru verificarea statusului unei operații asincrone
+https://developer-docs.amazon.com/sp-api/docs/fulfillment-inbound-api-v2024-03-20-reference#getinboundoperationstatus
+
+Aceasta corespunde apelului din codul tău inbound.v20240320.getInboundOperationStatus — nu există getOperationStatus separat în doc.
+
+GET
+https://app.sellerassistant.app/api/v1/sp-api/inbound/fba/2024-03-20/inboundPlans
+Proxy to https://developer-docs.amazon.com/sp-api/reference/listinboundplans. The limit is 60 requests per minute. Amazon seller account integration is required to make this request. You can do it here.
+Request
+Authorization
+API Key
+Add parameter in query api_key
+Example:
+api_key: ********************
+or
+API Key
+Add parameter in header X-Api-Key
+Example:
+X-Api-Key: ********************
+Query Params
+pageSize
+optional
+1 to 30. Defaults to 10. The number of inbound plans to return in the response matching the given query.
+Example:
+10
+paginationToken
+optional
+String length between 0 and 1024. A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+status
+optional
+ACTIVE or VOIDED or SHIPPED. The status of an inbound plan.
+Example:
+ACTIVE
+sortBy
+optional
+LAST_UPDATED_TIME or CREATION_TIME. Sort by field
+Example:
+LAST_UPDATED_TIME
+sortOrder
+optional
+ASC or DESC. The sort order.
+Example:
+DESC
+domain
+optional
+Amazon marketplace domain. Domain amazon.com is used by default if domain and marketplaceId are not provided. If both domain and marketplaceId are chosen, domain has bigger priority. Options: amazon.com, amazon.ca, amazon.co.uk, amazon.de, amazon.es, amazon.it, amazon.fr, amazon.in, amazon.com.mx, amazon.com.br.
+Example:
+amazon.com
+marketplaceId
+optional
+Amazon marketplace id. Domain amazon.com is used by default if domain and marketplaceId are not provided. If both domain and marketplaceId are chosen, domain has bigger priority. See all options here.
+Example:
+ATVPDKIKX0DER
+Request Code Samples
+Responses
+🟢200
+OK
+application/json
+Successful response
+Body
+inboundPlans
+array[object (InboundPlanSummary)] 
+optional
+A list of inbound plans.
+createdAt
+string <date-time>
+required
+The time at which the inbound plan was created. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mm:ssZ.
+Example:
+2025-05-26T09:36:00Z
+inboundPlanId
+string 
+required
+Identifier of an inbound plan.
+>= 38 characters
+<= 38 characters
+Example:
+ABCDEFGH1234567890ABCDEFGH1234567890
+lastUpdatedAt
+string <date-time>
+required
+The time at which the inbound plan was last updated. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mm:ssZ.
+Example:
+2025-05-26T10:36:00Z
+marketplaceIds
+array[string]
+required
+A list of marketplace IDs.
+Example:
+["ATVPDKIKX0DER"]
+name
+string 
+required
+Human-readable name of the inbound plan.
+Example:
+Summer 2025 Inventory Shipment
+sourceAddress
+object 
+(Address)
+Address
+required
+status
+enum<string> 
+required
+The current status of the inbound plan.
+>= 1 characters
+<= 1024 characters
+Allowed values:
+ACTIVE
+VOIDED
+SHIPPED
+ERRORED
+Example:
+ACTIVE
+pagination
+object  | 
+null 
+optional
+nextToken
+string  | 
+null 
+optional
+When present, pass this string token in the next request to return the next response page.
+>= 1 characters
+<= 1024 characters
+Example:
+eyJNYXJrZXJ...
+Example
+{
+    "inboundPlans": [
+        {
+            "createdAt": "2025-05-26T09:36:00Z",
+            "inboundPlanId": "ABCDEFGH1234567890ABCDEFGH1234567890",
+            "lastUpdatedAt": "2025-05-26T10:36:00Z",
+            "marketplaceIds": [
+                "ATVPDKIKX0DER"
+            ],
+            "name": "Summer 2025 Inventory Shipment",
+            "sourceAddress": {
+                "addressLine1": "123 Main St",
+                "addressLine2": "Suite 100",
+                "city": "Seattle",
+                "companyName": "Acme Inc",
+                "countryCode": "US",
+                "email": "contact@example.com",
+                "name": "John Doe",
+                "phoneNumber": "+12065551234",
+                "postalCode": "98109",
+                "stateOrProvinceCode": "WA"
+            },
+            "status": "ACTIVE"
+        }
+    ],
+    "pagination": {
+        "nextToken": "eyJNYXJrZXJ..."
+    }
+}
+🟠402
+Payment Required
+🟠403
+Forbidden
+🟠422
+Unprocessable Entity
+🟠429
+Too Many Requests
+🔴500
+Internal Server Error
+Modified at about 2 months ago
+Previous
+Get old shipment items by old shipment id
+
+### listPackingGroupItems
+listPackingGroupItems
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/packingGroups/{packingGroupId}/items
+
+
+Retrieves a page of items in a given packing group. Packing options must first be generated by the corresponding operation before packing group items can be listed.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+packingGroupId
+string
+required
+length between 38 and 38
+Identifier of a packing group.
+
+Query Params
+pageSize
+integer
+1 to 100
+Defaults to 10
+The number of packing group items to return in the response matching the given query.
+
+10
+paginationToken
+string
+length between 0 and 1024
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+Responses
+
+200
+ListPackingGroupItems 200 response
+
+Response body
+object
+items
+array of objects
+required
+Provides the information about the list of items in the packing group.
+
+object
+asin
+string
+required
+length between 1 and 10
+The Amazon Standard Identification Number (ASIN) of the item.
+
+expiration
+string
+The expiration date of the MSKU. In ISO 8601 datetime format with patternYYYY-MM-DD. The same MSKU with different expiration dates cannot go into the same box.
+
+fnsku
+string
+required
+length between 1 and 10
+A unique identifier assigned by Amazon to products stored in and fulfilled from an Amazon fulfillment center.
+
+labelOwner
+string
+required
+length between 1 and 1024
+Specifies who will label the items. Options include AMAZON, SELLER, and NONE.
+
+manufacturingLotCode
+string
+length between 1 and 256
+The manufacturing lot code.
+
+msku
+string
+required
+length between 1 and 255
+The merchant-defined SKU ID.
+
+prepInstructions
+array of objects
+required
+Special preparations that are required for an item.
+
+object
+fee
+object
+The type and amount of currency.
+
+
+fee object
+prepOwner
+string
+length between 1 and 1024
+In some situations, special preparations are required for items and this field reflects the owner of the preparations. Options include AMAZON, SELLER or NONE.
+
+prepType
+string
+length between 1 and 1024
+Type of preparation that should be done.
+
+Possible values: ITEM_LABELING, ITEM_BUBBLEWRAP, ITEM_POLYBAGGING, ITEM_TAPING, ITEM_BLACK_SHRINKWRAP, ITEM_HANG_GARMENT, ITEM_BOXING, ITEM_SETCREAT, ITEM_RMOVHANG, ITEM_SUFFOSTK, ITEM_CAP_SEALING, ITEM_DEBUNDLE, ITEM_SETSTK, ITEM_SIOC, ITEM_NO_PREP, ADULT, BABY, TEXTILE, HANGER, FRAGILE, LIQUID, SHARP, SMALL, PERFORATED, GRANULAR, SET, FC_PROVIDED, UNKNOWN, NONE.
+
+quantity
+integer
+required
+1 to 500000
+The number of the specified MSKU.
+
+pagination
+object
+Contains tokens to fetch from a certain page.
+
+nextToken
+string
+length between 1 and 1024
+When present, pass this string token in the next request to return the next response page.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+Updated about 2 months ago
+
+listPackingGroupBoxes
+setPackingInformation
+Did this page help you?
+Language
+
+Shell
+
+Node
+
+Ruby
+
+PHP
+
+Python
+1
+curl --request GET \
+2
+     --url 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/packingGroups/packingGroupId/items?pageSize=10' \
+3
+     --header 'accept: application/json'
+
+Response
+1
+{
+2
+  "items": [
+3
+    {
+4
+      "asin": "string",
+5
+      "expiration": "string",
+6
+      "fnsku": "string",
+7
+      "labelOwner": "string",
+8
+      "manufacturingLotCode": "string",
+9
+      "msku": "string",
+10
+      "prepInstructions": [
+11
+        {
+12
+          "fee": {
+13
+            "amount": 0,
+14
+            "code": "string"
+15
+          },
+16
+          "prepOwner": "string",
+17
+          "prepType": "string"
+18
+        }
+19
+      ],
+20
+      "quantity": 0
+21
+    }
+22
+  ],
+23
+  "pagination": {
+24
+    "nextToken": "string"
+25
+  }
+26
+}
+
+
+Headers
+### createMarketplaceItemLabels
+https://developer-docs.amazon.com/sp-api/docs/fulfillment-inbound-api-v2024-03-20-reference#createmarketplaceitemlabels
+createMarketplaceItemLabels
+post
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/items/labels
+
+
+For a given marketplace - creates labels for a list of MSKUs.
+
+Body Params
+
+Expand All
+⬍
+The body of the request to createMarketplaceItemLabels.
+
+height
+number
+25 to 100
+The height of the item label.
+
+labelType
+string
+enum
+required
+Indicates the type of print type for a given label.
+
+Show Details
+STANDARD_FORMAT	-
+THERMAL_PRINTING	-
+
+STANDARD_FORMAT
+Allowed:
+
+STANDARD_FORMAT
+
+THERMAL_PRINTING
+localeCode
+string
+Defaults to en_US
+The locale code constructed from ISO 639 language code and ISO 3166-1 alpha-2 standard of country codes separated by an underscore character.
+
+en_US
+marketplaceId
+string
+required
+length between 1 and 20
+The Marketplace ID. For a list of possible values, refer to Marketplace IDs.
+
+mskuQuantities
+array of objects
+required
+length between 1 and 100
+Represents the quantity of an MSKU to print item labels for.
+
+
+object
+
+msku
+string
+required
+length between 1 and 255
+The merchant SKU, a merchant-supplied identifier for a specific SKU.
+
+quantity
+integer
+required
+1 to 10000
+A positive integer.
+
+
+ADD object
+pageType
+string
+enum
+The page type to use to print the labels. Possible values: 'A4_21', 'A4_24', 'A4_24_64x33', 'A4_24_66x35', 'A4_24_70x36', 'A4_24_70x37', 'A4_24i', 'A4_27', 'A4_40_52x29', 'A4_44_48x25', 'Letter_30'.
+
+Show Details
+A4_21	-
+A4_24	-
+A4_24_64x33	-
+A4_24_66x35	-
+A4_24_70x36	-
+A4_24_70x37	-
+A4_24i	-
+A4_27	-
+A4_40_52x29	-
+A4_44_48x25	-
+Letter_30	-
+
+A4_21
+
+Show 11 enum values
+width
+number
+25 to 100
+The width of the item label.
+
+Responses
+
+200
+CreateMarketplaceItemLabels 200 response
+
+Response body
+object
+documentDownloads
+array of objects
+required
+Resources to download the requested document.
+
+object
+downloadType
+string
+required
+The type of download. Possible values: URL.
+
+expiration
+date-time
+The URI's expiration time. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mm:ss.sssZ.
+
+uri
+string
+required
+Uniform resource identifier to identify where the document is located.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+Updated about 2 months ago
+
+updateItemComplianceDetails
+listPrepDetails
+Did this page help you?
+Language
+
+Shell
+
+Node
+
+Ruby
+
+PHP
+
+Python
+1
+curl --request POST \
+2
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/items/labels \
+3
+     --header 'accept: application/json' \
+4
+     --header 'content-type: application/json' \
+5
+     --data '
+6
+{
+7
+  "labelType": "STANDARD_FORMAT",
+8
+  "localeCode": "en_US"
+9
+}
+10
+'
+
+Response
+1
+{
+2
+  "documentDownloads": [
+3
+    {
+4
+      "downloadType": "string",
+5
+      "expiration": "2026-01-28T08:37:37.371Z",
+6
+      "uri": "string"
+7
+    }
+8
+  ]
+9
+}
+
+
+Headers
+### generateDeliveryWindowOptions
+👉 https://developer-docs.amazon.com/sp-api/docs/fulfillment-inbound-api-v2024-03-20-reference#generatedeliverywindowoptions
+generateDeliveryWindowOptions
+post
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/shipments/{shipmentId}/deliveryWindowOptions
+
+
+Generates available delivery window options for a given shipment.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+shipmentId
+string
+required
+length between 38 and 38
+The shipment to generate delivery window options for.
+
+Responses
+
+202
+GenerateDeliveryWindowOptions 202 response
+
+Response body
+object
+operationId
+string
+required
+length between 36 and 38
+UUID for the given operation.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+Updated about 2 months ago
+
+listDeliveryWindowOptions
+confirmDeliveryWindowOptions
+Did this page help you?
+Language
+
+Shell
+
+Node
+
+Ruby
+
+PHP
+
+Python
+1
+curl --request POST \
+2
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/shipments/shipmentId/deliveryWindowOptions \
+3
+     --header 'accept: application/json'
+
+Response
+1
+{
+2
+  "operationId": "string"
+3
+}
+
+
+
+
+### listDeliveryWindowOptions
+👉 https://developer-docs.amazon.com/sp-api/docs/fulfillment-inbound-api-v2024-03-20-reference#listdeliverywindowoptions
+listDeliveryWindowOptions
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/shipments/{shipmentId}/deliveryWindowOptions
+
+
+Retrieves all delivery window options for a shipment. Delivery window options must first be generated by the generateDeliveryWindowOptions operation before becoming available.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+shipmentId
+string
+required
+length between 38 and 38
+The shipment to get delivery window options for.
+
+Query Params
+pageSize
+integer
+1 to 100
+Defaults to 10
+The number of delivery window options to return in the response matching the given query.
+
+10
+paginationToken
+string
+length between 0 and 1024
+A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+
+Responses
+
+200
+ListDeliveryWindowOptions 200 response
+
+Response body
+object
+deliveryWindowOptions
+array of objects
+required
+Delivery window options generated for the placement option.
+
+object
+availabilityType
+string
+required
+The type of delivery window availability. Values: AVAILABLE, BLOCKED, CONGESTED, DISCOUNTED
+
+deliveryWindowOptionId
+string
+required
+length between 36 and 38
+Identifier of a delivery window option. A delivery window option represent one option for when a shipment is expected to be delivered.
+
+endDate
+date-time
+required
+The time at which this delivery window option ends. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mmZ.
+
+startDate
+date-time
+required
+The time at which this delivery window option starts. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mmZ.
+
+validUntil
+date-time
+required
+The time at which this window delivery option is no longer valid. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mmZ.
+
+pagination
+object
+Contains tokens to fetch from a certain page.
+
+nextToken
+string
+length between 1 and 1024
+When present, pass this string token in the next request to return the next response page.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+Updated about 2 months ago
+
+getDeliveryChallanDocument
+generateDeliveryWindowOptions
+Did this page help you?
+Language
+
+Shell
+
+Node
+
+Ruby
+
+PHP
+
+Python
+1
+curl --request GET \
+2
+     --url 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/shipments/shipmentId/deliveryWindowOptions?pageSize=10' \
+3
+     --header 'accept: application/json'
+
+Response
+1
+{
+2
+  "deliveryWindowOptions": [
+3
+    {
+4
+      "availabilityType": "AVAILABLE",
+5
+      "deliveryWindowOptionId": "dw1234abcd-1234-abcd-5678-1234abcd5678",
+6
+      "endDate": "2024-01-05T20:00:00.000Z",
+7
+      "inboundPlanId": "wf1234abcd-1234-abcd-5678-1234abcd5678",
+8
+      "placementOptionId": "pl1234abcd-1234-abcd-5678-1234abcd5678",
+9
+      "shipmentId": "sh1234abcd-1234-abcd-5678-1234abcd5678",
+10
+      "startDate": "2024-01-05T14:00:00.000Z",
+11
+      "validUntil": "2024-01-05T20:00:00.000Z"
+12
+    }
+13
+  ],
+14
+  "pagination": {
+15
+    "nextToken": "string"
+16
+  }
+17
+}
+
+
+Headers
+### confirmDeliveryWindowOption
+👉 https://developer-docs.amazon.com/sp-api/docs/fulfillment-inbound-api-v2024-03-20-reference#confirmdeliverywindowoption
+confirmDeliveryWindowOptions
+post
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/shipments/{shipmentId}/deliveryWindowOptions/{deliveryWindowOptionId}/confirmation
+
+
+Confirms the delivery window option for chosen shipment within an inbound plan. A placement option must be confirmed prior to use of this API. Once confirmed, new delivery window options cannot be generated, but the chosen delivery window option can be updated before shipment closure. The window is used to provide the expected time when a shipment will arrive at the warehouse. All transportation options which have the program CONFIRMED_DELIVERY_WINDOW require a delivery window to be confirmed prior to transportation option confirmation.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+shipmentId
+string
+required
+length between 38 and 38
+The shipment to confirm the delivery window option for.
+
+deliveryWindowOptionId
+string
+required
+length between 36 and 38
+The id of the delivery window option to be confirmed.
+
+Responses
+
+202
+ConfirmDeliveryWindowOptions 202 response
+
+Response body
+object
+operationId
+string
+required
+length between 36 and 38
+UUID for the given operation.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+Updated about 2 months ago
+
+generateDeliveryWindowOptions
+listShipmentItems
+Did this page help you?
+Language
+
+Shell
+
+Node
+
+Ruby
+
+PHP
+
+Python
+1
+curl --request POST \
+2
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/shipments/shipmentId/deliveryWindowOptions/deliveryWindowOptionId/confirmation \
+3
+     --header 'accept: application/json'
+
+Response
+1
+{
+2
+  "operationId": "1234abcd-1234-abcd-5678-1234abcd5678"
+3
+}
+
+
+
+
+### SP-API FBA Shipments
+List inbound plans
+GET
+https://app.sellerassistant.app/api/v1/sp-api/inbound/fba/2024-03-20/inboundPlans
+Proxy to https://developer-docs.amazon.com/sp-api/reference/listinboundplans. The limit is 60 requests per minute. Amazon seller account integration is required to make this request. You can do it here.
+Request
+Authorization
+API Key
+Add parameter in query api_key
+Example:
+api_key: ********************
+or
+API Key
+Add parameter in header X-Api-Key
+Example:
+X-Api-Key: ********************
+Query Params
+pageSize
+optional
+1 to 30. Defaults to 10. The number of inbound plans to return in the response matching the given query.
+Example:
+10
+paginationToken
+optional
+String length between 0 and 1024. A token to fetch a certain page when there are multiple pages worth of results. The value of this token is fetched from the pagination returned in the API response. In the absence of the token value from the query parameter the API returns the first page of the result.
+status
+optional
+ACTIVE or VOIDED or SHIPPED. The status of an inbound plan.
+Example:
+ACTIVE
+sortBy
+optional
+LAST_UPDATED_TIME or CREATION_TIME. Sort by field
+Example:
+LAST_UPDATED_TIME
+sortOrder
+optional
+ASC or DESC. The sort order.
+Example:
+DESC
+domain
+optional
+Amazon marketplace domain. Domain amazon.com is used by default if domain and marketplaceId are not provided. If both domain and marketplaceId are chosen, domain has bigger priority. Options: amazon.com, amazon.ca, amazon.co.uk, amazon.de, amazon.es, amazon.it, amazon.fr, amazon.in, amazon.com.mx, amazon.com.br.
+Example:
+amazon.com
+marketplaceId
+optional
+Amazon marketplace id. Domain amazon.com is used by default if domain and marketplaceId are not provided. If both domain and marketplaceId are chosen, domain has bigger priority. See all options here.
+Example:
+ATVPDKIKX0DER
+Request Code Samples
+Responses
+🟢200
+OK
+application/json
+Successful response
+Body
+inboundPlans
+array[object (InboundPlanSummary)] 
+optional
+A list of inbound plans.
+createdAt
+string <date-time>
+required
+The time at which the inbound plan was created. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mm:ssZ.
+Example:
+2025-05-26T09:36:00Z
+inboundPlanId
+string 
+required
+Identifier of an inbound plan.
+>= 38 characters
+<= 38 characters
+Example:
+ABCDEFGH1234567890ABCDEFGH1234567890
+lastUpdatedAt
+string <date-time>
+required
+The time at which the inbound plan was last updated. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mm:ssZ.
+Example:
+2025-05-26T10:36:00Z
+marketplaceIds
+array[string]
+required
+A list of marketplace IDs.
+Example:
+["ATVPDKIKX0DER"]
+name
+string 
+required
+Human-readable name of the inbound plan.
+Example:
+Summer 2025 Inventory Shipment
+sourceAddress
+object 
+(Address)
+Address
+required
+status
+enum<string> 
+required
+The current status of the inbound plan.
+>= 1 characters
+<= 1024 characters
+Allowed values:
+ACTIVE
+VOIDED
+SHIPPED
+ERRORED
+Example:
+ACTIVE
+pagination
+object  | 
+null 
+optional
+nextToken
+string  | 
+null 
+optional
+When present, pass this string token in the next request to return the next response page.
+>= 1 characters
+<= 1024 characters
+Example:
+eyJNYXJrZXJ...
+Example
+{
+    "inboundPlans": [
+        {
+            "createdAt": "2025-05-26T09:36:00Z",
+            "inboundPlanId": "ABCDEFGH1234567890ABCDEFGH1234567890",
+            "lastUpdatedAt": "2025-05-26T10:36:00Z",
+            "marketplaceIds": [
+                "ATVPDKIKX0DER"
+            ],
+            "name": "Summer 2025 Inventory Shipment",
+            "sourceAddress": {
+                "addressLine1": "123 Main St",
+                "addressLine2": "Suite 100",
+                "city": "Seattle",
+                "companyName": "Acme Inc",
+                "countryCode": "US",
+                "email": "contact@example.com",
+                "name": "John Doe",
+                "phoneNumber": "+12065551234",
+                "postalCode": "98109",
+                "stateOrProvinceCode": "WA"
+            },
+            "status": "ACTIVE"
+        }
+    ],
+    "pagination": {
+        "nextToken": "eyJNYXJrZXJ..."
+    }
+}
+🟠402
+Payment Required
+🟠403
+Forbidden
+🟠422
+Unprocessable Entity
+🟠429
+Too Many Requests
+🔴500
+Internal Server Error
+Modified at about 2 months ago
+Previous
+Get old shipment items by old shipment id
+Next
+Get inbound plan
+
+### 1) Referința oficială SP-API – Inbox Fulfillment Inbound API (toate operațiile)
+
+
+👉 Fulfillment Inbound API v2024-03-20 Reference (Amazon Developer Docs)
+https://developer-docs.amazon.com/sp-api/docs/fulfillment-inbound-api-v2024-03-20-reference
+
+Această pagină este pagina principală de referință pentru toate endpoint-urile inbound, inclusiv pentru cele despre care ai menționat că lipsesc sau sunt denumite ușor diferit.
 
 ### Create a shipment when the seller does not know the carton-level information up-front
  Create a shipment when the seller does not know the carton-level information up-front
@@ -2965,14 +9967,298 @@ JSON
 Update shipment tracking details
 Open Recipe
 This tutorial creates an inbound plan and sends your SKUs as individual boxes (small parcel delivery) or pallets (LTL/FTL) using your own transportation carrier. You can verify this inbound plan on Seller Central with Send to Amazon. 
-### confirmDeliveryWindowOptions
-curl --request POST \
-     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/shipments/shipmentId/deliveryWindowOptions/deliveryWindowOptionId/confirmation \
+
+### inbound.v20240320.getInboundPlan.check
+getInboundPlan
+get
+https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}
+
+
+Fetches the top level information about an inbound plan.
+
+Path Params
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+Responses
+
+200
+GetInboundPlan 200 response
+
+Response body
+object
+createdAt
+date-time
+required
+The time at which the inbound plan was created. In ISO 8601 datetime with pattern yyyy-MM-ddTHH:mm:ssZ.
+
+inboundPlanId
+string
+required
+length between 38 and 38
+Identifier of an inbound plan.
+
+lastUpdatedAt
+date-time
+required
+The time at which the inbound plan was last updated. In ISO 8601 datetime format with pattern yyyy-MM-ddTHH:mm:ssZ.
+
+marketplaceIds
+array of strings
+required
+A list of marketplace IDs.
+
+name
+string
+required
+Human-readable name of the inbound plan.
+
+packingOptions
+array of objects
+Packing options for the inbound plan. This property will be populated when it has been generated via the corresponding operation. If there is a chosen placement option, only packing options for that placement option will be returned. If there are confirmed shipments, only packing options for those shipments will be returned. Query the packing option for more details.
+
+object
+packingOptionId
+string
+required
+length between 38 and 38
+Identifier of a packing option.
+
+status
+string
+required
+length between 1 and 1024
+The status of a packing option. Possible values: 'OFFERED', 'ACCEPTED', 'EXPIRED'.
+
+placementOptions
+array of objects
+Placement options for the inbound plan. This property will be populated when it has been generated via the corresponding operation. If there is a chosen placement option, that will be the only returned option. Query the placement option for more details.
+
+object
+placementOptionId
+string
+required
+length between 38 and 38
+The identifier of a placement option. A placement option represents the shipment splits and destinations of SKUs.
+
+status
+string
+required
+length between 1 and 1024
+The status of a placement option. Possible values: OFFERED, ACCEPTED.
+
+shipments
+array of objects
+A list of shipment IDs for the inbound plan. This property is populated when it has been generated with the confirmPlacementOptions operation. Only shipments from the chosen placement option are returned. Query the shipment for more details.
+
+object
+shipmentId
+string
+required
+length between 38 and 38
+Identifier of a shipment. A shipment contains the boxes and units being inbounded.
+
+status
+string
+required
+length between 1 and 1024
+The status of a shipment. The state of the shipment will typically start as UNCONFIRMED, then transition to WORKING after a placement option has been confirmed, and then to READY_TO_SHIP once labels are generated.
+
+Possible values: ABANDONED, CANCELLED, CHECKED_IN, CLOSED, DELETED, DELIVERED, IN_TRANSIT, MIXED, READY_TO_SHIP, RECEIVING, SHIPPED, UNCONFIRMED, WORKING
+
+sourceAddress
+object
+required
+Specific details to identify a place.
+
+addressLine1
+string
+required
+length between 1 and 180
+Street address information.
+
+addressLine2
+string
+length between 1 and 60
+Additional street address information.
+
+city
+string
+required
+length between 1 and 30
+The city.
+
+companyName
+string
+length between 1 and 50
+The name of the business.
+
+countryCode
+string
+required
+length between 2 and 2
+The country code in two-character ISO 3166-1 alpha-2 format.
+
+districtOrCounty
+string
+length between 1 and 50
+The district or county.
+
+email
+string
+length between 1 and 1024
+The email address.
+
+name
+string
+required
+length between 1 and 50
+The name of the individual who is the primary contact.
+
+phoneNumber
+string
+length between 1 and 20
+The phone number.
+
+postalCode
+string
+required
+length between 1 and 32
+The postal code.
+
+stateOrProvinceCode
+string
+length between 1 and 64
+The state or province code.
+
+status
+string
+required
+length between 1 and 1024
+Current status of the inbound plan. Possible values: ACTIVE, VOIDED, SHIPPED, ERRORED.
+
+Headers
+object
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+Updated about 2 months ago
+
+createInboundPlan
+listInboundPlanBoxes
+Did this page help you?
+Language
+
+Shell
+
+Node
+
+Ruby
+
+PHP
+
+Python
+1
+curl --request GET \
+2
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId \
+3
      --header 'accept: application/json'
+
+Response
+1
 {
-  "operationId": "1234abcd-1234-abcd-5678-1234abcd5678"
+2
+  "createdAt": "2024-03-20T12:01:00Z",
+3
+  "inboundPlanId": "wf1234abcd-1234-abcd-5678-1234abcd5678",
+4
+  "lastUpdatedAt": "2024-03-28T13:15:30Z",
+5
+  "marketplaceIds": [
+6
+    "A2EUQ1WTGCTBG2"
+7
+  ],
+8
+  "name": "FBA (03/20/2024, 12:01 PM)",
+9
+  "packingOptions": [],
+10
+  "placementOptions": [],
+11
+  "shipments": [],
+12
+  "sourceAddress": {
+13
+    "addressLine1": "123 example street",
+14
+    "addressLine2": "Floor 19",
+15
+    "city": "Toronto",
+16
+    "companyName": "Acme",
+17
+    "countryCode": "CA",
+18
+    "email": "email@email.com",
+19
+    "name": "name",
+20
+    "phoneNumber": "1234567890",
+21
+    "postalCode": "M1M1M1",
+22
+    "stateOrProvinceCode": "ON"
+23
+  },
+24
+  "status": "ACTIVE"
+25
 }
-onfirmDeliveryWindowOptions
+
+### confirmDeliveryWindowOptions
+confirmDeliveryWindowOptions
 post
 https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/{inboundPlanId}/shipments/{shipmentId}/deliveryWindowOptions/{deliveryWindowOptionId}/confirmation
 
@@ -3052,6 +10338,38 @@ An unexpected condition occurred that prevented the server from fulfilling the r
 
 503
 Temporary overloading or maintenance of the server.
+
+Updated about 2 months ago
+
+generateDeliveryWindowOptions
+listShipmentItems
+Did this page help you?
+Language
+
+Shell
+
+Node
+
+Ruby
+
+PHP
+
+Python
+1
+curl --request POST \
+2
+     --url https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/shipments/shipmentId/deliveryWindowOptions/deliveryWindowOptionId/confirmation \
+3
+     --header 'accept: application/json'
+
+Response
+1
+{
+2
+  "operationId": "1234abcd-1234-abcd-5678-1234abcd5678"
+3
+}
+
 
 
 ### confirmTransportationOptions
@@ -4278,8 +11596,22 @@ An unexpected condition occurred that prevented the server from fulfilling the r
 
 503
 Temporary overloading or maintenance of the server.
+### getPackingGroupItems
+
+Corect: în documentația oficială SP-API nu există o operație separată numită getPackingGroupItems. Operația “canonică” (operationId) este listPackingGroupItems.
+
+Asta înseamnă că în codul tău, inbound.v20240320.getPackingGroupItems este doar numele metodei din SDK / wrapper-ul tău, care cheamă endpoint-ul oficial listPackingGroupItems (GET packing group items).
+
+Link oficial (Amazon Developer Docs) pentru endpoint-ul corect:
+
+https://developer-docs.amazon.com/sp-api/reference/listpackinggroupitems
 
 
+Dacă vrei aliniere perfectă în fulfillment-inbound-api.md, recomand să păstrezi în doc numele oficial și să adaugi o notă de mapping, gen:
+
+SP-API: listPackingGroupItems (official)
+
+SDK/cod: getPackingGroupItems (alias / wrapper)
 ### listPackingGroupItems
 curl --request GET \
      --url 'https://sellingpartnerapi-na.amazon.com/inbound/fba/2024-03-20/inboundPlans/inboundPlanId/packingGroups/packingGroupId/items?pageSize=10' \
@@ -9704,5 +17036,4 @@ shipmentConfirmationId: The ID that confirms the shipment, retrieved from getShi
 Response
 Includes a URL that you can use to download the bill of lading associated with the Less Than Truckload (LTL) or Full Truckload (FTL) pallet shipment.
 This process completes the creation of your inbound plan, and sends your SKUs as either individual boxes (small parcel delivery) or pallets (LTL/FTL) using the Amazon Partnered Carrier. You can verify this inbound plan through the Seller Central Send to Amazon UI.
-
 
