@@ -755,6 +755,34 @@ serve(async (req) => {
 
     const getOperationProblems = (res: Awaited<ReturnType<typeof signedFetch>> | null) =>
       res?.json?.payload?.operationProblems || res?.json?.operationProblems || res?.json?.errors || null;
+    const normalizeOperationProblems = (res: Awaited<ReturnType<typeof signedFetch>> | null) => {
+      const probs = getOperationProblems(res);
+      if (!probs) return [];
+      if (Array.isArray(probs)) return probs;
+      if (typeof probs === "string") return [{ message: probs }];
+      return [probs];
+    };
+    const packingProblemCodes = new Set(["FBA_INB_0313", "FBA_INB_0317", "FBA_INB_0322"]);
+    const isPackingInfoMissing = (res: Awaited<ReturnType<typeof signedFetch>> | null) => {
+      const probs = normalizeOperationProblems(res);
+      if (!probs.length) return false;
+      return probs.some((p: any) => {
+        const code = String(p?.code || "").toUpperCase();
+        const msg = String(p?.message || p?.details || p || "").toLowerCase();
+        return (
+          packingProblemCodes.has(code) ||
+          msg.includes("packing information") ||
+          msg.includes("pack later") ||
+          msg.includes("case pack template")
+        );
+      });
+    };
+    const summarizeOperationProblems = (res: Awaited<ReturnType<typeof signedFetch>> | null) =>
+      normalizeOperationProblems(res).map((p: any) => ({
+        code: p?.code || null,
+        message: p?.message || null,
+        details: p?.details || null
+      }));
 
     const isRetryableOperationFailure = (res: Awaited<ReturnType<typeof signedFetch>> | null) => {
       const probs = getOperationProblems(res);
@@ -803,6 +831,15 @@ serve(async (req) => {
             if (isRetryableOperationFailure(opStatus) && attempt < maxAttempts) {
               await delay(600 * attempt);
               continue;
+            }
+            if (isPackingInfoMissing(opStatus)) {
+              return {
+                ok: false,
+                state: stUp,
+                res: opStatus,
+                code: "PACKING_REQUIRED",
+                problems: summarizeOperationProblems(opStatus)
+              };
             }
             return { ok: false, state: stUp, res: opStatus };
           }
@@ -909,39 +946,6 @@ serve(async (req) => {
       return { pid: null, placements: [] as any[] };
     };
 
-    if (!effectivePlacementOptionId) {
-      const genPlacement = await generatePlacementOptionsWithRetry();
-      if (!genPlacement.ok) {
-        return new Response(
-          JSON.stringify({
-            error: "generatePlacementOptions failed",
-            traceId,
-            state: genPlacement.state || null
-          }),
-          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
-        );
-      }
-      const { pid: listedPid } = await listPlacementWithRetry();
-      effectivePlacementOptionId = listedPid;
-      if (!effectivePlacementOptionId) {
-        return new Response(JSON.stringify({
-          error: "Nu pot determina placementOptionId (listPlacementOptions gol). Reîncearcă în câteva secunde.",
-          traceId
-        }), { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } });
-      }
-    }
-
-    const normalizePlacementId = (opt: any) =>
-      opt?.placementOptionId || opt?.id || opt?.PlacementOptionId || null;
-    const normalizePlacementStatus = (opt: any) => String(opt?.status || "").toUpperCase();
-
-    const placementList = await listPlacementWithRetry();
-    const placementPid = placementList.pid;
-    let placementOptions = placementList.placements;
-    let confirmedPlacement = placementOptions.find((p: any) =>
-      ["ACCEPTED", "CONFIRMED"].includes(normalizePlacementStatus(p))
-    );
-    let placementConfirm: Awaited<ReturnType<typeof signedFetch>> | null = null;
     const listBoxes = async () =>
       signedFetch({
         method: "GET",
@@ -981,7 +985,69 @@ serve(async (req) => {
       return { last, boxes, count };
     };
 
-    const { last: boxesRes, boxes, count: boxesCount } = await fetchBoxesWithRetry();
+    let boxesPrecheck: { last: any; boxes: any[]; count: number } | null = null;
+
+    if (!effectivePlacementOptionId) {
+      boxesPrecheck = await fetchBoxesWithRetry(2);
+      if (boxesPrecheck.count === 0) {
+        return new Response(
+          JSON.stringify({
+            error: "Trebuie să setezi packingInformation (boxe) înainte de generatePlacementOptions.",
+            code: "PACKING_REQUIRED",
+            traceId,
+            action: "apelează fba-set-packing-information cu packageGroupings înainte de step2-confirm-shipping",
+            retryAfterMs: 4000
+          }),
+          { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+      const genPlacement = await generatePlacementOptionsWithRetry();
+      if (!genPlacement.ok) {
+        if (genPlacement.code === "PACKING_REQUIRED") {
+          return new Response(
+            JSON.stringify({
+              error: "Packing information lipsește. Reia setPackingInformation înainte de generatePlacementOptions.",
+              code: "PACKING_REQUIRED",
+              traceId,
+              problems: genPlacement.problems || null,
+              action: "apelează fba-set-packing-information cu packageGroupings înainte de step2-confirm-shipping"
+            }),
+            { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            error: "generatePlacementOptions failed",
+            traceId,
+            state: genPlacement.state || null
+          }),
+          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+      const { pid: listedPid } = await listPlacementWithRetry();
+      effectivePlacementOptionId = listedPid;
+      if (!effectivePlacementOptionId) {
+        return new Response(JSON.stringify({
+          error: "Nu pot determina placementOptionId (listPlacementOptions gol). Reîncearcă în câteva secunde.",
+          traceId
+        }), { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } });
+      }
+    }
+
+    const normalizePlacementId = (opt: any) =>
+      opt?.placementOptionId || opt?.id || opt?.PlacementOptionId || null;
+    const normalizePlacementStatus = (opt: any) => String(opt?.status || "").toUpperCase();
+
+    const placementList = await listPlacementWithRetry();
+    const placementPid = placementList.pid;
+    let placementOptions = placementList.placements;
+    let confirmedPlacement = placementOptions.find((p: any) =>
+      ["ACCEPTED", "CONFIRMED"].includes(normalizePlacementStatus(p))
+    );
+    let placementConfirm: Awaited<ReturnType<typeof signedFetch>> | null = null;
+    const { last: boxesRes, boxes, count: boxesCount } = boxesPrecheck?.count
+      ? boxesPrecheck
+      : await fetchBoxesWithRetry();
     logStep("listInboundPlanBoxes", {
       traceId,
       boxesCount: boxesCount,
