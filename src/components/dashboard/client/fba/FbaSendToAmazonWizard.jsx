@@ -211,8 +211,7 @@ export default function FbaSendToAmazonWizard({
           perBoxItems: g.perBoxItems || g.per_box_items || null,
           contentInformationSource: g.contentInformationSource || g.content_information_source || null
         };
-      })
-      .filter((g) => Number(g.units || 0) > 0), // nu trimitem grupuri cu 0 unități
+      }),
   []);
   const getPackGroupKey = useCallback((group) => group?.packingGroupId || group?.id || null, []);
   const getPackGroupSignature = useCallback((group) => {

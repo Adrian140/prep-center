@@ -948,6 +948,42 @@ serve(async (req) => {
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
+    const snapshotPackingGroups =
+      (reqData as any)?.amazon_snapshot?.fba_inbound?.packingGroups ||
+      (reqData as any)?.amazon_snapshot?.packingGroups ||
+      [];
+    const mergePackingGroups = (primary: any[], fallback: any[]) => {
+      const seen = new Set(
+        (primary || [])
+          .map((g: any) => g?.packingGroupId || g?.id || g?.groupId || null)
+          .filter(Boolean)
+      );
+      const merged = [...(primary || [])];
+      (fallback || []).forEach((g: any) => {
+        const id = g?.packingGroupId || g?.id || g?.groupId || null;
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        merged.push(g);
+      });
+      return merged;
+    };
+    const mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
+    const mergedPackingGroupsSummary = Array.isArray(mergedPackingGroupsInput)
+      ? mergedPackingGroupsInput.map((g: any) => ({
+          packingGroupId: g?.packingGroupId || g?.id || g?.groupId || null,
+          boxes: g?.boxes ?? g?.boxCount ?? null,
+          packMode: g?.packMode || g?.pack_mode || null,
+          contentInformationSource: g?.contentInformationSource || g?.content_information_source || null,
+          hasDimensions: !!(g?.dimensions || g?.boxDimensions),
+          hasWeight: !!(g?.weight || g?.boxWeight),
+          perBoxDetailsCount: Array.isArray(g?.perBoxDetails || g?.per_box_details)
+            ? (g?.perBoxDetails || g?.per_box_details).length
+            : 0,
+          perBoxItemsCount: Array.isArray(g?.perBoxItems || g?.per_box_items)
+            ? (g?.perBoxItems || g?.per_box_items).length
+            : 0
+        }))
+      : [];
 
     if (!userIsAdmin) {
       const isOwner = !!reqData.user_id && reqData.user_id === user.id;
@@ -1017,7 +1053,7 @@ serve(async (req) => {
     // Persist user-entered packing groups (dims/weight) so we can rehydrate later
     try {
       const currentSnap = (reqData as any)?.amazon_snapshot || {};
-      const packedGroupsForSnapshot = (packingGroupsInput || []).map((g: any) => ({
+      const packedGroupsForSnapshot = (mergedPackingGroupsInput || []).map((g: any) => ({
         packingGroupId: g?.packingGroupId || g?.id || g?.groupId || null,
         boxDimensions: g?.dimensions || g?.boxDimensions || null,
         boxWeight: g?.weight || g?.boxWeight || null,
@@ -1054,6 +1090,70 @@ serve(async (req) => {
 
     const tempCreds = await assumeRole(SPAPI_ROLE_ARN);
     const lwaAccessToken = await getLwaAccessToken(refreshToken);
+    const basePath = "/inbound/fba/2024-03-20";
+    const listPackingOptionsWithRetry = async (attempts = 3) => {
+      let last: Awaited<ReturnType<typeof signedFetch>> | null = null;
+      for (let i = 1; i <= attempts; i++) {
+        last = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/packingOptions`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.listPackingOptions",
+          marketplaceId,
+          sellerId
+        });
+        const options =
+          last?.json?.payload?.packingOptions ||
+          last?.json?.packingOptions ||
+          [];
+        if (Array.isArray(options) && options.length) return { last, options };
+        await delay(200 * i);
+      }
+      return { last, options: [] as any[] };
+    };
+    const normalizePackingOptionId = (opt: any) => opt?.packingOptionId || opt?.id || null;
+    try {
+      const { options } = await listPackingOptionsWithRetry();
+      const chosen = (options || []).find(
+        (opt: any) => normalizePackingOptionId(opt) === packingOptionId
+      );
+      const groups = Array.isArray(chosen?.packingGroups)
+        ? chosen.packingGroups.filter(Boolean)
+        : [];
+      if (groups.length) {
+        const providedSource = directGroupings.length ? directGroupings : mergedPackingGroupsInput;
+        const providedIds = (providedSource || [])
+          .map((g: any) => g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null)
+          .filter(Boolean);
+        const missingIds = groups.filter((id: any) => !providedIds.includes(id));
+        const extraIds = providedIds.filter((id: any) => !groups.includes(id));
+        if (missingIds.length || extraIds.length) {
+          return new Response(
+            JSON.stringify({
+              error:
+                "Packing groups incomplete. Amazon requires packageGroupings for all packingGroupId values in the selected packingOption.",
+              code: "PACKING_GROUPS_INCOMPLETE",
+              traceId,
+              expectedPackingGroupIds: groups,
+              missingPackingGroupIds: missingIds,
+              extraPackingGroupIds: extraIds
+            }),
+            { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
+      }
+    } catch (err) {
+      console.warn("packing options validation skipped", { traceId, error: err });
+    }
 
     if (directGroupings.length) {
       packageGroupings = directGroupings;
@@ -1061,7 +1161,7 @@ serve(async (req) => {
       try {
         const hydratedGroups = await attachExpectedItemsToPackingGroups({
           inboundPlanId,
-          packingGroups: packingGroupsInput,
+          packingGroups: mergedPackingGroupsInput,
           awsRegion,
           host,
           accessKey: tempCreds.accessKeyId,
@@ -1091,7 +1191,7 @@ serve(async (req) => {
             "Nu am putut construi packageGroupings valide. Trimite packingGroups (cu dims/weight) din Step1b sau trimite direct packageGroupings în format SP-API.",
           traceId,
           debug: {
-            packingGroupsSummary
+            packingGroupsSummary: mergedPackingGroupsSummary
           }
         }),
         {
@@ -1186,7 +1286,6 @@ serve(async (req) => {
       );
     }
 
-    const basePath = "/inbound/fba/2024-03-20";
     console.log("set-packing payload-meta", {
       traceId,
       packageGroupingsCount: packageGroupings.length
