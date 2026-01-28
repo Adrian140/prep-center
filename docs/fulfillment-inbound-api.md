@@ -84,6 +84,35 @@ flowchart TD
   S12 --> S13
 ```
 
+## Note implementare (aplicatie)
+- Step 2 (transport): afisam toate optiunile returnate de `listTransportationOptions` (SPD + LTL/FTL, partnered + non-partnered). Nu selectam automat nicio optiune; utilizatorul alege explicit.
+- LTL/FTL necesita paletizare si freight information (dimensiuni, greutate, stackability, freight class, declared value). Fara aceste date, `generateTransportationOptions` nu va returna optiuni corecte pentru LTL/FTL.
+- Pentru SPD sunt obligatorii dimensiunile si greutatea coletelor (packages). PCP poate lipsi daca lipsesc aceste date.
+
+## LTL/FTL - Cerinte stricte (conform SP-API)
+Pentru modurile LTL/FTL, SP-API cere in mod explicit informatii suplimentare fata de SPD. Daca lipsesc, `generateTransportationOptions` nu intoarce optiuni LTL/FTL.
+
+Obligatoriu pentru LTL/FTL (per shipment):
+- `pallets`: lista cu `quantity`, `dimensions` (L/W/H + unit), `weight` (value + unit), `stackability`
+- `freightInformation`: `declaredValue.amount`, `declaredValue.code`, `freightClass`
+- `contactInformation`: `name`, `phoneNumber`, `email`
+- `readyToShipWindow`: `start`, `end`
+
+Optional dar recomandat:
+- `packages` pentru SPD (nu necesar la LTL/FTL)
+
+Validari recomandate:
+- `freightClass` trebuie sa fie un cod valid (nu placeholder).
+- `declaredValue.amount` > 0 si moneda valida (ex. `EUR`).
+- `pallets.quantity` >= 1, iar dimensiunile/greutatea sunt > 0.
+
+Flux recomandat LTL/FTL:
+1) Step 1 + Step 1b (packing options + setPackingInformation) completate.
+2) Step 2: trimite `pallets` + `freightInformation` + `contactInformation` + `readyToShipWindow`.
+3) `generateTransportationOptions` + `listTransportationOptions` (afisezi toate optiunile).
+4) Utilizatorul selecteaza explicit o optiune LTL/FTL.
+5) `confirmTransportationOptions`.
+
 ### Small parcel delivery to Amazon
 Small parcel delivery to Amazon
 On this page

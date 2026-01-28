@@ -1354,7 +1354,7 @@ serve(async (req) => {
       planRes?.json?.payload?.placementOptions ||
       [];
     const planPlacementId = planPlacementOptions?.[0]?.placementOptionId || null;
-    if (planPlacementId) {
+    if (!effectivePlacementOptionId && planPlacementId) {
       effectivePlacementOptionId = planPlacementId;
     }
 
@@ -2721,11 +2721,7 @@ serve(async (req) => {
       return up;
     };
 
-    const optionsForSelection = (() => {
-      if (!effectiveShippingMode) return normalizedOptions;
-      const mode = normalizeOptionMode(effectiveShippingMode);
-      return normalizedOptions.filter((o) => normalizeOptionMode(o.mode) === mode);
-    })();
+    const optionsForSelection = normalizedOptions;
     const returnedModes = Array.from(
       new Set(normalizedOptions.map((o) => normalizeOptionMode(o.mode)))
     ).filter(Boolean);
@@ -2735,24 +2731,19 @@ serve(async (req) => {
           .map((o) => String(o.shippingSolution || o.raw?.shippingSolution || "").toUpperCase())
       )
     ).filter(Boolean);
-    let effectiveOptionsForSelection = optionsForSelection;
-    let modeMismatch = false;
-    if (effectiveShippingMode && optionsForSelection.length === 0 && normalizedOptions.length) {
-      modeMismatch = true;
-      effectiveOptionsForSelection = normalizedOptions;
-    }
+    const effectiveOptionsForSelection = optionsForSelection;
+    const modeMismatch = false;
 
-    // pick a default: partnered if available, otherwise first option
-    const partneredOpt = effectiveOptionsForSelection.find((o) => o.partnered);
-    const defaultOpt = partneredOpt || effectiveOptionsForSelection[0] || null;
+    // Nu alegem implicit; doar expunem optiunile disponibile.
+    const partneredOpt = effectiveOptionsForSelection.find((o) => o.partnered) || null;
 
     const summary = {
       partneredAllowed: Boolean(partneredOpt),
       partneredRate: partneredOpt?.charge ?? null,
-      defaultOptionId: defaultOpt?.id || null,
-      defaultCarrier: defaultOpt?.carrierName || null,
-      defaultMode: defaultOpt?.mode || null,
-      defaultCharge: defaultOpt?.charge ?? null,
+      defaultOptionId: null,
+      defaultCarrier: null,
+      defaultMode: null,
+      defaultCharge: null,
       returnedModes,
       returnedSolutions,
       modeMismatch
@@ -2826,19 +2817,10 @@ serve(async (req) => {
       );
     }
 
-    const forcePartneredIfAvailable =
-      body?.force_partnered_if_available ?? body?.forcePartneredIfAvailable ?? true;
     const forcePartneredOnly =
       body?.force_partnered_only ??
       body?.forcePartneredOnly ??
       false;
-    const preferNonPartneredRaw =
-      body?.prefer_non_partnered ?? body?.preferNonPartnered ?? false;
-    const preferNonPartnered = !forcePartneredOnly && Boolean(preferNonPartneredRaw);
-    const preferredCarrierName =
-      body?.preferred_carrier_name ?? body?.preferredCarrierName ?? null;
-    const effectiveForcePartneredIfAvailable = preferNonPartnered ? false : forcePartneredIfAvailable;
-    const wantPartnered = Boolean(forcePartneredOnly || effectiveForcePartneredIfAvailable);
 
     if (forcePartneredOnly && !partneredOpt) {
       return new Response(
@@ -2870,36 +2852,38 @@ serve(async (req) => {
       );
     }
 
-    let selectedOptionId = confirmOptionId || defaultOpt?.id || effectiveOptionsForSelection[0]?.id || null;
-
-    if (preferNonPartnered) {
-      const wantedName = String(preferredCarrierName || '').trim().toLowerCase();
-      const nonPartnered = effectiveOptionsForSelection.filter((o) => !o.partnered);
-      let pick = null;
-      if (wantedName) {
-        pick = nonPartnered.find((o) =>
-          String(o.carrierName || '').trim().toLowerCase() === wantedName ||
-          String(o.carrierName || '').trim().toLowerCase().includes(wantedName) ||
-          wantedName.includes(String(o.carrierName || '').trim().toLowerCase())
-        ) || null;
-      }
-      if (!pick) pick = nonPartnered[0] || null;
-      if (pick?.id) selectedOptionId = pick.id;
-    } else if (effectiveForcePartneredIfAvailable) {
-      const partneredOptPick = effectiveOptionsForSelection.find((o) => o.partnered);
-      const requested = effectiveOptionsForSelection.find((o) => o.id === confirmOptionId) || null;
-      if (partneredOptPick && requested && !requested.partnered) {
-        selectedOptionId = partneredOptPick.id;
-      }
-      if (partneredOptPick && !confirmOptionId) {
-        selectedOptionId = partneredOptPick.id;
-      }
-    }
-    if (forcePartneredOnly && partneredOpt?.id) {
-      selectedOptionId = partneredOpt.id;
+    if (!confirmOptionId) {
+      return new Response(
+        JSON.stringify({
+          error: "Selectează explicit o opțiune de transport înainte de confirmare.",
+          code: "TRANSPORTATION_OPTION_REQUIRED",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
     }
     const selectedOption =
-      effectiveOptionsForSelection.find((o) => o.id === selectedOptionId) || effectiveOptionsForSelection[0] || null;
+      effectiveOptionsForSelection.find((o) => o.id === confirmOptionId) || null;
+    if (!selectedOption) {
+      return new Response(
+        JSON.stringify({
+          error: "Opțiunea de transport selectată nu a fost găsită în lista Amazon.",
+          code: "TRANSPORTATION_OPTION_NOT_FOUND",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+    if (forcePartneredOnly && !selectedOption.partnered) {
+      return new Response(
+        JSON.stringify({
+          error: "Trebuie selectată o opțiune Amazon partnered carrier.",
+          code: "PARTNERED_REQUIRED",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
     if (!selectedOption?.id) {
       return new Response(

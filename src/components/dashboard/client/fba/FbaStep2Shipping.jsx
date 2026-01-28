@@ -1,15 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle, Truck } from 'lucide-react';
+import { AlertTriangle, CheckCircle } from 'lucide-react';
 
 export default function FbaStep2Shipping({
   shipment,
-  hazmat = false,
-  fetchPartneredQuote, // optional async ({ method, hazmat }) => { allowed: boolean; rate: number; reason?: string }
-  forcePartneredOnly = false,
-  carrierTouched = false,
+  shippingOptions = [],
+  selectedTransportationOptionId = null,
   shippingConfirmed = false,
-  onCarrierChange,
-  onModeChange,
+  onOptionSelect,
   onPalletDetailsChange,
   onShipDateChange,
   onNext,
@@ -19,26 +16,9 @@ export default function FbaStep2Shipping({
 }) {
   const { deliveryDate, method, carrier, shipments, warning, palletDetails } = shipment;
   const [shipDate, setShipDate] = useState(deliveryDate || '');
-  const [partneredAllowed, setPartneredAllowed] = useState(true);
-  const [partneredReason, setPartneredReason] = useState('');
-  const [partneredRate, setPartneredRate] = useState(
-    typeof carrier?.rate === 'number' ? carrier.rate : null
-  );
-  const safeCarrier = carrier || { partnered: null, name: '', rate: null };
-  const carrierReady = carrierTouched || shippingConfirmed;
   useEffect(() => {
     setShipDate(deliveryDate || '');
   }, [deliveryDate]);
-  const normalizedCarrier = useMemo(() => {
-    const name = String(safeCarrier.name || '').trim();
-    if (!carrierReady) {
-      return { ...safeCarrier, partnered: null, name: '' };
-    }
-    if (safeCarrier.partnered === false && !name) {
-      return { ...safeCarrier, partnered: null, name: '' };
-    }
-    return safeCarrier;
-  }, [carrierReady, safeCarrier]);
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
@@ -55,30 +35,29 @@ export default function FbaStep2Shipping({
     [palletDetails]
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    const runQuote = async () => {
-      if (typeof fetchPartneredQuote !== 'function') {
-        setPartneredAllowed(!hazmat);
-        setPartneredReason(hazmat ? 'Hazmat items are not eligible for partnered carrier.' : '');
-        return;
-      }
-      const res = await fetchPartneredQuote({ method, hazmat });
-      if (cancelled) return;
-      setPartneredAllowed(res?.allowed ?? true);
-      setPartneredReason(res?.reason || '');
-      if (typeof res?.rate === 'number') setPartneredRate(res.rate);
-    };
-    runQuote().catch(() => {
-      if (!cancelled) {
-        setPartneredAllowed(!hazmat);
-        setPartneredReason('');
-      }
+  const options = Array.isArray(shippingOptions) ? shippingOptions : [];
+  const normalizeOptionMode = (mode) => {
+    const up = String(mode || '').toUpperCase();
+    if (!up) return '';
+    if (up === 'GROUND_SMALL_PARCEL') return 'SPD';
+    if (up === 'FREIGHT_LTL') return 'LTL';
+    if (up === 'FREIGHT_FTL') return 'FTL';
+    return up;
+  };
+  const groupedOptions = useMemo(() => {
+    const groups = { SPD: [], LTL: [], FTL: [], OTHER: [] };
+    options.forEach((opt) => {
+      const mode = normalizeOptionMode(opt?.mode || opt?.shippingMode || opt?.raw?.shippingMode);
+      if (mode === 'SPD') groups.SPD.push(opt);
+      else if (mode === 'LTL') groups.LTL.push(opt);
+      else if (mode === 'FTL') groups.FTL.push(opt);
+      else groups.OTHER.push(opt);
     });
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchPartneredQuote, hazmat, method]);
+    return groups;
+  }, [options]);
+  const selectedOption =
+    options.find((opt) => opt?.id === selectedTransportationOptionId) || null;
+  const selectedMode = normalizeOptionMode(selectedOption?.mode || method);
 
   const shipmentCount = shipments?.length || 0;
   const totalBoxes = shipments?.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0) || 0;
@@ -87,21 +66,17 @@ export default function FbaStep2Shipping({
   const lbToKg = (lb) => Number(lb || 0) * 0.45359237;
   const toKg = (weight, unit) => (String(unit || 'KG').toUpperCase() === 'LB' ? lbToKg(weight) : Number(weight || 0));
   const totalWeight = shipments?.reduce((s, sh) => s + toKg(sh.weight, sh.weight_unit), 0) || 0;
-  const carrierName = normalizedCarrier.partnered
-    ? 'UPS (Amazon-partnered carrier)'
-    : typeof normalizedCarrier.name === 'string'
-      ? normalizedCarrier.name
-      : 'Non Amazon partnered carrier';
-
+  const carrierName = selectedOption?.carrierName || carrier?.name || 'Carrier';
   const summaryTitle = useMemo(() => {
     const modeLabel =
-      method === 'LTL'
+      selectedMode === 'LTL'
         ? 'Less-than-truckload (LTL)'
-        : method === 'FTL'
+        : selectedMode === 'FTL'
           ? 'Full truckload (FTL)'
           : 'Small parcel delivery (SPD)';
-    return `${carrierName} · ${modeLabel}`;
-  }, [carrierName, method]);
+    const partnerLabel = selectedOption?.partnered ? 'Amazon partnered carrier' : 'Non Amazon partnered carrier';
+    return `${partnerLabel} · ${carrierName} · ${modeLabel}`;
+  }, [carrierName, selectedMode, selectedOption]);
 
   const renderShipmentCard = (s) => (
     <div key={s.id} className="border border-slate-200 rounded-lg overflow-hidden">
@@ -127,23 +102,12 @@ export default function FbaStep2Shipping({
     </div>
   );
 
-  const allowPartnered = partneredAllowed;
-  const allowNonPartnered = !forcePartneredOnly || !allowPartnered;
-  const disablePartnered = !allowPartnered;
-  const partneredLabel = partneredReason || 'Estimated charge';
-  const partneredChargeText =
-    disablePartnered || partneredRate === null ? 'Not available' : `€${partneredRate.toFixed(2)}`;
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const needsTerms = Boolean(normalizedCarrier.partnered && allowPartnered);
-  const hasPartneredSelection = normalizedCarrier.partnered === true;
-  const hasNonPartneredSelection =
-    normalizedCarrier.partnered === false && Boolean(String(normalizedCarrier.name || '').trim());
-  const hasCarrierSelection = hasPartneredSelection || hasNonPartneredSelection;
-  const needsCarrierSelection = !hasCarrierSelection;
-  const canContinue =
-    (normalizedCarrier.partnered ? allowPartnered : allowNonPartnered) &&
-    (!needsTerms || acceptedTerms) &&
-    hasCarrierSelection;
+  const needsTerms = Boolean(selectedOption?.partnered);
+  const canContinue = Boolean(selectedOption) && (!needsTerms || acceptedTerms);
+  useEffect(() => {
+    setAcceptedTerms(false);
+  }, [selectedOption?.id]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -165,7 +129,7 @@ export default function FbaStep2Shipping({
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
           <div className="border border-slate-200 rounded-lg p-3">
             <div className="font-semibold text-slate-800 mb-1">Ship date</div>
             <input
@@ -179,137 +143,93 @@ export default function FbaStep2Shipping({
             />
           </div>
           <div className="border border-slate-200 rounded-lg p-3">
-            <div className="font-semibold text-slate-800 mb-1">Shipping mode</div>
-            <div className="flex flex-col gap-2">
-              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${method === 'SPD' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
-                <span className="flex items-center gap-2"><Truck className="w-4 h-4" /> Small parcel delivery (SPD)</span>
-                <input type="radio" checked={method === 'SPD'} onChange={() => onModeChange?.('SPD')} />
-              </label>
-              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${method === 'LTL' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
-                <span className="flex items-center gap-2"><Truck className="w-4 h-4" /> Less-than-truckload (LTL)</span>
-                <input type="radio" checked={method === 'LTL'} onChange={() => onModeChange?.('LTL')} />
-              </label>
-              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${method === 'FTL' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
-                <span className="flex items-center gap-2"><Truck className="w-4 h-4" /> Full truckload (FTL)</span>
-                <input type="radio" checked={method === 'FTL'} onChange={() => onModeChange?.('FTL')} />
-              </label>
-              <div className="text-xs text-slate-500">
-                Pentru LTL/FTL sunt necesare paletizare și freight information.
-              </div>
-            </div>
-          </div>
-          <div className="border border-slate-200 rounded-lg p-3">
             <div className="font-semibold text-slate-800 mb-1">Merge workflow</div>
             <div className="text-xs text-slate-500">Merge workflows is not available for small parcel shipments.</div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="border border-slate-200 rounded-lg p-4 space-y-3">
-            <div className="font-semibold text-slate-900">Select shipping carrier</div>
-            <div className="flex flex-col gap-2 text-sm">
-              <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${normalizedCarrier.partnered ? 'border-blue-500 bg-blue-50' : 'border-slate-200'} ${disablePartnered ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                <div className="flex flex-col">
-                  <span className="font-semibold">UPS (Amazon-partnered carrier)</span>
-                  <span className="text-xs text-slate-500">{partneredLabel}: {partneredChargeText}</span>
+        <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+          <div className="font-semibold text-slate-900">Available shipping options</div>
+          {!options.length && (
+            <div className="text-sm text-slate-600">Nu există încă opțiuni de transport disponibile.</div>
+          )}
+          {['SPD', 'LTL', 'FTL', 'OTHER'].map((modeKey) => {
+            const list = groupedOptions[modeKey] || [];
+            if (!list.length) return null;
+            const title =
+              modeKey === 'SPD'
+                ? 'Small parcel delivery (SPD)'
+                : modeKey === 'LTL'
+                  ? 'Less-than-truckload (LTL)'
+                  : modeKey === 'FTL'
+                    ? 'Full truckload (FTL)'
+                    : 'Other';
+            return (
+              <div key={modeKey} className="space-y-2">
+                <div className="text-xs font-semibold text-slate-600">{title}</div>
+                <div className="space-y-2">
+                  {list.map((opt) => {
+                    const partneredLabel = opt?.partnered ? 'Amazon partnered carrier' : 'Non Amazon partnered carrier';
+                    const carrierLabel = opt?.carrierName || 'Carrier';
+                    const solution = String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase();
+                    const chargeText = Number.isFinite(opt?.charge) ? `€${opt.charge.toFixed(2)}` : '—';
+                    const checked = opt?.id === selectedTransportationOptionId;
+                    return (
+                      <label
+                        key={opt?.id}
+                        className={`flex items-center justify-between gap-3 px-3 py-2 border rounded-md ${checked ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-sm">{carrierLabel}</span>
+                          <span className="text-xs text-slate-500">{partneredLabel}</span>
+                          {solution && <span className="text-xs text-slate-400">{solution}</span>}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-semibold">{chargeText}</span>
+                          <input
+                            type="radio"
+                            checked={checked}
+                            onChange={() => onOptionSelect?.(opt)}
+                          />
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
-                <input
-                  type="radio"
-                  disabled={disablePartnered}
-                  checked={normalizedCarrier.partnered === true && allowPartnered}
-                  onChange={() => onCarrierChange({ partnered: true, name: 'UPS (Amazon-partnered carrier)', rate: partneredRate })}
-                />
-              </label>
-              {allowNonPartnered && (
-                <>
-                  <label className={`flex items-center justify-between gap-2 px-3 py-2 border rounded-md ${normalizedCarrier.partnered === false ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
-                    <div className="flex flex-col">
-                      <span className="font-semibold">Non Amazon partnered carrier</span>
-                      <span className="text-xs text-slate-500">Select carrier</span>
-                    </div>
-                    <input
-                      type="radio"
-                      checked={normalizedCarrier.partnered === false && Boolean(String(normalizedCarrier.name || '').trim())}
-                      onChange={() => onCarrierChange({ partnered: false, name: normalizedCarrier.name || '' })}
-                    />
-                  </label>
-                  {normalizedCarrier.partnered === false && (
-                    <select
-                      value={normalizedCarrier.name || ''}
-                      onChange={(e) => onCarrierChange({ partnered: false, name: e.target.value })}
-                      className="border rounded-md px-3 py-2 text-sm"
-                    >
-                      <option value="">Select carrier</option>
-                      <option value="Chronopost">Chronopost</option>
-                      <option value="Exapaq">Exapaq</option>
-                      <option value="FedEx">FedEx</option>
-                      <option value="FedEx Ground">FedEx Ground</option>
-                      <option value="France Express">France Express</option>
-                      <option value="Global Logistics Services (GLS)">Global Logistics Services (GLS)</option>
-                      <option value="La Poste">La Poste</option>
-                      <option value="TNT">TNT</option>
-                      <option value="UPS (non-partnered carrier)">UPS (non-partnered carrier)</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  )}
-                  {carrierReady && normalizedCarrier.partnered === false && !hasCarrierSelection && (
-                    <div className="text-xs text-red-600">
-                      Selectează un curier non-partener înainte de a continua.
-                    </div>
-                  )}
-                </>
-              )}
-              {!allowNonPartnered && (
-                <div className="text-xs text-slate-500">
-                  Non-partnered carriers are disabled. This shipment must use Amazon partnered carrier.
-                </div>
-              )}
-              {carrierReady && normalizedCarrier.partnered == null && (
-                <div className="text-xs text-red-600">
-                  Selectează Amazon partnered sau non-partnered înainte de a continua.
-                </div>
-              )}
-              <div className="text-xs text-slate-500">
-                The Amazon Partnered Carrier programme offers discounted rates, buying/printing labels, and automated tracking.
+                {modeKey !== 'SPD' && (
+                  <div className="text-xs text-slate-500">
+                    Pentru LTL/FTL sunt necesare paletizare și freight information.
+                  </div>
+                )}
               </div>
+            );
+          })}
+          {options.length > 0 && !selectedOption && (
+            <div className="text-xs text-red-600">
+              Selectează o opțiune de transport înainte de confirmare.
             </div>
-          </div>
-
-          <div className="border border-slate-200 rounded-lg p-4 space-y-2 text-sm">
-            <div className="font-semibold text-slate-900">Shipment charges</div>
-            <div className="flex items-center justify-between">
-              <span>Estimated carrier charges</span>
-              <span className="font-semibold">{partneredChargeText}</span>
-            </div>
-            <div className="text-xs text-slate-500">
-              Review charges before continuing. You have up to 24h to void Amazon partnered shipping charges.
-            </div>
-            {needsTerms && (
-              <label className="flex items-start gap-2 text-xs text-slate-600 pt-2">
-                <input
-                  type="checkbox"
-                  checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  className="mt-0.5"
-                />
-                <span>
-                  I agree to the Amazon Partnered Carrier Terms and Conditions and the Carrier Terms and Conditions.
-                </span>
-              </label>
-            )}
-          </div>
-
-          {normalizedCarrier.partnered === false && (
-            <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 space-y-2 text-sm">
-              <div className="font-semibold text-amber-900">Delivery window</div>
-              <div className="text-xs text-amber-800">
-                Pentru non-partener, Amazon cere fereastra estimată de sosire; vom genera și confirma automat fereastra disponibilă/cea mai apropiată pe baza “Ship date”.
-              </div>
+          )}
+          {needsTerms && (
+            <label className="flex items-start gap-2 text-xs text-slate-600 pt-2">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                I agree to the Amazon Partnered Carrier Terms and Conditions and the Carrier Terms and Conditions.
+              </span>
+            </label>
+          )}
+          {selectedOption?.partnered === false && (
+            <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 text-xs text-amber-800">
+              Pentru non-partener, Amazon cere fereastra estimată de sosire; vom genera și confirma automat fereastra disponibilă/cea mai apropiată pe baza “Ship date”.
             </div>
           )}
         </div>
 
-        {method !== 'SPD' && (
+        {selectedMode && selectedMode !== 'SPD' && (
           <div className="border border-slate-200 rounded-lg p-4 space-y-3">
             <div className="font-semibold text-slate-900">Pallet and freight information</div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">

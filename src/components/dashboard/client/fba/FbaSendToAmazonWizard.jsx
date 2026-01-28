@@ -300,6 +300,7 @@ export default function FbaSendToAmazonWizard({
   const [blocking, setBlocking] = useState(false);
   const [shippingOptions, setShippingOptions] = useState([]);
   const [shippingSummary, setShippingSummary] = useState(null);
+  const [selectedTransportationOptionId, setSelectedTransportationOptionId] = useState(null);
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState('');
   const [packingSubmitLoading, setPackingSubmitLoading] = useState(false);
@@ -858,27 +859,6 @@ export default function FbaSendToAmazonWizard({
   return null;
 }, [shippingSummary, shippingLoading, step2Loaded, shipmentMode?.method]);
 
-const fetchPartneredQuote = useCallback(
-  ({ hazmat }) => {
-    const allowed = shippingSummary?.alreadyConfirmed ? true : (shippingSummary?.partneredAllowed ?? !hazmat);
-    const rate =
-      typeof shippingSummary?.partneredRate === 'number'
-        ? shippingSummary.partneredRate
-        : typeof shippingSummary?.defaultCharge === 'number'
-          ? shippingSummary.defaultCharge
-            : null;
-    const reason =
-      shippingSummary?.alreadyConfirmed
-        ? ''
-        : shippingSummary?.partneredAllowed === false
-          ? 'Amazon partnered carrier not available for this plan.'
-          : hazmat
-            ? 'Hazmat items are not eligible for partnered carrier.'
-            : '';
-    return { allowed, rate, reason };
-  },
-  [shippingSummary]
-);
 
   // când intrăm în 1b și nu avem încă packing groups reale, declanșăm fetch automat
   useEffect(() => {
@@ -1569,15 +1549,12 @@ const fetchPartneredQuote = useCallback(
       const configs = buildShipmentConfigs();
       const contactInformation = resolveContactInformation();
       // log local pentru debug (nu trimite date sensibile)
-      const { preferNonPartnered, preferredCarrierName, forcePartneredIfAvailable } = computeCarrierPreferences();
       console.log('Step2 invoke fba-step2-confirm-shipping', {
         requestId,
         inboundPlanId,
         placementOptionId: placementOptId,
         configsCount: configs.length,
-        preferNonPartnered,
-        preferredCarrierName,
-        forcePartneredIfAvailable
+        selectedTransportationOptionId
       });
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
@@ -1589,10 +1566,7 @@ const fetchPartneredQuote = useCallback(
           ...(contactInformation ? { contact_information: contactInformation } : {}),
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
-          force_partnered_if_available: preferNonPartnered ? false : forcePartneredIfAvailable,
-          force_partnered_only: forcePartneredOnly,
-          prefer_non_partnered: preferNonPartnered,
-          preferred_carrier_name: preferredCarrierName,
+          transportation_option_id: selectedTransportationOptionId,
           auto_confirm_placement: true,
           confirm: false
         }
@@ -1627,6 +1601,9 @@ const fetchPartneredQuote = useCallback(
       }
       setShippingOptions(json.options || []);
       setShippingSummary(json.summary || null);
+      if (json?.selectedTransportationOptionId) {
+        setSelectedTransportationOptionId(json.selectedTransportationOptionId);
+      }
       shippingRetryRef.current = 0;
       if (json?.summary?.alreadyConfirmed) {
         setShippingConfirmed(true);
@@ -1650,18 +1627,6 @@ const fetchPartneredQuote = useCallback(
           })
         );
       }
-      if (json.summary || Array.isArray(json.options)) {
-        const preferredMode = normalizeUiMode(shipmentMode.method || json.summary?.defaultMode);
-        const preferredRate = json.summary?.defaultCharge ?? json.summary?.partneredRate ?? shipmentMode?.carrier?.rate ?? null;
-        const nextMethod = shipmentMode.method || preferredMode;
-        setShipmentMode((prev) => {
-          const next = { ...prev, method: nextMethod };
-          if (prev?.carrier && typeof preferredRate === 'number') {
-            next.carrier = { ...prev.carrier, rate: preferredRate };
-          }
-          return next;
-        });
-      }
     } catch (e) {
       // Supabase aruncă "Edge Function returned a non-2xx status code" fără detalii; încercăm să extragem mesajul din payload.
       const detail =
@@ -1677,6 +1642,12 @@ const fetchPartneredQuote = useCallback(
     }
   };
 
+  useEffect(() => {
+    if (!selectedTransportationOptionId) return;
+    const exists = (shippingOptions || []).some((opt) => opt?.id === selectedTransportationOptionId);
+    if (!exists) setSelectedTransportationOptionId(null);
+  }, [shippingOptions, selectedTransportationOptionId]);
+
   const confirmShippingOptions = useCallback(async () => {
     if (typeof window === 'undefined') return;
     const inboundPlanId = resolveInboundPlanId();
@@ -1686,8 +1657,8 @@ const fetchPartneredQuote = useCallback(
       setShippingError('Lipsește inboundPlanId sau requestId pentru confirmarea transportului.');
       return;
     }
-    if (shipmentMode?.carrier?.partnered === false && !String(shipmentMode?.carrier?.name || '').trim()) {
-      setShippingError('Selectează curierul non-partener înainte de confirmare.');
+    if (!selectedTransportationOptionId) {
+      setShippingError('Selectează o opțiune de transport înainte de confirmare.');
       return;
     }
     if (shipmentMode?.method && shipmentMode.method !== 'SPD') {
@@ -1705,7 +1676,6 @@ const fetchPartneredQuote = useCallback(
     setShippingConfirming(true);
     setShippingError('');
     try {
-      const { preferNonPartnered, preferredCarrierName, forcePartneredIfAvailable } = computeCarrierPreferences();
       const configs = buildShipmentConfigs();
       const contactInformation = resolveContactInformation();
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
@@ -1718,10 +1688,7 @@ const fetchPartneredQuote = useCallback(
           ...(contactInformation ? { contact_information: contactInformation } : {}),
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
-          force_partnered_if_available: preferNonPartnered ? false : forcePartneredIfAvailable,
-          force_partnered_only: forcePartneredOnly,
-          prefer_non_partnered: preferNonPartnered,
-          preferred_carrier_name: preferredCarrierName,
+          transportation_option_id: selectedTransportationOptionId,
           confirm: true
         }
       });
@@ -1900,16 +1867,29 @@ const fetchPartneredQuote = useCallback(
     return normalized;
   };
 
-  const computeCarrierPreferences = () => {
-    const preferredCarrierName = String(shipmentMode?.carrier?.name || '').trim() || null;
-    const userChoseNonPartnered = shipmentMode?.carrier?.partnered === false;
-    const partneredAllowed = shippingSummary?.partneredAllowed;
-    const preferNonPartnered = userChoseNonPartnered && partneredAllowed === false;
-    return {
-      preferNonPartnered,
-      preferredCarrierName,
-      forcePartneredIfAvailable: true
-    };
+  const normalizeOptionMode = (mode) => {
+    const up = String(mode || '').toUpperCase();
+    if (!up) return null;
+    if (up === 'GROUND_SMALL_PARCEL') return 'SPD';
+    if (up === 'FREIGHT_LTL') return 'LTL';
+    if (up === 'FREIGHT_FTL') return 'FTL';
+    return up;
+  };
+
+  const handleTransportationOptionSelect = (opt) => {
+    if (!opt?.id) return;
+    setSelectedTransportationOptionId(opt.id);
+    const nextMethod = normalizeOptionMode(opt.mode || opt.shippingMode);
+    setShipmentMode((prev) => ({
+      ...prev,
+      method: nextMethod || prev.method,
+      carrier: {
+        partnered: Boolean(opt.partnered),
+        name: opt.carrierName || '',
+        rate: typeof opt.charge === 'number' ? opt.charge : prev?.carrier?.rate ?? null
+      }
+    }));
+    setCarrierTouched(true);
   };
 
   const validatePalletDetails = () => {
@@ -2384,12 +2364,11 @@ const fetchPartneredQuote = useCallback(
             shipments,
             warning
           }}
+          shippingOptions={shippingOptions}
+          selectedTransportationOptionId={selectedTransportationOptionId}
           carrierTouched={carrierTouched}
           shippingConfirmed={shippingConfirmed}
-          fetchPartneredQuote={fetchPartneredQuote}
-          forcePartneredOnly={forcePartneredOnly}
-          onCarrierChange={handleCarrierChange}
-          onModeChange={handleModeChange}
+          onOptionSelect={handleTransportationOptionSelect}
           onPalletDetailsChange={setPalletDetails}
           onShipDateChange={(date) => setShipmentMode((prev) => ({ ...prev, deliveryDate: date }))}
           onDeliveryWindowChange={(window) =>
