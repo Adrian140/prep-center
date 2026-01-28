@@ -102,6 +102,88 @@ const detectPartneredOption = (opt = {}) => {
   return false;
 };
 
+const normalizeTransportMode = (mode) => {
+  const up = String(mode || '').toUpperCase();
+  if (!up) return '';
+  if (up === 'GROUND_SMALL_PARCEL' || up === 'SPD' || up === 'SMALL_PARCEL') return 'SPD';
+  if (up === 'FREIGHT_LTL' || up === 'LTL') return 'LTL';
+  if (up === 'FREIGHT_FTL' || up === 'FTL') return 'FTL';
+  return up;
+};
+
+const aggregateTransportationOptions = (options = []) => {
+  const grouped = {
+    SPD_PARTNERED: [],
+    SPD_NON_PARTNERED: [],
+    LTL_FTL: []
+  };
+  (Array.isArray(options) ? options : []).forEach((opt) => {
+    const mode =
+      normalizeTransportMode(opt?.mode || opt?.shippingMode || opt?.raw?.shippingMode || opt?.transportationOption?.shippingMode);
+    if (mode === 'SPD') {
+      if (detectPartneredOption(opt)) grouped.SPD_PARTNERED.push(opt);
+      else grouped.SPD_NON_PARTNERED.push(opt);
+      return;
+    }
+    if (mode === 'LTL' || mode === 'FTL') {
+      grouped.LTL_FTL.push(opt);
+    }
+  });
+
+  const pickRepresentative = (list) => {
+    if (!list.length) return null;
+    return list.find((o) => Number.isFinite(o?.charge)) || list[0];
+  };
+  const minCharge = (list) => {
+    const charges = list.map((o) => o?.charge).filter((c) => Number.isFinite(c));
+    if (!charges.length) return null;
+    return Math.min(...charges);
+  };
+
+  const buildOption = (key, list) => {
+    if (!list.length) return null;
+    const rep = pickRepresentative(list);
+    const charge = minCharge(list);
+    const base = {
+      ...rep,
+      charge,
+      id: rep?.id,
+      isPartnered: detectPartneredOption(rep)
+    };
+    if (key === 'SPD_PARTNERED') {
+      return {
+        ...base,
+        mode: 'GROUND_SMALL_PARCEL',
+        carrierName: rep?.carrierName || 'Amazon Partnered Carrier',
+        partnered: true,
+        shippingSolution: rep?.shippingSolution || rep?.raw?.shippingSolution || 'AMAZON_PARTNERED_CARRIER'
+      };
+    }
+    if (key === 'SPD_NON_PARTNERED') {
+      return {
+        ...base,
+        mode: 'GROUND_SMALL_PARCEL',
+        carrierName: rep?.carrierName || 'Non Amazon partnered carrier',
+        partnered: false,
+        shippingSolution: rep?.shippingSolution || rep?.raw?.shippingSolution || 'USE_YOUR_OWN_CARRIER'
+      };
+    }
+    return {
+      ...base,
+      mode: 'FREIGHT_LTL',
+      carrierName: rep?.carrierName || 'LTL/FTL (non-partnered)',
+      partnered: false,
+      shippingSolution: rep?.shippingSolution || rep?.raw?.shippingSolution || 'USE_YOUR_OWN_CARRIER'
+    };
+  };
+
+  return [
+    buildOption('SPD_PARTNERED', grouped.SPD_PARTNERED),
+    buildOption('SPD_NON_PARTNERED', grouped.SPD_NON_PARTNERED),
+    buildOption('LTL_FTL', grouped.LTL_FTL)
+  ].filter(Boolean);
+};
+
 const initialData = {
   shipFrom: {
     name: 'Bucur Adrian, 5B Rue des Enclos, Gouseniere, FR',
@@ -1551,7 +1633,7 @@ export default function FbaSendToAmazonWizard({
         setShippingSummary(null);
         return;
       }
-      setShippingOptions(json.options || []);
+      setShippingOptions(aggregateTransportationOptions(json.options || []));
       setShippingSummary(json.summary || null);
       if (json?.selectedTransportationOptionId) {
         setSelectedTransportationOptionId(json.selectedTransportationOptionId);
@@ -1675,7 +1757,7 @@ export default function FbaSendToAmazonWizard({
           })
         );
       }
-      setShippingOptions(json.options || []);
+      setShippingOptions(aggregateTransportationOptions(json.options || []));
       setShippingSummary(json.summary || null);
       setShippingConfirmed(true);
       setCarrierTouched(true);
