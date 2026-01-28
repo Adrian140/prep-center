@@ -1150,21 +1150,31 @@ serve(async (req) => {
     const pickPackingOption = (options: any[], preferredId: string | null = null) => {
       if (!Array.isArray(options) || !options.length) return null;
 
-      // 1) respectă preferința din UI
+      // 1) dacă există ACCEPTED, trebuie folosit (Amazon blochează restul)
+      const accepted = options.filter((o) => getStatus(o) === "ACCEPTED");
+      if (accepted.length) {
+        if (preferredId) {
+          const matchAccepted = accepted.find((o) => getOptionId(o) === preferredId);
+          if (matchAccepted) return matchAccepted;
+        }
+        return accepted[0];
+      }
+
+      // 2) respectă preferința din UI
       if (preferredId) {
         const m = options.find((o) => getOptionId(o) === preferredId);
         if (m) return m;
       }
 
-      // 2) candidate OFFERED/AVAILABLE/READY
+      // 3) candidate OFFERED/AVAILABLE/READY
       const offered = options.filter((o) => ["OFFERED", "AVAILABLE", "READY"].includes(getStatus(o)));
       const pool = offered.length ? offered : options;
 
-      // 3) preferă Standard (fără discount/split)
+      // 4) preferă Standard (fără discount/split)
       const standard = pool.find((o) => !hasDiscount(o));
       if (standard) return standard;
 
-      // 4) fallback
+      // 5) fallback
       return pool[0];
     };
 
@@ -1174,6 +1184,15 @@ serve(async (req) => {
       chosen?.PackingOptionId ||
       chosen?.id ||
       null;
+    if (
+      requestedPackingOptionId &&
+      packingOptionId &&
+      requestedPackingOptionId !== packingOptionId
+    ) {
+      warnings.push(
+        `Packing option schimbat automat la ${packingOptionId} deoarece există un packing option ACCEPTED (Amazon blochează celelalte).`
+      );
+    }
 
     let packingGroupIds = extractPackingGroupIds(chosen || {});
 

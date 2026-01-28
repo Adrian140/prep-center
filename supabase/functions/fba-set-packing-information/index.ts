@@ -1121,8 +1121,26 @@ serve(async (req) => {
       return { last, options: [] as any[] };
     };
     const normalizePackingOptionId = (opt: any) => opt?.packingOptionId || opt?.id || null;
+    const normalizeStatus = (opt: any) => String(opt?.status || opt?.Status || "").toUpperCase();
     try {
       const { options } = await listPackingOptionsWithRetry();
+      const accepted = (options || []).find((opt: any) => normalizeStatus(opt) === "ACCEPTED");
+      if (accepted && normalizePackingOptionId(accepted) && normalizePackingOptionId(accepted) !== packingOptionId) {
+        const acceptedIds = Array.isArray(accepted?.packingGroups)
+          ? accepted.packingGroups.filter(Boolean)
+          : [];
+        return new Response(
+          JSON.stringify({
+            error:
+              "Packing option este deja ACCEPTED in Amazon. Trebuie folosit packingOptionId acceptat si toate packingGroupId-urile aferente.",
+            code: "PACKING_OPTION_LOCKED",
+            traceId,
+            acceptedPackingOptionId: normalizePackingOptionId(accepted),
+            expectedPackingGroupIds: acceptedIds
+          }),
+          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
       const chosen = (options || []).find(
         (opt: any) => normalizePackingOptionId(opt) === packingOptionId
       );

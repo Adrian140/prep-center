@@ -1066,19 +1066,17 @@ const fetchPartneredQuote = useCallback(
 
   const submitPackingInformation = async (payload = {}) => {
     const inboundPlanId = resolveInboundPlanId();
-    const packingOptId =
-      packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null;
     const requestId = resolveRequestId();
     const placementOptId =
       placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
 
-    if (!inboundPlanId || !packingOptId || !requestId) {
-      setPackingSubmitError('Lipsește inboundPlanId sau packingOptionId; finalizează Step 1 înainte de confirmare.');
+    if (!inboundPlanId || !requestId) {
+      setPackingSubmitError('Lipsește inboundPlanId sau requestId; finalizează Step 1 înainte de confirmare.');
       return;
     }
 
     const derivedPayload = buildPackingPayload();
-    const packingGroupsPayload =
+    let packingGroupsPayload =
       Array.isArray(payload.packingGroups) && payload.packingGroups.length ? payload.packingGroups : derivedPayload.packingGroups;
 
     // dacă UI a trimis un payload manual (include dimensiuni), sincronizăm imediat în state ca să nu le pierdem la refresh
@@ -1146,6 +1144,22 @@ const fetchPartneredQuote = useCallback(
     try {
       // forțează o reîmprospătare rapidă a packing groups ca să nu trimitem ID-uri vechi
       const refreshRes = await refreshPackingGroups();
+      const effectivePackGroups = Array.isArray(refreshRes?.packingGroups)
+        ? refreshRes.packingGroups
+        : packGroups;
+      const effectivePackingOptId =
+        refreshRes?.packingOptionId ||
+        packingOptionId ||
+        plan?.packingOptionId ||
+        plan?.packing_option_id ||
+        null;
+      if (!effectivePackingOptId) {
+        throw new Error('Lipsește packingOptionId acceptat de Amazon; reîncearcă refresh Step 1b.');
+      }
+      if (!Array.isArray(payload.packingGroups) || !payload.packingGroups.length) {
+        const refreshedPayload = buildPackingPayload(effectivePackGroups);
+        packingGroupsPayload = refreshedPayload.packingGroups;
+      }
       if (!refreshRes?.ok) {
         // dacă avem deja packing groups încărcate în UI, nu mai blocăm user-ul; continuăm cu ceea ce avem
         const hasLocalGroups = Array.isArray(packGroups) && packGroups.length > 0;
@@ -1163,7 +1177,7 @@ const fetchPartneredQuote = useCallback(
         body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
-          packing_option_id: packingOptId,
+          packing_option_id: effectivePackingOptId,
           placement_option_id: placementOptId,
           packing_groups: packingGroupsPayload,
           generate_placement_options: true
@@ -1280,7 +1294,7 @@ const fetchPartneredQuote = useCallback(
           setPackingReadyError(msg);
           return { ok: false, code: 'PACKING_QTY_MISMATCH', quantityMismatches: data.quantityMismatches };
         }
-        return { ok: true, code: 'PLACEMENT_ALREADY_ACCEPTED' };
+        return { ok: true, code: 'PLACEMENT_ALREADY_ACCEPTED', packingOptionId: data?.packingOptionId || null, packingGroups: normalized };
       }
       if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
       if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
@@ -1313,7 +1327,7 @@ const fetchPartneredQuote = useCallback(
             setPackingReadyError(msg);
             return { ok: false, code: 'PACKING_QTY_MISMATCH', quantityMismatches: data.quantityMismatches };
           }
-          return { ok: true };
+          return { ok: true, packingOptionId: data?.packingOptionId || null, packingGroups: filtered };
         }
         if (Array.isArray(data?.shipments)) setShipments(data.shipments);
         setPlanError('');
