@@ -2199,7 +2199,7 @@ serve(async (req) => {
         return {
           packingOptionId: null,
           packingGroups: [],
-          warnings: inboundPlanId ? ["Planul Amazon este încă în curs de creare. Reîncearcă în câteva secunde."] : []
+          warnings: []
         };
       }
 
