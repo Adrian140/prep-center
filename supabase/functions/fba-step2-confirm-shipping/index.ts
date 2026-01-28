@@ -1118,15 +1118,60 @@ serve(async (req) => {
         email: email ? String(email).trim() : null
       };
     })();
-    const contactInformation = (() => {
-      if (contactInformationFromBody) return contactInformationFromBody;
-      if (!planSourceAddress) return null;
-      const name = planSourceAddress.name || planSourceAddress.companyName || null;
-      const phoneNumber = planSourceAddress.phoneNumber || null;
-      const email = planSourceAddress.email || null;
+    const isCompleteContact = (info: any) =>
+      Boolean(
+        info?.name && String(info.name).trim() &&
+        info?.phoneNumber && String(info.phoneNumber).trim() &&
+        info?.email && String(info.email).trim()
+      );
+    const contactFromAddress = (addr: any) => {
+      if (!addr) return null;
+      const name = addr.name || addr.companyName || null;
+      const phoneNumber = addr.phoneNumber || null;
+      const email = addr.email || null;
       if (!name && !phoneNumber && !email) return null;
       return { name, phoneNumber, email };
-    })();
+    };
+    const placementOptionShipmentIds = Array.isArray(placementOptions)
+      ? placementOptions.flatMap((p: any) => p?.shipmentIds || []).filter(Boolean)
+      : [];
+    const fallbackShipmentIdForContact =
+      placementOptionShipmentIds[0] ||
+      placementShipments?.[0]?.shipmentId ||
+      placementShipments?.[0]?.id ||
+      null;
+    let contactInformation = contactInformationFromBody || contactFromAddress(planSourceAddress);
+    if (!isCompleteContact(contactInformation) && fallbackShipmentIdForContact) {
+      const shDetail = await signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(
+          String(fallbackShipmentIdForContact)
+        )}`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.getShipment",
+        marketplaceId,
+        sellerId
+      });
+      const payload = shDetail?.json?.payload || shDetail?.json || {};
+      const sourceAddress = payload?.source?.address || payload?.shipFromAddress || payload?.from || null;
+      const contactFromShipment = contactFromAddress(sourceAddress);
+      if (contactFromShipment) {
+        contactInformation = {
+          name: contactInformation?.name || contactFromShipment.name || null,
+          phoneNumber: contactInformation?.phoneNumber || contactFromShipment.phoneNumber || null,
+          email: contactInformation?.email || contactFromShipment.email || null
+        };
+      }
+    }
 
     const planPlacementOptions =
       planRes?.json?.placementOptions ||
