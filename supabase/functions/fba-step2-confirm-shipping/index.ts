@@ -2194,7 +2194,7 @@ serve(async (req) => {
     });
 
     const placementOptionIds = Array.from(
-      new Set(
+      new Set<string>(
         (placementOptions || [])
           .map((p: any) => normalizePlacementId(p))
           .filter(Boolean)
@@ -2368,7 +2368,7 @@ serve(async (req) => {
 
     if (allRequireDeliveryWindow && allowDeliveryWindowConfirmation) {
       const shipmentIds = Array.from(
-        new Set(
+        new Set<string>(
           placementShipments
             .map((s: any) => s?.shipmentId || s?.id)
             .filter(Boolean)
@@ -2419,7 +2419,7 @@ serve(async (req) => {
           }
         }
       }
-      const relist = await listAllTransportationOptions();
+      const relist = await listAllTransportationOptions(String(effectivePlacementOptionId), null);
       options = relist.collected || [];
       logStep("listTransportationOptions_after_deliveryWindow", {
         traceId,
@@ -2839,7 +2839,7 @@ serve(async (req) => {
     const requiresDeliveryWindow = hasDeliveryWindowPrecondition(selectedOption?.raw || selectedOption);
     if (requiresDeliveryWindow) {
       const shipmentIds = Array.from(
-        new Set(
+        new Set<string>(
           (Array.isArray(selectedOption?.raw?.shipments)
             ? selectedOption.raw.shipments.map((sh: any) => sh?.shipmentId || sh?.id)
             : placementShipments.map((s: any) => s?.shipmentId || s?.id)
