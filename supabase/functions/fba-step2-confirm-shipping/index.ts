@@ -2459,7 +2459,11 @@ serve(async (req) => {
       options.length > 0 &&
       options.every((opt: any) => hasDeliveryWindowPrecondition(opt));
 
-    if (allRequireDeliveryWindow && shouldConfirm) {
+    const confirmDeliveryWindowOnList =
+      body?.confirm_delivery_window_on_list ?? body?.confirmDeliveryWindowOnList ?? true;
+    const allowDeliveryWindowConfirmation = shouldConfirm || confirmDeliveryWindowOnList;
+
+    if (allRequireDeliveryWindow && allowDeliveryWindowConfirmation) {
       const shipmentIds = Array.from(
         new Set(
           placementShipments
