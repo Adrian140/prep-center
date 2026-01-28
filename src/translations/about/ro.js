@@ -22,7 +22,7 @@ export const aboutRo = {
   ourValues: 'Valorile Noastre',
   speedEfficiency: 'Viteză și Eficiență',
   speedEfficiencyDesc: 'Timpi de procesare de 24 de ore cu procesare în aceeași zi pentru comenzile primite înainte de amiază.',
-  qualityCompliance: 'Calitate și Conformitate',
+  qualityCompliance: 'Calitate și Conformitate (QC)',
   qualityComplianceDesc: 'Control de calitate riguros și conformitate completă cu reglementările europene.',
   partnershipSupport: 'Parteneriat și Suport',
   partnershipSupportDesc: 'Lucrăm ca partenerul tău logistic, oferind comunicare transparentă și suport de încredere.',
