@@ -465,21 +465,31 @@ async function main() {
           else prepStatusResolved = 'pending';
         }
         const resolvedLastUpdated = snap.last_updated || new Date().toISOString();
-        await updatePrepRequest(row.id, {
-          amazon_status: snap.status || 'UNKNOWN',
-          amazon_units_expected: snap.units_expected,
-          amazon_units_located: snap.units_located,
-          amazon_skus: snap.skus,
-          amazon_shipment_name: snap.shipment_name,
-          amazon_reference_id: snap.reference_id,
-          amazon_destination_code: snap.destination_code,
-          amazon_delivery_window: snap.delivery_window,
-          amazon_last_updated: resolvedLastUpdated,
-          amazon_snapshot: snap,
-          amazon_last_synced_at: nowIso,
-          amazon_sync_error: null,
-          prep_status: prepStatusResolved
-        });
+        const nextStatus = snap.status || 'UNKNOWN';
+        const shouldSkipClosedUpdate =
+          row.amazon_status === 'CLOSED' && nextStatus === 'CLOSED';
+        if (!shouldSkipClosedUpdate) {
+          await updatePrepRequest(row.id, {
+            amazon_status: nextStatus,
+            amazon_units_expected: snap.units_expected,
+            amazon_units_located: snap.units_located,
+            amazon_skus: snap.skus,
+            amazon_shipment_name: snap.shipment_name,
+            amazon_reference_id: snap.reference_id,
+            amazon_destination_code: snap.destination_code,
+            amazon_delivery_window: snap.delivery_window,
+            amazon_last_updated: resolvedLastUpdated,
+            amazon_snapshot: snap,
+            amazon_last_synced_at: nowIso,
+            amazon_sync_error: null,
+            prep_status: prepStatusResolved
+          });
+        } else {
+          await updatePrepRequest(row.id, {
+            amazon_last_synced_at: nowIso,
+            amazon_sync_error: null
+          });
+        }
         console.log(
           `Updated shipment ${row.fba_shipment_id} (prep_request ${row.id}) with status ${snap.status || 'n/a'}`
         );
