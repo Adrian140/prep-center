@@ -381,6 +381,17 @@ async function main() {
   assertEnv();
   const startedAt = Date.now();
   const integrations = await fetchActiveIntegrations();
+  if (!INCLUDE_CLOSED) {
+    const { count, error } = await supabase
+      .from('prep_requests')
+      .select('id', { count: 'exact', head: true })
+      .not('fba_shipment_id', 'is', null)
+      .eq('amazon_status', 'CLOSED');
+    if (error) throw error;
+    if (count) {
+      console.log(`Skipping ${count} CLOSED shipments (already closed).`);
+    }
+  }
   const byUser = new Map();
   const byCompany = new Map();
   integrations.forEach((row) => {
