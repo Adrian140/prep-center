@@ -485,6 +485,9 @@ async function main() {
             prep_status: prepStatusResolved
           });
         } else {
+          console.log(
+            `Skipped re-writing CLOSED shipment ${row.fba_shipment_id} (prep_request ${row.id}); refreshed sync timestamp only.`
+          );
           await updatePrepRequest(row.id, {
             amazon_last_synced_at: nowIso,
             amazon_sync_error: null
