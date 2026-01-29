@@ -65,8 +65,15 @@ const normalizeCode = (value) => {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
 };
-const normalizeAsin = (value) => normalizeCode(value);
+const normalizeAsin = (value) => {
+  const trimmed = normalizeCode(value);
+  return trimmed ? trimmed.toUpperCase() : null;
+};
 const normalizeSku = (value) => normalizeCode(value);
+const isLikelyAsin = (value) => {
+  if (!value) return false;
+  return /^[A-Z0-9]{10}$/.test(String(value).toUpperCase());
+};
 const isDuplicateKeyError = (error) => {
   if (!error) return false;
   const message = String(error.message || '').toLowerCase();
@@ -88,7 +95,13 @@ const ensureStockItemForReceiving = async (item, processedBy) => {
     if (data) return data;
   }
 
-  const normalizedEan = normalizeCode(item.ean_asin);
+  const rawEanAsin = normalizeCode(item.ean_asin);
+  const eanLooksLikeAsin = isLikelyAsin(rawEanAsin);
+  let normalizedAsin = normalizeAsin(item.asin);
+  if (!normalizedAsin && eanLooksLikeAsin) {
+    normalizedAsin = String(rawEanAsin).toUpperCase();
+  }
+  const normalizedEan = eanLooksLikeAsin ? null : rawEanAsin;
   if (normalizedEan) {
     const { data } = await supabase
       .from('stock_items')
@@ -99,7 +112,6 @@ const ensureStockItemForReceiving = async (item, processedBy) => {
     if (data) return data;
   }
 
-  const normalizedAsin = normalizeAsin(item.asin);
   if (normalizedAsin) {
     const { data } = await supabase
       .from('stock_items')
@@ -119,6 +131,10 @@ const ensureStockItemForReceiving = async (item, processedBy) => {
       .ilike('sku', normalizedSku)
       .maybeSingle();
     if (data) return data;
+  }
+
+  if (!normalizedAsin && !normalizedSku && !normalizedEan) {
+    throw new Error('Missing product identifiers (asin/sku/ean) for stock item.');
   }
 
   const insertPayload = {
