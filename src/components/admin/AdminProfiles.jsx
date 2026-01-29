@@ -163,7 +163,9 @@ export default function AdminProfiles({ onSelect }) {
     to: isoLocal(lastDayOfMonth(new Date())),
     q: '',
     page: 1,
-    restFilter: 'all'
+    restFilter: 'all',
+    sortKey: 'current',
+    sortDir: 'desc'
   });
   // month selector
   const [selectedMonth, setSelectedMonth] = useState(persistedFilters.selectedMonth || monthKey(new Date()));
@@ -187,6 +189,8 @@ export default function AdminProfiles({ onSelect }) {
   const [q, setQ] = useState(persistedFilters.q || "");
   const [page, setPage] = useState(persistedFilters.page || 1);
   const [error, setError] = useState("");
+  const [sortKey, setSortKey] = useState(persistedFilters.sortKey || "current");
+  const [sortDir, setSortDir] = useState(persistedFilters.sortDir || "desc");
 
   // per-row computed (valori direct din RPC)
   const [calc, setCalc] = useState({});
@@ -208,9 +212,24 @@ export default function AdminProfiles({ onSelect }) {
       to,
       q,
       page,
-      restFilter
+      restFilter,
+      sortKey,
+      sortDir
     });
-  }, [selectedMonth, showEmail, showPhone, showPricing, from, to, q, page, restFilter, setPersistedFilters]);
+  }, [
+    selectedMonth,
+    showEmail,
+    showPhone,
+    showPricing,
+    from,
+    to,
+    q,
+    page,
+    restFilter,
+    sortKey,
+    sortDir,
+    setPersistedFilters
+  ]);
 
   useEffect(() => {
     if (!showBalances && restFilter !== "all") {
@@ -313,6 +332,18 @@ export default function AdminProfiles({ onSelect }) {
     });
   }, [rows, q]);
 
+  const toggleSort = (key) => {
+    setPage(1);
+    setSortKey((prev) => {
+      if (prev !== key) {
+        setSortDir("desc");
+        return key;
+      }
+      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
+      return prev;
+    });
+  };
+
 // GLOBAL sort (pe tot searchedRows), apoi filter, apoi pagination
  const sortedRows = useMemo(() => {
   const list = [...searchedRows];
@@ -322,10 +353,14 @@ export default function AdminProfiles({ onSelect }) {
     return list;
   }
 
-  // Sort GLOBAL by "Balance" column (currentSold) DESC.
-  // Tie-breaker: live balance (diff) DESC, then original order.
+  // Sort GLOBAL by selected balance column, tie-break by Balance DESC, Live balance DESC, then original order.
   const getCurrentSold = (row) => {
     const v = Number(calc[row.id]?.currentSold);
+    return Number.isFinite(v) ? v : null;
+  };
+
+  const getCarry = (row) => {
+    const v = Number(calc[row.id]?.carry);
     return Number.isFinite(v) ? v : null;
   };
 
@@ -334,29 +369,40 @@ export default function AdminProfiles({ onSelect }) {
     return Number.isFinite(v) ? v : null;
   };
 
+  const getSortValue = (row) => {
+    if (sortKey === "carry") return getCarry(row);
+    if (sortKey === "live") return getLiveDiff(row);
+    return getCurrentSold(row);
+  };
+
+  const compareNullable = (aVal, bVal) => {
+    if (aVal === null && bVal === null) return 0;
+    if (aVal === null) return 1;
+    if (bVal === null) return -1;
+    if (aVal === bVal) return 0;
+    return sortDir === "asc" ? aVal - bVal : bVal - aVal;
+  };
+
   list.sort((a, b) => {
+    const primaryA = getSortValue(a);
+    const primaryB = getSortValue(b);
+    const primaryCmp = compareNullable(primaryA, primaryB);
+    if (primaryCmp !== 0) return primaryCmp;
+
     const balA = getCurrentSold(a);
     const balB = getCurrentSold(b);
-
-    if (balA === null && balB === null) return (a._order ?? 0) - (b._order ?? 0);
-    if (balA === null) return 1;
-    if (balB === null) return -1;
-
-    if (balA !== balB) return balB - balA; // DESC by Balance (currentSold)
+    const balanceCmp = compareNullable(balA, balB);
+    if (balanceCmp !== 0) return balanceCmp;
 
     const diffA = getLiveDiff(a);
     const diffB = getLiveDiff(b);
-
-    if (diffA === null && diffB === null) return (a._order ?? 0) - (b._order ?? 0);
-    if (diffA === null) return 1;
-    if (diffB === null) return -1;
-
-    if (diffA !== diffB) return diffB - diffA; // tie-break DESC by Live balance
+    const diffCmp = compareNullable(diffA, diffB);
+    if (diffCmp !== 0) return diffCmp;
     return (a._order ?? 0) - (b._order ?? 0);
   });
 
   return list;
-}, [searchedRows, calc, showBalances]);
+}, [searchedRows, calc, showBalances, sortKey, sortDir]);
 
 
   const filteredRows = useMemo(() => {
@@ -612,9 +658,42 @@ const togglePriceAccess = async (profile, nextValue) => {
               )}
               {showBalances && (
                 <>
-                  <th className="px-4 py-3 text-left whitespace-pre-line">{t("clients.table.currentBalance")}</th>
-                  <th className="px-4 py-3 text-left">{t("clients.table.carryBalance")}</th>
-                  <th className="px-4 py-3 text-left">{t("clients.table.liveBalance")}</th>
+                  <th className="px-4 py-3 text-left whitespace-pre-line">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("current")}
+                      className="inline-flex items-center gap-1 hover:text-text-primary"
+                    >
+                      {t("clients.table.currentBalance")}
+                      {sortKey === "current" && (
+                        <span className="text-[10px] uppercase text-text-light">{sortDir}</span>
+                      )}
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("carry")}
+                      className="inline-flex items-center gap-1 hover:text-text-primary"
+                    >
+                      {t("clients.table.carryBalance")}
+                      {sortKey === "carry" && (
+                        <span className="text-[10px] uppercase text-text-light">{sortDir}</span>
+                      )}
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("live")}
+                      className="inline-flex items-center gap-1 hover:text-text-primary"
+                    >
+                      {t("clients.table.liveBalance")}
+                      {sortKey === "live" && (
+                        <span className="text-[10px] uppercase text-text-light">{sortDir}</span>
+                      )}
+                    </button>
+                  </th>
                 </>
               )}
               <th className="px-4 py-3 text-right">{t("clients.table.actions")}</th>
