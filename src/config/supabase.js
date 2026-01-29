@@ -61,6 +61,18 @@ const receivingShipmentArrayColumnMissing = (error) =>
   ['tracking_ids', 'fba_shipment_ids'].some((col) => isMissingColumnError(error, col));
 
 const normalizeCode = (value) => (typeof value === 'string' ? value.trim() : value ?? null);
+const normalizeAsin = (value) => normalizeCode(value);
+const normalizeSku = (value) => normalizeCode(value);
+const isDuplicateKeyError = (error) => {
+  if (!error) return false;
+  const message = String(error.message || '').toLowerCase();
+  const details = String(error.details || '').toLowerCase();
+  return (
+    error.code === '23505' ||
+    message.includes('duplicate key') ||
+    details.includes('duplicate key')
+  );
+};
 
 const ensureStockItemForReceiving = async (item, processedBy) => {
   if (item.stock_item_id) {
@@ -72,41 +84,43 @@ const ensureStockItemForReceiving = async (item, processedBy) => {
     if (data) return data;
   }
 
-  if (item.ean_asin) {
+  const normalizedEan = normalizeCode(item.ean_asin);
+  if (normalizedEan) {
     const { data } = await supabase
       .from('stock_items')
       .select('*')
       .eq('company_id', item.company_id)
-      .eq('ean', item.ean_asin)
+      .eq('ean', normalizedEan)
       .maybeSingle();
     if (data) return data;
   }
 
-  const normalizedAsin = normalizeCode(item.asin);
+  const normalizedAsin = normalizeAsin(item.asin);
   if (normalizedAsin) {
     const { data } = await supabase
       .from('stock_items')
       .select('*')
       .eq('company_id', item.company_id)
-      .eq('asin', normalizedAsin)
+      .ilike('asin', normalizedAsin)
       .maybeSingle();
     if (data) return data;
   }
 
-  const normalizedSku = normalizeCode(item.sku);
+  const normalizedSku = normalizeSku(item.sku);
   if (normalizedSku) {
     const { data } = await supabase
       .from('stock_items')
       .select('*')
       .eq('company_id', item.company_id)
-      .eq('sku', normalizedSku)
+      .ilike('sku', normalizedSku)
       .maybeSingle();
     if (data) return data;
   }
 
   const insertPayload = {
     company_id: item.company_id,
-    ean: item.ean_asin,
+    user_id: processedBy || null,
+    ean: normalizedEan,
     name: item.product_name,
     asin: normalizedAsin,
     sku: normalizedSku,
@@ -119,7 +133,38 @@ const ensureStockItemForReceiving = async (item, processedBy) => {
     .insert(insertPayload)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    if (isDuplicateKeyError(error)) {
+      if (normalizedEan) {
+        const { data } = await supabase
+          .from('stock_items')
+          .select('*')
+          .eq('company_id', item.company_id)
+          .eq('ean', normalizedEan)
+          .maybeSingle();
+        if (data) return data;
+      }
+      if (normalizedAsin) {
+        const { data } = await supabase
+          .from('stock_items')
+          .select('*')
+          .eq('company_id', item.company_id)
+          .ilike('asin', normalizedAsin)
+          .maybeSingle();
+        if (data) return data;
+      }
+      if (normalizedSku) {
+        const { data } = await supabase
+          .from('stock_items')
+          .select('*')
+          .eq('company_id', item.company_id)
+          .ilike('sku', normalizedSku)
+          .maybeSingle();
+        if (data) return data;
+      }
+    }
+    throw error;
+  }
   return created;
 };
 

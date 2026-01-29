@@ -310,6 +310,21 @@ export default function ClientQogitaShipments() {
     setReqSubmitting(true);
     setReqFlash('');
     try {
+      const resolveCompanyId = async () => {
+        if (user?.company_id) return user.company_id;
+        const { data } = await supabase
+          .from('profiles')
+          .select('company_id')
+          .eq('id', user.id)
+          .maybeSingle();
+        return data?.company_id || null;
+      };
+      const companyId = await resolveCompanyId();
+      if (!companyId) {
+        setReqFlash('Missing company_id for this user. Contact support.');
+        setReqSubmitting(false);
+        return;
+      }
       const invalid = reqLines.find((l) => Number(l.units || 0) <= 0 || !l.asin);
       if (invalid) {
         setReqFlash(t('ClientIntegrations.qogita.missingIdentifiers', 'Adaugă ASIN și unități > 0 pentru fiecare linie.'));
@@ -332,7 +347,7 @@ export default function ClientQogitaShipments() {
       const tracking = reqModal.tracking?.[0] || null;
       await supabaseHelpers.createReceptionRequest({
         user_id: user.id,
-        company_id: user.company_id || user.id,
+        company_id: companyId,
         destination_country: reqDestination,
         carrier: 'Qogita',
         tracking_id: tracking,
