@@ -12,7 +12,9 @@ const STATUS_LIST = [
   'DELETED'
 ];
 
-const MAX_ROWS = Number(process.env.PREP_SHIP_SYNC_LIMIT || 50);
+const PAGE_SIZE = Number(process.env.PREP_SHIP_SYNC_PAGE_SIZE || 1000);
+const MAX_RUNTIME_MS = Number(process.env.PREP_SHIP_SYNC_MAX_RUNTIME_MS || 5 * 60 * 60 * 1000);
+const INCLUDE_CLOSED = process.env.PREP_SHIP_SYNC_INCLUDE_CLOSED === 'true';
 
 async function fetchSellerTokens(sellerIds) {
   if (!sellerIds.length) return new Map();
@@ -173,37 +175,51 @@ async function fetchActiveIntegrations() {
 }
 
 async function fetchPrepRequests() {
-  const { data, error } = await supabase
-    .from('prep_requests')
-    .select(
-      `
-      id,
-      user_id,
-      company_id,
-      fba_shipment_id,
-      status,
-      prep_status,
-      amazon_status,
-      amazon_skus,
-      amazon_units_expected,
-      amazon_units_located,
-      amazon_last_synced_at,
-      prep_request_items (
+  const rows = [];
+  let offset = 0;
+  while (true) {
+    let query = supabase
+      .from('prep_requests')
+      .select(
+        `
         id,
-        asin,
-        sku,
-        product_name,
-        units_requested,
+        user_id,
+        company_id,
+        fba_shipment_id,
+        status,
+        prep_status,
+        amazon_status,
+        amazon_skus,
         amazon_units_expected,
-        amazon_units_received
+        amazon_units_located,
+        amazon_last_synced_at,
+        prep_request_items (
+          id,
+          asin,
+          sku,
+          product_name,
+          units_requested,
+          amazon_units_expected,
+          amazon_units_received
+        )
+      `
       )
-    `
-    )
-    .not('fba_shipment_id', 'is', null)
-    .order('amazon_last_synced_at', { ascending: true, nullsFirst: true })
-    .limit(MAX_ROWS);
-  if (error) throw error;
-  return data || [];
+      .not('fba_shipment_id', 'is', null)
+      .order('amazon_last_synced_at', { ascending: true, nullsFirst: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (!INCLUDE_CLOSED) {
+      query = query.neq('amazon_status', 'CLOSED');
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data?.length) break;
+    rows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+  return rows;
 }
 
 const normalizeShipmentIds = (raw) => {
@@ -363,12 +379,19 @@ async function updatePrepRequest(id, patch) {
 
 async function main() {
   assertEnv();
+  const startedAt = Date.now();
   const integrations = await fetchActiveIntegrations();
   const byUser = new Map();
   const byCompany = new Map();
   integrations.forEach((row) => {
-    if (row.user_id) byUser.set(row.user_id, row);
-    if (row.company_id) byCompany.set(row.company_id, row);
+    if (row.user_id) {
+      if (!byUser.has(row.user_id)) byUser.set(row.user_id, []);
+      byUser.get(row.user_id).push(row);
+    }
+    if (row.company_id) {
+      if (!byCompany.has(row.company_id)) byCompany.set(row.company_id, []);
+      byCompany.get(row.company_id).push(row);
+    }
   });
 
   const prepRequests = await fetchPrepRequests();
@@ -381,8 +404,18 @@ async function main() {
   const nowIso = new Date().toISOString();
 
   for (const row of prepRequests) {
-    const integration = byUser.get(row.user_id) || byCompany.get(row.company_id);
-    if (!integration) {
+    if (Date.now() - startedAt > MAX_RUNTIME_MS) {
+      console.warn('Sync time limit reached, stopping early.');
+      break;
+    }
+    const integrationListRaw = [
+      ...(byUser.get(row.user_id) || []),
+      ...(byCompany.get(row.company_id) || [])
+    ];
+    const integrationList = Array.from(
+      new Map(integrationListRaw.map((integration) => [integration.id, integration])).values()
+    );
+    if (!integrationList.length) {
       console.warn(
         `No active Amazon integration for user ${row.user_id} / company ${row.company_id}, skipping ${row.fba_shipment_id}`
       );
@@ -393,10 +426,83 @@ async function main() {
       continue;
     }
 
-    const marketplaceId = resolveMarketplaceId(integration);
-    if (!marketplaceId) {
+    let lastError = null;
+    let synced = false;
+    let missingMarketplace = true;
+    let missingToken = true;
+
+    for (const integration of integrationList) {
+      const marketplaceId = resolveMarketplaceId(integration);
+      if (!marketplaceId) continue;
+      missingMarketplace = false;
+
+      const key = integration.refresh_token;
+      if (!key) continue;
+      missingToken = false;
+
+      if (!spClientCache.has(key)) {
+        spClientCache.set(
+          key,
+          createSpClient({
+            refreshToken: integration.refresh_token,
+            region: integration.region || process.env.SPAPI_REGION || 'eu'
+          })
+        );
+      }
+
+      const client = spClientCache.get(key);
+      try {
+        const { snapshot: snap, items: amazonItems } = await fetchShipmentSnapshot(
+          client,
+          row.fba_shipment_id,
+          marketplaceId
+        );
+        await updateItemAmazonQuantities(row.prep_request_items, amazonItems);
+        let prepStatusResolved = row.prep_status;
+        if (!prepStatusResolved) {
+          if (row.status === 'confirmed') prepStatusResolved = 'expediat';
+          else if (row.status === 'cancelled') prepStatusResolved = 'anulat';
+          else prepStatusResolved = 'pending';
+        }
+        const resolvedLastUpdated = snap.last_updated || new Date().toISOString();
+        await updatePrepRequest(row.id, {
+          amazon_status: snap.status || 'UNKNOWN',
+          amazon_units_expected: snap.units_expected,
+          amazon_units_located: snap.units_located,
+          amazon_skus: snap.skus,
+          amazon_shipment_name: snap.shipment_name,
+          amazon_reference_id: snap.reference_id,
+          amazon_destination_code: snap.destination_code,
+          amazon_delivery_window: snap.delivery_window,
+          amazon_last_updated: resolvedLastUpdated,
+          amazon_snapshot: snap,
+          amazon_last_synced_at: nowIso,
+          amazon_sync_error: null,
+          prep_status: prepStatusResolved
+        });
+        console.log(
+          `Updated shipment ${row.fba_shipment_id} (prep_request ${row.id}) with status ${snap.status || 'n/a'}`
+        );
+        synced = true;
+        break;
+      } catch (err) {
+        lastError = err;
+        if (String(err?.message || '').includes('Shipment not found')) {
+          continue;
+        }
+        console.error(
+          `Failed to sync shipment ${row.fba_shipment_id} (user ${row.user_id}, company ${row.company_id}, seller ${integration.selling_partner_id || 'n/a'}, marketplace ${marketplaceId || 'n/a'}):`,
+          err.message
+        );
+        break;
+      }
+    }
+
+    if (synced) continue;
+
+    if (missingMarketplace) {
       console.warn(
-        `[Prep shipments sync] Skipping shipment ${row.fba_shipment_id} because integration ${integration.id} has no marketplace_id configured.`
+        `[Prep shipments sync] Skipping shipment ${row.fba_shipment_id} because no marketplace_id configured for user ${row.user_id} / company ${row.company_id}.`
       );
       await updatePrepRequest(row.id, {
         amazon_sync_error: 'No marketplace configured',
@@ -405,64 +511,25 @@ async function main() {
       continue;
     }
 
-    const key = integration.refresh_token;
-    if (!key) {
-      console.warn(`Integration without refresh token for user ${row.user_id}, skipping.`);
+    if (missingToken) {
+      console.warn(`Integration without refresh token for user ${row.user_id} / company ${row.company_id}, skipping.`);
+      await updatePrepRequest(row.id, {
+        amazon_sync_error: 'No refresh token',
+        amazon_last_synced_at: nowIso
+      }).catch((err) => console.error('Failed to mark missing token', err.message));
       continue;
     }
 
-    if (!spClientCache.has(key)) {
-      spClientCache.set(
-        key,
-        createSpClient({
-          refreshToken: integration.refresh_token,
-          region: integration.region || process.env.SPAPI_REGION || 'eu'
-        })
-      );
-    }
-
-    const client = spClientCache.get(key);
-    try {
-      const { snapshot: snap, items: amazonItems } = await fetchShipmentSnapshot(
-        client,
-        row.fba_shipment_id,
-        marketplaceId
-      );
-      await updateItemAmazonQuantities(row.prep_request_items, amazonItems);
-      let prepStatusResolved = row.prep_status;
-      if (!prepStatusResolved) {
-        if (row.status === 'confirmed') prepStatusResolved = 'expediat';
-        else if (row.status === 'cancelled') prepStatusResolved = 'anulat';
-        else prepStatusResolved = 'pending';
-      }
-      const resolvedLastUpdated = snap.last_updated || new Date().toISOString();
-      await updatePrepRequest(row.id, {
-        amazon_status: snap.status || 'UNKNOWN',
-        amazon_units_expected: snap.units_expected,
-        amazon_units_located: snap.units_located,
-        amazon_skus: snap.skus,
-        amazon_shipment_name: snap.shipment_name,
-        amazon_reference_id: snap.reference_id,
-        amazon_destination_code: snap.destination_code,
-        amazon_delivery_window: snap.delivery_window,
-        amazon_last_updated: resolvedLastUpdated,
-        amazon_snapshot: snap,
-        amazon_last_synced_at: nowIso,
-        amazon_sync_error: null,
-        prep_status: prepStatusResolved
-      });
-      console.log(`Updated shipment ${row.fba_shipment_id} (prep_request ${row.id}) with status ${snap.status || 'n/a'}`);
-    } catch (err) {
-      console.error(
-        `Failed to sync shipment ${row.fba_shipment_id} (user ${row.user_id}, company ${row.company_id}, seller ${integration.selling_partner_id || 'n/a'}, marketplace ${marketplaceId || 'n/a'}):`,
-        err.message
-      );
-      await updatePrepRequest(row.id, {
-        amazon_status: row.amazon_status || null,
-        amazon_sync_error: err.message || 'Sync error',
-        amazon_last_synced_at: nowIso
-      }).catch(() => {});
-    }
+    const errMessage = lastError?.message || 'Sync error';
+    console.error(
+      `Failed to sync shipment ${row.fba_shipment_id} (user ${row.user_id}, company ${row.company_id}):`,
+      errMessage
+    );
+    await updatePrepRequest(row.id, {
+      amazon_status: row.amazon_status || null,
+      amazon_sync_error: errMessage,
+      amazon_last_synced_at: nowIso
+    }).catch(() => {});
   }
 }
 
