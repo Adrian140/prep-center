@@ -12,8 +12,8 @@ const STATUS_LIST = [
   'DELETED'
 ];
 
-const PAGE_SIZE = Number(process.env.PREP_SHIP_SYNC_PAGE_SIZE || 1000);
-const MAX_RUNTIME_MS = Number(process.env.PREP_SHIP_SYNC_MAX_RUNTIME_MS || 5 * 60 * 60 * 1000);
+const PAGE_SIZE = Number(process.env.PREP_SHIP_SYNC_PAGE_SIZE || 10000);
+const MAX_RUNTIME_MS = Number(process.env.PREP_SHIP_SYNC_MAX_RUNTIME_MS || 4 * 60 * 60 * 1000 + 50 * 60 * 1000);
 const INCLUDE_CLOSED = process.env.PREP_SHIP_SYNC_INCLUDE_CLOSED === 'true';
 
 async function fetchSellerTokens(sellerIds) {
