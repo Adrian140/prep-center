@@ -60,7 +60,11 @@ const receivingItemColumnMissing = (error) =>
 const receivingShipmentArrayColumnMissing = (error) =>
   ['tracking_ids', 'fba_shipment_ids'].some((col) => isMissingColumnError(error, col));
 
-const normalizeCode = (value) => (typeof value === 'string' ? value.trim() : value ?? null);
+const normalizeCode = (value) => {
+  if (typeof value !== 'string') return value ?? null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+};
 const normalizeAsin = (value) => normalizeCode(value);
 const normalizeSku = (value) => normalizeCode(value);
 const isDuplicateKeyError = (error) => {
