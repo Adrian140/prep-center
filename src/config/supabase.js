@@ -2519,12 +2519,15 @@ getAllReceivingShipments: async (options = {}) => {
   // aduce ambele versiuni de tabele de items
   let query = supabase
     .from('receiving_shipments')
-    .select(`
+    .select(
+      `
       *,
       companies:companies(name),
       receiving_shipment_items(*),
-      receiving_items(*)
-    `, { count: 'exact' })
+      receiving_items(*, stock_item:stock_items(*))
+    `,
+      { count: 'exact' }
+    )
     .order('created_at', { ascending: false });
 
   if (options.fetchAll) {
@@ -2563,7 +2566,7 @@ getAllReceivingShipments: async (options = {}) => {
   if (missingItemShipments.length > 0) {
     const { data: fallbackItems } = await supabase
       .from('receiving_items')
-      .select('*')
+      .select('*, stock_item:stock_items(*)')
       .in('shipment_id', missingItemShipments);
     (fallbackItems || []).forEach((item) => {
       if (!item?.shipment_id) return;
