@@ -116,6 +116,220 @@ export default function FbaStep1Inventory({
   const [labelLoading, setLabelLoading] = useState(false);
   const [labelError, setLabelError] = useState('');
 
+  const normalizedPackGroups = Array.isArray(packGroupsPreview) ? packGroupsPreview : [];
+  const hasPackGroups = normalizedPackGroups.some((g) => Array.isArray(g?.items) && g.items.length > 0);
+
+  const groupedRows = (() => {
+    if (!hasPackGroups) {
+      return skus.map((sku) => ({ type: 'sku', sku }));
+    }
+    const skuByKey = new Map();
+    skus.forEach((sku) => {
+      const skuKey = String(sku.sku || '').trim().toUpperCase();
+      const asinKey = String(sku.asin || '').trim().toUpperCase();
+      if (skuKey) skuByKey.set(skuKey, sku);
+      if (asinKey) skuByKey.set(asinKey, sku);
+    });
+    const usedSkuIds = new Set();
+    const rows = [];
+    normalizedPackGroups.forEach((group, idx) => {
+      const items = Array.isArray(group?.items) ? group.items : [];
+      if (!items.length) return;
+      rows.push({
+        type: 'group',
+        label: `Pack ${idx + 1}`,
+        key: group.packingGroupId || group.id || `pack-${idx + 1}`
+      });
+      items.forEach((it) => {
+        const key = String(it?.sku || it?.msku || it?.SellerSKU || it?.asin || '').trim().toUpperCase();
+        const matched = key ? skuByKey.get(key) : null;
+        if (matched && !usedSkuIds.has(matched.id)) {
+          usedSkuIds.add(matched.id);
+          rows.push({ type: 'sku', sku: matched, key: matched.id });
+        }
+      });
+    });
+    const unassigned = skus.filter((sku) => !usedSkuIds.has(sku.id));
+    if (unassigned.length) {
+      rows.push({ type: 'group', label: 'Unassigned', key: 'pack-unassigned' });
+      unassigned.forEach((sku) => rows.push({ type: 'sku', sku, key: sku.id }));
+    }
+    return rows;
+  })();
+
+  const renderSkuRow = (sku) => {
+    const status = statusForSku(sku);
+    const state = String(status.state || '').toLowerCase();
+    const prepSelection = prepSelections[sku.id] || {};
+    const labelOwner =
+      sku.labelOwner ||
+      (prepSelection.useManufacturerBarcode === true
+        ? 'NONE'
+        : sku.manufacturerBarcodeEligible === false
+          ? 'SELLER'
+          : null);
+    const labelOwnerSource = sku.labelOwnerSource || 'unknown';
+    const labelRequired = labelOwner && labelOwner !== 'NONE';
+    const showLabelButton =
+      (labelRequired || labelOwner === null) &&
+      (['amazon-override', 'prep-guidance'].includes(labelOwnerSource) || true);
+    const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
+    const prepResolved = prepSelection.resolved;
+    const needsExpiry = Boolean(sku.expiryRequired);
+    const badgeClass =
+      state === 'ok'
+        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+        : state === 'missing' || state === 'restricted'
+          ? 'text-red-700 bg-red-50 border-red-200'
+          : state === 'inactive'
+            ? 'text-amber-700 bg-amber-50 border-amber-200'
+            : 'text-slate-600 bg-slate-100 border-slate-200';
+
+    const badgeLabel =
+      state === 'ok'
+        ? 'Eligibil'
+        : state === 'missing'
+          ? 'Nu există listing'
+          : state === 'inactive'
+            ? 'Listing inactiv'
+            : state === 'restricted'
+              ? 'Restricționat'
+              : 'Necunoscut';
+
+    return (
+      <tr key={sku.id} className="align-top">
+        <td className="py-3">
+          <div className="flex gap-3">
+            <img
+              src={sku.image || placeholderImg}
+              alt={sku.title}
+              className="w-12 h-12 object-contain border border-slate-200 rounded"
+            />
+            <div>
+              <div className="font-semibold text-slate-900 hover:text-blue-700 cursor-pointer">
+                {sku.title}
+              </div>
+              <div className="text-xs text-slate-500">SKU: {sku.sku}</div>
+              <div className="text-xs text-slate-500">ASIN: {sku.asin}</div>
+              <div className="text-xs text-slate-500">Storage: {sku.storageType}</div>
+              <div className={`mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded ${badgeClass}`}>
+                {badgeLabel}
+                {status.reason ? <span className="text-slate-500">· {status.reason}</span> : null}
+              </div>
+            </div>
+          </div>
+        </td>
+        <td className="py-3">
+          <select
+            value={sku.packingTemplateName || sku.packing || 'individual'}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === '__template__') {
+                openPackingModal(sku);
+                return;
+              }
+              const template = templates.find(
+                (t) => t.name === val && (t.sku === sku.sku || (t.asin && t.asin === sku.asin))
+              );
+              if (template) {
+                onChangePacking(sku.id, {
+                  packing: template.template_type === 'case' ? 'case' : 'individual',
+                  packingTemplateId: template.id,
+                  packingTemplateName: template.name,
+                  unitsPerBox: template.units_per_box || null
+                });
+                return;
+              }
+              onChangePacking(sku.id, {
+                packing: val,
+                packingTemplateId: null,
+                packingTemplateName: null,
+                unitsPerBox: null
+              });
+            }}
+            className="border rounded-md px-3 py-2 text-sm w-full"
+          >
+            {templates
+              .filter((t) => t.sku === sku.sku || (t.asin && t.asin === sku.asin))
+              .map((t) => (
+                <option key={t.id} value={t.name}>
+                  {t.name}
+                </option>
+              ))}
+            <option value="individual">Individual units</option>
+            <option value="case">Case packed</option>
+            <option value="__template__">Create packing template</option>
+          </select>
+        </td>
+        <td className="py-3">
+          <div className="space-y-1">
+            {labelOwner && (
+              <div className="text-xs text-slate-500">
+                Label owner: <span className="font-semibold">{labelOwner}</span>
+              </div>
+            )}
+            {needsPrepNotice && (
+              <div className="text-xs text-amber-700">Prep set: {sku.prepRequired ? 'Prep needed' : 'No prep needed'}</div>
+            )}
+            {needsExpiry && <div className="text-xs text-amber-700">Expiration date required</div>}
+            {showLabelButton && (
+              <button
+                className="text-xs text-blue-600 underline"
+                onClick={() => setLabelModal({ ...labelModal, open: true, sku })}
+              >
+                Print SKU labels
+              </button>
+            )}
+            <button
+              className="text-xs text-blue-600 underline"
+              onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
+            >
+              More inputs
+            </button>
+            {sku.readyToPack && (
+              <div className="mt-2 flex items-center gap-1 text-emerald-600 text-xs font-semibold">
+                <CheckCircle className="w-4 h-4" /> Ready to pack
+              </div>
+            )}
+          </div>
+        </td>
+        <td className="py-3">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                className="px-2 py-1 border rounded-md text-sm"
+                onClick={() => onChangeQuantity(sku.id, Math.max(0, Number(sku.units || 0) - 1))}
+              >
+                -
+              </button>
+              <input
+                type="number"
+                className="w-16 border rounded-md px-2 py-1 text-sm"
+                value={sku.units || 0}
+                min={0}
+                onChange={(e) => onChangeQuantity(sku.id, Number(e.target.value || 0))}
+              />
+              <button
+                className="px-2 py-1 border rounded-md text-sm"
+                onClick={() => onChangeQuantity(sku.id, Number(sku.units || 0) + 1)}
+              >
+                +
+              </button>
+            </div>
+            {needsExpiry && (
+              <input
+                type="date"
+                value={sku.expiryDate || ''}
+                onChange={(e) => onChangeExpiry(sku.id, e.target.value)}
+                className="border rounded-md px-2 py-1 text-sm"
+              />
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
   // Prefill prep selections as "No prep needed" for all SKUs (Amazon expects a choice).
   useEffect(() => {
     setPrepSelections((prev) => {
@@ -412,232 +626,20 @@ export default function FbaStep1Inventory({
                 </td>
               </tr>
             )}
-            {skus.map((sku) => {
-              const status = statusForSku(sku);
-              const state = String(status.state || '').toLowerCase();
-              const prepSelection = prepSelections[sku.id] || {};
-              const labelOwner =
-                sku.labelOwner ||
-                (prepSelection.useManufacturerBarcode === true
-                  ? 'NONE'
-                  : sku.manufacturerBarcodeEligible === false
-                    ? 'SELLER'
-                    : null);
-              const labelOwnerSource = sku.labelOwnerSource || 'unknown';
-              const labelRequired = labelOwner && labelOwner !== 'NONE';
-              const showLabelButton =
-                (labelRequired || labelOwner === null) &&
-                (['amazon-override', 'prep-guidance'].includes(labelOwnerSource) || true);
-              const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
-              const prepResolved = prepSelection.resolved;
-              const needsExpiry = Boolean(sku.expiryRequired);
-              const badgeClass =
-                state === 'ok'
-                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                  : state === 'missing' || state === 'restricted'
-                    ? 'text-red-700 bg-red-50 border-red-200'
-                    : state === 'inactive'
-                      ? 'text-amber-700 bg-amber-50 border-amber-200'
-                      : 'text-slate-600 bg-slate-100 border-slate-200';
-
-              const badgeLabel =
-                state === 'ok'
-                  ? 'Eligibil'
-                  : state === 'missing'
-                    ? 'Nu există listing'
-                    : state === 'inactive'
-                      ? 'Listing inactiv'
-                      : state === 'restricted'
-                        ? 'Restricționat'
-                        : 'Necunoscut';
-
-              return (
-                <tr key={sku.id} className="align-top">
-                <td className="py-3">
-                  <div className="flex gap-3">
-                    <img
-                      src={sku.image || placeholderImg}
-                      alt={sku.title}
-                      className="w-12 h-12 object-contain border border-slate-200 rounded"
-                    />
-                    <div>
-                      <div className="font-semibold text-slate-900 hover:text-blue-700 cursor-pointer">
-                        {sku.title}
-                      </div>
-                      <div className="text-xs text-slate-500">SKU: {sku.sku}</div>
-                      <div className="text-xs text-slate-500">ASIN: {sku.asin}</div>
-                      <div className="text-xs text-slate-500">Storage: {sku.storageType}</div>
-                      <div className={`mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded ${badgeClass}`}>
-                        {badgeLabel}
-                        {status.reason ? <span className="text-slate-500">· {status.reason}</span> : null}
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                  <td className="py-3">
-                    <select
-                      value={sku.packingTemplateName || sku.packing || 'individual'}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === '__template__') {
-                          openPackingModal(sku);
-                          return;
-                        }
-                        const template = templates.find(
-                          (t) => t.name === val && (t.sku === sku.sku || (t.asin && t.asin === sku.asin))
-                        );
-                        if (template) {
-                          onChangePacking(sku.id, {
-                            packing: template.template_type === 'case' ? 'case' : 'individual',
-                            packingTemplateId: template.id,
-                            packingTemplateName: template.name,
-                            unitsPerBox: template.units_per_box || null
-                          });
-                          return;
-                        }
-                        onChangePacking(sku.id, {
-                          packing: val,
-                          packingTemplateId: null,
-                          packingTemplateName: null,
-                          unitsPerBox: null
-                        });
-                      }}
-                      className="border rounded-md px-3 py-2 text-sm w-full"
-                    >
-                      {templates
-                        .filter((t) => t.sku === sku.sku || (t.asin && t.asin === sku.asin))
-                        .map((t) => (
-                          <option key={t.id} value={t.name}>
-                            {t.name}
-                          </option>
-                        ))}
-                      <option value="individual">Individual units</option>
-                      <option value="case">Case packed</option>
-                      <option value="__template__">Create packing template</option>
-                    </select>
-                  </td>
-                  <td className="py-3">
-                    <div className="space-y-1">
-                      <div className="text-slate-700 flex items-center gap-2">
-                        <span>
-                          {needsPrepNotice && prepResolved
-                            ? `Prep set: ${prepCategoryLabel(prepSelection.prepCategory)}`
-                            : sku.prepRequired
-                              ? 'Prep and labelling details needed'
-                              : 'Prep not required'}
-                        </span>
-                        <button
-                          onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
-                          className="text-amber-600 text-xs inline-flex items-center gap-1"
-                        >
-                          More inputs
-                        </button>
-                      </div>
-                      <div className="text-xs text-slate-600">
-                        {prepSelection.manufacturerBarcodeEligible === false
-                          ? 'Manufacturer barcode not eligible'
-                          : prepSelection.useManufacturerBarcode
-                            ? 'Unit labelling: Not required (manufacturer barcode)'
-                            : labelOwner === 'NONE'
-                              ? 'Unit labelling: Not required'
-                              : labelOwner
-                                ? 'Unit labelling: By seller'
-                                : 'Unit labelling: Unknown (check guidance)'}
-                      </div>
-                      {sku.manufacturerBarcodeEligible !== false && !prepSelection.useManufacturerBarcode && (
-                        <button
-                          onClick={() => {
-                            const currentPrepCategory = prepSelections[sku.id]?.prepCategory || 'none';
-                            setPrepSelections((prev) => ({
-                              ...prev,
-                              [sku.id]: {
-                                ...(prev[sku.id] || {}),
-                                resolved: true,
-                                prepCategory: currentPrepCategory,
-                                useManufacturerBarcode: true,
-                                manufacturerBarcodeEligible: true
-                              }
-                            }));
-                            onChangePrep?.(sku.id, {
-                              prepCategory: currentPrepCategory,
-                              useManufacturerBarcode: true,
-                              prepOwner: 'NONE',
-                              labelOwner: 'NONE'
-                            });
-                          }}
-                          className="text-xs font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center"
-                        >
-                          Save by using manufacturer barcode
-                        </button>
-                      )}
-                      {showLabelButton && (
-                        <button
-                          onClick={() => openLabelModal(sku)}
-                          className="text-sm font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
-                        >
-                          Print SKU labels
-                        </button>
-                      )}
-                      {labelRequired && labelOwnerSource === 'amazon-override' && (
-                        <div className="text-[11px] text-amber-600">
-                          Amazon solicită etichete pentru acest SKU.
-                        </div>
-                      )}
-                      {labelOwner === null && (
-                        <div className="text-[11px] text-amber-600">
-                          Label owner necunoscut (se recomandă verificare / print).
-                        </div>
-                      )}
-                    </div>
-                    {templateError && (
-                      <div className="text-xs text-red-600 mt-2">
-                        {templateError}
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-3 w-48">
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col text-xs text-slate-600">
-                        <span className="mb-1 text-slate-700">Boxes</span>
-                        <input
-                          type="text"
-                          value="—"
-                          disabled
-                          className="border rounded-md px-2 py-1 w-16 bg-slate-100 text-center text-slate-500"
-                        />
-                      </div>
-                      <div className="flex flex-col text-xs text-slate-600">
-                        <span className="mb-1 text-slate-700">Units</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={sku.units}
-                          onChange={(e) => onChangeQuantity(sku.id, Number(e.target.value))}
-                          className="border rounded-md px-2 py-1 w-20"
-                        />
-                      </div>
-                    </div>
-                    {needsExpiry && (
-                      <div className="mt-3 flex flex-col gap-1 text-xs text-slate-700">
-                        <div className="font-semibold text-slate-800">Expiry</div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="date"
-                            value={sku.expiry || ''}
-                            onChange={(e) => onChangeExpiry(sku.id, e.target.value)}
-                            className="border rounded-md px-2 py-1 text-xs"
-                          />
-                        </div>
-                      </div>
-                    )}
-                    {sku.readyToPack && (
-                      <div className="mt-2 flex items-center gap-1 text-emerald-600 text-xs font-semibold">
-                        <CheckCircle className="w-4 h-4" /> Ready to pack
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
+            {groupedRows.map((row, rowIdx) => {
+              if (row.type === 'group') {
+                return (
+                  <tr key={`group-${row.key}-${rowIdx}`} className="bg-slate-50">
+                    <td colSpan={4} className="py-2 text-slate-700 font-semibold border-t border-slate-200">
+                      {row.label}
+                    </td>
+                  </tr>
+                );
+              }
+              if (row.type === 'sku') {
+                return renderSkuRow(row.sku);
+              }
+              return null;
             })}
           </tbody>
         </table>
@@ -658,7 +660,12 @@ export default function FbaStep1Inventory({
             Nu avem încă packing groups. Continuă către Step 1b sau reîncarcă planul.
           </div>
         )}
-        {!packGroupsPreviewLoading && Array.isArray(packGroupsPreview) && packGroupsPreview.length > 0 && (
+        {!packGroupsPreviewLoading && hasPackGroups && (
+          <div className="text-sm text-slate-600">
+            Produsele sunt grupate mai sus în listă după pack groups.
+          </div>
+        )}
+        {!packGroupsPreviewLoading && Array.isArray(packGroupsPreview) && packGroupsPreview.length > 0 && !hasPackGroups && (
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             {packGroupsPreview.map((group, idx) => {
               const items = Array.isArray(group.items) ? group.items : [];

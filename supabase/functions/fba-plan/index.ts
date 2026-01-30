@@ -19,6 +19,15 @@ const AWS_SESSION_TOKEN = Deno.env.get("AWS_SESSION_TOKEN") || null;
 const SPAPI_ROLE_ARN = Deno.env.get("SPAPI_ROLE_ARN") || "";
 
 const SUPABASE_SELLER_ID = Deno.env.get("SPAPI_SELLER_ID") || "";
+const WAREHOUSE_DE_NAME = Deno.env.get("WAREHOUSE_DE_NAME") || "";
+const WAREHOUSE_DE_COMPANY = Deno.env.get("WAREHOUSE_DE_COMPANY") || "";
+const WAREHOUSE_DE_ADDRESS_LINE1 = Deno.env.get("WAREHOUSE_DE_ADDRESS_LINE1") || "";
+const WAREHOUSE_DE_ADDRESS_LINE2 = Deno.env.get("WAREHOUSE_DE_ADDRESS_LINE2") || "";
+const WAREHOUSE_DE_CITY = Deno.env.get("WAREHOUSE_DE_CITY") || "";
+const WAREHOUSE_DE_STATE = Deno.env.get("WAREHOUSE_DE_STATE") || "";
+const WAREHOUSE_DE_POSTAL = Deno.env.get("WAREHOUSE_DE_POSTAL") || "";
+const WAREHOUSE_DE_PHONE = Deno.env.get("WAREHOUSE_DE_PHONE") || "";
+const WAREHOUSE_DE_EMAIL = Deno.env.get("WAREHOUSE_DE_EMAIL") || "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -116,6 +125,66 @@ function toBool(v: any): boolean | null {
     if (["false", "no", "0"].includes(s)) return false;
   }
   return null;
+}
+
+function normalizeWarehouseCountry(input: any) {
+  const raw = String(input || "").trim().toUpperCase();
+  if (raw === "DE" || raw === "GERMANY" || raw === "DEU") return "DE";
+  return "FR";
+}
+
+function buildWarehouseAddress(country: string, input?: any) {
+  if (input && typeof input === "object") {
+    return {
+      name: input.name || input.contactName || input.person || "Prep Center",
+      addressLine1: input.addressLine1 || input.address_line1 || input.line1 || "",
+      addressLine2: input.addressLine2 || input.address_line2 || input.line2 || "",
+      city: input.city || input.locality || "",
+      stateOrProvinceCode: input.stateOrProvinceCode || input.state || input.region || "",
+      postalCode: input.postalCode || input.zip || input.postcode || "",
+      countryCode: (input.countryCode || input.country || country || "FR").toUpperCase(),
+      phoneNumber: input.phoneNumber || input.phone || "",
+      email: input.email || "",
+      companyName: input.companyName || input.company || ""
+    };
+  }
+  if (country === "DE") {
+    const missing = [
+      WAREHOUSE_DE_NAME,
+      WAREHOUSE_DE_ADDRESS_LINE1,
+      WAREHOUSE_DE_CITY,
+      WAREHOUSE_DE_POSTAL,
+      WAREHOUSE_DE_PHONE,
+      WAREHOUSE_DE_EMAIL
+    ].some((v) => !String(v || "").trim());
+    if (missing) {
+      throw new Error("Missing DE warehouse address. Set WAREHOUSE_DE_* environment variables.");
+    }
+    return {
+      name: WAREHOUSE_DE_NAME,
+      addressLine1: WAREHOUSE_DE_ADDRESS_LINE1,
+      addressLine2: WAREHOUSE_DE_ADDRESS_LINE2 || "",
+      city: WAREHOUSE_DE_CITY,
+      stateOrProvinceCode: WAREHOUSE_DE_STATE || "",
+      postalCode: WAREHOUSE_DE_POSTAL,
+      countryCode: "DE",
+      phoneNumber: WAREHOUSE_DE_PHONE,
+      email: WAREHOUSE_DE_EMAIL,
+      companyName: WAREHOUSE_DE_COMPANY || ""
+    };
+  }
+  return {
+    name: "Bucur Adrian",
+    addressLine1: "5 Rue des Enclos",
+    addressLine2: "Cellule 7",
+    city: "La Gouesniere",
+    stateOrProvinceCode: "35",
+    postalCode: "35350",
+    countryCode: "FR",
+    phoneNumber: "+33675116218",
+    email: "contact@prep-center.eu",
+    companyName: "EcomPrep Hub"
+  };
 }
 
 function normalizeAttrArray(v: any): any[] {
@@ -1247,7 +1316,7 @@ serve(async (req) => {
     const { data: reqDataRaw, error: reqErr } = await supabase
       .from("prep_requests")
       .select(
-        "id, destination_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
+        "id, destination_country, warehouse_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
       )
       .eq("id", requestId)
       .maybeSingle();
@@ -1600,20 +1669,25 @@ serve(async (req) => {
       if (stock?.image_url) stockImageBySku[skuKey] = stock.image_url;
     });
 
-    // Ship-from: fixed prep center address (real location in FR, nu schimbăm după destinație)
-    const shipFromCountry = "FR";
-    const shipFromAddress = {
-      name: "Bucur Adrian",
-      addressLine1: "5 Rue des Enclos",
-      addressLine2: "Cellule 7",
-      city: "La Gouesniere",
-      stateOrProvinceCode: "35", // FR department code for Ille-et-Vilaine
-      postalCode: "35350",
-      countryCode: shipFromCountry,
-      phoneNumber: "+33675116218",
-      email: "contact@prep-center.eu",
-      companyName: "EcomPrep Hub"
-    };
+    const warehouseCountryInput =
+      body?.warehouse_country ??
+      body?.warehouseCountry ??
+      reqData.warehouse_country ??
+      reqData.destination_country ??
+      "FR";
+    const warehouseCountry = normalizeWarehouseCountry(warehouseCountryInput);
+    const sourceAddressInput = body?.source_address ?? body?.sourceAddress ?? null;
+    const shipFromAddress = buildWarehouseAddress(warehouseCountry, sourceAddressInput);
+    const shipFromCountry = String(shipFromAddress.countryCode || warehouseCountry || "FR").toUpperCase();
+    if (!reqData.warehouse_country || reqData.warehouse_country !== warehouseCountry) {
+      const { error: warehouseErr } = await supabase
+        .from("prep_requests")
+        .update({ warehouse_country: warehouseCountry })
+        .eq("id", requestId);
+      if (warehouseErr) {
+        console.warn("fba-plan warehouse_country update failed", { traceId, error: warehouseErr.message });
+      }
+    }
 
     const scopesLower = lwaScopes.map((s) => s.toLowerCase());
     const scopesDecoded = scopesLower.length > 0;

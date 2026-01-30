@@ -1038,9 +1038,11 @@ serve(async (req) => {
             genRes = null;
             genOpId = null;
           }
-          warnings.push(
-            `Amazon a refuzat generatePackingOptions (${genRes.res.status}). Verifică permisiunile Inbound/packing pe cont. ${errMsg ? `Detaliu: ${errMsg}` : ""}`
-          );
+          if (!generateNotSupported) {
+            warnings.push(
+              `Amazon a refuzat generatePackingOptions (${genRes.res.status}). Verifică permisiunile Inbound/packing pe cont. ${errMsg ? `Detaliu: ${errMsg}` : ""}`
+            );
+          }
         }
 
         genOpId =
@@ -1349,19 +1351,25 @@ serve(async (req) => {
     // Dacă după generate/poll Amazon continuă să returneze 200 cu packingOptions goale și nu există operație în curs,
     // considerăm planul ca fiind nesuportat pentru packing options și trimitem răspuns explicit.
     if (!packingGroupIds.length && packingOptionsCount === 0 && listRes?.res?.ok && !generationInFlight) {
+      warnings.push(
+        "Amazon nu a returnat packingOptions pentru acest inbound plan (posibil plan nesuportat pentru packing options). Continuăm fără pack groups."
+      );
       return new Response(
         JSON.stringify({
           code: "PACKING_OPTIONS_NOT_AVAILABLE",
           message:
-            "Amazon nu a returnat packingOptions pentru acest inbound plan (posibil plan nesuportat pentru packing options). Creează un plan nou sau continuă fluxul fără pack groups.",
+            "Amazon nu a returnat packingOptions pentru acest inbound plan. Continuăm fără pack groups.",
           traceId,
           inboundPlanId,
           packingOptionId: null,
           placementOptionId: null,
           amazonIntegrationId: integId || null,
+          warnings,
+          packingOptions: [],
+          packingGroups: [],
           debug: debugSnapshot()
         }),
-        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
 
