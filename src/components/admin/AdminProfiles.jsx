@@ -351,8 +351,7 @@ export default function AdminProfiles({ onSelect }) {
         ? nonAdmins.filter((r) => {
             const allowed = Array.isArray(r.allowed_markets) ? r.allowed_markets : [];
             const normalizedAllowed = allowed.map((c) => normalizeMarketCode(c));
-            return normalizedAllowed.includes(marketCode) ||
-              normalizeMarketCode(r.country) === marketCode;
+            return normalizedAllowed.includes(marketCode);
           })
         : nonAdmins;
 
