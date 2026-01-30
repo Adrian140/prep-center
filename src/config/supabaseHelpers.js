@@ -185,11 +185,21 @@ createReceptionRequest: async (data) => {
   };
 
   const insertHeader = async (payload) => {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("receiving_shipments")
       .insert([payload])
       .select()
       .single();
+    if (error && isMissingColumnError(error, 'warehouse_country')) {
+      const { warehouse_country, ...fallback } = payload;
+      const retry = await supabase
+        .from("receiving_shipments")
+        .insert([fallback])
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
     if (error) throw error;
     return data;
   };

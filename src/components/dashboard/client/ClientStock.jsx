@@ -1483,7 +1483,7 @@ useEffect(() => {
     setSavingReturn(true);
     try {
       const today = new Date().toISOString().slice(0, 10);
-      const { data: retRow, error: retErr } = await supabase
+      let { data: retRow, error: retErr } = await supabase
         .from('returns')
         .insert({
           company_id: profile.company_id,
@@ -1496,6 +1496,22 @@ useEffect(() => {
         })
         .select('id')
         .single();
+      if (retErr && String(retErr.message || '').toLowerCase().includes('warehouse_country')) {
+        const retry = await supabase
+          .from('returns')
+          .insert({
+            company_id: profile.company_id,
+            user_id: profile.id,
+            marketplace: receptionForm.destinationCountry || 'FR',
+            return_date: today,
+            status: 'pending',
+            notes: returnNotes || null
+          })
+          .select('id')
+          .single();
+        retRow = retry.data;
+        retErr = retry.error;
+      }
       if (retErr) throw retErr;
       const itemsPayload = itemsList.map((it) => ({
         return_id: retRow.id,
