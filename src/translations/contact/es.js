@@ -50,7 +50,7 @@ export const contactEs = {
   // Business Hours
   businessHours: 'Horarios de Trabajo',
   mondayFriday: 'Lunes - Viernes',
-  mondayFridayHours: '8:00 AM - 6:00 PM',
+  mondayFridayHours: '9:00 AM - 5:00 PM',
   saturday: 'Sábado',
   saturdayHours: 'Cerrado',
   sunday: 'Domingo',

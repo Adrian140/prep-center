@@ -50,7 +50,7 @@ export const contactRo = {
   // Business Hours
   businessHours: 'Program de Lucru',
   mondayFriday: 'Luni - Vineri',
-  mondayFridayHours: '8:00 - 18:00',
+  mondayFridayHours: '9:00 - 17:00',
   saturday: 'Sâmbătă',
   saturdayHours: 'Închis',
   sunday: 'Duminică',
