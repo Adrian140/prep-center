@@ -57,21 +57,30 @@ export const supabaseHelpers = {
   createPrepRequest: async (data) => {
     const warehouseCountry = (data.warehouse_country || data.warehouseCountry || data.market || data.market_code || data.country || 'FR').toUpperCase();
     // 1️⃣ Inserăm headerul în prep_requests
-    const { data: header, error: err1 } = await supabase
+    const basePayload = {
+      user_id: data.user_id,
+      company_id: data.company_id,
+      destination_country: data.destination_country || "FR",
+      warehouse_country: warehouseCountry,
+      status: data.status || "pending",
+      obs_admin: data.obs_admin || null,
+      created_at: new Date().toISOString(),
+    };
+    let { data: header, error: err1 } = await supabase
       .from("prep_requests")
-      .insert([
-        {
-          user_id: data.user_id,
-          company_id: data.company_id,
-          destination_country: data.destination_country || "FR",
-          warehouse_country: warehouseCountry,
-          status: data.status || "pending",
-          obs_admin: data.obs_admin || null,
-          created_at: new Date().toISOString(),
-        },
-      ])
+      .insert([basePayload])
       .select()
       .single();
+    if (err1 && isMissingColumnError(err1, 'warehouse_country')) {
+      const { warehouse_country, ...fallback } = basePayload;
+      const retry = await supabase
+        .from("prep_requests")
+        .insert([fallback])
+        .select()
+        .single();
+      header = retry.data;
+      err1 = retry.error;
+    }
 
     if (err1) throw err1;
 

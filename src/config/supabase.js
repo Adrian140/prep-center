@@ -1266,21 +1266,32 @@ resetPassword: async (email) => {
         'FR'
       ).toUpperCase();
       // 1) Insert header cu user_id + destination_country normalizat
-      const { data: request, error: requestError } = await supabase
+      const headerPayload = {
+        company_id: draftData.company_id,
+        user_id:
+          draftData.user_id ??
+          (await supabase.auth.getUser()).data?.user?.id ??
+          null,
+        destination_country:
+          draftData.destination_country || draftData.country, // compat
+        warehouse_country: warehouseCountry,
+        status: 'pending',
+      };
+      let { data: request, error: requestError } = await supabase
         .from('prep_requests')
-        .insert({
-          company_id: draftData.company_id,
-          user_id:
-            draftData.user_id ??
-            (await supabase.auth.getUser()).data?.user?.id ??
-            null,
-          destination_country:
-            draftData.destination_country || draftData.country, // compat
-          warehouse_country: warehouseCountry,
-          status: 'pending',
-        })
+        .insert(headerPayload)
         .select()
         .single();
+      if (requestError && isMissingColumnError(requestError, 'warehouse_country')) {
+        const { warehouse_country, ...fallback } = headerPayload;
+        const retry = await supabase
+          .from('prep_requests')
+          .insert(fallback)
+          .select()
+          .single();
+        request = retry.data;
+        requestError = retry.error;
+      }
 
       if (requestError) throw requestError;
       if (!request?.id) throw new Error('Prep request insert returned no id');
