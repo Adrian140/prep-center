@@ -3,6 +3,8 @@ import { AlertTriangle, Box, CheckCircle } from 'lucide-react';
 
 const MAX_STANDARD_BOX_KG = 23; // 50.71 lb, Amazon standard-size limit
 const MAX_STANDARD_BOX_MSG = `Limita maxima este ${MAX_STANDARD_BOX_KG} kg per cutie.`;
+const MAX_STANDARD_BOX_CM = 63.5;
+const MAX_STANDARD_BOX_DIM_MSG = `Limita maxima este ${MAX_STANDARD_BOX_CM} cm pe latura (exceptie: 1 unitate oversize).`;
 
 export default function FbaStep1bPacking({
   packGroups,
@@ -127,6 +129,13 @@ export default function FbaStep1bPacking({
   const resolveGroupNumber = (value) => {
     const num = Number(String(value ?? '').replace(',', '.'));
     return Number.isFinite(num) ? num : 0;
+  };
+
+  const resolveTotalUnits = (group) => {
+    if (Array.isArray(group.items) && group.items.length) {
+      return group.items.reduce((sum, it) => sum + resolveGroupNumber(it.quantity), 0);
+    }
+    return resolveGroupNumber(group.units);
   };
 
   const clampBoxes = (value) => {
@@ -276,6 +285,33 @@ export default function FbaStep1bPacking({
     const missingPackingId = (visibleGroups || []).find((g) => !g.packingGroupId);
     if (missingPackingId) {
       return 'Amazon nu a returnat packingGroupId pentru unul din grupuri. Reia Step 1b ca să obții packing groups reale.';
+    }
+    const oversizeDim = visibleGroups.some((group) => {
+      const { dims, boxes, perBoxDetails, perBoxItems } = resolveBoxState(group);
+      const boxCount = clampBoxes(boxes);
+      const totalUnits = resolveTotalUnits(group);
+      const maxSide = Math.max(
+        resolveGroupNumber(dims.length),
+        resolveGroupNumber(dims.width),
+        resolveGroupNumber(dims.height)
+      );
+      if ((group.packMode || 'single') !== 'multiple') {
+        return maxSide > MAX_STANDARD_BOX_CM && totalUnits !== 1;
+      }
+      const perBoxUnits = (Array.isArray(perBoxItems) ? perBoxItems : [])
+        .slice(0, boxCount)
+        .map((box) =>
+          Object.values(box || {}).reduce((sum, qty) => sum + resolveGroupNumber(qty), 0)
+        );
+      const perBox = (perBoxDetails || []).slice(0, boxCount);
+      return perBox.some((b, idx) => {
+        const max = Math.max(resolveGroupNumber(b.length), resolveGroupNumber(b.width), resolveGroupNumber(b.height));
+        if (max <= MAX_STANDARD_BOX_CM) return false;
+        return (perBoxUnits[idx] || 0) !== 1;
+      });
+    });
+    if (oversizeDim) {
+      return MAX_STANDARD_BOX_DIM_MSG;
     }
     const overweight = visibleGroups.some((group) => {
       const { weight, boxes, perBoxDetails } = resolveBoxState(group);
@@ -535,6 +571,18 @@ export default function FbaStep1bPacking({
     const overweightBoxes = perBoxDetails.some((d) => resolveGroupNumber(d?.weight) >= MAX_STANDARD_BOX_KG);
     if (overweightBoxes) {
       validationMessages.push(MAX_STANDARD_BOX_MSG);
+    }
+    const oversizeDims = perBoxDetails.some((d, idx) => {
+      const maxSide = Math.max(
+        resolveGroupNumber(d?.length),
+        resolveGroupNumber(d?.width),
+        resolveGroupNumber(d?.height)
+      );
+      if (maxSide <= MAX_STANDARD_BOX_CM) return false;
+      return (perBoxTotals[idx] || 0) !== 1;
+    });
+    if (oversizeDims) {
+      validationMessages.push(MAX_STANDARD_BOX_DIM_MSG);
     }
 
     const hasDimensionSelection = dimensionSets.some(
@@ -1039,8 +1087,14 @@ export default function FbaStep1bPacking({
                         const width = resolveGroupNumber(dims.width);
                         const height = resolveGroupNumber(dims.height);
                         const w = resolveGroupNumber(weight);
+                        const totalUnits = resolveTotalUnits(group);
                         if (!(length > 0 && width > 0 && height > 0 && w > 0)) {
                           setContinueError('Completează dimensiunile și greutatea înainte de a salva grupul.');
+                          return;
+                        }
+                        const maxSide = Math.max(length, width, height);
+                        if (maxSide > MAX_STANDARD_BOX_CM && totalUnits !== 1) {
+                          setContinueError(MAX_STANDARD_BOX_DIM_MSG);
                           return;
                         }
                         if (w >= MAX_STANDARD_BOX_KG) {
