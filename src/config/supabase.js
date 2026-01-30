@@ -76,6 +76,23 @@ const isLikelyAsin = (value) => {
   if (!value) return false;
   return /^[A-Z0-9]{10}$/.test(String(value).toUpperCase());
 };
+const sumLineRows = (rows = [], qtyField = 'units') =>
+  (rows || []).reduce((acc, row) => {
+    const total =
+      row?.total != null
+        ? Number(row.total)
+        : Number(row?.unit_price || 0) * Number(row?.[qtyField] || 0);
+    return acc + (Number.isFinite(total) ? total : 0);
+  }, 0);
+const sumPaidInvoices = (rows = []) =>
+  (rows || []).reduce((acc, row) => {
+    const status = String(row?.status || '').trim().toLowerCase();
+    const amount = Number(row?.amount);
+    if (status === 'paid' && Number.isFinite(amount)) {
+      return acc + amount;
+    }
+    return acc;
+  }, 0);
 const isDuplicateKeyError = (error) => {
   if (!error) return false;
   const message = String(error.message || '').toLowerCase();
@@ -2356,6 +2373,54 @@ createPrepItem: async (requestId, item) => {
     };
   },
   // ===== Analytics / Balances =====
+  getCompanyLiveBalance: async (companyId, market) => {
+    if (!companyId) return { data: 0, error: null };
+    const marketCode = normalizeMarketCode(market);
+    const withCountry = (query) =>
+      marketCode ? query.eq('country', marketCode) : query;
+
+    const [fbaRes, fbmRes, otherRes, invoicesRes] = await Promise.all([
+      withCountry(
+        supabase
+          .from('fba_lines')
+          .select('unit_price, units, total')
+          .eq('company_id', companyId)
+      ),
+      withCountry(
+        supabase
+          .from('fbm_lines')
+          .select('unit_price, orders_units, total')
+          .eq('company_id', companyId)
+      ),
+      withCountry(
+        supabase
+          .from('other_lines')
+          .select('unit_price, units, total')
+          .eq('company_id', companyId)
+      ),
+      withCountry(
+        supabase
+          .from('invoices')
+          .select('amount, status')
+          .eq('company_id', companyId)
+      )
+    ]);
+
+    const error =
+      fbaRes.error ||
+      fbmRes.error ||
+      otherRes.error ||
+      invoicesRes.error ||
+      null;
+    if (error) return { data: 0, error };
+
+    const services =
+      sumLineRows(fbaRes.data, 'units') +
+      sumLineRows(fbmRes.data, 'orders_units') +
+      sumLineRows(otherRes.data, 'units');
+    const paid = sumPaidInvoices(invoicesRes.data);
+    return { data: services - paid, error: null };
+  },
   getPeriodBalances: async (...args) => {
     // compatibilitate: acceptă atât (companyId, startDate, endDate)
     // cât și (userId, companyId, startDate, endDate)

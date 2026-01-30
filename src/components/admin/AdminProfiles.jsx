@@ -40,15 +40,6 @@ const sumLineRows = (rows = [], qtyField = "units") =>
 
 const sumOtherLineRows = (rows = []) => sumLineRows(rows, "units");
 
-const sumPaidInvoices = (rows = []) =>
-  (rows || []).reduce((acc, row) => {
-    const status = String(row?.status || '').trim().toLowerCase();
-    const amount = Number(row?.amount);
-    if (status === 'paid' && Number.isFinite(amount)) {
-      return acc + amount;
-    }
-    return acc;
-  }, 0);
 async function mapWithConcurrency(items, limit, mapper) {
   const results = new Array(items.length);
   let idx = 0;
@@ -60,47 +51,6 @@ async function mapWithConcurrency(items, limit, mapper) {
   });
   await Promise.all(workers);
   return results;
-}
-
-async function fetchLiveBalance(companyId, market) {
-  if (!companyId) return 0;
-  const marketCode = normalizeMarketCode(market);
-  const withCountry = (query) =>
-    marketCode ? query.eq('country', marketCode) : query;
-  const [{ data: fba }, { data: fbm }, { data: other }, { data: invoices }] =
-    await Promise.all([
-      withCountry(
-        supabase
-          .from('fba_lines')
-          .select('unit_price, units, total')
-          .eq('company_id', companyId)
-      ),
-      withCountry(
-        supabase
-          .from('fbm_lines')
-          .select('unit_price, orders_units, total')
-          .eq('company_id', companyId)
-      ),
-      withCountry(
-        supabase
-          .from('other_lines')
-          .select('unit_price, units, total')
-          .eq('company_id', companyId)
-      ),
-      withCountry(
-        supabase
-          .from('invoices')
-          .select('amount, status')
-          .eq('company_id', companyId)
-      )
-    ]);
-
-  const services =
-    sumLineRows(fba, 'units') +
-    sumLineRows(fbm, 'orders_units') +
-    sumLineRows(other, 'units');
-  const paid = sumPaidInvoices(invoices);
-  return services - paid;
 }
 
 async function fetchOtherLineSums(companyId, startDate, endDate, market) {
@@ -535,10 +485,13 @@ const tableTotals = useMemo(() => {
         const entries = await mapWithConcurrency(rows, 8, async (p) => {
           if (!p.company_id) return [p.id, { currentSold: 0, carry: 0, diff: 0 }];
 
-          const [marketSums, liveBalance] = await Promise.all([
+          const [marketSums, liveBalanceRes] = await Promise.all([
             fetchServiceLineSums(p.company_id, start, end, currentMarket),
-            fetchLiveBalance(p.company_id, currentMarket),
+            supabaseHelpers.getCompanyLiveBalance(p.company_id, currentMarket),
           ]);
+          const liveBalance = Number.isFinite(liveBalanceRes?.data)
+            ? liveBalanceRes.data
+            : 0;
 
           let current = Number(marketSums.current ?? 0);
           let carry = Number(marketSums.carry ?? 0) * -1;

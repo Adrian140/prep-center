@@ -1,20 +1,11 @@
 // FILE: src/components/dashboard/client/ClientBalanceBar.jsx
 import React, { useEffect, useState } from "react";
-import { supabase } from "../../../config/supabase";
+import { supabaseHelpers } from "../../../config/supabase";
 import { useDashboardTranslation } from "../../../translations";
 import { useSupabaseAuth } from "../../../contexts/SupabaseAuthContext";
 import { useMarket } from '@/contexts/MarketContext';
 
-const DEBUG_BALANCE = false;
-const normStatus = (s) => String(s || "").trim().toLowerCase();
-
 const fmt2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "0.00");
-
-const num = (v, { allowNull = false } = {}) => {
-  if (v === "" || v == null) return allowNull ? null : 0;
-  const n = Number(String(v).replace(",", "."));
-  return Number.isFinite(n) ? n : (allowNull ? null : 0);
-};
 
 export default function ClientBalanceBar({ companyId, variant = 'default' }) {
   const { t } = useDashboardTranslation();
@@ -30,9 +21,6 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
 
   useEffect(() => {
     let mounted = true;
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
     (async () => {
       if (!companyId) {
         if (mounted) {
@@ -42,72 +30,11 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
         return;
       }
       setLoading(true);
-
-      const [{ data: fbaAll }, { data: fbmAll }, { data: otherAll }] = await Promise.all([
-        supabase
-          .from("fba_lines")
-          .select("id, unit_price, units, total, service_date")
-          .eq("company_id", companyId)
-          .eq("country", currentMarket)
-          .gte("service_date", monthStart)
-          .lt("service_date", monthEnd),
-        supabase
-          .from("fbm_lines")
-          .select("id, unit_price, orders_units, total, service_date")
-          .eq("company_id", companyId)
-          .eq("country", currentMarket)
-          .gte("service_date", monthStart)
-          .lt("service_date", monthEnd),
-        supabase
-          .from("other_lines")
-          .select("id, unit_price, units, total, service_date")
-          .eq("company_id", companyId)
-          .eq("country", currentMarket)
-          .gte("service_date", monthStart)
-          .lt("service_date", monthEnd),
-      ]);
-
-      const fbaSum = (fbaAll || []).reduce((s, r) => {
-        const v = r.total != null ? num(r.total) : num(r.unit_price) * num(r.units);
-        return s + (Number.isFinite(v) ? v : 0);
-      }, 0);
-
-      const fbmSum = (fbmAll || []).reduce((s, r) => {
-        const v =
-          r.total != null ? num(r.total) : num(r.unit_price) * num(r.orders_units);
-        return s + (Number.isFinite(v) ? v : 0);
-      }, 0);
-      const otherSum = (otherAll || []).reduce((s, r) => {
-        const v = r.total != null ? num(r.total) : num(r.unit_price) * num(r.units);
-        return s + (Number.isFinite(v) ? v : 0);
-      }, 0);
-
-      const { data: invoicesAll } = await supabase
-        .from("invoices")
-        .select("id, amount, status, issue_date, company_id")
-        .eq("company_id", companyId)
-        .eq("country", currentMarket)
-        .gte("issue_date", monthStart)
-        .lt("issue_date", monthEnd);
-
-      const paidSum = (invoicesAll || []).reduce((s, r) => {
-        const isPaid = normStatus(r.status) === "paid";
-        const val = num(r.amount);
-        return s + (isPaid && Number.isFinite(val) ? val : 0);
-      }, 0);
-
-      const diff = fbaSum + fbmSum + otherSum - paidSum;
-
-      if (DEBUG_BALANCE) {
-        console.log("[BALANCE DEBUG] all-time:", {
-          fbaSum: fbaSum.toFixed(2),
-          fbmSum: fbmSum.toFixed(2),
-          otherSum: otherSum.toFixed(2),
-          services: (fbaSum + fbmSum + otherSum).toFixed(2),
-          paidSum: paidSum.toFixed(2),
-          balance: diff.toFixed(2),
-        });
-      }
+      const { data, error } = await supabaseHelpers.getCompanyLiveBalance(
+        companyId,
+        currentMarket
+      );
+      const diff = error || !Number.isFinite(data) ? 0 : data;
 
       if (mounted) {
         setBalance(diff);
