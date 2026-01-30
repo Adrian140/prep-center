@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { AlertTriangle, Box, CheckCircle } from 'lucide-react';
 
 const MAX_STANDARD_BOX_KG = 23; // 50.71 lb, Amazon standard-size limit
+const MAX_STANDARD_BOX_MSG = `Limita maxima este ${MAX_STANDARD_BOX_KG} kg per cutie.`;
 
 export default function FbaStep1bPacking({
   packGroups,
@@ -276,6 +277,18 @@ export default function FbaStep1bPacking({
     if (missingPackingId) {
       return 'Amazon nu a returnat packingGroupId pentru unul din grupuri. Reia Step 1b ca să obții packing groups reale.';
     }
+    const overweight = visibleGroups.some((group) => {
+      const { weight, boxes, perBoxDetails } = resolveBoxState(group);
+      const boxCount = clampBoxes(boxes);
+      if ((group.packMode || 'single') === 'multiple') {
+        const perBox = (perBoxDetails || []).slice(0, boxCount);
+        return perBox.some((b) => resolveGroupNumber(b.weight) > MAX_STANDARD_BOX_KG);
+      }
+      return resolveGroupNumber(weight) > MAX_STANDARD_BOX_KG;
+    });
+    if (overweight) {
+      return MAX_STANDARD_BOX_MSG;
+    }
     const missing = visibleGroups.find((group) => {
       const { dims, weight, boxes, perBoxDetails, perBoxItems, contentInformationSource } = resolveBoxState(group);
       const boxCount = clampBoxes(boxes);
@@ -286,11 +299,6 @@ export default function FbaStep1bPacking({
 
       // For multiple boxes we want per-box details complete
       if ((group.packMode || 'single') === 'multiple') {
-        const perBox = (perBoxDetails || []).slice(0, boxCount);
-        const overweight = perBox.some((b) => resolveGroupNumber(b.weight) > MAX_STANDARD_BOX_KG);
-        if (overweight) {
-          return true;
-        }
         return perBox.some((b) => {
           const l = resolveGroupNumber(b.length);
           const w = resolveGroupNumber(b.width);
@@ -305,7 +313,6 @@ export default function FbaStep1bPacking({
       const height = resolveGroupNumber(dims.height);
       const w = resolveGroupNumber(weight);
       if (!(length > 0 && width > 0 && height > 0 && w > 0)) return true;
-      if (w > MAX_STANDARD_BOX_KG) return true;
       if ((group.packMode || 'single') !== 'multiple') return false;
       if (contentInformationSource !== 'BOX_CONTENT_PROVIDED') return false;
 
@@ -527,7 +534,7 @@ export default function FbaStep1bPacking({
     }
     const overweightBoxes = perBoxDetails.some((d) => resolveGroupNumber(d?.weight) > MAX_STANDARD_BOX_KG);
     if (overweightBoxes) {
-      validationMessages.push('Greutatea depaseste 23 kg (50.71 lb) pentru cutii standard. Imparte in mai multe cutii.');
+      validationMessages.push(MAX_STANDARD_BOX_MSG);
     }
 
     const hasDimensionSelection = dimensionSets.some(
@@ -1019,6 +1026,9 @@ export default function FbaStep1bPacking({
                         className="border rounded-md px-3 py-2 w-24"
                         placeholder="kg"
                       />
+                      {resolveGroupNumber(getDraft(group).boxWeight ?? group.boxWeight ?? '') > MAX_STANDARD_BOX_KG && (
+                        <div className="text-xs text-red-600 mt-1">{MAX_STANDARD_BOX_MSG}</div>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -1034,7 +1044,7 @@ export default function FbaStep1bPacking({
                           return;
                         }
                         if (w > MAX_STANDARD_BOX_KG) {
-                          setContinueError('Greutatea depășește 23 kg (50.71 lb) pentru cutii standard. Împarte în mai multe cutii.');
+                          setContinueError(MAX_STANDARD_BOX_MSG);
                           return;
                         }
                         const key = group.packingGroupId || group.id;
