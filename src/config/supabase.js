@@ -1852,11 +1852,11 @@ createPrepItem: async (requestId, item) => {
     const stockPromise = withCompany(
       supabase
         .from('stock_items')
-        .select('id, qty, length_cm, width_cm, height_cm, amazon_stock, amazon_reserved, amazon_inbound, amazon_unfulfillable')
+        .select('id, qty, prep_qty_by_country, length_cm, width_cm, height_cm, amazon_stock, amazon_reserved, amazon_inbound, amazon_unfulfillable')
     ).limit(20000);
     const stockAllPromise = supabase
       .from('stock_items')
-      .select('qty')
+      .select('qty, prep_qty_by_country')
       .limit(20000);
     // client_stock_items view nu are coloana qty; evităm apelul direct ca să nu generăm 400
     const clientStockPromise = Promise.resolve({ data: [], error: null });
@@ -2059,7 +2059,11 @@ createPrepItem: async (requestId, item) => {
       (acc, row) => acc + volumeForRow(row) * Math.max(0, numberOrZero(row.qty)),
       0
     );
-    const inventoryUnitsAll = (Array.isArray(stockAllRes.data) ? stockAllRes.data : []).reduce(
+    let stockAllRows = Array.isArray(stockAllRes.data) ? stockAllRes.data : [];
+    if (marketCode) {
+      stockAllRows = mapStockRowsForMarket(stockAllRows, marketCode);
+    }
+    const inventoryUnitsAll = stockAllRows.reduce(
       (acc, row) => acc + Math.max(0, numberOrZero(row.qty)),
       0
     );
@@ -2067,7 +2071,9 @@ createPrepItem: async (requestId, item) => {
       (acc, row) => acc + Math.max(0, numberOrZero(row.qty)),
       0
     );
-    const inventoryUnitsRpc = stockTotalRpcRes?.data
+    const inventoryUnitsRpc = marketCode
+      ? 0
+      : stockTotalRpcRes?.data
       ? numberOrZero(Array.isArray(stockTotalRpcRes.data) ? stockTotalRpcRes.data[0]?.total_qty : stockTotalRpcRes.data.total_qty)
       : 0;
 
@@ -2285,7 +2291,9 @@ createPrepItem: async (requestId, item) => {
         dateTo,
         inventory: {
           units: inventoryUnits,
-          unitsAll: inventoryUnitsRpc || inventoryUnitsClientView || inventoryUnitsAll,
+          unitsAll: marketCode
+            ? inventoryUnitsAll
+            : inventoryUnitsRpc || inventoryUnitsClientView || inventoryUnitsAll,
           activeSkus,
           volumeM3: Number(inventoryVolume.toFixed(3))
         },
@@ -2358,68 +2366,130 @@ createPrepItem: async (requestId, item) => {
   return { data: row, error };
 },
 
-  getInventoryStaleness: async () => {
+  getInventoryStaleness: async (market) => {
     try {
-      const { data, error } = await supabase.rpc('get_inventory_staleness');
-      if (!error) return { data: Array.isArray(data) ? data : [], error: null };
-
-      // Fallback dacă funcția nu există în schema cache
-      if (String(error?.message || '').toLowerCase().includes('get_inventory_staleness')) {
-        const [companiesRes, stockRes, recvRes] = await Promise.all([
-          supabase.from('companies').select('id,name').limit(1000),
-          supabase.from('stock_items').select('company_id, qty').limit(50000),
-          supabase
-            .from('receiving_shipments')
-            .select('company_id, processed_at, received_at, submitted_at, created_at')
-            .limit(20000)
-        ]);
-
-        const companies = Array.isArray(companiesRes.data) ? companiesRes.data : [];
-        const stockRows = Array.isArray(stockRes.data) ? stockRes.data : [];
-        const recvRows = Array.isArray(recvRes.data) ? recvRes.data : [];
-
-        const nameById = new Map(companies.map((c) => [c.id, c.name]));
-        const unitsByCompany = new Map();
-        stockRows.forEach((row) => {
-          if (!row?.company_id) return;
-          const qty = Number(row.qty) || 0;
-          if (qty <= 0) return;
-          unitsByCompany.set(row.company_id, (unitsByCompany.get(row.company_id) || 0) + qty);
-        });
-        const lastRecvByCompany = new Map();
-        recvRows.forEach((row) => {
-          if (!row?.company_id) return;
-          const d = row.processed_at || row.received_at || row.submitted_at || row.created_at;
-          if (!d) return;
-          const prev = lastRecvByCompany.get(row.company_id);
-          if (!prev || new Date(d) > new Date(prev)) {
-            lastRecvByCompany.set(row.company_id, d);
-          }
-        });
-
-        const rows = [];
-        unitsByCompany.forEach((units, companyId) => {
-          if (units <= 0) return; // only skip zero/negative stock
-          const last = lastRecvByCompany.get(companyId) || null;
-          const lastDate = last ? new Date(last) : null;
-          const days =
-            lastDate != null
-              ? Math.floor((new Date().setHours(0, 0, 0, 0) - lastDate.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24))
-              : null;
-          rows.push({
-            company_id: companyId,
-            company_name: nameById.get(companyId) || companyId,
-            units_in_stock: units,
-            last_receiving_date: lastDate ? lastDate.toISOString().slice(0, 10) : null,
-            days_since_last_receiving: days
-          });
-        });
-
-        return { data: rows, error: null };
+      const marketCode = normalizeMarketCode(market);
+      if (!marketCode) {
+        const { data, error } = await supabase.rpc('get_inventory_staleness');
+        if (!error) return { data: Array.isArray(data) ? data : [], error: null };
       }
 
-      return { data: [], error };
+      // Fallback dacă funcția nu există în schema cache
+      const [companiesRes, stockRes, recvRes] = await Promise.all([
+        supabase.from('companies').select('id,name').limit(1000),
+        supabase.from('stock_items').select('company_id, qty, prep_qty_by_country').limit(50000),
+        (() => {
+          let query = supabase
+            .from('receiving_shipments')
+            .select('company_id, processed_at, received_at, submitted_at, created_at, warehouse_country')
+            .limit(20000);
+          if (marketCode) {
+            query = query.eq('warehouse_country', marketCode);
+          }
+          return query;
+        })()
+      ]);
+
+      const companies = Array.isArray(companiesRes.data) ? companiesRes.data : [];
+      let stockRows = Array.isArray(stockRes.data) ? stockRes.data : [];
+      const recvRows = Array.isArray(recvRes.data) ? recvRes.data : [];
+
+      if (marketCode) {
+        stockRows = mapStockRowsForMarket(stockRows, marketCode);
+      }
+
+      const nameById = new Map(companies.map((c) => [c.id, c.name]));
+      const unitsByCompany = new Map();
+      stockRows.forEach((row) => {
+        if (!row?.company_id) return;
+        const qty = Number(row.qty) || 0;
+        if (qty <= 0) return;
+        unitsByCompany.set(row.company_id, (unitsByCompany.get(row.company_id) || 0) + qty);
+      });
+      const lastRecvByCompany = new Map();
+      recvRows.forEach((row) => {
+        if (!row?.company_id) return;
+        const d = row.processed_at || row.received_at || row.submitted_at || row.created_at;
+        if (!d) return;
+        const prev = lastRecvByCompany.get(row.company_id);
+        if (!prev || new Date(d) > new Date(prev)) {
+          lastRecvByCompany.set(row.company_id, d);
+        }
+      });
+
+      const rows = [];
+      unitsByCompany.forEach((units, companyId) => {
+        if (units <= 0) return; // only skip zero/negative stock
+        const last = lastRecvByCompany.get(companyId) || null;
+        const lastDate = last ? new Date(last) : null;
+        const days =
+          lastDate != null
+            ? Math.floor((new Date().setHours(0, 0, 0, 0) - lastDate.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24))
+            : null;
+        rows.push({
+          company_id: companyId,
+          company_name: nameById.get(companyId) || companyId,
+          units_in_stock: units,
+          last_receiving_date: lastDate ? lastDate.toISOString().slice(0, 10) : null,
+          days_since_last_receiving: days
+        });
+      });
+
+      return { data: rows, error: null };
     } catch (e) {
+      if (isMissingColumnError(e, 'warehouse_country')) {
+        try {
+          const [companiesRes, stockRes, recvRes] = await Promise.all([
+            supabase.from('companies').select('id,name').limit(1000),
+            supabase.from('stock_items').select('company_id, qty, prep_qty_by_country').limit(50000),
+            supabase
+              .from('receiving_shipments')
+              .select('company_id, processed_at, received_at, submitted_at, created_at')
+              .limit(20000)
+          ]);
+          const companies = Array.isArray(companiesRes.data) ? companiesRes.data : [];
+          const nameById = new Map(companies.map((c) => [c.id, c.name]));
+          let stockRows = Array.isArray(stockRes.data) ? stockRes.data : [];
+          const recvRows = Array.isArray(recvRes.data) ? recvRes.data : [];
+          const unitsByCompany = new Map();
+          stockRows.forEach((row) => {
+            if (!row?.company_id) return;
+            const qty = Number(row.qty) || 0;
+            if (qty <= 0) return;
+            unitsByCompany.set(row.company_id, (unitsByCompany.get(row.company_id) || 0) + qty);
+          });
+          const lastRecvByCompany = new Map();
+          recvRows.forEach((row) => {
+            if (!row?.company_id) return;
+            const d = row.processed_at || row.received_at || row.submitted_at || row.created_at;
+            if (!d) return;
+            const prev = lastRecvByCompany.get(row.company_id);
+            if (!prev || new Date(d) > new Date(prev)) {
+              lastRecvByCompany.set(row.company_id, d);
+            }
+          });
+          const rows = [];
+          unitsByCompany.forEach((units, companyId) => {
+            if (units <= 0) return;
+            const last = lastRecvByCompany.get(companyId) || null;
+            const lastDate = last ? new Date(last) : null;
+            const days =
+              lastDate != null
+                ? Math.floor((new Date().setHours(0, 0, 0, 0) - lastDate.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24))
+                : null;
+            rows.push({
+              company_id: companyId,
+              company_name: nameById.get(companyId) || companyId,
+              units_in_stock: units,
+              last_receiving_date: lastDate ? lastDate.toISOString().slice(0, 10) : null,
+              days_since_last_receiving: days
+            });
+          });
+          return { data: rows, error: null };
+        } catch (fallbackError) {
+          return { data: [], error: fallbackError };
+        }
+      }
       return { data: [], error: e };
     }
   },

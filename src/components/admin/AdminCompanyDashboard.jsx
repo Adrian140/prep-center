@@ -128,7 +128,7 @@ export default function AdminCompanyDashboard() {
       setStalenessLoading(true);
       setStalenessError('');
       const [staleRes, profilesRes] = await Promise.all([
-        supabaseHelpers.getInventoryStaleness(),
+        supabaseHelpers.getInventoryStaleness(currentMarket),
         supabase.from('profiles').select('company_id, store_name').limit(5000)
       ]);
       const { data, error } = staleRes;
@@ -152,7 +152,7 @@ export default function AdminCompanyDashboard() {
     };
     loadStaleness();
     return () => { cancelled = true; };
-  }, []);
+  }, [currentMarket]);
 
   const handleApplyStorage = async (row) => {
     if (!row?.company_id) return;
