@@ -130,6 +130,7 @@ export default function FbaStep1bPacking({
     const num = Number(String(value ?? '').replace(',', '.'));
     return Number.isFinite(num) ? num : 0;
   };
+  const round2 = (value) => Math.round(value * 100) / 100;
 
   const resolveTotalUnits = (group) => {
     if (Array.isArray(group.items) && group.items.length) {
@@ -203,7 +204,7 @@ export default function FbaStep1bPacking({
         width: resolveGroupNumber(dims.width),
         height: resolveGroupNumber(dims.height)
       };
-      const weightNum = resolveGroupNumber(weight);
+      const weightNum = round2(resolveGroupNumber(weight));
       const boxCount = clampBoxes(boxes);
 
       if (!packingGroupId) {
@@ -216,7 +217,7 @@ export default function FbaStep1bPacking({
         const l = resolveGroupNumber(src.length);
         const w = resolveGroupNumber(src.width);
         const h = resolveGroupNumber(src.height);
-        const wt = resolveGroupNumber(src.weight);
+        const wt = round2(resolveGroupNumber(src.weight));
         return {
           length: l || null,
           width: w || null,
