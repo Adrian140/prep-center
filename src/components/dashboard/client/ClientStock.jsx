@@ -1213,11 +1213,31 @@ useEffect(() => {
   }, [rows, searchField, searchQuery, matchScore, normalize]);
 
 
+  const [photoFilter, setPhotoFilter] = useSessionStorage(
+    `${storagePrefix}-photoFilter`,
+    'all'
+  );
+
   const stockFiltered = useMemo(() => {
-    if (stockFilter === 'all') return searched;
-    if (stockFilter === 'in') return searched.filter((r) => Number(r.qty || 0) > 0);
-    return searched.filter((r) => Number(r.qty || 0) === 0);
-  }, [searched, stockFilter]);
+    let base = searched;
+    if (stockFilter === 'in') base = base.filter((r) => Number(r.qty || 0) > 0);
+    if (stockFilter === 'out') base = base.filter((r) => Number(r.qty || 0) === 0);
+    if (photoFilter === 'with') {
+      base = base.filter((r) => {
+        if (r.image_url) return true;
+        const count = Number(photoCounts[r.id] || 0);
+        return count > 0;
+      });
+    }
+    if (photoFilter === 'without') {
+      base = base.filter((r) => {
+        if (r.image_url) return false;
+        const count = Number(photoCounts[r.id] || 0);
+        return count <= 0;
+      });
+    }
+    return base;
+  }, [searched, stockFilter, photoFilter, photoCounts]);
 
   const quickFiltered = useMemo(() => {
     const term = normalize(productSearch).trim();
@@ -1295,6 +1315,14 @@ useEffect(() => {
     }
 
     let ordered = [...stockFiltered];
+    if (!(sortSpec?.direction && sortSpec.direction !== 'none')) {
+      ordered.sort((a, b) => {
+        const aHas = Boolean(a.image_url) || Number(photoCounts[a.id] || 0) > 0;
+        const bHas = Boolean(b.image_url) || Number(photoCounts[b.id] || 0) > 0;
+        if (aHas === bHas) return 0;
+        return aHas ? -1 : 1;
+      });
+    }
 
     if (sortSpec?.direction && sortSpec.direction !== 'none') {
       ordered.sort((a, b) => {
@@ -2362,6 +2390,15 @@ const saveReqChanges = async () => {
             />
             {t('ClientStock.actions.selectAllOnPage')}
           </label>
+          <select
+            className="border rounded px-2 py-1 text-xs text-text-secondary"
+            value={photoFilter}
+            onChange={(e) => setPhotoFilter(e.target.value)}
+          >
+            <option value="all">Photo: All</option>
+            <option value="with">Photo: With photo</option>
+            <option value="without">Photo: Without photo</option>
+          </select>
           <span className="text-xs text-text-secondary">Total: {rows.length}</span>
         </div>
       </div>
