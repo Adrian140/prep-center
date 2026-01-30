@@ -2746,6 +2746,7 @@ serve(async (req) => {
 
     const extractCharge = (opt: any) => {
       const fromPath = [
+        opt?.quote?.cost?.amount,
         opt?.charge?.totalCharge?.amount,
         opt?.totalCharge?.amount,
         opt?.chargeAmount?.amount,
