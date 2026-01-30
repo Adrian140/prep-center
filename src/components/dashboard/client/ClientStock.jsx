@@ -1299,6 +1299,9 @@ useEffect(() => {
             if (sortSpec.key === 'sales') return getSalesTotal(row);
             if (sortSpec.key === 'inventory') return Number(row.amazon_stock || 0);
             if (sortSpec.key === 'prep') return Number(row.qty || 0);
+            if (sortSpec.key === 'photo') {
+              return Number(Boolean(row.image_url) || Number(photoCounts[row.id] || 0) > 0);
+            }
             if (sortSpec.key === 'units') {
               const edit = rowEdits[row.id] || {};
               return Number(edit.units_to_send ?? row.units_to_send ?? 0);
@@ -1315,14 +1318,6 @@ useEffect(() => {
     }
 
     let ordered = [...stockFiltered];
-    if (!(sortSpec?.direction && sortSpec.direction !== 'none')) {
-      ordered.sort((a, b) => {
-        const aHas = Boolean(a.image_url) || Number(photoCounts[a.id] || 0) > 0;
-        const bHas = Boolean(b.image_url) || Number(photoCounts[b.id] || 0) > 0;
-        if (aHas === bHas) return 0;
-        return aHas ? -1 : 1;
-      });
-    }
 
     if (sortSpec?.direction && sortSpec.direction !== 'none') {
       ordered.sort((a, b) => {
@@ -1330,6 +1325,9 @@ useEffect(() => {
           if (sortSpec.key === 'sales') return getSalesTotal(row);
           if (sortSpec.key === 'inventory') return Number(row.amazon_stock || 0);
           if (sortSpec.key === 'prep') return Number(row.qty || 0);
+          if (sortSpec.key === 'photo') {
+            return Number(Boolean(row.image_url) || Number(photoCounts[row.id] || 0) > 0);
+          }
           if (sortSpec.key === 'units') {
             const edit = rowEdits[row.id] || {};
             return Number(edit.units_to_send ?? row.units_to_send ?? 0);
@@ -1371,6 +1369,14 @@ useEffect(() => {
     return quickFiltered.slice(start, start + perPage);
   }, [quickFiltered, pageClamped, perPage]);
 
+  const hasAnyPhoto = useMemo(
+    () =>
+      stockFiltered.some(
+        (row) => Boolean(row.image_url) || Number(photoCounts[row.id] || 0) > 0
+      ),
+    [stockFiltered, photoCounts]
+  );
+
   const isAllOnPageSelected =
     pageSlice.length > 0 && pageSlice.every((r) => selectedIds.has(r.id));
   const toggleSelectAllOnPage = () => {
@@ -1384,16 +1390,21 @@ useEffect(() => {
   };
 
   const toggleSort = useCallback((key) => {
+    if (key === 'photo' && !hasAnyPhoto) return;
     setSortSpec((prev) => {
       if (!prev || prev.key !== key) {
-        return { key, direction: 'asc' };
+        return { key, direction: key === 'photo' ? 'desc' : 'asc' };
+      }
+      if (key === 'photo') {
+        if (prev.direction === 'desc') return { key: 'prep', direction: 'desc' };
+        return { key, direction: 'desc' };
       }
       if (prev.direction === 'asc') return { key, direction: 'desc' };
       if (prev.direction === 'desc') return { key: 'none', direction: 'none' };
       return { key, direction: 'asc' };
     });
     setPage(1);
-  }, [setSortSpec, setPage]);
+  }, [setSortSpec, setPage, hasAnyPhoto]);
   const renderSortIcon = useCallback(
     (key) => {
       const direction = sortSpec?.key === key ? sortSpec.direction : 'none';
@@ -2447,7 +2458,18 @@ const saveReqChanges = async () => {
   <thead className="bg-gray-50 text-gray-700">
     <tr>
       <th className="px-2 py-2 w-6"></th>
-      <th className="px-2 py-2 text-left w-16">Photo</th>
+      <th className="px-2 py-2 text-left w-16">
+        <button
+          type="button"
+          onClick={() => toggleSort('photo')}
+          className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-primary"
+        >
+          <span>Photo</span>
+          <span className="inline-flex flex-col leading-none">
+            {renderSortIcon('photo')}
+          </span>
+        </button>
+      </th>
       <th className="px-2 py-2 text-left">
         <div className="flex flex-col gap-1">
           <span>{t('ClientStock.thead.name')}</span>
