@@ -2165,6 +2165,7 @@ serve(async (req) => {
         readyToShipWindow: { start: cfg?.readyToShipWindow?.start }
       };
       if (cfg?.contactInformation) base.contactInformation = cfg.contactInformation;
+      if (Array.isArray(cfg?.packages) && cfg.packages.length) base.packages = cfg.packages;
       if (Array.isArray(cfg?.pallets) && cfg.pallets.length) base.pallets = cfg.pallets;
       if (cfg?.freightInformation) base.freightInformation = cfg.freightInformation;
       return base;
