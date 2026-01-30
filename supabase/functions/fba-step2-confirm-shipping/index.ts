@@ -2662,6 +2662,46 @@ serve(async (req) => {
           }
         }
       }
+      // IMPORTANT: re-generate transportation options after delivery window confirmation
+      const regenRes = await signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
+        query: "",
+        payload: generatePayload,
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.generateTransportationOptions_after_deliveryWindow",
+        marketplaceId,
+        sellerId
+      });
+      const regenOpId =
+        regenRes?.json?.payload?.operationId ||
+        regenRes?.json?.operationId ||
+        null;
+      if (regenOpId) {
+        const regenStatus = await pollOperationStatus(regenOpId);
+        logStep("generateTransportationOptions_after_deliveryWindow_status", {
+          traceId,
+          operationId: regenOpId,
+          state: getOperationState(regenStatus) || null,
+          status: regenStatus?.res?.status || null,
+          requestId: regenStatus?.requestId || null,
+          problems: getOperationProblems(regenStatus) || null
+        });
+      } else {
+        logStep("generateTransportationOptions_after_deliveryWindow_raw", {
+          traceId,
+          status: regenRes?.res?.status || null,
+          requestId: regenRes?.requestId || null,
+          bodyPreview: (regenRes?.text || "").slice(0, 600) || null
+        });
+      }
       const relist = await listAllTransportationOptions(String(effectivePlacementOptionId), null);
       options = relist.collected || [];
       optionsForSelectionRaw = options;
@@ -3035,6 +3075,46 @@ serve(async (req) => {
             logStep("deliveryWindow_confirm_failed", { traceId, shipmentId, state: stUp });
           }
         }
+      }
+      // IMPORTANT: re-generate transportation options after delivery window confirmation
+      const regenRes = await signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
+        query: "",
+        payload: generatePayload,
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.generateTransportationOptions_after_deliveryWindow",
+        marketplaceId,
+        sellerId
+      });
+      const regenOpId =
+        regenRes?.json?.payload?.operationId ||
+        regenRes?.json?.operationId ||
+        null;
+      if (regenOpId) {
+        const regenStatus = await pollOperationStatus(regenOpId);
+        logStep("generateTransportationOptions_after_deliveryWindow_status", {
+          traceId,
+          operationId: regenOpId,
+          state: getOperationState(regenStatus) || null,
+          status: regenStatus?.res?.status || null,
+          requestId: regenStatus?.requestId || null,
+          problems: getOperationProblems(regenStatus) || null
+        });
+      } else {
+        logStep("generateTransportationOptions_after_deliveryWindow_raw", {
+          traceId,
+          status: regenRes?.res?.status || null,
+          requestId: regenRes?.requestId || null,
+          bodyPreview: (regenRes?.text || "").slice(0, 600) || null
+        });
       }
     }
 
