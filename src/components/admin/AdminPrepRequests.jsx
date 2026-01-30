@@ -138,9 +138,19 @@ export default function AdminPrepRequests() {
       if (!tokens.length) return true;
       const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
       const itemHit = items.some((it) => {
-        const asin = (it.asin || '').toLowerCase();
-        const sku = (it.sku || '').toLowerCase();
-        return tokens.some((t) => asin.includes(t) || sku.includes(t));
+        const fields = [
+          it.asin,
+          it.sku,
+          it.ean,
+          it.product_name,
+          it.stock_item?.asin,
+          it.stock_item?.sku,
+          it.stock_item?.ean,
+          it.stock_item?.name,
+        ]
+          .filter(Boolean)
+          .map((v) => String(v).toLowerCase());
+        return tokens.some((t) => fields.some((f) => f.includes(t)));
       });
 
       const fields = [
