@@ -52,7 +52,7 @@ export const contactRo = {
   mondayFriday: 'Luni - Vineri',
   mondayFridayHours: '8:00 - 18:00',
   saturday: 'Sâmbătă',
-  saturdayHours: '9:00 - 14:00',
+  saturdayHours: 'Închis',
   sunday: 'Duminică',
   sundayHours: 'Închis',
   

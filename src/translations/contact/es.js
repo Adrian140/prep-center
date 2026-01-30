@@ -52,7 +52,7 @@ export const contactEs = {
   mondayFriday: 'Lunes - Viernes',
   mondayFridayHours: '8:00 AM - 6:00 PM',
   saturday: 'Sábado',
-  saturdayHours: '9:00 AM - 2:00 PM',
+  saturdayHours: 'Cerrado',
   sunday: 'Domingo',
   sundayHours: 'Cerrado',
   
