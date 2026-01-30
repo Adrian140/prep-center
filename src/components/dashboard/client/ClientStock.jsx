@@ -1223,18 +1223,10 @@ useEffect(() => {
     if (stockFilter === 'in') base = base.filter((r) => Number(r.qty || 0) > 0);
     if (stockFilter === 'out') base = base.filter((r) => Number(r.qty || 0) === 0);
     if (photoFilter === 'with') {
-      base = base.filter((r) => {
-        if (r.image_url) return true;
-        const count = Number(photoCounts[r.id] || 0);
-        return count > 0;
-      });
+      base = base.filter((r) => Number(photoCounts[r.id] || 0) > 0);
     }
     if (photoFilter === 'without') {
-      base = base.filter((r) => {
-        if (r.image_url) return false;
-        const count = Number(photoCounts[r.id] || 0);
-        return count <= 0;
-      });
+      base = base.filter((r) => Number(photoCounts[r.id] || 0) <= 0);
     }
     return base;
   }, [searched, stockFilter, photoFilter, photoCounts]);
@@ -1300,7 +1292,7 @@ useEffect(() => {
             if (sortSpec.key === 'inventory') return Number(row.amazon_stock || 0);
             if (sortSpec.key === 'prep') return Number(row.qty || 0);
             if (sortSpec.key === 'photo') {
-              return Number(Boolean(row.image_url) || Number(photoCounts[row.id] || 0) > 0);
+              return Number(Number(photoCounts[row.id] || 0) > 0);
             }
             if (sortSpec.key === 'units') {
               const edit = rowEdits[row.id] || {};
@@ -1326,7 +1318,7 @@ useEffect(() => {
           if (sortSpec.key === 'inventory') return Number(row.amazon_stock || 0);
           if (sortSpec.key === 'prep') return Number(row.qty || 0);
           if (sortSpec.key === 'photo') {
-            return Number(Boolean(row.image_url) || Number(photoCounts[row.id] || 0) > 0);
+            return Number(Number(photoCounts[row.id] || 0) > 0);
           }
           if (sortSpec.key === 'units') {
             const edit = rowEdits[row.id] || {};
@@ -1370,10 +1362,7 @@ useEffect(() => {
   }, [quickFiltered, pageClamped, perPage]);
 
   const hasAnyPhoto = useMemo(
-    () =>
-      stockFiltered.some(
-        (row) => Boolean(row.image_url) || Number(photoCounts[row.id] || 0) > 0
-      ),
+    () => stockFiltered.some((row) => Number(photoCounts[row.id] || 0) > 0),
     [stockFiltered, photoCounts]
   );
 
