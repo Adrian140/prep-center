@@ -244,16 +244,34 @@ export default function FbaSendToAmazonWizard({
   },
   initialShipmentList = initialShipments,
   initialTrackingList = initialTracking,
+  initialTrackingIds = [],
   initialSkuStatuses = [],
+  initialCompletedSteps = [],
+  initialShippingOptions = [],
+  initialShippingSummary = null,
+  initialShippingConfirmed = false,
+  initialSelectedTransportationOptionId = null,
+  initialLabelFormat = 'thermal',
+  initialCurrentStep = null,
+  historyMode = false,
   autoLoadPlan = false,
   fetchPlan // optional async () => ({ shipFrom, marketplace, skus, packGroups, shipments, skuStatuses, warning, blocking })
 }) {
   const stepsOrder = ['1', '1b', '2', '3', '4'];
-  const [currentStep, setCurrentStep] = useState('1');
-  const [completedSteps, setCompletedSteps] = useState([]);
+  const resolveInitialStep = () => {
+    if (!historyMode) return '1';
+    if (initialCurrentStep && stepsOrder.includes(initialCurrentStep)) return initialCurrentStep;
+    if (Array.isArray(initialCompletedSteps) && initialCompletedSteps.length) {
+      const last = initialCompletedSteps[initialCompletedSteps.length - 1];
+      if (stepsOrder.includes(last)) return last;
+    }
+    return '1';
+  };
+  const [currentStep, setCurrentStep] = useState(resolveInitialStep);
+  const [completedSteps, setCompletedSteps] = useState(historyMode ? initialCompletedSteps : []);
   const [plan, setPlan] = useState(initialPlan);
   const [carrierTouched, setCarrierTouched] = useState(false);
-  const [shippingConfirmed, setShippingConfirmed] = useState(false);
+  const [shippingConfirmed, setShippingConfirmed] = useState(historyMode ? Boolean(initialShippingConfirmed) : false);
   const allowPersistence = false; // forțează reluarea workflow-ului de la Step 1; nu restaurăm din localStorage
   const normalizePackGroups = useCallback((groups = []) =>
     (Array.isArray(groups) ? groups : [])
@@ -367,7 +385,7 @@ export default function FbaSendToAmazonWizard({
     }
   );
   const [shipments, setShipments] = useState(initialShipmentList);
-  const [labelFormat, setLabelFormat] = useState('thermal');
+  const [labelFormat, setLabelFormat] = useState(initialLabelFormat || 'thermal');
   const [tracking, setTracking] = useState(initialTrackingList);
   const [labelsLoadingId, setLabelsLoadingId] = useState(null);
   const [labelsError, setLabelsError] = useState('');
@@ -380,9 +398,13 @@ export default function FbaSendToAmazonWizard({
   const [step1SaveError, setStep1SaveError] = useState('');
   const [skuStatuses, setSkuStatuses] = useState(initialSkuStatuses);
   const [blocking, setBlocking] = useState(false);
-  const [shippingOptions, setShippingOptions] = useState([]);
-  const [shippingSummary, setShippingSummary] = useState(null);
-  const [selectedTransportationOptionId, setSelectedTransportationOptionId] = useState(null);
+  const [shippingOptions, setShippingOptions] = useState(
+    historyMode ? (Array.isArray(initialShippingOptions) ? initialShippingOptions : []) : []
+  );
+  const [shippingSummary, setShippingSummary] = useState(historyMode ? initialShippingSummary : null);
+  const [selectedTransportationOptionId, setSelectedTransportationOptionId] = useState(
+    historyMode ? initialSelectedTransportationOptionId : null
+  );
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState('');
   const [packingSubmitLoading, setPackingSubmitLoading] = useState(false);
@@ -405,9 +427,11 @@ export default function FbaSendToAmazonWizard({
   const placementOptionIdRef = useRef(placementOptionId);
   const packingRefreshLockRef = useRef({ inFlight: false, planId: null });
   const packingAutoRetryTimerRef = useRef(null);
+  const packingPreviewFetchRef = useRef(false);
   const shippingRetryRef = useRef(0);
   const shippingRetryTimerRef = useRef(null);
   const planMissingRetryRef = useRef(0);
+  const trackingPrefillRef = useRef(false);
   useEffect(() => {
     packGroupsRef.current = packGroups;
   }, [packGroups]);
@@ -616,15 +640,33 @@ export default function FbaSendToAmazonWizard({
       return;
     }
 
-    setCurrentStep('1');
-    setCompletedSteps([]);
+    if (historyMode) {
+      setCurrentStep(resolveInitialStep());
+      setCompletedSteps(Array.isArray(initialCompletedSteps) ? initialCompletedSteps : []);
+    } else {
+      setCurrentStep('1');
+      setCompletedSteps([]);
+    }
     setPlan(initialPlan);
     snapshotServerUnits(initialPlan?.skus || []);
     setPackGroups(normalizedInitialGroups);
     setPackGroupsLoaded(hasRealPackGroups(normalizedInitialGroups));
     setShipmentMode(initialShipmentMode);
+    setPalletDetails(
+      initialShipmentMode?.palletDetails || {
+        quantity: 1,
+        length: '',
+        width: '',
+        height: '',
+        weight: '',
+        stackability: 'STACKABLE',
+        freightClass: 'FC_XX',
+        declaredValue: '',
+        declaredValueCurrency: 'EUR'
+      }
+    );
     setShipments(initialShipmentList);
-    setLabelFormat('thermal');
+    setLabelFormat(initialLabelFormat || 'thermal');
     setTracking(initialTrackingList);
     setPackingOptionId(initialPlan?.packingOptionId || null);
     setPlacementOptionId(initialPlan?.placementOptionId || null);
@@ -632,9 +674,13 @@ export default function FbaSendToAmazonWizard({
     setPackingSubmitError('');
     setPackingReadyError('');
     setShippingError('');
-    setShippingOptions([]);
-    setShippingSummary(null);
-    setStep2Loaded(false);
+    setShippingOptions(historyMode ? (Array.isArray(initialShippingOptions) ? initialShippingOptions : []) : []);
+    setShippingSummary(historyMode ? initialShippingSummary : null);
+    setShippingConfirmed(historyMode ? Boolean(initialShippingConfirmed) : false);
+    setSelectedTransportationOptionId(historyMode ? initialSelectedTransportationOptionId : null);
+    setStep2Loaded(
+      Boolean(historyMode && (initialShippingOptions?.length || initialShippingSummary || initialShippingConfirmed))
+    );
     setRestoredState(false);
   }, [
     storageKeyBase,
@@ -643,6 +689,15 @@ export default function FbaSendToAmazonWizard({
     initialShipmentMode,
     initialShipmentList,
     initialTrackingList,
+    initialTrackingIds,
+    initialCompletedSteps,
+    initialShippingOptions,
+    initialShippingSummary,
+    initialShippingConfirmed,
+    initialSelectedTransportationOptionId,
+    initialLabelFormat,
+    initialCurrentStep,
+    historyMode,
     normalizePackGroups,
     hasRealPackGroups,
     initialRequestKey,
@@ -740,12 +795,13 @@ export default function FbaSendToAmazonWizard({
 
   // Curăță localStorage la mount pentru a forța reluarea de la Step 1
   useEffect(() => {
+    if (historyMode) return;
     if (typeof window === 'undefined') return;
     if (stepStorageKey) window.localStorage.removeItem(stepStorageKey);
     if (stateStorageKey) window.localStorage.removeItem(stateStorageKey);
     setCurrentStep('1');
     setCompletedSteps([]);
-  }, [stateStorageKey, stepStorageKey]);
+  }, [historyMode, stateStorageKey, stepStorageKey]);
 
   useEffect(() => {
     if (!autoLoadPlan && !fetchPlan) return;
@@ -996,6 +1052,55 @@ export default function FbaSendToAmazonWizard({
     invalidateFrom('1');
   };
 
+  const planUnitsByKey = useMemo(() => {
+    const map = new Map();
+    (Array.isArray(plan?.skus) ? plan.skus : []).forEach((sku) => {
+      const units = Number(sku?.units || 0);
+      const add = (value) => {
+        const key = String(value || '').trim().toUpperCase();
+        if (!key) return;
+        map.set(key, units);
+      };
+      add(sku?.sku);
+      add(sku?.msku);
+      add(sku?.SellerSKU);
+      add(sku?.asin);
+      add(sku?.id);
+    });
+    return map;
+  }, [plan?.skus]);
+
+  const normalizeGroupItemsForUnits = useCallback(
+    (items = []) =>
+      (Array.isArray(items) ? items : [])
+        .map((it) => {
+          const key = String(it?.sku || it?.msku || it?.SellerSKU || it?.asin || '').trim().toUpperCase();
+          const plannedUnits = planUnitsByKey.get(key);
+          const quantity = Number.isFinite(plannedUnits) ? plannedUnits : Number(it?.quantity || 0) || 0;
+          if (!quantity) return null;
+          return { ...it, quantity };
+        })
+        .filter(Boolean),
+    [planUnitsByKey]
+  );
+
+  const packGroupsForUnits = useMemo(() => {
+    if (!Array.isArray(packGroups)) return [];
+    return packGroups
+      .map((g) => {
+        const items = normalizeGroupItemsForUnits(g?.items || []);
+        if (!items.length) return null;
+        const units = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+        return {
+          ...g,
+          items,
+          units,
+          skuCount: items.length
+        };
+      })
+      .filter(Boolean);
+  }, [packGroups, normalizeGroupItemsForUnits]);
+
   const handlePackGroupUpdate = (groupId, patch) => {
     setPackGroups((prev) =>
       prev.map((g) =>
@@ -1038,6 +1143,10 @@ export default function FbaSendToAmazonWizard({
         missingGroupId = true;
         return;
       }
+      const normalizedItems = normalizeGroupItemsForUnits(g.items || []);
+      if (!normalizedItems.length) {
+        return;
+      }
 
       const normalizedPackMode = g.packMode || "single";
       const contentInformationSource =
@@ -1050,26 +1159,24 @@ export default function FbaSendToAmazonWizard({
         dimensions: normalizedDims,
         weight: normalizedWeight,
         contentInformationSource,
-        items: Array.isArray(g.items)
-          ? g.items.map((it) => ({
-              sku: it.sku || it.msku || it.SellerSKU || null,
-              quantity: Number(it.quantity || 0) || 0,
-              expiration:
-                it.expiration ||
-                it.expiry ||
-                it.expiryDate ||
-                it.expirationDate ||
-                null,
-              prepOwner: it.prepOwner || it.prep_owner || it.prep || null,
-              // dacă avem valoarea din Amazon, trimite-o prioritar
-              labelOwner:
-                it.apiLabelOwner ||
-                it.labelOwner ||
-                it.label_owner ||
-                it.label ||
-                (planLabelOwnerBySku.get(String(it.sku || it.msku || it.SellerSKU || '').trim().toUpperCase()) || null)
-            }))
-          : [],
+        items: normalizedItems.map((it) => ({
+          sku: it.sku || it.msku || it.SellerSKU || null,
+          quantity: Number(it.quantity || 0) || 0,
+          expiration:
+            it.expiration ||
+            it.expiry ||
+            it.expiryDate ||
+            it.expirationDate ||
+            null,
+          prepOwner: it.prepOwner || it.prep_owner || it.prep || null,
+          // dacă avem valoarea din Amazon, trimite-o prioritar
+          labelOwner:
+            it.apiLabelOwner ||
+            it.labelOwner ||
+            it.label_owner ||
+            it.label ||
+            (planLabelOwnerBySku.get(String(it.sku || it.msku || it.SellerSKU || '').trim().toUpperCase()) || null)
+        })),
         perBoxDetails: Array.isArray(g.perBoxDetails) ? g.perBoxDetails : null,
         perBoxItems: Array.isArray(g.perBoxItems) ? g.perBoxItems : null
       });
@@ -1369,6 +1476,18 @@ export default function FbaSendToAmazonWizard({
       packingRefreshLockRef.current = { inFlight: false, planId: null };
     }
   }
+
+  useEffect(() => {
+    if (currentStep !== '1') return;
+    const inboundPlanId = resolveInboundPlanId();
+    const requestId = resolveRequestId();
+    if (!inboundPlanId || !requestId) return;
+    if (packGroupsLoaded) return;
+    if (Array.isArray(packGroups) && packGroups.length) return;
+    if (packingRefreshLoading || packingPreviewFetchRef.current) return;
+    packingPreviewFetchRef.current = true;
+    refreshPackingGroups();
+  }, [currentStep, packGroupsLoaded, packGroups, packingRefreshLoading, resolveInboundPlanId, resolveRequestId]);
 
   const buildShipmentConfigs = () => {
     if (!Array.isArray(packGroups)) return [];
@@ -1799,6 +1918,10 @@ export default function FbaSendToAmazonWizard({
       return;
     }
     if (step2Loaded) return;
+    if (historyMode && shippingConfirmed && (shippingOptions.length || shippingSummary)) {
+      setStep2Loaded(true);
+      return;
+    }
     if (!shipmentMode?.deliveryDate) {
       setShipmentMode((prev) => ({ ...prev, deliveryDate: getTomorrowIsoDate() }));
     }
@@ -2050,7 +2173,7 @@ export default function FbaSendToAmazonWizard({
         data?.data?.payload?.boxList ||
         [];
       if (!Array.isArray(boxes) || boxes.length === 0) return;
-      const normalized = boxes.map((b, idx) => ({
+      let normalized = boxes.map((b, idx) => ({
         id: b?.boxId || b?.packageId || b?.id || `box-${idx + 1}`,
         boxId: b?.boxId || b?.packageId || b?.id || null,
         box: idx + 1,
@@ -2062,6 +2185,17 @@ export default function FbaSendToAmazonWizard({
           ? `${b.dimensions.length || ''} x ${b.dimensions.width || ''} x ${b.dimensions.height || ''}`
           : ''
       }));
+      if (!trackingPrefillRef.current) {
+        const savedTracking = Array.isArray(initialTrackingIds) ? initialTrackingIds.filter(Boolean) : [];
+        if (savedTracking.length) {
+          normalized = normalized.map((row, idx) => ({
+            ...row,
+            trackingId: row.trackingId || savedTracking[idx] || '',
+            status: savedTracking[idx] ? 'Confirmed' : row.status
+          }));
+          trackingPrefillRef.current = true;
+        }
+      }
       setTracking(normalized);
     } catch (e) {
       setTrackingError(e?.message || 'Nu am putut încărca boxes.');
@@ -2361,6 +2495,9 @@ export default function FbaSendToAmazonWizard({
           loadingPlan={!planLoaded || loadingPlan}
           inboundPlanId={resolveInboundPlanId()}
           requestId={resolveRequestId()}
+          packGroupsPreview={packGroupsForUnits}
+          packGroupsPreviewLoading={packingRefreshLoading}
+          packGroupsPreviewError={packingReadyError}
           onChangePacking={handlePackingChange}
           onChangeQuantity={handleQuantityChange}
           onChangeExpiry={handleExpiryChange}
@@ -2373,7 +2510,7 @@ export default function FbaSendToAmazonWizard({
     if (stepKey === '1b') {
       return (
         <FbaStep1bPacking
-          packGroups={packGroups}
+          packGroups={packGroupsForUnits}
           packGroupsLoaded={packGroupsLoaded}
           loading={loadingPlan || packingRefreshLoading}
           error={planError || packingReadyError || packingSubmitError}

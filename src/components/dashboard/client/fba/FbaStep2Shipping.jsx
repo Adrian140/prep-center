@@ -150,7 +150,12 @@ export default function FbaStep2Shipping({
 
         <div className="border border-slate-200 rounded-lg p-4 space-y-3">
           <div className="font-semibold text-slate-900">Available shipping options</div>
-          {!options.length && (
+          {!options.length && shippingConfirmed && (
+            <div className="text-sm text-slate-700">
+              Shipping a fost deja confirmat. {selectedTransportationOptionId ? `Option: ${selectedTransportationOptionId}` : ''}
+            </div>
+          )}
+          {!options.length && !shippingConfirmed && (
             <div className="text-sm text-slate-600">Nu există încă opțiuni de transport disponibile.</div>
           )}
           {['SPD', 'LTL', 'FTL', 'OTHER'].map((modeKey) => {

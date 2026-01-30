@@ -593,7 +593,7 @@ serve(async (req) => {
 
     let { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
-      .select("id, destination_country, company_id, user_id, amazon_snapshot, packing_option_id, placement_option_id, inbound_plan_id")
+      .select("id, destination_country, warehouse_country, company_id, user_id, amazon_snapshot, packing_option_id, placement_option_id, inbound_plan_id")
       .eq("id", requestId)
       .maybeSingle();
     if (!reqData && inboundPlanId) {
@@ -660,6 +660,18 @@ serve(async (req) => {
     }
 
     const destCountry = (reqData.destination_country || "").toUpperCase();
+    const normalizeWarehouseCountry = (val: any) => {
+      const up = String(val || "").trim().toUpperCase();
+      if (up === "DE" || up === "GERMANY" || up === "DEU") return "DE";
+      return "FR";
+    };
+    const warehouseCountry = normalizeWarehouseCountry(
+      body?.warehouse_country ??
+        body?.warehouseCountry ??
+        (reqData as any)?.warehouse_country ??
+        destCountry ??
+        "FR"
+    );
     const marketplaceByCountry: Record<string, string> = {
       FR: "A13V1IB3VIYZZH",
       DE: "A1PA6795UKMFR9",
@@ -1466,6 +1478,34 @@ serve(async (req) => {
         return { ...sh, id, shipmentId: id, shipFromAddress, shipToAddress };
       });
 
+    const shipmentNamePrefix = warehouseCountry === "DE" ? "EcomPrepHub.de" : "EcomPrepHub.fr";
+    const shipmentNamePrefixLower = shipmentNamePrefix.toLowerCase();
+    const formatShipmentName = (name: string) => {
+      const base = `${shipmentNamePrefix} - ${name}`.trim();
+      return base.length > 100 ? base.slice(0, 100) : base;
+    };
+    let shipmentNameForRequest: string | null = null;
+    const buildShipmentNameUpdate = () =>
+      shipmentNameForRequest ? { amazon_shipment_name: shipmentNameForRequest } : {};
+    const updateShipmentName = async (shipmentId: string, name: string) =>
+      signedFetch({
+        method: "PUT",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shipmentId)}/name`,
+        query: "",
+        payload: JSON.stringify({ name }),
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.updateShipmentName",
+        marketplaceId,
+        sellerId
+      });
+
 
     const getSelectedTransportationOptionId = async (shipmentId: string) => {
       const shDetail = await signedFetch({
@@ -1491,12 +1531,59 @@ serve(async (req) => {
       return { selectedTransportationOptionId, requestId: shDetail?.requestId || null };
     };
 
+    const ensureShipmentNamesPrefixed = async (shipmentIds: string[]) => {
+      for (const shipmentId of shipmentIds) {
+        const shDetail = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shipmentId)}`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.getShipment",
+          marketplaceId,
+          sellerId
+        });
+        const payload = shDetail?.json?.payload || shDetail?.json || {};
+        const currentName = String(payload?.name || payload?.shipmentName || "").trim();
+        if (!currentName) continue;
+        const hasPrefix = currentName.toLowerCase().startsWith(shipmentNamePrefixLower);
+        const desiredName = hasPrefix ? currentName : formatShipmentName(currentName);
+        if (!shipmentNameForRequest) shipmentNameForRequest = desiredName;
+        if (hasPrefix) continue;
+        const updRes = await updateShipmentName(shipmentId, desiredName);
+        logStep("shipment_name_updated", {
+          traceId,
+          shipmentId,
+          status: updRes?.res?.status || null,
+          requestId: updRes?.requestId || null,
+          name: desiredName
+        });
+      }
+    };
+
     const hasRealShipments = placementShipments.some((sh: any) => !sh?.isPackingGroup && (sh?.shipmentId || sh?.id));
     const firstShipmentId = hasRealShipments
       ? placementShipments.find((sh: any) => !sh?.isPackingGroup && (sh?.shipmentId || sh?.id))?.shipmentId ||
         placementShipments.find((sh: any) => !sh?.isPackingGroup && (sh?.shipmentId || sh?.id))?.id ||
         null
       : null;
+    if (hasRealShipments) {
+      const shipmentIdsForRename = Array.from(
+        new Set(
+          placementShipments
+            .map((sh: any) => sh?.shipmentId || sh?.id)
+            .filter((id: any) => typeof id === "string" && id.length >= 10)
+        )
+      );
+      await ensureShipmentNamesPrefixed(shipmentIdsForRename);
+    }
     if (firstShipmentId) {
       const { selectedTransportationOptionId } = await getSelectedTransportationOptionId(String(firstShipmentId));
       if (selectedTransportationOptionId) {
@@ -1511,17 +1598,24 @@ serve(async (req) => {
           defaultMode: effectiveShippingMode || null,
           defaultCharge: null
         };
+        const summaryWithSelection = {
+          ...summary,
+          selectedOptionId: selectedTransportationOptionId,
+          selectedCarrier: "Amazon confirmed carrier",
+          selectedMode: effectiveShippingMode || null,
+          selectedCharge: null,
+          selectedPartnered: null,
+          selectedSolution: null
+        };
         const { error: updErr } = await supabase
           .from("prep_requests")
           .update({
             placement_option_id: effectivePlacementOptionId,
             transportation_option_id: selectedTransportationOptionId,
             step2_confirmed_at: new Date().toISOString(),
-            step2_summary: {
-              alreadyConfirmed: true,
-              selectedTransportationOptionId
-            },
-            step2_shipments: normalizedShipments
+            step2_summary: summaryWithSelection,
+            step2_shipments: normalizedShipments,
+            ...buildShipmentNameUpdate()
           })
           .eq("id", requestId);
         if (updErr) {
@@ -1532,7 +1626,7 @@ serve(async (req) => {
             inboundPlanId,
             placementOptionId: effectivePlacementOptionId || null,
             shipments: normalizedShipments,
-            summary,
+            summary: summaryWithSelection,
             alreadyConfirmed: true,
             selectedTransportationOptionId,
             prepRequestId: requestId || null,
@@ -2842,6 +2936,16 @@ serve(async (req) => {
       returnedSolutions,
       modeMismatch
     };
+    const summaryWithSelection = {
+      ...summary,
+      selectedOptionId: selectedOption?.id || null,
+      selectedCarrier: selectedOption?.carrierName || null,
+      selectedMode: selectedOption?.mode || null,
+      selectedCharge: selectedOption?.charge ?? null,
+      selectedPartnered: Boolean(selectedOption?.partnered),
+      selectedSolution:
+        selectedOption?.shippingSolution || selectedOption?.raw?.shippingSolution || null
+    };
     if (spdWarnings.length) {
       summary["warnings"] = spdWarnings;
     }
@@ -2871,7 +2975,7 @@ serve(async (req) => {
           placementOptionId: effectivePlacementOptionId || null,
           options: optionsPayload,
           shipments: normalizedShipments,
-          summary,
+          summary: summaryWithSelection,
           status: {
             placementConfirm: placementConfirm?.res?.status ?? null,
             generate: genRes?.res.status ?? null,
@@ -2959,27 +3063,57 @@ serve(async (req) => {
       );
     }
 
-    if (!confirmOptionId) {
-      return new Response(
-        JSON.stringify({
-          error: "Selectează explicit o opțiune de transport înainte de confirmare.",
-          code: "TRANSPORTATION_OPTION_REQUIRED",
-          traceId
-        }),
-        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
-    }
-    const selectedOption =
-      effectiveOptionsForSelection.find((o) => o.id === confirmOptionId) || null;
+    const autoSelectTransportationOption =
+      body?.auto_select_transportation_option ??
+      body?.autoSelectTransportationOption ??
+      true;
+    let selectedOption =
+      (confirmOptionId
+        ? effectiveOptionsForSelection.find((o) => o.id === confirmOptionId) || null
+        : null) ||
+      null;
     if (!selectedOption) {
-      return new Response(
-        JSON.stringify({
-          error: "Opțiunea de transport selectată nu a fost găsită în lista Amazon.",
-          code: "TRANSPORTATION_OPTION_NOT_FOUND",
-          traceId
-        }),
-        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      const refresh = await listAllTransportationOptions(
+        String(effectivePlacementOptionId),
+        shipmentIdForListing
       );
+      const refreshedNormalized = normalizeOptions(refresh.collected || []);
+      const refreshedForSelection = normalizedRequestedMode
+        ? refreshedNormalized.filter((o) => normalizeOptionMode(o.mode) === normalizedRequestedMode)
+        : refreshedNormalized;
+      const selectionPool = refreshedForSelection.length ? refreshedForSelection : refreshedNormalized;
+      selectedOption = confirmOptionId
+        ? selectionPool.find((o) => o.id === confirmOptionId) || null
+        : null;
+      if (!selectedOption && autoSelectTransportationOption) {
+        selectedOption = selectionPool.find((o) => o.partnered) || selectionPool[0] || null;
+        logStep("transportationOption_auto_selected", {
+          traceId,
+          reason: confirmOptionId ? "not_found" : "missing",
+          selectedOptionId: selectedOption?.id || null,
+          shippingSolution: selectedOption?.shippingSolution || null,
+          carrierName: selectedOption?.carrierName || null
+        });
+      }
+      if (!selectedOption && !autoSelectTransportationOption) {
+        return new Response(
+          JSON.stringify({
+            error: confirmOptionId
+              ? "Opțiunea de transport selectată nu a fost găsită în lista Amazon."
+              : "Selectează explicit o opțiune de transport înainte de confirmare.",
+            code: confirmOptionId ? "TRANSPORTATION_OPTION_NOT_FOUND" : "TRANSPORTATION_OPTION_REQUIRED",
+            traceId,
+            availableOptions: selectionPool.map((o) => ({
+              id: o.id,
+              carrierName: o.carrierName || null,
+              mode: o.mode || null,
+              shippingSolution: o.shippingSolution || null,
+              charge: o.charge ?? null
+            }))
+          }),
+          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
     }
     if (forcePartneredOnly && !selectedOption.partnered) {
       return new Response(
@@ -3207,17 +3341,24 @@ serve(async (req) => {
             defaultMode: effectiveShippingMode || null,
             defaultCharge: null
           };
+          const summaryWithSelection = {
+            ...summary,
+            selectedOptionId: selectedTransportationOptionId,
+            selectedCarrier: "Amazon confirmed carrier",
+            selectedMode: effectiveShippingMode || null,
+            selectedCharge: null,
+            selectedPartnered: null,
+            selectedSolution: null
+          };
           const { error: updErr } = await supabase
             .from("prep_requests")
             .update({
               placement_option_id: effectivePlacementOptionId,
               transportation_option_id: selectedTransportationOptionId,
               step2_confirmed_at: new Date().toISOString(),
-              step2_summary: {
-                alreadyConfirmed: true,
-                selectedTransportationOptionId
-              },
-              step2_shipments: normalizedShipments
+              step2_summary: summaryWithSelection,
+              step2_shipments: normalizedShipments,
+              ...buildShipmentNameUpdate()
             })
             .eq("id", requestId);
           if (updErr) {
@@ -3228,7 +3369,7 @@ serve(async (req) => {
               inboundPlanId,
               placementOptionId: effectivePlacementOptionId || null,
               shipments: normalizedShipments,
-              summary,
+              summary: summaryWithSelection,
               alreadyConfirmed: true,
               selectedTransportationOptionId,
               prepRequestId: requestId || null,
@@ -3258,8 +3399,9 @@ serve(async (req) => {
         placement_option_id: effectivePlacementOptionId,
         transportation_option_id: selectedOption?.id || null,
         step2_confirmed_at: new Date().toISOString(),
-        step2_summary: summary,
-        step2_shipments: shipments
+        step2_summary: summaryWithSelection,
+        step2_shipments: shipments,
+        ...buildShipmentNameUpdate()
       })
       .eq("id", requestId);
     if (updErr) {
@@ -3272,14 +3414,14 @@ serve(async (req) => {
         placementOptionId: effectivePlacementOptionId || null,
         options: optionsPayload,
         shipments,
-        summary,
-        status: {
-          placementConfirm: placementConfirm?.res?.status ?? null,
-          generate: genRes?.res.status ?? null,
-          generateFailed,
-          generateProblems,
-          list: listRes?.res.status ?? null,
-          confirm: confirmRes?.res.status ?? null
+          summary: summaryWithSelection,
+          status: {
+            placementConfirm: placementConfirm?.res?.status ?? null,
+            generate: genRes?.res.status ?? null,
+            generateFailed,
+            generateProblems,
+            list: listRes?.res.status ?? null,
+            confirm: confirmRes?.res.status ?? null
         },
         amazonRequestId: confirmRes?.requestId || listRes?.requestId || genRes?.requestId || null,
         prepRequestId: requestId || null,

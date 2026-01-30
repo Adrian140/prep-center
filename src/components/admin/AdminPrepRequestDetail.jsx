@@ -64,7 +64,7 @@ const serializeHeaderNotes = ({ clientNote, adminNote }) => {
   return parts.join("\n");
 };
 
-export default function AdminPrepRequestDetail({ requestId, onBack, onChanged }) {
+export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, openWizard = false }) {
   const { profile, session } = useSupabaseAuth();
 
   const [row, setRow] = useState(null);
@@ -91,7 +91,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
   const [inventoryRemote, setInventoryRemote] = useState([]);
   const [inventorySearch, setInventorySearch] = useState("");
   const [inventoryDraftQty, setInventoryDraftQty] = useState({});
-  const [useNewFlow, setUseNewFlow] = useState(false);
+  const [useNewFlow, setUseNewFlow] = useState(Boolean(openWizard));
 
   const placeholderImg =
     'https://images.unsplash.com/photo-1582456891925-054d52d43a9c?auto=format&fit=crop&w=80&q=60';
@@ -130,6 +130,13 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
       }))
     };
   }, [row]);
+
+  useEffect(() => {
+    if (!requestId) return;
+    if (openWizard) {
+      setUseNewFlow(true);
+    }
+  }, [openWizard, requestId]);
 
   const wizardPackGroups = useMemo(() => {
     if (!row) return [];
@@ -253,14 +260,84 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged })
     ];
   }, [row]);
 
-  const wizardShipmentMode = useMemo(
-    () => ({
-      method: 'SPD',
-      deliveryDate: row?.created_at ? new Date(row.created_at).toISOString().slice(0, 10) : '',
-      carrier: { partnered: false, name: 'UPS (non-partnered)' }
-    }),
+  const wizardStep2Summary = useMemo(() => row?.step2_summary || null, [row]);
+  const wizardStep2Shipments = useMemo(
+    () => (Array.isArray(row?.step2_shipments) ? row.step2_shipments : []),
     [row]
   );
+  const wizardTrackingIds = useMemo(
+    () => (row?.prep_request_tracking || []).map((t) => t?.tracking_id).filter(Boolean),
+    [row]
+  );
+  const wizardSelectedOptionId =
+    row?.transportation_option_id || wizardStep2Summary?.selectedOptionId || null;
+  const wizardSelectedCarrier =
+    wizardStep2Summary?.selectedCarrier || wizardStep2Summary?.defaultCarrier || null;
+  const wizardSelectedMode =
+    wizardStep2Summary?.selectedMode || wizardStep2Summary?.defaultMode || null;
+  const wizardSelectedCharge =
+    wizardStep2Summary?.selectedCharge ?? wizardStep2Summary?.defaultCharge ?? null;
+  const wizardSelectedPartnered =
+    wizardStep2Summary?.selectedPartnered ?? null;
+  const wizardSelectedSolution =
+    wizardStep2Summary?.selectedSolution ||
+    wizardStep2Summary?.defaultSolution ||
+    (wizardSelectedPartnered ? 'AMAZON_PARTNERED_CARRIER' : 'USE_YOUR_OWN_CARRIER');
+  const wizardShippingOptions = useMemo(() => {
+    if (!wizardSelectedOptionId) return [];
+    return [
+      {
+        id: wizardSelectedOptionId,
+        partnered: Boolean(wizardSelectedPartnered),
+        carrierName: wizardSelectedCarrier || 'Carrier',
+        charge: Number.isFinite(wizardSelectedCharge) ? wizardSelectedCharge : null,
+        mode: wizardSelectedMode || 'GROUND_SMALL_PARCEL',
+        shippingSolution: wizardSelectedSolution
+      }
+    ];
+  }, [
+    wizardSelectedOptionId,
+    wizardSelectedPartnered,
+    wizardSelectedCarrier,
+    wizardSelectedCharge,
+    wizardSelectedMode,
+    wizardSelectedSolution
+  ]);
+  const wizardShipmentMode = useMemo(() => {
+    const normalizeMethod = (mode) => {
+      const up = String(mode || '').toUpperCase();
+      if (!up) return 'SPD';
+      if (up.includes('LTL')) return 'LTL';
+      if (up.includes('FTL')) return 'FTL';
+      if (up.includes('GROUND_SMALL_PARCEL') || up === 'SPD') return 'SPD';
+      return up;
+    };
+    return {
+      method: normalizeMethod(wizardSelectedMode),
+      deliveryDate: wizardStep2Summary?.shipDate || (row?.created_at ? new Date(row.created_at).toISOString().slice(0, 10) : ''),
+      carrier: {
+        partnered: Boolean(wizardSelectedPartnered),
+        name: wizardSelectedCarrier || (wizardSelectedPartnered ? 'Amazon partnered carrier' : 'Non Amazon partnered carrier')
+      }
+    };
+  }, [row, wizardSelectedCarrier, wizardSelectedMode, wizardSelectedPartnered, wizardStep2Summary]);
+
+  const wizardHistoryMode = Boolean(openWizard || row?.step2_confirmed_at || row?.step4_confirmed_at);
+  const wizardCompletedSteps = useMemo(() => {
+    const steps = [];
+    if (Array.isArray(row?.prep_request_items) && row.prep_request_items.length) {
+      steps.push('1', '1b');
+    }
+    if (row?.step2_confirmed_at) steps.push('2');
+    if (wizardTrackingIds.length || row?.step4_confirmed_at) steps.push('4');
+    return Array.from(new Set(steps));
+  }, [row, wizardTrackingIds.length]);
+  const wizardInitialStep = useMemo(() => {
+    if (openWizard) return '2';
+    if (wizardTrackingIds.length || row?.step4_confirmed_at) return '4';
+    if (row?.step2_confirmed_at) return '2';
+    return '1';
+  }, [openWizard, row, wizardTrackingIds.length]);
 
   // ---- helpers (afisare cod + nume)
   const codeOf = (it) => (it?.asin || it?.sku || "");
@@ -1055,11 +1132,19 @@ onChanged?.();
           initialPlan={wizardPlan}
           initialPacking={wizardPackGroups}
           initialShipmentMode={wizardShipmentMode}
-          initialShipmentList={wizardShipments}
+          initialShipmentList={wizardStep2Shipments.length ? wizardStep2Shipments : wizardShipments}
           initialTrackingList={[]}
+          initialTrackingIds={wizardTrackingIds}
+          initialCompletedSteps={wizardCompletedSteps}
+          initialShippingOptions={wizardShippingOptions}
+          initialShippingSummary={wizardStep2Summary}
+          initialShippingConfirmed={Boolean(row?.step2_confirmed_at)}
+          initialSelectedTransportationOptionId={wizardSelectedOptionId}
+          initialCurrentStep={wizardInitialStep}
+          historyMode={wizardHistoryMode}
           showLegacyToggle={false}
-          autoLoadPlan={true}
-          fetchPlan={fetchPlanFromEdge}
+          autoLoadPlan={!wizardHistoryMode}
+          fetchPlan={wizardHistoryMode ? null : fetchPlanFromEdge}
         />
       </div>
     );

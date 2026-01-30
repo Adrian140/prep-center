@@ -22,6 +22,9 @@ export default function FbaStep1Inventory({
   saving = false,
   inboundPlanId = null,
   requestId = null,
+  packGroupsPreview = [],
+  packGroupsPreviewLoading = false,
+  packGroupsPreviewError = '',
   onChangePacking,
   onChangeQuantity,
   onChangeExpiry,
@@ -64,6 +67,7 @@ export default function FbaStep1Inventory({
     return map[marketplaceId] || marketplaceRaw || '—';
   })();
   const totalUnits = skus.reduce((sum, sku) => sum + Number(sku.units || 0), 0);
+  const hasUnits = totalUnits > 0;
   const statusForSku = (sku) => {
     const match =
       skuStatuses.find((s) => s.sku === sku.sku) ||
@@ -639,6 +643,52 @@ export default function FbaStep1Inventory({
         </table>
       </div>
 
+      <div className="px-6 py-4 border-t border-slate-200 space-y-3">
+        <div className="font-semibold text-slate-900">Pack groups preview (Step 1)</div>
+        {packGroupsPreviewLoading && (
+          <div className="text-sm text-slate-600">Se încarcă gruparea de la Amazon…</div>
+        )}
+        {!packGroupsPreviewLoading && packGroupsPreviewError && (
+          <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-md">
+            {packGroupsPreviewError}
+          </div>
+        )}
+        {!packGroupsPreviewLoading && !packGroupsPreviewError && (!packGroupsPreview || packGroupsPreview.length === 0) && (
+          <div className="text-sm text-slate-600">
+            Nu avem încă packing groups. Continuă către Step 1b sau reîncarcă planul.
+          </div>
+        )}
+        {!packGroupsPreviewLoading && Array.isArray(packGroupsPreview) && packGroupsPreview.length > 0 && (
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            {packGroupsPreview.map((group, idx) => {
+              const items = Array.isArray(group.items) ? group.items : [];
+              return (
+                <div key={group.packingGroupId || group.id || `pack-${idx + 1}`} className="px-4 py-3">
+                  <div className="font-semibold text-slate-900">Pack {idx + 1}</div>
+                  <div className="mt-2 space-y-1 text-sm text-slate-700">
+                    {items.map((it, itemIdx) => {
+                      const label = it.title || it.name || it.sku || it.asin || 'SKU';
+                      const skuLabel = it.sku || it.msku || it.SellerSKU || it.asin || '—';
+                      const qty = Number(it.quantity || 0) || 0;
+                      return (
+                        <div key={`${skuLabel}-${itemIdx}`} className="flex items-center justify-between gap-3">
+                          <div className="flex flex-col">
+                            <span className="font-semibold">{label}</span>
+                            <span className="text-xs text-slate-500">{skuLabel}</span>
+                          </div>
+                          <div className="text-sm font-semibold">{qty}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {idx < packGroupsPreview.length - 1 && <div className="border-t border-slate-200 mt-3" />}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-slate-200">
         <div className="text-sm text-slate-600">
           SKUs confirmed to send: {skus.length} ({totalUnits} units)
@@ -649,19 +699,37 @@ export default function FbaStep1Inventory({
               Așteptăm inboundPlanId de la Amazon; nu poți continua până nu este încărcat planul.
             </div>
           )}
+          {!hasUnits && (
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-md">
+              Nu există unități de trimis. Setează cel puțin 1 unitate.
+            </div>
+          )}
           <button
             onClick={() => {
               if (hasBlocking) {
                 alert('Unele SKU-uri nu sunt eligibile în Amazon; rezolvă eligibilitatea și încearcă din nou.');
                 return;
               }
-              const disabled = hasBlocking || saving || !resolvedInboundPlanId || !requestId || (loadingPlan && skus.length === 0);
+              const disabled =
+                hasBlocking ||
+                saving ||
+                !resolvedInboundPlanId ||
+                !requestId ||
+                !hasUnits ||
+                (loadingPlan && skus.length === 0);
               if (disabled) return;
               onNext?.();
             }}
-            disabled={hasBlocking || saving || !resolvedInboundPlanId || !requestId || (loadingPlan && skus.length === 0)}
+            disabled={
+              hasBlocking ||
+              saving ||
+              !resolvedInboundPlanId ||
+              !requestId ||
+              !hasUnits ||
+              (loadingPlan && skus.length === 0)
+            }
             className={`px-4 py-2 rounded-md font-semibold shadow-sm text-white ${
-              hasBlocking || saving || !resolvedInboundPlanId || !requestId || (loadingPlan && skus.length === 0)
+              hasBlocking || saving || !resolvedInboundPlanId || !requestId || !hasUnits || (loadingPlan && skus.length === 0)
                 ? 'bg-slate-400 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700'
             }`}
@@ -674,7 +742,9 @@ export default function FbaStep1Inventory({
                   ? 'Rezolvă eligibilitatea în Amazon'
                   : !inboundPlanId || !requestId
                     ? 'Așteaptă planul Amazon'
-                  : 'Continue to packing'}
+                    : !hasUnits
+                      ? 'Adaugă unități'
+                    : 'Continue to packing'}
           </button>
         </div>
       </div>

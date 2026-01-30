@@ -495,7 +495,7 @@ serve(async (req) => {
 
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
-      .select("id, destination_country, company_id, user_id")
+      .select("id, destination_country, warehouse_country, company_id, user_id, inventory_deducted_at")
       .eq("id", requestId)
       .maybeSingle();
     if (reqErr) throw reqErr;
@@ -723,10 +723,51 @@ serve(async (req) => {
       );
     }
 
+    let inventoryDeducted: boolean | null = null;
+    let inventoryError: string | null = null;
+    if (action === "update_shipment_tracking_details") {
+      try {
+        const { data: finalizeData, error: finalizeErr } = await supabase.rpc(
+          "finalize_prep_request_inventory",
+          { p_request_id: requestId }
+        );
+        if (finalizeErr) {
+          inventoryError = finalizeErr.message || "inventory_deduction_failed";
+          console.warn("inventory_deduction_failed", {
+            traceId,
+            requestId,
+            error: finalizeErr.message
+          });
+        } else {
+          inventoryDeducted = Boolean(finalizeData);
+        }
+        const { error: statusErr } = await supabase
+          .from("prep_requests")
+          .update({ status: "confirmed" })
+          .eq("id", requestId);
+        if (statusErr) {
+          console.warn("prep_request_status_update_failed", {
+            traceId,
+            requestId,
+            error: statusErr.message
+          });
+        }
+      } catch (err: any) {
+        inventoryError = err?.message || "inventory_deduction_failed";
+        console.warn("inventory_deduction_failed", {
+          traceId,
+          requestId,
+          error: err?.message || String(err)
+        });
+      }
+    }
+
     return new Response(
       JSON.stringify({
         ok: true,
         data: res?.json || null,
+        inventoryDeducted,
+        inventoryError,
         requestId: res?.requestId || null,
         traceId
       }),

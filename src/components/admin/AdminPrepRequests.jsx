@@ -34,6 +34,7 @@ export default function AdminPrepRequests() {
   const pageSize = 10;
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(initialState.selectedId || null); // request id pt. detail
+  const [selectedView, setSelectedView] = useState(initialState.selectedView || 'detail');
   const [flash, setFlash] = useState('');
   const [useClientPaging, setUseClientPaging] = useState(false);
   const firstLoadRef = useRef(true);
@@ -123,8 +124,8 @@ export default function AdminPrepRequests() {
   }, [currentMarket]);
 
   useEffect(() => {
-    writeJSON(tabSessionStorage, STORAGE_KEY, { status, q, page, selectedId });
-  }, [status, q, page, selectedId]);
+    writeJSON(tabSessionStorage, STORAGE_KEY, { status, q, page, selectedId, selectedView });
+  }, [status, q, page, selectedId, selectedView]);
 
   const STATUS_PRIORITY = { pending: 0, confirmed: 1, cancelled: 2 };
 
@@ -206,6 +207,7 @@ export default function AdminPrepRequests() {
         requestId={selectedId}
         onBack={() => setSelectedId(null)}
         onChanged={() => load(page)}
+        openWizard={selectedView === 'shipping'}
       />
     );
   }
@@ -292,14 +294,38 @@ export default function AdminPrepRequests() {
                     <DestinationBadge code={r.destination_country || 'FR'} variant="subtle" />
                   </td>
                   <td className="px-4 py-3">
-                    <StatusPill s={r.status} />
+                    <div className="flex flex-col gap-1">
+                      <StatusPill s={r.status} />
+                      {r.step2_confirmed_at && (
+                        <span className="px-2 py-0.5 rounded text-[10px] bg-blue-100 text-blue-800 w-fit">
+                          Shipping confirmed
+                        </span>
+                      )}
+                      {r.step4_confirmed_at && (
+                        <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 w-fit">
+                          Tracking confirmed
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
-                      onClick={() => setSelectedId(r.id)}
+                      onClick={() => {
+                        setSelectedId(r.id);
+                        setSelectedView('detail');
+                      }}
                       className="px-3 py-1 bg-primary text-white rounded"
                     >
                       Deschide
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedId(r.id);
+                        setSelectedView('shipping');
+                      }}
+                      className="ml-2 px-3 py-1 bg-slate-700 text-white rounded"
+                    >
+                      View shipping
                     </button>
                      <button
                       onClick={() => handleDelete(r)}
