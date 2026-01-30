@@ -282,9 +282,9 @@ export default function FbaStep1bPacking({
       const boxCount = clampBoxes(boxes);
       if ((group.packMode || 'single') === 'multiple') {
         const perBox = (perBoxDetails || []).slice(0, boxCount);
-        return perBox.some((b) => resolveGroupNumber(b.weight) > MAX_STANDARD_BOX_KG);
+        return perBox.some((b) => resolveGroupNumber(b.weight) >= MAX_STANDARD_BOX_KG);
       }
-      return resolveGroupNumber(weight) > MAX_STANDARD_BOX_KG;
+      return resolveGroupNumber(weight) >= MAX_STANDARD_BOX_KG;
     });
     if (overweight) {
       return MAX_STANDARD_BOX_MSG;
@@ -532,7 +532,7 @@ export default function FbaStep1bPacking({
     if (!hasWeights) {
       validationMessages.push('Completeaza greutatea pentru fiecare cutie.');
     }
-    const overweightBoxes = perBoxDetails.some((d) => resolveGroupNumber(d?.weight) > MAX_STANDARD_BOX_KG);
+    const overweightBoxes = perBoxDetails.some((d) => resolveGroupNumber(d?.weight) >= MAX_STANDARD_BOX_KG);
     if (overweightBoxes) {
       validationMessages.push(MAX_STANDARD_BOX_MSG);
     }
@@ -1026,7 +1026,7 @@ export default function FbaStep1bPacking({
                         className="border rounded-md px-3 py-2 w-24"
                         placeholder="kg"
                       />
-                      {resolveGroupNumber(getDraft(group).boxWeight ?? group.boxWeight ?? '') > MAX_STANDARD_BOX_KG && (
+                      {resolveGroupNumber(getDraft(group).boxWeight ?? group.boxWeight ?? '') >= MAX_STANDARD_BOX_KG && (
                         <div className="text-xs text-red-600 mt-1">{MAX_STANDARD_BOX_MSG}</div>
                       )}
                     </div>
@@ -1043,7 +1043,7 @@ export default function FbaStep1bPacking({
                           setContinueError('Completează dimensiunile și greutatea înainte de a salva grupul.');
                           return;
                         }
-                        if (w > MAX_STANDARD_BOX_KG) {
+                        if (w >= MAX_STANDARD_BOX_KG) {
                           setContinueError(MAX_STANDARD_BOX_MSG);
                           return;
                         }
