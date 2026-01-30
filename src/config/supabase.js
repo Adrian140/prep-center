@@ -1820,6 +1820,7 @@ createPrepItem: async (requestId, item) => {
     endDate,
     country
   } = {}) => {
+    const isWarehouseMissing = (error) => isMissingColumnError(error, 'warehouse_country');
 
     const normalizeDate = (value) => {
       if (!value) return formatSqlDate();
@@ -1964,7 +1965,7 @@ createPrepItem: async (requestId, item) => {
       .lte('service_date', dateTo)
       .limit(20000);
 
-    const [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
+    let [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
       stockPromise,
       stockAllPromise,
       clientStockPromise,
@@ -1980,6 +1981,61 @@ createPrepItem: async (requestId, item) => {
       otherLinesPromise,
       balancePromise
     ]);
+    const needsWarehouseRetry =
+      marketCode &&
+      [returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes]
+        .some((res) => isWarehouseMissing(res?.error));
+    if (needsWarehouseRetry) {
+      const returnsRetry = withCompany(
+        supabase
+          .from('returns')
+          .select('id, status, created_at')
+      )
+        .gte('created_at', startIso)
+        .lte('created_at', endIso)
+        .limit(2000);
+      const prepRetry = withCompany(
+        supabase
+          .from('prep_requests')
+          .select('id, status, confirmed_at')
+          .eq('status', 'confirmed')
+      )
+        .gte('confirmed_at', startIso)
+        .lte('confirmed_at', endIso)
+        .limit(5000);
+      const receivingRetry = withCompany(
+        supabase
+          .from('receiving_shipments')
+          .select('id, status, created_at')
+      )
+        .gte('created_at', startIso)
+        .lte('created_at', endIso)
+        .limit(5000);
+      const prepItemsRetry = supabase
+        .from('prep_request_items')
+        .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status)')
+        .eq('prep_requests.status', 'confirmed')
+        .gte('prep_requests.confirmed_at', startIso)
+        .lte('prep_requests.confirmed_at', endIso)
+        .limit(10000);
+      const receivingItemsRetry = supabase
+        .from('receiving_to_stock_log')
+        .select('quantity_moved, moved_at, receiving_items!inner(shipment_id, receiving_shipments!inner(company_id))')
+        .limit(20000);
+      const [returnsRetryRes, prepRetryRes, receivingRetryRes, prepItemsRetryRes, receivingItemsRetryRes] =
+        await Promise.all([
+          returnsRetry,
+          prepRetry,
+          receivingRetry,
+          prepItemsRetry,
+          receivingItemsRetry
+        ]);
+      if (isWarehouseMissing(returnsRes?.error)) returnsRes = returnsRetryRes;
+      if (isWarehouseMissing(prepRes?.error)) prepRes = prepRetryRes;
+      if (isWarehouseMissing(receivingRes?.error)) receivingRes = receivingRetryRes;
+      if (isWarehouseMissing(prepItemsRes?.error)) prepItemsRes = prepItemsRetryRes;
+      if (isWarehouseMissing(receivingItemsRes?.error)) receivingItemsRes = receivingItemsRetryRes;
+    }
 
     const numberOrZero = (value) => {
       const n = Number(value);
