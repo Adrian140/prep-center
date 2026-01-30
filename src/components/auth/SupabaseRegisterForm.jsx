@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, Building, Tag } from 'lucide-react';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { useTranslation } from '../../translations';
@@ -20,6 +20,7 @@ function SupabaseRegisterForm() {
     confirmPassword: '',
     phone: '',
     country: 'FR',
+    marketChoice: 'FR',
     language: 'en',
     affiliateCode: '',
     acceptTerms: false,
@@ -35,6 +36,23 @@ function SupabaseRegisterForm() {
   const { signUp } = useSupabaseAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefillMarket = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = String(params.get('country') || params.get('market') || '').toUpperCase();
+    if (raw === 'DE') return 'DE';
+    if (raw === 'FR') return 'FR';
+    if (raw === 'BOTH') return 'BOTH';
+    return null;
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!prefillMarket) return;
+    setFormData((prev) => ({
+      ...prev,
+      marketChoice: prefillMarket
+    }));
+  }, [prefillMarket]);
 
   const validatePassword = (password) => {
     const minLength = password.length >= 8;
@@ -95,6 +113,12 @@ function SupabaseRegisterForm() {
       }
     }
 
+    if (!formData.marketChoice) {
+      setError('Please select a market (France, Germany, or both).');
+      setLoading(false);
+      return;
+    }
+
     if (!validatePassword(formData.password)) {
       setError(t('authPasswordRequirements'));
       setLoading(false);
@@ -122,6 +146,13 @@ function SupabaseRegisterForm() {
       }
     }
 
+    const allowedMarkets =
+      formData.marketChoice === 'BOTH'
+        ? ['FR', 'DE']
+        : [formData.marketChoice];
+    const primaryCountry =
+      formData.marketChoice === 'BOTH' ? 'FR' : formData.marketChoice;
+
     const metadata = {
       // snake_case (current schema)
       account_type: formData.accountType,
@@ -133,8 +164,9 @@ function SupabaseRegisterForm() {
       company_city: formData.companyCity,
       company_postal_code: formData.companyPostalCode,
       phone: trimmedPhone,
-      country: formData.country,
+      country: primaryCountry,
       language: formData.language,
+      allowed_markets: allowedMarkets,
       accept_terms: formData.acceptTerms,
       accept_marketing: formData.acceptMarketing,
       affiliate_code: formData.affiliateCode.trim(),
@@ -149,8 +181,9 @@ function SupabaseRegisterForm() {
       companyCity: formData.companyCity,
       companyPostalCode: formData.companyPostalCode,
       phoneNumber: trimmedPhone,
-      countryCode: formData.country,
+      countryCode: primaryCountry,
       languageCode: formData.language,
+      allowedMarkets,
       acceptTerms: formData.acceptTerms,
       acceptMarketing: formData.acceptMarketing,
       affiliateCode: formData.affiliateCode.trim()
@@ -295,6 +328,27 @@ function SupabaseRegisterForm() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
               placeholder="+33 6 12 34 56 78"
             />
+          </div>
+
+          <div>
+            <label htmlFor="marketChoice" className="block text-sm font-medium text-text-primary mb-2">
+              Market selection *
+            </label>
+            <select
+              id="marketChoice"
+              name="marketChoice"
+              required
+              value={formData.marketChoice}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
+            >
+              <option value="FR">France</option>
+              <option value="DE">Germany</option>
+              <option value="BOTH">France + Germany</option>
+            </select>
+            <p className="text-xs text-text-light mt-1">
+              Choose where you want your client account created. If you select both, you can switch between markets after login.
+            </p>
           </div>
 
           {/* Company Fields */}

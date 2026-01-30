@@ -7,6 +7,8 @@ import { encodeRemainingAction } from '@/utils/receivingFba';
 import { useDashboardTranslation } from '@/translations';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
+import { useMarket } from '@/contexts/MarketContext';
+import { mapStockRowsForMarket } from '@/utils/marketStock';
 
 const GUIDE_LANGS = ['fr', 'en', 'de', 'it', 'es', 'ro'];
 const STATUS_PRIORITY = {
@@ -149,6 +151,7 @@ function ClientReceiving() {
   const { t: baseT, tp } = useDashboardTranslation();
   const { currentLanguage } = useLanguage();
   const { profile } = useSupabaseAuth();
+  const { currentMarket } = useMarket();
 
   const t = (key, params) =>
     params ? tp(`ClientReceiving.${key}`, params) : baseT(`ClientReceiving.${key}`);
@@ -280,7 +283,7 @@ const buildHeaderState = (shipment) => ({
     setLoading(true);
     try {
       const [shipmentsRes, carriersRes, stockResCompany, stockResUser] = await Promise.all([
-        supabaseHelpers.getClientReceivingShipments(profile.company_id),
+        supabaseHelpers.getClientReceivingShipments(profile.company_id, currentMarket),
         supabaseHelpers.getCarriers(),
         supabase
           .from('stock_items')
@@ -316,7 +319,7 @@ const buildHeaderState = (shipment) => ({
 
       setShipments(sortedShipments);
       setCarriers(normalizeCarriers(carriersRes.data || []));
-      setStock(deduped);
+      setStock(mapStockRowsForMarket(deduped, currentMarket));
       return sortedShipments;
     } catch (error) {
       setShipments([]);
@@ -335,7 +338,7 @@ const buildHeaderState = (shipment) => ({
     setEditItems([]);
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.company_id]);
+  }, [profile?.company_id, currentMarket]);
 
   useEffect(() => {
     if (!editMode) {

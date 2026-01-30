@@ -17,7 +17,7 @@ function AdminRoute({ children }) {
     );
   }
 
-  if (user && profile?.account_type === 'admin') {
+  if (user && (profile?.account_type === 'admin' || profile?.is_admin === true)) {
     return children;
   }
 

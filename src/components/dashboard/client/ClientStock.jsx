@@ -20,6 +20,8 @@ import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
 import ClientStockSelectionBar from './ClientStockSelectionBar';
 import { getKeepaMainImage } from '@/utils/keepaClient';
 import UserGuidePlayer from '@/components/common/UserGuidePlayer';
+import { useMarket } from '@/contexts/MarketContext';
+import { buildPrepQtyPatch, mapStockRowsForMarket } from '@/utils/marketStock';
 
 const isBadImageUrl = (url) => {
   if (!url) return true;
@@ -320,12 +322,14 @@ function CreateProductModal({ open, onClose, profile, t, onCreated }) {
     setSaving(true);
     setError('');
     try {
+      const prepPatch = buildPrepQtyPatch({}, currentMarket, qty);
       const payload = {
         name: baseForm.name.trim(),
         asin: baseForm.asin.trim() || null,
         sku: baseForm.sku.trim() || null,
         ean: baseForm.ean.trim() || null,
-        qty,
+        qty: prepPatch.qty,
+        prep_qty_by_country: prepPatch.prep_qty_by_country,
         purchase_price: purchasePrice,
         product_link: baseForm.product_link.trim() || null
       };
@@ -724,6 +728,7 @@ export default function ClientStock({
   const [deleteInProgress, setDeleteInProgress] = useState(false);
   const priceColumnNote = t('ClientStock.priceColumn.note');
   const authCtx = useSupabaseAuth();
+  const { currentMarket } = useMarket();
   const profile = profileOverride ?? authCtx.profile;
   const status = statusOverride ?? authCtx.status;
   const [toast, setToast] = useState(null);
@@ -961,20 +966,22 @@ const [photoItem, setPhotoItem] = useState(null);
 const [photoCounts, setPhotoCounts] = useState({});
 const [trackingDraft, setTrackingDraft] = useState('');
 const [trackingPanelOpen, setTrackingPanelOpen] = useState(false);
-const handleQuickAddComplete = useCallback(
+  const handleQuickAddComplete = useCallback(
   ({ inserted = [], updated = [], count = 0 }) => {
+    const mappedInserted = mapStockRowsForMarket(inserted, currentMarket);
+    const mappedUpdated = mapStockRowsForMarket(updated, currentMarket);
     setRows((prev) => {
-      const updateMap = new Map(updated.map((row) => [row.id, row]));
+      const updateMap = new Map(mappedUpdated.map((row) => [row.id, row]));
       let next = prev.map((row) => (updateMap.has(row.id) ? { ...row, ...updateMap.get(row.id) } : row));
-      if (inserted.length) {
-        next = [...inserted, ...next];
+      if (mappedInserted.length) {
+        next = [...mappedInserted, ...next];
       }
       return next;
     });
-    if (inserted.length) {
+    if (mappedInserted.length) {
       setRowEdits((prev) => {
         const next = { ...prev };
-        inserted.forEach((row) => {
+        mappedInserted.forEach((row) => {
           next[row.id] = {
             name: row.name || '',
             asin: row.asin || '',
@@ -991,7 +998,7 @@ const handleQuickAddComplete = useCallback(
     const msg = (quickAddLabels.success || '').replace('{count}', String(count));
     setToast({ type: 'success', text: msg });
   },
-  [quickAddLabels.success, setRowEdits]
+  [quickAddLabels.success, setRowEdits, currentMarket]
 );
 const handleQuickAddError = useCallback(
   (msg) => setToast({ type: 'error', text: msg }),
@@ -1050,11 +1057,12 @@ const refreshStockData = useCallback(async () => {
     });
     return [...withAsin, ...withoutAsin];
   };
-  setRows(moveNoAsinRowsToEnd(all));
+  const mappedAll = mapStockRowsForMarket(all, currentMarket);
+  setRows(moveNoAsinRowsToEnd(mappedAll));
   setLoading(false);
 
   const seed = {};
-  for (const r of all) {
+  for (const r of mappedAll) {
     seed[r.id] = {
       name: r.name || '',
       asin: r.asin || '',
@@ -1109,7 +1117,8 @@ const refreshStockData = useCallback(async () => {
   setPhotoCounts,
   setSalesSummary,
   setRows,
-  setLoading
+  setLoading,
+  currentMarket
 ]);
 
 useEffect(() => {
@@ -1629,10 +1638,12 @@ const handleReceptionFormChange = (field, value) => {
   setReceptionForm((prev) => ({ ...prev, [field]: value }));
 };
 useEffect(() => {
-  if (!receptionForm?.destinationCountry) {
-    setReceptionForm((prev) => ({ ...prev, destinationCountry: 'FR' }));
-  }
-}, [receptionForm?.destinationCountry, setReceptionForm]);
+  if (!currentMarket) return;
+  setReceptionForm((prev) => {
+    if (prev?.destinationCountry === currentMarket) return prev;
+    return { ...prev, destinationCountry: currentMarket };
+  });
+}, [currentMarket, setReceptionForm]);
 const handleReceptionFbaModeChange = (mode) => {
   setReceptionForm((prev) => ({ ...prev, fbaMode: mode }));
   if (mode === 'full' || mode === 'none') {
@@ -1764,9 +1775,14 @@ const resetReceptionForm = () => {
     const current = Number(row.qty || 0);
     const next = field === 'dec' ? Math.max(0, current - delta) : current + delta;
     try {
-      const { error } = await supabase.from('stock_items').update({ qty: next }).eq('id', row.id);
+      const patch = buildPrepQtyPatch(row, currentMarket, next);
+      const { error } = await supabase.from('stock_items').update(patch).eq('id', row.id);
       if (error) throw error;
-      setRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, qty: next } : item)));
+      setRows((prev) =>
+        prev.map((item) =>
+          item.id === row.id ? { ...item, ...patch, qty: next } : item
+        )
+      );
       setQtyInputValue(row.id, field, '');
       setToast({ type: 'success', text: 'Stock updated.' });
     } catch (err) {
@@ -1812,7 +1828,8 @@ const resetReceptionForm = () => {
   };
 
   const handleProductCreated = (item) => {
-    setRows((prev) => [item, ...prev]);
+    const [mapped] = mapStockRowsForMarket([item], currentMarket);
+    setRows((prev) => [mapped, ...prev]);
     setToast({ type: 'success', text: t('ClientStock.createProduct.success') });
   };
 
@@ -2200,7 +2217,7 @@ const saveReqChanges = async () => {
 
     for (const ins of toInsert) {
       const st = rows.find(r => r.id === ins.stock_item_id) || {};
-      const resolvedStockId = await ensureStockItemId(ins, rows, setRows, profile);
+      const resolvedStockId = await ensureStockItemId(ins, rows, setRows, profile, currentMarket);
       if (resolvedStockId && !ins.stock_item_id) {
         ins.stock_item_id = resolvedStockId;
       }
@@ -2984,11 +3001,12 @@ const findStockMatch = (line, rows) => {
   return null;
 };
 
-const ensureStockItemId = async (line, rows, setRows, profile) => {
+const ensureStockItemId = async (line, rows, setRows, profile, market) => {
   if (line.stock_item_id) return line.stock_item_id;
   const existing = findStockMatch(line, rows);
   if (existing) return existing.id;
   if (!profile?.company_id) return null;
+  const prepPatch = buildPrepQtyPatch({}, market, 0);
 
   const payload = {
     company_id: profile.company_id,
@@ -2997,7 +3015,8 @@ const ensureStockItemId = async (line, rows, setRows, profile) => {
     asin: line.asin || null,
     sku: line.sku || null,
     ean: line.ean || null,
-    qty: 0,
+    qty: prepPatch.qty,
+    prep_qty_by_country: prepPatch.prep_qty_by_country,
     created_by: profile.id,
     purchase_price: line.purchase_price ?? null
   };
@@ -3008,6 +3027,7 @@ const ensureStockItemId = async (line, rows, setRows, profile) => {
     .select()
     .single();
   if (error) throw error;
-  setRows((prev) => [data, ...prev]);
+  const [mapped] = mapStockRowsForMarket([data], market);
+  setRows((prev) => [mapped, ...prev]);
   return data.id;
 };

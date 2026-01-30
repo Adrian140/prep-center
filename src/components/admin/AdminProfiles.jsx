@@ -11,6 +11,8 @@ import {
 import { useAdminTranslation } from "@/i18n/useAdminTranslation";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
+import { useMarket } from "@/contexts/MarketContext";
+import { normalizeMarketCode } from "@/utils/market";
 
 const PER_PAGE = 30;
 const fmt2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "0.00");
@@ -60,26 +62,37 @@ async function mapWithConcurrency(items, limit, mapper) {
   return results;
 }
 
-async function fetchLiveBalance(companyId) {
+async function fetchLiveBalance(companyId, market) {
   if (!companyId) return 0;
+  const marketCode = normalizeMarketCode(market);
+  const withCountry = (query) =>
+    marketCode ? query.eq('country', marketCode) : query;
   const [{ data: fba }, { data: fbm }, { data: other }, { data: invoices }] =
     await Promise.all([
-      supabase
-        .from('fba_lines')
-        .select('unit_price, units, total')
-        .eq('company_id', companyId),
-      supabase
-        .from('fbm_lines')
-        .select('unit_price, orders_units, total')
-        .eq('company_id', companyId),
-      supabase
-        .from('other_lines')
-        .select('unit_price, units, total')
-        .eq('company_id', companyId),
-      supabase
-        .from('invoices')
-        .select('amount, status')
-        .eq('company_id', companyId)
+      withCountry(
+        supabase
+          .from('fba_lines')
+          .select('unit_price, units, total')
+          .eq('company_id', companyId)
+      ),
+      withCountry(
+        supabase
+          .from('fbm_lines')
+          .select('unit_price, orders_units, total')
+          .eq('company_id', companyId)
+      ),
+      withCountry(
+        supabase
+          .from('other_lines')
+          .select('unit_price, units, total')
+          .eq('company_id', companyId)
+      ),
+      withCountry(
+        supabase
+          .from('invoices')
+          .select('amount, status')
+          .eq('company_id', companyId)
+      )
     ]);
 
   const services =
@@ -90,22 +103,29 @@ async function fetchLiveBalance(companyId) {
   return services - paid;
 }
 
-async function fetchOtherLineSums(companyId, startDate, endDate) {
+async function fetchOtherLineSums(companyId, startDate, endDate, market) {
 
   if (!companyId) {
     return { monthTotal: 0, carryTotal: 0 };
   }
+  const marketCode = normalizeMarketCode(market);
+  const withCountry = (query) =>
+    marketCode ? query.eq('country', marketCode) : query;
   const [{ data: monthRows, error: monthErr }, { data: prevRows, error: prevErr }] = await Promise.all([
-    supabase
-      .from("other_lines")
-      .select("total, unit_price, units, service_date")
-      .eq("company_id", companyId)
+    withCountry(
+      supabase
+        .from("other_lines")
+        .select("total, unit_price, units, service_date")
+        .eq("company_id", companyId)
+    )
       .gte("service_date", startDate)
       .lte("service_date", endDate),
-    supabase
-      .from("other_lines")
-      .select("total, unit_price, units, service_date")
-      .eq("company_id", companyId)
+    withCountry(
+      supabase
+        .from("other_lines")
+        .select("total, unit_price, units, service_date")
+        .eq("company_id", companyId)
+    )
       .lt("service_date", startDate)
   ]);
   if (monthErr || prevErr) {
@@ -115,6 +135,59 @@ async function fetchOtherLineSums(companyId, startDate, endDate) {
     monthTotal: sumOtherLineRows(monthRows),
     carryTotal: sumOtherLineRows(prevRows)
   };
+}
+
+async function fetchServiceLineSums(companyId, startDate, endDate, market) {
+  if (!companyId) return { current: 0, carry: 0 };
+  const marketCode = normalizeMarketCode(market);
+  const withCountry = (query) =>
+    marketCode ? query.eq('country', marketCode) : query;
+
+  const [fbaMonth, fbaPrev, fbmMonth, fbmPrev] = await Promise.all([
+    withCountry(
+      supabase
+        .from('fba_lines')
+        .select('total, unit_price, units, service_date')
+        .eq('company_id', companyId)
+        .gte('service_date', startDate)
+        .lte('service_date', endDate)
+    ),
+    withCountry(
+      supabase
+        .from('fba_lines')
+        .select('total, unit_price, units, service_date')
+        .eq('company_id', companyId)
+        .lt('service_date', startDate)
+    ),
+    withCountry(
+      supabase
+        .from('fbm_lines')
+        .select('total, unit_price, orders_units, service_date')
+        .eq('company_id', companyId)
+        .gte('service_date', startDate)
+        .lte('service_date', endDate)
+    ),
+    withCountry(
+      supabase
+        .from('fbm_lines')
+        .select('total, unit_price, orders_units, service_date')
+        .eq('company_id', companyId)
+        .lt('service_date', startDate)
+    )
+  ]);
+
+  if (fbaMonth.error || fbaPrev.error || fbmMonth.error || fbmPrev.error) {
+    return { current: 0, carry: 0 };
+  }
+
+  const current =
+    sumLineRows(fbaMonth.data, 'units') +
+    sumLineRows(fbmMonth.data, 'orders_units');
+  const carry =
+    sumLineRows(fbaPrev.data, 'units') +
+    sumLineRows(fbmPrev.data, 'orders_units');
+
+  return { current, carry };
 }
 
 const getBalanceState = (value) => {
@@ -152,6 +225,7 @@ const BALANCE_FILTERS = ["all", "advance", "overdue"];
 export default function AdminProfiles({ onSelect }) {
   const { t, tp } = useAdminTranslation();
   const { profile: currentProfile } = useSupabaseAuth();
+  const { currentMarket } = useMarket();
   const isLimitedAdmin = Boolean(currentProfile?.is_limited_admin);
   const showBalances = !isLimitedAdmin;
   const [persistedFilters, setPersistedFilters] = useSessionStorage(STORAGE_KEY, {
@@ -266,12 +340,21 @@ export default function AdminProfiles({ onSelect }) {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id,email,phone,first_name,last_name,company_name,created_at,account_type,company_id,store_name,can_view_prices")
+        .select("id,email,phone,first_name,last_name,company_name,created_at,account_type,company_id,store_name,can_view_prices,country,allowed_markets")
         .order("created_at", { ascending: false });
       if (error) throw error;
       const nonAdmins = (data || []).filter(
         (r) => (r.account_type || "").toLowerCase() !== "admin"
       );
+      const marketCode = normalizeMarketCode(currentMarket);
+      const scoped = marketCode
+        ? nonAdmins.filter((r) => {
+            const allowed = Array.isArray(r.allowed_markets) ? r.allowed_markets : [];
+            const normalizedAllowed = allowed.map((c) => normalizeMarketCode(c));
+            return normalizedAllowed.includes(marketCode) ||
+              normalizeMarketCode(r.country) === marketCode;
+          })
+        : nonAdmins;
 
       let billingMap = new Map();
       const ids = nonAdmins.map((r) => r.id).filter(Boolean);
@@ -288,7 +371,7 @@ export default function AdminProfiles({ onSelect }) {
         });
       }
 
-      const enriched = nonAdmins.map((profile, idx) => ({
+      const enriched = scoped.map((profile, idx) => ({
         ...enrichProfile(profile, billingMap),
         _order: idx
       }));
@@ -301,7 +384,7 @@ export default function AdminProfiles({ onSelect }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentMarket]);
 
   useEffect(() => {
     reloadProfiles();
@@ -453,19 +536,15 @@ const tableTotals = useMemo(() => {
         const entries = await mapWithConcurrency(rows, 8, async (p) => {
           if (!p.company_id) return [p.id, { currentSold: 0, carry: 0, diff: 0 }];
 
-          const [{ data, error }, liveBalance] = await Promise.all([
-            supabaseHelpers.getPeriodBalances(p.id, p.company_id, start, end),
-            fetchLiveBalance(p.company_id),
+          const [marketSums, liveBalance] = await Promise.all([
+            fetchServiceLineSums(p.company_id, start, end, currentMarket),
+            fetchLiveBalance(p.company_id, currentMarket),
           ]);
 
-          if (error || !data) {
-            return [p.id, { currentSold: 0, carry: 0, diff: liveBalance || 0 }];
-          }
+          let current = Number(marketSums.current ?? 0);
+          let carry = Number(marketSums.carry ?? 0) * -1;
 
-          let current = Number((data.sold_current ?? data.sold_curent) ?? 0);
-          let carry = -Number(data.sold_restant ?? 0);
-
-          const otherSums = await fetchOtherLineSums(p.company_id, start, end);
+          const otherSums = await fetchOtherLineSums(p.company_id, start, end, currentMarket);
           current += otherSums.monthTotal;
           carry += otherSums.carryTotal;
 
@@ -485,7 +564,7 @@ const tableTotals = useMemo(() => {
 
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [rows, selectedMonth, showBalances]);
+ }, [rows, selectedMonth, showBalances, currentMarket]);
 
   const startEditStore = (profile) => {
     setEditingStoreId(profile.id);

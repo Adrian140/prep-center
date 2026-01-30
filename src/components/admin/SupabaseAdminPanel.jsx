@@ -55,7 +55,7 @@ useEffect(() => {
       console.error("Error checking admin:", error);
       setIsAdmin(false);
     } else {
-      setIsAdmin(data?.is_admin === true);
+      setIsAdmin(data?.is_admin === true || data?.account_type === 'admin');
     }
     setCheckingAdmin(false);
   };

@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { SupabaseAuthProvider } from './contexts/SupabaseAuthContext';
+import { MarketProvider } from './contexts/MarketContext';
 import RouteTracker from './analytics/RouteTracker';
 import './index.css';
 
@@ -12,10 +13,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <LanguageProvider>
       <SupabaseAuthProvider>
-        <BrowserRouter>
-          <RouteTracker />
-          <App />
-        </BrowserRouter>
+        <MarketProvider>
+          <BrowserRouter>
+            <RouteTracker />
+            <App />
+          </BrowserRouter>
+        </MarketProvider>
       </SupabaseAuthProvider>
     </LanguageProvider>
   </React.StrictMode>

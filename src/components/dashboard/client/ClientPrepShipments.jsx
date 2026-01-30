@@ -3,6 +3,8 @@ import { Package, ChevronDown, Search } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
 import { supabase, supabaseHelpers } from '../../../config/supabase';
+import { useMarket } from '@/contexts/MarketContext';
+import { buildPrepQtyPatch, mapStockRowsForMarket } from '@/utils/marketStock';
 
 const CLIENT_NOTE_MARKER = "[CLIENT_NOTE]";
 const ADMIN_NOTE_MARKER = "[ADMIN_NOTE]";
@@ -49,6 +51,7 @@ const createClientUid = () =>
 
 export default function ClientPrepShipments() {
   const { profile } = useSupabaseAuth();
+  const { currentMarket } = useMarket();
   const { t } = useDashboardTranslation();
   const supportError = t('common.supportError');
   const [rows, setRows] = useState([]);
@@ -251,6 +254,7 @@ export default function ClientPrepShipments() {
     if (existing) return existing.id;
     if (!profile?.company_id) return null;
 
+    const prepPatch = buildPrepQtyPatch({}, currentMarket, 0);
     const payload = {
       company_id: profile.company_id,
       user_id: profile.id,
@@ -258,13 +262,15 @@ export default function ClientPrepShipments() {
       asin: line.asin || null,
       sku: line.sku || null,
       ean: line.ean || null,
-      qty: 0,
+      qty: prepPatch.qty,
+      prep_qty_by_country: prepPatch.prep_qty_by_country,
       created_by: profile.id
     };
 
     const { data, error } = await supabase.from('stock_items').insert(payload).select().single();
     if (error) throw error;
-    setStock((prev) => [data, ...prev]);
+    const [mapped] = mapStockRowsForMarket([data], currentMarket);
+    setStock((prev) => [mapped, ...prev]);
     return data.id;
   };
 
@@ -324,7 +330,7 @@ export default function ClientPrepShipments() {
     if (!requestId) {
       setReqHeader({
         id: null,
-        destination_country: profile?.company_country || 'FR',
+        destination_country: currentMarket || profile?.company_country || 'FR',
         status: 'pending',
         created_at: new Date().toISOString(),
         fba_shipment_id: null,
@@ -518,6 +524,7 @@ export default function ClientPrepShipments() {
             )
           `)
           .eq('user_id', profile.id)
+          .eq('destination_country', currentMarket)
           .order('created_at', { ascending: false })
           .limit(100),
         supabase
@@ -546,7 +553,7 @@ export default function ClientPrepShipments() {
       const userItems = Array.isArray(stockResUser.data) ? stockResUser.data : [];
       const merged = [...companyItems, ...userItems].filter(Boolean);
       const deduped = Array.from(new Map(merged.map((it) => [it.id, it])).values());
-      setStock(deduped);
+      setStock(mapStockRowsForMarket(deduped, currentMarket));
       setLoading(false);
     };
 
@@ -554,7 +561,7 @@ export default function ClientPrepShipments() {
     return () => {
       active = false;
     };
-  }, [profile?.id, profile?.company_id]);
+  }, [profile?.id, profile?.company_id, currentMarket]);
 
   const reqClientNote = parseHeaderNotes(reqHeader?.obs_admin).clientNote;
   const filteredRows = useMemo(() => {

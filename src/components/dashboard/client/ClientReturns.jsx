@@ -3,12 +3,15 @@ import { Pencil, Trash2, Upload, CheckCircle2, X } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabase } from '../../../config/supabase';
 import { useDashboardTranslation } from '../../../translations';
+import { useMarket } from '@/contexts/MarketContext';
+import { normalizeMarketCode } from '@/utils/market';
 
 const editableStatuses = ['pending', 'processing'];
 
 export default function ClientReturns() {
   const { t } = useDashboardTranslation();
   const { profile, status } = useSupabaseAuth();
+  const { currentMarket } = useMarket();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
@@ -46,6 +49,15 @@ export default function ClientReturns() {
       .eq('company_id', profile.company_id)
       .order('created_at', { ascending: false });
     let baseRows = err ? [] : Array.isArray(data) ? data : [];
+    const marketCode = normalizeMarketCode(currentMarket);
+    if (marketCode) {
+      baseRows = baseRows.filter((row) => {
+        const rowMarket = normalizeMarketCode(
+          row?.marketplace || row?.country || row?.destination_country
+        );
+        return rowMarket === marketCode;
+      });
+    }
 
     // Fetch stock item metadata separat, fără .or() construit din string
     const allItems = baseRows.flatMap((r) => (Array.isArray(r.return_items) ? r.return_items : []));
@@ -108,7 +120,7 @@ export default function ClientReturns() {
 
   useEffect(() => {
     if (status !== 'loading') load();
-  }, [status, profile?.company_id]);
+  }, [status, profile?.company_id, currentMarket]);
 
   const canEdit = (row) => editableStatuses.includes(row.status);
 

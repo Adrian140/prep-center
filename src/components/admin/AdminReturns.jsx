@@ -2,10 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, RefreshCcw, Trash2, Upload, CheckCircle2, Pencil, X } from 'lucide-react';
 import Section from '../common/Section';
 import { supabase } from '../../config/supabase';
+import { useMarket } from '@/contexts/MarketContext';
+import { normalizeMarketCode } from '@/utils/market';
 
 const statusOptions = ['pending', 'processing', 'done', 'cancelled'];
 
 export default function AdminReturns() {
+  const { currentMarket } = useMarket();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -45,6 +48,15 @@ export default function AdminReturns() {
       .limit(200);
     if (err) setError(err.message);
     let baseRows = Array.isArray(data) ? data : [];
+    const marketCode = normalizeMarketCode(currentMarket);
+    if (marketCode) {
+      baseRows = baseRows.filter((row) => {
+        const rowMarket = normalizeMarketCode(
+          row?.marketplace || row?.country || row?.destination_country
+        );
+        return rowMarket === marketCode;
+      });
+    }
 
     const createSignedUrl = async (path) => {
       if (!path) return '';
@@ -130,7 +142,7 @@ export default function AdminReturns() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [currentMarket]);
 
   const filtered = useMemo(() => {
     if (!filter) return rows;

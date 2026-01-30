@@ -337,6 +337,7 @@ createReceptionRequest: async (data) => {
       purchase_price: item.purchase_price || null,
       created_at: new Date().toISOString(),
       name: item.name || null,
+      prep_qty_by_country: item.prep_qty_by_country || {}
     };
 
     const { data, error } = await supabase

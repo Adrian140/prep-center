@@ -2,6 +2,9 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useSupabaseAuth } from "../../../contexts/SupabaseAuthContext";
 import { supabase } from "../../../config/supabase";
 import { useDashboardTranslation } from "../../../translations";
+import { useMarket } from '@/contexts/MarketContext';
+import { normalizeMarketCode } from '@/utils/market';
+import { mapStockRowsForMarket } from '@/utils/marketStock';
 
 // Tipurile + headere + formate numerice + mapări rânduri
 const KIND_META = (t) => ({
@@ -194,6 +197,7 @@ export default function ClientExports() {
   const { t, tp } = useDashboardTranslation();
   const supportError = t('common.supportError');
   const { profile } = useSupabaseAuth();
+  const { currentMarket } = useMarket();
 
   const [kind, setKind] = useState("FBA");
   const [from, setFrom] = useState(() => {
@@ -214,6 +218,26 @@ export default function ClientExports() {
   const [triggerMessage, setTriggerMessage] = useState('');
 
   const meta = useMemo(() => KIND_META(t)[kind], [t, kind]);
+  const marketCode = normalizeMarketCode(currentMarket);
+
+  const applyCountryFilter = (query, table) => {
+    if (!marketCode) return query;
+    if (table === 'returns' || table === 'stock_items') return query;
+    return query.eq('country', marketCode);
+  };
+
+  const filterRowsByMarket = (rows, table) => {
+    if (!marketCode) return rows;
+    if (table === 'returns') {
+      return rows.filter((row) => {
+        const rowMarket = normalizeMarketCode(
+          row?.marketplace || row?.country || row?.destination_country
+        );
+        return rowMarket === marketCode;
+      });
+    }
+    return rows;
+  };
 
   // Load stock archive from export_files table
   useEffect(() => {
@@ -298,8 +322,9 @@ export default function ClientExports() {
       let query = supabase
         .from(meta.table)
         .select("*")
-        .eq("company_id", profile.company_id)
-        .order(meta.dateCol, { ascending: true });
+        .eq("company_id", profile.company_id);
+      query = applyCountryFilter(query, meta.table);
+      query = query.order(meta.dateCol, { ascending: true });
 
       // "Stock" = snapshot (fără interval)
       if (kind !== "Stock") {
@@ -309,7 +334,11 @@ export default function ClientExports() {
 
       const { data, error } = await query;
       if (error) throw error;
-      const rowsRaw = Array.isArray(data) ? data : [];
+      let rowsRaw = Array.isArray(data) ? data : [];
+      rowsRaw = filterRowsByMarket(rowsRaw, meta.table);
+      if (kind === 'Stock') {
+        rowsRaw = mapStockRowsForMarket(rowsRaw, marketCode);
+      }
       const rows =
         kind === 'Stock'
           ? rowsRaw.filter((r) => Number(r.qty || 0) > 0)

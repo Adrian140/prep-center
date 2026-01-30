@@ -14,6 +14,7 @@ import {
   Legend,
 } from "recharts";
 import { useDashboardTranslation } from "../../../translations";
+import { useMarket } from '@/contexts/MarketContext';
 
 function Box({ title, children }) {
   return (
@@ -101,6 +102,7 @@ const formatOtherServiceName = (service, t) => {
 export default function SupabaseClientActivity() {
   const { t, tp } = useDashboardTranslation();
   const { profile } = useSupabaseAuth();
+  const { currentMarket } = useMarket();
   const companyId = profile?.company_id;
 
   const [fba, setFba] = useState([]);
@@ -129,9 +131,9 @@ export default function SupabaseClientActivity() {
     }
     setLoading(true);
     const [{ data: fbaData }, { data: fbmData }, { data: otherData }] = await Promise.all([
-      supabaseHelpers.listFbaLinesByCompany(companyId),
-      supabaseHelpers.listFbmLinesByCompany(companyId),
-      supabaseHelpers.listOtherLinesByCompany(companyId)
+      supabaseHelpers.listFbaLinesByCompany(companyId, currentMarket),
+      supabaseHelpers.listFbmLinesByCompany(companyId, currentMarket),
+      supabaseHelpers.listOtherLinesByCompany(companyId, currentMarket)
     ]);
     const safeFba = sortByServiceDateDesc(fbaData || []);
     const safeFbm = sortByServiceDateDesc(fbmData || []);
@@ -159,11 +161,11 @@ export default function SupabaseClientActivity() {
 
   useEffect(() => {
     load();
-  }, [companyId]);
+  }, [companyId, currentMarket]);
 
   useEffect(() => {
     setMonthsInitialized(false);
-  }, [companyId]);
+  }, [companyId, currentMarket]);
 
   const effectiveFbaMonth = fbaMonth || baseMonths.fba;
   const effectiveFbmMonth = fbmMonth || baseMonths.fbm;

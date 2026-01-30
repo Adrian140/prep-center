@@ -4,6 +4,7 @@ import { Search, Filter, ChevronLeft, ChevronRight, RefreshCw, Trash2 } from 'lu
 import AdminPrepRequestDetail from './AdminPrepRequestDetail';
 import { tabSessionStorage, readJSON, writeJSON } from '@/utils/tabStorage';
 import DestinationBadge from '@/components/common/DestinationBadge';
+import { useMarket } from '@/contexts/MarketContext';
 
 const STORAGE_KEY = 'admin-prep-requests-state';
 
@@ -17,6 +18,7 @@ const StatusPill = ({ s }) => {
 };
 
 export default function AdminPrepRequests() {
+  const { currentMarket } = useMarket();
   const persistedRef = useRef(null);
   if (persistedRef.current === null) {
     persistedRef.current = readJSON(tabSessionStorage, STORAGE_KEY, {});
@@ -73,6 +75,7 @@ export default function AdminPrepRequests() {
   try {
     const { data, error, count: c } = await supabaseHelpers.listPrepRequests({
       status: status === 'all' ? undefined : status,
+      destinationCountry: currentMarket,
       page: fetchAll ? undefined : p,
       pageSize: fetchAll ? undefined : pageSize,
     });
@@ -105,13 +108,19 @@ export default function AdminPrepRequests() {
     if (firstLoadRef.current) return;
     load(1, !!trimmedQuery || status === 'all');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [status, currentMarket]);
 
   useEffect(() => {
     if (firstLoadRef.current) return;
     load(1, !!trimmedQuery || status === 'all');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmedQuery]);
+  }, [trimmedQuery, currentMarket]);
+
+  useEffect(() => {
+    if (firstLoadRef.current) return;
+    load(1, !!trimmedQuery || status === 'all');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMarket]);
 
   useEffect(() => {
     writeJSON(tabSessionStorage, STORAGE_KEY, { status, q, page, selectedId });

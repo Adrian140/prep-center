@@ -19,6 +19,7 @@ import {
   Legend
 } from 'recharts';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
+import { useMarket } from '@/contexts/MarketContext';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 const shiftDays = (days) => {
@@ -46,6 +47,7 @@ const Card = ({ title, value, subtitle, color = 'bg-white', accentClass = 'text-
 
 export default function AdminCompanyDashboard() {
   const { t, tp } = useAdminTranslation();
+  const { currentMarket } = useMarket();
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [companiesError, setCompaniesError] = useState('');
@@ -102,6 +104,7 @@ export default function AdminCompanyDashboard() {
     const { data, error } = await supabaseHelpers.getClientAnalyticsSnapshot({
       companyId: selectedCompany.id === 'ALL' ? null : selectedCompany.id,
       userId: null,
+      country: currentMarket,
       startDate: dateFrom,
       endDate: dateTo
     });
@@ -117,7 +120,7 @@ export default function AdminCompanyDashboard() {
   useEffect(() => {
     loadSnapshot();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompany?.id, dateFrom, dateTo]);
+  }, [selectedCompany?.id, dateFrom, dateTo, currentMarket]);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,6 +165,7 @@ export default function AdminCompanyDashboard() {
         unit_price: 15,
         units: 1,
         total: 15,
+        country: currentMarket,
         obs_admin: `Auto-storage applied: ${row.days_since_last_receiving ?? 'n/a'} days since last inbound` +
           (row.last_receiving_date ? ` (last receiving: ${row.last_receiving_date})` : '')
       };
@@ -184,6 +188,7 @@ export default function AdminCompanyDashboard() {
     const { data, error } = await supabaseHelpers.getClientAnalyticsSnapshot({
       companyId: selectedCompany.id === 'ALL' ? null : selectedCompany.id,
       userId: null,
+      country: currentMarket,
       startDate: start,
       endDate: end
     });
@@ -199,7 +204,7 @@ export default function AdminCompanyDashboard() {
   useEffect(() => {
     loadChart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompany?.id, chartRange]);
+  }, [selectedCompany?.id, chartRange, currentMarket]);
 
   const loadMonthFinance = async () => {
     if (!selectedCompany?.id) return;
@@ -208,6 +213,7 @@ export default function AdminCompanyDashboard() {
     const { data, error } = await supabaseHelpers.getClientAnalyticsSnapshot({
       companyId: selectedCompany.id === 'ALL' ? null : selectedCompany.id,
       userId: null,
+      country: currentMarket,
       startDate: monthStart,
       endDate: today
     });
@@ -229,7 +235,7 @@ export default function AdminCompanyDashboard() {
   useEffect(() => {
     loadMonthFinance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompany?.id]);
+  }, [selectedCompany?.id, currentMarket]);
 
   const applyPreset = (days) => {
     const end = new Date();

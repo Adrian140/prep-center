@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../../../config/supabase";
 import { useDashboardTranslation } from "../../../translations";
 import { useSupabaseAuth } from "../../../contexts/SupabaseAuthContext";
+import { useMarket } from '@/contexts/MarketContext';
 
 const DEBUG_BALANCE = false;
 const normStatus = (s) => String(s || "").trim().toLowerCase();
@@ -18,6 +19,7 @@ const num = (v, { allowNull = false } = {}) => {
 export default function ClientBalanceBar({ companyId, variant = 'default' }) {
   const { t } = useDashboardTranslation();
   const { profile } = useSupabaseAuth();
+  const { currentMarket } = useMarket();
   const isLimitedAdmin = Boolean(profile?.is_limited_admin);
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState(0);
@@ -46,18 +48,21 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
           .from("fba_lines")
           .select("id, unit_price, units, total, service_date")
           .eq("company_id", companyId)
+          .eq("country", currentMarket)
           .gte("service_date", monthStart)
           .lt("service_date", monthEnd),
         supabase
           .from("fbm_lines")
           .select("id, unit_price, orders_units, total, service_date")
           .eq("company_id", companyId)
+          .eq("country", currentMarket)
           .gte("service_date", monthStart)
           .lt("service_date", monthEnd),
         supabase
           .from("other_lines")
           .select("id, unit_price, units, total, service_date")
           .eq("company_id", companyId)
+          .eq("country", currentMarket)
           .gte("service_date", monthStart)
           .lt("service_date", monthEnd),
       ]);
@@ -81,6 +86,7 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
         .from("invoices")
         .select("id, amount, status, issue_date, company_id")
         .eq("company_id", companyId)
+        .eq("country", currentMarket)
         .gte("issue_date", monthStart)
         .lt("issue_date", monthEnd);
 
@@ -111,7 +117,7 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
     return () => {
       mounted = false;
     };
-  }, [companyId]);
+  }, [companyId, currentMarket]);
 
   const isZero = !Number.isFinite(balance) || Math.abs(balance) < 1e-9;
   const cls = isZero

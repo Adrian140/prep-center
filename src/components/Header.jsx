@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import LanguageSelector from '@/components/common/LanguageSelector';
+import MarketSelector from '@/components/common/MarketSelector';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Menu, X } from 'lucide-react';
 import { useT } from '@/i18n/useT';
@@ -34,12 +35,18 @@ function Header() {
 
   useEffect(() => {
     const onLang = () => setIsMenuOpen(false);
+    const onMarket = () => setIsMenuOpen(false);
     window.addEventListener('i18n:changed', onLang);
-    return () => window.removeEventListener('i18n:changed', onLang);
+    window.addEventListener('market:changed', onMarket);
+    return () => {
+      window.removeEventListener('i18n:changed', onLang);
+      window.removeEventListener('market:changed', onMarket);
+    };
   }, []);
 
   const isAdmin = !!(
     profile?.account_type === 'admin' ||
+    profile?.is_admin === true ||
     user?.user_metadata?.account_type === 'admin'
   );
 
@@ -152,6 +159,7 @@ function Header() {
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-1.5 xl:space-x-2.5 flex-wrap md:flex-nowrap justify-end min-w-0 ml-auto">
             <LanguageSelector />
+            <MarketSelector />
 
             <div className="flex items-center flex-wrap gap-2 xl:gap-3 ml-3 xl:ml-4 pl-3 xl:pl-4 border-l border-gray-200">
               {!isAuthenticated ? (
@@ -251,6 +259,9 @@ function Header() {
               <div className="pt-4 border-t border-gray-100">
                 <div className="px-4 pb-3">
                   <LanguageSelector />
+                </div>
+                <div className="px-4 pb-3">
+                  <MarketSelector />
                 </div>
               </div>
 

@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Upload, FileSpreadsheet, Trash2, Plus } from 'lucide-react';
 import { supabase, supabaseHelpers } from '@/config/supabase';
+import { useMarket } from '@/contexts/MarketContext';
+import { buildPrepQtyPatch } from '@/utils/marketStock';
 
 const defaultLabels = {
   title: 'Manual inventory intake',
@@ -112,6 +114,7 @@ function ProductQuickAdd({
   onError,
   labels: labelsProp = defaultLabels
 }) {
+  const { currentMarket } = useMarket();
   const labels = useMemo(
     () => ({
       ...defaultLabels,
@@ -266,13 +269,15 @@ function ProductQuickAdd({
       setRowIndexKeys(localIndexMap, updated);
       return { type: 'update', row: updated };
     }
+    const prepPatch = buildPrepQtyPatch({}, currentMarket, 0);
     const payload = {
       company_id: companyId || null,
       user_id: companyId ? null : userId || null,
       ean: line.ean || null,
       asin: line.asin || null,
       name: line.name,
-      qty: 0,
+      qty: prepPatch.qty,
+      prep_qty_by_country: prepPatch.prep_qty_by_country,
       purchase_price: line.price ?? null
     };
     const { data, error } = await supabase.from('stock_items').insert(payload).select().single();

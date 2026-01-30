@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/config/supabase';
+import { useMarket } from '@/contexts/MarketContext';
+import { normalizeMarketCode } from '@/utils/market';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
@@ -54,6 +56,7 @@ function AsinCell({ matches, onToggle, expanded, t, onSelect, gtin, onStartEdit 
 export default function ClientQogitaShipments() {
   const { user } = useSupabaseAuth();
   const { t } = useDashboardTranslation();
+  const { currentMarket } = useMarket();
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState('');
@@ -61,7 +64,7 @@ export default function ClientQogitaShipments() {
   const [expanded, setExpanded] = useState({});
   const [reqModal, setReqModal] = useState(null);
   const [reqMode, setReqMode] = useState('none'); // none | full | partial
-  const [reqDestination, setReqDestination] = useState('FR');
+  const [reqDestination, setReqDestination] = useState(currentMarket || 'FR');
   const [reqLines, setReqLines] = useState([]);
   const [reqSubmitting, setReqSubmitting] = useState(false);
   const [reqFlash, setReqFlash] = useState('');
@@ -108,6 +111,10 @@ export default function ClientQogitaShipments() {
     loadShipments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  useEffect(() => {
+    if (currentMarket) setReqDestination(currentMarket);
+  }, [currentMarket]);
 
   useEffect(() => {
     const loadAsins = async () => {
@@ -157,7 +164,14 @@ export default function ClientQogitaShipments() {
     loadAsins();
   }, [shipments, user?.id]);
 
-  const shipmentsWithLines = useMemo(() => shipments || [], [shipments]);
+  const shipmentsWithLines = useMemo(() => {
+    const marketCode = normalizeMarketCode(currentMarket);
+    if (!marketCode) return shipments || [];
+    return (shipments || []).filter((ship) => {
+      const rowMarket = normalizeMarketCode(ship?.country || ship?.marketplace);
+      return rowMarket === marketCode;
+    });
+  }, [shipments, currentMarket]);
 
   const DESTINATION_OPTIONS = [
     { code: 'FR', label: 'France' },

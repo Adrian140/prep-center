@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabaseHelpers } from '../../config/supabase';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
+import { useMarket } from '@/contexts/MarketContext';
 import { supabase } from '../../config/supabase';
 import {
   Search, Filter, Package, Truck, CheckCircle,
@@ -276,7 +277,8 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
             {
               ...item,
               company_id: shipment.company_id,
-              stock_item: item.stock_item
+              stock_item: item.stock_item,
+              destination_country: shipment.destination_country
             },
             delta,
             profile.id
@@ -1105,6 +1107,7 @@ const checkStockMatches = async () => {
 
 function AdminReceiving() {
   const { profile } = useSupabaseAuth();
+  const { currentMarket } = useMarket();
   const listDefaults = {
     statusFilter: 'all',
     searchQuery: '',
@@ -1165,7 +1168,7 @@ function AdminReceiving() {
   useEffect(() => {
     loadShipments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentMarket]);
 
   useEffect(() => {
     const storedId = listState?.selectedShipmentId;
@@ -1181,7 +1184,8 @@ const loadShipments = async () => {
   setLoading(true);
   try {
     const { data, error } = await supabaseHelpers.getAllReceivingShipments({
-      fetchAll: true
+      fetchAll: true,
+      destinationCountry: currentMarket
     });
     if (error) throw error;
 

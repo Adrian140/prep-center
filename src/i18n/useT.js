@@ -15,6 +15,15 @@ const translations = {
       whatsApp:'Chat on WhatsApp',
       quote:'Get a Quote'
     },
+    market: {
+      selectorLabel: 'Select market',
+      new: 'new',
+      promptTitle: 'New market',
+      promptBody: 'Do you want to use the same account data or create a new account for this country?',
+      promptCancel: 'Cancel',
+      promptNew: 'Create new account',
+      promptSame: 'Use same data'
+    },
   },
 
   ro: {
@@ -27,6 +36,15 @@ const translations = {
       register:'Creează cont',
       whatsApp:'Chat pe WhatsApp',
       quote:'Cere ofertă'
+    },
+    market: {
+      selectorLabel: 'Selectează țara',
+      new: 'nou',
+      promptTitle: 'Țară nouă',
+      promptBody: 'Dorești să folosești aceleași date ca în contul curent sau să creezi un cont nou pentru această țară?',
+      promptCancel: 'Anulează',
+      promptNew: 'Creează cont nou',
+      promptSame: 'Folosește aceleași date'
     },
   },
 
@@ -41,6 +59,15 @@ const translations = {
       whatsApp:'Discuter sur WhatsApp',
       quote:'Obtenir un devis'
     },
+    market: {
+      selectorLabel: 'Sélectionner le pays',
+      new: 'nouveau',
+      promptTitle: 'Nouveau pays',
+      promptBody: 'Souhaitez-vous utiliser les mêmes données de compte ou créer un nouveau compte pour ce pays ?',
+      promptCancel: 'Annuler',
+      promptNew: 'Créer un nouveau compte',
+      promptSame: 'Utiliser les mêmes données'
+    },
   },
 
   de: {
@@ -53,6 +80,15 @@ const translations = {
       register:'Konto erstellen',
       whatsApp:'Auf WhatsApp chatten',
       quote:'Angebot anfordern'
+    },
+    market: {
+      selectorLabel: 'Markt auswählen',
+      new: 'neu',
+      promptTitle: 'Neuer Markt',
+      promptBody: 'Möchtest du dieselben Kontodaten verwenden oder ein neues Konto für dieses Land erstellen?',
+      promptCancel: 'Abbrechen',
+      promptNew: 'Neues Konto erstellen',
+      promptSame: 'Gleiche Daten verwenden'
     },
   },
 
@@ -67,6 +103,15 @@ const translations = {
       whatsApp:'Chat su WhatsApp',
       quote:'Richiedi un preventivo'
     },
+    market: {
+      selectorLabel: 'Seleziona paese',
+      new: 'nuovo',
+      promptTitle: 'Nuovo paese',
+      promptBody: 'Vuoi usare gli stessi dati dell’account o creare un nuovo account per questo paese?',
+      promptCancel: 'Annulla',
+      promptNew: 'Crea nuovo account',
+      promptSame: 'Usa gli stessi dati'
+    },
   },
 
   es: {
@@ -80,6 +125,15 @@ const translations = {
       whatsApp:'Chatear por WhatsApp',
       quote:'Solicitar presupuesto'
     },
+    market: {
+      selectorLabel: 'Seleccionar país',
+      new: 'nuevo',
+      promptTitle: 'Nuevo país',
+      promptBody: '¿Quieres usar los mismos datos de la cuenta o crear una cuenta nueva para este país?',
+      promptCancel: 'Cancelar',
+      promptNew: 'Crear cuenta nueva',
+      promptSame: 'Usar los mismos datos'
+    },
   },
 
   pl: {
@@ -92,6 +146,15 @@ const translations = {
       register:'Utwórz konto',
       whatsApp:'Czat na WhatsApp',
       quote:'Poproś o wycenę'
+    },
+    market: {
+      selectorLabel: 'Wybierz kraj',
+      new: 'nowy',
+      promptTitle: 'Nowy kraj',
+      promptBody: 'Czy chcesz użyć tych samych danych konta czy utworzyć nowe konto dla tego kraju?',
+      promptCancel: 'Anuluj',
+      promptNew: 'Utwórz nowe konto',
+      promptSame: 'Użyj tych samych danych'
     },
   },
 };

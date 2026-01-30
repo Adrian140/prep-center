@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { tabSessionStorage } from '../utils/tabStorage';
 import { getTabId } from '../utils/tabIdentity';
 import { encodeRemainingAction, resolveFbaIntent } from '../utils/receivingFba';
+import { normalizeMarketCode } from '../utils/market';
+import { buildPrepQtyPatch, getPrepQtyForMarket, mapStockRowsForMarket } from '../utils/marketStock';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -192,11 +194,13 @@ const adjustStockForReceivingDelta = async (item, delta, processedBy) => {
   if (!delta) return { error: null };
   const stockRow = await ensureStockItemForReceiving(item, processedBy);
   if (!stockRow) return { error: new Error('Unable to resolve stock item') };
-  const currentQty = Number(stockRow.qty || 0);
-  const nextQty = Math.max(0, currentQty + delta);
+  const market = normalizeMarketCode(item?.destination_country || 'FR');
+  const currentQty = getPrepQtyForMarket(stockRow, market);
+  const nextQty = Math.max(0, Number(currentQty || 0) + delta);
+  const patch = buildPrepQtyPatch(stockRow, market, nextQty);
   const { error: stockError } = await supabase
     .from('stock_items')
-    .update({ qty: nextQty })
+    .update(patch)
     .eq('id', stockRow.id);
   if (stockError) return { error: stockError };
 
@@ -1139,28 +1143,52 @@ resetPassword: async (email) => {
   },
 
   // ===== Client Activity =====
-  listFbaLinesByCompany: async (companyId) => {
-    return await supabase
-      .from('fba_lines')
-      .select('*')
-      .eq('company_id', companyId)
-      .order('service_date', { ascending: false });
+  listFbaLinesByCompany: async (companyId, country) => {
+    const run = async (useCountry) => {
+      let query = supabase
+        .from('fba_lines')
+        .select('*')
+        .eq('company_id', companyId);
+      if (useCountry) query = query.eq('country', useCountry);
+      return await query.order('service_date', { ascending: false });
+    };
+    const { data, error } = await run(country);
+    if (error && country && isMissingColumnError(error, 'country')) {
+      return await run(null);
+    }
+    return { data, error };
   },
 
-  listFbmLinesByCompany: async (companyId) => {
-    return await supabase
-      .from('fbm_lines')
-      .select('*')
-      .eq('company_id', companyId)
-      .order('service_date', { ascending: false });
+  listFbmLinesByCompany: async (companyId, country) => {
+    const run = async (useCountry) => {
+      let query = supabase
+        .from('fbm_lines')
+        .select('*')
+        .eq('company_id', companyId);
+      if (useCountry) query = query.eq('country', useCountry);
+      return await query.order('service_date', { ascending: false });
+    };
+    const { data, error } = await run(country);
+    if (error && country && isMissingColumnError(error, 'country')) {
+      return await run(null);
+    }
+    return { data, error };
   },
 
-  listOtherLinesByCompany: async (companyId) => {
-    return await supabase
-      .from('other_lines')
-      .select('*')
-      .eq('company_id', companyId)
-      .order('service_date', { ascending: false });
+  listOtherLinesByCompany: async (companyId, country) => {
+    const run = async (useCountry) => {
+      let query = supabase
+        .from('other_lines')
+        .select('*')
+        .eq('company_id', companyId);
+      if (useCountry) query = query.eq('country', useCountry);
+      return await query.order('service_date', { ascending: false });
+    };
+    const { data, error } = await run(country);
+    if (error && country && isMissingColumnError(error, 'country')) {
+      return await run(null);
+    }
+    return { data, error };
   },
 
   createOtherLine: async (payload) => {
@@ -1313,6 +1341,9 @@ const items = (draftData.items || []).map((it) => ({
 
     if (options.status) {
       query = query.eq('status', options.status);
+    }
+    if (options.destinationCountry) {
+      query = query.eq('destination_country', options.destinationCountry);
     }
 
     if (options.page && options.pageSize) {
@@ -1748,7 +1779,8 @@ createPrepItem: async (requestId, item) => {
     companyId,
     userId,
     startDate,
-    endDate
+    endDate,
+    country
   } = {}) => {
 
     const normalizeDate = (value) => {
@@ -1772,6 +1804,11 @@ createPrepItem: async (requestId, item) => {
       }
       return query;
     };
+    const marketCode = normalizeMarketCode(country);
+    const withCountry = (query, column = 'country') => {
+      if (!marketCode) return query;
+      return query.eq(column, marketCode);
+    };
 
     const stockPromise = withCompany(
       supabase
@@ -1786,79 +1823,103 @@ createPrepItem: async (requestId, item) => {
     const clientStockPromise = Promise.resolve({ data: [], error: null });
     const stockTotalRpcPromise = supabase.rpc('get_total_stock_units');
 
-    const invoicesPromise = withCompany(
-      supabase
-        .from('invoices')
-        .select('id, status, amount, issue_date')
+    const invoicesPromise = withCountry(
+      withCompany(
+        supabase
+          .from('invoices')
+          .select('id, status, amount, issue_date')
+      )
     )
       .gte('issue_date', dateFrom)
       .lte('issue_date', dateTo)
       .limit(5000);
 
-    const returnsPromise = withCompany(
-      supabase
-        .from('returns')
-        .select('id, status, created_at')
+    const returnsPromise = withCountry(
+      withCompany(
+        supabase
+          .from('returns')
+          .select('id, status, created_at')
+      )
     )
       .gte('created_at', startIso)
       .lte('created_at', endIso)
       .limit(2000);
 
-    const prepPromise = withCompany(
-      supabase
-        .from('prep_requests')
-        .select('id, status, confirmed_at')
-        .eq('status', 'confirmed')
+    const prepPromise = withCountry(
+      withCompany(
+        supabase
+          .from('prep_requests')
+          .select('id, status, confirmed_at')
+          .eq('status', 'confirmed')
+      ),
+      'destination_country'
     )
       .gte('confirmed_at', startIso)
       .lte('confirmed_at', endIso)
       .limit(5000);
 
-    const receivingPromise = withCompany(
-      supabase
-        .from('receiving_shipments')
-        .select('id, status, created_at')
+    const receivingPromise = withCountry(
+      withCompany(
+        supabase
+          .from('receiving_shipments')
+          .select('id, status, created_at')
+      ),
+      'destination_country'
     )
       .gte('created_at', startIso)
       .lte('created_at', endIso)
       .limit(5000);
 
-    const prepItemsPromise = supabase
+    let prepItemsQuery = supabase
       .from('prep_request_items')
-      .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status)')
-      .eq('prep_requests.status', 'confirmed')
+      .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status, destination_country)')
+      .eq('prep_requests.status', 'confirmed');
+    if (marketCode) {
+      prepItemsQuery = prepItemsQuery.eq('prep_requests.destination_country', marketCode);
+    }
+    const prepItemsPromise = prepItemsQuery
       .gte('prep_requests.confirmed_at', startIso)
       .lte('prep_requests.confirmed_at', endIso)
       .limit(10000);
-    const receivingItemsPromise = supabase
+
+    let receivingItemsQuery = supabase
       .from('receiving_to_stock_log')
-      .select('quantity_moved, moved_at, receiving_items!inner(shipment_id, receiving_shipments!inner(company_id))')
-      .limit(20000);
+      .select('quantity_moved, moved_at, receiving_items!inner(shipment_id, receiving_shipments!inner(company_id, destination_country))');
+    if (marketCode) {
+      receivingItemsQuery = receivingItemsQuery.eq('receiving_shipments.destination_country', marketCode);
+    }
+    const receivingItemsPromise = receivingItemsQuery.limit(20000);
 
     const balancePromise = userId
       ? supabase.from('profiles').select('current_balance').eq('id', userId).maybeSingle()
       : Promise.resolve({ data: null, error: null });
 
-    const fbaLinesPromise = withCompany(
-      supabase
-        .from('fba_lines')
-        .select('total, unit_price, units, service_date')
+    const fbaLinesPromise = withCountry(
+      withCompany(
+        supabase
+          .from('fba_lines')
+          .select('total, unit_price, units, service_date')
+      )
     )
       .gte('service_date', dateFrom)
       .lte('service_date', dateTo)
       .limit(20000);
-    const fbmLinesPromise = withCompany(
-      supabase
-        .from('fbm_lines')
-        .select('total, unit_price, orders_units, service_date')
+    const fbmLinesPromise = withCountry(
+      withCompany(
+        supabase
+          .from('fbm_lines')
+          .select('total, unit_price, orders_units, service_date')
+      )
     )
       .gte('service_date', dateFrom)
       .lte('service_date', dateTo)
       .limit(20000);
-    const otherLinesPromise = withCompany(
-      supabase
-        .from('other_lines')
-        .select('total, unit_price, units, service_date')
+    const otherLinesPromise = withCountry(
+      withCompany(
+        supabase
+          .from('other_lines')
+          .select('total, unit_price, units, service_date')
+      )
     )
       .gte('service_date', dateFrom)
       .lte('service_date', dateTo)
@@ -1893,7 +1954,10 @@ createPrepItem: async (requestId, item) => {
       return (l * w * h) / 1_000_000; // cm3 -> m3
     };
 
-    const stockRows = Array.isArray(stockRes.data) ? stockRes.data : [];
+    let stockRows = Array.isArray(stockRes.data) ? stockRes.data : [];
+    if (marketCode) {
+      stockRows = mapStockRowsForMarket(stockRows, marketCode);
+    }
     const inventoryUnits = stockRows.reduce((acc, row) => acc + Math.max(0, numberOrZero(row.qty)), 0);
     const activeSkus = stockRows.filter((row) => numberOrZero(row.qty) > 0).length;
     const inventoryVolume = stockRows.reduce(
@@ -2290,16 +2354,19 @@ createReceivingShipment: async (shipmentData) => {
 },
 
 
-  getClientReceivingShipments: async (companyId) => {
-    const { data, error } = await supabase
+  getClientReceivingShipments: async (companyId, destinationCountry) => {
+    let query = supabase
       .from('receiving_shipments')
       .select(`
         *,
         receiving_items(*, stock_item:stock_items(*)),
         receiving_shipment_items(*)
       `)
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
+      .eq('company_id', companyId);
+    if (destinationCountry) {
+      query = query.eq('destination_country', destinationCountry);
+    }
+    const { data, error } = await query.order('created_at', { ascending: false });
     if (error) return { data: [], error };
 
     const shipments = data || [];
@@ -2538,6 +2605,9 @@ getAllReceivingShipments: async (options = {}) => {
 
   if (options.status) query = query.eq('status', options.status);
   if (options.companyId) query = query.eq('company_id', options.companyId);
+  if (options.destinationCountry) {
+    query = query.eq('destination_country', options.destinationCountry);
+  }
 
   const { data, error, count } = await query;
   if (error) return { data: [], error, count: 0 };

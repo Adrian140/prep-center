@@ -14,9 +14,11 @@ import AdminOther from './AdminOther';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import BillingSelectionPanel from './BillingSelectionPanel';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
+import { useMarket } from '@/contexts/MarketContext';
 
 export default function AdminUserDetail({ profile, onBack }) {
   const { profile: currentAdmin } = useSupabaseAuth();
+  const { currentMarket } = useMarket();
   const isLimitedAdmin = Boolean(currentAdmin?.is_limited_admin);
   const canManageInvoices = !isLimitedAdmin;
   const [companyId, setCompanyId] = useState(profile?.company_id || null);
@@ -72,6 +74,7 @@ const ensureCompany = async () => {
           .from('fba_lines')
           .select(invoiceSelect)
           .eq('company_id', cid)
+          .eq('country', currentMarket)
           .order('service_date', { ascending: false })
       );
       fetchPromises.push(
@@ -79,6 +82,7 @@ const ensureCompany = async () => {
           .from('fbm_lines')
           .select(invoiceSelect)
           .eq('company_id', cid)
+          .eq('country', currentMarket)
           .order('service_date', { ascending: false })
       );
       fetchPromises.push(
@@ -86,6 +90,7 @@ const ensureCompany = async () => {
           .from('other_lines')
           .select(invoiceSelect)
           .eq('company_id', cid)
+          .eq('country', currentMarket)
           .order('service_date', { ascending: false })
       );
     }
@@ -94,6 +99,7 @@ const ensureCompany = async () => {
         .from('returns')
         .select('*')
         .eq('company_id', cid)
+        .eq('country', currentMarket)
         .order('return_date', { ascending: false })
     );
 
@@ -119,7 +125,7 @@ if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
   useEffect(() => {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id]);
+  }, [profile?.id, currentMarket]);
 
   const toggleBillingSelection = useCallback((section, row) => {
     if (!canManageInvoices) return;
