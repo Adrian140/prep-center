@@ -50,7 +50,36 @@ export default function AdminReturns() {
     if (marketCode) {
       query = query.eq('warehouse_country', marketCode);
     }
-    const { data, error: err } = await query;
+    let { data, error: err } = await query;
+    if (err && marketCode && String(err.message || '').toLowerCase().includes('warehouse_country')) {
+      const retry = await supabase
+        .from('returns')
+        .select(`
+          id,
+          company_id,
+          user_id,
+          marketplace,
+          status,
+          notes,
+          created_at,
+          updated_at,
+          done_at,
+          stock_adjusted,
+          return_items (
+            id,
+            asin,
+            sku,
+            qty,
+            notes,
+            stock_item_id
+          ),
+          return_files (id, file_type, url, name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      data = retry.data;
+      err = retry.error;
+    }
     if (err) setError(err.message);
     let baseRows = Array.isArray(data) ? data : [];
 

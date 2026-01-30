@@ -216,7 +216,21 @@ useEffect(() => {
         prepQuery = prepQuery.eq('warehouse_country', currentMarket);
         returnsQuery = returnsQuery.eq('warehouse_country', currentMarket);
       }
-      const [prepRes, returnsRes] = await Promise.all([prepQuery, returnsQuery]);
+      let [prepRes, returnsRes] = await Promise.all([prepQuery, returnsQuery]);
+      const missingWarehouse = (err) =>
+        String(err?.message || '').toLowerCase().includes('warehouse_country');
+      if (currentMarket && (missingWarehouse(prepRes?.error) || missingWarehouse(returnsRes?.error))) {
+        [prepRes, returnsRes] = await Promise.all([
+          supabase
+            .from('prep_requests')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'pending'),
+          supabase
+            .from('returns')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'pending')
+        ]);
+      }
       if (!mounted) return;
       setPendingPrepCount(prepRes?.count || 0);
       setPendingReturnsCount(returnsRes?.count || 0);

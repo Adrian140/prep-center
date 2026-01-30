@@ -52,7 +52,25 @@ export default function ClientReturns() {
     if (marketCode) {
       query = query.eq('warehouse_country', marketCode);
     }
-    const { data, error: err } = await query;
+    let { data, error: err } = await query;
+    if (err && marketCode && String(err.message || '').toLowerCase().includes('warehouse_country')) {
+      const retry = await supabase
+        .from('returns')
+        .select(`
+          id,
+          status,
+          done_at,
+          notes,
+          marketplace,
+          created_at,
+          return_items (id, asin, sku, qty, notes, stock_item_id),
+          return_files (id, file_type, url, name)
+        `)
+        .eq('company_id', profile.company_id)
+        .order('created_at', { ascending: false });
+      data = retry.data;
+      err = retry.error;
+    }
     let baseRows = err ? [] : Array.isArray(data) ? data : [];
 
     // Fetch stock item metadata separat, fără .or() construit din string

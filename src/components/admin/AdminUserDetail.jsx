@@ -94,14 +94,30 @@ const ensureCompany = async () => {
           .order('service_date', { ascending: false })
       );
     }
-    fetchPromises.push(
-      supabase
+    const loadReturns = async () => {
+      let query = supabase
         .from('returns')
         .select('*')
         .eq('company_id', cid)
-        .eq('warehouse_country', currentMarket)
-        .order('return_date', { ascending: false })
-    );
+        .order('return_date', { ascending: false });
+      if (currentMarket) {
+        query = query.eq('warehouse_country', currentMarket);
+      }
+      let res = await query;
+      if (
+        currentMarket &&
+        res?.error &&
+        String(res.error.message || '').toLowerCase().includes('warehouse_country')
+      ) {
+        res = await supabase
+          .from('returns')
+          .select('*')
+          .eq('company_id', cid)
+          .order('return_date', { ascending: false });
+      }
+      return res;
+    };
+    fetchPromises.push(loadReturns());
 
     const results = await Promise.all(fetchPromises);
     const [fbaRes, fbmRes, otherRes, returnsRes] = isLimitedAdmin

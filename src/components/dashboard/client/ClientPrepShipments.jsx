@@ -490,7 +490,7 @@ export default function ClientPrepShipments() {
 
     const load = async () => {
       setLoading(true);
-      const [prepRes, stockResCompany, stockResUser] = await Promise.all([
+      const prepQuery = () =>
         supabase
           .from('prep_requests')
           .select(`
@@ -524,9 +524,14 @@ export default function ClientPrepShipments() {
             )
           `)
           .eq('user_id', profile.id)
-          .eq('warehouse_country', currentMarket)
           .order('created_at', { ascending: false })
-          .limit(100),
+          .limit(100);
+      let prepPromise = prepQuery();
+      if (currentMarket) {
+        prepPromise = prepPromise.eq('warehouse_country', currentMarket);
+      }
+      const [prepRes, stockResCompany, stockResUser] = await Promise.all([
+        prepPromise,
         supabase
           .from('stock_items')
           .select('*')
@@ -542,7 +547,16 @@ export default function ClientPrepShipments() {
       ]);
 
       if (!active) return;
-      if (prepRes.error) {
+      if (prepRes.error && currentMarket && String(prepRes.error.message || '').toLowerCase().includes('warehouse_country')) {
+        const retry = await prepQuery();
+        if (retry.error) {
+          setError(supportError);
+          setRows([]);
+        } else {
+          setError('');
+          setRows(Array.isArray(retry.data) ? retry.data : []);
+        }
+      } else if (prepRes.error) {
         setError(supportError);
         setRows([]);
       } else {

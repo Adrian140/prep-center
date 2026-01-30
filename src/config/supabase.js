@@ -1334,6 +1334,8 @@ const items = (draftData.items || []).map((it) => ({
 
   // ===== Prep Requests Management =====
   listPrepRequests: async (options = {}) => {
+    const isWarehouseColumnMissing = (error) =>
+      isMissingColumnError(error, 'warehouse_country');
     let query = supabase
       .from('prep_requests')
       .select(
@@ -1363,7 +1365,34 @@ const items = (draftData.items || []).map((it) => ({
 
     query = query.order('created_at', { ascending: false });
 
-    const { data, error, count } = await query;
+    let { data, error, count } = await query;
+    if (error && isWarehouseColumnMissing(error) && filterCountry) {
+      let retry = supabase
+        .from('prep_requests')
+        .select(
+          `
+        *,
+        profiles(first_name, last_name, email, company_name, store_name),
+        companies(name),
+        prep_request_items(*),
+        prep_request_tracking(*)
+      `,
+          { count: 'exact' }
+        );
+      if (options.status) {
+        retry = retry.eq('status', options.status);
+      }
+      if (options.page && options.pageSize) {
+        const from = (options.page - 1) * options.pageSize;
+        const to = from + options.pageSize - 1;
+        retry = retry.range(from, to);
+      }
+      retry = retry.order('created_at', { ascending: false });
+      const retryRes = await retry;
+      data = retryRes.data;
+      error = retryRes.error;
+      count = retryRes.count;
+    }
     
     if (error) return { data: [], error, count: 0 };
 
@@ -2376,7 +2405,20 @@ createReceivingShipment: async (shipmentData) => {
     if (warehouseCountry) {
       query = query.eq('warehouse_country', warehouseCountry);
     }
-    const { data, error } = await query.order('created_at', { ascending: false });
+    let { data, error } = await query.order('created_at', { ascending: false });
+    if (error && isMissingColumnError(error, 'warehouse_country') && warehouseCountry) {
+      const retry = await supabase
+        .from('receiving_shipments')
+        .select(`
+        *,
+        receiving_items(*, stock_item:stock_items(*)),
+        receiving_shipment_items(*)
+      `)
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+      data = retry.data;
+      error = retry.error;
+    }
     if (error) return { data: [], error };
 
     const shipments = data || [];
@@ -2620,7 +2662,32 @@ getAllReceivingShipments: async (options = {}) => {
     query = query.eq('warehouse_country', filterCountry);
   }
 
-  const { data, error, count } = await query;
+  let { data, error, count } = await query;
+  if (error && isMissingColumnError(error, 'warehouse_country') && filterCountry) {
+    let retry = supabase
+      .from('receiving_shipments')
+      .select(
+        `
+      *,
+      companies:companies(name),
+      receiving_shipment_items(*),
+      receiving_items(*, stock_item:stock_items(*))
+    `,
+        { count: 'exact' }
+      )
+      .order('created_at', { ascending: false });
+    if (options.fetchAll) {
+      retry = retry.limit(options.maxRows || 2000);
+    } else {
+      retry = retry.range(from, to);
+    }
+    if (options.status) retry = retry.eq('status', options.status);
+    if (options.companyId) retry = retry.eq('company_id', options.companyId);
+    const retryRes = await retry;
+    data = retryRes.data;
+    error = retryRes.error;
+    count = retryRes.count;
+  }
   if (error) return { data: [], error, count: 0 };
 
   // colectăm user_id-urile pentru a aduce store_name din profiles

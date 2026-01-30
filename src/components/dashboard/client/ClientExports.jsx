@@ -222,19 +222,13 @@ export default function ClientExports() {
 
   const applyCountryFilter = (query, table) => {
     if (!marketCode) return query;
-    if (table === 'returns') return query.eq('warehouse_country', marketCode);
-    if (table === 'stock_items') return query;
+    if (table === 'returns' || table === 'stock_items') return query;
     return query.eq('country', marketCode);
   };
 
   const filterRowsByMarket = (rows, table) => {
     if (!marketCode) return rows;
-    if (table === 'returns') {
-      return rows.filter((row) => {
-        const rowMarket = normalizeMarketCode(row?.warehouse_country);
-        return rowMarket ? rowMarket === marketCode : true;
-      });
-    }
+    if (table === 'returns') return rows;
     return rows;
   };
 
@@ -331,7 +325,16 @@ export default function ClientExports() {
         if (to) query = query.lte(meta.dateCol, to);
       }
 
-      const { data, error } = await query;
+      let { data, error } = await query;
+      if (error && meta.table === 'returns' && marketCode && String(error.message || '').toLowerCase().includes('warehouse_country')) {
+        const retry = await supabase
+          .from(meta.table)
+          .select('*')
+          .eq('company_id', profile.company_id)
+          .order(meta.dateCol, { ascending: true });
+        data = retry.data;
+        error = retry.error;
+      }
       if (error) throw error;
       let rowsRaw = Array.isArray(data) ? data : [];
       rowsRaw = filterRowsByMarket(rowsRaw, meta.table);
