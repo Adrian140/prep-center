@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '@/translations';
+import { MARKETS } from '@/contexts/MarketContext';
 import {
   AlertCircle,
   Clipboard,
@@ -57,29 +58,37 @@ export default function ClientAffiliates() {
   const { t, tp } = useDashboardTranslation();
   const [status, setStatus] = useState('loading');
   const [clientStatus, setClientStatus] = useState(null);
-  const [ownerSnapshot, setOwnerSnapshot] = useState(null);
+  const [ownerSnapshots, setOwnerSnapshots] = useState({});
   const [error, setError] = useState('');
   const [requestForm, setRequestForm] = useState({ preferredCode: '', notes: '' });
   const [submitting, setSubmitting] = useState(false);
   const [flash, setFlash] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [creditUsage, setCreditUsage] = useState({ used: 0 });
-  const [creditAmount, setCreditAmount] = useState('');
-  const [creditLoading, setCreditLoading] = useState(false);
-  const [creditFlash, setCreditFlash] = useState(null);
+  const [creditUsageByMarket, setCreditUsageByMarket] = useState({});
+  const [creditAmounts, setCreditAmounts] = useState({});
+  const [creditLoadingByMarket, setCreditLoadingByMarket] = useState({});
+  const [creditFlashByMarket, setCreditFlashByMarket] = useState({});
   const currentMonth = useMemo(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }, []);
   const [billingMonth, setBillingMonth] = useState(currentMonth);
 
-  const payoutCode = ownerSnapshot?.code || null;
+  const marketsToShow = useMemo(() => Object.keys(MARKETS), []);
+  const ownerCode = useMemo(() => {
+    for (const market of marketsToShow) {
+      const code = ownerSnapshots?.[market]?.code;
+      if (code) return code;
+    }
+    return null;
+  }, [ownerSnapshots, marketsToShow]);
+  const payoutCode = ownerCode || null;
   const payoutTiers = useMemo(
     () => normalizeTiers(payoutCode?.payout_tiers || []),
     [payoutCode?.payout_tiers]
   );
 
-  const hasCode = !!ownerSnapshot?.code;
+  const hasCode = !!payoutCode;
   const payoutType = payoutCode?.payout_type || 'percentage';
   const pendingRequest = clientStatus?.request || null;
 
@@ -98,10 +107,10 @@ export default function ClientAffiliates() {
     return percent;
   };
 
-  const members = useMemo(() => {
-    if (!ownerSnapshot?.members || !payoutCode) return [];
+  const buildMembers = (snapshot) => {
+    if (!snapshot?.members || !payoutCode) return [];
     const type = payoutCode.payout_type || 'percentage';
-    const mapped = ownerSnapshot.members.map((member) => {
+    const mapped = snapshot.members.map((member) => {
       const billed = Number(member.billing_total || 0);
       let payout = 0;
       let percent = 0;
@@ -125,10 +134,10 @@ export default function ClientAffiliates() {
       };
     });
     return mapped.sort((a, b) => (b.billing_total || 0) - (a.billing_total || 0));
-  }, [ownerSnapshot, payoutCode, payoutTiers]);
+  };
 
-  const totals = useMemo(() => {
-    return members.reduce(
+  const buildTotals = (members = []) =>
+    members.reduce(
       (acc, member) => {
         acc.billed += member.billing_total;
         acc.payout += member.payout || 0;
@@ -137,10 +146,6 @@ export default function ClientAffiliates() {
       },
       { billed: 0, payout: 0, count: 0 }
     );
-  }, [members]);
-
-  const creditUsed = Number(creditUsage?.used || 0);
-  const availableCredit = Math.max((totals.payout || 0) - creditUsed, 0);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -153,22 +158,45 @@ export default function ClientAffiliates() {
     setStatus('loading');
     setError('');
     try {
-      const [clientInfo, ownerInfo] = await Promise.all([
+      const [clientInfo, ...ownerInfos] = await Promise.all([
         supabaseHelpers.getAffiliateClientStatus(profile.id),
-        supabaseHelpers.getAffiliateOwnerSnapshot(profile.id, { billingMonth: billingMonth || null })
+        ...marketsToShow.map((market) =>
+          supabaseHelpers.getAffiliateOwnerSnapshot(profile.id, {
+            billingMonth: billingMonth || null,
+            country: market
+          })
+        )
       ]);
       setClientStatus(clientInfo);
-      setOwnerSnapshot(ownerInfo?.data || null);
-      const codeId = ownerInfo?.data?.code?.id;
+      const nextSnapshots = {};
+      ownerInfos.forEach((info, idx) => {
+        const market = marketsToShow[idx];
+        nextSnapshots[market] = info?.data || null;
+      });
+      setOwnerSnapshots(nextSnapshots);
+      const codeId =
+        nextSnapshots?.FR?.code?.id ||
+        nextSnapshots?.DE?.code?.id ||
+        null;
       if (profile?.company_id && codeId) {
-        const { data: creditData } = await supabaseHelpers.getAffiliateCreditUsage({
-          companyId: profile.company_id,
-          codeId,
-          billingMonth: billingMonth || null
+        const credits = {};
+        const creditResults = await Promise.all(
+          marketsToShow.map((market) =>
+            supabaseHelpers.getAffiliateCreditUsage({
+              companyId: profile.company_id,
+              codeId,
+              billingMonth: billingMonth || null,
+              country: market
+            })
+          )
+        );
+        creditResults.forEach((res, idx) => {
+          const market = marketsToShow[idx];
+          credits[market] = Number(res?.data?.used || 0);
         });
-        setCreditUsage(creditData || { used: 0 });
+        setCreditUsageByMarket(credits);
       } else {
-        setCreditUsage({ used: 0 });
+        setCreditUsageByMarket({});
       }
       setStatus('ready');
     } catch (err) {
@@ -204,9 +232,9 @@ export default function ClientAffiliates() {
   };
 
   const handleCopyCode = async () => {
-    if (!ownerSnapshot?.code?.code) return;
+    if (!ownerCode?.code) return;
     try {
-      await navigator.clipboard.writeText(ownerSnapshot.code.code);
+      await navigator.clipboard.writeText(ownerCode.code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch (err) {
@@ -214,47 +242,62 @@ export default function ClientAffiliates() {
     }
   };
 
-  const handleRedeemCredit = async () => {
-    const raw = String(creditAmount || '').replace(',', '.');
+  const handleRedeemCredit = async (market, availableCredit) => {
+    const raw = String(creditAmounts[market] || '').replace(',', '.');
     const value = Number(raw);
     if (!Number.isFinite(value) || value <= 0) {
-      setCreditFlash({ type: 'error', message: t('ClientAffiliates.credit.errorAmount') });
+      setCreditFlashByMarket((prev) => ({
+        ...prev,
+        [market]: { type: 'error', message: t('ClientAffiliates.credit.errorAmount') }
+      }));
       return;
     }
     if (value > availableCredit) {
-      setCreditFlash({
-        type: 'error',
-        message: tp('ClientAffiliates.credit.errorMax', {
-          amount: euroFormatter.format(availableCredit)
-        })
-      });
+      setCreditFlashByMarket((prev) => ({
+        ...prev,
+        [market]: {
+          type: 'error',
+          message: tp('ClientAffiliates.credit.errorMax', {
+            amount: euroFormatter.format(availableCredit)
+          })
+        }
+      }));
       return;
     }
-    setCreditLoading(true);
-    setCreditFlash(null);
+    setCreditLoadingByMarket((prev) => ({ ...prev, [market]: true }));
+    setCreditFlashByMarket((prev) => ({ ...prev, [market]: null }));
     try {
-      const { data, error } = await supabaseHelpers.redeemAffiliateCredit({ amount: value });
+      const { data, error } = await supabaseHelpers.redeemAffiliateCredit({
+        amount: value,
+        country: market
+      });
       if (error) {
         throw error;
       }
       const payload = Array.isArray(data) ? data[0] : data;
       const applied = payload?.applied ?? value;
-      setCreditAmount('');
-      setCreditFlash({
-        type: 'success',
-        message: tp('ClientAffiliates.credit.success', {
-          amount: euroFormatter.format(applied)
-        })
-      });
+      setCreditAmounts((prev) => ({ ...prev, [market]: '' }));
+      setCreditFlashByMarket((prev) => ({
+        ...prev,
+        [market]: {
+          type: 'success',
+          message: tp('ClientAffiliates.credit.success', {
+            amount: euroFormatter.format(applied)
+          })
+        }
+      }));
       await loadState();
     } catch (err) {
       console.error('redeem affiliate credit', err);
-      setCreditFlash({
-        type: 'error',
-        message: err.message || t('ClientAffiliates.credit.errorApply')
-      });
+      setCreditFlashByMarket((prev) => ({
+        ...prev,
+        [market]: {
+          type: 'error',
+          message: err.message || t('ClientAffiliates.credit.errorApply')
+        }
+      }));
     } finally {
-      setCreditLoading(false);
+      setCreditLoadingByMarket((prev) => ({ ...prev, [market]: false }));
     }
   };
 
@@ -324,228 +367,253 @@ export default function ClientAffiliates() {
       )}
 
       {hasCode ? (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="border rounded-xl p-4">
-              <p className="text-xs uppercase tracking-wide text-text-secondary">
-                {t('ClientAffiliates.codeCard.title')}
-              </p>
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-2xl font-semibold">{ownerSnapshot.code.code}</span>
-                <button
-                  type="button"
-                  onClick={handleCopyCode}
-                  className="text-sm text-primary flex items-center gap-1"
-                >
-                  {copied ? <ClipboardCheck className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}
-                  {copied
-                    ? t('ClientAffiliates.codeCard.copied')
-                    : t('ClientAffiliates.codeCard.copy')}
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-text-secondary">
-                {ownerSnapshot.code.active
-                  ? t('ClientAffiliates.codeCard.active')
-                  : t('ClientAffiliates.codeCard.inactive')}
-              </p>
-            </div>
-
-            <div className="border rounded-xl p-4">
-              <p className="text-xs uppercase tracking-wide text-text-secondary">
-                {t('ClientAffiliates.rules.title')}
-              </p>
-              <p className="text-sm text-text-secondary mt-1">{t('ClientAffiliates.rules.bonus')}</p>
-              <PayoutSummary code={ownerSnapshot.code} />
-            </div>
-
-              <div className="border rounded-xl p-4 space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs uppercase tracking-wide text-text-secondary">
-                  {t('ClientAffiliates.stats.title')}
-                </p>
+        <div className="space-y-8">
+          {marketsToShow.map((market) => {
+            const snapshot = ownerSnapshots?.[market];
+            if (!snapshot?.code) return null;
+            const members = buildMembers(snapshot);
+            const totals = buildTotals(members);
+            const creditUsed = Number(creditUsageByMarket?.[market] || 0);
+            const availableCredit = Math.max((totals.payout || 0) - creditUsed, 0);
+            const creditAmount = creditAmounts?.[market] || '';
+            const creditLoading = Boolean(creditLoadingByMarket?.[market]);
+            const creditFlash = creditFlashByMarket?.[market] || null;
+            const marketMeta = MARKETS[market] || { name: market, flag: '' };
+            return (
+              <div key={market} className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <input
-                    type="month"
-                    value={billingMonth}
-                    onChange={(e) => setBillingMonth(e.target.value)}
-                    className="border rounded px-2 py-1 text-xs"
-                  />
-                  {billingMonth && (
-                    <button
-                      type="button"
-                      className="text-xs text-text-secondary underline"
-                      onClick={() => setBillingMonth(currentMonth)}
-                    >
-                      {t('common.reset') || 'Current month'}
-                    </button>
-                  )}
+                  <span className="text-xl">{marketMeta.flag}</span>
+                  <h3 className="text-lg font-semibold text-text-primary">{marketMeta.name}</h3>
                 </div>
-              </div>
-              <div className="space-y-1 text-sm text-text-secondary">
-                <div className="flex items-center justify-between">
-                  <span>{t('ClientAffiliates.stats.clients')}</span>
-                  <strong className="text-text-primary">{totals.count}</strong>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>{t('ClientAffiliates.stats.billed')}</span>
-                  <strong className="text-text-primary">
-                    {euroFormatter.format(totals.billed)}
-                  </strong>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>{t('ClientAffiliates.stats.payout')}</span>
-                  <strong className="text-text-primary">
-                    {euroFormatter.format(totals.payout)}
-                  </strong>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>{t('ClientAffiliates.credit.used')}</span>
-                  <strong className="text-text-primary">
-                    {euroFormatter.format(creditUsed)}
-                  </strong>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>{t('ClientAffiliates.credit.remaining') || 'Remaining'}</span>
-                  <strong className="text-text-primary">
-                    {euroFormatter.format(Math.max(0, totals.payout - creditUsed))}
-                  </strong>
-                </div>
-              </div>
-            </div>
-          </div>
-
-            <div className="border rounded-xl p-4 space-y-3">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs uppercase tracking-wide text-text-secondary">
-                  {t('ClientAffiliates.credit.title')}
-                </p>
-              <div className="text-sm text-text-secondary">
-                {t('ClientAffiliates.credit.used')}:{" "}
-                <strong className="text-text-primary">
-                  {euroFormatter.format(creditUsed)}
-                </strong>
-              </div>
-            </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm text-text-secondary">
-                  {t('ClientAffiliates.credit.available')}:{" "}
-                  <strong className="text-text-primary">
-                    {euroFormatter.format(availableCredit)}
-                  </strong>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="border rounded-lg px-3 py-2 w-32 text-right"
-                    placeholder={t('ClientAffiliates.credit.amountPh')}
-                    value={creditAmount}
-                    onChange={(e) => setCreditAmount(e.target.value)}
-                    disabled={creditLoading || availableCredit <= 0}
-                  />
-                  <button
-                    type="button"
-                    className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
-                    disabled={creditLoading || availableCredit <= 0}
-                    onClick={handleRedeemCredit}
-                  >
-                    {creditLoading
-                      ? t('ClientAffiliates.credit.applying')
-                      : t('ClientAffiliates.credit.apply')}
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3 py-2 bg-gray-100 text-text-primary rounded-lg text-sm disabled:opacity-50"
-                    disabled={creditLoading || availableCredit <= 0}
-                    onClick={() => {
-                      setCreditAmount(String(availableCredit.toFixed(2)));
-                      handleRedeemCredit();
-                    }}
-                  >
-                    {t('ClientAffiliates.credit.applyAll') || 'Apply all'}
-                  </button>
-                </div>
-              </div>
-            <p className="text-xs text-text-secondary">
-              {t('ClientAffiliates.credit.note')}
-            </p>
-            {creditFlash && (
-              <div
-                className={`text-sm ${
-                  creditFlash.type === 'success'
-                    ? 'text-green-700'
-                    : 'text-red-600'
-                }`}
-              >
-                {creditFlash.message}
-              </div>
-            )}
-          </div>
-
-          <div className="border rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Users className="w-4 h-4 text-text-secondary" />
-              <h3 className="font-semibold">{t('ClientAffiliates.members.title')}</h3>
-            </div>
-            {members.length === 0 ? (
-              <p className="text-sm text-text-secondary">
-                {t('ClientAffiliates.members.empty')}
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border rounded-lg p-3"
-                  >
-                    <div>
-                      <p className="font-medium">{formatClientName(member)}</p>
-                      <p className="text-xs text-text-secondary">
-                        {member.company_name || member.store_name || member.country || ''}
-                      </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="border rounded-xl p-4">
+                    <p className="text-xs uppercase tracking-wide text-text-secondary">
+                      {t('ClientAffiliates.codeCard.title')}
+                    </p>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-2xl font-semibold">{snapshot.code.code}</span>
+                      <button
+                        type="button"
+                        onClick={handleCopyCode}
+                        className="text-sm text-primary flex items-center gap-1"
+                      >
+                        {copied ? <ClipboardCheck className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}
+                        {copied
+                          ? t('ClientAffiliates.codeCard.copied')
+                          : t('ClientAffiliates.codeCard.copy')}
+                      </button>
                     </div>
-                    <div className="text-sm text-text-secondary flex flex-wrap gap-4">
-                      <span>
-                        {t('ClientAffiliates.members.billed')}:{' '}
+                    <p className="mt-1 text-xs text-text-secondary">
+                      {snapshot.code.active
+                        ? t('ClientAffiliates.codeCard.active')
+                        : t('ClientAffiliates.codeCard.inactive')}
+                    </p>
+                  </div>
+
+                  <div className="border rounded-xl p-4">
+                    <p className="text-xs uppercase tracking-wide text-text-secondary">
+                      {t('ClientAffiliates.rules.title')}
+                    </p>
+                    <p className="text-sm text-text-secondary mt-1">{t('ClientAffiliates.rules.bonus')}</p>
+                    <PayoutSummary code={snapshot.code} />
+                  </div>
+
+                  <div className="border rounded-xl p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs uppercase tracking-wide text-text-secondary">
+                        {t('ClientAffiliates.stats.title')}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="month"
+                          value={billingMonth}
+                          onChange={(e) => setBillingMonth(e.target.value)}
+                          className="border rounded px-2 py-1 text-xs"
+                        />
+                        {billingMonth && (
+                          <button
+                            type="button"
+                            className="text-xs text-text-secondary underline"
+                            onClick={() => setBillingMonth(currentMonth)}
+                          >
+                            {t('common.reset') || 'Current month'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-1 text-sm text-text-secondary">
+                      <div className="flex items-center justify-between">
+                        <span>{t('ClientAffiliates.stats.clients')}</span>
+                        <strong className="text-text-primary">{totals.count}</strong>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>{t('ClientAffiliates.stats.billed')}</span>
                         <strong className="text-text-primary">
-                          {euroFormatter.format(member.billing_total)}
+                          {euroFormatter.format(totals.billed)}
                         </strong>
-                      </span>
-                      {payoutType === 'threshold' ? (
-                        member.thresholdMeta?.reached ? (
-                          <span className="text-text-primary font-semibold">
-                            {tp('ClientAffiliates.members.thresholdReached', {
-                              payout: euroFormatter.format(member.payout || Number(payoutCode?.fixed_amount || 0))
-                            })}
-                          </span>
-                        ) : member.thresholdMeta?.threshold ? (
-                          <span>
-                            {tp('ClientAffiliates.members.thresholdProgress', {
-                              billed: euroFormatter.format(member.billing_total),
-                              threshold: euroFormatter.format(member.thresholdMeta.threshold)
-                            })}
-                          </span>
-                        ) : null
-                      ) : (
-                        <span>
-                          {tp('ClientAffiliates.members.payoutPercent', {
-                            percent: member.percent || 0
-                          })}{' '}
-                          <strong className="text-text-primary">
-                            {euroFormatter.format(member.payout || 0)}
-                          </strong>
-                        </span>
-                      )}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>{t('ClientAffiliates.stats.payout')}</span>
+                        <strong className="text-text-primary">
+                          {euroFormatter.format(totals.payout)}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>{t('ClientAffiliates.credit.used')}</span>
+                        <strong className="text-text-primary">
+                          {euroFormatter.format(creditUsed)}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>{t('ClientAffiliates.credit.remaining') || 'Remaining'}</span>
+                        <strong className="text-text-primary">
+                          {euroFormatter.format(Math.max(0, totals.payout - creditUsed))}
+                        </strong>
+                      </div>
                     </div>
                   </div>
-                ))}
+                </div>
+
+                <div className="border rounded-xl p-4 space-y-3">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs uppercase tracking-wide text-text-secondary">
+                      {t('ClientAffiliates.credit.title')}
+                    </p>
+                    <div className="text-sm text-text-secondary">
+                      {t('ClientAffiliates.credit.used')}:{" "}
+                      <strong className="text-text-primary">
+                        {euroFormatter.format(creditUsed)}
+                      </strong>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-text-secondary">
+                      {t('ClientAffiliates.credit.available')}:{" "}
+                      <strong className="text-text-primary">
+                        {euroFormatter.format(availableCredit)}
+                      </strong>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="border rounded-lg px-3 py-2 w-32 text-right"
+                        placeholder={t('ClientAffiliates.credit.amountPh')}
+                        value={creditAmount}
+                        onChange={(e) =>
+                          setCreditAmounts((prev) => ({ ...prev, [market]: e.target.value }))
+                        }
+                        disabled={creditLoading || availableCredit <= 0}
+                      />
+                      <button
+                        type="button"
+                        className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
+                        disabled={creditLoading || availableCredit <= 0}
+                        onClick={() => handleRedeemCredit(market, availableCredit)}
+                      >
+                        {creditLoading
+                          ? t('ClientAffiliates.credit.applying')
+                          : t('ClientAffiliates.credit.apply')}
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 py-2 bg-gray-100 text-text-primary rounded-lg text-sm disabled:opacity-50"
+                        disabled={creditLoading || availableCredit <= 0}
+                        onClick={() => {
+                          setCreditAmounts((prev) => ({
+                            ...prev,
+                            [market]: String(availableCredit.toFixed(2))
+                          }));
+                          handleRedeemCredit(market, availableCredit);
+                        }}
+                      >
+                        {t('ClientAffiliates.credit.applyAll') || 'Apply all'}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-text-secondary">
+                    {t('ClientAffiliates.credit.note')}
+                  </p>
+                  {creditFlash && (
+                    <div
+                      className={`text-sm ${
+                        creditFlash.type === 'success'
+                          ? 'text-green-700'
+                          : 'text-red-600'
+                      }`}
+                    >
+                      {creditFlash.message}
+                    </div>
+                  )}
+                </div>
+
+                <div className="border rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users className="w-4 h-4 text-text-secondary" />
+                    <h3 className="font-semibold">{t('ClientAffiliates.members.title')}</h3>
+                  </div>
+                  {members.length === 0 ? (
+                    <p className="text-sm text-text-secondary">
+                      {t('ClientAffiliates.members.empty')}
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {members.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border rounded-lg p-3"
+                        >
+                          <div>
+                            <p className="font-medium">{formatClientName(member)}</p>
+                            <p className="text-xs text-text-secondary">
+                              {member.company_name || member.store_name || member.country || ''}
+                            </p>
+                          </div>
+                          <div className="text-sm text-text-secondary flex flex-wrap gap-4">
+                            <span>
+                              {t('ClientAffiliates.members.billed')}:{" "}
+                              <strong className="text-text-primary">
+                                {euroFormatter.format(member.billing_total)}
+                              </strong>
+                            </span>
+                            {payoutType === 'threshold' ? (
+                              member.thresholdMeta?.reached ? (
+                                <span className="text-text-primary font-semibold">
+                                  {tp('ClientAffiliates.members.thresholdReached', {
+                                    payout: euroFormatter.format(member.payout || Number(payoutCode?.fixed_amount || 0))
+                                  })}
+                                </span>
+                              ) : member.thresholdMeta?.threshold ? (
+                                <span>
+                                  {tp('ClientAffiliates.members.thresholdProgress', {
+                                    billed: euroFormatter.format(member.billing_total),
+                                    threshold: euroFormatter.format(member.thresholdMeta.threshold)
+                                  })}
+                                </span>
+                              ) : null
+                            ) : (
+                              <span>
+                                {tp('ClientAffiliates.members.payoutPercent', {
+                                  percent: member.percent || 0
+                                })}{" "}
+                                <strong className="text-text-primary">
+                                  {euroFormatter.format(member.payout || 0)}
+                                </strong>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-text-secondary mt-3">
+                    {t('ClientAffiliates.members.hint')}
+                  </p>
+                </div>
               </div>
-            )}
-            <p className="text-xs text-text-secondary mt-3">
-              {t('ClientAffiliates.members.hint')}
-            </p>
-          </div>
+            );
+          })}
         </div>
       ) : pendingRequest ? (
         <div className="border rounded-xl p-6 bg-slate-50 space-y-4">

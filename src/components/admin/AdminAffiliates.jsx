@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
+import { useMarket } from '@/contexts/MarketContext';
 import {
   Tag,
   Percent,
@@ -80,6 +81,7 @@ const computeCommission = (amount, code) => {
 
 export default function AdminAffiliates() {
   const { t, tp } = useAdminTranslation();
+  const { currentMarket } = useMarket();
   const [requests, setRequests] = useState([]);
   const [codes, setCodes] = useState([]);
   const [selectedCode, setSelectedCode] = useState(null);
@@ -251,12 +253,13 @@ export default function AdminAffiliates() {
     const { assigned, candidates } = await supabaseHelpers.getAffiliateCodeMembers(
       code.id,
       code.code,
-      { billingMonth: billingMonth || null }
+      { billingMonth: billingMonth || null, country: currentMarket }
     );
     const { data: creditData } = await supabaseHelpers.getAffiliateCreditUsageByCode({
       codeId: code.id,
       companyId: code.owner?.company_id || null,
-      billingMonth: billingMonth || null
+      billingMonth: billingMonth || null,
+      country: currentMarket
     });
     setCreditUsage(creditData || { used: 0 });
     setMembers({ assigned, candidates });
@@ -316,7 +319,8 @@ export default function AdminAffiliates() {
         codeId: code.id,
         codeValue: code.code,
         amount: value,
-        serviceLabel: 'Affiliate discount'
+        serviceLabel: 'Affiliate discount',
+        country: currentMarket
       });
       if (error) {
         setMessage(error.message || 'Failed to apply discount.');
@@ -348,7 +352,8 @@ export default function AdminAffiliates() {
       const { error } = await supabaseHelpers.applyAffiliateCreditForCode({
         codeId: selectedCode.id,
         amount: remaining,
-        note: `Affiliate credit ${billingMonth || ''}`.trim()
+        note: `Affiliate credit ${billingMonth || ''}`.trim(),
+        country: currentMarket
       });
       if (error) throw error;
       setMessage(t('affiliates.credit.applied') || 'Credit applied.');

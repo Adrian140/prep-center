@@ -9,6 +9,7 @@ import {
   disableReceivingShipmentArraySupport
 } from "./supabase";
 import { encodeRemainingAction } from "../utils/receivingFba";
+import { normalizeMarketCode } from "../utils/market";
 
 const createMonthMatcher = (billingMonth) => {
   if (!billingMonth || typeof billingMonth !== 'string') {
@@ -511,7 +512,7 @@ createReceptionRequest: async (data) => {
     return await supabase.from('affiliate_codes').delete().eq('id', id);
   },
 
-  getAffiliateOwnerSnapshot: async (profileId, { billingMonth } = {}) => {
+  getAffiliateOwnerSnapshot: async (profileId, { billingMonth, country } = {}) => {
     const { data: code, error } = await supabase
       .from('affiliate_codes')
       .select('*')
@@ -521,20 +522,36 @@ createReceptionRequest: async (data) => {
 
     const { data: assigned } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, company_name, store_name, company_id, country')
+      .select('id, first_name, last_name, company_name, store_name, company_id, country, allowed_markets')
       .eq('affiliate_code_id', code.id);
 
-    const companyIds = (assigned || [])
+    const marketCode = normalizeMarketCode(country);
+    const scoped = marketCode
+      ? (assigned || []).filter((client) => {
+          const allowed = Array.isArray(client.allowed_markets) ? client.allowed_markets : [];
+          const normalizedAllowed = allowed.map((c) => normalizeMarketCode(c));
+          return (
+            normalizedAllowed.includes(marketCode) ||
+            normalizeMarketCode(client.country) === marketCode
+          );
+        })
+      : (assigned || []);
+
+    const companyIds = scoped
       .map((client) => client.company_id)
       .filter(Boolean);
 
     let totals = {};
     if (companyIds.length > 0) {
       const monthMatcher = createMonthMatcher(billingMonth);
-      const { data: invoices, error: invoicesError } = await supabase
+      let invoicesQuery = supabase
         .from('invoices')
         .select('company_id, amount, vat_amount, status, issue_date, created_at')
         .in('company_id', companyIds);
+      if (marketCode) {
+        invoicesQuery = invoicesQuery.eq('country', marketCode);
+      }
+      const { data: invoices, error: invoicesError } = await invoicesQuery;
       if (invoicesError) {
         console.error('affiliate invoices fetch', invoicesError);
       }
@@ -555,7 +572,7 @@ createReceptionRequest: async (data) => {
     return {
       data: {
         code,
-        members: (assigned || []).map((client) => ({
+        members: scoped.map((client) => ({
           ...client,
           billing_total: client.company_id ? totals[client.company_id] || 0 : 0
         }))
@@ -564,16 +581,21 @@ createReceptionRequest: async (data) => {
     };
   },
 
-  getAffiliateCreditUsage: async ({ companyId, codeId, billingMonth } = {}) => {
+  getAffiliateCreditUsage: async ({ companyId, codeId, billingMonth, country } = {}) => {
     if (!companyId || !codeId) {
       return { data: { used: 0 }, error: null };
     }
     const matchMonth = createMonthMatcher(billingMonth);
-    const { data, error } = await supabase
+    let query = supabase
       .from('other_lines')
       .select('total, service, service_date, created_at, obs_admin')
       .eq('company_id', companyId)
       .lt('total', 0);
+    const marketCode = normalizeMarketCode(country);
+    if (marketCode) {
+      query = query.eq('country', marketCode);
+    }
+    const { data, error } = await query;
     if (error) {
       return { data: { used: 0 }, error };
     }
@@ -589,7 +611,7 @@ createReceptionRequest: async (data) => {
     return { data: { used }, error: null };
   },
 
-  getAffiliateCreditUsageByCode: async ({ codeId, companyId, billingMonth } = {}) => {
+  getAffiliateCreditUsageByCode: async ({ codeId, companyId, billingMonth, country } = {}) => {
     if (!codeId) return { data: { used: 0 }, error: null };
 
     let targetCompanyId = companyId;
@@ -605,11 +627,16 @@ createReceptionRequest: async (data) => {
     if (!targetCompanyId) return { data: { used: 0 }, error: null };
 
     const matchMonth = createMonthMatcher(billingMonth);
-    const { data, error } = await supabase
+    let query = supabase
       .from('other_lines')
       .select('total, service, service_date, created_at, obs_admin')
       .eq('company_id', targetCompanyId)
       .lt('total', 0);
+    const marketCode = normalizeMarketCode(country);
+    if (marketCode) {
+      query = query.eq('country', marketCode);
+    }
+    const { data, error } = await query;
     if (error) return { data: { used: 0 }, error };
     const used = (data || []).reduce((sum, row) => {
       const isAffiliate =
@@ -623,8 +650,12 @@ createReceptionRequest: async (data) => {
     return { data: { used }, error: null };
   },
 
-  redeemAffiliateCredit: async ({ amount }) => {
-    return await supabase.rpc('redeem_affiliate_credit', { amount });
+  redeemAffiliateCredit: async ({ amount, country } = {}) => {
+    const marketCode = normalizeMarketCode(country);
+    return await supabase.rpc('redeem_affiliate_credit', {
+      amount,
+      p_country: marketCode || null
+    });
   },
 
   getAffiliateClientStatus: async (profileId) => {
@@ -658,10 +689,11 @@ createReceptionRequest: async (data) => {
     return { profile, code: null, members: [], request: request || null };
   },
 
-  getAffiliateCodeMembers: async (codeId, codeValue, { billingMonth } = {}) => {
+  getAffiliateCodeMembers: async (codeId, codeValue, { billingMonth, country } = {}) => {
+    const marketCode = normalizeMarketCode(country);
     const assignedPromise = supabase
       .from('profiles')
-      .select('id, first_name, last_name, company_name, store_name, country, company_id, affiliate_code_input, affiliate_code_id, updated_at')
+      .select('id, first_name, last_name, company_name, store_name, country, allowed_markets, company_id, affiliate_code_input, affiliate_code_id, updated_at')
       .eq('affiliate_code_id', codeId)
       .order('updated_at', { ascending: true });
     const candidatesPromise = supabase
@@ -675,15 +707,29 @@ createReceptionRequest: async (data) => {
       await Promise.all([assignedPromise, candidatesPromise]);
 
     let totals = {};
-    const companyIds = (assigned || [])
+    const scopedAssigned = marketCode
+      ? (assigned || []).filter((client) => {
+          const allowed = Array.isArray(client.allowed_markets) ? client.allowed_markets : [];
+          const normalizedAllowed = allowed.map((c) => normalizeMarketCode(c));
+          return (
+            normalizedAllowed.includes(marketCode) ||
+            normalizeMarketCode(client.country) === marketCode
+          );
+        })
+      : (assigned || []);
+    const companyIds = scopedAssigned
       .map((client) => client.company_id)
       .filter(Boolean);
     if (companyIds.length > 0) {
       const monthMatcher = createMonthMatcher(billingMonth);
-      const { data: invoices, error: invoicesError } = await supabase
+      let invoicesQuery = supabase
         .from('invoices')
         .select('company_id, amount, vat_amount, status, issue_date, created_at')
         .in('company_id', companyIds);
+      if (marketCode) {
+        invoicesQuery = invoicesQuery.eq('country', marketCode);
+      }
+      const { data: invoices, error: invoicesError } = await invoicesQuery;
       if (invoicesError) {
         console.error('affiliate invoices fetch', invoicesError);
       }
@@ -701,7 +747,7 @@ createReceptionRequest: async (data) => {
         });
     }
 
-    const assignedWithTotals = (assigned || []).map((client) => ({
+    const assignedWithTotals = scopedAssigned.map((client) => ({
       ...client,
       billing_total: client.company_id ? totals[client.company_id] || 0 : 0
     }));
@@ -712,7 +758,7 @@ createReceptionRequest: async (data) => {
     };
   },
 
-  applyAffiliateDiscountForCode: async ({ codeId, codeValue, amount, serviceLabel }) => {
+  applyAffiliateDiscountForCode: async ({ codeId, codeValue, amount, serviceLabel, country } = {}) => {
     const value = Number(
       typeof amount === 'string' ? amount.replace(',', '.') : amount
     );
@@ -730,15 +776,27 @@ createReceptionRequest: async (data) => {
 
     const { data: members, error: membersError } = await supabase
       .from('profiles')
-      .select('id, company_id')
+      .select('id, company_id, country, allowed_markets')
       .eq('affiliate_code_id', codeId)
       .not('company_id', 'is', null);
     if (membersError) {
       return { data: [], error: membersError };
     }
 
+    const marketCode = normalizeMarketCode(country);
+    const scopedMembers = marketCode
+      ? (members || []).filter((member) => {
+          const allowed = Array.isArray(member.allowed_markets) ? member.allowed_markets : [];
+          const normalizedAllowed = allowed.map((c) => normalizeMarketCode(c));
+          return (
+            normalizedAllowed.includes(marketCode) ||
+            normalizeMarketCode(member.country) === marketCode
+          );
+        })
+      : (members || []);
+
     const companyIds = Array.from(
-      new Set((members || []).map((m) => m.company_id).filter(Boolean))
+      new Set(scopedMembers.map((m) => m.company_id).filter(Boolean))
     );
     if (!companyIds.length) {
       return { data: [], error: null };
@@ -750,7 +808,8 @@ createReceptionRequest: async (data) => {
         service_date: today,
         unit_price: discount,
         units: 1,
-        total: discount
+        total: discount,
+        country: marketCode || null
       }));
 
     if (!payloads.length) {
@@ -765,7 +824,7 @@ createReceptionRequest: async (data) => {
     return { data: inserted || [], error: insertError || null };
   },
 
-  applyAffiliateCreditForCode: async ({ codeId, amount, note }) => {
+  applyAffiliateCreditForCode: async ({ codeId, amount, note, country } = {}) => {
     const value = Number(
       typeof amount === 'string' ? amount.replace(',', '.') : amount
     );
@@ -784,6 +843,7 @@ createReceptionRequest: async (data) => {
     const companyId = codeRow.owner.company_id;
     const credit = -Math.abs(value);
     const today = new Date().toISOString().slice(0, 10);
+    const marketCode = normalizeMarketCode(country);
     const { data, error } = await supabase
       .from('other_lines')
       .insert({
@@ -792,7 +852,8 @@ createReceptionRequest: async (data) => {
         service_date: today,
         unit_price: credit,
         units: 1,
-        total: credit
+        total: credit,
+        country: marketCode || null
       })
       .select('*')
       .single();

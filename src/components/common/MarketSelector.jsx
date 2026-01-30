@@ -70,7 +70,9 @@ export default function MarketSelector() {
 
   const confirmNewAccount = () => {
     if (!pending) return;
-    const target = `/register?country=${pending}`;
+    const affiliate = profile?.affiliate_code_input || profile?.affiliate_code || '';
+    const affiliateParam = affiliate ? `&affiliate=${encodeURIComponent(affiliate)}` : '';
+    const target = `/register?country=${pending}${affiliateParam}`;
     setPending(null);
     navigate(target);
   };

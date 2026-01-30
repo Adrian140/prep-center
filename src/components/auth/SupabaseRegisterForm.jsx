@@ -45,6 +45,11 @@ function SupabaseRegisterForm() {
     if (raw === 'BOTH') return 'BOTH';
     return null;
   }, [location.search]);
+  const prefillAffiliate = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = String(params.get('affiliate') || params.get('affiliate_code') || '').trim();
+    return raw ? raw.toUpperCase() : '';
+  }, [location.search]);
 
   useEffect(() => {
     if (!prefillMarket) return;
@@ -53,6 +58,13 @@ function SupabaseRegisterForm() {
       marketChoice: prefillMarket
     }));
   }, [prefillMarket]);
+  useEffect(() => {
+    if (!prefillAffiliate) return;
+    setFormData((prev) => {
+      if (prev.affiliateCode && prev.affiliateCode.trim()) return prev;
+      return { ...prev, affiliateCode: prefillAffiliate };
+    });
+  }, [prefillAffiliate]);
 
   const validatePassword = (password) => {
     const minLength = password.length >= 8;
