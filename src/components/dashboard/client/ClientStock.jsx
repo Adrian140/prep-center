@@ -805,7 +805,7 @@ const [salesCountry, setSalesCountry] = useSessionStorage(
 );
 const [sortSpec, setSortSpec] = useSessionStorage(
   `${storagePrefix}-sortSpec`,
-  { key: 'none', direction: 'none' }
+  { key: 'prep', direction: 'desc' }
 );
 const showSalesColumn = true;
 const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
