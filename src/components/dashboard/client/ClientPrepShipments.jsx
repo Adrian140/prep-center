@@ -524,7 +524,7 @@ export default function ClientPrepShipments() {
             )
           `)
           .eq('user_id', profile.id)
-          .eq('destination_country', currentMarket)
+          .eq('warehouse_country', currentMarket)
           .order('created_at', { ascending: false })
           .limit(100),
         supabase

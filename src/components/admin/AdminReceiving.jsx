@@ -438,6 +438,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
         company_id: shipment.company_id,
         user_id: shipment.user_id || shipment.created_by || profile.id,
         destination_country: shipment.destination_country || 'FR',
+        warehouse_country: shipment.warehouse_country || 'FR',
         status: 'pending',
         items: fbaLines,
         obs_admin: shipment.notes ? `${CLIENT_NOTE_MARKER}\n${shipment.notes}` : null
@@ -1185,7 +1186,7 @@ const loadShipments = async () => {
   try {
     const { data, error } = await supabaseHelpers.getAllReceivingShipments({
       fetchAll: true,
-      destinationCountry: currentMarket
+      warehouseCountry: currentMarket
     });
     if (error) throw error;
 

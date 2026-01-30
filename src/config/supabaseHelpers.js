@@ -55,6 +55,7 @@ export const supabaseHelpers = {
      Prep Requests Management
      ========================= */
   createPrepRequest: async (data) => {
+    const warehouseCountry = (data.warehouse_country || data.warehouseCountry || data.market || data.market_code || data.country || 'FR').toUpperCase();
     // 1️⃣ Inserăm headerul în prep_requests
     const { data: header, error: err1 } = await supabase
       .from("prep_requests")
@@ -63,6 +64,7 @@ export const supabaseHelpers = {
           user_id: data.user_id,
           company_id: data.company_id,
           destination_country: data.destination_country || "FR",
+          warehouse_country: warehouseCountry,
           status: data.status || "pending",
           obs_admin: data.obs_admin || null,
           created_at: new Date().toISOString(),
@@ -137,6 +139,7 @@ createReceptionRequest: async (data) => {
   let useItemsFba = canUseReceivingItemFbaColumns();
   let useShipmentArrays = canUseReceivingShipmentArrays();
   const destinationCountry = (data.destination_country || 'FR').toUpperCase();
+  const warehouseCountry = (data.warehouse_country || data.warehouseCountry || data.market || data.market_code || data.country || 'FR').toUpperCase();
 
   const trackingIds =
     Array.isArray(data.tracking_ids) && data.tracking_ids.length > 0
@@ -157,6 +160,7 @@ createReceptionRequest: async (data) => {
       status: data.status || "submitted",
       created_at: new Date().toISOString(),
       destination_country: destinationCountry,
+      warehouse_country: warehouseCountry,
       carrier: data.carrier || null,
       carrier_other: data.carrier_other || null,
       tracking_id: primaryTrackingId,

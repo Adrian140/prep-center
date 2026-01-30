@@ -21,7 +21,7 @@ export default function AdminReturns() {
   const load = async () => {
     setLoading(true);
     setError('');
-    const { data, error: err } = await supabase
+    let query = supabase
       .from('returns')
       .select(`
         id,
@@ -46,17 +46,13 @@ export default function AdminReturns() {
       `)
       .order('created_at', { ascending: false })
       .limit(200);
-    if (err) setError(err.message);
-    let baseRows = Array.isArray(data) ? data : [];
     const marketCode = normalizeMarketCode(currentMarket);
     if (marketCode) {
-      baseRows = baseRows.filter((row) => {
-        const rowMarket = normalizeMarketCode(
-          row?.marketplace || row?.country || row?.destination_country
-        );
-        return rowMarket === marketCode;
-      });
+      query = query.eq('warehouse_country', marketCode);
     }
+    const { data, error: err } = await query;
+    if (err) setError(err.message);
+    let baseRows = Array.isArray(data) ? data : [];
 
     const createSignedUrl = async (path) => {
       if (!path) return '';

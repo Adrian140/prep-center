@@ -1489,6 +1489,7 @@ useEffect(() => {
           company_id: profile.company_id,
           user_id: profile.id,
           marketplace: receptionForm.destinationCountry || 'FR',
+          warehouse_country: currentMarket,
           return_date: today,
           status: 'pending',
           notes: returnNotes || null
@@ -1954,6 +1955,7 @@ const openReception = async () => {
   const payload = {
     company_id: profile.company_id,
     user_id: profile.id,
+    warehouse_country: currentMarket,
     destination_country: (receptionForm.destinationCountry || 'FR').toUpperCase(),
     carrier: carrierCode,
     carrier_other:
@@ -2034,6 +2036,7 @@ const openPrep = async () => {
   const payload = {
     company_id: profile.company_id,
     user_id: profile.id,
+    warehouse_country: currentMarket,
     destination_country: (receptionForm.destinationCountry || 'FR').toUpperCase(),
     items: selectedRows.map(r => ({
       stock_item_id: r.id,

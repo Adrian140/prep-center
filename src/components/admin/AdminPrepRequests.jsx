@@ -75,7 +75,7 @@ export default function AdminPrepRequests() {
   try {
     const { data, error, count: c } = await supabaseHelpers.listPrepRequests({
       status: status === 'all' ? undefined : status,
-      destinationCountry: currentMarket,
+      warehouseCountry: currentMarket,
       page: fetchAll ? undefined : p,
       pageSize: fetchAll ? undefined : pageSize,
     });

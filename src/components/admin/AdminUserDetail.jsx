@@ -99,7 +99,7 @@ const ensureCompany = async () => {
         .from('returns')
         .select('*')
         .eq('company_id', cid)
-        .eq('country', currentMarket)
+        .eq('warehouse_country', currentMarket)
         .order('return_date', { ascending: false })
     );
 

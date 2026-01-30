@@ -34,7 +34,7 @@ export default function ClientReturns() {
     }
     setLoading(true);
     setError('');
-    const { data, error: err } = await supabase
+    let query = supabase
       .from('returns')
       .select(`
         id,
@@ -48,16 +48,12 @@ export default function ClientReturns() {
       `)
       .eq('company_id', profile.company_id)
       .order('created_at', { ascending: false });
-    let baseRows = err ? [] : Array.isArray(data) ? data : [];
     const marketCode = normalizeMarketCode(currentMarket);
     if (marketCode) {
-      baseRows = baseRows.filter((row) => {
-        const rowMarket = normalizeMarketCode(
-          row?.marketplace || row?.country || row?.destination_country
-        );
-        return rowMarket === marketCode;
-      });
+      query = query.eq('warehouse_country', marketCode);
     }
+    const { data, error: err } = await query;
+    let baseRows = err ? [] : Array.isArray(data) ? data : [];
 
     // Fetch stock item metadata separat, fără .or() construit din string
     const allItems = baseRows.flatMap((r) => (Array.isArray(r.return_items) ? r.return_items : []));

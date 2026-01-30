@@ -18,6 +18,7 @@ import AdminReturns from './AdminReturns';
 import { getTabId } from '@/utils/tabIdentity';
 import { tabSessionStorage } from '@/utils/tabStorage';
 import SupabaseSecuritySettings from '@/components/dashboard/SupabaseSecuritySettings';
+import { useMarket } from '@/contexts/MarketContext';
 
 const SERVICE_LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -38,6 +39,7 @@ import { useAdminTranslation } from '@/i18n/useAdminTranslation';
 function SupabaseAdminPanel() {
   const tabId = getTabId();
   const { user, signOut } = useSupabaseAuth();
+  const { currentMarket } = useMarket();
   const { t } = useAdminTranslation();
   const [isAdmin, setIsAdmin] = useState(false);
 const [checkingAdmin, setCheckingAdmin] = useState(true);
@@ -202,16 +204,19 @@ useEffect(() => {
   useEffect(() => {
     let mounted = true;
     const loadPendingCounts = async () => {
-      const [prepRes, returnsRes] = await Promise.all([
-        supabase
-          .from('prep_requests')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'pending'),
-        supabase
-          .from('returns')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'pending')
-      ]);
+      let prepQuery = supabase
+        .from('prep_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      let returnsQuery = supabase
+        .from('returns')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      if (currentMarket) {
+        prepQuery = prepQuery.eq('warehouse_country', currentMarket);
+        returnsQuery = returnsQuery.eq('warehouse_country', currentMarket);
+      }
+      const [prepRes, returnsRes] = await Promise.all([prepQuery, returnsQuery]);
       if (!mounted) return;
       setPendingPrepCount(prepRes?.count || 0);
       setPendingReturnsCount(returnsRes?.count || 0);
@@ -222,7 +227,7 @@ useEffect(() => {
       mounted = false;
       clearInterval(intervalId);
     };
-  }, []);
+  }, [currentMarket]);
 
   const fetchServices = async () => {
     try {

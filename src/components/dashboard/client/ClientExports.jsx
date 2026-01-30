@@ -222,7 +222,8 @@ export default function ClientExports() {
 
   const applyCountryFilter = (query, table) => {
     if (!marketCode) return query;
-    if (table === 'returns' || table === 'stock_items') return query;
+    if (table === 'returns') return query.eq('warehouse_country', marketCode);
+    if (table === 'stock_items') return query;
     return query.eq('country', marketCode);
   };
 
@@ -230,10 +231,8 @@ export default function ClientExports() {
     if (!marketCode) return rows;
     if (table === 'returns') {
       return rows.filter((row) => {
-        const rowMarket = normalizeMarketCode(
-          row?.marketplace || row?.country || row?.destination_country
-        );
-        return rowMarket === marketCode;
+        const rowMarket = normalizeMarketCode(row?.warehouse_country);
+        return rowMarket ? rowMarket === marketCode : true;
       });
     }
     return rows;

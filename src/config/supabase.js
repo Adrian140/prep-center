@@ -1258,6 +1258,13 @@ resetPassword: async (email) => {
 
   createPrepRequestDraft: async (draftData) => {
     try {
+      const warehouseCountry = (
+        draftData.warehouse_country ||
+        draftData.warehouseCountry ||
+        draftData.market ||
+        draftData.country ||
+        'FR'
+      ).toUpperCase();
       // 1) Insert header cu user_id + destination_country normalizat
       const { data: request, error: requestError } = await supabase
         .from('prep_requests')
@@ -1269,6 +1276,7 @@ resetPassword: async (email) => {
             null,
           destination_country:
             draftData.destination_country || draftData.country, // compat
+          warehouse_country: warehouseCountry,
           status: 'pending',
         })
         .select()
@@ -1342,8 +1350,9 @@ const items = (draftData.items || []).map((it) => ({
     if (options.status) {
       query = query.eq('status', options.status);
     }
-    if (options.destinationCountry) {
-      query = query.eq('destination_country', options.destinationCountry);
+    const filterCountry = options.warehouseCountry || options.destinationCountry;
+    if (filterCountry) {
+      query = query.eq('warehouse_country', filterCountry);
     }
 
     if (options.page && options.pageSize) {
@@ -1839,7 +1848,8 @@ createPrepItem: async (requestId, item) => {
         supabase
           .from('returns')
           .select('id, status, created_at')
-      )
+      ),
+      'warehouse_country'
     )
       .gte('created_at', startIso)
       .lte('created_at', endIso)
@@ -1852,7 +1862,7 @@ createPrepItem: async (requestId, item) => {
           .select('id, status, confirmed_at')
           .eq('status', 'confirmed')
       ),
-      'destination_country'
+      'warehouse_country'
     )
       .gte('confirmed_at', startIso)
       .lte('confirmed_at', endIso)
@@ -1864,7 +1874,7 @@ createPrepItem: async (requestId, item) => {
           .from('receiving_shipments')
           .select('id, status, created_at')
       ),
-      'destination_country'
+      'warehouse_country'
     )
       .gte('created_at', startIso)
       .lte('created_at', endIso)
@@ -1872,10 +1882,10 @@ createPrepItem: async (requestId, item) => {
 
     let prepItemsQuery = supabase
       .from('prep_request_items')
-      .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status, destination_country)')
+      .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status, warehouse_country)')
       .eq('prep_requests.status', 'confirmed');
     if (marketCode) {
-      prepItemsQuery = prepItemsQuery.eq('prep_requests.destination_country', marketCode);
+      prepItemsQuery = prepItemsQuery.eq('prep_requests.warehouse_country', marketCode);
     }
     const prepItemsPromise = prepItemsQuery
       .gte('prep_requests.confirmed_at', startIso)
@@ -1884,9 +1894,9 @@ createPrepItem: async (requestId, item) => {
 
     let receivingItemsQuery = supabase
       .from('receiving_to_stock_log')
-      .select('quantity_moved, moved_at, receiving_items!inner(shipment_id, receiving_shipments!inner(company_id, destination_country))');
+      .select('quantity_moved, moved_at, receiving_items!inner(shipment_id, receiving_shipments!inner(company_id, warehouse_country))');
     if (marketCode) {
-      receivingItemsQuery = receivingItemsQuery.eq('receiving_shipments.destination_country', marketCode);
+      receivingItemsQuery = receivingItemsQuery.eq('receiving_shipments.warehouse_country', marketCode);
     }
     const receivingItemsPromise = receivingItemsQuery.limit(20000);
 
@@ -2354,7 +2364,7 @@ createReceivingShipment: async (shipmentData) => {
 },
 
 
-  getClientReceivingShipments: async (companyId, destinationCountry) => {
+  getClientReceivingShipments: async (companyId, warehouseCountry) => {
     let query = supabase
       .from('receiving_shipments')
       .select(`
@@ -2363,8 +2373,8 @@ createReceivingShipment: async (shipmentData) => {
         receiving_shipment_items(*)
       `)
       .eq('company_id', companyId);
-    if (destinationCountry) {
-      query = query.eq('destination_country', destinationCountry);
+    if (warehouseCountry) {
+      query = query.eq('warehouse_country', warehouseCountry);
     }
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) return { data: [], error };
@@ -2605,8 +2615,9 @@ getAllReceivingShipments: async (options = {}) => {
 
   if (options.status) query = query.eq('status', options.status);
   if (options.companyId) query = query.eq('company_id', options.companyId);
-  if (options.destinationCountry) {
-    query = query.eq('destination_country', options.destinationCountry);
+  const filterCountry = options.warehouseCountry || options.destinationCountry;
+  if (filterCountry) {
+    query = query.eq('warehouse_country', filterCountry);
   }
 
   const { data, error, count } = await query;
@@ -2800,7 +2811,7 @@ getAllReceivingShipments: async (options = {}) => {
       await ensureReceivingColumnSupport();
       const { data: shipment, error: shipmentFetchError } = await supabase
         .from('receiving_shipments')
-        .select('id, company_id, user_id, destination_country')
+        .select('id, company_id, user_id, destination_country, warehouse_country')
         .eq('id', shipmentId)
         .single();
       if (shipmentFetchError) throw shipmentFetchError;
@@ -2915,6 +2926,7 @@ getAllReceivingShipments: async (options = {}) => {
           user_id: shipment.user_id || processedBy,
           status: 'pending',
           destination_country: shipment.destination_country || 'FR',
+          warehouse_country: shipment.warehouse_country || shipment.warehouseCountry || 'FR',
           items: fbaLines
         });
       }
