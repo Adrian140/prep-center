@@ -366,6 +366,9 @@ export default function FbaSendToAmazonWizard({
     });
   }, [getPackGroupKey, getPackGroupSignature]);
   const [packGroups, setPackGroups] = useState([]);
+  const [packGroupsPreview, setPackGroupsPreview] = useState([]);
+  const [packGroupsPreviewLoading, setPackGroupsPreviewLoading] = useState(false);
+  const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [packGroupsLoaded, setPackGroupsLoaded] = useState(false);
   const [packingOptionId, setPackingOptionId] = useState(initialPlan?.packingOptionId || null);
   const [packingOptions, setPackingOptions] = useState([]);
@@ -426,6 +429,7 @@ export default function FbaSendToAmazonWizard({
   const packingOptionIdRef = useRef(packingOptionId);
   const placementOptionIdRef = useRef(placementOptionId);
   const packingRefreshLockRef = useRef({ inFlight: false, planId: null });
+  const packingPreviewLockRef = useRef({ inFlight: false, planId: null });
   const packingAutoRetryTimerRef = useRef(null);
   const packingPreviewFetchRef = useRef(false);
   const shippingRetryRef = useRef(0);
@@ -1101,6 +1105,23 @@ export default function FbaSendToAmazonWizard({
       .filter(Boolean);
   }, [packGroups, normalizeGroupItemsForUnits]);
 
+  const packGroupsPreviewForUnits = useMemo(() => {
+    if (!Array.isArray(packGroupsPreview)) return [];
+    return packGroupsPreview
+      .map((g) => {
+        const items = normalizeGroupItemsForUnits(g?.items || []);
+        if (!items.length) return null;
+        const units = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+        return {
+          ...g,
+          items,
+          units,
+          skuCount: items.length
+        };
+      })
+      .filter(Boolean);
+  }, [packGroupsPreview, normalizeGroupItemsForUnits]);
+
   const handlePackGroupUpdate = (groupId, patch) => {
     setPackGroups((prev) =>
       prev.map((g) =>
@@ -1115,6 +1136,60 @@ export default function FbaSendToAmazonWizard({
     setPackingOptionId(id);
     refreshPackingGroups(id);
   };
+
+  async function refreshPackingGroupsPreview() {
+    const inboundPlanId = resolveInboundPlanId();
+    const requestId = resolveRequestId();
+    if (!inboundPlanId || !requestId) {
+      setPackGroupsPreviewError('Lipseste inboundPlanId sau requestId; reincarca planul.');
+      return { ok: false, code: 'MISSING_IDS' };
+    }
+    if (packingPreviewLockRef.current.inFlight && packingPreviewLockRef.current.planId === inboundPlanId) {
+      return { ok: false, code: 'IN_FLIGHT' };
+    }
+    packingPreviewLockRef.current = { inFlight: true, planId: inboundPlanId };
+    setPackGroupsPreviewLoading(true);
+    setPackGroupsPreviewError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('fba-plan-step1-preview', {
+        body: {
+          request_id: requestId,
+          inbound_plan_id: inboundPlanId,
+          amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null
+        }
+      });
+      if (error) throw error;
+      if (data?.code === 'PACKING_OPTIONS_NOT_READY' || data?.code === 'PACKING_GROUPS_NOT_READY') {
+        const msg = data?.message || 'Amazon nu a returnat inca packing groups pentru preview.';
+        setPackGroupsPreviewError(msg);
+        setPackGroupsPreview([]);
+        return { ok: false, code: data.code, message: msg };
+      }
+      if (data?.code === 'PACKING_OPTIONS_NOT_AVAILABLE') {
+        setPackGroupsPreviewError(data?.message || 'Amazon nu a returnat packingOptions pentru preview.');
+        setPackGroupsPreview([]);
+        return { ok: false, code: data.code, message: data?.message || '' };
+      }
+      if (Array.isArray(data?.packingGroups)) {
+        const normalized = normalizePackGroups(data.packingGroups);
+        setPackGroupsPreview(normalized);
+        setPackGroupsPreviewError('');
+        return { ok: true, packingGroups: normalized };
+      }
+      setPackGroupsPreview([]);
+      setPackGroupsPreviewError('Preview indisponibil momentan.');
+      return { ok: false, code: 'NO_PREVIEW' };
+    } catch (e) {
+      const msg = e?.message || 'Preview packing groups failed.';
+      setPackGroupsPreviewError(msg);
+      setPackGroupsPreview([]);
+      return { ok: false, code: 'ERROR', message: msg };
+    } finally {
+      setPackGroupsPreviewLoading(false);
+      packingPreviewLockRef.current = { inFlight: false, planId: inboundPlanId };
+      packingPreviewFetchRef.current = false;
+    }
+  }
 
   const buildPackingPayload = (groups = packGroups) => {
     if (!Array.isArray(groups) || groups.length === 0) {
@@ -1376,7 +1451,6 @@ export default function FbaSendToAmazonWizard({
           inbound_plan_id: inboundPlanId,
           amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null,
           packing_option_id: selectedPackingOptionId || packingOptionId || null,
-          preview_only: true,
           reset_snapshot: resetSnapshot,
           packing_group_updates: packingGroupUpdates
         }
@@ -1492,12 +1566,19 @@ export default function FbaSendToAmazonWizard({
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) return;
-    if (packGroupsLoaded) return;
-    if (Array.isArray(packGroups) && packGroups.length) return;
-    if (packingRefreshLoading || packingPreviewFetchRef.current) return;
+    if (packGroupsPreviewError) return;
+    if (Array.isArray(packGroupsPreview) && packGroupsPreview.length) return;
+    if (packGroupsPreviewLoading || packingPreviewFetchRef.current) return;
     packingPreviewFetchRef.current = true;
-    refreshPackingGroups();
-  }, [currentStep, packGroupsLoaded, packGroups, packingRefreshLoading, resolveInboundPlanId, resolveRequestId]);
+    refreshPackingGroupsPreview();
+  }, [
+    currentStep,
+    packGroupsPreview,
+    packGroupsPreviewLoading,
+    packGroupsPreviewError,
+    resolveInboundPlanId,
+    resolveRequestId
+  ]);
 
   const buildShipmentConfigs = () => {
     if (!Array.isArray(packGroups)) return [];
@@ -2505,9 +2586,9 @@ export default function FbaSendToAmazonWizard({
           loadingPlan={!planLoaded || loadingPlan}
           inboundPlanId={resolveInboundPlanId()}
           requestId={resolveRequestId()}
-          packGroupsPreview={packGroupsForUnits}
-          packGroupsPreviewLoading={packingRefreshLoading}
-          packGroupsPreviewError={packingReadyError}
+          packGroupsPreview={packGroupsPreviewForUnits}
+          packGroupsPreviewLoading={packGroupsPreviewLoading}
+          packGroupsPreviewError={packGroupsPreviewError}
           onChangePacking={handlePackingChange}
           onChangeQuantity={handleQuantityChange}
           onChangeExpiry={handleExpiryChange}
