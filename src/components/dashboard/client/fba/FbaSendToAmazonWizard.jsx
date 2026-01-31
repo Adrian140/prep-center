@@ -1116,7 +1116,15 @@ export default function FbaSendToAmazonWizard({
         .map((it) => {
           const key = String(it?.sku || it?.msku || it?.SellerSKU || it?.asin || '').trim().toUpperCase();
           const plannedUnits = planUnitsByKey.get(key);
-          const quantity = Number.isFinite(plannedUnits) ? plannedUnits : Number(it?.quantity || 0) || 0;
+          const itemQty = Number(it?.quantity || 0) || 0;
+          const quantity =
+            Number.isFinite(plannedUnits) && plannedUnits > 0
+              ? plannedUnits
+              : itemQty > 0
+                ? itemQty
+                : Number.isFinite(plannedUnits)
+                  ? plannedUnits
+                  : itemQty;
           if (!quantity) return null;
           return { ...it, quantity };
         })
