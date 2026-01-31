@@ -145,10 +145,18 @@ const aggregateTransportationOptions = (options = []) => {
     if (!list.length) return null;
     const rep = pickRepresentative(list);
     const charge = minCharge(list);
+    const optionId =
+      rep?.transportationOptionId ||
+      rep?.id ||
+      rep?.optionId ||
+      rep?.raw?.transportationOptionId ||
+      rep?.raw?.id ||
+      rep?.raw?.optionId ||
+      null;
     const base = {
       ...rep,
       charge,
-      id: rep?.id,
+      id: optionId,
       isPartnered: detectPartneredOption(rep)
     };
     if (key === 'SPD_PARTNERED') {
