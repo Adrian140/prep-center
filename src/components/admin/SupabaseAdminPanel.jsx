@@ -170,6 +170,8 @@ useEffect(() => {
   const [message, setMessage] = useState(''); // Changed to message
   const [pendingPrepCount, setPendingPrepCount] = useState(0);
   const [pendingReturnsCount, setPendingReturnsCount] = useState(0);
+  const pendingCountsInFlightRef = useRef(false);
+  const pendingCountsLastRunRef = useRef(0);
   const [reviews, setReviews] = useState([]); // Added reviews state
   const [contentData, setContentData] = useState({}); // Added contentData state
   const [servicesLanguage, setServicesLanguage] = useState('en');
@@ -204,42 +206,63 @@ useEffect(() => {
   useEffect(() => {
     let mounted = true;
     const loadPendingCounts = async () => {
-      let prepQuery = supabase
-        .from('prep_requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending');
-      let returnsQuery = supabase
-        .from('returns')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending');
-      if (currentMarket) {
-        prepQuery = prepQuery.eq('warehouse_country', currentMarket);
-        returnsQuery = returnsQuery.eq('warehouse_country', currentMarket);
+      if (pendingCountsInFlightRef.current) return;
+      const now = Date.now();
+      if (now - pendingCountsLastRunRef.current < 2000) return;
+      pendingCountsInFlightRef.current = true;
+      try {
+        let prepQuery = supabase
+          .from('prep_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending');
+        let returnsQuery = supabase
+          .from('returns')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending');
+        if (currentMarket) {
+          prepQuery = prepQuery.eq('warehouse_country', currentMarket);
+          returnsQuery = returnsQuery.eq('warehouse_country', currentMarket);
+        }
+        let [prepRes, returnsRes] = await Promise.all([prepQuery, returnsQuery]);
+        const missingWarehouse = (err) =>
+          String(err?.message || '').toLowerCase().includes('warehouse_country');
+        if (currentMarket && (missingWarehouse(prepRes?.error) || missingWarehouse(returnsRes?.error))) {
+          [prepRes, returnsRes] = await Promise.all([
+            supabase
+              .from('prep_requests')
+              .select('id', { count: 'exact', head: true })
+              .eq('status', 'pending'),
+            supabase
+              .from('returns')
+              .select('id', { count: 'exact', head: true })
+              .eq('status', 'pending')
+          ]);
+        }
+        if (!mounted) return;
+        setPendingPrepCount(prepRes?.count || 0);
+        setPendingReturnsCount(returnsRes?.count || 0);
+        pendingCountsLastRunRef.current = Date.now();
+      } finally {
+        pendingCountsInFlightRef.current = false;
       }
-      let [prepRes, returnsRes] = await Promise.all([prepQuery, returnsQuery]);
-      const missingWarehouse = (err) =>
-        String(err?.message || '').toLowerCase().includes('warehouse_country');
-      if (currentMarket && (missingWarehouse(prepRes?.error) || missingWarehouse(returnsRes?.error))) {
-        [prepRes, returnsRes] = await Promise.all([
-          supabase
-            .from('prep_requests')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'pending'),
-          supabase
-            .from('returns')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'pending')
-        ]);
-      }
-      if (!mounted) return;
-      setPendingPrepCount(prepRes?.count || 0);
-      setPendingReturnsCount(returnsRes?.count || 0);
     };
-    loadPendingCounts();
-    const intervalId = setInterval(loadPendingCounts, 60 * 1000);
+    const tick = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadPendingCounts();
+    };
+    tick();
+    const intervalId = setInterval(tick, 60 * 1000);
+    const handleVisibility = () => tick();
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
     return () => {
       mounted = false;
       clearInterval(intervalId);
+      pendingCountsInFlightRef.current = false;
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
     };
   }, [currentMarket]);
 
