@@ -279,13 +279,37 @@ export default function FbaStep1Inventory({
             boxItems[skuKey] = Number(value);
           }
           nextItems[boxIndex] = boxItems;
-          return { ...current, boxItems: nextItems };
+          const lastUsedIndex = nextItems.reduce((lastIdx, items, idx) => {
+            const hasItems = Object.values(items || {}).some((qty) => Number(qty || 0) > 0);
+            return hasItems ? idx : lastIdx;
+          }, -1);
+          const trimmedCount = lastUsedIndex + 1;
+          const nextBoxes = [...(current.boxes || [])].slice(0, Math.max(0, trimmedCount));
+          const trimmedItems = nextItems.slice(0, Math.max(0, trimmedCount));
+          return { ...current, boxes: nextBoxes, boxItems: trimmedItems };
         },
         labelFallback
       );
     },
     [updateGroupPlan]
   );
+
+  useEffect(() => {
+    setActiveBoxByGroup((prev) => {
+      const next = { ...(prev || {}) };
+      let changed = false;
+      Object.entries(safeBoxPlan.groups || {}).forEach(([groupId, groupPlan]) => {
+        const boxes = Array.isArray(groupPlan?.boxes) ? groupPlan.boxes : [];
+        const maxIdx = Math.max(0, boxes.length - 1);
+        const currentIdx = Number(next[groupId] || 0);
+        if (currentIdx > maxIdx) {
+          next[groupId] = maxIdx;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [safeBoxPlan.groups]);
 
   const groupedRows = (() => {
     if (!hasPackGroups) {
