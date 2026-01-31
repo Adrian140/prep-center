@@ -450,6 +450,7 @@ export default function FbaSendToAmazonWizard({
   const selectedOptionSignatureRef = useRef(null);
   const planMissingRetryRef = useRef(0);
   const trackingPrefillRef = useRef(false);
+  const trackingLoadRequestedRef = useRef(false);
   const autoPackingRef = useRef({ planId: null, attempted: false });
   useEffect(() => {
     packGroupsRef.current = packGroups;
@@ -2834,13 +2835,18 @@ export default function FbaSendToAmazonWizard({
   };
 
   useEffect(() => {
-    if (currentStep !== '4') return;
+    if (currentStep !== '4') {
+      trackingLoadRequestedRef.current = false;
+      return;
+    }
+    if (trackingLoadRequestedRef.current) return;
     if (Array.isArray(tracking) && tracking.length) {
       const missingBoxId = tracking.some((row) => !row?.boxId);
       if (!missingBoxId) return;
     }
+    trackingLoadRequestedRef.current = true;
     loadInboundPlanBoxes();
-  }, [currentStep, tracking]);
+  }, [currentStep]);
 
   const handleTrackingChange = (id, value) => {
     setTracking((prev) => prev.map((row) => (row.id === id ? { ...row, trackingId: value } : row)));
