@@ -169,6 +169,12 @@ export default function FbaStep1Inventory({
     [onBoxPlanChange]
   );
 
+  const preventEnterSubmit = useCallback((event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+    }
+  }, []);
+
   const updateGroupPlan = useCallback(
     (groupId, updater, labelFallback) => {
       const current = getGroupPlan(groupId, labelFallback);
@@ -664,6 +670,7 @@ export default function FbaStep1Inventory({
                 className="w-16 border rounded-md px-2 py-1 text-sm"
                 value={sku.units || 0}
                 min={0}
+                onKeyDown={preventEnterSubmit}
                 onChange={(e) => onChangeQuantity(sku.id, Number(e.target.value || 0))}
               />
               <button
@@ -706,18 +713,18 @@ export default function FbaStep1Inventory({
                   <input
                     type="number"
                     min={1}
+                    step="1"
                     value={entry.boxIdx + 1}
                     onChange={(e) => {
                       const raw = Number(e.target.value || 0);
                       if (!raw || raw < 1) return;
                       const nextIdx = raw - 1;
-                      const maxIdx = Math.max(0, boxes.length - 1);
-                      if (nextIdx > maxIdx) return;
                       if (nextIdx === entry.boxIdx) return;
                       ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
                       updateBoxItemQty(groupId, nextIdx, skuKey, entry.qty, groupLabel, true);
                       updateBoxItemQty(groupId, entry.boxIdx, skuKey, 0, groupLabel);
                     }}
+                    onKeyDown={preventEnterSubmit}
                     className="w-16 border rounded-md px-2 py-1 text-xs"
                   />
                   <span className="text-xs text-slate-500">Units</span>
@@ -732,6 +739,7 @@ export default function FbaStep1Inventory({
                         setActiveBoxIndex(groupId, entry.boxIdx);
                       }
                     }}
+                    onKeyDown={preventEnterSubmit}
                     className="w-16 border rounded-md px-2 py-1 text-xs"
                   />
                   <button
@@ -1096,32 +1104,40 @@ export default function FbaStep1Inventory({
                     <input
                       type="number"
                       min={0}
+                      step="1"
                       value={box?.length_cm ?? box?.length ?? ''}
                       onChange={(e) => updateBoxDim(group.groupId, idx, 'length_cm', e.target.value, group.label)}
+                      onKeyDown={preventEnterSubmit}
                       className="border rounded-md px-3 py-2 text-sm"
                       placeholder="Length (cm)"
                     />
                     <input
                       type="number"
                       min={0}
+                      step="1"
                       value={box?.width_cm ?? box?.width ?? ''}
                       onChange={(e) => updateBoxDim(group.groupId, idx, 'width_cm', e.target.value, group.label)}
+                      onKeyDown={preventEnterSubmit}
                       className="border rounded-md px-3 py-2 text-sm"
                       placeholder="Width (cm)"
                     />
                     <input
                       type="number"
                       min={0}
+                      step="1"
                       value={box?.height_cm ?? box?.height ?? ''}
                       onChange={(e) => updateBoxDim(group.groupId, idx, 'height_cm', e.target.value, group.label)}
+                      onKeyDown={preventEnterSubmit}
                       className="border rounded-md px-3 py-2 text-sm"
                       placeholder="Height (cm)"
                     />
                     <input
                       type="number"
                       min={0}
+                      step="1"
                       value={box?.weight_kg ?? box?.weight ?? ''}
                       onChange={(e) => updateBoxDim(group.groupId, idx, 'weight_kg', e.target.value, group.label)}
+                      onKeyDown={preventEnterSubmit}
                       className="border rounded-md px-3 py-2 text-sm"
                       placeholder="Weight (kg)"
                     />
