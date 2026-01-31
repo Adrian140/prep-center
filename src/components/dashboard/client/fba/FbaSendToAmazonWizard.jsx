@@ -1391,6 +1391,15 @@ export default function FbaSendToAmazonWizard({
         }
         return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: msg, traceId: trace };
       }
+      if (data?.code === 'PACKING_OPTIONS_NOT_READY') {
+        const trace = data?.traceId || data?.trace_id || null;
+        const msg = data?.message || 'Inbound plan-ul este încă gol. Reîncearcă în câteva secunde.';
+        setPackingReadyError(trace ? `${msg} · TraceId ${trace}` : msg);
+        if (!hasRealPackGroups(packGroups)) {
+          setPackGroups([]);
+        }
+        return { ok: false, code: 'PACKING_OPTIONS_NOT_READY', message: msg, traceId: trace };
+      }
       if (data?.code === 'PLACEMENT_ALREADY_ACCEPTED') {
         const cachedGroups = Array.isArray(data?.packingGroups) ? data.packingGroups : [];
         const trace = data?.traceId || data?.trace_id || null;

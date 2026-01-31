@@ -966,6 +966,23 @@ serve(async (req) => {
         if (listRes.res.status !== 409) {
           const upstreamStatus = listRes.res.status;
           const statusToSend = upstreamStatus >= 500 ? 503 : 502;
+          const isEmptyPlan = /empty inbound plan/i.test(listRes.text || "");
+          if (upstreamStatus === 400 && isEmptyPlan) {
+            const retryAfterMs = backoffMs(6);
+            return new Response(
+              JSON.stringify({
+                code: "PACKING_OPTIONS_NOT_READY",
+                message:
+                  "Amazon spune ca inbound plan-ul este inca gol. Reincearca dupa cateva secunde.",
+                inboundPlanId,
+                traceId,
+                amazonIntegrationId: integId || null,
+                retryAfterMs,
+                debug: { statuses: debugStatuses, rawSamples }
+              }),
+              { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+            );
+          }
           return new Response(
             JSON.stringify({
               code: "SPAPI_LIST_PACKING_FAILED",
@@ -1333,6 +1350,25 @@ serve(async (req) => {
 
     if (listRes && !listRes.res.ok) {
       const status = listStatus && listStatus >= 500 ? 503 : 502;
+      const isEmptyPlan = /empty inbound plan/i.test(listRes.text || "");
+      if (listRes.res.status === 400 && isEmptyPlan) {
+        const retryAfterMs = backoffMs(6);
+        return new Response(
+          JSON.stringify({
+            code: "PACKING_OPTIONS_NOT_READY",
+            message:
+              "Amazon spune ca inbound plan-ul este inca gol. Reincearca dupa cateva secunde.",
+            traceId,
+            inboundPlanId,
+            packingOptionId: null,
+            placementOptionId,
+            amazonIntegrationId: integId || null,
+            retryAfterMs,
+            debug: debugSnapshot()
+          }),
+          { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
       return new Response(
         JSON.stringify({
           code: "SPAPI_LIST_PACKING_FAILED",
