@@ -1135,6 +1135,26 @@ export default function FbaSendToAmazonWizard({
   return null;
 }, [shippingSummary, shippingLoading, step2Loaded, shipmentMode?.method]);
 
+  const isPartneredShipment = useMemo(
+    () =>
+      Boolean(
+        shipmentMode?.carrier?.partnered ||
+        forcePartneredOnly ||
+        shippingSummary?.partneredRequired ||
+        shippingSummary?.forcePartneredOnly ||
+        shippingSummary?.partneredOnly ||
+        shippingSummary?.mustUsePartnered
+      ),
+    [
+      shipmentMode?.carrier?.partnered,
+      forcePartneredOnly,
+      shippingSummary?.partneredRequired,
+      shippingSummary?.forcePartneredOnly,
+      shippingSummary?.partneredOnly,
+      shippingSummary?.mustUsePartnered
+    ]
+  );
+
 
   // Step 1b este încărcat doar la acțiune explicită a userului (View/Edit sau Refresh).
 
@@ -2809,20 +2829,12 @@ export default function FbaSendToAmazonWizard({
       });
       if (!trackingPrefillRef.current) {
         const savedTracking = Array.isArray(initialTrackingIds) ? initialTrackingIds.filter(Boolean) : [];
-        const isPartnered = Boolean(shipmentMode?.carrier?.partnered);
         if (savedTracking.length) {
           normalized = normalized.map((row, idx) => ({
             ...row,
             trackingId: row.trackingId || savedTracking[idx] || '',
             status: savedTracking[idx] ? 'Confirmed' : row.status
           }));
-          trackingPrefillRef.current = true;
-        } else if (isPartnered) {
-          normalized = normalized.map((row) => {
-            const autoTrackingId = row.trackingId || row.label || row.boxId || '';
-            if (!autoTrackingId) return row;
-            return { ...row, trackingId: autoTrackingId, status: 'Confirmed' };
-          });
           trackingPrefillRef.current = true;
         }
       }
@@ -2860,20 +2872,12 @@ export default function FbaSendToAmazonWizard({
       setTrackingError('Lipsește inboundPlanId, requestId sau shipmentId pentru tracking.');
       return;
     }
-    const isPartnered = Boolean(shipmentMode?.carrier?.partnered);
+    const isPartnered = isPartneredShipment;
     if (isPartnered) {
       // Amazon-partnered shipments do not accept updateShipmentTrackingDetails.
       if (!Array.isArray(tracking) || !tracking.length || tracking.some((row) => !row?.boxId)) {
         await loadInboundPlanBoxes();
       }
-      setTracking((prev) =>
-        (Array.isArray(prev) ? prev : []).map((row) => {
-          if (row?.trackingId) return row;
-          const fallback = row?.label || row?.boxId || '';
-          if (!fallback) return row;
-          return { ...row, trackingId: fallback, status: 'Confirmed' };
-        })
-      );
       setTrackingError('');
       completeAndNext('4');
       return;
@@ -3244,6 +3248,7 @@ export default function FbaSendToAmazonWizard({
         onFinish={submitTrackingDetails}
         error={trackingError}
         loading={trackingLoading}
+        trackingDisabled={isPartneredShipment}
       />
     );
   };
@@ -3280,7 +3285,7 @@ export default function FbaSendToAmazonWizard({
   const isCompleted = (key) => completedSteps.includes(key);
   const step2Complete = isCompleted('2') && shippingConfirmed;
   const step3Complete = isCompleted('3') && Boolean(labelFormat);
-  const step4Complete = isCompleted('4') && trackingSummary.tracked > 0;
+  const step4Complete = isCompleted('4') && (trackingSummary.tracked > 0 || isPartneredShipment);
 
   const StepRow = ({ stepKey, title, subtitle, summary }) => {
     const active = currentStep === stepKey;

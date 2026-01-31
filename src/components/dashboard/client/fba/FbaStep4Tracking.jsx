@@ -7,8 +7,15 @@ export default function FbaStep4Tracking({
   onBack,
   onFinish,
   error = '',
-  loading = false
+  loading = false,
+  trackingDisabled = false
 }) {
+  const helperText = trackingDisabled
+    ? 'Amazon partnered shipments do not require manual tracking.'
+    : 'Provide carrier tracking IDs';
+  const footerText = trackingDisabled
+    ? 'Tracking is handled by Amazon for partnered shipments.'
+    : 'Shipments are complete once tracking is provided.';
   const formatNumber = (value) => {
     const num = typeof value === 'number' ? value : Number.parseFloat(value);
     if (!Number.isFinite(num)) return null;
@@ -45,7 +52,7 @@ export default function FbaStep4Tracking({
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
         <CheckCircle className="w-5 h-5 text-emerald-600" />
         <div className="font-semibold text-slate-900">Final step: Tracking details</div>
-        <div className="text-sm text-slate-500">Provide carrier tracking IDs</div>
+        <div className="text-sm text-slate-500">{helperText}</div>
       </div>
 
       {error && (
@@ -80,7 +87,7 @@ export default function FbaStep4Tracking({
                     onChange={(e) => onUpdateTracking(row.id, e.target.value)}
                     className="border rounded-md px-2 py-1 w-full min-w-[200px]"
                     placeholder="Enter tracking ID"
-                    disabled={loading}
+                    disabled={loading || trackingDisabled}
                   />
                 </td>
                 <td className="py-3 text-emerald-700 font-semibold">{row.status}</td>
@@ -93,7 +100,7 @@ export default function FbaStep4Tracking({
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="text-sm text-slate-600">Shipments are complete once tracking is provided.</div>
+        <div className="text-sm text-slate-600">{footerText}</div>
         <div className="flex gap-3 justify-end">
           <button onClick={onBack} className="border border-slate-300 text-slate-700 px-4 py-2 rounded-md">
             Back
