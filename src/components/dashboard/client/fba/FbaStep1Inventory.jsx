@@ -368,7 +368,8 @@ export default function FbaStep1Inventory({
       const groupId = group.packingGroupId || group.id || `pack-${idx + 1}`;
       rows.push({
         type: 'group',
-        label: `Pack ${idx + 1}`,
+        label: `Pack group ${idx + 1}`,
+        subtitle: 'Aceste produse de mai jos se pot impacheta impreuna.',
         key: groupId,
         groupId
       });
@@ -382,7 +383,7 @@ export default function FbaStep1Inventory({
             sku: matched,
             key: matched.id,
             groupId,
-            groupLabel: `Pack ${idx + 1}`
+            groupLabel: `Pack group ${idx + 1}`
           });
         }
       });
@@ -1062,8 +1063,11 @@ export default function FbaStep1Inventory({
               if (row.type === 'group') {
                 return (
                   <tr key={`group-${row.key}-${rowIdx}`} className="bg-slate-50">
-                    <td colSpan={4} className="py-2 text-slate-700 font-semibold border-t border-slate-200">
-                      {row.label}
+                    <td colSpan={4} className="py-2 text-slate-700 border-t border-slate-200">
+                      <div className="font-semibold">{row.label}</div>
+                      {row.subtitle && (
+                        <div className="text-xs text-slate-500">{row.subtitle}</div>
+                      )}
                     </td>
                   </tr>
                 );
