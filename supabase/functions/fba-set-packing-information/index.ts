@@ -142,9 +142,10 @@ function normalizeDimensions(input: any) {
 }
 
 function normalizeWeight(input: any) {
+  const toFixedFloor = (value: number) => Math.floor(value * 100) / 100;
   if (typeof input === "number") {
     if (!Number.isFinite(input) || input <= 0) return null;
-    const toPounds = (kg: number) => Number((kg * 2.2046226218).toFixed(2));
+    const toPounds = (kg: number) => toFixedFloor(kg * 2.2046226218);
     return { value: toPounds(input), unit: "LB" };
   }
   if (!input) return null;
@@ -152,9 +153,9 @@ function normalizeWeight(input: any) {
   const value = Number(input.value || 0);
   if (!Number.isFinite(value) || value <= 0) return null;
   if (unit === "LB") {
-    return { value: Number(value.toFixed(2)), unit: "LB" };
+    return { value: toFixedFloor(value), unit: "LB" };
   }
-  const toPounds = (kg: number) => Number((kg * 2.2046226218).toFixed(2));
+  const toPounds = (kg: number) => toFixedFloor(kg * 2.2046226218);
   return { value: toPounds(value), unit: "LB" };
 }
 
@@ -1459,7 +1460,29 @@ serve(async (req) => {
     };
 
     if (opId) {
-      await pollOperationStatus(opId);
+      const opStatus = await pollOperationStatus(opId);
+      const opState =
+        opStatus?.json?.payload?.state ||
+        opStatus?.json?.payload?.operationStatus ||
+        opStatus?.json?.state ||
+        opStatus?.json?.operationStatus ||
+        null;
+      const opStateUp = String(opState || "").toUpperCase();
+      if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(opStateUp) || opStatus?.res?.status >= 400) {
+        const problems =
+          opStatus?.json?.payload?.operationProblems ||
+          opStatus?.json?.operationProblems ||
+          [];
+        return new Response(
+          JSON.stringify({
+            error: "SetPackingInformation failed at Amazon.",
+            code: "PACKING_INFORMATION_FAILED",
+            traceId,
+            problems
+          }),
+          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
     }
 
     const listBoxes = async () =>
