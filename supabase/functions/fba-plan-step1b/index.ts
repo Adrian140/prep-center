@@ -1315,16 +1315,16 @@ serve(async (req) => {
 
     const resolveUpstreamStatus = (resObj: Awaited<ReturnType<typeof signedFetch>> | null) => resObj?.res?.status ?? null;
     const listStatus = resolveUpstreamStatus(listRes);
-    const planStatus = resolveUpstreamStatus(planCheck);
+    const planHttpStatus = resolveUpstreamStatus(planCheck);
     const generationInFlight =
       !!genRes ||
       !!genOpId ||
       listStatus === 202 ||
-      planStatus === 202 ||
+      planHttpStatus === 202 ||
       listStatus === 409; // 409 from Amazon can mean generate already in progress
 
     // Explicit throttling handling
-    if (listStatus === 429 || planStatus === 429) {
+    if (listStatus === 429 || planHttpStatus === 429) {
       return new Response(
         JSON.stringify({
           code: "SPAPI_THROTTLED",
@@ -1361,11 +1361,11 @@ serve(async (req) => {
 
     // Upstream failure (auth/perm/5xx) before we even have packingGroupIds
     if (planCheckRes && !planCheckRes.ok) {
-      const status = planStatus && planStatus >= 500 ? 503 : 502;
+      const status = planHttpStatus && planHttpStatus >= 500 ? 503 : 502;
       return new Response(
         JSON.stringify({
           code: "SPAPI_PLAN_CHECK_FAILED",
-          message: `SP-API getInboundPlan a eșuat cu status ${planStatus ?? "n/a"}.`,
+          message: `SP-API getInboundPlan a eșuat cu status ${planHttpStatus ?? "n/a"}.`,
           traceId,
           inboundPlanId,
           packingOptionId: null,
