@@ -134,6 +134,8 @@ export default function FbaStep2Shipping({
             <div className="font-semibold text-slate-800 mb-1">Ship date</div>
             <input
               type="date"
+              id="ship-date"
+              name="ship-date"
               value={shipDate}
               onChange={(e) => {
                 setShipDate(e.target.value);
@@ -193,6 +195,8 @@ export default function FbaStep2Shipping({
                           <span className="text-sm font-semibold">{chargeText}</span>
                           <input
                             type="radio"
+                            id={`shipping-option-${opt?.id || carrierLabel}`}
+                            name="shipping-option"
                             checked={checked}
                             onChange={() => onOptionSelect?.(opt)}
                           />
@@ -218,6 +222,8 @@ export default function FbaStep2Shipping({
             <label className="flex items-start gap-2 text-xs text-slate-600 pt-2">
               <input
                 type="checkbox"
+                id="partner-terms"
+                name="partner-terms"
                 checked={acceptedTerms}
                 onChange={(e) => setAcceptedTerms(e.target.checked)}
                 className="mt-0.5"
@@ -243,6 +249,8 @@ export default function FbaStep2Shipping({
                 <input
                   type="number"
                   min="1"
+                  id="pallet-quantity"
+                  name="pallet-quantity"
                   value={safePalletDetails.quantity ?? 1}
                   onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, quantity: e.target.value })}
                   className="w-full border rounded-md px-3 py-2 text-sm"
@@ -254,6 +262,8 @@ export default function FbaStep2Shipping({
                   type="number"
                   min="0"
                   step="0.01"
+                  id="pallet-weight"
+                  name="pallet-weight"
                   value={safePalletDetails.weight ?? ''}
                   onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, weight: e.target.value })}
                   className="w-full border rounded-md px-3 py-2 text-sm"
@@ -262,6 +272,8 @@ export default function FbaStep2Shipping({
               <div>
                 <div className="text-xs text-slate-500 mb-1">Stackability</div>
                 <select
+                  id="pallet-stackability"
+                  name="pallet-stackability"
                   value={safePalletDetails.stackability || 'STACKABLE'}
                   onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, stackability: e.target.value })}
                   className="w-full border rounded-md px-3 py-2 text-sm"
@@ -276,6 +288,8 @@ export default function FbaStep2Shipping({
                   type="number"
                   min="0"
                   step="0.01"
+                  id="pallet-length"
+                  name="pallet-length"
                   value={safePalletDetails.length ?? ''}
                   onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, length: e.target.value })}
                   className="w-full border rounded-md px-3 py-2 text-sm"
@@ -287,6 +301,8 @@ export default function FbaStep2Shipping({
                   type="number"
                   min="0"
                   step="0.01"
+                  id="pallet-width"
+                  name="pallet-width"
                   value={safePalletDetails.width ?? ''}
                   onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, width: e.target.value })}
                   className="w-full border rounded-md px-3 py-2 text-sm"
@@ -298,6 +314,8 @@ export default function FbaStep2Shipping({
                   type="number"
                   min="0"
                   step="0.01"
+                  id="pallet-height"
+                  name="pallet-height"
                   value={safePalletDetails.height ?? ''}
                   onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, height: e.target.value })}
                   className="w-full border rounded-md px-3 py-2 text-sm"
@@ -307,6 +325,8 @@ export default function FbaStep2Shipping({
                 <div className="text-xs text-slate-500 mb-1">Freight class</div>
                 <input
                   type="text"
+                  id="freight-class"
+                  name="freight-class"
                   value={safePalletDetails.freightClass ?? ''}
                   onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, freightClass: e.target.value })}
                   className="w-full border rounded-md px-3 py-2 text-sm"
@@ -318,6 +338,8 @@ export default function FbaStep2Shipping({
                   type="number"
                   min="0"
                   step="0.01"
+                  id="declared-value"
+                  name="declared-value"
                   value={safePalletDetails.declaredValue ?? ''}
                   onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, declaredValue: e.target.value })}
                   className="w-full border rounded-md px-3 py-2 text-sm"
@@ -327,6 +349,8 @@ export default function FbaStep2Shipping({
                 <div className="text-xs text-slate-500 mb-1">Currency</div>
                 <input
                   type="text"
+                  id="declared-currency"
+                  name="declared-currency"
                   value={safePalletDetails.declaredValueCurrency ?? ''}
                   onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, declaredValueCurrency: e.target.value })}
                   className="w-full border rounded-md px-3 py-2 text-sm"

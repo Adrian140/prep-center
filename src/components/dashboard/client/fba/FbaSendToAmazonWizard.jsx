@@ -438,6 +438,7 @@ export default function FbaSendToAmazonWizard({
   const packingPreviewFetchRef = useRef(false);
   const shippingRetryRef = useRef(0);
   const shippingRetryTimerRef = useRef(null);
+  const shippingFetchLockRef = useRef({ inFlight: false, lastKey: "", lastAt: 0 });
   const planMissingRetryRef = useRef(0);
   const trackingPrefillRef = useRef(false);
   const autoPackingRef = useRef({ planId: null, attempted: false });
@@ -1757,7 +1758,9 @@ export default function FbaSendToAmazonWizard({
         }
       });
       if (error) throw error;
-      if (data?.traceId) console.log('setPackingInformation traceId', data.traceId);
+      if (data?.traceId && !import.meta.env.PROD) {
+        console.log('setPackingInformation traceId', data.traceId);
+      }
       if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
       completeAndNext('1b');
     } catch (e) {
@@ -2155,6 +2158,7 @@ export default function FbaSendToAmazonWizard({
 
   const fetchShippingOptions = async () => {
     if (typeof window === 'undefined') return; // rulează doar în browser
+    if (shippingFetchLockRef.current.inFlight) return;
     const inboundPlanId = resolveInboundPlanId();
     let placementOptId =
       placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
@@ -2201,13 +2205,15 @@ export default function FbaSendToAmazonWizard({
         return !(dims && w);
       });
       if (missingPack) {
-        console.log('Step2 missing pack details', (packGroups || []).map((g) => ({
-          packingGroupId: g?.packingGroupId || g?.id || null,
-          packMode: g?.packMode || null,
-          perBoxDetailsCount: Array.isArray(g?.perBoxDetails) ? g.perBoxDetails.length : 0,
-          boxDimensions: g?.boxDimensions || null,
-          boxWeight: g?.boxWeight ?? null
-        })));
+        if (!import.meta.env.PROD) {
+          console.log('Step2 missing pack details', (packGroups || []).map((g) => ({
+            packingGroupId: g?.packingGroupId || g?.id || null,
+            packMode: g?.packMode || null,
+            perBoxDetailsCount: Array.isArray(g?.perBoxDetails) ? g.perBoxDetails.length : 0,
+            boxDimensions: g?.boxDimensions || null,
+            boxWeight: g?.boxWeight ?? null
+          })));
+        }
         setShippingError('Completează greutatea și dimensiunile (L/W/H) pentru toate cutiile înainte de a cere tariful.');
         return;
       }
@@ -2218,19 +2224,39 @@ export default function FbaSendToAmazonWizard({
       return;
     }
 
+    const configs = buildShipmentConfigs();
+    const contactInformation = resolveContactInformation();
+    const requestKey = JSON.stringify({
+      requestId,
+      inboundPlanId,
+      placementOptId,
+      packingOptionId: packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null,
+      shippingMode: shipmentMode?.method || null,
+      shipDate: normalizeShipDate(shipmentMode?.deliveryDate) || null,
+      configsCount: configs.length,
+      selectedTransportationOptionId
+    });
+    const now = Date.now();
+    if (
+      requestKey === shippingFetchLockRef.current.lastKey &&
+      now - shippingFetchLockRef.current.lastAt < 4000
+    ) {
+      return;
+    }
+    shippingFetchLockRef.current.inFlight = true;
     setShippingLoading(true);
     setShippingError('');
     try {
-      const configs = buildShipmentConfigs();
-      const contactInformation = resolveContactInformation();
       // log local pentru debug (nu trimite date sensibile)
-      console.log('Step2 invoke fba-step2-confirm-shipping', {
-        requestId,
-        inboundPlanId,
-        placementOptionId: placementOptId,
-        configsCount: configs.length,
-        selectedTransportationOptionId
-      });
+      if (!import.meta.env.PROD) {
+        console.log('Step2 invoke fba-step2-confirm-shipping', {
+          requestId,
+          inboundPlanId,
+          placementOptionId: placementOptId,
+          configsCount: configs.length,
+          selectedTransportationOptionId
+        });
+      }
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
           request_id: requestId,
@@ -2314,6 +2340,9 @@ export default function FbaSendToAmazonWizard({
       setShippingError(detail);
     } finally {
       setShippingLoading(false);
+      shippingFetchLockRef.current.lastKey = requestKey;
+      shippingFetchLockRef.current.lastAt = Date.now();
+      shippingFetchLockRef.current.inFlight = false;
     }
   };
 
@@ -2768,7 +2797,9 @@ export default function FbaSendToAmazonWizard({
         }
       });
       if (error) throw error;
-      if (data?.traceId) console.log('updateTracking traceId', data.traceId);
+      if (data?.traceId && !import.meta.env.PROD) {
+        console.log('updateTracking traceId', data.traceId);
+      }
       completeAndNext('4');
     } catch (e) {
       setTrackingError(e?.message || 'Nu am putut trimite tracking.');

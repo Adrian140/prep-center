@@ -541,11 +541,13 @@ const mapBoxRows = (rows = []) => {
       // ---- DEBUG
       window.__req = data;       // obiectul complet
       window.__reqId = data?.id; // UUID complet
-      console.log("DETAIL row:", {
-        id: data?.id,
-        items: (data?.prep_request_items || []).length,
-        tracking: (data?.prep_request_tracking || []).length,
-      });
+      if (!import.meta.env.PROD) {
+        console.log("DETAIL row:", {
+          id: data?.id,
+          items: (data?.prep_request_items || []).length,
+          tracking: (data?.prep_request_tracking || []).length,
+        });
+      }
     }
 
     setLoading(false);
