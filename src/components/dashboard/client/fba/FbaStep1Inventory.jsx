@@ -267,7 +267,7 @@ export default function FbaStep1Inventory({
   );
 
   const updateBoxItemQty = useCallback(
-    (groupId, boxIndex, skuKey, value, labelFallback) => {
+    (groupId, boxIndex, skuKey, value, labelFallback, keepZero = false) => {
       updateGroupPlan(
         groupId,
         (current) => {
@@ -287,13 +287,17 @@ export default function FbaStep1Inventory({
           }
           const boxItems = { ...(nextItems[boxIndex] || {}) };
           if (value === null || value === undefined || Number(value) <= 0) {
-            delete boxItems[skuKey];
+            if (keepZero) {
+              boxItems[skuKey] = 0;
+            } else {
+              delete boxItems[skuKey];
+            }
           } else {
             boxItems[skuKey] = Number(value);
           }
           nextItems[boxIndex] = boxItems;
           const lastUsedIndex = nextItems.reduce((lastIdx, items, idx) => {
-            const hasItems = Object.values(items || {}).some((qty) => Number(qty || 0) > 0);
+            const hasItems = Object.keys(items || {}).length > 0;
             return hasItems ? idx : lastIdx;
           }, -1);
           const trimmedCount = lastUsedIndex + 1;
@@ -538,9 +542,10 @@ export default function FbaStep1Inventory({
     const assignedEntries = boxes
       .map((_, idx) => ({
         boxIdx: idx,
-        qty: Number((boxItems[idx] || {})[skuKey] || 0)
+        qty: Number((boxItems[idx] || {})[skuKey] || 0),
+        hasKey: Object.prototype.hasOwnProperty.call(boxItems[idx] || {}, skuKey)
       }))
-      .filter((entry) => entry.qty > 0);
+      .filter((entry) => entry.qty > 0 || entry.hasKey);
     const maxBoxIndex = Math.max(0, boxes.length - 1);
     const activeIndexRaw = activeBoxByGroup[groupId];
     const activeIndex =
@@ -690,7 +695,8 @@ export default function FbaStep1Inventory({
                       targetIdx,
                       skuKey,
                       Number((boxItems[targetIdx] || {})[skuKey] || 0) + 1,
-                      groupLabel
+                      groupLabel,
+                      true
                     );
                     setActiveBoxIndex(groupId, targetIdx);
                   }}
@@ -716,7 +722,7 @@ export default function FbaStep1Inventory({
                       if (nextIdx > maxIdx) return;
                       if (nextIdx === entry.boxIdx) return;
                       ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
-                      updateBoxItemQty(groupId, nextIdx, skuKey, entry.qty, groupLabel);
+                      updateBoxItemQty(groupId, nextIdx, skuKey, entry.qty, groupLabel, true);
                       updateBoxItemQty(groupId, entry.boxIdx, skuKey, 0, groupLabel);
                     }}
                     className="w-16 border rounded-md px-2 py-1 text-xs"
@@ -728,7 +734,7 @@ export default function FbaStep1Inventory({
                     value={entry.qty}
                     onChange={(e) => {
                       const nextValue = Number(e.target.value || 0);
-                      updateBoxItemQty(groupId, entry.boxIdx, skuKey, nextValue, groupLabel);
+                      updateBoxItemQty(groupId, entry.boxIdx, skuKey, nextValue, groupLabel, entry.hasKey);
                       if (nextValue > 0 && entry.boxIdx >= activeIndex) {
                         setActiveBoxIndex(groupId, entry.boxIdx);
                       }
