@@ -182,12 +182,20 @@ export default function FbaStep2Shipping({
                   {list.map((opt) => {
                     const partneredLabel = opt?.partnered ? 'Amazon partnered carrier' : 'Non Amazon partnered carrier';
                     const carrierLabel = opt?.carrierName || 'Carrier';
+                    const optionId =
+                      opt?.id ||
+                      opt?.transportationOptionId ||
+                      opt?.optionId ||
+                      opt?.raw?.transportationOptionId ||
+                      opt?.raw?.id ||
+                      opt?.raw?.optionId ||
+                      null;
                     const solution = String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase();
                     const chargeText = Number.isFinite(opt?.charge) ? `€${opt.charge.toFixed(2)}` : '—';
-                    const checked = opt?.id === selectedTransportationOptionId;
+                    const checked = Boolean(optionId) && optionId === selectedTransportationOptionId;
                     return (
                       <label
-                        key={opt?.id}
+                        key={optionId || carrierLabel}
                         className={`flex items-center justify-between gap-3 px-3 py-2 border rounded-md ${checked ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -200,13 +208,15 @@ export default function FbaStep2Shipping({
                           <span className="text-sm font-semibold">{chargeText}</span>
                           <input
                             type="radio"
-                            id={`shipping-option-${opt?.id || carrierLabel}`}
+                            id={`shipping-option-${optionId || carrierLabel}`}
                             name="shipping-option"
                             checked={checked}
+                            disabled={!optionId}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => {
                               e.stopPropagation();
-                              onOptionSelect?.(opt);
+                              if (!optionId) return;
+                              onOptionSelect?.({ ...opt, id: optionId });
                             }}
                           />
                         </div>
