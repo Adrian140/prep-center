@@ -120,6 +120,7 @@ export default function FbaStep1Inventory({
   const [labelError, setLabelError] = useState('');
   const [activeBoxByGroup, setActiveBoxByGroup] = useState({});
   const [boxIndexDrafts, setBoxIndexDrafts] = useState({});
+  const [boxDimDrafts, setBoxDimDrafts] = useState({});
 
   const normalizedPackGroups = Array.isArray(packGroupsPreview) ? packGroupsPreview : [];
   const hasPackGroups = normalizedPackGroups.some((g) => Array.isArray(g?.items) && g.items.length > 0);
@@ -195,6 +196,10 @@ export default function FbaStep1Inventory({
 
   const getBoxDraftKey = useCallback((groupId, skuKey, boxIdx) => {
     return `${groupId}::${skuKey}::${boxIdx}`;
+  }, []);
+
+  const getDimDraftKey = useCallback((groupId, boxIdx, field) => {
+    return `${groupId}::${boxIdx}::${field}`;
   }, []);
 
   const ensureGroupBoxCount = useCallback(
@@ -1136,62 +1141,113 @@ export default function FbaStep1Inventory({
                 <div className="font-semibold text-slate-800">{group.label}</div>
               </div>
               {boxes.length === 0 && <div className="text-sm text-slate-500">No boxes yet.</div>}
-              {boxes.map((box, idx) => (
-                <div key={box.id || `${group.groupId}-box-${idx}`} className="border border-slate-200 rounded-md p-3 bg-slate-50">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-slate-800">Box {idx + 1}</div>
-                    <button
-                      className="text-sm text-red-600"
-                      onClick={() => removeBoxFromGroup(group.groupId, idx, group.label)}
-                      type="button"
-                    >
-                      ✕
-                    </button>
+              {boxes.map((box, idx) => {
+                const buildKey = (field) => getDimDraftKey(group.groupId, idx, field);
+                const valueForField = (field, fallback) => {
+                  const draft = boxDimDrafts[buildKey(field)];
+                  return draft !== undefined && draft !== null ? draft : fallback;
+                };
+                const commitDim = (field, rawValue) => {
+                  updateBoxDim(group.groupId, idx, field, rawValue, group.label);
+                  setBoxDimDrafts((prev) => {
+                    const next = { ...(prev || {}) };
+                    delete next[buildKey(field)];
+                    return next;
+                  });
+                };
+                const handleDimKeyDown = (field) => (event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitDim(field, event.currentTarget.value);
+                    event.currentTarget.blur();
+                    return;
+                  }
+                  preventEnterSubmit(event);
+                };
+                return (
+                  <div
+                    key={box.id || `${group.groupId}-box-${idx}`}
+                    className="border border-slate-200 rounded-md p-3 bg-slate-50"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-semibold text-slate-800">Box {idx + 1}</div>
+                      <button
+                        className="text-sm text-red-600"
+                        onClick={() => removeBoxFromGroup(group.groupId, idx, group.label)}
+                        type="button"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        step="1"
+                        value={valueForField('length_cm', box?.length_cm ?? box?.length ?? '')}
+                        onChange={(e) =>
+                          setBoxDimDrafts((prev) => ({
+                            ...(prev || {}),
+                            [buildKey('length_cm')]: e.target.value
+                          }))
+                        }
+                        onBlur={(e) => commitDim('length_cm', e.target.value)}
+                        onKeyDown={handleDimKeyDown('length_cm')}
+                        className="border rounded-md px-3 py-2 text-sm"
+                        placeholder="Length (cm)"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step="1"
+                        value={valueForField('width_cm', box?.width_cm ?? box?.width ?? '')}
+                        onChange={(e) =>
+                          setBoxDimDrafts((prev) => ({
+                            ...(prev || {}),
+                            [buildKey('width_cm')]: e.target.value
+                          }))
+                        }
+                        onBlur={(e) => commitDim('width_cm', e.target.value)}
+                        onKeyDown={handleDimKeyDown('width_cm')}
+                        className="border rounded-md px-3 py-2 text-sm"
+                        placeholder="Width (cm)"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step="1"
+                        value={valueForField('height_cm', box?.height_cm ?? box?.height ?? '')}
+                        onChange={(e) =>
+                          setBoxDimDrafts((prev) => ({
+                            ...(prev || {}),
+                            [buildKey('height_cm')]: e.target.value
+                          }))
+                        }
+                        onBlur={(e) => commitDim('height_cm', e.target.value)}
+                        onKeyDown={handleDimKeyDown('height_cm')}
+                        className="border rounded-md px-3 py-2 text-sm"
+                        placeholder="Height (cm)"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step="1"
+                        value={valueForField('weight_kg', box?.weight_kg ?? box?.weight ?? '')}
+                        onChange={(e) =>
+                          setBoxDimDrafts((prev) => ({
+                            ...(prev || {}),
+                            [buildKey('weight_kg')]: e.target.value
+                          }))
+                        }
+                        onBlur={(e) => commitDim('weight_kg', e.target.value)}
+                        onKeyDown={handleDimKeyDown('weight_kg')}
+                        className="border rounded-md px-3 py-2 text-sm"
+                        placeholder="Weight (kg)"
+                      />
+                    </div>
                   </div>
-                  <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <input
-                      type="number"
-                      min={0}
-                      step="1"
-                      value={box?.length_cm ?? box?.length ?? ''}
-                      onChange={(e) => updateBoxDim(group.groupId, idx, 'length_cm', e.target.value, group.label)}
-                      onKeyDown={preventEnterSubmit}
-                      className="border rounded-md px-3 py-2 text-sm"
-                      placeholder="Length (cm)"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      step="1"
-                      value={box?.width_cm ?? box?.width ?? ''}
-                      onChange={(e) => updateBoxDim(group.groupId, idx, 'width_cm', e.target.value, group.label)}
-                      onKeyDown={preventEnterSubmit}
-                      className="border rounded-md px-3 py-2 text-sm"
-                      placeholder="Width (cm)"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      step="1"
-                      value={box?.height_cm ?? box?.height ?? ''}
-                      onChange={(e) => updateBoxDim(group.groupId, idx, 'height_cm', e.target.value, group.label)}
-                      onKeyDown={preventEnterSubmit}
-                      className="border rounded-md px-3 py-2 text-sm"
-                      placeholder="Height (cm)"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      step="1"
-                      value={box?.weight_kg ?? box?.weight ?? ''}
-                      onChange={(e) => updateBoxDim(group.groupId, idx, 'weight_kg', e.target.value, group.label)}
-                      onKeyDown={preventEnterSubmit}
-                      className="border rounded-md px-3 py-2 text-sm"
-                      placeholder="Weight (kg)"
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           );
         })}
