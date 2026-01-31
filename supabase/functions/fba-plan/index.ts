@@ -2556,6 +2556,43 @@ serve(async (req) => {
       }
     }
 
+    if (inboundPlanId && operationId) {
+      const opRes = await pollOperationStatus(operationId);
+      const stateUp = String(opRes?.state || "").toUpperCase();
+      operationStatus = operationStatus || (opRes?.state ? String(opRes.state) : null);
+      operationProblems = operationProblems.length ? operationProblems : (opRes?.problems || []);
+      operationRaw = operationRaw || opRes?.raw || null;
+      if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
+        inboundPlanStatus = "ERRORED";
+      }
+    }
+
+    if (inboundPlanId && (!inboundPlanStatus || inboundPlanErrored(inboundPlanStatus))) {
+      const fetched = await fetchInboundPlanById(inboundPlanId);
+      if (fetched.fetchedStatus) inboundPlanStatus = fetched.fetchedStatus;
+      if (!plans.length && fetched.fetchedPlans?.length) plans = fetched.fetchedPlans;
+      _lastPackingOptions = _lastPackingOptions.length ? _lastPackingOptions : fetched.fetchedPackingOptions || [];
+      _lastPlacementOptions = _lastPlacementOptions.length ? _lastPlacementOptions : fetched.fetchedPlacementOptions || [];
+    }
+
+    if (inboundPlanId && inboundPlanErrored(inboundPlanStatus)) {
+      try {
+        await supabase
+          .from("prep_requests")
+          .update({ inbound_plan_id: null })
+          .eq("id", requestId)
+          .eq("inbound_plan_id", inboundPlanId);
+        planWarnings.push("Planul Amazon a intrat în status ERRORED. Am resetat planul; încearcă din nou.");
+      } catch (resetErr) {
+        console.warn("reset inbound_plan_id after ERRORED status failed", { traceId, error: resetErr });
+      }
+      inboundPlanId = null;
+      inboundPlanStatus = null;
+      plans = [];
+      _lastPackingOptions = [];
+      _lastPlacementOptions = [];
+    }
+
     const missingExpiry = collapsedItems
       .map((c) => {
         const key = normalizeSku(c.sku || c.asin || "");

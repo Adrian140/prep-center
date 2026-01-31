@@ -908,6 +908,10 @@ serve(async (req) => {
       planCheck?.json?.payload?.packingOptions?.[0] ||
       planCheck?.json?.packingOptions?.[0] ||
       null;
+    const planStatus =
+      planCheck?.json?.payload?.status ||
+      planCheck?.json?.status ||
+      null;
     const planPlacementStatus =
       planCheck?.json?.payload?.placementOptions?.[0]?.status ||
       planCheck?.json?.placementOptions?.[0]?.status ||
@@ -929,6 +933,26 @@ serve(async (req) => {
           debug: { statuses: debugStatuses, rawSamples }
         }),
         { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
+    if (String(planStatus || "").toUpperCase() === "ERRORED") {
+      await supabase
+        .from("prep_requests")
+        .update({ inbound_plan_id: null })
+        .eq("id", requestId)
+        .eq("inbound_plan_id", inboundPlanId);
+      return new Response(
+        JSON.stringify({
+          code: "INBOUND_PLAN_ERRORED",
+          message: "Planul Amazon este ERRORED. Refă Step 1 pentru a recrea planul.",
+          inboundPlanId,
+          traceId,
+          amazonIntegrationId: integId || null,
+          retryAfterMs: 4000,
+          debug: { statuses: debugStatuses, rawSamples }
+        }),
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
 
@@ -1017,11 +1041,11 @@ serve(async (req) => {
       const shouldGenerate =
         listRes.res.ok &&
         (!packingOptionsSnapshot.length || !hasPackingGroups(packingOptionsSnapshot)) &&
-        !placementLocked;
+        !generateNotSupported;
 
       if (placementLocked && (!packingOptionsSnapshot.length || !hasPackingGroups(packingOptionsSnapshot))) {
         warnings.push(
-          "PlacementOption este deja ACCEPTED/CONFIRMED și packingOptions nu conțin packingGroupIds. Amazon poate să nu mai permită GeneratePackingOptions; încercăm să listăm ce există."
+          "PlacementOption este deja ACCEPTED/CONFIRMED și packingOptions nu conțin packingGroupIds. Încercăm totuși GeneratePackingOptions; Amazon poate refuza."
         );
       }
       if (shouldGenerate) {
