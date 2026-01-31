@@ -2936,6 +2936,7 @@ serve(async (req) => {
       returnedSolutions,
       modeMismatch
     };
+    let selectedOption: any = null;
     const summaryWithSelection = {
       ...summary,
       selectedOptionId: selectedOption?.id || null,
@@ -3067,7 +3068,7 @@ serve(async (req) => {
       body?.auto_select_transportation_option ??
       body?.autoSelectTransportationOption ??
       true;
-    let selectedOption =
+    selectedOption =
       (confirmOptionId
         ? effectiveOptionsForSelection.find((o) => o.id === confirmOptionId) || null
         : null) ||
