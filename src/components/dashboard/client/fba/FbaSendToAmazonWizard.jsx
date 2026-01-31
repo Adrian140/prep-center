@@ -561,10 +561,12 @@ export default function FbaSendToAmazonWizard({
         null;
       const needsExpiryDefault = Boolean(sku?.expiryRequired) && !existingExpiry;
       const expiryDefault = needsExpiryDefault ? formatDateInput(addMonths(new Date(), 18)) : null;
+      const expiryDate = existingExpiry && !sku?.expiryDate ? existingExpiry : null;
       const nextSku = {
         ...sku,
         ...(image && !sku.image ? { image } : null),
-        ...(needsExpiryDefault ? { expiryDate: expiryDefault, expiry: expiryDefault } : null)
+        ...(needsExpiryDefault ? { expiryDate: expiryDefault, expiry: expiryDefault } : null),
+        ...(expiryDate ? { expiryDate, expiry: sku?.expiry || expiryDate } : null)
       };
       return nextSku;
     });

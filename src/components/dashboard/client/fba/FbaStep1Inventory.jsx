@@ -743,7 +743,7 @@ export default function FbaStep1Inventory({
             {needsExpiry && (
               <input
                 type="date"
-                value={sku.expiryDate || ''}
+                value={sku.expiryDate || sku.expiry || ''}
                 onChange={(e) => onChangeExpiry(sku.id, e.target.value)}
                 className="border rounded-md px-2 py-1 text-sm"
               />
