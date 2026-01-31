@@ -1316,7 +1316,7 @@ serve(async (req) => {
     const { data: reqDataRaw, error: reqErr } = await supabase
       .from("prep_requests")
       .select(
-        "id, destination_country, warehouse_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
+        "id, destination_country, warehouse_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, step1_box_plan, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
       )
       .eq("id", requestId)
       .maybeSingle();
@@ -1375,7 +1375,7 @@ serve(async (req) => {
         const { data: refetchReq, error: refetchErr } = await supabase
           .from("prep_requests")
           .select(
-            "id, destination_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
+            "id, destination_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, step1_box_plan, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
           )
           .eq("id", requestId)
           .maybeSingle();
@@ -1384,6 +1384,7 @@ serve(async (req) => {
       }
     }
 
+    const step1BoxPlan = (reqData as any)?.step1_box_plan || {};
     let snapshotBase = (reqData as any)?.amazon_snapshot || {};
     // Folosește snapshot-ul Amazon ca fallback dacă request-ul are deja context salvat.
     const snapshotFbaInbound = snapshotBase?.fba_inbound || {};
@@ -1902,6 +1903,7 @@ serve(async (req) => {
           },
           skus,
           packGroups: [],
+          step1BoxPlan,
           shipments: [],
           raw: null,
           skuStatuses,
@@ -2640,6 +2642,7 @@ serve(async (req) => {
         },
         skus,
         packGroups: [],
+        step1BoxPlan,
         shipments: [],
         raw: null,
         skuStatuses,
@@ -2773,6 +2776,7 @@ serve(async (req) => {
           },
           skus: fallbackSkus,
           packGroups: [],
+          step1BoxPlan,
           shipments: [],
           raw: null,
           skuStatuses,
@@ -3170,6 +3174,7 @@ serve(async (req) => {
       },
       skus,
       packGroups,
+      step1BoxPlan,
       shipments,
       raw: amazonJson,
       skuStatuses,

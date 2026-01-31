@@ -6,6 +6,7 @@ import FbaStep1bPacking from './FbaStep1bPacking';
 import FbaStep2Shipping from './FbaStep2Shipping';
 import FbaStep3Labels from './FbaStep3Labels';
 import FbaStep4Tracking from './FbaStep4Tracking';
+import { useMarket } from '@/contexts/MarketContext';
 
 const getSafeNumber = (val) => {
   if (val === null || val === undefined) return null;
@@ -257,6 +258,7 @@ export default function FbaSendToAmazonWizard({
   autoLoadPlan = false,
   fetchPlan // optional async () => ({ shipFrom, marketplace, skus, packGroups, shipments, skuStatuses, warning, blocking })
 }) {
+  const { currentMarket } = useMarket();
   const stepsOrder = ['1', '1b', '2', '3', '4'];
   const resolveInitialStep = () => {
     if (!historyMode) return '1';
@@ -370,6 +372,8 @@ export default function FbaSendToAmazonWizard({
   const [packGroupsPreviewLoading, setPackGroupsPreviewLoading] = useState(false);
   const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [packGroupsLoaded, setPackGroupsLoaded] = useState(false);
+  const [step1BoxPlanByMarket, setStep1BoxPlanByMarket] = useState({});
+  const step1BoxPlanRef = useRef(step1BoxPlanByMarket);
   const [packingOptionId, setPackingOptionId] = useState(initialPlan?.packingOptionId || null);
   const [packingOptions, setPackingOptions] = useState([]);
   const [placementOptionId, setPlacementOptionId] = useState(initialPlan?.placementOptionId || null);
@@ -440,8 +444,27 @@ export default function FbaSendToAmazonWizard({
     packGroupsRef.current = packGroups;
   }, [packGroups]);
   useEffect(() => {
+    step1BoxPlanRef.current = step1BoxPlanByMarket;
+  }, [step1BoxPlanByMarket]);
+  useEffect(() => {
     planRef.current = plan;
   }, [plan]);
+  const step1BoxPlanForMarket = useMemo(() => {
+    const raw = step1BoxPlanByMarket || {};
+    const planData = raw?.[currentMarket] || null;
+    if (planData && typeof planData === 'object') return planData;
+    return { groups: {} };
+  }, [step1BoxPlanByMarket, currentMarket]);
+  const handleStep1BoxPlanChange = useCallback(
+    (nextPlan) => {
+      if (!nextPlan || typeof nextPlan !== 'object') return;
+      setStep1BoxPlanByMarket((prev) => ({
+        ...(prev || {}),
+        [currentMarket]: nextPlan
+      }));
+    },
+    [currentMarket]
+  );
   const normalizeSkus = useCallback((skus = []) => {
     const firstMedia = (val) => (Array.isArray(val) && val.length ? val[0] : null);
     return (Array.isArray(skus) ? skus : []).map((sku) => {
@@ -754,6 +777,7 @@ export default function FbaSendToAmazonWizard({
       if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
       if (Array.isArray(data?.completedSteps)) setCompletedSteps(data.completedSteps);
       if (data?.currentStep && stepsOrder.includes(data.currentStep)) setCurrentStep(data.currentStep);
+      if (data?.step1BoxPlanByMarket) setStep1BoxPlanByMarket(data.step1BoxPlanByMarket);
     } catch {
       // ignore corrupt cache
     } finally {
@@ -769,6 +793,7 @@ export default function FbaSendToAmazonWizard({
     const snapshot = {
       plan,
       packGroups,
+      step1BoxPlanByMarket,
       shipmentMode,
       palletDetails,
       shipments,
@@ -785,12 +810,14 @@ export default function FbaSendToAmazonWizard({
     allowPersistence,
     plan,
     packGroups,
+    step1BoxPlanByMarket,
     shipmentMode,
     palletDetails,
     shipments,
     labelFormat,
     tracking,
     packingOptionId,
+    packingOptions,
     placementOptionId,
     completedSteps,
     currentStep,
@@ -954,6 +981,14 @@ export default function FbaSendToAmazonWizard({
       cancelled = true;
     };
   }, [planLoaded, fetchPlan, resolveInboundPlanId, resolveRequestId, snapshotServerUnits]);
+  useEffect(() => {
+    const planBoxPlan = plan?.step1BoxPlan || plan?.step1_box_plan || null;
+    if (!planBoxPlan || typeof planBoxPlan !== 'object') return;
+    setStep1BoxPlanByMarket((prev) => {
+      if (prev && Object.keys(prev).length) return prev;
+      return planBoxPlan;
+    });
+  }, [plan?.step1BoxPlan, plan?.step1_box_plan]);
   useEffect(() => {
     if (serverUnitsRef.current.size) return;
     snapshotServerUnits(initialPlan?.skus || []);
@@ -1129,6 +1164,62 @@ export default function FbaSendToAmazonWizard({
       )
     );
   };
+
+  useEffect(() => {
+    if (!packGroupsLoaded || !Array.isArray(packGroups) || packGroups.length === 0) return;
+    const groupsPlan = step1BoxPlanForMarket?.groups || {};
+    if (!groupsPlan || !Object.keys(groupsPlan).length) return;
+    setPackGroups((prev) => {
+      let changed = false;
+      const next = prev.map((g) => {
+        const gid = g?.packingGroupId || g?.id || null;
+        if (!gid || !groupsPlan[gid]) return g;
+        const planGroup = groupsPlan[gid];
+        const boxes = Array.isArray(planGroup?.boxes) ? planGroup.boxes : [];
+        const boxItems = Array.isArray(planGroup?.boxItems) ? planGroup.boxItems : [];
+        if (!boxes.length) return g;
+        const hasExisting =
+          g?.boxDimensions ||
+          g?.boxWeight ||
+          (Array.isArray(g?.perBoxDetails) && g.perBoxDetails.length) ||
+          (Array.isArray(g?.perBoxItems) && g.perBoxItems.length);
+        if (hasExisting) return g;
+        const boxCount = boxes.length;
+        const perBoxDetails = boxes.map((b) => ({
+          length: b?.length_cm ?? b?.length ?? '',
+          width: b?.width_cm ?? b?.width ?? '',
+          height: b?.height_cm ?? b?.height ?? '',
+          weight: b?.weight_kg ?? b?.weight ?? ''
+        }));
+        const perBoxItems = boxItems.length
+          ? boxItems.map((box) => ({ ...(box || {}) }))
+          : Array.from({ length: boxCount }).map(() => ({}));
+        const firstBox = boxes[0] || {};
+        const singleDims =
+          boxCount === 1
+            ? {
+                length: firstBox?.length_cm ?? firstBox?.length ?? '',
+                width: firstBox?.width_cm ?? firstBox?.width ?? '',
+                height: firstBox?.height_cm ?? firstBox?.height ?? ''
+              }
+            : g?.boxDimensions || null;
+        const singleWeight =
+          boxCount === 1 ? firstBox?.weight_kg ?? firstBox?.weight ?? '' : g?.boxWeight ?? null;
+        changed = true;
+        return {
+          ...g,
+          boxes: boxCount,
+          packMode: boxCount > 1 ? 'multiple' : 'single',
+          boxDimensions: boxCount === 1 ? singleDims : g?.boxDimensions || null,
+          boxWeight: boxCount === 1 ? singleWeight : g?.boxWeight ?? null,
+          perBoxDetails: boxCount > 1 ? perBoxDetails : null,
+          perBoxItems: boxCount > 1 ? perBoxItems : null,
+          contentInformationSource: boxCount > 1 ? 'BOX_CONTENT_PROVIDED' : g?.contentInformationSource || null
+        };
+      });
+      return changed ? next : prev;
+    });
+  }, [packGroupsLoaded, packGroups, step1BoxPlanForMarket]);
 
   const handleSelectPackingOption = (id) => {
     if (!id) return;
@@ -2526,6 +2617,7 @@ export default function FbaSendToAmazonWizard({
           placement_option_id: null,
           packing_option_id: null,
           fba_shipment_id: null,
+          step1_box_plan: step1BoxPlanRef.current || {},
           // ștergem snapshot-ul Amazon ca să forțăm recrearea planului cu cantitățile noi
           amazon_snapshot: {}
         })
@@ -2595,6 +2687,9 @@ export default function FbaSendToAmazonWizard({
           packGroupsPreview={packGroupsPreviewForUnits}
           packGroupsPreviewLoading={packGroupsPreviewLoading}
           packGroupsPreviewError={packGroupsPreviewError}
+          boxPlan={step1BoxPlanForMarket}
+          onBoxPlanChange={handleStep1BoxPlanChange}
+          marketCode={currentMarket}
           onChangePacking={handlePackingChange}
           onChangeQuantity={handleQuantityChange}
           onChangeExpiry={handleExpiryChange}
