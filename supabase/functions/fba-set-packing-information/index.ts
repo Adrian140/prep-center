@@ -153,10 +153,13 @@ function normalizeWeight(input: any) {
   const value = Number(input.value || 0);
   if (!Number.isFinite(value) || value <= 0) return null;
   if (unit === "LB") {
-    return { value: toFixedFloor(value), unit: "LB" };
+    const lbValue = toFixedFloor(value);
+    return { value: lbValue >= 50.71 ? 50.7 : lbValue, unit: "LB" };
   }
+  const safeKg = value >= 23 ? value - 0.05 : value;
   const toPounds = (kg: number) => toFixedFloor(kg * 2.2046226218);
-  return { value: toPounds(value), unit: "LB" };
+  const lbValue = toPounds(safeKg);
+  return { value: lbValue >= 50.71 ? 50.7 : lbValue, unit: "LB" };
 }
 
 function normalizeItem(input: any) {
