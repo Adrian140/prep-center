@@ -5,7 +5,9 @@ export default function FbaStep4Tracking({
   tracking,
   onUpdateTracking,
   onBack,
-  onFinish
+  onFinish,
+  error = '',
+  loading = false
 }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -14,6 +16,14 @@ export default function FbaStep4Tracking({
         <div className="font-semibold text-slate-900">Final step: Tracking details</div>
         <div className="text-sm text-slate-500">Provide carrier tracking IDs</div>
       </div>
+
+      {error && (
+        <div className="px-6 pt-4">
+          <div className="bg-red-50 border border-red-200 text-red-800 text-sm rounded-md px-3 py-2">
+            {error}
+          </div>
+        </div>
+      )}
 
       <div className="px-6 py-4 overflow-x-auto">
         <table className="min-w-full text-sm text-slate-700">
@@ -39,6 +49,7 @@ export default function FbaStep4Tracking({
                     onChange={(e) => onUpdateTracking(row.id, e.target.value)}
                     className="border rounded-md px-2 py-1 w-full min-w-[200px]"
                     placeholder="Enter tracking ID"
+                    disabled={loading}
                   />
                 </td>
                 <td className="py-3 text-emerald-700 font-semibold">{row.status}</td>
@@ -58,9 +69,12 @@ export default function FbaStep4Tracking({
           </button>
           <button
             onClick={onFinish}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md font-semibold shadow-sm"
+            disabled={loading}
+            className={`px-4 py-2 rounded-md font-semibold shadow-sm ${
+              loading ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+            }`}
           >
-            Finish
+            {loading ? 'Submitting…' : 'Finish'}
           </button>
         </div>
       </div>

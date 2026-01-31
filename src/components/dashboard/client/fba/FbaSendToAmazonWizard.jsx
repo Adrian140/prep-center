@@ -2765,6 +2765,13 @@ export default function FbaSendToAmazonWizard({
     setTrackingLoading(true);
     setTrackingError('');
     try {
+      const existingRows = Array.isArray(tracking) ? tracking : [];
+      const existingByBoxId = new Map();
+      const existingByLabel = new Map();
+      existingRows.forEach((row) => {
+        if (row?.boxId) existingByBoxId.set(String(row.boxId), row);
+        if (row?.label) existingByLabel.set(String(row.label), row);
+      });
       const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
         body: {
           action: 'list_inbound_plan_boxes',
@@ -2779,18 +2786,26 @@ export default function FbaSendToAmazonWizard({
         data?.data?.payload?.boxList ||
         [];
       if (!Array.isArray(boxes) || boxes.length === 0) return;
-      let normalized = boxes.map((b, idx) => ({
-        id: b?.boxId || b?.packageId || b?.id || `box-${idx + 1}`,
-        boxId: b?.boxId || b?.packageId || b?.id || null,
-        box: idx + 1,
-        label: b?.packageId || b?.boxId || b?.externalContainerIdentifier || `BOX-${idx + 1}`,
-        trackingId: '',
-        status: 'Pending',
-        weight: b?.weight?.value || b?.weight?.amount || null,
-        dimensions: b?.dimensions
-          ? `${b.dimensions.length || ''} x ${b.dimensions.width || ''} x ${b.dimensions.height || ''}`
-          : ''
-      }));
+      let normalized = boxes.map((b, idx) => {
+        const boxId = b?.boxId || b?.packageId || b?.id || null;
+        const label = b?.packageId || b?.boxId || b?.externalContainerIdentifier || `BOX-${idx + 1}`;
+        const existing =
+          (boxId && existingByBoxId.get(String(boxId))) ||
+          (label && existingByLabel.get(String(label))) ||
+          null;
+        return {
+          id: boxId || `box-${idx + 1}`,
+          boxId,
+          box: idx + 1,
+          label,
+          trackingId: existing?.trackingId || '',
+          status: existing?.status || 'Pending',
+          weight: b?.weight?.value || b?.weight?.amount || null,
+          dimensions: b?.dimensions
+            ? `${b.dimensions.length || ''} x ${b.dimensions.width || ''} x ${b.dimensions.height || ''}`
+            : ''
+        };
+      });
       if (!trackingPrefillRef.current) {
         const savedTracking = Array.isArray(initialTrackingIds) ? initialTrackingIds.filter(Boolean) : [];
         const isPartnered = Boolean(shipmentMode?.carrier?.partnered);
@@ -2820,7 +2835,10 @@ export default function FbaSendToAmazonWizard({
 
   useEffect(() => {
     if (currentStep !== '4') return;
-    if (Array.isArray(tracking) && tracking.length) return;
+    if (Array.isArray(tracking) && tracking.length) {
+      const missingBoxId = tracking.some((row) => !row?.boxId);
+      if (!missingBoxId) return;
+    }
     loadInboundPlanBoxes();
   }, [currentStep, tracking]);
 
@@ -3200,6 +3218,8 @@ export default function FbaSendToAmazonWizard({
         onUpdateTracking={handleTrackingChange}
         onBack={() => goToStep('3')}
         onFinish={submitTrackingDetails}
+        error={trackingError}
+        loading={trackingLoading}
       />
     );
   };
