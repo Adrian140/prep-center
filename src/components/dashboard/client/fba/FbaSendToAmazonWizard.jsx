@@ -1356,6 +1356,20 @@ export default function FbaSendToAmazonWizard({
     });
     setPackGroups((prev) => {
       let changed = false;
+      const sameDims = (a, b) => {
+        if (!a && !b) return true;
+        if (!a || !b) return false;
+        return (
+          String(a.length || '') === String(b.length || '') &&
+          String(a.width || '') === String(b.width || '') &&
+          String(a.height || '') === String(b.height || '')
+        );
+      };
+      const sameJson = (a, b) => {
+        if (!a && !b) return true;
+        if (!a || !b) return false;
+        return JSON.stringify(a) === JSON.stringify(b);
+      };
       const next = prev.map((g) => {
         const gid = g?.packingGroupId || g?.id || null;
         const planGroup = gid ? groupsPlan[gid] : null;
@@ -1410,8 +1424,7 @@ export default function FbaSendToAmazonWizard({
             : g?.boxDimensions || null;
         const singleWeight =
           boxCount === 1 ? firstBox?.weight_kg ?? firstBox?.weight ?? '' : g?.boxWeight ?? null;
-        changed = true;
-        return {
+        const nextGroup = {
           ...g,
           boxes: boxCount,
           packMode: boxCount > 1 ? 'multiple' : 'single',
@@ -1422,6 +1435,17 @@ export default function FbaSendToAmazonWizard({
           contentInformationSource: boxCount > 1 ? 'BOX_CONTENT_PROVIDED' : g?.contentInformationSource || null,
           step1PlanGroupKey: resolvedPlanKey
         };
+        const unchanged =
+          g.boxes === nextGroup.boxes &&
+          g.packMode === nextGroup.packMode &&
+          sameDims(g.boxDimensions, nextGroup.boxDimensions) &&
+          g.boxWeight === nextGroup.boxWeight &&
+          sameJson(g.perBoxDetails, nextGroup.perBoxDetails) &&
+          sameJson(g.perBoxItems, nextGroup.perBoxItems) &&
+          g.contentInformationSource === nextGroup.contentInformationSource &&
+          g.step1PlanGroupKey === nextGroup.step1PlanGroupKey;
+        if (!unchanged) changed = true;
+        return unchanged ? g : nextGroup;
       });
       return changed ? next : prev;
     });
