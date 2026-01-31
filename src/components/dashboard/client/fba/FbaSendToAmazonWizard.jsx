@@ -1158,6 +1158,8 @@ export default function FbaSendToAmazonWizard({
       .filter(Boolean);
   }, [packGroupsPreview, normalizeGroupItemsForUnits]);
 
+  const packGroupsForAuto = useMemo(() => (Array.isArray(packGroups) ? packGroups : []), [packGroups]);
+
   const autoPackingEnabled = useMemo(() => {
     if (historyMode) return false;
     const groupsPlan = step1BoxPlanForMarket?.groups || {};
@@ -1165,8 +1167,8 @@ export default function FbaSendToAmazonWizard({
   }, [historyMode, step1BoxPlanForMarket]);
 
   const autoPackingReady = useMemo(() => {
-    if (!autoPackingEnabled || !Array.isArray(packGroupsForUnits) || !packGroupsForUnits.length) return false;
-    return packGroupsForUnits.every((g) => {
+    if (!autoPackingEnabled || !Array.isArray(packGroupsForAuto) || !packGroupsForAuto.length) return false;
+    return packGroupsForAuto.every((g) => {
       const packMode = String(g?.packMode || 'single').toLowerCase();
       if (packMode === 'multiple') {
         const perBox = Array.isArray(g?.perBoxDetails) ? g.perBoxDetails : [];
@@ -1182,7 +1184,7 @@ export default function FbaSendToAmazonWizard({
       const w = getPositiveNumber(g?.boxWeight);
       return Boolean(dims && w);
     });
-  }, [autoPackingEnabled, packGroupsForUnits]);
+  }, [autoPackingEnabled, packGroupsForAuto]);
 
   const handlePackGroupUpdate = (groupId, patch) => {
     setPackGroups((prev) =>
@@ -1226,10 +1228,10 @@ export default function FbaSendToAmazonWizard({
         .map(([sku, qty]) => `${sku}:${qty}`);
       return parts.length ? parts.join('|') : null;
     };
-    planGroupsOrdered.forEach(({ value }) => {
+    planGroupsOrdered.forEach(({ key, value }) => {
       const sig = buildPlanSignature(value);
       if (sig && !planGroupsBySignature.has(sig)) {
-        planGroupsBySignature.set(sig, value);
+        planGroupsBySignature.set(sig, { key, value });
       }
     });
     setPackGroups((prev) => {
@@ -1238,10 +1240,14 @@ export default function FbaSendToAmazonWizard({
         const gid = g?.packingGroupId || g?.id || null;
         const planGroup = gid ? groupsPlan[gid] : null;
         const groupSignature = getPackGroupSignature(g);
-        const signatureGroup = !planGroup && groupSignature ? planGroupsBySignature.get(groupSignature) : null;
-        const fallbackGroup = !planGroup && !signatureGroup ? planGroupsOrdered.shift()?.value || null : null;
+        const signatureEntry = !planGroup && groupSignature ? planGroupsBySignature.get(groupSignature) : null;
+        const signatureGroup = signatureEntry?.value || null;
+        const fallbackEntry = !planGroup && !signatureGroup ? planGroupsOrdered.shift() || null : null;
+        const fallbackGroup = fallbackEntry?.value || null;
         const resolvedPlan = planGroup || signatureGroup || fallbackGroup;
         if (!resolvedPlan) return g;
+        const resolvedPlanKey =
+          (planGroup && gid) || signatureEntry?.key || fallbackEntry?.key || g.step1PlanGroupKey || null;
         const boxes = Array.isArray(resolvedPlan?.boxes) ? resolvedPlan.boxes : [];
         const boxItems = Array.isArray(resolvedPlan?.boxItems) ? resolvedPlan.boxItems : [];
         if (!boxes.length) return g;
@@ -1293,7 +1299,8 @@ export default function FbaSendToAmazonWizard({
           boxWeight: boxCount === 1 ? singleWeight : g?.boxWeight ?? null,
           perBoxDetails: boxCount > 1 ? perBoxDetails : null,
           perBoxItems: boxCount > 1 ? perBoxItems : null,
-          contentInformationSource: boxCount > 1 ? 'BOX_CONTENT_PROVIDED' : g?.contentInformationSource || null
+          contentInformationSource: boxCount > 1 ? 'BOX_CONTENT_PROVIDED' : g?.contentInformationSource || null,
+          step1PlanGroupKey: resolvedPlanKey
         };
       });
       return changed ? next : prev;
@@ -1409,8 +1416,9 @@ export default function FbaSendToAmazonWizard({
             .map(([sku, quantity]) => ({ sku, quantity }));
         }
       }
-      if (!normalizedItems.length && step1BoxPlanForMarket?.groups) {
-        const planGroup = step1BoxPlanForMarket.groups[packingGroupId];
+      if (step1BoxPlanForMarket?.groups) {
+        const planGroupKey = g?.step1PlanGroupKey || packingGroupId;
+        const planGroup = planGroupKey ? step1BoxPlanForMarket.groups[planGroupKey] : null;
         const planBoxItems = Array.isArray(planGroup?.boxItems) ? planGroup.boxItems : [];
         const totals = new Map();
         planBoxItems.forEach((box) => {
@@ -1609,14 +1617,14 @@ export default function FbaSendToAmazonWizard({
     }
     if (autoPackingRef.current.attempted) return;
     autoPackingRef.current.attempted = true;
-    const payload = buildPackingPayload(packGroupsForUnits);
+    const payload = buildPackingPayload(packGroupsForAuto);
     submitPackingInformation({ packingGroups: payload.packingGroups });
   }, [
     currentStep,
     autoPackingEnabled,
     autoPackingReady,
     packingSubmitLoading,
-    packGroupsForUnits,
+    packGroupsForAuto,
     resolveInboundPlanId,
     submitPackingInformation,
     buildPackingPayload
