@@ -669,22 +669,48 @@ export default function FbaStep1Inventory({
             <div className="border border-slate-200 rounded-md p-2 bg-slate-50">
               <div className="flex items-center justify-between text-xs text-slate-600">
                 <span>Boxes</span>
-                <button
-                  className="text-blue-600 underline"
-                  type="button"
-                  onClick={() => {
-                    const lastUsedIndex = boxItems.reduce((lastIdx, items, idx) => {
-                      const hasItems = Object.values(items || {}).some((qty) => Number(qty || 0) > 0);
-                      return hasItems ? idx : lastIdx;
-                    }, -1);
-                    const nextIdx = Math.max(0, lastUsedIndex + 1);
-                    ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
-                    updateBoxItemQty(groupId, nextIdx, skuKey, 1, groupLabel);
-                    setActiveBoxIndex(groupId, nextIdx);
-                  }}
-                >
-                  + Add box
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-1 rounded border border-slate-300 text-slate-600"
+                    type="button"
+                    onClick={() => setActiveBoxIndex(groupId, Math.max(0, activeIndex - 1))}
+                    disabled={activeIndex <= 0}
+                    title="Previous box"
+                  >
+                    ‹
+                  </button>
+                  <span className="text-xs text-slate-500">Active: {activeIndex + 1}</span>
+                  <button
+                    className="px-1 rounded border border-slate-300 text-slate-600"
+                    type="button"
+                    onClick={() => {
+                      const nextIdx = activeIndex + 1;
+                      ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
+                      setActiveBoxIndex(groupId, nextIdx);
+                    }}
+                    title="Next box"
+                  >
+                    ›
+                  </button>
+                  <button
+                    className="text-blue-600 underline"
+                    type="button"
+                    onClick={() => {
+                      const targetIdx = Math.max(0, activeIndex);
+                      ensureGroupBoxCount(groupId, targetIdx + 1, groupLabel);
+                    updateBoxItemQty(
+                      groupId,
+                      targetIdx,
+                      skuKey,
+                      Number((boxItems[targetIdx] || {})[skuKey] || 0) + 1,
+                      groupLabel
+                    );
+                      setActiveBoxIndex(groupId, targetIdx);
+                    }}
+                  >
+                    + Add box
+                  </button>
+                </div>
               </div>
               {assignedEntries.length === 0 && (
                 <div className="text-xs text-slate-500 mt-1">No boxes assigned yet.</div>
