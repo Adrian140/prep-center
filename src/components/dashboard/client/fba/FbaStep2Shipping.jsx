@@ -36,6 +36,7 @@ export default function FbaStep2Shipping({
   );
 
   const options = Array.isArray(shippingOptions) ? shippingOptions : [];
+  const shipmentList = useMemo(() => (Array.isArray(shipments) ? shipments : []), [shipments]);
   const normalizeOptionMode = (mode) => {
     const up = String(mode || '').toUpperCase();
     if (!up) return '';
@@ -59,13 +60,13 @@ export default function FbaStep2Shipping({
     options.find((opt) => opt?.id === selectedTransportationOptionId) || null;
   const selectedMode = normalizeOptionMode(selectedOption?.mode || method);
 
-  const shipmentCount = shipments?.length || 0;
-  const totalBoxes = shipments?.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0) || 0;
-  const totalUnits = shipments?.reduce((s, sh) => s + (Number(sh.units) || 0), 0) || 0;
-  const totalSkus = shipments?.reduce((s, sh) => s + (Number(sh.skuCount) || 0), 0) || 0;
+  const shipmentCount = shipmentList.length;
+  const totalBoxes = shipmentList.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0);
+  const totalUnits = shipmentList.reduce((s, sh) => s + (Number(sh.units) || 0), 0);
+  const totalSkus = shipmentList.reduce((s, sh) => s + (Number(sh.skuCount) || 0), 0);
   const lbToKg = (lb) => Number(lb || 0) * 0.45359237;
   const toKg = (weight, unit) => (String(unit || 'KG').toUpperCase() === 'LB' ? lbToKg(weight) : Number(weight || 0));
-  const totalWeight = shipments?.reduce((s, sh) => s + toKg(sh.weight, sh.weight_unit), 0) || 0;
+  const totalWeight = shipmentList.reduce((s, sh) => s + toKg(sh.weight, sh.weight_unit), 0);
   const carrierName = selectedOption?.carrierName || carrier?.name || 'Carrier';
   const summaryTitle = useMemo(() => {
     const modeLabel =
@@ -150,7 +151,10 @@ export default function FbaStep2Shipping({
           </div>
         </div>
 
-        <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+        <div
+          className="border border-slate-200 rounded-lg p-4 space-y-3"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="font-semibold text-slate-900">Available shipping options</div>
           {!options.length && shippingConfirmed && (
             <div className="text-sm text-slate-700">
@@ -185,6 +189,7 @@ export default function FbaStep2Shipping({
                       <label
                         key={opt?.id}
                         className={`flex items-center justify-between gap-3 px-3 py-2 border rounded-md ${checked ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex flex-col">
                           <span className="font-semibold text-sm">{carrierLabel}</span>
@@ -198,7 +203,11 @@ export default function FbaStep2Shipping({
                             id={`shipping-option-${opt?.id || carrierLabel}`}
                             name="shipping-option"
                             checked={checked}
-                            onChange={() => onOptionSelect?.(opt)}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              onOptionSelect?.(opt);
+                            }}
                           />
                         </div>
                       </label>
@@ -366,7 +375,7 @@ export default function FbaStep2Shipping({
         <div className="space-y-3">
         <div className="font-semibold text-slate-900 text-sm">Number of shipments: {shipmentCount}</div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {shipments.map(renderShipmentCard)}
+          {shipmentList.map(renderShipmentCard)}
         </div>
         <div className="text-sm text-slate-700">
             Boxes: {totalBoxes} · SKUs: {totalSkus} · Units: {totalUnits} · Weight: {totalWeight || '—'} kg
