@@ -314,7 +314,17 @@ export default function FbaStep1Inventory({
       Object.entries(safeBoxPlan.groups || {}).forEach(([groupId, groupPlan]) => {
         const boxes = Array.isArray(groupPlan?.boxes) ? groupPlan.boxes : [];
         const maxIdx = Math.max(0, boxes.length - 1);
-        const currentIdx = Number(next[groupId] || 0);
+        const currentIdx = Number(next[groupId] ?? -1);
+        const boxItems = Array.isArray(groupPlan?.boxItems) ? groupPlan.boxItems : [];
+        const lastUsedIndex = boxItems.reduce((lastIdx, items, idx) => {
+          const hasItems = Object.values(items || {}).some((qty) => Number(qty || 0) > 0);
+          return hasItems ? idx : lastIdx;
+        }, -1);
+        if (currentIdx < 0 && lastUsedIndex >= 0) {
+          next[groupId] = Math.min(lastUsedIndex, maxIdx);
+          changed = true;
+          return;
+        }
         if (currentIdx > maxIdx) {
           next[groupId] = maxIdx;
           changed = true;
@@ -669,35 +679,12 @@ export default function FbaStep1Inventory({
             <div className="border border-slate-200 rounded-md p-2 bg-slate-50">
               <div className="flex items-center justify-between text-xs text-slate-600">
                 <span>Boxes</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="px-1 rounded border border-slate-300 text-slate-600"
-                    type="button"
-                    onClick={() => setActiveBoxIndex(groupId, Math.max(0, activeIndex - 1))}
-                    disabled={activeIndex <= 0}
-                    title="Previous box"
-                  >
-                    ‹
-                  </button>
-                  <span className="text-xs text-slate-500">Active: {activeIndex + 1}</span>
-                  <button
-                    className="px-1 rounded border border-slate-300 text-slate-600"
-                    type="button"
-                    onClick={() => {
-                      const nextIdx = activeIndex + 1;
-                      ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
-                      setActiveBoxIndex(groupId, nextIdx);
-                    }}
-                    title="Next box"
-                  >
-                    ›
-                  </button>
-                  <button
-                    className="text-blue-600 underline"
-                    type="button"
-                    onClick={() => {
-                      const targetIdx = Math.max(0, activeIndex);
-                      ensureGroupBoxCount(groupId, targetIdx + 1, groupLabel);
+                <button
+                  className="text-blue-600 underline"
+                  type="button"
+                  onClick={() => {
+                    const targetIdx = Math.max(0, activeIndex);
+                    ensureGroupBoxCount(groupId, targetIdx + 1, groupLabel);
                     updateBoxItemQty(
                       groupId,
                       targetIdx,
@@ -705,12 +692,11 @@ export default function FbaStep1Inventory({
                       Number((boxItems[targetIdx] || {})[skuKey] || 0) + 1,
                       groupLabel
                     );
-                      setActiveBoxIndex(groupId, targetIdx);
-                    }}
-                  >
-                    + Add box
-                  </button>
-                </div>
+                    setActiveBoxIndex(groupId, targetIdx);
+                  }}
+                >
+                  + Add box
+                </button>
               </div>
               {assignedEntries.length === 0 && (
                 <div className="text-xs text-slate-500 mt-1">No boxes assigned yet.</div>
@@ -726,11 +712,12 @@ export default function FbaStep1Inventory({
                       const raw = Number(e.target.value || 0);
                       if (!raw || raw < 1) return;
                       const nextIdx = raw - 1;
+                      const maxIdx = Math.max(0, boxes.length - 1);
+                      if (nextIdx > maxIdx) return;
                       if (nextIdx === entry.boxIdx) return;
                       ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
                       updateBoxItemQty(groupId, nextIdx, skuKey, entry.qty, groupLabel);
                       updateBoxItemQty(groupId, entry.boxIdx, skuKey, 0, groupLabel);
-                      setActiveBoxIndex(groupId, nextIdx);
                     }}
                     className="w-16 border rounded-md px-2 py-1 text-xs"
                   />
@@ -742,7 +729,9 @@ export default function FbaStep1Inventory({
                     onChange={(e) => {
                       const nextValue = Number(e.target.value || 0);
                       updateBoxItemQty(groupId, entry.boxIdx, skuKey, nextValue, groupLabel);
-                      setActiveBoxIndex(groupId, entry.boxIdx);
+                      if (nextValue > 0 && entry.boxIdx >= activeIndex) {
+                        setActiveBoxIndex(groupId, entry.boxIdx);
+                      }
                     }}
                     className="w-16 border rounded-md px-2 py-1 text-xs"
                   />
