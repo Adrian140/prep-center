@@ -1176,7 +1176,20 @@ export default function FbaSendToAmazonWizard({
 
   const autoPackingReady = useMemo(() => {
     if (!autoPackingEnabled || !Array.isArray(packGroupsForAuto) || !packGroupsForAuto.length) return false;
+    const groupsPlan = step1BoxPlanForMarket?.groups || {};
+    const hasGroupItems = (g) => {
+      const normalized = normalizeGroupItemsForUnits(g?.items || []);
+      if (normalized.length) return true;
+      const planGroupKey = g?.step1PlanGroupKey || g?.packingGroupId || g?.id || null;
+      const planGroup = planGroupKey ? groupsPlan?.[planGroupKey] : null;
+      const planBoxItems = Array.isArray(planGroup?.boxItems) ? planGroup.boxItems : [];
+      if (!planBoxItems.length) return false;
+      return planBoxItems.some((box) =>
+        Object.values(box || {}).some((qty) => Number(qty || 0) > 0)
+      );
+    };
     return packGroupsForAuto.every((g) => {
+      if (!hasGroupItems(g)) return false;
       const packMode = String(g?.packMode || 'single').toLowerCase();
       if (packMode === 'multiple') {
         const perBox = Array.isArray(g?.perBoxDetails) ? g.perBoxDetails : [];
@@ -1192,7 +1205,7 @@ export default function FbaSendToAmazonWizard({
       const w = getPositiveNumber(g?.boxWeight);
       return Boolean(dims && w);
     });
-  }, [autoPackingEnabled, packGroupsForAuto]);
+  }, [autoPackingEnabled, packGroupsForAuto, normalizeGroupItemsForUnits, step1BoxPlanForMarket]);
 
   const handlePackGroupUpdate = (groupId, patch) => {
     setPackGroups((prev) =>
@@ -1576,9 +1589,31 @@ export default function FbaSendToAmazonWizard({
       if (!effectivePackingOptId) {
         throw new Error('Lipsește packingOptionId acceptat de Amazon; reîncearcă refresh Step 1b.');
       }
-      if (!Array.isArray(payload.packingGroups) || !payload.packingGroups.length) {
-        const refreshedPayload = buildPackingPayload(effectivePackGroups);
-        packingGroupsPayload = refreshedPayload.packingGroups;
+      const refreshedPayload = buildPackingPayload(effectivePackGroups);
+      const refreshedGroups = refreshedPayload.packingGroups;
+      if (Array.isArray(payload.packingGroups) && payload.packingGroups.length) {
+        const overrideById = new Map(
+          payload.packingGroups
+            .filter((g) => g?.packingGroupId)
+            .map((g) => [String(g.packingGroupId), g])
+        );
+        packingGroupsPayload = refreshedGroups.map((g) => {
+          const override = overrideById.get(String(g.packingGroupId));
+          if (!override) return g;
+          return {
+            ...g,
+            boxes: override.boxes ?? g.boxes,
+            packMode: override.packMode || override.pack_mode || g.packMode,
+            dimensions: override.dimensions || g.dimensions,
+            weight: override.weight || g.weight,
+            perBoxDetails: override.perBoxDetails || override.per_box_details || g.perBoxDetails,
+            perBoxItems: override.perBoxItems || override.per_box_items || g.perBoxItems,
+            contentInformationSource:
+              override.contentInformationSource || override.content_information_source || g.contentInformationSource
+          };
+        });
+      } else {
+        packingGroupsPayload = refreshedGroups;
       }
       if (!refreshRes?.ok) {
         // dacă avem deja packing groups încărcate în UI, nu mai blocăm user-ul; continuăm cu ceea ce avem
