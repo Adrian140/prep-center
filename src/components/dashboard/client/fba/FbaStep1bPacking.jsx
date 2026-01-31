@@ -12,6 +12,7 @@ export default function FbaStep1bPacking({
   loading,
   error,
   submitting = false,
+  autoPackingMode = false,
   onUpdateGroup,
   onNext,
   onBack,
@@ -32,6 +33,16 @@ export default function FbaStep1bPacking({
   const waitingForAmazon = loading || (!packGroupsLoaded && !error);
   const isEmpty = !waitingForAmazon && visibleGroups.length === 0;
   const showErrorOnly = Boolean(error) && !loading;
+  if (autoPackingMode && !showErrorOnly) {
+    return (
+      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-6 text-center text-slate-700">
+        <div className="mb-2 text-lg font-semibold text-slate-900">Se completeaza automat packing info</div>
+        <div className="text-sm">
+          Preluam datele din Step 1 si trimitem automat catre Amazon. Te rugam asteapta...
+        </div>
+      </div>
+    );
+  }
   const totals = useMemo(() => {
     if (!Array.isArray(visibleGroups)) return { skus: 0, units: 0 };
     return visibleGroups.reduce(

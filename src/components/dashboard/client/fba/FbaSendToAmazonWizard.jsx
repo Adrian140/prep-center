@@ -440,6 +440,7 @@ export default function FbaSendToAmazonWizard({
   const shippingRetryTimerRef = useRef(null);
   const planMissingRetryRef = useRef(0);
   const trackingPrefillRef = useRef(false);
+  const autoPackingRef = useRef({ planId: null, attempted: false });
   useEffect(() => {
     packGroupsRef.current = packGroups;
   }, [packGroups]);
@@ -1157,6 +1158,32 @@ export default function FbaSendToAmazonWizard({
       .filter(Boolean);
   }, [packGroupsPreview, normalizeGroupItemsForUnits]);
 
+  const autoPackingEnabled = useMemo(() => {
+    if (historyMode) return false;
+    const groupsPlan = step1BoxPlanForMarket?.groups || {};
+    return Boolean(groupsPlan && Object.keys(groupsPlan).length);
+  }, [historyMode, step1BoxPlanForMarket]);
+
+  const autoPackingReady = useMemo(() => {
+    if (!autoPackingEnabled || !Array.isArray(packGroupsForUnits) || !packGroupsForUnits.length) return false;
+    return packGroupsForUnits.every((g) => {
+      const packMode = String(g?.packMode || 'single').toLowerCase();
+      if (packMode === 'multiple') {
+        const perBox = Array.isArray(g?.perBoxDetails) ? g.perBoxDetails : [];
+        const perItems = Array.isArray(g?.perBoxItems) ? g.perBoxItems : [];
+        if (!perBox.length || !perItems.length) return false;
+        return perBox.every((b) => {
+          const dims = getSafeDims(b);
+          const w = getPositiveNumber(b?.weight);
+          return Boolean(dims && w);
+        });
+      }
+      const dims = getSafeDims(g?.boxDimensions);
+      const w = getPositiveNumber(g?.boxWeight);
+      return Boolean(dims && w);
+    });
+  }, [autoPackingEnabled, packGroupsForUnits]);
+
   const handlePackGroupUpdate = (groupId, patch) => {
     setPackGroups((prev) =>
       prev.map((g) =>
@@ -1535,6 +1562,30 @@ export default function FbaSendToAmazonWizard({
       setPackingSubmitLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (currentStep !== '1b') return;
+    if (!autoPackingEnabled || !autoPackingReady) return;
+    if (packingSubmitLoading) return;
+    const inboundPlanId = resolveInboundPlanId();
+    if (!inboundPlanId) return;
+    if (autoPackingRef.current.planId !== inboundPlanId) {
+      autoPackingRef.current = { planId: inboundPlanId, attempted: false };
+    }
+    if (autoPackingRef.current.attempted) return;
+    autoPackingRef.current.attempted = true;
+    const payload = buildPackingPayload(packGroupsForUnits);
+    submitPackingInformation({ packingGroups: payload.packingGroups });
+  }, [
+    currentStep,
+    autoPackingEnabled,
+    autoPackingReady,
+    packingSubmitLoading,
+    packGroupsForUnits,
+    resolveInboundPlanId,
+    submitPackingInformation,
+    buildPackingPayload
+  ]);
 
   async function refreshPackingGroups(selectedPackingOptionId = null) {
     if (typeof window === 'undefined') return { ok: false, code: 'NO_WINDOW' };
@@ -2761,6 +2812,7 @@ export default function FbaSendToAmazonWizard({
           onRetry={refreshPackingGroups}
           retryLoading={packingRefreshLoading}
           submitting={packingSubmitLoading}
+          autoPackingMode={autoPackingEnabled}
           onUpdateGroup={handlePackGroupUpdate}
           onNext={submitPackingInformation}
           onBack={() => goToStep('1')}
