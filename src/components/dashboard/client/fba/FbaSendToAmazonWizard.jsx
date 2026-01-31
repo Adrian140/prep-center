@@ -1178,13 +1178,25 @@ export default function FbaSendToAmazonWizard({
         const boxes = Array.isArray(planGroup?.boxes) ? planGroup.boxes : [];
         const boxItems = Array.isArray(planGroup?.boxItems) ? planGroup.boxItems : [];
         if (!boxes.length) return g;
-        const hasExisting =
-          g?.boxDimensions ||
-          g?.boxWeight ||
-          (Array.isArray(g?.perBoxDetails) && g.perBoxDetails.length) ||
-          (Array.isArray(g?.perBoxItems) && g.perBoxItems.length);
-        if (hasExisting) return g;
         const boxCount = boxes.length;
+        const itemKeys = new Map();
+        const items = Array.isArray(g.items) ? g.items : [];
+        items.forEach((it) => {
+          const sku = String(it.sku || it.msku || it.SellerSKU || '').trim();
+          const asin = String(it.asin || '').trim();
+          if (sku) itemKeys.set(sku.toUpperCase(), sku);
+          if (asin) itemKeys.set(asin.toUpperCase(), sku || asin);
+        });
+        const normalizeBoxItems = (box) => {
+          const normalized = {};
+          Object.entries(box || {}).forEach(([key, qty]) => {
+            const k = String(key || '').trim();
+            if (!k) return;
+            const mapped = itemKeys.get(k.toUpperCase()) || k;
+            normalized[mapped] = Number(qty || 0) || 0;
+          });
+          return normalized;
+        };
         const perBoxDetails = boxes.map((b) => ({
           length: b?.length_cm ?? b?.length ?? '',
           width: b?.width_cm ?? b?.width ?? '',
@@ -1192,7 +1204,7 @@ export default function FbaSendToAmazonWizard({
           weight: b?.weight_kg ?? b?.weight ?? ''
         }));
         const perBoxItems = boxItems.length
-          ? boxItems.map((box) => ({ ...(box || {}) }))
+          ? boxItems.map((box) => normalizeBoxItems(box))
           : Array.from({ length: boxCount }).map(() => ({}));
         const firstBox = boxes[0] || {};
         const singleDims =
