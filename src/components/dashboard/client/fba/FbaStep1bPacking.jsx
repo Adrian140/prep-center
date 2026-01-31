@@ -248,6 +248,10 @@ export default function FbaStep1bPacking({
       const normalizedContentSource =
         contentInformationSource || (normalizedPackMode === 'multiple' ? 'BOX_CONTENT_PROVIDED' : null);
 
+      const normalizedPackMode = group.packMode || 'single';
+      const isMultiple = normalizedPackMode === 'multiple';
+      const normalizedContentSource =
+        contentInformationSource || (isMultiple ? 'BOX_CONTENT_PROVIDED' : null);
       packingGroups.push({
         packingGroupId,
         boxes: boxCount,
@@ -264,8 +268,8 @@ export default function FbaStep1bPacking({
               quantity: Number(it.quantity || 0) || 0
             }))
           : [],
-        perBoxDetails: perBoxRaw,
-        perBoxItems
+        perBoxDetails: isMultiple ? perBoxRaw : null,
+        perBoxItems: isMultiple ? perBoxItems : null
       });
 
       const baseDimensions =

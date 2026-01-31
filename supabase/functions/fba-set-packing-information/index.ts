@@ -341,6 +341,8 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
       }
     }
     if (hasPerBoxDetails && !perBoxItemsRaw.length) {
+      const shouldAttachItems = items.length && contentInformationSource === "BOX_CONTENT_PROVIDED" && boxCount === 1;
+      const resolvedSource = shouldAttachItems ? "BOX_CONTENT_PROVIDED" : contentInformationSource;
       const boxes = perBoxDetailsRaw
         .map((box: any) => {
           const perDims = normalizeDimensions({
@@ -356,7 +358,19 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
           if (!perDims || !perWeight) return null;
           return {
             quantity: 1,
-            contentInformationSource,
+            contentInformationSource: resolvedSource,
+            ...(shouldAttachItems
+              ? {
+                  items: items.map((it) => ({
+                    msku: it.msku,
+                    quantity: it.quantity,
+                    prepOwner: it.prepOwner,
+                    labelOwner: it.labelOwner,
+                    ...(it.expiration ? { expiration: it.expiration } : {}),
+                    ...(it.manufacturingLotCode ? { manufacturingLotCode: it.manufacturingLotCode } : {})
+                  }))
+                }
+              : {}),
             dimensions: perDims,
             weight: perWeight
           };
