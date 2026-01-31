@@ -9,6 +9,37 @@ export default function FbaStep4Tracking({
   error = '',
   loading = false
 }) {
+  const formatNumber = (value) => {
+    const num = typeof value === 'number' ? value : Number.parseFloat(value);
+    if (!Number.isFinite(num)) return null;
+    const fixed = num % 1 === 0 ? String(num) : num.toFixed(2);
+    return fixed.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+  };
+
+  const formatWeight = (value) => {
+    const num = formatNumber(value);
+    return num ? `${num} kg` : '—';
+  };
+
+  const formatDimensions = (value) => {
+    if (!value) return '—';
+    if (typeof value === 'object') {
+      const l = formatNumber(value.length);
+      const w = formatNumber(value.width);
+      const h = formatNumber(value.height);
+      return l && w && h ? `${l} x ${w} x ${h} cm` : '—';
+    }
+    const parts = String(value)
+      .split(/[xX]/)
+      .map((part) => formatNumber(part.trim()))
+      .filter(Boolean);
+    if (parts.length >= 3) {
+      return `${parts[0]} x ${parts[1]} x ${parts[2]} cm`;
+    }
+    const fallback = formatNumber(value);
+    return fallback ? `${fallback} cm` : String(value);
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
@@ -53,8 +84,8 @@ export default function FbaStep4Tracking({
                   />
                 </td>
                 <td className="py-3 text-emerald-700 font-semibold">{row.status}</td>
-                <td className="py-3">{row.weight}</td>
-                <td className="py-3">{row.dimensions}</td>
+                <td className="py-3">{formatWeight(row.weight)}</td>
+                <td className="py-3">{formatDimensions(row.dimensions)}</td>
               </tr>
             ))}
           </tbody>

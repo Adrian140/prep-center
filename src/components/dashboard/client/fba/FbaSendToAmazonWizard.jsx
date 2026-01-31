@@ -2854,6 +2854,24 @@ export default function FbaSendToAmazonWizard({
       setTrackingError('Lipsește inboundPlanId, requestId sau shipmentId pentru tracking.');
       return;
     }
+    const isPartnered = Boolean(shipmentMode?.carrier?.partnered);
+    if (isPartnered) {
+      // Amazon-partnered shipments do not accept updateShipmentTrackingDetails.
+      if (!Array.isArray(tracking) || !tracking.length || tracking.some((row) => !row?.boxId)) {
+        await loadInboundPlanBoxes();
+      }
+      setTracking((prev) =>
+        (Array.isArray(prev) ? prev : []).map((row) => {
+          if (row?.trackingId) return row;
+          const fallback = row?.label || row?.boxId || '';
+          if (!fallback) return row;
+          return { ...row, trackingId: fallback, status: 'Confirmed' };
+        })
+      );
+      setTrackingError('');
+      completeAndNext('4');
+      return;
+    }
     const items = (tracking || [])
       .filter((t) => t.trackingId && t.boxId)
       .map((t) => ({ boxId: t.boxId, trackingId: t.trackingId }));
