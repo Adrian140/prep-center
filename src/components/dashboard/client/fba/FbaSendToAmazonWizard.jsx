@@ -1169,14 +1169,27 @@ export default function FbaSendToAmazonWizard({
     if (!packGroupsLoaded || !Array.isArray(packGroups) || packGroups.length === 0) return;
     const groupsPlan = step1BoxPlanForMarket?.groups || {};
     if (!groupsPlan || !Object.keys(groupsPlan).length) return;
+    const planGroupsOrdered = Object.entries(groupsPlan)
+      .map(([key, value]) => ({
+        key,
+        value,
+        label: value?.groupLabel || ''
+      }))
+      .sort((a, b) => {
+        const numA = Number(String(a.label).match(/(\d+)/)?.[1] || 0);
+        const numB = Number(String(b.label).match(/(\d+)/)?.[1] || 0);
+        return numA - numB;
+      });
     setPackGroups((prev) => {
       let changed = false;
       const next = prev.map((g) => {
         const gid = g?.packingGroupId || g?.id || null;
-        if (!gid || !groupsPlan[gid]) return g;
-        const planGroup = groupsPlan[gid];
-        const boxes = Array.isArray(planGroup?.boxes) ? planGroup.boxes : [];
-        const boxItems = Array.isArray(planGroup?.boxItems) ? planGroup.boxItems : [];
+        const planGroup = gid ? groupsPlan[gid] : null;
+        const fallbackGroup = !planGroup ? planGroupsOrdered.shift()?.value || null : null;
+        const resolvedPlan = planGroup || fallbackGroup;
+        if (!resolvedPlan) return g;
+        const boxes = Array.isArray(resolvedPlan?.boxes) ? resolvedPlan.boxes : [];
+        const boxItems = Array.isArray(resolvedPlan?.boxItems) ? resolvedPlan.boxItems : [];
         if (!boxes.length) return g;
         const boxCount = boxes.length;
         const itemKeys = new Map();
