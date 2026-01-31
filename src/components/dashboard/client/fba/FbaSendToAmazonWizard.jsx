@@ -2793,12 +2793,20 @@ export default function FbaSendToAmazonWizard({
       }));
       if (!trackingPrefillRef.current) {
         const savedTracking = Array.isArray(initialTrackingIds) ? initialTrackingIds.filter(Boolean) : [];
+        const isPartnered = Boolean(shipmentMode?.carrier?.partnered);
         if (savedTracking.length) {
           normalized = normalized.map((row, idx) => ({
             ...row,
             trackingId: row.trackingId || savedTracking[idx] || '',
             status: savedTracking[idx] ? 'Confirmed' : row.status
           }));
+          trackingPrefillRef.current = true;
+        } else if (isPartnered) {
+          normalized = normalized.map((row) => {
+            const autoTrackingId = row.trackingId || row.label || row.boxId || '';
+            if (!autoTrackingId) return row;
+            return { ...row, trackingId: autoTrackingId, status: 'Confirmed' };
+          });
           trackingPrefillRef.current = true;
         }
       }
