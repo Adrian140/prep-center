@@ -1144,6 +1144,9 @@ export default function FbaSendToAmazonWizard({
       setPackGroupsPreviewError('Lipseste inboundPlanId sau requestId; reincarca planul.');
       return { ok: false, code: 'MISSING_IDS' };
     }
+    if (packingRefreshLockRef.current.inFlight && packingRefreshLockRef.current.planId === inboundPlanId) {
+      return { ok: false, code: 'PACKING_IN_FLIGHT' };
+    }
     if (packingPreviewLockRef.current.inFlight && packingPreviewLockRef.current.planId === inboundPlanId) {
       return { ok: false, code: 'IN_FLIGHT' };
     }
@@ -1400,6 +1403,9 @@ export default function FbaSendToAmazonWizard({
     }
     // păstrăm grupurile existente; doar marcăm loading
     setPackGroupsLoaded(hasRealPackGroups(packGroups));
+    if (packingPreviewLockRef.current.inFlight && packingPreviewLockRef.current.planId === inboundPlanId) {
+      return { ok: false, code: 'PREVIEW_IN_FLIGHT' };
+    }
     if (packingRefreshLockRef.current.inFlight && packingRefreshLockRef.current.planId === inboundPlanId) {
       return { ok: false, code: 'IN_FLIGHT' };
     }

@@ -206,26 +206,6 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
 
     let packingGroups = [];
     let packingOptionId = null;
-
-    try {
-      const { data: packingData, error: packingErr } = await supabase.functions.invoke('fba-plan-step1b', {
-        headers: authHeaders,
-        body: {
-          request_id: row.id,
-          inbound_plan_id: plan.inboundPlanId,
-          amazon_integration_id: plan.amazonIntegrationId || null
-        }
-      });
-
-      if (!packingErr && packingData) {
-        packingGroups = Array.isArray(packingData.packingGroups) ? packingData.packingGroups : [];
-        packingOptionId = packingData.packingOptionId || null;
-        if (packingData.placementOptionId) plan.placementOptionId = packingData.placementOptionId;
-        if (Array.isArray(packingData.shipments)) plan.shipments = packingData.shipments;
-      }
-    } catch (e) {
-      console.warn('Unable to fetch packing groups', e);
-    }
     return {
       ...plan,
       prepRequestId: row.id, // păstrăm id-ul intern pentru step2
