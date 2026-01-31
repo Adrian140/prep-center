@@ -1391,7 +1391,42 @@ export default function FbaSendToAmazonWizard({
         missingGroupId = true;
         return;
       }
-      const normalizedItems = normalizeGroupItemsForUnits(g.items || []);
+      let normalizedItems = normalizeGroupItemsForUnits(g.items || []);
+      if (!normalizedItems.length) {
+        const perBoxItems = Array.isArray(g.perBoxItems) ? g.perBoxItems : [];
+        const totals = new Map();
+        perBoxItems.forEach((box) => {
+          Object.entries(box || {}).forEach(([key, qty]) => {
+            const skuKey = String(key || '').trim();
+            if (!skuKey) return;
+            const add = Number(qty || 0) || 0;
+            totals.set(skuKey, (totals.get(skuKey) || 0) + add);
+          });
+        });
+        if (totals.size) {
+          normalizedItems = Array.from(totals.entries())
+            .filter(([, qty]) => qty > 0)
+            .map(([sku, quantity]) => ({ sku, quantity }));
+        }
+      }
+      if (!normalizedItems.length && step1BoxPlanForMarket?.groups) {
+        const planGroup = step1BoxPlanForMarket.groups[packingGroupId];
+        const planBoxItems = Array.isArray(planGroup?.boxItems) ? planGroup.boxItems : [];
+        const totals = new Map();
+        planBoxItems.forEach((box) => {
+          Object.entries(box || {}).forEach(([key, qty]) => {
+            const skuKey = String(key || '').trim();
+            if (!skuKey) return;
+            const add = Number(qty || 0) || 0;
+            totals.set(skuKey, (totals.get(skuKey) || 0) + add);
+          });
+        });
+        if (totals.size) {
+          normalizedItems = Array.from(totals.entries())
+            .filter(([, qty]) => qty > 0)
+            .map(([sku, quantity]) => ({ sku, quantity }));
+        }
+      }
       if (!normalizedItems.length) {
         return;
       }
