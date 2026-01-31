@@ -507,18 +507,23 @@ export default function FbaStep1Inventory({
     const groupPlan = getGroupPlan(groupId, groupLabel);
     const boxes = Array.isArray(groupPlan.boxes) ? groupPlan.boxes : [];
     const boxItems = Array.isArray(groupPlan.boxItems) ? groupPlan.boxItems : [];
+    const assignedTotal = boxes.reduce((sum, _, idx) => {
+      const perBox = boxItems[idx] || {};
+      return sum + Number(perBox[skuKey] || 0);
+    }, 0);
+    const assignedMismatch = Number(sku.units || 0) !== assignedTotal && Number(sku.units || 0) > 0;
+    const assignedEntries = boxes
+      .map((_, idx) => ({
+        boxIdx: idx,
+        qty: Number((boxItems[idx] || {})[skuKey] || 0)
+      }))
+      .filter((entry) => entry.qty > 0);
     const maxBoxIndex = Math.max(0, boxes.length - 1);
     const activeIndexRaw = activeBoxByGroup[groupId];
     const activeIndex =
       activeIndexRaw === undefined || activeIndexRaw === null
         ? maxBoxIndex
         : Math.min(Math.max(0, Number(activeIndexRaw) || 0), Math.max(maxBoxIndex, 0));
-    const displayBoxIndex = boxes.length ? activeIndex : 0;
-    const assignedTotal = boxes.reduce((sum, _, idx) => {
-      const perBox = boxItems[idx] || {};
-      return sum + Number(perBox[skuKey] || 0);
-    }, 0);
-    const assignedMismatch = Number(sku.units || 0) !== assignedTotal && Number(sku.units || 0) > 0;
 
     return (
       <tr key={sku.id} className="align-top">
@@ -650,48 +655,66 @@ export default function FbaStep1Inventory({
             )}
             <div className="border border-slate-200 rounded-md p-2 bg-slate-50">
               <div className="flex items-center justify-between text-xs text-slate-600">
-                <span>
-                  Box {displayBoxIndex + 1} of {Math.max(boxes.length, displayBoxIndex + 1)}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="px-1 rounded border border-slate-300 text-slate-600"
-                    onClick={() => setActiveBoxIndex(groupId, Math.max(0, displayBoxIndex - 1))}
-                    type="button"
-                    disabled={displayBoxIndex === 0}
-                    title="Previous box"
-                  >
-                    ‹
-                  </button>
-                  <button
-                    className="px-1 rounded border border-slate-300 text-slate-600"
-                    onClick={() => {
-                      const nextIndex = displayBoxIndex + 1;
-                      ensureGroupBoxCount(groupId, nextIndex + 1, groupLabel);
-                      setActiveBoxIndex(groupId, nextIndex);
+                <span>Boxes</span>
+                <button
+                  className="text-blue-600 underline"
+                  type="button"
+                  onClick={() => {
+                    const targetIdx = Math.max(0, activeIndex);
+                    const alreadyUsed = Number((boxItems[targetIdx] || {})[skuKey] || 0) > 0;
+                    const nextIdx = alreadyUsed ? boxes.length : targetIdx;
+                    ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
+                    updateBoxItemQty(groupId, nextIdx, skuKey, 1, groupLabel);
+                    setActiveBoxIndex(groupId, nextIdx);
+                  }}
+                >
+                  + Add box
+                </button>
+              </div>
+              {assignedEntries.length === 0 && (
+                <div className="text-xs text-slate-500 mt-1">No boxes assigned yet.</div>
+              )}
+              {assignedEntries.map((entry) => (
+                <div key={`${skuKey}-box-${entry.boxIdx}`} className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-slate-500">Box</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={entry.boxIdx + 1}
+                    onChange={(e) => {
+                      const raw = Number(e.target.value || 0);
+                      if (!raw || raw < 1) return;
+                      const nextIdx = raw - 1;
+                      if (nextIdx === entry.boxIdx) return;
+                      ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
+                      updateBoxItemQty(groupId, nextIdx, skuKey, entry.qty, groupLabel);
+                      updateBoxItemQty(groupId, entry.boxIdx, skuKey, 0, groupLabel);
+                      setActiveBoxIndex(groupId, nextIdx);
                     }}
+                    className="w-16 border rounded-md px-2 py-1 text-xs"
+                  />
+                  <span className="text-xs text-slate-500">Units</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={entry.qty}
+                    onChange={(e) => {
+                      const nextValue = Number(e.target.value || 0);
+                      updateBoxItemQty(groupId, entry.boxIdx, skuKey, nextValue, groupLabel);
+                      setActiveBoxIndex(groupId, entry.boxIdx);
+                    }}
+                    className="w-16 border rounded-md px-2 py-1 text-xs"
+                  />
+                  <button
+                    className="text-xs text-red-600"
                     type="button"
-                    title="Next box"
+                    onClick={() => updateBoxItemQty(groupId, entry.boxIdx, skuKey, 0, groupLabel)}
+                    title="Remove"
                   >
-                    ›
+                    ✕
                   </button>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-xs text-slate-500 w-12">Qty</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={Number((boxItems[displayBoxIndex] || {})[skuKey] || 0)}
-                  onChange={(e) => {
-                    const nextValue = Number(e.target.value || 0);
-                    ensureGroupBoxCount(groupId, displayBoxIndex + 1, groupLabel);
-                    updateBoxItemQty(groupId, displayBoxIndex, skuKey, nextValue, groupLabel);
-                    setActiveBoxIndex(groupId, displayBoxIndex);
-                  }}
-                  className="w-16 border rounded-md px-2 py-1 text-xs"
-                />
-              </div>
+              ))}
               <div className={`text-xs mt-2 ${assignedMismatch ? 'text-amber-700' : 'text-slate-500'}`}>
                 Assigned: {assignedTotal} / {Number(sku.units || 0)}
               </div>
