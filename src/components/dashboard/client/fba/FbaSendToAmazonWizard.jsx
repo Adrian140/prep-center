@@ -1376,6 +1376,7 @@ export default function FbaSendToAmazonWizard({
           inbound_plan_id: inboundPlanId,
           amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null,
           packing_option_id: selectedPackingOptionId || packingOptionId || null,
+          preview_only: true,
           reset_snapshot: resetSnapshot,
           packing_group_updates: packingGroupUpdates
         }

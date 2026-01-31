@@ -580,10 +580,15 @@ serve(async (req) => {
       resetSnapshot,
       updatesCount: Object.keys(packingGroupUpdates).length
     });
+    const previewOnly =
+      (body?.preview_only as boolean | undefined) ??
+      (body?.previewOnly as boolean | undefined) ??
+      false;
     const confirmPackingOptionFlag =
       (body?.confirmPackingOption as boolean | undefined) ??
       (body?.confirm_packing_option as boolean | undefined) ??
       false;
+    const shouldConfirmPackingOption = confirmPackingOptionFlag && !previewOnly;
     if (!requestId || !inboundPlanId) {
       return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare" }), {
         status: 400,
@@ -1250,7 +1255,7 @@ serve(async (req) => {
 
     // Confirmăm packingOption-ul doar dacă placement NU este deja confirmat;
     // când placement este ACCEPTED/CONFIRMED, ConfirmPackingOption întoarce 400.
-    if (packingOptionId && !placementLocked && confirmPackingOptionFlag) {
+    if (packingOptionId && !placementLocked && shouldConfirmPackingOption) {
       const confirmRes = await confirmPackingOption(packingOptionId);
       debugStatuses.confirmPackingOption = { status: confirmRes?.res?.status ?? null, requestId: confirmRes?.requestId || null };
       rawSamples.confirmPackingOption = sampleBody(confirmRes);
