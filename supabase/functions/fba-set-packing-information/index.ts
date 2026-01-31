@@ -259,6 +259,10 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
           : [];
 
     items = rawItems.map(normalizeItem).filter(Boolean);
+    const hasExpectedItems = expectedItemsRaw.length > 0;
+    if (!items.length && hasExpectedItems) {
+      items = expectedItemsRaw.map((it: any) => normalizeItem(it)).filter(Boolean);
+    }
     const itemMetaBySku = new Map<string, any>();
     rawItems.forEach((it: any) => {
       const sku = normalizeSku(it?.msku || it?.sku || it?.sellerSku || it?.MSKU || "");
@@ -266,7 +270,7 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
       itemMetaBySku.set(sku.toUpperCase(), it);
     });
     const skipItems =
-      contentInformationSource === "MANUAL_PROCESS" || contentInformationSource === "BARCODE_2D";
+      (contentInformationSource === "MANUAL_PROCESS" || contentInformationSource === "BARCODE_2D") && !hasExpectedItems;
     if (skipItems) {
       items = [];
     } else if (items.length) {
