@@ -1180,13 +1180,40 @@ export default function FbaSendToAmazonWizard({
         const numB = Number(String(b.label).match(/(\d+)/)?.[1] || 0);
         return numA - numB;
       });
+    const planGroupsBySignature = new Map();
+    const buildPlanSignature = (planGroup) => {
+      const boxItems = Array.isArray(planGroup?.boxItems) ? planGroup.boxItems : [];
+      if (!boxItems.length) return null;
+      const totals = new Map();
+      boxItems.forEach((box) => {
+        Object.entries(box || {}).forEach(([key, qty]) => {
+          const sku = String(key || '').trim().toUpperCase();
+          if (!sku) return;
+          const add = Number(qty || 0) || 0;
+          totals.set(sku, (totals.get(sku) || 0) + add);
+        });
+      });
+      const parts = Array.from(totals.entries())
+        .filter(([, qty]) => Number(qty) > 0)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([sku, qty]) => `${sku}:${qty}`);
+      return parts.length ? parts.join('|') : null;
+    };
+    planGroupsOrdered.forEach(({ value }) => {
+      const sig = buildPlanSignature(value);
+      if (sig && !planGroupsBySignature.has(sig)) {
+        planGroupsBySignature.set(sig, value);
+      }
+    });
     setPackGroups((prev) => {
       let changed = false;
       const next = prev.map((g) => {
         const gid = g?.packingGroupId || g?.id || null;
         const planGroup = gid ? groupsPlan[gid] : null;
-        const fallbackGroup = !planGroup ? planGroupsOrdered.shift()?.value || null : null;
-        const resolvedPlan = planGroup || fallbackGroup;
+        const groupSignature = getPackGroupSignature(g);
+        const signatureGroup = !planGroup && groupSignature ? planGroupsBySignature.get(groupSignature) : null;
+        const fallbackGroup = !planGroup && !signatureGroup ? planGroupsOrdered.shift()?.value || null : null;
+        const resolvedPlan = planGroup || signatureGroup || fallbackGroup;
         if (!resolvedPlan) return g;
         const boxes = Array.isArray(resolvedPlan?.boxes) ? resolvedPlan.boxes : [];
         const boxItems = Array.isArray(resolvedPlan?.boxItems) ? resolvedPlan.boxItems : [];
