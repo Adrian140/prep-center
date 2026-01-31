@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 
@@ -25,6 +25,9 @@ export default function FbaStep1Inventory({
   packGroupsPreview = [],
   packGroupsPreviewLoading = false,
   packGroupsPreviewError = '',
+  boxPlan = null,
+  onBoxPlanChange,
+  marketCode = '',
   onChangePacking,
   onChangeQuantity,
   onChangeExpiry,
@@ -118,10 +121,147 @@ export default function FbaStep1Inventory({
 
   const normalizedPackGroups = Array.isArray(packGroupsPreview) ? packGroupsPreview : [];
   const hasPackGroups = normalizedPackGroups.some((g) => Array.isArray(g?.items) && g.items.length > 0);
+  const MAX_STANDARD_BOX_KG = 23;
+  const MAX_STANDARD_BOX_CM = 63.5;
+
+  const safeBoxPlan = useMemo(() => {
+    const raw = boxPlan && typeof boxPlan === 'object' ? boxPlan : {};
+    const groups = raw?.groups && typeof raw.groups === 'object' ? raw.groups : {};
+    return { groups };
+  }, [boxPlan]);
+
+  const packGroupMeta = useMemo(() => {
+    if (!hasPackGroups) {
+      return [{ groupId: 'ungrouped', label: 'All items' }];
+    }
+    return normalizedPackGroups
+      .map((group, idx) => {
+        const items = Array.isArray(group?.items) ? group.items : [];
+        if (!items.length) return null;
+        return {
+          groupId: group.packingGroupId || group.id || `pack-${idx + 1}`,
+          label: `Pack ${idx + 1}`
+        };
+      })
+      .filter(Boolean);
+  }, [hasPackGroups, normalizedPackGroups]);
+
+  const getGroupPlan = useCallback(
+    (groupId, labelFallback) => {
+      const existing = safeBoxPlan.groups?.[groupId];
+      if (existing && typeof existing === 'object') {
+        return {
+          groupLabel: existing.groupLabel || labelFallback || groupId,
+          boxes: Array.isArray(existing.boxes) ? existing.boxes : [],
+          boxItems: Array.isArray(existing.boxItems) ? existing.boxItems : []
+        };
+      }
+      return { groupLabel: labelFallback || groupId, boxes: [], boxItems: [] };
+    },
+    [safeBoxPlan.groups]
+  );
+
+  const updateBoxPlan = useCallback(
+    (nextGroups) => {
+      onBoxPlanChange?.({ groups: nextGroups });
+    },
+    [onBoxPlanChange]
+  );
+
+  const updateGroupPlan = useCallback(
+    (groupId, updater, labelFallback) => {
+      const current = getGroupPlan(groupId, labelFallback);
+      const next = updater(current);
+      const nextGroups = { ...(safeBoxPlan.groups || {}), [groupId]: next };
+      updateBoxPlan(nextGroups);
+    },
+    [getGroupPlan, safeBoxPlan.groups, updateBoxPlan]
+  );
+
+  const addBoxToGroup = useCallback(
+    (groupId, labelFallback) => {
+      updateGroupPlan(
+        groupId,
+        (current) => {
+          const nextBoxes = [...(current.boxes || [])];
+          const nextItems = [...(current.boxItems || [])];
+          nextBoxes.push({
+            id: `box-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+            length_cm: '',
+            width_cm: '',
+            height_cm: '',
+            weight_kg: ''
+          });
+          nextItems.push({});
+          return { ...current, groupLabel: current.groupLabel || labelFallback, boxes: nextBoxes, boxItems: nextItems };
+        },
+        labelFallback
+      );
+    },
+    [updateGroupPlan]
+  );
+
+  const removeBoxFromGroup = useCallback(
+    (groupId, boxIndex, labelFallback) => {
+      updateGroupPlan(
+        groupId,
+        (current) => {
+          const nextBoxes = (current.boxes || []).filter((_, idx) => idx !== boxIndex);
+          const nextItems = (current.boxItems || []).filter((_, idx) => idx !== boxIndex);
+          return { ...current, boxes: nextBoxes, boxItems: nextItems };
+        },
+        labelFallback
+      );
+    },
+    [updateGroupPlan]
+  );
+
+  const updateBoxDim = useCallback(
+    (groupId, boxIndex, field, value, labelFallback) => {
+      updateGroupPlan(
+        groupId,
+        (current) => {
+          const nextBoxes = [...(current.boxes || [])];
+          const box = { ...(nextBoxes[boxIndex] || {}) };
+          box[field] = value;
+          nextBoxes[boxIndex] = box;
+          return { ...current, boxes: nextBoxes };
+        },
+        labelFallback
+      );
+    },
+    [updateGroupPlan]
+  );
+
+  const updateBoxItemQty = useCallback(
+    (groupId, boxIndex, skuKey, value, labelFallback) => {
+      updateGroupPlan(
+        groupId,
+        (current) => {
+          const nextItems = [...(current.boxItems || [])];
+          const boxItems = { ...(nextItems[boxIndex] || {}) };
+          if (value === null || value === undefined || Number(value) <= 0) {
+            delete boxItems[skuKey];
+          } else {
+            boxItems[skuKey] = Number(value);
+          }
+          nextItems[boxIndex] = boxItems;
+          return { ...current, boxItems: nextItems };
+        },
+        labelFallback
+      );
+    },
+    [updateGroupPlan]
+  );
 
   const groupedRows = (() => {
     if (!hasPackGroups) {
-      return skus.map((sku) => ({ type: 'sku', sku }));
+      return skus.map((sku) => ({
+        type: 'sku',
+        sku,
+        groupId: 'ungrouped',
+        groupLabel: 'All items'
+      }));
     }
     const skuByKey = new Map();
     skus.forEach((sku) => {
@@ -135,29 +275,139 @@ export default function FbaStep1Inventory({
     normalizedPackGroups.forEach((group, idx) => {
       const items = Array.isArray(group?.items) ? group.items : [];
       if (!items.length) return;
+      const groupId = group.packingGroupId || group.id || `pack-${idx + 1}`;
       rows.push({
         type: 'group',
         label: `Pack ${idx + 1}`,
-        key: group.packingGroupId || group.id || `pack-${idx + 1}`
+        key: groupId,
+        groupId
       });
       items.forEach((it) => {
         const key = String(it?.sku || it?.msku || it?.SellerSKU || it?.asin || '').trim().toUpperCase();
         const matched = key ? skuByKey.get(key) : null;
         if (matched && !usedSkuIds.has(matched.id)) {
           usedSkuIds.add(matched.id);
-          rows.push({ type: 'sku', sku: matched, key: matched.id });
+          rows.push({
+            type: 'sku',
+            sku: matched,
+            key: matched.id,
+            groupId,
+            groupLabel: `Pack ${idx + 1}`
+          });
         }
       });
     });
     const unassigned = skus.filter((sku) => !usedSkuIds.has(sku.id));
     if (unassigned.length) {
-      rows.push({ type: 'group', label: 'Unassigned', key: 'pack-unassigned' });
-      unassigned.forEach((sku) => rows.push({ type: 'sku', sku, key: sku.id }));
+      rows.push({ type: 'group', label: 'Unassigned', key: 'pack-unassigned', groupId: 'pack-unassigned' });
+      unassigned.forEach((sku) =>
+        rows.push({
+          type: 'sku',
+          sku,
+          key: sku.id,
+          groupId: 'pack-unassigned',
+          groupLabel: 'Unassigned'
+        })
+      );
     }
     return rows;
   })();
 
-  const renderSkuRow = (sku) => {
+  const planGroupsForDisplay = useMemo(() => {
+    const groupRows = groupedRows
+      .filter((row) => row.type === 'group')
+      .map((row) => ({
+        groupId: row.groupId || row.key || row.label,
+        label: row.label || 'Pack'
+      }));
+    if (groupRows.length) return groupRows;
+    return packGroupMeta;
+  }, [groupedRows, packGroupMeta]);
+
+  const skuGroupMap = useMemo(() => {
+    const map = new Map();
+    groupedRows.forEach((row) => {
+      if (row.type === 'sku') {
+        map.set(row.sku.id, {
+          groupId: row.groupId || 'ungrouped',
+          groupLabel: row.groupLabel || 'All items'
+        });
+      }
+    });
+    return map;
+  }, [groupedRows]);
+
+  const boxPlanValidation = useMemo(() => {
+    const issues = [];
+    if (!hasUnits) {
+      return { isValid: true, messages: issues };
+    }
+    let missingBoxes = 0;
+    let missingAssignments = 0;
+    let missingDims = 0;
+    let emptyBoxes = 0;
+    let overweight = 0;
+    let oversize = 0;
+
+    skus.forEach((sku) => {
+      const units = Number(sku.units || 0);
+      if (units <= 0) return;
+      const groupInfo = skuGroupMap.get(sku.id) || { groupId: 'ungrouped', groupLabel: 'All items' };
+      const groupPlan = getGroupPlan(groupInfo.groupId, groupInfo.groupLabel);
+      const boxes = Array.isArray(groupPlan.boxes) ? groupPlan.boxes : [];
+      const boxItems = Array.isArray(groupPlan.boxItems) ? groupPlan.boxItems : [];
+      if (!boxes.length) {
+        missingBoxes += 1;
+        return;
+      }
+      const skuKey = String(sku.sku || sku.asin || sku.id);
+      const assignedTotal = boxes.reduce((sum, _, idx) => {
+        const perBox = boxItems[idx] || {};
+        return sum + Number(perBox[skuKey] || 0);
+      }, 0);
+      if (assignedTotal !== units) {
+        missingAssignments += 1;
+      }
+    });
+
+    planGroupsForDisplay.forEach((group) => {
+      const groupPlan = getGroupPlan(group.groupId, group.label);
+      const boxes = Array.isArray(groupPlan.boxes) ? groupPlan.boxes : [];
+      const boxItems = Array.isArray(groupPlan.boxItems) ? groupPlan.boxItems : [];
+      boxes.forEach((box, idx) => {
+        const length = Number(box?.length_cm || box?.length || 0);
+        const width = Number(box?.width_cm || box?.width || 0);
+        const height = Number(box?.height_cm || box?.height || 0);
+        const weight = Number(box?.weight_kg || box?.weight || 0);
+        if (!length || !width || !height || !weight) missingDims += 1;
+        const maxDim = Math.max(length, width, height);
+        if (maxDim > MAX_STANDARD_BOX_CM) oversize += 1;
+        if (weight > MAX_STANDARD_BOX_KG) overweight += 1;
+        const items = boxItems[idx] || {};
+        const assigned = Object.values(items).reduce((sum, val) => sum + Number(val || 0), 0);
+        if (assigned <= 0) emptyBoxes += 1;
+      });
+    });
+
+    if (missingBoxes) issues.push('Adaugă cel puțin o cutie pentru fiecare pack cu unități.');
+    if (missingAssignments) issues.push('Repartizează toate unitățile în cutii (Assigned trebuie să fie egal cu Units).');
+    if (missingDims) issues.push('Completează dimensiunile și greutatea pentru toate cutiile.');
+    if (emptyBoxes) issues.push('Unele cutii sunt goale. Elimină-le sau adaugă produse.');
+    if (overweight) issues.push(`Greutatea depășește limita de ${MAX_STANDARD_BOX_KG} kg.`);
+    if (oversize) issues.push(`O dimensiune depășește limita de ${MAX_STANDARD_BOX_CM} cm.`);
+
+    return { isValid: issues.length === 0, messages: issues };
+  }, [
+    hasUnits,
+    skus,
+    skuGroupMap,
+    getGroupPlan,
+    planGroupsForDisplay,
+    MAX_STANDARD_BOX_CM,
+    MAX_STANDARD_BOX_KG
+  ]);
+
+  const renderSkuRow = (sku, groupId = 'ungrouped', groupLabel = 'All items') => {
     const status = statusForSku(sku);
     const state = String(status.state || '').toLowerCase();
     const prepSelection = prepSelections[sku.id] || {};
@@ -195,6 +445,16 @@ export default function FbaStep1Inventory({
             : state === 'restricted'
               ? 'Restricționat'
               : 'Necunoscut';
+
+    const skuKey = String(sku.sku || sku.asin || sku.id);
+    const groupPlan = getGroupPlan(groupId, groupLabel);
+    const boxes = Array.isArray(groupPlan.boxes) ? groupPlan.boxes : [];
+    const boxItems = Array.isArray(groupPlan.boxItems) ? groupPlan.boxItems : [];
+    const assignedTotal = boxes.reduce((sum, _, idx) => {
+      const perBox = boxItems[idx] || {};
+      return sum + Number(perBox[skuKey] || 0);
+    }, 0);
+    const assignedMismatch = Number(sku.units || 0) !== assignedTotal && Number(sku.units || 0) > 0;
 
     return (
       <tr key={sku.id} className="align-top">
@@ -324,6 +584,41 @@ export default function FbaStep1Inventory({
                 className="border rounded-md px-2 py-1 text-sm"
               />
             )}
+            <div className="border border-slate-200 rounded-md p-2 bg-slate-50">
+              <div className="flex items-center justify-between text-xs text-slate-600">
+                <span>Boxes</span>
+                <button
+                  className="text-blue-600 underline"
+                  onClick={() => addBoxToGroup(groupId, groupLabel)}
+                  type="button"
+                >
+                  + Add box
+                </button>
+              </div>
+              {boxes.length === 0 && (
+                <div className="text-xs text-slate-500 mt-1">No boxes yet for this pack.</div>
+              )}
+              {boxes.map((box, boxIdx) => {
+                const qty = Number((boxItems[boxIdx] || {})[skuKey] || 0);
+                return (
+                  <div key={box.id || `${groupId}-box-${boxIdx}`} className="flex items-center gap-2 mt-2">
+                    <span className="text-xs text-slate-500 w-12">Box {boxIdx + 1}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={qty}
+                      onChange={(e) =>
+                        updateBoxItemQty(groupId, boxIdx, skuKey, Number(e.target.value || 0), groupLabel)
+                      }
+                      className="w-16 border rounded-md px-2 py-1 text-xs"
+                    />
+                  </div>
+                );
+              })}
+              <div className={`text-xs mt-2 ${assignedMismatch ? 'text-amber-700' : 'text-slate-500'}`}>
+                Assigned: {assignedTotal} / {Number(sku.units || 0)}
+              </div>
+            </div>
           </div>
         </td>
       </tr>
@@ -637,12 +932,90 @@ export default function FbaStep1Inventory({
                 );
               }
               if (row.type === 'sku') {
-                return renderSkuRow(row.sku);
+                return renderSkuRow(row.sku, row.groupId, row.groupLabel);
               }
               return null;
             })}
           </tbody>
         </table>
+      </div>
+
+      <div className="px-6 py-4 border-t border-slate-200 space-y-4">
+        <div className="font-semibold text-slate-900">Box planning (Step 1)</div>
+        {planGroupsForDisplay.map((group) => {
+          const groupPlan = getGroupPlan(group.groupId, group.label);
+          const boxes = Array.isArray(groupPlan.boxes) ? groupPlan.boxes : [];
+          return (
+            <div key={group.groupId} className="border border-slate-200 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="font-semibold text-slate-800">{group.label}</div>
+                <button
+                  className="text-sm text-blue-600 underline"
+                  onClick={() => addBoxToGroup(group.groupId, group.label)}
+                  type="button"
+                >
+                  + Add box
+                </button>
+              </div>
+              {boxes.length === 0 && <div className="text-sm text-slate-500">No boxes yet.</div>}
+              {boxes.map((box, idx) => (
+                <div key={box.id || `${group.groupId}-box-${idx}`} className="border border-slate-200 rounded-md p-3 bg-slate-50">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-slate-800">Box {idx + 1}</div>
+                    <button
+                      className="text-xs text-red-600 underline"
+                      onClick={() => removeBoxFromGroup(group.groupId, idx, group.label)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      value={box?.length_cm ?? box?.length ?? ''}
+                      onChange={(e) => updateBoxDim(group.groupId, idx, 'length_cm', e.target.value, group.label)}
+                      className="border rounded-md px-3 py-2 text-sm"
+                      placeholder="Length (cm)"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={box?.width_cm ?? box?.width ?? ''}
+                      onChange={(e) => updateBoxDim(group.groupId, idx, 'width_cm', e.target.value, group.label)}
+                      className="border rounded-md px-3 py-2 text-sm"
+                      placeholder="Width (cm)"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={box?.height_cm ?? box?.height ?? ''}
+                      onChange={(e) => updateBoxDim(group.groupId, idx, 'height_cm', e.target.value, group.label)}
+                      className="border rounded-md px-3 py-2 text-sm"
+                      placeholder="Height (cm)"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={box?.weight_kg ?? box?.weight ?? ''}
+                      onChange={(e) => updateBoxDim(group.groupId, idx, 'weight_kg', e.target.value, group.label)}
+                      className="border rounded-md px-3 py-2 text-sm"
+                      placeholder="Weight (kg)"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+        {boxPlanValidation.messages.length > 0 && (
+          <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-md space-y-1">
+            {boxPlanValidation.messages.map((msg) => (
+              <div key={msg}>{msg}</div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 space-y-3">
@@ -706,6 +1079,11 @@ export default function FbaStep1Inventory({
               Așteptăm inboundPlanId de la Amazon; nu poți continua până nu este încărcat planul.
             </div>
           )}
+          {hasUnits && !boxPlanValidation.isValid && (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-md">
+              Completează box planning înainte de a continua.
+            </div>
+          )}
           {!hasUnits && (
             <div className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-md">
               Nu există unități de trimis. Setează cel puțin 1 unitate.
@@ -723,6 +1101,7 @@ export default function FbaStep1Inventory({
                 !resolvedInboundPlanId ||
                 !requestId ||
                 !hasUnits ||
+                !boxPlanValidation.isValid ||
                 (loadingPlan && skus.length === 0);
               if (disabled) return;
               onNext?.();
@@ -733,6 +1112,7 @@ export default function FbaStep1Inventory({
               !resolvedInboundPlanId ||
               !requestId ||
               !hasUnits ||
+              !boxPlanValidation.isValid ||
               (loadingPlan && skus.length === 0)
             }
             className={`px-4 py-2 rounded-md font-semibold shadow-sm text-white ${
