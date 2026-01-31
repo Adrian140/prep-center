@@ -303,10 +303,11 @@ async function signedFetch(opts: {
   );
 
   try {
+    const methodUpper = method.toUpperCase();
     const res = await fetch(url, {
       method,
       headers: requestHeaders,
-      body: ["POST", "PUT", "PATCH"].includes(method) ? payload : undefined
+      body: ["POST", "PUT", "PATCH"].includes(methodUpper) ? payload : undefined
     });
     const requestId = res.headers.get("x-amzn-RequestId") || res.headers.get("x-amzn-requestid") || null;
     const resHeaders = maskHeaders(res.headers);
@@ -2924,6 +2925,12 @@ serve(async (req) => {
     // Nu alegem implicit; doar expunem optiunile disponibile.
     const partneredOpt = effectiveOptionsForSelection.find((o) => o.partnered) || null;
 
+    let selectedOption: any = null;
+    if (confirmOptionId) {
+      selectedOption =
+        effectiveOptionsForSelection.find((o) => o.id === confirmOptionId) || null;
+    }
+
     const summary = {
       partneredAllowed: Boolean(partneredOpt),
       partneredRate: partneredOpt?.charge ?? null,
@@ -2936,7 +2943,6 @@ serve(async (req) => {
       returnedSolutions,
       modeMismatch
     };
-    let selectedOption: any = null;
     const summaryWithSelection = {
       ...summary,
       selectedOptionId: selectedOption?.id || null,
@@ -3044,31 +3050,12 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
-    if (shouldConfirm && forcePartneredOnly && !partneredOpt) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "Amazon Partnered Carrier was not returned by SP-API for this inbound plan/options. Not confirming non-partnered.",
-          code: "PARTNERED_NOT_RETURNED",
-          traceId,
-          returnedSolutions: Array.from(
-            new Set(
-              normalizedOptions.map((o) => String(o.raw?.shippingSolution || "").toUpperCase())
-            )
-          ).filter(Boolean),
-          returnedModes: Array.from(
-            new Set(normalizedOptions.map((o) => String(o.mode || "").toUpperCase()))
-          ).filter(Boolean)
-        }),
-        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
-    }
-
     const autoSelectTransportationOption =
       body?.auto_select_transportation_option ??
       body?.autoSelectTransportationOption ??
       true;
     selectedOption =
+      selectedOption ||
       (confirmOptionId
         ? effectiveOptionsForSelection.find((o) => o.id === confirmOptionId) || null
         : null) ||

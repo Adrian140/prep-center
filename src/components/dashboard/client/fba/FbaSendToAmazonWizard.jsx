@@ -439,6 +439,7 @@ export default function FbaSendToAmazonWizard({
   const shippingRetryRef = useRef(0);
   const shippingRetryTimerRef = useRef(null);
   const shippingFetchLockRef = useRef({ inFlight: false, lastKey: "", lastAt: 0 });
+  const selectedOptionSignatureRef = useRef(null);
   const planMissingRetryRef = useRef(0);
   const trackingPrefillRef = useRef(false);
   const autoPackingRef = useRef({ planId: null, attempted: false });
@@ -2349,7 +2350,24 @@ export default function FbaSendToAmazonWizard({
   useEffect(() => {
     if (!selectedTransportationOptionId) return;
     const exists = (shippingOptions || []).some((opt) => opt?.id === selectedTransportationOptionId);
-    if (!exists) setSelectedTransportationOptionId(null);
+    if (exists) return;
+    const signature = selectedOptionSignatureRef.current;
+    if (signature) {
+      const match = (shippingOptions || []).find((opt) => {
+        const optMode = normalizeOptionMode(opt.mode || opt.shippingMode);
+        const optSolution = String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase();
+        return (
+          Boolean(opt?.partnered) === signature.partnered &&
+          (signature.mode ? optMode === signature.mode : true) &&
+          (signature.shippingSolution ? optSolution === signature.shippingSolution : true)
+        );
+      });
+      if (match?.id) {
+        setSelectedTransportationOptionId(match.id);
+        return;
+      }
+    }
+    setSelectedTransportationOptionId(null);
   }, [shippingOptions, selectedTransportationOptionId]);
 
   const confirmShippingOptions = useCallback(async () => {
@@ -2482,7 +2500,7 @@ export default function FbaSendToAmazonWizard({
 
   useEffect(() => {
     setStep2Loaded(false);
-  }, [packGroups, packingOptionId, placementOptionId, shipmentMode.method, shipmentMode.deliveryDate]);
+  }, [packGroups, packingOptionId, placementOptionId]);
 
   const formatAddress = (addr = {}) => {
     const parts = [
@@ -2588,6 +2606,11 @@ export default function FbaSendToAmazonWizard({
     if (!opt?.id) return;
     setSelectedTransportationOptionId(opt.id);
     const nextMethod = normalizeOptionMode(opt.mode || opt.shippingMode);
+    selectedOptionSignatureRef.current = {
+      mode: nextMethod || null,
+      partnered: Boolean(opt.partnered),
+      shippingSolution: String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase()
+    };
     setShipmentMode((prev) => ({
       ...prev,
       method: nextMethod || prev.method,

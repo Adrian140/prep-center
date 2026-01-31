@@ -378,10 +378,15 @@ export default function FbaStep2Shipping({
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="text-sm text-slate-600">{summaryTitle}</div>
         <div className="flex gap-3 justify-end">
-          <button onClick={onBack} className="border border-slate-300 text-slate-700 px-4 py-2 rounded-md">
+          <button
+            type="button"
+            onClick={onBack}
+            className="border border-slate-300 text-slate-700 px-4 py-2 rounded-md"
+          >
             Back
           </button>
           <button
+            type="button"
             onClick={onNext}
             disabled={!canContinue || confirming}
             className={`px-4 py-2 rounded-md font-semibold shadow-sm ${canContinue && !confirming ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
