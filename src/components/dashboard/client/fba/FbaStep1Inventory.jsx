@@ -13,6 +13,49 @@ const FieldLabel = ({ label, children }) => (
 const placeholderImg =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="%23f1f5f9"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="10">SKU</text></svg>';
 
+const PREP_LABELS = {
+  ITEM_POLYBAGGING: 'Polybagging',
+  POLYBAGGING: 'Polybagging',
+  ITEM_BUBBLEWRAP: 'Bubble wrapping',
+  BUBBLEWRAPPING: 'Bubble wrapping',
+  ITEM_BLACK_SHRINKWRAP: 'Black shrink wrapping',
+  BLACKSHRINKWRAPPING: 'Black shrink wrapping',
+  ITEM_TAPING: 'Taping',
+  TAPING: 'Taping',
+  ITEM_BOXING: 'Boxing / overbox',
+  BOXING: 'Boxing / overbox',
+  ITEM_DEBUNDLE: 'Debundle',
+  DEBUNDLE: 'Debundle',
+  ITEM_SUFFOSTK: 'Suffocation warning label',
+  SUFFOCATIONSTICKERING: 'Suffocation warning label',
+  ITEM_CAP_SEALING: 'Cap sealing',
+  CAPSEALING: 'Cap sealing',
+  HANGGARMENT: 'Hang garment',
+  SETCREATION: 'Set creation',
+  REMOVEFROMHANGER: 'Remove from hanger',
+  SETSTICKERING: 'Set stickering',
+  BLANKSTICKERING: 'Blank stickering',
+  LABELING: 'Labeling',
+  SHIPSINPRODUCTPACKAGING: 'Ships in product packaging',
+  NOPREP: 'No prep'
+};
+
+const formatPrepList = (raw) => {
+  const values = Array.isArray(raw)
+    ? raw
+    : String(raw || '')
+        .split(',')
+        .map((val) => val.trim())
+        .filter(Boolean);
+  const mapped = values
+    .map((val) => {
+      const key = String(val || '').replace(/[\s-]/g, '').toUpperCase();
+      return PREP_LABELS[key] || val;
+    })
+    .filter((val) => String(val || '').toLowerCase() !== 'noprep');
+  return Array.from(new Set(mapped));
+};
+
 export default function FbaStep1Inventory({
   data,
   skuStatuses = [],
@@ -524,7 +567,9 @@ export default function FbaStep1Inventory({
     const showLabelButton =
       (labelRequired || labelOwner === null) &&
       (['amazon-override', 'prep-guidance'].includes(labelOwnerSource) || true);
-    const needsPrepNotice = sku.prepRequired || sku.manufacturerBarcodeEligible === false;
+    const prepList = formatPrepList(sku.prepInstructions || sku.prepNotes || []);
+    const needsPrepNotice =
+      sku.prepRequired || prepList.length > 0 || sku.manufacturerBarcodeEligible === false;
     const prepResolved = prepSelection.resolved;
     const needsExpiry = Boolean(sku.expiryRequired);
     const badgeClass =
@@ -643,7 +688,11 @@ export default function FbaStep1Inventory({
               </div>
             )}
             {needsPrepNotice && (
-              <div className="text-xs text-amber-700">Prep set: {sku.prepRequired ? 'Prep needed' : 'No prep needed'}</div>
+              <div className="text-xs text-amber-700">
+                {prepList.length
+                  ? `Prep required: ${prepList.join(', ')}`
+                  : `Prep set: ${sku.prepRequired ? 'Prep needed' : 'No prep needed'}`}
+              </div>
             )}
             {needsExpiry && <div className="text-xs text-amber-700">Expiration date required</div>}
             {showLabelButton && (
@@ -1559,9 +1608,9 @@ export default function FbaStep1Inventory({
                       <option value="none">No prep needed</option>
                     </select>
                   </div>
-                  {prepModal.sku?.prepNotes && (
+                  {formatPrepList(prepModal.sku?.prepInstructions || prepModal.sku?.prepNotes || []).length > 0 && (
                     <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded px-3 py-2">
-                      Guidance: {prepModal.sku.prepNotes}
+                      Guidance: {formatPrepList(prepModal.sku?.prepInstructions || prepModal.sku?.prepNotes || []).join(', ')}
                     </div>
                   )}
                 </div>
