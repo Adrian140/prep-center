@@ -1906,9 +1906,27 @@ export default function FbaSendToAmazonWizard({
 
     const byShipment = new Map();
     packGroups.forEach((g, idx) => {
-      const dims = getSafeDims(g.boxDimensions);
-      const weight = getPositiveNumber(g.boxWeight);
-      const boxCount = Math.max(1, Number(g.boxes) || 1);
+      const planGroupKey = g?.step1PlanGroupKey || g?.packingGroupId || g?.id || null;
+      const planGroup = planGroupKey ? step1BoxPlanForMarket?.groups?.[planGroupKey] : null;
+      const planBoxesRaw = Array.isArray(planGroup?.boxes) ? planGroup.boxes : [];
+      const planPerBoxDetails = planBoxesRaw
+        .map((box) => {
+          const length = getPositiveNumber(box?.length_cm ?? box?.length);
+          const width = getPositiveNumber(box?.width_cm ?? box?.width);
+          const height = getPositiveNumber(box?.height_cm ?? box?.height);
+          const weight = getPositiveNumber(box?.weight_kg ?? box?.weight);
+          if (!length || !width || !height || !weight) return null;
+          return { length, width, height, weight };
+        })
+        .filter(Boolean);
+      const dims = getSafeDims(g.boxDimensions) || (planPerBoxDetails[0] ? {
+        length: planPerBoxDetails[0].length,
+        width: planPerBoxDetails[0].width,
+        height: planPerBoxDetails[0].height
+      } : null);
+      const weight = getPositiveNumber(g.boxWeight) || (planPerBoxDetails[0] ? planPerBoxDetails[0].weight : null);
+      const fallbackBoxCount = planBoxesRaw.length > 0 ? planBoxesRaw.length : null;
+      const boxCount = Math.max(1, Number(g.boxes) || fallbackBoxCount || 1);
       const hasPackageSpec = Boolean(dims && weight);
       const pkg = hasPackageSpec
         ? {
@@ -1917,7 +1935,9 @@ export default function FbaSendToAmazonWizard({
           }
         : null;
       const isMultiple = String(g?.packMode || '').toLowerCase() === 'multiple';
-      const perBoxDetails = Array.isArray(g?.perBoxDetails) ? g.perBoxDetails : [];
+      const perBoxDetails = Array.isArray(g?.perBoxDetails) && g.perBoxDetails.length
+        ? g.perBoxDetails
+        : planPerBoxDetails;
       const perBoxPackages = isMultiple && perBoxDetails.length
         ? perBoxDetails
             .map((box) => {
@@ -1930,6 +1950,12 @@ export default function FbaSendToAmazonWizard({
               };
             })
             .filter(Boolean)
+        : [];
+      const fallbackPerBoxPackages = !perBoxPackages.length && planPerBoxDetails.length
+        ? planPerBoxDetails.map((box) => ({
+            dimensions: { length: box.length, width: box.width, height: box.height, unit: "CM" },
+            weight: { value: box.weight, unit: "KG" }
+          }))
         : [];
       const packingGroupId = g.packingGroupId || null;
       if (!packingGroupId) return;
@@ -1945,6 +1971,8 @@ export default function FbaSendToAmazonWizard({
         existing.freightInformation = freightInformation;
       } else if (perBoxPackages.length) {
         existing.packages.push(...perBoxPackages);
+      } else if (fallbackPerBoxPackages.length) {
+        existing.packages.push(...fallbackPerBoxPackages);
       } else if (pkg) {
         for (let i = 0; i < boxCount; i += 1) {
           existing.packages.push(pkg);
