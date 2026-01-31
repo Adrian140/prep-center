@@ -271,7 +271,20 @@ export default function FbaStep1Inventory({
       updateGroupPlan(
         groupId,
         (current) => {
+          const nextBoxes = [...(current.boxes || [])];
           const nextItems = [...(current.boxItems || [])];
+          while (nextBoxes.length <= boxIndex) {
+            nextBoxes.push({
+              id: `box-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+              length_cm: '',
+              width_cm: '',
+              height_cm: '',
+              weight_kg: ''
+            });
+          }
+          while (nextItems.length <= boxIndex) {
+            nextItems.push({});
+          }
           const boxItems = { ...(nextItems[boxIndex] || {}) };
           if (value === null || value === undefined || Number(value) <= 0) {
             delete boxItems[skuKey];
@@ -284,9 +297,9 @@ export default function FbaStep1Inventory({
             return hasItems ? idx : lastIdx;
           }, -1);
           const trimmedCount = lastUsedIndex + 1;
-          const nextBoxes = [...(current.boxes || [])].slice(0, Math.max(0, trimmedCount));
+          const trimmedBoxes = nextBoxes.slice(0, Math.max(0, trimmedCount));
           const trimmedItems = nextItems.slice(0, Math.max(0, trimmedCount));
-          return { ...current, boxes: nextBoxes, boxItems: trimmedItems };
+          return { ...current, boxes: trimmedBoxes, boxItems: trimmedItems };
         },
         labelFallback
       );
