@@ -118,6 +118,7 @@ export default function FbaStep1Inventory({
   const [templateError, setTemplateError] = useState('');
   const [labelLoading, setLabelLoading] = useState(false);
   const [labelError, setLabelError] = useState('');
+  const [activeBoxByGroup, setActiveBoxByGroup] = useState({});
 
   const normalizedPackGroups = Array.isArray(packGroupsPreview) ? packGroupsPreview : [];
   const hasPackGroups = normalizedPackGroups.some((g) => Array.isArray(g?.items) && g.items.length > 0);
@@ -176,6 +177,38 @@ export default function FbaStep1Inventory({
       updateBoxPlan(nextGroups);
     },
     [getGroupPlan, safeBoxPlan.groups, updateBoxPlan]
+  );
+
+  const setActiveBoxIndex = useCallback((groupId, idx) => {
+    setActiveBoxByGroup((prev) => ({
+      ...(prev || {}),
+      [groupId]: Math.max(0, Number(idx) || 0)
+    }));
+  }, []);
+
+  const ensureGroupBoxCount = useCallback(
+    (groupId, count, labelFallback) => {
+      updateGroupPlan(
+        groupId,
+        (current) => {
+          const nextBoxes = [...(current.boxes || [])];
+          const nextItems = [...(current.boxItems || [])];
+          while (nextBoxes.length < count) {
+            nextBoxes.push({
+              id: `box-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+              length_cm: '',
+              width_cm: '',
+              height_cm: '',
+              weight_kg: ''
+            });
+            nextItems.push({});
+          }
+          return { ...current, groupLabel: current.groupLabel || labelFallback, boxes: nextBoxes, boxItems: nextItems };
+        },
+        labelFallback
+      );
+    },
+    [updateGroupPlan]
   );
 
   const addBoxToGroup = useCallback(
@@ -450,6 +483,13 @@ export default function FbaStep1Inventory({
     const groupPlan = getGroupPlan(groupId, groupLabel);
     const boxes = Array.isArray(groupPlan.boxes) ? groupPlan.boxes : [];
     const boxItems = Array.isArray(groupPlan.boxItems) ? groupPlan.boxItems : [];
+    const maxBoxIndex = Math.max(0, boxes.length - 1);
+    const activeIndexRaw = activeBoxByGroup[groupId];
+    const activeIndex =
+      activeIndexRaw === undefined || activeIndexRaw === null
+        ? maxBoxIndex
+        : Math.min(Math.max(0, Number(activeIndexRaw) || 0), Math.max(maxBoxIndex, 0));
+    const displayBoxIndex = boxes.length ? activeIndex : 0;
     const assignedTotal = boxes.reduce((sum, _, idx) => {
       const perBox = boxItems[idx] || {};
       return sum + Number(perBox[skuKey] || 0);
@@ -586,35 +626,48 @@ export default function FbaStep1Inventory({
             )}
             <div className="border border-slate-200 rounded-md p-2 bg-slate-50">
               <div className="flex items-center justify-between text-xs text-slate-600">
-                <span>Boxes</span>
-                <button
-                  className="text-blue-600 underline"
-                  onClick={() => addBoxToGroup(groupId, groupLabel)}
-                  type="button"
-                >
-                  + Add box
-                </button>
+                <span>
+                  Box {displayBoxIndex + 1} of {Math.max(boxes.length, displayBoxIndex + 1)}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-1 rounded border border-slate-300 text-slate-600"
+                    onClick={() => setActiveBoxIndex(groupId, Math.max(0, displayBoxIndex - 1))}
+                    type="button"
+                    disabled={displayBoxIndex === 0}
+                    title="Previous box"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    className="px-1 rounded border border-slate-300 text-slate-600"
+                    onClick={() => {
+                      const nextIndex = displayBoxIndex + 1;
+                      ensureGroupBoxCount(groupId, nextIndex + 1, groupLabel);
+                      setActiveBoxIndex(groupId, nextIndex);
+                    }}
+                    type="button"
+                    title="Next box"
+                  >
+                    ›
+                  </button>
+                </div>
               </div>
-              {boxes.length === 0 && (
-                <div className="text-xs text-slate-500 mt-1">No boxes yet for this pack.</div>
-              )}
-              {boxes.map((box, boxIdx) => {
-                const qty = Number((boxItems[boxIdx] || {})[skuKey] || 0);
-                return (
-                  <div key={box.id || `${groupId}-box-${boxIdx}`} className="flex items-center gap-2 mt-2">
-                    <span className="text-xs text-slate-500 w-12">Box {boxIdx + 1}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={qty}
-                      onChange={(e) =>
-                        updateBoxItemQty(groupId, boxIdx, skuKey, Number(e.target.value || 0), groupLabel)
-                      }
-                      className="w-16 border rounded-md px-2 py-1 text-xs"
-                    />
-                  </div>
-                );
-              })}
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs text-slate-500 w-12">Qty</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={Number((boxItems[displayBoxIndex] || {})[skuKey] || 0)}
+                  onChange={(e) => {
+                    const nextValue = Number(e.target.value || 0);
+                    ensureGroupBoxCount(groupId, displayBoxIndex + 1, groupLabel);
+                    updateBoxItemQty(groupId, displayBoxIndex, skuKey, nextValue, groupLabel);
+                    setActiveBoxIndex(groupId, displayBoxIndex);
+                  }}
+                  className="w-16 border rounded-md px-2 py-1 text-xs"
+                />
+              </div>
               <div className={`text-xs mt-2 ${assignedMismatch ? 'text-amber-700' : 'text-slate-500'}`}>
                 Assigned: {assignedTotal} / {Number(sku.units || 0)}
               </div>
@@ -941,7 +994,7 @@ export default function FbaStep1Inventory({
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 space-y-4">
-        <div className="font-semibold text-slate-900">Box planning (Step 1)</div>
+        <div className="font-semibold text-slate-900">Box details (Step 1)</div>
         {planGroupsForDisplay.map((group) => {
           const groupPlan = getGroupPlan(group.groupId, group.label);
           const boxes = Array.isArray(groupPlan.boxes) ? groupPlan.boxes : [];
@@ -949,13 +1002,6 @@ export default function FbaStep1Inventory({
             <div key={group.groupId} className="border border-slate-200 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="font-semibold text-slate-800">{group.label}</div>
-                <button
-                  className="text-sm text-blue-600 underline"
-                  onClick={() => addBoxToGroup(group.groupId, group.label)}
-                  type="button"
-                >
-                  + Add box
-                </button>
               </div>
               {boxes.length === 0 && <div className="text-sm text-slate-500">No boxes yet.</div>}
               {boxes.map((box, idx) => (
@@ -963,11 +1009,11 @@ export default function FbaStep1Inventory({
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-slate-800">Box {idx + 1}</div>
                     <button
-                      className="text-xs text-red-600 underline"
+                      className="text-sm text-red-600"
                       onClick={() => removeBoxFromGroup(group.groupId, idx, group.label)}
                       type="button"
                     >
-                      Remove
+                      ✕
                     </button>
                   </div>
                   <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
