@@ -119,6 +119,7 @@ export default function FbaStep1Inventory({
   const [labelLoading, setLabelLoading] = useState(false);
   const [labelError, setLabelError] = useState('');
   const [activeBoxByGroup, setActiveBoxByGroup] = useState({});
+  const [boxIndexDrafts, setBoxIndexDrafts] = useState({});
 
   const normalizedPackGroups = Array.isArray(packGroupsPreview) ? packGroupsPreview : [];
   const hasPackGroups = normalizedPackGroups.some((g) => Array.isArray(g?.items) && g.items.length > 0);
@@ -190,6 +191,10 @@ export default function FbaStep1Inventory({
       ...(prev || {}),
       [groupId]: Math.max(0, Number(idx) || 0)
     }));
+  }, []);
+
+  const getBoxDraftKey = useCallback((groupId, skuKey, boxIdx) => {
+    return `${groupId}::${skuKey}::${boxIdx}`;
   }, []);
 
   const ensureGroupBoxCount = useCallback(
@@ -708,24 +713,62 @@ export default function FbaStep1Inventory({
               {assignedEntries.length === 0 && (
                 <div className="text-xs text-slate-500 mt-1">No boxes assigned yet.</div>
               )}
-              {assignedEntries.map((entry) => (
+              {assignedEntries.map((entry) => {
+                const draftKey = getBoxDraftKey(groupId, skuKey, entry.boxIdx);
+                const draftValue = boxIndexDrafts[draftKey];
+                const boxInputValue = draftValue === undefined || draftValue === null ? entry.boxIdx + 1 : draftValue;
+                const commitBoxIndexChange = () => {
+                  const raw = Number(boxInputValue || 0);
+                  if (!raw || raw < 1) {
+                    setBoxIndexDrafts((prev) => {
+                      const next = { ...(prev || {}) };
+                      delete next[draftKey];
+                      return next;
+                    });
+                    return;
+                  }
+                  const nextIdx = raw - 1;
+                  if (nextIdx === entry.boxIdx) {
+                    setBoxIndexDrafts((prev) => {
+                      const next = { ...(prev || {}) };
+                      delete next[draftKey];
+                      return next;
+                    });
+                    return;
+                  }
+                  ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
+                  updateBoxItemQty(groupId, nextIdx, skuKey, entry.qty, groupLabel, true);
+                  updateBoxItemQty(groupId, entry.boxIdx, skuKey, 0, groupLabel);
+                  setBoxIndexDrafts((prev) => {
+                    const next = { ...(prev || {}) };
+                    delete next[draftKey];
+                    return next;
+                  });
+                };
+                return (
                 <div key={`${skuKey}-box-${entry.boxIdx}`} className="flex items-center gap-2 mt-2">
                   <span className="text-xs text-slate-500">Box</span>
                   <input
                     type="number"
                     min={1}
                     step="1"
-                    value={entry.boxIdx + 1}
+                    value={boxInputValue}
                     onChange={(e) => {
-                      const raw = Number(e.target.value || 0);
-                      if (!raw || raw < 1) return;
-                      const nextIdx = raw - 1;
-                      if (nextIdx === entry.boxIdx) return;
-                      ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
-                      updateBoxItemQty(groupId, nextIdx, skuKey, entry.qty, groupLabel, true);
-                      updateBoxItemQty(groupId, entry.boxIdx, skuKey, 0, groupLabel);
+                      setBoxIndexDrafts((prev) => ({
+                        ...(prev || {}),
+                        [draftKey]: e.target.value
+                      }));
                     }}
-                    onKeyDown={preventEnterSubmit}
+                    onBlur={commitBoxIndexChange}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        commitBoxIndexChange();
+                        event.currentTarget.blur();
+                        return;
+                      }
+                      preventEnterSubmit(event);
+                    }}
                     className="w-16 border rounded-md px-2 py-1 text-xs"
                   />
                   <span className="text-xs text-slate-500">Units</span>
@@ -752,7 +795,8 @@ export default function FbaStep1Inventory({
                     ✕
                   </button>
                 </div>
-              ))}
+              );
+              })}
               <div className={`text-xs mt-2 ${assignedMismatch ? 'text-amber-700' : 'text-slate-500'}`}>
                 Assigned: {assignedTotal} / {Number(sku.units || 0)}
               </div>
