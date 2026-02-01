@@ -5,6 +5,7 @@ import { supabase } from './supabaseClient.js';
 const STATUS_LIST = [
   'WORKING',
   'SHIPPED',
+  'IN_TRANSIT',
   'RECEIVING',
   'DELIVERED',
   'CLOSED',
