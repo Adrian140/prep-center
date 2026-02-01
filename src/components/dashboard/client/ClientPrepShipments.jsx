@@ -771,12 +771,13 @@ export default function ClientPrepShipments() {
                   snapshot.delivery_window ||
                   snapshot.deliveryWindow ||
                   '';
-                const amazonStatus = (
+                const amazonStatusRaw =
                   row.amazon_status ||
+                  snapshot.transport_status ||
                   snapshot.status ||
                   snapshot.shipment_status ||
-                  '—'
-                ).toString();
+                  '—';
+                const amazonStatus = amazonStatusRaw != null ? amazonStatusRaw.toString() : '—';
                 let prepStatusRaw = row.prep_status || status;
                 if ((!prepStatusRaw || prepStatusRaw === 'pending') && status === 'confirmed') {
                   prepStatusRaw = 'expediat';
@@ -929,7 +930,12 @@ export default function ClientPrepShipments() {
                 <div className="flex flex-wrap gap-6 text-sm">
                   <div>
                     <div className="text-xs uppercase text-text-secondary">Status</div>
-                    <div className="text-base font-semibold">{reqHeader?.amazon_status || amazonSnapshot?.status || '—'}</div>
+                    <div className="text-base font-semibold">
+                      {reqHeader?.amazon_status ||
+                        amazonSnapshot?.transport_status ||
+                        amazonSnapshot?.status ||
+                        '—'}
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs uppercase text-text-secondary">Last updated</div>
