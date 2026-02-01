@@ -68,6 +68,7 @@ export default function AdminCompanyDashboard() {
   const [staleness, setStaleness] = useState([]);
   const [stalenessLoading, setStalenessLoading] = useState(false);
   const [stalenessError, setStalenessError] = useState('');
+  const [globalStockUnits, setGlobalStockUnits] = useState(null);
   const [storageApplyId, setStorageApplyId] = useState(null);
   const [storeByCompany, setStoreByCompany] = useState({});
 
@@ -153,6 +154,23 @@ export default function AdminCompanyDashboard() {
     loadStaleness();
     return () => { cancelled = true; };
   }, [currentMarket]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadGlobalStock = async () => {
+      const { data, error } = await supabaseHelpers.getInventoryStaleness(null);
+      if (cancelled) return;
+      if (error) {
+        setGlobalStockUnits(null);
+        return;
+      }
+      const rows = Array.isArray(data) ? data : [];
+      const total = rows.reduce((sum, row) => sum + Number(row?.units_in_stock || 0), 0);
+      setGlobalStockUnits(total);
+    };
+    loadGlobalStock();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleApplyStorage = async (row) => {
     if (!row?.company_id) return;
@@ -264,9 +282,11 @@ export default function AdminCompanyDashboard() {
   const balanceDaily = chartSnapshot?.finance?.dailyAmounts || snapshot?.finance?.dailyAmounts || [];
   const inventoryUnits = snapshot?.inventory?.units ?? 0;
   const stalenessTotal = staleness.reduce((sum, row) => sum + Number(row?.units_in_stock || 0), 0);
-  const inventoryUnitsAll = staleness.length
-    ? stalenessTotal
-    : (snapshot?.inventory?.unitsAll ?? snapshot?.inventory?.units ?? 0);
+  const inventoryUnitsAll = Number.isFinite(globalStockUnits)
+    ? globalStockUnits
+    : staleness.length
+      ? stalenessTotal
+      : (snapshot?.inventory?.unitsAll ?? snapshot?.inventory?.units ?? 0);
   const lastReceivingDate = snapshot?.receiving?.lastReceivingDate || null;
 
   const chartData = useMemo(() => {
