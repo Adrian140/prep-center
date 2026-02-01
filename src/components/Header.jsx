@@ -1,11 +1,25 @@
 // FILE: src/components/Header.jsx
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import LanguageSelector from '@/components/common/LanguageSelector';
 import MarketSelector from '@/components/common/MarketSelector';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Menu, X } from 'lucide-react';
 import { useT } from '@/i18n/useT';
+import { useMarket } from '@/contexts/MarketContext';
+import { normalizeMarketCode } from '@/utils/market';
+
+const ADDRESS_BY_MARKET = {
+  FR: {
+    label: 'PrepCenter France',
+    company: 'EcomPrep Hub',
+    phone: '+33 6 75 11 62 18',
+    address: '5 Rue des Enclos, Cellule 7',
+    postal: '35350',
+    city: 'La Gouesniere',
+    country: 'France'
+  }
+};
 
 function Header() {
   const t = useT();
@@ -19,6 +33,12 @@ function Header() {
     background: 'none',
     WebkitBackgroundClip: 'initial',
   };
+  const { currentMarket } = useMarket();
+  const marketCode = normalizeMarketCode(currentMarket) || 'FR';
+  const addressRef = useRef(null);
+  const [showAddress, setShowAddress] = useState(false);
+  const addressData = ADDRESS_BY_MARKET[marketCode];
+
   const renderNavLabel = (item) => {
     if (item.href === '/services-pricing' && item.name?.includes('&')) {
       const [before, after] = item.name.split('&');
@@ -99,6 +119,17 @@ function Header() {
       setIsMenuOpen(false);
     }
   };
+
+  useEffect(() => {
+    if (!showAddress) return undefined;
+    const handle = (event) => {
+      if (addressRef.current && !addressRef.current.contains(event.target)) {
+        setShowAddress(false);
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [showAddress]);
 
   return (
     <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
@@ -203,21 +234,32 @@ function Header() {
                 </Link>
               )}
 
-              <a
-                href="https://wa.me/33675116218"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-[#25D366] text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-[#1ebe5d] transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
-              >
-                {t('actions.whatsApp')}
-              </a>
+              {isAuthenticated && addressData ? (
+                <button
+                  onClick={() => setShowAddress(true)}
+                  className="bg-white text-text-primary px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
+                >
+                  Warehouse Address
+                </button>
+              ) : (
+                <a
+                  href="https://wa.me/33675116218"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-[#25D366] text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-[#1ebe5d] transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
+                >
+                  {t('actions.whatsApp')}
+                </a>
+              )}
 
-              <Link
-                to="/contact"
-                className="bg-primary text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-primary-dark transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
-              >
-                {t('actions.quote')}
-              </Link>
+              {isAuthenticated ? null : (
+                <Link
+                  to="/contact"
+                  className="bg-primary text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium hover:bg-primary-dark transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
+                >
+                  {t('actions.quote')}
+                </Link>
+              )}
             </div>
           </div>
 
@@ -313,29 +355,96 @@ function Header() {
                     </Link>
                   )}
 
-                  <a
-                    href="https://wa.me/33675116218"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full bg-[#25D366] text-white px-4 py-3 rounded-lg font-medium text-center hover:bg-[#1ebe5d] transition-colors"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {t('actions.whatsApp')}
-                  </a>
+                  {isAuthenticated && addressData ? (
+                    <button
+                      onClick={() => {
+                        setShowAddress(true);
+                        setIsMenuOpen(false);
+                      }}
+                      className="block w-full bg-white text-text-primary px-4 py-3 rounded-lg font-medium text-center border border-gray-200 hover:bg-gray-50 transition-colors"
+                    >
+                      Warehouse Address
+                    </button>
+                  ) : (
+                    <a
+                      href="https://wa.me/33675116218"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full bg-[#25D366] text-white px-4 py-3 rounded-lg font-medium text-center hover:bg-[#1ebe5d] transition-colors"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      {t('actions.whatsApp')}
+                    </a>
+                  )}
 
-                  <Link
-                    to="/contact"
-                    className="block w-full bg-primary text-white px-4 py-3 rounded-lg font-medium hover:bg-primary-dark transition-colors text-center"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {t('actions.quote')}
-                  </Link>
+                  {!isAuthenticated && (
+                    <Link
+                      to="/contact"
+                      className="block w-full bg-primary text-white px-4 py-3 rounded-lg font-medium hover:bg-primary-dark transition-colors text-center"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      {t('actions.quote')}
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         )}
       </div>
+      {showAddress && addressData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div
+            ref={addressRef}
+            className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 space-y-4 relative"
+          >
+            <button
+              onClick={() => setShowAddress(false)}
+              className="absolute top-3 right-3 text-text-secondary hover:text-primary transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-50 text-blue-600 rounded-full p-2">
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 10c0 6-9 13-9 13S3 16 3 10a9 9 0 1 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm uppercase tracking-[0.18em] text-text-secondary">
+                  Shipping address
+                </p>
+                <h3 className="text-lg font-semibold text-text-primary">
+                  {addressData.label}
+                </h3>
+              </div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4 space-y-1">
+              <p className="text-sm font-semibold text-text-primary">{addressData.company}</p>
+              <p className="text-sm text-text-secondary">{addressData.address}</p>
+              <p className="text-sm text-text-secondary">
+                {addressData.city} · {addressData.postal}
+              </p>
+              <p className="text-sm text-text-secondary">{addressData.country}</p>
+            </div>
+            <div className="text-sm text-text-secondary border-t border-dashed border-gray-200 pt-2">
+              <p className="flex items-center gap-2">
+                <span className="font-semibold">Phone</span>
+                <span>{addressData.phone}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
