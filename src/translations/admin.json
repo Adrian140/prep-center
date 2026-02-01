@@ -149,6 +149,7 @@
     "adminPricing": {
       "title": "Pricing manager",
       "subtitle": "Add, edit or publish prep, FBM, extra and storage fees in one place.",
+      "marketLabel": "Current market: {market}",
       "sync": "Sync to website",
       "export": "Export pricing workbook",
       "loading": "Loading pricing…",

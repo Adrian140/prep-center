@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Minus, ChevronDown, ChevronUp, Save, RefreshCcw, FileDown, Trash2 } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, Save, RefreshCcw, FileDown, Trash2 } from 'lucide-react';
 import { supabaseHelpers } from '@/config/supabase';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
+import { useMarket } from '@/contexts/MarketContext';
+import { normalizeMarketCode } from '@/utils/market';
 import { exportPricingWorkbook } from '@/utils/pricingWorkbook';
 
 const GROUP_CONFIG = [
@@ -95,12 +97,14 @@ export default function AdminPricing() {
   const [quickPrices, setQuickPrices] = useState({ fba: {}, fbm: {} });
   const [quickSaving, setQuickSaving] = useState({ fba: false, fbm: false });
 
+  const { currentMarket } = useMarket();
+  const marketCode = normalizeMarketCode(currentMarket) || 'FR';
   const groupedData = useMemo(() => rows, [rows]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabaseHelpers.getPricingServices();
+      const { data, error } = await supabaseHelpers.getPricingServices(currentMarket);
       if (error) throw error;
       const grouped = emptyGroupState();
       (data || []).forEach((row) => {
@@ -109,7 +113,8 @@ export default function AdminPricing() {
           service_name: row.service_name,
           price: row.price,
           unit: row.unit,
-          position: row.position ?? 0
+          position: row.position ?? 0,
+          market: row.market || marketCode
         };
         if (!grouped[row.category]) grouped[row.category] = [];
         grouped[row.category].push(entry);
@@ -121,7 +126,8 @@ export default function AdminPricing() {
             service_name: item.service_name,
             price: '',
             unit: item.unit,
-            position: index
+            position: index,
+            market: marketCode
           }));
         } else {
           grouped[group.id] = grouped[group.id]
@@ -195,7 +201,7 @@ export default function AdminPricing() {
     setQuickSaving((prev) => ({ ...prev, [stateKey]: true }));
     try {
       const payload = [{ ...row, price: priceValue }];
-      const { error } = await supabaseHelpers.upsertPricingServices(payload);
+      const { error } = await supabaseHelpers.upsertPricingServices(payload, currentMarket);
       if (error) throw error;
       setMessage({ type: 'success', text: t('adminPricing.quickEditor.success') });
       await loadData();
@@ -209,7 +215,7 @@ export default function AdminPricing() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentMarket]);
 
   const setGroupRows = (category, updater) => {
     setRows((prev) => ({
@@ -232,7 +238,8 @@ export default function AdminPricing() {
         service_name: '',
         price: '',
         unit: defaultUnit,
-        position: list.length
+        position: list.length,
+        market: marketCode
       }
     ]);
   };
@@ -272,7 +279,8 @@ export default function AdminPricing() {
           service_name: item.service_name.trim(),
           price: item.price.trim(),
           unit: item.unit.trim(),
-          position: item.position
+          position: item.position,
+          market: marketCode
         };
         if (item.id && !item.id.startsWith('tmp-')) {
           record.id = item.id;
@@ -284,7 +292,7 @@ export default function AdminPricing() {
       const deleteIds = deleteQueue[category] || [];
 
       if (payload.length) {
-        const { error } = await supabaseHelpers.upsertPricingServices(payload);
+        const { error } = await supabaseHelpers.upsertPricingServices(payload, currentMarket);
         if (error) throw error;
       }
       if (deleteIds.length) {
@@ -482,6 +490,9 @@ export default function AdminPricing() {
           </h2>
           <p className="text-sm text-text-secondary">
             {t('adminPricing.subtitle')}
+          </p>
+          <p className="text-xs text-text-secondary mt-1">
+            {t('adminPricing.marketLabel', { market: marketCode })}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">

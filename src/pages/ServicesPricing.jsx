@@ -3,6 +3,7 @@ import { FileDown, ArrowRight, Tag, Package, Boxes, Truck, Archive, Shield, Laye
 import { supabaseHelpers } from '../config/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
+import { useMarket } from '@/contexts/MarketContext';
 import { useServicesTranslation } from '../translations/services';
 import { exportPricingBundlePdf } from '../utils/pricingPdfBundles';
 
@@ -115,6 +116,7 @@ export default function ServicesPricing() {
   const { currentLanguage } = useLanguage();
   const { t } = useServicesTranslation(currentLanguage);
   const { user, profile } = useSupabaseAuth();
+  const { currentMarket } = useMarket();
   const isAdmin = Boolean(
     profile?.account_type === 'admin' || user?.user_metadata?.account_type === 'admin'
   );
@@ -173,7 +175,7 @@ export default function ServicesPricing() {
     setPricingLoading(true);
     setPricingError('');
     try {
-      const { data, error } = await supabaseHelpers.getPricingServices();
+      const { data, error } = await supabaseHelpers.getPricingServices(currentMarket);
       if (error) throw error;
       setPricingGroups(groupPricing(data || []));
     } catch (err) {
@@ -182,7 +184,7 @@ export default function ServicesPricing() {
     } finally {
       setPricingLoading(false);
     }
-  }, [pricingErrorMessage]);
+  }, [pricingErrorMessage, currentMarket]);
 
   const fetchContent = useCallback(async () => {
     const { data, error } = await supabaseHelpers.getContent();

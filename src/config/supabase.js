@@ -790,18 +790,28 @@ resetPassword: async (email) => {
   },
 
   // ===== Pricing services v2 =====
-  getPricingServices: async () => {
-    return await supabase
+  getPricingServices: async (market) => {
+    const marketCode = normalizeMarketCode(market);
+    let query = supabase
       .from('pricing_services')
-      .select('*')
+      .select('*');
+    if (marketCode) {
+      query = query.eq('market', marketCode);
+    }
+    return await query
       .order('category', { ascending: true })
       .order('position', { ascending: true });
   },
 
-  upsertPricingServices: async (rows) => {
+  upsertPricingServices: async (rows, market) => {
+    const marketCode = normalizeMarketCode(market) || 'FR';
+    const payload = (rows || []).map((row) => ({
+      ...row,
+      market: row?.market || marketCode
+    }));
     return await supabase
       .from('pricing_services')
-      .upsert(rows, { onConflict: 'id' })
+      .upsert(payload, { onConflict: 'id' })
       .select();
   },
 
