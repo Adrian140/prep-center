@@ -456,10 +456,8 @@ function Header() {
                 {addressData.city} · {addressData.postal}
               </p>
               <p className="text-sm text-text-secondary">{addressData.country}</p>
-            </div>
-            <div className="text-sm text-text-secondary border-t border-dashed border-gray-200 pt-2">
-              <p className="flex items-center gap-2">
-                <span className="font-semibold">Phone</span>
+              <p className="text-sm text-text-secondary flex items-center gap-1">
+                <span className="font-semibold">Phone:</span>
                 <span>{addressData.phone}</span>
               </p>
             </div>
