@@ -156,11 +156,7 @@ function MoneyPill({ value }) {
      : state === "overdue"
       ? "bg-red-100 text-red-800"
       : "bg-gray-100 text-gray-700";
- let display = "0.00";
-  if (!isZero) {
-    const abs = Math.abs(numeric).toFixed(2);
-    display = numeric > 0 ? `-${abs}` : abs;
-  }
+  const display = isZero ? "0.00" : numeric.toFixed(2);
   return (
     <span className={`px-2 py-1 rounded-md text-sm font-medium ${cls}`}>
       {display}

@@ -49,6 +49,20 @@ const createClientUid = () =>
     ? crypto.randomUUID()
     : `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+const normalizeStep2Shipments = (value) => {
+  const list = Array.isArray(value) ? value : [];
+  return list
+    .map((sh, idx) => ({
+      shipmentId: sh?.shipmentId || sh?.shipment_id || sh?.id || null,
+      packingGroupId: sh?.packingGroupId || sh?.packing_group_id || null,
+      name: sh?.name || sh?.shipmentName || sh?.shipment_name || null,
+      shipToAddress: sh?.shipToAddress || sh?.ship_to_address || sh?.destination?.address || sh?.destination || null,
+      shipFromAddress: sh?.shipFromAddress || sh?.ship_from_address || sh?.source?.address || sh?.source || null,
+      index: Number.isFinite(Number(sh?.index)) ? Number(sh.index) : idx
+    }))
+    .filter((sh) => sh.shipmentId);
+};
+
 export default function ClientPrepShipments() {
   const { profile } = useSupabaseAuth();
   const { currentMarket } = useMarket();
@@ -334,6 +348,7 @@ export default function ClientPrepShipments() {
         status: 'pending',
         created_at: new Date().toISOString(),
         fba_shipment_id: null,
+        step2_shipments: null,
         obs_admin: null,
         amazon_status: null,
         amazon_units_expected: null,
@@ -360,6 +375,7 @@ export default function ClientPrepShipments() {
         status: data.status,
         created_at: data.created_at,
         fba_shipment_id: data.fba_shipment_id || null,
+        step2_shipments: data.step2_shipments || null,
         obs_admin: data.obs_admin || null,
         amazon_status: data.amazon_status || null,
         amazon_units_expected: data.amazon_units_expected ?? null,
@@ -501,6 +517,7 @@ export default function ClientPrepShipments() {
             status,
             prep_status,
             fba_shipment_id,
+            step2_shipments,
             obs_admin,
             amazon_status,
             amazon_units_expected,
@@ -578,12 +595,23 @@ export default function ClientPrepShipments() {
   }, [profile?.id, profile?.company_id, currentMarket]);
 
   const reqClientNote = parseHeaderNotes(reqHeader?.obs_admin).clientNote;
+  const reqStep2Shipments = useMemo(
+    () => normalizeStep2Shipments(reqHeader?.step2_shipments),
+    [reqHeader?.step2_shipments]
+  );
+  const headerShipmentIds = reqStep2Shipments.length
+    ? reqStep2Shipments.map((sh) => sh.shipmentId).join(' · ')
+    : (reqHeader?.fba_shipment_id || '');
   const filteredRows = useMemo(() => {
     const raw = searchTerm.trim().toLowerCase();
     if (!raw) return rows;
     const tokens = raw.split(/\s+/).filter(Boolean);
     return rows.filter((row) => {
       const snapshot = row.amazon_snapshot || {};
+      const step2Shipments = normalizeStep2Shipments(row.step2_shipments);
+      const step2Text = step2Shipments
+        .map((sh) => [sh.shipmentId, sh.packingGroupId, sh.name].filter(Boolean).join(' '))
+        .join(' ');
       const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
       const itemText = items
         .map((it) => [it.asin, it.sku, it.product_name].filter(Boolean).join(' '))
@@ -596,6 +624,7 @@ export default function ClientPrepShipments() {
         row.amazon_shipment_name,
         row.amazon_destination_code,
         row.amazon_status,
+        step2Text,
         snapshot.shipment_id,
         snapshot.reference_id,
         snapshot.shipment_reference_id,
@@ -610,6 +639,23 @@ export default function ClientPrepShipments() {
       return tokens.every((token) => haystack.includes(token));
     });
   }, [rows, searchTerm]);
+
+  const displayRows = useMemo(
+    () =>
+      filteredRows.flatMap((row) => {
+        const shipments = normalizeStep2Shipments(row.step2_shipments);
+        if (!shipments.length) {
+          return [{ row, shipment: null, shipmentIndex: 0, shipmentCount: 0 }];
+        }
+        return shipments.map((shipment, idx) => ({
+          row,
+          shipment,
+          shipmentIndex: idx,
+          shipmentCount: shipments.length
+        }));
+      }),
+    [filteredRows]
+  );
 
   return (
     <div className="space-y-6">
@@ -685,19 +731,22 @@ export default function ClientPrepShipments() {
                           </td>
                         </tr>
                       )}
-              {filteredRows.map((row) => {
+              {displayRows.map(({ row, shipment, shipmentIndex, shipmentCount }) => {
                 const status = row.status || 'pending';
                 const destCode = (row.destination_country || 'FR').toUpperCase();
                 const destLabel = t(`ClientStock.countries.${destCode}`) || destCode;
                 const createdParts = formatDateParts(row.created_at);
                 const lastUpdatedParts = formatDateParts(row.amazon_last_updated || row.confirmed_at || row.created_at);
                 const snapshot = row.amazon_snapshot || {};
+                const shipmentSuffix = shipmentCount > 1 ? ` (${shipmentIndex + 1}/${shipmentCount})` : '';
                 const shipmentName =
+                  shipment?.name ||
                   row.amazon_shipment_name ||
                   snapshot.shipment_name ||
+                  shipment?.shipmentId ||
                   row.fba_shipment_id ||
                   'FBA shipment';
-                const shipmentId = row.fba_shipment_id || snapshot.shipment_id || '—';
+                const shipmentId = shipment?.shipmentId || row.fba_shipment_id || snapshot.shipment_id || '—';
                 const referenceId = row.amazon_reference_id || snapshot.reference_id || snapshot.shipment_reference_id || '';
                 const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
                 const skusCountRaw = Number(row.amazon_skus ?? snapshot.skus ?? items.length);
@@ -711,6 +760,9 @@ export default function ClientPrepShipments() {
                 );
                 const unitsLocated = Number.isFinite(unitsLocatedRaw) ? unitsLocatedRaw : null;
                 const shipToText =
+                  shipment?.shipToAddress?.name ||
+                  shipment?.shipToAddress?.addressLine1 ||
+                  shipment?.shipToAddress?.address ||
                   row.amazon_destination_code ||
                   snapshot.destination_code ||
                   destCode;
@@ -743,15 +795,18 @@ export default function ClientPrepShipments() {
                   : 'bg-emerald-50 text-emerald-700';
                 const { clientNote } = parseHeaderNotes(row.obs_admin);
                 return (
-                  <tr key={row.id} className="border-t even:bg-gray-50/60">
+                  <tr key={`${row.id}-${shipment?.shipmentId || 'single'}`} className="border-t even:bg-gray-50/60">
                     <td className="px-4 py-3 align-top">
                       <div className="font-semibold text-primary hover:underline cursor-pointer" onClick={() => row.id && openReqEditor(row.id)}>
-                        {shipmentName}
+                        {shipmentName}{shipmentSuffix}
                       </div>
                       <div className="text-xs text-text-secondary font-mono">
                         {shipmentId}
                         {referenceId ? `, ${referenceId}` : ''}
                       </div>
+                      {shipment?.packingGroupId && (
+                        <div className="text-[11px] text-text-secondary">Pack group: {shipment.packingGroupId}</div>
+                      )}
                       {clientNote && (
                         <div className="text-xs text-text-secondary mt-1 line-clamp-2">
                           {clientNote}
@@ -851,16 +906,21 @@ export default function ClientPrepShipments() {
               <div className="text-sm text-text-secondary py-8 px-6">{t('common.loading')}</div>
             ) : (
               <>
+                {reqStep2Shipments.length > 0 && (
+                  <div className="mx-6 mt-6 mb-2 text-xs text-text-secondary">
+                    Amazon shipments: {reqStep2Shipments.map((sh) => sh.shipmentId).join(' · ')}
+                  </div>
+                )}
           {amazonSnapshot ? (
             <div className="mx-6 mb-6 border border-gray-200 rounded-2xl overflow-hidden shadow-sm bg-white">
               <div className="px-6 py-5 border-b border-gray-200 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-text-secondary">Shipment name</div>
                   <div className="text-xl font-semibold text-primary">
-                    {reqHeader?.amazon_shipment_name || amazonSnapshot.shipment_name || reqHeader?.fba_shipment_id}
+                    {reqHeader?.amazon_shipment_name || amazonSnapshot.shipment_name || headerShipmentIds || '—'}
                   </div>
                   <div className="text-sm text-text-secondary font-mono">
-                    {reqHeader?.fba_shipment_id}
+                    {headerShipmentIds || '—'}
                     {reqHeader?.amazon_reference_id || amazonSnapshot?.reference_id
                       ? ` · ${reqHeader?.amazon_reference_id || amazonSnapshot?.reference_id}`
                       : ''}
@@ -881,7 +941,7 @@ export default function ClientPrepShipments() {
                 <div className="p-5 border-r border-gray-100">
                   <div className="text-xs uppercase text-text-secondary mb-2">Shipment</div>
                   <div className="text-sm text-text-secondary">Created: {formatDisplayDate(amazonSnapshot?.created_date || reqHeader?.created_at)}</div>
-                  <div className="text-sm text-text-secondary">ID: {reqHeader?.fba_shipment_id || '—'}</div>
+                  <div className="text-sm text-text-secondary">ID: {headerShipmentIds || '—'}</div>
                   {amazonSnapshot?.created_using && (
                     <div className="text-sm text-text-secondary">Created using: {amazonSnapshot.created_using}</div>
                   )}
@@ -949,7 +1009,7 @@ export default function ClientPrepShipments() {
                 </span>
               </div>
               <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.status')}:</span> {reqHeader?.status || 'pending'}</div>
-              <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.shipment')}:</span> {reqHeader?.fba_shipment_id || '—'}</div>
+              <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.shipment')}:</span> {headerShipmentIds || '—'}</div>
             </div>
           )}
 

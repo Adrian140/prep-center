@@ -1,5 +1,6 @@
 const FALLBACK_ID = 'tab';
 const TAB_ID_SESSION_KEY = 'pcf-tab-id';
+const INSTANCE_ID_SESSION_KEY = 'pcf-instance-id';
 const TAB_HEARTBEAT_PREFIX = 'pcf-tab-heartbeat:';
 const TAB_HEARTBEAT_TTL_MS = 5000;
 const TAB_HEARTBEAT_INTERVAL_MS = 2000;
@@ -14,8 +15,19 @@ const randomId = () => {
 const getInstanceId = () => {
   if (typeof window === 'undefined') return FALLBACK_ID;
   if (window.__PCF_INSTANCE_ID) return window.__PCF_INSTANCE_ID;
-  const id = randomId();
+  let id = null;
+  try {
+    id = window.sessionStorage.getItem(INSTANCE_ID_SESSION_KEY);
+  } catch {
+    id = null;
+  }
+  if (!id) id = randomId();
   window.__PCF_INSTANCE_ID = id;
+  try {
+    window.sessionStorage.setItem(INSTANCE_ID_SESSION_KEY, id);
+  } catch {
+    // ignore storage failures
+  }
   return id;
 };
 

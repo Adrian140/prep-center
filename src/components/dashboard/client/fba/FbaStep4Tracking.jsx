@@ -15,7 +15,8 @@ export default function FbaStep4Tracking({
     : 'Provide carrier tracking IDs';
   const footerText = trackingDisabled
     ? 'Tracking is handled by Amazon for partnered shipments.'
-    : 'Shipments are complete once tracking is provided.';
+    : 'Update tracking IDs after handing off boxes to the carrier.';
+  const actionLabel = loading ? 'Updating…' : 'Update tracking IDs';
   const formatNumber = (value) => {
     const num = typeof value === 'number' ? value : Number.parseFloat(value);
     if (!Number.isFinite(num)) return null;
@@ -105,15 +106,17 @@ export default function FbaStep4Tracking({
           <button onClick={onBack} className="border border-slate-300 text-slate-700 px-4 py-2 rounded-md">
             Back
           </button>
-          <button
-            onClick={onFinish}
-            disabled={loading}
-            className={`px-4 py-2 rounded-md font-semibold shadow-sm ${
-              loading ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-            }`}
-          >
-            {loading ? 'Submitting…' : 'Finish'}
-          </button>
+          {!trackingDisabled && (
+            <button
+              onClick={onFinish}
+              disabled={loading}
+              className={`px-4 py-2 rounded-md font-semibold shadow-sm ${
+                loading ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              }`}
+            >
+              {actionLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>

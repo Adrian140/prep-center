@@ -7,6 +7,8 @@ export default function FbaStep3Labels({
   onFormatChange,
   onPrint,
   printLoadingId,
+  confirming,
+  error,
   onBack,
   onNext
 }) {
@@ -17,6 +19,10 @@ export default function FbaStep3Labels({
         <div className="font-semibold text-slate-900">Step 3 - Box labels printed</div>
         <div className="text-sm text-slate-500">After printing, shipment becomes Ready to ship</div>
       </div>
+
+      {error ? (
+        <div className="px-6 pt-4 text-sm text-rose-600">{error}</div>
+      ) : null}
 
       <div className="px-6 py-4 space-y-4">
         {shipments.map((s) => (
@@ -67,8 +73,9 @@ export default function FbaStep3Labels({
           <button
             onClick={onNext}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold shadow-sm"
+            disabled={confirming}
           >
-            Continue to tracking
+            {confirming ? 'Finalizing…' : 'Continue to tracking'}
           </button>
         </div>
       </div>

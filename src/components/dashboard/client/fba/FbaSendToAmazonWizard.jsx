@@ -404,6 +404,8 @@ export default function FbaSendToAmazonWizard({
   const [tracking, setTracking] = useState(initialTrackingList);
   const [labelsLoadingId, setLabelsLoadingId] = useState(null);
   const [labelsError, setLabelsError] = useState('');
+  const [step3Confirming, setStep3Confirming] = useState(false);
+  const [step3Error, setStep3Error] = useState('');
   const [trackingLoading, setTrackingLoading] = useState(false);
   const [trackingError, setTrackingError] = useState('');
   const [loadingPlan, setLoadingPlan] = useState(false);
@@ -2779,6 +2781,64 @@ export default function FbaSendToAmazonWizard({
     }
   };
 
+  const resolveFbaShipmentId = () => {
+    const list = Array.isArray(shipments) ? shipments : [];
+    const fromApi = list.find((s) => s?.source === 'api' && (s?.shipmentId || s?.id));
+    const fallback = fromApi || list.find((s) => s?.shipmentId || s?.id);
+    const candidate = fallback?.shipmentId || fallback?.id || null;
+    if (!candidate) return null;
+    const asText = String(candidate);
+    if (asText.startsWith('s-') || asText.toLowerCase().startsWith('fallback-')) return null;
+    return asText;
+  };
+
+  const finalizeStep3 = async () => {
+    if (step3Confirming) return;
+    const requestId = resolveRequestId();
+    if (!requestId) {
+      setStep3Error('Lipseste requestId pentru confirmarea cererii.');
+      return;
+    }
+    if (!shippingConfirmed && !shippingSummary?.alreadyConfirmed) {
+      setStep3Error('Confirma transportul inainte de a finaliza cererea.');
+      return;
+    }
+    const existingId = plan?.fba_shipment_id || plan?.fba_shipmentId || null;
+    const shipmentId = existingId || resolveFbaShipmentId();
+    if (!shipmentId) {
+      setStep3Error('Nu am gasit FBA shipment ID din Amazon. Reincearca dupa confirmarea transportului.');
+      return;
+    }
+    setStep3Confirming(true);
+    setStep3Error('');
+    try {
+      const { error: finalizeErr } = await supabase.rpc('finalize_prep_request_inventory', {
+        p_request_id: requestId
+      });
+      if (finalizeErr) throw finalizeErr;
+
+      const updatePayload = {};
+      if (plan?.status !== 'confirmed') updatePayload.status = 'confirmed';
+      if (!existingId || String(existingId) !== String(shipmentId)) {
+        updatePayload.fba_shipment_id = shipmentId;
+      }
+      if (Object.keys(updatePayload).length) {
+        const { error: updateErr } = await supabase
+          .from('prep_requests')
+          .update(updatePayload)
+          .eq('id', requestId);
+        if (updateErr) throw updateErr;
+        setPlan((prev) => ({ ...prev, ...updatePayload }));
+      }
+
+      completeAndNext('3');
+    } catch (e) {
+      setStep3Error(e?.message || 'Nu am putut confirma cererea.');
+    } finally {
+      setStep3Confirming(false);
+    }
+  };
+
   const loadInboundPlanBoxes = async () => {
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
@@ -3235,8 +3295,10 @@ export default function FbaSendToAmazonWizard({
           onFormatChange={setLabelFormat}
           onPrint={handlePrintLabels}
           printLoadingId={labelsLoadingId}
+          confirming={step3Confirming}
+          error={step3Error || labelsError}
           onBack={() => goToStep('2')}
-          onNext={() => completeAndNext('3')}
+          onNext={finalizeStep3}
         />
       );
     }
