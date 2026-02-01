@@ -244,6 +244,11 @@ const resolveMarketplaceId = (integration) => {
   return null;
 };
 
+const normalizeTransportStatus = (status) => {
+  if (!status) return null;
+  return String(status).trim().toUpperCase();
+};
+
 const logUnknownAmazonStatus = (shipmentId, status, rawShipment) => {
   if (!status) return;
   const normalized = String(status).trim().toUpperCase();
@@ -370,6 +375,49 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
     if (it?.FNSKU) skuSet.add(it.FNSKU);
   });
 
+  let transportStatus = null;
+  let packageStatuses = [];
+  try {
+    const transportRes = await spClient.callAPI({
+      operation: 'getTransportDetails',
+      endpoint: 'fulfillmentInbound',
+      path: { shipmentId },
+      options: { version: 'v0' }
+    });
+    const transportPayload = transportRes?.payload || transportRes || {};
+    const transportContent = transportPayload.TransportContent || transportPayload.transportContent || {};
+    const transportDetails =
+      transportContent.TransportDetails ||
+      transportContent.transportDetails ||
+      transportPayload.TransportDetails ||
+      transportPayload.transportDetails ||
+      {};
+    const partnered = transportDetails.PartneredSmallParcelData || transportDetails.partneredSmallParcelData || {};
+    const nonPartnered =
+      transportDetails.NonPartneredSmallParcelData || transportDetails.nonPartneredSmallParcelData || {};
+    const partneredPackages = partnered.PackageList || partnered.packageList || [];
+    const nonPartneredPackages = nonPartnered.PackageList || nonPartnered.packageList || [];
+    const allPackages = [...(Array.isArray(partneredPackages) ? partneredPackages : []), ...(Array.isArray(nonPartneredPackages) ? nonPartneredPackages : [])];
+    packageStatuses = allPackages
+      .map((pkg) => normalizeTransportStatus(pkg?.PackageStatus || pkg?.packageStatus))
+      .filter(Boolean);
+    const transportResult = transportPayload.TransportResult || transportPayload.transportResult || {};
+    const transportTopStatus =
+      normalizeTransportStatus(transportResult.TransportStatus || transportResult.transportStatus) ||
+      normalizeTransportStatus(transportContent.TransportStatus || transportContent.transportStatus) ||
+      normalizeTransportStatus(transportDetails.TransportStatus || transportDetails.transportStatus) ||
+      null;
+    const derivedFromPackages =
+      packageStatuses.find((st) => st === 'IN_TRANSIT') ||
+      packageStatuses.find((st) => st === 'DELIVERED') ||
+      packageStatuses.find((st) => st === 'CHECKED_IN') ||
+      packageStatuses[0] ||
+      null;
+    transportStatus = transportTopStatus || derivedFromPackages || null;
+  } catch (err) {
+    console.warn(`[Prep shipments sync] Failed to fetch transport details for ${shipmentId}: ${err.message}`);
+  }
+
   const snapshot = {
     shipment_id: shipmentId,
     shipment_name: shipment?.ShipmentName || null,
@@ -383,6 +431,8 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
     last_updated: shipment?.LastUpdatedDate || shipment?.LastUpdatedTimestamp || null,
     created_date: shipment?.CreatedDate || shipment?.CreationDate || null,
     created_using: shipment?.CreatedUsing || null,
+    transport_status: transportStatus,
+    package_statuses: packageStatuses,
     ship_from: {
       name: shipFrom?.Name || null,
       address1: shipFrom?.AddressLine1 || null,
@@ -516,7 +566,7 @@ async function main() {
           else prepStatusResolved = 'pending';
         }
         const resolvedLastUpdated = snap.last_updated || new Date().toISOString();
-        const nextStatus = snap.status || 'UNKNOWN';
+        const nextStatus = snap.transport_status || snap.status || 'UNKNOWN';
         const shouldSkipClosedUpdate =
           row.amazon_status === 'CLOSED' && nextStatus === 'CLOSED';
         if (!shouldSkipClosedUpdate) {
