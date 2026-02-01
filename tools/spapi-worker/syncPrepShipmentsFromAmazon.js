@@ -244,6 +244,17 @@ const resolveMarketplaceId = (integration) => {
   return null;
 };
 
+const logUnknownAmazonStatus = (shipmentId, status, rawShipment) => {
+  if (!status) return;
+  const normalized = String(status).trim().toUpperCase();
+  if (STATUS_LIST.includes(normalized)) return;
+  console.warn(
+    `[Prep shipments sync] Unknown Amazon status "${status}" for shipment ${shipmentId}. Raw keys: ${Object.keys(
+      rawShipment || {}
+    ).join(',')}`
+  );
+};
+
 async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   const candidates = normalizeShipmentIds(rawShipmentId);
   const shipmentId = candidates[0] || rawShipmentId;
@@ -390,6 +401,8 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
         }
       : null
   };
+
+  logUnknownAmazonStatus(shipmentId, snapshot.status, shipment);
 
   return { snapshot, items };
 }
