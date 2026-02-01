@@ -329,6 +329,11 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
     null;
 
   if (!shipment) {
+    console.warn(
+      `[Prep shipments sync] Shipment not found in Amazon response for ${shipmentId}; candidates: ${candidates.join(
+        ','
+      )}. Payload len: ${shipmentList.length}`
+    );
     throw new Error(`Shipment not found for ${shipmentId}`);
   }
 
