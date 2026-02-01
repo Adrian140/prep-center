@@ -9,6 +9,14 @@ import { useT } from '@/i18n/useT';
 import { useMarket } from '@/contexts/MarketContext';
 import { normalizeMarketCode } from '@/utils/market';
 
+const useSafeMarket = () => {
+  try {
+    return useMarket();
+  } catch (error) {
+    return { currentMarket: 'FR' };
+  }
+};
+
 const ADDRESS_BY_MARKET = {
   FR: {
     label: 'PrepCenter France',
@@ -33,7 +41,7 @@ function Header() {
     background: 'none',
     WebkitBackgroundClip: 'initial',
   };
-  const { currentMarket } = useMarket();
+  const { currentMarket } = useSafeMarket();
   const marketCode = normalizeMarketCode(currentMarket) || 'FR';
   const addressRef = useRef(null);
   const [showAddress, setShowAddress] = useState(false);
