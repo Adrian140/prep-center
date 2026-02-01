@@ -379,9 +379,8 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   let packageStatuses = [];
   try {
     const transportRes = await spClient.callAPI({
-      operation: 'getTransportDetails',
-      endpoint: 'fulfillmentInbound',
-      path: { shipmentId },
+      api_path: `/fba/inbound/v0/shipments/${encodeURIComponent(shipmentId)}/transport`,
+      method: 'GET',
       options: { version: 'v0' }
     });
     const transportPayload = transportRes?.payload || transportRes || {};
@@ -415,7 +414,9 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
       null;
     transportStatus = transportTopStatus || derivedFromPackages || null;
   } catch (err) {
-    console.warn(`[Prep shipments sync] Failed to fetch transport details for ${shipmentId}: ${err.message}`);
+    console.warn(
+      `[Prep shipments sync] Failed to fetch transport details for ${shipmentId}: ${err.message || err}`
+    );
   }
 
   const snapshot = {
