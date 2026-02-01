@@ -38,6 +38,20 @@ function Header() {
   const addressRef = useRef(null);
   const [showAddress, setShowAddress] = useState(false);
   const addressData = ADDRESS_BY_MARKET[marketCode];
+  const customerCompanyLabel = `${addressData?.company || ''}${
+    profile?.company_name ? ` (${profile.company_name})` : ''
+  }`.trim();
+  const [copyState, setCopyState] = useState('idle');
+
+  const addressLines = [
+    customerCompanyLabel,
+    addressData?.address,
+    `${addressData?.city} · ${addressData?.postal}`,
+    addressData?.country,
+    `Phone ${addressData?.phone}`
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   const renderNavLabel = (item) => {
     if (item.href === '/services-pricing' && item.name?.includes('&')) {
@@ -121,14 +135,19 @@ function Header() {
   };
 
   useEffect(() => {
-    if (!showAddress) return undefined;
     const handle = (event) => {
-      if (addressRef.current && !addressRef.current.contains(event.target)) {
+      if (showAddress && addressRef.current && !addressRef.current.contains(event.target)) {
         setShowAddress(false);
       }
     };
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
+  }, [showAddress]);
+
+  useEffect(() => {
+    if (showAddress) {
+      setCopyState('idle');
+    }
   }, [showAddress]);
 
   return (
@@ -429,7 +448,9 @@ function Header() {
               </div>
             </div>
             <div className="bg-gray-50 rounded-xl p-4 space-y-1">
-              <p className="text-sm font-semibold text-text-primary">{addressData.company}</p>
+              <p className="text-sm font-semibold text-text-primary">
+                {customerCompanyLabel}
+              </p>
               <p className="text-sm text-text-secondary">{addressData.address}</p>
               <p className="text-sm text-text-secondary">
                 {addressData.city} · {addressData.postal}
@@ -441,6 +462,30 @@ function Header() {
                 <span className="font-semibold">Phone</span>
                 <span>{addressData.phone}</span>
               </p>
+            </div>
+            <div className="pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                    try {
+                      await navigator.clipboard.writeText(addressLines);
+                      setCopyState('copied');
+                      return;
+                    } catch (err) {
+                      console.error('Copy failed', err);
+                    }
+                  }
+                  setCopyState('error');
+                }}
+                className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border text-sm font-semibold ${
+                  copyState === 'copied'
+                    ? 'border-green-200 bg-green-50 text-green-800'
+                    : 'border-blue-100 bg-white text-primary hover:bg-blue-50'
+                }`}
+              >
+                {copyState === 'copied' ? 'Copied!' : 'Copy Address'}
+              </button>
             </div>
           </div>
         </div>
