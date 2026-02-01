@@ -483,7 +483,12 @@ const tableTotals = useMemo(() => {
 
           const [marketSums, liveBalanceRes] = await Promise.all([
             fetchServiceLineSums(p.company_id, start, end, currentMarket),
-            supabaseHelpers.getCompanyLiveBalance(p.company_id, currentMarket),
+            supabaseHelpers.getCompanyLiveBalance(
+              p.company_id,
+              currentMarket,
+              start,
+              end
+            ),
           ]);
           const liveBalance = Number.isFinite(liveBalanceRes?.data)
             ? liveBalanceRes.data
