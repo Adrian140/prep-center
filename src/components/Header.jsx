@@ -256,7 +256,7 @@ function Header() {
               {isAuthenticated && addressData ? (
                 <button
                   onClick={() => setShowAddress(true)}
-                  className="bg-white text-text-primary px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
+                  className="bg-blue-900 text-white px-3 xl:px-4 py-1.5 xl:py-2 rounded-lg font-medium border border-blue-800 hover:bg-blue-800 transition-all duration-200 shadow-sm hover:shadow-md text-[12px] md:text-[13px] xl:text-sm"
                 >
                   Warehouse Address
                 </button>
@@ -380,7 +380,7 @@ function Header() {
                         setShowAddress(true);
                         setIsMenuOpen(false);
                       }}
-                      className="block w-full bg-white text-text-primary px-4 py-3 rounded-lg font-medium text-center border border-gray-200 hover:bg-gray-50 transition-colors"
+                      className="block w-full bg-blue-900 text-white px-4 py-3 rounded-lg font-medium text-center border border-blue-800 hover:bg-blue-800 transition-colors"
                     >
                       Warehouse Address
                     </button>
