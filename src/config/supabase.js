@@ -88,17 +88,10 @@ const sumPaidInvoices = (rows = []) =>
   (rows || []).reduce((acc, row) => {
     const status = String(row?.status || '').trim().toLowerCase();
     const amount = Number(row?.amount);
-    if (status === 'paid' && Number.isFinite(amount)) {
-      return acc + amount;
+    if (!['paid', 'settled'].includes(status) || !Number.isFinite(amount)) {
+      return acc;
     }
-    return acc;
-  }, 0);
-const sumOpenInvoices = (rows = []) =>
-  (rows || []).reduce((acc, row) => {
-    const status = String(row?.status || '').trim().toLowerCase();
-    if (['paid', 'settled'].includes(status)) return acc;
-    const amount = Number(row?.amount);
-    return acc + (Number.isFinite(amount) ? amount : 0);
+    return acc + amount;
   }, 0);
 const isDuplicateKeyError = (error) => {
   if (!error) return false;
@@ -2380,45 +2373,30 @@ createPrepItem: async (requestId, item) => {
     };
   },
   // ===== Analytics / Balances =====
-  getCompanyLiveBalance: async (companyId, market, startDate, endDate) => {
+  getCompanyLiveBalance: async (companyId, market) => {
     if (!companyId) return { data: 0, error: null };
     const marketCode = normalizeMarketCode(market);
     const withCountry = (query) =>
       marketCode ? query.eq('country', marketCode) : query;
-    const applyDateFilter = (query) => {
-      let result = query;
-      if (startDate) result = result.gte('service_date', startDate);
-      if (endDate) result = result.lte('service_date', endDate);
-      return result;
-    };
 
     const [fbaRes, fbmRes, otherRes, invoicesRes] = await Promise.all([
       withCountry(
-        applyDateFilter(
-          supabase
-            .from('fba_lines')
-            .select('unit_price, units, total, service_date')
-            .eq('company_id', companyId)
-            .is('billing_invoice_id', null)
-        )
+        supabase
+          .from('fba_lines')
+          .select('unit_price, units, total')
+          .eq('company_id', companyId)
       ),
       withCountry(
-        applyDateFilter(
-          supabase
-            .from('fbm_lines')
-            .select('unit_price, orders_units, total, service_date')
-            .eq('company_id', companyId)
-            .is('billing_invoice_id', null)
-        )
+        supabase
+          .from('fbm_lines')
+          .select('unit_price, orders_units, total')
+          .eq('company_id', companyId)
       ),
       withCountry(
-        applyDateFilter(
-          supabase
-            .from('other_lines')
-            .select('unit_price, units, total, service_date')
-            .eq('company_id', companyId)
-            .is('billing_invoice_id', null)
-        )
+        supabase
+          .from('other_lines')
+          .select('unit_price, units, total')
+          .eq('company_id', companyId)
       ),
       withCountry(
         supabase
@@ -2436,12 +2414,12 @@ createPrepItem: async (requestId, item) => {
       null;
     if (error) return { data: 0, error };
 
-    const unbilled =
+    const services =
       sumLineRows(fbaRes.data, 'units') +
       sumLineRows(fbmRes.data, 'orders_units') +
       sumLineRows(otherRes.data, 'units');
-    const unpaid = sumOpenInvoices(invoicesRes.data);
-    return { data: unbilled + unpaid, error: null };
+    const paid = sumPaidInvoices(invoicesRes.data);
+    return { data: services - paid, error: null };
   },
   getPeriodBalances: async (...args) => {
     // compatibilitate: acceptă atât (companyId, startDate, endDate)

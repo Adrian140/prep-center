@@ -485,9 +485,7 @@ const tableTotals = useMemo(() => {
             fetchServiceLineSums(p.company_id, start, end, currentMarket),
             supabaseHelpers.getCompanyLiveBalance(
               p.company_id,
-              currentMarket,
-              start,
-              end
+              currentMarket
             ),
           ]);
           const liveBalance = Number.isFinite(liveBalanceRes?.data)
