@@ -53,38 +53,48 @@ async function mapWithConcurrency(items, limit, mapper) {
   return results;
 }
 
-async function fetchOtherLineSums(companyId, startDate, endDate, market) {
-
-  if (!companyId) {
-    return { monthTotal: 0, carryTotal: 0 };
-  }
+async function sumOtherLines(companyId, startDate, endDate, market) {
+  if (!companyId || !startDate || !endDate) return 0;
   const marketCode = normalizeMarketCode(market);
   const withCountry = (query) =>
     marketCode ? query.eq('country', marketCode) : query;
-  const [{ data: monthRows, error: monthErr }, { data: prevRows, error: prevErr }] = await Promise.all([
-    withCountry(
-      supabase
-        .from("other_lines")
-        .select("total, unit_price, units, service_date")
-        .eq("company_id", companyId)
-    )
+
+  const { data, error } = await withCountry(
+    supabase
+      .from("other_lines")
+      .select("total, unit_price, units, service_date")
+      .eq("company_id", companyId)
       .gte("service_date", startDate)
-      .lte("service_date", endDate),
-    withCountry(
-      supabase
-        .from("other_lines")
-        .select("total, unit_price, units, service_date")
-        .eq("company_id", companyId)
-    )
-      .lt("service_date", startDate)
-  ]);
-  if (monthErr || prevErr) {
-    return { monthTotal: 0, carryTotal: 0 };
+      .lte("service_date", endDate)
+  );
+  if (error || !Array.isArray(data)) {
+    return 0;
   }
-  return {
-    monthTotal: sumOtherLineRows(monthRows),
-    carryTotal: sumOtherLineRows(prevRows)
-  };
+  return sumOtherLineRows(data);
+}
+
+async function fetchPaidAmountRange(companyId, startDate, endDate, market) {
+  if (!companyId || !startDate || !endDate) return 0;
+  const marketCode = normalizeMarketCode(market);
+  const withCountry = (query) =>
+    marketCode ? query.eq('country', marketCode) : query;
+
+  const { data, error } = await withCountry(
+    supabase
+      .from('invoices')
+      .select('amount')
+      .eq('company_id', companyId)
+      .gte('issue_date', startDate)
+      .lte('issue_date', endDate)
+      .or('status.ilike.paid,status.ilike.settled')
+  );
+  if (error || !Array.isArray(data)) {
+    return 0;
+  }
+  return data.reduce((sum, row) => {
+    const amount = Number(row?.amount);
+    return sum + (Number.isFinite(amount) ? amount : 0);
+  }, 0);
 }
 
 async function fetchServiceLineSums(companyId, startDate, endDate, market) {
@@ -475,8 +485,14 @@ const tableTotals = useMemo(() => {
       if (!showBalances || rows.length === 0) return;
 
       const [y, m] = selectedMonth.split("-").map(Number);
-      const start = isoLocal(new Date(y, m - 1, 1));        // inclusiv
-       const end   = isoLocal(new Date(y, m, 0));            // inclusiv (ultima zi a lunii)
+      const monthStart = new Date(y, m - 1, 1);
+      const monthEnd = new Date(y, m, 0);
+      const prevMonthStart = addMonths(monthStart, -1);
+      const prevEndDate = addDays(monthStart, -1);
+      const start = isoLocal(monthStart);        // inclusiv
+      const end = isoLocal(monthEnd);            // inclusiv (ultima zi a lunii)
+      const prevStart = isoLocal(prevMonthStart);
+      const prevEnd = isoLocal(prevEndDate);
 
         const entries = await mapWithConcurrency(rows, 8, async (p) => {
           if (!p.company_id) return [p.id, { currentSold: 0, carry: 0, diff: 0 }];
@@ -493,11 +509,25 @@ const tableTotals = useMemo(() => {
             : 0;
 
           let current = Number(marketSums.current ?? 0);
-          let carry = Number(marketSums.carry ?? 0) * -1;
+          const currentOther = await sumOtherLines(p.company_id, start, end, currentMarket);
+          current += currentOther;
 
-          const otherSums = await fetchOtherLineSums(p.company_id, start, end, currentMarket);
-          current += otherSums.monthTotal;
-          carry += otherSums.carryTotal;
+          const prevServiceSums = await fetchServiceLineSums(
+            p.company_id,
+            prevStart,
+            prevEnd,
+            currentMarket
+          );
+          const prevOther = await sumOtherLines(p.company_id, prevStart, prevEnd, currentMarket);
+          const prevPaid = await fetchPaidAmountRange(
+            p.company_id,
+            prevStart,
+            prevEnd,
+            currentMarket
+          );
+          const prevServices =
+            Number(prevServiceSums.current ?? 0) + Number(prevOther ?? 0);
+          const carry = prevServices - prevPaid;
 
           return [p.id, { currentSold: current, carry, diff: liveBalance }];
         });
