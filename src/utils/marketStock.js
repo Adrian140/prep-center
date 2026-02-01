@@ -20,8 +20,7 @@ export const getPrepQtyForMarket = (row, market) => {
     const num = Number(map[key] || 0);
     return Number.isFinite(num) ? num : 0;
   }
-  const fallback = Number(row.qty || 0);
-  return Number.isFinite(fallback) ? fallback : 0;
+  return 0;
 };
 
 export const buildPrepQtyPatch = (row, market, nextQty) => {
