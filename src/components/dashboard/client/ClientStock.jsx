@@ -1213,23 +1213,12 @@ useEffect(() => {
   }, [rows, searchField, searchQuery, matchScore, normalize]);
 
 
-  const [photoFilter, setPhotoFilter] = useSessionStorage(
-    `${storagePrefix}-photoFilter`,
-    'all'
-  );
-
   const stockFiltered = useMemo(() => {
     let base = searched;
     if (stockFilter === 'in') base = base.filter((r) => Number(r.qty || 0) > 0);
     if (stockFilter === 'out') base = base.filter((r) => Number(r.qty || 0) === 0);
-    if (photoFilter === 'with') {
-      base = base.filter((r) => Number(photoCounts[r.id] || 0) > 0);
-    }
-    if (photoFilter === 'without') {
-      base = base.filter((r) => Number(photoCounts[r.id] || 0) <= 0);
-    }
     return base;
-  }, [searched, stockFilter, photoFilter, photoCounts]);
+  }, [searched, stockFilter, photoCounts]);
 
   const quickFiltered = useMemo(() => {
     const term = normalize(productSearch).trim();
@@ -2390,15 +2379,6 @@ const saveReqChanges = async () => {
             />
             {t('ClientStock.actions.selectAllOnPage')}
           </label>
-          <select
-            className="border rounded px-2 py-1 text-xs text-text-secondary"
-            value={photoFilter}
-            onChange={(e) => setPhotoFilter(e.target.value)}
-          >
-            <option value="all">Photo: All</option>
-            <option value="with">Photo: With photo</option>
-            <option value="without">Photo: Without photo</option>
-          </select>
           <span className="text-xs text-text-secondary">Total: {rows.length}</span>
         </div>
       </div>
