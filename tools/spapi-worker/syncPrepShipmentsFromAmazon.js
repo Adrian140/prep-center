@@ -248,11 +248,13 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   const candidates = normalizeShipmentIds(rawShipmentId);
   const shipmentId = candidates[0] || rawShipmentId;
 
-  const tryFetchShipments = async (mpId) => {
+  const tryFetchShipments = async (mpId, withStatusList = true) => {
     const query = {
-      ShipmentStatusList: STATUS_LIST,
       ShipmentIdList: candidates.length ? candidates : [shipmentId]
     };
+    if (withStatusList) {
+      query.ShipmentStatusList = STATUS_LIST;
+    }
     if (mpId) {
       query.MarketplaceId = mpId;
     }
@@ -273,19 +275,38 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
 
   for (const mp of mpCandidates) {
     try {
-      shipmentRes = await tryFetchShipments(mp);
+      shipmentRes = await tryFetchShipments(mp, true);
       pickedMarketplace = mp;
       if (shipmentRes?.payload?.ShipmentData?.length) break;
     } catch (err) {
       // încercăm fără MarketplaceId dacă e invalid
       try {
-        shipmentRes = await tryFetchShipments(null);
+        shipmentRes = await tryFetchShipments(null, true);
         pickedMarketplace = null;
       } catch {
         continue;
       }
     }
     if (shipmentRes?.payload?.ShipmentData?.length) break;
+  }
+
+  // fallback: reîncearcă fără filtru de status dacă nu am găsit nimic
+  if (!shipmentRes?.payload?.ShipmentData?.length) {
+    for (const mp of mpCandidates) {
+      try {
+        shipmentRes = await tryFetchShipments(mp, false);
+        pickedMarketplace = mp;
+        if (shipmentRes?.payload?.ShipmentData?.length) break;
+      } catch (err) {
+        try {
+          shipmentRes = await tryFetchShipments(null, false);
+          pickedMarketplace = null;
+        } catch {
+          continue;
+        }
+      }
+      if (shipmentRes?.payload?.ShipmentData?.length) break;
+    }
   }
 
   const shipmentPayload = shipmentRes?.payload || shipmentRes;
