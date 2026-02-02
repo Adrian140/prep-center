@@ -312,28 +312,54 @@ function Contact() {
 
         {/* Map Section */}
         <section className="mt-20">
-          <h2 className="text-3xl font-bold text-text-primary mb-8 text-center">{t('ourLocation')}</h2>
-          <div className="rounded-xl overflow-hidden shadow-lg">
-            <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2659.8234567890123!2d-1.8234567890123456!3d48.61234567890123!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x480e9a1234567890%3A0x1234567890abcdef!2s35350%20La%20Gouesnière%2C%20France!5e0!3m2!1sen!2sus!4v1234567890123"
-              width="100%"
-              height="400"
-              style={{ border: 0 }}
-              allowFullScreen=""
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              title={t('mapTitle')}
-            ></iframe>
-          </div>
-          <div className="mt-6 text-center">
-            <div className="inline-flex items-center bg-white rounded-lg border border-gray-200 px-6 py-4 shadow-sm">
-              <MapPin className="w-5 h-5 text-primary mr-3" />
-              <div className="text-left">
-                <p className="font-semibold text-text-primary">{t('locationName')}</p>
-                <p className="text-text-secondary">{t('locationAddress')}</p>
-                <p className="text-sm text-text-light">{t('locationDescription')}</p>
+          <h2 className="text-3xl font-bold text-text-primary mb-8 text-center">
+            {t('ourLocations', t('ourLocation'))}
+          </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[
+              {
+                id: 'fr',
+                title: t('locationNameFrance', 'Prep Center France'),
+                address: t('locationAddressFrance', '5 Rue des Enclos, Cellule 7, 35350 La Gouesnière, France'),
+                description: t('locationDescriptionFrance', 'France warehouse & operations'),
+                mapSrc:
+                  'https://www.google.com/maps?q=5+Rue+des+Enclos+35350+La+Gouesniere+France&output=embed',
+                mapTitle: t('mapTitleFrance', 'Prep Center France Location - La Gouesnière')
+              },
+              {
+                id: 'de',
+                title: t('locationNameGermany', 'Prep Center Germany'),
+                address: t('locationAddressGermany', 'Zienestrasse 12, 77709 Wolfach, Germany'),
+                description: t('locationDescriptionGermany', 'Germany warehouse & operations'),
+                mapSrc:
+                  'https://www.google.com/maps?q=Zienestrasse+12+77709+Wolfach+Germany&output=embed',
+                mapTitle: t('mapTitleGermany', 'Prep Center Germany Location - Wolfach')
+              }
+            ].map((loc) => (
+              <div key={loc.id} className="rounded-xl overflow-hidden shadow-lg bg-white border border-gray-100">
+                <div className="aspect-video w-full">
+                  <iframe
+                    src={loc.mapSrc}
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen=""
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title={loc.mapTitle}
+                    className="w-full h-full"
+                  ></iframe>
+                </div>
+                <div className="flex items-start gap-3 px-6 py-4">
+                  <MapPin className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-text-primary">{loc.title}</p>
+                    <p className="text-text-secondary">{loc.address}</p>
+                    <p className="text-sm text-text-light">{loc.description}</p>
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         </section>
       </div>

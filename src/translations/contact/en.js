@@ -66,8 +66,17 @@ export const contactEn = {
   
   // Map Section
   ourLocation: 'Our Location',
+  ourLocations: 'Our Locations',
   mapTitle: 'Prep Center France Location - La Gouesnière',
   locationName: 'Prep Center France',
   locationAddress: '35350 La Gouesnière, France',
-  locationDescription: 'Strategic location for EU-wide fulfillment distribution'
+  locationDescription: 'Strategic location for EU-wide fulfillment distribution',
+  mapTitleFrance: 'Prep Center France Location - La Gouesnière',
+  locationNameFrance: 'Prep Center France',
+  locationAddressFrance: '5 Rue des Enclos, Cellule 7, 35350 La Gouesnière, France',
+  locationDescriptionFrance: 'France warehouse & operations',
+  mapTitleGermany: 'Prep Center Germany Location - Wolfach',
+  locationNameGermany: 'Prep Center Germany',
+  locationAddressGermany: 'Zienestrasse 12, 77709 Wolfach, Germany',
+  locationDescriptionGermany: 'Germany warehouse & operations'
 };
