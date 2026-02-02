@@ -1280,9 +1280,9 @@ export default function FbaStep1Inventory({
           <button
             type="button"
             onClick={applySingleBox}
-            className="text-xs bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 px-3 py-2 rounded-md"
+            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md shadow-sm"
           >
-            Put everything in one box
+            Add all units to one box
           </button>
         </div>
       </div>
@@ -1315,9 +1315,9 @@ export default function FbaStep1Inventory({
               <button
                 type="button"
                 onClick={applySingleBox}
-                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md shadow-sm"
+                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md shadow-sm flex items-center gap-1"
               >
-                Add all in one single box
+                Add all units to one box
               </button>
             ) : null
           }
