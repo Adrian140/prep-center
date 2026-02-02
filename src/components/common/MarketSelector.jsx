@@ -4,6 +4,7 @@ import { useMarket } from '@/contexts/MarketContext';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useT } from '@/i18n/useT';
+import { supabaseHelpers } from '@/config/supabase';
 
 export default function MarketSelector() {
   const t = useT();
@@ -12,6 +13,10 @@ export default function MarketSelector() {
   const { isAuthenticated, user, profile, updateProfile } = useSupabaseAuth();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(null);
+  const [vatValue, setVatValue] = useState('');
+  const [vatError, setVatError] = useState('');
+  const [vatSaving, setVatSaving] = useState(false);
+  const [showVatModal, setShowVatModal] = useState(false);
 
   const isAdmin = Boolean(
     profile?.account_type === 'admin' || user?.user_metadata?.account_type === 'admin'
@@ -55,17 +60,9 @@ export default function MarketSelector() {
 
   const confirmSameAccount = async () => {
     if (!pending) return;
-    enableMarket(pending);
-    if (updateProfile) {
-      const existing = Array.isArray(profile?.allowed_markets) ? profile.allowed_markets : [];
-      const next = Array.from(new Set([...(existing || []), pending]));
-      try {
-        await updateProfile({ allowed_markets: next });
-      } catch {
-        // ignore persistence errors
-      }
-    }
-    setPending(null);
+    setVatValue('');
+    setVatError('');
+    setShowVatModal(true);
   };
 
   const confirmNewAccount = () => {
@@ -75,6 +72,59 @@ export default function MarketSelector() {
     const target = `/register?country=${pending}${affiliateParam}`;
     setPending(null);
     navigate(target);
+  };
+
+  const normalizeVat = (vatRaw, country) => {
+    const trimmed = String(vatRaw || '').toUpperCase().replace(/\s+/g, '');
+    if (!trimmed) return '';
+    if (trimmed.startsWith(country)) return trimmed;
+    return `${country}${trimmed}`;
+  };
+
+  const saveVatProfile = async () => {
+    if (!pending || !user) return;
+    const country = pending;
+    const vat = normalizeVat(vatValue, country);
+    if (!vat) {
+      setVatError(t('market.vatRequired', 'Completează codul TVA'));
+      return;
+    }
+    setVatSaving(true);
+    setVatError('');
+    const payload = {
+      user_id: user.id,
+      type: profile?.account_type === 'company' ? 'company' : 'individual',
+      first_name: profile?.first_name || '',
+      last_name: profile?.last_name || '',
+      company_name: profile?.company_name || '',
+      vat_number: vat,
+      country,
+      address: profile?.company_address || '',
+      city: profile?.company_city || '',
+      postal_code: profile?.company_postal_code || '',
+      phone: profile?.phone || '',
+      is_default: false
+    };
+    const { error } = await supabaseHelpers.createBillingProfile(payload);
+    if (error) {
+      setVatError(error.message || t('market.vatSaveError', 'Nu am putut salva TVA-ul'));
+      setVatSaving(false);
+      return;
+    }
+
+    enableMarket(country);
+    if (updateProfile) {
+      const existing = Array.isArray(profile?.allowed_markets) ? profile.allowed_markets : [];
+      const next = Array.from(new Set([...(existing || []), country]));
+      try {
+        await updateProfile({ allowed_markets: next });
+      } catch {
+        // ignore persistence errors
+      }
+    }
+    setVatSaving(false);
+    setShowVatModal(false);
+    setPending(null);
   };
 
   return (
@@ -143,7 +193,7 @@ export default function MarketSelector() {
                 onClick={() => setPending(null)}
                 className="px-3 py-1.5 rounded-lg border text-sm text-text-secondary"
               >
-                {t('market.promptCancel', 'Anuleaza')}
+                 {t('market.promptCancel', 'Anuleaza')}
               </button>
               <button
                 onClick={confirmNewAccount}
@@ -156,6 +206,54 @@ export default function MarketSelector() {
                 className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm"
               >
                 {t('market.promptSame', 'Foloseste aceleasi date')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showVatModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4">
+            <div className="text-lg font-semibold text-text-primary">
+              {t('market.vatTitle', 'Adaugă cod TVA pentru ')}
+              {pending}
+            </div>
+            <p className="text-sm text-text-secondary">
+              {t('market.vatSubtitle', 'Pentru acest depozit avem nevoie de codul TVA al țării selectate.')}
+            </p>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-text-primary">
+                {t('billing.form.vat', 'VAT')}
+              </label>
+              <input
+                type="text"
+                className="w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                placeholder={`${pending}...`}
+                value={vatValue}
+                onChange={(e) => setVatValue(e.target.value)}
+                autoFocus
+              />
+              {vatError && <p className="text-sm text-red-600">{vatError}</p>}
+            </div>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setShowVatModal(false);
+                  setVatSaving(false);
+                  setVatError('');
+                }}
+                className="px-3 py-1.5 rounded-lg border text-sm text-text-secondary"
+                disabled={vatSaving}
+              >
+                {t('common.cancel', 'Anuleaza')}
+              </button>
+              <button
+                onClick={saveVatProfile}
+                className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm disabled:opacity-60"
+                disabled={vatSaving}
+              >
+                {vatSaving ? t('common.saving', 'Se salvează...') : t('market.vatSave', 'Salvează TVA')}
               </button>
             </div>
           </div>
