@@ -2438,9 +2438,9 @@ serve(async (req) => {
       _lastPlacementOptions = fetched.fetchedPlacementOptions || [];
       appliedPlanBody = appliedPlanBody || buildPlanBody(appliedOverrides);
 
-    if (inboundPlanErrored(inboundPlanStatus)) {
-      logStep("inboundPlanErrored", {
-        traceId,
+      if (inboundPlanErrored(inboundPlanStatus)) {
+        logStep("inboundPlanErrored", {
+          traceId,
           inboundPlanId,
           inboundPlanStatus,
           requestId,
@@ -2456,8 +2456,8 @@ serve(async (req) => {
         inboundPlanStatus = null;
         plans = [];
         _lastPackingOptions = [];
-      _lastPlacementOptions = [];
-    }
+        _lastPlacementOptions = [];
+      }
     }
 
     // Dacă inbound_plan_id a rămas un placeholder LOCK de la o execuție anterioară, eliberează-l și recreează planul.
