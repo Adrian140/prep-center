@@ -1189,12 +1189,9 @@ serve(async (req) => {
         acceptedPackingGroups = Array.isArray(accepted?.packingGroups) ? accepted.packingGroups.filter(Boolean) : [];
         autoSwitchedPackingOption = true;
       }
-      const chosen = (options || []).find(
-        (opt: any) => normalizePackingOptionId(opt) === packingOptionId
-      );
-      const groups = Array.isArray(chosen?.packingGroups)
-        ? chosen.packingGroups.filter(Boolean)
-        : [];
+      const chosen = (options || []).find((opt: any) => normalizePackingOptionId(opt) === packingOptionId);
+      const groups = Array.isArray(chosen?.packingGroups) ? chosen.packingGroups.filter(Boolean) : [];
+      const expectedGroups = groups;
       if (groups.length) {
         const providedSource = directGroupings.length ? directGroupings : mergedPackingGroupsInput;
         const providedIds = (providedSource || [])
@@ -1208,6 +1205,16 @@ serve(async (req) => {
             missingIds.forEach((id: any) => {
               mergedPackingGroupsInput.push({ packingGroupId: id });
             });
+          } else if (expectedGroups.length) {
+            // Rescriem IDs după ordinea Amazon pentru a evita 400.
+            mergedPackingGroupsInput.forEach((g: any, idx: number) => {
+              if (!g) return;
+              const expectedId = expectedGroups[idx] || expectedGroups[0];
+              if (expectedId) g.packingGroupId = expectedId;
+            });
+            if (!mergedPackingGroupsInput.length) {
+              mergedPackingGroupsInput.push({ packingGroupId: expectedGroups[0] });
+            }
           } else {
             return new Response(
               JSON.stringify({
