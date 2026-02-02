@@ -931,6 +931,14 @@
         "manualPhoto": "Manual photo capture"
       }
     },
+    "market": {
+      "vatTitle": "Add VAT code for ",
+      "vatSubtitle": "For this warehouse we need the VAT number of the selected country.",
+      "vatSave": "Save VAT",
+      "promptNew": "Create new account",
+      "promptSame": "Use same details",
+      "missingVat": "Enter a VAT number"
+    },
     "reviewPrompt": {
       "title": "You've been with us for over 2 months. Leave a quick internal review?",
       "subtitle": "We use it internally; optionally we can show it anonymously on the homepage.",
@@ -1819,6 +1827,14 @@
         "manualPhoto": "Fotografiere manuală"
       }
     },
+    "market": {
+      "vatTitle": "Adaugă cod TVA pentru ",
+      "vatSubtitle": "Pentru acest depozit avem nevoie de codul TVA al țării selectate.",
+      "vatSave": "Salvează TVA",
+      "promptNew": "Creează cont nou",
+      "promptSame": "Folosește aceleași date",
+      "missingVat": "Introdu un cod TVA"
+    },
     "fba_mode_none": "Nu trimit acum",
     "fba_mode_full": "Trimit toate unitățile în Amazon",
     "fba_mode_partial": "Trimitere parțială",
@@ -2679,6 +2695,14 @@
         "manualPhoto": "Prise de photos manuelle"
       }
     },
+    "market": {
+      "vatTitle": "Ajouter un numéro de TVA pour ",
+      "vatSubtitle": "Pour cet entrepôt, nous avons besoin du numéro de TVA du pays sélectionné.",
+      "vatSave": "Enregistrer la TVA",
+      "promptNew": "Créer un nouveau compte",
+      "promptSame": "Utiliser les mêmes informations",
+      "missingVat": "Saisissez un numéro de TVA"
+    },
     "fba_mode_none": "Ne pas envoyer maintenant",
     "fba_mode_full": "Envoyer toutes les unités vers Amazon",
     "fba_mode_partial": "Expédition partielle",
@@ -3486,6 +3510,14 @@
         "photoSubscription": "Foto-Speicher-Abonnement",
         "manualPhoto": "Manuelle Produktfotografie"
       }
+    },
+    "market": {
+      "vatTitle": "USt-IdNr. für ",
+      "vatSubtitle": "Für dieses Lager benötigen wir die USt-IdNr. des ausgewählten Landes.",
+      "vatSave": "USt speichern",
+      "promptNew": "Neues Konto erstellen",
+      "promptSame": "Gleiche Daten verwenden",
+      "missingVat": "USt-IdNr. eingeben"
     },
     "fba_mode_none": "Jetzt nicht senden",
     "fba_mode_full": "Alle Einheiten zu Amazon senden",
@@ -4295,6 +4327,14 @@
         "manualPhoto": "Servizio foto manuale"
       }
     },
+    "market": {
+      "vatTitle": "Aggiungi codice IVA per ",
+      "vatSubtitle": "Per questo magazzino serve il numero IVA del paese selezionato.",
+      "vatSave": "Salva IVA",
+      "promptNew": "Crea un nuovo account",
+      "promptSame": "Usa gli stessi dati",
+      "missingVat": "Inserisci un numero IVA"
+    },
     "fba_mode_none": "Non inviare ora",
     "fba_mode_full": "Invia tutte le unità ad Amazon",
     "fba_mode_partial": "Spedizione parziale",
@@ -5102,6 +5142,14 @@
         "photoSubscription": "Suscripción almacenamiento de fotos",
         "manualPhoto": "Captura manual de fotos"
       }
+    },
+    "market": {
+      "vatTitle": "Añadir código de IVA para ",
+      "vatSubtitle": "Para este almacén necesitamos el número de IVA del país seleccionado.",
+      "vatSave": "Guardar IVA",
+      "promptNew": "Crear nueva cuenta",
+      "promptSame": "Usar los mismos datos",
+      "missingVat": "Introduce un número de IVA"
     },
     "fba_mode_none": "No enviar ahora",
     "fba_mode_full": "Enviar todas las unidades a Amazon",
