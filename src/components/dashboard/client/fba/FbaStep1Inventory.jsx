@@ -1365,7 +1365,18 @@ export default function FbaStep1Inventory({
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 space-y-4">
-        <div className="font-semibold text-slate-900">Box details (Step 1)</div>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="font-semibold text-slate-900">Box details (Step 1)</div>
+          {hasUnits && (
+            <button
+              type="button"
+              onClick={applySingleBox}
+              className="text-xs bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 px-3 py-2 rounded-md"
+            >
+              Pune totul într-o singură cutie
+            </button>
+          )}
+        </div>
         {planGroupsForDisplay.map((group) => {
           const groupPlan = getGroupPlan(group.groupId, group.label);
           const boxes = Array.isArray(groupPlan.boxes) ? groupPlan.boxes : [];
