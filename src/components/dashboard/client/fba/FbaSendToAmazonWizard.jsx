@@ -2678,6 +2678,10 @@ export default function FbaSendToAmazonWizard({
         height: dims.height || null,
         weight: g.boxWeight || null
       }));
+      const totalWeight = boxesDetail.reduce(
+        (sum, b) => sum + (getPositiveNumber(b.weight) || 0),
+        0
+      );
 
       return {
         id: g?.shipmentId || g?.shipment_id || base?.shipmentId || base?.id || `s-${idx + 1}`,
@@ -2687,7 +2691,7 @@ export default function FbaSendToAmazonWizard({
         boxes: boxCount,
         skuCount: Number(g.skuCount || 0) || 0,
         units: Number(g.units || 0) || 0,
-        weight: Number(g.boxWeight || 0) || null,
+        weight: totalWeight || null,
         capability: base?.capability || 'Standard',
         boxesDetail,
         source: 'local'
