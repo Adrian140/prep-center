@@ -1417,14 +1417,12 @@ serve(async (req) => {
         });
         packageGroupings = buildPackageGroupingsFromPackingGroups(hydratedGroups);
       } catch (err) {
-        console.error("fetch packing group items failed", { traceId, error: err });
-        return new Response(
-          JSON.stringify({
-            error: "Nu am putut citi packing group items din Amazon. Reincearca in cateva secunde.",
-            traceId
-          }),
-          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
-        );
+        console.warn("fetch packing group items failed, falling back to step1 data", {
+          traceId,
+          error: err instanceof Error ? err.message : String(err)
+        });
+        // Fallback: folosim packingGroups (hydrated cu Step1) chiar dacă Amazon a refuzat listPackingGroupItems.
+        packageGroupings = buildPackageGroupingsFromPackingGroups(mergedPackingGroupsInput);
       }
     }
     if (!packageGroupings.length && mergedPackingGroupsInput.length) {
