@@ -886,6 +886,22 @@
         "noItems": "Add at least one product."
       }
     },
+    "Wizard": {
+      "title": "Send to Amazon",
+      "subtitle": "UI aligned to Amazon steps (live)",
+      "step1Title": "Step 1 - Confirmed inventory to send",
+      "step1bTitle": "Step 1b - Pack individual units",
+      "step2Title": "Step 2 - Confirm shipping",
+      "step3Title": "Step 3 - Box labels printed",
+      "step4Title": "Final step: Tracking details",
+      "viewEdit": "View/Edit",
+      "refresh": "Refresh",
+      "notStarted": "Not started",
+      "packReady": "You can start packing now",
+      "noPackGroups": "No pack groups yet",
+      "trackingCaptured": "Tracking captured",
+      "labelFormat": "Label format"
+    },
     "ClientReceiving": {
       "delete": "Delete",
       "deleting": "Deleting...",
@@ -1749,6 +1765,22 @@
         "noItems": "Adaugă cel puțin un produs."
       }
     },
+    "Wizard": {
+      "title": "Trimite la Amazon",
+      "subtitle": "UI aliniat la pașii Amazon (live)",
+      "step1Title": "Pasul 1 - Inventar confirmat pentru expediere",
+      "step1bTitle": "Pasul 1b - Ambalează unitățile individuale",
+      "step2Title": "Pasul 2 - Confirmă livrarea",
+      "step3Title": "Pasul 3 - Etichete de cutie generate",
+      "step4Title": "Pas final: Detalii de tracking",
+      "viewEdit": "Vezi/Editează",
+      "refresh": "Reîmprospătează",
+      "notStarted": "Neînceput",
+      "packReady": "Poți începe împachetarea",
+      "noPackGroups": "Încă nu există grupuri de ambalare",
+      "trackingCaptured": "Tracking capturat",
+      "labelFormat": "Format etichetă"
+    },
     "ClientReceiving": {
       "delete": "Șterge",
       "deleting": "Se șterge...",
@@ -2584,6 +2616,22 @@
         "noItems": "Ajoutez au moins un article."
       }
     },
+    "Wizard": {
+      "title": "Send to Amazon",
+      "subtitle": "UI aligned to Amazon steps (live)",
+      "step1Title": "Step 1 - Confirmed inventory to send",
+      "step1bTitle": "Step 1b - Pack individual units",
+      "step2Title": "Step 2 - Confirm shipping",
+      "step3Title": "Step 3 - Box labels printed",
+      "step4Title": "Final step: Tracking details",
+      "viewEdit": "View/Edit",
+      "refresh": "Refresh",
+      "notStarted": "Not started",
+      "packReady": "You can start packing now",
+      "noPackGroups": "No pack groups yet",
+      "trackingCaptured": "Tracking captured",
+      "labelFormat": "Label format"
+    },
     "ClientReceiving": {
       "delete": "Supprimer",
       "deleting": "Suppression...",
@@ -3366,6 +3414,22 @@
         "qtyError": "Menge für {asin} muss größer als 0 sein.",
         "noItems": "Fügen Sie mindestens einen Artikel hinzu."
       }
+    },
+    "Wizard": {
+      "title": "Send to Amazon",
+      "subtitle": "UI aligned to Amazon steps (live)",
+      "step1Title": "Step 1 - Confirmed inventory to send",
+      "step1bTitle": "Step 1b - Pack individual units",
+      "step2Title": "Step 2 - Confirm shipping",
+      "step3Title": "Step 3 - Box labels printed",
+      "step4Title": "Final step: Tracking details",
+      "viewEdit": "View/Edit",
+      "refresh": "Refresh",
+      "notStarted": "Not started",
+      "packReady": "You can start packing now",
+      "noPackGroups": "No pack groups yet",
+      "trackingCaptured": "Tracking captured",
+      "labelFormat": "Label format"
     },
     "ClientReceiving": {
       "delete": "Löschen",
@@ -4150,6 +4214,22 @@
         "noItems": "Aggiungi almeno un articolo."
       }
     },
+    "Wizard": {
+      "title": "Send to Amazon",
+      "subtitle": "UI aligned to Amazon steps (live)",
+      "step1Title": "Step 1 - Confirmed inventory to send",
+      "step1bTitle": "Step 1b - Pack individual units",
+      "step2Title": "Step 2 - Confirm shipping",
+      "step3Title": "Step 3 - Box labels printed",
+      "step4Title": "Final step: Tracking details",
+      "viewEdit": "View/Edit",
+      "refresh": "Refresh",
+      "notStarted": "Not started",
+      "packReady": "You can start packing now",
+      "noPackGroups": "No pack groups yet",
+      "trackingCaptured": "Tracking captured",
+      "labelFormat": "Label format"
+    },
     "ClientReceiving": {
       "delete": "Elimina",
       "deleting": "Eliminazione...",
@@ -4932,6 +5012,22 @@
         "qtyError": "La cantidad para {asin} debe ser mayor que 0.",
         "noItems": "Añade al menos un artículo."
       }
+    },
+    "Wizard": {
+      "title": "Send to Amazon",
+      "subtitle": "UI aligned to Amazon steps (live)",
+      "step1Title": "Step 1 - Confirmed inventory to send",
+      "step1bTitle": "Step 1b - Pack individual units",
+      "step2Title": "Step 2 - Confirm shipping",
+      "step3Title": "Step 3 - Box labels printed",
+      "step4Title": "Final step: Tracking details",
+      "viewEdit": "View/Edit",
+      "refresh": "Refresh",
+      "notStarted": "Not started",
+      "packReady": "You can start packing now",
+      "noPackGroups": "No pack groups yet",
+      "trackingCaptured": "Tracking captured",
+      "labelFormat": "Label format"
     },
     "ClientReceiving": {
       "delete": "Eliminar",

@@ -7,6 +7,7 @@ import FbaStep2Shipping from './FbaStep2Shipping';
 import FbaStep3Labels from './FbaStep3Labels';
 import FbaStep4Tracking from './FbaStep4Tracking';
 import { useMarket } from '@/contexts/MarketContext';
+import { useDashboardTranslation } from '@/translations';
 
 const getSafeNumber = (val) => {
   if (val === null || val === undefined) return null;
@@ -267,6 +268,14 @@ export default function FbaSendToAmazonWizard({
   fetchPlan // optional async () => ({ shipFrom, marketplace, skus, packGroups, shipments, skuStatuses, warning, blocking })
 }) {
   const { currentMarket } = useMarket();
+  const { t } = useDashboardTranslation();
+  const tt = useCallback(
+    (key, fallback) => {
+      const val = t(`Wizard.${key}`);
+      return val === `Wizard.${key}` ? fallback ?? val : val;
+    },
+    [t]
+  );
   const stepsOrder = ['1', '1b', '2', '3', '4'];
   const resolveInitialStep = () => {
     if (!historyMode) return '1';
@@ -3471,14 +3480,14 @@ export default function FbaSendToAmazonWizard({
             onClick={() => goToStep(stepKey)}
             className="flex items-center gap-1 text-xs text-blue-700 hover:text-blue-800 whitespace-nowrap"
           >
-            <Eye className="w-4 h-4" /> View/Edit
+            <Eye className="w-4 h-4" /> {tt('viewEdit', 'View/Edit')}
           </button>
           {canRefresh && (
             <button
               onClick={() => refreshStep(stepKey)}
               className="ml-2 text-xs text-slate-600 hover:text-slate-800 border border-slate-200 rounded-md px-2 py-1"
             >
-              Refresh
+              {tt('refresh', 'Refresh')}
             </button>
           )}
         </div>
@@ -3494,48 +3503,48 @@ export default function FbaSendToAmazonWizard({
   return (
     <div className="w-full mx-auto max-w-5xl space-y-4">
       <div className="bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm flex items-center gap-2 text-slate-800 font-semibold">
-        Send to Amazon
-        <span className="text-xs text-slate-500 font-normal">UI aliniat la pașii Amazon (live)</span>
+        {tt('title', 'Send to Amazon')}
+        <span className="text-xs text-slate-500 font-normal">{tt('subtitle', 'UI aligned to Amazon steps (live)')}</span>
       </div>
 
       <div className="space-y-2">
         <StepRow
           stepKey="1"
-          title="Step 1 - Confirmed inventory to send"
+          title={tt('step1Title', 'Step 1 - Confirmed inventory to send')}
           subtitle={`SKUs: ${skuCount} · Units: ${unitCount} · Ship from: ${plan?.shipFrom?.name || plan?.shipFrom?.address || '—'}`}
           summary={plan?.marketplace ? `Marketplace: ${plan.marketplace}` : null}
         />
         <StepRow
           stepKey="1b"
-          title="Step 1b - Pack individual units"
+          title={tt('step1bTitle', 'Step 1b - Pack individual units')}
           subtitle={`Pack groups: ${packGroups?.length || 0} · Units: ${packUnits} · Boxes: ${boxesCount}`}
-          summary={packGroups?.length ? 'You can start packing now' : 'No pack groups yet'}
+          summary={packGroups?.length ? tt('packReady', 'You can start packing now') : tt('noPackGroups', 'No pack groups yet')}
         />
         <StepRow
           stepKey="2"
-          title="Step 2 - Confirm shipping"
+          title={tt('step2Title', 'Step 2 - Confirm shipping')}
           subtitle={
             step2Complete
               ? `Destinations: ${shipmentSummary.dests} · Method: ${shipmentSummary.method} · Carrier: ${shipmentSummary.carrierName}`
-              : 'Not started'
+              : tt('notStarted', 'Not started')
           }
           summary={step2Complete && shipmentMode?.deliveryDate ? `Delivery date: ${shipmentMode.deliveryDate}` : null}
         />
         <StepRow
           stepKey="3"
-          title="Step 3 - Box labels printed"
-          subtitle={step3Complete ? `Shipments: ${shipments?.length || 0}` : 'Not started'}
-          summary={step3Complete ? `Label format: ${labelFormat}` : null}
+          title={tt('step3Title', 'Step 3 - Box labels printed')}
+          subtitle={step3Complete ? `Shipments: ${shipments?.length || 0}` : tt('notStarted', 'Not started')}
+          summary={step3Complete ? `${tt('labelFormat', 'Label format')}: ${labelFormat}` : null}
         />
         <StepRow
           stepKey="4"
-          title="Final step: Tracking details"
+          title={tt('step4Title', 'Final step: Tracking details')}
           subtitle={
             step4Complete
               ? `Boxes: ${trackingSummary.totalBoxes} · Tracking IDs: ${trackingSummary.tracked}`
-              : 'Not started'
+              : tt('notStarted', 'Not started')
           }
-          summary={step4Complete ? 'Tracking captured' : null}
+          summary={step4Complete ? tt('trackingCaptured', 'Tracking captured') : null}
         />
       </div>
     </div>
