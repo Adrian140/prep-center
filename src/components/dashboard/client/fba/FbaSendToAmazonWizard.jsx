@@ -462,17 +462,30 @@ export default function FbaSendToAmazonWizard({
     const discounts = opt?.discounts || opt?.Discounts || [];
     return Array.isArray(discounts) && discounts.length > 0;
   }, []);
+  const optionIsStandard = useCallback(
+    (opt) => {
+      const groups = Array.isArray(opt?.packingGroups || opt?.PackingGroups)
+        ? opt.packingGroups || opt.PackingGroups
+        : [];
+      const groupsCount = opt?.groupsCount ?? groups.length ?? 0;
+      return groupsCount === 1;
+    },
+    []
+  );
   const maybeSelectStandardPackingOption = useCallback(
     (options) => {
       const list = Array.isArray(options) ? options : [];
       if (!list.length) return;
-      const standard = list.find((opt) => !optionHasDiscount(opt));
+      const standard =
+        list.find((opt) => optionIsStandard(opt)) ||
+        list.find((opt) => !optionHasDiscount(opt)) ||
+        list[0];
       if (!standard) return;
       const currentId = packingOptionIdRef.current;
       const currentOpt = list.find(
         (opt) => String(resolvePackingOptionId(opt)) === String(currentId)
       );
-      const shouldSetDefault = !currentId || (currentOpt && optionHasDiscount(currentOpt));
+      const shouldSetDefault = !currentId || (currentOpt && !optionIsStandard(currentOpt));
       if (!shouldSetDefault) return;
       const standardId = resolvePackingOptionId(standard);
       if (!standardId) return;
@@ -484,7 +497,7 @@ export default function FbaSendToAmazonWizard({
         packing_option_id: standardId
       }));
     },
-    [optionHasDiscount, resolvePackingOptionId]
+    [optionHasDiscount, optionIsStandard, resolvePackingOptionId]
   );
   useEffect(() => {
     packGroupsRef.current = packGroups;
