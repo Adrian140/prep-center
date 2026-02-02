@@ -976,7 +976,7 @@ serve(async (req) => {
             : 0
         }))
       : [];
-    const directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
+    let directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
     let packageGroupings: any[] = [];
     if (!requestId || !inboundPlanId) {
       return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare", traceId }), {
@@ -1023,7 +1023,7 @@ serve(async (req) => {
       });
       return merged;
     };
-    const mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
+    let mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
     const mergedPackingGroupsSummary = Array.isArray(mergedPackingGroupsInput)
       ? mergedPackingGroupsInput.map((g: any) => ({
           packingGroupId: g?.packingGroupId || g?.id || g?.groupId || null,
@@ -1229,6 +1229,32 @@ serve(async (req) => {
               { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
             );
           }
+        }
+
+        // Aliniază explicit grupurile locale la lista Amazon (ordine + eliminare extra) ca să evităm 400 BadRequest.
+        const normalizePgId = (g: any) => g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
+        const alignToExpectedIds = (list: any[]) => {
+          const normalized = (Array.isArray(list) ? list : []).map((g: any) => ({
+            ...g,
+            packingGroupId: normalizePgId(g)
+          }));
+          const byId = new Map<string, any>();
+          normalized.forEach((g: any) => {
+            if (g?.packingGroupId) byId.set(String(g.packingGroupId), g);
+          });
+          const fallbackList = normalized.filter(Boolean);
+          return expectedGroups.map((expectedId: any, idx: number) => {
+            const id = String(expectedId);
+            const byIdMatch = byId.get(id);
+            if (byIdMatch) return { ...byIdMatch, packingGroupId: id };
+            const fallback = fallbackList[idx] || fallbackList[0] || {};
+            return { ...fallback, packingGroupId: id };
+          });
+        };
+
+        mergedPackingGroupsInput = alignToExpectedIds(mergedPackingGroupsInput);
+        if (directGroupings.length) {
+          directGroupings = alignToExpectedIds(directGroupings);
         }
       }
     } catch (err) {
