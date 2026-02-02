@@ -2708,12 +2708,8 @@ serve(async (req) => {
         });
 
       const resetInboundPlanId = async () => {
-        if (inboundPlanId && !isLockId(inboundPlanId)) {
-          await supabase
-            .from("prep_requests")
-            .update({ inbound_plan_id: null })
-            .eq("id", requestId)
-            .eq("inbound_plan_id", inboundPlanId);
+        if (inboundPlanId) {
+          await supabase.from("prep_requests").update({ inbound_plan_id: null }).eq("id", requestId);
         }
         inboundPlanId = null;
         inboundPlanStatus = null;
