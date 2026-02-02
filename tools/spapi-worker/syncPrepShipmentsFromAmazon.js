@@ -299,6 +299,7 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   let shipmentRes = null;
   let pickedMarketplace = null;
   let lastShipmentError = null;
+  let transportDeprecated = false;
 
   for (const mp of mpCandidates) {
     try {
@@ -451,6 +452,10 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
       null;
     transportStatus = transportTopStatus || derivedFromPackages || null;
   } catch (err) {
+    const msg = err?.message || '';
+    if (msg.includes('deprecated')) {
+      transportDeprecated = true;
+    }
     console.warn(
       `[Prep shipments sync] Failed to fetch transport details for ${shipmentId}: ${err.message || err}`
     );
@@ -497,7 +502,7 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
 
   logUnknownAmazonStatus(shipmentId, snapshot.status, shipment);
 
-  return { snapshot, items };
+  return { snapshot, items, transportDeprecated };
 }
 
 async function updatePrepRequest(id, patch) {
@@ -591,7 +596,7 @@ async function main() {
 
       const client = spClientCache.get(key);
       try {
-        const { snapshot: snap, items: amazonItems } = await fetchShipmentSnapshot(
+        const { snapshot: snap, items: amazonItems, transportDeprecated } = await fetchShipmentSnapshot(
           client,
           row.fba_shipment_id,
           marketplaceId
@@ -604,7 +609,19 @@ async function main() {
           else prepStatusResolved = 'pending';
         }
         const resolvedLastUpdated = snap.last_updated || new Date().toISOString();
-        const nextStatus = snap.transport_status || snap.status || 'UNKNOWN';
+        const candidateStatus = snap.transport_status || snap.status || 'UNKNOWN';
+        let nextStatus = candidateStatus;
+        const downgradeStatuses = new Set(['WORKING', 'RECEIVING', 'UNKNOWN', null, undefined]);
+        const priorStatus = row.amazon_status || null;
+        if (!snap.transport_status && transportDeprecated) {
+          const priorIsBetter =
+            priorStatus &&
+            !downgradeStatuses.has(priorStatus) &&
+            downgradeStatuses.has(candidateStatus);
+          if (priorIsBetter) {
+            nextStatus = priorStatus;
+          }
+        }
         const shouldSkipClosedUpdate =
           row.amazon_status === 'CLOSED' && nextStatus === 'CLOSED';
         if (!shouldSkipClosedUpdate) {
