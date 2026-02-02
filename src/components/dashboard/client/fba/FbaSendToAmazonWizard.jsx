@@ -1535,9 +1535,62 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     [planUnitsByKey]
   );
 
-  const packGroupsForUnits = useMemo(() => {
+  const decoratePackGroup = useCallback(
+    (g) => {
+      const { planGroup } = resolvePlanGroupForPackGroup(g);
+      const planBoxes = Array.isArray(planGroup?.boxes) ? planGroup.boxes : [];
+      const planBoxItems = Array.isArray(planGroup?.boxItems) ? planGroup.boxItems : [];
+      const planPerBoxDetails = planBoxes
+        .map((box) => {
+          const length = getPositiveNumber(box?.length_cm ?? box?.length);
+          const width = getPositiveNumber(box?.width_cm ?? box?.width);
+          const height = getPositiveNumber(box?.height_cm ?? box?.height);
+          const weight = getPositiveNumber(box?.weight_kg ?? box?.weight);
+          if (!(length && width && height && weight)) return null;
+          return { length, width, height, weight };
+        })
+        .filter(Boolean);
+      const fallbackDims = planPerBoxDetails[0]
+        ? { length: planPerBoxDetails[0].length, width: planPerBoxDetails[0].width, height: planPerBoxDetails[0].height }
+        : null;
+      const fallbackWeight = planPerBoxDetails[0]?.weight ?? null;
+      const resolvedDims = getSafeDims(g?.boxDimensions) || getSafeDims(fallbackDims);
+      const resolvedWeight = getPositiveNumber(g?.boxWeight) || getPositiveNumber(fallbackWeight);
+      const boxes = Math.max(1, Number(g?.boxes || planBoxes.length || 1));
+      const packMode = g?.packMode || (boxes > 1 ? 'multiple' : 'single');
+      const perBoxDetails =
+        Array.isArray(g?.perBoxDetails) && g.perBoxDetails.length
+          ? g.perBoxDetails
+          : planPerBoxDetails.length
+            ? planPerBoxDetails
+            : null;
+      const perBoxItems =
+        Array.isArray(g?.perBoxItems) && g.perBoxItems.length
+          ? g.perBoxItems
+          : planBoxItems.length
+            ? planBoxItems
+            : null;
+      return {
+        ...g,
+        boxes,
+        packMode,
+        boxDimensions: resolvedDims || null,
+        boxWeight: resolvedWeight ?? null,
+        perBoxDetails,
+        perBoxItems
+      };
+    },
+    [resolvePlanGroupForPackGroup]
+  );
+
+  const packGroupsDecorated = useMemo(() => {
     if (!Array.isArray(packGroups)) return [];
-    return packGroups
+    return packGroups.map((g) => decoratePackGroup(g));
+  }, [packGroups, decoratePackGroup]);
+
+  const packGroupsForUnits = useMemo(() => {
+    if (!Array.isArray(packGroupsDecorated)) return [];
+    return packGroupsDecorated
       .map((g) => {
         const items = normalizeGroupItemsForUnits(g?.items || []);
         if (!items.length) return null;
@@ -1550,7 +1603,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         };
       })
       .filter(Boolean);
-  }, [packGroups, normalizeGroupItemsForUnits]);
+  }, [packGroupsDecorated, normalizeGroupItemsForUnits]);
 
   const packGroupsPreviewForUnits = useMemo(() => {
     if (!Array.isArray(packGroupsPreview)) return [];
@@ -1569,7 +1622,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       .filter(Boolean);
   }, [packGroupsPreview, normalizeGroupItemsForUnits]);
 
-  const packGroupsForAuto = useMemo(() => (Array.isArray(packGroups) ? packGroups : []), [packGroups]);
+  const packGroupsForAuto = useMemo(() => (Array.isArray(packGroupsDecorated) ? packGroupsDecorated : []), [packGroupsDecorated]);
 
   const autoPackingEnabled = useMemo(() => {
     if (historyMode) return false;
@@ -1823,7 +1876,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
   }
 
-  const buildPackingPayload = (groups = packGroups) => {
+  const buildPackingPayload = (groups = packGroupsDecorated) => {
     if (!Array.isArray(groups) || groups.length === 0) {
       return { packingGroups: [], missingGroupId: false };
     }
