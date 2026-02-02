@@ -1276,15 +1276,6 @@ export default function FbaStep1Inventory({
           <div className="font-semibold text-slate-900">Step 1 - Confirmed inventory to send</div>
           <div className="text-sm text-slate-500">SKUs confirmed ({skus.length})</div>
         </div>
-        <div className="flex gap-2 items-center">
-          <button
-            type="button"
-            onClick={applySingleBox}
-            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md shadow-sm"
-          >
-            Add all units to one box
-          </button>
-        </div>
       </div>
 
       {(error || hasBlocking) && (
