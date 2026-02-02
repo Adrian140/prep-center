@@ -868,6 +868,94 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     []
   );
 
+  const buildFallbackPackGroups = useCallback(
+    (skus = []) => {
+      const groups = step1PlanGroupsData?.groups || {};
+      const entries = Object.entries(groups);
+      if (!entries.length) {
+        return [buildLocalSinglePackGroup(skus)];
+      }
+      return entries.map(([key, value], idx) => {
+        const boxes = Array.isArray(value?.boxes) ? value.boxes : [];
+        const boxCount = boxes.length || 1;
+        const perBoxDetails = boxes.map((b) => ({
+          length: b?.length_cm ?? b?.length ?? '',
+          width: b?.width_cm ?? b?.width ?? '',
+          height: b?.height_cm ?? b?.height ?? '',
+          weight: b?.weight_kg ?? b?.weight ?? ''
+        }));
+        const perBoxItems = Array.isArray(value?.boxItems) ? value.boxItems : [];
+        const totals = new Map();
+        perBoxItems.forEach((box) => {
+          Object.entries(box || {}).forEach(([skuKey, qty]) => {
+            const keyUp = String(skuKey || '').trim().toUpperCase();
+            if (!keyUp) return;
+            const add = Number(qty || 0) || 0;
+            totals.set(keyUp, (totals.get(keyUp) || 0) + add);
+          });
+        });
+        const skuMap = new Map();
+        (Array.isArray(skus) ? skus : []).forEach((sku) => {
+          const k = String(sku.sku || sku.msku || sku.SellerSKU || sku.asin || sku.id || '').trim().toUpperCase();
+          if (k) skuMap.set(k, sku);
+        });
+        const items =
+          totals.size > 0
+            ? Array.from(totals.entries())
+                .filter(([, qty]) => qty > 0)
+                .map(([k, qty]) => {
+                  const match = skuMap.get(k);
+                  return {
+                    sku: match?.sku || match?.msku || match?.SellerSKU || match?.asin || match?.id || k,
+                    quantity: qty,
+                    image: match?.image || match?.thumbnail || match?.main_image || match?.img || null,
+                    title: match?.title || match?.product_name || match?.name || null,
+                    apiLabelOwner: match?.labelOwner || match?.label_owner || null,
+                    labelOwner: match?.labelOwner || match?.label_owner || null,
+                    prepOwner: match?.prepOwner || match?.prep_owner || null,
+                    expiration: match?.expiration || match?.expiry || match?.expiryDate || null
+                  };
+                })
+            : (Array.isArray(skus) ? skus : []).map((sku) => ({
+                sku: sku.sku || sku.msku || sku.SellerSKU || sku.asin || sku.id || '',
+                quantity: Number(sku.units || 0) || 0,
+                image: sku.image || sku.thumbnail || sku.main_image || sku.img || null,
+                title: sku.title || sku.product_name || sku.name || null,
+                apiLabelOwner: sku.labelOwner || sku.label_owner || null,
+                labelOwner: sku.labelOwner || sku.label_owner || null,
+                prepOwner: sku.prepOwner || sku.prep_owner || null,
+                expiration: sku.expiration || sku.expiry || sku.expiryDate || null
+              }));
+        const firstBox = boxes[0] || {};
+        const singleDims =
+          boxCount === 1
+            ? {
+                length: firstBox?.length_cm ?? firstBox?.length ?? '',
+                width: firstBox?.width_cm ?? firstBox?.width ?? '',
+                height: firstBox?.height_cm ?? firstBox?.height ?? ''
+              }
+            : null;
+        const singleWeight = boxCount === 1 ? firstBox?.weight_kg ?? firstBox?.weight ?? '' : null;
+        const isMultiple = boxCount > 1;
+        return {
+          id: key || `pack-${idx + 1}`,
+          packingGroupId: key || `pack-${idx + 1}`,
+          title: value?.groupLabel || value?.label || `Pack group ${idx + 1}`,
+          packMode: isMultiple ? 'multiple' : 'single',
+          boxes: boxCount,
+          boxDimensions: isMultiple ? null : singleDims,
+          boxWeight: isMultiple ? null : singleWeight,
+          perBoxDetails: isMultiple ? perBoxDetails : null,
+          perBoxItems: isMultiple ? perBoxItems : null,
+          contentInformationSource: isMultiple ? 'BOX_CONTENT_PROVIDED' : null,
+          packingConfirmed: false,
+          items
+        };
+      });
+    },
+    [buildLocalSinglePackGroup, step1PlanGroupsData?.groups]
+  );
+
   // Dacă nu avem inboundPlanId și Amazon nu a trimis packGroups, creează un grup unic local (Pack group 1)
   // pentru a permite UI să continue packing fără prompt suplimentar.
   useEffect(() => {
@@ -876,10 +964,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const hasSkus = Array.isArray(plan?.skus) && plan.skus.some((s) => Number(s?.units || 0) > 0);
     if (inboundId || hasGroups || !hasSkus) return;
     setAllowNoInboundPlan(true);
-    const singleGroup = buildLocalSinglePackGroup(plan.skus);
-    setPackGroups([singleGroup]);
+    const fallbackGroups = buildFallbackPackGroups(plan.skus);
+    setPackGroups(fallbackGroups);
     setPackGroupsLoaded(true);
-  }, [packGroups, plan?.skus, resolveInboundPlanId, buildLocalSinglePackGroup]);
+  }, [packGroups, plan?.skus, resolveInboundPlanId, buildFallbackPackGroups]);
 
   // Dacă avem inboundPlanId dar Amazon nu trimite packGroups, folosește fallback cu un singur grup local.
   useEffect(() => {
@@ -887,10 +975,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const hasGroups = Array.isArray(packGroups) && packGroups.length > 0;
     const hasSkus = Array.isArray(plan?.skus) && plan.skus.some((s) => Number(s?.units || 0) > 0);
     if (!inboundId || hasGroups || !hasSkus) return;
-    const singleGroup = buildLocalSinglePackGroup(plan.skus);
-    setPackGroups([singleGroup]);
+    const fallbackGroups = buildFallbackPackGroups(plan.skus);
+    setPackGroups(fallbackGroups);
     setPackGroupsLoaded(true);
-  }, [plan?.skus, packGroups, resolveInboundPlanId, buildLocalSinglePackGroup]);
+  }, [plan?.skus, packGroups, resolveInboundPlanId, buildFallbackPackGroups]);
 
   // Persistăm ultimul pas vizitat ca să nu se piardă la refresh (cheie per shipment).
   const storageKeyBase = useMemo(() => {
@@ -3297,26 +3385,21 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   function completeAndNext(stepKey) {
     const idx = stepsOrder.indexOf(stepKey);
     setCompletedSteps((prev) => Array.from(new Set([...prev, stepKey])));
-    if (stepKey === '1' && allowNoInboundPlan && !resolveInboundPlanId()) {
-      setCurrentStep('2');
-      return;
-    }
     const nextKey = stepsOrder[idx + 1] || stepKey;
     setCurrentStep(nextKey);
   }
 
   const goToStep = (stepKey) => {
     if (!stepsOrder.includes(stepKey)) return;
-    if (stepKey === '1b' && allowNoInboundPlan && !resolveInboundPlanId()) {
-      setCurrentStep('2');
-      return;
-    }
     setCurrentStep(stepKey);
     if (stepKey === '1b') {
       const inboundId = resolveInboundPlanId();
       if (allowNoInboundPlan && !inboundId) {
         setPackGroupsLoaded(true);
-        setPackGroups([]);
+        if (!Array.isArray(packGroups) || !packGroups.length) {
+          const fallbackGroups = buildFallbackPackGroups(plan?.skus || []);
+          setPackGroups(fallbackGroups);
+        }
         return;
       }
       refreshPackingGroups();
@@ -3385,8 +3468,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         setStep1SaveError('');
         setInboundPlanMissing(true);
         setPackGroupsLoaded(true);
-        setPackGroups([]);
-        completeAndNext('1');
+        const fallbackGroups = buildFallbackPackGroups(plan?.skus || []);
+        setPackGroups(fallbackGroups);
+        setCompletedSteps((prev) => Array.from(new Set([...prev, '1'])));
+        setCurrentStep('1b');
         return;
       }
 
