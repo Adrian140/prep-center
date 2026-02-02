@@ -7,6 +7,7 @@ const STATUS_LIST = [
   'SHIPPED',
   'IN_TRANSIT',
   'RECEIVING',
+  'CHECKED_IN',
   'DELIVERED',
   'CLOSED',
   'CANCELLED',
@@ -225,13 +226,21 @@ async function fetchPrepRequests() {
 
 const normalizeShipmentIds = (raw) => {
   if (!raw) return [];
-  return String(raw)
+  const ids = String(raw)
     .split(/[\/,]/)
     .map((s) => s.trim().toUpperCase())
     .flatMap((chunk) => chunk.split(/\s+/))
     .map((s) => s.replace(/%20/g, ''))
     .map((s) => s.replace(/\s+/g, ''))
     .filter((s) => s.length > 0);
+  const unique = Array.from(new Set(ids));
+  const isLikelyFba = (id) => /^FBA[A-Z0-9]+$/.test(id);
+  const fbaIds = unique.filter(isLikelyFba);
+  const sanitized = unique.filter((id) => /^[A-Z0-9_-]+$/.test(id));
+  if (fbaIds.length) {
+    return [...fbaIds, ...sanitized.filter((id) => !fbaIds.includes(id))];
+  }
+  return sanitized;
 };
 
 const resolveMarketplaceId = (integration) => {
@@ -263,10 +272,11 @@ const logUnknownAmazonStatus = (shipmentId, status, rawShipment) => {
 async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   const candidates = normalizeShipmentIds(rawShipmentId);
   const shipmentId = candidates[0] || rawShipmentId;
+  const primaryIdList = candidates.length ? candidates : [shipmentId];
 
-  const tryFetchShipments = async (mpId, withStatusList = true) => {
+  const tryFetchShipments = async (shipmentIds, mpId, withStatusList = true) => {
     const query = {
-      ShipmentIdList: candidates.length ? candidates : [shipmentId]
+      ShipmentIdList: shipmentIds
     };
     if (withStatusList) {
       query.ShipmentStatusList = STATUS_LIST;
@@ -288,16 +298,18 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
 
   let shipmentRes = null;
   let pickedMarketplace = null;
+  let lastShipmentError = null;
 
   for (const mp of mpCandidates) {
     try {
-      shipmentRes = await tryFetchShipments(mp, true);
+      shipmentRes = await tryFetchShipments(primaryIdList, mp, true);
       pickedMarketplace = mp;
       if (shipmentRes?.payload?.ShipmentData?.length) break;
     } catch (err) {
+      lastShipmentError = err;
       // încercăm fără MarketplaceId dacă e invalid
       try {
-        shipmentRes = await tryFetchShipments(null, true);
+        shipmentRes = await tryFetchShipments(primaryIdList, null, true);
         pickedMarketplace = null;
       } catch {
         continue;
@@ -310,16 +322,41 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   if (!shipmentRes?.payload?.ShipmentData?.length) {
     for (const mp of mpCandidates) {
       try {
-        shipmentRes = await tryFetchShipments(mp, false);
+        shipmentRes = await tryFetchShipments(primaryIdList, mp, false);
         pickedMarketplace = mp;
         if (shipmentRes?.payload?.ShipmentData?.length) break;
       } catch (err) {
+        lastShipmentError = err;
         try {
-          shipmentRes = await tryFetchShipments(null, false);
+          shipmentRes = await tryFetchShipments(primaryIdList, null, false);
           pickedMarketplace = null;
         } catch {
           continue;
         }
+      }
+      if (shipmentRes?.payload?.ShipmentData?.length) break;
+    }
+  }
+
+  // fallback suplimentar: dacă lista cu mai multe ID-uri e invalidă, încearcă fiecare ID individual
+  if (!shipmentRes?.payload?.ShipmentData?.length && primaryIdList.length > 1) {
+    for (const candidate of primaryIdList) {
+      for (const mp of mpCandidates) {
+        try {
+          shipmentRes = await tryFetchShipments([candidate], mp, false);
+          pickedMarketplace = mp;
+          if (shipmentRes?.payload?.ShipmentData?.length) break;
+        } catch (err) {
+          lastShipmentError = err;
+          try {
+            shipmentRes = await tryFetchShipments([candidate], null, false);
+            pickedMarketplace = null;
+          } catch (innerErr) {
+            lastShipmentError = innerErr;
+            continue;
+          }
+        }
+        if (shipmentRes?.payload?.ShipmentData?.length) break;
       }
       if (shipmentRes?.payload?.ShipmentData?.length) break;
     }
@@ -337,7 +374,7 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
     console.warn(
       `[Prep shipments sync] Shipment not found in Amazon response for ${shipmentId}; candidates: ${candidates.join(
         ','
-      )}. Payload len: ${shipmentList.length}`
+      )}. Payload len: ${shipmentList.length}${lastShipmentError ? `; last error: ${lastShipmentError.message || lastShipmentError}` : ''}`
     );
     throw new Error(`Shipment not found for ${shipmentId}`);
   }
