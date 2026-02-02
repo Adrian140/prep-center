@@ -2471,6 +2471,11 @@ serve(async (req) => {
       inboundPlanId = null;
     }
 
+    // Dacă nu avem încă un inboundPlanId dar snapshot-ul salvat conține unul valid, îl reutilizăm pentru UI/Step1b.
+    if (!inboundPlanId && snapshotInboundPlanId && !isLockId(snapshotInboundPlanId)) {
+      inboundPlanId = snapshotInboundPlanId;
+    }
+
     // Acquire a lightweight lock to avoid creating multiple inbound plans in parallel for același request.
     if (!inboundPlanId) {
       const { data: claimedRow, error: claimErr } = await supabase
