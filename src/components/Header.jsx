@@ -20,12 +20,23 @@ const useSafeMarket = () => {
 const ADDRESS_BY_MARKET = {
   FR: {
     label: 'PrepCenter France',
+    shortLabel: 'France',
     company: 'EcomPrep Hub',
     phone: '+33 6 75 11 62 18',
     address: '5 Rue des Enclos, Cellule 7',
     postal: '35350',
     city: 'La Gouesniere',
     country: 'France'
+  },
+  DE: {
+    label: 'PrepCenter Germany',
+    shortLabel: 'Germany',
+    company: 'EcomPrep Hub',
+    phone: '+49 176 24963618',
+    address: 'Zienestrasse 12',
+    postal: '77709',
+    city: 'Wolfach',
+    country: 'Germany'
   }
 };
 
@@ -45,7 +56,7 @@ function Header() {
   const marketCode = normalizeMarketCode(currentMarket) || 'FR';
   const addressRef = useRef(null);
   const [showAddress, setShowAddress] = useState(false);
-  const addressData = ADDRESS_BY_MARKET[marketCode];
+  const addressData = ADDRESS_BY_MARKET[marketCode] || ADDRESS_BY_MARKET.FR;
   const customerCompanyLabel = `${addressData?.company || ''}${
     profile?.company_name ? ` (${profile.company_name})` : ''
   }`.trim();
@@ -192,7 +203,7 @@ function Header() {
                 className="font-medium text-primary whitespace-nowrap"
                 style={{ fontSize: 'clamp(11px, 1.2vw, 13px)' }}
               >
-                France
+                {addressData?.shortLabel || 'France'}
               </span>
             </div>
           </Link>
