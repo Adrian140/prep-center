@@ -3250,6 +3250,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const persistStep1AndReloadPlan = useCallback(async () => {
     const isUuid = (val) => typeof val === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val);
     const requestId = resolveRequestId();
+    const inboundPlanIdCurrent = resolveInboundPlanId();
+    const bypassMissingInbound = allowNoInboundPlan && !inboundPlanIdCurrent;
     const updates = (Array.isArray(plan?.skus) ? plan.skus : [])
       .map((sku) => {
         if (!sku?.id) return null;
@@ -3267,6 +3269,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       completeAndNext('1');
       return;
     }
+    // dacă suntem în modul bypass (fără inboundPlanId) evităm așteptarea packing groups și continuăm direct după salvare
     setStep1Saving(true);
     setStep1SaveError('');
     setPlanError('');
@@ -3300,6 +3303,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           .update({ units_sent: row.units_sent })
           .eq('id', row.id);
         if (saveErr) throw saveErr;
+      }
+
+      if (bypassMissingInbound) {
+        setStep1SaveError('');
+        setInboundPlanMissing(true);
+        completeAndNext('1');
+        return;
       }
 
       const { error: resetErr } = await supabase
