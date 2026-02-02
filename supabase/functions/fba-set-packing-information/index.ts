@@ -1027,6 +1027,29 @@ serve(async (req) => {
 
     // Inject dims/weight/perBoxItems din step1_box_plan dacă lipsesc în packingGroups (common case: plan Amazon nu furnizează dims).
     const step1BoxPlan = (reqData as any)?.step1_box_plan || {};
+    const extractStep1FirstGroup = () => {
+      const countryNodes = Object.values(step1BoxPlan || {});
+      const candidate = countryNodes.find((n: any) => n?.groups && Object.keys(n.groups).length > 0) as any;
+      const groupsNode = candidate?.groups || {};
+      const first = Object.values(groupsNode)[0] as any;
+      if (!first) return null;
+      const firstBox = Array.isArray(first?.boxes) ? first.boxes[0] : null;
+      if (!firstBox) return null;
+      const toNum = (v: any) => (v == null ? null : Number(v));
+      const dims = normalizeDimensions({
+        length: toNum(firstBox.length_cm) ?? toNum(firstBox.length),
+        width: toNum(firstBox.width_cm) ?? toNum(firstBox.width),
+        height: toNum(firstBox.height_cm) ?? toNum(firstBox.height),
+        unit: "CM"
+      });
+      const weight = normalizeWeight({
+        value: toNum(firstBox.weight_kg) ?? toNum(firstBox.weight),
+        unit: "KG"
+      });
+      const perBoxItems = Array.isArray(first?.boxItems) ? first.boxItems : [];
+      return dims && weight ? { dims, weight, perBoxItems } : null;
+    };
+    const step1FirstGroup = extractStep1FirstGroup();
     const extractFirstBoxMeta = () => {
       // destCountry nu este disponibil în această funcție; folosim country din request body dacă există.
       const countryFromBody = (
@@ -1081,6 +1104,27 @@ serve(async (req) => {
           ...g,
           dimensions: hasDims ? g.dimensions || g.boxDimensions : fallbackBoxMeta.dimensions,
           weight: hasWeight ? g.weight || g.boxWeight : fallbackBoxMeta.weight,
+          ...(perBoxItems.length ? { perBoxItems } : {})
+        };
+      });
+    }
+
+    // Dacă nici fallbackBoxMeta nu a acoperit perBoxItems, încercăm cu primul grup din step1_box_plan.
+    if (step1FirstGroup && Array.isArray(mergedPackingGroupsInput)) {
+      mergedPackingGroupsInput = mergedPackingGroupsInput.map((g: any) => {
+        const perBoxItemsPresent = Array.isArray(g?.perBoxItems) && g.perBoxItems.length;
+        const dimsPresent = g?.dimensions || g?.boxDimensions;
+        const weightPresent = g?.weight || g?.boxWeight;
+        if (perBoxItemsPresent && dimsPresent && weightPresent) return g;
+        const perBoxItems = perBoxItemsPresent
+          ? g.perBoxItems
+          : Array.isArray(step1FirstGroup.perBoxItems)
+          ? step1FirstGroup.perBoxItems
+          : [];
+        return {
+          ...g,
+          dimensions: dimsPresent ? g.dimensions || g.boxDimensions : step1FirstGroup.dims,
+          weight: weightPresent ? g.weight || g.boxWeight : step1FirstGroup.weight,
           ...(perBoxItems.length ? { perBoxItems } : {})
         };
       });
