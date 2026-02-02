@@ -1905,9 +1905,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         return;
       }
 
+      // Default to BOX_CONTENT_PROVIDED so we don't silently fall back to MANUAL_PROCESS (which drops items).
       const contentInformationSource =
         g.contentInformationSource ||
-        (isMultiple ? "BOX_CONTENT_PROVIDED" : planBoxItems.length ? "BOX_CONTENT_PROVIDED" : null);
+        (isMultiple ? "BOX_CONTENT_PROVIDED" : "BOX_CONTENT_PROVIDED");
       packingGroupsPayload.push({
         packingGroupId,
         boxes: count,
