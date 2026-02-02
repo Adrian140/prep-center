@@ -2411,6 +2411,7 @@ serve(async (req) => {
     let operationProblems: any[] = [];
     let operationRaw: any = null;
     let createHttpStatus: number | null = null;
+    let retriedPrepMissing = false;
 
     const inboundPlanErrored = (status: string | null) =>
       String(status || "").toUpperCase() === "ERRORED";
@@ -2582,7 +2583,26 @@ serve(async (req) => {
         }
 
         if (!changed) {
-          break;
+          // Dacă lipsesc prep classifications raportate în response text/json, încearcă cu SELLER
+          const missingPrepSkus = extractMissingPrepClassification(res.json, res.text || "");
+          if (missingPrepSkus.length) {
+            missingPrepSkus.forEach((sku) => {
+              const key = normalizeSku(sku);
+              if (!key) return;
+              appliedOverrides[key] = appliedOverrides[key] || {};
+              if (appliedOverrides[key].prepOwner !== "SELLER") {
+                appliedOverrides[key].prepOwner = "SELLER";
+                changed = true;
+              }
+              if (appliedOverrides[key].labelOwner !== "SELLER") {
+                appliedOverrides[key].labelOwner = "SELLER";
+                changed = true;
+              }
+            });
+          }
+          if (!changed) {
+            break;
+          }
         }
       }
     }
@@ -2594,6 +2614,30 @@ serve(async (req) => {
       operationProblems = operationProblems.length ? operationProblems : (opRes?.problems || []);
       operationRaw = operationRaw || opRes?.raw || null;
       if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
+        // Dacă eșecul e din prep classification missing, încearcă o singură dată cu SELLER prep/label.
+        const missingPrepSkus = extractMissingPrepClassification(opRes || {}, "");
+        if (missingPrepSkus.length && !retriedPrepMissing) {
+          retriedPrepMissing = true;
+          inboundPlanId = null;
+          inboundPlanStatus = null;
+          operationId = null;
+          operationStatus = null;
+          operationProblems = [];
+          operationRaw = null;
+          plans = [];
+          _lastPackingOptions = [];
+          _lastPlacementOptions = [];
+          missingPrepSkus.forEach((sku) => {
+            const key = normalizeSku(sku);
+            if (!key) return;
+            appliedOverrides[key] = appliedOverrides[key] || {};
+            appliedOverrides[key].prepOwner = "SELLER";
+            appliedOverrides[key].labelOwner = "SELLER";
+          });
+          // relansează createInboundPlan cu overrides actualizate
+          attempt = 0;
+          continue;
+        }
         inboundPlanStatus = "ERRORED";
       }
     }
