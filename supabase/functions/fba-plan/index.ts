@@ -2415,8 +2415,17 @@ serve(async (req) => {
       String(status || "").toUpperCase() === "ERRORED";
 
     if (inboundPlanId) {
-      // Dacă inbound_plan_id este încă un LOCK local, nu încerca să îl citești din Amazon.
+      // Dacă inbound_plan_id este încă un LOCK local, curățăm din DB și nu lovim Amazon cu el.
       if (isLockId(inboundPlanId)) {
+        try {
+          await supabase
+            .from("prep_requests")
+            .update({ inbound_plan_id: null })
+            .eq("id", requestId)
+            .eq("inbound_plan_id", inboundPlanId);
+        } catch (lockClearErr) {
+          console.warn("fba-plan clear lock inbound_plan_id failed", { traceId, error: lockClearErr });
+        }
         inboundPlanId = null;
       }
     }
