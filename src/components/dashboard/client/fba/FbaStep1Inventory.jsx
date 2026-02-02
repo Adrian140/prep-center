@@ -181,6 +181,7 @@ export default function FbaStep1Inventory({
   const [boxIndexDrafts, setBoxIndexDrafts] = useState({});
   const [boxQtyDrafts, setBoxQtyDrafts] = useState({});
   const [boxDimDrafts, setBoxDimDrafts] = useState({});
+  const [singleBoxMode, setSingleBoxMode] = useState(false);
 
   const normalizedPackGroups = Array.isArray(packGroupsPreview) ? packGroupsPreview : [];
   const hasPackGroups = normalizedPackGroups.some((g) => Array.isArray(g?.items) && g.items.length > 0);
@@ -192,6 +193,11 @@ export default function FbaStep1Inventory({
     const groups = raw?.groups && typeof raw.groups === 'object' ? raw.groups : {};
     return { groups };
   }, [boxPlan]);
+  useEffect(() => {
+    const keys = Object.keys(safeBoxPlan.groups || {});
+    const isSingle = keys.length === 1 && keys[0] === 'single-box';
+    setSingleBoxMode(isSingle);
+  }, [safeBoxPlan.groups]);
   const continueDisabled =
     hasBlocking ||
     saving ||
@@ -219,6 +225,16 @@ export default function FbaStep1Inventory({
 
   const getGroupPlan = useCallback(
     (groupId, labelFallback) => {
+      if (singleBoxMode) {
+        const single = safeBoxPlan.groups?.['single-box'];
+        if (single) {
+          return {
+            groupLabel: single.groupLabel || labelFallback || 'Single box',
+            boxes: Array.isArray(single.boxes) ? single.boxes : [],
+            boxItems: Array.isArray(single.boxItems) ? single.boxItems : []
+          };
+        }
+      }
       const existing = safeBoxPlan.groups?.[groupId];
       if (existing && typeof existing === 'object') {
         return {
@@ -238,6 +254,31 @@ export default function FbaStep1Inventory({
     },
     [onBoxPlanChange]
   );
+
+  const applySingleBox = useCallback(() => {
+    const totalItems = {};
+    skus.forEach((sku) => {
+      const qty = Math.max(0, Number(sku.units || 0));
+      if (!qty) return;
+      const key = sku.sku || sku.asin || sku.id;
+      totalItems[key] = qty;
+    });
+    const singleBox = {
+      groupLabel: 'Single box',
+      boxes: [
+        {
+          id: 'box-1',
+          length_cm: 30,
+          width_cm: 30,
+          height_cm: 30,
+          weight_kg: 1
+        }
+      ],
+      boxItems: [totalItems]
+    };
+    updateBoxPlan({ 'single-box': singleBox });
+    setSingleBoxMode(true);
+  }, [skus, updateBoxPlan]);
 
   const preventEnterSubmit = useCallback((event) => {
     if (event.key === 'Enter') {
@@ -483,6 +524,9 @@ export default function FbaStep1Inventory({
   })();
 
   const planGroupsForDisplay = useMemo(() => {
+    if (singleBoxMode) {
+      return [{ groupId: 'single-box', label: 'Single box' }];
+    }
     const groupRows = groupedRows
       .filter((row) => row.type === 'group')
       .map((row) => ({
@@ -491,9 +535,18 @@ export default function FbaStep1Inventory({
       }));
     if (groupRows.length) return groupRows;
     return packGroupMeta;
-  }, [groupedRows, packGroupMeta]);
+  }, [groupedRows, packGroupMeta, singleBoxMode]);
 
   const skuGroupMap = useMemo(() => {
+    if (singleBoxMode) {
+      const map = new Map();
+      groupedRows.forEach((row) => {
+        if (row.type === 'sku') {
+          map.set(row.sku.id, { groupId: 'single-box', groupLabel: 'Single box' });
+        }
+      });
+      return map;
+    }
     const map = new Map();
     groupedRows.forEach((row) => {
       if (row.type === 'sku') {
@@ -504,7 +557,7 @@ export default function FbaStep1Inventory({
       }
     });
     return map;
-  }, [groupedRows]);
+  }, [groupedRows, singleBoxMode]);
 
   const boxPlanValidation = useMemo(() => {
     const issues = [];
@@ -1156,10 +1209,21 @@ export default function FbaStep1Inventory({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-      <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
-        <CheckCircle className="w-5 h-5 text-emerald-600" />
-        <div className="font-semibold text-slate-900">Step 1 - Confirmed inventory to send</div>
-        <div className="text-sm text-slate-500">SKUs confirmed ({skus.length})</div>
+      <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center gap-3 justify-between">
+        <div className="flex items-center gap-3 flex-wrap">
+          <CheckCircle className="w-5 h-5 text-emerald-600" />
+          <div className="font-semibold text-slate-900">Step 1 - Confirmed inventory to send</div>
+          <div className="text-sm text-slate-500">SKUs confirmed ({skus.length})</div>
+        </div>
+        <div className="flex gap-2 items-center">
+          <button
+            type="button"
+            onClick={applySingleBox}
+            className="text-xs bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 px-3 py-2 rounded-md"
+          >
+            Put everything in one box
+          </button>
+        </div>
       </div>
 
       {(error || hasBlocking) && (
