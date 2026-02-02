@@ -2722,8 +2722,8 @@ serve(async (req) => {
       if (planActive) {
         const missingPlanId = !inboundPlanId || isLockId(inboundPlanId);
         const missingShipments = !plans || !plans.length;
-        if (missingPlanId || missingShipments) {
-          console.error("createInboundPlan active but missing shipments/inboundPlanId", {
+        if (missingPlanId) {
+          console.error("createInboundPlan active but missing inboundPlanId", {
             traceId,
             status: createHttpStatus,
             inboundPlanId,
@@ -2738,7 +2738,7 @@ serve(async (req) => {
           await resetInboundPlanId();
           const fallbackSkus = buildFallbackSkus();
           const warn =
-            "Amazon nu a returnat shipments pentru planul creat. Planul a fost resetat; încearcă din nou sau verifică permisiunile Inbound.";
+            "Amazon nu a returnat inboundPlanId pentru planul creat. Planul a fost resetat; încearcă din nou sau verifică permisiunile Inbound.";
           const fallbackPlan = {
             source: "amazon",
             amazonIntegrationId,
@@ -2777,19 +2777,37 @@ serve(async (req) => {
             }
           );
         }
-        console.warn("createInboundPlan missing shipments but operation/plan success", {
-          traceId,
-          status: createHttpStatus,
-          inboundPlanId,
-          inboundPlanStatus,
-          operationId,
-          operationStatus,
-          marketplaceId,
-          region: awsRegion,
-          sellerId,
-          requestId: primaryRequestId
-        });
-        // Nu mai blocăm Step 1: lăsăm UI să continue cu planul activ, packing se face în 1b.
+        if (missingShipments) {
+          console.warn("createInboundPlan active but shipments not returned yet", {
+            traceId,
+            status: createHttpStatus,
+            inboundPlanId,
+            inboundPlanStatus,
+            operationId,
+            operationStatus,
+            marketplaceId,
+            region: awsRegion,
+            sellerId,
+            requestId: primaryRequestId
+          });
+          planWarnings.push(
+            "Amazon nu a returnat încă shipments. Continuăm cu packing options (Step 1b) și vom genera placement/shipments după setPackingInformation."
+          );
+        if (!missingShipments) {
+          console.warn("createInboundPlan missing shipments but operation/plan success", {
+            traceId,
+            status: createHttpStatus,
+            inboundPlanId,
+            inboundPlanStatus,
+            operationId,
+            operationStatus,
+            marketplaceId,
+            region: awsRegion,
+            sellerId,
+            requestId: primaryRequestId
+          });
+        }
+        // Nu mai blocăm Step 1: lăsăm UI să continue cu planul activ, packing se face în 1b (shipment splits apar după placement).
       } else {
         console.error("createInboundPlan primary error", {
           traceId,
