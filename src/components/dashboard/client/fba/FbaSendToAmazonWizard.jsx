@@ -2167,6 +2167,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (currentStep !== '1') return;
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
+    if (allowNoInboundPlan && !inboundPlanId) return;
     if (!inboundPlanId || !requestId) return;
     if (packGroupsPreviewError) return;
     if (Array.isArray(packGroupsPreview) && packGroupsPreview.length) return;
@@ -2184,6 +2185,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const buildShipmentConfigs = () => {
     if (!Array.isArray(packGroups)) return [];
+    const inboundPlanId = resolveInboundPlanId();
+    if (allowNoInboundPlan && !inboundPlanId) return [];
     const usePallets = shipmentMode?.method && shipmentMode.method !== 'SPD';
     const palletPayload = usePallets
       ? [
@@ -3243,6 +3246,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (!stepsOrder.includes(stepKey)) return;
     setCurrentStep(stepKey);
     if (stepKey === '1b') {
+      const inboundId = resolveInboundPlanId();
+      if (allowNoInboundPlan && !inboundId) {
+        setPackGroupsLoaded(true);
+        setPackGroups([]);
+        return;
+      }
       refreshPackingGroups();
     }
   };
@@ -3308,6 +3317,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (bypassMissingInbound) {
         setStep1SaveError('');
         setInboundPlanMissing(true);
+        setPackGroupsLoaded(true);
+        setPackGroups([]);
         completeAndNext('1');
         return;
       }
