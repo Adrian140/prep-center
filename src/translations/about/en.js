@@ -1,16 +1,16 @@
 export const aboutEn = {
   // Page Header
-  pageTitle: 'About Prep Center France – Prep & Fulfillment Services for European Sellers',
-  pageSubtitle: 'With over 4 years of hands-on prep experience, Prep Center France offers fast 24h prep, labeling, and order fulfillment across Europe.',
+  pageTitle: 'About Prep Center – France & Germany Prep & Fulfillment Hubs for European Sellers',
+  pageSubtitle: 'With over 4 years of hands-on prep experience, our France and Germany hubs offer fast 24h prep, labeling, and order fulfillment across Europe.',
   
   // Our Story Section
   ourStory: 'Our Story',
-  ourStoryParagraph1: 'Prep Center France was established to support European e-commerce sellers with fast, reliable, and transparent prep services. Its location in France provides a strategic hub for efficient distribution across the European Union.',
+  ourStoryParagraph1: 'Prep Center was established to support European e-commerce sellers with fast, reliable, and transparent prep services. Our locations in France and Germany provide dual strategic hubs for efficient distribution across the European Union.',
   ourStoryParagraph2: 'With over 4 years of hands-on experience, I built this logistics center as a direct response to the challenges sellers face when preparing and shipping products to fulfillment centers. The goal is simple: to deliver a service that combines speed, compliance, and fair pricing.',
   whyMattersTitle: 'Why It Matters for Sellers',
-  whyMattersParagraph: 'Our prep center in France helps sellers reduce restocking delays, minimize errors, and maintain full compliance with European packaging and labeling standards. Each shipment includes detailed photo documentation and live tracking updates. We support multiple EU marketplaces and communicate daily in English, French, and Romanian, ensuring smooth collaboration for every project.',
+  whyMattersParagraph: 'Our prep hubs in France and Germany help sellers reduce restocking delays, minimize errors, and maintain full compliance with European packaging and labeling standards. Each shipment includes detailed photo documentation and live tracking updates. We support multiple EU marketplaces and communicate daily in English, French, and Romanian, ensuring smooth collaboration for every project.',
 
-  ourStoryParagraph3: 'Today, Prep Center France processes hundreds of orders every month for platforms such as eBay, Shopify, and custom websites. We are committed to meeting 24-hour turnaround times while ensuring every product is prepared in full compliance with platform requirements.',
+  ourStoryParagraph3: 'Today, Prep Center processes hundreds of orders every month from both France and Germany hubs for platforms such as eBay, Shopify, and custom websites. We are committed to meeting 24-hour turnaround times while ensuring every product is prepared in full compliance with platform requirements.',
   
   // Stats Section
   yearsExperience: 'Years of Experience',

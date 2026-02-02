@@ -1,16 +1,16 @@
 export const aboutDe = {
   // Page Header
-  pageTitle: 'Über Prep Center France – Prep- & Fulfillment-Services für europäische Verkäufer',
-  pageSubtitle: 'Mit über 4 Jahren praktischer Erfahrung bietet Prep Center France schnelle und zuverlässige Prep-Services in Frankreich: Empfang, Qualitätskontrolle, Etikettierung, Polyverpackung und Versand zu Fulfillment-Zentren in ganz Europa.',
+  pageTitle: 'Über Prep Center – Prep- & Fulfillment-Hubs in Frankreich und Deutschland für europäische Verkäufer',
+  pageSubtitle: 'Mit über 4 Jahren praktischer Erfahrung bieten unsere Hubs in Frankreich und Deutschland schnelle 24h Prep, Etikettierung und Fulfillment in ganz Europa.',
   
   // Our Story Section
   ourStory: 'Unsere Geschichte',
-  ourStoryParagraph1: 'Prep Center France wurde gegründet, um europäische E-Commerce-Verkäufer mit schnellen, zuverlässigen und transparenten Prep-Services zu unterstützen. Die Lage in Frankreich bietet einen strategischen Hub für effiziente Distribution in der gesamten Europäischen Union.',
+  ourStoryParagraph1: 'Prep Center wurde gegründet, um europäische E-Commerce-Verkäufer mit schnellen, zuverlässigen und transparenten Prep-Services zu unterstützen. Die Standorte in Frankreich und Deutschland bieten strategische Hubs für effiziente Distribution in der gesamten Europäischen Union.',
   ourStoryParagraph2: 'Mit über 4 Jahren praktischer Erfahrung habe ich dieses Logistikzentrum als direkte Antwort auf die Herausforderungen gebaut, denen Verkäufer bei der Vorbereitung und dem Versand von Produkten zu Fulfillment-Zentren gegenüberstehen. Das Ziel ist einfach: einen Service zu liefern, der Geschwindigkeit, Compliance und faire Preise kombiniert.',
   whyMattersTitle: 'Warum es für Verkäufer wichtig ist',
-  whyMattersParagraph: 'Unser Prep-Center in Frankreich hilft Verkäufern, Nachschubverzögerungen zu reduzieren, Fehler zu minimieren und die Einhaltung europäischer Verpackungs- und Etikettierstandards sicherzustellen. Jede Sendung enthält eine detaillierte Fotodokumentation und Live-Tracking. Wir betreuen mehrere EU-Marktplätze und kommunizieren täglich auf Deutsch, Englisch und Rumänisch.',
+  whyMattersParagraph: 'Unsere Prep-Hubs in Frankreich und Deutschland helfen Verkäufern, Nachschubverzögerungen zu reduzieren, Fehler zu minimieren und die Einhaltung europäischer Verpackungs- und Etikettierstandards sicherzustellen. Jede Sendung enthält eine detaillierte Fotodokumentation und Live-Tracking. Wir betreuen mehrere EU-Marktplätze und kommunizieren täglich auf Deutsch, Englisch und Rumänisch.',
 
-  ourStoryParagraph3: 'Heute verarbeitet Prep Center France Hunderte von Bestellungen jeden Monat für Plattformen wie eBay, Shopify und benutzerdefinierte Websites. Wir verpflichten uns, 24-Stunden-Bearbeitungszeiten einzuhalten und dabei sicherzustellen, dass jedes Produkt in voller Übereinstimmung mit den Plattformanforderungen vorbereitet wird.',
+  ourStoryParagraph3: 'Heute verarbeitet Prep Center Hunderte von Bestellungen jeden Monat aus den Hubs in Frankreich und Deutschland für Plattformen wie eBay, Shopify und benutzerdefinierte Websites. Wir verpflichten uns, 24-Stunden-Bearbeitungszeiten einzuhalten und dabei sicherzustellen, dass jedes Produkt in voller Übereinstimmung mit den Plattformanforderungen vorbereitet wird.',
   
   // Stats Section
   yearsExperience: 'Jahre Erfahrung',

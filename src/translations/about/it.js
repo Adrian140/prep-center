@@ -1,16 +1,16 @@
 export const aboutIt = {
   // Page Header
-  pageTitle: 'Chi Siamo Prep Center France – Servizi di preparazione per venditori europei',
-  pageSubtitle: 'Con oltre 4 anni di esperienza pratica, Prep Center France fornisce servizi di preparazione veloci e affidabili in Francia: ricezione, controllo qualità, etichettatura, imballaggio e spedizione ai centri di fulfillment in tutta Europa.',
+  pageTitle: 'Chi Siamo Prep Center – Hub di preparazione in Francia e Germania per venditori europei',
+  pageSubtitle: 'Con oltre 4 anni di esperienza pratica, i nostri hub in Francia e Germania offrono preparazione 24h, etichettatura e fulfillment in tutta Europa.',
   
   // Our Story Section
   ourStory: 'La Nostra Storia',
-  ourStoryParagraph1: 'Prep Center France è stato fondato per supportare i venditori e-commerce europei con servizi di preparazione veloci, affidabili e trasparenti. La sua posizione in Francia fornisce un hub strategico per una distribuzione efficiente in tutta l\'Unione Europea.',
+  ourStoryParagraph1: 'Prep Center è stato fondato per supportare i venditori e-commerce europei con servizi di preparazione veloci, affidabili e trasparenti. Le sedi in Francia e Germania forniscono hub strategici per una distribuzione efficiente in tutta l\'Unione Europea.',
   ourStoryParagraph2: 'Con oltre 4 anni di esperienza pratica, ho costruito questo centro logistico come risposta diretta alle sfide che i venditori affrontano nella preparazione e spedizione di prodotti ai centri di fulfillment. L\'obiettivo è semplice: fornire un servizio che combina velocità, conformità e prezzi equi.',
   whyMattersTitle: 'Perché è importante per i venditori',
-  whyMattersParagraph: 'Il nostro centro in Francia aiuta i venditori a ridurre i ritardi di riassortimento, minimizzare gli errori e rispettare gli standard europei di imballaggio ed etichettatura. Ogni spedizione include documentazione fotografica dettagliata e aggiornamenti in tempo reale. Supportiamo diversi marketplace UE e comunichiamo ogni giorno in inglese, francese e rumeno.',
+  whyMattersParagraph: 'I nostri hub in Francia e Germania aiutano i venditori a ridurre i ritardi di riassortimento, minimizzare gli errori e rispettare gli standard europei di imballaggio ed etichettatura. Ogni spedizione include documentazione fotografica dettagliata e aggiornamenti in tempo reale. Supportiamo diversi marketplace UE e comunichiamo ogni giorno in inglese, francese e rumeno.',
 
-  ourStoryParagraph3: 'Oggi, Prep Center France elabora centinaia di ordini ogni mese per piattaforme come eBay, Shopify e siti web personalizzati. Ci impegniamo a rispettare i tempi di elaborazione di 24 ore assicurando che ogni prodotto sia preparato in piena conformità con i requisiti delle piattaforme.',
+  ourStoryParagraph3: 'Oggi, Prep Center elabora centinaia di ordini ogni mese dai hub in Francia e Germania per piattaforme come eBay, Shopify e siti web personalizzati. Ci impegniamo a rispettare i tempi di elaborazione di 24 ore assicurando che ogni prodotto sia preparato in piena conformità con i requisiti delle piattaforme.',
   
   // Stats Section
   yearsExperience: 'Anni di Esperienza',
