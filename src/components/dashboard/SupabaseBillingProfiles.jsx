@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDashboardTranslation } from '../../translations';
-import { Plus, Edit, Trash2, Building, User, Check, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Building, User, X } from 'lucide-react';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext'; // Changed to useSupabaseAuth
 import { supabaseHelpers } from '../../config/supabase';
+import { useMarket } from '../../contexts/MarketContext';
+import { normalizeMarketCode } from '../../utils/market';
 function SupabaseBillingProfiles() {
-  const { t, tp } = useDashboardTranslation();
+  const { t } = useDashboardTranslation();
   const { user } = useSupabaseAuth();
+  const { currentMarket } = useMarket();
+  const marketCode = normalizeMarketCode(currentMarket) || 'FR';
   const [profiles, setProfiles] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingProfile, setEditingProfile] = useState(null);
@@ -18,21 +22,65 @@ function SupabaseBillingProfiles() {
     company_name: '',
     vat_number: '',
     siren_siret: '',
-    country: 'FR',
+    country: marketCode,
     address: '',
     city: '',
     postal_code: '',
     phone: '',
     is_default: false
   });
-const countries = ['FR','DE','IT','ES','RO'].map(code => ({
-    code, name: t(`profile.countries.${code}`)
-  }));
+  const normalizeCountry = useCallback(
+    (value) => normalizeMarketCode(value) || String(value || '').toUpperCase(),
+    []
+  );
+  const countries = useMemo(() => {
+    const base = ['FR', 'DE', 'IT', 'ES', 'RO'];
+    const ordered = [marketCode, ...base.filter((code) => code !== marketCode)];
+    return ordered.map((code) => ({
+      code,
+      name: t(`profile.countries.${code}`)
+    }));
+  }, [t, marketCode]);
+
+  const templateProfile = useMemo(() => {
+    const sameMarket = profiles.find((p) => normalizeCountry(p.country) === marketCode);
+    if (sameMarket) return sameMarket;
+    const defaultProfile = profiles.find((p) => p.is_default);
+    return defaultProfile || profiles[0] || null;
+  }, [profiles, marketCode, normalizeCountry]);
+
+  const buildFormDefaults = useCallback(() => {
+    const sameMarket = templateProfile && normalizeCountry(templateProfile.country) === marketCode;
+    return {
+      type: templateProfile?.type || 'individual',
+      first_name: templateProfile?.first_name || '',
+      last_name: templateProfile?.last_name || '',
+      company_name: templateProfile?.company_name || '',
+      vat_number: sameMarket ? templateProfile?.vat_number || '' : '',
+      siren_siret: marketCode === 'FR' ? templateProfile?.siren_siret || '' : '',
+      country: marketCode,
+      address: templateProfile?.address || '',
+      city: templateProfile?.city || '',
+      postal_code: templateProfile?.postal_code || '',
+      phone: templateProfile?.phone || '',
+      is_default: sameMarket ? Boolean(templateProfile?.is_default) : false
+    };
+  }, [marketCode, templateProfile, normalizeCountry]);
+
+  const marketProfiles = useMemo(
+    () => profiles.filter((profile) => normalizeCountry(profile.country) === marketCode),
+    [profiles, marketCode, normalizeCountry]
+  );
   useEffect(() => {
     if (user) {
       fetchProfiles();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!isCreating || editingProfile) return;
+    setFormData(buildFormDefaults());
+  }, [buildFormDefaults, isCreating, editingProfile, marketCode]);
 
   const fetchProfiles = async () => {
     if (!user) return;
@@ -102,14 +150,19 @@ const countries = ['FR','DE','IT','ES','RO'].map(code => ({
       }
     }
 
+    const country = normalizeCountry(formData.country) || marketCode;
     const profileData = {
       ...formData,
-      user_id: user.id
+      user_id: user.id,
+      country
     };
 
     try {
       if (editingProfile) {
-        const { error } = await supabaseHelpers.updateBillingProfile(editingProfile.id, formData);
+        const { error } = await supabaseHelpers.updateBillingProfile(editingProfile.id, {
+          ...profileData,
+          country
+        });
         if (error) throw error;
         setMessage(t('billing.flash.updated'));
       } else {
@@ -146,20 +199,7 @@ const countries = ['FR','DE','IT','ES','RO'].map(code => ({
   };
 
   const resetForm = () => {
-    setFormData({
-      type: 'individual',
-      first_name: '',
-      last_name: '',
-      company_name: '',
-      vat_number: '',
-      siren_siret: '',
-      country: 'FR',
-      address: '',
-      city: '',
-      postal_code: '',
-      phone: '',
-      is_default: false
-    });
+    setFormData(buildFormDefaults());
     setIsCreating(false);
     setEditingProfile(null);
   };
@@ -177,7 +217,12 @@ const countries = ['FR','DE','IT','ES','RO'].map(code => ({
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-text-primary">{t('billing.title')}</h2>
         <button
-          onClick={() => setIsCreating(true)}
+          onClick={() => {
+            setFormData(buildFormDefaults());
+            setIsCreating(true);
+            setEditingProfile(null);
+            setMessage('');
+          }}
           className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -446,7 +491,7 @@ const countries = ['FR','DE','IT','ES','RO'].map(code => ({
 
       {/* Profiles List */}
       <div className="space-y-4">
-        {profiles.map((profile) => (
+        {marketProfiles.map((profile) => (
           <div key={profile.id} className="bg-white border border-gray-200 rounded-xl p-6">
             <div className="flex justify-between items-start">
               <div className="flex-1">
@@ -495,17 +540,22 @@ const countries = ['FR','DE','IT','ES','RO'].map(code => ({
         ))}
       </div>
 
-      {profiles.length === 0 && !isCreating && (
+      {marketProfiles.length === 0 && !isCreating && (
         <div className="text-center py-12">
           <Building className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-text-secondary mb-2">
-            {t('billing.list.noneTitle')}
+            {t('billing.list.noneTitle')} ({marketCode})
           </h3>
           <p className="text-text-light mb-6">
             {t('billing.list.noneDesc')}
           </p>
           <button
-            onClick={() => setIsCreating(true)}
+            onClick={() => {
+              setFormData(buildFormDefaults());
+              setIsCreating(true);
+              setEditingProfile(null);
+              setMessage('');
+            }}
             className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors"
           >
              {t('billing.list.add')}
