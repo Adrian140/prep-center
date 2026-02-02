@@ -454,6 +454,38 @@ export default function FbaSendToAmazonWizard({
   const trackingPrefillRef = useRef(false);
   const trackingLoadRequestedRef = useRef(false);
   const autoPackingRef = useRef({ planId: null, attempted: false });
+  const resolvePackingOptionId = useCallback(
+    (opt) => opt?.packingOptionId || opt?.PackingOptionId || opt?.id || null,
+    []
+  );
+  const optionHasDiscount = useCallback((opt) => {
+    const discounts = opt?.discounts || opt?.Discounts || [];
+    return Array.isArray(discounts) && discounts.length > 0;
+  }, []);
+  const maybeSelectStandardPackingOption = useCallback(
+    (options) => {
+      const list = Array.isArray(options) ? options : [];
+      if (!list.length) return;
+      const standard = list.find((opt) => !optionHasDiscount(opt));
+      if (!standard) return;
+      const currentId = packingOptionIdRef.current;
+      const currentOpt = list.find(
+        (opt) => String(resolvePackingOptionId(opt)) === String(currentId)
+      );
+      const shouldSetDefault = !currentId || (currentOpt && optionHasDiscount(currentOpt));
+      if (!shouldSetDefault) return;
+      const standardId = resolvePackingOptionId(standard);
+      if (!standardId) return;
+      packingOptionIdRef.current = standardId;
+      setPackingOptionId(standardId);
+      setPlan((prev) => ({
+        ...prev,
+        packingOptionId: standardId,
+        packing_option_id: standardId
+      }));
+    },
+    [optionHasDiscount, resolvePackingOptionId]
+  );
   useEffect(() => {
     packGroupsRef.current = packGroups;
   }, [packGroups]);
@@ -596,6 +628,9 @@ export default function FbaSendToAmazonWizard({
   useEffect(() => {
     packingOptionIdRef.current = packingOptionId;
   }, [packingOptionId]);
+  useEffect(() => {
+    maybeSelectStandardPackingOption(packingOptions);
+  }, [packingOptions, maybeSelectStandardPackingOption]);
   useEffect(() => {
     placementOptionIdRef.current = placementOptionId;
   }, [placementOptionId]);
