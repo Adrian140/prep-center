@@ -240,30 +240,52 @@ function Contact() {
             {/* Contact Information */}
             <div className="bg-white rounded-xl border border-gray-200 p-8">
               <h3 className="text-xl font-bold text-text-primary mb-6">{t('contactInformation')}</h3>
-              <div className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <MapPin className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
-                  <div>
-                    <p className="font-medium text-text-primary">{t('addressLabel')}</p>
-                    <p className="text-text-secondary">
-                      {t('addressValue')}
+              <div className="space-y-6">
+                {[
+                  {
+                    id: 'fr',
+                    title: t('contactFranceLabel', 'France'),
+                    address: t('contactFranceAddress', '5 Rue des Enclos, Cellule 7\n35350 La Gouesnière, France'),
+                    phone: t('contactFrancePhone', '+33 6 75 11 62 18'),
+                    email: t('contactFranceEmail', 'contact@prep-center.eu')
+                  },
+                  {
+                    id: 'de',
+                    title: t('contactGermanyLabel', 'Germany'),
+                    address: t('contactGermanyAddress', 'Zienestrasse 12\n77709 Wolfach, Germany'),
+                    phone: t('contactGermanyPhone', '+49 176 24963618'),
+                    email: t('contactGermanyEmail', 'logistics.de@prep-center.eu')
+                  }
+                ].map((entry) => (
+                  <div key={entry.id} className="border border-gray-100 rounded-lg p-4">
+                    <p className="text-sm uppercase tracking-[0.12em] text-text-secondary mb-2">
+                      {entry.title}
                     </p>
+                    <div className="space-y-3">
+                      <div className="flex items-start space-x-3">
+                        <MapPin className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-text-primary">{t('addressLabel')}</p>
+                          <p className="text-text-secondary whitespace-pre-line">{entry.address}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <Phone className="w-5 h-5 text-primary flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-text-primary">{t('phoneLabel')}</p>
+                          <p className="text-text-secondary">{entry.phone}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <Mail className="w-5 h-5 text-primary flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-text-primary">{t('emailLabel')}</p>
+                          <p className="text-text-secondary">{entry.email}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Phone className="w-5 h-5 text-primary flex-shrink-0" />
-                  <div>
-                    <p className="font-medium text-text-primary">{t('phoneLabel')}</p>
-                    <p className="text-text-secondary">{t('phoneValue')}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Mail className="w-5 h-5 text-primary flex-shrink-0" />
-                  <div>
-                    <p className="font-medium text-text-primary">{t('emailLabel')}</p>
-                    <p className="text-text-secondary">{t('emailValue')}</p>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 

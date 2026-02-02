@@ -46,6 +46,14 @@ export const contactEs = {
   phoneValue: '+33 6 75 11 62 18',
   emailLabel: 'Email',
   emailValue: 'contact@prep-center.eu',
+  contactFranceLabel: 'Almacén Francia',
+  contactFranceAddress: '5 Rue des Enclos, Cellule 7\n35350 La Gouesnière, Francia',
+  contactFrancePhone: '+33 6 75 11 62 18',
+  contactFranceEmail: 'contact@prep-center.eu',
+  contactGermanyLabel: 'Almacén Alemania',
+  contactGermanyAddress: 'Zienestrasse 12\n77709 Wolfach, Alemania',
+  contactGermanyPhone: '+49 176 24963618',
+  contactGermanyEmail: 'logistics.de@prep-center.eu',
   
   // Business Hours
   businessHours: 'Horarios de Trabajo',

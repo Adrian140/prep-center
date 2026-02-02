@@ -46,6 +46,14 @@ export const contactEn = {
   phoneValue: '+33 6 75 11 62 18',
   emailLabel: 'Email',
   emailValue: 'contact@prep-center.eu',
+  contactFranceLabel: 'France warehouse',
+  contactFranceAddress: '5 Rue des Enclos, Cellule 7\n35350 La Gouesnière, France',
+  contactFrancePhone: '+33 6 75 11 62 18',
+  contactFranceEmail: 'contact@prep-center.eu',
+  contactGermanyLabel: 'Germany warehouse',
+  contactGermanyAddress: 'Zienestrasse 12\n77709 Wolfach, Germany',
+  contactGermanyPhone: '+49 176 24963618',
+  contactGermanyEmail: 'logistics.de@prep-center.eu',
   
   // Business Hours
   businessHours: 'Business Hours',
