@@ -250,30 +250,79 @@ export default function FbaStep1Inventory({
   );
 
   const applySingleBox = useCallback(() => {
-    const totalItems = {};
+    const makeBox = () => ({
+      id: `box-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      length_cm: '',
+      width_cm: '',
+      height_cm: '',
+      weight_kg: ''
+    });
+
+    const nextGroups = {};
+    const matchedSkuIds = new Set();
+    const skuLookup = new Map();
     skus.forEach((sku) => {
+      const skuKey = String(sku.sku || '').trim().toUpperCase();
+      const asinKey = String(sku.asin || '').trim().toUpperCase();
+      if (skuKey) skuLookup.set(skuKey, sku);
+      if (asinKey) skuLookup.set(asinKey, sku);
+    });
+
+    const ensureGroup = (groupId, label) => {
+      if (!nextGroups[groupId]) {
+        nextGroups[groupId] = {
+          groupLabel: label || groupId,
+          boxes: [makeBox()],
+          boxItems: [{}]
+        };
+      }
+    };
+
+    const assignSku = (sku, groupId, label) => {
       const qty = Math.max(0, Number(sku.units || 0));
       if (!qty) return;
       const key = sku.sku || sku.asin || sku.id;
-      totalItems[key] = qty;
-    });
-    const singleBox = {
-      groupLabel: 'Single box',
-      boxes: [
-        {
-          id: 'box-1',
-          length_cm: '',
-          width_cm: '',
-          height_cm: '',
-          weight_kg: ''
-        }
-      ],
-      boxItems: [totalItems]
+      ensureGroup(groupId, label);
+      nextGroups[groupId].boxItems[0][key] = qty;
+      matchedSkuIds.add(sku.id);
     };
-    updateBoxPlan({ 'single-box': singleBox });
-    setSingleBoxMode(true);
-    setActiveBoxByGroup((prev) => ({ ...(prev || {}), 'single-box': 0 }));
-  }, [skus, updateBoxPlan]);
+
+    if (hasPackGroups) {
+      normalizedPackGroups.forEach((group, idx) => {
+        const groupId = group.packingGroupId || group.id || `pack-${idx + 1}`;
+        const groupLabel = `Pack group ${idx + 1}`;
+        const items = Array.isArray(group?.items) ? group.items : [];
+        items.forEach((item) => {
+          const key = String(item?.sku || item?.msku || item?.SellerSKU || item?.asin || '').trim().toUpperCase();
+          if (!key) return;
+          const matched = skuLookup.get(key);
+          if (matched) {
+            assignSku(matched, groupId, groupLabel);
+          }
+        });
+      });
+    }
+
+    skus.forEach((sku) => {
+      if (matchedSkuIds.has(sku.id)) return;
+      assignSku(sku, 'ungrouped', 'All items');
+    });
+
+    updateBoxPlan(nextGroups);
+    setSingleBoxMode(false);
+    setActiveBoxByGroup(
+      Object.keys(nextGroups).reduce(
+        (acc, groupId) => ({
+          ...acc,
+          [groupId]: 0
+        }),
+        {}
+      )
+    );
+    setBoxIndexDrafts({});
+    setBoxQtyDrafts({});
+    setBoxDimDrafts({});
+  }, [hasPackGroups, normalizedPackGroups, skus, updateBoxPlan]);
 
   const preventEnterSubmit = useCallback((event) => {
     if (event.key === 'Enter') {
@@ -780,20 +829,22 @@ export default function FbaStep1Inventory({
               </div>
             )}
             {needsExpiry && <div className="text-xs text-amber-700">Expiration date required</div>}
-            {showLabelButton && (
+            <div className="flex flex-col items-start gap-1">
+              {showLabelButton && (
+                <button
+                  className="text-xs text-blue-600 underline"
+                  onClick={() => setLabelModal({ ...labelModal, open: true, sku })}
+                >
+                  Print SKU labels
+                </button>
+              )}
               <button
                 className="text-xs text-blue-600 underline"
-                onClick={() => setLabelModal({ ...labelModal, open: true, sku })}
+                onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
               >
-                Print SKU labels
+                More inputs
               </button>
-            )}
-            <button
-              className="text-xs text-blue-600 underline"
-              onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
-            >
-              More inputs
-            </button>
+            </div>
             {sku.readyToPack && (
               <div className="mt-2 flex items-center gap-1 text-emerald-600 text-xs font-semibold">
                 <CheckCircle className="w-4 h-4" /> Ready to pack
