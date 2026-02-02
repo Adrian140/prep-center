@@ -1172,9 +1172,10 @@ serve(async (req) => {
     const normalizePackingOptionId = (opt: any) => opt?.packingOptionId || opt?.id || null;
     const normalizeStatus = (opt: any) => String(opt?.status || opt?.Status || "").toUpperCase();
     try {
-      const { options } = await listPackingOptionsWithRetry();
+      const res = await listPackingOptionsWithRetry();
+      let options = res.options || [];
       const accepted = (options || []).find((opt: any) => normalizeStatus(opt) === "ACCEPTED");
-      if (accepted && normalizePackingOptionId(accepted) && normalizePackingOptionId(accepted) !== packingOptionId) {
+      if (accepted && normalizePackingOptionId(accepted)) {
         packingOptionId = normalizePackingOptionId(accepted);
       }
       const chosen = (options || []).find((opt: any) => normalizePackingOptionId(opt) === packingOptionId) || accepted;
