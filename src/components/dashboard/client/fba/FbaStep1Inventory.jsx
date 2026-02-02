@@ -2,9 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 
-const FieldLabel = ({ label, children }) => (
+const FieldLabel = ({ label, action = null, children }) => (
   <div className="flex flex-col gap-1 text-sm text-slate-700">
-    <span className="font-semibold text-slate-800">{label}</span>
+    <div className="flex items-center justify-between gap-2">
+      <span className="font-semibold text-slate-800">{label}</span>
+      {action}
+    </div>
     {children}
   </div>
 );
@@ -1305,7 +1308,20 @@ export default function FbaStep1Inventory({
           <div className="text-slate-800">{shipFrom.name || '—'}</div>
           <div className="text-slate-600 text-sm">{shipFrom.address || '—'}</div>
         </FieldLabel>
-        <FieldLabel label="Marketplace destination (Country)">
+        <FieldLabel
+          label="Marketplace destination (Country)"
+          action={
+            hasUnits ? (
+              <button
+                type="button"
+                onClick={applySingleBox}
+                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md shadow-sm"
+              >
+                Add all in one single box
+              </button>
+            ) : null
+          }
+        >
           <select
             value={marketplaceId}
             className="border rounded-md px-3 py-2 text-sm w-full bg-slate-100 text-slate-800"
