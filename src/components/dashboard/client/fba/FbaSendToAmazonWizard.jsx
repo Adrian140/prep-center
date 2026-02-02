@@ -3238,12 +3238,20 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   function completeAndNext(stepKey) {
     const idx = stepsOrder.indexOf(stepKey);
     setCompletedSteps((prev) => Array.from(new Set([...prev, stepKey])));
+    if (stepKey === '1' && allowNoInboundPlan && !resolveInboundPlanId()) {
+      setCurrentStep('2');
+      return;
+    }
     const nextKey = stepsOrder[idx + 1] || stepKey;
     setCurrentStep(nextKey);
   }
 
   const goToStep = (stepKey) => {
     if (!stepsOrder.includes(stepKey)) return;
+    if (stepKey === '1b' && allowNoInboundPlan && !resolveInboundPlanId()) {
+      setCurrentStep('2');
+      return;
+    }
     setCurrentStep(stepKey);
     if (stepKey === '1b') {
       const inboundId = resolveInboundPlanId();

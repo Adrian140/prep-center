@@ -198,15 +198,6 @@ export default function FbaStep1Inventory({
     const isSingle = keys.length === 1 && keys[0] === 'single-box';
     setSingleBoxMode(isSingle);
   }, [safeBoxPlan.groups]);
-  const continueDisabled =
-    hasBlocking ||
-    saving ||
-    (missingInboundPlan && !allowNoInboundPlan) ||
-    !requestId ||
-    !hasUnits ||
-    !boxPlanValidation.isValid ||
-    (loadingPlan && skus.length === 0);
-
   const packGroupMeta = useMemo(() => {
     if (!hasPackGroups) {
       return [{ groupId: 'ungrouped', label: 'All items' }];
@@ -564,6 +555,9 @@ export default function FbaStep1Inventory({
     if (!hasUnits) {
       return { isValid: true, messages: issues };
     }
+    if (allowNoInboundPlan && missingInboundPlan) {
+      return { isValid: true, messages: [] };
+    }
     let missingBoxes = 0;
     let missingAssignments = 0;
     let missingDims = 0;
@@ -628,6 +622,15 @@ export default function FbaStep1Inventory({
     MAX_STANDARD_BOX_CM,
     MAX_STANDARD_BOX_KG
   ]);
+
+  const continueDisabled =
+    hasBlocking ||
+    saving ||
+    (missingInboundPlan && !allowNoInboundPlan) ||
+    !requestId ||
+    !hasUnits ||
+    (!allowNoInboundPlan && !boxPlanValidation.isValid) ||
+    (loadingPlan && skus.length === 0);
 
   const renderSkuRow = (sku, groupId = 'ungrouped', groupLabel = 'All items') => {
     const status = statusForSku(sku);
