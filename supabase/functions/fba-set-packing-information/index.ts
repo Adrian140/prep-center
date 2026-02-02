@@ -946,7 +946,7 @@ serve(async (req) => {
     );
     const requestId = body?.request_id ?? body?.requestId;
     const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
-    const packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
+    let packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
     const generatePlacementOptions =
       body?.generate_placement_options ?? body?.generatePlacementOptions ?? true;
     const packingGroupsInput =
@@ -969,7 +969,7 @@ serve(async (req) => {
             : 0
         }))
       : [];
-    const directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
+    let directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
     let packageGroupings: any[] = [];
     if (!requestId || !inboundPlanId) {
       return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare", traceId }), {
@@ -1016,7 +1016,7 @@ serve(async (req) => {
       });
       return merged;
     };
-    const mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
+    let mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
     const mergedPackingGroupsSummary = Array.isArray(mergedPackingGroupsInput)
       ? mergedPackingGroupsInput.map((g: any) => ({
           packingGroupId: g?.packingGroupId || g?.id || g?.groupId || null,
