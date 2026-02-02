@@ -1576,6 +1576,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const groupsPlan = step1BoxPlanForMarket?.groups || {};
     return Boolean(groupsPlan && Object.keys(groupsPlan).length);
   }, [historyMode, step1BoxPlanForMarket]);
+  // Active auto-packing only when we have valid groups with dimensions/weight; otherwise allow manual UI.
+  const autoPackingActive = useMemo(() => autoPackingEnabled && autoPackingReady, [autoPackingEnabled, autoPackingReady]);
 
   const autoPackingReady = useMemo(() => {
     if (!autoPackingEnabled || !Array.isArray(packGroupsForAuto) || !packGroupsForAuto.length) return false;
@@ -3601,7 +3603,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           onRetry={refreshPackingGroups}
           retryLoading={packingRefreshLoading}
           submitting={packingSubmitLoading}
-          autoPackingMode={autoPackingEnabled}
+          autoPackingMode={autoPackingActive}
           onUpdateGroup={handlePackGroupUpdate}
           onNext={submitPackingInformation}
           onBack={() => goToStep('1')}
