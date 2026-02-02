@@ -2431,7 +2431,7 @@ serve(async (req) => {
       }
     }
 
-    if (inboundPlanId) {
+    if (inboundPlanId && !isLockId(inboundPlanId)) {
       const fetched = await fetchInboundPlanById(inboundPlanId);
       plans = fetched.fetchedPlans || [];
       inboundPlanStatus = fetched.fetchedStatus || null;
@@ -2551,10 +2551,6 @@ serve(async (req) => {
         }
 
         const inboundErrors = extractInboundErrors({ json: res.json, text: res.text || "" });
-        if (!inboundErrors.length) {
-          break;
-        }
-
         let changed = false;
         for (const err of inboundErrors) {
           const fixVal = chooseFixValue(err.field, err.msg, err.accepted);
@@ -2565,6 +2561,24 @@ serve(async (req) => {
             appliedOverrides[skuKey][err.field] = fixVal;
             changed = true;
           }
+        }
+
+        // Dacă Amazon raportează prep classification missing (FBA_INB_0182), încearcă o dată să setezi prepOwner/labelOwner SELLER.
+        const missingPrepSkus = extractMissingPrepClassification(res.json, res.text || "");
+        if (missingPrepSkus.length) {
+          missingPrepSkus.forEach((sku) => {
+            const key = normalizeSku(sku);
+            if (!key) return;
+            appliedOverrides[key] = appliedOverrides[key] || {};
+            if (appliedOverrides[key].prepOwner !== "SELLER") {
+              appliedOverrides[key].prepOwner = "SELLER";
+              changed = true;
+            }
+            if (appliedOverrides[key].labelOwner !== "SELLER") {
+              appliedOverrides[key].labelOwner = "SELLER";
+              changed = true;
+            }
+          });
         }
 
         if (!changed) {
@@ -2584,7 +2598,7 @@ serve(async (req) => {
       }
     }
 
-    if (inboundPlanId && (!inboundPlanStatus || inboundPlanErrored(inboundPlanStatus))) {
+    if (inboundPlanId && !isLockId(inboundPlanId) && (!inboundPlanStatus || inboundPlanErrored(inboundPlanStatus))) {
       const fetched = await fetchInboundPlanById(inboundPlanId);
       if (fetched.fetchedStatus) inboundPlanStatus = fetched.fetchedStatus;
       if (!plans.length && fetched.fetchedPlans?.length) plans = fetched.fetchedPlans;
@@ -3281,3 +3295,40 @@ serve(async (req) => {
     });
   }
 });
+function extractMissingPrepClassification(json: any, text: string) {
+  const skus: string[] = [];
+  const scan = (obj: any) => {
+    const problems = obj?.operationProblems || obj?.problems || obj?.payload?.operationProblems || [];
+    (Array.isArray(problems) ? problems : []).forEach((p: any) => {
+      const msg = String(p?.message || p?.details || "");
+      if (msg.toLowerCase().includes("prep classification") || msg.toLowerCase().includes("prep classification for this sku was missing")) {
+        const m = msg.match(/'([^']+)'/);
+        if (m && m[1]) skus.push(normalizeSku(m[1]));
+      }
+    });
+    const errs = obj?.errors || obj?.payload?.errors || [];
+    (Array.isArray(errs) ? errs : []).forEach((e: any) => {
+      const msg = String(e?.message || "");
+      if (msg.toLowerCase().includes("prep classification")) {
+        const m = msg.match(/MSKUs:\s*\[([^\]]+)\]/i);
+        if (m && m[1]) {
+          m[1]
+            .split(",")
+            .map((s) => normalizeSku(s))
+            .filter(Boolean)
+            .forEach((sku) => skus.push(sku));
+        }
+      }
+    });
+  };
+  scan(json || {});
+  if (!skus.length && text) {
+    try {
+      const parsed = JSON.parse(text);
+      scan(parsed);
+    } catch {
+      // ignore
+    }
+  }
+  return Array.from(new Set(skus));
+}
