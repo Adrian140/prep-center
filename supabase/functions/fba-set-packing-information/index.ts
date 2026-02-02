@@ -994,7 +994,7 @@ serve(async (req) => {
 
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
-      .select("id, destination_country, company_id, user_id, amazon_snapshot")
+      .select("id, destination_country, company_id, user_id, amazon_snapshot, step1_box_plan")
       .eq("id", requestId)
       .maybeSingle();
     if (reqErr) throw reqErr;
@@ -1024,6 +1024,55 @@ serve(async (req) => {
       return merged;
     };
     let mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
+
+    // Inject dims/weight/perBoxItems din step1_box_plan dacă lipsesc în packingGroups (common case: plan Amazon nu furnizează dims).
+    const step1BoxPlan = (reqData as any)?.step1_box_plan || {};
+    const extractFirstBoxMeta = () => {
+      const groups = step1BoxPlan?.[destCountry || "FR"]?.groups || step1BoxPlan?.groups || {};
+      const firstGroup = Object.values(groups || {})[0] as any;
+      const firstBox = Array.isArray(firstGroup?.boxes) ? firstGroup.boxes[0] : null;
+      if (!firstBox) return null;
+      const toNum = (v: any) => (v == null ? null : Number(v));
+      const dims = normalizeDimensions({
+        length: toNum(firstBox.length_cm) ?? toNum(firstBox.length),
+        width: toNum(firstBox.width_cm) ?? toNum(firstBox.width),
+        height: toNum(firstBox.height_cm) ?? toNum(firstBox.height),
+        unit: "CM"
+      });
+      const weight = normalizeWeight({
+        value: toNum(firstBox.weight_kg) ?? toNum(firstBox.weight),
+        unit: "KG"
+      });
+      const perBoxItems = Array.isArray(firstGroup?.boxItems) ? firstGroup.boxItems[0] : null;
+      return dims && weight
+        ? {
+            dimensions: dims,
+            weight,
+            perBoxItems
+          }
+        : null;
+    };
+    const fallbackBoxMeta = extractFirstBoxMeta();
+    if (fallbackBoxMeta && Array.isArray(mergedPackingGroupsInput)) {
+      mergedPackingGroupsInput = mergedPackingGroupsInput.map((g: any) => {
+        const hasDims = g?.dimensions || g?.boxDimensions;
+        const hasWeight = g?.weight || g?.boxWeight;
+        if (hasDims && hasWeight) return g;
+        const perBoxItemsRaw = g?.perBoxItems || g?.per_box_items || fallbackBoxMeta.perBoxItems || null;
+        const perBoxItems =
+          perBoxItemsRaw && typeof perBoxItemsRaw === "object"
+            ? Object.entries(perBoxItemsRaw).map(([sku, quantity]) => ({ sku, quantity }))
+            : Array.isArray(perBoxItemsRaw)
+            ? perBoxItemsRaw
+            : [];
+        return {
+          ...g,
+          dimensions: hasDims ? g.dimensions || g.boxDimensions : fallbackBoxMeta.dimensions,
+          weight: hasWeight ? g.weight || g.boxWeight : fallbackBoxMeta.weight,
+          ...(perBoxItems.length ? { perBoxItems } : {})
+        };
+      });
+    }
     const mergedPackingGroupsSummary = Array.isArray(mergedPackingGroupsInput)
       ? mergedPackingGroupsInput.map((g: any) => ({
           packingGroupId: g?.packingGroupId || g?.id || g?.groupId || null,
