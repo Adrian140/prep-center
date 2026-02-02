@@ -1229,12 +1229,14 @@ serve(async (req) => {
     const normalizeStatus = (opt: any) => String(opt?.status || opt?.Status || "").toUpperCase();
     let autoSwitchedPackingOption = false;
     let acceptedPackingGroups: any[] = [];
+    let acceptedPackingOptionId: string | null = null;
     try {
       const { options } = await listPackingOptionsWithRetry();
       const accepted = (options || []).find((opt: any) => normalizeStatus(opt) === "ACCEPTED");
       if (accepted && normalizePackingOptionId(accepted) && normalizePackingOptionId(accepted) !== packingOptionId) {
         // Auto-switch to the accepted packing option from Amazon to avoid blocking.
         packingOptionId = normalizePackingOptionId(accepted);
+        acceptedPackingOptionId = packingOptionId;
         acceptedPackingGroups = Array.isArray(accepted?.packingGroups) ? accepted.packingGroups.filter(Boolean) : [];
         autoSwitchedPackingOption = true;
       }
@@ -1308,6 +1310,11 @@ serve(async (req) => {
       }
     } catch (err) {
       console.warn("packing options validation skipped", { traceId, error: err });
+    }
+
+    // Dacă Amazon are deja o packing option ACCEPTED și diferă de cea venită din UI, forțăm folosirea celei ACCEPTED.
+    if (acceptedPackingOptionId && acceptedPackingOptionId !== packingOptionId) {
+      packingOptionId = acceptedPackingOptionId;
     }
 
     if (directGroupings.length) {
