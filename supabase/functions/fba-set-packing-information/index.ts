@@ -1340,14 +1340,59 @@ serve(async (req) => {
       });
     });
 
-    const mismatches = Object.keys(confirmed)
-      .map((sku) => {
-        const c = Number(confirmed[sku] || 0) || 0;
-        const p = Number(summed[sku] || 0) || 0;
-        return { sku, confirmed: c, payload: p, delta: p - c };
-      })
-      .filter((r) => r.delta !== 0);
+    const computeMismatches = () =>
+      Object.keys(confirmed)
+        .map((sku) => {
+          const c = Number(confirmed[sku] || 0) || 0;
+          const p = Number(summed[sku] || 0) || 0;
+          return { sku, confirmed: c, payload: p, delta: p - c };
+        })
+        .filter((r) => r.delta !== 0);
+
+    let mismatches = computeMismatches();
     const extraSkus = Object.keys(summed).filter((sku) => !(sku in confirmed));
+
+    // Auto-fix simple duplication cases (all payloads share the same integer multiplier vs confirmed).
+    if ((mismatches.length && !extraSkus.length)) {
+      const deltas = mismatches.filter((m) => m.confirmed > 0 && m.payload > 0 && m.payload % m.confirmed === 0);
+      if (deltas.length === mismatches.length) {
+        const factors = new Set(deltas.map((m) => m.payload / m.confirmed));
+        if (factors.size === 1) {
+          const factor = [...factors][0];
+          if (factor > 1) {
+            packageGroupings = packageGroupings.map((g: any) => {
+              const boxes = (g?.boxes || []).map((b: any) => {
+                const items = Array.isArray(b?.items)
+                  ? b.items.map((it: any) => ({
+                      ...it,
+                      quantity: Number(it?.quantity || 0) / factor
+                    }))
+                  : b?.items;
+                return { ...b, items };
+              });
+              return { ...g, boxes };
+            });
+
+            // recompute summed after scaling
+            const newSummed: Record<string, number> = {};
+            (packageGroupings || []).forEach((g: any) => {
+              (g?.boxes || []).forEach((b: any) => {
+                if (b?.contentInformationSource !== "BOX_CONTENT_PROVIDED") return;
+                (b?.items || []).forEach((it: any) => {
+                  const sku = String(it?.msku || "").trim();
+                  const q = Number(it?.quantity || 0) || 0;
+                  if (!sku || q <= 0) return;
+                  const boxQty = Number(b?.quantity || 1) || 1;
+                  newSummed[sku] = (newSummed[sku] || 0) + q * boxQty;
+                });
+              });
+            });
+            Object.assign(summed, newSummed);
+            mismatches = computeMismatches();
+          }
+        }
+      }
+    }
 
     if (mismatches.length || extraSkus.length) {
       return new Response(
