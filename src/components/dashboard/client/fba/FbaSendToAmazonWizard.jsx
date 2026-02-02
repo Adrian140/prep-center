@@ -491,6 +491,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [packingReadyError, setPackingReadyError] = useState('');
   const [step2Loaded, setStep2Loaded] = useState(false);
   const [shippingConfirming, setShippingConfirming] = useState(false);
+  const [skipPacking, setSkipPacking] = useState(false);
   const [forcePartneredOnly, setForcePartneredOnly] = useState(false);
   const isFallbackId = useCallback((v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-"), []);
   const hasRealPackGroups = useCallback(
@@ -832,6 +833,64 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setInboundPlanMissing(false);
     }
   }, [inboundPlanIdMemo]);
+
+  // Dacă avem deja packGroups dar încă nu am primit inboundPlanId, permit continuarea fără să blocăm UI.
+  useEffect(() => {
+    const inboundId = resolveInboundPlanId();
+    if (!inboundId && packGroupsLoaded && Array.isArray(packGroups) && packGroups.length) {
+      setAllowNoInboundPlan(true);
+      setInboundPlanMissing(false);
+      setPlanError('');
+    }
+  }, [packGroupsLoaded, packGroups, resolveInboundPlanId]);
+
+  const buildLocalSinglePackGroup = useCallback(
+    (skus = []) => ({
+      id: 'pack-1',
+      packingGroupId: 'pack-1',
+      title: 'Pack group 1',
+      packMode: 'single',
+      boxes: 1,
+      boxDimensions: null,
+      boxWeight: null,
+      packingConfirmed: false,
+      items: (Array.isArray(skus) ? skus : []).map((sku) => ({
+        sku: sku.sku || sku.msku || sku.SellerSKU || sku.asin || sku.id || '',
+        quantity: Number(sku.units || 0) || 0,
+        image: sku.image || sku.thumbnail || sku.main_image || sku.img || null,
+        title: sku.title || sku.product_name || sku.name || null,
+        apiLabelOwner: sku.labelOwner || sku.label_owner || null,
+        labelOwner: sku.labelOwner || sku.label_owner || null,
+        prepOwner: sku.prepOwner || sku.prep_owner || null,
+        expiration: sku.expiration || sku.expiry || sku.expiryDate || null
+      }))
+    }),
+    []
+  );
+
+  // Dacă nu avem inboundPlanId și Amazon nu a trimis packGroups, creează un grup unic local (Pack group 1)
+  // pentru a permite UI să continue packing fără prompt suplimentar.
+  useEffect(() => {
+    const inboundId = resolveInboundPlanId();
+    const hasGroups = Array.isArray(packGroups) && packGroups.length > 0;
+    const hasSkus = Array.isArray(plan?.skus) && plan.skus.some((s) => Number(s?.units || 0) > 0);
+    if (inboundId || hasGroups || !hasSkus) return;
+    setAllowNoInboundPlan(true);
+    const singleGroup = buildLocalSinglePackGroup(plan.skus);
+    setPackGroups([singleGroup]);
+    setPackGroupsLoaded(true);
+  }, [packGroups, plan?.skus, resolveInboundPlanId, buildLocalSinglePackGroup]);
+
+  // Dacă avem inboundPlanId dar Amazon nu trimite packGroups, folosește fallback cu un singur grup local.
+  useEffect(() => {
+    const inboundId = resolveInboundPlanId();
+    const hasGroups = Array.isArray(packGroups) && packGroups.length > 0;
+    const hasSkus = Array.isArray(plan?.skus) && plan.skus.some((s) => Number(s?.units || 0) > 0);
+    if (!inboundId || hasGroups || !hasSkus) return;
+    const singleGroup = buildLocalSinglePackGroup(plan.skus);
+    setPackGroups([singleGroup]);
+    setPackGroupsLoaded(true);
+  }, [plan?.skus, packGroups, resolveInboundPlanId, buildLocalSinglePackGroup]);
 
   // Persistăm ultimul pas vizitat ca să nu se piardă la refresh (cheie per shipment).
   const storageKeyBase = useMemo(() => {
