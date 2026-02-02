@@ -163,6 +163,7 @@ export default function FbaStep1Inventory({
   const [labelError, setLabelError] = useState('');
   const [activeBoxByGroup, setActiveBoxByGroup] = useState({});
   const [boxIndexDrafts, setBoxIndexDrafts] = useState({});
+  const [boxQtyDrafts, setBoxQtyDrafts] = useState({});
   const [boxDimDrafts, setBoxDimDrafts] = useState({});
 
   const normalizedPackGroups = Array.isArray(packGroupsPreview) ? packGroupsPreview : [];
@@ -826,20 +827,51 @@ export default function FbaStep1Inventory({
                     className="w-16 border rounded-md px-2 py-1 text-xs"
                   />
                   <span className="text-xs text-slate-500">Units</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={entry.qty}
-                    onChange={(e) => {
-                      const nextValue = Number(e.target.value || 0);
+                  {(() => {
+                    const qtyDraftKey = `${groupId}::${skuKey}::${entry.boxIdx}::qty`;
+                    const draftValue = boxQtyDrafts[qtyDraftKey];
+                    const inputValue =
+                      draftValue !== undefined && draftValue !== null ? draftValue : entry.qty;
+                    const commitBoxQtyChange = () => {
+                      const raw = String(boxQtyDrafts[qtyDraftKey] ?? '').trim();
+                      const num = raw === '' ? 0 : Number(raw);
+                      const nextValue = Number.isFinite(num) ? num : 0;
                       updateBoxItemQty(groupId, entry.boxIdx, skuKey, nextValue, groupLabel, entry.hasKey);
                       if (nextValue > 0 && entry.boxIdx >= activeIndex) {
                         setActiveBoxIndex(groupId, entry.boxIdx);
                       }
+                      setBoxQtyDrafts((prev) => {
+                        const next = { ...(prev || {}) };
+                        delete next[qtyDraftKey];
+                        return next;
+                      });
+                    };
+                    return (
+                  <input
+                    type="number"
+                    min={0}
+                    value={inputValue}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setBoxQtyDrafts((prev) => ({
+                        ...(prev || {}),
+                        [qtyDraftKey]: val
+                      }));
                     }}
-                    onKeyDown={preventEnterSubmit}
+                    onBlur={commitBoxQtyChange}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        commitBoxQtyChange();
+                        event.currentTarget.blur();
+                        return;
+                      }
+                      preventEnterSubmit(event);
+                    }}
                     className="w-16 border rounded-md px-2 py-1 text-xs"
                   />
+                    );
+                  })()}
                   <button
                     className="text-xs text-red-600"
                     type="button"
