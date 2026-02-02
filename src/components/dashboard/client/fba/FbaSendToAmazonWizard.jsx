@@ -283,9 +283,9 @@ export default function FbaSendToAmazonWizard({
   const [carrierTouched, setCarrierTouched] = useState(false);
   const [shippingConfirmed, setShippingConfirmed] = useState(historyMode ? Boolean(initialShippingConfirmed) : false);
   const allowPersistence = false; // forțează reluarea workflow-ului de la Step 1; nu restaurăm din localStorage
-  const normalizePackGroups = useCallback((groups = []) =>
-    (Array.isArray(groups) ? groups : [])
-      .map((g, idx) => {
+  const normalizePackGroups = useCallback(
+    (groups = []) =>
+      collapsePackGroups(Array.isArray(groups) ? groups : []).map((g, idx) => {
         const items = (g.items || [])
           .map((it) => ({
             sku: it.sku || it.msku || it.SellerSKU || it.sellerSku || it.asin || '',
@@ -322,7 +322,8 @@ export default function FbaSendToAmazonWizard({
           contentInformationSource: g.contentInformationSource || g.content_information_source || null
         };
       }),
-  []);
+    [collapsePackGroups]
+  );
   const getPackGroupKey = useCallback((group) => group?.packingGroupId || group?.id || null, []);
   const getPackGroupSignature = useCallback((group) => {
     const items = Array.isArray(group?.items) ? group.items : [];
@@ -454,6 +455,34 @@ export default function FbaSendToAmazonWizard({
   const trackingPrefillRef = useRef(false);
   const trackingLoadRequestedRef = useRef(false);
   const autoPackingRef = useRef({ planId: null, attempted: false });
+  const collapsePackGroups = useCallback((groups) => {
+    const list = Array.isArray(groups) ? groups : [];
+    if (list.length <= 1) return list;
+    const base = list[0] || {};
+    const mergedMap = new Map();
+    list.forEach((g) => {
+      (g.items || []).forEach((it) => {
+        const key = String(it.sku || it.msku || it.SellerSKU || it.sellerSku || it.asin || it.id || '').trim().toUpperCase();
+        if (!key) return;
+        const prev = mergedMap.get(key) || { ...it, quantity: 0 };
+        prev.quantity = (Number(prev.quantity) || 0) + (Number(it.quantity || it.units || 0) || 0);
+        mergedMap.set(key, prev);
+      });
+    });
+    const mergedItems = Array.from(mergedMap.values()).filter((it) => Number(it.quantity || 0) > 0);
+    const totalUnits = mergedItems.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+    return [
+      {
+        ...base,
+        id: base.id || base.packingGroupId || 'group-1',
+        packingGroupId: base.packingGroupId || base.id || 'group-1',
+        title: base.title || 'Pack group 1',
+        items: mergedItems,
+        skuCount: mergedItems.length,
+        units: totalUnits
+      }
+    ];
+  }, []);
   const sanitizePackingOptions = useCallback((options) => {
     const list = Array.isArray(options) ? options : [];
     const filtered = list.filter((opt) => {
