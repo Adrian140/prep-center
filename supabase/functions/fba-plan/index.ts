@@ -2679,6 +2679,12 @@ serve(async (req) => {
       if (operationId && !operationStatus && createHttpStatus && createHttpStatus < 300) {
         operationStatus = "SUCCESS";
       }
+      // Try to recover inboundPlanId from Amazon response if createInboundPlan didn't populate it.
+      if (!inboundPlanId) {
+        const fromAmazon = extractInboundPlanData(amazonJson || {});
+        inboundPlanId = fromAmazon.inboundPlanId || snapshotInboundPlanId || inboundPlanId;
+      }
+
       const planActive =
         (operationStatus || "").toUpperCase() === "SUCCESS" || (inboundPlanStatus || "").toUpperCase() === "ACTIVE";
       const buildFallbackSkus = () =>
@@ -2720,7 +2726,7 @@ serve(async (req) => {
         const missingPlanId = !inboundPlanId || isLockId(inboundPlanId);
         const missingShipments = !plans || !plans.length;
         if (missingPlanId) {
-          console.error("createInboundPlan active but missing inboundPlanId", {
+          console.info("createInboundPlan active dar inboundPlanId lipsă; așteptăm să fie disponibil", {
             traceId,
             status: createHttpStatus,
             inboundPlanId,
@@ -2732,46 +2738,8 @@ serve(async (req) => {
             sellerId,
             requestId: primaryRequestId
           });
-          await resetInboundPlanId();
-          const fallbackSkus = buildFallbackSkus();
-          const warn =
-            "Amazon nu a returnat inboundPlanId pentru planul creat. Planul a fost resetat; încearcă din nou sau verifică permisiunile Inbound.";
-          const fallbackPlan = {
-            source: "amazon",
-            amazonIntegrationId,
-            marketplace: marketplaceId,
-            shipFrom: {
-              name: shipFromAddress.name,
-              address: formatAddress(shipFromAddress)
-            },
-            skus: fallbackSkus,
-            packGroups: [],
-            step1BoxPlan,
-            shipments: [],
-            raw: amazonJson,
-            skuStatuses,
-            warning: warn,
-            blocking: true,
-            requestId: primaryRequestId || null
-          };
-          return new Response(
-            JSON.stringify({
-              plan: fallbackPlan,
-              traceId,
-              status: createHttpStatus,
-              requestId: primaryRequestId || null,
-              inboundPlanId: null,
-              inboundPlanStatus: null,
-              operationId,
-              operationStatus,
-              operationProblems,
-              operationRaw,
-              scopes: lwaScopes
-            }),
-            {
-              status: 200,
-              headers: { ...corsHeaders, "content-type": "application/json" }
-            }
+          planWarnings.push(
+            "Amazon nu a returnat încă inboundPlanId. Reîncearcă Refresh în câteva secunde sau repetă Step 1 dacă persistă."
           );
         }
         if (missingShipments) {
