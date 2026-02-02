@@ -215,10 +215,7 @@ function normalizeItem(input: any) {
   return out;
 }
 
-function buildPackageGroupingsFromPackingGroups(
-  groups: any[],
-  fallbackMeta?: { dims: any; weight: any; perBoxItems: any[] | null }
-) {
+function buildPackageGroupingsFromPackingGroups(groups: any[]) {
   const out: any[] = [];
   (groups || []).forEach((g: any) => {
     const packingGroupId = g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
@@ -235,13 +232,8 @@ function buildPackageGroupingsFromPackingGroups(
       : Array.isArray(g?.per_box_details)
       ? g.per_box_details
       : [];
-    let dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
-    let weight = normalizeWeight(g?.weight || g?.boxWeight);
-    if ((!dims || !weight) && fallbackMeta) {
-      dims = dims || fallbackMeta.dims;
-      weight = weight || fallbackMeta.weight;
-    }
-    if (!dims || !weight) return;
+    const dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
+    const weight = normalizeWeight(g?.weight || g?.boxWeight);
     const hasPerBoxDetails = perBoxDetailsRaw.some((d: any) => {
       const l = Number(d?.length || 0);
       const w = Number(d?.width || 0);
@@ -746,13 +738,7 @@ async function fetchPackingGroupItems(opts: {
   });
 
   if (!res?.res?.ok) {
-    // Gracefully handle deleted/missing packing groups (400) by returning empty.
-    const msg = res?.text || "";
-    const status = res?.res?.status || "unknown";
-    if (status === 400 && msg.includes("packing group does not exist")) {
-      return [];
-    }
-    throw new Error(`listPackingGroupItems failed (${status}): ${msg}`);
+    throw new Error(`listPackingGroupItems failed (${res?.res?.status || "unknown"}): ${res?.text || ""}`);
   }
   const items = (res?.json?.items || res?.json?.payload?.items || []) as any[];
   return Array.isArray(items) ? items : [];
@@ -960,7 +946,7 @@ serve(async (req) => {
     );
     const requestId = body?.request_id ?? body?.requestId;
     const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
-    let packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
+    const packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
     const generatePlacementOptions =
       body?.generate_placement_options ?? body?.generatePlacementOptions ?? true;
     const packingGroupsInput =
@@ -983,7 +969,7 @@ serve(async (req) => {
             : 0
         }))
       : [];
-    let directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
+    const directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
     let packageGroupings: any[] = [];
     if (!requestId || !inboundPlanId) {
       return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare", traceId }), {
@@ -1001,7 +987,7 @@ serve(async (req) => {
 
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
-      .select("id, destination_country, company_id, user_id, amazon_snapshot, step1_box_plan")
+      .select("id, destination_country, company_id, user_id, amazon_snapshot")
       .eq("id", requestId)
       .maybeSingle();
     if (reqErr) throw reqErr;
@@ -1030,112 +1016,7 @@ serve(async (req) => {
       });
       return merged;
     };
-    let mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
-
-    // Inject dims/weight/perBoxItems din step1_box_plan dacă lipsesc în packingGroups (common case: plan Amazon nu furnizează dims).
-    const step1BoxPlan = (reqData as any)?.step1_box_plan || {};
-    const extractStep1FirstGroup = () => {
-      const countryNodes = Object.values(step1BoxPlan || {});
-      const candidate = countryNodes.find((n: any) => n?.groups && Object.keys(n.groups).length > 0) as any;
-      const groupsNode = candidate?.groups || {};
-      const first = Object.values(groupsNode)[0] as any;
-      if (!first) return null;
-      const firstBox = Array.isArray(first?.boxes) ? first.boxes[0] : null;
-      if (!firstBox) return null;
-      const toNum = (v: any) => (v == null ? null : Number(v));
-      const dims = normalizeDimensions({
-        length: toNum(firstBox.length_cm) ?? toNum(firstBox.length),
-        width: toNum(firstBox.width_cm) ?? toNum(firstBox.width),
-        height: toNum(firstBox.height_cm) ?? toNum(firstBox.height),
-        unit: "CM"
-      });
-      const weight = normalizeWeight({
-        value: toNum(firstBox.weight_kg) ?? toNum(firstBox.weight),
-        unit: "KG"
-      });
-      const perBoxItems = Array.isArray(first?.boxItems) ? first.boxItems : [];
-      return dims && weight ? { dims, weight, perBoxItems } : null;
-    };
-    const step1FirstGroup = extractStep1FirstGroup();
-    const extractFirstBoxMeta = () => {
-      // destCountry nu este disponibil în această funcție; folosim country din request body dacă există.
-      const countryFromBody = (
-        body?.destination_country ||
-        body?.destinationCountry ||
-        body?.warehouse_country ||
-        body?.warehouseCountry ||
-        reqData.destination_country ||
-        "FR"
-      )
-        .toString()
-        .toUpperCase();
-      const countryNode = step1BoxPlan?.[countryFromBody] || {};
-      const groups = countryNode?.groups || step1BoxPlan?.groups || {};
-      const firstGroup = Object.values(groups || {})[0] as any;
-      const firstBox = Array.isArray(firstGroup?.boxes) ? firstGroup.boxes[0] : null;
-      if (!firstBox) return null;
-      const toNum = (v: any) => (v == null ? null : Number(v));
-      const dims = normalizeDimensions({
-        length: toNum(firstBox.length_cm) ?? toNum(firstBox.length),
-        width: toNum(firstBox.width_cm) ?? toNum(firstBox.width),
-        height: toNum(firstBox.height_cm) ?? toNum(firstBox.height),
-        unit: "CM"
-      });
-      const weight = normalizeWeight({
-        value: toNum(firstBox.weight_kg) ?? toNum(firstBox.weight),
-        unit: "KG"
-      });
-      const perBoxItems = Array.isArray(firstGroup?.boxItems) ? firstGroup.boxItems[0] : null;
-      return dims && weight
-        ? {
-            dimensions: dims,
-            weight,
-            perBoxItems
-          }
-        : null;
-    };
-    const fallbackBoxMeta = extractFirstBoxMeta();
-    if (fallbackBoxMeta && Array.isArray(mergedPackingGroupsInput)) {
-      mergedPackingGroupsInput = mergedPackingGroupsInput.map((g: any) => {
-        const hasDims = g?.dimensions || g?.boxDimensions;
-        const hasWeight = g?.weight || g?.boxWeight;
-        if (hasDims && hasWeight) return g;
-        const perBoxItemsRaw = g?.perBoxItems || g?.per_box_items || fallbackBoxMeta.perBoxItems || null;
-        const perBoxItems =
-          perBoxItemsRaw && typeof perBoxItemsRaw === "object" && !Array.isArray(perBoxItemsRaw)
-            ? [perBoxItemsRaw] // wrap într-o singură cutie
-            : Array.isArray(perBoxItemsRaw)
-            ? perBoxItemsRaw
-            : [];
-        return {
-          ...g,
-          dimensions: hasDims ? g.dimensions || g.boxDimensions : fallbackBoxMeta.dimensions,
-          weight: hasWeight ? g.weight || g.boxWeight : fallbackBoxMeta.weight,
-          ...(perBoxItems.length ? { perBoxItems } : {})
-        };
-      });
-    }
-
-    // Dacă nici fallbackBoxMeta nu a acoperit perBoxItems, încercăm cu primul grup din step1_box_plan.
-    if (step1FirstGroup && Array.isArray(mergedPackingGroupsInput)) {
-      mergedPackingGroupsInput = mergedPackingGroupsInput.map((g: any) => {
-        const perBoxItemsPresent = Array.isArray(g?.perBoxItems) && g.perBoxItems.length;
-        const dimsPresent = g?.dimensions || g?.boxDimensions;
-        const weightPresent = g?.weight || g?.boxWeight;
-        if (perBoxItemsPresent && dimsPresent && weightPresent) return g;
-        const perBoxItems = perBoxItemsPresent
-          ? g.perBoxItems
-          : Array.isArray(step1FirstGroup.perBoxItems)
-          ? step1FirstGroup.perBoxItems
-          : [];
-        return {
-          ...g,
-          dimensions: dimsPresent ? g.dimensions || g.boxDimensions : step1FirstGroup.dims,
-          weight: weightPresent ? g.weight || g.boxWeight : step1FirstGroup.weight,
-          ...(perBoxItems.length ? { perBoxItems } : {})
-        };
-      });
-    }
+    const mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
     const mergedPackingGroupsSummary = Array.isArray(mergedPackingGroupsInput)
       ? mergedPackingGroupsInput.map((g: any) => ({
           packingGroupId: g?.packingGroupId || g?.id || g?.groupId || null,
@@ -1290,44 +1171,32 @@ serve(async (req) => {
     };
     const normalizePackingOptionId = (opt: any) => opt?.packingOptionId || opt?.id || null;
     const normalizeStatus = (opt: any) => String(opt?.status || opt?.Status || "").toUpperCase();
-    let autoSwitchedPackingOption = false;
-    let acceptedPackingGroups: any[] = [];
-    let acceptedPackingOptionId: string | null = null;
     try {
       const { options } = await listPackingOptionsWithRetry();
       const accepted = (options || []).find((opt: any) => normalizeStatus(opt) === "ACCEPTED");
       if (accepted && normalizePackingOptionId(accepted) && normalizePackingOptionId(accepted) !== packingOptionId) {
-        // Auto-switch to the accepted packing option from Amazon to avoid blocking.
-        packingOptionId = normalizePackingOptionId(accepted);
-        acceptedPackingOptionId = packingOptionId;
-        acceptedPackingGroups = Array.isArray(accepted?.packingGroups) ? accepted.packingGroups.filter(Boolean) : [];
-        autoSwitchedPackingOption = true;
+        const acceptedIds = Array.isArray(accepted?.packingGroups)
+          ? accepted.packingGroups.filter(Boolean)
+          : [];
+        return new Response(
+          JSON.stringify({
+            error:
+              "Packing option este deja ACCEPTED in Amazon. Trebuie folosit packingOptionId acceptat si toate packingGroupId-urile aferente.",
+            code: "PACKING_OPTION_LOCKED",
+            traceId,
+            acceptedPackingOptionId: normalizePackingOptionId(accepted),
+            expectedPackingGroupIds: acceptedIds
+          }),
+          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
       }
-      const chosen = (options || []).find((opt: any) => normalizePackingOptionId(opt) === packingOptionId);
-      const groups = Array.isArray(chosen?.packingGroups) ? chosen.packingGroups.filter(Boolean) : [];
-      const expectedGroups = groups;
+      const chosen = (options || []).find(
+        (opt: any) => normalizePackingOptionId(opt) === packingOptionId
+      );
+      const groups = Array.isArray(chosen?.packingGroups)
+        ? chosen.packingGroups.filter(Boolean)
+        : [];
       if (groups.length) {
-        // Dacă nu avem deloc packingGroups din UI/snapshot, construim unul minimal din Step1BoxPlan cu packingGroupId Amazon.
-        if (!mergedPackingGroupsInput.length && fallbackBoxMeta) {
-          const firstGroup = (() => {
-            // încercăm să luăm primul group din step1_box_plan (din orice țară)
-            const countryNodes = Object.values(step1BoxPlan || {});
-            const candidate = countryNodes.find((n: any) => n?.groups && Object.keys(n.groups).length > 0) as any;
-            const groupsNode = candidate?.groups || {};
-            const first = Object.values(groupsNode)[0] as any;
-            return first || null;
-          })();
-          const perBoxItemsRaw = firstGroup?.boxItems ? [firstGroup.boxItems[0] || firstGroup.boxItems] : [];
-          mergedPackingGroupsInput = [
-            {
-              packingGroupId: expectedGroups[0],
-              perBoxItems: perBoxItemsRaw,
-              dimensions: fallbackBoxMeta.dimensions,
-              weight: fallbackBoxMeta.weight
-            }
-          ];
-        }
-
         const providedSource = directGroupings.length ? directGroupings : mergedPackingGroupsInput;
         const providedIds = (providedSource || [])
           .map((g: any) => g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null)
@@ -1335,70 +1204,22 @@ serve(async (req) => {
         const missingIds = groups.filter((id: any) => !providedIds.includes(id));
         const extraIds = providedIds.filter((id: any) => !groups.includes(id));
         if (missingIds.length || extraIds.length) {
-          // Dacă avem acceptedPackingGroups (auto-switch), injectăm grupurile lipsă cu doar ID.
-          if (autoSwitchedPackingOption && missingIds.length) {
-            missingIds.forEach((id: any) => {
-              mergedPackingGroupsInput.push({ packingGroupId: id });
-            });
-          } else if (expectedGroups.length) {
-            // Rescriem IDs după ordinea Amazon pentru a evita 400.
-            mergedPackingGroupsInput.forEach((g: any, idx: number) => {
-              if (!g) return;
-              const expectedId = expectedGroups[idx] || expectedGroups[0];
-              if (expectedId) g.packingGroupId = expectedId;
-            });
-            if (!mergedPackingGroupsInput.length) {
-              mergedPackingGroupsInput.push({ packingGroupId: expectedGroups[0] });
-            }
-          } else {
-            return new Response(
-              JSON.stringify({
-                error:
-                  "Packing groups incomplete. Amazon requires packageGroupings for all packingGroupId values in the selected packingOption.",
-                code: "PACKING_GROUPS_INCOMPLETE",
-                traceId,
-                expectedPackingGroupIds: groups,
-                missingPackingGroupIds: missingIds,
-                extraPackingGroupIds: extraIds
-              }),
-              { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
-            );
-          }
-        }
-
-        // Aliniază explicit grupurile locale la lista Amazon (ordine + eliminare extra) ca să evităm 400 BadRequest.
-        const normalizePgId = (g: any) => g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
-        const alignToExpectedIds = (list: any[]) => {
-          const normalized = (Array.isArray(list) ? list : []).map((g: any) => ({
-            ...g,
-            packingGroupId: normalizePgId(g)
-          }));
-          const byId = new Map<string, any>();
-          normalized.forEach((g: any) => {
-            if (g?.packingGroupId) byId.set(String(g.packingGroupId), g);
-          });
-          const fallbackList = normalized.filter(Boolean);
-          return expectedGroups.map((expectedId: any, idx: number) => {
-            const id = String(expectedId);
-            const byIdMatch = byId.get(id);
-            if (byIdMatch) return { ...byIdMatch, packingGroupId: id };
-            const fallback = fallbackList[idx] || fallbackList[0] || {};
-            return { ...fallback, packingGroupId: id };
-          });
-        };
-
-        mergedPackingGroupsInput = alignToExpectedIds(mergedPackingGroupsInput);
-        if (directGroupings.length) {
-          directGroupings = alignToExpectedIds(directGroupings);
+          return new Response(
+            JSON.stringify({
+              error:
+                "Packing groups incomplete. Amazon requires packageGroupings for all packingGroupId values in the selected packingOption.",
+              code: "PACKING_GROUPS_INCOMPLETE",
+              traceId,
+              expectedPackingGroupIds: groups,
+              missingPackingGroupIds: missingIds,
+              extraPackingGroupIds: extraIds
+            }),
+            { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
         }
       }
     } catch (err) {
       console.warn("packing options validation skipped", { traceId, error: err });
-    }
-
-    // Dacă Amazon are deja o packing option ACCEPTED și diferă de cea venită din UI, forțăm folosirea celei ACCEPTED.
-    if (acceptedPackingOptionId && acceptedPackingOptionId !== packingOptionId) {
-      packingOptionId = acceptedPackingOptionId;
     }
 
     if (directGroupings.length) {
@@ -1418,45 +1239,18 @@ serve(async (req) => {
           marketplaceId,
           sellerId
         });
-        packageGroupings = buildPackageGroupingsFromPackingGroups(hydratedGroups, step1FirstGroup || undefined);
+        packageGroupings = buildPackageGroupingsFromPackingGroups(hydratedGroups);
       } catch (err) {
-        console.warn("fetch packing group items failed, falling back to step1 data", {
-          traceId,
-          error: err instanceof Error ? err.message : String(err)
-        });
-        // Fallback: folosim packingGroups (hydrated cu Step1) chiar dacă Amazon a refuzat listPackingGroupItems.
-        packageGroupings = buildPackageGroupingsFromPackingGroups(mergedPackingGroupsInput, step1FirstGroup || undefined);
+        console.error("fetch packing group items failed", { traceId, error: err });
+        return new Response(
+          JSON.stringify({
+            error: "Nu am putut citi packing group items din Amazon. Reincearca in cateva secunde.",
+            traceId
+          }),
+          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
       }
     }
-    if (!packageGroupings.length && mergedPackingGroupsInput.length) {
-      // Fallback: construim packageGroupings minimale din packingGroups (dims/weight) chiar dacă items lipsesc,
-      // ca să nu blocăm pe eroarea generică 400.
-      packageGroupings = mergedPackingGroupsInput
-        .map((g: any) => {
-          const packingGroupId = g?.packingGroupId || g?.id || g?.groupId || null;
-          if (!packingGroupId) return null;
-          const dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
-          const weight = normalizeWeight(g?.weight || g?.boxWeight);
-          if (!dims || !weight) return null;
-          const items = Array.isArray(g?.items) ? g.items.map(normalizeItem).filter(Boolean) : [];
-          const quantity = Math.max(1, Number(g?.boxes || g?.boxCount || 1) || 1);
-          const contentInformationSource = items.length ? "BOX_CONTENT_PROVIDED" : "MANUAL_PROCESS";
-          return {
-            packingGroupId,
-            boxes: [
-              {
-                quantity,
-                contentInformationSource,
-                ...(items.length ? { items } : {}),
-                dimensions: dims,
-                weight
-              }
-            ]
-          };
-        })
-        .filter(Boolean);
-    }
-
     if (!packageGroupings.length) {
       return new Response(
         JSON.stringify({
@@ -1537,65 +1331,14 @@ serve(async (req) => {
       });
     });
 
-    const computeMismatches = () =>
-      Object.keys(confirmed)
-        .map((sku) => {
-          const c = Number(confirmed[sku] || 0) || 0;
-          const p = Number(summed[sku] || 0) || 0;
-          return { sku, confirmed: c, payload: p, delta: p - c };
-        })
-        .filter((r) => r.delta !== 0);
-
-    let mismatches = computeMismatches();
+    const mismatches = Object.keys(confirmed)
+      .map((sku) => {
+        const c = Number(confirmed[sku] || 0) || 0;
+        const p = Number(summed[sku] || 0) || 0;
+        return { sku, confirmed: c, payload: p, delta: p - c };
+      })
+      .filter((r) => r.delta !== 0);
     const extraSkus = Object.keys(summed).filter((sku) => !(sku in confirmed));
-
-    // Auto-fix simple duplication cases (all payloads share the same integer multiplier vs confirmed).
-    if (mismatches.length && !extraSkus.length) {
-      const deltas = mismatches.filter((m) => m.confirmed > 0 && m.payload > 0 && m.payload % m.confirmed === 0);
-      if (deltas.length === mismatches.length) {
-        const factors = new Set(deltas.map((m) => m.payload / m.confirmed));
-        if (factors.size === 1) {
-          const factor = [...factors][0];
-          if (factor > 1) {
-            // Apply scaling only if every item quantity is divisible by factor (to avoid frac quantities).
-            const quantities = (packageGroupings || [])
-              .flatMap((g: any) => (g?.boxes || []).flatMap((b: any) => (b?.items || []).map((it: any) => Number(it?.quantity || 0))));
-            const allDivisible = quantities.every((q) => Number.isFinite(q) && (q * 1000) % (factor * 1000) === 0);
-            if (allDivisible) {
-              packageGroupings = packageGroupings.map((g: any) => {
-                const boxes = (g?.boxes || []).map((b: any) => {
-                  const items = Array.isArray(b?.items)
-                    ? b.items.map((it: any) => ({
-                        ...it,
-                        quantity: Number(it?.quantity || 0) / factor
-                      }))
-                    : b?.items;
-                  return { ...b, items };
-                });
-                return { ...g, boxes };
-              });
-
-              // recompute summed after scaling
-              const newSummed: Record<string, number> = {};
-              (packageGroupings || []).forEach((g: any) => {
-                (g?.boxes || []).forEach((b: any) => {
-                  if (b?.contentInformationSource !== "BOX_CONTENT_PROVIDED") return;
-                  (b?.items || []).forEach((it: any) => {
-                    const sku = String(it?.msku || "").trim();
-                    const q = Number(it?.quantity || 0) || 0;
-                    if (!sku || q <= 0) return;
-                    const boxQty = Number(b?.quantity || 1) || 1;
-                    newSummed[sku] = (newSummed[sku] || 0) + q * boxQty;
-                  });
-                });
-              });
-              Object.assign(summed, newSummed);
-              mismatches = computeMismatches();
-            }
-          }
-        }
-      }
-    }
 
     if (mismatches.length || extraSkus.length) {
       return new Response(
