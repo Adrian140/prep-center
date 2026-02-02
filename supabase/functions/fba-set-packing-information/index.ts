@@ -946,7 +946,7 @@ serve(async (req) => {
     );
     const requestId = body?.request_id ?? body?.requestId;
     const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
-    let packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
+    const packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
     const generatePlacementOptions =
       body?.generate_placement_options ?? body?.generatePlacementOptions ?? true;
     const packingGroupsInput =
@@ -969,7 +969,7 @@ serve(async (req) => {
             : 0
         }))
       : [];
-    let directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
+    const directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
     let packageGroupings: any[] = [];
     if (!requestId || !inboundPlanId) {
       return new Response(JSON.stringify({ error: "request_id și inbound_plan_id sunt necesare", traceId }), {
@@ -1016,7 +1016,7 @@ serve(async (req) => {
       });
       return merged;
     };
-    let mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
+    const mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
     const mergedPackingGroupsSummary = Array.isArray(mergedPackingGroupsInput)
       ? mergedPackingGroupsInput.map((g: any) => ({
           packingGroupId: g?.packingGroupId || g?.id || g?.groupId || null,
@@ -1172,48 +1172,51 @@ serve(async (req) => {
     const normalizePackingOptionId = (opt: any) => opt?.packingOptionId || opt?.id || null;
     const normalizeStatus = (opt: any) => String(opt?.status || opt?.Status || "").toUpperCase();
     try {
-      const res = await listPackingOptionsWithRetry();
-      let options = res.options || [];
+      const { options } = await listPackingOptionsWithRetry();
       const accepted = (options || []).find((opt: any) => normalizeStatus(opt) === "ACCEPTED");
-      if (accepted && normalizePackingOptionId(accepted)) {
-        packingOptionId = normalizePackingOptionId(accepted);
+      if (accepted && normalizePackingOptionId(accepted) && normalizePackingOptionId(accepted) !== packingOptionId) {
+        const acceptedIds = Array.isArray(accepted?.packingGroups)
+          ? accepted.packingGroups.filter(Boolean)
+          : [];
+        return new Response(
+          JSON.stringify({
+            error:
+              "Packing option este deja ACCEPTED in Amazon. Trebuie folosit packingOptionId acceptat si toate packingGroupId-urile aferente.",
+            code: "PACKING_OPTION_LOCKED",
+            traceId,
+            acceptedPackingOptionId: normalizePackingOptionId(accepted),
+            expectedPackingGroupIds: acceptedIds
+          }),
+          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
       }
-      const chosen = (options || []).find((opt: any) => normalizePackingOptionId(opt) === packingOptionId) || accepted;
-      const groups = Array.isArray(chosen?.packingGroups) ? chosen.packingGroups.filter(Boolean) : [];
+      const chosen = (options || []).find(
+        (opt: any) => normalizePackingOptionId(opt) === packingOptionId
+      );
+      const groups = Array.isArray(chosen?.packingGroups)
+        ? chosen.packingGroups.filter(Boolean)
+        : [];
       if (groups.length) {
-        const alignToExpected = (list: any[]) => {
-          const normalized = (Array.isArray(list) ? list : []).map((g: any) => ({
-            ...g,
-            packingGroupId: g?.packingGroupId || g?.id || g?.groupId || g?.packing_group_id || null
-          }));
-          const byId = new Map<string, any>();
-          normalized.forEach((g: any) => {
-            if (g?.packingGroupId) byId.set(String(g.packingGroupId), g);
-          });
-          return groups.map((gid: any, idx: number) => {
-            const id = String(gid);
-            const fromId = byId.get(id);
-            if (fromId) return { ...fromId, packingGroupId: id };
-            const fallback = normalized[idx] || normalized[0] || {};
-            return { ...fallback, packingGroupId: id };
-          });
-        };
-        mergedPackingGroupsInput = alignToExpected(mergedPackingGroupsInput);
-        if (directGroupings.length) {
-          directGroupings = alignToExpected(directGroupings);
+        const providedSource = directGroupings.length ? directGroupings : mergedPackingGroupsInput;
+        const providedIds = (providedSource || [])
+          .map((g: any) => g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null)
+          .filter(Boolean);
+        const missingIds = groups.filter((id: any) => !providedIds.includes(id));
+        const extraIds = providedIds.filter((id: any) => !groups.includes(id));
+        if (missingIds.length || extraIds.length) {
+          return new Response(
+            JSON.stringify({
+              error:
+                "Packing groups incomplete. Amazon requires packageGroupings for all packingGroupId values in the selected packingOption.",
+              code: "PACKING_GROUPS_INCOMPLETE",
+              traceId,
+              expectedPackingGroupIds: groups,
+              missingPackingGroupIds: missingIds,
+              extraPackingGroupIds: extraIds
+            }),
+            { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
         }
-      } else if (!mergedPackingGroupsInput.length && accepted?.packingGroups?.length) {
-        mergedPackingGroupsInput = accepted.packingGroups.map((gid: any) => ({ packingGroupId: gid }));
-      }
-      // Dacă există groups de la Amazon și încă nu avem nimic, asigură IDs corecte
-      if (!mergedPackingGroupsInput.length && groups.length) {
-        mergedPackingGroupsInput = groups.map((gid: any) => ({ packingGroupId: gid }));
-      }
-      if (directGroupings.length && groups.length) {
-        directGroupings = groups.map((gid: any, idx: number) => ({
-          ...(directGroupings[idx] || directGroupings[0] || {}),
-          packingGroupId: gid
-        }));
       }
     } catch (err) {
       console.warn("packing options validation skipped", { traceId, error: err });
@@ -1238,9 +1241,14 @@ serve(async (req) => {
         });
         packageGroupings = buildPackageGroupingsFromPackingGroups(hydratedGroups);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn("fetch packing group items failed; fallback to step1 packingGroups", { traceId, error: msg });
-        packageGroupings = buildPackageGroupingsFromPackingGroups(mergedPackingGroupsInput);
+        console.error("fetch packing group items failed", { traceId, error: err });
+        return new Response(
+          JSON.stringify({
+            error: "Nu am putut citi packing group items din Amazon. Reincearca in cateva secunde.",
+            traceId
+          }),
+          { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
       }
     }
     if (!packageGroupings.length) {

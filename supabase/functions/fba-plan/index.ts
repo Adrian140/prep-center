@@ -1,4 +1,3 @@
-// @ts-nocheck
 // deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2.48.0";
@@ -2411,28 +2410,18 @@ serve(async (req) => {
     let operationProblems: any[] = [];
     let operationRaw: any = null;
     let createHttpStatus: number | null = null;
-    let retriedPrepMissing = false;
 
     const inboundPlanErrored = (status: string | null) =>
       String(status || "").toUpperCase() === "ERRORED";
 
     if (inboundPlanId) {
-      // Dacă inbound_plan_id este încă un LOCK local, curățăm din DB și nu lovim Amazon cu el.
+      // Dacă inbound_plan_id este încă un LOCK local, nu încerca să îl citești din Amazon.
       if (isLockId(inboundPlanId)) {
-        try {
-          await supabase
-            .from("prep_requests")
-            .update({ inbound_plan_id: null })
-            .eq("id", requestId)
-            .eq("inbound_plan_id", inboundPlanId);
-        } catch (lockClearErr) {
-          console.warn("fba-plan clear lock inbound_plan_id failed", { traceId, error: lockClearErr });
-        }
         inboundPlanId = null;
       }
     }
 
-    if (inboundPlanId && !isLockId(inboundPlanId)) {
+    if (inboundPlanId) {
       const fetched = await fetchInboundPlanById(inboundPlanId);
       plans = fetched.fetchedPlans || [];
       inboundPlanStatus = fetched.fetchedStatus || null;
@@ -2440,9 +2429,9 @@ serve(async (req) => {
       _lastPlacementOptions = fetched.fetchedPlacementOptions || [];
       appliedPlanBody = appliedPlanBody || buildPlanBody(appliedOverrides);
 
-      if (inboundPlanErrored(inboundPlanStatus)) {
-        logStep("inboundPlanErrored", {
-          traceId,
+    if (inboundPlanErrored(inboundPlanStatus)) {
+      logStep("inboundPlanErrored", {
+        traceId,
           inboundPlanId,
           inboundPlanStatus,
           requestId,
@@ -2458,8 +2447,8 @@ serve(async (req) => {
         inboundPlanStatus = null;
         plans = [];
         _lastPackingOptions = [];
-        _lastPlacementOptions = [];
-      }
+      _lastPlacementOptions = [];
+    }
     }
 
     // Dacă inbound_plan_id a rămas un placeholder LOCK de la o execuție anterioară, eliberează-l și recreează planul.
@@ -2470,11 +2459,6 @@ serve(async (req) => {
         .eq("id", requestId)
         .eq("inbound_plan_id", inboundPlanId);
       inboundPlanId = null;
-    }
-
-    // Dacă nu avem încă un inboundPlanId dar snapshot-ul salvat conține unul valid, îl reutilizăm pentru UI/Step1b.
-    if (!inboundPlanId && snapshotInboundPlanId && !isLockId(snapshotInboundPlanId)) {
-      inboundPlanId = snapshotInboundPlanId;
     }
 
     // Acquire a lightweight lock to avoid creating multiple inbound plans in parallel for același request.
@@ -2552,6 +2536,10 @@ serve(async (req) => {
         }
 
         const inboundErrors = extractInboundErrors({ json: res.json, text: res.text || "" });
+        if (!inboundErrors.length) {
+          break;
+        }
+
         let changed = false;
         for (const err of inboundErrors) {
           const fixVal = chooseFixValue(err.field, err.msg, err.accepted);
@@ -2564,45 +2552,8 @@ serve(async (req) => {
           }
         }
 
-        // Dacă Amazon raportează prep classification missing (FBA_INB_0182), încearcă o dată să setezi prepOwner/labelOwner SELLER.
-        const missingPrepSkus = extractMissingPrepClassification(res.json, res.text || "");
-        if (missingPrepSkus.length) {
-          missingPrepSkus.forEach((sku) => {
-            const key = normalizeSku(sku);
-            if (!key) return;
-            appliedOverrides[key] = appliedOverrides[key] || {};
-            if (appliedOverrides[key].prepOwner !== "SELLER") {
-              appliedOverrides[key].prepOwner = "SELLER";
-              changed = true;
-            }
-            if (appliedOverrides[key].labelOwner !== "SELLER") {
-              appliedOverrides[key].labelOwner = "SELLER";
-              changed = true;
-            }
-          });
-        }
-
         if (!changed) {
-          // Dacă lipsesc prep classifications raportate în response text/json, încearcă cu SELLER
-          const missingPrepSkus = extractMissingPrepClassification(res.json, res.text || "");
-          if (missingPrepSkus.length) {
-            missingPrepSkus.forEach((sku) => {
-              const key = normalizeSku(sku);
-              if (!key) return;
-              appliedOverrides[key] = appliedOverrides[key] || {};
-              if (appliedOverrides[key].prepOwner !== "SELLER") {
-                appliedOverrides[key].prepOwner = "SELLER";
-                changed = true;
-              }
-              if (appliedOverrides[key].labelOwner !== "SELLER") {
-                appliedOverrides[key].labelOwner = "SELLER";
-                changed = true;
-              }
-            });
-          }
-          if (!changed) {
-            break;
-          }
+          break;
         }
       }
     }
@@ -2618,7 +2569,7 @@ serve(async (req) => {
       }
     }
 
-    if (inboundPlanId && !isLockId(inboundPlanId) && (!inboundPlanStatus || inboundPlanErrored(inboundPlanStatus))) {
+    if (inboundPlanId && (!inboundPlanStatus || inboundPlanErrored(inboundPlanStatus))) {
       const fetched = await fetchInboundPlanById(inboundPlanId);
       if (fetched.fetchedStatus) inboundPlanStatus = fetched.fetchedStatus;
       if (!plans.length && fetched.fetchedPlans?.length) plans = fetched.fetchedPlans;
@@ -2718,16 +2669,40 @@ serve(async (req) => {
       if (operationId && !operationStatus && createHttpStatus && createHttpStatus < 300) {
         operationStatus = "SUCCESS";
       }
-      // Try to recover inboundPlanId from Amazon response if createInboundPlan didn't populate it.
-      if (!inboundPlanId) {
-        const fromAmazon = extractInboundPlanData(amazonJson || {});
-        inboundPlanId = fromAmazon.inboundPlanId || snapshotInboundPlanId || inboundPlanId;
-      }
-
       const planActive =
         (operationStatus || "").toUpperCase() === "SUCCESS" || (inboundPlanStatus || "").toUpperCase() === "ACTIVE";
-      const buildFallbackSkus = () =>
-        items.map((it, idx) => {
+
+      if (planActive) {
+        console.warn("createInboundPlan missing shipments but operation/plan success", {
+          traceId,
+          status: createHttpStatus,
+          inboundPlanId,
+          inboundPlanStatus,
+          operationId,
+          operationStatus,
+          marketplaceId,
+          region: awsRegion,
+          sellerId,
+          requestId: primaryRequestId
+        });
+        // Nu mai blocăm Step 1: lăsăm UI să continue cu planul activ, packing se face în 1b.
+      } else {
+        console.error("createInboundPlan primary error", {
+          traceId,
+          status: createHttpStatus,
+          inboundPlanId,
+          inboundPlanStatus,
+          operationId,
+          operationStatus,
+          marketplaceId,
+          region: awsRegion,
+          sellerId,
+          requestId: primaryRequestId,
+          body: amazonJson || null,
+          operationProblems: operationProblems?.slice?.(0, 5) || null,
+          operationRaw: operationRaw || null
+        });
+        const fallbackSkus = items.map((it, idx) => {
           const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
           const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
           const requiresExpiry =
@@ -2747,88 +2722,12 @@ serve(async (req) => {
             expiryRequired: requiresExpiry,
             prepRequired: prepInfo.prepRequired || false,
             prepNotes: (prepInfo.prepInstructions || []).join(", "),
-            manufacturerBarcodeEligible: (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
+            manufacturerBarcodeEligible:
+              (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
             readyToPack: true,
             image: stock?.image_url || null
           };
         });
-
-      const resetInboundPlanId = async () => {
-        if (inboundPlanId) {
-          await supabase.from("prep_requests").update({ inbound_plan_id: null }).eq("id", requestId);
-        }
-        inboundPlanId = null;
-        inboundPlanStatus = null;
-      };
-
-      if (planActive) {
-        const missingPlanId = !inboundPlanId || isLockId(inboundPlanId);
-        const missingShipments = !plans || !plans.length;
-        if (missingPlanId) {
-          console.info("createInboundPlan active dar inboundPlanId lipsă; așteptăm să fie disponibil", {
-            traceId,
-            status: createHttpStatus,
-            inboundPlanId,
-            inboundPlanStatus,
-            operationId,
-            operationStatus,
-            marketplaceId,
-            region: awsRegion,
-            sellerId,
-            requestId: primaryRequestId
-          });
-          planWarnings.push(
-            "Amazon nu a returnat încă inboundPlanId. Reîncearcă Refresh în câteva secunde sau repetă Step 1 dacă persistă."
-          );
-        }
-        if (missingShipments) {
-          console.info("createInboundPlan active, shipments pending (expected before placement)", {
-            traceId,
-            status: createHttpStatus,
-            inboundPlanId,
-            inboundPlanStatus,
-            operationId,
-            operationStatus,
-            marketplaceId,
-            region: awsRegion,
-            sellerId,
-            requestId: primaryRequestId
-          });
-          planWarnings.push(
-            "Shipments nu sunt încă generate. Continuăm cu packing options (Step 1b); shipment splits apar după placement."
-          );
-        } else {
-          console.info("createInboundPlan success with shipments", {
-            traceId,
-            status: createHttpStatus,
-            inboundPlanId,
-            inboundPlanStatus,
-            operationId,
-            operationStatus,
-            marketplaceId,
-            region: awsRegion,
-            sellerId,
-            requestId: primaryRequestId
-          });
-        }
-        // Nu bloca UI pe lipsa shipments; fluxul corect generează shipments după setPackingInformation/placement.
-      } else {
-        console.error("createInboundPlan primary error", {
-          traceId,
-          status: createHttpStatus,
-          inboundPlanId,
-          inboundPlanStatus,
-          operationId,
-          operationStatus,
-          marketplaceId,
-          region: awsRegion,
-          sellerId,
-          requestId: primaryRequestId,
-          body: amazonJson || null,
-          operationProblems: operationProblems?.slice?.(0, 5) || null,
-          operationRaw: operationRaw || null
-        });
-        const fallbackSkus = buildFallbackSkus();
         const inboundUnavailableSkus = extractInboundUnavailableSkus({
           json: amazonJson,
           text: lastResponseText || ""
@@ -3315,40 +3214,3 @@ serve(async (req) => {
     });
   }
 });
-function extractMissingPrepClassification(json: any, text: string) {
-  const skus: string[] = [];
-  const scan = (obj: any) => {
-    const problems = obj?.operationProblems || obj?.problems || obj?.payload?.operationProblems || [];
-    (Array.isArray(problems) ? problems : []).forEach((p: any) => {
-      const msg = String(p?.message || p?.details || "");
-      if (msg.toLowerCase().includes("prep classification") || msg.toLowerCase().includes("prep classification for this sku was missing")) {
-        const m = msg.match(/'([^']+)'/);
-        if (m && m[1]) skus.push(normalizeSku(m[1]));
-      }
-    });
-    const errs = obj?.errors || obj?.payload?.errors || [];
-    (Array.isArray(errs) ? errs : []).forEach((e: any) => {
-      const msg = String(e?.message || "");
-      if (msg.toLowerCase().includes("prep classification")) {
-        const m = msg.match(/MSKUs:\s*\[([^\]]+)\]/i);
-        if (m && m[1]) {
-          m[1]
-            .split(",")
-            .map((s) => normalizeSku(s))
-            .filter(Boolean)
-            .forEach((sku) => skus.push(sku));
-        }
-      }
-    });
-  };
-  scan(json || {});
-  if (!skus.length && text) {
-    try {
-      const parsed = JSON.parse(text);
-      scan(parsed);
-    } catch {
-      // ignore
-    }
-  }
-  return Array.from(new Set(skus));
-}
