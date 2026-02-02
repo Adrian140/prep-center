@@ -137,7 +137,10 @@ export default function FbaStep1Inventory({
       skuStatuses.find((s) => s.id && s.id === sku.id);
     return match || { state: 'unknown', reason: '' };
   };
-  const hasBlocking = blocking || skuStatuses.some((s) => ['missing', 'inactive', 'restricted'].includes(String(s.state)));
+  const skuEligibilityBlocking = skuStatuses.some((s) =>
+    ['missing', 'inactive', 'restricted', 'inbound_unavailable'].includes(String(s.state))
+  );
+  const hasBlocking = blocking || skuEligibilityBlocking;
 
   const [packingModal, setPackingModal] = useState({
     open: false,
@@ -1234,7 +1237,10 @@ export default function FbaStep1Inventory({
         <div
           className={`px-6 py-3 border-b text-sm ${error ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}
         >
-          {error || 'Some products are not eligible for the selected marketplace.'}
+          {error ||
+            (skuEligibilityBlocking
+              ? 'Some products are not eligible for the selected marketplace.'
+              : 'Amazon inbound plan is not ready. Retry Step 1 to regenerate the plan.')}
         </div>
       )}
       {loadingPlan && skus.length === 0 && (
@@ -1531,8 +1537,12 @@ export default function FbaStep1Inventory({
           )}
           <button
             onClick={() => {
-              if (hasBlocking) {
+              if (skuEligibilityBlocking) {
                 alert('Some SKUs are not eligible on Amazon; fix eligibility and try again.');
+                return;
+              }
+              if (hasBlocking) {
+                alert(error || 'Amazon inbound plan is not ready. Retry Step 1.');
                 return;
               }
               const disabled = continueDisabled;
@@ -1549,15 +1559,17 @@ export default function FbaStep1Inventory({
               : saving
                 ? 'Saving…'
                 : hasBlocking
-                  ? 'Resolve eligibility in Amazon'
+                  ? skuEligibilityBlocking
+                    ? 'Resolve eligibility in Amazon'
+                    : 'Retry Step 1'
                   : (!allowNoInboundPlan && (!inboundPlanId || !requestId))
                     ? 'Waiting for Amazon plan'
                     : !hasUnits
                       ? 'Add units'
-                    : 'Continue to packing'}
-          </button>
+                      : 'Continue to packing'}
+            </button>
+          </div>
         </div>
-      </div>
 
       {packingModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
