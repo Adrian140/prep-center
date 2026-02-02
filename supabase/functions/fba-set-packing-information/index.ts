@@ -1028,7 +1028,9 @@ serve(async (req) => {
     // Inject dims/weight/perBoxItems din step1_box_plan dacă lipsesc în packingGroups (common case: plan Amazon nu furnizează dims).
     const step1BoxPlan = (reqData as any)?.step1_box_plan || {};
     const extractFirstBoxMeta = () => {
-      const groups = step1BoxPlan?.[destCountry || "FR"]?.groups || step1BoxPlan?.groups || {};
+      // destCountry nu este disponibil în această funcție; folosim country din request body dacă există.
+      const countryFromBody = (body?.destination_country || body?.destinationCountry || body?.warehouse_country || body?.warehouseCountry || "FR").toString().toUpperCase();
+      const groups = step1BoxPlan?.[countryFromBody] || step1BoxPlan?.[countryFromBody]?.groups || step1BoxPlan?.groups || {};
       const firstGroup = Object.values(groups || {})[0] as any;
       const firstBox = Array.isArray(firstGroup?.boxes) ? firstGroup.boxes[0] : null;
       if (!firstBox) return null;
