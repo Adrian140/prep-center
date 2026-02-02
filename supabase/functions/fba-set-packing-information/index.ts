@@ -742,7 +742,13 @@ async function fetchPackingGroupItems(opts: {
   });
 
   if (!res?.res?.ok) {
-    throw new Error(`listPackingGroupItems failed (${res?.res?.status || "unknown"}): ${res?.text || ""}`);
+    // Gracefully handle deleted/missing packing groups (400) by returning empty.
+    const msg = res?.text || "";
+    const status = res?.res?.status || "unknown";
+    if (status === 400 && msg.includes("packing group does not exist")) {
+      return [];
+    }
+    throw new Error(`listPackingGroupItems failed (${status}): ${msg}`);
   }
   const items = (res?.json?.items || res?.json?.payload?.items || []) as any[];
   return Array.isArray(items) ? items : [];
@@ -950,7 +956,7 @@ serve(async (req) => {
     );
     const requestId = body?.request_id ?? body?.requestId;
     const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
-    const packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
+    let packingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
     const generatePlacementOptions =
       body?.generate_placement_options ?? body?.generatePlacementOptions ?? true;
     const packingGroupsInput =
