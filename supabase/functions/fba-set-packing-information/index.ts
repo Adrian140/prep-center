@@ -1290,6 +1290,35 @@ serve(async (req) => {
         );
       }
     }
+    if (!packageGroupings.length && mergedPackingGroupsInput.length) {
+      // Fallback: construim packageGroupings minimale din packingGroups (dims/weight) chiar dacă items lipsesc,
+      // ca să nu blocăm pe eroarea generică 400.
+      packageGroupings = mergedPackingGroupsInput
+        .map((g: any) => {
+          const packingGroupId = g?.packingGroupId || g?.id || g?.groupId || null;
+          if (!packingGroupId) return null;
+          const dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
+          const weight = normalizeWeight(g?.weight || g?.boxWeight);
+          if (!dims || !weight) return null;
+          const items = Array.isArray(g?.items) ? g.items.map(normalizeItem).filter(Boolean) : [];
+          const quantity = Math.max(1, Number(g?.boxes || g?.boxCount || 1) || 1);
+          const contentInformationSource = items.length ? "BOX_CONTENT_PROVIDED" : "MANUAL_PROCESS";
+          return {
+            packingGroupId,
+            boxes: [
+              {
+                quantity,
+                contentInformationSource,
+                ...(items.length ? { items } : {}),
+                dimensions: dims,
+                weight
+              }
+            ]
+          };
+        })
+        .filter(Boolean);
+    }
+
     if (!packageGroupings.length) {
       return new Response(
         JSON.stringify({
