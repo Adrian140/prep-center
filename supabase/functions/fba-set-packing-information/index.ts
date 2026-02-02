@@ -232,8 +232,12 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
       : Array.isArray(g?.per_box_details)
       ? g.per_box_details
       : [];
-    const dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
-    const weight = normalizeWeight(g?.weight || g?.boxWeight);
+    let dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
+    let weight = normalizeWeight(g?.weight || g?.boxWeight);
+    const defaultDims = { length: 10, width: 10, height: 10, unitOfMeasurement: "CENTIMETERS" };
+    const defaultWeight = { value: 1, unit: "KILOGRAMS" };
+    if (!dims) dims = defaultDims;
+    if (!weight) weight = defaultWeight;
     const hasPerBoxDetails = perBoxDetailsRaw.some((d: any) => {
       const l = Number(d?.length || 0);
       const w = Number(d?.width || 0);
