@@ -1029,8 +1029,18 @@ serve(async (req) => {
     const step1BoxPlan = (reqData as any)?.step1_box_plan || {};
     const extractFirstBoxMeta = () => {
       // destCountry nu este disponibil în această funcție; folosim country din request body dacă există.
-      const countryFromBody = (body?.destination_country || body?.destinationCountry || body?.warehouse_country || body?.warehouseCountry || "FR").toString().toUpperCase();
-      const groups = step1BoxPlan?.[countryFromBody] || step1BoxPlan?.[countryFromBody]?.groups || step1BoxPlan?.groups || {};
+      const countryFromBody = (
+        body?.destination_country ||
+        body?.destinationCountry ||
+        body?.warehouse_country ||
+        body?.warehouseCountry ||
+        reqData.destination_country ||
+        "FR"
+      )
+        .toString()
+        .toUpperCase();
+      const countryNode = step1BoxPlan?.[countryFromBody] || {};
+      const groups = countryNode?.groups || step1BoxPlan?.groups || {};
       const firstGroup = Object.values(groups || {})[0] as any;
       const firstBox = Array.isArray(firstGroup?.boxes) ? firstGroup.boxes[0] : null;
       if (!firstBox) return null;
@@ -1062,8 +1072,8 @@ serve(async (req) => {
         if (hasDims && hasWeight) return g;
         const perBoxItemsRaw = g?.perBoxItems || g?.per_box_items || fallbackBoxMeta.perBoxItems || null;
         const perBoxItems =
-          perBoxItemsRaw && typeof perBoxItemsRaw === "object"
-            ? Object.entries(perBoxItemsRaw).map(([sku, quantity]) => ({ sku, quantity }))
+          perBoxItemsRaw && typeof perBoxItemsRaw === "object" && !Array.isArray(perBoxItemsRaw)
+            ? [perBoxItemsRaw] // wrap într-o singură cutie
             : Array.isArray(perBoxItemsRaw)
             ? perBoxItemsRaw
             : [];
