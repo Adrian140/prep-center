@@ -1175,24 +1175,16 @@ serve(async (req) => {
     };
     const normalizePackingOptionId = (opt: any) => opt?.packingOptionId || opt?.id || null;
     const normalizeStatus = (opt: any) => String(opt?.status || opt?.Status || "").toUpperCase();
+    let autoSwitchedPackingOption = false;
+    let acceptedPackingGroups: any[] = [];
     try {
       const { options } = await listPackingOptionsWithRetry();
       const accepted = (options || []).find((opt: any) => normalizeStatus(opt) === "ACCEPTED");
       if (accepted && normalizePackingOptionId(accepted) && normalizePackingOptionId(accepted) !== packingOptionId) {
-        const acceptedIds = Array.isArray(accepted?.packingGroups)
-          ? accepted.packingGroups.filter(Boolean)
-          : [];
-        return new Response(
-          JSON.stringify({
-            error:
-              "Packing option este deja ACCEPTED in Amazon. Trebuie folosit packingOptionId acceptat si toate packingGroupId-urile aferente.",
-            code: "PACKING_OPTION_LOCKED",
-            traceId,
-            acceptedPackingOptionId: normalizePackingOptionId(accepted),
-            expectedPackingGroupIds: acceptedIds
-          }),
-          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
-        );
+        // Auto-switch to the accepted packing option from Amazon to avoid blocking.
+        packingOptionId = normalizePackingOptionId(accepted);
+        acceptedPackingGroups = Array.isArray(accepted?.packingGroups) ? accepted.packingGroups.filter(Boolean) : [];
+        autoSwitchedPackingOption = true;
       }
       const chosen = (options || []).find(
         (opt: any) => normalizePackingOptionId(opt) === packingOptionId
@@ -1208,18 +1200,25 @@ serve(async (req) => {
         const missingIds = groups.filter((id: any) => !providedIds.includes(id));
         const extraIds = providedIds.filter((id: any) => !groups.includes(id));
         if (missingIds.length || extraIds.length) {
-          return new Response(
-            JSON.stringify({
-              error:
-                "Packing groups incomplete. Amazon requires packageGroupings for all packingGroupId values in the selected packingOption.",
-              code: "PACKING_GROUPS_INCOMPLETE",
-              traceId,
-              expectedPackingGroupIds: groups,
-              missingPackingGroupIds: missingIds,
-              extraPackingGroupIds: extraIds
-            }),
-            { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
-          );
+          // Dacă avem acceptedPackingGroups (auto-switch), injectăm grupurile lipsă cu doar ID.
+          if (autoSwitchedPackingOption && missingIds.length) {
+            missingIds.forEach((id: any) => {
+              mergedPackingGroupsInput.push({ packingGroupId: id });
+            });
+          } else {
+            return new Response(
+              JSON.stringify({
+                error:
+                  "Packing groups incomplete. Amazon requires packageGroupings for all packingGroupId values in the selected packingOption.",
+                code: "PACKING_GROUPS_INCOMPLETE",
+                traceId,
+                expectedPackingGroupIds: groups,
+                missingPackingGroupIds: missingIds,
+                extraPackingGroupIds: extraIds
+              }),
+              { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+            );
+          }
         }
       }
     } catch (err) {
