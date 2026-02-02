@@ -246,7 +246,7 @@ export default function FbaSendToAmazonWizard({
   initialPacking = initialPackGroups,
   initialShipmentMode = {
     method: 'SPD',
-    deliveryDate: getTomorrowIsoDate(),
+    deliveryDate: '',
     deliveryWindowStart: '',
     deliveryWindowEnd: '',
     carrier: null
@@ -2640,15 +2640,15 @@ export default function FbaSendToAmazonWizard({
       return;
     }
     if (!shipmentMode?.deliveryDate) {
-      setShipmentMode((prev) => ({ ...prev, deliveryDate: getTomorrowIsoDate() }));
+      return;
     }
     fetchShippingOptions().finally(() => setStep2Loaded(true));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, step2Loaded]);
+  }, [currentStep, step2Loaded, shipmentMode?.deliveryDate]);
 
   useEffect(() => {
     setStep2Loaded(false);
-  }, [packGroups, packingOptionId, placementOptionId]);
+  }, [packGroups, packingOptionId, placementOptionId, shipmentMode?.deliveryDate]);
 
   const formatAddress = (addr = {}) => {
     const parts = [
