@@ -2793,6 +2793,7 @@ serve(async (req) => {
           planWarnings.push(
             "Amazon nu a returnat încă shipments. Continuăm cu packing options (Step 1b) și vom genera placement/shipments după setPackingInformation."
           );
+        }
         if (!missingShipments) {
           console.warn("createInboundPlan missing shipments but operation/plan success", {
             traceId,
