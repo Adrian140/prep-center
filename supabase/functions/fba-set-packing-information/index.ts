@@ -1205,6 +1205,16 @@ serve(async (req) => {
       } else if (!mergedPackingGroupsInput.length && accepted?.packingGroups?.length) {
         mergedPackingGroupsInput = accepted.packingGroups.map((gid: any) => ({ packingGroupId: gid }));
       }
+      // Dacă există groups de la Amazon și încă nu avem nimic, asigură IDs corecte
+      if (!mergedPackingGroupsInput.length && groups.length) {
+        mergedPackingGroupsInput = groups.map((gid: any) => ({ packingGroupId: gid }));
+      }
+      if (directGroupings.length && groups.length) {
+        directGroupings = groups.map((gid: any, idx: number) => ({
+          ...(directGroupings[idx] || directGroupings[0] || {}),
+          packingGroupId: gid
+        }));
+      }
     } catch (err) {
       console.warn("packing options validation skipped", { traceId, error: err });
     }
