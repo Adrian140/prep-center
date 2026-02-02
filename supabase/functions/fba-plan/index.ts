@@ -2614,30 +2614,6 @@ serve(async (req) => {
       operationProblems = operationProblems.length ? operationProblems : (opRes?.problems || []);
       operationRaw = operationRaw || opRes?.raw || null;
       if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
-        // Dacă eșecul e din prep classification missing, încearcă o singură dată cu SELLER prep/label.
-        const missingPrepSkus = extractMissingPrepClassification(opRes || {}, "");
-        if (missingPrepSkus.length && !retriedPrepMissing) {
-          retriedPrepMissing = true;
-          inboundPlanId = null;
-          inboundPlanStatus = null;
-          operationId = null;
-          operationStatus = null;
-          operationProblems = [];
-          operationRaw = null;
-          plans = [];
-          _lastPackingOptions = [];
-          _lastPlacementOptions = [];
-          missingPrepSkus.forEach((sku) => {
-            const key = normalizeSku(sku);
-            if (!key) return;
-            appliedOverrides[key] = appliedOverrides[key] || {};
-            appliedOverrides[key].prepOwner = "SELLER";
-            appliedOverrides[key].labelOwner = "SELLER";
-          });
-          // relansează createInboundPlan cu overrides actualizate
-          attempt = 0;
-          continue;
-        }
         inboundPlanStatus = "ERRORED";
       }
     }
