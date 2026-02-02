@@ -168,6 +168,10 @@ function SupabaseDashboard() {
   }, [activeTab, hasQogita, qogitaLoading]);
 
   const companyId = profile?.company_id;
+  const isAdmin =
+    profile?.account_type === 'admin' ||
+    profile?.is_admin === true ||
+    user?.user_metadata?.account_type === 'admin';
   const [reviewPrompt, setReviewPrompt] = useState({
     loading: true,
     eligible: false,
@@ -348,7 +352,7 @@ const renderTabContent = useMemo(() => {
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
         {activeTab === 'activity' && (
           <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
-            <ClientDealsPopover companyId={companyId} />
+            {isAdmin ? <ClientDealsPopover companyId={companyId} /> : null}
             {!isLimitedAdmin && (
               <ClientBalanceBar companyId={companyId} variant="compact" />
             )}
