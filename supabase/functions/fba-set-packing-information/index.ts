@@ -1256,6 +1256,27 @@ serve(async (req) => {
       const groups = Array.isArray(chosen?.packingGroups) ? chosen.packingGroups.filter(Boolean) : [];
       const expectedGroups = groups;
       if (groups.length) {
+        // Dacă nu avem deloc packingGroups din UI/snapshot, construim unul minimal din Step1BoxPlan cu packingGroupId Amazon.
+        if (!mergedPackingGroupsInput.length && fallbackBoxMeta) {
+          const firstGroup = (() => {
+            // încercăm să luăm primul group din step1_box_plan (din orice țară)
+            const countryNodes = Object.values(step1BoxPlan || {});
+            const candidate = countryNodes.find((n: any) => n?.groups && Object.keys(n.groups).length > 0) as any;
+            const groupsNode = candidate?.groups || {};
+            const first = Object.values(groupsNode)[0] as any;
+            return first || null;
+          })();
+          const perBoxItemsRaw = firstGroup?.boxItems ? [firstGroup.boxItems[0] || firstGroup.boxItems] : [];
+          mergedPackingGroupsInput = [
+            {
+              packingGroupId: expectedGroups[0],
+              perBoxItems: perBoxItemsRaw,
+              dimensions: fallbackBoxMeta.dimensions,
+              weight: fallbackBoxMeta.weight
+            }
+          ];
+        }
+
         const providedSource = directGroupings.length ? directGroupings : mergedPackingGroupsInput;
         const providedIds = (providedSource || [])
           .map((g: any) => g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null)
