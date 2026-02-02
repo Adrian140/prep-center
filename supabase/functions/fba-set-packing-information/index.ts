@@ -215,7 +215,10 @@ function normalizeItem(input: any) {
   return out;
 }
 
-function buildPackageGroupingsFromPackingGroups(groups: any[]) {
+function buildPackageGroupingsFromPackingGroups(
+  groups: any[],
+  fallbackMeta?: { dims: any; weight: any; perBoxItems: any[] | null }
+) {
   const out: any[] = [];
   (groups || []).forEach((g: any) => {
     const packingGroupId = g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
@@ -234,9 +237,9 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
       : [];
     let dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
     let weight = normalizeWeight(g?.weight || g?.boxWeight);
-    if ((!dims || !weight) && step1FirstGroup) {
-      dims = dims || step1FirstGroup.dims;
-      weight = weight || step1FirstGroup.weight;
+    if ((!dims || !weight) && fallbackMeta) {
+      dims = dims || fallbackMeta.dims;
+      weight = weight || fallbackMeta.weight;
     }
     if (!dims || !weight) return;
     const hasPerBoxDetails = perBoxDetailsRaw.some((d: any) => {
@@ -1415,14 +1418,14 @@ serve(async (req) => {
           marketplaceId,
           sellerId
         });
-        packageGroupings = buildPackageGroupingsFromPackingGroups(hydratedGroups);
+        packageGroupings = buildPackageGroupingsFromPackingGroups(hydratedGroups, step1FirstGroup || undefined);
       } catch (err) {
         console.warn("fetch packing group items failed, falling back to step1 data", {
           traceId,
           error: err instanceof Error ? err.message : String(err)
         });
         // Fallback: folosim packingGroups (hydrated cu Step1) chiar dacă Amazon a refuzat listPackingGroupItems.
-        packageGroupings = buildPackageGroupingsFromPackingGroups(mergedPackingGroupsInput);
+        packageGroupings = buildPackageGroupingsFromPackingGroups(mergedPackingGroupsInput, step1FirstGroup || undefined);
       }
     }
     if (!packageGroupings.length && mergedPackingGroupsInput.length) {
