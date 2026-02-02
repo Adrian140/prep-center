@@ -234,6 +234,10 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
       : [];
     let dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
     let weight = normalizeWeight(g?.weight || g?.boxWeight);
+    if ((!dims || !weight) && step1FirstGroup) {
+      dims = dims || step1FirstGroup.dims;
+      weight = weight || step1FirstGroup.weight;
+    }
     if (!dims || !weight) return;
     const hasPerBoxDetails = perBoxDetailsRaw.some((d: any) => {
       const l = Number(d?.length || 0);
