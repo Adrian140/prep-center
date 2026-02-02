@@ -2775,7 +2775,7 @@ serve(async (req) => {
           );
         }
         if (missingShipments) {
-          console.warn("createInboundPlan active but shipments not returned yet", {
+          console.info("createInboundPlan active, shipments pending (expected before placement)", {
             traceId,
             status: createHttpStatus,
             inboundPlanId,
@@ -2788,11 +2788,10 @@ serve(async (req) => {
             requestId: primaryRequestId
           });
           planWarnings.push(
-            "Amazon nu a returnat încă shipments. Continuăm cu packing options (Step 1b) și vom genera placement/shipments după setPackingInformation."
+            "Shipments nu sunt încă generate. Continuăm cu packing options (Step 1b); shipment splits apar după placement."
           );
-        }
-        if (!missingShipments) {
-          console.warn("createInboundPlan missing shipments but operation/plan success", {
+        } else {
+          console.info("createInboundPlan success with shipments", {
             traceId,
             status: createHttpStatus,
             inboundPlanId,
@@ -2805,7 +2804,7 @@ serve(async (req) => {
             requestId: primaryRequestId
           });
         }
-        // Nu mai blocăm Step 1: lăsăm UI să continue cu planul activ, packing se face în 1b (shipment splits apar după placement).
+        // Nu bloca UI pe lipsa shipments; fluxul corect generează shipments după setPackingInformation/placement.
       } else {
         console.error("createInboundPlan primary error", {
           traceId,
