@@ -756,10 +756,14 @@ export default function FbaStep1Inventory({
                   className="text-blue-600 underline"
                   type="button"
                   onClick={() => {
-                    const nextIdx = Math.max(0, boxes.length);
-                    ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
-                    updateBoxItemQty(groupId, nextIdx, skuKey, 0, groupLabel, true);
-                    setActiveBoxIndex(groupId, nextIdx);
+                    const currentCount = Math.max(0, boxes.length);
+                    const defaultIdx = currentCount > 0 ? Math.max(0, Math.min(activeIndex, currentCount - 1)) : 0;
+                    const shouldAppend = assignedEntries.length > 0 && activeIndex >= currentCount - 1;
+                    const targetIdx = shouldAppend ? currentCount : defaultIdx;
+                    const desiredCount = shouldAppend ? currentCount + 1 : Math.max(1, currentCount || defaultIdx + 1);
+                    ensureGroupBoxCount(groupId, desiredCount, groupLabel);
+                    updateBoxItemQty(groupId, targetIdx, skuKey, 0, groupLabel, true);
+                    setActiveBoxIndex(groupId, targetIdx);
                   }}
                 >
                   + Add box
