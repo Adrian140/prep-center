@@ -2671,8 +2671,103 @@ serve(async (req) => {
       }
       const planActive =
         (operationStatus || "").toUpperCase() === "SUCCESS" || (inboundPlanStatus || "").toUpperCase() === "ACTIVE";
+      const buildFallbackSkus = () =>
+        items.map((it, idx) => {
+          const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+          const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
+          const requiresExpiry =
+            (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
+            expiryRequiredBySku[it.sku || ""] === true;
+          const key = normalizeSku(it.sku || it.asin || "");
+          return {
+            id: it.id || `sku-${idx + 1}`,
+            title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
+            sku: it.sku || stock?.sku || "",
+            asin: it.asin || stock?.asin || "",
+            storageType: "Standard-size",
+            packing: "individual",
+            units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
+            expiry: expirations[key] || "",
+            expirySource: expirySourceBySku[key] || null,
+            expiryRequired: requiresExpiry,
+            prepRequired: prepInfo.prepRequired || false,
+            prepNotes: (prepInfo.prepInstructions || []).join(", "),
+            manufacturerBarcodeEligible: (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
+            readyToPack: true,
+            image: stock?.image_url || null
+          };
+        });
+
+      const resetInboundPlanId = async () => {
+        if (inboundPlanId && !isLockId(inboundPlanId)) {
+          await supabase
+            .from("prep_requests")
+            .update({ inbound_plan_id: null })
+            .eq("id", requestId)
+            .eq("inbound_plan_id", inboundPlanId);
+        }
+        inboundPlanId = null;
+        inboundPlanStatus = null;
+      };
 
       if (planActive) {
+        const missingPlanId = !inboundPlanId || isLockId(inboundPlanId);
+        const missingShipments = !plans || !plans.length;
+        if (missingPlanId || missingShipments) {
+          console.error("createInboundPlan active but missing shipments/inboundPlanId", {
+            traceId,
+            status: createHttpStatus,
+            inboundPlanId,
+            inboundPlanStatus,
+            operationId,
+            operationStatus,
+            marketplaceId,
+            region: awsRegion,
+            sellerId,
+            requestId: primaryRequestId
+          });
+          await resetInboundPlanId();
+          const fallbackSkus = buildFallbackSkus();
+          const warn =
+            "Amazon nu a returnat shipments pentru planul creat. Planul a fost resetat; încearcă din nou sau verifică permisiunile Inbound.";
+          const fallbackPlan = {
+            source: "amazon",
+            amazonIntegrationId,
+            marketplace: marketplaceId,
+            shipFrom: {
+              name: shipFromAddress.name,
+              address: formatAddress(shipFromAddress)
+            },
+            skus: fallbackSkus,
+            packGroups: [],
+            step1BoxPlan,
+            shipments: [],
+            raw: amazonJson,
+            skuStatuses,
+            warning: warn,
+            blocking: true,
+            requestId: primaryRequestId || null
+          };
+          return new Response(
+            JSON.stringify({
+              plan: fallbackPlan,
+              traceId,
+              status: createHttpStatus,
+              requestId: primaryRequestId || null,
+              inboundPlanId: null,
+              inboundPlanStatus: null,
+              operationId,
+              operationStatus,
+              operationProblems,
+              operationRaw,
+              scopes: lwaScopes
+            }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, "content-type": "application/json" }
+            }
+          );
+        }
         console.warn("createInboundPlan missing shipments but operation/plan success", {
           traceId,
           status: createHttpStatus,
@@ -2702,32 +2797,7 @@ serve(async (req) => {
           operationProblems: operationProblems?.slice?.(0, 5) || null,
           operationRaw: operationRaw || null
         });
-        const fallbackSkus = items.map((it, idx) => {
-          const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
-          const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
-          const requiresExpiry =
-            (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
-            expiryRequiredBySku[it.sku || ""] === true;
-          const key = normalizeSku(it.sku || it.asin || "");
-          return {
-            id: it.id || `sku-${idx + 1}`,
-            title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
-            sku: it.sku || stock?.sku || "",
-            asin: it.asin || stock?.asin || "",
-            storageType: "Standard-size",
-            packing: "individual",
-            units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
-            expiry: expirations[key] || "",
-            expirySource: expirySourceBySku[key] || null,
-            expiryRequired: requiresExpiry,
-            prepRequired: prepInfo.prepRequired || false,
-            prepNotes: (prepInfo.prepInstructions || []).join(", "),
-            manufacturerBarcodeEligible:
-              (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
-            readyToPack: true,
-            image: stock?.image_url || null
-          };
-        });
+        const fallbackSkus = buildFallbackSkus();
         const inboundUnavailableSkus = extractInboundUnavailableSkus({
           json: amazonJson,
           text: lastResponseText || ""
