@@ -454,6 +454,21 @@ export default function FbaSendToAmazonWizard({
   const trackingPrefillRef = useRef(false);
   const trackingLoadRequestedRef = useRef(false);
   const autoPackingRef = useRef({ planId: null, attempted: false });
+  const sanitizePackingOptions = useCallback((options) => {
+    const list = Array.isArray(options) ? options : [];
+    const filtered = list.filter((opt) => {
+      const discounts = opt?.discounts || opt?.Discounts || [];
+      const groups = Array.isArray(opt?.packingGroups || opt?.PackingGroups)
+        ? opt.packingGroups || opt.PackingGroups
+        : [];
+      const groupsCount = opt?.groupsCount ?? groups.length ?? 0;
+      const hasDiscount = Array.isArray(discounts) && discounts.length > 0;
+      const isMultiGroup = groupsCount > 1;
+      return !hasDiscount && !isMultiGroup;
+    });
+    if (filtered.length) return filtered;
+    return list.slice(0, 1);
+  }, []);
   const resolvePackingOptionId = useCallback(
     (opt) => opt?.packingOptionId || opt?.PackingOptionId || opt?.id || null,
     []
@@ -922,7 +937,7 @@ export default function FbaSendToAmazonWizard({
       if (data?.labelFormat) setLabelFormat(data.labelFormat);
       if (Array.isArray(data?.tracking)) setTracking(data.tracking);
       if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
-      if (Array.isArray(data?.packingOptions)) setPackingOptions(data.packingOptions);
+      if (Array.isArray(data?.packingOptions)) setPackingOptions(sanitizePackingOptions(data.packingOptions));
       if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
       if (Array.isArray(data?.completedSteps)) setCompletedSteps(data.completedSteps);
       if (data?.currentStep && stepsOrder.includes(data.currentStep)) setCurrentStep(data.currentStep);
@@ -1967,7 +1982,7 @@ export default function FbaSendToAmazonWizard({
         }
       });
       if (error) throw error;
-      if (Array.isArray(data?.packingOptions)) setPackingOptions(data.packingOptions);
+      if (Array.isArray(data?.packingOptions)) setPackingOptions(sanitizePackingOptions(data.packingOptions));
       if (data?.code === 'PACKING_GROUPS_NOT_READY') {
         const trace = data?.traceId || data?.trace_id || null;
         const msg = data?.message || 'Amazon nu a returnat încă packing groups. Reîncearcă în câteva secunde.';
@@ -2014,7 +2029,7 @@ export default function FbaSendToAmazonWizard({
       }
       if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
       if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
-      if (Array.isArray(data?.packingOptions)) setPackingOptions(data.packingOptions);
+      if (Array.isArray(data?.packingOptions)) setPackingOptions(sanitizePackingOptions(data.packingOptions));
       if (Array.isArray(data?.packingGroups)) {
         const normalized = normalizePackGroups(data.packingGroups);
         const filtered = normalized.filter((g) => g.packingGroupId && !isFallbackId(g.packingGroupId));
