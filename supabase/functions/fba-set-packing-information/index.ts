@@ -234,8 +234,8 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
       : [];
     let dims = normalizeDimensions(g?.dimensions || g?.boxDimensions);
     let weight = normalizeWeight(g?.weight || g?.boxWeight);
-    const defaultDims = { length: 10, width: 10, height: 10, unitOfMeasurement: "CENTIMETERS" };
-    const defaultWeight = { value: 1, unit: "KILOGRAMS" };
+    const defaultDims = normalizeDimensions({ length: 10, width: 10, height: 10, unit: "CM" });
+    const defaultWeight = normalizeWeight({ value: 1, unit: "KG" });
     if (!dims) dims = defaultDims;
     if (!weight) weight = defaultWeight;
     const hasPerBoxDetails = perBoxDetailsRaw.some((d: any) => {
@@ -1353,42 +1353,48 @@ serve(async (req) => {
     const extraSkus = Object.keys(summed).filter((sku) => !(sku in confirmed));
 
     // Auto-fix simple duplication cases (all payloads share the same integer multiplier vs confirmed).
-    if ((mismatches.length && !extraSkus.length)) {
+    if (mismatches.length && !extraSkus.length) {
       const deltas = mismatches.filter((m) => m.confirmed > 0 && m.payload > 0 && m.payload % m.confirmed === 0);
       if (deltas.length === mismatches.length) {
         const factors = new Set(deltas.map((m) => m.payload / m.confirmed));
         if (factors.size === 1) {
           const factor = [...factors][0];
           if (factor > 1) {
-            packageGroupings = packageGroupings.map((g: any) => {
-              const boxes = (g?.boxes || []).map((b: any) => {
-                const items = Array.isArray(b?.items)
-                  ? b.items.map((it: any) => ({
-                      ...it,
-                      quantity: Number(it?.quantity || 0) / factor
-                    }))
-                  : b?.items;
-                return { ...b, items };
+            // Apply scaling only if every item quantity is divisible by factor (to avoid frac quantities).
+            const quantities = (packageGroupings || [])
+              .flatMap((g: any) => (g?.boxes || []).flatMap((b: any) => (b?.items || []).map((it: any) => Number(it?.quantity || 0))));
+            const allDivisible = quantities.every((q) => Number.isFinite(q) && (q * 1000) % (factor * 1000) === 0);
+            if (allDivisible) {
+              packageGroupings = packageGroupings.map((g: any) => {
+                const boxes = (g?.boxes || []).map((b: any) => {
+                  const items = Array.isArray(b?.items)
+                    ? b.items.map((it: any) => ({
+                        ...it,
+                        quantity: Number(it?.quantity || 0) / factor
+                      }))
+                    : b?.items;
+                  return { ...b, items };
+                });
+                return { ...g, boxes };
               });
-              return { ...g, boxes };
-            });
 
-            // recompute summed after scaling
-            const newSummed: Record<string, number> = {};
-            (packageGroupings || []).forEach((g: any) => {
-              (g?.boxes || []).forEach((b: any) => {
-                if (b?.contentInformationSource !== "BOX_CONTENT_PROVIDED") return;
-                (b?.items || []).forEach((it: any) => {
-                  const sku = String(it?.msku || "").trim();
-                  const q = Number(it?.quantity || 0) || 0;
-                  if (!sku || q <= 0) return;
-                  const boxQty = Number(b?.quantity || 1) || 1;
-                  newSummed[sku] = (newSummed[sku] || 0) + q * boxQty;
+              // recompute summed after scaling
+              const newSummed: Record<string, number> = {};
+              (packageGroupings || []).forEach((g: any) => {
+                (g?.boxes || []).forEach((b: any) => {
+                  if (b?.contentInformationSource !== "BOX_CONTENT_PROVIDED") return;
+                  (b?.items || []).forEach((it: any) => {
+                    const sku = String(it?.msku || "").trim();
+                    const q = Number(it?.quantity || 0) || 0;
+                    if (!sku || q <= 0) return;
+                    const boxQty = Number(b?.quantity || 1) || 1;
+                    newSummed[sku] = (newSummed[sku] || 0) + q * boxQty;
+                  });
                 });
               });
-            });
-            Object.assign(summed, newSummed);
-            mismatches = computeMismatches();
+              Object.assign(summed, newSummed);
+              mismatches = computeMismatches();
+            }
           }
         }
       }
