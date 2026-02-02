@@ -259,16 +259,17 @@ export default function FbaStep1Inventory({
       boxes: [
         {
           id: 'box-1',
-          length_cm: 30,
-          width_cm: 30,
-          height_cm: 30,
-          weight_kg: 1
+          length_cm: '',
+          width_cm: '',
+          height_cm: '',
+          weight_kg: ''
         }
       ],
       boxItems: [totalItems]
     };
     updateBoxPlan({ 'single-box': singleBox });
     setSingleBoxMode(true);
+    setActiveBoxByGroup((prev) => ({ ...(prev || {}), 'single-box': 0 }));
   }, [skus, updateBoxPlan]);
 
   const preventEnterSubmit = useCallback((event) => {
