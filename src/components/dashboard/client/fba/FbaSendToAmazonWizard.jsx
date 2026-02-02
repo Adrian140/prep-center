@@ -277,6 +277,26 @@ export default function FbaSendToAmazonWizard({
     [t]
   );
   const stepsOrder = ['1', '1b', '2', '3', '4'];
+  const wizardCopy = useMemo(
+    () => ({
+      missingIds: tt('missingIdsError', 'Missing inboundPlanId or requestId; reload the plan.'),
+      packingWait: tt('packingGroupsWait', 'Amazon has not returned packing groups yet. Try again in a few seconds.'),
+      inboundPlanWait: tt('inboundPlanMissingError', 'Waiting for inboundPlanId from Amazon. Try again in a few seconds.'),
+      previewUnavailable: tt('packingPreviewUnavailable', 'Preview unavailable right now.'),
+      inboundPlanEmpty: tt('inboundPlanEmpty', 'Inbound plan is still empty. Try again in a few seconds.'),
+      banner: tt(
+        'inboundPlanMissingBanner',
+        'Amazon has not generated inboundPlanId yet. You can retry or continue without it if your box plan is ready.'
+      ),
+      waitBanner: tt(
+        'inboundPlanMissingWait',
+        'Waiting for inboundPlanId from Amazon; you can’t continue until the plan is loaded.'
+      ),
+      retry: tt('retry', 'Retry'),
+      continueAnyway: tt('continueAnyway', 'Continue anyway')
+    }),
+    [tt]
+  );
   const resolveInitialStep = () => {
     if (!historyMode) return '1';
     if (initialCurrentStep && stepsOrder.includes(initialCurrentStep)) return initialCurrentStep;
@@ -320,7 +340,7 @@ export default function FbaSendToAmazonWizard({
       }
     ];
   }, []);
-  const allowPersistence = false; // forțează reluarea workflow-ului de la Step 1; nu restaurăm din localStorage
+const allowPersistence = false; // forțează reluarea workflow-ului de la Step 1; nu restaurăm din localStorage
   const normalizePackGroups = useCallback(
     (groups = []) =>
       collapsePackGroups(Array.isArray(groups) ? groups : []).map((g, idx) => {
@@ -417,7 +437,7 @@ export default function FbaSendToAmazonWizard({
   const [packGroups, setPackGroups] = useState([]);
   const [packGroupsPreview, setPackGroupsPreview] = useState([]);
   const [packGroupsPreviewLoading, setPackGroupsPreviewLoading] = useState(false);
-  const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
+const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [packGroupsLoaded, setPackGroupsLoaded] = useState(false);
   const [step1BoxPlanByMarket, setStep1BoxPlanByMarket] = useState({});
   const step1BoxPlanRef = useRef(step1BoxPlanByMarket);
@@ -452,6 +472,8 @@ export default function FbaSendToAmazonWizard({
   const [planError, setPlanError] = useState('');
   const [step1Saving, setStep1Saving] = useState(false);
   const [step1SaveError, setStep1SaveError] = useState('');
+  const [allowNoInboundPlan, setAllowNoInboundPlan] = useState(false);
+  const [inboundPlanMissing, setInboundPlanMissing] = useState(false);
   const [skuStatuses, setSkuStatuses] = useState(initialSkuStatuses);
   const [blocking, setBlocking] = useState(false);
   const [shippingOptions, setShippingOptions] = useState(
@@ -795,6 +817,7 @@ export default function FbaSendToAmazonWizard({
     initialPlan?.plan_id,
     plan
   ]);
+  const inboundPlanIdMemo = useMemo(() => resolveInboundPlanId(), [resolveInboundPlanId]);
   const initialRequestKey = useMemo(
     () =>
       initialPlan?.prepRequestId ||
@@ -804,6 +827,11 @@ export default function FbaSendToAmazonWizard({
       null,
     [initialPlan?.id, initialPlan?.prepRequestId, initialPlan?.requestId, initialPlan?.request_id]
   );
+  useEffect(() => {
+    if (inboundPlanIdMemo) {
+      setInboundPlanMissing(false);
+    }
+  }, [inboundPlanIdMemo]);
 
   // Persistăm ultimul pas vizitat ca să nu se piardă la refresh (cheie per shipment).
   const storageKeyBase = useMemo(() => {
@@ -1061,7 +1089,7 @@ export default function FbaSendToAmazonWizard({
         const response = fetchPlan ? await fetchPlan() : null;
         if (cancelled) return;
         if (!response) {
-          setPlanError((prev) => prev || 'Planul Amazon nu a răspuns. Reîncearcă refresh.');
+          setPlanError((prev) => prev || 'Amazon plan did not respond. Try refreshing.');
           return;
         }
         const {
@@ -1136,9 +1164,13 @@ export default function FbaSendToAmazonWizard({
     const requestId = resolveRequestId();
     if (inboundPlanId && requestId) {
       planMissingRetryRef.current = 0;
+      setInboundPlanMissing(false);
       return;
     }
-    if (planMissingRetryRef.current >= 2) return;
+    if (planMissingRetryRef.current >= 2) {
+      setInboundPlanMissing(true);
+      return;
+    }
     planMissingRetryRef.current += 1;
     let cancelled = false;
     (async () => {
@@ -1220,7 +1252,7 @@ export default function FbaSendToAmazonWizard({
         return !(dims && w);
       });
       if (missingPack) {
-        return 'Completează dimensiunile și greutatea pentru toate cutiile înainte de Step 2.';
+        return 'Complete box dimensions and weight for all boxes before Step 2.';
       }
     }
     const returnedModes = shippingSummary?.returnedModes || [];
@@ -1228,13 +1260,13 @@ export default function FbaSendToAmazonWizard({
     const wantsSpd = String(shipmentMode?.method || '').toUpperCase() === 'SPD';
     const hasPartnered = returnedSolutions.some((s) => s.includes('AMAZON_PARTNERED'));
     if (wantsSpd && returnedModes.length && !returnedModes.includes('GROUND_SMALL_PARCEL')) {
-    return 'Amazon nu a returnat opțiuni SPD pentru aceste colete. Verifică dimensiuni/greutate la cutii (setPackingInformation). Paletii sunt doar pentru LTL/FTL.';
+    return 'Amazon did not return SPD options for these parcels. Check box dimensions/weight (setPackingInformation). Pallets are only for LTL/FTL.';
   }
   if (shippingSummary && shippingSummary.partneredAllowed === false && !shippingSummary?.alreadyConfirmed) {
-    return 'Amazon a indicat că transportul partenereat nu este disponibil pentru aceste expedieri.';
+    return 'Amazon indicated partnered transportation is not available for these shipments.';
   }
   if (shippingSummary && !shippingSummary?.alreadyConfirmed && returnedSolutions.length && !hasPartnered) {
-    return 'Amazon nu a returnat AMAZON_PARTNERED_CARRIER. Verifică dimensiuni/greutate la cutii (setPackingInformation), contact information, packing options confirmate și regenerează transportation options. Paletii/freight info sunt doar pentru LTL/FTL.';
+    return 'Amazon did not return AMAZON_PARTNERED_CARRIER. Check box dimensions/weight (setPackingInformation), contact information, confirmed packing options, then regenerate transportation options. Pallets/freight info are only for LTL/FTL.';
   }
   return null;
 }, [shippingSummary, shippingLoading, step2Loaded, shipmentMode?.method]);
@@ -1587,7 +1619,8 @@ export default function FbaSendToAmazonWizard({
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) {
-      setPackGroupsPreviewError('Lipseste inboundPlanId sau requestId; reincarca planul.');
+      setInboundPlanMissing(true);
+      setPackGroupsPreviewError(wizardCopy.missingIds);
       return { ok: false, code: 'MISSING_IDS' };
     }
     if (packingRefreshLockRef.current.inFlight && packingRefreshLockRef.current.planId === inboundPlanId) {
@@ -1609,13 +1642,14 @@ export default function FbaSendToAmazonWizard({
       });
       if (error) throw error;
       if (data?.code === 'PACKING_OPTIONS_NOT_READY' || data?.code === 'PACKING_GROUPS_NOT_READY') {
-        const msg = data?.message || 'Amazon nu a returnat inca packing groups pentru preview.';
+        setInboundPlanMissing(true);
+        const msg = data?.message || wizardCopy.packingWait;
         setPackGroupsPreviewError(msg);
         setPackGroupsPreview([]);
         return { ok: false, code: data.code, message: msg };
       }
       if (data?.code === 'PACKING_OPTIONS_NOT_AVAILABLE') {
-        setPackGroupsPreviewError(data?.message || 'Amazon nu a returnat packingOptions pentru preview.');
+        setPackGroupsPreviewError(data?.message || 'Amazon did not return packingOptions for preview.');
         setPackGroupsPreview([]);
         return { ok: false, code: data.code, message: data?.message || '' };
       }
@@ -1626,7 +1660,7 @@ export default function FbaSendToAmazonWizard({
         return { ok: true, packingGroups: normalized };
       }
       setPackGroupsPreview([]);
-      setPackGroupsPreviewError('Preview indisponibil momentan.');
+      setPackGroupsPreviewError(wizardCopy.previewUnavailable);
       return { ok: false, code: 'NO_PREVIEW' };
     } catch (e) {
       const msg = e?.message || 'Preview packing groups failed.';
@@ -1781,7 +1815,7 @@ export default function FbaSendToAmazonWizard({
       placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
 
     if (!inboundPlanId || !requestId) {
-      setPackingSubmitError('Lipsește inboundPlanId sau requestId; finalizează Step 1 înainte de confirmare.');
+      setPackingSubmitError('Missing inboundPlanId or requestId; finish Step 1 before confirming.');
       return;
     }
 
@@ -1812,16 +1846,16 @@ export default function FbaSendToAmazonWizard({
     const hasFallback = packingGroupsPayload.some((g) => isFallback(g.packingGroupId));
     const missingGroupId = derivedPayload.missingGroupId || packingGroupsPayload.some((g) => !g.packingGroupId);
     if (missingGroupId) {
-      setPackingSubmitError("Amazon nu a returnat packingGroupId pentru cutii (packingOptions). Reia Step 1b pentru a obține packing groups reale.");
+      setPackingSubmitError('Amazon did not return packingGroupId for boxes (packingOptions). Retry Step 1b to obtain real packing groups.');
       return;
     }
     if (hasFallback) {
-      setPackingSubmitError("Amazon nu a returnat packingGroupId pentru cutii (packingOptions). Reia Step 1b pentru a obține packing groups reale.");
+      setPackingSubmitError('Amazon did not return packingGroupId for boxes (packingOptions). Retry Step 1b to obtain real packing groups.');
       return;
     }
 
     if (!packingGroupsPayload.length) {
-      setPackingSubmitError('Completează dimensiunile și greutatea pentru cutie înainte de a continua.');
+      setPackingSubmitError('Complete box dimensions and weight before continuing.');
       return;
     }
     const invalid = packingGroupsPayload.find((g) => {
@@ -1864,7 +1898,7 @@ export default function FbaSendToAmazonWizard({
         plan?.packing_option_id ||
         null;
       if (!effectivePackingOptId) {
-        throw new Error('Lipsește packingOptionId acceptat de Amazon; reîncearcă refresh Step 1b.');
+        throw new Error('Missing packingOptionId accepted by Amazon; refresh Step 1b and try again.');
       }
       const refreshedPayload = buildPackingPayload(effectivePackGroups);
       const refreshedGroups = refreshedPayload.packingGroups;
@@ -1899,7 +1933,7 @@ export default function FbaSendToAmazonWizard({
           const trace = refreshRes?.traceId ? ` TraceId ${refreshRes.traceId}` : '';
           throw new Error(
             refreshRes?.message ||
-            `Packing groups nu sunt gata încă.${trace}`
+            `Packing groups are not ready yet.${trace}`
           );
         }
         console.warn('Proceeding with existing packing groups because Amazon refresh not ready', refreshRes);
@@ -1922,7 +1956,7 @@ export default function FbaSendToAmazonWizard({
       if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
       completeAndNext('1b');
     } catch (e) {
-      setPackingSubmitError(e?.message || 'SetPackingInformation a eșuat.');
+      setPackingSubmitError(e?.message || 'SetPackingInformation failed.');
     } finally {
       setPackingSubmitLoading(false);
     }
@@ -1957,7 +1991,8 @@ export default function FbaSendToAmazonWizard({
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) {
-      setPackingReadyError('Lipsește inboundPlanId sau requestId; reîncarcă planul.');
+      setInboundPlanMissing(true);
+      setPackingReadyError(wizardCopy.missingIds);
       return { ok: false, code: 'MISSING_IDS' };
     }
     // păstrăm grupurile existente; doar marcăm loading
@@ -2024,8 +2059,9 @@ export default function FbaSendToAmazonWizard({
       if (Array.isArray(data?.packingOptions)) setPackingOptions(sanitizePackingOptions(data.packingOptions));
       if (data?.code === 'PACKING_GROUPS_NOT_READY') {
         const trace = data?.traceId || data?.trace_id || null;
-        const msg = data?.message || 'Amazon nu a returnat încă packing groups. Reîncearcă în câteva secunde.';
+        const msg = data?.message || wizardCopy.packingWait;
         setPackingReadyError(trace ? `${msg} · TraceId ${trace}` : msg);
+        setInboundPlanMissing(true);
         if (!hasRealPackGroups(packGroups)) {
           setPackGroups([]); // nu afișăm nimic local dacă nu avem packing groups reale
         }
@@ -2033,8 +2069,9 @@ export default function FbaSendToAmazonWizard({
       }
       if (data?.code === 'PACKING_OPTIONS_NOT_READY') {
         const trace = data?.traceId || data?.trace_id || null;
-        const msg = data?.message || 'Inbound plan-ul este încă gol. Reîncearcă în câteva secunde.';
+        const msg = data?.message || wizardCopy.inboundPlanEmpty;
         setPackingReadyError(trace ? `${msg} · TraceId ${trace}` : msg);
+        setInboundPlanMissing(true);
         if (!hasRealPackGroups(packGroups)) {
           setPackGroups([]);
         }
@@ -2045,11 +2082,11 @@ export default function FbaSendToAmazonWizard({
         const trace = data?.traceId || data?.trace_id || null;
         if (!cachedGroups.length) {
           const msg =
-            'Planul este deja ACCEPTED în Amazon, iar packing groups nu mai pot fi regenerate. Reia planul doar dacă ai packing groups salvate.';
+            'Plan is already ACCEPTED in Amazon and packing groups cannot be regenerated. Retry only if you have saved packing groups.';
           setPackingReadyError(trace ? `${msg} · TraceId ${trace}` : msg);
           return { ok: false, code: 'PLACEMENT_ALREADY_ACCEPTED', message: msg, traceId: trace };
         }
-        setPackingReadyError('Planul este deja ACCEPTED în Amazon; folosim packing groups salvate.');
+        setPackingReadyError('Plan is already ACCEPTED in Amazon; using saved packing groups.');
         if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
         if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
         const normalized = normalizePackGroups(cachedGroups);
@@ -2059,7 +2096,7 @@ export default function FbaSendToAmazonWizard({
         setPlanError('');
         if (Array.isArray(data?.quantityMismatches) && data.quantityMismatches.length) {
           const first = data.quantityMismatches[0];
-          const msg = `Cantitățile diferă între UI și Amazon (${first.sku}: Amazon ${first.amazon} vs confirmat ${first.confirmed}).`;
+          const msg = `Quantities differ between UI and Amazon (${first.sku}: Amazon ${first.amazon} vs confirmed ${first.confirmed}).`;
           setPackGroups([]); // nu folosi grupuri Amazon cu cantități vechi
           setPackingReadyError(msg);
           return { ok: false, code: 'PACKING_QTY_MISMATCH', quantityMismatches: data.quantityMismatches };
@@ -2073,7 +2110,7 @@ export default function FbaSendToAmazonWizard({
         const normalized = normalizePackGroups(data.packingGroups);
         const filtered = normalized.filter((g) => g.packingGroupId && !isFallbackId(g.packingGroupId));
         if (!filtered.length) {
-          const msg = 'Packing groups lipsesc din răspunsul Amazon. Reîncearcă peste câteva secunde.';
+          const msg = 'Packing groups are missing from Amazon response. Try again in a few seconds.';
           setPackingReadyError(msg);
           return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: msg };
         } else {
@@ -2092,7 +2129,7 @@ export default function FbaSendToAmazonWizard({
           }));
           if (Array.isArray(data?.quantityMismatches) && data.quantityMismatches.length) {
             const first = data.quantityMismatches[0];
-            const msg = `Cantitățile diferă între UI și Amazon (${first.sku}: Amazon ${first.amazon} vs confirmat ${first.confirmed}).`;
+            const msg = `Quantities differ between UI and Amazon (${first.sku}: Amazon ${first.amazon} vs confirmed ${first.confirmed}).`;
             setPackGroups([]); // evităm afișarea grupurilor cu cantități vechi
             setPackingReadyError(msg);
             return { ok: false, code: 'PACKING_QTY_MISMATCH', quantityMismatches: data.quantityMismatches };
@@ -2101,7 +2138,7 @@ export default function FbaSendToAmazonWizard({
         }
         if (Array.isArray(data?.shipments)) setShipments(data.shipments);
         setPlanError('');
-        return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: 'Packing groups lipsesc din răspunsul Amazon.' };
+        return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: 'Packing groups are missing from Amazon response.' };
     };
 
     try {
@@ -2115,9 +2152,9 @@ export default function FbaSendToAmazonWizard({
         // eslint-disable-next-line no-await-in-loop
         await new Promise((resolve) => setTimeout(resolve, 800 * i));
       }
-      return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: 'Amazon nu a returnat packing groups după mai multe încercări.' };
+      return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: 'Amazon did not return packing groups after multiple attempts.' };
     } catch (e) {
-      const msg = e?.message || 'Nu am putut reîncărca packing groups.';
+      const msg = e?.message || 'Could not reload packing groups.';
       setPackingReadyError(msg);
       return { ok: false, code: 'ERROR', message: msg };
     } finally {
@@ -2322,18 +2359,18 @@ export default function FbaSendToAmazonWizard({
       placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
     const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) {
-      setShippingError('Lipsește inboundPlanId sau requestId; nu pot cere opțiunile de transport.');
+      setShippingError('Missing inboundPlanId or requestId; cannot request shipping options.');
       return;
     }
 
     if (!Array.isArray(packGroups) || packGroups.length === 0) {
-      setShippingError('Nu avem packing groups încă. Reia Step 1b ca să obții packingOptions înainte de transport.');
+      setShippingError('We do not have packing groups yet. Run Step 1b again to get packingOptions before shipping.');
       return;
     }
 
     const missingPackingGroupId = (packGroups || []).some((g) => !g.packingGroupId || isFallbackId(g.packingGroupId) || isFallbackId(g.id));
     if (missingPackingGroupId) {
-      setShippingError('Packing groups nu au packingGroupId valid de la Amazon. Reia Step 1b ca să obții packingOptions.');
+      setShippingError('Packing groups do not have a valid packingGroupId from Amazon. Run Step 1b again to get packingOptions.');
       return;
     }
 
@@ -2372,7 +2409,7 @@ export default function FbaSendToAmazonWizard({
             boxWeight: g?.boxWeight ?? null
           })));
         }
-        setShippingError('Completează greutatea și dimensiunile (L/W/H) pentru toate cutiile înainte de a cere tariful.');
+        setShippingError('Fill in weight and dimensions (L/W/H) for all boxes before requesting rates.');
         return;
       }
     }
@@ -2443,14 +2480,14 @@ export default function FbaSendToAmazonWizard({
           const attempt = shippingRetryRef.current + 1;
           if (attempt <= maxRetries) {
             shippingRetryRef.current = attempt;
-            setShippingError(`Amazon procesează requestul... încercare ${attempt}/${maxRetries}. Reîncerc automat.`);
+            setShippingError(`Amazon is processing the request... attempt ${attempt}/${maxRetries}. Will retry automatically.`);
             if (shippingRetryTimerRef.current) clearTimeout(shippingRetryTimerRef.current);
             shippingRetryTimerRef.current = setTimeout(() => {
               fetchShippingOptions();
             }, nextDelay);
             return;
           }
-          setShippingError('Amazon încă procesează opțiunile. Reîncearcă manual în câteva secunde.');
+          setShippingError('Amazon is still processing options. Retry manually in a few seconds.');
           return;
         }
         setShippingError(json.error);
@@ -2487,7 +2524,7 @@ export default function FbaSendToAmazonWizard({
         );
       }
     } catch (e) {
-      // Supabase aruncă "Edge Function returned a non-2xx status code" fără detalii; încercăm să extragem mesajul din payload.
+      // Supabase throws "Edge Function returned a non-2xx status code" without details; try to extract the payload message.
       const detail =
         e?.context?.error?.message ||
         e?.context?.response?.error?.message ||
@@ -2533,11 +2570,11 @@ export default function FbaSendToAmazonWizard({
     const requestId = resolveRequestId();
     const placementOptId = placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
     if (!inboundPlanId || !requestId) {
-      setShippingError('Lipsește inboundPlanId sau requestId pentru confirmarea transportului.');
+      setShippingError('Missing inboundPlanId or requestId to confirm shipping.');
       return;
     }
     if (!selectedTransportationOptionId) {
-      setShippingError('Selectează o opțiune de transport înainte de confirmare.');
+      setShippingError('Select a shipping option before confirming.');
       return;
     }
     if (shipmentMode?.method && shipmentMode.method !== 'SPD') {
@@ -2579,7 +2616,7 @@ export default function FbaSendToAmazonWizard({
           json?.code === 'TRANSPORTATION_OPTIONS_PENDING' ||
           json?.code === 'TRANSPORTATION_OPTIONS_UNKNOWN_STATE'
         ) {
-          setShippingError('Amazon procesează încă transportul. Reîncearcă confirmarea în câteva secunde.');
+          setShippingError('Amazon is still processing the shipment. Retry confirmation in a few seconds.');
           return;
         }
         setShippingError(json.error);
@@ -2793,10 +2830,10 @@ export default function FbaSendToAmazonWizard({
     const weight = Number(palletDetails.weight || 0);
     const declaredValue = Number(palletDetails.declaredValue || 0);
     if (!(qty > 0 && length > 0 && width > 0 && height > 0 && weight > 0)) {
-      return 'Completează pallet quantity, dimensiuni și greutate pentru LTL/FTL.';
+      return 'Complete pallet quantity, dimensions and weight for LTL/FTL.';
     }
     if (!(declaredValue > 0) || !palletDetails.freightClass) {
-      return 'Completează freight class și declared value pentru LTL/FTL.';
+      return 'Complete freight class and declared value for LTL/FTL.';
     }
     return null;
   };
@@ -2831,12 +2868,12 @@ export default function FbaSendToAmazonWizard({
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) {
-      setLabelsError('Lipsește inboundPlanId sau requestId pentru labels.');
+      setLabelsError('Missing inboundPlanId or requestId for labels.');
       return;
     }
     const shipmentId = shipment?.shipmentId || shipment?.id;
     if (!shipmentId) {
-      setLabelsError('Lipsește shipmentId pentru labels.');
+      setLabelsError('Missing shipmentId for labels.');
       return;
     }
     setLabelsLoadingId(shipment?.id || shipmentId);
@@ -2850,7 +2887,7 @@ export default function FbaSendToAmazonWizard({
         shipment?.shipmentConfirmationId ||
         null;
       if (!confirmationId) {
-        setLabelsError('Lipsește shipmentConfirmationId pentru labels. Reîncearcă după confirmarea transportului.');
+        setLabelsError('Missing shipmentConfirmationId for labels. Try again after confirming shipping.');
         return;
       }
       const partnered = Boolean(shipmentMode?.carrier?.partnered);
@@ -2878,10 +2915,10 @@ export default function FbaSendToAmazonWizard({
       if (url) {
         window.open(url, '_blank', 'noopener');
       } else {
-        setLabelsError('Amazon nu a returnat un URL pentru labels.');
+        setLabelsError('Amazon did not return a URL for labels.');
       }
     } catch (e) {
-      setLabelsError(e?.message || 'Nu am putut genera labels.');
+      setLabelsError(e?.message || 'Could not generate labels.');
     } finally {
       setLabelsLoadingId(null);
     }
@@ -2902,17 +2939,17 @@ export default function FbaSendToAmazonWizard({
     if (step3Confirming) return;
     const requestId = resolveRequestId();
     if (!requestId) {
-      setStep3Error('Lipseste requestId pentru confirmarea cererii.');
+      setStep3Error('Missing requestId to confirm the request.');
       return;
     }
     if (!shippingConfirmed && !shippingSummary?.alreadyConfirmed) {
-      setStep3Error('Confirma transportul inainte de a finaliza cererea.');
+      setStep3Error('Confirm shipping before finishing the request.');
       return;
     }
     const existingId = plan?.fba_shipment_id || plan?.fba_shipmentId || null;
     const shipmentId = existingId || resolveFbaShipmentId();
     if (!shipmentId) {
-      setStep3Error('Nu am gasit FBA shipment ID din Amazon. Reincearca dupa confirmarea transportului.');
+      setStep3Error('Could not find FBA shipment ID from Amazon. Retry after confirming shipping.');
       return;
     }
     setStep3Confirming(true);
@@ -2939,7 +2976,7 @@ export default function FbaSendToAmazonWizard({
 
       completeAndNext('3');
     } catch (e) {
-      setStep3Error(e?.message || 'Nu am putut confirma cererea.');
+      setStep3Error(e?.message || 'Could not confirm request.');
     } finally {
       setStep3Confirming(false);
     }
@@ -3006,7 +3043,7 @@ export default function FbaSendToAmazonWizard({
       }
       setTracking(normalized);
     } catch (e) {
-      setTrackingError(e?.message || 'Nu am putut încărca boxes.');
+      setTrackingError(e?.message || 'Could not load boxes.');
     } finally {
       setTrackingLoading(false);
     }
@@ -3035,7 +3072,7 @@ export default function FbaSendToAmazonWizard({
     const requestId = resolveRequestId();
     const shipmentId = (Array.isArray(shipments) && shipments[0]?.shipmentId) || shipments?.[0]?.id || null;
     if (!inboundPlanId || !requestId || !shipmentId) {
-      setTrackingError('Lipsește inboundPlanId, requestId sau shipmentId pentru tracking.');
+      setTrackingError('Missing inboundPlanId, requestId or shipmentId for tracking.');
       return;
     }
     const isPartnered = isPartneredShipment;
@@ -3052,7 +3089,7 @@ export default function FbaSendToAmazonWizard({
       .filter((t) => t.trackingId && t.boxId)
       .map((t) => ({ boxId: t.boxId, trackingId: t.trackingId }));
     if (!items.length) {
-      setTrackingError('Adaugă tracking pentru cel puțin o cutie.');
+      setTrackingError('Add tracking for at least one box.');
       return;
     }
     setTrackingLoading(true);
@@ -3077,7 +3114,7 @@ export default function FbaSendToAmazonWizard({
       }
       completeAndNext('4');
     } catch (e) {
-      setTrackingError(e?.message || 'Nu am putut trimite tracking.');
+      setTrackingError(e?.message || 'Could not submit tracking.');
     } finally {
       setTrackingLoading(false);
     }
@@ -3150,6 +3187,21 @@ export default function FbaSendToAmazonWizard({
     [fetchPlan, fetchShippingOptions, normalizePackGroups, snapshotServerUnits]
   );
 
+  const handleInboundPlanRetry = useCallback(() => {
+    setAllowNoInboundPlan(false);
+    setInboundPlanMissing(false);
+    setStep1SaveError('');
+    setPlanError('');
+    refreshStep('1');
+  }, [refreshStep]);
+
+  const handleInboundPlanBypass = useCallback(() => {
+    setAllowNoInboundPlan(true);
+    setInboundPlanMissing(false);
+    setStep1SaveError('');
+    setPlanError('');
+  }, []);
+
   const invalidateFrom = (stepKey) => {
     const idx = stepsOrder.indexOf(stepKey);
     if (idx === -1) return;
@@ -3208,7 +3260,7 @@ export default function FbaSendToAmazonWizard({
     const updatesForDb = updates.filter((u) => isUuid(u.id));
     const hasAnyQty = updates.some((u) => Number(u.units_sent || 0) > 0);
     if (!updates.length || !hasAnyQty) {
-      setStep1SaveError('Setează cel puțin un produs cu cantitate > 0 înainte de a continua.');
+      setStep1SaveError('Set at least one product with quantity > 0 before continuing.');
       return;
     }
     if (!requestId) {
@@ -3289,29 +3341,50 @@ export default function FbaSendToAmazonWizard({
       if (!packRes?.ok) {
         const msg =
           packRes?.message ||
-          'Amazon nu a returnat încă packing groups. Reîncearcă în câteva secunde.';
+          wizardCopy.packingWait;
+        setInboundPlanMissing(true);
+        if (allowNoInboundPlan) {
+          completeAndNext('1');
+          return;
+        }
         setStep1SaveError(msg);
         return;
       }
+      setInboundPlanMissing(false);
       // asigură-te că avem inboundPlanId după reîncărcare, altfel nu trecem în 1b
       const inboundPlanId = resolveInboundPlanId();
       if (!inboundPlanId) {
-        setStep1SaveError('Așteptăm inboundPlanId de la Amazon. Reîncearcă după câteva secunde.');
+        setInboundPlanMissing(true);
+        if (allowNoInboundPlan) {
+          completeAndNext('1');
+          return;
+        }
+        setStep1SaveError(wizardCopy.inboundPlanWait);
         return;
       }
       completeAndNext('1');
     } catch (e) {
-      const message = e?.message || 'Nu am putut salva cantitățile.';
+      const message = e?.message || 'Could not save quantities.';
       // cod 42501 -> RLS blocked (ex: insert din upsert)
       if (String(e?.code) === '42501') {
-        setStep1SaveError(`${message} (permisie RLS; reautentifică-te sau contactează un admin).`);
+        setStep1SaveError(`${message} (RLS permission; re-authenticate or contact an admin).`);
       } else {
         setStep1SaveError(message);
       }
     } finally {
       setStep1Saving(false);
     }
-  }, [completeAndNext, fetchPlan, plan?.skus, refreshStep, resolveRequestId, snapshotServerUnits]);
+  }, [
+    allowNoInboundPlan,
+    completeAndNext,
+    fetchPlan,
+    plan?.skus,
+    refreshStep,
+    resolveInboundPlanId,
+    resolveRequestId,
+    snapshotServerUnits,
+    wizardCopy
+  ]);
 
   const renderContent = (stepKey) => {
     if (stepKey === '1') {
@@ -3330,10 +3403,15 @@ export default function FbaSendToAmazonWizard({
           boxPlan={step1BoxPlanForMarket}
           onBoxPlanChange={handleStep1BoxPlanChange}
           marketCode={currentMarket}
+          allowNoInboundPlan={allowNoInboundPlan}
+          inboundPlanMissing={inboundPlanMissing}
+          onRetryInboundPlan={handleInboundPlanRetry}
+          onBypassInboundPlan={handleInboundPlanBypass}
           onChangePacking={handlePackingChange}
           onChangeQuantity={handleQuantityChange}
           onChangeExpiry={handleExpiryChange}
           onChangePrep={handlePrepChange}
+          inboundPlanCopy={wizardCopy}
           onNext={persistStep1AndReloadPlan}
           error={planError || step1SaveError}
         />
