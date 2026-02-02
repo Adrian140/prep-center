@@ -36,8 +36,8 @@ export const it = {
   learnMore: 'Scopri di Più',
   
   // Home Page - Hero Section
-  heroTitle: 'Centro di Preparazione Francia – Preparazione, Etichettatura e Spedizione 24h verso UE',
-  heroSubtitle: 'Elaborazione 24h, controllo qualità, etichettatura, imballaggio plastico e spedizione veloce ai centri di fulfillment in Europa',
+  heroTitle: 'Prep Center – hub in Francia e Germania, preparazione e spedizione 24h',
+  heroSubtitle: 'Elaborazione 24h dai nostri magazzini in Francia e Germania: controllo qualità, etichettatura, imballaggio e spedizione veloce ai centri di fulfillment in Europa',
   
   // Home Page - Stats
   yearsExperience: 'Anni di Esperienza',
@@ -46,14 +46,14 @@ export const it = {
   averageTurnaround: 'Elaborazione Media',
   
   // Home Page - Why Choose Us
-  whyChooseTitle: 'Perché Scegliere Prep Center France per la preparazione',
-  whyChooseSubtitle: 'Servizi professionali di preparazione in Francia progettati per venditori europei',
+  whyChooseTitle: 'Perché scegliere i nostri hub in Francia e Germania',
+  whyChooseSubtitle: 'Servizi professionali di preparazione da due hub UE dedicati ai venditori europei',
   turnaroundTitle: 'Elaborazione 24h',
   turnaroundDesc: 'Elaborazione veloce dei tuoi prodotti verso i centri di fulfillment europei',
   transparentPricingTitle: 'Prezzi trasparenti per la preparazione',
   transparentPricingDesc: 'Nessun costo nascosto, tariffe competitive per tutti i servizi di preparazione in Francia',
-  strategicLocationTitle: 'Posizione strategica del centro di preparazione in Francia',
-  strategicLocationDesc: 'Posizione ottimale per la distribuzione in tutta l\'UE e spedizione veloce ai centri di fulfillment',
+  strategicLocationTitle: 'Posizioni strategiche in Francia e Germania',
+  strategicLocationDesc: 'Due hub per distribuzione rapida in tutta l’UE e spedizioni accelerate ai centri di fulfillment',
   amazonReadyTitle: 'Imballaggio pronto per marketplace',
   amazonReadyDesc: 'Conoscenza esperta dei requisiti marketplace europei e standard di conformità',
   
@@ -94,7 +94,7 @@ export const it = {
   benefitsTitle: 'Perché i Venditori Europei Ci Scelgono',
   benefitsSubtitle: 'Vantaggi che fanno la differenza per le tue operazioni',
   euDistributionTitle: 'Distribuzione in tutta l\'UE',
-  euDistributionDesc: 'Posizione strategica in Francia per spedizione veloce ai centri di fulfillment europei',
+  euDistributionDesc: 'Hub strategici in Francia e Germania per spedizioni rapide ai centri di fulfillment europei',
   complianceTitle: 'Expertise in Conformità',
   complianceDesc: 'Conoscenza approfondita dei requisiti marketplace e regolamenti europei',
   qualityAssuranceTitle: 'Garanzia di Qualità',

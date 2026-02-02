@@ -36,8 +36,8 @@ export const fr = {
   learnMore: 'En Savoir Plus',
   
   // Home Page - Hero Section
-  heroTitle: 'Centre de Préparation France – Préparation, Étiquetage et Expédition 24h vers l’UE',
-  heroSubtitle: 'Traitement 24h, contrôle qualité, étiquetage, emballage plastique et expédition rapide vers les centres de fulfillment en Europe',
+  heroTitle: 'Prep Center – hubs France & Allemagne, préparation et expédition 24h',
+  heroSubtitle: 'Traitement 24h depuis nos entrepôts en France et en Allemagne : contrôle qualité, étiquetage, emballage et expédition rapide vers les centres de fulfillment en Europe',
   
   // Home Page - Stats
   yearsExperience: 'Années d\'Expérience',
@@ -46,14 +46,14 @@ export const fr = {
   averageTurnaround: 'Délai Moyen',
   
   // Home Page - Why Choose Us
-  whyChooseTitle: 'Pourquoi Choisir Prep Center France pour la préparation',
-  whyChooseSubtitle: 'Services professionnels de préparation en France conçus pour les vendeurs européens',
+  whyChooseTitle: 'Pourquoi choisir nos hubs en France et en Allemagne',
+  whyChooseSubtitle: 'Services professionnels de préparation depuis deux hubs UE pour les vendeurs européens',
   turnaroundTitle: 'Traitement 24h',
   turnaroundDesc: 'Traitement rapide de vos produits vers les centres de fulfillment européens',
   transparentPricingTitle: 'Tarification transparente pour la préparation',
   transparentPricingDesc: 'Pas de frais cachés, tarifs compétitifs pour tous les services de préparation en France',
-  strategicLocationTitle: 'Emplacement stratégique du centre de préparation en France',
-  strategicLocationDesc: 'Position optimale pour la distribution dans toute l\'UE et l\'expédition rapide vers les centres de fulfillment',
+  strategicLocationTitle: 'Emplacements stratégiques en France et en Allemagne',
+  strategicLocationDesc: 'Deux hubs pour une distribution rapide dans toute l’UE et des expéditions accélérées vers les centres de fulfillment',
   amazonReadyTitle: 'Emballage prêt pour marketplace',
   amazonReadyDesc: 'Connaissance experte des exigences marketplace européennes et des normes de conformité',
   
@@ -94,7 +94,7 @@ export const fr = {
   benefitsTitle: 'Pourquoi les Vendeurs Européens Nous Choisissent',
   benefitsSubtitle: 'Avantages qui font la différence pour votre activité',
   euDistributionTitle: 'Distribution dans toute l\'UE',
-  euDistributionDesc: 'Emplacement stratégique en France pour une expédition rapide vers les centres de fulfillment européens',
+  euDistributionDesc: 'Hubs stratégiques en France et en Allemagne pour des expéditions rapides vers les centres de fulfillment européens',
   complianceTitle: 'Expertise en Conformité',
   complianceDesc: 'Connaissance approfondie des exigences marketplace et des réglementations européennes',
   qualityAssuranceTitle: 'Assurance Qualité',

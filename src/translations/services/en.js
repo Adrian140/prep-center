@@ -1,7 +1,7 @@
 export const servicesEn = {
   // Page Header
-  pageTitle: 'Amazon FBA Prep Services & Pricing France',
-  pageSubtitle: 'Professional Amazon FBA prep services and FBM order fulfillment in France and across Europe. Fast reception, labeling, and storage with transparent pricing and 24h turnaround. Ideal for sellers shipping to EU Amazon fulfillment centers or managing direct FBM orders.',
+  pageTitle: 'Amazon FBA Prep Services & Pricing – France & Germany hubs',
+  pageSubtitle: 'Professional Amazon FBA prep and FBM fulfillment from our warehouses in France and Germany. Fast reception, labeling, and storage with transparent pricing and 24h turnaround. Ideal for sellers shipping to EU Amazon fulfillment centers or managing direct FBM orders.',
   
   pricingSection: {
     title: 'Live services & pricing',
@@ -47,8 +47,8 @@ export const servicesEn = {
 
   publicSection: {
     pageTitle: 'Services & Solutions',
-    pageSubtitle: 'Prep, fulfillment, and storage in France for EU sellers, with fast receiving, labeling, compliance checks, order handling, and secure storage tailored to your volumes.',
-    heroBadge: 'France fulfillment hub',
+    pageSubtitle: 'Prep, fulfillment, and storage from France & Germany for EU sellers, with fast receiving, labeling, compliance checks, order handling, and secure storage tailored to your volumes.',
+    heroBadge: 'France & Germany fulfillment hubs',
     highlights: [
       'Fast intake',
       'EU-ready compliance',

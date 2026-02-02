@@ -36,8 +36,8 @@ export const en = {
   learnMore: 'Learn More',
   
   // Home Page - Hero Section
-  heroTitle: 'Prep Center France – 24h Prep, Labeling & EU Shipping',
-  heroSubtitle: '24h turnaround, quality control, labeling, polybagging & fast shipping to EU fulfillment centers',
+  heroTitle: 'Prep Center – France & Germany hubs, 24h prep & EU shipping',
+  heroSubtitle: '24h turnaround from our France and Germany warehouses: QC, labeling, polybagging & fast dispatch to EU fulfillment centers',
   
   // Home Page - Stats
   yearsExperience: 'Years Experience',
@@ -46,14 +46,14 @@ export const en = {
   averageTurnaround: 'Average Turnaround',
   
   // Home Page - Why Choose Us
-  whyChooseTitle: 'Why Choose Prep Center France for Prep Services',
-  whyChooseSubtitle: 'Professional prep services in France designed for European sellers',
+  whyChooseTitle: 'Why choose our France & Germany prep hubs',
+  whyChooseSubtitle: 'Professional prep services from dual EU hubs serving European sellers',
   turnaroundTitle: '24h Turnaround',
   turnaroundDesc: 'Fast processing of your products to EU fulfillment centers',
   transparentPricingTitle: 'Transparent prep pricing',
   transparentPricingDesc: 'No hidden fees, competitive rates for all prep services in France',
-  strategicLocationTitle: 'Strategic prep center location in France',
-  strategicLocationDesc: 'Optimal position for EU-wide fulfillment distribution and fast shipping',
+  strategicLocationTitle: 'Strategic prep center locations in France & Germany',
+  strategicLocationDesc: 'Dual hubs for EU-wide fulfillment distribution and fast shipping',
   amazonReadyTitle: 'Marketplace-ready packaging',
   amazonReadyDesc: 'Expert knowledge of EU marketplace requirements and compliance standards',
   
@@ -94,7 +94,7 @@ export const en = {
   benefitsTitle: 'Why European Sellers Choose Us',
   benefitsSubtitle: 'Advantages that make the difference for your fulfillment operations',
   euDistributionTitle: 'EU-Wide Distribution',
-  euDistributionDesc: 'Strategic location in France for fast shipping to EU fulfillment centers',
+  euDistributionDesc: 'Strategic hubs in France and Germany for fast shipping to EU fulfillment centers',
   complianceTitle: 'Compliance Expertise',
   complianceDesc: 'Deep knowledge of marketplace requirements and European regulations',
   qualityAssuranceTitle: 'Quality Assurance',

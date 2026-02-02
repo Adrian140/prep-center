@@ -36,8 +36,8 @@ export const ro = {
   learnMore: 'Află Mai Mult',
   
   // Home Page - Hero Section
-  heroTitle: 'Centru de Preparare Franța – Preparare, Etichetare și Expediere 24h către UE',
-  heroSubtitle: 'Procesare 24h, control calitate, etichetare, ambalare și expediere rapidă către centrele de fulfillment din Europa',
+  heroTitle: 'Prep Center – hub-uri în Franța și Germania, preparare & expediere 24h',
+  heroSubtitle: 'Procesare 24h din ambele depozite (Franța și Germania): QC, etichetare, ambalare și expediere rapidă către centrele de fulfillment din Europa',
   
   // Home Page - Stats
   yearsExperience: 'Ani de Experiență',
@@ -46,14 +46,14 @@ export const ro = {
   averageTurnaround: 'Procesare Medie',
   
   // Home Page - Why Choose Us
-  whyChooseTitle: 'De Ce să Alegi Prep Center France pentru preparare',
-  whyChooseSubtitle: 'Servicii profesionale de preparare în Franța pentru vânzătorii europeni',
+  whyChooseTitle: 'De ce să alegi hub-urile noastre din Franța și Germania',
+  whyChooseSubtitle: 'Servicii profesionale de preparare din două hub-uri UE dedicate vânzătorilor europeni',
   turnaroundTitle: 'Procesare 24h',
   turnaroundDesc: 'Procesare rapidă a produselor tale către centrele de fulfillment europene',
   transparentPricingTitle: 'Prețuri transparente pentru preparare',
   transparentPricingDesc: 'Fără taxe ascunse, tarife competitive pentru toate serviciile de preparare din Franța',
-  strategicLocationTitle: 'Locația strategică a centrului de preparare din Franța',
-  strategicLocationDesc: 'Poziție optimă pentru distribuția în toată UE și expediere rapidă către centrele de fulfillment',
+  strategicLocationTitle: 'Locații strategice în Franța și Germania',
+  strategicLocationDesc: 'Hub-uri duale pentru distribuție rapidă în toată UE și expediere accelerată către centrele de fulfillment',
   amazonReadyTitle: 'Ambalare gata pentru marketplace',
   amazonReadyDesc: 'Cunoștințe experte despre cerințele marketplace europene și standardele de conformitate',
   
@@ -94,7 +94,7 @@ export const ro = {
   benefitsTitle: 'De Ce Vânzătorii Europeni Ne Aleg',
   benefitsSubtitle: 'Avantaje care fac diferența pentru operațiunile tale',
   euDistributionTitle: 'Distribuție în toată UE',
-  euDistributionDesc: 'Locație strategică în Franța pentru expediere rapidă către centrele de fulfillment europene',
+  euDistributionDesc: 'Hub-uri strategice în Franța și Germania pentru expediere rapidă către centrele de fulfillment europene',
   complianceTitle: 'Expertiză în Conformitate',
   complianceDesc: 'Cunoștințe profunde despre cerințele marketplace și reglementările europene',
   qualityAssuranceTitle: 'Asigurarea Calității',

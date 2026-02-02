@@ -36,8 +36,8 @@ export const de = {
   learnMore: 'Mehr Erfahren',
   
   // Home Page - Hero Section
-  heroTitle: 'Prep Center Frankreich – 24h Vorbereitung, Etikettierung & Versand in die EU',
-  heroSubtitle: '24h Bearbeitung, Qualitätskontrolle, Etikettierung, Polyverpackung und schneller Versand zu EU-Fulfillment-Zentren',
+  heroTitle: 'Prep Center – Hubs in Frankreich & Deutschland, 24h Vorbereitung & Versand in die EU',
+  heroSubtitle: '24h Bearbeitung aus unseren Lagern in Frankreich und Deutschland: Qualitätskontrolle, Etikettierung, Polyverpackung und schneller Versand zu EU-Fulfillment-Zentren',
   
   // Home Page - Stats
   yearsExperience: 'Jahre Erfahrung',
@@ -46,14 +46,14 @@ export const de = {
   averageTurnaround: 'Durchschnittliche Bearbeitung',
   
   // Home Page - Why Choose Us
-  whyChooseTitle: 'Warum Prep Center France für Prep-Services wählen',
-  whyChooseSubtitle: 'Professionelle Prep-Services in Frankreich für europäische Verkäufer',
+  whyChooseTitle: 'Warum unsere Hubs in Frankreich und Deutschland wählen',
+  whyChooseSubtitle: 'Professionelle Prep-Services aus zwei EU-Hubs für europäische Verkäufer',
   turnaroundTitle: '24h Bearbeitung',
   turnaroundDesc: 'Schnelle Bearbeitung Ihrer Produkte zu EU-Fulfillment-Zentren',
   transparentPricingTitle: 'Transparente Prep-Preise',
   transparentPricingDesc: 'Keine versteckten Gebühren, wettbewerbsfähige Preise für alle Prep-Services in Frankreich',
-  strategicLocationTitle: 'Strategischer Standort des Prep Centers in Frankreich',
-  strategicLocationDesc: 'Optimale Position für EU-weite Distribution und schnellen Versand zu Fulfillment-Zentren',
+  strategicLocationTitle: 'Strategische Standorte in Frankreich und Deutschland',
+  strategicLocationDesc: 'Zwei Hubs für schnelle EU-weite Distribution und beschleunigten Versand zu Fulfillment-Zentren',
   amazonReadyTitle: 'Marktplatz-ready Verpackung',
   amazonReadyDesc: 'Expertenwissen über EU-Marktplatzanforderungen und Compliance-Standards',
   
@@ -94,7 +94,7 @@ export const de = {
   benefitsTitle: 'Warum Europäische Verkäufer Uns Wählen',
   benefitsSubtitle: 'Vorteile, die den Unterschied für Ihre Fulfillment-Prozesse machen',
   euDistributionTitle: 'EU-weite Distribution',
-  euDistributionDesc: 'Strategischer Standort in Frankreich für schnellen Versand zu EU-Fulfillment-Zentren',
+  euDistributionDesc: 'Strategische Hubs in Frankreich und Deutschland für schnellen Versand zu EU-Fulfillment-Zentren',
   complianceTitle: 'Compliance-Expertise',
   complianceDesc: 'Tiefes Wissen über Marktplatzanforderungen und europäische Vorschriften',
   qualityAssuranceTitle: 'Qualitätssicherung',
