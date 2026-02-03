@@ -124,14 +124,10 @@ export default function FbaStep1Inventory({
   const hasUnits = totalUnits > 0;
   const missingInboundPlan = !resolvedInboundPlanId;
   const inboundCopy = {
-    banner:
-      inboundPlanCopy.banner ||
-      'Amazon has not generated inboundPlanId yet. You can retry or continue without it if your box plan is ready.',
-    wait:
-      inboundPlanCopy.waitBanner ||
-      'Waiting for inboundPlanId from Amazon; you can’t continue until the plan is loaded.',
-    retry: inboundPlanCopy.retry || 'Retry',
-    continueAnyway: inboundPlanCopy.continueAnyway || 'Continue anyway'
+    banner: '',
+    wait: '',
+    retry: '',
+    continueAnyway: ''
   };
   const statusForSku = (sku) => {
     const match =
@@ -1568,32 +1564,7 @@ export default function FbaStep1Inventory({
           SKUs confirmed to send: {skus.length} ({totalUnits} units)
         </div>
         <div className="flex gap-3 justify-end flex-wrap">
-          {inboundPlanMissing && (
-            <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 px-3 py-2 rounded-md flex flex-col gap-2">
-              <span>{inboundCopy.banner}</span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => onRetryInboundPlan?.()}
-                  className="px-3 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100"
-                >
-                  {inboundCopy.retry}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onBypassInboundPlan?.()}
-                  className="px-3 py-1 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50"
-                >
-                  {inboundCopy.continueAnyway}
-                </button>
-              </div>
-            </div>
-          )}
-          {!resolvedInboundPlanId && !inboundPlanMissing && (
-            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-md">
-              {inboundCopy.wait}
-            </div>
-          )}
+          {/* removed inboundPlan missing/wait banners */}
           {hasUnits && !boxPlanValidation.isValid && (
             <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-md">
               Complete box planning before continuing.
