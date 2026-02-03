@@ -33,6 +33,21 @@ export default function FbaStep1bPacking({
   const waitingForAmazon = loading || (!packGroupsLoaded && !error);
   const isEmpty = !waitingForAmazon && visibleGroups.length === 0;
   const showErrorOnly = Boolean(error) && !loading;
+  const clearSelectionIfRange = (event) => {
+    const t = event.target;
+    if (!t) return;
+    const tag = t.tagName;
+    const isFormControl =
+      tag === 'INPUT' ||
+      tag === 'SELECT' ||
+      tag === 'TEXTAREA' ||
+      t.isContentEditable;
+    if (isFormControl) return;
+    const sel = window.getSelection ? window.getSelection() : null;
+    if (sel && sel.type === 'Range' && sel.toString().length) {
+      sel.removeAllRanges();
+    }
+  };
   if (autoPackingMode && !showErrorOnly) {
     return (
       <div className="rounded-2xl border border-blue-100 bg-blue-50 p-6 text-center text-slate-700">
@@ -826,7 +841,10 @@ export default function FbaStep1bPacking({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+    <div
+      className="bg-white rounded-xl shadow-sm border border-slate-200"
+      onMouseDownCapture={clearSelectionIfRange}
+    >
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
         <CheckCircle className="w-5 h-5 text-emerald-600" />
         <div className="font-semibold text-slate-900">Step 1b - Pack individual units</div>
