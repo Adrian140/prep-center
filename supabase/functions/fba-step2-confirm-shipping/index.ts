@@ -3147,6 +3147,52 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
         );
       }
+      // dacă opțiunea găsită nu are shipment-ul curent, încearcă să alegi una care îl conține
+      if (shipmentIdForListing && selectedOption) {
+        const shipmentsFromOption = Array.isArray(selectedOption.raw?.shipments)
+          ? selectedOption.raw.shipments.map((s: any) => String(s?.shipmentId || s?.id || "")).filter(Boolean)
+          : [];
+        const optionHasShipment =
+          shipmentsFromOption.length === 0 ||
+          shipmentsFromOption.some((sid: string) => sid === shipmentIdForListing);
+        if (!optionHasShipment) {
+          const match = selectionPool.find((o) => {
+            const list = Array.isArray(o.raw?.shipments)
+              ? o.raw.shipments.map((s: any) => String(s?.shipmentId || s?.id || "")).filter(Boolean)
+              : [];
+            return list.some((sid) => sid === shipmentIdForListing);
+          });
+          if (match) {
+            selectedOption = match;
+            logStep("transportationOption_autoswitch_wrong_shipment", {
+              traceId,
+              shipmentId: shipmentIdForListing,
+              newOptionId: selectedOption?.id || null
+            });
+          } else {
+            return new Response(
+              JSON.stringify({
+                error:
+                  "Amazon a returnat o listă de transport care nu se potrivește cu shipment-ul curent. Reîncarcă opțiunile și selectează din listă.",
+                code: "TRANSPORTATION_OPTION_SHIPMENT_MISMATCH",
+                traceId,
+                shipmentId: shipmentIdForListing,
+                availableOptions: selectionPool.map((o) => ({
+                  id: o.id,
+                  carrierName: o.carrierName || null,
+                  mode: o.mode || null,
+                  shippingSolution: o.shippingSolution || null,
+                  charge: o.charge ?? null,
+                  shipments: Array.isArray(o.raw?.shipments)
+                    ? o.raw.shipments.map((s: any) => s?.shipmentId || s?.id || null)
+                    : []
+                }))
+              }),
+              { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+            );
+          }
+        }
+      }
     }
     if (forcePartneredOnly && !selectedOption.partnered) {
       return new Response(
