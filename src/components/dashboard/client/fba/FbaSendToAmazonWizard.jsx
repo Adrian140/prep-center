@@ -1409,9 +1409,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (wantsSpd && returnedModes.length && !returnedModes.includes('GROUND_SMALL_PARCEL')) {
     return 'Amazon did not return SPD options for these parcels. Check box dimensions/weight (setPackingInformation). Pallets are only for LTL/FTL.';
   }
-  if (shippingSummary && shippingSummary.partneredAllowed === false && !shippingSummary?.alreadyConfirmed) {
-    return 'Amazon indicated partnered transportation is not available for these shipments.';
-  }
+  // nu mai afișăm mesajul de partnered indisponibil; vizibil în opțiuni
   if (shippingSummary && !shippingSummary?.alreadyConfirmed && returnedSolutions.length && !hasPartnered) {
     return 'Amazon did not return AMAZON_PARTNERED_CARRIER. Check box dimensions/weight (setPackingInformation), contact information, confirmed packing options, then regenerate transportation options. Pallets/freight info are only for LTL/FTL.';
   }

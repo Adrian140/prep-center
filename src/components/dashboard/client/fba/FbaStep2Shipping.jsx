@@ -117,7 +117,11 @@ export default function FbaStep2Shipping({
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const needsTerms = Boolean(selectedOption?.partnered);
-  const canContinue = Boolean(selectedOption) && (!needsTerms || acceptedTerms);
+  const canContinue =
+    Boolean(selectedOption) &&
+    Boolean(shipDate) &&
+    (!needsTerms || acceptedTerms) &&
+    (selectedOption?.partnered === false ? Boolean(etaEnd) : true);
   useEffect(() => {
     setAcceptedTerms(false);
   }, [selectedOption?.id]);
@@ -311,11 +315,6 @@ export default function FbaStep2Shipping({
                 I agree to the Amazon Partnered Carrier Terms and Conditions and the Carrier Terms and Conditions.
               </span>
             </label>
-          )}
-          {selectedOption?.partnered === false && (
-            <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 text-xs text-amber-800">
-              Pentru non-partener, completează intervalul estimat de sosire; Amazon cere o fereastră de livrare pentru confirmare.
-            </div>
           )}
         </div>
 
