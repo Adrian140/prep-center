@@ -61,7 +61,10 @@ function Header() {
   const addressData = ADDRESS_BY_MARKET[marketCode] || ADDRESS_BY_MARKET.FR;
   const companyBase = addressData?.company || '';
   const hubLine = (addressData?.companySub || '').trim();
-  const customerCompanyLabel = [companyBase, hubLine && profile?.company_name ? `${hubLine} (${profile.company_name})` : hubLine]
+  const customerCompanyLabel = [
+    companyBase,
+    hubLine ? (profile?.company_name ? `${hubLine} (${profile.company_name})` : hubLine) : null
+  ]
     .filter(Boolean)
     .join('\n');
   const [copyState, setCopyState] = useState('idle');
