@@ -2631,9 +2631,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const fetchShippingOptions = async () => {
     if (typeof window === 'undefined') return; // rulează doar în browser
-    if (shippingFetchLockRef.current.inFlight) return;
+    if (shippingFetchLockRef.current.inFlight) return Promise.resolve();
     const now = Date.now();
-    if (now - fetchCooldownRef.current < 2000) return; // hard throttle 1 call / 2s
+    if (now - fetchCooldownRef.current < 2000) return Promise.resolve(); // hard throttle 1 call / 2s
     fetchCooldownRef.current = now;
     const inboundPlanId = resolveInboundPlanId();
     let placementOptId =
@@ -2719,7 +2719,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       requestKey === shippingFetchLockRef.current.lastKey &&
       now2 - shippingFetchLockRef.current.lastAt < 4000
     ) {
-      return;
+      return Promise.resolve();
     }
     shippingFetchLockRef.current.inFlight = true;
     setShippingLoading(true);
@@ -2991,10 +2991,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, step2Loaded, shipmentMode?.deliveryDate]);
 
-  // Reîncarcă step2 doar când se schimbă ship date-ul; evităm resete inutile care declanșau rerender continuu.
-  useEffect(() => {
-    setStep2Loaded(false);
-  }, [shipmentMode?.deliveryDate]);
+  // Reîncărcarea Step 2 este controlată manual; nu mai resetăm automat pe fiecare schimbare de state,
+  // ca să evităm buclele de rerender.
 
   const formatAddress = (addr = {}) => {
     const parts = [
