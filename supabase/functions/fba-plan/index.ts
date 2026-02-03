@@ -1402,7 +1402,7 @@ serve(async (req) => {
     const buildItemsSignature = (list: typeof reqData.prep_request_items) => {
       const entries = (list || []).map((it: any) => ({
         id: String(it.id || ""),
-        units: Number(it.units_sent ?? it.units_requested ?? 0) || 0
+        units: effectiveUnits(it)
       }));
       entries.sort((a, b) => a.id.localeCompare(b.id));
       return JSON.stringify(entries);
@@ -1542,8 +1542,20 @@ serve(async (req) => {
       // ignore decode errors
     }
 
+    const hasExistingPlan = Boolean(inboundPlanId);
+    const effectiveUnits = (it: { units_sent?: number | null; units_requested?: number | null }) => {
+      const sent = it?.units_sent;
+      const requested = it?.units_requested;
+      // Dacă nu avem încă plan și units_sent este 0 (implicit DB), folosim units_requested ca default.
+      if (!hasExistingPlan && sent === 0 && Number(requested || 0) > 0) {
+        return Number(requested || 0) || 0;
+      }
+      if (sent === null || sent === undefined) return Number(requested || 0) || 0;
+      return Number(sent || 0) || 0;
+    };
+
     const items: PrepRequestItem[] = (Array.isArray(reqData.prep_request_items) ? reqData.prep_request_items : []).filter(
-      (it) => Number(it.units_sent ?? it.units_requested ?? 0) > 0
+      (it) => effectiveUnits(it) > 0
     );
     // Collapse duplicate SKUs: Amazon folosește MSKU ca cheie și comasează cantitățile, deci agregăm local.
     type CollapsedItem = {
@@ -1558,7 +1570,7 @@ serve(async (req) => {
       for (const it of items) {
         const skuKey = normalizeSku(it.sku || "");
         if (!skuKey) continue;
-        const qty = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
+        const qty = effectiveUnits(it);
         const existing = map.get(skuKey);
         if (existing) {
           existing.units += qty;
@@ -1610,7 +1622,14 @@ serve(async (req) => {
       }
     }
     if (!items.length) {
-      throw new Error("No items in request with quantity > 0");
+      return new Response(
+        JSON.stringify({
+          error: "Nu există unități de trimis. Setează o cantitate > 0 înainte de a continua.",
+          code: "NO_ITEMS",
+          traceId
+        }),
+        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
     }
     if (!marketplaceId) {
       throw new Error("Missing destination marketplaceId");
@@ -3184,7 +3203,7 @@ serve(async (req) => {
     const serverQuantities = items.map((it) => ({
       itemId: it.id,
       sku: normalizeSku(it.sku || ""),
-      units: Number(it.units_sent ?? it.units_requested ?? 0) || 0
+      units: effectiveUnits(it)
     }));
 
     return new Response(

@@ -2934,10 +2934,10 @@ serve(async (req) => {
     const summary = {
       partneredAllowed: Boolean(partneredOpt),
       partneredRate: partneredOpt?.charge ?? null,
-      defaultOptionId: null,
-      defaultCarrier: null,
-      defaultMode: null,
-      defaultCharge: null,
+      defaultOptionId: partneredOpt?.id || null,
+      defaultCarrier: partneredOpt?.carrierName || null,
+      defaultMode: partneredOpt?.mode || null,
+      defaultCharge: partneredOpt?.charge ?? null,
       requestedMode: normalizedRequestedMode || null,
       returnedModes,
       returnedSolutions,
@@ -3070,9 +3070,38 @@ serve(async (req) => {
         ? refreshedNormalized.filter((o) => normalizeOptionMode(o.mode) === normalizedRequestedMode)
         : refreshedNormalized;
       const selectionPool = refreshedForSelection.length ? refreshedForSelection : refreshedNormalized;
-      selectedOption = confirmOptionId
-        ? selectionPool.find((o) => o.id === confirmOptionId) || null
-        : null;
+      const requestedOption =
+        confirmOptionId ? selectionPool.find((o) => o.id === confirmOptionId) || null : null;
+      if (confirmOptionId && !requestedOption) {
+        if (autoSelectTransportationOption) {
+          selectedOption = selectionPool.find((o) => o.partnered) || selectionPool[0] || null;
+          logStep("transportationOption_autoswitch_missing", {
+            traceId,
+            reason: "confirm_id_not_found",
+            missingOptionId: confirmOptionId,
+            fallbackOptionId: selectedOption?.id || null
+          });
+        } else {
+          return new Response(
+            JSON.stringify({
+              error:
+                "Opțiunea de transport selectată nu mai este disponibilă pentru acest shipment. Reîncarcă lista și alege din nou.",
+              code: "TRANSPORTATION_OPTION_NOT_FOUND",
+              traceId,
+              availableOptions: selectionPool.map((o) => ({
+                id: o.id,
+                carrierName: o.carrierName || null,
+                mode: o.mode || null,
+                shippingSolution: o.shippingSolution || null,
+                charge: o.charge ?? null
+              }))
+            }),
+            { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
+      } else {
+        selectedOption = requestedOption;
+      }
       if (!selectedOption && autoSelectTransportationOption) {
         selectedOption = selectionPool.find((o) => o.partnered) || selectionPool[0] || null;
         logStep("transportationOption_auto_selected", {
