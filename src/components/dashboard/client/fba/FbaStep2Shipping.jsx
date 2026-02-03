@@ -262,6 +262,7 @@ export default function FbaStep2Shipping({
                       null;
                     const solution = String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase();
                     const chargeText = Number.isFinite(opt?.charge) ? `€${opt.charge.toFixed(2)}` : '—';
+                    const partneredLabel = opt?.partnered ? 'Amazon partnered' : 'Non Amazon partnered carrier';
                     const checked = Boolean(optionId) && optionId === selectedTransportationOptionId;
                     return (
                       <label
