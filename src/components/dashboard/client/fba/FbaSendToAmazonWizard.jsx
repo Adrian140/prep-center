@@ -3733,14 +3733,36 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     () => (Array.isArray(plan?.skus) ? plan.skus.reduce((s, it) => s + (Number(it.units) || 0), 0) : 0),
     [plan?.skus]
   );
-  const packUnits = useMemo(
-    () => (Array.isArray(packGroups) ? packGroups.reduce((s, g) => s + (Number(g.units) || 0), 0) : 0),
-    [packGroups]
-  );
-  const boxesCount = useMemo(
-    () => (Array.isArray(packGroups) ? packGroups.reduce((s, g) => s + (Number(g.boxes) || 0), 0) : 0),
-    [packGroups]
-  );
+  const packUnits = useMemo(() => {
+    if (Array.isArray(packGroups) && packGroups.length) {
+      return packGroups.reduce((s, g) => s + (Number(g.units) || 0), 0);
+    }
+    // Fallback: derive from step1 box plan if pack groups are empty
+    const groups = step1BoxPlanForMarket?.groups || {};
+    const fromPlan = Object.values(groups).reduce((sum, grp) => {
+      const boxItems = Array.isArray(grp?.boxItems) ? grp.boxItems : [];
+      const total = boxItems.reduce((acc, box) => {
+        return (
+          acc +
+          Object.values(box || {}).reduce((a, qty) => a + (Number(qty) || 0), 0)
+        );
+      }, 0);
+      return sum + total;
+    }, 0);
+    return fromPlan > 0 ? fromPlan : unitCount;
+  }, [packGroups, step1BoxPlanForMarket?.groups, unitCount]);
+
+  const boxesCount = useMemo(() => {
+    if (Array.isArray(packGroups) && packGroups.length) {
+      return packGroups.reduce((s, g) => s + (Number(g.boxes) || 0), 0);
+    }
+    const groups = step1BoxPlanForMarket?.groups || {};
+    const fromPlan = Object.values(groups).reduce((sum, grp) => {
+      const boxes = Array.isArray(grp?.boxes) ? grp.boxes.length : 0;
+      return sum + boxes;
+    }, 0);
+    return fromPlan;
+  }, [packGroups, step1BoxPlanForMarket?.groups]);
 
   const shipmentSummary = useMemo(() => {
     const dests = Array.isArray(shipments) ? shipments.length : 0;
