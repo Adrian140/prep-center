@@ -1399,6 +1399,16 @@ serve(async (req) => {
     let packingGroupsFromAmazon: any[] = [];
     const snapshotPackingGroupsFallback =
       Array.isArray(snapshotFbaInbound?.packingGroups) ? snapshotFbaInbound.packingGroups : [];
+    const effectiveUnits = (it: { units_sent?: number | null; units_requested?: number | null }) => {
+      const hasExistingPlan = Boolean(inboundPlanId);
+      const sent = it?.units_sent;
+      const requested = it?.units_requested;
+      if (!hasExistingPlan && sent === 0 && Number(requested || 0) > 0) {
+        return Number(requested || 0) || 0;
+      }
+      if (sent === null || sent === undefined) return Number(requested || 0) || 0;
+      return Number(sent || 0) || 0;
+    };
     const buildItemsSignature = (list: typeof reqData.prep_request_items) => {
       const entries = (list || []).map((it: any) => ({
         id: String(it.id || ""),
