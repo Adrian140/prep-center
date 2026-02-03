@@ -2011,6 +2011,57 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return { packingGroups: packingGroupsPayload, missingGroupId };
   };
 
+  const buildPackageGroupingsFromBoxPlan = useCallback(() => {
+    const groups = step1BoxPlanForMarket?.groups || {};
+    const packageGroupings = [];
+
+    Object.entries(groups).forEach(([groupId, groupPlan]) => {
+      const boxes = Array.isArray(groupPlan?.boxes) ? groupPlan.boxes : [];
+      const itemsPerBox = Array.isArray(groupPlan?.boxItems) ? groupPlan.boxItems : [];
+
+      const normBoxes = boxes
+        .map((box, idx) => {
+          const dims = {
+            length: Number(box?.length_cm || box?.length || 0),
+            width: Number(box?.width_cm || box?.width || 0),
+            height: Number(box?.height_cm || box?.height || 0),
+            unitOfMeasurement: 'CM'
+          };
+          const weight = {
+            value: Number(box?.weight_kg || box?.weight || 0),
+            unit: 'KG'
+          };
+          const content = itemsPerBox[idx] || {};
+          const items = Object.entries(content)
+            .filter(([, qty]) => Number(qty) > 0)
+            .map(([msku, qty]) => ({
+              msku,
+              quantity: Number(qty)
+            }));
+          const hasDims =
+            Number(dims.length) > 0 && Number(dims.width) > 0 && Number(dims.height) > 0;
+          const hasWeight = Number(weight.value) > 0;
+          if (!items.length || !hasDims || !hasWeight) return null;
+          return {
+            dimensions: dims,
+            weight,
+            items,
+            contentInformationSource: 'BOX_CONTENT_PROVIDED'
+          };
+        })
+        .filter(Boolean);
+
+      if (normBoxes.length) {
+        packageGroupings.push({
+          packingGroupId: groupId,
+          boxes: normBoxes
+        });
+      }
+    });
+
+    return packageGroupings;
+  }, [step1BoxPlanForMarket?.groups]);
+
   const submitPackingInformation = async (payload = {}) => {
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
@@ -2023,6 +2074,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
 
     const derivedPayload = buildPackingPayload();
+    const packageGroupingsFallback = buildPackageGroupingsFromBoxPlan();
     let packingGroupsPayload =
       Array.isArray(payload.packingGroups) && payload.packingGroups.length ? payload.packingGroups : derivedPayload.packingGroups;
 
@@ -2048,17 +2100,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const isFallback = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
     const hasFallback = packingGroupsPayload.some((g) => isFallback(g.packingGroupId));
     const missingGroupId = derivedPayload.missingGroupId || packingGroupsPayload.some((g) => !g.packingGroupId);
-    if (missingGroupId) {
-      setPackingSubmitError('Amazon did not return packingGroupId for boxes (packingOptions). Retry Step 1b to obtain real packing groups.');
-      return;
-    }
-    if (hasFallback) {
-      setPackingSubmitError('Amazon did not return packingGroupId for boxes (packingOptions). Retry Step 1b to obtain real packing groups.');
+    if ((missingGroupId || hasFallback) && !packageGroupingsFallback.length) {
+      setPackingSubmitError('Amazon nu a returnat packingGroupId pentru cutii (packingOptions). Încearcă din nou Step 1b sau setează manual cutiile.');
       return;
     }
 
-    if (!packingGroupsPayload.length) {
-      setPackingSubmitError('Complete box dimensions and weight before continuing.');
+    if (!packingGroupsPayload.length && !packageGroupingsFallback.length) {
+      setPackingSubmitError('Completează dimensiunile/greutatea cutiilor înainte de a continua.');
       return;
     }
     const invalid = packingGroupsPayload.find((g) => {
@@ -2142,6 +2190,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         console.warn('Proceeding with existing packing groups because Amazon refresh not ready', refreshRes);
       }
 
+      const packageGroupings = packageGroupingsFallback.length ? packageGroupingsFallback : null;
       const { data, error } = await supabase.functions.invoke('fba-set-packing-information', {
         body: {
           request_id: requestId,
@@ -2149,6 +2198,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           packing_option_id: effectivePackingOptId,
           placement_option_id: placementOptId,
           packing_groups: packingGroupsPayload,
+          package_groupings: packageGroupings || undefined,
           generate_placement_options: true
         }
       });
