@@ -2218,8 +2218,29 @@ serve(async (req) => {
     const pickPackingOption = (options: any[]) => {
       if (!Array.isArray(options) || !options.length) return null;
       const normalizeStatus = (val: any) => String(val || "").toUpperCase();
-      const offered = options.find((o: any) => ["OFFERED", "AVAILABLE", "READY"].includes(normalizeStatus(o?.status)));
-      return offered || options[0];
+      const available = options.filter((o: any) =>
+        ["OFFERED", "AVAILABLE", "READY", "ACCEPTED"].includes(normalizeStatus(o?.status))
+      );
+      const candidates = available.length ? available : options;
+      const score = (o: any) => {
+        const groups = Array.isArray(o?.packingGroups || o?.PackingGroups) ? o.packingGroups || o.PackingGroups : [];
+        const groupCount = groups.length || 0;
+        const hasDiscount = Array.isArray(o?.discounts || o?.Discounts) && (o.discounts || o.Discounts).length > 0;
+        return {
+          hasDiscount,
+          groupCount
+        };
+      };
+      const sorted = [...candidates].sort((a, b) => {
+        const sa = score(a);
+        const sb = score(b);
+        // prefer fără discount
+        if (sa.hasDiscount !== sb.hasDiscount) return sa.hasDiscount ? 1 : -1;
+        // apoi cu cât mai puține grupuri
+        if (sa.groupCount !== sb.groupCount) return sa.groupCount - sb.groupCount;
+        return 0;
+      });
+      return sorted[0] || candidates[0];
     };
 
     const extractPackingGroupIds = (option: any) => {
