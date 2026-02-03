@@ -2292,7 +2292,9 @@ serve(async (req) => {
         [];
       const normalizedItems = (Array.isArray(items) ? items : []).map((it: any) => ({
         msku: it.msku || it.SellerSKU || it.sellerSku || it.sku || "",
-        quantity: Number(it.quantity || it.Quantity || 0) || 0
+        quantity: Number(it.quantity || it.Quantity || 0) || 0,
+        labelOwner: (it.labelOwner || it.label_owner || it.LabelOwner || null) as OwnerVal | null,
+        fnsku: it.fnsku || it.FNSKU || it.fulfillmentNetworkSku || null
       }));
       return { packingGroupId: groupId, items: normalizedItems, status: res.res.status, requestId: res.requestId || null };
     };
@@ -3046,6 +3048,18 @@ serve(async (req) => {
       };
     });
 
+    const labelOwnerFromPacking = new Map<string, OwnerVal>();
+    (packingGroupsFromAmazon || []).forEach((g) => {
+      (g.items || []).forEach((it: any) => {
+        const key = normalizeSku(it?.msku || it?.sku || it?.SellerSKU || it?.sellerSku || "");
+        if (!key) return;
+        const raw = (it?.labelOwner || it?.label_owner || it?.LabelOwner || "").toString().toUpperCase();
+        if (raw === "NONE" || raw === "SELLER" || raw === "AMAZON") {
+          labelOwnerFromPacking.set(key, raw as OwnerVal);
+        }
+      });
+    });
+
     const skus = collapsedItems.map((c, idx) => {
       const skuKey = normalizeSku(c.sku);
       const prepInfo = prepGuidanceMap[skuKey] || {};
@@ -3053,8 +3067,12 @@ serve(async (req) => {
       const manufacturerBarcodeEligible = prepInfo.barcodeInstruction
         ? isManufacturerBarcodeEligible(prepInfo.barcodeInstruction)
         : false;
-      const labelOwner = deriveLabelOwner({ ...prepInfo, prepRequired, manufacturerBarcodeEligible });
-      const labelOwnerSource = "prep-guidance";
+      let labelOwner = deriveLabelOwner({ ...prepInfo, prepRequired, manufacturerBarcodeEligible });
+      let labelOwnerSource: "prep-guidance" | "packing-group" | string = "prep-guidance";
+      if (labelOwnerFromPacking.has(skuKey)) {
+        labelOwner = labelOwnerFromPacking.get(skuKey) as OwnerVal;
+        labelOwnerSource = "packing-group";
+      }
       const requiresExpiry =
         (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
         expiryRequiredBySku[skuKey] === true;
