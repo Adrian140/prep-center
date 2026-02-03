@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,6 +8,15 @@ const corsHeaders = {
 };
 
 const ADMIN_EMAIL = Deno.env.get("PREP_ADMIN_EMAIL") ?? "contact@prep-center.eu";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_SERVICE_ROLE =
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE") ?? "";
+const supabase =
+  SUPABASE_URL && SUPABASE_SERVICE_ROLE
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
+        global: { headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE}` } },
+      })
+    : null;
 const FROM_EMAIL =
   Deno.env.get("PREP_FROM_EMAIL") && Deno.env.get("PREP_FROM_EMAIL")!.trim() !== ""
     ? Deno.env.get("PREP_FROM_EMAIL")!
@@ -31,6 +41,7 @@ interface Payload {
   notes?: string | null;
   fba_mode?: string | null;
   items?: ItemPayload[] | null;
+  country?: string | null;
 }
 
 const escapeHtml = (value: string) =>
@@ -136,6 +147,43 @@ const renderHtml = (payload: Payload) => {
   `;
 };
 
+const normalizeCountry = (value?: string | null) => {
+  const upper = (value || "").trim().toUpperCase();
+  if (!upper) return "FR";
+  if (upper === "DE" || upper === "GERMANY" || upper === "DEU") return "DE";
+  if (upper === "FR" || upper === "FRANCE" || upper === "FRA") return "FR";
+  return upper;
+};
+
+async function resolveAdminEmail(payload: Payload): Promise<{ to: string | null; enabled: boolean }> {
+  const country = normalizeCountry(payload.country);
+  // default fallback
+  let fallback = ADMIN_EMAIL;
+
+  if (!supabase) return { to: fallback, enabled: true };
+
+  try {
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "notifications_admin")
+      .maybeSingle();
+    if (error || !data?.value) return { to: fallback, enabled: true };
+
+    const settings = data.value as any;
+    const perCountry = settings?.receptions?.[country] || settings?.receptions?.[country?.toLowerCase?.() || country];
+    if (perCountry) {
+      return {
+        to: perCountry.enabled === false ? null : perCountry.email || fallback,
+        enabled: perCountry.enabled !== false,
+      };
+    }
+  } catch (err) {
+    console.error("resolveAdminEmail error", err);
+  }
+  return { to: fallback, enabled: true };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -151,6 +199,12 @@ Deno.serve(async (req) => {
 
   try {
     const payload = (await req.json()) as Payload;
+    const target = await resolveAdminEmail(payload);
+    if (!target.enabled || !target.to) {
+      return new Response(JSON.stringify({ ok: true, skipped: true }), {
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
     const subject = subjectFromPayload(payload);
     const html = renderHtml(payload);
 
@@ -162,7 +216,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: `Prep Center <${FROM_EMAIL}>`,
-        to: [ADMIN_EMAIL],
+        to: [target.to],
         subject,
         html,
       }),

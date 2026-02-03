@@ -164,6 +164,16 @@ useEffect(() => {
     enabled: false,
     message: 'Site en maintenance. Nous revenons vite.'
     });
+  const [notifSettings, setNotifSettings] = useState({
+    receptions: {
+      FR: { enabled: true, email: '' },
+      DE: { enabled: true, email: '' }
+    },
+    prep_requests: {
+      FR: { enabled: true, email: '' },
+      DE: { enabled: true, email: '' }
+    }
+  });
   const [isEditing, setIsEditing] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [loading, setLoading] = useState(false);
@@ -200,6 +210,7 @@ useEffect(() => {
      fetchReviews(); // Fetch reviews
      fetchIntegrationContent(integrationLang);
      fetchMaintenance();
+     fetchNotifSettings();
     }
    }, [user, integrationLang]); // Changed to user
 
@@ -311,7 +322,7 @@ useEffect(() => {
       console.error('Error fetching integration content:', error);
     }
   };
-  const fetchMaintenance = async () => {
+const fetchMaintenance = async () => {
 const { data, error } = await supabase
 .from('app_settings')
 .select('value')
@@ -324,6 +335,21 @@ enabled: !!data.value.enabled,
 message: data.value.message || 'Site en maintenance. Nous revenons vite.'
 });
 }
+};
+
+const fetchNotifSettings = async () => {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'notifications_admin')
+    .maybeSingle();
+
+  if (!error && data?.value) {
+    setNotifSettings((prev) => ({
+      ...prev,
+      ...data.value
+    }));
+  }
 };
 
 const saveMaintenance = async (customState) => {
@@ -344,6 +370,21 @@ const saveMaintenance = async (customState) => {
     );
   } else {
     setMessage('Eroare la salvarea mentenanței.');
+  }
+};
+
+const saveNotifSettings = async () => {
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({
+      key: 'notifications_admin',
+      value: notifSettings,
+      updated_at: new Date().toISOString()
+    });
+  if (error) {
+    setMessage('Eroare la salvarea notificărilor.');
+  } else {
+    setMessage('Notificările au fost salvate.');
   }
 };
 
@@ -1351,6 +1392,114 @@ const renderSettingsTab = () => {
             Salvează Mentenanța
           </button>
         </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-text-primary mb-4">Notificări admin (per țară)</h3>
+        <p className="text-sm text-text-secondary mb-3">
+          Setează emailul de notificare pentru recepții și confirmări de prep, separat pentru FR și DE. Poți dezactiva notificările pe fiecare țară.
+        </p>
+        {['FR', 'DE'].map((code) => (
+          <div key={code} className="border border-gray-200 rounded-lg p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold text-text-primary">Țara: {code}</div>
+              <div className="flex items-center gap-3 text-sm">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={notifSettings.receptions?.[code]?.enabled !== false}
+                    onChange={(e) =>
+                      setNotifSettings((prev) => ({
+                        ...prev,
+                        receptions: {
+                          ...prev.receptions,
+                          [code]: {
+                            ...(prev.receptions?.[code] || {}),
+                            enabled: e.target.checked
+                          }
+                        }
+                      }))
+                    }
+                  />
+                  Recepții active
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={notifSettings.prep_requests?.[code]?.enabled !== false}
+                    onChange={(e) =>
+                      setNotifSettings((prev) => ({
+                        ...prev,
+                        prep_requests: {
+                          ...prev.prep_requests,
+                          [code]: {
+                            ...(prev.prep_requests?.[code] || {}),
+                            enabled: e.target.checked
+                          }
+                        }
+                      }))
+                    }
+                  />
+                  Prep active
+                </label>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-1">
+                  Email notificări recepții ({code})
+                </label>
+                <input
+                  type="email"
+                  value={notifSettings.receptions?.[code]?.email || ''}
+                  onChange={(e) =>
+                    setNotifSettings((prev) => ({
+                      ...prev,
+                      receptions: {
+                        ...prev.receptions,
+                        [code]: {
+                          ...(prev.receptions?.[code] || {}),
+                          email: e.target.value
+                        }
+                      }
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  placeholder="ex: fr-ops@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-1">
+                  Email notificări prep ({code})
+                </label>
+                <input
+                  type="email"
+                  value={notifSettings.prep_requests?.[code]?.email || ''}
+                  onChange={(e) =>
+                    setNotifSettings((prev) => ({
+                      ...prev,
+                      prep_requests: {
+                        ...prev.prep_requests,
+                        [code]: {
+                          ...(prev.prep_requests?.[code] || {}),
+                          email: e.target.value
+                        }
+                      }
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  placeholder="ex: de-ops@example.com"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+        <button
+          onClick={saveNotifSettings}
+          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors"
+        >
+          Salvează notificările
+        </button>
       </div>
 
       <button

@@ -33,6 +33,7 @@ interface Payload {
   fba_shipment_id?: string | null;
   tracking_ids?: string[] | null;
   marketplace?: string | null;
+  country?: string | null;
 }
 
 // ===== ENV =====
@@ -52,6 +53,15 @@ const supabase =
 // ===== Brand assets =====
 const LOGO_URL =
   "https://prep-center.eu/branding/fulfillment-prep-logo.png";
+
+const normalizeCountry = (value?: string | null) => {
+  const upper = (value || "").trim().toUpperCase();
+  if (!upper && value === null) return null;
+  if (!upper) return "FR";
+  if (upper === "DE" || upper === "GERMANY" || upper === "DEU") return "DE";
+  if (upper === "FR" || upper === "FRANCE" || upper === "FRA") return "FR";
+  return upper;
+};
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -110,6 +120,30 @@ async function shouldNotifyClient(payload: Payload): Promise<boolean> {
     return true;
   }
   return profileRow?.notify_prep_shipments !== false;
+}
+
+async function resolveAdminEmail(payload: Payload): Promise<{ to: string | null; enabled: boolean }> {
+  const country = normalizeCountry(payload.country || payload.marketplace);
+  if (!supabase) return { to: ADMIN_EMAIL, enabled: true };
+  try {
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "notifications_admin")
+      .maybeSingle();
+    if (error || !data?.value) return { to: ADMIN_EMAIL, enabled: true };
+    const settings = data.value as any;
+    const perCountry = settings?.prep_requests?.[country || "FR"] || settings?.prep_requests?.[String(country || "FR").toLowerCase()];
+    if (perCountry) {
+      return {
+        to: perCountry.enabled === false ? null : perCountry.email || ADMIN_EMAIL,
+        enabled: perCountry.enabled !== false,
+      };
+    }
+  } catch (err) {
+    console.error("resolveAdminEmail prep", err);
+  }
+  return { to: ADMIN_EMAIL, enabled: true };
 }
 function renderHtml(p: Payload, prepId: string) {
   const rows = (p.items ?? []).map((it) => {
@@ -250,8 +284,10 @@ Deno.serve(async (req) => {
     const notifyClient = await shouldNotifyClient(payload);
     const hasClientEmail = !!payload?.email;
     const sendToClient = notifyClient && hasClientEmail;
-    const recipients = sendToClient ? [payload.email as string] : [ADMIN_EMAIL];
-    const bccRecipients = sendToClient ? [ADMIN_EMAIL] : [];
+    const adminTarget = await resolveAdminEmail(payload);
+    const recipients = sendToClient ? [payload.email as string] : [adminTarget.to || ADMIN_EMAIL];
+    const bccRecipients =
+      sendToClient && adminTarget.enabled && adminTarget.to ? [adminTarget.to] : [];
 
     // Enrich items cu EAN / imagine din stock_items dacă lipsesc
     const items = payload.items ? await enrichItemsFromSupabase(payload.items) : [];
