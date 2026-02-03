@@ -118,7 +118,9 @@ export default function ServicesPricing() {
   const { user, profile } = useSupabaseAuth();
   const { currentMarket } = useMarket();
   const isAdmin = Boolean(
-    profile?.account_type === 'admin' || user?.user_metadata?.account_type === 'admin'
+    profile?.account_type === 'admin' ||
+      profile?.is_admin === true ||
+      user?.user_metadata?.account_type === 'admin'
   );
   const canViewPrices = Boolean(isAdmin || profile?.can_view_prices);
   const canManagePricing = isAdmin;
