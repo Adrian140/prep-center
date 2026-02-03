@@ -2830,10 +2830,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const match = (shippingOptions || []).find((opt) => {
         const optMode = normalizeOptionMode(opt.mode || opt.shippingMode);
         const optSolution = String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase();
+        const optCarrierName = String(opt?.carrierName || opt?.raw?.carrier?.name || '').trim().toUpperCase();
+        const optCarrierCode = String(opt?.raw?.carrier?.alphaCode || '').trim().toUpperCase();
         return (
           Boolean(opt?.partnered) === signature.partnered &&
           (signature.mode ? optMode === signature.mode : true) &&
-          (signature.shippingSolution ? optSolution === signature.shippingSolution : true)
+          (signature.shippingSolution ? optSolution === signature.shippingSolution : true) &&
+          (signature.carrierCode
+            ? optCarrierCode === signature.carrierCode
+            : signature.carrierName
+              ? optCarrierName === signature.carrierName
+              : true)
         );
       });
       if (match?.id) {
@@ -2855,6 +2862,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
     if (!selectedTransportationOptionId) {
       setShippingError('Select a shipping option before confirming.');
+      return;
+    }
+    const selectedStillExists = (shippingOptions || []).some((opt) => opt?.id === selectedTransportationOptionId);
+    if (!selectedStillExists) {
+      setShippingError('Shipping options were refreshed. Please reselect an option.');
       return;
     }
     if (shipmentMode?.method && shipmentMode.method !== 'SPD') {
@@ -3089,7 +3101,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     selectedOptionSignatureRef.current = {
       mode: nextMethod || null,
       partnered: Boolean(opt.partnered),
-      shippingSolution: String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase()
+      shippingSolution: String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase(),
+      carrierName: String(opt?.carrierName || opt?.raw?.carrier?.name || '').trim().toUpperCase(),
+      carrierCode: String(opt?.raw?.carrier?.alphaCode || '').trim().toUpperCase()
     };
     setShipmentMode((prev) => ({
       ...prev,
