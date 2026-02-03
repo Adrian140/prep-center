@@ -647,6 +647,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         const entry = step1PlanGroupsData.signatureMap.get(sig);
         return { planGroup: entry?.value || null, planGroupKey: entry?.key || null };
       }
+      // fallback: dacă nu găsim după id sau semnătură, ia primul grup din plan (evită payload gol)
+      const fallback = Array.isArray(step1PlanGroupsData.ordered) ? step1PlanGroupsData.ordered[0] : null;
+      if (fallback?.value) {
+        return { planGroup: fallback.value, planGroupKey: fallback.key || key };
+      }
       return { planGroup: null, planGroupKey: key };
     },
     [getPackGroupSignature, step1PlanGroupsData]
@@ -2890,6 +2895,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setShippingError('');
     try {
       const configs = buildShipmentConfigs();
+      if (!configs.length) {
+        setShippingConfirming(false);
+        setShippingError('Nu există pachete/paleți validați pentru confirmare (lipsește greutate/dimensiuni). Completează packing și reîncearcă.');
+        return;
+      }
       const contactInformation = resolveContactInformation();
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
@@ -2904,6 +2914,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           delivery_window_start: normalizeShipDate(shipmentMode?.deliveryWindowStart) || null,
           delivery_window_end: normalizeShipDate(shipmentMode?.deliveryWindowEnd) || null,
           transportation_option_id: selectedTransportationOptionId,
+          auto_confirm_placement: true,
           confirm: true
         }
       });
@@ -3043,16 +3054,22 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     });
   };
 
-  // Dacă nu avem shipments din backend, sau avem doar cele derivate local, recalculăm din packGroups + shipFrom
+  // Dacă nu avem shipments din backend, sau avem doar cele derivate local,
+  // recalculăm din packGroups + shipFrom, dar evităm bucla prin setShipments(prev => ...).
   useEffect(() => {
-    const hasApiShipments = Array.isArray(shipments) && shipments.some((s) => s.source === 'api' || s.confirmed);
-    const derived = deriveShipmentsFromPacking(shipments);
-    if (hasApiShipments) return;
-    const currentLocal = JSON.stringify((shipments || []).filter((s) => s.source === 'local'));
-    const nextLocal = JSON.stringify(derived);
-    if (currentLocal === nextLocal) return;
-    setShipments(derived);
-  }, [packGroups, plan?.shipFrom, plan?.marketplace, shipments]);
+    setShipments((prev) => {
+      const hasApiShipments =
+        Array.isArray(prev) && prev.some((s) => s.source === 'api' || s.confirmed);
+      if (hasApiShipments) return prev;
+
+      const derived = deriveShipmentsFromPacking(prev);
+      const currentLocal = JSON.stringify((prev || []).filter((s) => s.source === 'local'));
+      const nextLocal = JSON.stringify(derived);
+
+      if (currentLocal === nextLocal) return prev;
+      return derived;
+    });
+  }, [packGroups, plan?.shipFrom, plan?.marketplace]);
 
   const handleCarrierChange = (carrier) => {
     setCarrierTouched(true);
