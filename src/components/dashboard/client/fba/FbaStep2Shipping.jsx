@@ -87,9 +87,8 @@ export default function FbaStep2Shipping({
         : selectedMode === 'FTL'
           ? 'Full truckload (FTL)'
           : 'Small parcel delivery (SPD)';
-    const partnerLabel = selectedOption?.partnered ? 'Amazon partnered carrier' : 'Non Amazon partnered carrier';
-    return `${partnerLabel} · ${carrierName} · ${modeLabel}`;
-  }, [carrierName, selectedMode, selectedOption]);
+    return `${carrierName} · ${modeLabel}`;
+  }, [carrierName, selectedMode]);
 
   const renderShipmentCard = (s) => (
     <div key={s.id} className="border border-slate-200 rounded-lg overflow-hidden">
@@ -244,7 +243,6 @@ export default function FbaStep2Shipping({
                 <div className="text-xs font-semibold text-slate-600">{title}</div>
                 <div className="space-y-2">
                   {list.map((opt) => {
-                    const partneredLabel = opt?.partnered ? 'Amazon partnered carrier' : 'Non Amazon partnered carrier';
                     const carrierLabel = opt?.carrierName || 'Carrier';
                     const optionId =
                       opt?.id ||
