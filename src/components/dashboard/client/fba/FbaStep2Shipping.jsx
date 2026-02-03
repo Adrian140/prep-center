@@ -76,9 +76,10 @@ export default function FbaStep2Shipping({
   const selectedMode = normalizeOptionMode(selectedOption?.mode || method);
   useEffect(() => {
     if (selectedOption?.partnered === false && shipDate) {
-      autoSetEtaEnd(shipDate);
+      // dacă deja avem fereastra setată din parent, nu recalculăm iar (previne loop)
+      if (!deliveryWindowEnd) autoSetEtaEnd(shipDate);
     }
-  }, [selectedOption?.partnered, shipDate]);
+  }, [selectedOption?.partnered, shipDate, deliveryWindowEnd]);
 
   const shipmentCount = shipmentList.length;
   const totalBoxes = shipmentList.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0);
@@ -150,8 +151,14 @@ export default function FbaStep2Shipping({
     const d = new Date(startDate);
     d.setDate(d.getDate() + (isInternational ? 13 : 6)); // 7 zile interne / 14 zile internaționale
     const autoEnd = d.toISOString().slice(0, 10);
+    const currentEnd = deliveryWindowEnd || '';
+    const currentStart = deliveryWindowStart || '';
+    // dacă valorile sunt deja setate, nu mai trimitem update (previne bucle de re-render)
+    if (autoEnd === etaEnd && currentEnd === autoEnd && currentStart === startDate) return;
     setEtaEnd(autoEnd);
-    onDeliveryWindowChange?.({ start: startDate, end: autoEnd });
+    if (currentEnd !== autoEnd || currentStart !== startDate) {
+      onDeliveryWindowChange?.({ start: startDate, end: autoEnd });
+    }
   };
 
   return (
