@@ -243,6 +243,17 @@ function isManufacturerBarcodeEligible(instr?: string | null) {
   );
 }
 
+function deriveLabelOwner(prepInfo: any): OwnerVal {
+  const barcodeInstruction = String(prepInfo?.barcodeInstruction || "").toUpperCase();
+  const prepList: string[] = Array.isArray(prepInfo?.prepInstructions) ? prepInfo.prepInstructions : [];
+  const hasItemLabeling = prepList.some((p) => String(p || "").toUpperCase().includes("LABEL"));
+  if (barcodeInstruction.includes("CANUSEORIGINALBARCODE")) return "NONE";
+  if (barcodeInstruction.includes("REQUIRESFNSKU") || hasItemLabeling) return "SELLER";
+  if (prepInfo?.prepRequired) return "SELLER";
+  if (isManufacturerBarcodeEligible(barcodeInstruction)) return "NONE";
+  return "SELLER";
+}
+
 function extractAcceptedValues(msg: string): OwnerVal[] {
   const m = msg.match(/Accepted values:\s*\[([^\]]+)\]/i);
   if (!m) return [];
@@ -1955,9 +1966,8 @@ serve(async (req) => {
           const prepRequired = !!prepInfo.prepRequired;
           const manufacturerBarcodeEligible =
             prepInfo.barcodeInstruction ? isManufacturerBarcodeEligible(prepInfo.barcodeInstruction) : false;
-          // Pentru workflow-ul cu packing options, păstrăm SELLER chiar dacă e eligibil manufacturer barcode,
-          // altfel Amazon poate refuza generatePackingOptions.
-          let labelOwner: OwnerVal = "SELLER";
+          // Respectăm guidance-ul Amazon: dacă e barcode-eligibil -> NONE, altfel SELLER doar când e cerut.
+          let labelOwner: OwnerVal = deriveLabelOwner({ ...prepInfo, prepRequired, manufacturerBarcodeEligible });
           let prepOwner: OwnerVal = prepRequired ? "SELLER" : "NONE";
           const expiryVal = expirations[key] || null;
 
@@ -3035,17 +3045,6 @@ serve(async (req) => {
         }
       };
     });
-
-    const deriveLabelOwner = (prepInfo: any): "SELLER" | "NONE" => {
-      const barcodeInstruction = String(prepInfo?.barcodeInstruction || "").toUpperCase();
-      const prepList: string[] = Array.isArray(prepInfo?.prepInstructions) ? prepInfo.prepInstructions : [];
-      const hasItemLabeling = prepList.some((p) => String(p || "").toUpperCase().includes("LABEL"));
-      if (barcodeInstruction.includes("CANUSEORIGINALBARCODE")) return "NONE";
-      if (barcodeInstruction.includes("REQUIRESFNSKU") || hasItemLabeling) return "SELLER";
-      if (prepInfo?.prepRequired) return "SELLER";
-      if (isManufacturerBarcodeEligible(barcodeInstruction)) return "NONE";
-      return "SELLER";
-    };
 
     const skus = collapsedItems.map((c, idx) => {
       const skuKey = normalizeSku(c.sku);
