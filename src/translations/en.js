@@ -42,7 +42,7 @@ export const en = {
   // Home Page - Stats
   yearsExperience: 'Years Experience',
   ordersProcessed: 'Orders Processed',
-  happyClients: 'Happy Clients',
+  happyClients: '150+ Happy Clients',
   averageTurnaround: 'Average Turnaround',
   
   // Home Page - Why Choose Us
