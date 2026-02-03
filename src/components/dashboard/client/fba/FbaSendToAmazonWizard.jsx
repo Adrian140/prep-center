@@ -2239,6 +2239,28 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     buildPackingPayload
   ]);
 
+  useEffect(() => {
+    if (currentStep !== '2') return;
+    const inboundPlanId = resolveInboundPlanId();
+    if (!inboundPlanId) return;
+    if (autoShipPlanRef.current.planId !== inboundPlanId) {
+      autoShipPlanRef.current = { planId: inboundPlanId, attempted: false };
+    }
+    if (autoShipPlanRef.current.attempted) return;
+    const pkgFallback = buildPackageGroupingsFromBoxPlan();
+    if (!pkgFallback.length) return;
+    const hasShipments = Array.isArray(shipments) && shipments.length > 0;
+    if (hasShipments) return;
+    autoShipPlanRef.current.attempted = true;
+    submitPackingInformation({ packingGroups: [] });
+  }, [
+    currentStep,
+    shipments,
+    resolveInboundPlanId,
+    buildPackageGroupingsFromBoxPlan,
+    submitPackingInformation
+  ]);
+
   async function refreshPackingGroups(selectedPackingOptionId = null) {
     if (typeof window === 'undefined') return { ok: false, code: 'NO_WINDOW' };
     const inboundPlanId = resolveInboundPlanId();
@@ -3841,6 +3863,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       units: sh?.units ?? shipmentFallbackTotals.unitsFallback
     }));
   }, [shipments, shipmentFallbackTotals]);
+  const autoShipPlanRef = useRef({ planId: null, attempted: false });
 
   const isCompleted = (key) => completedSteps.includes(key);
   const step2Complete = isCompleted('2') && shippingConfirmed;
