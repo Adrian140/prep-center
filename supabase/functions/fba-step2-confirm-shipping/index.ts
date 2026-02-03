@@ -2879,6 +2879,12 @@ serve(async (req) => {
             mode: opt.mode || opt.shippingMode || opt.method || null,
             carrierName: opt.carrierName || opt.carrier?.name || opt.carrier?.alphaCode || opt.carrier || null,
             charge: extractCharge(opt),
+            shipmentId:
+              opt.shipmentId ||
+              opt.ShipmentId ||
+              opt.shipment_id ||
+              (Array.isArray(opt.shipments) ? opt.shipments[0]?.shipmentId : null) ||
+              null,
             shippingSolution:
               opt.shippingSolution ||
               opt.shippingSolutionId ||
@@ -3069,7 +3075,17 @@ serve(async (req) => {
       const refreshedForSelection = normalizedRequestedMode
         ? refreshedNormalized.filter((o) => normalizeOptionMode(o.mode) === normalizedRequestedMode)
         : refreshedNormalized;
-      const selectionPool = refreshedForSelection.length ? refreshedForSelection : refreshedNormalized;
+      const selectionPoolRaw = refreshedForSelection.length ? refreshedForSelection : refreshedNormalized;
+      const selectionPool = (() => {
+        if (!shipmentIdForListing) return selectionPoolRaw;
+        const withShipment = selectionPoolRaw.filter((o) => {
+          const sid = o.shipmentId || o.raw?.shipmentId || null;
+          const list = Array.isArray(o.raw?.shipments) ? o.raw.shipments : [];
+          const hasInList = list.some((s: any) => String(s?.shipmentId || s?.id || "").trim() === shipmentIdForListing);
+          return sid === shipmentIdForListing || hasInList;
+        });
+        return withShipment.length ? withShipment : selectionPoolRaw;
+      })();
       const requestedOption =
         confirmOptionId ? selectionPool.find((o) => o.id === confirmOptionId) || null : null;
       if (confirmOptionId && !requestedOption) {
