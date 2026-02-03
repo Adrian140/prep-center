@@ -3127,7 +3127,9 @@ serve(async (req) => {
     const isValidShipmentId = (val: any) =>
       typeof val === "string" && val.length >= 10 && !val.startsWith("s-");
 
-    const requiresDeliveryWindow = hasDeliveryWindowPrecondition(selectedOption?.raw || selectedOption);
+    const isNonPartneredSelection = !selectedOption?.partnered;
+    const requiresDeliveryWindow =
+      hasDeliveryWindowPrecondition(selectedOption?.raw || selectedOption) || isNonPartneredSelection;
     if (requiresDeliveryWindow) {
       const shipmentIds = Array.from(
         new Set<string>(
@@ -3242,20 +3244,30 @@ serve(async (req) => {
       }
     }
 
+    const contactForConfirm =
+      contactInformation && isCompleteContact(contactInformation)
+        ? {
+            name: contactInformation.name,
+            phoneNumber: contactInformation.phoneNumber,
+            email: contactInformation.email
+          }
+        : null;
     const selections = Array.isArray(selectedOption?.raw?.shipments)
       ? selectedOption.raw.shipments
           .map((sh: any) => sh?.shipmentId || sh?.id)
           .filter((id: any) => isValidShipmentId(String(id)))
           .map((shipmentId: string) => ({
             shipmentId,
-            transportationOptionId: selectedOption?.id
+            transportationOptionId: selectedOption?.id,
+            ...(contactForConfirm ? { contactInformation: contactForConfirm } : {})
           }))
       : placementShipments
           .map((sh: any) => sh?.shipmentId || sh?.id)
           .filter((id: any) => isValidShipmentId(String(id)))
           .map((shipmentId: string) => ({
             shipmentId,
-            transportationOptionId: selectedOption?.id
+            transportationOptionId: selectedOption?.id,
+            ...(contactForConfirm ? { contactInformation: contactForConfirm } : {})
           }));
     if (!selections.length) {
       return new Response(
@@ -3367,6 +3379,18 @@ serve(async (req) => {
           );
         }
       }
+    }
+    if (!confirmRes?.res?.ok && !confirmOpId) {
+      const bodyPreview = (confirmRes?.text || "").slice(0, 400) || null;
+      return new Response(
+        JSON.stringify({
+          error: "Transportation confirmation failed",
+          traceId,
+          status: confirmRes?.res?.status || null,
+          bodyPreview
+        }),
+        { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
     }
     if (confirmOpId) {
       const confirmStatus = await pollOperationStatus(confirmOpId);
