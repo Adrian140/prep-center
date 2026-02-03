@@ -1542,18 +1542,6 @@ serve(async (req) => {
       // ignore decode errors
     }
 
-    const hasExistingPlan = Boolean(inboundPlanId);
-    const effectiveUnits = (it: { units_sent?: number | null; units_requested?: number | null }) => {
-      const sent = it?.units_sent;
-      const requested = it?.units_requested;
-      // Dacă nu avem încă plan și units_sent este 0 (implicit DB), folosim units_requested ca default.
-      if (!hasExistingPlan && sent === 0 && Number(requested || 0) > 0) {
-        return Number(requested || 0) || 0;
-      }
-      if (sent === null || sent === undefined) return Number(requested || 0) || 0;
-      return Number(sent || 0) || 0;
-    };
-
     const items: PrepRequestItem[] = (Array.isArray(reqData.prep_request_items) ? reqData.prep_request_items : []).filter(
       (it) => effectiveUnits(it) > 0
     );
