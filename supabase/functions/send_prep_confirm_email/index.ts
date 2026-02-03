@@ -171,7 +171,7 @@ function renderHtml(p: Payload, prepId: string) {
   }).join("");
 
   const headerNote = (p.note && p.note.trim())
-    ? `<p style="margin:8px 0 0 0"><strong>Admin note:</strong> ${escapeHtml(p.note)}</p>`
+    ? `<p style="margin:8px 0 0 0"><strong>Note:</strong> ${escapeHtml(p.note)}</p>`
     : "";
 
   const hasTracking = Array.isArray(p.tracking_ids) && p.tracking_ids.length > 0;
