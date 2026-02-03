@@ -3434,6 +3434,75 @@ serve(async (req) => {
 
     const shipments = await normalizeShipmentsFromPlan();
 
+    // Trimite email de confirmare către client (non-blocant)
+    const sendPrepConfirmEmail = async () => {
+      try {
+        const { data: prepRow, error: prepErr } = await supabase
+          .from("prep_requests")
+          .select(
+            "id, user_id, company_id, fba_shipment_id, obs_admin, destination_country, warehouse_country, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, units_removed, obs_admin)"
+          )
+          .eq("id", requestId)
+          .maybeSingle();
+        if (prepErr || !prepRow) {
+          logStep("sendPrepConfirmEmail_skip", { traceId, reason: "prep_request_missing", error: prepErr?.message || null });
+          return;
+        }
+        const { data: profileRow, error: profileErr } = await supabase
+          .from("profiles")
+          .select("email, first_name, last_name, company_name")
+          .eq("id", prepRow.user_id)
+          .maybeSingle();
+        if (profileErr || !profileRow?.email) {
+          logStep("sendPrepConfirmEmail_skip", {
+            traceId,
+            reason: "profile_missing_email",
+            error: profileErr?.message || null
+          });
+          return;
+        }
+        const items = (prepRow.prep_request_items || []).map((it: any) => {
+          const requested = Number(it.units_requested ?? 0) || 0;
+          const sent = Number(it.units_sent ?? requested) || 0;
+          const removed = Number.isFinite(it.units_removed) ? Number(it.units_removed) : Math.max(requested - sent, 0);
+          return {
+            asin: it.asin || null,
+            sku: it.sku || null,
+            image_url: null,
+            requested,
+            sent,
+            removed,
+            note: it.obs_admin || null
+          };
+        });
+        const clientName = `${(profileRow.first_name || "").trim()} ${(profileRow.last_name || "").trim()}`.trim() || null;
+        const payload = {
+          request_id: requestId,
+          email: profileRow.email,
+          client_name: clientName,
+          company_name: profileRow.company_name || null,
+          note: prepRow.obs_admin || null,
+          items,
+          fba_shipment_id: shipments?.[0]?.shipmentId || prepRow.fba_shipment_id || null,
+          marketplace: marketplaceId || null,
+          country: prepRow.destination_country || prepRow.warehouse_country || null
+        };
+        const emailRes = await fetch(`${SUPABASE_URL}/functions/v1/send_prep_confirm_email`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+        logStep("sendPrepConfirmEmail", { traceId, status: emailRes.status });
+      } catch (err) {
+        logStep("sendPrepConfirmEmail_error", { traceId, error: `${err}` });
+      }
+    };
+
+    sendPrepConfirmEmail();
+
     const { error: updErr } = await supabase
       .from("prep_requests")
       .update({
