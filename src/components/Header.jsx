@@ -60,12 +60,10 @@ function Header() {
   const [showAddress, setShowAddress] = useState(false);
   const addressData = ADDRESS_BY_MARKET[marketCode] || ADDRESS_BY_MARKET.FR;
   const companyBase = addressData?.company || '';
-  const companySub = addressData?.companySub
-    ? `${addressData.companySub}${addressData.label ? ` (${addressData.label})` : ''}`
-    : '';
-  const customerCompanyLabel = `${companyBase}${
-    companySub ? `\n${companySub}` : ''
-  }${profile?.company_name ? `\n(${profile.company_name})` : ''}`.trim();
+  const hubLine = (addressData?.companySub || '').trim();
+  const customerCompanyLabel = [companyBase, hubLine && profile?.company_name ? `${hubLine} (${profile.company_name})` : hubLine]
+    .filter(Boolean)
+    .join('\n');
   const [copyState, setCopyState] = useState('idle');
 
   const addressLines = [
