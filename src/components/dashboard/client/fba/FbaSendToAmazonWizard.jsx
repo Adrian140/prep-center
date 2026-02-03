@@ -2627,9 +2627,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     };
   };
 
+  const fetchCooldownRef = useRef(0);
+
   const fetchShippingOptions = async () => {
     if (typeof window === 'undefined') return; // rulează doar în browser
     if (shippingFetchLockRef.current.inFlight) return;
+    const now = Date.now();
+    if (now - fetchCooldownRef.current < 2000) return; // hard throttle 1 call / 2s
+    fetchCooldownRef.current = now;
     const inboundPlanId = resolveInboundPlanId();
     let placementOptId =
       placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
@@ -2709,10 +2714,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       configsCount: configs.length,
       selectedTransportationOptionId
     });
-    const now = Date.now();
+    const now2 = Date.now();
     if (
       requestKey === shippingFetchLockRef.current.lastKey &&
-      now - shippingFetchLockRef.current.lastAt < 4000
+      now2 - shippingFetchLockRef.current.lastAt < 4000
     ) {
       return;
     }
@@ -2986,22 +2991,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, step2Loaded, shipmentMode?.deliveryDate]);
 
-  // Evită bucle de reîncărcare în Step 2 când dependențele rămân neschimbate dar obiectele
-  // se recreează (ex. packGroups dintr-un fetch reatribuit cu același conținut).
-  const step2ReloadSignatureRef = useRef(null);
+  // Reîncarcă step2 doar când se schimbă ship date-ul; evităm resete inutile care declanșau rerender continuu.
   useEffect(() => {
-    const signature = JSON.stringify({
-      packingOptionId,
-      placementOptionId,
-      deliveryDate: shipmentMode?.deliveryDate || '',
-      packGroupsHash: Array.isArray(packGroups)
-        ? packGroups.map((g) => [g.packingGroupId, g.boxes, g.boxWeight]).join('|')
-        : 'none'
-    });
-    if (signature === step2ReloadSignatureRef.current) return;
-    step2ReloadSignatureRef.current = signature;
     setStep2Loaded(false);
-  }, [packGroups, packingOptionId, placementOptionId, shipmentMode?.deliveryDate]);
+  }, [shipmentMode?.deliveryDate]);
 
   const formatAddress = (addr = {}) => {
     const parts = [
