@@ -25,13 +25,8 @@ export default function FbaStep2Shipping({
     warning,
     palletDetails
   } = shipment;
+  // Ship date pornește gol; utilizatorul îl setează manual
   const [shipDate, setShipDate] = useState('');
-  useEffect(() => {
-    // nu populăm automat cu ziua curentă; doar persistăm ce vine din server dacă există deja
-    if (deliveryDate && shipDate === '') {
-      setShipDate(deliveryDate);
-    }
-  }, [deliveryDate, shipDate]);
   const [etaEnd, setEtaEnd] = useState(deliveryWindowEnd || '');
   useEffect(() => {
     setEtaEnd(deliveryWindowEnd || '');
@@ -141,7 +136,6 @@ export default function FbaStep2Shipping({
 
   const autoSetEtaEnd = (startDate) => {
     if (!startDate) return;
-    if (etaEnd) return;
     const d = new Date(startDate);
     d.setDate(d.getDate() + (isInternational ? 13 : 6)); // 7 zile interne / 14 zile internaționale
     const autoEnd = d.toISOString().slice(0, 10);
