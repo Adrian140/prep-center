@@ -31,6 +31,11 @@ export default function FbaStep2Shipping({
   useEffect(() => {
     setEtaEnd(deliveryWindowEnd || '');
   }, [deliveryWindowEnd]);
+  useEffect(() => {
+    if (selectedOption?.partnered === false && shipDate) {
+      autoSetEtaEnd(shipDate);
+    }
+  }, [selectedOption?.partnered, shipDate]);
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
@@ -165,31 +170,36 @@ export default function FbaStep2Shipping({
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+        <div className="grid grid-cols-1 gap-3 text-sm">
           <div className="border border-slate-200 rounded-lg p-3">
-            <div className="font-semibold text-slate-800 mb-1">Ship date</div>
-            <input
-              type="date"
-              id="ship-date"
-              name="ship-date"
-              value={shipDate}
-              onChange={(e) => {
-                setShipDate(e.target.value);
-                onShipDateChange?.(e.target.value);
-                if (selectedOption?.partnered === false) {
-                  autoSetEtaEnd(e.target.value);
-                  onDeliveryWindowChange?.({ start: e.target.value, end: etaEnd || '' });
-                }
-              }}
-              className="w-full border rounded-md px-3 py-2 text-sm"
-            />
-          </div>
-          {selectedOption?.partnered === false && (
-            <div className="border border-slate-200 rounded-lg p-3 space-y-2">
-              <div className="font-semibold text-slate-800 mb-1">Estimated arrival (non-partnered)</div>
-              <div className="grid grid-cols-1 md:grid-cols-1 gap-2">
+            <div className="font-semibold text-slate-800 mb-2">Shipping dates</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs text-slate-600 mb-1">Ship date</div>
+                <input
+                  type="date"
+                  id="ship-date"
+                  name="ship-date"
+                  value={shipDate}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setShipDate(next);
+                    onShipDateChange?.(next);
+                    if (selectedOption?.partnered === false) {
+                      autoSetEtaEnd(next);
+                    }
+                  }}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              {selectedOption?.partnered === false && (
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">End (optional, default +7 zile interne / +14 zile internaționale)</div>
+                  <div className="text-xs text-slate-600 mb-1">
+                    Estimated arrival (non-partnered)
+                  </div>
+                  <div className="text-[11px] text-slate-500 mb-1">
+                    End (optional, default +7 zile interne / +14 zile internaționale)
+                  </div>
                   <input
                     type="date"
                     id="eta-end"
@@ -202,12 +212,10 @@ export default function FbaStep2Shipping({
                     className="w-full border rounded-md px-3 py-2 text-sm"
                   />
                 </div>
-              </div>
-              <div className="text-[11px] text-slate-500">
-                Amazon cere o fereastră estimată de sosire pentru transporturile non-partener (7 zile interne / 14 zile internaționale). End se calculează implicit de la Ship date.
-              </div>
+              )}
             </div>
-          )}
+          </div>
+
           <div className="border border-slate-200 rounded-lg p-3">
             <div className="font-semibold text-slate-800 mb-1">Merge workflow</div>
             <div className="text-xs text-slate-500">Merge workflows is not available for small parcel shipments.</div>
