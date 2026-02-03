@@ -3363,6 +3363,55 @@ serve(async (req) => {
       }
     }
 
+    // Re-list transportation options right before confirmation to avoid stale IDs
+    const refreshTransportOptions = async () => {
+      const refreshed = await listAllTransportationOptions(
+        String(effectivePlacementOptionId),
+        shipmentIdForListing
+      );
+      const refreshedNormalized = normalizeOptions(refreshed.collected || refreshed.options || refreshed || []);
+      const refreshedForSelection = normalizedRequestedMode
+        ? refreshedNormalized.filter((o) => normalizeOptionMode(o.mode) === normalizedRequestedMode)
+        : refreshedNormalized;
+      optionsForSelectionRaw = refreshedForSelection;
+      optionsForSelection = refreshedForSelection;
+      const shipmentMatch = (opt: any) => {
+        const sid = opt?.shipmentId || opt?.raw?.shipmentId || null;
+        if (sid && shipmentIdForListing && sid === shipmentIdForListing) return true;
+        if (Array.isArray(opt?.raw?.shipments)) {
+          return opt.raw.shipments.some(
+            (sh: any) => String(sh?.shipmentId || sh?.id || "") === shipmentIdForListing
+          );
+        }
+        return !shipmentIdForListing;
+      };
+      if (confirmOptionId) {
+        selectedOption = refreshedNormalized.find((o) => o.id === confirmOptionId) || selectedOption;
+      }
+      if (!selectedOption && refreshedNormalized.length) {
+        const withShipment = refreshedNormalized.filter(shipmentMatch);
+        selectedOption =
+          withShipment.find((o) => o.partnered) ||
+          withShipment[0] ||
+          refreshedNormalized.find((o) => o.partnered) ||
+          refreshedNormalized[0] ||
+          null;
+      }
+      return Boolean(selectedOption?.id);
+    };
+
+    const refreshedOk = await refreshTransportOptions();
+    if (!refreshedOk) {
+      return new Response(
+        JSON.stringify({
+          error: "Nu există transportationOption de confirmat (Amazon). Re-generare necesară.",
+          code: "TRANSPORTATION_OPTION_NOT_FOUND",
+          traceId
+        }),
+        { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
     const contactForConfirm =
       contactInformation && isCompleteContact(contactInformation)
         ? {
