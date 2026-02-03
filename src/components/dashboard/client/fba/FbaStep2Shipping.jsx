@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 
 export default function FbaStep2Shipping({
-  shipment,
+  // Default the whole shipment object so we don't crash if the caller hasn't loaded data yet.
+  shipment = {},
   shippingOptions = [],
   selectedTransportationOptionId = null,
   shippingConfirmed = false,
@@ -16,17 +17,19 @@ export default function FbaStep2Shipping({
   error = ''
 }) {
   const {
-    deliveryDate,
-    deliveryWindowStart,
-    deliveryWindowEnd,
-    method,
-    carrier,
-    shipments,
-    warning,
-    palletDetails
-  } = shipment;
+    deliveryDate = '',
+    deliveryWindowStart = '',
+    deliveryWindowEnd = '',
+    method = '',
+    carrier = null,
+    shipments = [],
+    warning = '',
+    palletDetails = null,
+    from = null,
+    to = null
+  } = shipment || {};
   // Ship date pornește gol; utilizatorul îl setează manual
-  const [shipDate, setShipDate] = useState('');
+  const [shipDate, setShipDate] = useState(deliveryDate || '');
   const [etaEnd, setEtaEnd] = useState(deliveryWindowEnd || '');
   useEffect(() => {
     setEtaEnd(deliveryWindowEnd || '');
@@ -138,8 +141,8 @@ export default function FbaStep2Shipping({
     if (maybeCode.length === 2) return maybeCode;
     return null;
   };
-  const sourceCountry = extractCountryFromString(shipment?.from);
-  const destCountry = extractCountryFromString(shipment?.to);
+  const sourceCountry = extractCountryFromString(from);
+  const destCountry = extractCountryFromString(to);
   const isInternational = sourceCountry && destCountry && sourceCountry !== destCountry;
 
   const autoSetEtaEnd = (startDate) => {
