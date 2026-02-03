@@ -225,11 +225,6 @@ export default function FbaStep2Shipping({
               )}
             </div>
           </div>
-
-          <div className="border border-slate-200 rounded-lg p-3">
-            <div className="font-semibold text-slate-800 mb-1">Merge workflow</div>
-            <div className="text-xs text-slate-500">Merge workflows is not available for small parcel shipments.</div>
-          </div>
         </div>
 
         <div
