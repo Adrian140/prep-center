@@ -75,6 +75,16 @@ function Header() {
     .filter(Boolean)
     .join('\n');
 
+  const renderLines = (text) =>
+    String(text || '')
+      .split(/\n+/)
+      .filter(Boolean)
+      .map((line, idx) => (
+        <span key={`${line}-${idx}`} className="block">
+          {line}
+        </span>
+      ));
+
   const renderNavLabel = (item) => {
     if (item.href === '/services-pricing' && item.name?.includes('&')) {
       const [before, after] = item.name.split('&');
@@ -471,7 +481,7 @@ function Header() {
             </div>
             <div className="bg-gray-50 rounded-xl p-4 space-y-1">
               <p className="text-sm font-semibold text-text-primary">
-                {customerCompanyLabel}
+                {renderLines(customerCompanyLabel)}
               </p>
               <p className="text-sm text-text-secondary">{addressData.address}</p>
               <p className="text-sm text-text-secondary">
