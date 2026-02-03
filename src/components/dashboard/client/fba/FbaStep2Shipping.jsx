@@ -9,16 +9,32 @@ export default function FbaStep2Shipping({
   onOptionSelect,
   onPalletDetailsChange,
   onShipDateChange,
+  onDeliveryWindowChange,
   onNext,
   onBack,
   confirming = false,
   error = ''
 }) {
-  const { deliveryDate, method, carrier, shipments, warning, palletDetails } = shipment;
+  const {
+    deliveryDate,
+    deliveryWindowStart,
+    deliveryWindowEnd,
+    method,
+    carrier,
+    shipments,
+    warning,
+    palletDetails
+  } = shipment;
   const [shipDate, setShipDate] = useState(deliveryDate || '');
   useEffect(() => {
     setShipDate(deliveryDate || '');
   }, [deliveryDate]);
+  const [etaStart, setEtaStart] = useState(deliveryWindowStart || '');
+  const [etaEnd, setEtaEnd] = useState(deliveryWindowEnd || '');
+  useEffect(() => {
+    setEtaStart(deliveryWindowStart || '');
+    setEtaEnd(deliveryWindowEnd || '');
+  }, [deliveryWindowStart, deliveryWindowEnd]);
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
@@ -110,12 +126,28 @@ export default function FbaStep2Shipping({
     setAcceptedTerms(false);
   }, [selectedOption?.id]);
 
+  const handleEtaChange = (nextStart, nextEnd) => {
+    setEtaStart(nextStart);
+    setEtaEnd(nextEnd);
+    onDeliveryWindowChange?.({ start: nextStart, end: nextEnd });
+  };
+  const handleEtaStart = (value) => {
+    const start = value;
+    if (start && !etaEnd) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + 6);
+      const autoEnd = d.toISOString().slice(0, 10);
+      handleEtaChange(start, autoEnd);
+      return;
+    }
+    handleEtaChange(start, etaEnd);
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
         <CheckCircle className="w-5 h-5 text-emerald-600" />
         <div className="font-semibold text-slate-900">Step 2 - Confirm shipping</div>
-        <div className="text-sm text-slate-500">Delivery date: {shipDate || '—'}</div>
       </div>
 
       <div className="px-6 py-4 space-y-4">
@@ -145,6 +177,38 @@ export default function FbaStep2Shipping({
               className="w-full border rounded-md px-3 py-2 text-sm"
             />
           </div>
+          {selectedOption?.partnered === false && (
+            <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+              <div className="font-semibold text-slate-800 mb-1">Estimated arrival window (non-partnered)</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Start</div>
+                  <input
+                    type="date"
+                    id="eta-start"
+                    name="eta-start"
+                    value={etaStart}
+                    onChange={(e) => handleEtaStart(e.target.value)}
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">End (optional, default +6 zile)</div>
+                  <input
+                    type="date"
+                    id="eta-end"
+                    name="eta-end"
+                    value={etaEnd}
+                    onChange={(e) => handleEtaChange(etaStart, e.target.value)}
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="text-[11px] text-slate-500">
+                Amazon cere o fereastră estimată de sosire pentru transporturile non-partener (7 zile interne / 14 zile internaționale).
+              </div>
+            </div>
+          )}
           <div className="border border-slate-200 rounded-lg p-3">
             <div className="font-semibold text-slate-800 mb-1">Merge workflow</div>
             <div className="text-xs text-slate-500">Merge workflows is not available for small parcel shipments.</div>
@@ -254,7 +318,7 @@ export default function FbaStep2Shipping({
           )}
           {selectedOption?.partnered === false && (
             <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 text-xs text-amber-800">
-              Pentru non-partener, Amazon cere fereastra estimată de sosire; vom genera și confirma automat fereastra disponibilă/cea mai apropiată pe baza “Ship date”.
+              Pentru non-partener, completează intervalul estimat de sosire; Amazon cere o fereastră de livrare pentru confirmare.
             </div>
           )}
         </div>

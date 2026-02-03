@@ -2691,7 +2691,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         return;
       }
     }
-    const windowError = validateDeliveryWindow();
+    const windowError = validateDeliveryWindow(false);
     if (windowError) {
       setShippingError(windowError);
       return;
@@ -2706,6 +2706,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       packingOptionId: packingOptionId || plan?.packingOptionId || plan?.packing_option_id || null,
       shippingMode: shipmentMode?.method || null,
       shipDate: normalizeShipDate(shipmentMode?.deliveryDate) || null,
+      deliveryWindowStart: normalizeShipDate(shipmentMode?.deliveryWindowStart) || null,
+      deliveryWindowEnd: normalizeShipDate(shipmentMode?.deliveryWindowEnd) || null,
       configsCount: configs.length,
       selectedTransportationOptionId
     });
@@ -2740,6 +2742,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           ...(contactInformation ? { contact_information: contactInformation } : {}),
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
+          delivery_window_start: normalizeShipDate(shipmentMode?.deliveryWindowStart) || null,
+          delivery_window_end: normalizeShipDate(shipmentMode?.deliveryWindowEnd) || null,
           transportation_option_id: selectedTransportationOptionId,
           auto_confirm_placement: true,
           confirm: false
@@ -2862,7 +2866,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         return;
       }
     }
-    const windowError = validateDeliveryWindow();
+    const windowError = validateDeliveryWindow(true);
     if (windowError) {
       setShippingError(windowError);
       return;
@@ -2882,6 +2886,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           ...(contactInformation ? { contact_information: contactInformation } : {}),
           shipment_transportation_configurations: configs,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
+          delivery_window_start: normalizeShipDate(shipmentMode?.deliveryWindowStart) || null,
+          delivery_window_end: normalizeShipDate(shipmentMode?.deliveryWindowEnd) || null,
           transportation_option_id: selectedTransportationOptionId,
           confirm: true
         }
@@ -3116,8 +3122,29 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return null;
   };
 
-  const validateDeliveryWindow = () => {
-    // Delivery window va fi generată/confirmată via SP-API; nu mai cerem manual end-date în UI.
+  const validateDeliveryWindow = (strict = false) => {
+    const selectedOpt = (shippingOptions || []).find((opt) => opt?.id === selectedTransportationOptionId);
+    const isPartnered = detectPartneredOption(selectedOpt);
+    if (!selectedOpt || isPartnered) return null;
+    const start = shipmentMode?.deliveryWindowStart || '';
+    const end = shipmentMode?.deliveryWindowEnd || '';
+    if (strict && !start) {
+      return 'Completează data de start a ferestrei de livrare (ETA) pentru transport non-partener.';
+    }
+    if (start && shipmentMode?.deliveryDate) {
+      const sd = new Date(start);
+      const ship = new Date(shipmentMode.deliveryDate);
+      if (sd.getTime() < ship.getTime()) {
+        return 'Data de sosire estimată trebuie să fie după ship date.';
+      }
+    }
+    if (end && start) {
+      const sd = new Date(start);
+      const ed = new Date(end);
+      if (ed.getTime() < sd.getTime()) {
+        return 'Data de sfârșit a ferestrei nu poate fi înainte de start.';
+      }
+    }
     return null;
   };
 
@@ -3943,7 +3970,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
               ? `Destinations: ${shipmentSummary.dests} · Method: ${shipmentSummary.method} · Carrier: ${shipmentSummary.carrierName}`
               : tt('notStarted', 'Not started')
           }
-          summary={step2Complete && shipmentMode?.deliveryDate ? `Delivery date: ${shipmentMode.deliveryDate}` : null}
+          summary={null}
         />
         <StepRow
           stepKey="3"
