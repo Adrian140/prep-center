@@ -38,7 +38,7 @@ function Footer() {
   const companyInfoName = withFallback(content.company_info_name, 'Global Fulfill Hub');
   const companyInfoSiret = withFallback(content.company_info_siret, '941 373 110 00019');
   const companyInfoVat = withFallback(content.company_info_vat, 'FR 38 941 373 110');
-  const warehouseName = withFallback(content.warehouse_name, 'EcomPrep Hub');
+  const warehouseName = withFallback(content.warehouse_name, 'EcomPrepHub');
   const warehouseAddress = withFallback(
     content.warehouse_address,
     '5 Rue des Enclos, Cellule 7\n35350 La Gouesnière\nFrance'

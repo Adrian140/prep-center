@@ -21,7 +21,7 @@ const ADDRESS_BY_MARKET = {
   FR: {
     label: 'PrepCenter France',
     shortLabel: 'France',
-    company: 'EcomPrep Hub',
+    company: 'EcomPrepHub',
     phone: '+33 6 75 11 62 18',
     address: '5 Rue des Enclos, Cellule 7',
     postal: '35350',
@@ -31,7 +31,8 @@ const ADDRESS_BY_MARKET = {
   DE: {
     label: 'PrepCenter Germany',
     shortLabel: 'Germany',
-    company: 'EcomPrep Hub',
+    company: 'EcomPrepHub',
+    contact: 'Radu Cenusa',
     phone: '+49 176 24963618',
     address: 'Zienestrasse 12',
     postal: '77709',
@@ -57,7 +58,9 @@ function Header() {
   const addressRef = useRef(null);
   const [showAddress, setShowAddress] = useState(false);
   const addressData = ADDRESS_BY_MARKET[marketCode] || ADDRESS_BY_MARKET.FR;
-  const customerCompanyLabel = `${addressData?.company || ''}${
+  const companyBase = addressData?.company || '';
+  const contactPerson = addressData?.contact ? ` – ${addressData.contact}` : '';
+  const customerCompanyLabel = `${companyBase}${contactPerson}${
     profile?.company_name ? ` (${profile.company_name})` : ''
   }`.trim();
   const [copyState, setCopyState] = useState('idle');
