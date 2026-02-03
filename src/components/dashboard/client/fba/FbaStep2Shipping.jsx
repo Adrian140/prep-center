@@ -31,11 +31,6 @@ export default function FbaStep2Shipping({
   useEffect(() => {
     setEtaEnd(deliveryWindowEnd || '');
   }, [deliveryWindowEnd]);
-  useEffect(() => {
-    if (selectedOption?.partnered === false && shipDate) {
-      autoSetEtaEnd(shipDate);
-    }
-  }, [selectedOption?.partnered, shipDate]);
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
@@ -76,6 +71,11 @@ export default function FbaStep2Shipping({
   const selectedOption =
     options.find((opt) => opt?.id === selectedTransportationOptionId) || null;
   const selectedMode = normalizeOptionMode(selectedOption?.mode || method);
+  useEffect(() => {
+    if (selectedOption?.partnered === false && shipDate) {
+      autoSetEtaEnd(shipDate);
+    }
+  }, [selectedOption?.partnered, shipDate]);
 
   const shipmentCount = shipmentList.length;
   const totalBoxes = shipmentList.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0);
