@@ -2986,7 +2986,20 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, step2Loaded, shipmentMode?.deliveryDate]);
 
+  // Evită bucle de reîncărcare în Step 2 când dependențele rămân neschimbate dar obiectele
+  // se recreează (ex. packGroups dintr-un fetch reatribuit cu același conținut).
+  const step2ReloadSignatureRef = useRef(null);
   useEffect(() => {
+    const signature = JSON.stringify({
+      packingOptionId,
+      placementOptionId,
+      deliveryDate: shipmentMode?.deliveryDate || '',
+      packGroupsHash: Array.isArray(packGroups)
+        ? packGroups.map((g) => [g.packingGroupId, g.boxes, g.boxWeight]).join('|')
+        : 'none'
+    });
+    if (signature === step2ReloadSignatureRef.current) return;
+    step2ReloadSignatureRef.current = signature;
     setStep2Loaded(false);
   }, [packGroups, packingOptionId, placementOptionId, shipmentMode?.deliveryDate]);
 
