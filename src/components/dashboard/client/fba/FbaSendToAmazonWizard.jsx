@@ -3726,7 +3726,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             method: shipmentMode.method,
             carrier: shipmentMode.carrier,
             palletDetails,
-            shipments,
+            shipments: shipmentsWithFallback,
             warning
           }}
           shippingOptions={shippingOptions}
@@ -3828,6 +3828,19 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const tracked = Array.isArray(tracking) ? tracking.filter((t) => t.trackingId).length : 0;
     return { totalBoxes, tracked };
   }, [shipments, tracking]);
+  const shipmentFallbackTotals = useMemo(() => {
+    const skuCountFallback = Array.isArray(plan?.skus) ? plan.skus.length : 0;
+    const unitsFallback = packUnits || unitCount || 0;
+    return { skuCountFallback, unitsFallback };
+  }, [plan?.skus, packUnits, unitCount]);
+  const shipmentsWithFallback = useMemo(() => {
+    if (!Array.isArray(shipments)) return [];
+    return shipments.map((sh) => ({
+      ...sh,
+      skuCount: sh?.skuCount ?? shipmentFallbackTotals.skuCountFallback,
+      units: sh?.units ?? shipmentFallbackTotals.unitsFallback
+    }));
+  }, [shipments, shipmentFallbackTotals]);
 
   const isCompleted = (key) => completedSteps.includes(key);
   const step2Complete = isCompleted('2') && shippingConfirmed;
