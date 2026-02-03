@@ -3333,6 +3333,34 @@ serve(async (req) => {
           bodyPreview: (regenRes?.text || "").slice(0, 600) || null
         });
       }
+
+      // Re-list transportation options to avoid stale option IDs after delivery window confirmation
+      const refreshed = await listAllTransportationOptions(
+        String(effectivePlacementOptionId),
+        shipmentIdForListing
+      );
+      const refreshedNormalized = normalizeOptions(refreshed.collected || refreshed.options || []);
+      const refreshedForSelection = normalizedRequestedMode
+        ? refreshedNormalized.filter((o) => normalizeOptionMode(o.mode) === normalizedRequestedMode)
+        : refreshedNormalized;
+      optionsForSelectionRaw = refreshedForSelection;
+      optionsForSelection = refreshedForSelection;
+      if (confirmOptionId) {
+        selectedOption = refreshedNormalized.find((o) => o.id === confirmOptionId) || selectedOption;
+      }
+      if (!selectedOption && refreshedNormalized.length) {
+        selectedOption = refreshedNormalized.find((o) => o.partnered) || refreshedNormalized[0] || null;
+      }
+      if (!selectedOption?.id) {
+        return new Response(
+          JSON.stringify({
+            error: "Nu există transportationOption de confirmat (Amazon) după confirmarea ferestrei de livrare.",
+            code: "TRANSPORTATION_OPTION_NOT_FOUND",
+            traceId
+          }),
+          { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
     }
 
     const contactForConfirm =

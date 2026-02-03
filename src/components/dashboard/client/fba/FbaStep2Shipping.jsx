@@ -25,16 +25,17 @@ export default function FbaStep2Shipping({
     warning,
     palletDetails
   } = shipment;
-  const [shipDate, setShipDate] = useState(deliveryDate || '');
+  const [shipDate, setShipDate] = useState('');
   useEffect(() => {
-    setShipDate(deliveryDate || '');
-  }, [deliveryDate]);
-  const [etaStart, setEtaStart] = useState(deliveryWindowStart || '');
+    // nu populăm automat cu ziua curentă; doar persistăm ce vine din server dacă există deja
+    if (deliveryDate && shipDate === '') {
+      setShipDate(deliveryDate);
+    }
+  }, [deliveryDate, shipDate]);
   const [etaEnd, setEtaEnd] = useState(deliveryWindowEnd || '');
   useEffect(() => {
-    setEtaStart(deliveryWindowStart || '');
     setEtaEnd(deliveryWindowEnd || '');
-  }, [deliveryWindowStart, deliveryWindowEnd]);
+  }, [deliveryWindowEnd]);
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
@@ -126,21 +127,26 @@ export default function FbaStep2Shipping({
     setAcceptedTerms(false);
   }, [selectedOption?.id]);
 
-  const handleEtaChange = (nextStart, nextEnd) => {
-    setEtaStart(nextStart);
-    setEtaEnd(nextEnd);
-    onDeliveryWindowChange?.({ start: nextStart, end: nextEnd });
+  const extractCountryFromString = (val) => {
+    if (!val || typeof val !== 'string') return null;
+    const parts = val.split(',').map((p) => p.trim()).filter(Boolean);
+    const last = parts[parts.length - 1] || '';
+    const maybeCode = last.toUpperCase();
+    if (maybeCode.length === 2) return maybeCode;
+    return null;
   };
-  const handleEtaStart = (value) => {
-    const start = value;
-    if (start && !etaEnd) {
-      const d = new Date(start);
-      d.setDate(d.getDate() + 6);
-      const autoEnd = d.toISOString().slice(0, 10);
-      handleEtaChange(start, autoEnd);
-      return;
-    }
-    handleEtaChange(start, etaEnd);
+  const sourceCountry = extractCountryFromString(shipment?.from);
+  const destCountry = extractCountryFromString(shipment?.to);
+  const isInternational = sourceCountry && destCountry && sourceCountry !== destCountry;
+
+  const autoSetEtaEnd = (startDate) => {
+    if (!startDate) return;
+    if (etaEnd) return;
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + (isInternational ? 13 : 6)); // 7 zile interne / 14 zile internaționale
+    const autoEnd = d.toISOString().slice(0, 10);
+    setEtaEnd(autoEnd);
+    onDeliveryWindowChange?.({ start: startDate, end: autoEnd });
   };
 
   return (
@@ -173,39 +179,35 @@ export default function FbaStep2Shipping({
               onChange={(e) => {
                 setShipDate(e.target.value);
                 onShipDateChange?.(e.target.value);
+                if (selectedOption?.partnered === false) {
+                  autoSetEtaEnd(e.target.value);
+                  onDeliveryWindowChange?.({ start: e.target.value, end: etaEnd || '' });
+                }
               }}
               className="w-full border rounded-md px-3 py-2 text-sm"
             />
           </div>
           {selectedOption?.partnered === false && (
             <div className="border border-slate-200 rounded-lg p-3 space-y-2">
-              <div className="font-semibold text-slate-800 mb-1">Estimated arrival window (non-partnered)</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="font-semibold text-slate-800 mb-1">Estimated arrival (non-partnered)</div>
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-2">
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Start</div>
-                  <input
-                    type="date"
-                    id="eta-start"
-                    name="eta-start"
-                    value={etaStart}
-                    onChange={(e) => handleEtaStart(e.target.value)}
-                    className="w-full border rounded-md px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">End (optional, default +6 zile)</div>
+                  <div className="text-xs text-slate-500 mb-1">End (optional, default +7 zile interne / +14 zile internaționale)</div>
                   <input
                     type="date"
                     id="eta-end"
                     name="eta-end"
                     value={etaEnd}
-                    onChange={(e) => handleEtaChange(etaStart, e.target.value)}
+                    onChange={(e) => {
+                      setEtaEnd(e.target.value);
+                      onDeliveryWindowChange?.({ start: shipDate || '', end: e.target.value });
+                    }}
                     className="w-full border rounded-md px-3 py-2 text-sm"
                   />
                 </div>
               </div>
               <div className="text-[11px] text-slate-500">
-                Amazon cere o fereastră estimată de sosire pentru transporturile non-partener (7 zile interne / 14 zile internaționale).
+                Amazon cere o fereastră estimată de sosire pentru transporturile non-partener (7 zile interne / 14 zile internaționale). End se calculează implicit de la Ship date.
               </div>
             </div>
           )}
