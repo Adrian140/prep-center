@@ -1177,7 +1177,7 @@ export default function FbaStep1Inventory({
       format: 'thermal',
       width: '50',
       height: '25',
-      quantity: Number(sku.units || 1) || 1
+      quantity: Number(sku.units || sku.unitsToSend || 1) || 1
     });
   };
 
