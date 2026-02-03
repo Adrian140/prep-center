@@ -61,7 +61,7 @@ function Header() {
   const addressData = ADDRESS_BY_MARKET[marketCode] || ADDRESS_BY_MARKET.FR;
   const companyBase = addressData?.company || '';
   const companySub = addressData?.companySub
-    ? `${addressData.companySub}${addressData.label ? ` – ${addressData.label}` : ''}`
+    ? `${addressData.companySub}${addressData.label ? ` (${addressData.label})` : ''}`
     : '';
   const customerCompanyLabel = `${companyBase}${
     companySub ? `\n${companySub}` : ''

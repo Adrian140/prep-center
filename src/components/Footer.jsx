@@ -40,7 +40,7 @@ function Footer() {
   const companyInfoVat = withFallback(content.company_info_vat, 'FR 38 941 373 110');
   const warehouseName = withFallback(
     content.warehouse_name,
-    'Adrian Bucur\nEcomPrepHub – PrepCenter France'
+    'Adrian Bucur\nEcomPrepHub (PrepCenter France)'
   );
   const warehouseAddress = withFallback(
     content.warehouse_address,
