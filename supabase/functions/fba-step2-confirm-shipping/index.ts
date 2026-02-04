@@ -3226,12 +3226,54 @@ serve(async (req) => {
                   shipments: Array.isArray(o.raw?.shipments)
                     ? o.raw.shipments.map((s: any) => s?.shipmentId || s?.id || null)
                     : []
-                }))
-              }),
-              { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
-            );
-          }
-        }
+            }))
+          }),
+          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+    }
+
+    // Re-validate selected option against latest list for this shipment (must be AVAILABLE and belong to shipment)
+    const validateSelectedOption = async (optId: string, shId: string | null) => {
+      const { collected } = await listAllTransportationOptions(
+        String(effectivePlacementOptionId),
+        shId || undefined
+      );
+      const match = (collected || []).find((opt: any) => {
+        const id = opt?.transportationOptionId || opt?.id || opt?.optionId || null;
+        const shipmentIds =
+          Array.isArray(opt?.shipments)
+            ? opt.shipments.map((s: any) => s?.shipmentId || s?.id).filter(Boolean)
+            : opt?.shipmentId
+              ? [opt.shipmentId]
+              : [];
+        const statusUp = String(opt?.status || "AVAILABLE").toUpperCase();
+        const belongs = !shId || shipmentIds.length === 0 || shipmentIds.includes(String(shId));
+        return id === optId && statusUp === "AVAILABLE" && belongs;
+      });
+      return match || null;
+    };
+
+    const primaryShipmentId =
+      firstShipmentId ||
+      placementShipments.find((s: any) => !s?.isPackingGroup && (s?.shipmentId || s?.id))?.shipmentId ||
+      placementShipments.find((s: any) => !s?.isPackingGroup && (s?.shipmentId || s?.id))?.id ||
+      null;
+
+    if (selectedOption?.id) {
+      const validated = await validateSelectedOption(selectedOption.id, primaryShipmentId);
+      if (!validated) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "Opțiunea de curier selectată nu mai este disponibilă pentru acest shipment. Selectează din lista reîncărcată.",
+            code: "TRANSPORTATION_OPTION_NOT_AVAILABLE",
+            traceId
+          }),
+          { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+    }
       }
     }
     if (forcePartneredOnly && !selectedOption.partnered) {
