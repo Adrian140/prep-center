@@ -1992,6 +1992,7 @@ serve(async (req) => {
           const prepRequired = !!prepInfo.prepRequired;
           const manufacturerBarcodeEligible =
             prepInfo.barcodeInstruction ? isManufacturerBarcodeEligible(prepInfo.barcodeInstruction) : false;
+          const hasGuidancePrep = Array.isArray(prepInfo?.prepInstructions) && prepInfo.prepInstructions.length > 0;
           // Respectăm guidance-ul Amazon: dacă e barcode-eligibil -> NONE, altfel SELLER doar când e cerut.
           let labelOwner: OwnerVal = deriveLabelOwner({ ...prepInfo, prepRequired, manufacturerBarcodeEligible });
           let prepOwner: OwnerVal = prepRequired ? "SELLER" : "NONE";
@@ -2000,9 +2001,14 @@ serve(async (req) => {
           const o = overrides[key];
           if (o?.labelOwner) labelOwner = o.labelOwner;
           if (o?.prepOwner) prepOwner = o.prepOwner;
-          // Amazon cere o clasificare explicită de prep pentru fiecare SKU; când nu primim guidance,
-          // trimitem ITEM_NO_PREP ca fallback pentru a evita FBA_INB_0182.
-          const prepType = prepRequired ? "ITEM_LABELING" : "ITEM_NO_PREP";
+          // Amazon cere o clasificare explicită de prep pentru fiecare SKU; dacă nu primim guidance,
+          // forțăm SELLER + ITEM_LABELING ca fallback (evităm FBA_INB_0182).
+          let prepType: string = prepRequired ? "ITEM_LABELING" : "ITEM_NO_PREP";
+          if (!hasGuidancePrep) {
+            prepOwner = "SELLER";
+            labelOwner = "SELLER";
+            prepType = "ITEM_LABELING";
+          }
           const prepDetails = [
             {
               prepType,
