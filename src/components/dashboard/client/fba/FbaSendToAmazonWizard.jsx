@@ -3026,6 +3026,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setStep2Loaded(false);
       return;
     }
+    // când intrăm în Step 2, nu precompletăm ship/ETA; lăsăm utilizatorul să seteze manual.
+    setShipmentMode((prev) => ({
+      ...prev,
+      deliveryDate: '',
+      deliveryWindowStart: '',
+      deliveryWindowEnd: ''
+    }));
     if (selectedTransportationOptionId) {
       const opt = (shippingOptions || []).find((o) => o?.id === selectedTransportationOptionId);
       const optShipmentId = String(opt?.shipmentId || opt?.raw?.shipmentId || '').trim();
