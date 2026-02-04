@@ -1804,6 +1804,11 @@ serve(async (req) => {
       if (!Number.isFinite(start.getTime())) {
         throw new Error("READY_TO_SHIP_WINDOW_INVALID");
       }
+      // Require start to be at least 6h in the future to avoid SPAPI "DateTime ... cannot be in the past"
+      const minStart = new Date(Date.now() + 6 * 60 * 60 * 1000);
+      if (start < minStart) {
+        start.setTime(minStart.getTime());
+      }
       const end = endIso ? new Date(endIso) : null;
       if (endIso && (!Number.isFinite(end.getTime()) || end <= start)) {
         throw new Error("READY_TO_SHIP_WINDOW_INVALID");
@@ -1880,7 +1885,6 @@ serve(async (req) => {
         const rawEnd =
           cfg.readyToShipWindow?.end ||
           cfg.ready_to_ship_window?.end ||
-          globalReadyWindow?.end ||
           null;
         const { start } = clampReadyWindow(rawStart);
         const baseCfg: Record<string, any> = {

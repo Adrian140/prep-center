@@ -501,14 +501,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const handleReadyWindowChange = useCallback((shipmentId, win) => {
     if (!shipmentId) return;
     const startInput = normalizeShipDate(win?.start);
-    const startIso = startInput || getTomorrowIsoDate();
+    const startIso = startInput || normalizeShipDate(new Date().toISOString().slice(0, 10));
     const requireEnd = isLtlFtl(shipmentMode?.method);
     let endIso = normalizeShipDate(win?.end || '');
-    if (requireEnd && !endIso) {
-      const endDate = new Date(startIso);
-      endDate.setDate(endDate.getDate() + 6);
-      endIso = endDate.toISOString().slice(0, 10);
-    }
+    // end nu este impus; îl lăsăm gol dacă userul nu completează
     if (!requireEnd) endIso = null;
 
     setReadyWindowByShipment((prev) => ({ ...prev, [shipmentId]: { start: startIso, end: endIso || undefined } }));
