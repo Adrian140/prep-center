@@ -2425,10 +2425,16 @@ serve(async (req) => {
       deliveryWindowEnd: deliveryWindowEndInput || null
     });
 
+    const transportCache = new Map<string, any[]>();
     const listAllTransportationOptions = async (
       placementOptionIdParam: string,
       shipmentIdParam?: string | null
     ) => {
+      const cacheKey = `${placementOptionIdParam}|${shipmentIdParam || ""}`;
+      if (transportCache.has(cacheKey)) {
+        const cached = transportCache.get(cacheKey);
+        return { firstRes: null, collected: cached };
+      }
       let nextToken: string | null = null;
       const collected: any[] = [];
       let firstRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
@@ -2467,8 +2473,8 @@ serve(async (req) => {
           res?.json?.pagination?.nextToken ||
           res?.json?.nextToken ||
           null;
-        if (nextToken) await delay(150 * attempt);
-      } while (nextToken && attempt < 10);
+        if (nextToken && attempt < 6) await delay(150 * attempt);
+      } while (nextToken && attempt < 6);
       const deduped = (() => {
         const byId = new Map<string, any>();
         const byComposite = new Map<string, any>();
@@ -2489,6 +2495,7 @@ serve(async (req) => {
         });
         return [...byId.values(), ...byComposite.values()];
       })();
+      transportCache.set(cacheKey, deduped);
       return { firstRes, collected: deduped };
     };
 
