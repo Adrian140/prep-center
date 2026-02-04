@@ -1018,7 +1018,7 @@ serve(async (req) => {
       });
       return merged;
     };
-    const mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
+    let mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
     const mergedPackingGroupsSummary = Array.isArray(mergedPackingGroupsInput)
       ? mergedPackingGroupsInput.map((g: any) => ({
           packingGroupId: g?.packingGroupId || g?.id || g?.groupId || null,
@@ -1191,9 +1191,7 @@ serve(async (req) => {
       if (!chosen && accepted) {
         chosen = accepted;
       }
-      const groups = Array.isArray(chosen?.packingGroups)
-        ? chosen.packingGroups.filter(Boolean)
-        : [];
+      const groups = Array.isArray(chosen?.packingGroups) ? chosen.packingGroups.filter(Boolean) : [];
       expectedPackingGroupIds = extractPackingGroupIds(chosen || {});
       if (groups.length) {
         const providedSource = directGroupings.length ? directGroupings : mergedPackingGroupsInput;
@@ -1211,19 +1209,23 @@ serve(async (req) => {
               expected: groups,
               provided: providedIds
             });
+            mergedPackingGroupsInput = mergedPackingGroupsInput.map((g: any, idx: number) => ({
+              ...g,
+              packingGroupId: groups[idx] || g?.packingGroupId || g?.groupId || g?.id
+            }));
           } else {
             return new Response(
               JSON.stringify({
                 error:
-                "Packing groups incomplete. Amazon requires packageGroupings for all packingGroupId values in the selected packingOption.",
-              code: "PACKING_GROUPS_INCOMPLETE",
-              traceId,
-              expectedPackingGroupIds: groups,
-              missingPackingGroupIds: missingIds,
-              extraPackingGroupIds: extraIds
-            }),
-            { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
-          );
+                  "Packing groups incomplete. Amazon requires packageGroupings for all packingGroupId values in the selected packingOption.",
+                code: "PACKING_GROUPS_INCOMPLETE",
+                traceId,
+                expectedPackingGroupIds: groups,
+                missingPackingGroupIds: missingIds,
+                extraPackingGroupIds: extraIds
+              }),
+              { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+            );
           }
         }
       }
