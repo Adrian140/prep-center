@@ -319,6 +319,19 @@ function sanitizeInboundPlanId(val: string | null | undefined): string | null {
   return s;
 }
 
+async function resetInvalidInboundPlanId(params: {
+  inboundPlanId: string | null;
+  requestId: string;
+}) {
+  const { inboundPlanId, requestId } = params;
+  if (!inboundPlanId) return;
+  await supabase
+    .from("prep_requests")
+    .update({ inbound_plan_id: null })
+    .eq("id", requestId)
+    .eq("inbound_plan_id", inboundPlanId);
+}
+
 function extractInboundUnavailableSkus(primary: { json: any; text: string }): string[] {
   const collect = (obj: any) => {
     const errs = obj?.errors || obj?.payload?.errors || [];
@@ -1409,7 +1422,11 @@ serve(async (req) => {
     // Folosește snapshot-ul Amazon ca fallback dacă request-ul are deja context salvat.
     const snapshotFbaInbound = snapshotBase?.fba_inbound || {};
     const snapshotInboundPlanId = snapshotFbaInbound?.inboundPlanId || null;
-    let inboundPlanId: string | null = sanitizeInboundPlanId(reqData.inbound_plan_id || snapshotInboundPlanId || null);
+    let inboundPlanIdRaw: string | null = reqData.inbound_plan_id || snapshotInboundPlanId || null;
+    let inboundPlanId: string | null = sanitizeInboundPlanId(inboundPlanIdRaw);
+    if (!inboundPlanId && inboundPlanIdRaw) {
+      await resetInvalidInboundPlanId({ inboundPlanId: inboundPlanIdRaw, requestId });
+    }
     let inboundPlanStatus: string | null = null;
     let packingOptionId: string | null =
       (reqData as any)?.packing_option_id || snapshotFbaInbound?.packingOptionId || null;
@@ -2473,13 +2490,11 @@ serve(async (req) => {
     const inboundPlanErrored = (status: string | null) =>
       String(status || "").toUpperCase() === "ERRORED";
 
-    inboundPlanId = sanitizeInboundPlanId(inboundPlanId);
-    if (inboundPlanId) {
-      // Dacă inbound_plan_id este încă un LOCK local, nu încerca să îl citești din Amazon.
-      if (isLockId(inboundPlanId)) {
-        inboundPlanId = null;
-      }
+    const sanitizedBeforeFetch = sanitizeInboundPlanId(inboundPlanId);
+    if (!sanitizedBeforeFetch && inboundPlanId) {
+      await resetInvalidInboundPlanId({ inboundPlanId, requestId });
     }
+    inboundPlanId = sanitizedBeforeFetch;
 
     if (inboundPlanId) {
       const fetched = await fetchInboundPlanById(inboundPlanId);
@@ -2584,7 +2599,11 @@ serve(async (req) => {
         lastResponseText = res.text || null;
         operationId = operationId || extractOperationId(res.json);
         const data = extractInboundPlanData(res.json);
-        inboundPlanId = sanitizeInboundPlanId(inboundPlanId || data.inboundPlanId);
+        const rawInbound = inboundPlanId || data.inboundPlanId;
+        inboundPlanId = sanitizeInboundPlanId(rawInbound);
+        if (!inboundPlanId && rawInbound) {
+          await resetInvalidInboundPlanId({ inboundPlanId: rawInbound, requestId });
+        }
         inboundPlanStatus = inboundPlanStatus || data.inboundStatus;
         plans = data.shipments.length ? data.shipments : data.inboundShipmentPlans;
         _lastPackingOptions = data.packingOptions;
@@ -3038,7 +3057,10 @@ serve(async (req) => {
       inboundPlanStatus = null;
     }
 
-    const safeInboundPlanId = isLockId(inboundPlanId) ? null : inboundPlanId;
+    const safeInboundPlanId = sanitizeInboundPlanId(inboundPlanId);
+    if (!safeInboundPlanId && inboundPlanId) {
+      await resetInvalidInboundPlanId({ inboundPlanId, requestId });
+    }
     const packGroups = packingGroupsFromAmazon.length
       ? normalizePackingGroups(packingGroupsFromAmazon)
       : Array.from(packGroupsMap.values()).map((g, idx) => ({
