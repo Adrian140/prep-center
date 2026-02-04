@@ -2902,10 +2902,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setShippingError('Shipping options were refreshed. Please reselect an option.');
       return;
     }
-    if (!shipmentMode?.deliveryDate) {
-      setShippingError('Completează ship date înainte de confirmarea transportului.');
-      return;
-    }
     const optionShipmentId = String(selectedOpt?.shipmentId || selectedOpt?.raw?.shipmentId || '').trim();
     const shipmentIds = Array.isArray(shipments)
       ? shipments.map((s) => String(s.id || s.shipmentId || '')).filter(Boolean)
@@ -3043,9 +3039,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (step2Loaded) return;
     if (historyMode && shippingConfirmed && (shippingOptions.length || shippingSummary)) {
       setStep2Loaded(true);
-      return;
-    }
-    if (!shipmentMode?.deliveryDate) {
       return;
     }
     fetchShippingOptions().finally(() => setStep2Loaded(true));
