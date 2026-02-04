@@ -476,20 +476,32 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [forcePartneredOnly, setForcePartneredOnly] = useState(false);
   const handleReadyWindowChange = useCallback((shipmentId, win) => {
     if (!shipmentId) return;
-    setReadyWindowByShipment((prev) => ({ ...prev, [shipmentId]: win }));
-    const startIso = normalizeShipDate(win?.start);
-    const endIso = normalizeShipDate(win?.end || '');
+    const todayUtc = new Date();
+    const startInput = normalizeShipDate(win?.start);
+    let startIso = startInput;
     if (startIso) {
-      const d = new Date(startIso);
-      d.setDate(d.getDate() + 1);
-      const ship = d.toISOString().slice(0, 10);
-      setShipmentMode((prev) => ({
-        ...prev,
-        deliveryDate: ship,
-        deliveryWindowStart: startIso,
-        deliveryWindowEnd: endIso || ''
-      }));
+      const startDate = new Date(startIso);
+      const todayDate = new Date(Date.UTC(todayUtc.getUTCFullYear(), todayUtc.getUTCMonth(), todayUtc.getUTCDate()));
+      if (startDate <= todayDate) {
+        startDate.setDate(startDate.getDate() + 1);
+        startIso = startDate.toISOString().slice(0, 10);
+      }
+    } else {
+      startIso = getTomorrowIsoDate();
     }
+    let endIso = normalizeShipDate(win?.end || '');
+    if (!endIso) {
+      const endDate = new Date(startIso);
+      endDate.setDate(endDate.getDate() + 6);
+      endIso = endDate.toISOString().slice(0, 10);
+    }
+    setReadyWindowByShipment((prev) => ({ ...prev, [shipmentId]: { start: startIso, end: endIso } }));
+    setShipmentMode((prev) => ({
+      ...prev,
+      deliveryDate: startIso,
+      deliveryWindowStart: startIso,
+      deliveryWindowEnd: endIso || ''
+    }));
   }, []);
   const isFallbackId = useCallback((v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-"), []);
   const hasRealPackGroups = useCallback(

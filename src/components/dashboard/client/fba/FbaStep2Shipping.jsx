@@ -51,8 +51,12 @@ export default function FbaStep2Shipping({
   useEffect(() => {
     if (isSingleShipment && singleShipmentId && !readyWindowByShipment?.[singleShipmentId]?.start) {
       const today = new Date();
-      const start = today.toISOString().slice(0, 10);
-      onReadyWindowChange?.(singleShipmentId, { start, end: readyWindowByShipment?.[singleShipmentId]?.end || '' });
+      const startDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + 1));
+      const start = startDate.toISOString().slice(0, 10);
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 6);
+      const end = endDate.toISOString().slice(0, 10);
+      onReadyWindowChange?.(singleShipmentId, { start, end });
     }
   }, [isSingleShipment, singleShipmentId, readyWindowByShipment, onReadyWindowChange]);
 
