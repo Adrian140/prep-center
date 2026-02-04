@@ -3502,23 +3502,62 @@ serve(async (req) => {
             email: contactInformation.email
           }
         : null;
-    const selections = Array.isArray(selectedOption?.raw?.shipments)
-      ? selectedOption.raw.shipments
+    // Validate the selected option is AVAILABLE for each shipment it claims to cover
+    const optionShipmentIds = (() => {
+      if (Array.isArray(selectedOption?.raw?.shipments) && selectedOption.raw.shipments.length) {
+        return selectedOption.raw.shipments
           .map((sh: any) => sh?.shipmentId || sh?.id)
-          .filter((id: any) => isValidShipmentId(String(id)))
-          .map((shipmentId: string) => ({
-            shipmentId,
-            transportationOptionId: selectedOption?.id,
-            ...(contactForConfirm ? { contactInformation: contactForConfirm } : {})
-          }))
-      : placementShipments
-          .map((sh: any) => sh?.shipmentId || sh?.id)
-          .filter((id: any) => isValidShipmentId(String(id)))
-          .map((shipmentId: string) => ({
-            shipmentId,
-            transportationOptionId: selectedOption?.id,
-            ...(contactForConfirm ? { contactInformation: contactForConfirm } : {})
-          }));
+          .filter((id: any) => isValidShipmentId(String(id)));
+      }
+      if (selectedOption?.shipmentId && isValidShipmentId(String(selectedOption.shipmentId))) {
+        return [String(selectedOption.shipmentId)];
+      }
+      const first = placementShipments.find((s: any) => !s?.isPackingGroup && (s?.shipmentId || s?.id));
+      return first ? [String(first.shipmentId || first.id)] : [];
+    })();
+
+    const validateOptionForShipment = async (optId: string, shipmentId: string) => {
+      const { collected } = await listAllTransportationOptions(
+        String(effectivePlacementOptionId),
+        shipmentId
+      );
+      const match = (collected || []).find((opt: any) => {
+        const id = opt?.transportationOptionId || opt?.id || opt?.optionId || null;
+        const statusUp = String(opt?.status || "AVAILABLE").toUpperCase();
+        const ships = Array.isArray(opt?.shipments)
+          ? opt.shipments.map((sh: any) => sh?.shipmentId || sh?.id).filter(Boolean)
+          : opt?.shipmentId
+            ? [opt.shipmentId]
+            : [];
+        const belongs = ships.length === 0 || ships.includes(shipmentId);
+        return id === optId && statusUp === "AVAILABLE" && belongs;
+      });
+      return match || null;
+    };
+
+    const confirmedShipments: string[] = [];
+    for (const sid of optionShipmentIds) {
+      const valid = await validateOptionForShipment(selectedOption.id, sid);
+      if (valid) confirmedShipments.push(sid);
+    }
+
+    if (!confirmedShipments.length) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Opțiunea selectată nu mai este disponibilă pentru shipment-ul curent. Selectează altă opțiune.",
+          code: "TRANSPORTATION_OPTION_NOT_AVAILABLE",
+          traceId
+        }),
+        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
+
+    const selections = confirmedShipments.map((shipmentId: string) => ({
+      shipmentId,
+      transportationOptionId: selectedOption?.id,
+      ...(contactForConfirm ? { contactInformation: contactForConfirm } : {})
+    }));
     if (!selections.length) {
       return new Response(
         JSON.stringify({
