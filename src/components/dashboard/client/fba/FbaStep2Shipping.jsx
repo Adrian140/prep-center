@@ -217,8 +217,8 @@ export default function FbaStep2Shipping({
 
         <div className="grid grid-cols-1 gap-3 text-sm">
           <div className="border border-slate-200 rounded-lg p-3">
-            <div className="font-semibold text-slate-800 mb-2">Shipping dates</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="font-semibold text-slate-800 mb-2">Shipping & ready dates</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:items-end">
               <div>
                 <div className="text-xs text-slate-600 mb-1">Ship date</div>
                 <input
@@ -234,84 +234,58 @@ export default function FbaStep2Shipping({
                   className="w-full border rounded-md px-3 py-2 text-sm"
                 />
               </div>
-              {selectedOption?.partnered === false && (
-                <>
-                  <div>
-                    <div className="text-xs text-slate-600 mb-1">ETA start (non-partnered)</div>
-                    <input
-                      type="date"
-                      id="eta-start"
-                      name="eta-start"
-                      value={etaStart}
-                      onChange={(e) => {
-                        const next = e.target.value;
-                        setEtaStart(next);
-                        onDeliveryWindowChange?.({ start: next, end: etaEnd || '' });
-                      }}
-                      className="w-full border rounded-md px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-600 mb-1">ETA end (non-partnered)</div>
-                    <input
-                      type="date"
-                      id="eta-end"
-                      name="eta-end"
-                      value={etaEnd}
-                      onChange={(e) => {
-                        const next = e.target.value;
-                        setEtaEnd(next);
-                        onDeliveryWindowChange?.({ start: etaStart || '', end: next });
-                      }}
-                      className="w-full border rounded-md px-3 py-2 text-sm"
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {isSingleShipment && singleShipmentId && (
-          <div className="border border-slate-200 rounded-lg p-3">
-            <div className="font-semibold text-slate-800 mb-2">Ready to ship window (shipment #{singleShipmentId})</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <div className="text-xs text-slate-600 mb-1">Ready to ship — start *</div>
                 <input
                   type="date"
-                  value={readyWindowByShipment?.[singleShipmentId]?.start || ''}
-                  onChange={(e) =>
+                  value={singleShipmentId ? readyWindowByShipment?.[singleShipmentId]?.start || '' : ''}
+                  onChange={(e) => {
+                    if (!singleShipmentId) return;
                     onReadyWindowChange?.(singleShipmentId, {
                       start: e.target.value,
                       end: readyWindowByShipment?.[singleShipmentId]?.end || ''
-                    })
-                  }
+                    });
+                  }}
                   className="w-full border rounded-md px-3 py-2 text-sm"
                 />
               </div>
-              <div>
-                <div className="text-xs text-slate-600 mb-1">
+              <div className="flex flex-col gap-2">
+                <div className="text-xs text-slate-600">
                   Ready to ship — end {requireEnd ? '*' : '(opțional)'}
                 </div>
-                <input
-                  type="date"
-                  value={readyWindowByShipment?.[singleShipmentId]?.end || ''}
-                  onChange={(e) =>
-                    onReadyWindowChange?.(singleShipmentId, {
-                      start: readyWindowByShipment?.[singleShipmentId]?.start || '',
-                      end: e.target.value
-                    })
-                  }
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={singleShipmentId ? readyWindowByShipment?.[singleShipmentId]?.end || '' : ''}
+                    onChange={(e) => {
+                      if (!singleShipmentId) return;
+                      onReadyWindowChange?.(singleShipmentId, {
+                        start: readyWindowByShipment?.[singleShipmentId]?.start || '',
+                        end: e.target.value
+                      });
+                    }}
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={onGenerateOptions}
+                    disabled={!singleShipmentId || !readyWindowByShipment?.[singleShipmentId]?.start || !shipDate || shippingLoading}
+                    className={`px-3 py-2 rounded-md text-xs font-semibold shadow-sm whitespace-nowrap ${
+                      singleShipmentId && readyWindowByShipment?.[singleShipmentId]?.start && shipDate && !shippingLoading
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {shippingLoading ? 'Se încarcă…' : 'Confirm ready date'}
+                  </button>
+                </div>
+                <div className="text-[11px] text-amber-700">
+                  Start obligatoriu; end devine obligatoriu dacă alegi LTL/FTL.
+                </div>
               </div>
             </div>
-            <div className="text-xs text-amber-700 mt-2">
-              Start obligatoriu; end obligatoriu pentru LTL/FTL.
-            </div>
           </div>
-        )}
+        </div>
 
         <div
           className="border border-slate-200 rounded-lg p-4 space-y-3"
