@@ -1867,11 +1867,17 @@ serve(async (req) => {
         if (!rawStart) {
           throw new Error("READY_TO_SHIP_WINDOW_MISSING");
         }
+        const rawEnd =
+          cfg.readyToShipWindow?.end ||
+          cfg.ready_to_ship_window?.end ||
+          globalReadyWindow?.end ||
+          null;
         const { start } = clampReadyWindow(rawStart);
         const baseCfg: Record<string, any> = {
           readyToShipWindow: { start },
           shipmentId: shId
         };
+        if (rawEnd) baseCfg.readyToShipWindow.end = rawEnd;
         if (contactInformation) baseCfg.contactInformation = contactInformation;
         const pkgsFromCfg = normalizePackages(cfg?.packages);
         if (pkgsFromCfg) baseCfg.packages = pkgsFromCfg;
