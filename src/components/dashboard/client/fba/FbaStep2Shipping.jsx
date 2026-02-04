@@ -28,6 +28,10 @@ export default function FbaStep2Shipping({
     from = null,
     to = null
   } = shipment || {};
+  const options = Array.isArray(shippingOptions) ? shippingOptions : [];
+  const selectedOption =
+    options.find((opt) => opt?.id === selectedTransportationOptionId) || null;
+
   // Ship date pornește gol; utilizatorul îl setează manual
   const [shipDate, setShipDate] = useState(deliveryDate || '');
   const [etaEnd, setEtaEnd] = useState(deliveryWindowEnd || '');
@@ -60,7 +64,6 @@ export default function FbaStep2Shipping({
     [palletDetails]
   );
 
-  const options = Array.isArray(shippingOptions) ? shippingOptions : [];
   const shipmentList = useMemo(() => (Array.isArray(shipments) ? shipments : []), [shipments]);
   const normalizeOptionMode = (mode) => {
     const up = String(mode || '').toUpperCase();
@@ -81,8 +84,6 @@ export default function FbaStep2Shipping({
     });
     return groups;
   }, [options]);
-  const selectedOption =
-    options.find((opt) => opt?.id === selectedTransportationOptionId) || null;
   const selectedMode = normalizeOptionMode(selectedOption?.mode || method);
   useEffect(() => {
     if (selectedOption?.partnered === false && shipDate) {
