@@ -111,6 +111,9 @@ export default function FbaStep2Shipping({
   }, [optionsList]);
   const selectedMode = normalizeOptionMode(selectedOption?.mode || method);
   const requireEnd = ['LTL', 'FTL', 'FREIGHT_LTL', 'FREIGHT_FTL'].includes(String(selectedMode || '').toUpperCase());
+  const needsDeliveryWindow = Array.isArray(selectedOption?.raw?.preconditions)
+    ? selectedOption.raw.preconditions.map((p) => String(p).toUpperCase()).includes('CONFIRMED_DELIVERY_WINDOW')
+    : false;
 
   // Nu auto-completăm end; îl lăsăm manual la LTL/FTL. Pentru SPD nu cerem end.
 
@@ -212,11 +215,10 @@ export default function FbaStep2Shipping({
     if (requireEnd && !rw.end) return true;
     return false;
   });
-  const requireEtaEnd = selectedOption?.partnered === false && selectedMode !== 'SPD';
   const canContinue =
     Boolean(selectedOption) &&
     (!needsTerms || acceptedTerms) &&
-    (requireEtaEnd ? Boolean(etaEnd) : true) &&
+    (!needsDeliveryWindow || Boolean(deliveryWindowStart)) &&
     !missingReady;
   useEffect(() => {
     setAcceptedTerms(false);
@@ -321,6 +323,31 @@ export default function FbaStep2Shipping({
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="font-semibold text-slate-900">Available shipping options</div>
           </div>
+          {needsDeliveryWindow && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="text-xs text-slate-600 mb-1">Delivery window — start *</div>
+                <input
+                  type="datetime-local"
+                  value={deliveryWindowStart || ''}
+                  onChange={(e) => onDeliveryWindowChange?.({ start: e.target.value, end: deliveryWindowEnd || '' })}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-slate-600 mb-1">Delivery window — end (opțional)</div>
+                <input
+                  type="datetime-local"
+                  value={deliveryWindowEnd || ''}
+                  onChange={(e) => onDeliveryWindowChange?.({ start: deliveryWindowStart || '', end: e.target.value })}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="text-[11px] text-amber-700 col-span-1 md:col-span-2">
+                Opțiunea de curier cere delivery window confirmată (CONFIRMED_DELIVERY_WINDOW). Dacă nu alegi o fereastră, Amazon poate returna eroare la confirmare.
+              </div>
+            </div>
+          )}
           {!optionsList.length && shippingConfirmed && (
             <div className="text-sm text-slate-700">
               Shipping already confirmed. {selectedTransportationOptionId ? `Option: ${selectedTransportationOptionId}` : ''}
