@@ -3109,8 +3109,8 @@ serve(async (req) => {
       const refreshedForSelection = normalizedRequestedMode
         ? refreshedNormalized.filter((o) => normalizeOptionMode(o.mode) === normalizedRequestedMode)
         : refreshedNormalized;
-      let selectionPoolRaw = refreshedForSelection.length ? refreshedForSelection : refreshedNormalized;
-      let selectionPool = (() => {
+      const selectionPoolRaw = refreshedForSelection.length ? refreshedForSelection : refreshedNormalized;
+      const selectionPool = (() => {
         if (!shipmentIdForListing) return selectionPoolRaw;
         const withShipment = selectionPoolRaw.filter((o) => {
           const sid = o.shipmentId || o.raw?.shipmentId || null;
@@ -3120,16 +3120,18 @@ serve(async (req) => {
         });
         return withShipment.length ? withShipment : selectionPoolRaw;
       })();
-      const requestedOption =
-        confirmOptionId ? selectionPool.find((o) => o.id === confirmOptionId) || null : null;
+      const requestedOption = confirmOptionId
+        ? selectionPool.find((o) => o.id === confirmOptionId) || null
+        : null;
       if (confirmOptionId && !requestedOption) {
         if (autoSelectTransportationOption) {
-          selectedOption = selectionPool.find((o) => o.partnered) || selectionPool[0] || null;
+          const fallbackAuto = selectionPool.find((o) => o.partnered) || selectionPool[0] || null;
+          selectedOption = fallbackAuto;
           logStep("transportationOption_autoswitch_missing", {
             traceId,
             reason: "confirm_id_not_found",
             missingOptionId: confirmOptionId,
-            fallbackOptionId: selectedOption?.id || null
+            fallbackOptionId: fallbackAuto?.id || null
           });
         } else {
           return new Response(
