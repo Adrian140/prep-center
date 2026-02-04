@@ -2939,9 +2939,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const shipDateIso = normalizeShipDate(shipmentMode?.deliveryDate) || null;
       let windowStart = normalizeShipDate(shipmentMode?.deliveryWindowStart);
       let windowEnd = normalizeShipDate(shipmentMode?.deliveryWindowEnd);
-      // dacă precondițiile cer CONFIRMED_DELIVERY_WINDOW și nu avem start/end, setăm default la ship date
-      if (!windowStart && shipDateIso) windowStart = shipDateIso;
-      if (!windowEnd && shipDateIso) windowEnd = shipDateIso;
       const contactInformation = resolveContactInformation();
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
