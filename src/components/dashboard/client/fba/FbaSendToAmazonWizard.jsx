@@ -502,7 +502,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (!shipmentId) return;
     const startInput = normalizeShipDate(win?.start);
     const startIso = startInput || getTomorrowIsoDate();
-    const requireEnd = isLtlFtl(shipmentMode?.method || currentOption?.mode || currentOption?.shippingMode);
+    const requireEnd = isLtlFtl(shipmentMode?.method);
     let endIso = normalizeShipDate(win?.end || '');
     if (requireEnd && !endIso) {
       const endDate = new Date(startIso);
@@ -519,7 +519,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       deliveryWindowEnd: endIso || ''
     }));
     fetchShippingOptions({ force: true });
-  }, [shipmentMode?.method, currentOption?.mode, currentOption?.shippingMode, fetchShippingOptions]);
+  }, [shipmentMode?.method, fetchShippingOptions]);
   const isFallbackId = useCallback((v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-"), []);
   const hasRealPackGroups = useCallback(
     (groups) =>
