@@ -324,12 +324,12 @@ export default function FbaStep2Shipping({
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="font-semibold text-slate-900">Available shipping options</div>
           </div>
-          {!options.length && shippingConfirmed && (
+          {!optionsList.length && shippingConfirmed && (
             <div className="text-sm text-slate-700">
               Shipping already confirmed. {selectedTransportationOptionId ? `Option: ${selectedTransportationOptionId}` : ''}
             </div>
           )}
-          {!options.length && !shippingConfirmed && (
+          {!optionsList.length && !shippingConfirmed && (
             <div className="text-sm text-slate-600">
               No shipping options available yet. Complete “Ready to ship”.
             </div>
@@ -402,7 +402,7 @@ export default function FbaStep2Shipping({
               </div>
             );
           })}
-          {options.length > 0 && !selectedOption && (
+          {optionsList.length > 0 && !selectedOption && (
             <div className="text-xs text-red-600">
               Selectează o opțiune de transport înainte de confirmare.
             </div>
