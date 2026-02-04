@@ -513,6 +513,20 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setInboundPlanMissing(true);
     }
   }, [plan?.inboundPlanId, plan?.inbound_plan_id, initialPlan?.inboundPlanId, initialPlan?.inbound_plan_id]);
+  // Curăță planul local dacă primim un inboundPlanId invalid, ca să nu încerce call-urile de GET pe ID corupt.
+  useEffect(() => {
+    const raw = plan?.inboundPlanId || plan?.inbound_plan_id || null;
+    const bad = raw && (String(raw).startsWith('LOCK-') || String(raw).length > 38);
+    if (bad) {
+      setPlan((prev) => ({
+        ...prev,
+        inboundPlanId: null,
+        inbound_plan_id: null,
+        planId: prev?.planId && String(prev.planId).startsWith('LOCK-') ? null : prev?.planId,
+        plan_id: prev?.plan_id && String(prev.plan_id).startsWith('LOCK-') ? null : prev?.plan_id
+      }));
+    }
+  }, [plan?.inboundPlanId, plan?.inbound_plan_id]);
   const serverUnitsRef = useRef(new Map());
   const packGroupsRef = useRef(packGroups);
   const planRef = useRef(plan);
