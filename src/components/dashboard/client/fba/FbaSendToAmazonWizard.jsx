@@ -42,17 +42,15 @@ const normalizeShipDate = (val) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-// Return an ISO datetime ensured to be in the future (same day allowed, but +6h buffer) and with a daytime hour.
+// Return an ISO datetime at 12:00 UTC for the given date; if the date is in the past (strictly before today), bump by +1 day.
 const normalizeReadyStartIso = (dateStr) => {
   const today = new Date();
-  // parse dateStr as UTC midnight
-  const base = dateStr ? new Date(`${dateStr}T00:00:00Z`) : new Date();
-  // set hour to 12:00 UTC to avoid "past" when same day
-  base.setUTCHours(12, 0, 0, 0);
-  // if still in the past, add 1 day
-  if (base <= today) {
-    base.setDate(base.getDate() + 1);
+  const todayDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  let base = dateStr ? new Date(`${dateStr}T00:00:00Z`) : new Date();
+  if (base < todayDate) {
+    base = todayDate;
   }
+  base.setUTCHours(12, 0, 0, 0);
   return base.toISOString();
 };
 
