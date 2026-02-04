@@ -40,7 +40,7 @@ export default function FbaStep2Shipping({
     ? String(shipments[0]?.id || shipments[0]?.shipmentId || '').trim()
     : null;
 
-  // Ship date și ETA se completează manual de către utilizator (fără default auto).
+  // Ready window (global pentru single shipment); Ship date nu mai este cerut în UI.
   const [shipDate, setShipDate] = useState(deliveryDate || '');
   const [etaStart, setEtaStart] = useState(deliveryWindowStart || '');
   const [etaEnd, setEtaEnd] = useState(deliveryWindowEnd || '');
@@ -184,7 +184,6 @@ export default function FbaStep2Shipping({
   });
   const canContinue =
     Boolean(selectedOption) &&
-    Boolean(shipDate) &&
     (!needsTerms || acceptedTerms) &&
     (selectedOption?.partnered === false ? Boolean(etaEnd) : true) &&
     !missingReady;
@@ -225,23 +224,8 @@ export default function FbaStep2Shipping({
 
         <div className="grid grid-cols-1 gap-3 text-sm">
           <div className="border border-slate-200 rounded-lg p-3">
-            <div className="font-semibold text-slate-800 mb-2">Shipping & ready dates</div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:items-end">
-              <div>
-                <div className="text-xs text-slate-600 mb-1">Ship date</div>
-                <input
-                  type="date"
-                  id="ship-date"
-                  name="ship-date"
-                  value={shipDate}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setShipDate(next);
-                    onShipDateChange?.(next);
-                  }}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
-              </div>
+            <div className="font-semibold text-slate-800 mb-2">Ready to ship</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:items-end">
               <div>
                 <div className="text-xs text-slate-600 mb-1">Ready to ship — start *</div>
                 <input
@@ -277,9 +261,9 @@ export default function FbaStep2Shipping({
                   <button
                     type="button"
                     onClick={onGenerateOptions}
-                    disabled={!singleShipmentId || !readyWindowByShipment?.[singleShipmentId]?.start || !shipDate || shippingLoading}
+                    disabled={!singleShipmentId || !readyWindowByShipment?.[singleShipmentId]?.start || shippingLoading}
                     className={`px-3 py-2 rounded-md text-xs font-semibold shadow-sm whitespace-nowrap ${
-                      singleShipmentId && readyWindowByShipment?.[singleShipmentId]?.start && shipDate && !shippingLoading
+                      singleShipmentId && readyWindowByShipment?.[singleShipmentId]?.start && !shippingLoading
                         ? 'bg-blue-600 hover:bg-blue-700 text-white'
                         : 'bg-slate-200 text-slate-500 cursor-not-allowed'
                     }`}
