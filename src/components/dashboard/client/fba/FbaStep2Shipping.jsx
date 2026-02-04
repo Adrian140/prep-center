@@ -55,6 +55,16 @@ export default function FbaStep2Shipping({
       onReadyWindowChange?.(singleShipmentId, { start, end: readyWindowByShipment?.[singleShipmentId]?.end || '' });
     }
   }, [isSingleShipment, singleShipmentId, readyWindowByShipment, onReadyWindowChange]);
+
+  // Dacă avem start setat și nu avem încă opțiuni, lansează automat fetch-ul.
+  useEffect(() => {
+    if (!isSingleShipment || !singleShipmentId) return;
+    const rw = readyWindowByShipment?.[singleShipmentId] || {};
+    if (!rw.start) return;
+    if (shippingLoading) return;
+    if (options.length > 0) return;
+    onGenerateOptions?.();
+  }, [isSingleShipment, singleShipmentId, readyWindowByShipment, shippingLoading, options, onGenerateOptions]);
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
