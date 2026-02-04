@@ -3217,9 +3217,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (strict && !start) {
       return 'Completează data de start a ferestrei de livrare (ETA) pentru transport non-partener.';
     }
-    if (strict && !end) {
-      return 'Completează data de sfârșit a ferestrei de livrare (ETA end) pentru transport non-partener.';
-    }
     if (start && shipmentMode?.deliveryDate) {
       const sd = new Date(start);
       const ship = new Date(shipmentMode.deliveryDate);

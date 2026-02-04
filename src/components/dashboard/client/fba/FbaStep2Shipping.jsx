@@ -34,10 +34,12 @@ export default function FbaStep2Shipping({
 
   // Ship date și ETA se completează manual de către utilizator (fără default auto).
   const [shipDate, setShipDate] = useState(deliveryDate || '');
+  const [etaStart, setEtaStart] = useState(deliveryWindowStart || '');
   const [etaEnd, setEtaEnd] = useState(deliveryWindowEnd || '');
   useEffect(() => {
+    setEtaStart(deliveryWindowStart || '');
     setEtaEnd(deliveryWindowEnd || '');
-  }, [deliveryWindowEnd]);
+  }, [deliveryWindowStart, deliveryWindowEnd]);
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
@@ -186,25 +188,38 @@ export default function FbaStep2Shipping({
                 />
               </div>
               {selectedOption?.partnered === false && (
-                <div>
-                  <div className="text-xs text-slate-600 mb-1">
-                    Estimated arrival (non-partnered)
+                <>
+                  <div>
+                    <div className="text-xs text-slate-600 mb-1">ETA start (non-partnered)</div>
+                    <input
+                      type="date"
+                      id="eta-start"
+                      name="eta-start"
+                      value={etaStart}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setEtaStart(next);
+                        onDeliveryWindowChange?.({ start: next, end: etaEnd || '' });
+                      }}
+                      className="w-full border rounded-md px-3 py-2 text-sm"
+                    />
                   </div>
-                  <div className="text-[11px] text-slate-500 mb-1">
-                    End (completează manual ETA end)
+                  <div>
+                    <div className="text-xs text-slate-600 mb-1">ETA end (non-partnered)</div>
+                    <input
+                      type="date"
+                      id="eta-end"
+                      name="eta-end"
+                      value={etaEnd}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setEtaEnd(next);
+                        onDeliveryWindowChange?.({ start: etaStart || '', end: next });
+                      }}
+                      className="w-full border rounded-md px-3 py-2 text-sm"
+                    />
                   </div>
-                  <input
-                    type="date"
-                    id="eta-end"
-                    name="eta-end"
-                    value={etaEnd}
-                    onChange={(e) => {
-                      setEtaEnd(e.target.value);
-                      onDeliveryWindowChange?.({ start: shipDate || '', end: e.target.value });
-                    }}
-                    className="w-full border rounded-md px-3 py-2 text-sm"
-                  />
-                </div>
+                </>
               )}
             </div>
           </div>
