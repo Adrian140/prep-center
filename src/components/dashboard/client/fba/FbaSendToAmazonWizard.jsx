@@ -499,6 +499,20 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       (Array.isArray(groups) ? groups : []).some((g) => g?.packingGroupId && !isFallbackId(g.packingGroupId)),
     [isFallbackId]
   );
+  // Dacă Amazon returnează un inboundPlanId invalid (LOCK-* sau prea lung), intrăm automat în modul bypass.
+  useEffect(() => {
+    const raw =
+      plan?.inboundPlanId ||
+      plan?.inbound_plan_id ||
+      initialPlan?.inboundPlanId ||
+      initialPlan?.inbound_plan_id ||
+      null;
+    const bad = raw && (String(raw).startsWith('LOCK-') || String(raw).length > 38);
+    if (bad) {
+      setAllowNoInboundPlan(true);
+      setInboundPlanMissing(true);
+    }
+  }, [plan?.inboundPlanId, plan?.inbound_plan_id, initialPlan?.inboundPlanId, initialPlan?.inbound_plan_id]);
   const serverUnitsRef = useRef(new Map());
   const packGroupsRef = useRef(packGroups);
   const planRef = useRef(plan);
