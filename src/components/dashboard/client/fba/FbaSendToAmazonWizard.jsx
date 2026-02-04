@@ -2716,7 +2716,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const fetchCooldownRef = useRef(0);
 
-  const fetchShippingOptions = async ({ force = false } = {}) => {
+  async function fetchShippingOptions({ force = false } = {}) {
     if (typeof window === 'undefined') return; // rulează doar în browser
     if (shippingFetchLockRef.current.inFlight) return Promise.resolve();
     const now = Date.now();
