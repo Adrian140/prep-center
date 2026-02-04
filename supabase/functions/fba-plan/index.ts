@@ -310,6 +310,17 @@ function isLockId(val: string | null | undefined): boolean {
   return typeof val === "string" && val.startsWith("LOCK-");
 }
 
+// Amazon can temporarily return placeholder ids like "LOCK-<uuid>" or even ids longer than the
+// documented 38 chars limit. Those must never be used in GET calls because the endpoint will
+// reject them with InvalidInput and we spam the logs. Normalize to null so callers short‑circuit.
+function sanitizeInboundPlanId(val: string | null | undefined): string | null {
+  if (!val) return null;
+  const s = String(val);
+  if (isLockId(s)) return null;
+  if (s.length > 38) return null;
+  return s;
+}
+
 function extractInboundUnavailableSkus(primary: { json: any; text: string }): string[] {
   const collect = (obj: any) => {
     const errs = obj?.errors || obj?.payload?.errors || [];
@@ -1399,8 +1410,8 @@ serve(async (req) => {
     let snapshotBase = (reqData as any)?.amazon_snapshot || {};
     // Folosește snapshot-ul Amazon ca fallback dacă request-ul are deja context salvat.
     const snapshotFbaInbound = snapshotBase?.fba_inbound || {};
-    const snapshotInboundPlanId = snapshotFbaInbound?.inboundPlanId || null;
-    let inboundPlanId: string | null = reqData.inbound_plan_id || snapshotInboundPlanId || null;
+    const snapshotInboundPlanId = sanitizeInboundPlanId(snapshotFbaInbound?.inboundPlanId || null);
+    let inboundPlanId: string | null = sanitizeInboundPlanId(reqData.inbound_plan_id || snapshotInboundPlanId || null);
     let inboundPlanStatus: string | null = null;
     let packingOptionId: string | null =
       (reqData as any)?.packing_option_id || snapshotFbaInbound?.packingOptionId || null;
@@ -2471,6 +2482,9 @@ serve(async (req) => {
       }
     }
 
+    // Normalize any inboundPlanId before using it.
+    inboundPlanId = sanitizeInboundPlanId(inboundPlanId);
+
     if (inboundPlanId) {
       const fetched = await fetchInboundPlanById(inboundPlanId);
       plans = fetched.fetchedPlans || [];
@@ -2528,7 +2542,7 @@ serve(async (req) => {
         inboundPlanId = null; // keep null to trigger create with the lock held
       } else if (claimedRow?.inbound_plan_id) {
         // Alt proces a setat deja planul, îl reutilizăm.
-        inboundPlanId = claimedRow.inbound_plan_id;
+        inboundPlanId = sanitizeInboundPlanId(claimedRow.inbound_plan_id);
         hasPlanLock = false;
       } else if (!claimedRow) {
         // Nimeni nu a fost actualizat; poate un alt proces a setat deja planul între timp.
@@ -2538,7 +2552,7 @@ serve(async (req) => {
           .eq("id", requestId)
           .maybeSingle();
         if (!refetchErr && refetchRow?.inbound_plan_id) {
-          inboundPlanId = refetchRow.inbound_plan_id;
+          inboundPlanId = sanitizeInboundPlanId(refetchRow.inbound_plan_id);
         }
       }
     }
@@ -2574,7 +2588,7 @@ serve(async (req) => {
         lastResponseText = res.text || null;
         operationId = operationId || extractOperationId(res.json);
         const data = extractInboundPlanData(res.json);
-        inboundPlanId = inboundPlanId || data.inboundPlanId;
+        inboundPlanId = sanitizeInboundPlanId(inboundPlanId || data.inboundPlanId);
         inboundPlanStatus = inboundPlanStatus || data.inboundStatus;
         plans = data.shipments.length ? data.shipments : data.inboundShipmentPlans;
         _lastPackingOptions = data.packingOptions;
@@ -2843,7 +2857,7 @@ serve(async (req) => {
 
     // Dacă inboundPlanId este un lock, dar snapshot-ul are deja plan-ul real, folosește-l ca fallback.
     if (isLockId(inboundPlanId) && snapshotInboundPlanId && !isLockId(snapshotInboundPlanId)) {
-      inboundPlanId = snapshotInboundPlanId;
+      inboundPlanId = sanitizeInboundPlanId(snapshotInboundPlanId);
     }
 
     // Packing options and groups sunt tratate aici pentru Step 1b, dar dacă nu avem shipments încercăm totuși să scoatem packing groups.
@@ -3028,7 +3042,7 @@ serve(async (req) => {
       inboundPlanStatus = null;
     }
 
-    const safeInboundPlanId = isLockId(inboundPlanId) ? null : inboundPlanId;
+    const safeInboundPlanId = sanitizeInboundPlanId(inboundPlanId);
     const packGroups = packingGroupsFromAmazon.length
       ? normalizePackingGroups(packingGroupsFromAmazon)
       : Array.from(packGroupsMap.values()).map((g, idx) => ({
@@ -3127,19 +3141,19 @@ serve(async (req) => {
     // Nu bloca UI pe lipsa shipments; pentru step1 este suficient să existe inboundPlanId.
     const shipmentsPending = !safeInboundPlanId;
     // Persist inboundPlanId when newly created so viitoarele apeluri nu mai generează plan nou
-    const dbPlanId = reqData.inbound_plan_id;
-    if (inboundPlanId && !isLockId(inboundPlanId) && (inboundPlanId !== dbPlanId || isLockId(dbPlanId))) {
+    const dbPlanId = sanitizeInboundPlanId(reqData.inbound_plan_id);
+    if (safeInboundPlanId && (!dbPlanId || safeInboundPlanId !== dbPlanId)) {
       // Persist always, even dacă există un inbound_plan_id vechi – altfel UI/step1b rămâne blocat pe planul anterior.
       const { data: updRow, error: updErr } = await supabase
         .from("prep_requests")
-        .update({ inbound_plan_id: inboundPlanId })
+        .update({ inbound_plan_id: safeInboundPlanId })
         .eq("id", requestId)
         .select("inbound_plan_id")
         .maybeSingle();
       if (updErr) {
         console.warn("fba-plan persist inbound_plan_id failed", { traceId, error: updErr?.message || null });
       } else if (updRow?.inbound_plan_id) {
-        inboundPlanId = updRow.inbound_plan_id;
+        inboundPlanId = sanitizeInboundPlanId(updRow.inbound_plan_id);
       } else {
         // If another process beat us, reuse its plan id
         const { data: refetchRow } = await supabase
@@ -3147,8 +3161,8 @@ serve(async (req) => {
           .select("inbound_plan_id")
           .eq("id", requestId)
           .maybeSingle();
-        if (refetchRow?.inbound_plan_id && !isLockId(refetchRow.inbound_plan_id)) {
-          inboundPlanId = refetchRow.inbound_plan_id;
+        if (refetchRow?.inbound_plan_id) {
+          inboundPlanId = sanitizeInboundPlanId(refetchRow.inbound_plan_id);
         }
       }
     }
@@ -3178,7 +3192,7 @@ serve(async (req) => {
         console.warn("fba-plan refetch after lock failed", { traceId, error: refetchErr?.message || null });
       }
       if (refetchRow?.inbound_plan_id && !isLockId(refetchRow.inbound_plan_id)) {
-        inboundPlanId = refetchRow.inbound_plan_id;
+        inboundPlanId = sanitizeInboundPlanId(refetchRow.inbound_plan_id);
       } else {
         inboundPlanId = null;
       }
