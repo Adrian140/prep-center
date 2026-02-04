@@ -42,14 +42,21 @@ const normalizeShipDate = (val) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-// Return an ISO datetime at 12:00 UTC for the given date; if the date is in the past (strictly before today), bump by +1 day.
+// Return an ISO datetime; if the selected date is today, push it +6h from now; otherwise use 12:00 UTC.
+// If the date is in the past, clamp to today +6h.
 const normalizeReadyStartIso = (dateStr) => {
   const today = new Date();
-  const todayDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-  let base = dateStr ? new Date(`${dateStr}T00:00:00Z`) : new Date();
-  if (base < todayDate) {
-    base = todayDate;
+  const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const targetDate = dateStr ? new Date(`${dateStr}T00:00:00Z`) : todayStart;
+  const isPast = targetDate < todayStart;
+  const isToday = !isPast && targetDate.getTime() === todayStart.getTime();
+
+  if (isPast || isToday) {
+    const plusSixHours = new Date(today.getTime() + 6 * 60 * 60 * 1000);
+    return plusSixHours.toISOString();
   }
+
+  const base = new Date(targetDate);
   base.setUTCHours(12, 0, 0, 0);
   return base.toISOString();
 };
@@ -486,35 +493,32 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [shippingConfirming, setShippingConfirming] = useState(false);
   const [skipPacking, setSkipPacking] = useState(false);
   const [forcePartneredOnly, setForcePartneredOnly] = useState(false);
+  const isLtlFtl = useCallback((method) => {
+    const up = String(method || '').toUpperCase();
+    return up === 'LTL' || up === 'FTL' || up === 'FREIGHT_LTL' || up === 'FREIGHT_FTL';
+  }, []);
+
   const handleReadyWindowChange = useCallback((shipmentId, win) => {
     if (!shipmentId) return;
-    const todayUtc = new Date();
     const startInput = normalizeShipDate(win?.start);
-    let startIso = startInput;
-    if (startIso) {
-      const startDate = new Date(startIso);
-      const todayDate = new Date(Date.UTC(todayUtc.getUTCFullYear(), todayUtc.getUTCMonth(), todayUtc.getUTCDate()));
-      if (startDate <= todayDate) {
-        startDate.setDate(startDate.getDate() + 1);
-        startIso = startDate.toISOString().slice(0, 10);
-      }
-    } else {
-      startIso = getTomorrowIsoDate();
-    }
+    const startIso = startInput || getTomorrowIsoDate();
+    const requireEnd = isLtlFtl(shipmentMode?.method);
     let endIso = normalizeShipDate(win?.end || '');
-    if (!endIso) {
+    if (requireEnd && !endIso) {
       const endDate = new Date(startIso);
       endDate.setDate(endDate.getDate() + 6);
       endIso = endDate.toISOString().slice(0, 10);
     }
-    setReadyWindowByShipment((prev) => ({ ...prev, [shipmentId]: { start: startIso, end: endIso } }));
+    if (!requireEnd) endIso = null;
+
+    setReadyWindowByShipment((prev) => ({ ...prev, [shipmentId]: { start: startIso, end: endIso || undefined } }));
     setShipmentMode((prev) => ({
       ...prev,
       deliveryDate: startIso,
       deliveryWindowStart: startIso,
       deliveryWindowEnd: endIso || ''
     }));
-  }, []);
+  }, [shipmentMode?.method]);
   const isFallbackId = useCallback((v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-"), []);
   const hasRealPackGroups = useCallback(
     (groups) =>
@@ -2620,6 +2624,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const manualReady = readyWindowByShipment?.[shId] || {};
       const manualStart = normalizeShipDate(manualReady.start) || null;
       const manualEnd = normalizeShipDate(manualReady.end) || null;
+      const requireEnd = isLtlFtl(shipmentMode?.method);
       const existing = byShipment.get(shId) || {
         shipmentId: shId,
         packages: [],
@@ -2627,7 +2632,15 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         freightInformation: null,
         readyToShipWindow: manualStart || windowStart || windowEnd ? {
           start: manualStart ? normalizeReadyStartIso(manualStart) : windowStart ? normalizeReadyStartIso(windowStart) : null,
-          end: manualEnd ? normalizeReadyStartIso(manualEnd) : windowEnd ? normalizeReadyStartIso(windowEnd) : null
+          ...(requireEnd
+            ? {
+                end: manualEnd
+                  ? normalizeReadyStartIso(manualEnd)
+                  : windowEnd
+                    ? normalizeReadyStartIso(windowEnd)
+                    : null
+              }
+            : {})
         } : null
       };
       if (usePallets) {

@@ -2946,7 +2946,7 @@ serve(async (req) => {
       return up;
     };
 
-    const optionsForSelection = normalizedOptionsSelection;
+    let optionsForSelection = normalizedOptionsSelection;
     const returnedModes = Array.from(
       new Set(normalizedOptionsSelection.map((o) => normalizeOptionMode(o.mode)))
     ).filter(Boolean);

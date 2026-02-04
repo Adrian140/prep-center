@@ -161,28 +161,37 @@ export default function FbaStep2Shipping({
           </div>
         )}
         {showReadyInputs && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-          <div>
-            <div className="text-xs text-slate-600 mb-1">Ready to ship — start *</div>
-            <input
-              type="date"
-              value={readyWindowByShipment?.[shKey]?.start || ''}
-              onChange={(e) => onReadyWindowChange?.(shKey, { start: e.target.value, end: readyWindowByShipment?.[shKey]?.end || '' })}
-              className="w-full border rounded-md px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <div className="text-xs text-slate-600 mb-1">
-              Ready to ship — end {requireEnd ? '*' : '(opțional)'}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+            <div>
+              <div className="text-xs text-slate-600 mb-1">Ready to ship — start *</div>
+              <input
+                type="date"
+                value={readyWindowByShipment?.[shKey]?.start || ''}
+                onChange={(e) =>
+                  onReadyWindowChange?.(shKey, { start: e.target.value, end: readyWindowByShipment?.[shKey]?.end || '' })
+                }
+                className="w-full border rounded-md px-3 py-2 text-sm"
+              />
             </div>
-            <input
-              type="date"
-              value={readyWindowByShipment?.[shKey]?.end || ''}
-              onChange={(e) => onReadyWindowChange?.(shKey, { start: readyWindowByShipment?.[shKey]?.start || '', end: e.target.value })}
-              className="w-full border rounded-md px-3 py-2 text-sm"
-            />
+            {requireEnd && (
+              <div>
+                <div className="text-xs text-slate-600 mb-1">
+                  Ready to ship — end {requireEnd ? '*' : '(opțional)'}
+                </div>
+                <input
+                  type="date"
+                  value={readyWindowByShipment?.[shKey]?.end || ''}
+                  onChange={(e) =>
+                    onReadyWindowChange?.(shKey, {
+                      start: readyWindowByShipment?.[shKey]?.start || '',
+                      end: e.target.value
+                    })
+                  }
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+            )}
           </div>
-        </div>
         )}
         {!isSingleShipment && (
           <div className="text-xs text-amber-700">
@@ -195,7 +204,7 @@ export default function FbaStep2Shipping({
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const needsTerms = Boolean(selectedOption?.partnered);
-  const requireEnd = selectedMode !== 'SPD';
+  const requireEnd = ['LTL', 'FTL', 'FREIGHT_LTL', 'FREIGHT_FTL'].includes(String(selectedMode || '').toUpperCase());
   const missingReady = shipmentList.some((sh) => {
     const shKey = String(sh.id || sh.shipmentId || '').trim();
     const rw = readyWindowByShipment?.[shKey] || {};
@@ -262,23 +271,43 @@ export default function FbaStep2Shipping({
                   className="w-full border rounded-md px-3 py-2 text-sm"
                 />
               </div>
-              <div className="flex flex-col gap-2">
-                <div className="text-xs text-slate-600">
-                  Ready to ship — end {requireEnd ? '*' : '(opțional)'}
+              {requireEnd ? (
+                <div className="flex flex-col gap-2">
+                  <div className="text-xs text-slate-600">
+                    Ready to ship — end {requireEnd ? '*' : '(opțional)'}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={singleShipmentId ? readyWindowByShipment?.[singleShipmentId]?.end || '' : ''}
+                      onChange={(e) => {
+                        if (!singleShipmentId) return;
+                        onReadyWindowChange?.(singleShipmentId, {
+                          start: readyWindowByShipment?.[singleShipmentId]?.start || '',
+                          end: e.target.value
+                        });
+                      }}
+                      className="w-full border rounded-md px-3 py-2 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={onGenerateOptions}
+                      disabled={!singleShipmentId || !readyWindowByShipment?.[singleShipmentId]?.start || shippingLoading}
+                      className={`px-3 py-2 rounded-md text-xs font-semibold shadow-sm whitespace-nowrap ${
+                        singleShipmentId && readyWindowByShipment?.[singleShipmentId]?.start && !shippingLoading
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {shippingLoading ? 'Se încarcă…' : 'Confirm ready date'}
+                    </button>
+                  </div>
+                  <div className="text-[11px] text-amber-700">
+                    Start obligatoriu; end devine obligatoriu dacă alegi LTL/FTL.
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    value={singleShipmentId ? readyWindowByShipment?.[singleShipmentId]?.end || '' : ''}
-                    onChange={(e) => {
-                      if (!singleShipmentId) return;
-                      onReadyWindowChange?.(singleShipmentId, {
-                        start: readyWindowByShipment?.[singleShipmentId]?.start || '',
-                        end: e.target.value
-                      });
-                    }}
-                    className="w-full border rounded-md px-3 py-2 text-sm"
-                  />
+              ) : (
+                <div className="flex flex-col gap-2">
                   <button
                     type="button"
                     onClick={onGenerateOptions}
@@ -291,11 +320,11 @@ export default function FbaStep2Shipping({
                   >
                     {shippingLoading ? 'Se încarcă…' : 'Confirm ready date'}
                   </button>
+                  <div className="text-[11px] text-amber-700">
+                    Start obligatoriu; end nu este cerut pentru SPD.
+                  </div>
                 </div>
-                <div className="text-[11px] text-amber-700">
-                  Start obligatoriu; end devine obligatoriu dacă alegi LTL/FTL.
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
