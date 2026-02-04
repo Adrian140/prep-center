@@ -97,6 +97,7 @@ export default function FbaStep2Shipping({
     if (up === 'FREIGHT_FTL') return 'FTL';
     return up;
   };
+  const isLtlFtl = (mode) => ['LTL', 'FTL', 'FREIGHT_LTL', 'FREIGHT_FTL'].includes(String(mode || '').toUpperCase());
   const groupedOptions = useMemo(() => {
     const groups = { SPD: [], LTL: [], FTL: [], OTHER: [] };
     optionsList.forEach((opt) => {
@@ -109,6 +110,19 @@ export default function FbaStep2Shipping({
     return groups;
   }, [optionsList]);
   const selectedMode = normalizeOptionMode(selectedOption?.mode || method);
+  const requireEnd = ['LTL', 'FTL', 'FREIGHT_LTL', 'FREIGHT_FTL'].includes(String(selectedMode || '').toUpperCase());
+
+  // Dacă se selectează LTL/FTL și există start dar lipsește end, auto-completează end = start + 6 zile.
+  useEffect(() => {
+    if (!requireEnd) return;
+    if (!isSingleShipment || !singleShipmentId) return;
+    const rw = readyWindowByShipment?.[singleShipmentId] || {};
+    if (!rw.start || rw.end) return;
+    const endDate = new Date(rw.start);
+    endDate.setDate(endDate.getDate() + 6);
+    const endIso = endDate.toISOString().slice(0, 10);
+    onReadyWindowChange?.(singleShipmentId, { start: rw.start, end: endIso });
+  }, [requireEnd, isSingleShipment, singleShipmentId, readyWindowByShipment, onReadyWindowChange]);
   useEffect(() => {
     if (selectedOption?.partnered === false && shipDate) {
       // dacă deja avem fereastra setată din parent, nu recalculăm iar (previne loop)
@@ -207,8 +221,6 @@ export default function FbaStep2Shipping({
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const needsTerms = Boolean(selectedOption?.partnered);
-  const isLtlFtl = (mode) => ['LTL', 'FTL', 'FREIGHT_LTL', 'FREIGHT_FTL'].includes(String(mode || '').toUpperCase());
-  const requireEnd = isLtlFtl(selectedOption?.mode || selectedMode);
   const missingReady = shipmentList.some((sh) => {
     const shKey = String(sh.id || sh.shipmentId || '').trim();
     const rw = readyWindowByShipment?.[shKey] || {};
