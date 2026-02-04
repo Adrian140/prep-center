@@ -1849,6 +1849,7 @@ serve(async (req) => {
       return map;
     })();
 
+    const globalReadyWindow = body?.readyToShipWindow || body?.ready_to_ship_window || null;
     let shipmentTransportationConfigurations: any[] = [];
     try {
       shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
@@ -1858,7 +1859,11 @@ serve(async (req) => {
           (shipmentTransportConfigs || []).find((c: any) => c?.shipmentId === shId || c?.shipment_id === shId) ||
           (shipmentTransportConfigs || [])[idx] ||
           {};
-        const rawStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || null;
+        const rawStart =
+          cfg.readyToShipWindow?.start ||
+          cfg.ready_to_ship_window?.start ||
+          globalReadyWindow?.start ||
+          null;
         if (!rawStart) {
           throw new Error("READY_TO_SHIP_WINDOW_MISSING");
         }
