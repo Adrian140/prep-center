@@ -11,10 +11,14 @@ export default function FbaStep2Shipping({
   onPalletDetailsChange,
   onShipDateChange,
   onDeliveryWindowChange,
+  onReadyWindowChange,
+  onGenerateOptions,
   onNext,
   onBack,
   confirming = false,
-  error = ''
+  shippingLoading = false,
+  error = '',
+  readyWindowByShipment = {}
 }) {
   const {
     deliveryDate = '',
@@ -31,6 +35,10 @@ export default function FbaStep2Shipping({
   const options = Array.isArray(shippingOptions) ? shippingOptions : [];
   const selectedOption =
     options.find((opt) => opt?.id === selectedTransportationOptionId) || null;
+  const isSingleShipment = Array.isArray(shipments) && shipments.length === 1;
+  const singleShipmentId = isSingleShipment
+    ? String(shipments[0]?.id || shipments[0]?.shipmentId || '').trim()
+    : null;
 
   // Ship date și ETA se completează manual de către utilizator (fără default auto).
   const [shipDate, setShipDate] = useState(deliveryDate || '');
@@ -102,10 +110,13 @@ export default function FbaStep2Shipping({
     return `${carrierName} · ${modeLabel}`;
   }, [carrierName, selectedMode]);
 
-  const renderShipmentCard = (s) => (
-    <div key={s.id} className="border border-slate-200 rounded-lg overflow-hidden">
+  const renderShipmentCard = (s) => {
+    const shKey = String(s.id || s.shipmentId || '').trim();
+    const showReadyInputs = !isSingleShipment; // pentru single shipment folosim câmpul global
+    return (
+    <div key={shKey || s.id} className="border border-slate-200 rounded-lg overflow-hidden">
       <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-        <div className="font-semibold text-slate-900">Shipment #{s.id}</div>
+        <div className="font-semibold text-slate-900">Shipment #{shKey || s.id}</div>
         <div className="text-sm text-slate-600">
           Boxes: {s.boxes} · SKUs: {s.skuCount} · Units: {s.units} · Weight:{' '}
           {Number.isFinite(toKg(s.weight, s.weight_unit)) && toKg(s.weight, s.weight_unit) > 0
@@ -122,17 +133,53 @@ export default function FbaStep2Shipping({
             {s.boxesDetail.length} boxes with dimensions/weight captured from packing.
           </div>
         )}
+        {showReadyInputs && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+          <div>
+            <div className="text-xs text-slate-600 mb-1">Ready to ship — start *</div>
+            <input
+              type="date"
+              value={readyWindowByShipment?.[shKey]?.start || ''}
+              onChange={(e) => onReadyWindowChange?.(shKey, { start: e.target.value, end: readyWindowByShipment?.[shKey]?.end || '' })}
+              className="w-full border rounded-md px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <div className="text-xs text-slate-600 mb-1">
+              Ready to ship — end {requireEnd ? '*' : '(opțional)'}
+            </div>
+            <input
+              type="date"
+              value={readyWindowByShipment?.[shKey]?.end || ''}
+              onChange={(e) => onReadyWindowChange?.(shKey, { start: readyWindowByShipment?.[shKey]?.start || '', end: e.target.value })}
+              className="w-full border rounded-md px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+        )}
+        <div className="text-xs text-amber-700">
+          Setează intervalul în care expediția este gata de predat curierului (start obligatoriu; end obligatoriu pentru LTL/FTL).
+        </div>
       </div>
     </div>
-  );
+  );};
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const needsTerms = Boolean(selectedOption?.partnered);
+  const requireEnd = selectedMode !== 'SPD';
+  const missingReady = shipmentList.some((sh) => {
+    const shKey = String(sh.id || sh.shipmentId || '').trim();
+    const rw = readyWindowByShipment?.[shKey] || {};
+    if (!shKey || !rw.start) return true;
+    if (requireEnd && !rw.end) return true;
+    return false;
+  });
   const canContinue =
     Boolean(selectedOption) &&
     Boolean(shipDate) &&
     (!needsTerms || acceptedTerms) &&
-    (selectedOption?.partnered === false ? Boolean(etaEnd) : true);
+    (selectedOption?.partnered === false ? Boolean(etaEnd) : true) &&
+    !missingReady;
   useEffect(() => {
     setAcceptedTerms(false);
   }, [selectedOption?.id]);
@@ -225,18 +272,75 @@ export default function FbaStep2Shipping({
           </div>
         </div>
 
+        {isSingleShipment && singleShipmentId && (
+          <div className="border border-slate-200 rounded-lg p-3">
+            <div className="font-semibold text-slate-800 mb-2">Ready to ship window (shipment #{singleShipmentId})</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs text-slate-600 mb-1">Ready to ship — start *</div>
+                <input
+                  type="date"
+                  value={readyWindowByShipment?.[singleShipmentId]?.start || ''}
+                  onChange={(e) =>
+                    onReadyWindowChange?.(singleShipmentId, {
+                      start: e.target.value,
+                      end: readyWindowByShipment?.[singleShipmentId]?.end || ''
+                    })
+                  }
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-slate-600 mb-1">
+                  Ready to ship — end {requireEnd ? '*' : '(opțional)'}
+                </div>
+                <input
+                  type="date"
+                  value={readyWindowByShipment?.[singleShipmentId]?.end || ''}
+                  onChange={(e) =>
+                    onReadyWindowChange?.(singleShipmentId, {
+                      start: readyWindowByShipment?.[singleShipmentId]?.start || '',
+                      end: e.target.value
+                    })
+                  }
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+            <div className="text-xs text-amber-700 mt-2">
+              Start obligatoriu; end obligatoriu pentru LTL/FTL.
+            </div>
+          </div>
+        )}
+
         <div
           className="border border-slate-200 rounded-lg p-4 space-y-3"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="font-semibold text-slate-900">Available shipping options</div>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="font-semibold text-slate-900">Available shipping options</div>
+            <button
+              type="button"
+              onClick={onGenerateOptions}
+              disabled={missingReady || !shipDate || shippingLoading}
+              className={`px-4 py-2 rounded-md text-sm font-semibold shadow-sm ${
+                !missingReady && shipDate && !shippingLoading
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+              }`}
+            >
+              {shippingLoading ? 'Se încarcă…' : 'Generează opțiuni curier'}
+            </button>
+          </div>
           {!options.length && shippingConfirmed && (
             <div className="text-sm text-slate-700">
               Shipping already confirmed. {selectedTransportationOptionId ? `Option: ${selectedTransportationOptionId}` : ''}
             </div>
           )}
           {!options.length && !shippingConfirmed && (
-            <div className="text-sm text-slate-600">No shipping options available yet.</div>
+            <div className="text-sm text-slate-600">
+              No shipping options available yet. Complete “Ready to ship” și apasă “Generează opțiuni curier”.
+            </div>
           )}
           {['SPD', 'LTL', 'FTL', 'OTHER'].map((modeKey) => {
             const list = groupedOptions[modeKey] || [];
@@ -465,6 +569,11 @@ export default function FbaStep2Shipping({
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="text-sm text-slate-600">{summaryTitle}</div>
+        {missingReady && (
+          <div className="text-xs text-red-600">
+            Completează “Ready to ship” (start) pentru toate expedierile înainte de confirmare.
+          </div>
+        )}
         <div className="flex gap-3 justify-end">
           <button
             type="button"

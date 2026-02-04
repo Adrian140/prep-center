@@ -459,11 +459,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [shippingOptions, setShippingOptions] = useState(
     historyMode ? (Array.isArray(initialShippingOptions) ? initialShippingOptions : []) : []
   );
+  const [readyWindowByShipment, setReadyWindowByShipment] = useState({});
+  const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingSummary, setShippingSummary] = useState(historyMode ? initialShippingSummary : null);
   const [selectedTransportationOptionId, setSelectedTransportationOptionId] = useState(
     historyMode ? initialSelectedTransportationOptionId : null
   );
-  const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState('');
   const [packingSubmitLoading, setPackingSubmitLoading] = useState(false);
   const [packingSubmitError, setPackingSubmitError] = useState('');
@@ -2575,14 +2576,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const packingGroupId = g.packingGroupId || null;
       if (!packingGroupId) return;
       const shId = shipmentIdForGroup(g, idx);
+      const manualReady = readyWindowByShipment?.[shId] || {};
+      const manualStart = normalizeShipDate(manualReady.start) || null;
+      const manualEnd = normalizeShipDate(manualReady.end) || null;
       const existing = byShipment.get(shId) || {
         shipmentId: shId,
         packages: [],
         pallets: null,
         freightInformation: null,
-        readyToShipWindow: windowStart || windowEnd ? {
-          start: windowStart,
-          end: windowEnd
+        readyToShipWindow: manualStart || windowStart || windowEnd ? {
+          start: manualStart || windowStart || null,
+          end: manualEnd || windowEnd || null
         } : null
       };
       if (usePallets) {
@@ -2657,11 +2661,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const fetchCooldownRef = useRef(0);
 
-  const fetchShippingOptions = async () => {
+  const fetchShippingOptions = async ({ force = false } = {}) => {
     if (typeof window === 'undefined') return; // rulează doar în browser
     if (shippingFetchLockRef.current.inFlight) return Promise.resolve();
     const now = Date.now();
-    if (now - fetchCooldownRef.current < 2000) return Promise.resolve(); // hard throttle 1 call / 2s
+    if (!force && now - fetchCooldownRef.current < 2000) return Promise.resolve(); // hard throttle 1 call / 2s
     fetchCooldownRef.current = now;
     const inboundPlanId = resolveInboundPlanId();
     let placementOptId =
@@ -2669,6 +2673,18 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) {
       setShippingError('Missing inboundPlanId or requestId; cannot request shipping options.');
+      return;
+    }
+    const requireEnd = String(shipmentMode?.method || '').toUpperCase() !== 'SPD';
+    const missingReady = (shipments || []).some((sh) => {
+      const shKey = String(sh?.id || sh?.shipmentId || '').trim();
+      const rw = readyWindowByShipment?.[shKey] || {};
+      if (!shKey || !rw.start) return true;
+      if (requireEnd && !rw.end) return true;
+      return false;
+    });
+    if (missingReady) {
+      setShippingError('Completează “Ready to ship” (start) pentru toate expedierile înainte de a cere opțiuni de curier.');
       return;
     }
 
@@ -2729,6 +2745,21 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
 
     const configs = buildShipmentConfigs();
+    const requireEnd = String(shipmentMode?.method || '').toUpperCase() !== 'SPD';
+    const missingReady = configs.some((cfg) => {
+      const win = cfg?.readyToShipWindow || {};
+      if (!win.start) return true;
+      if (requireEnd && !win.end) return true;
+      return false;
+    });
+    if (missingReady) {
+      setShippingError(
+        requireEnd
+          ? 'Adaugă “Ready to ship” (start și end) pentru fiecare shipment înainte de confirmare (LTL/FTL).'
+          : 'Adaugă “Ready to ship” (start) pentru fiecare shipment înainte de confirmare.'
+      );
+      return;
+    }
     const contactInformation = resolveContactInformation();
     const requestKey = JSON.stringify({
       requestId,
@@ -2854,6 +2885,25 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
   };
 
+  const ensureOptionsAvailable = async () => {
+    const countBefore = Array.isArray(shippingOptions) ? shippingOptions.length : 0;
+    if (!countBefore) {
+      await fetchShippingOptions({ force: true });
+    }
+    const opts = Array.isArray(shippingOptions) ? shippingOptions : [];
+    if (!opts.length) {
+      setShippingError('Nu există opțiuni de curier încă. Completează datele și încearcă din nou.');
+      return false;
+    }
+    if (!selectedTransportationOptionId && opts.length === 1) {
+      const only = opts[0];
+      setSelectedTransportationOptionId(
+        only.id || only.transportationOptionId || only.optionId || only.raw?.transportationOptionId || null
+      );
+    }
+    return true;
+  };
+
   useEffect(() => {
     if (!selectedTransportationOptionId) return;
     const exists = (shippingOptions || []).some((opt) => opt?.id === selectedTransportationOptionId);
@@ -2893,13 +2943,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setShippingError('Missing inboundPlanId or requestId to confirm shipping.');
       return;
     }
-    if (!selectedTransportationOptionId) {
-      setShippingError('Select a shipping option before confirming.');
-      return;
-    }
-    const selectedOpt = (shippingOptions || []).find((opt) => opt?.id === selectedTransportationOptionId);
+    await ensureOptionsAvailable();
+    let selectedOpt = (shippingOptions || []).find((opt) => opt?.id === selectedTransportationOptionId);
     if (!selectedOpt) {
-      setShippingError('Shipping options were refreshed. Please reselect an option.');
+      // dacă există doar una, o selectăm automat aici
+      if (Array.isArray(shippingOptions) && shippingOptions.length === 1) {
+        selectedOpt = shippingOptions[0];
+        setSelectedTransportationOptionId(selectedOpt.id || selectedOpt.transportationOptionId || selectedOpt.optionId || null);
+      }
+    }
+    if (!selectedOpt) {
+      setShippingError('Selectează o opțiune de curier înainte de confirmare.');
       return;
     }
     const optionShipmentId = String(selectedOpt?.shipmentId || selectedOpt?.raw?.shipmentId || '').trim();
@@ -3017,7 +3071,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     shipmentMode?.carrier?.partnered,
     shipmentMode?.deliveryDate,
     shipmentMode?.method,
-    shipments
+    shipments,
+    readyWindowByShipment
   ]);
 
 
@@ -3048,9 +3103,29 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setStep2Loaded(true);
       return;
     }
-    fetchShippingOptions().finally(() => setStep2Loaded(true));
+    // nu mai cerem automat opțiuni; așteptăm să existe ready window și click pe “Generează opțiuni curier”
+    setStep2Loaded(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, step2Loaded, shipmentMode?.deliveryDate]);
+
+  // Prefill ready-to-ship windows from shipments (if backend already has them) and ensure map keys exist.
+  useEffect(() => {
+    setReadyWindowByShipment((prev) => {
+      const next = { ...prev };
+      (shipments || []).forEach((s) => {
+        const shId = String(s?.id || s?.shipmentId || '').trim();
+        if (!shId) return;
+        if (!next[shId]) {
+          const start =
+            normalizeShipDate(s?.readyStart || s?.readyToShipWindow?.start || '') ||
+            '';
+          const end = normalizeShipDate(s?.readyToShipWindow?.end || '') || '';
+          next[shId] = { start, end };
+        }
+      });
+      return next;
+    });
+  }, [shipments]);
 
   // Reîncărcarea Step 2 este controlată manual; nu mai resetăm automat pe fiecare schimbare de state,
   // ca să evităm buclele de rerender.
@@ -3865,6 +3940,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           selectedTransportationOptionId={selectedTransportationOptionId}
           carrierTouched={carrierTouched}
           shippingConfirmed={shippingConfirmed}
+          readyWindowByShipment={readyWindowByShipment}
+          shippingLoading={shippingLoading}
           onOptionSelect={handleTransportationOptionSelect}
           onPalletDetailsChange={setPalletDetails}
           onShipDateChange={(date) => setShipmentMode((prev) => ({ ...prev, deliveryDate: date }))}
@@ -3875,6 +3952,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
               deliveryWindowEnd: window?.end || ''
             }))
           }
+          onReadyWindowChange={(shipmentId, win) =>
+            setReadyWindowByShipment((prev) => ({ ...prev, [shipmentId]: win }))
+          }
+          onGenerateOptions={fetchShippingOptions}
           error={shippingError}
           confirming={shippingConfirming}
           onNext={confirmShippingOptions}

@@ -1849,7 +1849,17 @@ serve(async (req) => {
       return map;
     })();
 
-    const globalReadyWindow = body?.readyToShipWindow || body?.ready_to_ship_window || null;
+    const globalReadyWindow =
+      body?.readyToShipWindow ||
+      body?.ready_to_ship_window ||
+      (preferredDeliveryWindow
+        ? {
+            start: preferredDeliveryWindow.start.toISOString(),
+            end: preferredDeliveryWindow.end?.toISOString()
+          }
+        : readyStartIso
+        ? { start: readyStartIso }
+        : null);
     let shipmentTransportationConfigurations: any[] = [];
     try {
       shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
