@@ -34,6 +34,16 @@ export default function FbaStep2Shipping({
   useEffect(() => {
     setEtaEnd(deliveryWindowEnd || '');
   }, [deliveryWindowEnd]);
+  // Dacă nu primim shipDate din backend, setează automat data de azi pentru a debloca step-ul.
+  useEffect(() => {
+    if (shipDate) return;
+    const today = new Date().toISOString().slice(0, 10);
+    setShipDate(today);
+    onShipDateChange?.(today);
+    if (selectedOption?.partnered === false) {
+      autoSetEtaEnd(today);
+    }
+  }, [shipDate, selectedOption?.partnered]); // autoSetEtaEnd este stabil în closure
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
