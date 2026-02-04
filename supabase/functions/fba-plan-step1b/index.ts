@@ -624,10 +624,18 @@ serve(async (req) => {
     }
 
     // Dacă există deja un inbound_plan_id stocat pe request și diferă de cel trimis, folosește-l (idempotent)
+    const snapshotInboundId =
+      (reqData as any)?.amazon_snapshot?.fba_inbound?.inboundPlanId ||
+      (reqData as any)?.amazon_snapshot?.fba_inbound?.inbound_plan_id ||
+      (reqData as any)?.amazon_snapshot?.inboundPlanId ||
+      null;
+
     if (reqData?.inbound_plan_id && reqData.inbound_plan_id !== inboundPlanId) {
       inboundPlanId = reqData.inbound_plan_id;
+    } else if (snapshotInboundId && snapshotInboundId !== inboundPlanId) {
+      inboundPlanId = snapshotInboundId;
     }
-    // dacă avem inboundPlanId din payload și nu e salvat încă, persistă-l imediat (idempotent)
+    // dacă avem inboundPlanId din payload/snapshot și nu e salvat încă, persistă-l imediat (idempotent)
     if (!reqData?.inbound_plan_id && inboundPlanId) {
       await supabase
         .from("prep_requests")
