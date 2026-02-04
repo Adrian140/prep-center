@@ -2459,6 +2459,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (!Array.isArray(packGroups)) return [];
     const inboundPlanId = resolveInboundPlanId();
     if (allowNoInboundPlan && !inboundPlanId) return [];
+    const shipDateIso = normalizeShipDate(shipmentMode?.deliveryDate) || null;
+    const windowStart = normalizeShipDate(shipmentMode?.deliveryWindowStart) || shipDateIso;
+    const windowEnd = normalizeShipDate(shipmentMode?.deliveryWindowEnd) || shipDateIso;
     const usePallets = shipmentMode?.method && shipmentMode.method !== 'SPD';
     const palletPayload = usePallets
       ? [
@@ -2554,7 +2557,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         shipmentId: shId,
         packages: [],
         pallets: null,
-        freightInformation: null
+        freightInformation: null,
+        readyToShipWindow: windowStart || windowEnd ? {
+          start: windowStart,
+          end: windowEnd
+        } : null
       };
       if (usePallets) {
         existing.pallets = palletPayload;
