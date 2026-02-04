@@ -342,8 +342,11 @@ export default function FbaSendToAmazonWizard({
   }, []);
 const allowPersistence = false; // forțează reluarea workflow-ului de la Step 1; nu restaurăm din localStorage
   const normalizePackGroups = useCallback(
-    (groups = []) =>
-      collapsePackGroups(Array.isArray(groups) ? groups : []).map((g, idx) => {
+    (groups = []) => {
+      const list = Array.isArray(groups) ? groups : [];
+      // Dacă Amazon a trimis mai multe packing groups, nu le colapsăm într-unul singur.
+      const source = list.length > 1 ? list : collapsePackGroups(list);
+      return source.map((g, idx) => {
         const items = (g.items || [])
           .map((it) => ({
             sku: it.sku || it.msku || it.SellerSKU || it.sellerSku || it.asin || '',
@@ -379,7 +382,8 @@ const allowPersistence = false; // forțează reluarea workflow-ului de la Step 
           perBoxItems: g.perBoxItems || g.per_box_items || null,
           contentInformationSource: g.contentInformationSource || g.content_information_source || null
         };
-      }),
+      });
+    },
     [collapsePackGroups]
   );
   const getPackGroupKey = useCallback((group) => group?.packingGroupId || group?.id || null, []);

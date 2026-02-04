@@ -105,6 +105,15 @@ function isLockId(val: string | null | undefined): boolean {
   return typeof val === "string" && val.startsWith("LOCK-");
 }
 
+// Normalize inboundPlanId: elimină LOCK-* și ID-uri peste 38 caractere pe care SP-API le respinge.
+function sanitizeInboundPlanId(val: string | null | undefined): string | null {
+  if (!val) return null;
+  const s = String(val);
+  if (isLockId(s)) return null;
+  if (s.length > 38) return null;
+  return s;
+}
+
 function toHex(buffer: ArrayBuffer): string {
   return Array.prototype.map
     .call(new Uint8Array(buffer), (x: number) => ("00" + x.toString(16)).slice(-2))
@@ -463,7 +472,7 @@ serve(async (req) => {
     const userIsAdmin = Boolean(profileRow?.is_admin);
 
     const body = await req.json().catch(() => ({}));
-    let inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId;
+    let inboundPlanId = sanitizeInboundPlanId(body?.inbound_plan_id ?? body?.inboundPlanId);
     const requestId = body?.request_id ?? body?.requestId;
     const amazonIntegrationIdInput = body?.amazon_integration_id as string | undefined;
     const requestedPackingOptionId = body?.packing_option_id ?? body?.packingOptionId ?? null;
@@ -493,7 +502,7 @@ serve(async (req) => {
     }
 
     if (reqData?.inbound_plan_id && reqData.inbound_plan_id !== inboundPlanId) {
-      inboundPlanId = reqData.inbound_plan_id;
+      inboundPlanId = sanitizeInboundPlanId(reqData.inbound_plan_id);
     }
 
     if (isLockId(inboundPlanId)) {
@@ -809,15 +818,31 @@ serve(async (req) => {
       };
     };
 
-    const packingGroups = [];
-    for (const gid of packingGroupIds) {
-      const grp = await fetchGroupItems(gid);
-      if (!grp.packingGroupId && gid) {
-        (grp as any).packingGroupId = gid;
-      }
-      packingGroups.push(grp);
-      await delay(50);
+  const packingGroups = [];
+  for (const gid of packingGroupIds) {
+    const grp = await fetchGroupItems(gid);
+    if (!grp.packingGroupId && gid) {
+      (grp as any).packingGroupId = gid;
     }
+    packingGroups.push(grp);
+    await delay(50);
+  }
+
+    const normalizePackingGroups = (groups: any[]) =>
+      (Array.isArray(groups) ? groups : []).map((g: any, idx: number) => {
+        const pgId = g?.packingGroupId || g?.id || `group-${idx + 1}`;
+        const items = Array.isArray(g?.items) ? g.items : [];
+        const units = items.reduce((sum: number, it: any) => sum + (Number(it?.quantity || 0) || 0), 0);
+        return {
+          ...g,
+          id: pgId,
+          packingGroupId: pgId,
+          title: g?.title || `Pack group ${idx + 1}`,
+          skuCount: items.length || 0,
+          units,
+          boxes: Number(g?.boxes || g?.boxCount || 1) || 1
+        };
+      });
 
     return new Response(
       JSON.stringify({
@@ -827,7 +852,7 @@ serve(async (req) => {
         amazonIntegrationId: integId || null,
         warnings,
         packingOptions,
-        packingGroups
+        packingGroups: normalizePackingGroups(packingGroups)
       }),
       { status: 200, headers: { ...baseCorsHeaders, "content-type": "application/json" } }
     );
