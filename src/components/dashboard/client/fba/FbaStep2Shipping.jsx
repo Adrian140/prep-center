@@ -32,9 +32,12 @@ export default function FbaStep2Shipping({
     from = null,
     to = null
   } = shipment || {};
-  const shippingOpts = Array.isArray(shippingOptions) ? shippingOptions : [];
+  const optionsList = useMemo(
+    () => (Array.isArray(shippingOptions) ? shippingOptions : []),
+    [shippingOptions]
+  );
   const selectedOption =
-    shippingOpts.find((opt) => opt?.id === selectedTransportationOptionId) || null;
+    optionsList.find((opt) => opt?.id === selectedTransportationOptionId) || null;
   const isSingleShipment = Array.isArray(shipments) && shipments.length === 1;
   const singleShipmentId = isSingleShipment
     ? String(shipments[0]?.id || shipments[0]?.shipmentId || '').trim()
@@ -66,9 +69,9 @@ export default function FbaStep2Shipping({
     const rw = readyWindowByShipment?.[singleShipmentId] || {};
     if (!rw.start) return;
     if (shippingLoading) return;
-    if (shippingOpts.length > 0) return;
+    if (optionsList.length > 0) return;
     onGenerateOptions?.();
-  }, [isSingleShipment, singleShipmentId, readyWindowByShipment, shippingLoading, shippingOpts, onGenerateOptions]);
+  }, [isSingleShipment, singleShipmentId, readyWindowByShipment, shippingLoading, optionsList, onGenerateOptions]);
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
@@ -96,7 +99,7 @@ export default function FbaStep2Shipping({
   };
   const groupedOptions = useMemo(() => {
     const groups = { SPD: [], LTL: [], FTL: [], OTHER: [] };
-    shippingOpts.forEach((opt) => {
+    optionsList.forEach((opt) => {
       const mode = normalizeOptionMode(opt?.mode || opt?.shippingMode || opt?.raw?.shippingMode);
       if (mode === 'SPD') groups.SPD.push(opt);
       else if (mode === 'LTL') groups.LTL.push(opt);
@@ -104,7 +107,7 @@ export default function FbaStep2Shipping({
       else groups.OTHER.push(opt);
     });
     return groups;
-  }, [shippingOpts]);
+  }, [optionsList]);
   const selectedMode = normalizeOptionMode(selectedOption?.mode || method);
   useEffect(() => {
     if (selectedOption?.partnered === false && shipDate) {
