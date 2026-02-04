@@ -1392,6 +1392,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return planBoxPlan;
     });
   }, [plan?.step1BoxPlan, plan?.step1_box_plan]);
+  // Când primim un nou inboundPlanId, resetăm box plan-ul ca să nu păstrăm grupuri vechi (evităm mismatch de packingGroupId).
+  useEffect(() => {
+    if (!plan?.inboundPlanId && !plan?.inbound_plan_id) return;
+    const planBoxPlan = plan?.step1BoxPlan || plan?.step1_box_plan || {};
+    setStep1BoxPlanByMarket(planBoxPlan && typeof planBoxPlan === 'object' ? planBoxPlan : {});
+  }, [plan?.inboundPlanId, plan?.inbound_plan_id]);
   useEffect(() => {
     if (serverUnitsRef.current.size) return;
     snapshotServerUnits(initialPlan?.skus || []);
