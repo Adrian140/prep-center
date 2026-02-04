@@ -3075,8 +3075,8 @@ serve(async (req) => {
       const refreshedForSelection = normalizedRequestedMode
         ? refreshedNormalized.filter((o) => normalizeOptionMode(o.mode) === normalizedRequestedMode)
         : refreshedNormalized;
-      const selectionPoolRaw = refreshedForSelection.length ? refreshedForSelection : refreshedNormalized;
-      const selectionPool = (() => {
+      let selectionPoolRaw = refreshedForSelection.length ? refreshedForSelection : refreshedNormalized;
+      let selectionPool = (() => {
         if (!shipmentIdForListing) return selectionPoolRaw;
         const withShipment = selectionPoolRaw.filter((o) => {
           const sid = o.shipmentId || o.raw?.shipmentId || null;
