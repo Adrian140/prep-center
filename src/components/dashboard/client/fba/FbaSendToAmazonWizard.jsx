@@ -474,6 +474,23 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [shippingConfirming, setShippingConfirming] = useState(false);
   const [skipPacking, setSkipPacking] = useState(false);
   const [forcePartneredOnly, setForcePartneredOnly] = useState(false);
+  const handleReadyWindowChange = useCallback((shipmentId, win) => {
+    if (!shipmentId) return;
+    setReadyWindowByShipment((prev) => ({ ...prev, [shipmentId]: win }));
+    const startIso = normalizeShipDate(win?.start);
+    const endIso = normalizeShipDate(win?.end || '');
+    if (startIso) {
+      const d = new Date(startIso);
+      d.setDate(d.getDate() + 1);
+      const ship = d.toISOString().slice(0, 10);
+      setShipmentMode((prev) => ({
+        ...prev,
+        deliveryDate: ship,
+        deliveryWindowStart: startIso,
+        deliveryWindowEnd: endIso || ''
+      }));
+    }
+  }, []);
   const isFallbackId = useCallback((v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-"), []);
   const hasRealPackGroups = useCallback(
     (groups) =>
@@ -3952,9 +3969,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
               deliveryWindowEnd: window?.end || ''
             }))
           }
-          onReadyWindowChange={(shipmentId, win) =>
-            setReadyWindowByShipment((prev) => ({ ...prev, [shipmentId]: win }))
-          }
+          onReadyWindowChange={handleReadyWindowChange}
           onGenerateOptions={fetchShippingOptions}
           error={shippingError}
           confirming={shippingConfirming}
