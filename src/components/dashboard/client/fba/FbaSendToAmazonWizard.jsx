@@ -2745,16 +2745,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
 
     const configs = buildShipmentConfigs();
-    const requireEnd = String(shipmentMode?.method || '').toUpperCase() !== 'SPD';
-    const missingReady = configs.some((cfg) => {
+    const requireEndConfirm = String(shipmentMode?.method || '').toUpperCase() !== 'SPD';
+    const missingReadyConfirm = configs.some((cfg) => {
       const win = cfg?.readyToShipWindow || {};
       if (!win.start) return true;
-      if (requireEnd && !win.end) return true;
+      if (requireEndConfirm && !win.end) return true;
       return false;
     });
-    if (missingReady) {
+    if (missingReadyConfirm) {
       setShippingError(
-        requireEnd
+        requireEndConfirm
           ? 'Adaugă “Ready to ship” (start și end) pentru fiecare shipment înainte de confirmare (LTL/FTL).'
           : 'Adaugă “Ready to ship” (start) pentru fiecare shipment înainte de confirmare.'
       );
