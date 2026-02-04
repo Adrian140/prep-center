@@ -204,7 +204,8 @@ export default function FbaStep2Shipping({
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const needsTerms = Boolean(selectedOption?.partnered);
-  const requireEnd = ['LTL', 'FTL', 'FREIGHT_LTL', 'FREIGHT_FTL'].includes(String(selectedMode || '').toUpperCase());
+  const isLtlFtl = (mode) => ['LTL', 'FTL', 'FREIGHT_LTL', 'FREIGHT_FTL'].includes(String(mode || '').toUpperCase());
+  const requireEnd = isLtlFtl(selectedOption?.mode || selectedMode);
   const missingReady = shipmentList.some((sh) => {
     const shKey = String(sh.id || sh.shipmentId || '').trim();
     const rw = readyWindowByShipment?.[shKey] || {};

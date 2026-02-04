@@ -502,7 +502,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (!shipmentId) return;
     const startInput = normalizeShipDate(win?.start);
     const startIso = startInput || getTomorrowIsoDate();
-    const requireEnd = isLtlFtl(shipmentMode?.method);
+    const requireEnd = isLtlFtl(shipmentMode?.method || currentOption?.mode || currentOption?.shippingMode);
     let endIso = normalizeShipDate(win?.end || '');
     if (requireEnd && !endIso) {
       const endDate = new Date(startIso);
