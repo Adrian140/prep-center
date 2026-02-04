@@ -101,6 +101,7 @@ export default function FbaStep2Shipping({
   const totalWeight = shipmentList.reduce((s, sh) => s + toKg(sh.weight, sh.weight_unit), 0);
   const carrierName = selectedOption?.carrierName || carrier?.name || 'Carrier';
   const summaryTitle = useMemo(() => {
+    if (!selectedOption) return 'Selectează un curier';
     const modeLabel =
       selectedMode === 'LTL'
         ? 'Less-than-truckload (LTL)'
@@ -108,7 +109,7 @@ export default function FbaStep2Shipping({
           ? 'Full truckload (FTL)'
           : 'Small parcel delivery (SPD)';
     return `${carrierName} · ${modeLabel}`;
-  }, [carrierName, selectedMode]);
+  }, [carrierName, selectedMode, selectedOption]);
 
   const renderShipmentCard = (s) => {
     const shKey = String(s.id || s.shipmentId || '').trim();
@@ -126,7 +127,12 @@ export default function FbaStep2Shipping({
       </div>
       <div className="px-4 py-3 text-sm text-slate-700 space-y-1">
         <div>Ship from: {s.from}</div>
-        <div>Ship to: {s.to}</div>
+        <div>
+          Ship to:{' '}
+          {/^A[A-Z0-9]{9,}$/i.test(String(s.to || '').trim())
+            ? '—'
+            : s.to || '—'}
+        </div>
         <div>Fulfilment capability: {s.capability || 'Standard'}</div>
         {Array.isArray(s.boxesDetail) && s.boxesDetail.length > 0 && (
           <div className="text-xs text-slate-500">
@@ -157,9 +163,11 @@ export default function FbaStep2Shipping({
           </div>
         </div>
         )}
-        <div className="text-xs text-amber-700">
-          Setează intervalul în care expediția este gata de predat curierului (start obligatoriu; end obligatoriu pentru LTL/FTL).
-        </div>
+        {!isSingleShipment && (
+          <div className="text-xs text-amber-700">
+            Setează intervalul în care expediția este gata de predat curierului (start obligatoriu; end obligatoriu pentru LTL/FTL).
+          </div>
+        )}
       </div>
     </div>
   );};
