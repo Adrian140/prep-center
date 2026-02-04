@@ -1797,28 +1797,18 @@ serve(async (req) => {
       };
     }
 
-    const readyStartIso = (() => {
-      if (shipDateParsed) return shipDateParsed.toISOString();
-      const now = new Date();
-      const plus48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-      return plus48Hours.toISOString();
-    })();
+    const readyStartIso: string | null = shipDateParsed ? shipDateParsed.toISOString() : null;
 
     function clampReadyWindow(startIso: string, endIso?: string) {
-      const now = new Date();
-      const minStart = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-
-      let start = new Date(startIso);
-      if (!Number.isFinite(start.getTime()) || start < minStart) {
-        start = minStart;
+      const start = new Date(startIso);
+      if (!Number.isFinite(start.getTime())) {
+        throw new Error("READY_TO_SHIP_WINDOW_INVALID");
       }
-
-      let end = endIso ? new Date(endIso) : new Date(start.getTime() + 48 * 60 * 60 * 1000);
-      if (!Number.isFinite(end.getTime()) || end <= start) {
-        end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      const end = endIso ? new Date(endIso) : null;
+      if (endIso && (!Number.isFinite(end.getTime()) || end <= start)) {
+        throw new Error("READY_TO_SHIP_WINDOW_INVALID");
       }
-
-      return { start: start.toISOString(), end: end.toISOString() };
+      return { start: start.toISOString(), end: end ? end.toISOString() : undefined };
     }
 
     const includePackages = String(effectiveShippingMode || "").toUpperCase() === "GROUND_SMALL_PARCEL";
@@ -1859,28 +1849,47 @@ serve(async (req) => {
       return map;
     })();
 
-    const shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
-      const shId = sh.shipmentId || sh.id || `s-${idx + 1}`;
-      const cfg =
-        mergedIncomingConfigs.get(String(shId)) ||
-        (shipmentTransportConfigs || []).find((c: any) => c?.shipmentId === shId || c?.shipment_id === shId) ||
-        (shipmentTransportConfigs || [])[idx] ||
-        {};
-      const rawStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || readyStartIso;
-      const { start } = clampReadyWindow(rawStart);
-      const baseCfg: Record<string, any> = {
-        readyToShipWindow: { start },
-        shipmentId: shId
-      };
-      if (contactInformation) baseCfg.contactInformation = contactInformation;
-      const pkgsFromCfg = normalizePackages(cfg?.packages);
-      if (pkgsFromCfg) baseCfg.packages = pkgsFromCfg;
-      const pallets = normalizePallets(cfg?.pallets);
-      if (pallets) baseCfg.pallets = pallets;
-      const freightInformation = normalizeFreightInformation(cfg?.freightInformation || cfg?.freight_information);
-      if (freightInformation) baseCfg.freightInformation = freightInformation;
-      return baseCfg;
-    });
+    let shipmentTransportationConfigurations: any[] = [];
+    try {
+      shipmentTransportationConfigurations = placementShipments.map((sh: any, idx: number) => {
+        const shId = sh.shipmentId || sh.id || `s-${idx + 1}`;
+        const cfg =
+          mergedIncomingConfigs.get(String(shId)) ||
+          (shipmentTransportConfigs || []).find((c: any) => c?.shipmentId === shId || c?.shipment_id === shId) ||
+          (shipmentTransportConfigs || [])[idx] ||
+          {};
+        const rawStart = cfg.readyToShipWindow?.start || cfg.ready_to_ship_window?.start || null;
+        if (!rawStart) {
+          throw new Error("READY_TO_SHIP_WINDOW_MISSING");
+        }
+        const { start } = clampReadyWindow(rawStart);
+        const baseCfg: Record<string, any> = {
+          readyToShipWindow: { start },
+          shipmentId: shId
+        };
+        if (contactInformation) baseCfg.contactInformation = contactInformation;
+        const pkgsFromCfg = normalizePackages(cfg?.packages);
+        if (pkgsFromCfg) baseCfg.packages = pkgsFromCfg;
+        const pallets = normalizePallets(cfg?.pallets);
+        if (pallets) baseCfg.pallets = pallets;
+        const freightInformation = normalizeFreightInformation(cfg?.freightInformation || cfg?.freight_information);
+        if (freightInformation) baseCfg.freightInformation = freightInformation;
+        return baseCfg;
+      });
+    } catch (err) {
+      const msg = String(err?.message || err || "");
+      if (msg.includes("READY_TO_SHIP_WINDOW")) {
+        return new Response(
+          JSON.stringify({
+            error: "readyToShipWindow (start) este obligatoriu pentru fiecare shipment. Introdu datele manual în UI.",
+            code: "READY_TO_SHIP_WINDOW_MISSING",
+            traceId
+          }),
+          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+      throw err;
+    }
 
     console.log(JSON.stringify({
       tag: "transportation_payload_preview",

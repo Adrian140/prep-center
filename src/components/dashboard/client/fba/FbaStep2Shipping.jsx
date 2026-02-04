@@ -32,22 +32,12 @@ export default function FbaStep2Shipping({
   const selectedOption =
     options.find((opt) => opt?.id === selectedTransportationOptionId) || null;
 
-  // Ship date pornește gol; utilizatorul îl setează manual
+  // Ship date și ETA se completează manual de către utilizator (fără default auto).
   const [shipDate, setShipDate] = useState(deliveryDate || '');
   const [etaEnd, setEtaEnd] = useState(deliveryWindowEnd || '');
   useEffect(() => {
     setEtaEnd(deliveryWindowEnd || '');
   }, [deliveryWindowEnd]);
-  // Dacă nu primim shipDate din backend, setează automat data de azi pentru a debloca step-ul.
-  useEffect(() => {
-    if (shipDate) return;
-    const today = new Date().toISOString().slice(0, 10);
-    setShipDate(today);
-    onShipDateChange?.(today);
-    if (selectedOption?.partnered === false) {
-      autoSetEtaEnd(today);
-    }
-  }, [shipDate, selectedOption?.partnered]); // autoSetEtaEnd este stabil în closure
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
@@ -157,21 +147,6 @@ export default function FbaStep2Shipping({
   const destCountry = extractCountryFromString(to);
   const isInternational = sourceCountry && destCountry && sourceCountry !== destCountry;
 
-  const autoSetEtaEnd = (startDate) => {
-    if (!startDate) return;
-    const d = new Date(startDate);
-    d.setDate(d.getDate() + (isInternational ? 13 : 6)); // 7 zile interne / 14 zile internaționale
-    const autoEnd = d.toISOString().slice(0, 10);
-    const currentEnd = deliveryWindowEnd || '';
-    const currentStart = deliveryWindowStart || '';
-    // dacă valorile sunt deja setate, nu mai trimitem update (previne bucle de re-render)
-    if (autoEnd === etaEnd && currentEnd === autoEnd && currentStart === startDate) return;
-    setEtaEnd(autoEnd);
-    if (currentEnd !== autoEnd || currentStart !== startDate) {
-      onDeliveryWindowChange?.({ start: startDate, end: autoEnd });
-    }
-  };
-
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
@@ -206,9 +181,6 @@ export default function FbaStep2Shipping({
                     const next = e.target.value;
                     setShipDate(next);
                     onShipDateChange?.(next);
-                    if (selectedOption?.partnered === false) {
-                      autoSetEtaEnd(next);
-                    }
                   }}
                   className="w-full border rounded-md px-3 py-2 text-sm"
                 />
@@ -219,7 +191,7 @@ export default function FbaStep2Shipping({
                     Estimated arrival (non-partnered)
                   </div>
                   <div className="text-[11px] text-slate-500 mb-1">
-                    End (optional, default +7 zile interne / +14 zile internaționale)
+                    End (completează manual ETA end)
                   </div>
                   <input
                     type="date"

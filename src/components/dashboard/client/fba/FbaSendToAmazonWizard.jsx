@@ -2482,8 +2482,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const inboundPlanId = resolveInboundPlanId();
     if (allowNoInboundPlan && !inboundPlanId) return [];
     const shipDateIso = normalizeShipDate(shipmentMode?.deliveryDate) || null;
-    const windowStart = normalizeShipDate(shipmentMode?.deliveryWindowStart) || shipDateIso;
-    const windowEnd = normalizeShipDate(shipmentMode?.deliveryWindowEnd) || shipDateIso;
+    const windowStart = normalizeShipDate(shipmentMode?.deliveryWindowStart) || null;
+    const windowEnd = normalizeShipDate(shipmentMode?.deliveryWindowEnd) || null;
     const usePallets = shipmentMode?.method && shipmentMode.method !== 'SPD';
     const palletPayload = usePallets
       ? [
@@ -2509,7 +2509,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             amount: Number(palletDetails.declaredValue || 0),
             code: palletDetails.declaredValueCurrency || 'EUR'
           },
-          freightClass: palletDetails.freightClass || 'FC_XX'
+          freightClass: palletDetails.freightClass || null
         }
       : null;
 
@@ -2902,6 +2902,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setShippingError('Shipping options were refreshed. Please reselect an option.');
       return;
     }
+    if (!shipmentMode?.deliveryDate) {
+      setShippingError('Completează ship date înainte de confirmarea transportului.');
+      return;
+    }
     const optionShipmentId = String(selectedOpt?.shipmentId || selectedOpt?.raw?.shipmentId || '').trim();
     const shipmentIds = Array.isArray(shipments)
       ? shipments.map((s) => String(s.id || s.shipmentId || '')).filter(Boolean)
@@ -3212,6 +3216,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const end = shipmentMode?.deliveryWindowEnd || '';
     if (strict && !start) {
       return 'Completează data de start a ferestrei de livrare (ETA) pentru transport non-partener.';
+    }
+    if (strict && !end) {
+      return 'Completează data de sfârșit a ferestrei de livrare (ETA end) pentru transport non-partener.';
     }
     if (start && shipmentMode?.deliveryDate) {
       const sd = new Date(start);
