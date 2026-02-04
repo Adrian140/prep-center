@@ -1842,6 +1842,16 @@ serve(async (req) => {
       }
     });
 
+    // Safety net: if Amazon later complains about missing expiration, ensure every SKU has one.
+    items.forEach((it) => {
+      const key = normalizeSku(it.sku || it.asin || "");
+      if (!expirations[key]) {
+        const auto = addMonths(today, 16).toISOString().split("T")[0];
+        expirations[key] = auto;
+        expirySourceBySku[key] = "auto_16m_forced";
+      }
+    });
+
     // Persist expirations that were auto/manual filled but missing in DB
     const expiryUpdates: { id: string; expiration_date: string; expiration_source: string | null }[] = [];
     items.forEach((it) => {
