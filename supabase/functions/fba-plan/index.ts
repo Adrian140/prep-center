@@ -2000,12 +2000,22 @@ serve(async (req) => {
           const o = overrides[key];
           if (o?.labelOwner) labelOwner = o.labelOwner;
           if (o?.prepOwner) prepOwner = o.prepOwner;
+          // Amazon cere o clasificare explicită de prep pentru fiecare SKU; când nu primim guidance,
+          // trimitem ITEM_NO_PREP ca fallback pentru a evita FBA_INB_0182.
+          const prepType = prepRequired ? "ITEM_LABELING" : "ITEM_NO_PREP";
+          const prepDetails = [
+            {
+              prepType,
+              prepOwner
+            }
+          ];
           return {
             msku: key,
             quantity: Number(c.units) || 0,
             expiration: expiryVal || undefined,
             prepOwner,
-            labelOwner
+            labelOwner,
+            prepDetails
           };
         })
       };
