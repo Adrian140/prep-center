@@ -218,10 +218,11 @@ export default function FbaStep2Shipping({
     if (requireEnd && !rw.end) return true;
     return false;
   });
+  const requireEtaEnd = selectedOption?.partnered === false && selectedMode !== 'SPD';
   const canContinue =
     Boolean(selectedOption) &&
     (!needsTerms || acceptedTerms) &&
-    (selectedOption?.partnered === false ? Boolean(etaEnd) : true) &&
+    (requireEtaEnd ? Boolean(etaEnd) : true) &&
     !missingReady;
   useEffect(() => {
     setAcceptedTerms(false);
