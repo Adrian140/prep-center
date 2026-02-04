@@ -308,23 +308,7 @@ export default function FbaStep2Shipping({
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={onGenerateOptions}
-                    disabled={!singleShipmentId || !readyWindowByShipment?.[singleShipmentId]?.start || shippingLoading}
-                    className={`px-3 py-2 rounded-md text-xs font-semibold shadow-sm whitespace-nowrap ${
-                      singleShipmentId && readyWindowByShipment?.[singleShipmentId]?.start && !shippingLoading
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                        : 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {shippingLoading ? 'Se încarcă…' : 'Confirm ready date'}
-                  </button>
-                  <div className="text-[11px] text-amber-700">
-                    Start obligatoriu; end nu este cerut pentru SPD.
-                  </div>
-                </div>
+                <div className="flex flex-col gap-2 text-[11px] text-slate-500" />
               )}
             </div>
           </div>
@@ -336,18 +320,6 @@ export default function FbaStep2Shipping({
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="font-semibold text-slate-900">Available shipping options</div>
-            <button
-              type="button"
-              onClick={onGenerateOptions}
-              disabled={missingReady || !shipDate || shippingLoading}
-              className={`px-4 py-2 rounded-md text-sm font-semibold shadow-sm ${
-                !missingReady && shipDate && !shippingLoading
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                  : 'bg-slate-200 text-slate-500 cursor-not-allowed'
-              }`}
-            >
-              {shippingLoading ? 'Se încarcă…' : 'Generează opțiuni curier'}
-            </button>
           </div>
           {!options.length && shippingConfirmed && (
             <div className="text-sm text-slate-700">
@@ -356,7 +328,7 @@ export default function FbaStep2Shipping({
           )}
           {!options.length && !shippingConfirmed && (
             <div className="text-sm text-slate-600">
-              No shipping options available yet. Complete “Ready to ship” și apasă “Generează opțiuni curier”.
+              No shipping options available yet. Complete “Ready to ship”.
             </div>
           )}
           {['SPD', 'LTL', 'FTL', 'OTHER'].map((modeKey) => {

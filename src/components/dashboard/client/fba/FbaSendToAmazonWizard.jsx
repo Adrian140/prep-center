@@ -518,7 +518,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       deliveryWindowStart: startIso,
       deliveryWindowEnd: endIso || ''
     }));
-  }, [shipmentMode?.method]);
+    fetchShippingOptions({ force: true });
+  }, [shipmentMode?.method, currentOption?.mode, currentOption?.shippingMode, fetchShippingOptions]);
   const isFallbackId = useCallback((v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-"), []);
   const hasRealPackGroups = useCallback(
     (groups) =>
