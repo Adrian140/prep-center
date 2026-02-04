@@ -1884,13 +1884,17 @@ serve(async (req) => {
     } catch (err) {
       const msg = String(err?.message || err || "");
       if (msg.includes("READY_TO_SHIP_WINDOW")) {
+        const missingShipments = placementShipments.map((s: any) => s?.shipmentId || s?.id).filter(Boolean);
         return new Response(
           JSON.stringify({
             error: "readyToShipWindow (start) este obligatoriu pentru fiecare shipment. Introdu datele manual în UI.",
             code: "READY_TO_SHIP_WINDOW_MISSING",
-            traceId
+            traceId,
+            blocking: true,
+            needReadyToShipWindow: true,
+            shipments: missingShipments
           }),
-          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+          { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
         );
       }
       throw err;
