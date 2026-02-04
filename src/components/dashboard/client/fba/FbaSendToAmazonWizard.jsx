@@ -789,6 +789,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     initialPlan?.id,
     initialPlan?.request_id
   ]);
+  const sanitizeInboundPlanId = (id) => {
+    if (!id) return null;
+    const val = String(id);
+    // Amazon poate returna un placeholder "LOCK-..." sau un id mai lung decât limita de 38.
+    if (val.startsWith('LOCK-')) return null;
+    if (val.length > 38) return null;
+    return val;
+  };
   const resolveInboundPlanId = useCallback(() => {
     // Evită revenirea la inboundPlanId din props atunci când am resetat planul curent (ex: după editarea cantităților).
     const currentPlan = planRef.current || plan;
@@ -800,21 +808,21 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         'plan_id' in currentPlan);
 
     if (hasExplicitInbound) {
-      return (
+      return sanitizeInboundPlanId(
         currentPlan?.inboundPlanId ||
-        currentPlan?.inbound_plan_id ||
-        currentPlan?.planId ||
-        currentPlan?.plan_id ||
-        null
+          currentPlan?.inbound_plan_id ||
+          currentPlan?.planId ||
+          currentPlan?.plan_id ||
+          null
       );
     }
 
-    return (
+    return sanitizeInboundPlanId(
       initialPlan?.inboundPlanId ||
-      initialPlan?.inbound_plan_id ||
-      initialPlan?.planId ||
-      initialPlan?.plan_id ||
-      null
+        initialPlan?.inbound_plan_id ||
+        initialPlan?.planId ||
+        initialPlan?.plan_id ||
+        null
     );
   }, [
     initialPlan?.inboundPlanId,
