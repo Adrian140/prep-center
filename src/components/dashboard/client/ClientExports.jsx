@@ -311,7 +311,33 @@ export default function ClientExports() {
     }
     setBusy(true);
     try {
-      // 1) Citește datele
+      // 1) Dacă e raport de Stock, preferăm snapshot-ul lunar din export_files
+      if (kind === "Stock") {
+        const targetDate = to || new Date().toISOString().slice(0, 10);
+        const { data: snap, error: snapErr } = await supabase
+          .from("export_files")
+          .select("file_path, period_end, rows_count")
+          .eq("company_id", profile.company_id)
+          .eq("export_type", "stock_monthly_snapshot")
+          .eq("status", "ready")
+          .lte("period_end", targetDate)
+          .order("period_end", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (snapErr) throw snapErr;
+        if (snap?.file_path) {
+          const { data: urlData, error: urlErr } = await supabase.storage
+            .from("exports")
+            .createSignedUrl(snap.file_path, 120);
+          if (urlErr) throw urlErr;
+          window.open(urlData.signedUrl, "_blank", "noopener,noreferrer");
+          setBusy(false);
+          return;
+        }
+        // dacă nu există snapshot, cădem în vechiul export din stoc curent
+      }
+
+      // 2) Citește datele brute
       let query = supabase
         .from(meta.table)
         .select("*")
@@ -319,7 +345,6 @@ export default function ClientExports() {
       query = applyCountryFilter(query, meta.table);
       query = query.order(meta.dateCol, { ascending: true });
 
-      // "Stock" = snapshot (fără interval)
       if (kind !== "Stock") {
         if (from) query = query.gte(meta.dateCol, from);
         if (to) query = query.lte(meta.dateCol, to);
@@ -460,14 +485,13 @@ export default function ClientExports() {
 
         <div className="flex flex-col">
           <label className="text-xs text-text-secondary mb-1">
-            {t("ClientExports.to")}
+            {kind === "Stock" ? t("ClientExports.toStock") : t("ClientExports.to")}
           </label>
           <input
             type="date"
             className="border rounded px-3 py-2"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            disabled={kind === "Stock"} // opțional: pentru claritate
           />
         </div>
 
