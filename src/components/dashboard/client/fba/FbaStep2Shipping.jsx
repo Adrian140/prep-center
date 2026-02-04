@@ -51,7 +51,7 @@ export default function FbaStep2Shipping({
   useEffect(() => {
     if (isSingleShipment && singleShipmentId && !readyWindowByShipment?.[singleShipmentId]?.start) {
       const today = new Date();
-      const startDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + 1));
+      const startDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), today.getUTCHours() + 6));
       const start = startDate.toISOString().slice(0, 10);
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 6);
