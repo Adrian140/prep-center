@@ -1408,13 +1408,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
     }
     const returnedModes = shippingSummary?.returnedModes || [];
-    const returnedSolutions = (shippingSummary?.returnedSolutions || []).map((s) => String(s || '').toUpperCase());
     const wantsSpd = String(shipmentMode?.method || '').toUpperCase() === 'SPD';
-    const hasPartnered = returnedSolutions.some((s) => s.includes('AMAZON_PARTNERED'));
     if (wantsSpd && returnedModes.length && !returnedModes.includes('GROUND_SMALL_PARCEL')) {
       return 'Amazon nu a returnat opțiuni SPD pentru aceste colete. Verifică dimensiunile/greutatea (setPackingInformation). Paletii sunt doar pentru LTL/FTL.';
     }
-    // nu mai afișăm mesajul de partnered indisponibil; este implicit în opțiuni
     return null;
   }, [shippingSummary, shippingLoading, step2Loaded, shipmentMode?.method]);
 
@@ -2897,6 +2894,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         setShippingError('Nu există pachete/paleți validați pentru confirmare (lipsește greutate/dimensiuni). Completează packing și reîncearcă.');
         return;
       }
+      const shipDateIso = normalizeShipDate(shipmentMode?.deliveryDate) || null;
+      let windowStart = normalizeShipDate(shipmentMode?.deliveryWindowStart);
+      let windowEnd = normalizeShipDate(shipmentMode?.deliveryWindowEnd);
+      // dacă precondițiile cer CONFIRMED_DELIVERY_WINDOW și nu avem start/end, setăm default la ship date
+      if (!windowStart && shipDateIso) windowStart = shipDateIso;
+      if (!windowEnd && shipDateIso) windowEnd = shipDateIso;
       const contactInformation = resolveContactInformation();
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
@@ -2907,9 +2910,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           shipping_mode: shipmentMode?.method || null,
           ...(contactInformation ? { contact_information: contactInformation } : {}),
           shipment_transportation_configurations: configs,
-          ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
-          delivery_window_start: normalizeShipDate(shipmentMode?.deliveryWindowStart) || null,
-          delivery_window_end: normalizeShipDate(shipmentMode?.deliveryWindowEnd) || null,
+          ship_date: shipDateIso,
+          delivery_window_start: windowStart,
+          delivery_window_end: windowEnd,
           transportation_option_id: selectedTransportationOptionId,
           auto_confirm_placement: true,
           confirm: true
