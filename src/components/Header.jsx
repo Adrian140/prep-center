@@ -8,6 +8,7 @@ import { Menu, X } from 'lucide-react';
 import { useT } from '@/i18n/useT';
 import { useMarket } from '@/contexts/MarketContext';
 import { normalizeMarketCode } from '@/utils/market';
+import { supabase } from '@/config/supabase';
 
 const useSafeMarket = () => {
   try {
@@ -128,7 +129,6 @@ function Header() {
         return;
       }
       try {
-        const { supabase } = await import('@/config/supabase');
         const { count } = await supabase
           .from('amazon_integrations')
           .select('id', { count: 'exact', head: true })
