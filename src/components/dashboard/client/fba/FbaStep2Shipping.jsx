@@ -112,13 +112,7 @@ export default function FbaStep2Shipping({
   const selectedMode = normalizeOptionMode(selectedOption?.mode || method);
   const requireEnd = ['LTL', 'FTL', 'FREIGHT_LTL', 'FREIGHT_FTL'].includes(String(selectedMode || '').toUpperCase());
 
-  // Nu auto-completăm end; îl lasăm să fie setat manual pentru LTL/FTL.
-  useEffect(() => {
-    if (selectedOption?.partnered === false && shipDate) {
-      // dacă deja avem fereastra setată din parent, nu recalculăm iar (previne loop)
-      if (!deliveryWindowEnd) autoSetEtaEnd(shipDate);
-    }
-  }, [selectedOption?.partnered, shipDate, deliveryWindowEnd]);
+  // Nu auto-completăm end; îl lăsăm manual la LTL/FTL. Pentru SPD nu cerem end.
 
   const shipmentCount = shipmentList.length;
   const totalBoxes = shipmentList.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0);
