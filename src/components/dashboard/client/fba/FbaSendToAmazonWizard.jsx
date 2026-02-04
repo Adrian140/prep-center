@@ -2868,9 +2868,18 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setShippingError('Select a shipping option before confirming.');
       return;
     }
-    const selectedStillExists = (shippingOptions || []).some((opt) => opt?.id === selectedTransportationOptionId);
-    if (!selectedStillExists) {
+    const selectedOpt = (shippingOptions || []).find((opt) => opt?.id === selectedTransportationOptionId);
+    if (!selectedOpt) {
       setShippingError('Shipping options were refreshed. Please reselect an option.');
+      return;
+    }
+    const optionShipmentId = String(selectedOpt?.shipmentId || selectedOpt?.raw?.shipmentId || '').trim();
+    const shipmentIds = Array.isArray(shipments)
+      ? shipments.map((s) => String(s.id || s.shipmentId || '')).filter(Boolean)
+      : [];
+    if (optionShipmentId && shipmentIds.length && !shipmentIds.includes(optionShipmentId)) {
+      setShippingError('Shipping options are stale for this shipment. Regenerate and reselect.');
+      await fetchShippingOptions();
       return;
     }
     if (shipmentMode?.method && shipmentMode.method !== 'SPD') {
@@ -2976,6 +2985,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     plan?.packing_option_id,
     plan?.placementOptionId,
     plan?.placement_option_id,
+    fetchShippingOptions,
     resolveInboundPlanId,
     resolveRequestId,
     shipmentMode?.carrier?.partnered,
@@ -2989,6 +2999,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (currentStep !== '2') {
       setStep2Loaded(false);
       return;
+    }
+    if (selectedTransportationOptionId) {
+      const opt = (shippingOptions || []).find((o) => o?.id === selectedTransportationOptionId);
+      const optShipmentId = String(opt?.shipmentId || opt?.raw?.shipmentId || '').trim();
+      const ids = Array.isArray(shipments)
+        ? shipments.map((s) => String(s.id || s.shipmentId || '')).filter(Boolean)
+        : [];
+      if (optShipmentId && ids.length && !ids.includes(optShipmentId)) {
+        setSelectedTransportationOptionId(null);
+      }
     }
     if (step2Loaded) return;
     if (historyMode && shippingConfirmed && (shippingOptions.length || shippingSummary)) {
