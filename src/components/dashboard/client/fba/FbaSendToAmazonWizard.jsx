@@ -1412,14 +1412,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const wantsSpd = String(shipmentMode?.method || '').toUpperCase() === 'SPD';
     const hasPartnered = returnedSolutions.some((s) => s.includes('AMAZON_PARTNERED'));
     if (wantsSpd && returnedModes.length && !returnedModes.includes('GROUND_SMALL_PARCEL')) {
-    return 'Amazon did not return SPD options for these parcels. Check box dimensions/weight (setPackingInformation). Pallets are only for LTL/FTL.';
-  }
-  // nu mai afișăm mesajul de partnered indisponibil; vizibil în opțiuni
-  if (shippingSummary && !shippingSummary?.alreadyConfirmed && returnedSolutions.length && !hasPartnered) {
-    return 'Amazon did not return AMAZON_PARTNERED_CARRIER. Check box dimensions/weight (setPackingInformation), contact information, confirmed packing options, then regenerate transportation options. Pallets/freight info are only for LTL/FTL.';
-  }
-  return null;
-}, [shippingSummary, shippingLoading, step2Loaded, shipmentMode?.method]);
+      return 'Amazon nu a returnat opțiuni SPD pentru aceste colete. Verifică dimensiunile/greutatea (setPackingInformation). Paletii sunt doar pentru LTL/FTL.';
+    }
+    // nu mai afișăm mesajul de partnered indisponibil; este implicit în opțiuni
+    return null;
+  }, [shippingSummary, shippingLoading, step2Loaded, shipmentMode?.method]);
 
   const isPartneredShipment = useMemo(
     () =>
