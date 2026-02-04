@@ -3101,7 +3101,8 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
-    const autoSelectTransportationOption =
+    // Pentru fluxul PCP păstrăm auto-select; pentru non-PCP nu auto-selectăm fallback ca să evităm opțiuni greșite
+    const autoSelectTransportationOptionRaw =
       body?.auto_select_transportation_option ??
       body?.autoSelectTransportationOption ??
       true;
@@ -3135,7 +3136,9 @@ serve(async (req) => {
         ? selectionPool.find((o) => o.id === confirmOptionId) || null
         : null;
       if (confirmOptionId && !requestedOption) {
-        if (autoSelectTransportationOption) {
+        // dacă userul a selectat explicit o opțiune, nu mai facem autoswitch pe non-PCP
+        const allowAuto = autoSelectTransportationOptionRaw && partneredOpt;
+        if (allowAuto) {
           const fallbackAuto = selectionPool.find((o) => o.partnered) || selectionPool[0] || null;
           selectedOption = fallbackAuto;
           logStep("transportationOption_autoswitch_missing", {
@@ -3159,13 +3162,13 @@ serve(async (req) => {
                 charge: o.charge ?? null
               }))
             }),
-            { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+            { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
           );
         }
       } else {
         selectedOption = requestedOption;
       }
-      if (!selectedOption && autoSelectTransportationOption) {
+      if (!selectedOption && (autoSelectTransportationOptionRaw && partneredOpt)) {
         selectedOption = selectionPool.find((o) => o.partnered) || selectionPool[0] || null;
         logStep("transportationOption_auto_selected", {
           traceId,
