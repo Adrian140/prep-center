@@ -48,6 +48,13 @@ export default function FbaStep2Shipping({
     setEtaStart(deliveryWindowStart || '');
     setEtaEnd(deliveryWindowEnd || '');
   }, [deliveryWindowStart, deliveryWindowEnd]);
+  useEffect(() => {
+    if (isSingleShipment && singleShipmentId && !readyWindowByShipment?.[singleShipmentId]?.start) {
+      const today = new Date();
+      const start = today.toISOString().slice(0, 10);
+      onReadyWindowChange?.(singleShipmentId, { start, end: readyWindowByShipment?.[singleShipmentId]?.end || '' });
+    }
+  }, [isSingleShipment, singleShipmentId, readyWindowByShipment, onReadyWindowChange]);
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
@@ -535,11 +542,6 @@ export default function FbaStep2Shipping({
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="text-sm text-slate-600">{summaryTitle}</div>
-        {missingReady && (
-          <div className="text-xs text-red-600">
-            Completează “Ready to ship” (start) pentru toate expedierile înainte de confirmare.
-          </div>
-        )}
         <div className="flex gap-3 justify-end">
           <button
             type="button"
