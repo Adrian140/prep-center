@@ -85,10 +85,10 @@ serve(async (req) => {
         if (checkErr && checkErr.code !== "PGRST116") throw checkErr;
         const existingSet = new Set((existing || []).map((e) => e.period_end));
 
-        // Citește stocul o singură dată
+        // Citește stocul o singură dată (cu warehouse, dacă există)
         const { data: stock, error: stockErr } = await supabase
           .from("stock_items")
-          .select("ean, asin, name, qty, purchase_price, created_at, updated_at")
+          .select("ean, asin, name, qty, purchase_price, created_at, warehouse")
           .eq("company_id", company.id)
           .order("created_at", { ascending: false });
         if (stockErr) throw stockErr;
@@ -99,14 +99,38 @@ serve(async (req) => {
 
         const XLSX = await import("https://esm.sh/xlsx@0.18.5");
 
-        for (const m of months) {
+        // grupăm pe warehouse (default dacă lipsește)
+        const byWh = new Map<string, typeof stock>();
+        for (const row of stock) {
+          const whRaw = (row.warehouse ?? "default").trim();
+          const wh = whRaw === "" ? "default" : whRaw;
+          if (!byWh.has(wh)) byWh.set(wh, []);
+          byWh.get(wh)!.push(row);
+        }
+
+        const warehouseList = Array.from(byWh.keys());
+
+        for (const wh of warehouseList) {
+          const whStock = byWh.get(wh)!;
+
+          const { data: existing, error: checkErr } = await supabase
+            .from("export_files")
+            .select("period_end, file_path")
+            .eq("company_id", company.id)
+            .eq("export_type", "stock_monthly_snapshot")
+            .eq("warehouse", wh)
+            .in("period_end", months.map((m) => m.endISO));
+          if (checkErr && checkErr.code !== "PGRST116") throw checkErr;
+          const existingSet = new Set((existing || []).map((e) => e.period_end));
+
+          for (const m of months) {
           const already = existingSet.has(m.endISO);
           if (already && !regenerateAll) {
             skipped++;
             continue;
           }
 
-          const totals = stock.reduce(
+          const totals = whStock.reduce(
             (acc, r) => {
               const q = Number(r.qty ?? 0);
               const p = Number(r.purchase_price ?? 0);
@@ -120,7 +144,7 @@ serve(async (req) => {
 
           const sheetData = [
             ["EAN", "ASIN", "Name", "Qty", "Purchase price", "Value", "Created at", "Updated at"],
-            ...stock.map((r) => [
+            ...whStock.map((r) => [
               r.ean ?? "",
               r.asin ?? "",
               r.name ?? "",
@@ -128,7 +152,7 @@ serve(async (req) => {
               r.purchase_price ?? "",
               Number(r.qty ?? 0) * Number(r.purchase_price ?? 0),
               (r.created_at ?? "").slice(0, 19).replace("T", " "),
-              (r.updated_at ?? "").slice(0, 19).replace("T", " "),
+              "", // updated_at not available in schema
             ]),
             [],
             [
@@ -153,8 +177,9 @@ serve(async (req) => {
             month: "long",
             year: "numeric",
           });
-          const fileName = `Stock ${cleanName} ${niceMonth}.xlsx`;
-          const path = `exports/${company.id}/stock/monthly/${m.label.slice(0, 4)}/${fileName}`;
+          const whClean = cleanCompanyName(wh);
+          const fileName = `Stock ${cleanName} ${whClean} ${niceMonth}.xlsx`;
+          const path = `exports/${company.id}/stock/monthly/${whClean}/${m.label.slice(0, 4)}/${fileName}`;
 
           const { error: uploadErr } = await supabase.storage
             .from("exports")
@@ -164,8 +189,8 @@ serve(async (req) => {
             });
           if (uploadErr) throw uploadErr;
 
-          // dacă exista și regenerăm, ștergem vechiul meta
-          if (already && regenerateAll) {
+          // dacă exista și regenerăm, ștergem vechiul meta (indiferent de warehouse) ca să evităm duplicate
+          if (regenerateAll) {
             await supabase
               .from("export_files")
               .delete()
@@ -179,6 +204,7 @@ serve(async (req) => {
             export_type: "stock_monthly_snapshot",
             period_start: m.startISO,
             period_end: m.endISO,
+            warehouse: wh,
             file_path: path,
             rows_count: stock.length,
             totals_json: {
@@ -192,6 +218,7 @@ serve(async (req) => {
 
           generated++;
         }
+        }
       } catch (e: any) {
         errors.push(`company ${company.id}: ${e.message}`);
       }
@@ -200,7 +227,6 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        period: label,
         generated,
         skipped,
         errors: errors.length ? errors : undefined,

@@ -1,0 +1,20 @@
+name: Monthly Stock Snapshots
+
+on:
+  schedule:
+    - cron: '5 0 1 * *' # 00:05 UTC in prima zi din luna
+  workflow_dispatch:
+
+jobs:
+  trigger-snapshots:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call trigger_monthly_snapshots
+        run: |
+          curl -X POST \
+            https://muswtkzjfrldhgokkmqw.supabase.co/functions/v1/trigger_monthly_snapshots \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"regenerateAll":false}'
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
