@@ -832,7 +832,7 @@ export default function FbaStep1Inventory({
               {showLabelButton && (
                 <button
                   className="text-xs text-blue-600 underline"
-                  onClick={() => setLabelModal({ ...labelModal, open: true, sku })}
+                  onClick={() => openLabelModal(sku)}
                 >
                   Print SKU labels
                 </button>
@@ -1167,13 +1167,14 @@ export default function FbaStep1Inventory({
   };
 
   const openLabelModal = (sku) => {
+    const unitsToSend = Math.max(1, Number(sku.units || 0) || 0);
     setLabelModal({
       open: true,
       sku,
       format: 'thermal',
       width: '50',
       height: '25',
-      quantity: Number(sku.units || sku.unitsToSend || 1) || 1
+      quantity: unitsToSend
     });
   };
 
