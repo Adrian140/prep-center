@@ -196,14 +196,17 @@ export default function FbaStep1Inventory({
         return;
       }
       const list = data || [];
-      const nextServices = list.filter((item) =>
-        ['FBA Prep Services', 'Extra Services'].includes(item.category)
-      );
-      const nextBoxes = list.filter((item) => {
+      const isBoxService = (item) => {
         const cat = String(item.category || '').toLowerCase();
         const name = String(item.service_name || '').toLowerCase();
         return cat.includes('box') || name.includes('box');
-      });
+      };
+      const nextServices = list.filter(
+        (item) =>
+          ['FBA Prep Services', 'Extra Services'].includes(item.category) &&
+          !isBoxService(item)
+      );
+      const nextBoxes = list.filter((item) => isBoxService(item));
       setServiceOptions(nextServices);
       setBoxOptions(nextBoxes);
     })();
