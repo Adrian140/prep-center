@@ -568,9 +568,13 @@ serve(async (req) => {
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
     }
-    const shouldConfirm =
-      (body?.confirm ?? body?.confirmTransportation ?? true) &&
-      !(body?.skip_confirm ?? body?.skipConfirm ?? false);
+    const confirmRaw = body?.confirm ?? body?.confirmTransportation;
+    const confirmExplicit = confirmRaw !== undefined && confirmRaw !== null;
+    const skipConfirm = Boolean(body?.skip_confirm ?? body?.skipConfirm ?? false);
+    // Backward-safe behavior:
+    // - if confirm is explicit, respect it;
+    // - if confirm is missing, infer confirm=true only when a transportation_option_id is sent.
+    const shouldConfirm = (confirmExplicit ? Boolean(confirmRaw) : Boolean(confirmOptionId)) && !skipConfirm;
     const autoConfirmPlacement =
       body?.auto_confirm_placement ?? body?.autoConfirmPlacement ?? false;
     const shouldConfirmPlacement =
@@ -639,10 +643,43 @@ serve(async (req) => {
     }
     const existingPlanId = (reqData as any)?.inbound_plan_id || null;
     if (existingPlanId && inboundPlanId && existingPlanId !== inboundPlanId) {
-      return new Response(JSON.stringify({ error: "Inbound plan mismatch for this request", traceId }), {
-        status: 409,
-        headers: { ...corsHeaders, "content-type": "application/json" }
-      });
+      // Request-ul din UI poate rămâne stale după regenerări; încercăm fallback pe request-ul care deține inboundPlanId.
+      const alt = await supabase
+        .from("prep_requests")
+        .select("id, destination_country, warehouse_country, company_id, user_id, amazon_snapshot, packing_option_id, placement_option_id, inbound_plan_id")
+        .eq("inbound_plan_id", inboundPlanId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const altData = alt?.data || null;
+      const canUseAlt =
+        !!altData &&
+        (userIsAdmin ||
+          altData.user_id === user.id ||
+          (!!userCompanyId && !!altData.company_id && altData.company_id === userCompanyId));
+
+      if (canUseAlt) {
+        logStep("prepRequestInboundPlanMismatchFallback", {
+          traceId,
+          fromRequestId: requestId,
+          toRequestId: altData.id,
+          inboundPlanId
+        });
+        requestId = altData.id;
+        reqData = altData as any;
+      } else {
+        return new Response(JSON.stringify({
+          error: "Inbound plan mismatch for this request",
+          code: "INBOUND_PLAN_MISMATCH",
+          traceId,
+          requestId,
+          inboundPlanId,
+          existingPlanId
+        }), {
+          status: 409,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+      }
     }
 
     const snapshot =
@@ -2296,7 +2333,6 @@ serve(async (req) => {
         shipmentId: cfg?.shipmentId,
         readyToShipWindow: { start: cfg?.readyToShipWindow?.start }
       };
-      if (cfg?.readyToShipWindow?.end) base.readyToShipWindow.end = cfg.readyToShipWindow.end;
       if (cfg?.contactInformation) base.contactInformation = cfg.contactInformation;
       if (Array.isArray(cfg?.packages) && cfg.packages.length) base.packages = cfg.packages;
       if (Array.isArray(cfg?.pallets) && cfg.pallets.length) base.pallets = cfg.pallets;
@@ -2439,6 +2475,7 @@ serve(async (req) => {
       const collected: any[] = [];
       let firstRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
       let attempt = 0;
+      const maxPages = confirmOptionId ? 30 : 12;
       do {
         attempt += 1;
         const queryParts = [`placementOptionId=${encodeURIComponent(placementOptionIdParam)}`];
@@ -2473,8 +2510,18 @@ serve(async (req) => {
           res?.json?.pagination?.nextToken ||
           res?.json?.nextToken ||
           null;
-        if (nextToken && attempt < 6) await delay(150 * attempt);
-      } while (nextToken && attempt < 6);
+        if (nextToken && attempt < maxPages) await delay(150 * attempt);
+      } while (nextToken && attempt < maxPages);
+      if (nextToken) {
+        logStep("listTransportationOptions_truncated", {
+          traceId,
+          placementOptionId: placementOptionIdParam,
+          shipmentId: shipmentIdParam || null,
+          pagesFetched: attempt,
+          maxPages,
+          collected: collected.length
+        });
+      }
       const deduped = (() => {
         const byId = new Map<string, any>();
         const byComposite = new Map<string, any>();
@@ -2752,6 +2799,7 @@ serve(async (req) => {
     // otherwise Amazon can rotate transportation options between view and confirm.
     const allowDeliveryWindowConfirmation = shouldConfirm && confirmDeliveryWindowOnList;
 
+    let deliveryWindowHandledInThisRun = false;
     if (allRequireDeliveryWindow && allowDeliveryWindowConfirmation && confirmedPlacement) {
       const shipmentIds = Array.from(
         new Set<string>(
@@ -2805,55 +2853,72 @@ serve(async (req) => {
           }
         }
       }
-      // IMPORTANT: re-generate transportation options after delivery window confirmation
-      const regenRes = await signedFetch({
-        method: "POST",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
-        query: "",
-        payload: generatePayload,
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.generateTransportationOptions_after_deliveryWindow",
-        marketplaceId,
-        sellerId
-      });
-      const regenOpId =
-        regenRes?.json?.payload?.operationId ||
-        regenRes?.json?.operationId ||
-        null;
-      if (regenOpId) {
-        const regenStatus = await pollOperationStatus(regenOpId);
-        logStep("generateTransportationOptions_after_deliveryWindow_status", {
-          traceId,
-          operationId: regenOpId,
-          state: getOperationState(regenStatus) || null,
-          status: regenStatus?.res?.status || null,
-          requestId: regenStatus?.requestId || null,
-          problems: getOperationProblems(regenStatus) || null
-        });
-      } else {
-        logStep("generateTransportationOptions_after_deliveryWindow_raw", {
-          traceId,
-          status: regenRes?.res?.status || null,
-          requestId: regenRes?.requestId || null,
-          bodyPreview: (regenRes?.text || "").slice(0, 600) || null
-        });
-      }
-      const relist = await listAllTransportationOptions(String(effectivePlacementOptionId), null);
+      // Conform fluxului din documentație: după confirmDeliveryWindowOption relistăm opțiunile.
+      // Evităm regenerate implicit, deoarece poate roti transportationOptionId și poate invalida selecția din UI.
+      let relist = await listAllTransportationOptions(String(effectivePlacementOptionId), null);
       options = relist.collected || [];
       optionsForSelectionRaw = options;
       logStep("listTransportationOptions_after_deliveryWindow", {
         traceId,
+        source: "relist_only",
         status: relist.firstRes?.res?.status,
         requestId: relist.firstRes?.requestId || null,
         count: options.length
       });
+
+      // Fallback defensiv: dacă după confirmarea ferestrei nu există opțiuni, regenerăm și relistăm.
+      if (!Array.isArray(options) || options.length === 0) {
+        const regenRes = await signedFetch({
+          method: "POST",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
+          query: "",
+          payload: generatePayload,
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.generateTransportationOptions_after_deliveryWindow",
+          marketplaceId,
+          sellerId
+        });
+        const regenOpId =
+          regenRes?.json?.payload?.operationId ||
+          regenRes?.json?.operationId ||
+          null;
+        if (regenOpId) {
+          const regenStatus = await pollOperationStatus(regenOpId);
+          logStep("generateTransportationOptions_after_deliveryWindow_status", {
+            traceId,
+            operationId: regenOpId,
+            state: getOperationState(regenStatus) || null,
+            status: regenStatus?.res?.status || null,
+            requestId: regenStatus?.requestId || null,
+            problems: getOperationProblems(regenStatus) || null
+          });
+        } else {
+          logStep("generateTransportationOptions_after_deliveryWindow_raw", {
+            traceId,
+            status: regenRes?.res?.status || null,
+            requestId: regenRes?.requestId || null,
+            bodyPreview: (regenRes?.text || "").slice(0, 600) || null
+          });
+        }
+        relist = await listAllTransportationOptions(String(effectivePlacementOptionId), null);
+        options = relist.collected || [];
+        optionsForSelectionRaw = options;
+        logStep("listTransportationOptions_after_deliveryWindow", {
+          traceId,
+          source: "relist_after_regenerate",
+          status: relist.firstRes?.res?.status,
+          requestId: relist.firstRes?.requestId || null,
+          count: options.length
+        });
+      }
+      deliveryWindowHandledInThisRun = true;
     } else if (allRequireDeliveryWindow && allowDeliveryWindowConfirmation && !confirmedPlacement) {
       logStep("deliveryWindow_deferred", {
         traceId,
@@ -3107,7 +3172,8 @@ serve(async (req) => {
     const autoSelectTransportationOptionRaw =
       body?.auto_select_transportation_option ??
       body?.autoSelectTransportationOption ??
-      true;
+      false;
+    const autoSelectTransportationOption = Boolean(autoSelectTransportationOptionRaw) && !confirmOptionId;
     selectedOption =
       selectedOption ||
       (confirmOptionId
@@ -3170,7 +3236,7 @@ serve(async (req) => {
       } else {
         selectedOption = requestedOption;
       }
-      if (!selectedOption && (autoSelectTransportationOptionRaw && partneredOpt)) {
+      if (!selectedOption && (autoSelectTransportationOption && partneredOpt)) {
         selectedOption = selectionPool.find((o) => o.partnered) || selectionPool[0] || null;
         logStep("transportationOption_auto_selected", {
           traceId,
@@ -3316,7 +3382,7 @@ serve(async (req) => {
     const requiresDeliveryWindow =
       isNonPartneredSelection &&
       (hasDeliveryWindowPrecondition(selectedOption?.raw || selectedOption) || isNonPartneredSelection);
-    if (requiresDeliveryWindow) {
+    if (requiresDeliveryWindow && !deliveryWindowHandledInThisRun) {
       const shipmentIds = Array.from(
         new Set<string>(
           (Array.isArray(selectedOption?.raw?.shipments)

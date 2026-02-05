@@ -213,6 +213,79 @@ const aggregateTransportationOptions = (options = []) => {
   ].filter(Boolean);
 };
 
+const parseMaybeJson = (raw) => {
+  if (typeof raw !== 'string') return null;
+  const text = raw.trim();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
+
+const extractFunctionInvokeError = async (err) => {
+  const ctx = err?.context || null;
+  const response = ctx?.response || null;
+  let payload = null;
+
+  if (!payload && response && typeof response === 'object') {
+    if (response?.data && typeof response.data === 'object') {
+      payload = response.data;
+    }
+    if (!payload && typeof response?.json === 'function') {
+      try {
+        payload = await response.clone().json();
+      } catch {
+        // ignore json parse failures
+      }
+    }
+    if (!payload && typeof response?.text === 'function') {
+      try {
+        const txt = await response.clone().text();
+        payload = parseMaybeJson(txt) || (txt ? { error: txt } : null);
+      } catch {
+        // ignore text parse failures
+      }
+    }
+  }
+
+  if (!payload && ctx?.response?.data && typeof ctx.response.data === 'object') {
+    payload = ctx.response.data;
+  }
+  if (!payload && ctx?.data && typeof ctx.data === 'object') {
+    payload = ctx.data;
+  }
+  if (!payload && ctx?.error && typeof ctx.error === 'object') {
+    payload = ctx.error;
+  }
+
+  const status =
+    (typeof response?.status === 'number' ? response.status : null) ||
+    (typeof ctx?.status === 'number' ? ctx.status : null) ||
+    null;
+
+  const code =
+    payload?.code ||
+    payload?.errorCode ||
+    payload?.error_code ||
+    null;
+
+  const message =
+    payload?.error ||
+    payload?.message ||
+    ctx?.error?.message ||
+    err?.message ||
+    'Edge Function returned a non-2xx status code';
+
+  return {
+    payload,
+    status,
+    code: code ? String(code) : null,
+    message: String(message)
+  };
+};
+
 const initialData = {
   shipFrom: {
     name: 'Bucur Adrian, 5B Rue des Enclos, Gouseniere, FR',
@@ -2730,12 +2803,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setShippingError('Missing inboundPlanId or requestId; cannot request shipping options.');
       return;
     }
-    const requireEnd = String(shipmentMode?.method || '').toUpperCase() !== 'SPD';
     const missingReady = (shipments || []).some((sh) => {
       const shKey = String(sh?.id || sh?.shipmentId || '').trim();
       const rw = readyWindowByShipment?.[shKey] || {};
       if (!shKey || !rw.start) return true;
-      if (requireEnd && !rw.end) return true;
       return false;
     });
     if (missingReady) {
@@ -2800,19 +2871,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
 
     const configs = buildShipmentConfigs();
-    const requireEndConfirm = String(shipmentMode?.method || '').toUpperCase() !== 'SPD';
     const missingReadyConfirm = configs.some((cfg) => {
       const win = cfg?.readyToShipWindow || {};
       if (!win.start) return true;
-      if (requireEndConfirm && !win.end) return true;
       return false;
     });
     if (missingReadyConfirm) {
-      setShippingError(
-        requireEndConfirm
-          ? 'Adaugă “Ready to ship” (start și end) pentru fiecare shipment înainte de confirmare (LTL/FTL).'
-          : 'Adaugă “Ready to ship” (start) pentru fiecare shipment înainte de confirmare.'
-      );
+      setShippingError('Adaugă “Ready to ship” (start) pentru fiecare shipment înainte de confirmare.');
       return;
     }
     const contactInformation = resolveContactInformation();
@@ -2923,13 +2988,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         );
       }
     } catch (e) {
-      // Supabase throws "Edge Function returned a non-2xx status code" without details; try to extract the payload message.
-      const detail =
-        e?.context?.error?.message ||
-        e?.context?.response?.error?.message ||
-        e?.context?.response?.data?.error ||
-        e?.message ||
-        "Failed to load shipping options";
+      const parsed = await extractFunctionInvokeError(e);
+      if (parsed?.code === 'INBOUND_PLAN_MISMATCH') {
+        setSelectedTransportationOptionId(null);
+        setShippingOptions([]);
+        setShippingSummary(null);
+        setPlanLoaded(false); // trigger reload so UI syncs requestId/inboundPlanId
+        setShippingError('Inbound plan s-a schimbat pe server. Reîncarc planul, apoi încearcă din nou Step 2.');
+        return;
+      }
+      const detail = parsed?.message || "Failed to load shipping options";
       console.error("fetchShippingOptions failed", e);
       setShippingError(detail);
     } finally {
@@ -3102,14 +3170,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setCarrierTouched(true);
       completeAndNext('2');
     } catch (e) {
-      const payload =
-        e?.context?.response?.data ||
-        e?.context?.data ||
-        e?.context?.error ||
-        null;
+      const parsed = await extractFunctionInvokeError(e);
+      const payload = parsed?.payload || null;
+      const code = parsed?.code || payload?.code || null;
       if (
-        payload?.code === 'TRANSPORTATION_OPTION_NOT_FOUND' ||
-        payload?.code === 'TRANSPORTATION_OPTION_NOT_AVAILABLE'
+        code === 'TRANSPORTATION_OPTION_NOT_FOUND' ||
+        code === 'TRANSPORTATION_OPTION_NOT_AVAILABLE' ||
+        code === 'TRANSPORTATION_OPTION_SHIPMENT_MISMATCH'
       ) {
         const refreshed = aggregateTransportationOptions(payload?.availableOptions || []);
         if (refreshed.length) {
@@ -3119,13 +3186,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         }
         setSelectedTransportationOptionId(null);
       }
-      const detail =
-        payload?.error ||
-        e?.context?.error?.message ||
-        e?.context?.response?.error?.message ||
-        e?.context?.response?.data?.error ||
-        e?.message ||
-        "Failed to confirm shipping";
+      if (code === 'INBOUND_PLAN_MISMATCH') {
+        setSelectedTransportationOptionId(null);
+        setShippingOptions([]);
+        setShippingSummary(null);
+        setPlanLoaded(false); // trigger reload so UI syncs requestId/inboundPlanId
+      }
+      const detail = parsed?.message || payload?.error || "Failed to confirm shipping";
       console.error("confirmShippingOptions failed", e);
       setShippingError(detail);
     } finally {

@@ -264,7 +264,12 @@ function extractAcceptedValues(msg: string): OwnerVal[] {
 }
 
 function extractMsku(msg: string): string | null {
-  const m = msg.match(/ERROR:\s*([^\s]+)\s+/i);
+  // Amazon errors can include SKUs with spaces (e.g. "Fakhar noir 5ml").
+  // Capture everything between "ERROR:" and the known phrase that follows the SKU.
+  const m =
+    msg.match(/ERROR:\s*(.+?)\s+(?:does not require|requires)\s+/i) ||
+    msg.match(/ERROR:\s*(.+?)\s+not found/i) ||
+    msg.match(/ERROR:\s*(.+?)\s+is not available/i);
   return m ? String(m[1] || "").trim() : null;
 }
 
@@ -1985,17 +1990,11 @@ serve(async (req) => {
       // Amazon limitează câmpul name la 40 caractere; folosim un id scurt ca să evităm 400 InvalidInput.
       const shortRequestId = (requestId || crypto.randomUUID()).toString().slice(0, 8);
       const planName = `Prep-${shortRequestId}`.slice(0, 40);
-      const contactInfo = {
-        name: shipFromAddress.name || "Prep Center",
-        email: shipFromAddress.email || "contact@prep-center.eu",
-        phoneNumber: shipFromAddress.phoneNumber || ""
-      };
       return {
         name: planName,
         // Amazon requires `sourceAddress` for createInboundPlan payload
         sourceAddress: shipFromAddress,
         destinationMarketplaces: [marketplaceId],
-        contactInformation: contactInfo,
         items: collapsedItems.map((c) => {
           const key = normalizeSku(c.sku);
           const prepInfo = prepGuidanceMap[key] || {};
@@ -2004,28 +2003,28 @@ serve(async (req) => {
             prepInfo.barcodeInstruction ? isManufacturerBarcodeEligible(prepInfo.barcodeInstruction) : false;
           // Respectăm guidance-ul Amazon: dacă e barcode-eligibil -> NONE, altfel SELLER doar când e cerut.
           let labelOwner: OwnerVal = deriveLabelOwner({ ...prepInfo, prepRequired, manufacturerBarcodeEligible });
-          let prepOwner: OwnerVal = prepRequired ? "SELLER" : "NONE";
+          // createInboundPlan cere prepOwner; dacă nu e prep explicit, folosim owner compatibil cu labelOwner.
+          // NONE rămâne doar când produsul e clar manufacturer-barcode eligible.
+          let prepOwner: OwnerVal =
+            prepRequired
+              ? "SELLER"
+              : labelOwner === "AMAZON"
+              ? "AMAZON"
+              : labelOwner === "SELLER"
+              ? "SELLER"
+              : "NONE";
           const expiryVal = expirations[key] || null;
 
           const o = overrides[key];
           if (o?.labelOwner) labelOwner = o.labelOwner;
           if (o?.prepOwner) prepOwner = o.prepOwner;
-          // Amazon cere o clasificare explicită de prep; dacă nu avem guidance și prep nu e cerut,
-          // trimitem ITEM_NO_PREP cu prepOwner=NONE. Dacă e cerut (prepRequired), rămâne SELLER+ITEM_LABELING.
-          let prepType: string = prepRequired ? "ITEM_LABELING" : "ITEM_NO_PREP";
-          const prepDetails = [
-            {
-              prepType,
-              prepOwner
-            }
-          ];
+          // În createInboundPlan trimitem strict câmpurile documentate pentru item.
           return {
             msku: key,
             quantity: Number(c.units) || 0,
             expiration: expiryVal || undefined,
             prepOwner,
-            labelOwner,
-            prepDetails
+            labelOwner
           };
         })
       };
@@ -2587,6 +2586,11 @@ serve(async (req) => {
         }
       }
     }
+    const sanitizedAfterClaim = sanitizeInboundPlanId(inboundPlanId);
+    if (!sanitizedAfterClaim && inboundPlanId) {
+      await resetInvalidInboundPlanId({ inboundPlanId, requestId });
+    }
+    inboundPlanId = sanitizedAfterClaim;
 
     if (!inboundPlanId) {
       while (attempt < maxAttempts) {
