@@ -3129,6 +3129,14 @@ getAllReceivingShipments: async (options = {}) => {
         if (qtyToStock > 0 && stockRow) {
           const newQty = Number(stockRow.qty || 0) + qtyToStock;
           const updates = { qty: newQty };
+          const marketCode = normalizeMarketCode(shipment.warehouse_country || shipment.warehouseCountry || 'FR');
+          if (marketCode) {
+            const currentMarketQty = getPrepQtyForMarket(stockRow, marketCode);
+            const nextMarketQty = currentMarketQty + qtyToStock;
+            const marketPatch = buildPrepQtyPatch(stockRow, marketCode, nextMarketQty);
+            updates.prep_qty_by_country = marketPatch.prep_qty_by_country;
+            updates.qty = marketPatch.qty;
+          }
 
           if (item.purchase_price != null && item.purchase_price !== stockRow.purchase_price) {
             updates.purchase_price = item.purchase_price;
