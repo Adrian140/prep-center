@@ -2494,120 +2494,95 @@ serve(async (req) => {
     const listTransportationOptionsOnce = async (
       placementOptionIdParam: string,
       shipmentIdParam?: string | null,
-      opts?: { probePartnered?: boolean; maxExtraPages?: number }
+      opts?: { probePartnered?: boolean; maxPages?: number }
     ) => {
       const cacheKey = `${placementOptionIdParam}|${shipmentIdParam || ""}`;
       if (transportCache.has(cacheKey)) {
         const cached = transportCache.get(cacheKey);
         return { firstRes: null, collected: cached };
       }
-      const queryParts = [
-        `placementOptionId=${encodeURIComponent(placementOptionIdParam)}`,
-        "pageSize=20"
-      ];
-      if (shipmentIdParam) queryParts.push(`shipmentId=${encodeURIComponent(shipmentIdParam)}`);
-      const res = await signedFetch({
-        method: "GET",
-        service: "execute-api",
-        region: awsRegion,
-        host,
-        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
-        query: queryParts.join("&"),
-        payload: "",
-        accessKey: tempCreds.accessKeyId,
-        secretKey: tempCreds.secretAccessKey,
-        sessionToken: tempCreds.sessionToken,
-        lwaToken: lwaAccessToken,
-        traceId,
-        operationName: "inbound.v20240320.listTransportationOptions",
-        marketplaceId,
-        sellerId
-      });
-      const collectedRaw =
-        res?.json?.payload?.transportationOptions ||
-        res?.json?.transportationOptions ||
-        res?.json?.TransportationOptions ||
-        [];
-      const collected = Array.isArray(collectedRaw) ? collectedRaw : [];
-      const nextToken =
-        res?.json?.payload?.pagination?.nextToken ||
-        res?.json?.pagination?.nextToken ||
-        res?.json?.nextToken ||
-        null;
       const probePartnered = Boolean(opts?.probePartnered);
-      const maxExtraPages = Math.max(0, Math.min(Number(opts?.maxExtraPages ?? 2), 3));
-      const extraCollected: any[] = [];
-      let extraPagesFetched = 0;
-      let tokenCursor = nextToken;
-      if (probePartnered && tokenCursor && !hasPartneredSolution(collected)) {
-        while (tokenCursor && extraPagesFetched < maxExtraPages && !hasPartneredSolution([...collected, ...extraCollected])) {
-          extraPagesFetched += 1;
-          const extraQueryParts = [
-            `placementOptionId=${encodeURIComponent(placementOptionIdParam)}`,
-            "pageSize=20"
-          ];
-          if (shipmentIdParam) extraQueryParts.push(`shipmentId=${encodeURIComponent(shipmentIdParam)}`);
-          extraQueryParts.push(`paginationToken=${encodeURIComponent(tokenCursor)}`);
-          const extraRes = await signedFetch({
-            method: "GET",
-            service: "execute-api",
-            region: awsRegion,
-            host,
-            path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
-            query: extraQueryParts.join("&"),
-            payload: "",
-            accessKey: tempCreds.accessKeyId,
-            secretKey: tempCreds.secretAccessKey,
-            sessionToken: tempCreds.sessionToken,
-            lwaToken: lwaAccessToken,
-            traceId,
-            operationName: "inbound.v20240320.listTransportationOptions",
-            marketplaceId,
-            sellerId
-          });
-          const extraRaw =
-            extraRes?.json?.payload?.transportationOptions ||
-            extraRes?.json?.transportationOptions ||
-            extraRes?.json?.TransportationOptions ||
-            [];
-          const extraChunk = Array.isArray(extraRaw) ? extraRaw : [];
-          if (extraChunk.length) extraCollected.push(...extraChunk);
-          tokenCursor =
-            extraRes?.json?.payload?.pagination?.nextToken ||
-            extraRes?.json?.pagination?.nextToken ||
-            extraRes?.json?.nextToken ||
-            null;
+      const maxPages = Math.max(1, Math.min(Number(opts?.maxPages ?? 6), 12));
+      let firstRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+      const collected: any[] = [];
+      let nextToken: string | null = null;
+      let pagesFetched = 0;
+      let firstPartneredPage: number | null = null;
+      do {
+        pagesFetched += 1;
+        const queryParts = [
+          `placementOptionId=${encodeURIComponent(placementOptionIdParam)}`,
+          "pageSize=20"
+        ];
+        if (shipmentIdParam) queryParts.push(`shipmentId=${encodeURIComponent(shipmentIdParam)}`);
+        if (nextToken) queryParts.push(`paginationToken=${encodeURIComponent(nextToken)}`);
+        const res = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
+          query: queryParts.join("&"),
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.listTransportationOptions",
+          marketplaceId,
+          sellerId
+        });
+        if (!firstRes) firstRes = res;
+        const pageRaw =
+          res?.json?.payload?.transportationOptions ||
+          res?.json?.transportationOptions ||
+          res?.json?.TransportationOptions ||
+          [];
+        const pageChunk = Array.isArray(pageRaw) ? pageRaw : [];
+        if (pageChunk.length) collected.push(...pageChunk);
+        if (probePartnered && firstPartneredPage === null && hasPartneredSolution(pageChunk)) {
+          firstPartneredPage = pagesFetched;
         }
+        nextToken =
+          res?.json?.payload?.pagination?.nextToken ||
+          res?.json?.pagination?.nextToken ||
+          res?.json?.nextToken ||
+          null;
+      } while (nextToken && pagesFetched < maxPages);
+      if (probePartnered) {
         logStep("listTransportationOptions_partnered_probe", {
           traceId,
           placementOptionId: placementOptionIdParam,
           shipmentId: shipmentIdParam || null,
-          pagesFetched: extraPagesFetched,
-          maxExtraPages,
-          partneredFound: hasPartneredSolution([...collected, ...extraCollected]),
-          baseCount: collected.length,
-          extraCount: extraCollected.length
+          pagesFetched,
+          maxPages,
+          partneredFound: hasPartneredSolution(collected),
+          firstPartneredPage,
+          count: collected.length
         });
       }
-      const mergedCollected = [...collected, ...extraCollected];
       if (nextToken) {
         logStep("listTransportationOptions_truncated", {
           traceId,
           placementOptionId: placementOptionIdParam,
           shipmentId: shipmentIdParam || null,
           pageSize: 20,
-          collected: Array.isArray(mergedCollected) ? mergedCollected.length : 0
+          pagesFetched,
+          maxPages,
+          hasMore: true,
+          collected: collected.length
         });
       }
-      const deduped = dedupeTransportationOptions(mergedCollected);
+      const deduped = dedupeTransportationOptions(collected);
       transportCache.set(cacheKey, deduped);
-      return { firstRes: res, collected: deduped };
+      return { firstRes, collected: deduped };
     };
 
     const { firstRes: listRes, collected: optionsRawInitial } = await listTransportationOptionsOnce(
       effectivePlacementOptionId,
       shipmentIdForListing,
-      { probePartnered: true, maxExtraPages: 2 }
+      { probePartnered: true, maxPages: 6 }
     );
     let optionsRawForSelection = optionsRawInitial;
     let optionsRawForDisplay = optionsRawInitial;
@@ -2617,7 +2592,7 @@ serve(async (req) => {
       const { firstRes: listResFallback, collected: optionsRawFallback } =
         await listTransportationOptionsOnce(effectivePlacementOptionId, null, {
           probePartnered: true,
-          maxExtraPages: 2
+          maxPages: 6
         });
       const byId = new Map<string, any>();
       const add = (opt: any) => {
