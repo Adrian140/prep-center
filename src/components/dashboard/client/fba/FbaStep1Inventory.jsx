@@ -143,6 +143,7 @@ export default function FbaStep1Inventory({
   };
   const [serviceOptions, setServiceOptions] = useState([]);
   const [boxOptions, setBoxOptions] = useState([]);
+  const persistTimerRef = useRef(null);
   const serviceOptionsByCategory = useMemo(() => {
     const map = new Map();
     (serviceOptions || []).forEach((opt) => {
@@ -264,6 +265,20 @@ export default function FbaStep1Inventory({
       console.warn('Failed to persist prep services', err);
     }
   }, [onPersistServices]);
+
+  const schedulePersist = useCallback(() => {
+    if (!onPersistServices) return;
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      persistServicesSafely();
+    }, 600);
+  }, [onPersistServices, persistServicesSafely]);
+
+  useEffect(() => {
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    };
+  }, []);
 
   const handleAddBoxService = useCallback(() => {
     const first = boxOptions[0];
@@ -1190,7 +1205,7 @@ export default function FbaStep1Inventory({
                           service_name: selected.service_name,
                           unit_price: Number(selected.price || 0)
                         });
-                        persistServicesSafely();
+                        schedulePersist();
                       }}
                     >
                       {serviceOptionsByCategory.map(([category, options]) => (
@@ -1224,8 +1239,10 @@ export default function FbaStep1Inventory({
                         step={1}
                         className="w-16 border rounded-md px-2 py-1 text-xs text-right"
                         value={svc.units ?? 0}
-                        onChange={(e) => handleSkuServiceChange(sku.id, idx, { units: Number(e.target.value || 0) })}
-                        onBlur={persistServicesSafely}
+                        onChange={(e) => {
+                          handleSkuServiceChange(sku.id, idx, { units: Number(e.target.value || 0) });
+                          schedulePersist();
+                        }}
                       />
                     </div>
                     <div className="flex items-center gap-1">
@@ -1241,7 +1258,7 @@ export default function FbaStep1Inventory({
               className="text-xs text-blue-600 underline"
               onClick={() => {
                 handleAddSkuService(sku);
-                persistServicesSafely();
+                schedulePersist();
               }}
             >
               + Add service
@@ -1600,7 +1617,7 @@ export default function FbaStep1Inventory({
               className="text-xs text-blue-600 underline"
               onClick={() => {
                 handleAddBoxService();
-                persistServicesSafely();
+                schedulePersist();
               }}
             >
               + Add box
@@ -1630,7 +1647,7 @@ export default function FbaStep1Inventory({
                         : row
                     );
                     setBoxes(next);
-                    persistServicesSafely();
+                    schedulePersist();
                   }}
                 >
                   {boxOptionsByCategory.map(([category, options]) => (
@@ -1659,8 +1676,8 @@ export default function FbaStep1Inventory({
                         i === idx ? { ...row, units: Number(e.target.value || 0) } : row
                       );
                       setBoxes(next);
+                      schedulePersist();
                     }}
-                    onBlur={persistServicesSafely}
                   />
                 </div>
                 <div className="text-xs text-slate-600">
