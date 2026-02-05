@@ -1969,10 +1969,7 @@ createPrepItem: async (requestId, item) => {
     if (marketCode) {
       receivingItemsQuery = receivingItemsQuery.eq('receiving_shipments.warehouse_country', marketCode);
     }
-    receivingItemsQuery = receivingItemsQuery
-      .gte('receiving_shipments.created_at', startIso)
-      .lte('receiving_shipments.created_at', endIso)
-      .limit(20000);
+    receivingItemsQuery = receivingItemsQuery.limit(20000);
     const receivingItemsPromise = receivingItemsQuery;
 
     const balancePromise = userId
