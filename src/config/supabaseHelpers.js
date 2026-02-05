@@ -280,7 +280,7 @@ createReceptionRequest: async (data) => {
           const units = Math.max(0, Number(it.fba_qty ?? unitsRequested) || 0);
           const sendToFba = !!it.send_to_fba && units > 0;
           base.send_to_fba = sendToFba;
-          base.fba_qty = sendToFba ? Math.max(0, Number(it.fba_qty) || 0) : 0;
+          base.fba_qty = sendToFba ? Math.max(0, Number(it.fba_qty) || 0) : null;
         }
         return base;
       });
