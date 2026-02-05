@@ -1959,7 +1959,8 @@ const resetReceptionForm = () => {
 
 const getReceptionFbaForRow = (rowId, units) => {
   if (receptionForm.fbaMode === 'full') {
-    return { send_to_fba: units > 0, fba_qty: units };
+    const send = units > 0;
+    return { send_to_fba: send, fba_qty: send ? units : null };
   }
   if (receptionForm.fbaMode === 'partial') {
     const edits = rowEdits[rowId] || {};
@@ -1969,9 +1970,10 @@ const getReceptionFbaForRow = (rowId, units) => {
       ? Math.max(0, Number(edits.fba_units) || 0)
       : requested;
     if (partial > requested) partial = requested;
-    return { send_to_fba: partial > 0, fba_qty: partial };
+    const send = partial > 0;
+    return { send_to_fba: send, fba_qty: send ? partial : null };
   }
-  return { send_to_fba: false, fba_qty: 0 };
+  return { send_to_fba: false, fba_qty: null };
 };
 
 const openReception = async () => {
