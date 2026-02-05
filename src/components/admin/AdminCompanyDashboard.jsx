@@ -278,15 +278,8 @@ export default function AdminCompanyDashboard() {
   const balanceDaily = chartSnapshot?.finance?.dailyAmounts || snapshot?.finance?.dailyAmounts || [];
   const inventoryUnits = snapshot?.inventory?.units ?? 0;
   const isAllCompanies = selectedCompany?.id === 'ALL';
-  const stalenessTotal = staleness.reduce((sum, row) => sum + Number(row?.units_in_stock || 0), 0);
   const inventoryUnitsAll = isAllCompanies
-    ? (
-        Number.isFinite(globalStockUnits)
-          ? globalStockUnits
-          : staleness.length
-            ? stalenessTotal
-            : (snapshot?.inventory?.unitsAll ?? snapshot?.inventory?.units ?? 0)
-      )
+    ? (snapshot?.inventory?.unitsAll ?? snapshot?.inventory?.units ?? 0)
     : inventoryUnits;
   const lastReceivingDate = snapshot?.receiving?.lastReceivingDate || null;
 
