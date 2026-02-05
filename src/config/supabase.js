@@ -1960,13 +1960,20 @@ createPrepItem: async (requestId, item) => {
       .lte('prep_requests.confirmed_at', endIso)
       .limit(10000);
 
+    // Reception units – prefer direct receiving_items (logs may be missing for legacy data)
     let receivingItemsQuery = supabase
-      .from('receiving_to_stock_log')
-      .select('quantity_moved, moved_at, receiving_items!inner(shipment_id, receiving_shipments!inner(company_id, warehouse_country))');
+      .from('receiving_items')
+      .select(
+        'quantity_received, quantity, created_at, receiving_shipments!inner(company_id, warehouse_country, created_at, received_at)'
+      );
     if (marketCode) {
       receivingItemsQuery = receivingItemsQuery.eq('receiving_shipments.warehouse_country', marketCode);
     }
-    const receivingItemsPromise = receivingItemsQuery.limit(20000);
+    receivingItemsQuery = receivingItemsQuery
+      .gte('receiving_shipments.created_at', startIso)
+      .lte('receiving_shipments.created_at', endIso)
+      .limit(20000);
+    const receivingItemsPromise = receivingItemsQuery;
 
     const balancePromise = userId
       ? supabase.from('profiles').select('current_balance').eq('id', userId).maybeSingle()
@@ -2021,7 +2028,7 @@ createPrepItem: async (requestId, item) => {
     ]);
     const needsWarehouseRetry =
       marketCode &&
-      [returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes]
+      [returnsRes, prepRes, receivingRes, prepItemsRes]
         .some((res) => isWarehouseMissing(res?.error));
     if (needsWarehouseRetry) {
       const returnsRetry = withCompany(
@@ -2056,23 +2063,17 @@ createPrepItem: async (requestId, item) => {
         .gte('prep_requests.confirmed_at', startIso)
         .lte('prep_requests.confirmed_at', endIso)
         .limit(10000);
-      const receivingItemsRetry = supabase
-        .from('receiving_to_stock_log')
-        .select('quantity_moved, moved_at, receiving_items!inner(shipment_id, receiving_shipments!inner(company_id))')
-        .limit(20000);
-      const [returnsRetryRes, prepRetryRes, receivingRetryRes, prepItemsRetryRes, receivingItemsRetryRes] =
+      const [returnsRetryRes, prepRetryRes, receivingRetryRes, prepItemsRetryRes] =
         await Promise.all([
           returnsRetry,
           prepRetry,
           receivingRetry,
-          prepItemsRetry,
-          receivingItemsRetry
+          prepItemsRetry
         ]);
       if (isWarehouseMissing(returnsRes?.error)) returnsRes = returnsRetryRes;
       if (isWarehouseMissing(prepRes?.error)) prepRes = prepRetryRes;
       if (isWarehouseMissing(receivingRes?.error)) receivingRes = receivingRetryRes;
       if (isWarehouseMissing(prepItemsRes?.error)) prepItemsRes = prepItemsRetryRes;
-      if (isWarehouseMissing(receivingItemsRes?.error)) receivingItemsRes = receivingItemsRetryRes;
     }
 
     const numberOrZero = (value) => {
@@ -2145,7 +2146,7 @@ createPrepItem: async (requestId, item) => {
     const filteredPrepItems = filterCompanyJoin(prepItemRows, (r) => r.prep_requests?.company_id);
     const filteredReceivingItems = filterCompanyJoin(
       receivingItemRows,
-      (r) => r.receiving_items?.receiving_shipments?.company_id
+      (r) => r.receiving_shipments?.company_id
     );
 
     const prepUnitsTotal = filteredPrepItems.reduce(
@@ -2156,7 +2157,8 @@ createPrepItem: async (requestId, item) => {
       .filter((row) => (row.prep_requests?.confirmed_at || '').slice(0, 10) === dateFrom)
       .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
 
-    const getReceivingDate = (row) => (row.moved_at || '').slice(0, 10);
+    const getReceivingDate = (row) =>
+      (row.receiving_shipments?.received_at || row.receiving_shipments?.created_at || row.created_at || '').slice(0, 10);
 
     const receivingItemsInRange = filteredReceivingItems.filter((row) => {
       const d = getReceivingDate(row);
@@ -2320,7 +2322,7 @@ createPrepItem: async (requestId, item) => {
     const receivingDailyUnits = buildDailyUnits(
       receivingItemsInRange,
       (row) => getReceivingDate(row),
-      (row) => row.quantity_moved
+      (row) => row.quantity_received ?? row.quantity
     );
 
     return {
