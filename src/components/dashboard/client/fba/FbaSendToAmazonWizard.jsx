@@ -478,6 +478,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [shippingOptions, setShippingOptions] = useState(
     historyMode ? (Array.isArray(initialShippingOptions) ? initialShippingOptions : []) : []
   );
+  const shippingOptionsRef = useRef(Array.isArray(initialShippingOptions) ? initialShippingOptions : []);
   const [readyWindowByShipment, setReadyWindowByShipment] = useState({});
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingSummary, setShippingSummary] = useState(historyMode ? initialShippingSummary : null);
@@ -493,6 +494,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [shippingConfirming, setShippingConfirming] = useState(false);
   const [skipPacking, setSkipPacking] = useState(false);
   const [forcePartneredOnly, setForcePartneredOnly] = useState(false);
+  useEffect(() => {
+    shippingOptionsRef.current = Array.isArray(shippingOptions) ? shippingOptions : [];
+  }, [shippingOptions]);
   const isLtlFtl = useCallback((method) => {
     const up = String(method || '').toUpperCase();
     return up === 'LTL' || up === 'FTL' || up === 'FREIGHT_LTL' || up === 'FREIGHT_FTL';
@@ -2941,7 +2945,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (!countBefore) {
       await fetchShippingOptions({ force: true });
     }
-    const opts = Array.isArray(shippingOptions) ? shippingOptions : [];
+    const opts = Array.isArray(shippingOptionsRef.current) ? shippingOptionsRef.current : [];
     if (!opts.length) {
       setShippingError('Nu există opțiuni de curier încă. Completează datele și încearcă din nou.');
       return false;
@@ -2995,11 +2999,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return;
     }
     await ensureOptionsAvailable();
-    let selectedOpt = (shippingOptions || []).find((opt) => opt?.id === selectedTransportationOptionId);
+    // Refresh once right before confirm; Amazon may rotate option IDs after delivery-window confirmation.
+    await fetchShippingOptions({ force: true });
+    const latestOptions = Array.isArray(shippingOptionsRef.current) ? shippingOptionsRef.current : [];
+    let selectedOpt = latestOptions.find((opt) => opt?.id === selectedTransportationOptionId);
     if (!selectedOpt) {
       // dacă există doar una, o selectăm automat aici
-      if (Array.isArray(shippingOptions) && shippingOptions.length === 1) {
-        selectedOpt = shippingOptions[0];
+      if (Array.isArray(latestOptions) && latestOptions.length === 1) {
+        selectedOpt = latestOptions[0];
         setSelectedTransportationOptionId(selectedOpt.id || selectedOpt.transportationOptionId || selectedOpt.optionId || null);
       }
     }
@@ -3095,7 +3102,25 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setCarrierTouched(true);
       completeAndNext('2');
     } catch (e) {
+      const payload =
+        e?.context?.response?.data ||
+        e?.context?.data ||
+        e?.context?.error ||
+        null;
+      if (
+        payload?.code === 'TRANSPORTATION_OPTION_NOT_FOUND' ||
+        payload?.code === 'TRANSPORTATION_OPTION_NOT_AVAILABLE'
+      ) {
+        const refreshed = aggregateTransportationOptions(payload?.availableOptions || []);
+        if (refreshed.length) {
+          setShippingOptions(refreshed);
+        } else {
+          await fetchShippingOptions({ force: true });
+        }
+        setSelectedTransportationOptionId(null);
+      }
       const detail =
+        payload?.error ||
         e?.context?.error?.message ||
         e?.context?.response?.error?.message ||
         e?.context?.response?.data?.error ||
