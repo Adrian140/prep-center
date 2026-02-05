@@ -1967,18 +1967,18 @@ createPrepItem: async (requestId, item) => {
       .lte('prep_requests.confirmed_at', endIso)
       .limit(10000);
 
-    // Reception units – count only what a fost trecut în stoc (receiving_to_stock_log)
+    // Reception units – unități efectiv recepționate (check-in), nu doar anunțate
     let receivingItemsQuery = supabase
-      .from('receiving_to_stock_log')
+      .from('receiving_items')
       .select(
-        'quantity_moved, moved_at, receiving_items!inner(shipment_id, receiving_shipments!inner(company_id, warehouse_country))'
+        'quantity_received, created_at, receiving_shipments!inner(company_id, warehouse_country, received_at, created_at)'
       );
     if (marketCode) {
       receivingItemsQuery = receivingItemsQuery.eq('receiving_shipments.warehouse_country', marketCode);
     }
     receivingItemsQuery = receivingItemsQuery
-      .gte('moved_at', startIso)
-      .lte('moved_at', endIso)
+      .gte('receiving_shipments.created_at', startIso)
+      .lte('receiving_shipments.created_at', endIso)
       .limit(20000);
     const receivingItemsPromise = receivingItemsQuery;
 
@@ -2071,10 +2071,10 @@ createPrepItem: async (requestId, item) => {
         .lte('prep_requests.confirmed_at', endIso)
         .limit(10000);
       const receivingItemsRetry = supabase
-        .from('receiving_to_stock_log')
-        .select('quantity_moved, moved_at, receiving_items!inner(shipment_id, receiving_shipments!inner(company_id))')
-        .gte('moved_at', startIso)
-        .lte('moved_at', endIso)
+        .from('receiving_items')
+        .select('quantity_received, created_at, receiving_shipments!inner(company_id, created_at, received_at)')
+        .gte('receiving_shipments.created_at', startIso)
+        .lte('receiving_shipments.created_at', endIso)
         .limit(20000);
       const [returnsRetryRes, prepRetryRes, receivingRetryRes, prepItemsRetryRes, receivingItemsRetryRes] =
         await Promise.all([
@@ -2181,12 +2181,12 @@ createPrepItem: async (requestId, item) => {
     });
 
     const receivingUnitsTotalLocal = receivingItemsInRange.reduce(
-      (acc, row) => acc + numberOrZero(row.quantity_moved ?? 0),
+      (acc, row) => acc + numberOrZero(row.quantity_received ?? 0),
       0
     );
     const receivingUnitsTodayLocal = receivingItemsInRange
       .filter((row) => getReceivingDate(row) === dateFrom)
-      .reduce((acc, row) => acc + numberOrZero(row.quantity_moved ?? 0), 0);
+      .reduce((acc, row) => acc + numberOrZero(row.quantity_received ?? 0), 0);
 
     const lastReceivingDateAll = (() => {
       const dates = filteredReceivingItems
