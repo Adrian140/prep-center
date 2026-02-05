@@ -3347,7 +3347,8 @@ serve(async (req) => {
             { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
           );
         }
-      } else {
+      }
+      if (requestedOption) {
         selectedOption = requestedOption;
       }
       if (!selectedOption && (autoSelectTransportationOption && partneredOpt)) {
