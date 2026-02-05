@@ -636,6 +636,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const packingPreviewLockRef = useRef({ inFlight: false, planId: null });
   const packingAutoRetryTimerRef = useRef(null);
   const packingPreviewFetchRef = useRef(false);
+  const fetchPlanInFlightRef = useRef(false);
   const shippingRetryRef = useRef(0);
   const shippingRetryTimerRef = useRef(null);
   const shippingFetchLockRef = useRef({ inFlight: false, lastKey: "", lastAt: 0 });
@@ -959,6 +960,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     initialPlan?.plan_id,
     plan
   ]);
+  const runFetchPlan = useCallback(async () => {
+    if (!fetchPlan) return null;
+    if (fetchPlanInFlightRef.current) return { __skip: true };
+    fetchPlanInFlightRef.current = true;
+    try {
+      return await fetchPlan();
+    } finally {
+      fetchPlanInFlightRef.current = false;
+    }
+  }, [fetchPlan]);
   const inboundPlanIdMemo = useMemo(() => resolveInboundPlanId(), [resolveInboundPlanId]);
   const initialRequestKey = useMemo(
     () =>
@@ -1373,9 +1384,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (!hasCachedGroups && !workflowAlreadyStarted) {
         setPackGroups([]); // doar dacă e plan nou / încă neconfirmat
       }
+      let skip = false;
       try {
-        const response = fetchPlan ? await fetchPlan() : null;
+        const response = fetchPlan ? await runFetchPlan() : null;
         if (cancelled) return;
+        if (response?.__skip) {
+          skip = true;
+          return;
+        }
         if (!response) {
           setPlanError((prev) => prev || 'Amazon plan did not respond. Try refreshing.');
           return;
@@ -1437,13 +1453,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       } catch (e) {
         if (!cancelled) setPlanError(e?.message || 'Failed to load Amazon plan.');
       } finally {
-        if (!cancelled) {
+        if (!cancelled && !skip) {
           setLoadingPlan(false);
           setPlanLoaded(true);
         }
       }
     }
-  }, [autoLoadPlan, fetchPlan, normalizePackGroups, planLoaded, snapshotServerUnits]);
+  }, [autoLoadPlan, fetchPlan, normalizePackGroups, planLoaded, runFetchPlan, snapshotServerUnits]);
 
   useEffect(() => {
     if (!planLoaded) return;
@@ -1462,9 +1478,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     planMissingRetryRef.current += 1;
     let cancelled = false;
     (async () => {
+      let skip = false;
       setLoadingPlan(true);
       try {
-        const response = await fetchPlan();
+        const response = await runFetchPlan();
+        if (response?.__skip) {
+          skip = true;
+          return;
+        }
         if (cancelled || !response) return;
         const {
           shipFrom: pFrom,
@@ -1497,13 +1518,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       } catch (e) {
         if (!cancelled) setPlanError((prev) => prev || e?.message || 'Failed to reload Amazon plan.');
       } finally {
-        if (!cancelled) setLoadingPlan(false);
+        if (!cancelled && !skip) setLoadingPlan(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [planLoaded, fetchPlan, resolveInboundPlanId, resolveRequestId, snapshotServerUnits]);
+  }, [planLoaded, fetchPlan, resolveInboundPlanId, resolveRequestId, runFetchPlan, snapshotServerUnits]);
   useEffect(() => {
     const planBoxPlan = plan?.step1BoxPlan || plan?.step1_box_plan || null;
     if (!planBoxPlan || typeof planBoxPlan !== 'object') return;
@@ -3748,25 +3769,30 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setPlanLoaded(false);
       setLoadingPlan(true);
       if (fetchPlan) {
-        await fetchPlan().then((response) => {
-      if (!response) return;
-      const {
-        shipFrom: pFrom,
-        marketplace: pMarket,
-        skus: pSkus,
-        packGroups: pGroups,
-        shipments: pShipments,
-        warning: pWarning,
-        shipmentMode: pShipmentMode,
-        skuStatuses: pSkuStatuses,
-        blocking: pBlocking,
-        requestId: respReqId,
-        inboundPlanId: respInboundId
-      } = response;
-      if (pFrom && pMarket && Array.isArray(pSkus)) {
-        setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
-        snapshotServerUnits(pSkus);
-      } else {
+        let skip = false;
+        await runFetchPlan().then((response) => {
+          if (response?.__skip) {
+            skip = true;
+            return;
+          }
+          if (!response) return;
+          const {
+            shipFrom: pFrom,
+            marketplace: pMarket,
+            skus: pSkus,
+            packGroups: pGroups,
+            shipments: pShipments,
+            warning: pWarning,
+            shipmentMode: pShipmentMode,
+            skuStatuses: pSkuStatuses,
+            blocking: pBlocking,
+            requestId: respReqId,
+            inboundPlanId: respInboundId
+          } = response;
+          if (pFrom && pMarket && Array.isArray(pSkus)) {
+            setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
+            snapshotServerUnits(pSkus);
+          } else {
             setPlan((prev) => ({ ...prev, ...response }));
             if (Array.isArray(response?.skus)) snapshotServerUnits(response.skus);
           }
@@ -3784,18 +3810,23 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           if (typeof pWarning === 'string') {
             const reqId = response.requestId || response.request_id || null;
             const trId = response.traceId || response.trace_id || null;
-        const extra = [pWarning, reqId ? `RequestId: ${reqId}` : null, trId ? `TraceId: ${trId}` : null]
-          .filter(Boolean)
-          .join(' · ');
-        setPlanError((prevError) => prevError || extra);
+            const extra = [pWarning, reqId ? `RequestId: ${reqId}` : null, trId ? `TraceId: ${trId}` : null]
+              .filter(Boolean)
+              .join(' · ');
+            setPlanError((prevError) => prevError || extra);
+          }
+          // Nu declanșăm automat Step 1b la refresh Step 1.
+        });
+        if (!skip) {
+          setLoadingPlan(false);
+          setPlanLoaded(true);
+        }
+        return;
       }
-      // Nu declanșăm automat Step 1b la refresh Step 1.
-    });
-  }
       setLoadingPlan(false);
       setPlanLoaded(true);
     },
-    [fetchPlan, fetchShippingOptions, normalizePackGroups, snapshotServerUnits]
+    [fetchPlan, fetchShippingOptions, normalizePackGroups, runFetchPlan, snapshotServerUnits]
   );
 
   const handleInboundPlanRetry = useCallback(() => {
