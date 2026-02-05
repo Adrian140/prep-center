@@ -2462,7 +2462,7 @@ serve(async (req) => {
     });
 
     const transportCache = new Map<string, any[]>();
-    const listAllTransportationOptions = async (
+    const listTransportationOptionsOnce = async (
       placementOptionIdParam: string,
       shipmentIdParam?: string | null
     ) => {
@@ -2471,59 +2471,46 @@ serve(async (req) => {
         const cached = transportCache.get(cacheKey);
         return { firstRes: null, collected: cached };
       }
-      let nextToken: string | null = null;
-      const collected: any[] = [];
-      let firstRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
-      let attempt = 0;
-      // Keep Step 2 responsive:
-      // - listing (confirm=false) needs only a representative set of options
-      // - confirm flow can scan more pages to find a specific selected option id
-      const maxPages = confirmOptionId ? 12 : 4;
-      do {
-        attempt += 1;
-        const queryParts = [`placementOptionId=${encodeURIComponent(placementOptionIdParam)}`];
-        if (shipmentIdParam) queryParts.push(`shipmentId=${encodeURIComponent(shipmentIdParam)}`);
-        if (nextToken) queryParts.push(`paginationToken=${encodeURIComponent(nextToken)}`);
-        const res = await signedFetch({
-          method: "GET",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
-          query: queryParts.join("&"),
-          payload: "",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.listTransportationOptions",
-          marketplaceId,
-          sellerId
-        });
-        if (!firstRes) firstRes = res;
-        const chunk =
-          res?.json?.payload?.transportationOptions ||
-          res?.json?.transportationOptions ||
-          res?.json?.TransportationOptions ||
-          [];
-        if (Array.isArray(chunk)) collected.push(...chunk);
-        nextToken =
-          res?.json?.payload?.pagination?.nextToken ||
-          res?.json?.pagination?.nextToken ||
-          res?.json?.nextToken ||
-          null;
-        // Avoid cumulative pagination delays that can push Step 2 into minute-long waits.
-        if (nextToken && attempt < maxPages) await delay(25);
-      } while (nextToken && attempt < maxPages);
+      const queryParts = [
+        `placementOptionId=${encodeURIComponent(placementOptionIdParam)}`,
+        "pageSize=100"
+      ];
+      if (shipmentIdParam) queryParts.push(`shipmentId=${encodeURIComponent(shipmentIdParam)}`);
+      const res = await signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
+        query: queryParts.join("&"),
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.listTransportationOptions",
+        marketplaceId,
+        sellerId
+      });
+      const collectedRaw =
+        res?.json?.payload?.transportationOptions ||
+        res?.json?.transportationOptions ||
+        res?.json?.TransportationOptions ||
+        [];
+      const collected = Array.isArray(collectedRaw) ? collectedRaw : [];
+      const nextToken =
+        res?.json?.payload?.pagination?.nextToken ||
+        res?.json?.pagination?.nextToken ||
+        res?.json?.nextToken ||
+        null;
       if (nextToken) {
         logStep("listTransportationOptions_truncated", {
           traceId,
           placementOptionId: placementOptionIdParam,
           shipmentId: shipmentIdParam || null,
-          pagesFetched: attempt,
-          maxPages,
-          collected: collected.length
+          pageSize: 100,
+          collected: Array.isArray(collected) ? collected.length : 0
         });
       }
       const deduped = (() => {
@@ -2547,20 +2534,10 @@ serve(async (req) => {
         return [...byId.values(), ...byComposite.values()];
       })();
       transportCache.set(cacheKey, deduped);
-      return { firstRes, collected: deduped };
+      return { firstRes: res, collected: deduped };
     };
 
-    const hasPartneredSolution = (opts: any[]) =>
-      Array.isArray(opts)
-        ? opts.some((opt) => {
-            const solution = String(
-              opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || ""
-            ).toUpperCase();
-            return solution.includes("AMAZON_PARTNERED") || solution.includes("PARTNERED_CARRIER");
-          })
-        : false;
-
-    const { firstRes: listRes, collected: optionsRawInitial } = await listAllTransportationOptions(
+    const { firstRes: listRes, collected: optionsRawInitial } = await listTransportationOptionsOnce(
       effectivePlacementOptionId,
       shipmentIdForListing
     );
@@ -2570,7 +2547,7 @@ serve(async (req) => {
     // Fallback listing without shipmentId should be used only when shipment-scoped listing is empty.
     if (!optionsRawInitial.length && shipmentIdForListing) {
       const { firstRes: listResFallback, collected: optionsRawFallback } =
-        await listAllTransportationOptions(effectivePlacementOptionId, null);
+        await listTransportationOptionsOnce(effectivePlacementOptionId, null);
       const byId = new Map<string, any>();
       const add = (opt: any) => {
         const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
@@ -2629,62 +2606,8 @@ serve(async (req) => {
       shippingMode: effectiveShippingMode
     });
 
-    const placementOptionIds = Array.from(
-      new Set<string>(
-        (placementOptions || [])
-          .map((p: any) => normalizePlacementId(p))
-          .filter(Boolean)
-          .map((pid: any) => String(pid))
-      )
-    );
-    if (placementOptionIds.length > 1) {
-      for (const pid of placementOptionIds) {
-        if (String(pid) === String(effectivePlacementOptionId)) continue;
-        const placement = placementOptions.find((p: any) => normalizePlacementId(p) === pid) || null;
-        const shipmentIdHint =
-          (placement?.shipmentIds && placement.shipmentIds[0]) ||
-          (Array.isArray(placement?.shipments) && (placement.shipments[0]?.shipmentId || placement.shipments[0]?.id)) ||
-          null;
-        const { firstRes, collected } = await listAllTransportationOptions(pid, shipmentIdHint);
-        let merged = collected;
-        if (!hasPartneredSolution(collected) && shipmentIdHint) {
-          const fallback = await listAllTransportationOptions(pid, null);
-          const byId = new Map<string, any>();
-          const add = (opt: any) => {
-            const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
-            if (!id) return;
-            if (!byId.has(id)) byId.set(id, opt);
-          };
-          collected.forEach(add);
-          fallback.collected.forEach(add);
-          merged = Array.from(byId.values());
-        }
-        const returnedSolutions = Array.from(
-          new Set(
-            (merged || [])
-              .map((o: any) => String(o?.shippingSolution || o?.shippingSolutionId || "").toUpperCase())
-              .filter(Boolean)
-          )
-        );
-        const returnedModes = Array.from(
-          new Set(
-            (merged || [])
-              .map((o: any) => String(o?.shippingMode || o?.mode || "").toUpperCase())
-              .filter(Boolean)
-          )
-        );
-        logStep("listTransportationOptions_by_placement", {
-          traceId,
-          placementOptionId: pid,
-          shipmentIdForListing: shipmentIdHint || null,
-          status: firstRes?.res?.status || null,
-          requestId: firstRes?.requestId || null,
-          count: merged.length,
-          returnedSolutions,
-          returnedModes
-        });
-      }
-    }
+    // Nu listam in bucla toate placement-urile in Step 2.
+    // Conform fluxului UI, lucram strict pe placement-ul deja selectat/confirmat.
 
     const hasDeliveryWindowPrecondition = (opt: any) => {
       const pre = opt?.preconditions || opt?.Preconditions || [];
@@ -2861,7 +2784,7 @@ serve(async (req) => {
       }
       // Conform fluxului din documentație: după confirmDeliveryWindowOption relistăm opțiunile.
       // Evităm regenerate implicit, deoarece poate roti transportationOptionId și poate invalida selecția din UI.
-      let relist = await listAllTransportationOptions(String(effectivePlacementOptionId), null);
+      let relist = await listTransportationOptionsOnce(String(effectivePlacementOptionId), null);
       options = relist.collected || [];
       optionsForSelectionRaw = options;
       logStep("listTransportationOptions_after_deliveryWindow", {
@@ -2913,7 +2836,7 @@ serve(async (req) => {
             bodyPreview: (regenRes?.text || "").slice(0, 600) || null
           });
         }
-        relist = await listAllTransportationOptions(String(effectivePlacementOptionId), null);
+        relist = await listTransportationOptionsOnce(String(effectivePlacementOptionId), null);
         options = relist.collected || [];
         optionsForSelectionRaw = options;
         logStep("listTransportationOptions_after_deliveryWindow", {
@@ -3187,7 +3110,7 @@ serve(async (req) => {
         : null) ||
       null;
     if (!selectedOption) {
-      const refresh = await listAllTransportationOptions(
+      const refresh = await listTransportationOptionsOnce(
         String(effectivePlacementOptionId),
         shipmentIdForListing
       );
@@ -3319,7 +3242,7 @@ serve(async (req) => {
 
     // Re-validate selected option against latest list for this shipment (must be AVAILABLE and belong to shipment)
     const validateSelectedOption = async (optId: string, shId: string | null) => {
-      const { collected } = await listAllTransportationOptions(
+      const { collected } = await listTransportationOptionsOnce(
         String(effectivePlacementOptionId),
         shId || undefined
       );
@@ -3502,7 +3425,7 @@ serve(async (req) => {
       }
 
       // Re-list transportation options to avoid stale option IDs after delivery window confirmation
-      const refreshed = await listAllTransportationOptions(
+      const refreshed = await listTransportationOptionsOnce(
         String(effectivePlacementOptionId),
         shipmentIdForListing
       );
@@ -3532,7 +3455,7 @@ serve(async (req) => {
 
     // Re-list transportation options right before confirmation to avoid stale IDs
     const refreshTransportOptions = async () => {
-      const refreshed = await listAllTransportationOptions(
+      const refreshed = await listTransportationOptionsOnce(
         String(effectivePlacementOptionId),
         shipmentIdForListing
       );
@@ -3602,7 +3525,7 @@ serve(async (req) => {
     })();
 
     const validateOptionForShipment = async (optId: string, shipmentId: string) => {
-      const { collected } = await listAllTransportationOptions(
+      const { collected } = await listTransportationOptionsOnce(
         String(effectivePlacementOptionId),
         shipmentId
       );
