@@ -65,6 +65,7 @@ export default function AdminCompanyDashboard() {
   const [loadingChart, setLoadingChart] = useState(false);
   const [chartError, setChartError] = useState('');
   const [monthFinance, setMonthFinance] = useState(null);
+  const [monthReceivingTotal, setMonthReceivingTotal] = useState(null);
   const [staleness, setStaleness] = useState([]);
   const [stalenessLoading, setStalenessLoading] = useState(false);
   const [stalenessError, setStalenessError] = useState('');
@@ -251,6 +252,32 @@ export default function AdminCompanyDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCompany?.id, currentMarket]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadMonthReceiving = async () => {
+      if (!selectedCompany?.id) return;
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthStart = start.toISOString().slice(0, 10);
+      const today = todayIso();
+      const { data, error } = await supabaseHelpers.getClientAnalyticsSnapshot({
+        companyId: selectedCompany.id === 'ALL' ? null : selectedCompany.id,
+        userId: null,
+        country: currentMarket,
+        startDate: monthStart,
+        endDate: today
+      });
+      if (cancelled) return;
+      if (error) {
+        setMonthReceivingTotal(null);
+      } else {
+        setMonthReceivingTotal(Number(data?.receiving?.unitsTotal || 0));
+      }
+    };
+    loadMonthReceiving();
+    return () => { cancelled = true; };
+  }, [selectedCompany?.id, currentMarket]);
+
   const applyPreset = (days) => {
     const end = new Date();
     const start = new Date();
@@ -429,7 +456,7 @@ export default function AdminCompanyDashboard() {
               value={isSingleDay ? todayReceiving : sumTotalReceiving}
               subtitle={
                 isSingleDay
-                  ? tp('adminDashboard.receptionsSubtitleSingle', { total: sumTotalReceiving })
+                  ? tp('adminDashboard.receptionsSubtitleSingle', { total: monthReceivingTotal ?? sumTotalReceiving })
                   : tp('adminDashboard.receptionsSubtitleInterval', { total: sumTotalReceiving })
               }
               accentClass="text-blue-700"
