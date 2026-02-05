@@ -3222,16 +3222,25 @@ serve(async (req) => {
         ? selectionPool.find((o) => o.id === confirmOptionId) || null
         : null;
       if (confirmOptionId && !requestedOption) {
-        // dacă userul a selectat explicit o opțiune, nu mai facem autoswitch pe non-PCP
-        const allowAuto = autoSelectTransportationOptionRaw && partneredOpt;
+        // Amazon poate roti transportationOptionId între listare și confirmare pentru OYC.
+        // Facem auto-recovery strict pentru confirm flow non-partnered.
+        const canAutoRecoverMissingRequested =
+          shouldConfirm &&
+          selectionPool.length > 0 &&
+          !forcePartneredOnly &&
+          !partneredOpt;
+        const allowAuto = (autoSelectTransportationOptionRaw && partneredOpt) || canAutoRecoverMissingRequested;
         if (allowAuto) {
-          const fallbackAuto = selectionPool.find((o) => o.partnered) || selectionPool[0] || null;
+          const fallbackAuto = partneredOpt
+            ? selectionPool.find((o) => o.partnered) || selectionPool[0] || null
+            : selectionPool.find((o) => !o.partnered) || selectionPool[0] || null;
           selectedOption = fallbackAuto;
           logStep("transportationOption_autoswitch_missing", {
             traceId,
             reason: "confirm_id_not_found",
             missingOptionId: confirmOptionId,
-            fallbackOptionId: fallbackAuto?.id || null
+            fallbackOptionId: fallbackAuto?.id || null,
+            autoRecovered: canAutoRecoverMissingRequested
           });
         } else {
           return new Response(
@@ -3362,15 +3371,42 @@ serve(async (req) => {
     if (selectedOption?.id) {
       const validated = await validateSelectedOption(selectedOption.id, primaryShipmentId);
       if (!validated) {
-        return new Response(
-          JSON.stringify({
-            error:
-              "Opțiunea de curier selectată nu mai este disponibilă pentru acest shipment. Selectează din lista reîncărcată.",
-            code: "TRANSPORTATION_OPTION_NOT_AVAILABLE",
-            traceId
-          }),
-          { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
-        );
+        let fallbackAfterValidation: any = null;
+        if (shouldConfirm && !forcePartneredOnly) {
+          const reloaded = await listTransportationOptionsOnce(
+            String(effectivePlacementOptionId),
+            primaryShipmentId || undefined,
+            { requiredOptionId: null }
+          );
+          const reloadedNormalized = normalizeOptions(reloaded.collected || []);
+          const reloadedForMode = normalizedRequestedMode
+            ? reloadedNormalized.filter((o) => normalizeOptionMode(o.mode) === normalizedRequestedMode)
+            : reloadedNormalized;
+          const reloadedPool = reloadedForMode.length ? reloadedForMode : reloadedNormalized;
+          fallbackAfterValidation =
+            reloadedPool.find((o) => !o.partnered) ||
+            reloadedPool[0] ||
+            null;
+        }
+        if (fallbackAfterValidation?.id) {
+          selectedOption = fallbackAfterValidation;
+          logStep("transportationOption_autorecover_unavailable", {
+            traceId,
+            previousOptionId: confirmOptionId || null,
+            recoveredOptionId: selectedOption?.id || null,
+            shipmentId: primaryShipmentId || null
+          });
+        } else {
+          return new Response(
+            JSON.stringify({
+              error:
+                "Opțiunea de curier selectată nu mai este disponibilă pentru acest shipment. Selectează din lista reîncărcată.",
+              code: "TRANSPORTATION_OPTION_NOT_AVAILABLE",
+              traceId
+            }),
+            { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
       }
     }
       }
