@@ -42,6 +42,8 @@ interface Payload {
   fba_mode?: string | null;
   items?: ItemPayload[] | null;
   country?: string | null;
+  destination_country?: string | null;
+  warehouse_country?: string | null;
 }
 
 const escapeHtml = (value: string) =>
@@ -156,7 +158,9 @@ const normalizeCountry = (value?: string | null) => {
 };
 
 async function resolveAdminEmail(payload: Payload): Promise<{ to: string | null; enabled: boolean }> {
-  const country = normalizeCountry(payload.country);
+  const country = normalizeCountry(
+    payload.country || payload.warehouse_country || payload.destination_country
+  );
   // default fallback
   let fallback = ADMIN_EMAIL;
 

@@ -34,6 +34,8 @@ interface Payload {
   tracking_ids?: string[] | null;
   marketplace?: string | null;
   country?: string | null;
+  destination_country?: string | null;
+  warehouse_country?: string | null;
 }
 
 // ===== ENV =====
@@ -123,7 +125,9 @@ async function shouldNotifyClient(payload: Payload): Promise<boolean> {
 }
 
 async function resolveAdminEmail(payload: Payload): Promise<{ to: string | null; enabled: boolean }> {
-  const country = normalizeCountry(payload.country || payload.marketplace);
+  const country = normalizeCountry(
+    payload.country || payload.marketplace || payload.destination_country || payload.warehouse_country
+  );
   if (!supabase) return { to: ADMIN_EMAIL, enabled: true };
   try {
     const { data, error } = await supabase

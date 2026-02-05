@@ -1771,7 +1771,7 @@ const resetReceptionForm = () => {
       quantity: item.units_requested || null,
     }));
 
-    const { error } = await supabase.functions.invoke('send_inbound_confirm_email', {
+    const { error } = await supabase.functions.invoke('send_reception_admin_email', {
       body: {
         shipment_id: header?.id || null,
         client_email: clientEmail,
@@ -1783,6 +1783,7 @@ const resetReceptionForm = () => {
       notes: basePayload.notes || null,
       fba_mode: basePayload.fba_mode || null,
       destination_country: basePayload.destination_country || 'FR',
+      country: basePayload.warehouse_country || basePayload.destination_country || 'FR',
       items,
     },
   });

@@ -970,6 +970,7 @@ const mailPayload = {
   tracking_ids: (freshRow?.prep_request_tracking || [])
     .map((t) => t.tracking_id)
     .filter(Boolean),
+  country: freshRow?.warehouse_country || freshRow?.destination_country || null,
   subject_id,
   items: mailItems,
 };
