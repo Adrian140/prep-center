@@ -1862,10 +1862,17 @@ createPrepItem: async (requestId, item) => {
 
     const normalizeDate = (value) => {
       if (!value) return formatSqlDate();
+      const str = String(value).trim();
+      // accept DD.MM.YYYY / DD-MM-YYYY / DD/MM/YYYY from UI date pickers
+      const m = str.match(/^(\d{2})[\\.\\/-](\d{2})[\\.\\/-](\d{4})$/);
+      if (m) {
+        const [, dd, mm, yyyy] = m;
+        return `${yyyy}-${mm}-${dd}`;
+      }
       try {
-        return formatSqlDate(new Date(value));
+        return formatSqlDate(new Date(str));
       } catch {
-        return String(value).slice(0, 10);
+        return str.slice(0, 10);
       }
     };
 
