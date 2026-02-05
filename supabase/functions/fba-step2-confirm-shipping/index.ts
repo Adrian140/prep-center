@@ -2473,7 +2473,7 @@ serve(async (req) => {
       }
       const queryParts = [
         `placementOptionId=${encodeURIComponent(placementOptionIdParam)}`,
-        "pageSize=100"
+        "pageSize=20"
       ];
       if (shipmentIdParam) queryParts.push(`shipmentId=${encodeURIComponent(shipmentIdParam)}`);
       const res = await signedFetch({
@@ -2509,7 +2509,7 @@ serve(async (req) => {
           traceId,
           placementOptionId: placementOptionIdParam,
           shipmentId: shipmentIdParam || null,
-          pageSize: 100,
+          pageSize: 20,
           collected: Array.isArray(collected) ? collected.length : 0
         });
       }
