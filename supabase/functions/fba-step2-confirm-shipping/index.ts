@@ -2462,9 +2462,39 @@ serve(async (req) => {
     });
 
     const transportCache = new Map<string, any[]>();
+    const hasPartneredSolution = (opts: any[]) =>
+      Array.isArray(opts)
+        ? opts.some((opt) => {
+            const solution = String(
+              opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || ""
+            ).toUpperCase();
+            return solution.includes("AMAZON_PARTNERED") || solution.includes("PARTNERED_CARRIER");
+          })
+        : false;
+    const dedupeTransportationOptions = (opts: any[]) => {
+      const byId = new Map<string, any>();
+      const byComposite = new Map<string, any>();
+      const buildComposite = (opt: any) => {
+        const carrier = opt?.carrier?.alphaCode || opt?.carrier?.name || opt?.carrier || "";
+        const mode = opt?.shippingMode || opt?.mode || "";
+        const solution = opt?.shippingSolution || opt?.shippingSolutionId || "";
+        return `${String(carrier)}|${String(mode)}|${String(solution)}`;
+      };
+      (opts || []).forEach((opt: any) => {
+        const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
+        if (id) {
+          if (!byId.has(id)) byId.set(id, opt);
+          return;
+        }
+        const key = buildComposite(opt);
+        if (!byComposite.has(key)) byComposite.set(key, opt);
+      });
+      return [...byId.values(), ...byComposite.values()];
+    };
     const listTransportationOptionsOnce = async (
       placementOptionIdParam: string,
-      shipmentIdParam?: string | null
+      shipmentIdParam?: string | null,
+      opts?: { probePartnered?: boolean; maxExtraPages?: number }
     ) => {
       const cacheKey = `${placementOptionIdParam}|${shipmentIdParam || ""}`;
       if (transportCache.has(cacheKey)) {
@@ -2504,42 +2534,80 @@ serve(async (req) => {
         res?.json?.pagination?.nextToken ||
         res?.json?.nextToken ||
         null;
+      const probePartnered = Boolean(opts?.probePartnered);
+      const maxExtraPages = Math.max(0, Math.min(Number(opts?.maxExtraPages ?? 2), 3));
+      const extraCollected: any[] = [];
+      let extraPagesFetched = 0;
+      let tokenCursor = nextToken;
+      if (probePartnered && tokenCursor && !hasPartneredSolution(collected)) {
+        while (tokenCursor && extraPagesFetched < maxExtraPages && !hasPartneredSolution([...collected, ...extraCollected])) {
+          extraPagesFetched += 1;
+          const extraQueryParts = [
+            `placementOptionId=${encodeURIComponent(placementOptionIdParam)}`,
+            "pageSize=20"
+          ];
+          if (shipmentIdParam) extraQueryParts.push(`shipmentId=${encodeURIComponent(shipmentIdParam)}`);
+          extraQueryParts.push(`paginationToken=${encodeURIComponent(tokenCursor)}`);
+          const extraRes = await signedFetch({
+            method: "GET",
+            service: "execute-api",
+            region: awsRegion,
+            host,
+            path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
+            query: extraQueryParts.join("&"),
+            payload: "",
+            accessKey: tempCreds.accessKeyId,
+            secretKey: tempCreds.secretAccessKey,
+            sessionToken: tempCreds.sessionToken,
+            lwaToken: lwaAccessToken,
+            traceId,
+            operationName: "inbound.v20240320.listTransportationOptions",
+            marketplaceId,
+            sellerId
+          });
+          const extraRaw =
+            extraRes?.json?.payload?.transportationOptions ||
+            extraRes?.json?.transportationOptions ||
+            extraRes?.json?.TransportationOptions ||
+            [];
+          const extraChunk = Array.isArray(extraRaw) ? extraRaw : [];
+          if (extraChunk.length) extraCollected.push(...extraChunk);
+          tokenCursor =
+            extraRes?.json?.payload?.pagination?.nextToken ||
+            extraRes?.json?.pagination?.nextToken ||
+            extraRes?.json?.nextToken ||
+            null;
+        }
+        logStep("listTransportationOptions_partnered_probe", {
+          traceId,
+          placementOptionId: placementOptionIdParam,
+          shipmentId: shipmentIdParam || null,
+          pagesFetched: extraPagesFetched,
+          maxExtraPages,
+          partneredFound: hasPartneredSolution([...collected, ...extraCollected]),
+          baseCount: collected.length,
+          extraCount: extraCollected.length
+        });
+      }
+      const mergedCollected = [...collected, ...extraCollected];
       if (nextToken) {
         logStep("listTransportationOptions_truncated", {
           traceId,
           placementOptionId: placementOptionIdParam,
           shipmentId: shipmentIdParam || null,
           pageSize: 20,
-          collected: Array.isArray(collected) ? collected.length : 0
+          collected: Array.isArray(mergedCollected) ? mergedCollected.length : 0
         });
       }
-      const deduped = (() => {
-        const byId = new Map<string, any>();
-        const byComposite = new Map<string, any>();
-        const buildComposite = (opt: any) => {
-          const carrier = opt?.carrier?.alphaCode || opt?.carrier?.name || opt?.carrier || "";
-          const mode = opt?.shippingMode || opt?.mode || "";
-          const solution = opt?.shippingSolution || opt?.shippingSolutionId || "";
-          return `${String(carrier)}|${String(mode)}|${String(solution)}`;
-        };
-        (collected || []).forEach((opt: any) => {
-          const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
-          if (id) {
-            if (!byId.has(id)) byId.set(id, opt);
-            return;
-          }
-          const key = buildComposite(opt);
-          if (!byComposite.has(key)) byComposite.set(key, opt);
-        });
-        return [...byId.values(), ...byComposite.values()];
-      })();
+      const deduped = dedupeTransportationOptions(mergedCollected);
       transportCache.set(cacheKey, deduped);
       return { firstRes: res, collected: deduped };
     };
 
     const { firstRes: listRes, collected: optionsRawInitial } = await listTransportationOptionsOnce(
       effectivePlacementOptionId,
-      shipmentIdForListing
+      shipmentIdForListing,
+      { probePartnered: true, maxExtraPages: 2 }
     );
     let optionsRawForSelection = optionsRawInitial;
     let optionsRawForDisplay = optionsRawInitial;
@@ -2547,7 +2615,10 @@ serve(async (req) => {
     // Fallback listing without shipmentId should be used only when shipment-scoped listing is empty.
     if (!optionsRawInitial.length && shipmentIdForListing) {
       const { firstRes: listResFallback, collected: optionsRawFallback } =
-        await listTransportationOptionsOnce(effectivePlacementOptionId, null);
+        await listTransportationOptionsOnce(effectivePlacementOptionId, null, {
+          probePartnered: true,
+          maxExtraPages: 2
+        });
       const byId = new Map<string, any>();
       const add = (opt: any) => {
         const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
