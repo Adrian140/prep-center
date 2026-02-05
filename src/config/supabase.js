@@ -1374,18 +1374,20 @@ const items = (draftData.items || []).map((it) => ({
   listPrepRequests: async (options = {}) => {
     const isWarehouseColumnMissing = (error) =>
       isMissingColumnError(error, 'warehouse_country');
+    const listSelect = `
+      id,
+      created_at,
+      status,
+      destination_country,
+      warehouse_country,
+      step2_confirmed_at,
+      step4_confirmed_at,
+      profiles(first_name, last_name, email, company_name, store_name),
+      companies(name)
+    `;
     let query = supabase
       .from('prep_requests')
-      .select(
-        `
-        *,
-        profiles(first_name, last_name, email, company_name, store_name),
-        companies(name),
-        prep_request_items(*),
-        prep_request_tracking(*)
-      `,
-        { count: 'exact' }
-      );
+      .select(listSelect, { count: 'planned' });
 
     if (options.status) {
       query = query.eq('status', options.status);
@@ -1407,16 +1409,7 @@ const items = (draftData.items || []).map((it) => ({
     if (error && isWarehouseColumnMissing(error) && filterCountry) {
       let retry = supabase
         .from('prep_requests')
-        .select(
-          `
-        *,
-        profiles(first_name, last_name, email, company_name, store_name),
-        companies(name),
-        prep_request_items(*),
-        prep_request_tracking(*)
-      `,
-          { count: 'exact' }
-        );
+        .select(listSelect, { count: 'planned' });
       if (options.status) {
         retry = retry.eq('status', options.status);
       }
@@ -1434,22 +1427,6 @@ const items = (draftData.items || []).map((it) => ({
     
     if (error) return { data: [], error, count: 0 };
 
-    const allStockIds = new Set();
-    (data || []).forEach((r) => {
-      (r.prep_request_items || []).forEach((it) => {
-        if (it.stock_item_id) allStockIds.add(it.stock_item_id);
-      });
-    });
-
-    let stockMap = {};
-    if (allStockIds.size > 0) {
-      const { data: stockData } = await supabase
-        .from('stock_items')
-        .select('id, name, ean, sku, asin, image_url')
-        .in('id', Array.from(allStockIds));
-      stockMap = Object.fromEntries((stockData || []).map((s) => [s.id, s]));
-    }
-
     const processed = (data || []).map((r) => {
       const profileFirstName = r.profiles?.first_name || '';
       const profileLastName = r.profiles?.last_name || '';
@@ -1458,10 +1435,6 @@ const items = (draftData.items || []).map((it) => ({
       const companyFallback = r.companies?.name || null;
       return {
         ...r,
-        prep_request_items: (r.prep_request_items || []).map((it) => ({
-          ...it,
-          stock_item: stockMap[it.stock_item_id] || null,
-        })),
         client_name: [profileFirstName, profileLastName].filter(Boolean).join(' ').trim(),
         user_email: r.profiles?.email,
         client_company_name: profileCompany || companyFallback || null,
@@ -1906,6 +1879,9 @@ createPrepItem: async (requestId, item) => {
     // client_stock_items view nu are coloana qty; evităm apelul direct ca să nu generăm 400
     const clientStockPromise = Promise.resolve({ data: [], error: null });
     const stockTotalRpcPromise = supabase.rpc('get_total_stock_units');
+    const stockTotalByCountryRpcPromise = marketCode
+      ? supabase.rpc('get_total_stock_units_by_country', { p_country: marketCode })
+      : Promise.resolve({ data: null, error: null });
 
     const invoicesPromise = withCountry(
       withCompany(
@@ -2017,11 +1993,12 @@ createPrepItem: async (requestId, item) => {
       .lte('service_date', dateTo)
       .limit(20000);
 
-    let [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
+    let [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, stockTotalByCountryRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
       stockPromise,
       stockAllPromise,
       clientStockPromise,
       stockTotalRpcPromise,
+      stockTotalByCountryRpcPromise,
       invoicesPromise,
       returnsPromise,
       prepPromise,
@@ -2125,11 +2102,15 @@ createPrepItem: async (requestId, item) => {
       (acc, row) => acc + Math.max(0, numberOrZero(row.qty)),
       0
     );
+    const parseRpcTotal = (res) => {
+      if (!res || res.error || res.data == null) return null;
+      return numberOrZero(
+        Array.isArray(res.data) ? res.data[0]?.total_qty : res.data.total_qty
+      );
+    };
     const inventoryUnitsRpc = marketCode
-      ? 0
-      : stockTotalRpcRes?.data
-      ? numberOrZero(Array.isArray(stockTotalRpcRes.data) ? stockTotalRpcRes.data[0]?.total_qty : stockTotalRpcRes.data.total_qty)
-      : 0;
+      ? parseRpcTotal(stockTotalByCountryRpcRes)
+      : parseRpcTotal(stockTotalRpcRes);
 
     const fbaInStock = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_stock), 0);
     const fbaReserved = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_reserved), 0);
@@ -2347,8 +2328,8 @@ createPrepItem: async (requestId, item) => {
         inventory: {
           units: inventoryUnits,
           unitsAll: marketCode
-            ? inventoryUnitsAll
-            : inventoryUnitsRpc || inventoryUnitsClientView || inventoryUnitsAll,
+            ? (inventoryUnitsRpc ?? inventoryUnitsAll)
+            : (inventoryUnitsRpc ?? inventoryUnitsClientView ?? inventoryUnitsAll),
           activeSkus,
           volumeM3: Number(inventoryVolume.toFixed(3))
         },

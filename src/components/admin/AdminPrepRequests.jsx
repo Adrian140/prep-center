@@ -36,7 +36,6 @@ export default function AdminPrepRequests() {
   const [selectedId, setSelectedId] = useState(initialState.selectedId || null); // request id pt. detail
   const [selectedView, setSelectedView] = useState(initialState.selectedView || 'detail');
   const [flash, setFlash] = useState('');
-  const [useClientPaging, setUseClientPaging] = useState(false);
   const firstLoadRef = useRef(true);
   const initialPageRef = useRef(initialPage);
 
@@ -70,28 +69,26 @@ export default function AdminPrepRequests() {
   }
 };
 
- const load = async (p = page, fetchAll = false) => {
+ const load = async (p = page) => {
   setLoading(true);
   setFlash('');
   try {
     const { data, error, count: c } = await supabaseHelpers.listPrepRequests({
       status: status === 'all' ? undefined : status,
       warehouseCountry: currentMarket,
-      page: fetchAll ? undefined : p,
-      pageSize: fetchAll ? undefined : pageSize,
+      page: p,
+      pageSize,
     });
     if (error) throw error;
 
     setRows(Array.isArray(data) ? data : []);
     setCount(c || 0);
-    setUseClientPaging(fetchAll);
-    setPage(fetchAll ? 1 : p);
+    setPage(p);
   } catch (e) {
     console.error('listPrepRequests failed:', e?.message || e);
     setRows([]);
     setCount(0);
     setFlash(e?.message || 'Eroare la încărcare.');
-    setUseClientPaging(false);
   } finally {
     setLoading(false);
   }
@@ -100,26 +97,26 @@ export default function AdminPrepRequests() {
   const trimmedQuery = q.trim();
 
   useEffect(() => {
-    load(initialPageRef.current, !!trimmedQuery || status === 'all');
+    load(initialPageRef.current);
     firstLoadRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (firstLoadRef.current) return;
-    load(1, !!trimmedQuery || status === 'all');
+    load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, currentMarket]);
 
   useEffect(() => {
     if (firstLoadRef.current) return;
-    load(1, !!trimmedQuery || status === 'all');
+    load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trimmedQuery, currentMarket]);
 
   useEffect(() => {
     if (firstLoadRef.current) return;
-    load(1, !!trimmedQuery || status === 'all');
+    load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMarket]);
 
@@ -137,23 +134,6 @@ export default function AdminPrepRequests() {
 
     const matchesSearch = (row) => {
       if (!tokens.length) return true;
-      const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
-      const itemHit = items.some((it) => {
-        const fields = [
-          it.asin,
-          it.sku,
-          it.ean,
-          it.product_name,
-          it.stock_item?.asin,
-          it.stock_item?.sku,
-          it.stock_item?.ean,
-          it.stock_item?.name,
-        ]
-          .filter(Boolean)
-          .map((v) => String(v).toLowerCase());
-        return tokens.some((t) => fields.some((f) => f.includes(t)));
-      });
-
       const fields = [
         row.id,
         row.user_email,
@@ -167,8 +147,7 @@ export default function AdminPrepRequests() {
         .filter(Boolean)
         .map((v) => String(v).toLowerCase());
 
-      // A row matches if every token is found in any field (OR items).
-      return tokens.every((t) => itemHit || fields.some((f) => f.includes(t)));
+      return tokens.every((t) => fields.some((f) => f.includes(t)));
     };
 
     const base = rows
@@ -184,21 +163,13 @@ export default function AdminPrepRequests() {
         return a.index - b.index;
       })
       .map(({ row }) => row);
-  }, [rows, q]);
+  }, [rows, trimmedQuery]);
 
-  const totalBase = useClientPaging || trimmedQuery || status !== 'all' ? filtered.length : count;
+  const totalBase = trimmedQuery ? filtered.length : count;
   const totalPages = Math.max(1, Math.ceil(Math.max(1, totalBase) / pageSize));
-  const displayRows = useMemo(() => {
-    if (!useClientPaging) return filtered;
-    const start = (page - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, page, useClientPaging]);
+  const displayRows = filtered;
   const handlePageChange = (next) => {
-    if (useClientPaging) {
-      setPage(next);
-    } else {
-      load(next);
-    }
+    load(next);
   };
 
   if (selectedId) {
@@ -227,7 +198,7 @@ export default function AdminPrepRequests() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Caută în ASIN / SKU / nume / email / companie / store / status / țară…"
+            placeholder="Caută în ID / nume / email / companie / store / status / țară…"
             className="pl-9 pr-3 py-2 w-80 border rounded-lg"
           />
         </div>
