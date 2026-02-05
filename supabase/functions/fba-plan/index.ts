@@ -2137,6 +2137,15 @@ serve(async (req) => {
           const prepRequired = !!prepInfo.prepRequired;
           const manufacturerBarcodeEligible =
             prepInfo.barcodeInstruction ? isManufacturerBarcodeEligible(prepInfo.barcodeInstruction) : false;
+          const prepTypesFromGuidance = (Array.isArray(prepInfo.prepInstructions) ? prepInfo.prepInstructions : [])
+            .map((raw: string) => toInboundPrepType(String(raw || "")))
+            .filter((v: string | null): v is string => !!v);
+          const guidanceToken = normalizeToken(prepInfo.guidance);
+          const labelingOrNoPrepOnly =
+            prepTypesFromGuidance.length > 0 &&
+            prepTypesFromGuidance.every((t) => t === "ITEM_LABELING" || t === "ITEM_NO_PREP");
+          const prefersNonePrepOwner =
+            guidanceToken === "NOADDITIONALPREPREQUIRED" || labelingOrNoPrepOnly;
           // Respectăm guidance-ul Amazon: dacă e barcode-eligibil -> NONE, altfel SELLER doar când e cerut.
           let labelOwner: OwnerVal = deriveLabelOwner({ ...prepInfo, prepRequired, manufacturerBarcodeEligible });
           // Dacă nu există prep real, Amazon cere de regulă prepOwner=NONE (labeling rămâne separat via labelOwner).
@@ -2146,6 +2155,7 @@ serve(async (req) => {
                 ? "AMAZON"
                 : "SELLER"
               : "NONE";
+          if (prefersNonePrepOwner) prepOwner = "NONE";
 
           const labelOwnerFromConstraint = labelOwnerConstraintBySku[key];
           const prepOwnerFromConstraint = prepOwnerConstraintBySku[key];
