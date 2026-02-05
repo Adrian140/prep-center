@@ -64,7 +64,6 @@ export default function AdminCompanyDashboard() {
   const [chartSnapshot, setChartSnapshot] = useState(null);
   const [loadingChart, setLoadingChart] = useState(false);
   const [chartError, setChartError] = useState('');
-  const [monthFinance, setMonthFinance] = useState(null);
   const [staleness, setStaleness] = useState([]);
   const [stalenessLoading, setStalenessLoading] = useState(false);
   const [stalenessError, setStalenessError] = useState('');
@@ -224,37 +223,6 @@ export default function AdminCompanyDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCompany?.id, chartRange, currentMarket]);
 
-  const loadMonthFinance = async () => {
-    if (!selectedCompany?.id) return;
-    const today = todayIso();
-    const monthStart = `${today.slice(0, 8)}01`;
-    const { data, error } = await supabaseHelpers.getClientAnalyticsSnapshot({
-      companyId: selectedCompany.id === 'ALL' ? null : selectedCompany.id,
-      userId: null,
-      country: currentMarket,
-      startDate: monthStart,
-      endDate: today
-    });
-    if (error) {
-      setMonthFinance(null);
-      return;
-    }
-    const total =
-      Number(data?.finance?.prepAmounts?.fba || 0) +
-      Number(data?.finance?.prepAmounts?.fbm || 0) +
-      Number(data?.finance?.prepAmounts?.other || 0);
-    const todayAmount =
-      Number(data?.finance?.prepAmountsTodayAbsolute?.fba || 0) +
-      Number(data?.finance?.prepAmountsTodayAbsolute?.fbm || 0) +
-      Number(data?.finance?.prepAmountsTodayAbsolute?.other || 0);
-    setMonthFinance({ total, today: todayAmount });
-  };
-
-  useEffect(() => {
-    loadMonthFinance();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompany?.id, currentMarket]);
-
   const applyPreset = (days) => {
     const end = new Date();
     const start = new Date();
@@ -307,22 +275,17 @@ export default function AdminCompanyDashboard() {
     return Array.from(map.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [preparedDaily, receivingDaily, balanceDaily]);
 
-  const moneyToday =
-    monthFinance?.today ??
-    (
-      snapshot?.finance?.prepAmountsTodayAbsolute
-        ? Number(snapshot?.finance?.prepAmountsTodayAbsolute?.fba || 0) +
-          Number(snapshot?.finance?.prepAmountsTodayAbsolute?.fbm || 0) +
-          Number(snapshot?.finance?.prepAmountsTodayAbsolute?.other || 0)
-        : Number(snapshot?.finance?.prepAmountsToday?.fba || 0) +
-          Number(snapshot?.finance?.prepAmountsToday?.fbm || 0) +
-          Number(snapshot?.finance?.prepAmountsToday?.other || 0)
-    );
+  const moneyToday = snapshot?.finance?.prepAmountsTodayAbsolute
+    ? Number(snapshot?.finance?.prepAmountsTodayAbsolute?.fba || 0) +
+      Number(snapshot?.finance?.prepAmountsTodayAbsolute?.fbm || 0) +
+      Number(snapshot?.finance?.prepAmountsTodayAbsolute?.other || 0)
+    : Number(snapshot?.finance?.prepAmountsToday?.fba || 0) +
+      Number(snapshot?.finance?.prepAmountsToday?.fbm || 0) +
+      Number(snapshot?.finance?.prepAmountsToday?.other || 0);
   const moneyInterval =
-    monthFinance?.total ??
-    (Number(snapshot?.finance?.prepAmounts?.fba || 0) +
-      Number(snapshot?.finance?.prepAmounts?.fbm || 0) +
-      Number(snapshot?.finance?.prepAmounts?.other || 0));
+    Number(snapshot?.finance?.prepAmounts?.fba || 0) +
+    Number(snapshot?.finance?.prepAmounts?.fbm || 0) +
+    Number(snapshot?.finance?.prepAmounts?.other || 0);
   const isSingleDay = dateFrom === dateTo;
   const chartDays = chartRange;
 
