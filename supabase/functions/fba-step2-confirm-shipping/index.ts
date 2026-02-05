@@ -3229,10 +3229,22 @@ serve(async (req) => {
           selectionPool.length > 0 &&
           !forcePartneredOnly &&
           !partneredOpt;
-        const allowAuto = (autoSelectTransportationOptionRaw && partneredOpt) || canAutoRecoverMissingRequested;
+        const canAutoRecoverPartnered =
+          shouldConfirm &&
+          selectionPool.length > 0 &&
+          forcePartneredOnly &&
+          partneredOpt;
+        const allowAuto =
+          (autoSelectTransportationOptionRaw && partneredOpt) ||
+          canAutoRecoverMissingRequested ||
+          canAutoRecoverPartnered;
         if (allowAuto) {
           const fallbackAuto = partneredOpt
-            ? selectionPool.find((o) => o.partnered) || selectionPool[0] || null
+            ? selectionPool
+                .filter((o) => o.partnered)
+                .sort((a, b) => (Number(a.charge || 0) - Number(b.charge || 0)))[0] ||
+              selectionPool[0] ||
+              null
             : selectionPool.find((o) => !o.partnered) || selectionPool[0] || null;
           selectedOption = fallbackAuto;
           logStep("transportationOption_autoswitch_missing", {
@@ -3240,7 +3252,7 @@ serve(async (req) => {
             reason: "confirm_id_not_found",
             missingOptionId: confirmOptionId,
             fallbackOptionId: fallbackAuto?.id || null,
-            autoRecovered: canAutoRecoverMissingRequested
+            autoRecovered: canAutoRecoverMissingRequested || canAutoRecoverPartnered
           });
         } else {
           return new Response(
@@ -3386,6 +3398,23 @@ serve(async (req) => {
           fallbackAfterValidation =
             reloadedPool.find((o) => !o.partnered) ||
             reloadedPool[0] ||
+            null;
+        }
+        if (!fallbackAfterValidation?.id && shouldConfirm && forcePartneredOnly) {
+          const reloaded = await listTransportationOptionsOnce(
+            String(effectivePlacementOptionId),
+            primaryShipmentId || undefined,
+            { requiredOptionId: null }
+          );
+          const reloadedNormalized = normalizeOptions(reloaded.collected || []);
+          const reloadedForMode = normalizedRequestedMode
+            ? reloadedNormalized.filter((o) => normalizeOptionMode(o.mode) === normalizedRequestedMode)
+            : reloadedNormalized;
+          const reloadedPool = reloadedForMode.length ? reloadedForMode : reloadedNormalized;
+          fallbackAfterValidation =
+            reloadedPool
+              .filter((o) => o.partnered)
+              .sort((a, b) => (Number(a.charge || 0) - Number(b.charge || 0)))[0] ||
             null;
         }
         if (fallbackAfterValidation?.id) {

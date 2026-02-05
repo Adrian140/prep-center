@@ -3108,6 +3108,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setShippingError('Selectează o opțiune de curier înainte de confirmare.');
       return;
     }
+    const enforcePartneredOnly = Boolean(forcePartneredOnly || selectedOpt?.partnered);
     const optionShipmentId = String(selectedOpt?.shipmentId || selectedOpt?.raw?.shipmentId || '').trim();
     const shipmentIds = Array.isArray(shipments)
       ? shipments.map((s) => String(s.id || s.shipmentId || '')).filter(Boolean)
@@ -3155,6 +3156,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           delivery_window_start: windowStart,
           delivery_window_end: windowEnd,
           transportation_option_id: selectedTransportationOptionId,
+          force_partnered_only: enforcePartneredOnly,
           auto_confirm_placement: true,
           confirm: true
         }
