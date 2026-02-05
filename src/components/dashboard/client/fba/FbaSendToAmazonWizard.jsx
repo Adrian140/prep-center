@@ -637,6 +637,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const packingAutoRetryTimerRef = useRef(null);
   const packingPreviewFetchRef = useRef(false);
   const fetchPlanInFlightRef = useRef(false);
+  const servicesLoadedRef = useRef(false);
+  const [skuServicesById, setSkuServicesById] = useState({});
+  const [boxServices, setBoxServices] = useState([]);
   const shippingRetryRef = useRef(0);
   const shippingRetryTimerRef = useRef(null);
   const shippingFetchLockRef = useRef({ inFlight: false, lastKey: "", lastAt: 0 });
@@ -1539,6 +1542,53 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const planBoxPlan = plan?.step1BoxPlan || plan?.step1_box_plan || {};
     setStep1BoxPlanByMarket(planBoxPlan && typeof planBoxPlan === 'object' ? planBoxPlan : {});
   }, [plan?.inboundPlanId, plan?.inbound_plan_id]);
+
+  useEffect(() => {
+    const requestId = resolveRequestId();
+    if (!requestId) {
+      servicesLoadedRef.current = false;
+      setSkuServicesById({});
+      setBoxServices([]);
+      return;
+    }
+    if (servicesLoadedRef.current) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('prep_request_services')
+        .select('prep_request_item_id, service_id, service_name, unit_price, units, item_type')
+        .eq('request_id', requestId);
+      if (cancelled) return;
+      if (error) {
+        console.warn('Failed to load prep services', error);
+        return;
+      }
+      const nextSkuServices = {};
+      const nextBoxServices = [];
+      (data || []).forEach((row) => {
+        const entry = {
+          service_id: row.service_id || null,
+          service_name: row.service_name,
+          unit_price: Number(row.unit_price || 0),
+          units: Number(row.units || 0)
+        };
+        if (row.item_type === 'box') {
+          nextBoxServices.push(entry);
+          return;
+        }
+        const key = row.prep_request_item_id;
+        if (!key) return;
+        if (!nextSkuServices[key]) nextSkuServices[key] = [];
+        nextSkuServices[key].push(entry);
+      });
+      setSkuServicesById(nextSkuServices);
+      setBoxServices(nextBoxServices);
+      servicesLoadedRef.current = true;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resolveRequestId]);
   useEffect(() => {
     if (serverUnitsRef.current.size) return;
     snapshotServerUnits(initialPlan?.skus || []);
@@ -3973,6 +4023,49 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         if (saveErr) throw saveErr;
       }
 
+      if (requestId) {
+        const rows = [];
+        Object.entries(skuServicesById || {}).forEach(([skuId, services]) => {
+          (services || []).forEach((svc) => {
+            const units = Number(svc?.units || 0);
+            if (!svc?.service_name || units <= 0) return;
+            rows.push({
+              request_id: requestId,
+              prep_request_item_id: skuId,
+              service_id: svc?.service_id || null,
+              service_name: svc.service_name,
+              unit_price: Number(svc?.unit_price || 0),
+              units,
+              item_type: 'sku'
+            });
+          });
+        });
+        (boxServices || []).forEach((svc) => {
+          const units = Number(svc?.units || 0);
+          if (!svc?.service_name || units <= 0) return;
+          rows.push({
+            request_id: requestId,
+            prep_request_item_id: null,
+            service_id: svc?.service_id || null,
+            service_name: svc.service_name,
+            unit_price: Number(svc?.unit_price || 0),
+            units,
+            item_type: 'box'
+          });
+        });
+        const { error: delErr } = await supabase
+          .from('prep_request_services')
+          .delete()
+          .eq('request_id', requestId);
+        if (delErr) throw delErr;
+        if (rows.length) {
+          const { error: insErr } = await supabase
+            .from('prep_request_services')
+            .insert(rows);
+          if (insErr) throw insErr;
+        }
+      }
+
       if (bypassMissingInbound) {
         setStep1SaveError('');
         setInboundPlanMissing(true);
@@ -4061,6 +4154,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     completeAndNext,
     fetchPlan,
     plan?.skus,
+    skuServicesById,
+    boxServices,
     refreshStep,
     resolveInboundPlanId,
     resolveRequestId,
@@ -4093,6 +4188,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           onChangeQuantity={handleQuantityChange}
           onChangeExpiry={handleExpiryChange}
           onChangePrep={handlePrepChange}
+          skuServicesById={skuServicesById}
+          onSkuServicesChange={setSkuServicesById}
+          boxServices={boxServices}
+          onBoxServicesChange={setBoxServices}
           inboundPlanCopy={wizardCopy}
           onNext={persistStep1AndReloadPlan}
           error={planError || step1SaveError}

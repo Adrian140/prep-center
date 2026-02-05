@@ -83,6 +83,10 @@ export default function FbaStep1Inventory({
   onChangeQuantity,
   onChangeExpiry,
   onChangePrep,
+  skuServicesById = {},
+  onSkuServicesChange,
+  boxServices = [],
+  onBoxServicesChange,
   onNext
 }) {
   const resolvedInboundPlanId =
@@ -136,6 +140,117 @@ export default function FbaStep1Inventory({
       skuStatuses.find((s) => s.id && s.id === sku.id);
     return match || { state: 'unknown', reason: '' };
   };
+  const [serviceOptions, setServiceOptions] = useState([]);
+  const [boxOptions, setBoxOptions] = useState([]);
+  const serviceOptionsByCategory = useMemo(() => {
+    const map = new Map();
+    (serviceOptions || []).forEach((opt) => {
+      const key = opt.category || 'Services';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(opt);
+    });
+    return Array.from(map.entries());
+  }, [serviceOptions]);
+  const boxOptionsByCategory = useMemo(() => {
+    const map = new Map();
+    (boxOptions || []).forEach((opt) => {
+      const key = opt.category || 'Boxes';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(opt);
+    });
+    return Array.from(map.entries());
+  }, [boxOptions]);
+  const marketCodeForPricing = useMemo(() => {
+    if (marketCode) return String(marketCode || '').toUpperCase();
+    const map = {
+      A13V1IB3VIYZZH: 'FR',
+      A1PA6795UKMFR9: 'DE',
+      A1RKKUPIHCS9HS: 'ES',
+      APJ6JRA9NG5V4: 'IT'
+    };
+    return map[marketplaceId] || 'FR';
+  }, [marketCode, marketplaceId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('pricing_services')
+        .select('id, category, service_name, price, unit, position, market')
+        .eq('market', marketCodeForPricing)
+        .order('category', { ascending: true })
+        .order('position', { ascending: true });
+      if (cancelled) return;
+      if (error) {
+        console.warn('Failed to load pricing services', error);
+        return;
+      }
+      const list = data || [];
+      const nextServices = list.filter((item) =>
+        ['FBA Prep Services', 'Extra Services'].includes(item.category)
+      );
+      const nextBoxes = list.filter((item) => {
+        const cat = String(item.category || '').toLowerCase();
+        const name = String(item.service_name || '').toLowerCase();
+        return cat.includes('box') || name.includes('box');
+      });
+      setServiceOptions(nextServices);
+      setBoxOptions(nextBoxes);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [marketCodeForPricing]);
+
+  const setSkuServices = useCallback((skuId, next) => {
+    if (!onSkuServicesChange) return;
+    onSkuServicesChange((prev) => ({ ...(prev || {}), [skuId]: next }));
+  }, [onSkuServicesChange]);
+
+  const handleAddSkuService = useCallback((sku) => {
+    const skuId = sku?.id;
+    if (!skuId) return;
+    const first = serviceOptions[0];
+    if (!first) return;
+    const nextEntry = {
+      service_id: first.id,
+      service_name: first.service_name,
+      unit_price: Number(first.price || 0),
+      units: Math.max(1, Number(sku.units || 0) || 1)
+    };
+    const current = Array.isArray(skuServicesById?.[skuId]) ? skuServicesById[skuId] : [];
+    setSkuServices(skuId, [...current, nextEntry]);
+  }, [serviceOptions, setSkuServices, skuServicesById]);
+
+  const handleSkuServiceChange = useCallback((skuId, idx, patch) => {
+    const current = Array.isArray(skuServicesById?.[skuId]) ? skuServicesById[skuId] : [];
+    const next = current.map((row, i) => (i === idx ? { ...row, ...patch } : row));
+    setSkuServices(skuId, next);
+  }, [setSkuServices, skuServicesById]);
+
+  const handleRemoveSkuService = useCallback((skuId, idx) => {
+    const current = Array.isArray(skuServicesById?.[skuId]) ? skuServicesById[skuId] : [];
+    const next = current.filter((_, i) => i !== idx);
+    setSkuServices(skuId, next);
+  }, [setSkuServices, skuServicesById]);
+
+  const setBoxes = useCallback((next) => {
+    if (!onBoxServicesChange) return;
+    onBoxServicesChange(next);
+  }, [onBoxServicesChange]);
+
+  const handleAddBoxService = useCallback(() => {
+    const first = boxOptions[0];
+    if (!first) return;
+    const nextEntry = {
+      service_id: first.id,
+      service_name: first.service_name,
+      unit_price: Number(first.price || 0),
+      units: 1
+    };
+    const current = Array.isArray(boxServices) ? boxServices : [];
+    setBoxes([...current, nextEntry]);
+  }, [boxOptions, boxServices, setBoxes]);
   const skuEligibilityBlocking = skuStatuses.some((s) =>
     ['missing', 'inactive', 'restricted', 'inbound_unavailable'].includes(String(s.state))
   );
@@ -748,6 +863,7 @@ export default function FbaStep1Inventory({
         ? maxBoxIndex
         : Math.min(Math.max(0, Number(activeIndexRaw) || 0), Math.max(maxBoxIndex, 0));
 
+    const servicesForSku = Array.isArray(skuServicesById?.[sku.id]) ? skuServicesById[sku.id] : [];
     return (
       <tr key={sku.id} className="align-top">
         <td className="py-3">
@@ -1025,6 +1141,79 @@ export default function FbaStep1Inventory({
                 Assigned: {assignedTotal} / {Number(sku.units || 0)}
               </div>
             </div>
+          </div>
+        </td>
+        <td className="py-3">
+          <div className="space-y-2">
+            {servicesForSku.length === 0 && (
+              <div className="text-xs text-slate-500">No services selected.</div>
+            )}
+            {servicesForSku.map((svc, idx) => {
+              const total = Number(svc.unit_price || 0) * Number(svc.units || 0);
+              return (
+                <div key={`${sku.id}-svc-${idx}`} className="border border-slate-200 rounded-md p-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <select
+                      className="border rounded-md px-2 py-1 text-xs flex-1"
+                      value={svc.service_name || ''}
+                      onChange={(e) => {
+                        const selected = serviceOptions.find((opt) => opt.service_name === e.target.value);
+                        if (!selected) return;
+                        handleSkuServiceChange(sku.id, idx, {
+                          service_id: selected.id,
+                          service_name: selected.service_name,
+                          unit_price: Number(selected.price || 0)
+                        });
+                      }}
+                    >
+                      {serviceOptionsByCategory.map(([category, options]) => (
+                        <optgroup key={category} label={category}>
+                          {options.map((opt) => (
+                            <option key={opt.id || opt.service_name} value={opt.service_name}>
+                              {opt.service_name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="text-xs text-red-600"
+                      onClick={() => handleRemoveSkuService(sku.id, idx)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <div className="flex items-center gap-1">
+                      <span>Unit</span>
+                      <span className="font-semibold">{Number(svc.unit_price || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span>Qty</span>
+                      <input
+                        type="number"
+                        min={0}
+                        className="w-16 border rounded-md px-2 py-1 text-xs text-right"
+                        value={svc.units ?? 0}
+                        onChange={(e) => handleSkuServiceChange(sku.id, idx, { units: Number(e.target.value || 0) })}
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span>Total</span>
+                      <span className="font-semibold">{Number.isFinite(total) ? total.toFixed(2) : '0.00'}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              className="text-xs text-blue-600 underline"
+              onClick={() => handleAddSkuService(sku)}
+            >
+              + Add service
+            </button>
           </div>
         </td>
       </tr>
@@ -1323,10 +1512,11 @@ export default function FbaStep1Inventory({
       <div className="px-6 py-4 overflow-x-auto">
         <table className="min-w-full text-sm text-slate-700">
           <colgroup>
-            <col className="w-[42%]" />
+            <col className="w-[30%]" />
+            <col className="w-[18%]" />
             <col className="w-[22%]" />
-            <col className="w-[24%]" />
             <col className="w-[12%]" />
+            <col className="w-[18%]" />
           </colgroup>
           <thead>
             <tr className="text-left text-slate-500 uppercase text-xs">
@@ -1334,12 +1524,13 @@ export default function FbaStep1Inventory({
               <th className="py-2">Packing details</th>
               <th className="py-2">Information / action</th>
               <th className="py-2">Quantity to send</th>
+              <th className="py-2">Services</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
             {skus.length === 0 && (
               <tr>
-                <td colSpan={4} className="py-4 text-center text-slate-500">
+                <td colSpan={5} className="py-4 text-center text-slate-500">
                   {loadingPlan
                     ? 'Waiting for Amazon response for SKUs and shipments...'
                     : 'No SKUs to display.'}
@@ -1369,6 +1560,88 @@ export default function FbaStep1Inventory({
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 space-y-4">
+        <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="font-semibold text-slate-800">Boxes</div>
+            <button
+              type="button"
+              className="text-xs text-blue-600 underline"
+              onClick={handleAddBoxService}
+            >
+              + Add box
+            </button>
+          </div>
+          {boxServices.length === 0 && (
+            <div className="text-xs text-slate-500">No box services selected.</div>
+          )}
+          {boxServices.map((svc, idx) => {
+            const total = Number(svc.unit_price || 0) * Number(svc.units || 0);
+            return (
+              <div key={`box-svc-${idx}`} className="flex flex-wrap items-center gap-3 border border-slate-200 rounded-md p-2">
+                <select
+                  className="border rounded-md px-2 py-1 text-xs min-w-[220px]"
+                  value={svc.service_name || ''}
+                  onChange={(e) => {
+                    const selected = boxOptions.find((opt) => opt.service_name === e.target.value);
+                    if (!selected) return;
+                    const next = boxServices.map((row, i) =>
+                      i === idx
+                        ? {
+                            ...row,
+                            service_id: selected.id,
+                            service_name: selected.service_name,
+                            unit_price: Number(selected.price || 0)
+                          }
+                        : row
+                    );
+                    setBoxes(next);
+                  }}
+                >
+                  {boxOptionsByCategory.map(([category, options]) => (
+                    <optgroup key={category} label={category}>
+                      {options.map((opt) => (
+                        <option key={opt.id || opt.service_name} value={opt.service_name}>
+                          {opt.service_name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <div className="text-xs text-slate-600">
+                  Unit <span className="font-semibold">{Number(svc.unit_price || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-slate-600">
+                  <span>Qty</span>
+                  <input
+                    type="number"
+                    min={0}
+                    className="w-16 border rounded-md px-2 py-1 text-xs text-right"
+                    value={svc.units ?? 0}
+                    onChange={(e) => {
+                      const next = boxServices.map((row, i) =>
+                        i === idx ? { ...row, units: Number(e.target.value || 0) } : row
+                      );
+                      setBoxes(next);
+                    }}
+                  />
+                </div>
+                <div className="text-xs text-slate-600">
+                  Total <span className="font-semibold">{Number.isFinite(total) ? total.toFixed(2) : '0.00'}</span>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs text-red-600"
+                  onClick={() => {
+                    const next = boxServices.filter((_, i) => i !== idx);
+                    setBoxes(next);
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            );
+          })}
+        </div>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="font-semibold text-slate-900">Box details (Step 1)</div>
           {hasUnits && (
