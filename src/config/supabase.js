@@ -1923,12 +1923,13 @@ createPrepItem: async (requestId, item) => {
       withCompany(
         supabase
           .from('receiving_shipments')
-          .select('id, status, created_at')
+          .select('id, status, received_at, created_at')
+          .in('status', ['received', 'Received', 'RECEIVED'])
       ),
       'warehouse_country'
     )
-      .gte('created_at', startIso)
-      .lte('created_at', endIso)
+      .gte('received_at', startIso)
+      .lte('received_at', endIso)
       .limit(5000);
 
     let prepItemsQuery = supabase
@@ -1943,18 +1944,21 @@ createPrepItem: async (requestId, item) => {
       .lte('prep_requests.confirmed_at', endIso)
       .limit(10000);
 
-    // Reception units – unități efectiv recepționate (check-in), nu doar anunțate
+    // Reception units – unități efectiv intrate în stock (log de mișcări)
     let receivingItemsQuery = supabase
-      .from('receiving_items')
+      .from('receiving_to_stock_log')
       .select(
-        'quantity_received, created_at, receiving_shipments!inner(company_id, warehouse_country, received_at, created_at)'
+        'quantity_moved, moved_at, receiving_items!inner(id, shipment_id, receiving_shipments!inner(company_id, warehouse_country))'
       );
     if (marketCode) {
-      receivingItemsQuery = receivingItemsQuery.eq('receiving_shipments.warehouse_country', marketCode);
+      receivingItemsQuery = receivingItemsQuery.eq('receiving_items.receiving_shipments.warehouse_country', marketCode);
+    }
+    if (companyId) {
+      receivingItemsQuery = receivingItemsQuery.eq('receiving_items.receiving_shipments.company_id', companyId);
     }
     receivingItemsQuery = receivingItemsQuery
-      .gte('receiving_shipments.created_at', startIso)
-      .lte('receiving_shipments.created_at', endIso)
+      .gte('moved_at', startIso)
+      .lte('moved_at', endIso)
       .limit(20000);
     const receivingItemsPromise = receivingItemsQuery;
 
@@ -2035,10 +2039,11 @@ createPrepItem: async (requestId, item) => {
       const receivingRetry = withCompany(
         supabase
           .from('receiving_shipments')
-          .select('id, status, created_at')
+          .select('id, status, received_at, created_at')
+          .in('status', ['received', 'Received', 'RECEIVED'])
       )
-        .gte('created_at', startIso)
-        .lte('created_at', endIso)
+        .gte('received_at', startIso)
+        .lte('received_at', endIso)
         .limit(5000);
       const prepItemsRetry = supabase
         .from('prep_request_items')
@@ -2047,12 +2052,15 @@ createPrepItem: async (requestId, item) => {
         .gte('prep_requests.confirmed_at', startIso)
         .lte('prep_requests.confirmed_at', endIso)
         .limit(10000);
-      const receivingItemsRetry = supabase
-        .from('receiving_items')
-        .select('quantity_received, created_at, receiving_shipments!inner(company_id, created_at, received_at)')
-        .gte('receiving_shipments.created_at', startIso)
-        .lte('receiving_shipments.created_at', endIso)
+      let receivingItemsRetry = supabase
+        .from('receiving_to_stock_log')
+        .select('quantity_moved, moved_at, receiving_items!inner(id, shipment_id, receiving_shipments!inner(company_id))')
+        .gte('moved_at', startIso)
+        .lte('moved_at', endIso)
         .limit(20000);
+      if (companyId) {
+        receivingItemsRetry = receivingItemsRetry.eq('receiving_items.receiving_shipments.company_id', companyId);
+      }
       const [returnsRetryRes, prepRetryRes, receivingRetryRes, prepItemsRetryRes, receivingItemsRetryRes] =
         await Promise.all([
           returnsRetry,
@@ -2140,10 +2148,7 @@ createPrepItem: async (requestId, item) => {
       return rows.filter((row) => extractor(row) === companyId);
     };
     const filteredPrepItems = filterCompanyJoin(prepItemRows, (r) => r.prep_requests?.company_id);
-    const filteredReceivingItems = filterCompanyJoin(
-      receivingItemRows,
-      (r) => r.receiving_shipments?.company_id
-    );
+    const filteredReceivingItems = receivingItemRows;
 
     const prepUnitsTotal = filteredPrepItems.reduce(
       (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
@@ -2154,7 +2159,7 @@ createPrepItem: async (requestId, item) => {
       .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
 
     const getReceivingDate = (row) =>
-      (row.receiving_shipments?.received_at || row.receiving_shipments?.created_at || row.created_at || '').slice(0, 10);
+      (row.moved_at || '').slice(0, 10);
 
     const receivingItemsInRange = filteredReceivingItems.filter((row) => {
       const d = getReceivingDate(row);
@@ -2162,12 +2167,12 @@ createPrepItem: async (requestId, item) => {
     });
 
     const receivingUnitsTotalLocal = receivingItemsInRange.reduce(
-      (acc, row) => acc + numberOrZero(row.quantity_received ?? 0),
+      (acc, row) => acc + numberOrZero(row.quantity_moved ?? 0),
       0
     );
     const receivingUnitsTodayLocal = receivingItemsInRange
       .filter((row) => getReceivingDate(row) === dateFrom)
-      .reduce((acc, row) => acc + numberOrZero(row.quantity_received ?? 0), 0);
+      .reduce((acc, row) => acc + numberOrZero(row.quantity_moved ?? 0), 0);
 
     const lastReceivingDateAll = (() => {
       const dates = filteredReceivingItems
@@ -2318,7 +2323,7 @@ createPrepItem: async (requestId, item) => {
     const receivingDailyUnits = buildDailyUnits(
       receivingItemsInRange,
       (row) => getReceivingDate(row),
-      (row) => row.quantity_received ?? row.quantity
+      (row) => row.quantity_moved ?? row.quantity
     );
 
     return {
