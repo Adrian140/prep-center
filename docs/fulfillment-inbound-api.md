@@ -94,7 +94,8 @@ flowchart TD
   2) `setPrepDetails` (prepCategory + prepTypes);
   3) re-creare `createInboundPlan`.
 - Step 1 (preflight): inainte de `createInboundPlan`, facem `listPrepDetails` pe toate SKU-urile pentru a aplica din start `prepOwnerConstraint` / `labelOwnerConstraint` si pentru a elimina erorile de tip "accepted values".
-- Daca `listPrepDetails` intoarce `prepCategory` = `UNKNOWN` sau `FC_PROVIDED`, incercam auto-remediere prin `setPrepDetails` inainte de primul `createInboundPlan`.
+- Daca `listPrepDetails` intoarce `prepCategory` nevalida (gol, `UNKNOWN`, `FC_PROVIDED` sau categorie neacceptata), incercam auto-remediere prin `setPrepDetails` inainte de primul `createInboundPlan`.
+- Fallback: daca `listPrepDetails` esueaza temporar, incercam `setPrepDetails` pe baza guidance-ului deja extras (cand poate fi dedus in siguranta), apoi reluam `createInboundPlan`.
 - Atentie: documentatia oficiala nu enumera exhaustiv toate erorile operationale runtime (ex: combinatii specifice SKU/marketplace), deci trebuie tratate explicit in cod pe baza `operationProblems`/`errors`.
 
 ## LTL/FTL - Cerinte stricte (conform SP-API)

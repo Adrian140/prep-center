@@ -273,6 +273,23 @@ const KNOWN_PREP_TYPES = new Set([
   "ITEM_TAPING"
 ]);
 
+const KNOWN_PREP_CATEGORIES = new Set([
+  "ADULT",
+  "BABY",
+  "FC_PROVIDED",
+  "FRAGILE",
+  "GRANULAR",
+  "HANGER",
+  "LIQUID",
+  "PERFORATED",
+  "SET",
+  "SHARP",
+  "SMALL",
+  "TEXTILE",
+  "UNKNOWN",
+  "NONE"
+]);
+
 function normalizeToken(v: string | null | undefined) {
   return String(v || "")
     .toUpperCase()
@@ -339,6 +356,13 @@ function extractPrepClassificationSkus(operationProblems: any[]): string[] {
     }
   }
   return Array.from(out).filter(Boolean);
+}
+
+function isUnresolvedPrepCategory(value: string | null | undefined): boolean {
+  const cat = String(value || "").toUpperCase().trim();
+  if (!cat) return true;
+  if (!KNOWN_PREP_CATEGORIES.has(cat)) return true;
+  return cat === "UNKNOWN" || cat === "FC_PROVIDED";
 }
 
 function extractAcceptedValues(msg: string): OwnerVal[] {
@@ -2379,7 +2403,7 @@ serve(async (req) => {
 
     const choosePrepCategoryForSku = (sku: string, listEntry: any, prepTypes: string[]) => {
       const listedCategory = String(listEntry?.prepCategory || "").toUpperCase();
-      if (listedCategory && listedCategory !== "UNKNOWN" && listedCategory !== "FC_PROVIDED") {
+      if (!isUnresolvedPrepCategory(listedCategory)) {
         return listedCategory;
       }
       const prepOwnerConstraint = String(listEntry?.prepOwnerConstraint || "").toUpperCase();
@@ -2401,15 +2425,15 @@ serve(async (req) => {
       if (!targetSkus.length) return { applied: false, warnings };
 
       const listRes = await listPrepDetails(targetSkus);
+      let listEntries: any[] = [];
       if (!listRes || !listRes.res.ok) {
         warnings.push(
-          `Amazon listPrepDetails a eșuat (${listRes?.res?.status ?? "n/a"}); nu am putut seta automat prep classification.`
+          `Amazon listPrepDetails a eșuat (${listRes?.res?.status ?? "n/a"}); încerc fallback de setPrepDetails din guidance.`
         );
-        return { applied: false, warnings };
+      } else {
+        listEntries = extractPrepDetailsEntries(listRes.json);
+        syncPrepConstraintsFromEntries(listEntries);
       }
-
-      const listEntries = extractPrepDetailsEntries(listRes.json);
-      syncPrepConstraintsFromEntries(listEntries);
       const bySku: Record<string, any> = {};
       for (const e of Array.isArray(listEntries) ? listEntries : []) {
         const msku = normalizeSku(e?.msku);
@@ -2429,8 +2453,15 @@ serve(async (req) => {
       }
 
       if (!payload.length) {
+        warnings.push("Nu am putut construi payload pentru setPrepDetails.");
         return { applied: false, warnings };
       }
+
+      console.log("prep-classification remediation payload", {
+        traceId,
+        skuCount: payload.length,
+        skus: payload.map((p) => p.msku)
+      });
 
       const setRes = await setPrepDetails(payload);
       if (!setRes || !setRes.res.ok) {
@@ -2471,14 +2502,16 @@ serve(async (req) => {
 
       const entries = extractPrepDetailsEntries(listRes.json);
       syncPrepConstraintsFromEntries(entries);
+      const bySku = new Map<string, any>();
+      for (const e of entries) {
+        const msku = normalizeSku(e?.msku);
+        if (msku) bySku.set(msku, e);
+      }
 
-      const unknownSkus = entries
-        .filter((e) => {
-          const cat = String(e?.prepCategory || "").toUpperCase();
-          return cat === "UNKNOWN" || cat === "FC_PROVIDED";
-        })
-        .map((e) => normalizeSku(e?.msku))
-        .filter(Boolean);
+      const unknownSkus = targetSkus.filter((sku) => {
+        const entry = bySku.get(sku);
+        return isUnresolvedPrepCategory(entry?.prepCategory);
+      });
 
       if (!unknownSkus.length) return { warnings };
 
