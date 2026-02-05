@@ -88,6 +88,14 @@ flowchart TD
 - Step 2 (transport): afisam toate optiunile returnate de `listTransportationOptions` (SPD + LTL/FTL, partnered + non-partnered). Nu selectam automat nicio optiune; utilizatorul alege explicit.
 - LTL/FTL necesita paletizare si freight information (dimensiuni, greutate, stackability, freight class, declared value). Fara aceste date, `generateTransportationOptions` nu va returna optiuni corecte pentru LTL/FTL.
 - Pentru SPD sunt obligatorii dimensiunile si greutatea coletelor (packages). PCP poate lipsi daca lipsesc aceste date.
+- `listTransportationOptions`: folosim `pageSize <= 20` (Amazon respinge valori mai mari cu `InvalidInput`).
+- Step 1: daca `createInboundPlan` esueaza cu `FBA_INB_0182` (prep classification missing), remedierea este:
+  1) `listPrepDetails` pe SKU-urile din eroare;
+  2) `setPrepDetails` (prepCategory + prepTypes);
+  3) re-creare `createInboundPlan`.
+- Step 1 (preflight): inainte de `createInboundPlan`, facem `listPrepDetails` pe toate SKU-urile pentru a aplica din start `prepOwnerConstraint` / `labelOwnerConstraint` si pentru a elimina erorile de tip "accepted values".
+- Daca `listPrepDetails` intoarce `prepCategory` = `UNKNOWN` sau `FC_PROVIDED`, incercam auto-remediere prin `setPrepDetails` inainte de primul `createInboundPlan`.
+- Atentie: documentatia oficiala nu enumera exhaustiv toate erorile operationale runtime (ex: combinatii specifice SKU/marketplace), deci trebuie tratate explicit in cod pe baza `operationProblems`/`errors`.
 
 ## LTL/FTL - Cerinte stricte (conform SP-API)
 Pentru modurile LTL/FTL, SP-API cere in mod explicit informatii suplimentare fata de SPD. Daca lipsesc, `generateTransportationOptions` nu intoarce optiuni LTL/FTL.

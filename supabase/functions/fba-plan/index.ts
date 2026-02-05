@@ -254,6 +254,93 @@ function deriveLabelOwner(prepInfo: any): OwnerVal {
   return "SELLER";
 }
 
+const KNOWN_PREP_TYPES = new Set([
+  "ITEM_BLACK_SHRINKWRAP",
+  "ITEM_BLANKSTK",
+  "ITEM_BOXING",
+  "ITEM_BUBBLEWRAP",
+  "ITEM_CAP_SEALING",
+  "ITEM_DEBUNDLE",
+  "ITEM_HANG_GARMENT",
+  "ITEM_LABELING",
+  "ITEM_NO_PREP",
+  "ITEM_POLYBAGGING",
+  "ITEM_RMOVHANG",
+  "ITEM_SETCREAT",
+  "ITEM_SETSTK",
+  "ITEM_SIOC",
+  "ITEM_SUFFOSTK",
+  "ITEM_TAPING"
+]);
+
+function normalizeToken(v: string | null | undefined) {
+  return String(v || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "");
+}
+
+function toInboundPrepType(value: string | null | undefined): string | null {
+  const raw = String(value || "").trim().toUpperCase();
+  if (KNOWN_PREP_TYPES.has(raw)) return raw;
+  const token = normalizeToken(value);
+  if (!token) return null;
+  const aliases: Record<string, string> = {
+    LABELING: "ITEM_LABELING",
+    ITEMLABELING: "ITEM_LABELING",
+    NOPREP: "ITEM_NO_PREP",
+    ITEMNOPREP: "ITEM_NO_PREP",
+    NOADDITIONALPREPREQUIRED: "ITEM_NO_PREP",
+    POLYBAGGING: "ITEM_POLYBAGGING",
+    ITEMPOLYBAGGING: "ITEM_POLYBAGGING",
+    BUBBLEWRAP: "ITEM_BUBBLEWRAP",
+    ITEMBUBBLEWRAP: "ITEM_BUBBLEWRAP",
+    TAPING: "ITEM_TAPING",
+    ITEMTAPING: "ITEM_TAPING",
+    HANGGARMENT: "ITEM_HANG_GARMENT",
+    ITEMHANGGARMENT: "ITEM_HANG_GARMENT",
+    RMOVHANG: "ITEM_RMOVHANG",
+    ITEMRMOVHANG: "ITEM_RMOVHANG",
+    BOXING: "ITEM_BOXING",
+    ITEMBOXING: "ITEM_BOXING",
+    CAPSEALING: "ITEM_CAP_SEALING",
+    ITEMCAPSEALING: "ITEM_CAP_SEALING",
+    DEBUNDLE: "ITEM_DEBUNDLE",
+    ITEMDEBUNDLE: "ITEM_DEBUNDLE",
+    BLACKSHRINKWRAP: "ITEM_BLACK_SHRINKWRAP",
+    ITEMBLACKSHRINKWRAP: "ITEM_BLACK_SHRINKWRAP",
+    SUFFOSTK: "ITEM_SUFFOSTK",
+    ITEMSUFFOSTK: "ITEM_SUFFOSTK",
+    SETCREAT: "ITEM_SETCREAT",
+    ITEMSETCREAT: "ITEM_SETCREAT",
+    SETSTK: "ITEM_SETSTK",
+    ITEMSETSTK: "ITEM_SETSTK",
+    SIOC: "ITEM_SIOC",
+    ITEMSIOC: "ITEM_SIOC"
+  };
+  return aliases[token] || null;
+}
+
+function extractPrepClassificationSkus(operationProblems: any[]): string[] {
+  const out = new Set<string>();
+  for (const p of Array.isArray(operationProblems) ? operationProblems : []) {
+    const code = String(p?.code || "").toUpperCase();
+    const msg = String(p?.message || "");
+    const details = String(p?.details || "");
+    const combined = `${msg} ${details}`;
+    if (code !== "FBA_INB_0182" && !combined.toUpperCase().includes("PREP CLASSIFICATION")) continue;
+    const resourceMatch = combined.match(/resource\s+'([^']+)'/i);
+    if (resourceMatch?.[1]) {
+      out.add(normalizeSku(resourceMatch[1]));
+      continue;
+    }
+    const skuMatch = combined.match(/SKU\s*[:=]\s*([A-Za-z0-9._\- ]+)/i);
+    if (skuMatch?.[1]) {
+      out.add(normalizeSku(skuMatch[1]));
+    }
+  }
+  return Array.from(out).filter(Boolean);
+}
+
 function extractAcceptedValues(msg: string): OwnerVal[] {
   const m = msg.match(/Accepted values:\s*\[([^\]]+)\]/i);
   if (!m) return [];
@@ -381,6 +468,14 @@ function chooseFixValue(field: InboundField, msg: string, accepted: OwnerVal[]):
   if (accepted.includes("SELLER")) return "SELLER";
   if (accepted.includes("NONE")) return "NONE";
   if (accepted.includes("AMAZON")) return "AMAZON";
+  return null;
+}
+
+function ownerFromConstraint(value: string | null | undefined): OwnerVal | null {
+  const token = String(value || "").toUpperCase().trim();
+  if (token === "NONE_ONLY") return "NONE";
+  if (token === "SELLER_ONLY") return "SELLER";
+  if (token === "AMAZON_ONLY") return "AMAZON";
   return null;
 }
 
@@ -1135,6 +1230,8 @@ async function fetchPrepGuidance(params: {
   }
 
   const list =
+    prep.json?.payload?.SKUPrepInstructionsList ||
+    prep.json?.SKUPrepInstructionsList ||
     prep.json?.payload?.PrepInstructionsList ||
     prep.json?.PrepInstructionsList ||
     [];
@@ -1148,7 +1245,18 @@ async function fetchPrepGuidance(params: {
       : [];
     const guidance = entry.PrepGuidance || entry.prepGuidance || null;
     const barcodeInstruction = entry.BarcodeInstruction || entry.barcodeInstruction || null;
-    const prepRequired = prepInstructions.length > 0 && !prepInstructions.includes("NoPrep");
+    const guidanceToken = normalizeToken(guidance);
+    const prepTokens = prepInstructions.map((p) => normalizeToken(p));
+    const hasNonTrivialPrep = prepTokens.some((p) => {
+      const t = toInboundPrepType(p);
+      return t && t !== "ITEM_LABELING" && t !== "ITEM_NO_PREP";
+    });
+    const prepRequired =
+      guidanceToken === "NOADDITIONALPREPREQUIRED"
+        ? false
+        : guidanceToken === "SEEPREPGUIDANCE"
+        ? true
+        : hasNonTrivialPrep;
 
     const key = normalizeSku(sku || asin);
     if (!key) continue;
@@ -1986,6 +2094,10 @@ serve(async (req) => {
       }
     }
 
+    const prepOwnerConstraintBySku: Record<string, OwnerVal | null> = {};
+    const labelOwnerConstraintBySku: Record<string, OwnerVal | null> = {};
+    const prepCategoryBySku: Record<string, string | null> = {};
+
     const buildPlanBody = (overrides: Record<string, InboundFix> = {}) => {
       // Amazon limitează câmpul name la 40 caractere; folosim un id scurt ca să evităm 400 InvalidInput.
       const shortRequestId = (requestId || crypto.randomUUID()).toString().slice(0, 8);
@@ -2003,16 +2115,21 @@ serve(async (req) => {
             prepInfo.barcodeInstruction ? isManufacturerBarcodeEligible(prepInfo.barcodeInstruction) : false;
           // Respectăm guidance-ul Amazon: dacă e barcode-eligibil -> NONE, altfel SELLER doar când e cerut.
           let labelOwner: OwnerVal = deriveLabelOwner({ ...prepInfo, prepRequired, manufacturerBarcodeEligible });
-          // createInboundPlan cere prepOwner; dacă nu e prep explicit, folosim owner compatibil cu labelOwner.
-          // NONE rămâne doar când produsul e clar manufacturer-barcode eligible.
+          // Dacă nu există prep real, Amazon cere de regulă prepOwner=NONE (labeling rămâne separat via labelOwner).
           let prepOwner: OwnerVal =
             prepRequired
-              ? "SELLER"
-              : labelOwner === "AMAZON"
-              ? "AMAZON"
-              : labelOwner === "SELLER"
-              ? "SELLER"
+              ? labelOwner === "AMAZON"
+                ? "AMAZON"
+                : "SELLER"
               : "NONE";
+
+          const labelOwnerFromConstraint = labelOwnerConstraintBySku[key];
+          const prepOwnerFromConstraint = prepOwnerConstraintBySku[key];
+          const prepCategory = String(prepCategoryBySku[key] || "").toUpperCase();
+          if (labelOwnerFromConstraint) labelOwner = labelOwnerFromConstraint;
+          if (prepOwnerFromConstraint) prepOwner = prepOwnerFromConstraint;
+          if (!prepOwnerFromConstraint && prepCategory === "NONE") prepOwner = "NONE";
+
           const expiryVal = expirations[key] || null;
 
           const o = overrides[key];
@@ -2165,6 +2282,214 @@ serve(async (req) => {
         await delay(400 * attempt);
       }
       return last;
+    };
+
+    const encodeMskuForPrepQuery = (sku: string) => {
+      // Conform doc: %, + și , trebuie dublu-encodate.
+      return encodeURIComponent(sku)
+        .replace(/%25/g, "%2525")
+        .replace(/%2B/g, "%252B")
+        .replace(/%2C/g, "%252C");
+    };
+
+    const listPrepDetails = async (mskus: string[]) => {
+      const cleaned = Array.from(new Set(mskus.map((s) => normalizeSku(s)).filter(Boolean)));
+      if (!cleaned.length) return null;
+      const queryParts = [`marketplaceId=${encodeURIComponent(marketplaceId)}`];
+      for (const msku of cleaned) {
+        queryParts.push(`mskus=${encodeMskuForPrepQuery(msku)}`);
+      }
+      return signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: "/inbound/fba/2024-03-20/items/prepDetails",
+        query: queryParts.join("&"),
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.listPrepDetails",
+        marketplaceId,
+        sellerId
+      });
+    };
+
+    const extractPrepDetailsEntries = (json: any): any[] => {
+      const entries = json?.mskuPrepDetails || json?.payload?.mskuPrepDetails || [];
+      return Array.isArray(entries) ? entries : [];
+    };
+
+    const syncPrepConstraintsFromEntries = (entries: any[]) => {
+      for (const e of entries) {
+        const msku = normalizeSku(e?.msku);
+        if (!msku) continue;
+        prepOwnerConstraintBySku[msku] = ownerFromConstraint(e?.prepOwnerConstraint);
+        labelOwnerConstraintBySku[msku] = ownerFromConstraint(e?.labelOwnerConstraint);
+        const rawCategory = String(e?.prepCategory || "").toUpperCase().trim();
+        prepCategoryBySku[msku] = rawCategory || null;
+      }
+    };
+
+    const setPrepDetails = async (mskuPrepDetails: Array<{ msku: string; prepCategory: string; prepTypes: string[] }>) => {
+      if (!mskuPrepDetails.length) return null;
+      return signedFetch({
+        method: "POST",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: "/inbound/fba/2024-03-20/items/prepDetails",
+        query: "",
+        payload: JSON.stringify({
+          marketplaceId,
+          mskuPrepDetails
+        }),
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.setPrepDetails",
+        marketplaceId,
+        sellerId
+      });
+    };
+
+    const buildPrepTypesFromHints = (sku: string, listPrepTypes: any[] = []) => {
+      const set = new Set<string>();
+      for (const t of Array.isArray(listPrepTypes) ? listPrepTypes : []) {
+        const mapped = toInboundPrepType(String(t || ""));
+        if (mapped) set.add(mapped);
+      }
+      const prepInfo = prepGuidanceMap[normalizeSku(sku)] || {};
+      for (const raw of Array.isArray(prepInfo.prepInstructions) ? prepInfo.prepInstructions : []) {
+        const mapped = toInboundPrepType(String(raw || ""));
+        if (mapped) set.add(mapped);
+      }
+      const guidanceToken = normalizeToken(prepInfo.guidance);
+      if (guidanceToken === "NOADDITIONALPREPREQUIRED") {
+        set.add("ITEM_NO_PREP");
+      }
+      if (!set.size) set.add("ITEM_NO_PREP");
+      return Array.from(set);
+    };
+
+    const choosePrepCategoryForSku = (sku: string, listEntry: any, prepTypes: string[]) => {
+      const listedCategory = String(listEntry?.prepCategory || "").toUpperCase();
+      if (listedCategory && listedCategory !== "UNKNOWN" && listedCategory !== "FC_PROVIDED") {
+        return listedCategory;
+      }
+      const prepOwnerConstraint = String(listEntry?.prepOwnerConstraint || "").toUpperCase();
+      if (prepOwnerConstraint === "NONE_ONLY") {
+        return "NONE";
+      }
+      const prepInfo = prepGuidanceMap[normalizeSku(sku)] || {};
+      const guidanceToken = normalizeToken(prepInfo.guidance);
+      const simpleTypesOnly = prepTypes.every((t) => t === "ITEM_LABELING" || t === "ITEM_NO_PREP");
+      if (guidanceToken === "NOADDITIONALPREPREQUIRED" || simpleTypesOnly) {
+        return "NONE";
+      }
+      return null;
+    };
+
+    const applyMissingPrepClassification = async (mskus: string[]) => {
+      const warnings: string[] = [];
+      const targetSkus = Array.from(new Set(mskus.map((s) => normalizeSku(s)).filter(Boolean)));
+      if (!targetSkus.length) return { applied: false, warnings };
+
+      const listRes = await listPrepDetails(targetSkus);
+      if (!listRes || !listRes.res.ok) {
+        warnings.push(
+          `Amazon listPrepDetails a eșuat (${listRes?.res?.status ?? "n/a"}); nu am putut seta automat prep classification.`
+        );
+        return { applied: false, warnings };
+      }
+
+      const listEntries = extractPrepDetailsEntries(listRes.json);
+      syncPrepConstraintsFromEntries(listEntries);
+      const bySku: Record<string, any> = {};
+      for (const e of Array.isArray(listEntries) ? listEntries : []) {
+        const msku = normalizeSku(e?.msku);
+        if (msku) bySku[msku] = e;
+      }
+
+      const payload: Array<{ msku: string; prepCategory: string; prepTypes: string[] }> = [];
+      for (const sku of targetSkus) {
+        const entry = bySku[sku] || null;
+        const prepTypes = buildPrepTypesFromHints(sku, entry?.prepTypes || []);
+        const prepCategory = choosePrepCategoryForSku(sku, entry, prepTypes);
+        if (!prepCategory) {
+          warnings.push(`Nu pot deduce prepCategory pentru SKU ${sku}; las cazul pentru setare manuală în Amazon.`);
+          continue;
+        }
+        payload.push({ msku: sku, prepCategory, prepTypes });
+      }
+
+      if (!payload.length) {
+        return { applied: false, warnings };
+      }
+
+      const setRes = await setPrepDetails(payload);
+      if (!setRes || !setRes.res.ok) {
+        warnings.push(`Amazon setPrepDetails a eșuat (${setRes?.res?.status ?? "n/a"}).`);
+        return { applied: false, warnings };
+      }
+
+      const opId = extractOperationId(setRes.json);
+      if (!opId) {
+        warnings.push("setPrepDetails nu a întors operationId; nu pot confirma aplicarea.");
+        return { applied: false, warnings };
+      }
+      const op = await pollOperationStatus(opId);
+      const state = String(op?.state || "").toUpperCase();
+      if (state !== "SUCCESS") {
+        warnings.push(`setPrepDetails operation ${opId} a returnat status ${state || "UNKNOWN"}.`);
+        return { applied: false, warnings };
+      }
+
+      // Refresh constraints after successful setPrepDetails so buildPlanBody uses latest accepted owners.
+      const refreshRes = await listPrepDetails(targetSkus);
+      if (refreshRes?.res?.ok) {
+        syncPrepConstraintsFromEntries(extractPrepDetailsEntries(refreshRes.json));
+      }
+      return { applied: true, warnings };
+    };
+
+    const preflightPrepDetailsForStep1 = async () => {
+      const warnings: string[] = [];
+      const targetSkus = Array.from(new Set(collapsedItems.map((c) => normalizeSku(c.sku)).filter(Boolean)));
+      if (!targetSkus.length) return { warnings };
+
+      const listRes = await listPrepDetails(targetSkus);
+      if (!listRes || !listRes.res.ok) {
+        warnings.push(`listPrepDetails a eșuat în preflight (${listRes?.res?.status ?? "n/a"}).`);
+        return { warnings };
+      }
+
+      const entries = extractPrepDetailsEntries(listRes.json);
+      syncPrepConstraintsFromEntries(entries);
+
+      const unknownSkus = entries
+        .filter((e) => {
+          const cat = String(e?.prepCategory || "").toUpperCase();
+          return cat === "UNKNOWN" || cat === "FC_PROVIDED";
+        })
+        .map((e) => normalizeSku(e?.msku))
+        .filter(Boolean);
+
+      if (!unknownSkus.length) return { warnings };
+
+      const remediation = await applyMissingPrepClassification(unknownSkus);
+      if (remediation.warnings.length) warnings.push(...remediation.warnings);
+      if (!remediation.applied) {
+        warnings.push(
+          `Nu am putut completa automat prep classification pentru SKU-uri: ${unknownSkus.join(", ")}.`
+        );
+      }
+      return { warnings };
     };
 
     const formatAddress = (addr?: Record<string, string | undefined | null>) => {
@@ -2492,6 +2817,13 @@ serve(async (req) => {
       return { packingOptionId, packingGroups, warnings };
     };
 
+    // Step 1 preflight: sincronizăm constrângerile de owner și completăm prep classification
+    // înainte de createInboundPlan, ca să evităm 400/ERRORED evitabile.
+    if (!sanitizeInboundPlanId(inboundPlanId)) {
+      const preflight = await preflightPrepDetailsForStep1();
+      if (preflight.warnings.length) planWarnings.push(...preflight.warnings);
+    }
+
     const lockId = `LOCK-${traceId}`;
     let hasPlanLock = false;
     let attempt = 0;
@@ -2505,6 +2837,7 @@ serve(async (req) => {
     let operationProblems: any[] = [];
     let operationRaw: any = null;
     let createHttpStatus: number | null = null;
+    let prepClassificationRetried = false;
 
     const inboundPlanErrored = (status: string | null) =>
       String(status || "").toUpperCase() === "ERRORED";
@@ -2592,7 +2925,8 @@ serve(async (req) => {
     }
     inboundPlanId = sanitizedAfterClaim;
 
-    if (!inboundPlanId) {
+    const runCreateInboundPlanAttempts = async (operationBase = "inbound.v20240320.createInboundPlan") => {
+      attempt = 0;
       while (attempt < maxAttempts) {
         attempt += 1;
         const planBody = buildPlanBody(appliedOverrides);
@@ -2611,8 +2945,7 @@ serve(async (req) => {
           sessionToken: tempCreds.sessionToken,
           lwaToken: lwaAccessToken,
           traceId,
-          operationName:
-            attempt === 1 ? "inbound.v20240320.createInboundPlan" : `inbound.v20240320.createInboundPlan.retry${attempt}`,
+          operationName: attempt === 1 ? operationBase : `${operationBase}.retry${attempt}`,
           marketplaceId,
           sellerId
         });
@@ -2659,6 +2992,10 @@ serve(async (req) => {
           break;
         }
       }
+    };
+
+    if (!inboundPlanId) {
+      await runCreateInboundPlanAttempts();
     }
 
     if (inboundPlanId && operationId) {
@@ -2678,6 +3015,69 @@ serve(async (req) => {
       if (!plans.length && fetched.fetchedPlans?.length) plans = fetched.fetchedPlans;
       _lastPackingOptions = _lastPackingOptions.length ? _lastPackingOptions : fetched.fetchedPackingOptions || [];
       _lastPlacementOptions = _lastPlacementOptions.length ? _lastPlacementOptions : fetched.fetchedPlacementOptions || [];
+    }
+
+    if (inboundPlanId && inboundPlanErrored(inboundPlanStatus) && !prepClassificationRetried) {
+      let prepClassificationSkus = extractPrepClassificationSkus(operationProblems);
+      if (!prepClassificationSkus.length && operationId) {
+        const opLatest = await fetchOperationStatus(operationId);
+        const latestProblems = Array.isArray(opLatest?.problems) ? opLatest.problems : [];
+        if (latestProblems.length) {
+          operationProblems = latestProblems;
+          operationRaw = opLatest?.raw || operationRaw;
+          prepClassificationSkus = extractPrepClassificationSkus(operationProblems);
+        }
+      }
+      if (prepClassificationSkus.length) {
+        const remediation = await applyMissingPrepClassification(prepClassificationSkus);
+        if (remediation.warnings.length) {
+          planWarnings.push(...remediation.warnings);
+        }
+        if (remediation.applied) {
+          prepClassificationRetried = true;
+          try {
+            await supabase
+              .from("prep_requests")
+              .update({ inbound_plan_id: null })
+              .eq("id", requestId)
+              .eq("inbound_plan_id", inboundPlanId);
+          } catch (resetErr) {
+            console.warn("reset inbound_plan_id before createInboundPlan retry failed", { traceId, error: resetErr });
+          }
+          inboundPlanId = null;
+          inboundPlanStatus = null;
+          plans = [];
+          _lastPackingOptions = [];
+          _lastPlacementOptions = [];
+          operationId = null;
+          operationStatus = null;
+          operationProblems = [];
+          operationRaw = null;
+          createHttpStatus = null;
+          amazonJson = null;
+          lastResponseText = null;
+          primaryRequestId = null;
+
+          await runCreateInboundPlanAttempts("inbound.v20240320.createInboundPlan.afterSetPrepDetails");
+          if (inboundPlanId && operationId) {
+            const opRes = await pollOperationStatus(operationId);
+            const stateUp = String(opRes?.state || "").toUpperCase();
+            operationStatus = operationStatus || (opRes?.state ? String(opRes.state) : null);
+            operationProblems = operationProblems.length ? operationProblems : (opRes?.problems || []);
+            operationRaw = operationRaw || opRes?.raw || null;
+            if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
+              inboundPlanStatus = "ERRORED";
+            }
+          }
+          if (inboundPlanId && (!inboundPlanStatus || inboundPlanErrored(inboundPlanStatus))) {
+            const fetched = await fetchInboundPlanById(inboundPlanId);
+            if (fetched.fetchedStatus) inboundPlanStatus = fetched.fetchedStatus;
+            if (!plans.length && fetched.fetchedPlans?.length) plans = fetched.fetchedPlans;
+            _lastPackingOptions = _lastPackingOptions.length ? _lastPackingOptions : fetched.fetchedPackingOptions || [];
+            _lastPlacementOptions = _lastPlacementOptions.length ? _lastPlacementOptions : fetched.fetchedPlacementOptions || [];
+          }
+        }
+      }
     }
 
     if (inboundPlanId && inboundPlanErrored(inboundPlanStatus)) {
