@@ -149,7 +149,17 @@ export default function FbaStep1Inventory({
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(opt);
     });
-    return Array.from(map.entries());
+    const order = ['FBA Prep Services', 'Extra Services'];
+    const entries = Array.from(map.entries());
+    entries.sort((a, b) => {
+      const ai = order.indexOf(a[0]);
+      const bi = order.indexOf(b[0]);
+      if (ai !== -1 || bi !== -1) {
+        return (ai === -1 ? order.length : ai) - (bi === -1 ? order.length : bi);
+      }
+      return String(a[0]).localeCompare(String(b[0]));
+    });
+    return entries;
   }, [serviceOptions]);
   const boxOptionsByCategory = useMemo(() => {
     const map = new Map();
@@ -210,7 +220,10 @@ export default function FbaStep1Inventory({
   const handleAddSkuService = useCallback((sku) => {
     const skuId = sku?.id;
     if (!skuId) return;
-    const first = serviceOptions[0];
+    const preferred =
+      serviceOptions.find((opt) => Number(opt.price || 0) === 0.5) ||
+      serviceOptions[0];
+    const first = preferred;
     if (!first) return;
     const nextEntry = {
       service_id: first.id,
