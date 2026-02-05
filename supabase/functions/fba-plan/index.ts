@@ -158,7 +158,19 @@ function buildWarehouseAddress(country: string, input?: any) {
       WAREHOUSE_DE_EMAIL
     ].some((v) => !String(v || "").trim());
     if (missing) {
-      throw new Error("Missing DE warehouse address. Set WAREHOUSE_DE_* environment variables.");
+      // Fallback hardcoded, similar to FR behavior, to avoid blocking plan creation.
+      return {
+        name: "Radu Cenusa",
+        addressLine1: "Zienestrasse 12",
+        addressLine2: "",
+        city: "Wolfach",
+        stateOrProvinceCode: "BW",
+        postalCode: "77709",
+        countryCode: "DE",
+        phoneNumber: "+49 176 24963618",
+        email: "logistics.de@prep-center.eu",
+        companyName: "EcomPrepHub"
+      };
     }
     return {
       name: WAREHOUSE_DE_NAME,
