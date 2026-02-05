@@ -67,6 +67,17 @@ function safeJson(input: unknown) {
   }
 }
 
+function toBool(v: any): boolean | null {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v === 1 ? true : v === 0 ? false : null;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    if (["true", "yes", "1"].includes(s)) return true;
+    if (["false", "no", "0"].includes(s)) return false;
+  }
+  return null;
+}
+
 function awsPercentEncode(str: string) {
   return encodeURIComponent(str).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
 }
