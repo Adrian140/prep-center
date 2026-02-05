@@ -1154,7 +1154,7 @@ export default function FbaStep1Inventory({
                 <div key={`${sku.id}-svc-${idx}`} className="border border-slate-200 rounded-md p-2">
                   <div className="flex items-center gap-2 mb-2">
                     <select
-                      className="border rounded-md px-2 py-1 text-xs flex-1"
+                      className="border rounded-md px-2 py-1 text-xs flex-1 min-w-0 whitespace-normal break-words"
                       value={svc.service_name || ''}
                       onChange={(e) => {
                         const selected = serviceOptions.find((opt) => opt.service_name === e.target.value);
@@ -1516,7 +1516,7 @@ export default function FbaStep1Inventory({
             <col className="w-[18%]" />
             <col className="w-[22%]" />
             <col className="w-[12%]" />
-            <col className="w-[18%]" />
+            <col className="w-[12%]" />
           </colgroup>
           <thead>
             <tr className="text-left text-slate-500 uppercase text-xs">
@@ -1524,7 +1524,7 @@ export default function FbaStep1Inventory({
               <th className="py-2">Packing details</th>
               <th className="py-2">Information / action</th>
               <th className="py-2">Quantity to send</th>
-              <th className="py-2">Services</th>
+              <th className="py-2 text-center">Services</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
