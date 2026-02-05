@@ -277,12 +277,17 @@ export default function AdminCompanyDashboard() {
   const receivingDaily = chartSnapshot?.receiving?.dailyUnits || snapshot?.receiving?.dailyUnits || [];
   const balanceDaily = chartSnapshot?.finance?.dailyAmounts || snapshot?.finance?.dailyAmounts || [];
   const inventoryUnits = snapshot?.inventory?.units ?? 0;
+  const isAllCompanies = selectedCompany?.id === 'ALL';
   const stalenessTotal = staleness.reduce((sum, row) => sum + Number(row?.units_in_stock || 0), 0);
-  const inventoryUnitsAll = Number.isFinite(globalStockUnits)
-    ? globalStockUnits
-    : staleness.length
-      ? stalenessTotal
-      : (snapshot?.inventory?.unitsAll ?? snapshot?.inventory?.units ?? 0);
+  const inventoryUnitsAll = isAllCompanies
+    ? (
+        Number.isFinite(globalStockUnits)
+          ? globalStockUnits
+          : staleness.length
+            ? stalenessTotal
+            : (snapshot?.inventory?.unitsAll ?? snapshot?.inventory?.units ?? 0)
+      )
+    : inventoryUnits;
   const lastReceivingDate = snapshot?.receiving?.lastReceivingDate || null;
 
   const chartData = useMemo(() => {
@@ -439,7 +444,7 @@ export default function AdminCompanyDashboard() {
             <Card
               title={t('adminDashboard.stockTitle')}
               value={inventoryUnitsAll}
-              subtitle={t('adminDashboard.stockSubtitleAll')}
+              subtitle={isAllCompanies ? t('adminDashboard.stockSubtitleAll') : t('adminDashboard.stockSubtitleCompany')}
               accentClass="text-blue-700"
             />
           </div>
