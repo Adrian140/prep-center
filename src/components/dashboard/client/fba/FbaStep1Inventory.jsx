@@ -225,9 +225,12 @@ export default function FbaStep1Inventory({
   const handleAddSkuService = useCallback((sku) => {
     const skuId = sku?.id;
     if (!skuId) return;
+    const current = Array.isArray(skuServicesById?.[skuId]) ? skuServicesById[skuId] : [];
+    const used = new Set(current.map((svc) => String(svc?.service_name || '')));
+    const available = serviceOptions.filter((opt) => !used.has(String(opt.service_name || '')));
     const preferred =
-      serviceOptions.find((opt) => Number(opt.price || 0) === 0.5) ||
-      serviceOptions[0];
+      available.find((opt) => Number(opt.price || 0) === 0.5) ||
+      available[0];
     const first = preferred;
     if (!first) return;
     const nextEntry = {
@@ -236,7 +239,6 @@ export default function FbaStep1Inventory({
       unit_price: Number(first.price || 0),
       units: Math.max(1, Number(sku.units || 0) || 1)
     };
-    const current = Array.isArray(skuServicesById?.[skuId]) ? skuServicesById[skuId] : [];
     setSkuServices(skuId, [...current, nextEntry]);
   }, [serviceOptions, setSkuServices, skuServicesById]);
 
@@ -1191,6 +1193,17 @@ export default function FbaStep1Inventory({
             )}
             {servicesForSku.map((svc, idx) => {
               const total = Number(svc.unit_price || 0) * Number(svc.units || 0);
+              const usedNames = new Set(
+                servicesForSku
+                  .map((entry, j) => (j === idx ? null : String(entry?.service_name || '')))
+                  .filter(Boolean)
+              );
+              const availableOptions = serviceOptionsByCategory
+                .map(([category, options]) => [
+                  category,
+                  options.filter((opt) => !usedNames.has(String(opt.service_name || '')))
+                ])
+                .filter(([, options]) => options.length > 0);
               return (
                 <div key={`${sku.id}-svc-${idx}`} className="border border-slate-200 rounded-md p-2">
                   <div className="flex items-center gap-2 mb-2">
@@ -1208,7 +1221,7 @@ export default function FbaStep1Inventory({
                         schedulePersist();
                       }}
                     >
-                      {serviceOptionsByCategory.map(([category, options]) => (
+                      {availableOptions.map(([category, options]) => (
                         <optgroup key={category} label={category}>
                           {options.map((opt) => (
                             <option key={opt.id || opt.service_name} value={opt.service_name}>
@@ -1253,16 +1266,20 @@ export default function FbaStep1Inventory({
                 </div>
               );
             })}
-            <button
-              type="button"
-              className="text-xs text-blue-600 underline"
-              onClick={() => {
-                handleAddSkuService(sku);
-                schedulePersist();
-              }}
-            >
-              + Add service
-            </button>
+            {serviceOptions.length > servicesForSku.length ? (
+              <button
+                type="button"
+                className="text-xs text-blue-600 underline"
+                onClick={() => {
+                  handleAddSkuService(sku);
+                  schedulePersist();
+                }}
+              >
+                + Add service
+              </button>
+            ) : (
+              <div className="text-[11px] text-slate-500">All services already added.</div>
+            )}
           </div>
         </td>
       </tr>
