@@ -2748,7 +2748,9 @@ serve(async (req) => {
 
     const confirmDeliveryWindowOnList =
       body?.confirm_delivery_window_on_list ?? body?.confirmDeliveryWindowOnList ?? true;
-    const allowDeliveryWindowConfirmation = shouldConfirm || confirmDeliveryWindowOnList;
+    // Do not mutate delivery windows during "list options" calls (confirm=false),
+    // otherwise Amazon can rotate transportation options between view and confirm.
+    const allowDeliveryWindowConfirmation = shouldConfirm && confirmDeliveryWindowOnList;
 
     if (allRequireDeliveryWindow && allowDeliveryWindowConfirmation && confirmedPlacement) {
       const shipmentIds = Array.from(
@@ -3312,7 +3314,8 @@ serve(async (req) => {
 
     const isNonPartneredSelection = !selectedOption?.partnered;
     const requiresDeliveryWindow =
-      hasDeliveryWindowPrecondition(selectedOption?.raw || selectedOption) || isNonPartneredSelection;
+      isNonPartneredSelection &&
+      (hasDeliveryWindowPrecondition(selectedOption?.raw || selectedOption) || isNonPartneredSelection);
     if (requiresDeliveryWindow) {
       const shipmentIds = Array.from(
         new Set<string>(
