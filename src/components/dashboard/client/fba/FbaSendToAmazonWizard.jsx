@@ -3109,6 +3109,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return;
     }
     const enforcePartneredOnly = Boolean(forcePartneredOnly || selectedOpt?.partnered);
+    const signature = selectedOptionSignatureRef.current || {};
     const optionShipmentId = String(selectedOpt?.shipmentId || selectedOpt?.raw?.shipmentId || '').trim();
     const shipmentIds = Array.isArray(shipments)
       ? shipments.map((s) => String(s.id || s.shipmentId || '')).filter(Boolean)
@@ -3157,6 +3158,20 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           delivery_window_end: windowEnd,
           transportation_option_id: selectedTransportationOptionId,
           force_partnered_only: enforcePartneredOnly,
+          selected_partnered: signature?.partnered ?? Boolean(selectedOpt?.partnered),
+          selected_shipping_solution:
+            signature?.shippingSolution ||
+            String(selectedOpt?.shippingSolution || selectedOpt?.raw?.shippingSolution || '').toUpperCase() ||
+            null,
+          selected_carrier_name:
+            signature?.carrierName ||
+            String(selectedOpt?.carrierName || selectedOpt?.raw?.carrier?.name || '').trim().toUpperCase() ||
+            null,
+          selected_carrier_code:
+            signature?.carrierCode ||
+            String(selectedOpt?.raw?.carrier?.alphaCode || '').trim().toUpperCase() ||
+            null,
+          selected_mode: signature?.mode || normalizeOptionMode(selectedOpt?.mode || selectedOpt?.shippingMode) || null,
           auto_confirm_placement: true,
           confirm: true
         }

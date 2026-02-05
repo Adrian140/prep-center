@@ -526,6 +526,15 @@ serve(async (req) => {
     const confirmOptionId = body?.transportation_option_id ?? body?.transportationOptionId;
     const shipmentTransportConfigs = body?.shipment_transportation_configurations ?? body?.shipmentTransportationConfigurations ?? [];
     const shippingModeInput = body?.shipping_mode ?? body?.shippingMode ?? null;
+    const selectedPartnered = toBool(body?.selected_partnered ?? body?.selectedPartnered);
+    const selectedShippingSolution =
+      body?.selected_shipping_solution ?? body?.selectedShippingSolution ?? null;
+    const selectedCarrierName =
+      body?.selected_carrier_name ?? body?.selectedCarrierName ?? null;
+    const selectedCarrierCode =
+      body?.selected_carrier_code ?? body?.selectedCarrierCode ?? null;
+    const selectedModeHint =
+      body?.selected_mode ?? body?.selectedMode ?? null;
     const deliveryWindowStartInput = body?.delivery_window_start ?? body?.deliveryWindowStart ?? null;
     const deliveryWindowEndInput = body?.delivery_window_end ?? body?.deliveryWindowEnd ?? null;
     const normalizeShippingMode = (mode: string | null) => {
@@ -3038,6 +3047,49 @@ serve(async (req) => {
       if (["FTL", "FREIGHT_FTL"].includes(up)) return "FREIGHT_FTL";
       return up;
     };
+    const normalizeSolution = (val: any) => String(val || "").trim().toUpperCase();
+    const normalizeCarrier = (val: any) => String(val || "").trim().toUpperCase();
+    const normalizedSelectedMode = selectedModeHint ? normalizeOptionMode(selectedModeHint) : "";
+    const selectedSignature = {
+      partnered: selectedPartnered,
+      shippingSolution: normalizeSolution(selectedShippingSolution),
+      carrierName: normalizeCarrier(selectedCarrierName),
+      carrierCode: normalizeCarrier(selectedCarrierCode),
+      mode: normalizedSelectedMode || ""
+    };
+    const hasSignature = Boolean(
+      selectedSignature.partnered !== null ||
+        selectedSignature.shippingSolution ||
+        selectedSignature.carrierName ||
+        selectedSignature.carrierCode ||
+        selectedSignature.mode
+    );
+    const matchBySignature = (pool: any[]) => {
+      if (!hasSignature || !Array.isArray(pool) || !pool.length) return null;
+      return (
+        pool.find((o) => {
+          if (selectedSignature.partnered !== null && Boolean(o.partnered) !== selectedSignature.partnered) {
+            return false;
+          }
+          if (selectedSignature.shippingSolution) {
+            const sol = normalizeSolution(o.shippingSolution || o.raw?.shippingSolution || "");
+            if (sol !== selectedSignature.shippingSolution) return false;
+          }
+          if (selectedSignature.mode) {
+            const mode = normalizeOptionMode(o.mode || o.raw?.shippingMode || "");
+            if (mode !== selectedSignature.mode) return false;
+          }
+          if (selectedSignature.carrierCode) {
+            const code = normalizeCarrier(o.raw?.carrier?.alphaCode || "");
+            if (code !== selectedSignature.carrierCode) return false;
+          } else if (selectedSignature.carrierName) {
+            const name = normalizeCarrier(o.carrierName || o.raw?.carrier?.name || "");
+            if (name !== selectedSignature.carrierName) return false;
+          }
+          return true;
+        }) || null
+      );
+    };
 
     let optionsForSelection = normalizedOptionsSelection;
     const returnedModes = Array.from(
@@ -3222,6 +3274,18 @@ serve(async (req) => {
         ? selectionPool.find((o) => o.id === confirmOptionId) || null
         : null;
       if (confirmOptionId && !requestedOption) {
+        const signatureMatch = matchBySignature(selectionPool);
+        if (signatureMatch) {
+          selectedOption = signatureMatch;
+          logStep("transportationOption_signature_match", {
+            traceId,
+            reason: "confirm_id_not_found",
+            missingOptionId: confirmOptionId,
+            matchedOptionId: signatureMatch?.id || null
+          });
+        }
+      }
+      if (confirmOptionId && !requestedOption && !selectedOption) {
         // Amazon poate roti transportationOptionId între listare și confirmare pentru OYC.
         // Facem auto-recovery strict pentru confirm flow non-partnered.
         const canAutoRecoverMissingRequested =
@@ -3416,6 +3480,16 @@ serve(async (req) => {
               .filter((o) => o.partnered)
               .sort((a, b) => (Number(a.charge || 0) - Number(b.charge || 0)))[0] ||
             null;
+        }
+        if (!fallbackAfterValidation?.id) {
+          const signatureMatch = matchBySignature(
+            Array.isArray(optionsForSelection) && optionsForSelection.length
+              ? optionsForSelection
+              : normalizedOptionsSelection
+          );
+          if (signatureMatch?.id) {
+            fallbackAfterValidation = signatureMatch;
+          }
         }
         if (fallbackAfterValidation?.id) {
           selectedOption = fallbackAfterValidation;
