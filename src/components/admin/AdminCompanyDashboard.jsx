@@ -158,7 +158,7 @@ export default function AdminCompanyDashboard() {
   useEffect(() => {
     let cancelled = false;
     const loadGlobalStock = async () => {
-      const { data, error } = await supabaseHelpers.getInventoryStaleness(null);
+      const { data, error } = await supabaseHelpers.getInventoryStaleness(currentMarket);
       if (cancelled) return;
       if (error) {
         setGlobalStockUnits(null);
@@ -170,7 +170,7 @@ export default function AdminCompanyDashboard() {
     };
     loadGlobalStock();
     return () => { cancelled = true; };
-  }, []);
+  }, [currentMarket]);
 
   const handleApplyStorage = async (row) => {
     if (!row?.company_id) return;
