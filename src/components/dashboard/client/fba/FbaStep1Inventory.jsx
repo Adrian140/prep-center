@@ -87,6 +87,7 @@ export default function FbaStep1Inventory({
   onSkuServicesChange,
   boxServices = [],
   onBoxServicesChange,
+  onPersistServices,
   onNext
 }) {
   const resolvedInboundPlanId =
@@ -254,6 +255,15 @@ export default function FbaStep1Inventory({
     if (!onBoxServicesChange) return;
     onBoxServicesChange(next);
   }, [onBoxServicesChange]);
+
+  const persistServicesSafely = useCallback(async () => {
+    if (!onPersistServices) return;
+    try {
+      await onPersistServices();
+    } catch (err) {
+      console.warn('Failed to persist prep services', err);
+    }
+  }, [onPersistServices]);
 
   const handleAddBoxService = useCallback(() => {
     const first = boxOptions[0];
@@ -1180,6 +1190,7 @@ export default function FbaStep1Inventory({
                           service_name: selected.service_name,
                           unit_price: Number(selected.price || 0)
                         });
+                        persistServicesSafely();
                       }}
                     >
                       {serviceOptionsByCategory.map(([category, options]) => (
@@ -1210,9 +1221,11 @@ export default function FbaStep1Inventory({
                       <input
                         type="number"
                         min={0}
+                        step={1}
                         className="w-16 border rounded-md px-2 py-1 text-xs text-right"
                         value={svc.units ?? 0}
                         onChange={(e) => handleSkuServiceChange(sku.id, idx, { units: Number(e.target.value || 0) })}
+                        onBlur={persistServicesSafely}
                       />
                     </div>
                     <div className="flex items-center gap-1">
@@ -1226,7 +1239,10 @@ export default function FbaStep1Inventory({
             <button
               type="button"
               className="text-xs text-blue-600 underline"
-              onClick={() => handleAddSkuService(sku)}
+              onClick={() => {
+                handleAddSkuService(sku);
+                persistServicesSafely();
+              }}
             >
               + Add service
             </button>
@@ -1582,7 +1598,10 @@ export default function FbaStep1Inventory({
             <button
               type="button"
               className="text-xs text-blue-600 underline"
-              onClick={handleAddBoxService}
+              onClick={() => {
+                handleAddBoxService();
+                persistServicesSafely();
+              }}
             >
               + Add box
             </button>
@@ -1611,6 +1630,7 @@ export default function FbaStep1Inventory({
                         : row
                     );
                     setBoxes(next);
+                    persistServicesSafely();
                   }}
                 >
                   {boxOptionsByCategory.map(([category, options]) => (
@@ -1631,6 +1651,7 @@ export default function FbaStep1Inventory({
                   <input
                     type="number"
                     min={0}
+                    step={1}
                     className="w-16 border rounded-md px-2 py-1 text-xs text-right"
                     value={svc.units ?? 0}
                     onChange={(e) => {
@@ -1639,6 +1660,7 @@ export default function FbaStep1Inventory({
                       );
                       setBoxes(next);
                     }}
+                    onBlur={persistServicesSafely}
                   />
                 </div>
                 <div className="text-xs text-slate-600">

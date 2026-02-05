@@ -1589,6 +1589,56 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       cancelled = true;
     };
   }, [resolveRequestId]);
+
+  const buildServiceRows = useCallback((requestId, skuMap, boxList) => {
+    const rows = [];
+    Object.entries(skuMap || {}).forEach(([skuId, services]) => {
+      (services || []).forEach((svc) => {
+        const units = Number(svc?.units || 0);
+        if (!svc?.service_name || units <= 0) return;
+        rows.push({
+          request_id: requestId,
+          prep_request_item_id: skuId,
+          service_id: svc?.service_id || null,
+          service_name: svc.service_name,
+          unit_price: Number(svc?.unit_price || 0),
+          units,
+          item_type: 'sku'
+        });
+      });
+    });
+    (boxList || []).forEach((svc) => {
+      const units = Number(svc?.units || 0);
+      if (!svc?.service_name || units <= 0) return;
+      rows.push({
+        request_id: requestId,
+        prep_request_item_id: null,
+        service_id: svc?.service_id || null,
+        service_name: svc.service_name,
+        unit_price: Number(svc?.unit_price || 0),
+        units,
+        item_type: 'box'
+      });
+    });
+    return rows;
+  }, []);
+
+  const persistServicesToDb = useCallback(async () => {
+    const requestId = resolveRequestId();
+    if (!requestId) return;
+    const rows = buildServiceRows(requestId, skuServicesById, boxServices);
+    const { error: delErr } = await supabase
+      .from('prep_request_services')
+      .delete()
+      .eq('request_id', requestId);
+    if (delErr) throw delErr;
+    if (rows.length) {
+      const { error: insErr } = await supabase
+        .from('prep_request_services')
+        .insert(rows);
+      if (insErr) throw insErr;
+    }
+  }, [buildServiceRows, boxServices, resolveRequestId, skuServicesById]);
   useEffect(() => {
     if (serverUnitsRef.current.size) return;
     snapshotServerUnits(initialPlan?.skus || []);
@@ -4023,48 +4073,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         if (saveErr) throw saveErr;
       }
 
-      if (requestId) {
-        const rows = [];
-        Object.entries(skuServicesById || {}).forEach(([skuId, services]) => {
-          (services || []).forEach((svc) => {
-            const units = Number(svc?.units || 0);
-            if (!svc?.service_name || units <= 0) return;
-            rows.push({
-              request_id: requestId,
-              prep_request_item_id: skuId,
-              service_id: svc?.service_id || null,
-              service_name: svc.service_name,
-              unit_price: Number(svc?.unit_price || 0),
-              units,
-              item_type: 'sku'
-            });
-          });
-        });
-        (boxServices || []).forEach((svc) => {
-          const units = Number(svc?.units || 0);
-          if (!svc?.service_name || units <= 0) return;
-          rows.push({
-            request_id: requestId,
-            prep_request_item_id: null,
-            service_id: svc?.service_id || null,
-            service_name: svc.service_name,
-            unit_price: Number(svc?.unit_price || 0),
-            units,
-            item_type: 'box'
-          });
-        });
-        const { error: delErr } = await supabase
-          .from('prep_request_services')
-          .delete()
-          .eq('request_id', requestId);
-        if (delErr) throw delErr;
-        if (rows.length) {
-          const { error: insErr } = await supabase
-            .from('prep_request_services')
-            .insert(rows);
-          if (insErr) throw insErr;
-        }
-      }
+      await persistServicesToDb();
 
       if (bypassMissingInbound) {
         setStep1SaveError('');
@@ -4156,6 +4165,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     plan?.skus,
     skuServicesById,
     boxServices,
+    persistServicesToDb,
     refreshStep,
     resolveInboundPlanId,
     resolveRequestId,
@@ -4192,6 +4202,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           onSkuServicesChange={setSkuServicesById}
           boxServices={boxServices}
           onBoxServicesChange={setBoxServices}
+          onPersistServices={persistServicesToDb}
           inboundPlanCopy={wizardCopy}
           onNext={persistStep1AndReloadPlan}
           error={planError || step1SaveError}
