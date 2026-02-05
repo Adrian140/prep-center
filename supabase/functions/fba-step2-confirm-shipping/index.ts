@@ -2475,7 +2475,10 @@ serve(async (req) => {
       const collected: any[] = [];
       let firstRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
       let attempt = 0;
-      const maxPages = confirmOptionId ? 30 : 12;
+      // Keep Step 2 responsive:
+      // - listing (confirm=false) needs only a representative set of options
+      // - confirm flow can scan more pages to find a specific selected option id
+      const maxPages = confirmOptionId ? 12 : 4;
       do {
         attempt += 1;
         const queryParts = [`placementOptionId=${encodeURIComponent(placementOptionIdParam)}`];
@@ -2510,7 +2513,8 @@ serve(async (req) => {
           res?.json?.pagination?.nextToken ||
           res?.json?.nextToken ||
           null;
-        if (nextToken && attempt < maxPages) await delay(150 * attempt);
+        // Avoid cumulative pagination delays that can push Step 2 into minute-long waits.
+        if (nextToken && attempt < maxPages) await delay(25);
       } while (nextToken && attempt < maxPages);
       if (nextToken) {
         logStep("listTransportationOptions_truncated", {
@@ -2562,7 +2566,9 @@ serve(async (req) => {
     );
     let optionsRawForSelection = optionsRawInitial;
     let optionsRawForDisplay = optionsRawInitial;
-    if (!hasPartneredSolution(optionsRawInitial) && shipmentIdForListing) {
+    // For hazmat/non-partnered shipments, Amazon can legitimately return only USE_YOUR_OWN_CARRIER.
+    // Fallback listing without shipmentId should be used only when shipment-scoped listing is empty.
+    if (!optionsRawInitial.length && shipmentIdForListing) {
       const { firstRes: listResFallback, collected: optionsRawFallback } =
         await listAllTransportationOptions(effectivePlacementOptionId, null);
       const byId = new Map<string, any>();

@@ -3067,10 +3067,15 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return;
     }
     await ensureOptionsAvailable();
-    // Refresh once right before confirm; Amazon may rotate option IDs after delivery-window confirmation.
-    await fetchShippingOptions({ force: true });
-    const latestOptions = Array.isArray(shippingOptionsRef.current) ? shippingOptionsRef.current : [];
+    let latestOptions = Array.isArray(shippingOptionsRef.current) ? shippingOptionsRef.current : [];
     let selectedOpt = latestOptions.find((opt) => opt?.id === selectedTransportationOptionId);
+    // Refresh only if current selection is missing from local options.
+    // This avoids a full options re-fetch on every confirm click.
+    if (!selectedOpt) {
+      await fetchShippingOptions({ force: true });
+      latestOptions = Array.isArray(shippingOptionsRef.current) ? shippingOptionsRef.current : [];
+      selectedOpt = latestOptions.find((opt) => opt?.id === selectedTransportationOptionId);
+    }
     if (!selectedOpt) {
       // dacă există doar una, o selectăm automat aici
       if (Array.isArray(latestOptions) && latestOptions.length === 1) {
