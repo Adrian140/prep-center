@@ -2494,20 +2494,41 @@ serve(async (req) => {
     const listTransportationOptionsOnce = async (
       placementOptionIdParam: string,
       shipmentIdParam?: string | null,
-      opts?: { probePartnered?: boolean; maxPages?: number }
+      opts?: {
+        probePartnered?: boolean;
+        maxPages?: number;
+        hardMaxPages?: number;
+        requiredOptionId?: string | null;
+        forceRefresh?: boolean;
+      }
     ) => {
       const cacheKey = `${placementOptionIdParam}|${shipmentIdParam || ""}`;
-      if (transportCache.has(cacheKey)) {
-        const cached = transportCache.get(cacheKey);
-        return { firstRes: null, collected: cached };
+      const requiredOptionId = String(opts?.requiredOptionId || "").trim() || null;
+      if (!opts?.forceRefresh && transportCache.has(cacheKey)) {
+        const cached = transportCache.get(cacheKey) || [];
+        if (!requiredOptionId) {
+          return { firstRes: null, collected: cached };
+        }
+        const hasRequiredInCache = cached.some((opt: any) => {
+          const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
+          return id === requiredOptionId;
+        });
+        if (hasRequiredInCache) {
+          return { firstRes: null, collected: cached };
+        }
       }
       const probePartnered = Boolean(opts?.probePartnered);
       const maxPages = Math.max(1, Math.min(Number(opts?.maxPages ?? 6), 12));
+      const hardMaxPages = Math.max(
+        maxPages,
+        Math.min(Number(opts?.hardMaxPages ?? (requiredOptionId ? 40 : maxPages)), 60)
+      );
       let firstRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
       const collected: any[] = [];
       let nextToken: string | null = null;
       let pagesFetched = 0;
       let firstPartneredPage: number | null = null;
+      let firstRequiredOptionPage: number | null = null;
       do {
         pagesFetched += 1;
         const queryParts = [
@@ -2544,12 +2565,25 @@ serve(async (req) => {
         if (probePartnered && firstPartneredPage === null && hasPartneredSolution(pageChunk)) {
           firstPartneredPage = pagesFetched;
         }
+        if (requiredOptionId && firstRequiredOptionPage === null) {
+          const foundOnPage = pageChunk.some((opt: any) => {
+            const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
+            return id === requiredOptionId;
+          });
+          if (foundOnPage) firstRequiredOptionPage = pagesFetched;
+        }
         nextToken =
           res?.json?.payload?.pagination?.nextToken ||
           res?.json?.pagination?.nextToken ||
           res?.json?.nextToken ||
           null;
-      } while (nextToken && pagesFetched < maxPages);
+        const reachedSoftLimit = pagesFetched >= maxPages;
+        const reachedHardLimit = pagesFetched >= hardMaxPages;
+        const needMoreForRequired = Boolean(requiredOptionId) && firstRequiredOptionPage === null;
+        if (!nextToken) break;
+        if (reachedHardLimit) break;
+        if (reachedSoftLimit && !needMoreForRequired) break;
+      } while (true);
       if (probePartnered) {
         logStep("listTransportationOptions_partnered_probe", {
           traceId,
@@ -2557,6 +2591,9 @@ serve(async (req) => {
           shipmentId: shipmentIdParam || null,
           pagesFetched,
           maxPages,
+          hardMaxPages,
+          requiredOptionId,
+          firstRequiredOptionPage,
           partneredFound: hasPartneredSolution(collected),
           firstPartneredPage,
           count: collected.length
@@ -2570,6 +2607,9 @@ serve(async (req) => {
           pageSize: 20,
           pagesFetched,
           maxPages,
+          hardMaxPages,
+          requiredOptionId,
+          firstRequiredOptionPage,
           hasMore: true,
           collected: collected.length
         });
@@ -3158,7 +3198,10 @@ serve(async (req) => {
     if (!selectedOption) {
       const refresh = await listTransportationOptionsOnce(
         String(effectivePlacementOptionId),
-        shipmentIdForListing
+        shipmentIdForListing,
+        {
+          requiredOptionId: confirmOptionId || null
+        }
       );
       const refreshedNormalized = normalizeOptions(refresh.collected || []);
       const refreshedForSelection = normalizedRequestedMode
@@ -3290,7 +3333,10 @@ serve(async (req) => {
     const validateSelectedOption = async (optId: string, shId: string | null) => {
       const { collected } = await listTransportationOptionsOnce(
         String(effectivePlacementOptionId),
-        shId || undefined
+        shId || undefined,
+        {
+          requiredOptionId: optId
+        }
       );
       const match = (collected || []).find((opt: any) => {
         const id = opt?.transportationOptionId || opt?.id || opt?.optionId || null;
@@ -3473,7 +3519,10 @@ serve(async (req) => {
       // Re-list transportation options to avoid stale option IDs after delivery window confirmation
       const refreshed = await listTransportationOptionsOnce(
         String(effectivePlacementOptionId),
-        shipmentIdForListing
+        shipmentIdForListing,
+        {
+          requiredOptionId: confirmOptionId || null
+        }
       );
       const refreshedNormalized = normalizeOptions(refreshed.collected || refreshed.options || []);
       const refreshedForSelection = normalizedRequestedMode
@@ -3503,7 +3552,10 @@ serve(async (req) => {
     const refreshTransportOptions = async () => {
       const refreshed = await listTransportationOptionsOnce(
         String(effectivePlacementOptionId),
-        shipmentIdForListing
+        shipmentIdForListing,
+        {
+          requiredOptionId: confirmOptionId || selectedOption?.id || null
+        }
       );
       const refreshedNormalized = normalizeOptions(refreshed.collected || refreshed.options || refreshed || []);
       const refreshedForSelection = normalizedRequestedMode
@@ -3573,7 +3625,10 @@ serve(async (req) => {
     const validateOptionForShipment = async (optId: string, shipmentId: string) => {
       const { collected } = await listTransportationOptionsOnce(
         String(effectivePlacementOptionId),
-        shipmentId
+        shipmentId,
+        {
+          requiredOptionId: optId
+        }
       );
       const match = (collected || []).find((opt: any) => {
         const id = opt?.transportationOptionId || opt?.id || opt?.optionId || null;
