@@ -2962,8 +2962,24 @@ serve(async (req) => {
         }
       }
     }
+    // Dacă altă execuție deține lock-ul, nu continuăm cu createInboundPlan în paralel.
+    if (!hasPlanLock && inboundPlanId && isLockId(inboundPlanId)) {
+      return new Response(
+        JSON.stringify({
+          error: "Plan creation already in progress for this request",
+          traceId,
+          requestId,
+          inboundPlanId,
+          status: "LOCKED"
+        }),
+        {
+          status: 409,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        }
+      );
+    }
     const sanitizedAfterClaim = sanitizeInboundPlanId(inboundPlanId);
-    if (!sanitizedAfterClaim && inboundPlanId) {
+    if (!sanitizedAfterClaim && inboundPlanId && !isLockId(inboundPlanId)) {
       await resetInvalidInboundPlanId({ inboundPlanId, requestId });
     }
     inboundPlanId = sanitizedAfterClaim;
@@ -3069,6 +3085,16 @@ serve(async (req) => {
           operationProblems = latestProblems;
           operationRaw = opLatest?.raw || operationRaw;
           prepClassificationSkus = extractPrepClassificationSkus(operationProblems);
+        }
+      }
+      if (!prepClassificationSkus.length) {
+        prepClassificationSkus = Array.from(
+          new Set(collapsedItems.map((c) => normalizeSku(c.sku)).filter(Boolean))
+        );
+        if (prepClassificationSkus.length) {
+          planWarnings.push(
+            `Plan ERRORED fara SKU explicit in operationProblems; incerc auto-remediere prep pe toate SKU-urile (${prepClassificationSkus.join(", ")}).`
+          );
         }
       }
       if (prepClassificationSkus.length) {
