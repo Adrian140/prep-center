@@ -1967,16 +1967,19 @@ createPrepItem: async (requestId, item) => {
       .lte('prep_requests.confirmed_at', endIso)
       .limit(10000);
 
-    // Reception units – prefer direct receiving_items (logs may be missing for legacy data)
+    // Reception units – count only what a fost trecut în stoc (receiving_to_stock_log)
     let receivingItemsQuery = supabase
-      .from('receiving_items')
+      .from('receiving_to_stock_log')
       .select(
-        'quantity_received, quantity, created_at, receiving_shipments!inner(company_id, warehouse_country, created_at, received_at)'
+        'quantity_moved, moved_at, receiving_items!inner(shipment_id, receiving_shipments!inner(company_id, warehouse_country))'
       );
     if (marketCode) {
       receivingItemsQuery = receivingItemsQuery.eq('receiving_shipments.warehouse_country', marketCode);
     }
-    receivingItemsQuery = receivingItemsQuery.limit(20000);
+    receivingItemsQuery = receivingItemsQuery
+      .gte('moved_at', startIso)
+      .lte('moved_at', endIso)
+      .limit(20000);
     const receivingItemsPromise = receivingItemsQuery;
 
     const balancePromise = userId
@@ -2032,7 +2035,7 @@ createPrepItem: async (requestId, item) => {
     ]);
     const needsWarehouseRetry =
       marketCode &&
-      [returnsRes, prepRes, receivingRes, prepItemsRes]
+      [returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes]
         .some((res) => isWarehouseMissing(res?.error));
     if (needsWarehouseRetry) {
       const returnsRetry = withCompany(
@@ -2067,17 +2070,25 @@ createPrepItem: async (requestId, item) => {
         .gte('prep_requests.confirmed_at', startIso)
         .lte('prep_requests.confirmed_at', endIso)
         .limit(10000);
-      const [returnsRetryRes, prepRetryRes, receivingRetryRes, prepItemsRetryRes] =
+      const receivingItemsRetry = supabase
+        .from('receiving_to_stock_log')
+        .select('quantity_moved, moved_at, receiving_items!inner(shipment_id, receiving_shipments!inner(company_id))')
+        .gte('moved_at', startIso)
+        .lte('moved_at', endIso)
+        .limit(20000);
+      const [returnsRetryRes, prepRetryRes, receivingRetryRes, prepItemsRetryRes, receivingItemsRetryRes] =
         await Promise.all([
           returnsRetry,
           prepRetry,
           receivingRetry,
-          prepItemsRetry
+          prepItemsRetry,
+          receivingItemsRetry
         ]);
       if (isWarehouseMissing(returnsRes?.error)) returnsRes = returnsRetryRes;
       if (isWarehouseMissing(prepRes?.error)) prepRes = prepRetryRes;
       if (isWarehouseMissing(receivingRes?.error)) receivingRes = receivingRetryRes;
       if (isWarehouseMissing(prepItemsRes?.error)) prepItemsRes = prepItemsRetryRes;
+      if (isWarehouseMissing(receivingItemsRes?.error)) receivingItemsRes = receivingItemsRetryRes;
     }
 
     const numberOrZero = (value) => {
