@@ -317,19 +317,27 @@ export default function FbaStep1Inventory({
     useManufacturerBarcode: false,
     manufacturerBarcodeEligible: true
   });
-  const LABEL_PRESETS = {
-    thermal: { width: '50', height: '25' },
-    standard: { width: '63', height: '25' }
-  };
+  const LABEL_PRESETS = useMemo(() => {
+    if (marketCodeForPricing === 'DE') {
+      return {
+        thermal: { width: '62', height: '29' },
+        standard: { width: '63', height: '25' }
+      };
+    }
+    return {
+      thermal: { width: '50', height: '25' },
+      standard: { width: '63', height: '25' }
+    };
+  }, [marketCodeForPricing]);
 
-  const [labelModal, setLabelModal] = useState({
+  const [labelModal, setLabelModal] = useState(() => ({
     open: false,
     sku: null,
     format: 'thermal',
     width: LABEL_PRESETS.thermal.width,
     height: LABEL_PRESETS.thermal.height,
     quantity: 1
-  });
+  }));
   const [prepTab, setPrepTab] = useState('prep');
   const [prepSelections, setPrepSelections] = useState({});
   const [templates, setTemplates] = useState([]);
@@ -1427,8 +1435,8 @@ export default function FbaStep1Inventory({
       open: true,
       sku,
       format: 'thermal',
-      width: '50',
-      height: '25',
+      width: LABEL_PRESETS.thermal.width,
+      height: LABEL_PRESETS.thermal.height,
       quantity: unitsToSend
     });
   };
