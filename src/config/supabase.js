@@ -3121,14 +3121,14 @@ getAllReceivingShipments: async (options = {}) => {
         }
         const qtyToStock = Math.max(0, quantityReceived - fbaQty);
         const prevToStock = Math.max(0, Number(item.quantity_to_stock || 0));
-        const deltaToStock = Math.max(0, qtyToStock - prevToStock);
+        const deltaToStock = qtyToStock - prevToStock;
 
         const stockRow = await ensureStockItemForReceiving(item, processedBy);
         const normalizedAsin = normalizeCode(item.asin);
         const normalizedSku = normalizeCode(item.sku);
         const stockId = stockRow?.id || null;
 
-        if (deltaToStock > 0 && stockRow) {
+        if (deltaToStock !== 0 && stockRow) {
           const updates = {};
           if (item.purchase_price != null && item.purchase_price !== stockRow.purchase_price) {
             updates.purchase_price = item.purchase_price;
@@ -3150,16 +3150,30 @@ getAllReceivingShipments: async (options = {}) => {
               .eq('id', stockRow.id);
           }
 
-          // Stock quantities are updated via receiving_to_stock_log trigger.
-          await supabase
-            .from('receiving_to_stock_log')
-            .insert({
-              receiving_item_id: item.id,
-              stock_item_id: stockRow.id,
-              quantity_moved: deltaToStock,
-              moved_by: processedBy,
-              notes: 'Processed from receiving shipment'
-            });
+          if (deltaToStock > 0) {
+            // Stock quantities are updated via receiving_to_stock_log trigger.
+            await supabase
+              .from('receiving_to_stock_log')
+              .insert({
+                receiving_item_id: item.id,
+                stock_item_id: stockRow.id,
+                quantity_moved: deltaToStock,
+                moved_by: processedBy,
+                notes: 'Processed from receiving shipment'
+              });
+          } else {
+            // Correction: received units decreased -> subtract from stock directly.
+            const marketCode = normalizeMarketCode(shipment.warehouse_country || shipment.warehouseCountry || 'FR');
+            if (marketCode) {
+              const currentMarketQty = getPrepQtyForMarket(stockRow, marketCode);
+              const nextMarketQty = currentMarketQty + deltaToStock;
+              const marketPatch = buildPrepQtyPatch(stockRow, marketCode, nextMarketQty);
+              await supabase
+                .from('stock_items')
+                .update(marketPatch)
+                .eq('id', stockRow.id);
+            }
+          }
         }
 
         const applyItemUpdate = async (payload) => {
