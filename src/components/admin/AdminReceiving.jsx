@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabaseHelpers } from '../../config/supabase';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
@@ -115,6 +115,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
   const [stockMatches, setStockMatches] = useState({});
   const [message, setMessage] = useState('');
   const [savingRow, setSavingRow] = useState(null);
+  const savingRowRef = useRef(new Set());
   const [editMode, setEditMode] = useState(false);
   const buildHeaderState = (sh) => ({
     destination_country: sh.destination_country || 'FR',
@@ -235,6 +236,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
   };
   const persistReceivedUnits = async (item) => {
     if (!item?.id) return;
+    if (savingRowRef.current.has(item.id)) return;
     const draft = Object.prototype.hasOwnProperty.call(receivedDrafts, item.id)
       ? receivedDrafts[item.id]
       : item.received_units ?? item.quantity_received;
@@ -252,6 +254,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
 
     const delta = parsed - current;
 
+    savingRowRef.current.add(item.id);
     setSavingRow(item.id);
     try {
       if (!profile?.id) throw new Error('Profile unavailable');
@@ -310,6 +313,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
     } catch (error) {
       setMessage(`Error: ${error.message}`);
     } finally {
+      savingRowRef.current.delete(item.id);
       setSavingRow(null);
     }
   };
