@@ -9,7 +9,10 @@ const corsHeaders = {
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const SUPABASE_SERVICE_ROLE_KEY =
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
+  Deno.env.get("SUPABASE_SERVICE_ROLE") ||
+  "";
 const LWA_CLIENT_ID = Deno.env.get("SPAPI_LWA_CLIENT_ID") || "";
 const LWA_CLIENT_SECRET = Deno.env.get("SPAPI_LWA_CLIENT_SECRET") || "";
 const AWS_ACCESS_KEY_ID = Deno.env.get("AWS_ACCESS_KEY_ID") || "";
@@ -3966,6 +3969,10 @@ serve(async (req) => {
     // Trimite email de confirmare către client (non-blocant)
     const sendPrepConfirmEmail = async () => {
       try {
+        if (!SUPABASE_SERVICE_ROLE_KEY) {
+          logStep("sendPrepConfirmEmail_skipped", { traceId, reason: "missing_service_role_key" });
+          return;
+        }
         const { data: prepRow, error: prepErr } = await supabase
           .from("prep_requests")
           .select(
@@ -4025,7 +4032,12 @@ serve(async (req) => {
           },
           body: JSON.stringify(payload)
         });
-        logStep("sendPrepConfirmEmail", { traceId, status: emailRes.status });
+        if (!emailRes.ok) {
+          const bodyPreview = (await emailRes.text().catch(() => ""))?.slice(0, 400) || null;
+          logStep("sendPrepConfirmEmail_failed", { traceId, status: emailRes.status, bodyPreview });
+        } else {
+          logStep("sendPrepConfirmEmail", { traceId, status: emailRes.status });
+        }
       } catch (err) {
         logStep("sendPrepConfirmEmail_error", { traceId, error: `${err}` });
       }
