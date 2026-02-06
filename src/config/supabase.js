@@ -3150,30 +3150,16 @@ getAllReceivingShipments: async (options = {}) => {
               .eq('id', stockRow.id);
           }
 
-          if (deltaToStock > 0) {
-            // Stock quantities are updated via receiving_to_stock_log trigger.
-            await supabase
-              .from('receiving_to_stock_log')
-              .insert({
-                receiving_item_id: item.id,
-                stock_item_id: stockRow.id,
-                quantity_moved: deltaToStock,
-                moved_by: processedBy,
-                notes: 'Processed from receiving shipment'
-              });
-          } else {
-            // Correction: received units decreased -> subtract from stock directly.
-            const marketCode = normalizeMarketCode(shipment.warehouse_country || shipment.warehouseCountry || 'FR');
-            if (marketCode) {
-              const currentMarketQty = getPrepQtyForMarket(stockRow, marketCode);
-              const nextMarketQty = currentMarketQty + deltaToStock;
-              const marketPatch = buildPrepQtyPatch(stockRow, marketCode, nextMarketQty);
-              await supabase
-                .from('stock_items')
-                .update(marketPatch)
-                .eq('id', stockRow.id);
-            }
-          }
+          // Stock quantities are updated via receiving_to_stock_log trigger (positive and negative deltas).
+          await supabase
+            .from('receiving_to_stock_log')
+            .insert({
+              receiving_item_id: item.id,
+              stock_item_id: stockRow.id,
+              quantity_moved: deltaToStock,
+              moved_by: processedBy,
+              notes: deltaToStock > 0 ? 'Processed from receiving shipment' : 'Correction from receiving shipment'
+            });
         }
 
         const applyItemUpdate = async (payload) => {
