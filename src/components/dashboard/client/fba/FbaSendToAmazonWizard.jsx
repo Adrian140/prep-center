@@ -2171,9 +2171,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const fallbackWeight = planBoxesRaw[0]?.weight_kg ?? planBoxesRaw[0]?.weight ?? null;
       const dims = getSafeDims(g.boxDimensions) || getSafeDims(fallbackDims);
       const weight = getPositiveNumber(g.boxWeight) || getPositiveNumber(fallbackWeight);
-      const count = Math.max(1, Number(g.boxes) || planBoxesRaw.length || 1);
-      const normalizedPackMode = g.packMode || "single";
-      const isMultiple = String(normalizedPackMode || "").toLowerCase() === "multiple" || count > 1;
+      const planBoxCount = planBoxesRaw.length || 0;
+      const count = planBoxCount > 0 ? planBoxCount : Math.max(1, Number(g.boxes) || 1);
+      let normalizedPackMode = g.packMode || "single";
+      if (count > 1) normalizedPackMode = "multiple";
+      const isMultiple = String(normalizedPackMode || "").toLowerCase() === "multiple";
       const packingGroupId = g.packingGroupId || null;
       const normalizedDims = dims ? { length: dims.length, width: dims.width, height: dims.height, unit: "CM" } : null;
       const normalizedWeight = weight ? { value: weight, unit: "KG" } : null;
@@ -2305,6 +2307,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           return {
             dimensions: dims,
             weight,
+            quantity: 1,
             items,
             contentInformationSource: 'BOX_CONTENT_PROVIDED'
           };
@@ -3704,11 +3707,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setStep3Confirming(true);
     setStep3Error('');
     try {
-      const { error: finalizeErr } = await supabase.rpc('finalize_prep_request_inventory', {
-        p_request_id: requestId
-      });
-      if (finalizeErr) throw finalizeErr;
-
       const updatePayload = {};
       if (plan?.status !== 'confirmed') updatePayload.status = 'confirmed';
       if (!existingId || String(existingId) !== String(shipmentId)) {
@@ -3722,6 +3720,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         if (updateErr) throw updateErr;
         setPlan((prev) => ({ ...prev, ...updatePayload }));
       }
+      const { error: finalizeErr } = await supabase.rpc('finalize_prep_request_inventory', {
+        p_request_id: requestId
+      });
+      if (finalizeErr) throw finalizeErr;
 
       completeAndNext('3');
     } catch (e) {
