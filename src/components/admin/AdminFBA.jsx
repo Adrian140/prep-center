@@ -51,6 +51,7 @@ export default function AdminFBA({
   reload,
   companyId,
   profile,
+  currentMarket,
   billingSelectedLines = {},
   onToggleBillingSelection,
   canSelectForBilling = true
@@ -233,6 +234,7 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
       units: Number(form.units || 0),
       obs_admin: obsPayload || null,
       created_by: profile.id,
+      country: (currentMarket || profile?.country || 'FR').toUpperCase(),
     };
     const { error } = await supabase.from('fba_lines').insert(payload);
     if (error) return alert(error.message);
