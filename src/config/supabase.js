@@ -3120,19 +3120,21 @@ getAllReceivingShipments: async (options = {}) => {
           fbaQty = quantityReceived;
         }
         const qtyToStock = Math.max(0, quantityReceived - fbaQty);
+        const prevToStock = Math.max(0, Number(item.quantity_to_stock || 0));
+        const deltaToStock = Math.max(0, qtyToStock - prevToStock);
 
         const stockRow = await ensureStockItemForReceiving(item, processedBy);
         const normalizedAsin = normalizeCode(item.asin);
         const normalizedSku = normalizeCode(item.sku);
         const stockId = stockRow?.id || null;
 
-        if (qtyToStock > 0 && stockRow) {
-          const newQty = Number(stockRow.qty || 0) + qtyToStock;
+        if (deltaToStock > 0 && stockRow) {
+          const newQty = Number(stockRow.qty || 0) + deltaToStock;
           const updates = { qty: newQty };
           const marketCode = normalizeMarketCode(shipment.warehouse_country || shipment.warehouseCountry || 'FR');
           if (marketCode) {
             const currentMarketQty = getPrepQtyForMarket(stockRow, marketCode);
-            const nextMarketQty = currentMarketQty + qtyToStock;
+            const nextMarketQty = currentMarketQty + deltaToStock;
             const marketPatch = buildPrepQtyPatch(stockRow, marketCode, nextMarketQty);
             updates.prep_qty_by_country = marketPatch.prep_qty_by_country;
             updates.qty = marketPatch.qty;
@@ -3161,7 +3163,7 @@ getAllReceivingShipments: async (options = {}) => {
             .insert({
               receiving_item_id: item.id,
               stock_item_id: stockRow.id,
-              quantity_moved: qtyToStock,
+              quantity_moved: deltaToStock,
               moved_by: processedBy,
               notes: 'Processed from receiving shipment'
             });
