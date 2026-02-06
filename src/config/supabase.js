@@ -3129,17 +3129,7 @@ getAllReceivingShipments: async (options = {}) => {
         const stockId = stockRow?.id || null;
 
         if (deltaToStock > 0 && stockRow) {
-          const newQty = Number(stockRow.qty || 0) + deltaToStock;
-          const updates = { qty: newQty };
-          const marketCode = normalizeMarketCode(shipment.warehouse_country || shipment.warehouseCountry || 'FR');
-          if (marketCode) {
-            const currentMarketQty = getPrepQtyForMarket(stockRow, marketCode);
-            const nextMarketQty = currentMarketQty + deltaToStock;
-            const marketPatch = buildPrepQtyPatch(stockRow, marketCode, nextMarketQty);
-            updates.prep_qty_by_country = marketPatch.prep_qty_by_country;
-            updates.qty = marketPatch.qty;
-          }
-
+          const updates = {};
           if (item.purchase_price != null && item.purchase_price !== stockRow.purchase_price) {
             updates.purchase_price = item.purchase_price;
           }
@@ -3153,11 +3143,14 @@ getAllReceivingShipments: async (options = {}) => {
             updates.sku = normalizedSku;
           }
 
-          await supabase
-            .from('stock_items')
-            .update(updates)
-            .eq('id', stockRow.id);
+          if (Object.keys(updates).length > 0) {
+            await supabase
+              .from('stock_items')
+              .update(updates)
+              .eq('id', stockRow.id);
+          }
 
+          // Stock quantities are updated via receiving_to_stock_log trigger.
           await supabase
             .from('receiving_to_stock_log')
             .insert({
