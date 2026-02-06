@@ -4,7 +4,7 @@ import { tabSessionStorage } from '../utils/tabStorage';
 import { getTabId } from '../utils/tabIdentity';
 import { encodeRemainingAction, resolveFbaIntent } from '../utils/receivingFba';
 import { normalizeMarketCode } from '../utils/market';
-import { buildPrepQtyPatch, getPrepQtyForMarket, mapStockRowsForMarket } from '../utils/marketStock';
+import { mapStockRowsForMarket } from '../utils/marketStock';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -211,23 +211,14 @@ const adjustStockForReceivingDelta = async (item, delta, processedBy) => {
   if (!delta) return { error: null };
   const stockRow = await ensureStockItemForReceiving(item, processedBy);
   if (!stockRow) return { error: new Error('Unable to resolve stock item') };
-  const market = normalizeMarketCode(item?.destination_country || 'FR');
-  const currentQty = getPrepQtyForMarket(stockRow, market);
-  const nextQty = Math.max(0, Number(currentQty || 0) + delta);
-  const patch = buildPrepQtyPatch(stockRow, market, nextQty);
-  const { error: stockError } = await supabase
-    .from('stock_items')
-    .update(patch)
-    .eq('id', stockRow.id);
-  if (stockError) return { error: stockError };
-
   const note = delta >= 0 ? 'Auto sync from receiving' : 'Auto sync correction';
+  // Stock quantities are updated via receiving_to_stock_log trigger.
   const { error: logError } = await supabase
     .from('receiving_to_stock_log')
     .insert({
       receiving_item_id: item.id,
       stock_item_id: stockRow.id,
-      quantity_moved: Math.abs(delta),
+      quantity_moved: delta,
       moved_by: processedBy,
       notes: note
     });
