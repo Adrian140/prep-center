@@ -2890,7 +2890,12 @@ serve(async (req) => {
       }
       // Conform fluxului din documentație: după confirmDeliveryWindowOption relistăm opțiunile.
       // Evităm regenerate implicit, deoarece poate roti transportationOptionId și poate invalida selecția din UI.
-      let relist = await listTransportationOptionsOnce(String(effectivePlacementOptionId), null);
+      const relistShipmentId = shipmentIdForListing || null;
+      let relist = await listTransportationOptionsOnce(String(effectivePlacementOptionId), relistShipmentId, {
+        requiredOptionId: confirmOptionId || null,
+        forceRefresh: true,
+        probePartnered: Boolean(body?.force_partnered_only ?? body?.forcePartneredOnly ?? false)
+      });
       options = relist.collected || [];
       optionsForSelectionRaw = options;
       logStep("listTransportationOptions_after_deliveryWindow", {
@@ -2942,7 +2947,11 @@ serve(async (req) => {
             bodyPreview: (regenRes?.text || "").slice(0, 600) || null
           });
         }
-        relist = await listTransportationOptionsOnce(String(effectivePlacementOptionId), null);
+        relist = await listTransportationOptionsOnce(String(effectivePlacementOptionId), relistShipmentId, {
+          requiredOptionId: confirmOptionId || null,
+          forceRefresh: true,
+          probePartnered: Boolean(body?.force_partnered_only ?? body?.forcePartneredOnly ?? false)
+        });
         options = relist.collected || [];
         optionsForSelectionRaw = options;
         logStep("listTransportationOptions_after_deliveryWindow", {
