@@ -390,8 +390,12 @@ export default function FbaStep2Shipping({
                     return (
                       <label
                         key={optionId || carrierLabel}
-                        className={`flex items-center justify-between gap-3 px-3 py-2 border rounded-md ${checked ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}
-                        onClick={(e) => e.stopPropagation()}
+                        className={`flex items-center justify-between gap-3 px-3 py-2 border rounded-md ${checked ? 'border-blue-500 bg-blue-50' : 'border-slate-200'} ${optionId ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!optionId) return;
+                          onOptionSelect?.({ ...opt, id: optionId });
+                        }}
                       >
                         <div className="flex flex-col">
                           <span className="font-semibold text-sm">{carrierLabel}</span>
