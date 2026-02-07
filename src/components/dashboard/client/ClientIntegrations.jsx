@@ -120,6 +120,7 @@ export default function ClientIntegrations() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState('');
+  const [flashType, setFlashType] = useState('error');
   const [refreshing, setRefreshing] = useState(false);
   const [qogitaFlash, setQogitaFlash] = useState('');
   const [showQogitaModal, setShowQogitaModal] = useState(false);
@@ -171,6 +172,7 @@ export default function ClientIntegrations() {
   const handleAmazonConnect = () => {
     if (isIndividualAccount) {
       setFlash(t('ClientIntegrations.individualBlocked'));
+      setFlashType('error');
       return;
     }
     if (authorizeUrl) {
@@ -188,6 +190,7 @@ export default function ClientIntegrations() {
       .order('created_at', { ascending: false });
     if (error) {
       setFlash(supportError);
+      setFlashType('error');
       setRows([]);
     } else {
       setFlash('');
@@ -287,8 +290,10 @@ export default function ClientIntegrations() {
     const { error } = await supabase.from('amazon_integrations').delete().eq('id', id);
     if (error) {
       setFlash(supportError);
+      setFlashType('error');
     } else {
       setFlash(t('ClientIntegrations.flashRemoved'));
+      setFlashType('success');
       loadIntegrations();
     }
   };
@@ -297,6 +302,7 @@ export default function ClientIntegrations() {
     const companyId = profile?.company_id || user?.id || null;
     if (!companyId) {
       setFlash('Nu am putut identifica company_id pentru a șterge conexiunile.');
+      setFlashType('error');
       return;
     }
     const message = [
@@ -309,8 +315,10 @@ export default function ClientIntegrations() {
     const { error } = await supabase.from('amazon_integrations').delete().eq('company_id', companyId);
     if (error) {
       setFlash(supportError);
+      setFlashType('error');
     } else {
       setFlash('Toate conexiunile Amazon au fost deconectate. Reconectează pentru token nou.');
+      setFlashType('success');
       loadIntegrations();
     }
   };
@@ -394,6 +402,7 @@ export default function ClientIntegrations() {
       setPbStatus(data?.status || 'pending');
       setPbLastError('');
       setFlash('PrepBusiness integration saved. We will map and sync receptions automatically.');
+      setFlashType('success');
     }
     setPbSaving(false);
   };
@@ -420,7 +429,15 @@ export default function ClientIntegrations() {
       )}
 
       {flash && (
-        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{flash}</div>
+        <div
+          className={`p-3 rounded-lg text-sm ${
+            flashType === 'success'
+              ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+              : 'bg-red-50 border border-red-200 text-red-700'
+          }`}
+        >
+          {flash}
+        </div>
       )}
 
       <section className="bg-white border rounded-xl p-5 space-y-4">
