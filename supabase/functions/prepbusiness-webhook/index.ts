@@ -132,7 +132,17 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
 
 async function insertReceivingShipment(payload: Record<string, unknown>) {
   let attempt = { ...payload };
-  const removable = ["warehouse_country", "tracking_ids", "fba_shipment_ids", "import_source", "import_source_ref", "import_tags", "fba_mode"];
+  const removable = [
+    "warehouse_country",
+    "tracking_ids",
+    "fba_shipment_ids",
+    "import_source",
+    "import_source_ref",
+    "import_tags",
+    "fba_mode",
+    "client_store_name",
+    "boxes_count"
+  ];
   for (let i = 0; i <= removable.length; i += 1) {
     const { data, error } = await supabase
       .from("receiving_shipments")
@@ -239,6 +249,20 @@ async function importInbound(payload: Record<string, unknown>) {
     tracking_id: normalizeText(payload.tracking_id) || (trackingIds?.[0] ?? null),
     tracking_ids: trackingIds,
     fba_shipment_ids: fbaShipmentIds,
+    client_store_name:
+      normalizeText(payload.client_store_name) ||
+      normalizeText(payload.store_name) ||
+      normalizeText(payload.name) ||
+      normalizeText(payload.reference_id) ||
+      null,
+    boxes_count:
+      Number(
+        normalizeText(payload.boxes_count) ||
+          normalizeText(payload.box_count) ||
+          normalizeText(payload.cartons) ||
+          normalizeText(payload.cartons_count) ||
+          0
+      ) || null,
     notes: normalizeText(payload.notes) || null,
     import_source: "prepbusiness",
     import_source_ref: sourceId,

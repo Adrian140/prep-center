@@ -259,6 +259,18 @@ const buildHeaderState = (shipment) => ({
   destination_country: shipment?.destination_country || 'FR'
 });
 
+const resolveBoxesCount = (shipment) => {
+  const raw =
+    shipment?.boxes_count ??
+    shipment?.box_count ??
+    shipment?.cartons ??
+    shipment?.cartons_count ??
+    null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+};
+
   const handleSelectShipment = (shipment) => {
     const decorated = decorateShipment(shipment);
     setSelectedShipment(decorated);
@@ -994,6 +1006,13 @@ const buildHeaderState = (shipment) => ({
                 {selectedShipment.notes || '—'}
               </p>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-secondary">Boxes</label>
+            <p className="text-text-primary">
+              {resolveBoxesCount(selectedShipment) ?? '—'}
+            </p>
           </div>
 
           <div className="overflow-x-auto">

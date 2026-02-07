@@ -130,8 +130,6 @@ export default function ClientIntegrations() {
   const [qogitaListLoading, setQogitaListLoading] = useState(true);
   const [qogitaRefreshing, setQogitaRefreshing] = useState(false);
   const [pbEmail, setPbEmail] = useState('');
-  const [aoEmail, setAoEmail] = useState('');
-  const [sameEmail, setSameEmail] = useState(false);
   const [pbStatus, setPbStatus] = useState('pending');
   const [pbLastError, setPbLastError] = useState('');
   const [pbLoading, setPbLoading] = useState(true);
@@ -264,26 +262,17 @@ export default function ClientIntegrations() {
       if (error) {
         setPbIntegration(null);
         setPbEmail(defaultEmail);
-        setAoEmail('');
         setPbStatus('pending');
         setPbLastError(error.message || supportError);
       } else if (data) {
         setPbIntegration(data);
-        setPbEmail(data.email_prep_business || defaultEmail);
-        setAoEmail(data.email_arbitrage_one || '');
+        setPbEmail(data.email_prep_business || data.email_arbitrage_one || defaultEmail);
         setPbStatus(data.status || 'pending');
-        setSameEmail(
-          !!data.email_prep_business &&
-            !!data.email_arbitrage_one &&
-            data.email_prep_business === data.email_arbitrage_one
-        );
         setPbLastError(data.last_error || '');
       } else {
         setPbIntegration(null);
         setPbEmail(defaultEmail);
-        setAoEmail('');
         setPbStatus('pending');
-        setSameEmail(false);
         setPbLastError('');
       }
       setPbLoading(false);
@@ -372,10 +361,9 @@ export default function ClientIntegrations() {
     if (!user?.id) return;
     setPbSaving(true);
     setPbLastError('');
-    const ao = (aoEmail || '').trim().toLowerCase();
-    const pb = (sameEmail ? aoEmail : pbEmail || profile?.email || '').trim().toLowerCase();
-    if (!ao) {
-      setPbLastError('ArbitrageOne email is required.');
+    const pb = (pbEmail || profile?.email || '').trim().toLowerCase();
+    if (!pb) {
+      setPbLastError('PrepBusiness email is required.');
       setPbSaving(false);
       return;
     }
@@ -387,8 +375,8 @@ export default function ClientIntegrations() {
           id: pbIntegration?.id,
           user_id: user.id,
           company_id: profile?.company_id || null,
-          email_arbitrage_one: ao,
-          email_prep_business: pb || null,
+          email_arbitrage_one: pb,
+          email_prep_business: pb,
           status: pbIntegration?.status || 'pending',
           last_error: null,
           updated_at: new Date().toISOString(),
@@ -405,7 +393,7 @@ export default function ClientIntegrations() {
       setPbIntegration(data);
       setPbStatus(data?.status || 'pending');
       setPbLastError('');
-      setFlash('Arbitrage One via PrepBusiness saved. We will map and sync receptions automatically.');
+      setFlash('PrepBusiness integration saved. We will map and sync receptions automatically.');
     }
     setPbSaving(false);
   };
@@ -438,9 +426,9 @@ export default function ClientIntegrations() {
       <section className="bg-white border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-text-primary">Arbitrage One (via PrepBusiness)</h2>
+            <h2 className="text-lg font-semibold text-text-primary">PrepBusiness</h2>
             <p className="text-sm text-text-secondary">
-              Auto-import new inbounds into Reception Management and tag them as coming from PrepBusiness.
+              Auto-import inbound shipments into Reception Management and tag them as coming from PrepBusiness.
             </p>
           </div>
           <div className="text-sm">
@@ -462,36 +450,13 @@ export default function ClientIntegrations() {
 
         <form onSubmit={handleSavePrepBusiness} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-text-primary">Prep Center email (auto)</label>
+            <label className="text-sm font-medium text-text-primary">PrepBusiness account email</label>
             <input
               type="email"
               value={pbEmail}
               onChange={(e) => setPbEmail(e.target.value)}
-              disabled={sameEmail}
               className="w-full px-3 py-2 border rounded-lg bg-white"
-              placeholder="you@prepcenter.com"
-            />
-            <label className="inline-flex items-center gap-2 text-sm text-text-secondary">
-              <input
-                type="checkbox"
-                checked={sameEmail}
-                onChange={(e) => {
-                  const next = e.target.checked;
-                  setSameEmail(next);
-                  if (next) setPbEmail(aoEmail || pbEmail || profile?.email || '');
-                }}
-              />
-              Use the same email for PrepBusiness
-            </label>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-text-primary">ArbitrageOne email (required)</label>
-            <input
-              type="email"
-              value={aoEmail}
-              onChange={(e) => setAoEmail(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg bg-white"
-              placeholder="user@arbitrageone.com"
+              placeholder="you@prepbusiness.com"
               required
             />
           </div>
@@ -505,8 +470,8 @@ export default function ClientIntegrations() {
               Save & activate
             </button>
             <p className="text-xs text-text-secondary">
-              Adds the “Soft Arbitrage One” €5 fee to your Other/Extras, maps by email, and auto-creates receptions.
-              Missing destination/tracking will be flagged as pending until you fill them.
+              Matches inbound shipments by email/merchant and auto-creates receptions in your workspace.
+              Missing destination or tracking will be flagged as pending until you fill them.
             </p>
           </div>
         </form>

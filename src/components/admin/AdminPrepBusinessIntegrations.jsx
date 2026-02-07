@@ -65,7 +65,7 @@ export default function AdminPrepBusinessIntegrations() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-text-primary">Arbitrage One / PrepBusiness</h3>
+          <h3 className="text-lg font-semibold text-text-primary">PrepBusiness Integrations</h3>
           <p className="text-sm text-text-secondary">
             Statusuri, mapări email și erori pentru clienții conectați.
           </p>

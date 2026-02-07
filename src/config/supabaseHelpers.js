@@ -1010,7 +1010,7 @@ export const supabaseHelpers = {
   },
 
   /* =========================
-     PrepBusiness / ArbitrageOne
+     PrepBusiness
      ========================= */
   getPrepBusinessIntegrationForUser: async (userId) => {
     if (!userId) return { data: null, error: new Error('Missing user id') };
@@ -1092,6 +1092,20 @@ export const supabaseHelpers = {
       carrier_other: payload.carrier_other || null,
       tracking_id: payload.tracking_id || null,
       tracking_ids: payload.tracking_ids || null,
+      client_store_name:
+        payload.client_store_name ||
+        payload.store_name ||
+        payload.name ||
+        payload.reference_id ||
+        null,
+      boxes_count:
+        Number(
+          payload.boxes_count ||
+            payload.box_count ||
+            payload.cartons ||
+            payload.cartons_count ||
+            0
+        ) || null,
       notes: payload.notes || null,
       status: payload.status || 'submitted',
       import_source: 'prepbusiness',
@@ -1132,5 +1146,14 @@ export const supabaseHelpers = {
     }
 
     return { data: header, items: resolvedItems, error: null };
+  },
+  notifyPrepBusinessReceived: async (receivingShipmentId) => {
+    if (!receivingShipmentId) {
+      return { data: null, error: new Error('Missing receiving shipment id') };
+    }
+    const { data, error } = await supabase.functions.invoke('prepbusiness-sync', {
+      body: { action: 'receive', receiving_shipment_id: receivingShipmentId }
+    });
+    return { data, error };
   }
 };

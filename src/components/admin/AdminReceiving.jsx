@@ -137,7 +137,19 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
   const [selectedPrepIds, setSelectedPrepIds] = useState(new Set());
   const [creatingPrep, setCreatingPrep] = useState(false);
   const [receivedDrafts, setReceivedDrafts] = useState({});
+  const pbNotifyRef = useRef(new Set());
   const trimmedNotes = (shipment.notes || '').trim();
+  const boxesValue = (() => {
+    const raw =
+      shipment?.boxes_count ??
+      shipment?.box_count ??
+      shipment?.cartons ??
+      shipment?.cartons_count ??
+      null;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return parsed;
+  })();
 
   useEffect(() => {
     setSelectedPrepIds(new Set());
@@ -356,6 +368,22 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
       cancelled = true;
     };
   }, [derivedStatus, syncedStatus, shipment?.id, onUpdate]);
+
+  useEffect(() => {
+    if (!shipment?.id) return;
+    if (derivedStatus !== 'received') return;
+    if (shipment.import_source !== 'prepbusiness') return;
+    if (pbNotifyRef.current.has(shipment.id)) return;
+
+    pbNotifyRef.current.add(shipment.id);
+    (async () => {
+      const { error } = await supabaseHelpers.notifyPrepBusinessReceived(shipment.id);
+      if (error) {
+        console.error('PrepBusiness receive sync failed', error);
+        pbNotifyRef.current.delete(shipment.id);
+      }
+    })();
+  }, [derivedStatus, shipment?.id, shipment?.import_source]);
 
   const clearDraft = () => {
     try {
@@ -807,6 +835,10 @@ const checkStockMatches = async () => {
               <p className="text-text-primary">—</p>
             )}
             
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary">Boxes</label>
+            <p className="text-text-primary">{boxesValue ?? '—'}</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-text-secondary">Direct Amazon shipment</label>
