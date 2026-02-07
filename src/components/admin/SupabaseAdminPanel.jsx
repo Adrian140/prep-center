@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import AdminProfiles from './AdminProfiles';
+import AdminPrepBusinessIntegrations from './AdminPrepBusinessIntegrations';
 import { supabaseHelpers } from '@/config/supabase';
 import AdminAnalytics from "./AdminAnalytics";
 import AdminCompanyDashboard from "./AdminCompanyDashboard";
@@ -31,7 +32,7 @@ const SERVICE_LANGUAGES = [
 
 import {
   Settings, DollarSign, Package, FileText, Plus, Edit, Trash2, Save, X,
-  Star, Users, BarChart3, PackageCheck, Truck, Boxes, Shield
+  Star, Users, BarChart3, PackageCheck, Truck, Boxes, Shield, Link2
 } from 'lucide-react';
 import AdminPrepRequests from './AdminPrepRequests';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
@@ -71,7 +72,7 @@ useEffect(() => {
   const lastUrlTabRef = useRef(null);
   const validTabs = [
     'analytics', 'dashboard', 'profiles', 'receiving', 'prep-requests', 'returns',
-    'pricing', 'boxes', 'reviews', 'user-guide', 'security', 'settings'
+    'pricing', 'boxes', 'reviews', 'user-guide', 'prep-business', 'security', 'settings'
   ];
   // ✅ Save & restore last selected admin tab
   const [activeTab, setActiveTab] = useState(() => {
@@ -192,6 +193,7 @@ useEffect(() => {
     { id: 'profiles', label: t('sidebar.profiles'), icon: Users },
     { id: 'receiving', label: t('sidebar.receiving'), icon: Truck },
     { id: 'prep-requests', label: t('sidebar.prepRequests'), icon: PackageCheck },
+    { id: 'prep-business', label: 'Arbitrage One', icon: Link2 },
     { id: 'returns', label: 'Returns', icon: Package },
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
     { id: 'boxes', label: 'Boxes', icon: Boxes },
@@ -1626,3 +1628,4 @@ if (!isAdmin) {
 }
 
 export default SupabaseAdminPanel;
+    case 'prep-business': return <AdminPrepBusinessIntegrations />;
