@@ -2642,11 +2642,81 @@ serve(async (req) => {
       return { firstRes, collected: deduped };
     };
 
-    const { firstRes: listRes, collected: optionsRawInitial } = await listTransportationOptionsOnce(
-      effectivePlacementOptionId,
-      shipmentIdForListing,
-      { probePartnered: true, maxPages: 6 }
-    );
+    let listRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
+    let optionsRawInitial: any[] = [];
+    const partneredByShipment: Record<string, boolean> = {};
+    const optionsCountByShipment: Record<string, number> = {};
+    const partneredChargeByShipment: Record<string, number> = {};
+    const nonPartneredChargeByShipment: Record<string, number> = {};
+    const isPartneredRaw = (opt: any) => hasPartneredSolution([opt]);
+    const extractChargeAmount = (opt: any) => {
+      const fromPath = [
+        opt?.quote?.cost?.amount,
+        opt?.charge?.totalCharge?.amount,
+        opt?.totalCharge?.amount,
+        opt?.chargeAmount?.amount,
+        opt?.estimatedCharge?.amount,
+        opt?.price?.amount
+      ].find((v) => v !== undefined && v !== null);
+      const value = Number(fromPath);
+      return Number.isFinite(value) ? value : null;
+    };
+    const minChargeFor = (opts: any[], predicate: (o: any) => boolean) => {
+      const charges = (opts || [])
+        .filter((o) => predicate(o))
+        .map((o) => extractChargeAmount(o))
+        .filter((c) => Number.isFinite(c));
+      if (!charges.length) return null;
+      return Math.min(...charges);
+    };
+    if (listingShipmentIds.length) {
+      const primaryShipmentId = listingShipmentIds[0] || shipmentIdForListing;
+      if (primaryShipmentId) {
+        const primaryRes = await listTransportationOptionsOnce(
+          effectivePlacementOptionId,
+          primaryShipmentId,
+          { probePartnered: true, maxPages: 6 }
+        );
+        listRes = primaryRes.firstRes;
+        optionsRawInitial = primaryRes.collected;
+        partneredByShipment[primaryShipmentId] = hasPartneredSolution(primaryRes.collected);
+        optionsCountByShipment[primaryShipmentId] = primaryRes.collected.length;
+        const primaryPartneredMin = minChargeFor(primaryRes.collected, isPartneredRaw);
+        if (Number.isFinite(primaryPartneredMin)) {
+          partneredChargeByShipment[primaryShipmentId] = primaryPartneredMin;
+        }
+        const primaryNonPartneredMin = minChargeFor(primaryRes.collected, (o) => !isPartneredRaw(o));
+        if (Number.isFinite(primaryNonPartneredMin)) {
+          nonPartneredChargeByShipment[primaryShipmentId] = primaryNonPartneredMin;
+        }
+        for (const sid of listingShipmentIds) {
+          if (sid === primaryShipmentId) continue;
+          const res = await listTransportationOptionsOnce(
+            effectivePlacementOptionId,
+            sid,
+            { probePartnered: true, maxPages: 6 }
+          );
+          partneredByShipment[sid] = hasPartneredSolution(res.collected);
+          optionsCountByShipment[sid] = res.collected.length;
+          const partneredMin = minChargeFor(res.collected, isPartneredRaw);
+          if (Number.isFinite(partneredMin)) {
+            partneredChargeByShipment[sid] = partneredMin;
+          }
+          const nonPartneredMin = minChargeFor(res.collected, (o) => !isPartneredRaw(o));
+          if (Number.isFinite(nonPartneredMin)) {
+            nonPartneredChargeByShipment[sid] = nonPartneredMin;
+          }
+        }
+      }
+    } else {
+      const fallbackRes = await listTransportationOptionsOnce(
+        effectivePlacementOptionId,
+        shipmentIdForListing,
+        { probePartnered: true, maxPages: 6 }
+      );
+      listRes = fallbackRes.firstRes;
+      optionsRawInitial = fallbackRes.collected;
+    }
     let optionsRawForSelection = optionsRawInitial;
     let optionsRawForDisplay = optionsRawInitial;
     // For hazmat/non-partnered shipments, Amazon can legitimately return only USE_YOUR_OWN_CARRIER.
@@ -2679,6 +2749,33 @@ serve(async (req) => {
     if (!optionsRawForSelection.length) {
       optionsRawForSelection = optionsRawForDisplay;
     }
+    const partneredAvailableForAll = listingShipmentIds.length
+      ? listingShipmentIds.every((sid) => partneredByShipment[sid])
+      : hasPartneredSolution(optionsRawForSelection);
+    const partneredAvailableForAny = listingShipmentIds.length
+      ? listingShipmentIds.some((sid) => partneredByShipment[sid])
+      : hasPartneredSolution(optionsRawForSelection);
+    const partneredMissingShipments = listingShipmentIds.filter((sid) => !partneredByShipment[sid]);
+    const sumChargesFor = (ids: string[], map: Record<string, number>) => {
+      if (!ids.length) return null;
+      let sum = 0;
+      for (const sid of ids) {
+        const value = map[sid];
+        if (!Number.isFinite(value)) return null;
+        sum += value;
+      }
+      return sum;
+    };
+    const partneredChargeTotal = listingShipmentIds.length
+      ? sumChargesFor(listingShipmentIds, partneredChargeByShipment)
+      : null;
+    const nonPartneredChargeTotal = listingShipmentIds.length
+      ? sumChargesFor(listingShipmentIds, nonPartneredChargeByShipment)
+      : null;
+    if (listingShipmentIds.length > 1 && !partneredAvailableForAll) {
+      optionsRawForDisplay = optionsRawForDisplay.filter((opt) => !isPartneredRaw(opt));
+      optionsRawForSelection = optionsRawForSelection.filter((opt) => !isPartneredRaw(opt));
+    }
     const compactOptionsForLog = (opts: any[]) =>
       (opts || []).map((opt) => ({
         id: opt?.transportationOptionId || opt?.id || opt?.optionId || null,
@@ -2709,6 +2806,22 @@ serve(async (req) => {
       requestId: listRes?.requestId || null,
       count: optionsRawForDisplay.length
     });
+    if (listingShipmentIds.length > 1) {
+      logStep("listTransportationOptions_multi_shipment", {
+        traceId,
+        placementOptionId: effectivePlacementOptionId,
+        shipmentIds: listingShipmentIds,
+        partneredByShipment,
+        optionsCountByShipment,
+        partneredAvailableForAll,
+        partneredAvailableForAny,
+        partneredMissingShipments,
+        partneredChargeByShipment,
+        partneredChargeTotal,
+        nonPartneredChargeByShipment,
+        nonPartneredChargeTotal
+      });
+    }
     logStep("shipmentTransportationConfigurations", {
       traceId,
       count: shipmentTransportationConfigurations.length,
@@ -3136,20 +3249,56 @@ serve(async (req) => {
     const normalizeSolution = (val: any) => String(val || "").trim().toUpperCase();
     const normalizeCarrier = (val: any) => String(val || "").trim().toUpperCase();
     const normalizedSelectedMode = selectedModeHint ? normalizeOptionMode(selectedModeHint) : "";
-    const selectedSignature = {
+    let selectedSignature = {
       partnered: selectedPartnered,
       shippingSolution: normalizeSolution(selectedShippingSolution),
       carrierName: normalizeCarrier(selectedCarrierName),
       carrierCode: normalizeCarrier(selectedCarrierCode),
       mode: normalizedSelectedMode || ""
     };
-    const hasSignature = Boolean(
+    let hasSignature = Boolean(
       selectedSignature.partnered !== null ||
         selectedSignature.shippingSolution ||
         selectedSignature.carrierName ||
         selectedSignature.carrierCode ||
         selectedSignature.mode
     );
+    const deriveSignatureFromOption = (opt: any) => {
+      if (!opt) return null;
+      const raw = opt.raw || opt || {};
+      const mode = normalizeOptionMode(opt.mode || raw.shippingMode || raw.mode || "");
+      const shippingSolution = normalizeSolution(
+        opt.shippingSolution || raw.shippingSolution || raw.shippingSolutionId || raw.shipping_solution || ""
+      );
+      const carrierCode = normalizeCarrier(raw?.carrier?.alphaCode || raw?.carrierCode || "");
+      const carrierName = normalizeCarrier(
+        opt.carrierName || raw?.carrier?.name || raw?.carrier?.alphaCode || raw?.carrier || ""
+      );
+      const partnered =
+        typeof opt.partnered === "boolean" ? opt.partnered : detectPartnered(raw);
+      return {
+        partnered: typeof partnered === "boolean" ? partnered : null,
+        shippingSolution,
+        carrierName,
+        carrierCode,
+        mode
+      };
+    };
+    const ensureSignatureFromOption = (opt: any) => {
+      if (hasSignature || !opt) return;
+      const sig = deriveSignatureFromOption(opt);
+      if (
+        sig &&
+        (sig.partnered !== null ||
+          sig.shippingSolution ||
+          sig.carrierName ||
+          sig.carrierCode ||
+          sig.mode)
+      ) {
+        selectedSignature = sig;
+        hasSignature = true;
+      }
+    };
     const matchBySignature = (pool: any[]) => {
       if (!hasSignature || !Array.isArray(pool) || !pool.length) return null;
       return (
@@ -3196,24 +3345,49 @@ serve(async (req) => {
     // Nu alegem implicit; doar expunem optiunile disponibile.
     const partneredOpt = effectiveOptionsForSelection.find((o) => o.partnered) || null;
 
+    const isMultiShipment = listingShipmentIds.length > 1;
     let selectedOption: any = null;
     if (confirmOptionId) {
       selectedOption =
         effectiveOptionsForSelection.find((o) => o.id === confirmOptionId) || null;
     }
 
+    const partneredChargeForSummary =
+      isMultiShipment && Number.isFinite(partneredChargeTotal)
+        ? partneredChargeTotal
+        : partneredOpt?.charge ?? null;
+    const nonPartneredChargeForSummary =
+      isMultiShipment && Number.isFinite(nonPartneredChargeTotal)
+        ? nonPartneredChargeTotal
+        : null;
+    const selectedChargeForSummary =
+      selectedOption
+        ? (
+          isMultiShipment && selectedOption?.partnered
+            ? partneredChargeTotal
+            : isMultiShipment && selectedOption && !selectedOption.partnered
+              ? nonPartneredChargeTotal
+              : null
+        ) ?? selectedOption?.charge ?? null
+        : null;
     const summary = {
       partneredAllowed: Boolean(partneredOpt),
-      partneredRate: partneredChargeTotal ?? partneredOpt?.charge ?? null,
+      partneredAvailableForAll,
+      partneredAvailableForAny,
+      partneredMissingShipments,
+      partneredRate: partneredChargeForSummary,
       defaultOptionId: partneredOpt?.id || null,
       defaultCarrier: partneredOpt?.carrierName || null,
       defaultMode: partneredOpt?.mode || null,
-      defaultCharge: partneredChargeTotal ?? partneredOpt?.charge ?? null,
+      defaultCharge: partneredChargeForSummary,
       requestedMode: normalizedRequestedMode || null,
       returnedModes,
       returnedSolutions,
       modeMismatch,
-      shipmentCount: shipmentIdsForTotals.length || null,
+      shipmentCount:
+        shipmentIdsForTotals.length ||
+        listingShipmentIds.length ||
+        (shipmentIdForListing ? 1 : 0),
       partneredChargeByShipment: Object.keys(partneredChargeByShipment).length ? partneredChargeByShipment : null,
       partneredChargeTotal,
       nonPartneredChargeByShipment: Object.keys(nonPartneredChargeByShipment).length ? nonPartneredChargeByShipment : null,
@@ -3224,12 +3398,7 @@ serve(async (req) => {
       selectedOptionId: selectedOption?.id || null,
       selectedCarrier: selectedOption?.carrierName || null,
       selectedMode: selectedOption?.mode || null,
-      selectedCharge:
-        selectedOption?.partnered && partneredChargeTotal !== null
-          ? partneredChargeTotal
-          : !selectedOption?.partnered && nonPartneredChargeTotal !== null
-            ? nonPartneredChargeTotal
-            : selectedOption?.charge ?? null,
+      selectedCharge: selectedChargeForSummary,
       selectedPartnered: Boolean(selectedOption?.partnered),
       selectedSolution:
         selectedOption?.shippingSolution || selectedOption?.raw?.shippingSolution || null
@@ -3784,6 +3953,8 @@ serve(async (req) => {
         );
       }
     }
+
+    ensureSignatureFromOption(selectedOption);
 
     // Re-list transportation options right before confirmation to avoid stale IDs
     const refreshTransportOptions = async () => {

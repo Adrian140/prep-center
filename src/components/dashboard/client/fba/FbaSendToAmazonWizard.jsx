@@ -181,12 +181,13 @@ const normalizeTransportMode = (mode) => {
 };
 
 const aggregateTransportationOptions = (options = [], summary = null) => {
-  const summaryShipmentCount =
-    Number.isFinite(summary?.shipmentCount) && summary?.shipmentCount > 1 ? summary.shipmentCount : null;
-  const summaryPartneredTotal =
-    Number.isFinite(summary?.partneredChargeTotal) ? summary.partneredChargeTotal : null;
-  const summaryNonPartneredTotal =
-    Number.isFinite(summary?.nonPartneredChargeTotal) ? summary.nonPartneredChargeTotal : null;
+  const shipmentCount = Number(summary?.shipmentCount || summary?.shipment_count || 0) || 0;
+  const partneredChargeTotal = Number.isFinite(summary?.partneredChargeTotal)
+    ? summary.partneredChargeTotal
+    : null;
+  const nonPartneredChargeTotal = Number.isFinite(summary?.nonPartneredChargeTotal)
+    ? summary.nonPartneredChargeTotal
+    : null;
   const grouped = {
     SPD_PARTNERED: [],
     SPD_NON_PARTNERED: [],
@@ -215,19 +216,18 @@ const aggregateTransportationOptions = (options = [], summary = null) => {
     return Math.min(...charges);
   };
 
+  const resolveChargeOverride = (key) => {
+    if (shipmentCount <= 1) return null;
+    if (key === 'SPD_PARTNERED' && Number.isFinite(partneredChargeTotal)) return partneredChargeTotal;
+    if (key === 'SPD_NON_PARTNERED' && Number.isFinite(nonPartneredChargeTotal)) return nonPartneredChargeTotal;
+    return null;
+  };
+
   const buildOption = (key, list) => {
     if (!list.length) return null;
     const rep = pickRepresentative(list);
-    let charge = minCharge(list);
-    let chargeScope = null;
-    if (key === 'SPD_PARTNERED' && Number.isFinite(summaryPartneredTotal)) {
-      charge = summaryPartneredTotal;
-      chargeScope = 'total';
-    }
-    if (key === 'SPD_NON_PARTNERED' && Number.isFinite(summaryNonPartneredTotal)) {
-      charge = summaryNonPartneredTotal;
-      chargeScope = 'total';
-    }
+    const overrideCharge = resolveChargeOverride(key);
+    const charge = Number.isFinite(overrideCharge) ? overrideCharge : minCharge(list);
     const optionId =
       rep?.transportationOptionId ||
       rep?.id ||
@@ -241,8 +241,8 @@ const aggregateTransportationOptions = (options = [], summary = null) => {
       charge,
       id: optionId,
       isPartnered: detectPartneredOption(rep),
-      chargeScope,
-      shipmentCount: summaryShipmentCount
+      chargeScope: Number.isFinite(overrideCharge) ? 'total' : 'per_shipment',
+      shipmentCount: shipmentCount || null
     };
     if (key === 'SPD_PARTNERED') {
       return {
