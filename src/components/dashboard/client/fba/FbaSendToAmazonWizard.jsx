@@ -20,6 +20,54 @@ const getPositiveNumber = (val) => {
   return Number.isFinite(num) && num > 0 ? num : null;
 };
 
+const getFiniteNumber = (val) => {
+  const num = getSafeNumber(val);
+  return Number.isFinite(num) ? num : null;
+};
+
+const sumUnitsFromItems = (items) => {
+  if (!Array.isArray(items)) return null;
+  let sum = 0;
+  let hasUnits = false;
+  items.forEach((it) => {
+    const qty = getFiniteNumber(it?.quantity ?? it?.qty ?? it?.units ?? it?.unitCount ?? it?.count);
+    if (Number.isFinite(qty)) {
+      sum += qty;
+      hasUnits = true;
+    }
+  });
+  return hasUnits ? sum : null;
+};
+
+const resolveShipmentUnits = (shipment, fallback, index, fallbackList) => {
+  const candidates = [
+    shipment?.units,
+    shipment?.unitCount,
+    shipment?.unitsCount,
+    shipment?.totalUnits,
+    shipment?.total_units,
+    shipment?.quantity,
+    shipment?.qty
+  ];
+  for (const val of candidates) {
+    const num = getFiniteNumber(val);
+    if (Number.isFinite(num)) return num;
+  }
+  const fromItems = sumUnitsFromItems(
+    shipment?.items ||
+      shipment?.shipmentItems ||
+      shipment?.shipment_items ||
+      shipment?.skuItems ||
+      shipment?.sku_items
+  );
+  if (Number.isFinite(fromItems)) return fromItems;
+  const fallbackUnits = getFiniteNumber(
+    fallback?.units ?? fallbackList?.[index]?.units
+  );
+  if (Number.isFinite(fallbackUnits)) return fallbackUnits;
+  return 0;
+};
+
 const getSafeDims = (dims = {}) => {
   // Accept null/undefined and bail out early to avoid runtime errors in callers.
   if (!dims || typeof dims !== 'object') return null;
@@ -3113,15 +3161,25 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
       if (Array.isArray(json.shipments) && json.shipments.length) {
         const fallbackShipments = deriveShipmentsFromPacking(shipments);
-        const fallbackById = new Map(
-          (fallbackShipments || []).map((sh) => [String(sh.id || ""), sh])
-        );
+        const fallbackById = new Map();
+        (fallbackShipments || []).forEach((sh, idx) => {
+          const id = sh?.id || sh?.shipmentId || sh?.packingGroupId || null;
+          if (id) fallbackById.set(String(id), sh);
+          if (sh?.shipmentId) fallbackById.set(String(sh.shipmentId), sh);
+          fallbackById.set(`index:${idx}`, sh);
+        });
         setShipments(
-          json.shipments.map((s) => {
-            const fb = fallbackById.get(String(s.id || "")) || {};
+          json.shipments.map((s, idx) => {
+            const key = String(s?.id || s?.shipmentId || "");
+            const fb =
+              fallbackById.get(key) ||
+              fallbackById.get(String(s?.packingGroupId || "")) ||
+              fallbackById.get(`index:${idx}`) ||
+              {};
             return {
               ...fb,
               ...s,
+              units: resolveShipmentUnits(s, fb, idx, fallbackShipments),
               weight: s.weight ?? fb.weight ?? null,
               source: "api"
             };
@@ -3312,15 +3370,25 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
       if (Array.isArray(json.shipments) && json.shipments.length) {
         const fallbackShipments = deriveShipmentsFromPacking(shipments);
-        const fallbackById = new Map(
-          (fallbackShipments || []).map((sh) => [String(sh.id || ""), sh])
-        );
+        const fallbackById = new Map();
+        (fallbackShipments || []).forEach((sh, idx) => {
+          const id = sh?.id || sh?.shipmentId || sh?.packingGroupId || null;
+          if (id) fallbackById.set(String(id), sh);
+          if (sh?.shipmentId) fallbackById.set(String(sh.shipmentId), sh);
+          fallbackById.set(`index:${idx}`, sh);
+        });
         setShipments(
-          json.shipments.map((s) => {
-            const fb = fallbackById.get(String(s.id || "")) || {};
+          json.shipments.map((s, idx) => {
+            const key = String(s?.id || s?.shipmentId || "");
+            const fb =
+              fallbackById.get(key) ||
+              fallbackById.get(String(s?.packingGroupId || "")) ||
+              fallbackById.get(`index:${idx}`) ||
+              {};
             return {
               ...fb,
               ...s,
+              units: resolveShipmentUnits(s, fb, idx, fallbackShipments),
               weight: s.weight ?? fb.weight ?? null,
               source: "api"
             };
