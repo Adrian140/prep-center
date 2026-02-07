@@ -132,7 +132,13 @@ const normalizeTransportMode = (mode) => {
   return up;
 };
 
-const aggregateTransportationOptions = (options = []) => {
+const aggregateTransportationOptions = (options = [], summary = null) => {
+  const summaryShipmentCount =
+    Number.isFinite(summary?.shipmentCount) && summary?.shipmentCount > 1 ? summary.shipmentCount : null;
+  const summaryPartneredTotal =
+    Number.isFinite(summary?.partneredChargeTotal) ? summary.partneredChargeTotal : null;
+  const summaryNonPartneredTotal =
+    Number.isFinite(summary?.nonPartneredChargeTotal) ? summary.nonPartneredChargeTotal : null;
   const grouped = {
     SPD_PARTNERED: [],
     SPD_NON_PARTNERED: [],
@@ -164,7 +170,16 @@ const aggregateTransportationOptions = (options = []) => {
   const buildOption = (key, list) => {
     if (!list.length) return null;
     const rep = pickRepresentative(list);
-    const charge = minCharge(list);
+    let charge = minCharge(list);
+    let chargeScope = null;
+    if (key === 'SPD_PARTNERED' && Number.isFinite(summaryPartneredTotal)) {
+      charge = summaryPartneredTotal;
+      chargeScope = 'total';
+    }
+    if (key === 'SPD_NON_PARTNERED' && Number.isFinite(summaryNonPartneredTotal)) {
+      charge = summaryNonPartneredTotal;
+      chargeScope = 'total';
+    }
     const optionId =
       rep?.transportationOptionId ||
       rep?.id ||
@@ -177,7 +192,9 @@ const aggregateTransportationOptions = (options = []) => {
       ...rep,
       charge,
       id: optionId,
-      isPartnered: detectPartneredOption(rep)
+      isPartnered: detectPartneredOption(rep),
+      chargeScope,
+      shipmentCount: summaryShipmentCount
     };
     if (key === 'SPD_PARTNERED') {
       return {
@@ -3083,7 +3100,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         setShippingSummary(null);
         return;
       }
-      setShippingOptions(aggregateTransportationOptions(json.options || []));
+      setShippingOptions(aggregateTransportationOptions(json.options || [], json.summary || null));
       setShippingSummary(json.summary || null);
       if (json?.selectedTransportationOptionId) {
         setSelectedTransportationOptionId(json.selectedTransportationOptionId);
@@ -3310,7 +3327,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           })
         );
       }
-      setShippingOptions(aggregateTransportationOptions(json.options || []));
+      setShippingOptions(aggregateTransportationOptions(json.options || [], json.summary || null));
       setShippingSummary(json.summary || null);
       setShippingConfirmed(true);
       setCarrierTouched(true);
@@ -3324,7 +3341,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         code === 'TRANSPORTATION_OPTION_NOT_AVAILABLE' ||
         code === 'TRANSPORTATION_OPTION_SHIPMENT_MISMATCH'
       ) {
-        const refreshed = aggregateTransportationOptions(payload?.availableOptions || []);
+        const refreshed = aggregateTransportationOptions(payload?.availableOptions || [], payload?.summary || null);
         if (refreshed.length) {
           setShippingOptions(refreshed);
         } else {

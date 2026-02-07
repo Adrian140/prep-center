@@ -21,7 +21,6 @@ export default function FbaStep2Shipping({
   readyWindowByShipment = {}
 }) {
   const {
-    deliveryDate = '',
     deliveryWindowStart = '',
     deliveryWindowEnd = '',
     method = '',
@@ -38,40 +37,42 @@ export default function FbaStep2Shipping({
   );
   const selectedOption =
     optionsList.find((opt) => opt?.id === selectedTransportationOptionId) || null;
-  const isSingleShipment = Array.isArray(shipments) && shipments.length === 1;
-  const singleShipmentId = isSingleShipment
-    ? String(shipments[0]?.id || shipments[0]?.shipmentId || '').trim()
-    : null;
+  const shipmentIds = useMemo(
+    () =>
+      (Array.isArray(shipments) ? shipments : [])
+        .map((s) => String(s?.id || s?.shipmentId || '').trim())
+        .filter(Boolean),
+    [shipments]
+  );
 
   // Ready window (global pentru single shipment); Ship date nu mai este cerut în UI.
-  const [shipDate, setShipDate] = useState(deliveryDate || '');
-  const [etaStart, setEtaStart] = useState(deliveryWindowStart || '');
-  const [etaEnd, setEtaEnd] = useState(deliveryWindowEnd || '');
+  const formatLocalDateInput = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   useEffect(() => {
-    setEtaStart(deliveryWindowStart || '');
-    setEtaEnd(deliveryWindowEnd || '');
-  }, [deliveryWindowStart, deliveryWindowEnd]);
-  useEffect(() => {
-    if (isSingleShipment && singleShipmentId && !readyWindowByShipment?.[singleShipmentId]?.start) {
-      const today = new Date();
-      const startDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), today.getUTCHours() + 6));
-      const start = startDate.toISOString().slice(0, 10);
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 6);
-      const end = endDate.toISOString().slice(0, 10);
-      onReadyWindowChange?.(singleShipmentId, { start, end });
-    }
-  }, [isSingleShipment, singleShipmentId, readyWindowByShipment, onReadyWindowChange]);
+    if (!shipmentIds.length) return;
+    const missing = shipmentIds.filter((id) => !readyWindowByShipment?.[id]?.start);
+    if (!missing.length) return;
+    const startDate = new Date(Date.now() + 6 * 60 * 60 * 1000);
+    const start = formatLocalDateInput(startDate);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 6);
+    const end = formatLocalDateInput(endDate);
+    missing.forEach((id) => onReadyWindowChange?.(id, { start, end }));
+  }, [shipmentIds, readyWindowByShipment, onReadyWindowChange]);
 
   // Dacă avem start setat și nu avem încă opțiuni, lansează automat fetch-ul.
   useEffect(() => {
-    if (!isSingleShipment || !singleShipmentId) return;
-    const rw = readyWindowByShipment?.[singleShipmentId] || {};
-    if (!rw.start) return;
+    if (!shipmentIds.length) return;
+    const allHaveStart = shipmentIds.every((id) => Boolean(readyWindowByShipment?.[id]?.start));
+    if (!allHaveStart) return;
     if (shippingLoading) return;
     if (optionsList.length > 0) return;
     onGenerateOptions?.();
-  }, [isSingleShipment, singleShipmentId, readyWindowByShipment, shippingLoading, optionsList, onGenerateOptions]);
+  }, [shipmentIds, readyWindowByShipment, shippingLoading, optionsList, onGenerateOptions]);
   const safePalletDetails = useMemo(
     () =>
       palletDetails || {
@@ -89,6 +90,8 @@ export default function FbaStep2Shipping({
   );
 
   const shipmentList = useMemo(() => (Array.isArray(shipments) ? shipments : []), [shipments]);
+  const globalReadyStart = shipmentIds.length ? readyWindowByShipment?.[shipmentIds[0]]?.start || '' : '';
+  const globalReadyEnd = shipmentIds.length ? readyWindowByShipment?.[shipmentIds[0]]?.end || '' : '';
   const normalizeOptionMode = (mode) => {
     const up = String(mode || '').toUpperCase();
     if (!up) return '';
@@ -138,7 +141,6 @@ export default function FbaStep2Shipping({
 
   const renderShipmentCard = (s) => {
     const shKey = String(s.id || s.shipmentId || '').trim();
-    const showReadyInputs = !isSingleShipment; // pentru single shipment folosim câmpul global
     return (
     <div key={shKey || s.id} className="border border-slate-200 rounded-lg overflow-hidden">
       <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
@@ -162,44 +164,6 @@ export default function FbaStep2Shipping({
         {Array.isArray(s.boxesDetail) && s.boxesDetail.length > 0 && (
           <div className="text-xs text-slate-500">
             {s.boxesDetail.length} boxes with dimensions/weight captured from packing.
-          </div>
-        )}
-        {showReadyInputs && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-            <div>
-              <div className="text-xs text-slate-600 mb-1">Ready to ship — start *</div>
-              <input
-                type="date"
-                value={readyWindowByShipment?.[shKey]?.start || ''}
-                onChange={(e) =>
-                  onReadyWindowChange?.(shKey, { start: e.target.value, end: readyWindowByShipment?.[shKey]?.end || '' })
-                }
-                className="w-full border rounded-md px-3 py-2 text-sm"
-              />
-            </div>
-            {requireEnd && (
-              <div>
-                <div className="text-xs text-slate-600 mb-1">
-                  Ready to ship — end {requireEnd ? '*' : '(opțional)'}
-                </div>
-                <input
-                  type="date"
-                  value={readyWindowByShipment?.[shKey]?.end || ''}
-                  onChange={(e) =>
-                    onReadyWindowChange?.(shKey, {
-                      start: readyWindowByShipment?.[shKey]?.start || '',
-                      end: e.target.value
-                    })
-                  }
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
-              </div>
-            )}
-          </div>
-        )}
-        {!isSingleShipment && (
-          <div className="text-xs text-amber-700">
-            Setează intervalul în care expediția este gata de predat curierului (start obligatoriu; end obligatoriu pentru LTL/FTL).
           </div>
         )}
       </div>
@@ -263,12 +227,14 @@ export default function FbaStep2Shipping({
                 <div className="text-xs text-slate-600 mb-1">Ready to ship — start *</div>
                 <input
                   type="date"
-                  value={singleShipmentId ? readyWindowByShipment?.[singleShipmentId]?.start || '' : ''}
+                  value={globalReadyStart}
                   onChange={(e) => {
-                    if (!singleShipmentId) return;
-                    onReadyWindowChange?.(singleShipmentId, {
-                      start: e.target.value,
-                      end: readyWindowByShipment?.[singleShipmentId]?.end || ''
+                    const nextStart = e.target.value;
+                    shipmentIds.forEach((id) => {
+                      onReadyWindowChange?.(id, {
+                        start: nextStart,
+                        end: readyWindowByShipment?.[id]?.end || ''
+                      });
                     });
                   }}
                   className="w-full border rounded-md px-3 py-2 text-sm"
@@ -282,12 +248,14 @@ export default function FbaStep2Shipping({
                   <div className="flex gap-2">
                     <input
                       type="date"
-                      value={singleShipmentId ? readyWindowByShipment?.[singleShipmentId]?.end || '' : ''}
+                      value={globalReadyEnd}
                       onChange={(e) => {
-                        if (!singleShipmentId) return;
-                        onReadyWindowChange?.(singleShipmentId, {
-                          start: readyWindowByShipment?.[singleShipmentId]?.start || '',
-                          end: e.target.value
+                        const nextEnd = e.target.value;
+                        shipmentIds.forEach((id) => {
+                          onReadyWindowChange?.(id, {
+                            start: readyWindowByShipment?.[id]?.start || '',
+                            end: nextEnd
+                          });
                         });
                       }}
                       className="w-full border rounded-md px-3 py-2 text-sm"
@@ -295,9 +263,9 @@ export default function FbaStep2Shipping({
                     <button
                       type="button"
                       onClick={onGenerateOptions}
-                      disabled={!singleShipmentId || !readyWindowByShipment?.[singleShipmentId]?.start || shippingLoading}
+                      disabled={!shipmentIds.length || !globalReadyStart || shippingLoading}
                       className={`px-3 py-2 rounded-md text-xs font-semibold shadow-sm whitespace-nowrap ${
-                        singleShipmentId && readyWindowByShipment?.[singleShipmentId]?.start && !shippingLoading
+                        shipmentIds.length && globalReadyStart && !shippingLoading
                           ? 'bg-blue-600 hover:bg-blue-700 text-white'
                           : 'bg-slate-200 text-slate-500 cursor-not-allowed'
                       }`}
@@ -313,6 +281,11 @@ export default function FbaStep2Shipping({
                 <div className="flex flex-col gap-2 text-[11px] text-slate-500" />
               )}
             </div>
+            {shipmentIds.length > 1 && (
+              <div className="text-[11px] text-slate-500 mt-2">
+                Data selectată se aplică tuturor expedițiilor.
+              </div>
+            )}
           </div>
         </div>
 
@@ -400,6 +373,11 @@ export default function FbaStep2Shipping({
                         <div className="flex flex-col">
                           <span className="font-semibold text-sm">{carrierLabel}</span>
                           <span className="text-xs text-slate-500">{partneredLabel}</span>
+                          {opt?.chargeScope === 'total' && Number.isFinite(opt?.shipmentCount) && (
+                            <span className="text-xs text-slate-500">
+                              Total {opt.shipmentCount} expedieri
+                            </span>
+                          )}
                           {solution && <span className="text-xs text-slate-400">{solution}</span>}
                         </div>
                         <div className="flex items-center gap-3">

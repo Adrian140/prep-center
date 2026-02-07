@@ -86,6 +86,9 @@ flowchart TD
 
 ## Note implementare (aplicatie)
 - Step 2 (transport): afisam toate optiunile returnate de `listTransportationOptions` (SPD + LTL/FTL, partnered + non-partnered). Nu selectam automat nicio optiune; utilizatorul alege explicit.
+- Pentru multiple pack groups, Amazon poate crea multiple shipments. UI foloseste o singura data `readyToShipWindow` si o aplica tuturor shipment-urilor; payload-ul trimite fereastra per shipment.
+- `confirmTransportationOptions` trebuie trimis cu `transportationOptionId` specific pentru fiecare shipment (nu reutilizam ID-ul unui singur shipment).
+- Pentru UI, costul partnered se afiseaza ca total pe toate shipment-urile (sumat per shipment), nu per box.
 - LTL/FTL necesita paletizare si freight information (dimensiuni, greutate, stackability, freight class, declared value). Fara aceste date, `generateTransportationOptions` nu va returna optiuni corecte pentru LTL/FTL.
 - Pentru SPD sunt obligatorii dimensiunile si greutatea coletelor (packages). PCP poate lipsi daca lipsesc aceste date.
 - `listTransportationOptions`: folosim `pageSize <= 20` (Amazon respinge valori mai mari cu `InvalidInput`).

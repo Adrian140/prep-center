@@ -3029,6 +3029,69 @@ serve(async (req) => {
       return false;
     };
 
+    const shipmentIdsForTotals = Array.from(
+      new Set(
+        placementShipments
+          .filter((sh: any) => !sh?.isPackingGroup && (sh?.shipmentId || sh?.id))
+          .map((sh: any) => String(sh?.shipmentId || sh?.id))
+          .filter((id: any) => isValidShipmentId(String(id)))
+      )
+    );
+    let partneredChargeByShipment: Record<string, number> = {};
+    let nonPartneredChargeByShipment: Record<string, number> = {};
+    let partneredChargeTotal: number | null = null;
+    let nonPartneredChargeTotal: number | null = null;
+    if (shipmentIdsForTotals.length > 1) {
+      const minChargeFor = (opts: any[], partnered: boolean) => {
+        const charges = (opts || [])
+          .filter((opt: any) => detectPartnered(opt) === partnered)
+          .map((opt: any) => extractCharge(opt))
+          .filter((c: any) => Number.isFinite(c));
+        if (!charges.length) return null;
+        return Math.min(...charges);
+      };
+      for (const shipmentId of shipmentIdsForTotals) {
+        const { collected } = await listTransportationOptionsOnce(
+          String(effectivePlacementOptionId),
+          shipmentId,
+          { probePartnered: true, maxPages: 6 }
+        );
+        const list = Array.isArray(collected) ? collected : [];
+        const partneredMin = minChargeFor(list, true);
+        const nonPartneredMin = minChargeFor(list, false);
+        if (Number.isFinite(partneredMin)) partneredChargeByShipment[shipmentId] = partneredMin as number;
+        if (Number.isFinite(nonPartneredMin)) nonPartneredChargeByShipment[shipmentId] = nonPartneredMin as number;
+      }
+      const allPartnered = shipmentIdsForTotals.every((id) => Number.isFinite(partneredChargeByShipment[id]));
+      const allNonPartnered = shipmentIdsForTotals.every((id) => Number.isFinite(nonPartneredChargeByShipment[id]));
+      partneredChargeTotal = allPartnered
+        ? round2(
+            shipmentIdsForTotals.reduce((sum, id) => sum + (partneredChargeByShipment[id] || 0), 0)
+          )
+        : null;
+      nonPartneredChargeTotal = allNonPartnered
+        ? round2(
+            shipmentIdsForTotals.reduce((sum, id) => sum + (nonPartneredChargeByShipment[id] || 0), 0)
+          )
+        : null;
+      logStep("listTransportationOptions_multi_shipment", {
+        traceId,
+        placementOptionId: effectivePlacementOptionId,
+        shipmentIds: shipmentIdsForTotals,
+        partneredByShipment: Object.fromEntries(
+          shipmentIdsForTotals.map((id) => [id, Number.isFinite(partneredChargeByShipment[id])])
+        ),
+        optionsCountByShipment: Object.fromEntries(
+          shipmentIdsForTotals.map((id) => [id, Array.isArray(transportCache.get(`${effectivePlacementOptionId}|${id}`)) ? transportCache.get(`${effectivePlacementOptionId}|${id}`)!.length : 0])
+        ),
+        partneredAvailableForAll: allPartnered,
+        partneredAvailableForAny: shipmentIdsForTotals.some((id) => Number.isFinite(partneredChargeByShipment[id])),
+        partneredMissingShipments: shipmentIdsForTotals.filter((id) => !Number.isFinite(partneredChargeByShipment[id])),
+        partneredChargeTotal,
+        nonPartneredChargeTotal
+      });
+    }
+
     const normalizeOptions = (opts: any[]) =>
       Array.isArray(opts)
         ? opts.map((opt: any) => ({
@@ -3141,22 +3204,32 @@ serve(async (req) => {
 
     const summary = {
       partneredAllowed: Boolean(partneredOpt),
-      partneredRate: partneredOpt?.charge ?? null,
+      partneredRate: partneredChargeTotal ?? partneredOpt?.charge ?? null,
       defaultOptionId: partneredOpt?.id || null,
       defaultCarrier: partneredOpt?.carrierName || null,
       defaultMode: partneredOpt?.mode || null,
-      defaultCharge: partneredOpt?.charge ?? null,
+      defaultCharge: partneredChargeTotal ?? partneredOpt?.charge ?? null,
       requestedMode: normalizedRequestedMode || null,
       returnedModes,
       returnedSolutions,
-      modeMismatch
+      modeMismatch,
+      shipmentCount: shipmentIdsForTotals.length || null,
+      partneredChargeByShipment: Object.keys(partneredChargeByShipment).length ? partneredChargeByShipment : null,
+      partneredChargeTotal,
+      nonPartneredChargeByShipment: Object.keys(nonPartneredChargeByShipment).length ? nonPartneredChargeByShipment : null,
+      nonPartneredChargeTotal
     };
     const summaryWithSelection = {
       ...summary,
       selectedOptionId: selectedOption?.id || null,
       selectedCarrier: selectedOption?.carrierName || null,
       selectedMode: selectedOption?.mode || null,
-      selectedCharge: selectedOption?.charge ?? null,
+      selectedCharge:
+        selectedOption?.partnered && partneredChargeTotal !== null
+          ? partneredChargeTotal
+          : !selectedOption?.partnered && nonPartneredChargeTotal !== null
+            ? nonPartneredChargeTotal
+            : selectedOption?.charge ?? null,
       selectedPartnered: Boolean(selectedOption?.partnered),
       selectedSolution:
         selectedOption?.shippingSolution || selectedOption?.raw?.shippingSolution || null
@@ -3771,65 +3844,73 @@ serve(async (req) => {
             email: contactInformation.email
           }
         : null;
-    // Validate the selected option is AVAILABLE for each shipment it claims to cover
-    const optionShipmentIds = (() => {
-      if (Array.isArray(selectedOption?.raw?.shipments) && selectedOption.raw.shipments.length) {
-        return selectedOption.raw.shipments
-          .map((sh: any) => sh?.shipmentId || sh?.id)
-          .filter((id: any) => isValidShipmentId(String(id)));
-      }
-      if (selectedOption?.shipmentId && isValidShipmentId(String(selectedOption.shipmentId))) {
-        return [String(selectedOption.shipmentId)];
-      }
-      const first = placementShipments.find((s: any) => !s?.isPackingGroup && (s?.shipmentId || s?.id));
-      return first ? [String(first.shipmentId || first.id)] : [];
-    })();
+    const shipmentIdsForConfirm = shipmentIdsForTotals.length
+      ? shipmentIdsForTotals
+      : (() => {
+          if (Array.isArray(selectedOption?.raw?.shipments) && selectedOption.raw.shipments.length) {
+            return selectedOption.raw.shipments
+              .map((sh: any) => sh?.shipmentId || sh?.id)
+              .filter((id: any) => isValidShipmentId(String(id)));
+          }
+          if (selectedOption?.shipmentId && isValidShipmentId(String(selectedOption.shipmentId))) {
+            return [String(selectedOption.shipmentId)];
+          }
+          const first = placementShipments.find((s: any) => !s?.isPackingGroup && (s?.shipmentId || s?.id));
+          return first ? [String(first.shipmentId || first.id)] : [];
+        })();
 
-    const validateOptionForShipment = async (optId: string, shipmentId: string) => {
+    const resolveOptionForShipment = async (shipmentId: string) => {
       const { collected } = await listTransportationOptionsOnce(
         String(effectivePlacementOptionId),
         shipmentId,
         {
-          requiredOptionId: optId
+          requiredOptionId: confirmOptionId || selectedOption?.id || null
         }
       );
-      const match = (collected || []).find((opt: any) => {
-        const id = opt?.transportationOptionId || opt?.id || opt?.optionId || null;
-        const statusUp = String(opt?.status || "AVAILABLE").toUpperCase();
-        const ships = Array.isArray(opt?.shipments)
-          ? opt.shipments.map((sh: any) => sh?.shipmentId || sh?.id).filter(Boolean)
-          : opt?.shipmentId
-            ? [opt.shipmentId]
-            : [];
-        const belongs = ships.length === 0 || ships.includes(shipmentId);
-        return id === optId && statusUp === "AVAILABLE" && belongs;
-      });
-      return match || null;
+      const normalized = normalizeOptions(collected || []);
+      const pool = normalizedRequestedMode
+        ? normalized.filter((o) => normalizeOptionMode(o.mode) === normalizedRequestedMode)
+        : normalized;
+      const byId = (optId: string | null) =>
+        optId
+          ? pool.find((o) => o.id === optId) || normalized.find((o) => o.id === optId) || null
+          : null;
+      let candidate = byId(confirmOptionId || null);
+      if (!candidate) candidate = byId(selectedOption?.id || null);
+      if (!candidate) candidate = matchBySignature(pool) || matchBySignature(normalized);
+      if (!candidate) return null;
+      const statusUp = String(candidate?.raw?.status || "AVAILABLE").toUpperCase();
+      if (statusUp !== "AVAILABLE") return null;
+      return candidate;
     };
 
-    const confirmedShipments: string[] = [];
-    for (const sid of optionShipmentIds) {
-      const valid = await validateOptionForShipment(selectedOption.id, sid);
-      if (valid) confirmedShipments.push(sid);
+    const selections: Array<{ shipmentId: string; transportationOptionId: string; contactInformation?: any }> = [];
+    const missingShipments: string[] = [];
+    for (const shipmentId of shipmentIdsForConfirm) {
+      const match = await resolveOptionForShipment(shipmentId);
+      if (!match?.id) {
+        missingShipments.push(shipmentId);
+        continue;
+      }
+      selections.push({
+        shipmentId,
+        transportationOptionId: match.id,
+        ...(contactForConfirm ? { contactInformation: contactForConfirm } : {})
+      });
     }
 
-    if (!confirmedShipments.length) {
+    if (missingShipments.length) {
       return new Response(
         JSON.stringify({
           error:
-            "Opțiunea selectată nu mai este disponibilă pentru shipment-ul curent. Selectează altă opțiune.",
+            "Opțiunea selectată nu este disponibilă pentru toate shipment-urile. Reîncearcă sau alege altă opțiune.",
           code: "TRANSPORTATION_OPTION_NOT_AVAILABLE",
-          traceId
+          traceId,
+          missingShipments
         }),
         { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
-
-    const selections = confirmedShipments.map((shipmentId: string) => ({
-      shipmentId,
-      transportationOptionId: selectedOption?.id,
-      ...(contactForConfirm ? { contactInformation: contactForConfirm } : {})
-    }));
     if (!selections.length) {
       return new Response(
         JSON.stringify({
