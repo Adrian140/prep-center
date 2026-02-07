@@ -39,6 +39,8 @@ export default function AdminPrepBusinessIntegrations() {
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState('');
   const [confirming, setConfirming] = useState(null);
+  const [merchantDrafts, setMerchantDrafts] = useState({});
+  const [savingMerchant, setSavingMerchant] = useState(null);
 
   const load = async () => {
     setRefreshing(true);
@@ -70,6 +72,11 @@ export default function AdminPrepBusinessIntegrations() {
         ...row,
         profile: profileMap[row.user_id] || null
       }));
+      const draftMap = {};
+      enriched.forEach((row) => {
+        draftMap[row.id] = row.merchant_id ? String(row.merchant_id) : '';
+      });
+      setMerchantDrafts(draftMap);
       const sorted = enriched.sort((a, b) => {
         const aPending = (a.status || 'pending') === 'pending' ? 1 : 0;
         const bPending = (b.status || 'pending') === 'pending' ? 1 : 0;
@@ -103,6 +110,27 @@ export default function AdminPrepBusinessIntegrations() {
       setMessage(err?.message || 'Could not confirm integration.');
     } finally {
       setConfirming(null);
+    }
+  };
+
+  const handleMerchantSave = async (row) => {
+    if (!row?.id) return;
+    const value = (merchantDrafts[row.id] || '').trim();
+    setSavingMerchant(row.id);
+    try {
+      const { error } = await supabase
+        .from('prep_business_integrations')
+        .update({
+          merchant_id: value ? value : null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', row.id);
+      if (error) throw error;
+      await load();
+    } catch (err) {
+      setMessage(err?.message || 'Could not save merchant id.');
+    } finally {
+      setSavingMerchant(null);
     }
   };
 
@@ -168,6 +196,28 @@ export default function AdminPrepBusinessIntegrations() {
               </div>
               <div className="flex items-center gap-3 text-xs text-text-light">
                 <span>User: {row.user_id || '—'} · Company: {row.company_id || '—'}</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className="w-36 px-2 py-1 border rounded text-xs"
+                    placeholder="Merchant ID"
+                    value={merchantDrafts[row.id] ?? ''}
+                    onChange={(e) =>
+                      setMerchantDrafts((prev) => ({ ...prev, [row.id]: e.target.value }))
+                    }
+                  />
+                  <button
+                    onClick={() => handleMerchantSave(row)}
+                    disabled={savingMerchant === row.id}
+                    className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
+                  >
+                    {savingMerchant === row.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : null}
+                    Save ID
+                  </button>
+                </div>
                 {(row.status || 'pending') === 'pending' && (
                   <button
                     onClick={() => handleConfirm(row)}
