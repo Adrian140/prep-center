@@ -38,6 +38,7 @@ export default function AdminPrepBusinessIntegrations() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState('');
+  const [confirming, setConfirming] = useState(null);
 
   const load = async () => {
     setRefreshing(true);
@@ -50,7 +51,34 @@ export default function AdminPrepBusinessIntegrations() {
       setMessage(error.message || 'Could not load PrepBusiness integrations.');
       setRows([]);
     } else {
-      setRows(data || []);
+      const baseRows = data || [];
+      const userIds = Array.from(new Set(baseRows.map((r) => r.user_id).filter(Boolean)));
+      let profileMap = {};
+      if (userIds.length) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, company_name, store_name, email')
+          .in('id', userIds);
+        profileMap = Array.isArray(profiles)
+          ? profiles.reduce((acc, p) => {
+              acc[p.id] = p;
+              return acc;
+            }, {})
+          : {};
+      }
+      const enriched = baseRows.map((row) => ({
+        ...row,
+        profile: profileMap[row.user_id] || null
+      }));
+      const sorted = enriched.sort((a, b) => {
+        const aPending = (a.status || 'pending') === 'pending' ? 1 : 0;
+        const bPending = (b.status || 'pending') === 'pending' ? 1 : 0;
+        if (aPending !== bPending) return bPending - aPending;
+        const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
+        const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
+        return bTime - aTime;
+      });
+      setRows(sorted);
     }
     setRefreshing(false);
     setLoading(false);
@@ -61,13 +89,30 @@ export default function AdminPrepBusinessIntegrations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleConfirm = async (row) => {
+    if (!row?.id) return;
+    setConfirming(row.id);
+    try {
+      const { error } = await supabase
+        .from('prep_business_integrations')
+        .update({ status: 'mapped', last_error: null, updated_at: new Date().toISOString() })
+        .eq('id', row.id);
+      if (error) throw error;
+      await load();
+    } catch (err) {
+      setMessage(err?.message || 'Could not confirm integration.');
+    } finally {
+      setConfirming(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-text-primary">PrepBusiness Integrations</h3>
+          <h3 className="text-lg font-semibold text-text-primary">Arbitrage One Integrations</h3>
           <p className="text-sm text-text-secondary">
-            Statusuri, mapări email și erori pentru clienții conectați.
+            Email confirmări pentru importul din Arbitrage One (via PrepBusiness).
           </p>
         </div>
         <button
@@ -91,7 +136,7 @@ export default function AdminPrepBusinessIntegrations() {
           Loading integrations…
         </div>
       ) : rows.length === 0 ? (
-        <div className="text-sm text-text-secondary">No PrepBusiness integrations yet.</div>
+        <div className="text-sm text-text-secondary">No Arbitrage One integrations yet.</div>
       ) : (
         <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
           {rows.map((row) => (
@@ -109,6 +154,11 @@ export default function AdminPrepBusinessIntegrations() {
                 <div className="text-xs text-text-secondary">
                   Merchant: {row.merchant_id || '—'} · Last sync: {fmt(row.last_synced_at)} · Updated: {fmt(row.updated_at)}
                 </div>
+                {row.profile && (
+                  <div className="text-xs text-text-secondary">
+                    Client: {row.profile.company_name || row.profile.store_name || '—'} · {row.profile.email || '—'}
+                  </div>
+                )}
                 {row.last_error && (
                   <div className="text-xs text-red-600 mt-1 break-all">
                     <AlertTriangle className="inline w-3 h-3 mr-1" />
@@ -116,8 +166,22 @@ export default function AdminPrepBusinessIntegrations() {
                   </div>
                 )}
               </div>
-              <div className="text-xs text-text-light">
-                User: {row.user_id || '—'} · Company: {row.company_id || '—'}
+              <div className="flex items-center gap-3 text-xs text-text-light">
+                <span>User: {row.user_id || '—'} · Company: {row.company_id || '—'}</span>
+                {(row.status || 'pending') === 'pending' && (
+                  <button
+                    onClick={() => handleConfirm(row)}
+                    disabled={confirming === row.id}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {confirming === row.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-3 h-3" />
+                    )}
+                    Confirm account created
+                  </button>
+                )}
               </div>
             </div>
           ))}
