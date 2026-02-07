@@ -487,14 +487,6 @@ export default function ClientIntegrations() {
           <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{pbLastError}</div>
         )}
 
-        <div className="text-xs text-text-light space-y-1">
-          <p>
-            {t('ClientIntegrations.prepbusiness.envHint')}
-          </p>
-          <p>
-            {t('ClientIntegrations.prepbusiness.tagHint')}
-          </p>
-        </div>
       </section>
 
       <section className="bg-white border rounded-xl p-5 space-y-4">
