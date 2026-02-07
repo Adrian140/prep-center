@@ -1529,7 +1529,8 @@ const renderTabContent = () => {
     case 'boxes': return <AdminBoxes />;
     case 'reviews': return renderReviewsTab();
     case 'user-guide': return <AdminUserGuide />;
-      case 'affiliates': return <AdminAffiliates />;
+    case 'affiliates': return <AdminAffiliates />;
+    case 'prep-business': return <AdminPrepBusinessIntegrations />;
     case 'security': return <SupabaseSecuritySettings />;
     case 'settings': return renderSettingsTab();
     default:
@@ -1628,4 +1629,3 @@ if (!isAdmin) {
 }
 
 export default SupabaseAdminPanel;
-    case 'prep-business': return <AdminPrepBusinessIntegrations />;
