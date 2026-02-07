@@ -702,7 +702,7 @@
       "amazonTitle": "Amazon Seller Central",
       "prepbusiness": {
         "title": "Arbitrage One",
-        "desc": "Auto-import inbound shipments from Arbitrage One into Reception Management.",
+        "desc": "Auto-import inbound shipments from Arbitrage One into Reception Management. Add the email used in your Arbitrage One account.",
         "emailLabel": "Arbitrage One account email",
         "emailPlaceholder": "you@arbitrageone.com",
         "clientStep": "You: enter the email used in your Arbitrage One account.",
@@ -1612,7 +1612,7 @@
       "amazonTitle": "Amazon Seller Central",
       "prepbusiness": {
         "title": "Arbitrage One",
-        "desc": "Importă automat recepțiile inbound din Arbitrage One în Receptions.",
+        "desc": "Importă automat recepțiile inbound din Arbitrage One în Receptions. Adaugă emailul folosit în contul tău Arbitrage One.",
         "emailLabel": "Email cont Arbitrage One",
         "emailPlaceholder": "tu@arbitrageone.com",
         "clientStep": "Tu: introdu emailul folosit în contul tău Arbitrage One.",
@@ -2570,7 +2570,7 @@
       "amazonTitle": "Amazon Seller Central",
       "prepbusiness": {
         "title": "Arbitrage One",
-        "desc": "Importe automatiquement les envois entrants depuis Arbitrage One dans Réceptions.",
+        "desc": "Importe automatiquement les envois entrants depuis Arbitrage One dans Réceptions. Ajoutez l’email utilisé sur votre compte Arbitrage One.",
         "emailLabel": "Email du compte Arbitrage One",
         "emailPlaceholder": "vous@arbitrageone.com",
         "clientStep": "Vous : saisissez l’email utilisé sur votre compte Arbitrage One.",
@@ -3398,7 +3398,7 @@
       "amazonTitle": "Amazon Seller Central",
       "prepbusiness": {
         "title": "Arbitrage One",
-        "desc": "Importiert eingehende Sendungen aus Arbitrage One automatisch in Receptions.",
+        "desc": "Importiert eingehende Sendungen aus Arbitrage One automatisch in Receptions. Füge die E-Mail deines Arbitrage-One-Kontos hinzu.",
         "emailLabel": "Arbitrage-One-Konto-E-Mail",
         "emailPlaceholder": "du@arbitrageone.com",
         "clientStep": "Du: Gib die E-Mail deines Arbitrage-One-Kontos ein.",
@@ -4226,7 +4226,7 @@
       "amazonTitle": "Amazon Seller Central",
       "prepbusiness": {
         "title": "Arbitrage One",
-        "desc": "Importa automaticamente le spedizioni in entrata da Arbitrage One nelle Receptions.",
+        "desc": "Importa automaticamente le spedizioni in entrata da Arbitrage One nelle Receptions. Aggiungi l’email usata nel tuo account Arbitrage One.",
         "emailLabel": "Email account Arbitrage One",
         "emailPlaceholder": "tu@arbitrageone.com",
         "clientStep": "Tu: inserisci l’email usata nel tuo account Arbitrage One.",
@@ -5054,7 +5054,7 @@
       "amazonTitle": "Amazon Seller Central",
       "prepbusiness": {
         "title": "Arbitrage One",
-        "desc": "Importa automáticamente los envíos entrantes desde Arbitrage One en Recepciones.",
+        "desc": "Importa automáticamente los envíos entrantes desde Arbitrage One en Recepciones. Añade el correo usado en tu cuenta de Arbitrage One.",
         "emailLabel": "Correo de la cuenta Arbitrage One",
         "emailPlaceholder": "tu@arbitrageone.com",
         "clientStep": "Tú: introduce el correo usado en tu cuenta de Arbitrage One.",
