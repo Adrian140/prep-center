@@ -700,6 +700,18 @@
         "marketplaceAlt": "Marketplace: {id}"
       },
       "amazonTitle": "Amazon Seller Central",
+      "prepbusiness": {
+        "title": "PrepBusiness",
+        "desc": "Auto-import inbound shipments into Reception Management and tag them as coming from PrepBusiness.",
+        "emailLabel": "PrepBusiness account email",
+        "emailPlaceholder": "you@prepbusiness.com",
+        "clientStep": "You: enter the email used in your PrepBusiness account.",
+        "teamStep": "We: map your PrepBusiness merchant to your workspace and sync inbound shipments.",
+        "save": "Save & activate",
+        "helper": "Matches inbound shipments by email/merchant and auto-creates receptions in your workspace. Missing destination or tracking will be flagged as pending until you fill them.",
+        "envHint": "Env keys: set PREPBUSINESS_API_BASE_URL + PREPBUSINESS_API_TOKEN in Vercel (and Supabase Edge functions if used). Do not commit them to git.",
+        "tagHint": "All receptions created from this sync are tagged with source “prepbusiness” so you can separate errors vs manual entries."
+      },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
         "modalDesc": "Enter your Qogita Buyer credentials to connect and sync orders.",
@@ -1598,6 +1610,18 @@
         "marketplaceAlt": "Marketplace: {id}"
       },
       "amazonTitle": "Amazon Seller Central",
+      "prepbusiness": {
+        "title": "PrepBusiness",
+        "desc": "Importe automatiquement les envois entrants dans Réceptions et les tague comme venant de PrepBusiness.",
+        "emailLabel": "Email du compte PrepBusiness",
+        "emailPlaceholder": "vous@prepbusiness.com",
+        "clientStep": "Vous : saisissez l’email utilisé sur votre compte PrepBusiness.",
+        "teamStep": "Nous : nous associons votre merchant PrepBusiness à votre espace et synchronisons les réceptions.",
+        "save": "Enregistrer & activer",
+        "helper": "Associe les inbound shipments par email/merchant et crée automatiquement les réceptions dans votre espace. Les destinations ou tracking manquants seront marqués en attente.",
+        "envHint": "Clés env : définissez PREPBUSINESS_API_BASE_URL + PREPBUSINESS_API_TOKEN dans Vercel (et dans les fonctions Supabase si utilisées). Ne pas les commiter.",
+        "tagHint": "Toutes les réceptions créées par cette synchronisation sont taguées “prepbusiness” pour distinguer les erreurs des entrées manuelles."
+      },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
         "modalDesc": "Enter your Qogita Buyer credentials to connect and sync orders.",
@@ -2544,6 +2568,18 @@
         "marketplaceAlt": "Marketplace : {id}"
       },
       "amazonTitle": "Amazon Seller Central",
+      "prepbusiness": {
+        "title": "PrepBusiness",
+        "desc": "Importiert eingehende Sendungen automatisch in Receptions und markiert sie als von PrepBusiness.",
+        "emailLabel": "PrepBusiness-Konto-E-Mail",
+        "emailPlaceholder": "du@prepbusiness.com",
+        "clientStep": "Du: Gib die E-Mail deines PrepBusiness-Kontos ein.",
+        "teamStep": "Wir: Wir verknüpfen deinen PrepBusiness-Merchant mit deinem Workspace und synchronisieren die Eingänge.",
+        "save": "Speichern & aktivieren",
+        "helper": "Ordnet Inbound-Sendungen per E-Mail/Merchant zu und erstellt automatisch Receptions. Fehlende Zielorte oder Tracking werden als ausstehend markiert.",
+        "envHint": "Env-Keys: PREPBUSINESS_API_BASE_URL + PREPBUSINESS_API_TOKEN in Vercel (und ggf. in Supabase Edge Functions) setzen. Nicht ins Git committen.",
+        "tagHint": "Alle Receptions aus dieser Synchronisierung sind mit Quelle „prepbusiness“ markiert, damit du Fehler vs. manuelle Einträge trennen kannst."
+      },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
         "modalDesc": "Enter your Qogita Buyer credentials to connect and sync orders.",
@@ -3360,6 +3396,18 @@
         "marketplaceAlt": "Marketplace: {id}"
       },
       "amazonTitle": "Amazon Seller Central",
+      "prepbusiness": {
+        "title": "PrepBusiness",
+        "desc": "Importa automáticamente los envíos entrantes en Recepciones y los etiqueta como provenientes de PrepBusiness.",
+        "emailLabel": "Correo de la cuenta PrepBusiness",
+        "emailPlaceholder": "tu@prepbusiness.com",
+        "clientStep": "Tú: introduce el correo usado en tu cuenta de PrepBusiness.",
+        "teamStep": "Nosotros: asociamos tu merchant de PrepBusiness a tu workspace y sincronizamos los ingresos.",
+        "save": "Guardar y activar",
+        "helper": "Asocia los inbound shipments por email/merchant y crea recepciones automáticamente. Destino o tracking faltantes se marcarán como pendientes.",
+        "envHint": "Claves env: configura PREPBUSINESS_API_BASE_URL + PREPBUSINESS_API_TOKEN en Vercel (y en funciones Edge de Supabase si se usan). No las commitees.",
+        "tagHint": "Todas las recepciones creadas por esta sincronización se etiquetan con fuente “prepbusiness” para separar errores de entradas manuales."
+      },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
         "modalDesc": "Enter your Qogita Buyer credentials to connect and sync orders.",
@@ -4176,6 +4224,18 @@
         "marketplaceAlt": "Marketplace: {id}"
       },
       "amazonTitle": "Amazon Seller Central",
+      "prepbusiness": {
+        "title": "PrepBusiness",
+        "desc": "Importa automaticamente le spedizioni in entrata nelle Receptions e le tagga come provenienti da PrepBusiness.",
+        "emailLabel": "Email account PrepBusiness",
+        "emailPlaceholder": "tu@prepbusiness.com",
+        "clientStep": "Tu: inserisci l’email usata nel tuo account PrepBusiness.",
+        "teamStep": "Noi: colleghiamo il tuo merchant PrepBusiness al tuo workspace e sincronizziamo le entrate.",
+        "save": "Salva e attiva",
+        "helper": "Abbina le spedizioni inbound per email/merchant e crea automaticamente le receptions. Destinazione o tracking mancanti saranno segnati come in attesa.",
+        "envHint": "Chiavi env: imposta PREPBUSINESS_API_BASE_URL + PREPBUSINESS_API_TOKEN su Vercel (e nelle Supabase Edge Functions se usate). Non committarle.",
+        "tagHint": "Tutte le receptions create da questa sincronizzazione sono taggate con origine “prepbusiness” per distinguere errori da inserimenti manuali."
+      },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
         "modalDesc": "Enter your Qogita Buyer credentials to connect and sync orders.",
@@ -4992,6 +5052,18 @@
         "marketplaceAlt": "Marketplace: {id}"
       },
       "amazonTitle": "Amazon Seller Central",
+      "prepbusiness": {
+        "title": "PrepBusiness",
+        "desc": "Importă automat recepțiile inbound în Receptions și le marchează ca venite din PrepBusiness.",
+        "emailLabel": "Email cont PrepBusiness",
+        "emailPlaceholder": "tu@prepbusiness.com",
+        "clientStep": "Tu: introdu emailul folosit în contul tău PrepBusiness.",
+        "teamStep": "Noi: mapăm merchant-ul PrepBusiness la workspace-ul tău și sincronizăm recepțiile.",
+        "save": "Salvează și activează",
+        "helper": "Asociază inbound shipments după email/merchant și creează automat recepțiile în workspace. Destinația sau tracking lipsă vor fi marcate ca pending.",
+        "envHint": "Chei env: setează PREPBUSINESS_API_BASE_URL + PREPBUSINESS_API_TOKEN în Vercel (și în Supabase Edge Functions dacă sunt folosite). Nu le comite în git.",
+        "tagHint": "Toate recepțiile create prin această sincronizare sunt etichetate cu sursa “prepbusiness” ca să separi erorile de intrările manuale."
+      },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
         "modalDesc": "Enter your Qogita Buyer credentials to connect and sync orders.",

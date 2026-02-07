@@ -426,9 +426,11 @@ export default function ClientIntegrations() {
       <section className="bg-white border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-text-primary">PrepBusiness</h2>
+            <h2 className="text-lg font-semibold text-text-primary">
+              {t('ClientIntegrations.prepbusiness.title')}
+            </h2>
             <p className="text-sm text-text-secondary">
-              Auto-import inbound shipments into Reception Management and tag them as coming from PrepBusiness.
+              {t('ClientIntegrations.prepbusiness.desc')}
             </p>
           </div>
           <div className="text-sm">
@@ -450,15 +452,21 @@ export default function ClientIntegrations() {
 
         <form onSubmit={handleSavePrepBusiness} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-text-primary">PrepBusiness account email</label>
+            <label className="text-sm font-medium text-text-primary">
+              {t('ClientIntegrations.prepbusiness.emailLabel')}
+            </label>
             <input
               type="email"
               value={pbEmail}
               onChange={(e) => setPbEmail(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg bg-white"
-              placeholder="you@prepbusiness.com"
+              placeholder={t('ClientIntegrations.prepbusiness.emailPlaceholder')}
               required
             />
+          </div>
+          <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
+            <p>{t('ClientIntegrations.prepbusiness.clientStep')}</p>
+            <p>{t('ClientIntegrations.prepbusiness.teamStep')}</p>
           </div>
           <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
             <button
@@ -467,11 +475,10 @@ export default function ClientIntegrations() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
             >
               {pbSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-              Save & activate
+              {t('ClientIntegrations.prepbusiness.save')}
             </button>
             <p className="text-xs text-text-secondary">
-              Matches inbound shipments by email/merchant and auto-creates receptions in your workspace.
-              Missing destination or tracking will be flagged as pending until you fill them.
+              {t('ClientIntegrations.prepbusiness.helper')}
             </p>
           </div>
         </form>
@@ -482,11 +489,10 @@ export default function ClientIntegrations() {
 
         <div className="text-xs text-text-light space-y-1">
           <p>
-            Env keys: set PREPBUSINESS_API_BASE_URL + PREPBUSINESS_API_TOKEN in Vercel (and Supabase Edge functions if used).
-            Do not commit them to git.
+            {t('ClientIntegrations.prepbusiness.envHint')}
           </p>
           <p>
-            All receptions created from this sync are tagged with source “prepbusiness” so you can separate errors vs manual entries.
+            {t('ClientIntegrations.prepbusiness.tagHint')}
           </p>
         </div>
       </section>
