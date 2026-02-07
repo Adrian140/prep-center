@@ -12,6 +12,25 @@ create table if not exists public.prep_business_integrations (
   updated_at timestamptz not null default now()
 );
 
+alter table if exists public.prep_business_integrations
+  add column if not exists user_id uuid,
+  add column if not exists company_id uuid,
+  add column if not exists email_arbitrage_one text,
+  add column if not exists email_prep_business text,
+  add column if not exists status text,
+  add column if not exists merchant_id text,
+  add column if not exists last_error text,
+  add column if not exists last_synced_at timestamptz,
+  add column if not exists created_at timestamptz,
+  add column if not exists updated_at timestamptz;
+
+alter table if exists public.prep_business_integrations
+  alter column status set default 'pending';
+alter table if exists public.prep_business_integrations
+  alter column created_at set default now();
+alter table if exists public.prep_business_integrations
+  alter column updated_at set default now();
+
 create unique index if not exists prep_business_integrations_user_id_key
   on public.prep_business_integrations (user_id);
 create index if not exists idx_prep_business_integrations_company_id
@@ -48,6 +67,21 @@ create table if not exists public.prep_business_imports (
   created_at timestamptz not null default now()
 );
 
+alter table if exists public.prep_business_imports
+  add column if not exists source_id text,
+  add column if not exists merchant_id text,
+  add column if not exists user_id uuid,
+  add column if not exists company_id uuid,
+  add column if not exists receiving_shipment_id uuid,
+  add column if not exists status text,
+  add column if not exists payload jsonb,
+  add column if not exists created_at timestamptz;
+
+alter table if exists public.prep_business_imports
+  alter column status set default 'imported';
+alter table if exists public.prep_business_imports
+  alter column created_at set default now();
+
 create unique index if not exists prep_business_imports_source_id_key
   on public.prep_business_imports (source_id);
 create index if not exists idx_prep_business_imports_company_id
@@ -68,6 +102,25 @@ create table if not exists public.prep_merchants (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.prep_merchants
+  add column if not exists merchant_id text,
+  add column if not exists company_id uuid,
+  add column if not exists user_id uuid,
+  add column if not exists destination_country text,
+  add column if not exists warehouse_country text,
+  add column if not exists import_tags text[],
+  add column if not exists sync_enabled boolean,
+  add column if not exists last_sync_at timestamptz,
+  add column if not exists created_at timestamptz,
+  add column if not exists updated_at timestamptz;
+
+alter table if exists public.prep_merchants
+  alter column sync_enabled set default true;
+alter table if exists public.prep_merchants
+  alter column created_at set default now();
+alter table if exists public.prep_merchants
+  alter column updated_at set default now();
 
 create unique index if not exists prep_merchants_merchant_id_key
   on public.prep_merchants (merchant_id);
