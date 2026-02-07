@@ -9,6 +9,9 @@ Context from chat:
 Environment secrets (added to `.env.example`):
 - `PREPBUSINESS_API_BASE_URL` – e.g. `https://<your-company>.prepbusiness.com/api`
 - `PREPBUSINESS_API_TOKEN` – API token created in PrepBusiness (keep server-side only)
+- `PREPBUSINESS_WEBHOOK_SECRET` – optional shared secret for inbound webhooks
+- `PREPBUSINESS_SYNC_MODE` – `manual` (accept payload) or `api` (poll PrepBusiness API)
+- `PREPBUSINESS_INBOUNDS_PATH` – override endpoint path when polling (`/inbounds` default)
 
 Implementation steps
 1) Inputs & mapping
@@ -38,6 +41,11 @@ Implementation steps
    - Idempotent processors (ignore repeats via `source_id`).
    - Retry queue for webhook failures; daily cron reconciliation to catch misses.
    - Metrics: count of imported receptions, duplicates prevented, errors per merchant.
+
+Implemented scaffolding (ready for wiring to real PrepBusiness API):
+- DB tables + RLS: `prep_business_integrations`, `prep_business_imports`, `prep_merchants`.
+- Edge Function `prepbusiness-webhook`: accepts inbound payloads and creates receptions + items (idempotent).
+- Edge Function `prepbusiness-sync`: accepts manual `inbounds[]` payloads; can poll API when `PREPBUSINESS_SYNC_MODE=api`.
 
 Next actions
 - Confirm which object to pull from PrepBusiness (Inbound vs Orders) and whether webhooks are available.
