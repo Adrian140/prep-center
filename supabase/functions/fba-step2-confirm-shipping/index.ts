@@ -3632,8 +3632,9 @@ serve(async (req) => {
       );
     }
 
-    const isValidShipmentId = (val: any) =>
-      typeof val === "string" && val.length >= 10 && !val.startsWith("s-");
+    function isValidShipmentId(val: any): boolean {
+      return typeof val === "string" && val.length >= 10 && !val.startsWith("s-");
+    }
 
     const isNonPartneredSelection = !selectedOption?.partnered;
     const requiresDeliveryWindow =
