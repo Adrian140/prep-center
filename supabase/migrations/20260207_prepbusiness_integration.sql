@@ -13,15 +13,24 @@ create table if not exists public.prep_business_integrations (
 );
 
 alter table if exists public.prep_business_integrations
-  add column if not exists user_id uuid,
-  add column if not exists company_id uuid,
-  add column if not exists email_arbitrage_one text,
-  add column if not exists email_prep_business text,
-  add column if not exists status text,
-  add column if not exists merchant_id text,
-  add column if not exists last_error text,
-  add column if not exists last_synced_at timestamptz,
-  add column if not exists created_at timestamptz,
+  add column if not exists user_id uuid;
+alter table if exists public.prep_business_integrations
+  add column if not exists company_id uuid;
+alter table if exists public.prep_business_integrations
+  add column if not exists email_arbitrage_one text;
+alter table if exists public.prep_business_integrations
+  add column if not exists email_prep_business text;
+alter table if exists public.prep_business_integrations
+  add column if not exists status text;
+alter table if exists public.prep_business_integrations
+  add column if not exists merchant_id text;
+alter table if exists public.prep_business_integrations
+  add column if not exists last_error text;
+alter table if exists public.prep_business_integrations
+  add column if not exists last_synced_at timestamptz;
+alter table if exists public.prep_business_integrations
+  add column if not exists created_at timestamptz;
+alter table if exists public.prep_business_integrations
   add column if not exists updated_at timestamptz;
 
 alter table if exists public.prep_business_integrations
@@ -68,13 +77,20 @@ create table if not exists public.prep_business_imports (
 );
 
 alter table if exists public.prep_business_imports
-  add column if not exists source_id text,
-  add column if not exists merchant_id text,
-  add column if not exists user_id uuid,
-  add column if not exists company_id uuid,
-  add column if not exists receiving_shipment_id uuid,
-  add column if not exists status text,
-  add column if not exists payload jsonb,
+  add column if not exists source_id text;
+alter table if exists public.prep_business_imports
+  add column if not exists merchant_id text;
+alter table if exists public.prep_business_imports
+  add column if not exists user_id uuid;
+alter table if exists public.prep_business_imports
+  add column if not exists company_id uuid;
+alter table if exists public.prep_business_imports
+  add column if not exists receiving_shipment_id uuid;
+alter table if exists public.prep_business_imports
+  add column if not exists status text;
+alter table if exists public.prep_business_imports
+  add column if not exists payload jsonb;
+alter table if exists public.prep_business_imports
   add column if not exists created_at timestamptz;
 
 alter table if exists public.prep_business_imports
@@ -104,15 +120,24 @@ create table if not exists public.prep_merchants (
 );
 
 alter table if exists public.prep_merchants
-  add column if not exists merchant_id text,
-  add column if not exists company_id uuid,
-  add column if not exists user_id uuid,
-  add column if not exists destination_country text,
-  add column if not exists warehouse_country text,
-  add column if not exists import_tags text[],
-  add column if not exists sync_enabled boolean,
-  add column if not exists last_sync_at timestamptz,
-  add column if not exists created_at timestamptz,
+  add column if not exists merchant_id text;
+alter table if exists public.prep_merchants
+  add column if not exists company_id uuid;
+alter table if exists public.prep_merchants
+  add column if not exists user_id uuid;
+alter table if exists public.prep_merchants
+  add column if not exists destination_country text;
+alter table if exists public.prep_merchants
+  add column if not exists warehouse_country text;
+alter table if exists public.prep_merchants
+  add column if not exists import_tags text[];
+alter table if exists public.prep_merchants
+  add column if not exists sync_enabled boolean;
+alter table if exists public.prep_merchants
+  add column if not exists last_sync_at timestamptz;
+alter table if exists public.prep_merchants
+  add column if not exists created_at timestamptz;
+alter table if exists public.prep_merchants
   add column if not exists updated_at timestamptz;
 
 alter table if exists public.prep_merchants
