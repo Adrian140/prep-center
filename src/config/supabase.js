@@ -2370,49 +2370,45 @@ createPrepItem: async (requestId, item) => {
       (row) => row.units_sent ?? row.units_requested
     );
 
-    if (!filteredShippedItems.length) {
-      let shippedReqQuery = supabase
-        .from('prep_requests')
-        .select('id, step4_confirmed_at, company_id, warehouse_country');
-      if (companyId) shippedReqQuery = shippedReqQuery.eq('company_id', companyId);
-      if (marketCode) shippedReqQuery = shippedReqQuery.eq('warehouse_country', marketCode);
-      shippedReqQuery = shippedReqQuery
-        .gte('step4_confirmed_at', startIso)
-        .lte('step4_confirmed_at', endIso)
-        .limit(10000);
+    let shippedReqQuery = supabase
+      .from('prep_requests')
+      .select('id, step4_confirmed_at, company_id, warehouse_country');
+    if (companyId) shippedReqQuery = shippedReqQuery.eq('company_id', companyId);
+    if (marketCode) shippedReqQuery = shippedReqQuery.eq('warehouse_country', marketCode);
+    shippedReqQuery = shippedReqQuery
+      .gte('step4_confirmed_at', startIso)
+      .lte('step4_confirmed_at', endIso)
+      .limit(10000);
 
-      const shippedReqRes = await shippedReqQuery;
-      const shippedReqs = Array.isArray(shippedReqRes.data) ? shippedReqRes.data : [];
-      const shippedIds = shippedReqs.map((r) => r.id).filter(Boolean);
-      if (shippedIds.length) {
-        const itemsRes = await supabase
-          .from('prep_request_items')
-          .select('prep_request_id, units_requested, units_sent')
-          .in('prep_request_id', shippedIds)
-          .limit(20000);
-        const items = Array.isArray(itemsRes.data) ? itemsRes.data : [];
-        const dateById = new Map(shippedReqs.map((r) => [r.id, (r.step4_confirmed_at || '').slice(0, 10)]));
-        filteredShippedItems = items.map((it) => ({
-          ...it,
-          prep_requests: { id: it.prep_request_id, step4_confirmed_at: dateById.get(it.prep_request_id) }
-        }));
-        shippedUnitsTotal = filteredShippedItems.reduce(
-          (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
-          0
-        );
-        const shippedIdSet = new Set(
-          filteredShippedItems.map((row) => row.prep_requests?.id).filter(Boolean)
-        );
-        shippedShipmentsTotal = shippedIdSet.size;
-        shippedUnitsToday = filteredShippedItems
-          .filter((row) => (row.prep_requests?.step4_confirmed_at || '').slice(0, 10) === dateFrom)
-          .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
-        shippedDailyUnits = buildDailyUnits(
-          filteredShippedItems,
-          (row) => (row.prep_requests?.step4_confirmed_at || '').slice(0, 10),
-          (row) => row.units_sent ?? row.units_requested
-        );
-      }
+    const shippedReqRes = await shippedReqQuery;
+    const shippedReqs = Array.isArray(shippedReqRes.data) ? shippedReqRes.data : [];
+    const shippedIds = shippedReqs.map((r) => r.id).filter(Boolean);
+    shippedShipmentsTotal = shippedIds.length;
+
+    if (!filteredShippedItems.length && shippedIds.length) {
+      const itemsRes = await supabase
+        .from('prep_request_items')
+        .select('prep_request_id, units_requested, units_sent')
+        .in('prep_request_id', shippedIds)
+        .limit(20000);
+      const items = Array.isArray(itemsRes.data) ? itemsRes.data : [];
+      const dateById = new Map(shippedReqs.map((r) => [r.id, (r.step4_confirmed_at || '').slice(0, 10)]));
+      filteredShippedItems = items.map((it) => ({
+        ...it,
+        prep_requests: { id: it.prep_request_id, step4_confirmed_at: dateById.get(it.prep_request_id) }
+      }));
+      shippedUnitsTotal = filteredShippedItems.reduce(
+        (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
+        0
+      );
+      shippedUnitsToday = filteredShippedItems
+        .filter((row) => (row.prep_requests?.step4_confirmed_at || '').slice(0, 10) === dateFrom)
+        .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
+      shippedDailyUnits = buildDailyUnits(
+        filteredShippedItems,
+        (row) => (row.prep_requests?.step4_confirmed_at || '').slice(0, 10),
+        (row) => row.units_sent ?? row.units_requested
+      );
     }
     const receivingDailyUnits = buildDailyUnits(
       receivingItemsInRange,

@@ -52,7 +52,7 @@ const SectionTitle = ({ title }) => (
   </div>
 );
 
-const MetricCard = ({ title, value, subtitle, badge, compact = false }) => (
+const MetricCard = ({ title, value, subtitle, lines, badge, compact = false }) => (
   <div className={`bg-white border rounded-xl shadow-sm h-full ${compact ? 'p-3' : 'p-4'}`}>
     <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
       <span>{title}</span>
@@ -60,6 +60,13 @@ const MetricCard = ({ title, value, subtitle, badge, compact = false }) => (
     </div>
     <div className={`${compact ? 'text-xl' : 'text-2xl'} font-semibold text-text-primary`}>{value}</div>
     {subtitle && <div className="text-xs text-text-secondary mt-1">{subtitle}</div>}
+    {Array.isArray(lines) && lines.length > 0 && (
+      <div className="text-xs text-text-secondary mt-1 space-y-0.5">
+        {lines.map((line, idx) => (
+          <div key={`${title}-line-${idx}`}>{line}</div>
+        ))}
+      </div>
+    )}
   </div>
 );
 
@@ -620,14 +627,20 @@ export default function AdminCompanyDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
             <MetricCard
               title={isSingleDay ? t('adminDashboard.shippedToday') : tp('adminDashboard.shippedLastDays', { days: rangeDays })}
-              value={isSingleDay ? todayOrders : shippedTotalRange}
-              subtitle={`${snapshot?.shipped?.shipmentsTotal ?? 0} ${t('adminDashboard.shipmentsLabel')}`}
+              value={snapshot?.shipped?.shipmentsTotal ?? 0}
+              lines={[
+                `${snapshot?.shipped?.shipmentsTotal ?? 0} ${t('adminDashboard.shipmentsLabel')}`,
+                `${isSingleDay ? todayOrders : shippedTotalRange} ${t('adminDashboard.unitsLabel')}`
+              ]}
               compact
             />
             <MetricCard
               title={t('adminDashboard.inProgressLabel')}
               value={snapshot?.ordersPending?.shipmentsTotal ?? 0}
-              subtitle={`${snapshot?.ordersPending?.unitsTotal ?? 0} ${t('adminDashboard.unitsLabel')}`}
+              lines={[
+                `${snapshot?.ordersPending?.shipmentsTotal ?? 0} ${t('adminDashboard.shipmentsLabel')}`,
+                `${snapshot?.ordersPending?.unitsTotal ?? 0} ${t('adminDashboard.unitsLabel')}`
+              ]}
               compact
             />
             <div className="bg-white border rounded-xl p-3 shadow-sm">
