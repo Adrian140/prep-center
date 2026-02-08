@@ -673,12 +673,8 @@ export default function AdminCompanyDashboard() {
           </div>
 
           <SectionTitle title={t('adminDashboard.sectionInventory')} />
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-4 items-stretch">
             <MetricCard title={t('adminDashboard.quantityInStock')} value={inventoryUnitsAll} compact />
-            <MetricCard title={t('adminDashboard.availableQuantity')} value={inventoryAvailable} compact />
-            <MetricCard title={t('adminDashboard.inboundQuantity')} value={inventoryInbound} compact />
-            <MetricCard title={t('adminDashboard.allocatedQuantity')} value={inventoryAllocated} compact />
-            <MetricCard title={t('adminDashboard.unavailableQuantity')} value={inventoryUnavailable} compact />
           </div>
 
           <div className="bg-white border rounded-xl p-4 shadow-sm">
