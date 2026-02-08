@@ -538,22 +538,26 @@ const collectTrackingIds = (value, bucket = new Set()) => {
   return bucket;
 };
 
-async function fetchTransportTrackingIds(spClient, shipmentId, marketplaceId) {
+async function fetchShipmentDetailsV2024(spClient, inboundPlanId, shipmentId) {
+  if (!inboundPlanId || !shipmentId) return { shipTo: null, trackingIds: [] };
   try {
     const res = await spClient.callAPI({
-      operation: 'getTransportDetails',
-      endpoint: 'fulfillmentInboundShipment',
-      path: { shipmentId },
-      query: marketplaceId ? { MarketplaceId: marketplaceId } : {},
-      options: { version: 'v0' }
+      operation: 'getShipment',
+      endpoint: 'fulfillmentInbound',
+      path: { inboundPlanId, shipmentId },
+      options: { version: '2024-03-20' }
     });
     const payload = res?.payload || res;
+    const shipTo = payload?.destinationAddress || payload?.shipToAddress || payload?.shipTo || null;
     const trackingSet = collectTrackingIds(payload);
-    return Array.from(trackingSet.values()).filter(Boolean);
+    return {
+      shipTo,
+      trackingIds: Array.from(trackingSet.values()).filter(Boolean)
+    };
   } catch (err) {
     const message = err?.message || String(err);
-    console.warn(`[Prep shipments sync] Unable to fetch transport details for ${shipmentId}:`, message);
-    return [];
+    console.warn(`[Prep shipments sync] Unable to fetch shipment details for ${shipmentId}:`, message);
+    return { shipTo: null, trackingIds: [] };
   }
 }
 
@@ -691,9 +695,28 @@ async function main() {
         );
         const trackableStatuses = new Set(['SHIPPED', 'IN_TRANSIT', 'DELIVERED', 'CLOSED', 'RECEIVING', 'RECEIVED']);
         const normalizedSnapStatus = normalizeTransportStatus(snap.status);
-        const transportTrackingIds = trackableStatuses.has(normalizedSnapStatus)
-          ? await fetchTransportTrackingIds(client, shipmentIdForSync, marketplaceId)
-          : [];
+        const inboundPlanId =
+          row?.amazon_snapshot?.fba_inbound?.inboundPlanId ||
+          row?.amazon_snapshot?.inboundPlanId ||
+          null;
+        const details = trackableStatuses.has(normalizedSnapStatus)
+          ? await fetchShipmentDetailsV2024(client, inboundPlanId, shipmentIdForSync)
+          : { shipTo: null, trackingIds: [] };
+        const transportTrackingIds = details.trackingIds || [];
+
+        if (!snap.ship_to && details.shipTo) {
+          const shipTo = details.shipTo;
+          snap.ship_to = {
+            name: shipTo?.name || shipTo?.Name || null,
+            address1: shipTo?.address1 || shipTo?.AddressLine1 || null,
+            address2: shipTo?.address2 || shipTo?.AddressLine2 || null,
+            city: shipTo?.city || shipTo?.City || null,
+            state: shipTo?.state || shipTo?.StateOrRegion || null,
+            postal_code: shipTo?.postalCode || shipTo?.postal_code || shipTo?.PostalCode || null,
+            country_code: shipTo?.countryCode || shipTo?.country_code || shipTo?.CountryCode || null,
+            phone: shipTo?.phone || shipTo?.Phone || null
+          };
+        }
         await updateItemAmazonQuantities(row.prep_request_items, amazonItems);
         let prepStatusResolved = row.prep_status;
         if (!prepStatusResolved) {
