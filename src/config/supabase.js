@@ -2104,10 +2104,15 @@ createPrepItem: async (requestId, item) => {
       ? parseRpcTotal(stockTotalByCountryRpcRes)
       : parseRpcTotal(stockTotalRpcRes);
 
-    const fbaInStock = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_stock), 0);
-    const fbaReserved = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_reserved), 0);
-    const fbaIncoming = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_inbound), 0);
-    const fbaUnfulfillable = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_unfulfillable), 0);
+    const fbaInStockRaw = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_stock), 0);
+    const fbaReservedRaw = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_reserved), 0);
+    const fbaIncomingRaw = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_inbound), 0);
+    const fbaUnfulfillableRaw = stockRows.reduce((acc, row) => acc + numberOrZero(row.amazon_unfulfillable), 0);
+    // amazon_* nu sunt pe țară; pentru market specific folosim qty per țară (prep_qty_by_country)
+    const fbaInStock = marketCode ? inventoryUnits : fbaInStockRaw;
+    const fbaReserved = marketCode ? 0 : fbaReservedRaw;
+    const fbaIncoming = marketCode ? 0 : fbaIncomingRaw;
+    const fbaUnfulfillable = marketCode ? 0 : fbaUnfulfillableRaw;
 
     const invoiceRows = Array.isArray(invoicesRes.data) ? invoicesRes.data : [];
     const pendingInvoices = invoiceRows.filter(
