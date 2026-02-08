@@ -625,7 +625,8 @@ export default function AdminCompanyDashboard() {
             />
             <MetricCard
               title={t('adminDashboard.inProgressLabel')}
-              value={snapshot?.ordersPending?.unitsTotal ?? 0}
+              value={snapshot?.ordersPending?.shipmentsTotal ?? 0}
+              subtitle={`${snapshot?.ordersPending?.unitsTotal ?? 0} ${t('adminDashboard.unitsLabel')}`}
               compact
             />
             <div className="bg-white border rounded-xl p-3 shadow-sm">

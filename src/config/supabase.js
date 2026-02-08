@@ -2177,6 +2177,9 @@ createPrepItem: async (requestId, item) => {
       (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
       0
     );
+    const pendingShipmentsTotal = new Set(
+      pendingItemsByCompany.map((row) => row.prep_requests?.id).filter(Boolean)
+    ).size;
 
     const prepUnitsTotal = preparedItems.reduce(
       (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
@@ -2462,7 +2465,8 @@ createPrepItem: async (requestId, item) => {
           returns: { label: 'Returns', ...returnsSeries }
         },
         ordersPending: {
-          unitsTotal: pendingUnitsTotal
+          unitsTotal: pendingUnitsTotal,
+          shipmentsTotal: pendingShipmentsTotal
         }
       },
       error:
