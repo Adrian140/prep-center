@@ -225,6 +225,7 @@ async function fetchPrepRequests() {
         amazon_shipment_name,
         amazon_reference_id,
         amazon_destination_code,
+        inbound_plan_id,
         step2_shipments,
         prep_request_items (
           id,
@@ -696,6 +697,7 @@ async function main() {
         const trackableStatuses = new Set(['SHIPPED', 'IN_TRANSIT', 'DELIVERED', 'CLOSED', 'RECEIVING', 'RECEIVED']);
         const normalizedSnapStatus = normalizeTransportStatus(snap.status);
         const inboundPlanId =
+          row?.inbound_plan_id ||
           row?.amazon_snapshot?.fba_inbound?.inboundPlanId ||
           row?.amazon_snapshot?.inboundPlanId ||
           null;
@@ -791,6 +793,13 @@ async function main() {
         const shouldSkipClosedUpdate =
           row.amazon_status === 'CLOSED' && nextStatus === 'CLOSED';
         if (!shouldSkipClosedUpdate) {
+          const existingSnapshot = row.amazon_snapshot || {};
+          const mergedSnapshot = {
+            ...existingSnapshot,
+            ...snap,
+            fba_inbound: existingSnapshot?.fba_inbound || snap?.fba_inbound || null,
+            inboundPlanId: existingSnapshot?.inboundPlanId || snap?.inboundPlanId || null
+          };
           await updatePrepRequest(row.id, {
             amazon_status: nextStatus,
             amazon_units_expected: snap.units_expected,
@@ -801,7 +810,7 @@ async function main() {
             amazon_destination_code: snap.destination_code,
             amazon_delivery_window: snap.delivery_window,
             amazon_last_updated: resolvedLastUpdated,
-            amazon_snapshot: snap,
+            amazon_snapshot: mergedSnapshot,
             amazon_last_synced_at: nowIso,
             amazon_sync_error: null,
             prep_status: prepStatusResolved,
