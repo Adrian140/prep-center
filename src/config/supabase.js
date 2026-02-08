@@ -2040,8 +2040,6 @@ createPrepItem: async (requestId, item) => {
         .from('prep_request_items')
         .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status, step4_confirmed_at)')
         .eq('prep_requests.status', 'confirmed')
-        .gte('prep_requests.confirmed_at', startIso)
-        .lte('prep_requests.confirmed_at', endIso)
         .limit(10000);
       let receivingItemsRetry = supabase
         .from('receiving_to_stock_log')
@@ -2140,8 +2138,13 @@ createPrepItem: async (requestId, item) => {
     };
     const prepItemsBase = (Array.isArray(prepItemRows) ? prepItemRows : []).filter((r) => r?.prep_requests);
     const prepItemsByCompany = filterCompanyJoin(prepItemsBase, (r) => r.prep_requests?.company_id);
-    const preparedItems = prepItemsByCompany.filter((row) => row.prep_requests?.confirmed_at);
-    const filteredShippedItems = prepItemsByCompany.filter((row) => row.prep_requests?.step4_confirmed_at);
+    const inRangeDate = (value) => {
+      if (!value) return false;
+      const d = String(value).slice(0, 10);
+      return d >= dateFrom && d <= dateTo;
+    };
+    const preparedItems = prepItemsByCompany.filter((row) => inRangeDate(row.prep_requests?.confirmed_at));
+    const filteredShippedItems = prepItemsByCompany.filter((row) => inRangeDate(row.prep_requests?.step4_confirmed_at));
     const filteredReceivingItems = receivingItemRows;
 
     const prepUnitsTotal = preparedItems.reduce(
