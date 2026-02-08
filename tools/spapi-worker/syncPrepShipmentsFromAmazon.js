@@ -211,7 +211,8 @@ async function fetchPrepRequests() {
       .range(offset, offset + PAGE_SIZE - 1);
 
     if (!INCLUDE_CLOSED) {
-      query = query.neq('amazon_status', 'CLOSED');
+      // Include confirmed requests even if Amazon marked them CLOSED.
+      query = query.or('amazon_status.neq.CLOSED,status.eq.confirmed');
     }
 
     const { data, error } = await query;
