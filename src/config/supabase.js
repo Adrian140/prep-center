@@ -1925,7 +1925,7 @@ createPrepItem: async (requestId, item) => {
 
     let prepItemsQuery = supabase
       .from('prep_request_items')
-      .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status, warehouse_country)')
+      .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status, warehouse_country, step4_confirmed_at)')
       .eq('prep_requests.status', 'confirmed');
     if (marketCode) {
       prepItemsQuery = prepItemsQuery.eq('prep_requests.warehouse_country', marketCode);
@@ -2139,6 +2139,7 @@ createPrepItem: async (requestId, item) => {
       return rows.filter((row) => extractor(row) === companyId);
     };
     const filteredPrepItems = filterCompanyJoin(prepItemRows, (r) => r.prep_requests?.company_id);
+    const filteredShippedItems = filteredPrepItems.filter((row) => row.prep_requests?.step4_confirmed_at);
     const filteredReceivingItems = receivingItemRows;
 
     const prepUnitsTotal = filteredPrepItems.reduce(
@@ -2147,6 +2148,14 @@ createPrepItem: async (requestId, item) => {
     );
     const prepUnitsToday = filteredPrepItems
       .filter((row) => (row.prep_requests?.confirmed_at || '').slice(0, 10) === dateFrom)
+      .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
+
+    const shippedUnitsTotal = filteredShippedItems.reduce(
+      (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
+      0
+    );
+    const shippedUnitsToday = filteredShippedItems
+      .filter((row) => (row.prep_requests?.step4_confirmed_at || '').slice(0, 10) === dateFrom)
       .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
 
     const getReceivingDate = (row) =>
@@ -2311,6 +2320,11 @@ createPrepItem: async (requestId, item) => {
       (row) => (row.prep_requests?.confirmed_at || '').slice(0, 10),
       (row) => row.units_sent ?? row.units_requested
     );
+    const shippedDailyUnits = buildDailyUnits(
+      filteredShippedItems,
+      (row) => (row.prep_requests?.step4_confirmed_at || '').slice(0, 10),
+      (row) => row.units_sent ?? row.units_requested
+    );
     const receivingDailyUnits = buildDailyUnits(
       receivingItemsInRange,
       (row) => getReceivingDate(row),
@@ -2353,6 +2367,11 @@ createPrepItem: async (requestId, item) => {
           unitsToday: prepUnitsToday,
           unitsTotal: prepUnitsTotal,
           dailyUnits: preparedDailyUnits
+        },
+        shipped: {
+          unitsToday: shippedUnitsToday,
+          unitsTotal: shippedUnitsTotal,
+          dailyUnits: shippedDailyUnits
         },
         receiving: {
           unitsToday: receivingUnitsToday,

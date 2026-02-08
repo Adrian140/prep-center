@@ -371,7 +371,7 @@ export default function AdminCompanyDashboard() {
         (c.id || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const todayOrders = snapshot?.prepared?.unitsToday ?? 0;
+  const todayOrders = snapshot?.shipped?.unitsToday ?? 0;
   const todayReceiving = snapshot?.receiving?.unitsToday ?? 0;
   const todayReceivingShipments =
     snapshot?.receiving?.shipmentsToday ??
@@ -379,10 +379,10 @@ export default function AdminCompanyDashboard() {
     snapshot?.receiving?.ordersToday ??
     0;
 
-  const sumTotalPrepared = snapshot?.prepared?.unitsTotal ?? 0;
+  const sumTotalPrepared = snapshot?.shipped?.unitsTotal ?? 0;
   const sumTotalReceiving = snapshot?.receiving?.unitsTotal ?? 0;
 
-  const preparedDaily = chartSnapshot?.prepared?.dailyUnits || snapshot?.prepared?.dailyUnits || [];
+  const preparedDaily = chartSnapshot?.shipped?.dailyUnits || snapshot?.shipped?.dailyUnits || [];
   const receivingDaily = chartSnapshot?.receiving?.dailyUnits || snapshot?.receiving?.dailyUnits || [];
   const balanceDaily = chartSnapshot?.finance?.dailyAmounts || snapshot?.finance?.dailyAmounts || [];
   const inventoryUnits = snapshot?.inventory?.units ?? 0;
