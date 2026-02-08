@@ -1992,7 +1992,7 @@ createPrepItem: async (requestId, item) => {
       .lte('service_date', dateTo)
       .limit(20000);
 
-    let [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, stockTotalByCountryRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, pendingItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
+    let [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, stockTotalByCountryRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
       stockPromise,
       stockAllPromise,
       clientStockPromise,
@@ -2003,13 +2003,13 @@ createPrepItem: async (requestId, item) => {
       prepPromise,
       receivingPromise,
       prepItemsPromise,
-      pendingItemsPromise,
       receivingItemsPromise,
       fbaLinesPromise,
       fbmLinesPromise,
       otherLinesPromise,
       balancePromise
     ]);
+    let pendingItemsRes = await pendingItemsPromise;
     const needsWarehouseRetry =
       marketCode &&
       [returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes]
@@ -2074,7 +2074,9 @@ createPrepItem: async (requestId, item) => {
       if (isWarehouseMissing(prepRes?.error)) prepRes = prepRetryRes;
       if (isWarehouseMissing(receivingRes?.error)) receivingRes = receivingRetryRes;
       if (isWarehouseMissing(prepItemsRes?.error)) prepItemsRes = prepItemsRetryRes;
-      if (isWarehouseMissing(pendingItemsRes?.error)) pendingItemsRes = pendingItemsRetryRes;
+      if (isWarehouseMissing(pendingItemsRes?.error)) {
+        pendingItemsRes = pendingItemsRetryRes;
+      }
       if (isWarehouseMissing(receivingItemsRes?.error)) receivingItemsRes = receivingItemsRetryRes;
     }
 
