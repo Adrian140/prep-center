@@ -2394,16 +2394,16 @@ createPrepItem: async (requestId, item) => {
         const dateById = new Map(shippedReqs.map((r) => [r.id, (r.step4_confirmed_at || '').slice(0, 10)]));
         filteredShippedItems = items.map((it) => ({
           ...it,
-          prep_requests: { step4_confirmed_at: dateById.get(it.prep_request_id) }
+          prep_requests: { id: it.prep_request_id, step4_confirmed_at: dateById.get(it.prep_request_id) }
         }));
         shippedUnitsTotal = filteredShippedItems.reduce(
           (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
           0
         );
-        const shippedIds = new Set(
+        const shippedIdSet = new Set(
           filteredShippedItems.map((row) => row.prep_requests?.id).filter(Boolean)
         );
-        shippedShipmentsTotal = shippedIds.size;
+        shippedShipmentsTotal = shippedIdSet.size;
         shippedUnitsToday = filteredShippedItems
           .filter((row) => (row.prep_requests?.step4_confirmed_at || '').slice(0, 10) === dateFrom)
           .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
