@@ -6,10 +6,19 @@ export default function LanguageSelector() {
   const { currentLanguage, changeLanguage, languages } = useLanguage();
   const [open, setOpen] = useState(false);
 
+  const flagByCode = {
+    fr: '🇫🇷',
+    en: '🇬🇧',
+    de: '🇩🇪',
+    it: '🇮🇹',
+    es: '🇪🇸',
+    ro: '🇷🇴',
+  };
+
   const items = Object.entries(languages).map(([code, meta]) => ({
     code,
-    label: meta.name,
-    flag: meta.flag
+    label: meta?.name ?? code,
+    flag: meta?.flag ?? flagByCode[code] ?? '🌐'
   }));
   const active = items.find((l) => l.code === currentLanguage) || items[0] || { flag: '🌐', label: currentLanguage };
 
