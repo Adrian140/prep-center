@@ -37,7 +37,7 @@ export const en = {
   
   // Home Page - Hero Section
   heroTitle: 'Prep Center – France & Germany hubs, 24h prep & EU shipping',
-  heroSubtitle: '24h turnaround from our France and Germany warehouses: QC, labeling, polybagging & fast dispatch to EU fulfillment centers',
+  heroSubtitle: '24h turnaround for FBA, FBM, Private Label and Online Arbitrage sellers from our France and Germany warehouses',
   
   // Home Page - Stats
   yearsExperience: 'Years Experience',

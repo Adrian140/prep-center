@@ -37,7 +37,7 @@ export const fr = {
   
   // Home Page - Hero Section
   heroTitle: 'Prep Center – hubs France & Allemagne, préparation et expédition 24h',
-  heroSubtitle: 'Traitement 24h depuis nos entrepôts en France et en Allemagne : contrôle qualité, étiquetage, emballage et expédition rapide vers les centres de fulfillment en Europe',
+  heroSubtitle: 'Traitement en 24 h pour les vendeurs FBA, FBM, Private Label et Online Arbitrage depuis nos entrepôts en France et en Allemagne',
   
   // Home Page - Stats
   yearsExperience: 'Années d\'Expérience',

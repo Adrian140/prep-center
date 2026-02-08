@@ -37,7 +37,7 @@ export const ro = {
   
   // Home Page - Hero Section
   heroTitle: 'Prep Center – hub-uri în Franța și Germania, preparare & expediere 24h',
-  heroSubtitle: 'Procesare 24h din ambele depozite (Franța și Germania): QC, etichetare, ambalare și expediere rapidă către centrele de fulfillment din Europa',
+  heroSubtitle: 'Procesare în 24h pentru vânzători FBA, FBM, Private Label și Online Arbitrage din depozitele noastre din Franța și Germania',
   
   // Home Page - Stats
   yearsExperience: 'Ani de Experiență',
