@@ -384,6 +384,10 @@ export default function AdminCompanyDashboard() {
 
   const preparedDaily = chartSnapshot?.shipped?.dailyUnits || snapshot?.shipped?.dailyUnits || [];
   const receivingDaily = chartSnapshot?.receiving?.dailyUnits || snapshot?.receiving?.dailyUnits || [];
+  const receivingShipmentsDaily =
+    chartSnapshot?.series?.shipments?.daily ||
+    snapshot?.series?.shipments?.daily ||
+    [];
   const balanceDaily = chartSnapshot?.finance?.dailyAmounts || snapshot?.finance?.dailyAmounts || [];
   const inventoryUnits = snapshot?.inventory?.units ?? 0;
   const isAllCompanies = selectedCompany?.id === 'ALL';
@@ -422,6 +426,12 @@ export default function AdminCompanyDashboard() {
   const inboundRange = receivingDaily
     .filter((row) => inRange(row.date))
     .map((row) => ({ date: row.date, value: row.units || 0 }));
+  const inboundShipmentsRange = receivingShipmentsDaily
+    .filter((row) => inRange(row.date))
+    .reduce((sum, row) => sum + Number(row.total || 0), 0);
+  const inboundShipmentsToday = receivingShipmentsDaily
+    .filter((row) => row.date === dateFrom)
+    .reduce((sum, row) => sum + Number(row.total || 0), 0);
   const shippedRange = preparedDaily
     .filter((row) => inRange(row.date))
     .map((row) => ({ date: row.date, value: row.units || 0 }));
@@ -430,9 +440,13 @@ export default function AdminCompanyDashboard() {
   const shippedTotalRange = shippedRange.reduce((sum, row) => sum + Number(row.value || 0), 0);
 
   const inboundTodayUnits = todayReceiving;
-  const inboundTodayShipments = todayReceivingShipments;
-  const inboundPercentUnits = inboundTotalRange ? (inboundTodayUnits / inboundTotalRange) * 100 : 0;
-  const inboundPercentShipments = inboundTotalRange ? (inboundTodayShipments / inboundTotalRange) * 100 : 0;
+  const inboundTodayShipments = inboundShipmentsToday || todayReceivingShipments;
+  const inboundPercentUnits = inboundTotalRange
+    ? (isSingleDay ? 100 : (inboundTodayUnits / inboundTotalRange) * 100)
+    : 0;
+  const inboundPercentShipments = inboundTotalRange
+    ? (isSingleDay ? 100 : (inboundTodayShipments / inboundTotalRange) * 100)
+    : 0;
   const rangeDays = (() => {
     try {
       const start = new Date(dateFrom);
@@ -570,9 +584,9 @@ export default function AdminCompanyDashboard() {
             <DualStatCard
               title={isSingleDay ? 'Arriving Today' : `Arriving Last ${rangeDays} Days`}
               leftLabel="Shipments"
-              leftValue={isSingleDay ? todayReceivingShipments : inboundTotalRange}
+              leftValue={isSingleDay ? inboundTodayShipments : inboundShipmentsRange}
               rightLabel="Units"
-              rightValue={isSingleDay ? todayReceiving : inboundTotalRange}
+              rightValue={isSingleDay ? inboundTodayUnits : inboundTotalRange}
             />
             <div className="bg-white border rounded-xl p-3 shadow-sm">
               <div className="text-sm text-text-secondary mb-3">
