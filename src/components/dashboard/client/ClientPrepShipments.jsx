@@ -761,12 +761,15 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 const lastUpdatedParts = formatDateParts(row.amazon_last_updated || row.confirmed_at || row.created_at);
                 const snapshot = row.amazon_snapshot || {};
                 const shipmentSuffix = shipmentCount > 1 ? ` (${shipmentIndex + 1}/${shipmentCount})` : '';
-                const shipmentName =
+                const rawShipmentName =
                   shipment?.name ||
                   row.amazon_shipment_name ||
                   snapshot.shipment_name ||
-                  shipment?.shipmentId ||
-                  row.fba_shipment_id ||
+                  null;
+                const shipmentName =
+                  (rawShipmentName && rawShipmentName !== shipment?.shipmentId ? rawShipmentName : null) ||
+                  row.amazon_shipment_name ||
+                  snapshot.shipment_name ||
                   'FBA shipment';
                 const amazonShipmentId = pickAmazonShipmentId({ shipment, row, snapshot });
                 const shipmentId = amazonShipmentId || shipment?.shipmentId || row.fba_shipment_id || snapshot.shipment_id || '—';
