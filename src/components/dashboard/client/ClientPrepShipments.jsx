@@ -844,9 +844,6 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                           Plan ShipmentId: {shipmentId}
                         </div>
                       )}
-                      {shipment?.packingGroupId && (
-                        <div className="text-[11px] text-text-secondary">Pack group: {shipment.packingGroupId}</div>
-                      )}
                       {clientNote && (
                         <div className="text-xs text-text-secondary mt-1 line-clamp-2">
                           {clientNote}
