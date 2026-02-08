@@ -713,6 +713,26 @@ serve(async (req) => {
       snapshot?.packingGroups ||
       snapshot?.packing_groups ||
       [];
+    const packingGroupSummary = new Map<string, { items: any[]; skuCount: number; units: number }>();
+    if (Array.isArray(snapshotPackingGroups)) {
+      snapshotPackingGroups.forEach((g: any, idx: number) => {
+        const pgId = g?.packingGroupId || g?.id || `pg-${idx + 1}`;
+        const items = (Array.isArray(g?.items) ? g.items : [])
+          .map((it: any) => {
+            const sku = it?.sku || it?.msku || it?.SellerSKU || it?.sellerSku || null;
+            const asin = it?.asin || it?.ASIN || null;
+            const quantity = Number(it?.quantity || it?.Quantity || 0) || 0;
+            return {
+              sku,
+              asin,
+              quantity
+            };
+          })
+          .filter((it: any) => (it.sku || it.asin) && it.quantity > 0);
+        const units = items.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0);
+        packingGroupSummary.set(String(pgId), { items, skuCount: items.length, units });
+      });
+    }
     if (!effectivePackingOptionId && snapshot?.packingOptionId) {
       effectivePackingOptionId = snapshot.packingOptionId;
     }
@@ -1536,7 +1556,18 @@ serve(async (req) => {
         const id = sh?.shipmentId || sh?.id || `s-${idx + 1}`;
         const shipFromAddress = sh?.source?.address || planSourceAddress || null;
         const shipToAddress = sh?.destination?.address || sh?.destination || null;
-        return { ...sh, id, shipmentId: id, shipFromAddress, shipToAddress };
+        const pgId = sh?.packingGroupId || sh?.packing_group_id || null;
+        const pgMeta = pgId ? packingGroupSummary.get(String(pgId)) : null;
+        return {
+          ...sh,
+          id,
+          shipmentId: id,
+          shipFromAddress,
+          shipToAddress,
+          items: pgMeta?.items || sh?.items || null,
+          skuCount: pgMeta?.skuCount ?? sh?.skuCount ?? null,
+          units: pgMeta?.units ?? sh?.units ?? null
+        };
       });
 
     const shipmentNamePrefix = warehouseCountry === "DE" ? "EcomPrepHub.de" : "EcomPrepHub.fr";
@@ -2061,6 +2092,8 @@ serve(async (req) => {
           sh?.destination?.warehouseId ||
           null;
         const cfg = configsByShipment.get(String(shId)) || {};
+        const pgId = sh?.packingGroupId || sh?.packing_group_id || null;
+        const pgMeta = pgId ? packingGroupSummary.get(String(pgId)) : null;
         const pkgList = Array.isArray(cfg?.packages) ? cfg.packages : [];
         const palletList = Array.isArray(cfg?.pallets) ? cfg.pallets : [];
         let weightFromPackages = 0;
@@ -2129,8 +2162,9 @@ serve(async (req) => {
           })(),
           destinationWarehouseId: destinationFc || null,
           boxes: contents?.boxes || contents?.cartons || boxesFromCfg || null,
-          skuCount: contents?.skuCount || null,
-          units: contents?.units || null,
+          skuCount: pgMeta?.skuCount ?? contents?.skuCount ?? null,
+          units: pgMeta?.units ?? contents?.units ?? null,
+          items: pgMeta?.items || null,
           weight: resolvedWeight ?? null,
           weight_unit: resolvedWeight ? resolvedWeightUnit || "LB" : null
         });

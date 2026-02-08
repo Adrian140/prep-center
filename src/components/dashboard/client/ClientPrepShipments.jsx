@@ -767,12 +767,18 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 const shipmentId = amazonShipmentId || shipment?.shipmentId || row.fba_shipment_id || snapshot.shipment_id || '—';
                 const referenceId = row.amazon_reference_id || snapshot.reference_id || snapshot.shipment_reference_id || '';
                 const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
+                const perShipmentSkusRaw = Number(shipment?.skuCount ?? shipment?.skus ?? NaN);
+                const perShipmentUnitsRaw = Number(shipment?.units ?? NaN);
                 const skusCountRaw = Number(row.amazon_skus ?? snapshot.skus ?? items.length);
-                const skusCount = Number.isFinite(skusCountRaw) ? skusCountRaw : items.length || '—';
+                const skusCount = Number.isFinite(perShipmentSkusRaw)
+                  ? perShipmentSkusRaw
+                  : (Number.isFinite(skusCountRaw) ? skusCountRaw : items.length || '—');
                 const unitsExpectedRaw = Number(row.amazon_units_expected ?? snapshot.units_expected);
-                const unitsExpected = Number.isFinite(unitsExpectedRaw)
-                  ? unitsExpectedRaw
-                  : items.reduce((acc, it) => acc + Number(it.units_sent ?? it.units_requested ?? 0), 0);
+                const unitsExpected = Number.isFinite(perShipmentUnitsRaw)
+                  ? perShipmentUnitsRaw
+                  : (Number.isFinite(unitsExpectedRaw)
+                    ? unitsExpectedRaw
+                    : items.reduce((acc, it) => acc + Number(it.units_sent ?? it.units_requested ?? 0), 0));
                 const unitsLocatedRaw = Number(
                   row.amazon_units_located ?? snapshot.units_located ?? snapshot.units_received
                 );
