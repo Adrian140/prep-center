@@ -625,6 +625,9 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
         .filter(Boolean)
         .join(' · ')
     : (isAmazonShipmentId(reqHeader?.fba_shipment_id) ? reqHeader?.fba_shipment_id : '');
+  const headerTrackingIds = (reqHeader?.prep_request_tracking || [])
+    .map((t) => t?.tracking_id)
+    .filter(Boolean);
   const filteredRows = useMemo(() => {
     const raw = searchTerm.trim().toLowerCase();
     if (!raw) return rows;
@@ -1002,6 +1005,11 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                   <div className="text-xs uppercase text-text-secondary mb-2">Shipment</div>
                   <div className="text-sm text-text-secondary">Created: {formatDisplayDate(amazonSnapshot?.created_date || reqHeader?.created_at)}</div>
                   <div className="text-sm text-text-secondary">ID: {headerShipmentIds || '—'}</div>
+                  {headerTrackingIds.length > 0 && (
+                    <div className="text-sm text-text-secondary">
+                      Tracking IDs: {headerTrackingIds.join(' · ')}
+                    </div>
+                  )}
                   {amazonSnapshot?.created_using && (
                     <div className="text-sm text-text-secondary">Created using: {amazonSnapshot.created_using}</div>
                   )}
@@ -1073,6 +1081,11 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
               </div>
               <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.status')}:</span> {reqHeader?.status || 'pending'}</div>
               <div><span className="text-text-secondary">{t('ClientPrepShipments.drawer.shipment')}:</span> {headerShipmentIds || '—'}</div>
+              {headerTrackingIds.length > 0 && (
+                <div>
+                  <span className="text-text-secondary">Tracking IDs:</span> {headerTrackingIds.join(' · ')}
+                </div>
+              )}
             </div>
           )}
 
