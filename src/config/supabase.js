@@ -1925,11 +1925,7 @@ createPrepItem: async (requestId, item) => {
 
     let prepItemsQuery = supabase
       .from('prep_request_items')
-      .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status, warehouse_country, step4_confirmed_at)')
-      .eq('prep_requests.status', 'confirmed');
-    if (marketCode) {
-      prepItemsQuery = prepItemsQuery.eq('prep_requests.warehouse_country', marketCode);
-    }
+      .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status, warehouse_country, destination_country, step4_confirmed_at)');
     const prepItemsPromise = prepItemsQuery
       .gte('prep_requests.confirmed_at', startIso)
       .lte('prep_requests.confirmed_at', endIso)
@@ -2038,8 +2034,7 @@ createPrepItem: async (requestId, item) => {
         .limit(5000);
       const prepItemsRetry = supabase
         .from('prep_request_items')
-        .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status)')
-        .eq('prep_requests.status', 'confirmed')
+        .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status, destination_country, step4_confirmed_at)')
         .gte('prep_requests.confirmed_at', startIso)
         .lte('prep_requests.confirmed_at', endIso)
         .limit(10000);
@@ -2138,15 +2133,28 @@ createPrepItem: async (requestId, item) => {
       if (!companyId) return rows;
       return rows.filter((row) => extractor(row) === companyId);
     };
-    const filteredPrepItems = filterCompanyJoin(prepItemRows, (r) => r.prep_requests?.company_id);
-    const filteredShippedItems = filteredPrepItems.filter((row) => row.prep_requests?.step4_confirmed_at);
+    const matchMarket = (row) => {
+      if (!marketCode) return true;
+      const m =
+        row?.prep_requests?.warehouse_country ||
+        row?.prep_requests?.destination_country ||
+        row?.prep_requests?.warehouseCountry ||
+        row?.prep_requests?.destinationCountry ||
+        null;
+      return m === marketCode;
+    };
+    const prepItemsBase = (Array.isArray(prepItemRows) ? prepItemRows : []).filter((r) => r?.prep_requests);
+    const prepItemsMarket = prepItemsBase.filter(matchMarket);
+    const prepItemsByCompany = filterCompanyJoin(prepItemsMarket, (r) => r.prep_requests?.company_id);
+    const preparedItems = prepItemsByCompany.filter((row) => row.prep_requests?.confirmed_at);
+    const filteredShippedItems = prepItemsByCompany.filter((row) => row.prep_requests?.step4_confirmed_at);
     const filteredReceivingItems = receivingItemRows;
 
-    const prepUnitsTotal = filteredPrepItems.reduce(
+    const prepUnitsTotal = preparedItems.reduce(
       (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
       0
     );
-    const prepUnitsToday = filteredPrepItems
+    const prepUnitsToday = preparedItems
       .filter((row) => (row.prep_requests?.confirmed_at || '').slice(0, 10) === dateFrom)
       .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
 
@@ -2316,7 +2324,7 @@ createPrepItem: async (requestId, item) => {
     const returnsSeries = buildSeries(returnsRows);
 
     const preparedDailyUnits = buildDailyUnits(
-      filteredPrepItems,
+      preparedItems,
       (row) => (row.prep_requests?.confirmed_at || '').slice(0, 10),
       (row) => row.units_sent ?? row.units_requested
     );
