@@ -218,8 +218,17 @@ export default function AdminAffiliates() {
       setMessage(t('affiliates.formError'));
       return;
     }
+    if (codes.some((c) => c.owner_profile_id === form.owner_profile_id)) {
+      setMessage(t('affiliates.ownerHasCode'));
+      return;
+    }
     setCreating(true);
     try {
+      const pendingRequest = requests.find(
+        (req) =>
+          req.profile_id === form.owner_profile_id &&
+          (req.status === 'pending' || req.status === 'review')
+      );
       const tiersPayload = sanitizeTiers(form.payout_tiers);
       const payload = {
         owner_profile_id: form.owner_profile_id,
@@ -236,6 +245,13 @@ export default function AdminAffiliates() {
         payout_tiers: tiersPayload
       };
       await supabaseHelpers.createAffiliateCode(payload);
+      if (pendingRequest?.id) {
+        try {
+          await supabaseHelpers.respondAffiliateRequest(pendingRequest.id, { status: 'approved' });
+        } catch (err) {
+          console.warn('approveAffiliateRequest', err);
+        }
+      }
       setForm(initialCodeForm);
       setMessage(t('affiliates.createSuccess'));
       loadData();
@@ -419,6 +435,14 @@ export default function AdminAffiliates() {
       await supabaseHelpers.respondAffiliateRequest(req.id, { status: 'rejected' });
       loadData();
       return;
+    }
+    try {
+      await supabaseHelpers.respondAffiliateRequest(req.id, { status: 'review' });
+      setRequests((prev) =>
+        prev.map((item) => (item.id === req.id ? { ...item, status: 'review' } : item))
+      );
+    } catch (err) {
+      console.warn('markAffiliateRequestReview', err);
     }
     if (req.profile) {
       setOwnerOptions((prev) => {
