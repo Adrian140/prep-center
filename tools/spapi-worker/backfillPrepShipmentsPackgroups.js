@@ -11,7 +11,8 @@ const buildPackingGroupSummary = (snapshot) => {
     snapshot?.packing_groups ||
     [];
   const map = new Map();
-  if (!Array.isArray(source)) return map;
+  const list = [];
+  if (!Array.isArray(source)) return { map, list };
   source.forEach((g, idx) => {
     const pgId = g?.packingGroupId || g?.id || `pg-${idx + 1}`;
     const items = (Array.isArray(g?.items) ? g.items : [])
@@ -23,9 +24,11 @@ const buildPackingGroupSummary = (snapshot) => {
       })
       .filter((it) => (it.sku || it.asin) && it.quantity > 0);
     const units = items.reduce((sum, it) => sum + Number(it.quantity || 0), 0);
-    map.set(String(pgId), { items, skuCount: items.length, units });
+    const meta = { packingGroupId: String(pgId), items, skuCount: items.length, units };
+    map.set(String(pgId), meta);
+    list.push(meta);
   });
-  return map;
+  return { map, list };
 };
 
 const needsUpdate = (shipment) => {
@@ -62,17 +65,23 @@ async function main() {
       const shipments = Array.isArray(row.step2_shipments) ? row.step2_shipments : [];
       if (!shipments.length) continue;
       const pgSummary = buildPackingGroupSummary(row.amazon_snapshot || {});
-      if (!pgSummary.size) continue;
+      if (!pgSummary.map.size) continue;
+      const canAssignByIndex =
+        shipments.length === pgSummary.list.length &&
+        shipments.every((sh) => !(sh?.packingGroupId || sh?.packing_group_id));
 
       let changed = false;
-      const next = shipments.map((sh) => {
+      const next = shipments.map((sh, idx) => {
         const pgId = sh?.packingGroupId || sh?.packing_group_id || null;
-        if (!pgId || !needsUpdate(sh)) return sh;
-        const meta = pgSummary.get(String(pgId));
+        const assigned = !pgId && canAssignByIndex ? pgSummary.list[idx]?.packingGroupId || null : pgId;
+        if (!assigned) return sh;
+        if (!needsUpdate(sh)) return { ...sh, packingGroupId: assigned };
+        const meta = pgSummary.map.get(String(assigned));
         if (!meta) return sh;
         changed = true;
         return {
           ...sh,
+          packingGroupId: assigned,
           items: meta.items || sh.items || null,
           skuCount: meta.skuCount ?? sh.skuCount ?? null,
           units: meta.units ?? sh.units ?? null
