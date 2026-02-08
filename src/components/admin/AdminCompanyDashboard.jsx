@@ -677,11 +677,6 @@ export default function AdminCompanyDashboard() {
             </div>
           </div>
 
-          <SectionTitle title={t('adminDashboard.sectionInventory')} />
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-4 items-stretch">
-            <MetricCard title={t('adminDashboard.quantityInStock')} value={inventoryUnitsAll} compact />
-          </div>
-
           <div className="bg-white border rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-semibold text-text-primary">Storage auto-billing (all clients)</div>
