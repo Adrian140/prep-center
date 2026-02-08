@@ -832,6 +832,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                     <td className="px-4 py-3 align-top">
                       <div className="font-semibold text-primary hover:underline cursor-pointer" onClick={() => row.id && openReqEditor(row.id)}>
                         {shipmentName}{shipmentSuffix}
+                        {amazonShipmentId ? ` · ${amazonShipmentId}` : ''}
                       </div>
                       {amazonShipmentId ? (
                         <div className="text-xs text-text-secondary font-mono">
