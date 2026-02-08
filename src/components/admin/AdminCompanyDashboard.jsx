@@ -439,14 +439,6 @@ export default function AdminCompanyDashboard() {
   const inboundTotalRange = inboundRange.reduce((sum, row) => sum + Number(row.value || 0), 0);
   const shippedTotalRange = shippedRange.reduce((sum, row) => sum + Number(row.value || 0), 0);
 
-  const inboundTodayUnits = todayReceiving;
-  const inboundTodayShipments = inboundShipmentsToday || todayReceivingShipments;
-  const inboundPercentUnits = inboundTotalRange
-    ? (isSingleDay ? 100 : (inboundTodayUnits / inboundTotalRange) * 100)
-    : 0;
-  const inboundPercentShipments = inboundTotalRange
-    ? (isSingleDay ? 100 : (inboundTodayShipments / inboundTotalRange) * 100)
-    : 0;
   const rangeDays = (() => {
     try {
       const start = new Date(dateFrom);
@@ -457,13 +449,21 @@ export default function AdminCompanyDashboard() {
       return 1;
     }
   })();
+  const isSingleDay = dateFrom === dateTo;
+  const inboundTodayUnits = todayReceiving;
+  const inboundTodayShipments = inboundShipmentsToday || todayReceivingShipments;
+  const inboundPercentUnits = inboundTotalRange
+    ? (isSingleDay ? 100 : (inboundTodayUnits / inboundTotalRange) * 100)
+    : 0;
+  const inboundPercentShipments = inboundTotalRange
+    ? (isSingleDay ? 100 : (inboundTodayShipments / inboundTotalRange) * 100)
+    : 0;
 
   const moneySelectedInterval =
     Number(snapshot?.finance?.prepAmounts?.fba || 0) +
     Number(snapshot?.finance?.prepAmounts?.fbm || 0) +
     Number(snapshot?.finance?.prepAmounts?.other || 0);
   const moneyMonthRunning = monthFinance?.total ?? 0;
-  const isSingleDay = dateFrom === dateTo;
   const chartDays = chartRange;
 
   return (
