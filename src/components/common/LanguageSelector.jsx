@@ -28,7 +28,12 @@ export default function LanguageSelector() {
         aria-label={`Select language (${active.label})`}
       >
         <Globe className="w-4 h-4 text-gray-500" />
-        <span className="text-lg leading-none">{active.flag}</span>
+        <span
+          className="text-lg leading-none"
+          style={{ fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji' }}
+        >
+          {active.flag}
+        </span>
       </button>
 
       {open && (
@@ -46,7 +51,12 @@ export default function LanguageSelector() {
                 l.code === currentLanguage ? 'bg-gray-50 font-medium' : ''
               }`}
             >
-              <span className="text-lg leading-none">{l.flag}</span>
+              <span
+                className="text-lg leading-none"
+                style={{ fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji' }}
+              >
+                {l.flag}
+              </span>
               <span className="text-sm">{l.label}</span>
               {l.code === currentLanguage ? <span className="ml-auto text-primary">✓</span> : null}
             </li>
