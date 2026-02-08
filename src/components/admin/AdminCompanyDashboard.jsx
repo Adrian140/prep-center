@@ -568,14 +568,16 @@ export default function AdminCompanyDashboard() {
           <SectionTitle title="Inbound" />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
             <DualStatCard
-              title="Arriving Today"
+              title={isSingleDay ? 'Arriving Today' : `Arriving Last ${rangeDays} Days`}
               leftLabel="Shipments"
-              leftValue={todayReceivingShipments}
+              leftValue={isSingleDay ? todayReceivingShipments : inboundTotalRange}
               rightLabel="Units"
-              rightValue={todayReceiving}
+              rightValue={isSingleDay ? todayReceiving : inboundTotalRange}
             />
             <div className="bg-white border rounded-xl p-3 shadow-sm">
-              <div className="text-sm text-text-secondary mb-3">Received Today</div>
+              <div className="text-sm text-text-secondary mb-3">
+                {isSingleDay ? 'Received Today' : `Received Last ${rangeDays} Days`}
+              </div>
               <div className="flex items-center gap-6">
                 <ProgressRing percent={inboundPercentUnits} label="Units" />
                 <ProgressRing percent={inboundPercentShipments} label="Shipments" />
