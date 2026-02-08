@@ -72,19 +72,26 @@ const MetricCard = ({ title, value, subtitle, lines, badge, compact = false, hid
   </div>
 );
 
-const DualStatCard = ({ title, leftLabel, leftValue, rightLabel, rightValue }) => (
+const DualStatCard = ({ title, leftLabel, leftValue, rightLabel, rightValue, stacked = false }) => (
   <div className="bg-white border rounded-xl p-3 shadow-sm h-full">
     <div className="text-sm text-text-secondary mb-3">{title}</div>
-    <div className="grid grid-cols-2 gap-6">
-      <div>
-        <div className="text-xl font-semibold text-text-primary">{leftValue}</div>
-        <div className="text-xs text-text-secondary mt-1">{leftLabel}</div>
+    {stacked ? (
+      <div className="text-sm text-text-secondary space-y-1">
+        <div>{leftLabel}: <span className="font-semibold text-text-primary">{leftValue}</span></div>
+        <div>{rightLabel}: <span className="font-semibold text-text-primary">{rightValue}</span></div>
       </div>
-      <div>
-        <div className="text-xl font-semibold text-text-primary">{rightValue}</div>
-        <div className="text-xs text-text-secondary mt-1">{rightLabel}</div>
+    ) : (
+      <div className="grid grid-cols-2 gap-6">
+        <div>
+          <div className="text-xl font-semibold text-text-primary">{leftValue}</div>
+          <div className="text-xs text-text-secondary mt-1">{leftLabel}</div>
+        </div>
+        <div>
+          <div className="text-xl font-semibold text-text-primary">{rightValue}</div>
+          <div className="text-xs text-text-secondary mt-1">{rightLabel}</div>
+        </div>
       </div>
-    </div>
+    )}
   </div>
 );
 
@@ -596,6 +603,7 @@ export default function AdminCompanyDashboard() {
               leftValue={isSingleDay ? inboundTodayShipments : inboundShipmentsRange}
               rightLabel={t('adminDashboard.unitsLabel')}
               rightValue={isSingleDay ? inboundTodayUnits : inboundTotalRange}
+              stacked
             />
             <div className="bg-white border rounded-xl p-3 shadow-sm">
               <div className="text-sm text-text-secondary mb-3">
