@@ -542,7 +542,7 @@ async function fetchTransportTrackingIds(spClient, shipmentId, marketplaceId) {
   try {
     const res = await spClient.callAPI({
       operation: 'getTransportDetails',
-      endpoint: 'fulfillmentInbound',
+      endpoint: 'fulfillmentInboundShipment',
       path: { shipmentId },
       query: marketplaceId ? { MarketplaceId: marketplaceId } : {},
       options: { version: 'v0' }
@@ -551,7 +551,8 @@ async function fetchTransportTrackingIds(spClient, shipmentId, marketplaceId) {
     const trackingSet = collectTrackingIds(payload);
     return Array.from(trackingSet.values()).filter(Boolean);
   } catch (err) {
-    console.warn(`[Prep shipments sync] Unable to fetch transport details for ${shipmentId}:`, err.message);
+    const message = err?.message || String(err);
+    console.warn(`[Prep shipments sync] Unable to fetch transport details for ${shipmentId}:`, message);
     return [];
   }
 }
