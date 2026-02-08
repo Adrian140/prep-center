@@ -784,7 +784,7 @@ export default function AdminAffiliates() {
                     <p className="text-text-primary font-semibold">{displayLabel}</p>
                     <p className="text-xs text-text-secondary">{ownerName}</p>
                     <p className="text-xs text-text-secondary">
-                      {t('affiliates.membersCount', { count: memberCounts?.[code.id] || 0 })}
+                      {tp('affiliates.membersCount', { count: memberCounts?.[code.id] || 0 })}
                     </p>
                     <p className="text-sm text-text-secondary mt-1">{describePayout(code)}</p>
                     {code.description && <p className="text-sm text-text-secondary mt-1">{code.description}</p>}
