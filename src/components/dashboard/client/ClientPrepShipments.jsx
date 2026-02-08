@@ -69,9 +69,9 @@ const normalizeStep2Shipments = (value) => {
 const isAmazonShipmentId = (value) => typeof value === 'string' && /^FBA[A-Z0-9]+$/i.test(value.trim());
 
 const pickAmazonShipmentId = ({ shipment, row, snapshot }) => {
+  if (shipment?.amazonShipmentId) return shipment.amazonShipmentId;
   const candidates = [
     row?.fba_shipment_id,
-    shipment?.amazonShipmentId,
     shipment?.legacyShipmentId,
     shipment?.shipmentId,
     snapshot?.shipment_id
