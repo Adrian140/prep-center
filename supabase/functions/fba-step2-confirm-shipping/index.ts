@@ -70,6 +70,57 @@ function safeJson(input: unknown) {
   }
 }
 
+async function listV0Shipments({
+  lwaToken,
+  accessKey,
+  secretKey,
+  sessionToken,
+  region,
+  marketplaceId,
+  sellerId,
+  traceId,
+  lastUpdatedAfter
+}: {
+  lwaToken: string;
+  accessKey: string;
+  secretKey: string;
+  sessionToken: string | null;
+  region: string;
+  marketplaceId: string;
+  sellerId?: string | null;
+  traceId?: string;
+  lastUpdatedAfter: string;
+}) {
+  const host = regionHost(region);
+  const query = [
+    `ShipmentStatusList=${V0_STATUS_LIST.join(",")}`,
+    `LastUpdatedAfter=${encodeURIComponent(lastUpdatedAfter)}`,
+    marketplaceId ? `MarketplaceId=${encodeURIComponent(marketplaceId)}` : ""
+  ]
+    .filter(Boolean)
+    .join("&");
+  const res = await signedFetch({
+    method: "GET",
+    service: "execute-api",
+    region,
+    host,
+    path: "/fba/inbound/v0/shipments",
+    query,
+    payload: "",
+    accessKey,
+    secretKey,
+    sessionToken,
+    lwaToken,
+    traceId,
+    operationName: "fba.inbound.v0.listShipments",
+    marketplaceId,
+    sellerId: sellerId || null
+  });
+  const payload = res?.json?.payload || res?.json || {};
+  const list = Array.isArray(payload?.ShipmentData) ? payload.ShipmentData : [];
+  return list;
+}
+
 function toBool(v: any): boolean | null {
   if (typeof v === "boolean") return v;
   if (typeof v === "number") return v === 1 ? true : v === 0 ? false : null;
@@ -116,6 +167,26 @@ function regionHost(region: string) {
     default:
       return "sellingpartnerapi-eu.amazon.com";
   }
+}
+
+const V0_STATUS_LIST = [
+  "WORKING",
+  "SHIPPED",
+  "IN_TRANSIT",
+  "RECEIVING",
+  "CHECKED_IN",
+  "DELIVERED",
+  "CLOSED",
+  "CANCELLED",
+  "DELETED"
+];
+
+function normalizeShipmentName(value: string | null | undefined) {
+  return String(value || "")
+    .replace(/\(\d+\/\d+\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
 function toHex(buffer: ArrayBuffer): string {
@@ -4267,6 +4338,56 @@ serve(async (req) => {
 
     const shipments = await normalizeShipmentsFromPlan();
 
+    const attachAmazonShipmentIds = async (list: any[]) => {
+      const needs = (list || []).filter((sh) => !sh?.amazonShipmentId && sh?.name);
+      if (!needs.length || !marketplaceId) return list;
+      try {
+        const lastUpdatedAfter = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+        const v0Shipments = await listV0Shipments({
+          lwaToken,
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          region: awsRegion,
+          marketplaceId,
+          sellerId,
+          traceId,
+          lastUpdatedAfter
+        });
+        if (!v0Shipments.length) return list;
+        const byName = new Map<string, any[]>();
+        v0Shipments.forEach((sh) => {
+          const nameKey = normalizeShipmentName(sh?.ShipmentName);
+          if (!nameKey) return;
+          if (!byName.has(nameKey)) byName.set(nameKey, []);
+          byName.get(nameKey)?.push(sh);
+        });
+        return list.map((sh) => {
+          if (sh?.amazonShipmentId || !sh?.name) return sh;
+          const nameKey = normalizeShipmentName(sh.name);
+          const candidates = byName.get(nameKey) || [];
+          if (!candidates.length) return sh;
+          const dest = sh?.destinationWarehouseId || null;
+          const picked =
+            candidates.find((c) => dest && c?.DestinationFulfillmentCenterId === dest) ||
+            candidates[0];
+          const fbaId = picked?.ShipmentId || null;
+          return fbaId
+            ? {
+                ...sh,
+                amazonShipmentId: fbaId,
+                legacyShipmentId: picked?.ShipmentReferenceId || null
+              }
+            : sh;
+        });
+      } catch (err) {
+        logStep("amazon_shipment_id_lookup_failed", { traceId, error: `${err}` });
+        return list;
+      }
+    };
+
+    const shipmentsWithAmazonIds = await attachAmazonShipmentIds(shipments);
+
     // Trimite email de confirmare către client (non-blocant)
     const sendPrepConfirmEmail = async () => {
       try {
@@ -4320,7 +4441,10 @@ serve(async (req) => {
           company_name: profileRow.company_name || null,
           note: prepRow.obs_admin || null,
           items,
-          fba_shipment_id: shipments?.[0]?.shipmentId || prepRow.fba_shipment_id || null,
+          fba_shipment_id: shipmentsWithAmazonIds?.[0]?.amazonShipmentId ||
+            shipmentsWithAmazonIds?.[0]?.shipmentId ||
+            prepRow.fba_shipment_id ||
+            null,
           marketplace: marketplaceId || null,
           country: prepRow.destination_country || prepRow.warehouse_country || null
         };
@@ -4353,7 +4477,7 @@ serve(async (req) => {
         transportation_option_id: selectedOption?.id || null,
         step2_confirmed_at: new Date().toISOString(),
         step2_summary: summaryWithSelection,
-        step2_shipments: shipments,
+        step2_shipments: shipmentsWithAmazonIds,
         ...buildShipmentNameUpdate()
       })
       .eq("id", requestId);
