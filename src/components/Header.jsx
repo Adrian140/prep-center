@@ -91,12 +91,18 @@ function Header() {
       ));
 
   const renderNavLabel = (item) => {
-    if (item.href === '/services-pricing' && item.name?.includes('&')) {
-      const [before, after] = item.name.split('&');
+    if (item.href === '/services-pricing' && item.name) {
+      const match = item.name.match(/\s(&|y|e|i)\s/i);
+      if (!match) return item.name;
+      const connector = match[1];
+      const before = item.name.slice(0, match.index);
+      const after = item.name.slice((match.index || 0) + match[0].length);
       return (
         <span className="inline-flex flex-col leading-[1.05] text-center">
           <span>{before.trim()}</span>
-          <span className="text-[0.9em] leading-none">& {after.trim()}</span>
+          <span className="text-[0.9em] leading-none">
+            {connector} {after.trim()}
+          </span>
         </span>
       );
     }
