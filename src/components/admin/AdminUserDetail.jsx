@@ -11,6 +11,7 @@ import AdminFBM from './AdminFBM';
 import AdminStockClientView from './AdminStockClientView';
 import AdminReturns from './AdminReturns';
 import AdminOther from './AdminOther';
+import ClientPrepShipments from '../dashboard/client/ClientPrepShipments';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import BillingSelectionPanel from './BillingSelectionPanel';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
@@ -32,7 +33,7 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingError, setBillingError] = useState('');
   const hasBillingSelection = canManageInvoices && Object.keys(billingSelections).length > 0;
-  const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns'];
+  const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns', 'requests'];
   const allowedSections = isLimitedAdmin ? ['stock'] : serviceSections;
 
   // panouri “secundare” (billing / invoices)
@@ -308,6 +309,15 @@ if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
                   Retururi
                 </button>
               )}
+              {allowedSections.includes('requests') && (
+                <button
+                  onClick={() => setActiveSection('requests')}
+                  className={tabBtn(activeSection === 'requests')}
+                  title="Requests"
+                >
+                  Requests
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -371,6 +381,9 @@ if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
           )}
           {activeSection === 'returns' && (
             <AdminReturns rows={returnRows} reload={loadAll} companyId={companyId} profile={profile} />
+          )}
+          {activeSection === 'requests' && (
+            <ClientPrepShipments profileOverride={profile} />
           )}
         </div>
         {canManageInvoices && hasBillingSelection && (

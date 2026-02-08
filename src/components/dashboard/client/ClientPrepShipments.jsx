@@ -63,8 +63,9 @@ const normalizeStep2Shipments = (value) => {
     .filter((sh) => sh.shipmentId);
 };
 
-export default function ClientPrepShipments() {
-  const { profile } = useSupabaseAuth();
+export default function ClientPrepShipments({ profileOverride } = {}) {
+  const { profile: authProfile } = useSupabaseAuth();
+  const targetProfile = profileOverride || authProfile;
   const { currentMarket } = useMarket();
   const { t } = useDashboardTranslation();
   const supportError = t('common.supportError');
@@ -87,8 +88,8 @@ export default function ClientPrepShipments() {
   const [addingSel, setAddingSel] = useState('');
   const [addingQty, setAddingQty] = useState('');
   const amazonSnapshot = reqHeader?.amazon_snapshot || null;
-  const isAdmin = profile?.is_admin === true || profile?.account_type === 'admin';
-  const isLimitedAdmin = profile?.is_limited_admin === true;
+  const isAdmin = authProfile?.is_admin === true || authProfile?.account_type === 'admin';
+  const isLimitedAdmin = authProfile?.is_limited_admin === true;
   const canAdminDelete = isAdmin && !isLimitedAdmin;
 
   const formatDateParts = (value) => {
@@ -266,19 +267,19 @@ export default function ClientPrepShipments() {
     if (line.stock_item_id) return line.stock_item_id;
     const existing = findStockMatch(line);
     if (existing) return existing.id;
-    if (!profile?.company_id) return null;
+    if (!targetProfile?.company_id) return null;
 
     const prepPatch = buildPrepQtyPatch({}, currentMarket, 0);
     const payload = {
-      company_id: profile.company_id,
-      user_id: profile.id,
+      company_id: targetProfile.company_id,
+      user_id: targetProfile.id,
       name: line.product_name || line.name || line.asin || line.ean || 'Prep product',
       asin: line.asin || null,
       sku: line.sku || null,
       ean: line.ean || null,
       qty: prepPatch.qty,
       prep_qty_by_country: prepPatch.prep_qty_by_country,
-      created_by: profile.id
+      created_by: targetProfile.id
     };
 
     const { data, error } = await supabase.from('stock_items').insert(payload).select().single();
@@ -344,7 +345,7 @@ export default function ClientPrepShipments() {
     if (!requestId) {
       setReqHeader({
         id: null,
-        destination_country: currentMarket || profile?.company_country || 'FR',
+        destination_country: currentMarket || targetProfile?.company_country || 'FR',
         status: 'pending',
         created_at: new Date().toISOString(),
         fba_shipment_id: null,
@@ -501,7 +502,7 @@ export default function ClientPrepShipments() {
   };
 
   useEffect(() => {
-    if (!profile?.id || !profile?.company_id) return;
+    if (!targetProfile?.id || !targetProfile?.company_id) return;
     let active = true;
 
     const load = async () => {
@@ -540,7 +541,7 @@ export default function ClientPrepShipments() {
               amazon_units_received
             )
           `)
-          .eq('user_id', profile.id)
+          .eq('user_id', targetProfile.id)
           .order('created_at', { ascending: false })
           .limit(100);
       let prepPromise = prepQuery();
@@ -552,13 +553,13 @@ export default function ClientPrepShipments() {
         supabase
           .from('stock_items')
           .select('*')
-          .eq('company_id', profile.company_id)
+          .eq('company_id', targetProfile.company_id)
           .order('created_at', { ascending: false })
           .limit(5000),
         supabase
           .from('stock_items')
           .select('*')
-          .eq('user_id', profile.id)
+          .eq('user_id', targetProfile.id)
           .order('created_at', { ascending: false })
           .limit(5000)
       ]);
@@ -592,7 +593,7 @@ export default function ClientPrepShipments() {
     return () => {
       active = false;
     };
-  }, [profile?.id, profile?.company_id, currentMarket]);
+  }, [targetProfile?.id, targetProfile?.company_id, currentMarket]);
 
   const reqClientNote = parseHeaderNotes(reqHeader?.obs_admin).clientNote;
   const reqStep2Shipments = useMemo(
