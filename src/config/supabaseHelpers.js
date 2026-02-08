@@ -529,6 +529,20 @@ export const supabaseHelpers = {
       .limit(500);
   },
 
+  listAffiliateMemberCounts: async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('affiliate_code_id')
+      .not('affiliate_code_id', 'is', null);
+    if (error) throw error;
+    const counts = {};
+    (data || []).forEach((row) => {
+      if (!row?.affiliate_code_id) return;
+      counts[row.affiliate_code_id] = (counts[row.affiliate_code_id] || 0) + 1;
+    });
+    return { data: counts };
+  },
+
   respondAffiliateRequest: async (requestId, patch = {}) => {
     return await supabase
       .from('affiliate_requests')

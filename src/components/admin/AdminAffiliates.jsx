@@ -84,6 +84,7 @@ export default function AdminAffiliates() {
   const { currentMarket } = useMarket();
   const [requests, setRequests] = useState([]);
   const [codes, setCodes] = useState([]);
+  const [memberCounts, setMemberCounts] = useState({});
   const [selectedCode, setSelectedCode] = useState(null);
   const [members, setMembers] = useState({ assigned: [], candidates: [] });
   const [loading, setLoading] = useState(true);
@@ -141,6 +142,18 @@ export default function AdminAffiliates() {
     };
   }, [sortedAssigned, selectedCode, creditUsage.used]);
 
+  const sortedCodes = useMemo(() => {
+    if (!Array.isArray(codes)) return [];
+    return [...codes].sort((a, b) => {
+      const aCount = memberCounts?.[a.id] || 0;
+      const bCount = memberCounts?.[b.id] || 0;
+      if (bCount !== aCount) return bCount - aCount;
+      const aDate = a?.created_at ? new Date(a.created_at).getTime() : 0;
+      const bDate = b?.created_at ? new Date(b.created_at).getTime() : 0;
+      return bDate - aDate;
+    });
+  }, [codes, memberCounts]);
+
   const describePayout = (code) => {
     if (!code) return t('affiliates.offerNone');
     if (code.payout_type === 'threshold') {
@@ -179,14 +192,21 @@ export default function AdminAffiliates() {
     setLoading(true);
     setOwnersLoading(true);
     try {
-      const [{ data: reqData }, { data: codeData }, { data: ownerData }] = await Promise.all([
+      const [
+        { data: reqData },
+        { data: codeData },
+        { data: ownerData },
+        { data: countData }
+      ] = await Promise.all([
         supabaseHelpers.listAffiliateRequests(),
         supabaseHelpers.listAffiliateCodes(),
-        supabaseHelpers.listAffiliateOwnerOptions()
+        supabaseHelpers.listAffiliateOwnerOptions(),
+        supabaseHelpers.listAffiliateMemberCounts()
       ]);
       setRequests(reqData || []);
       setCodes(codeData || []);
       setOwnerOptions(ownerData || []);
+      setMemberCounts(countData || {});
       // keep current selection if still present
       if (selectedCode) {
         const next = (codeData || []).find((c) => c.id === selectedCode.id);
@@ -198,6 +218,15 @@ export default function AdminAffiliates() {
     } finally {
       setLoading(false);
       setOwnersLoading(false);
+    }
+  };
+
+  const refreshMemberCounts = async () => {
+    try {
+      const { data } = await supabaseHelpers.listAffiliateMemberCounts();
+      setMemberCounts(data || {});
+    } catch (err) {
+      console.warn('affiliate member counts', err);
     }
   };
 
@@ -287,12 +316,14 @@ export default function AdminAffiliates() {
     setBusyMembers(true);
     await supabaseHelpers.assignAffiliateCodeToProfile(clientId, selectedCode.id);
     await openMembers(selectedCode);
+    await refreshMemberCounts();
   };
 
   const removeClient = async (clientId) => {
     setBusyMembers(true);
     await supabaseHelpers.removeAffiliateCodeFromProfile(clientId);
     await openMembers(selectedCode);
+    await refreshMemberCounts();
   };
 
   const handleDeleteCode = async (code) => {
@@ -742,7 +773,7 @@ export default function AdminAffiliates() {
               </div>
             )}
 
-            {codes.map((code) => {
+            {sortedCodes.map((code) => {
               const ownerName = formatClientName(code.owner || {});
               const displayLabel = code.label?.trim() || ownerName || '—';
               return (
@@ -752,6 +783,9 @@ export default function AdminAffiliates() {
                     <p className="text-xl font-mono">{code.code}</p>
                     <p className="text-text-primary font-semibold">{displayLabel}</p>
                     <p className="text-xs text-text-secondary">{ownerName}</p>
+                    <p className="text-xs text-text-secondary">
+                      {t('affiliates.membersCount', { count: memberCounts?.[code.id] || 0 })}
+                    </p>
                     <p className="text-sm text-text-secondary mt-1">{describePayout(code)}</p>
                     {code.description && <p className="text-sm text-text-secondary mt-1">{code.description}</p>}
                   </div>

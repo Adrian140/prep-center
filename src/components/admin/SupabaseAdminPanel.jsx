@@ -181,6 +181,7 @@ useEffect(() => {
   const [message, setMessage] = useState(''); // Changed to message
   const [pendingPrepCount, setPendingPrepCount] = useState(0);
   const [pendingReturnsCount, setPendingReturnsCount] = useState(0);
+  const [pendingAffiliateCount, setPendingAffiliateCount] = useState(0);
   const pendingCountsInFlightRef = useRef(false);
   const pendingCountsLastRunRef = useRef(0);
   const [reviews, setReviews] = useState([]); // Added reviews state
@@ -236,11 +237,19 @@ useEffect(() => {
           prepQuery = prepQuery.eq('warehouse_country', currentMarket);
           returnsQuery = returnsQuery.eq('warehouse_country', currentMarket);
         }
-        let [prepRes, returnsRes] = await Promise.all([prepQuery, returnsQuery]);
+        const affiliateQuery = supabase
+          .from('affiliate_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending');
+        let [prepRes, returnsRes, affiliateRes] = await Promise.all([
+          prepQuery,
+          returnsQuery,
+          affiliateQuery
+        ]);
         const missingWarehouse = (err) =>
           String(err?.message || '').toLowerCase().includes('warehouse_country');
         if (currentMarket && (missingWarehouse(prepRes?.error) || missingWarehouse(returnsRes?.error))) {
-          [prepRes, returnsRes] = await Promise.all([
+          [prepRes, returnsRes, affiliateRes] = await Promise.all([
             supabase
               .from('prep_requests')
               .select('id', { count: 'exact', head: true })
@@ -248,12 +257,14 @@ useEffect(() => {
             supabase
               .from('returns')
               .select('id', { count: 'exact', head: true })
-              .eq('status', 'pending')
+              .eq('status', 'pending'),
+            affiliateQuery
           ]);
         }
         if (!mounted) return;
         setPendingPrepCount(prepRes?.count || 0);
         setPendingReturnsCount(returnsRes?.count || 0);
+        setPendingAffiliateCount(affiliateRes?.count || 0);
         pendingCountsLastRunRef.current = Date.now();
       } finally {
         pendingCountsInFlightRef.current = false;
@@ -1597,6 +1608,10 @@ if (!isAdmin) {
                           ? activeTab === tab.id
                             ? 'bg-green-600 text-white'
                             : 'bg-green-50 text-green-700 hover:bg-green-100'
+                          : tab.id === 'affiliates' && pendingAffiliateCount > 0
+                            ? activeTab === tab.id
+                              ? 'bg-green-600 text-white'
+                              : 'bg-green-50 text-green-700 hover:bg-green-100'
                           : activeTab === tab.id
                             ? 'bg-primary text-white'
                             : 'text-text-secondary hover:bg-gray-50'
