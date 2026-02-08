@@ -580,7 +580,7 @@ export default function AdminCompanyDashboard() {
       ) : (
         <>
           <SectionTitle title={t('adminDashboard.sectionBilling')} />
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
             <MetricCard
               title="Uninvoiced Charges"
               value={`€${Number(moneySelectedInterval || 0).toFixed(2)}`}
@@ -592,6 +592,11 @@ export default function AdminCompanyDashboard() {
             <MetricCard
               title="Balance"
               value={`€${Number(moneySelectedInterval || 0).toFixed(2)}`}
+            />
+            <MetricCard
+              title="Stoc"
+              value={inventoryUnitsAll}
+              subtitle="Cantitate în stoc"
             />
           </div>
 
