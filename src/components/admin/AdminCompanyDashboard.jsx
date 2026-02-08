@@ -621,6 +621,7 @@ export default function AdminCompanyDashboard() {
             <MetricCard
               title={isSingleDay ? t('adminDashboard.shippedToday') : tp('adminDashboard.shippedLastDays', { days: rangeDays })}
               value={isSingleDay ? todayOrders : shippedTotalRange}
+              subtitle={`${snapshot?.shipped?.shipmentsTotal ?? 0} ${t('adminDashboard.shipmentsLabel')}`}
               compact
             />
             <MetricCard

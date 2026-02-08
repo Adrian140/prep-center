@@ -1932,7 +1932,7 @@ createPrepItem: async (requestId, item) => {
       .limit(10000);
     let pendingItemsQuery = supabase
       .from('prep_request_items')
-      .select('units_requested, units_sent, prep_requests!inner(created_at, company_id, status, warehouse_country)')
+      .select('units_requested, units_sent, prep_requests!inner(id, created_at, company_id, status, warehouse_country)')
       .eq('prep_requests.status', 'pending');
     const pendingItemsPromise = pendingItemsQuery
       .gte('prep_requests.created_at', startIso)
@@ -2047,7 +2047,7 @@ createPrepItem: async (requestId, item) => {
         .limit(10000);
       const pendingItemsRetry = supabase
         .from('prep_request_items')
-        .select('units_requested, units_sent, prep_requests!inner(created_at, company_id, status)')
+        .select('units_requested, units_sent, prep_requests!inner(id, created_at, company_id, status)')
         .eq('prep_requests.status', 'pending')
         .gte('prep_requests.created_at', startIso)
         .lte('prep_requests.created_at', endIso)
@@ -2193,6 +2193,9 @@ createPrepItem: async (requestId, item) => {
       (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
       0
     );
+    let shippedShipmentsTotal = new Set(
+      filteredShippedItems.map((row) => row.prep_requests?.id).filter(Boolean)
+    ).size;
     let shippedUnitsToday = filteredShippedItems
       .filter((row) => (row.prep_requests?.step4_confirmed_at || '').slice(0, 10) === dateFrom)
       .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
@@ -2395,6 +2398,10 @@ createPrepItem: async (requestId, item) => {
           (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
           0
         );
+        const shippedIds = new Set(
+          filteredShippedItems.map((row) => row.prep_requests?.id).filter(Boolean)
+        );
+        shippedShipmentsTotal = shippedIds.size;
         shippedUnitsToday = filteredShippedItems
           .filter((row) => (row.prep_requests?.step4_confirmed_at || '').slice(0, 10) === dateFrom)
           .reduce((acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested), 0);
@@ -2451,6 +2458,7 @@ createPrepItem: async (requestId, item) => {
         shipped: {
           unitsToday: shippedUnitsToday,
           unitsTotal: shippedUnitsTotal,
+          shipmentsTotal: shippedShipmentsTotal,
           dailyUnits: shippedDailyUnits
         },
         receiving: {
