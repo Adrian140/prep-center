@@ -625,7 +625,7 @@ export default function AdminCompanyDashboard() {
             />
             <MetricCard
               title="In Progress"
-              value={snapshot?.series?.orders?.statusCounts?.in_progress ?? 0}
+              value={snapshot?.series?.orders?.statusCounts?.pending ?? 0}
               compact
             />
             <div className="bg-white border rounded-xl p-3 shadow-sm">
