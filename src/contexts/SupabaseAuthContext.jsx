@@ -1,7 +1,7 @@
 // FILE: src/contexts/SupabaseAuthContext.jsx
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase, supabaseHelpers } from '../config/supabase';
-import { useLanguage } from './LanguageContext'; // ← folosim contextul de limbă
+import { useLanguage, languages } from './LanguageContext'; // ← folosim contextul de limbă
 
 const SupabaseAuthContext = createContext();
 
@@ -29,13 +29,16 @@ export const SupabaseAuthProvider = ({ children }) => {
 
   useEffect(() => {
     try {
+      const urlLang = new URLSearchParams(window.location.search).get('lang');
+      if (urlLang && languages[urlLang]) {
+        if (urlLang !== currentLanguage) changeLanguage(urlLang);
+        return;
+      }
       const stored =
         localStorage.getItem('preferredLanguage') ||
         localStorage.getItem('appLang') ||
-        'fr';
-      if (stored && stored !== currentLanguage) {
-        changeLanguage(stored);
-      }
+        '';
+      if (stored && stored !== currentLanguage) changeLanguage(stored);
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -111,6 +114,8 @@ export const SupabaseAuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    const urlLang = new URLSearchParams(window.location.search).get('lang');
+    if (urlLang && languages[urlLang]) return;
     const ls =
       localStorage.getItem('preferredLanguage') ||
       localStorage.getItem('appLang') ||
