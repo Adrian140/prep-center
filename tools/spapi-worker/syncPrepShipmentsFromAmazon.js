@@ -35,6 +35,33 @@ async function fetchSellerTokens(sellerIds) {
 }
 
 const normalizeKey = (value) => (value ? value.trim().toUpperCase() : '');
+const isFbaShipmentId = (value) => typeof value === 'string' && /^FBA[A-Z0-9]+$/i.test(value.trim());
+const normalizeShipmentName = (value) =>
+  String(value || '')
+    .replace(/\(\d+\/\d+\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+async function resolveShipmentsByName(spClient, name, marketplaceId, windowDays = 10) {
+  const normalized = normalizeShipmentName(name);
+  if (!normalized) return [];
+  const now = new Date();
+  const after = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+  const res = await spClient.callAPI({
+    operation: 'getShipments',
+    endpoint: 'fulfillmentInbound',
+    query: {
+      ShipmentStatusList: STATUS_LIST,
+      LastUpdatedAfter: after,
+      ...(marketplaceId ? { MarketplaceId: marketplaceId } : {})
+    },
+    options: { version: 'v0' }
+  });
+  const payload = res?.payload || res;
+  const list = Array.isArray(payload?.ShipmentData) ? payload.ShipmentData : [];
+  return list.filter((sh) => normalizeShipmentName(sh?.ShipmentName) === normalized);
+}
 
 async function updateItemAmazonQuantities(prepItems, amazonItems) {
   const itemsArray = Array.isArray(prepItems) ? prepItems : [];
@@ -195,6 +222,10 @@ async function fetchPrepRequests() {
         amazon_units_expected,
         amazon_units_located,
         amazon_last_synced_at,
+        amazon_shipment_name,
+        amazon_reference_id,
+        amazon_destination_code,
+        step2_shipments,
         prep_request_items (
           id,
           asin,
@@ -563,9 +594,45 @@ async function main() {
 
       const client = spClientCache.get(key);
       try {
+        let shipmentIdForSync = row.fba_shipment_id;
+        if (!isFbaShipmentId(shipmentIdForSync)) {
+          const baseName =
+            row.amazon_shipment_name ||
+            row.amazon_reference_id ||
+            row.amazon_destination_code ||
+            null;
+          if (baseName) {
+            const matches = await resolveShipmentsByName(client, baseName, marketplaceId);
+            if (matches.length) {
+              const preferred =
+                matches.find((m) => m?.DestinationFulfillmentCenterId === row.amazon_destination_code) ||
+                matches[0];
+              if (preferred?.ShipmentId) {
+                shipmentIdForSync = preferred.ShipmentId;
+                await updatePrepRequest(row.id, {
+                  fba_shipment_id: preferred.ShipmentId
+                });
+                // Update step2_shipments with amazonShipmentId if we have destination matches.
+                if (Array.isArray(row.step2_shipments)) {
+                  const next = row.step2_shipments.map((sh) => {
+                    if (sh?.amazonShipmentId) return sh;
+                    const dest = sh?.destinationWarehouseId || sh?.destination_code || null;
+                    const match =
+                      matches.find((m) => dest && m?.DestinationFulfillmentCenterId === dest) ||
+                      preferred;
+                    return match?.ShipmentId
+                      ? { ...sh, amazonShipmentId: match.ShipmentId }
+                      : sh;
+                  });
+                  await updatePrepRequest(row.id, { step2_shipments: next });
+                }
+              }
+            }
+          }
+        }
         const { snapshot: snap, items: amazonItems } = await fetchShipmentSnapshot(
           client,
-          row.fba_shipment_id,
+          shipmentIdForSync,
           marketplaceId
         );
         await updateItemAmazonQuantities(row.prep_request_items, amazonItems);
