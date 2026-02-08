@@ -140,6 +140,9 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
 
   const formatAddressLines = (address) => {
     if (!address) return ['—'];
+    if (typeof address === 'string') {
+      return [address];
+    }
     const lines = [
       address.name,
       address.address1,
@@ -150,6 +153,12 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
     ].filter(Boolean);
     return lines.length ? lines : ['—'];
   };
+
+  const hasDetailedAddress = (address) =>
+    !!address &&
+    typeof address === 'object' &&
+    [address.address1, address.address2, address.postal_code, address.city, address.country_code, address.phone]
+      .some(Boolean);
 
   const filteredInventory = useMemo(() => {
     const term = inventorySearch.trim().toLowerCase();
@@ -1029,20 +1038,21 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 </div>
                 <div className="p-5 border-r border-gray-100">
                   <div className="text-xs uppercase text-text-secondary mb-2">Ship to</div>
-                  {amazonSnapshot.ship_to ? (
-                    formatAddressLines(amazonSnapshot.ship_to).map((line, idx) => (
+                  {(() => {
+                    const fallbackText =
+                      reqStep2Shipments[0]?.toText ||
+                      amazonSnapshot.destination_code ||
+                      reqHeader?.amazon_destination_code ||
+                      null;
+                    const shipToDisplay = hasDetailedAddress(amazonSnapshot.ship_to)
+                      ? amazonSnapshot.ship_to
+                      : fallbackText || amazonSnapshot.ship_to;
+                    return formatAddressLines(shipToDisplay).map((line, idx) => (
                       <div key={`shipto-${idx}`} className="text-sm text-text-primary">
                         {line}
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-text-primary">
-                      {reqStep2Shipments[0]?.toText ||
-                        amazonSnapshot.destination_code ||
-                        reqHeader?.amazon_destination_code ||
-                        '—'}
-                    </div>
-                  )}
+                    ));
+                  })()}
                   {amazonSnapshot.delivery_window && (
                     <div className="text-xs text-text-secondary mt-2">
                       Delivery window {amazonSnapshot.delivery_window}
