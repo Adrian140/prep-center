@@ -433,6 +433,16 @@ export default function AdminCompanyDashboard() {
   const inboundTodayShipments = todayReceivingShipments;
   const inboundPercentUnits = inboundTotalRange ? (inboundTodayUnits / inboundTotalRange) * 100 : 0;
   const inboundPercentShipments = inboundTotalRange ? (inboundTodayShipments / inboundTotalRange) * 100 : 0;
+  const rangeDays = (() => {
+    try {
+      const start = new Date(dateFrom);
+      const end = new Date(dateTo);
+      const diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
+      return Math.max(1, diff + 1);
+    } catch {
+      return 1;
+    }
+  })();
 
   const moneySelectedInterval =
     Number(snapshot?.finance?.prepAmounts?.fba || 0) +
@@ -592,7 +602,11 @@ export default function AdminCompanyDashboard() {
 
           <SectionTitle title="Amazon" />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
-            <MetricCard title="Shipped Today" value={todayOrders} compact />
+            <MetricCard
+              title={isSingleDay ? 'Shipped Today' : `Shipped Last ${rangeDays} Days`}
+              value={isSingleDay ? todayOrders : shippedTotalRange}
+              compact
+            />
             <MetricCard
               title="In Progress"
               value={snapshot?.series?.orders?.statusCounts?.in_progress ?? 0}
