@@ -2040,6 +2040,18 @@ serve(async (req) => {
           payload?.SourceAddress ||
           null;
         const contents = payload?.contents || payload?.Contents || {};
+        const amazonShipmentId =
+          payload?.shipmentId ||
+          payload?.ShipmentId ||
+          payload?.shipmentID ||
+          payload?.ShipmentID ||
+          null;
+        const shipmentName =
+          payload?.shipmentName ||
+          payload?.ShipmentName ||
+          sh?.shipmentName ||
+          sh?.name ||
+          null;
         const destinationFc =
           payload?.destination?.warehouseId ||
           payload?.destination?.warehouseCode ||
@@ -2106,6 +2118,8 @@ serve(async (req) => {
             : null;
         list.push({
           id: shId,
+          amazonShipmentId,
+          name: shipmentName,
           from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
           to: (() => {
             const addr = formatAddress(destinationAddress) || formatAddress(sh?.destinationAddress || sh?.to) || null;
