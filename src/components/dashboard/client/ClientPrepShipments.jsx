@@ -761,6 +761,13 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 const lastUpdatedParts = formatDateParts(row.amazon_last_updated || row.confirmed_at || row.created_at);
                 const snapshot = row.amazon_snapshot || {};
                 const shipmentSuffix = shipmentCount > 1 ? ` (${shipmentIndex + 1}/${shipmentCount})` : '';
+                const hubPrefix = destCode === 'DE' ? 'EcomPrepHub.de' : 'EcomPrepHub.fr';
+                const destCodeForName =
+                  shipment?.destinationWarehouseId ||
+                  row.amazon_destination_code ||
+                  snapshot.destination_code ||
+                  destCode;
+                const fallbackName = `${hubPrefix} - FBA STA (${createdParts.date}${createdParts.time ? ` ${createdParts.time}` : ''})-${destCodeForName}`;
                 const rawShipmentName =
                   shipment?.name ||
                   row.amazon_shipment_name ||
@@ -770,7 +777,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                   (rawShipmentName && rawShipmentName !== shipment?.shipmentId ? rawShipmentName : null) ||
                   row.amazon_shipment_name ||
                   snapshot.shipment_name ||
-                  'FBA shipment';
+                  fallbackName;
                 const amazonShipmentId = pickAmazonShipmentId({ shipment, row, snapshot });
                 const shipmentId = amazonShipmentId || shipment?.shipmentId || row.fba_shipment_id || snapshot.shipment_id || '—';
                 const referenceId = row.amazon_reference_id || snapshot.reference_id || snapshot.shipment_reference_id || '';
