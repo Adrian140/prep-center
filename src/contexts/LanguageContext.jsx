@@ -14,19 +14,21 @@ export const languages = {
 
 const STORAGE_KEY  = 'preferredLanguage';
 const LEGACY_KEY   = 'appLang';
-const DEFAULT_LANG = 'fr';
+const DEFAULT_LANG = 'en';
 
 export const LanguageProvider = ({ children }) => {
   const [currentLanguage, setCurrentLanguage] = useState(DEFAULT_LANG);
 
-  // Init din localStorage (suportă și cheia veche)
+  // Init din URL lang, apoi localStorage (suportă și cheia veche)
   useEffect(() => {
     try {
-       const saved =
-       localStorage.getItem(STORAGE_KEY) ||
-       localStorage.getItem(LEGACY_KEY) ||
-       localStorage.getItem('lang'); // compat cu cod existent
-      const code = (saved && languages[saved]) ? saved : DEFAULT_LANG;
+      const urlLang = new URLSearchParams(window.location.search).get('lang');
+      const saved =
+        localStorage.getItem(STORAGE_KEY) ||
+        localStorage.getItem(LEGACY_KEY) ||
+        localStorage.getItem('lang'); // compat cu cod existent
+      const preferred = (urlLang && languages[urlLang]) ? urlLang : saved;
+      const code = (preferred && languages[preferred]) ? preferred : DEFAULT_LANG;
       setCurrentLanguage(code);
       document.documentElement.setAttribute('lang', code);
       localStorage.setItem('lang', code);
