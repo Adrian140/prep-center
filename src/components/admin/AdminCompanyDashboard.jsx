@@ -472,8 +472,8 @@ export default function AdminCompanyDashboard() {
         <div className="flex items-center gap-2 text-text-primary">
           <Package className="w-5 h-5" />
           <div>
-            <div className="text-xs uppercase tracking-wide text-text-light">Dashboard</div>
-            <h2 className="text-xl font-semibold">Inbound</h2>
+            <div className="text-xs uppercase tracking-wide text-text-light">{t('adminDashboard.title')}</div>
+            <h2 className="text-xl font-semibold">{t('adminDashboard.sectionInbound')}</h2>
             <div className="text-xs text-text-secondary">
               {selectedCompany?.id === 'ALL'
                 ? t('adminDashboard.aggregateLabel')
@@ -563,7 +563,7 @@ export default function AdminCompanyDashboard() {
         <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">{t('adminDashboard.noData')}</div>
       ) : (
         <>
-          <SectionTitle title="Billing" />
+          <SectionTitle title={t('adminDashboard.sectionBilling')} />
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
             <MetricCard
               title="Uninvoiced Charges"
@@ -579,27 +579,27 @@ export default function AdminCompanyDashboard() {
             />
           </div>
 
-          <SectionTitle title="Inbound" />
+          <SectionTitle title={t('adminDashboard.sectionInbound')} />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
             <DualStatCard
-              title={isSingleDay ? 'Arriving Today' : `Arriving Last ${rangeDays} Days`}
-              leftLabel="Shipments"
+              title={isSingleDay ? t('adminDashboard.arrivingToday') : tp('adminDashboard.arrivingLastDays', { days: rangeDays })}
+              leftLabel={t('adminDashboard.shipmentsLabel')}
               leftValue={isSingleDay ? inboundTodayShipments : inboundShipmentsRange}
-              rightLabel="Units"
+              rightLabel={t('adminDashboard.unitsLabel')}
               rightValue={isSingleDay ? inboundTodayUnits : inboundTotalRange}
             />
             <div className="bg-white border rounded-xl p-3 shadow-sm">
               <div className="text-sm text-text-secondary mb-3">
-                {isSingleDay ? 'Received Today' : `Received Last ${rangeDays} Days`}
+                {isSingleDay ? t('adminDashboard.receivedToday') : tp('adminDashboard.receivedLastDays', { days: rangeDays })}
               </div>
               <div className="flex items-center gap-6">
-                <ProgressRing percent={inboundPercentUnits} label="Units" />
-                <ProgressRing percent={inboundPercentShipments} label="Shipments" />
+                <ProgressRing percent={inboundPercentUnits} label={t('adminDashboard.unitsLabel')} />
+                <ProgressRing percent={inboundPercentShipments} label={t('adminDashboard.shipmentsLabel')} />
               </div>
             </div>
             <div className="bg-white border rounded-xl p-3 shadow-sm">
               <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
-                <span>Units Received (Selected Range)</span>
+                <span>{t('adminDashboard.unitsReceivedRange')}</span>
                 <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{inboundTotalRange}</span>
               </div>
               <div className="w-full h-28">
@@ -616,21 +616,21 @@ export default function AdminCompanyDashboard() {
             </div>
           </div>
 
-          <SectionTitle title="Amazon" />
+          <SectionTitle title={t('adminDashboard.sectionAmazon')} />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
             <MetricCard
-              title={isSingleDay ? 'Shipped Today' : `Shipped Last ${rangeDays} Days`}
+              title={isSingleDay ? t('adminDashboard.shippedToday') : tp('adminDashboard.shippedLastDays', { days: rangeDays })}
               value={isSingleDay ? todayOrders : shippedTotalRange}
               compact
             />
             <MetricCard
-              title="In Progress"
+              title={t('adminDashboard.inProgressLabel')}
               value={snapshot?.series?.orders?.statusCounts?.pending ?? 0}
               compact
             />
             <div className="bg-white border rounded-xl p-3 shadow-sm">
               <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
-                <span>Units Shipped (Selected Range)</span>
+                <span>{t('adminDashboard.unitsShippedRange')}</span>
                 <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{shippedTotalRange}</span>
               </div>
               <div className="w-full h-28">
@@ -647,13 +647,13 @@ export default function AdminCompanyDashboard() {
             </div>
           </div>
 
-          <SectionTitle title="Inventory" />
+          <SectionTitle title={t('adminDashboard.sectionInventory')} />
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-stretch">
-            <MetricCard title="Quantity In Stock" value={inventoryUnitsAll} compact />
-            <MetricCard title="Available Quantity" value={inventoryAvailable} compact />
-            <MetricCard title="Inbound Quantity" value={inventoryInbound} compact />
-            <MetricCard title="Allocated Quantity" value={inventoryAllocated} compact />
-            <MetricCard title="Unavailable Quantity" value={inventoryUnavailable} compact />
+            <MetricCard title={t('adminDashboard.quantityInStock')} value={inventoryUnitsAll} compact />
+            <MetricCard title={t('adminDashboard.availableQuantity')} value={inventoryAvailable} compact />
+            <MetricCard title={t('adminDashboard.inboundQuantity')} value={inventoryInbound} compact />
+            <MetricCard title={t('adminDashboard.allocatedQuantity')} value={inventoryAllocated} compact />
+            <MetricCard title={t('adminDashboard.unavailableQuantity')} value={inventoryUnavailable} compact />
           </div>
 
           <div className="bg-white border rounded-xl p-4 shadow-sm">
