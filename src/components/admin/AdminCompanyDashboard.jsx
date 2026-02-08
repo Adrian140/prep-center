@@ -52,27 +52,27 @@ const SectionTitle = ({ title }) => (
   </div>
 );
 
-const MetricCard = ({ title, value, subtitle, badge }) => (
-  <div className="bg-white border rounded-xl p-4 shadow-sm h-full">
+const MetricCard = ({ title, value, subtitle, badge, compact = false }) => (
+  <div className={`bg-white border rounded-xl shadow-sm h-full ${compact ? 'p-3' : 'p-4'}`}>
     <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
       <span>{title}</span>
       {badge != null && <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{badge}</span>}
     </div>
-    <div className="text-2xl font-semibold text-text-primary">{value}</div>
+    <div className={`${compact ? 'text-xl' : 'text-2xl'} font-semibold text-text-primary`}>{value}</div>
     {subtitle && <div className="text-xs text-text-secondary mt-1">{subtitle}</div>}
   </div>
 );
 
 const DualStatCard = ({ title, leftLabel, leftValue, rightLabel, rightValue }) => (
-  <div className="bg-white border rounded-xl p-4 shadow-sm h-full">
+  <div className="bg-white border rounded-xl p-3 shadow-sm h-full">
     <div className="text-sm text-text-secondary mb-3">{title}</div>
     <div className="grid grid-cols-2 gap-6">
       <div>
-        <div className="text-2xl font-semibold text-text-primary">{leftValue}</div>
+        <div className="text-xl font-semibold text-text-primary">{leftValue}</div>
         <div className="text-xs text-text-secondary mt-1">{leftLabel}</div>
       </div>
       <div>
-        <div className="text-2xl font-semibold text-text-primary">{rightValue}</div>
+        <div className="text-xl font-semibold text-text-primary">{rightValue}</div>
         <div className="text-xs text-text-secondary mt-1">{rightLabel}</div>
       </div>
     </div>
@@ -390,6 +390,10 @@ export default function AdminCompanyDashboard() {
   const inventoryUnitsAll = isAllCompanies
     ? (snapshot?.inventory?.unitsAll ?? snapshot?.inventory?.units ?? 0)
     : inventoryUnits;
+  const inventoryAvailable = snapshot?.fbaStock?.inStock ?? 0;
+  const inventoryInbound = snapshot?.fbaStock?.inbound ?? 0;
+  const inventoryAllocated = snapshot?.fbaStock?.reserved ?? 0;
+  const inventoryUnavailable = snapshot?.fbaStock?.unfulfillable ?? 0;
   const lastReceivingDate = snapshot?.receiving?.lastReceivingDate || null;
 
   const chartData = useMemo(() => {
@@ -560,19 +564,19 @@ export default function AdminCompanyDashboard() {
               rightLabel="Units"
               rightValue={todayReceiving}
             />
-            <div className="bg-white border rounded-xl p-4 shadow-sm">
+            <div className="bg-white border rounded-xl p-3 shadow-sm">
               <div className="text-sm text-text-secondary mb-3">Received Today</div>
               <div className="flex items-center gap-6">
                 <ProgressRing percent={inboundPercentUnits} label="Units" />
                 <ProgressRing percent={inboundPercentShipments} label="Shipments" />
               </div>
             </div>
-            <div className="bg-white border rounded-xl p-4 shadow-sm">
+            <div className="bg-white border rounded-xl p-3 shadow-sm">
               <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
                 <span>Units Received (Selected Range)</span>
                 <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{inboundTotalRange}</span>
               </div>
-              <div className="w-full h-36">
+              <div className="w-full h-28">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={inboundRange} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -588,17 +592,18 @@ export default function AdminCompanyDashboard() {
 
           <SectionTitle title="Amazon" />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
-            <MetricCard title="Shipped Today" value={todayOrders} />
+            <MetricCard title="Shipped Today" value={todayOrders} compact />
             <MetricCard
               title="In Progress"
               value={snapshot?.series?.orders?.statusCounts?.in_progress ?? 0}
+              compact
             />
-            <div className="bg-white border rounded-xl p-4 shadow-sm">
+            <div className="bg-white border rounded-xl p-3 shadow-sm">
               <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
                 <span>Units Shipped (Selected Range)</span>
                 <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{shippedTotalRange}</span>
               </div>
-              <div className="w-full h-36">
+              <div className="w-full h-28">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={shippedRange} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -614,11 +619,11 @@ export default function AdminCompanyDashboard() {
 
           <SectionTitle title="Inventory" />
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-stretch">
-            <MetricCard title="Quantity In Stock" value={inventoryUnitsAll} />
-            <MetricCard title="Available Quantity" value={snapshot?.inventory?.available ?? 0} />
-            <MetricCard title="Inbound Quantity" value={snapshot?.inventory?.inbound ?? 0} />
-            <MetricCard title="Allocated Quantity" value={snapshot?.inventory?.allocated ?? 0} />
-            <MetricCard title="Unavailable Quantity" value={snapshot?.inventory?.unavailable ?? 0} />
+            <MetricCard title="Quantity In Stock" value={inventoryUnitsAll} compact />
+            <MetricCard title="Available Quantity" value={inventoryAvailable} compact />
+            <MetricCard title="Inbound Quantity" value={inventoryInbound} compact />
+            <MetricCard title="Allocated Quantity" value={inventoryAllocated} compact />
+            <MetricCard title="Unavailable Quantity" value={inventoryUnavailable} compact />
           </div>
 
           <div className="bg-white border rounded-xl p-4 shadow-sm">
