@@ -12,6 +12,7 @@
     "sync-sales": "node syncSalesToSupabase.js",
     "sync-refunds": "node syncRefundsToSupabase.js",
     "sync-prep-shipments": "node syncPrepShipmentsFromAmazon.js",
+    "backfill-prep-packgroups": "node backfillPrepShipmentsPackgroups.js",
     "restore-integrations": "node restoreAmazonIntegrations.js",
     "ensure-marketplaces": "node ensureSellerMarketplaces.js",
     "cleanup-stock-duplicates": "node cleanupStockDuplicates.js"
