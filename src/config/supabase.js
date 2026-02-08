@@ -2375,19 +2375,81 @@ createPrepItem: async (requestId, item) => {
       (row) => pickUnits(row)
     );
 
-    let shippedReqQuery = supabase
+    const shippedDayById = new Map();
+    const shippedPriorityById = new Map();
+    const setShippedDay = (id, dateValue, priority) => {
+      if (!id || !dateValue) return;
+      const day = String(dateValue).slice(0, 10);
+      if (!day) return;
+      const prevPriority = shippedPriorityById.get(id) || 0;
+      if (priority >= prevPriority) {
+        shippedPriorityById.set(id, priority);
+        shippedDayById.set(id, day);
+      }
+    };
+
+    let step4ReqQuery = supabase
       .from('prep_requests')
-      .select('id, step4_confirmed_at, company_id, warehouse_country');
-    if (companyId) shippedReqQuery = shippedReqQuery.eq('company_id', companyId);
-    if (marketCode) shippedReqQuery = shippedReqQuery.eq('warehouse_country', marketCode);
-    shippedReqQuery = shippedReqQuery
+      .select('id, step4_confirmed_at, company_id, warehouse_country')
       .gte('step4_confirmed_at', startIso)
       .lte('step4_confirmed_at', endIso)
       .limit(10000);
+    if (companyId) step4ReqQuery = step4ReqQuery.eq('company_id', companyId);
+    if (marketCode) step4ReqQuery = step4ReqQuery.eq('warehouse_country', marketCode);
 
-    const shippedReqRes = await shippedReqQuery;
-    const shippedReqs = Array.isArray(shippedReqRes.data) ? shippedReqRes.data : [];
-    const shippedIds = shippedReqs.map((r) => r.id).filter(Boolean);
+    let confirmedReqQuery = supabase
+      .from('prep_requests')
+      .select('id, confirmed_at, company_id, warehouse_country')
+      .gte('confirmed_at', startIso)
+      .lte('confirmed_at', endIso)
+      .limit(10000);
+    if (companyId) confirmedReqQuery = confirmedReqQuery.eq('company_id', companyId);
+    if (marketCode) confirmedReqQuery = confirmedReqQuery.eq('warehouse_country', marketCode);
+
+    let trackingQuery = supabase
+      .from('prep_request_tracking')
+      .select('request_id, added_at')
+      .gte('added_at', startIso)
+      .lte('added_at', endIso)
+      .limit(20000);
+
+    const [step4ReqRes, confirmedReqRes, trackingRes] = await Promise.all([
+      step4ReqQuery,
+      confirmedReqQuery,
+      trackingQuery
+    ]);
+
+    const step4Reqs = Array.isArray(step4ReqRes.data) ? step4ReqRes.data : [];
+    const confirmedReqs = Array.isArray(confirmedReqRes.data) ? confirmedReqRes.data : [];
+    const trackingRows = Array.isArray(trackingRes.data) ? trackingRes.data : [];
+
+    step4Reqs.forEach((row) => setShippedDay(row.id, row.step4_confirmed_at, 3));
+    confirmedReqs.forEach((row) => setShippedDay(row.id, row.confirmed_at, 1));
+
+    const trackingIds = Array.from(new Set(trackingRows.map((row) => row.request_id).filter(Boolean)));
+    if (trackingIds.length) {
+      let trackingReqQuery = supabase
+        .from('prep_requests')
+        .select('id, company_id, warehouse_country')
+        .in('id', trackingIds)
+        .limit(10000);
+      if (companyId) trackingReqQuery = trackingReqQuery.eq('company_id', companyId);
+      if (marketCode) trackingReqQuery = trackingReqQuery.eq('warehouse_country', marketCode);
+      const trackingReqRes = await trackingReqQuery;
+      const trackingReqs = Array.isArray(trackingReqRes.data) ? trackingReqRes.data : [];
+      const trackingReqSet = new Set(trackingReqs.map((row) => row.id));
+      const trackingDateById = new Map();
+      trackingRows.forEach((row) => {
+        if (!trackingReqSet.has(row.request_id)) return;
+        const day = String(row.added_at || '').slice(0, 10);
+        if (!day) return;
+        const prev = trackingDateById.get(row.request_id);
+        if (!prev || day < prev) trackingDateById.set(row.request_id, day);
+      });
+      trackingDateById.forEach((day, id) => setShippedDay(id, day, 2));
+    }
+
+    const shippedIds = Array.from(shippedDayById.keys());
     shippedShipmentsTotal = shippedIds.length;
 
     if (shippedIds.length) {
@@ -2397,10 +2459,9 @@ createPrepItem: async (requestId, item) => {
         .in('prep_request_id', shippedIds)
         .limit(20000);
       const items = Array.isArray(itemsRes.data) ? itemsRes.data : [];
-      const dateById = new Map(shippedReqs.map((r) => [r.id, (r.step4_confirmed_at || '').slice(0, 10)]));
       filteredShippedItems = items.map((it) => ({
         ...it,
-        prep_requests: { id: it.prep_request_id, step4_confirmed_at: dateById.get(it.prep_request_id) }
+        prep_requests: { id: it.prep_request_id, step4_confirmed_at: shippedDayById.get(it.prep_request_id) }
       }));
       shippedUnitsTotal = filteredShippedItems.reduce(
         (acc, row) => acc + pickUnits(row),
