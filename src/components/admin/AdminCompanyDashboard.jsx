@@ -45,6 +45,83 @@ const Card = ({ title, value, subtitle, color = 'bg-white', accentClass = 'text-
   </div>
 );
 
+const SectionTitle = ({ title }) => (
+  <div className="flex items-center justify-between">
+    <div className="text-base font-semibold text-text-primary">{title}</div>
+    <div className="h-px flex-1 ml-4 bg-gray-100" />
+  </div>
+);
+
+const MetricCard = ({ title, value, subtitle, badge }) => (
+  <div className="bg-white border rounded-xl p-4 shadow-sm h-full">
+    <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
+      <span>{title}</span>
+      {badge != null && <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{badge}</span>}
+    </div>
+    <div className="text-2xl font-semibold text-text-primary">{value}</div>
+    {subtitle && <div className="text-xs text-text-secondary mt-1">{subtitle}</div>}
+  </div>
+);
+
+const DualStatCard = ({ title, leftLabel, leftValue, rightLabel, rightValue }) => (
+  <div className="bg-white border rounded-xl p-4 shadow-sm h-full">
+    <div className="text-sm text-text-secondary mb-3">{title}</div>
+    <div className="grid grid-cols-2 gap-6">
+      <div>
+        <div className="text-2xl font-semibold text-text-primary">{leftValue}</div>
+        <div className="text-xs text-text-secondary mt-1">{leftLabel}</div>
+      </div>
+      <div>
+        <div className="text-2xl font-semibold text-text-primary">{rightValue}</div>
+        <div className="text-xs text-text-secondary mt-1">{rightLabel}</div>
+      </div>
+    </div>
+  </div>
+);
+
+const ProgressRing = ({ percent = 0, label }) => {
+  const size = 72;
+  const stroke = 8;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percent / 100) * circumference;
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <svg width={size} height={size}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#e5e7eb"
+          strokeWidth={stroke}
+          fill="none"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#6366f1"
+          strokeWidth={stroke}
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+        <text
+          x="50%"
+          y="50%"
+          textAnchor="middle"
+          dy="0.35em"
+          className="fill-indigo-600 text-sm font-semibold"
+        >
+          {`${Math.round(percent)}%`}
+        </text>
+      </svg>
+      <div className="text-xs text-text-secondary">{label}</div>
+    </div>
+  );
+};
+
 export default function AdminCompanyDashboard() {
   const { t, tp } = useAdminTranslation();
   const { currentMarket } = useMarket();
@@ -296,6 +373,11 @@ export default function AdminCompanyDashboard() {
 
   const todayOrders = snapshot?.prepared?.unitsToday ?? 0;
   const todayReceiving = snapshot?.receiving?.unitsToday ?? 0;
+  const todayReceivingShipments =
+    snapshot?.receiving?.shipmentsToday ??
+    snapshot?.receiving?.countToday ??
+    snapshot?.receiving?.ordersToday ??
+    0;
 
   const sumTotalPrepared = snapshot?.prepared?.unitsTotal ?? 0;
   const sumTotalReceiving = snapshot?.receiving?.unitsTotal ?? 0;
@@ -328,6 +410,10 @@ export default function AdminCompanyDashboard() {
     return Array.from(map.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [preparedDaily, receivingDaily, balanceDaily]);
 
+  const chartData7 = chartData.slice(-7);
+  const inbound7 = receivingDaily.slice(-7).map((row) => ({ date: row.date, value: row.units || 0 }));
+  const shipped7 = preparedDaily.slice(-7).map((row) => ({ date: row.date, value: row.units || 0 }));
+
   const moneySelectedInterval =
     Number(snapshot?.finance?.prepAmounts?.fba || 0) +
     Number(snapshot?.finance?.prepAmounts?.fbm || 0) +
@@ -342,8 +428,8 @@ export default function AdminCompanyDashboard() {
         <div className="flex items-center gap-2 text-text-primary">
           <Package className="w-5 h-5" />
           <div>
-            <div className="text-xs uppercase tracking-wide text-text-light">{t('adminDashboard.title')}</div>
-            <h2 className="text-xl font-semibold">{t('adminDashboard.subtitle')}</h2>
+            <div className="text-xs uppercase tracking-wide text-text-light">Dashboard</div>
+            <h2 className="text-xl font-semibold">Inbound</h2>
             <div className="text-xs text-text-secondary">
               {selectedCompany?.id === 'ALL'
                 ? t('adminDashboard.aggregateLabel')
@@ -353,14 +439,6 @@ export default function AdminCompanyDashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 border rounded-lg px-2 py-1 bg-white">
-            <Search className="w-4 h-4 text-text-secondary" />
-            <input
-              type="text"
-              placeholder={t('adminDashboard.searchPlaceholder')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="text-sm outline-none w-40"
-            />
             <Building2 className="w-4 h-4 text-text-secondary" />
             <select
               className="text-sm outline-none"
@@ -377,6 +455,16 @@ export default function AdminCompanyDashboard() {
               ))}
               {!filteredCompanies.length && <option value="">{t('adminDashboard.noCompaniesOption')}</option>}
             </select>
+          </div>
+          <div className="flex items-center gap-2 border rounded-lg px-2 py-1 bg-white">
+            <Search className="w-4 h-4 text-text-secondary" />
+            <input
+              type="text"
+              placeholder={t('adminDashboard.searchPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="text-sm outline-none w-48"
+            />
           </div>
           <div className="flex items-center gap-2 border rounded-lg px-2 py-1 bg-white">
             <CalendarIcon className="w-4 h-4 text-text-secondary" />
@@ -431,154 +519,90 @@ export default function AdminCompanyDashboard() {
         <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">{t('adminDashboard.noData')}</div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-4">
-            <Card
-              title={t('adminDashboard.balanceTitle')}
-              value={`€${Number(moneySelectedInterval || 0).toFixed(2)}`}
-              subtitle={tp('adminDashboard.balanceSubtitleInterval', { total: Number(moneyMonthRunning || 0).toFixed(2) })}
-              accentClass="text-orange-700"
+          <SectionTitle title="Inbound" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+            <DualStatCard
+              title="Arriving Today"
+              leftLabel="Shipments"
+              leftValue={todayReceivingShipments}
+              rightLabel="Units"
+              rightValue={todayReceiving}
             />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card
-              title={t('adminDashboard.preparedTitle')}
-              value={isSingleDay ? todayOrders : sumTotalPrepared}
-              subtitle={
-                isSingleDay
-                  ? tp('adminDashboard.preparedSubtitleSingle', { total: sumTotalPrepared })
-                  : tp('adminDashboard.preparedSubtitleInterval', { total: sumTotalPrepared })
-              }
-              accentClass="text-blue-700"
-            />
-            <Card
-              title={t('adminDashboard.receptionsTitle')}
-              value={isSingleDay ? todayReceiving : sumTotalReceiving}
-              subtitle={
-                isSingleDay
-                  ? tp('adminDashboard.receptionsSubtitleSingle', { total: monthReceivingTotal ?? sumTotalReceiving })
-                  : tp('adminDashboard.receptionsSubtitleInterval', { total: sumTotalReceiving })
-              }
-              accentClass="text-blue-700"
-            />
-            <Card
-              title={t('adminDashboard.stockTitle')}
-              value={inventoryUnitsAll}
-              subtitle={isAllCompanies ? t('adminDashboard.stockSubtitleAll') : t('adminDashboard.stockSubtitleCompany')}
-              accentClass="text-blue-700"
-            />
-          </div>
-
-          <div className="bg-white border rounded-xl p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-text-primary">{t('adminDashboard.chartTitle')}</div>
-              <div className="flex items-center gap-2 text-xs text-text-secondary">
-                <span>{tp('adminDashboard.chartRangeLabel', { days: chartDays })}</span>
-                <select
-                  className="border rounded px-2 py-1 text-xs"
-                  value={chartRange}
-                  onChange={(e) => setChartRange(Number(e.target.value))}
-                >
-                  <option value={1}>1</option>
-                  <option value={7}>7</option>
-                  <option value={30}>30</option>
-                  <option value={60}>60</option>
-                  <option value={90}>90</option>
-                </select>
+            <div className="bg-white border rounded-xl p-4 shadow-sm">
+              <div className="text-sm text-text-secondary mb-3">Received Today</div>
+              <div className="flex items-center gap-6">
+                <ProgressRing percent={0} label="Units" />
+                <ProgressRing percent={0} label="Shipments" />
               </div>
             </div>
-            {chartError && <div className="text-sm text-red-600 mb-2">{chartError}</div>}
-            {loadingChart ? (
-              <div className="text-sm text-text-secondary">{t('adminDashboard.loadingChart')}</div>
-            ) : chartData.length ? (
-              <div className="w-full h-72">
+            <div className="bg-white border rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
+                <span>Units Received, Last 7 Days</span>
+                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{sumTotalReceiving}</span>
+              </div>
+              <div className="w-full h-36">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                  <AreaChart data={inbound7} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="date" tickFormatter={(v) => formatDisplayDate(v)} tick={{ fontSize: 12 }} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                    <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload || !payload.length) return null;
-                        return (
-                          <div className="bg-white border rounded-md px-3 py-2 text-xs shadow-sm">
-                            <div className="font-semibold text-text-primary mb-1">{formatDisplayDate(label)}</div>
-                            {payload.map((p) => (
-                              <div key={p.dataKey} className="flex items-center gap-2">
-                                <span className="inline-block w-3 h-3 rounded-full" style={{ background: p.color }} />
-                                <span className="text-text-secondary">{p.name || p.dataKey}</span>
-                                <span className="font-semibold text-text-primary">{p.value}</span>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      }}
-                    />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="orders"
-                      stroke="#2563eb"
-                      fill="#2563eb"
-                      fillOpacity={0.15}
-                      strokeWidth={1.5}
-                      name={t('adminDashboard.chartPrepared')}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="receiving"
-                      stroke="#10b981"
-                      fill="#10b981"
-                      fillOpacity={0.15}
-                      strokeWidth={1.5}
-                      name={t('adminDashboard.chartReceiving')}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="balance"
-                      stroke="#f59e0b"
-                      fill="#f59e0b"
-                      fillOpacity={0.15}
-                      strokeWidth={1.5}
-                      name={t('adminDashboard.chartBalance')}
-                    />
+                    <XAxis dataKey="date" tickFormatter={(v) => formatDisplayDate(v)} tick={{ fontSize: 10 }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-            ) : (
-              <div className="text-sm text-text-secondary">{t('adminDashboard.noChartData')}</div>
-            )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <SectionTitle title="Amazon" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+            <MetricCard title="Shipped Today" value={todayOrders} />
+            <MetricCard
+              title="In Progress"
+              value={snapshot?.series?.orders?.statusCounts?.in_progress ?? 0}
+            />
             <div className="bg-white border rounded-xl p-4 shadow-sm">
-              <div className="text-sm font-semibold text-text-primary mb-2">{t('adminDashboard.statusOrdersTitle')}</div>
-              <div className="divide-y">
-                {Object.entries(snapshot.series.orders.statusCounts || {}).map(([status, value]) => (
-                  <div key={status} className="flex items-center justify-between py-2 text-sm">
-                    <span className="capitalize text-text-secondary">{status}</span>
-                    <span className="font-semibold text-text-primary">{value}</span>
-                  </div>
-                ))}
-                {!Object.keys(snapshot.series.orders.statusCounts || {}).length && (
-                  <div className="text-sm text-text-secondary py-2">{t('adminDashboard.noOrdersStatus')}</div>
-                )}
+              <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
+                <span>Units Shipped, Last 7 Days</span>
+                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{sumTotalPrepared}</span>
+              </div>
+              <div className="w-full h-36">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={shipped7} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="date" tickFormatter={(v) => formatDisplayDate(v)} tick={{ fontSize: 10 }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
-            <div className="bg-white border rounded-xl p-4 shadow-sm">
-              <div className="text-sm font-semibold text-text-primary mb-2">{t('adminDashboard.statusShipmentsTitle')}</div>
-              <div className="divide-y">
-                {Object.entries(snapshot.series.shipments.statusCounts || {}).map(([status, value]) => (
-                  <div key={status} className="flex items-center justify-between py-2 text-sm">
-                    <span className="capitalize text-text-secondary">{status}</span>
-                    <span className="font-semibold text-text-primary">{value}</span>
-                  </div>
-                ))}
-                {!Object.keys(snapshot.series.shipments.statusCounts || {}).length && (
-                  <div className="text-sm text-text-secondary py-2">{t('adminDashboard.noShipmentsStatus')}</div>
-                )}
-              </div>
-            </div>
+          </div>
+
+          <SectionTitle title="Inventory" />
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-stretch">
+            <MetricCard title="Quantity In Stock" value={inventoryUnitsAll} />
+            <MetricCard title="Available Quantity" value={snapshot?.inventory?.available ?? 0} />
+            <MetricCard title="Inbound Quantity" value={snapshot?.inventory?.inbound ?? 0} />
+            <MetricCard title="Allocated Quantity" value={snapshot?.inventory?.allocated ?? 0} />
+            <MetricCard title="Unavailable Quantity" value={snapshot?.inventory?.unavailable ?? 0} />
+          </div>
+
+          <SectionTitle title="Billing" />
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
+            <MetricCard
+              title="Uninvoiced Charges"
+              value={`€${Number(moneySelectedInterval || 0).toFixed(2)}`}
+            />
+            <MetricCard
+              title="Unpaid, Invoiced Charges"
+              value={`€${Number(moneyMonthRunning || 0).toFixed(2)}`}
+            />
+            <MetricCard
+              title="Balance"
+              value={`€${Number(moneySelectedInterval || 0).toFixed(2)}`}
+            />
           </div>
 
           <div className="bg-white border rounded-xl p-4 shadow-sm">
