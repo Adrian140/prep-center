@@ -1930,6 +1930,14 @@ createPrepItem: async (requestId, item) => {
       .gte('prep_requests.confirmed_at', startIso)
       .lte('prep_requests.confirmed_at', endIso)
       .limit(10000);
+    let pendingItemsQuery = supabase
+      .from('prep_request_items')
+      .select('units_requested, units_sent, prep_requests!inner(created_at, company_id, status, warehouse_country)')
+      .eq('prep_requests.status', 'pending');
+    const pendingItemsPromise = pendingItemsQuery
+      .gte('prep_requests.created_at', startIso)
+      .lte('prep_requests.created_at', endIso)
+      .limit(10000);
 
     // Reception units – unități efectiv intrate în stock (log de mișcări)
     let receivingItemsQuery = supabase
@@ -1984,7 +1992,7 @@ createPrepItem: async (requestId, item) => {
       .lte('service_date', dateTo)
       .limit(20000);
 
-    let [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, stockTotalByCountryRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
+    let [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, stockTotalByCountryRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, pendingItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
       stockPromise,
       stockAllPromise,
       clientStockPromise,
@@ -1995,6 +2003,7 @@ createPrepItem: async (requestId, item) => {
       prepPromise,
       receivingPromise,
       prepItemsPromise,
+      pendingItemsPromise,
       receivingItemsPromise,
       fbaLinesPromise,
       fbmLinesPromise,
@@ -2036,6 +2045,13 @@ createPrepItem: async (requestId, item) => {
         .from('prep_request_items')
         .select('units_requested, units_sent, prep_requests!inner(confirmed_at, company_id, status, step4_confirmed_at)')
         .limit(10000);
+      const pendingItemsRetry = supabase
+        .from('prep_request_items')
+        .select('units_requested, units_sent, prep_requests!inner(created_at, company_id, status)')
+        .eq('prep_requests.status', 'pending')
+        .gte('prep_requests.created_at', startIso)
+        .lte('prep_requests.created_at', endIso)
+        .limit(10000);
       let receivingItemsRetry = supabase
         .from('receiving_to_stock_log')
         .select('quantity_moved, moved_at, receiving_items!inner(id, shipment_id, receiving_shipments!inner(company_id))')
@@ -2045,18 +2061,20 @@ createPrepItem: async (requestId, item) => {
       if (companyId) {
         receivingItemsRetry = receivingItemsRetry.eq('receiving_items.receiving_shipments.company_id', companyId);
       }
-      const [returnsRetryRes, prepRetryRes, receivingRetryRes, prepItemsRetryRes, receivingItemsRetryRes] =
+      const [returnsRetryRes, prepRetryRes, receivingRetryRes, prepItemsRetryRes, pendingItemsRetryRes, receivingItemsRetryRes] =
         await Promise.all([
           returnsRetry,
           prepRetry,
           receivingRetry,
           prepItemsRetry,
+          pendingItemsRetry,
           receivingItemsRetry
         ]);
       if (isWarehouseMissing(returnsRes?.error)) returnsRes = returnsRetryRes;
       if (isWarehouseMissing(prepRes?.error)) prepRes = prepRetryRes;
       if (isWarehouseMissing(receivingRes?.error)) receivingRes = receivingRetryRes;
       if (isWarehouseMissing(prepItemsRes?.error)) prepItemsRes = prepItemsRetryRes;
+      if (isWarehouseMissing(pendingItemsRes?.error)) pendingItemsRes = pendingItemsRetryRes;
       if (isWarehouseMissing(receivingItemsRes?.error)) receivingItemsRes = receivingItemsRetryRes;
     }
 
@@ -2127,6 +2145,7 @@ createPrepItem: async (requestId, item) => {
     const prepRows = Array.isArray(prepRes.data) ? prepRes.data : [];
     const receivingRows = Array.isArray(receivingRes.data) ? receivingRes.data : [];
     const prepItemRows = Array.isArray(prepItemsRes.data) ? prepItemsRes.data : [];
+    const pendingItemRows = Array.isArray(pendingItemsRes?.data) ? pendingItemsRes.data : [];
     const receivingItemRows = Array.isArray(receivingItemsRes.data) ? receivingItemsRes.data : [];
     const fbaLines = Array.isArray(fbaLinesRes.data) ? fbaLinesRes.data : [];
     const fbmLines = Array.isArray(fbmLinesRes.data) ? fbmLinesRes.data : [];
@@ -2137,10 +2156,15 @@ createPrepItem: async (requestId, item) => {
       return rows.filter((row) => extractor(row) === companyId);
     };
     const prepItemsBase = (Array.isArray(prepItemRows) ? prepItemRows : []).filter((r) => r?.prep_requests);
+    const pendingItemsBase = (Array.isArray(pendingItemRows) ? pendingItemRows : []).filter((r) => r?.prep_requests);
     const prepItemsMarket = marketCode
       ? prepItemsBase.filter((r) => normalizeMarketCode(r.prep_requests?.warehouse_country) === marketCode)
       : prepItemsBase;
+    const pendingItemsMarket = marketCode
+      ? pendingItemsBase.filter((r) => normalizeMarketCode(r.prep_requests?.warehouse_country) === marketCode)
+      : pendingItemsBase;
     const prepItemsByCompany = filterCompanyJoin(prepItemsMarket, (r) => r.prep_requests?.company_id);
+    const pendingItemsByCompany = filterCompanyJoin(pendingItemsMarket, (r) => r.prep_requests?.company_id);
     const inRangeDate = (value) => {
       if (!value) return false;
       const d = String(value).slice(0, 10);
@@ -2149,6 +2173,10 @@ createPrepItem: async (requestId, item) => {
     const preparedItems = prepItemsByCompany.filter((row) => inRangeDate(row.prep_requests?.confirmed_at));
     let filteredShippedItems = prepItemsByCompany.filter((row) => inRangeDate(row.prep_requests?.step4_confirmed_at));
     const filteredReceivingItems = receivingItemRows;
+    const pendingUnitsTotal = pendingItemsByCompany.reduce(
+      (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
+      0
+    );
 
     const prepUnitsTotal = preparedItems.reduce(
       (acc, row) => acc + numberOrZero(row.units_sent ?? row.units_requested),
@@ -2432,6 +2460,9 @@ createPrepItem: async (requestId, item) => {
           orders: { label: 'Prep requests', ...ordersSeries },
           shipments: { label: 'Receiving shipments', ...shipmentsSeries },
           returns: { label: 'Returns', ...returnsSeries }
+        },
+        ordersPending: {
+          unitsTotal: pendingUnitsTotal
         }
       },
       error:
