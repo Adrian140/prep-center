@@ -61,6 +61,7 @@ const normalizeStep2Shipments = (value) => {
       skuCount: sh?.skuCount ?? sh?.skus ?? null,
       units: sh?.units ?? null,
       items: Array.isArray(sh?.items) ? sh.items : null,
+      toText: sh?.to || null,
       shipToAddress: sh?.shipToAddress || sh?.ship_to_address || sh?.destination?.address || sh?.destination || null,
       shipFromAddress: sh?.shipFromAddress || sh?.ship_from_address || sh?.source?.address || sh?.source || null,
       index: Number.isFinite(Number(sh?.index)) ? Number(sh.index) : idx
@@ -799,6 +800,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 );
                 const unitsLocated = Number.isFinite(unitsLocatedRaw) ? unitsLocatedRaw : null;
                 const shipToText =
+                  shipment?.toText ||
                   shipment?.shipToAddress?.name ||
                   shipment?.shipToAddress?.addressLine1 ||
                   shipment?.shipToAddress?.address ||
@@ -1027,7 +1029,10 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                     ))
                   ) : (
                     <div className="text-sm text-text-primary">
-                      {amazonSnapshot.destination_code || reqHeader?.amazon_destination_code || '—'}
+                      {reqStep2Shipments[0]?.toText ||
+                        amazonSnapshot.destination_code ||
+                        reqHeader?.amazon_destination_code ||
+                        '—'}
                     </div>
                   )}
                   {amazonSnapshot.delivery_window && (
