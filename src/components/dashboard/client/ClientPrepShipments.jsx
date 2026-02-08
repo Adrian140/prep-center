@@ -154,6 +154,14 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
     return lines.length ? lines : ['—'];
   };
 
+  const splitAddressLines = (value) => {
+    if (!value || typeof value !== 'string') return [];
+    return value
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+  };
+
   const hasDetailedAddress = (address) =>
     !!address &&
     typeof address === 'object' &&
@@ -819,6 +827,9 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                   row.amazon_destination_code ||
                   snapshot.destination_code ||
                   destCode;
+                const shipToLines = shipment?.shipToAddress
+                  ? formatAddressLines(shipment.shipToAddress)
+                  : (shipment?.toText ? splitAddressLines(shipment.toText) : []);
                 const deliveryWindow =
                   row.amazon_delivery_window ||
                   snapshot.delivery_window ||
@@ -885,11 +896,13 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                       <div className="text-xs text-text-secondary">{lastUpdatedParts.time}</div>
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <div className="flex items-start gap-2">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 uppercase">
-                          {shipToText}
-                          <span className="normal-case text-[11px] text-rose-700">{destLabel}</span>
-                        </span>
+                      <div className="space-y-0.5">
+                        {(shipToLines.length ? shipToLines : [shipToText]).map((line, idx) => (
+                          <div key={`shipto-line-${idx}`} className="text-sm text-text-primary break-words">
+                            {line}
+                          </div>
+                        ))}
+                        <div className="text-xs text-text-secondary">{destLabel}</div>
                       </div>
                       {deliveryWindow && (
                         <div className="text-xs text-text-secondary mt-1">
