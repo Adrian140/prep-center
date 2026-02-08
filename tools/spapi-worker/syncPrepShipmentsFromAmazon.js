@@ -503,6 +503,59 @@ async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
   return { snapshot, items };
 }
 
+const collectTrackingIds = (value, bucket = new Set()) => {
+  if (!value) return bucket;
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectTrackingIds(item, bucket));
+    return bucket;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed) bucket.add(trimmed);
+    return bucket;
+  }
+  if (typeof value !== 'object') return bucket;
+
+  const directKeys = ['TrackingId', 'trackingId', 'TrackingID', 'tracking_id'];
+  directKeys.forEach((key) => {
+    if (value[key]) collectTrackingIds(value[key], bucket);
+  });
+
+  if (value.TrackingIds || value.trackingIds) {
+    collectTrackingIds(value.TrackingIds || value.trackingIds, bucket);
+  }
+
+  Object.keys(value).forEach((key) => {
+    if (key.toLowerCase().includes('tracking')) {
+      collectTrackingIds(value[key], bucket);
+    }
+  });
+
+  Object.values(value).forEach((val) => {
+    if (val && typeof val === 'object') collectTrackingIds(val, bucket);
+  });
+
+  return bucket;
+};
+
+async function fetchTransportTrackingIds(spClient, shipmentId, marketplaceId) {
+  try {
+    const res = await spClient.callAPI({
+      operation: 'getTransportDetails',
+      endpoint: 'fulfillmentInbound',
+      path: { shipmentId },
+      query: marketplaceId ? { MarketplaceId: marketplaceId } : {},
+      options: { version: 'v0' }
+    });
+    const payload = res?.payload || res;
+    const trackingSet = collectTrackingIds(payload);
+    return Array.from(trackingSet.values()).filter(Boolean);
+  } catch (err) {
+    console.warn(`[Prep shipments sync] Unable to fetch transport details for ${shipmentId}:`, err.message);
+    return [];
+  }
+}
+
 async function updatePrepRequest(id, patch) {
   const { error } = await supabase.from('prep_requests').update(patch).eq('id', id);
   if (error) throw error;
@@ -635,6 +688,11 @@ async function main() {
           shipmentIdForSync,
           marketplaceId
         );
+        const trackableStatuses = new Set(['SHIPPED', 'IN_TRANSIT', 'DELIVERED', 'CLOSED', 'RECEIVING', 'RECEIVED']);
+        const normalizedSnapStatus = normalizeTransportStatus(snap.status);
+        const transportTrackingIds = trackableStatuses.has(normalizedSnapStatus)
+          ? await fetchTransportTrackingIds(client, shipmentIdForSync, marketplaceId)
+          : [];
         await updateItemAmazonQuantities(row.prep_request_items, amazonItems);
         let prepStatusResolved = row.prep_status;
         if (!prepStatusResolved) {
@@ -648,6 +706,64 @@ async function main() {
           unitsExpected: snap.units_expected,
           unitsReceived: snap.units_located
         });
+
+        let step2Updated = false;
+        let nextStep2Shipments = row.step2_shipments;
+        if (Array.isArray(row.step2_shipments)) {
+          nextStep2Shipments = row.step2_shipments.map((sh) => {
+            const matchesShipment =
+              sh?.amazonShipmentId === snap.shipment_id ||
+              sh?.shipmentId === snap.shipment_id ||
+              sh?.shipment_id === snap.shipment_id ||
+              sh?.id === snap.shipment_id;
+            if (!matchesShipment) return sh;
+            const hasShipTo =
+              sh?.shipToAddress ||
+              sh?.ship_to_address ||
+              sh?.to ||
+              sh?.destination;
+            if (hasShipTo) return sh;
+            step2Updated = true;
+            const shipToAddress = snap.ship_to || null;
+            const toText = shipToAddress
+              ? [
+                  shipToAddress.name,
+                  shipToAddress.address1,
+                  shipToAddress.address2,
+                  [shipToAddress.postal_code, shipToAddress.city].filter(Boolean).join(' ').trim(),
+                  shipToAddress.country_code
+                ]
+                  .filter(Boolean)
+                  .join(', ')
+              : null;
+            return {
+              ...sh,
+              shipToAddress,
+              to: toText || sh?.to || null
+            };
+          });
+        }
+
+        if (transportTrackingIds.length > 0) {
+          const { data: existingTracking } = await supabase
+            .from('prep_request_tracking')
+            .select('tracking_id')
+            .eq('request_id', row.id);
+          const existingSet = new Set((existingTracking || []).map((t) => t.tracking_id).filter(Boolean));
+          const toInsert = transportTrackingIds
+            .map((id) => String(id).trim())
+            .filter((id) => id && !existingSet.has(id))
+            .map((tracking_id) => ({ request_id: row.id, tracking_id }));
+          if (toInsert.length) {
+            const { error: trackingError } = await supabase
+              .from('prep_request_tracking')
+              .insert(toInsert);
+            if (trackingError) {
+              console.warn(`Failed to insert tracking ids for prep_request ${row.id}:`, trackingError.message);
+            }
+          }
+        }
+
         const shouldSkipClosedUpdate =
           row.amazon_status === 'CLOSED' && nextStatus === 'CLOSED';
         if (!shouldSkipClosedUpdate) {
@@ -664,7 +780,8 @@ async function main() {
             amazon_snapshot: snap,
             amazon_last_synced_at: nowIso,
             amazon_sync_error: null,
-            prep_status: prepStatusResolved
+            prep_status: prepStatusResolved,
+            ...(step2Updated ? { step2_shipments: nextStep2Shipments } : {})
           });
         } else {
           console.log(
@@ -672,7 +789,8 @@ async function main() {
           );
           await updatePrepRequest(row.id, {
             amazon_last_synced_at: nowIso,
-            amazon_sync_error: null
+            amazon_sync_error: null,
+            ...(step2Updated ? { step2_shipments: nextStep2Shipments } : {})
           });
         }
         console.log(
