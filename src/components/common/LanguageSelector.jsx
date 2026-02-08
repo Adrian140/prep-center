@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Globe } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function LanguageSelector() {
@@ -29,17 +28,13 @@ export default function LanguageSelector() {
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 shadow-sm min-w-[140px] justify-between"
+        className="flex items-center gap-2 px-2 py-2 rounded-lg border bg-white hover:bg-gray-50 shadow-sm justify-between"
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="Select language"
+        aria-label={`Select language (${active.label})`}
       >
-        <span className="flex items-center gap-2">
-          <Globe className="w-4 h-4 text-gray-500" />
-          <span className="text-lg leading-none">{active.flag}</span>
-          <span className="text-sm font-medium">{active.label}</span>
-        </span>
-        <span className="ml-1 text-xs text-gray-500">▾</span>
+        <span className="text-lg leading-none">{active.flag}</span>
+        <span className="text-xs text-gray-500">▾</span>
       </button>
 
       {open && (
