@@ -56,6 +56,8 @@ const normalizeStep2Shipments = (value) => {
       shipmentId: sh?.shipmentId || sh?.shipment_id || sh?.id || null,
       packingGroupId: sh?.packingGroupId || sh?.packing_group_id || null,
       name: sh?.name || sh?.shipmentName || sh?.shipment_name || null,
+      amazonShipmentId: sh?.amazonShipmentId || sh?.amazon_shipment_id || null,
+      legacyShipmentId: sh?.legacyShipmentId || sh?.legacy_shipment_id || null,
       skuCount: sh?.skuCount ?? sh?.skus ?? null,
       units: sh?.units ?? null,
       items: Array.isArray(sh?.items) ? sh.items : null,
