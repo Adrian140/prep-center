@@ -31,6 +31,8 @@ export const LanguageProvider = ({ children }) => {
       const code = (preferred && languages[preferred]) ? preferred : DEFAULT_LANG;
       setCurrentLanguage(code);
       document.documentElement.setAttribute('lang', code);
+      localStorage.setItem(STORAGE_KEY, code);
+      localStorage.setItem(LEGACY_KEY, code);
       localStorage.setItem('lang', code);
     } catch {
       // ignore storage errors (privacy mode, etc)
@@ -45,6 +47,9 @@ export const LanguageProvider = ({ children }) => {
       localStorage.setItem(LEGACY_KEY,  code); // compat cu cod vechi
       localStorage.setItem('lang', code);      // compat cu componente care citesc 'lang'
       document.documentElement.setAttribute('lang', code);
+      const url = new URL(window.location.href);
+      url.searchParams.set('lang', code);
+      window.history.replaceState({}, '', url.toString());
       // notifică eventuale componente care ascultă schimbarea
       window.dispatchEvent(new CustomEvent('i18n:changed', { detail: code }));
       window.dispatchEvent(new Event('app:lang-changed')); // compat cu listener-ele existente
