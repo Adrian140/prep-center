@@ -63,6 +63,19 @@ const normalizeStep2Shipments = (value) => {
     .filter((sh) => sh.shipmentId);
 };
 
+const isAmazonShipmentId = (value) => typeof value === 'string' && /^FBA[A-Z0-9]+$/i.test(value.trim());
+
+const pickAmazonShipmentId = ({ shipment, row, snapshot }) => {
+  const candidates = [
+    row?.fba_shipment_id,
+    shipment?.amazonShipmentId,
+    shipment?.legacyShipmentId,
+    shipment?.shipmentId,
+    snapshot?.shipment_id
+  ];
+  return candidates.find((id) => isAmazonShipmentId(id)) || null;
+};
+
 export default function ClientPrepShipments({ profileOverride } = {}) {
   const { profile: authProfile } = useSupabaseAuth();
   const targetProfile = profileOverride || authProfile;
@@ -601,8 +614,11 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
     [reqHeader?.step2_shipments]
   );
   const headerShipmentIds = reqStep2Shipments.length
-    ? reqStep2Shipments.map((sh) => sh.shipmentId).join(' · ')
-    : (reqHeader?.fba_shipment_id || '');
+    ? reqStep2Shipments
+        .map((sh) => pickAmazonShipmentId({ shipment: sh, row: reqHeader, snapshot: reqHeader?.amazon_snapshot }) || sh.shipmentId)
+        .filter(Boolean)
+        .join(' · ')
+    : (isAmazonShipmentId(reqHeader?.fba_shipment_id) ? reqHeader?.fba_shipment_id : '');
   const filteredRows = useMemo(() => {
     const raw = searchTerm.trim().toLowerCase();
     if (!raw) return rows;
@@ -747,7 +763,8 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                   shipment?.shipmentId ||
                   row.fba_shipment_id ||
                   'FBA shipment';
-                const shipmentId = shipment?.shipmentId || row.fba_shipment_id || snapshot.shipment_id || '—';
+                const amazonShipmentId = pickAmazonShipmentId({ shipment, row, snapshot });
+                const shipmentId = amazonShipmentId || shipment?.shipmentId || row.fba_shipment_id || snapshot.shipment_id || '—';
                 const referenceId = row.amazon_reference_id || snapshot.reference_id || snapshot.shipment_reference_id || '';
                 const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
                 const skusCountRaw = Number(row.amazon_skus ?? snapshot.skus ?? items.length);
@@ -802,10 +819,22 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                       <div className="font-semibold text-primary hover:underline cursor-pointer" onClick={() => row.id && openReqEditor(row.id)}>
                         {shipmentName}{shipmentSuffix}
                       </div>
-                      <div className="text-xs text-text-secondary font-mono">
-                        {shipmentId}
-                        {referenceId ? `, ${referenceId}` : ''}
-                      </div>
+                      {amazonShipmentId ? (
+                        <div className="text-xs text-text-secondary font-mono">
+                          Amazon ShipmentId: {amazonShipmentId}
+                          {referenceId ? `, ${referenceId}` : ''}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-text-secondary font-mono">
+                          {shipmentId}
+                          {referenceId ? `, ${referenceId}` : ''}
+                        </div>
+                      )}
+                      {amazonShipmentId && shipmentId !== amazonShipmentId && (
+                        <div className="text-[11px] text-text-secondary font-mono">
+                          Plan ShipmentId: {shipmentId}
+                        </div>
+                      )}
                       {shipment?.packingGroupId && (
                         <div className="text-[11px] text-text-secondary">Pack group: {shipment.packingGroupId}</div>
                       )}
@@ -910,7 +939,11 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
               <>
                 {reqStep2Shipments.length > 0 && (
                   <div className="mx-6 mt-6 mb-2 text-xs text-text-secondary">
-                    Amazon shipments: {reqStep2Shipments.map((sh) => sh.shipmentId).join(' · ')}
+                    Amazon shipments:{' '}
+                    {reqStep2Shipments
+                      .map((sh) => pickAmazonShipmentId({ shipment: sh, row: reqHeader, snapshot: reqHeader?.amazon_snapshot }) || sh.shipmentId)
+                      .filter(Boolean)
+                      .join(' · ')}
                   </div>
                 )}
           {amazonSnapshot ? (
