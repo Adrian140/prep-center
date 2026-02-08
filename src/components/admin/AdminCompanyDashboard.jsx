@@ -131,7 +131,7 @@ export default function AdminCompanyDashboard() {
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [search, setSearch] = useState('');
 
-  const [dateFrom, setDateFrom] = useState(() => todayIso());
+  const [dateFrom, setDateFrom] = useState(() => shiftDays(29));
   const [dateTo, setDateTo] = useState(() => todayIso());
 
   const [loadingData, setLoadingData] = useState(false);
@@ -410,9 +410,25 @@ export default function AdminCompanyDashboard() {
     return Array.from(map.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [preparedDaily, receivingDaily, balanceDaily]);
 
-  const chartData7 = chartData.slice(-7);
-  const inbound7 = receivingDaily.slice(-7).map((row) => ({ date: row.date, value: row.units || 0 }));
-  const shipped7 = preparedDaily.slice(-7).map((row) => ({ date: row.date, value: row.units || 0 }));
+  const inRange = (date) => {
+    if (!dateFrom || !dateTo) return true;
+    return date >= dateFrom && date <= dateTo;
+  };
+
+  const inboundRange = receivingDaily
+    .filter((row) => inRange(row.date))
+    .map((row) => ({ date: row.date, value: row.units || 0 }));
+  const shippedRange = preparedDaily
+    .filter((row) => inRange(row.date))
+    .map((row) => ({ date: row.date, value: row.units || 0 }));
+
+  const inboundTotalRange = inboundRange.reduce((sum, row) => sum + Number(row.value || 0), 0);
+  const shippedTotalRange = shippedRange.reduce((sum, row) => sum + Number(row.value || 0), 0);
+
+  const inboundTodayUnits = todayReceiving;
+  const inboundTodayShipments = todayReceivingShipments;
+  const inboundPercentUnits = inboundTotalRange ? (inboundTodayUnits / inboundTotalRange) * 100 : 0;
+  const inboundPercentShipments = inboundTotalRange ? (inboundTodayShipments / inboundTotalRange) * 100 : 0;
 
   const moneySelectedInterval =
     Number(snapshot?.finance?.prepAmounts?.fba || 0) +
@@ -519,6 +535,22 @@ export default function AdminCompanyDashboard() {
         <div className="bg-white border rounded-xl p-4 text-sm text-text-secondary">{t('adminDashboard.noData')}</div>
       ) : (
         <>
+          <SectionTitle title="Billing" />
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
+            <MetricCard
+              title="Uninvoiced Charges"
+              value={`€${Number(moneySelectedInterval || 0).toFixed(2)}`}
+            />
+            <MetricCard
+              title="Unpaid, Invoiced Charges"
+              value={`€${Number(moneyMonthRunning || 0).toFixed(2)}`}
+            />
+            <MetricCard
+              title="Balance"
+              value={`€${Number(moneySelectedInterval || 0).toFixed(2)}`}
+            />
+          </div>
+
           <SectionTitle title="Inbound" />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
             <DualStatCard
@@ -531,18 +563,18 @@ export default function AdminCompanyDashboard() {
             <div className="bg-white border rounded-xl p-4 shadow-sm">
               <div className="text-sm text-text-secondary mb-3">Received Today</div>
               <div className="flex items-center gap-6">
-                <ProgressRing percent={0} label="Units" />
-                <ProgressRing percent={0} label="Shipments" />
+                <ProgressRing percent={inboundPercentUnits} label="Units" />
+                <ProgressRing percent={inboundPercentShipments} label="Shipments" />
               </div>
             </div>
             <div className="bg-white border rounded-xl p-4 shadow-sm">
               <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
-                <span>Units Received, Last 7 Days</span>
-                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{sumTotalReceiving}</span>
+                <span>Units Received (Selected Range)</span>
+                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{inboundTotalRange}</span>
               </div>
               <div className="w-full h-36">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={inbound7} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <AreaChart data={inboundRange} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="date" tickFormatter={(v) => formatDisplayDate(v)} tick={{ fontSize: 10 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
@@ -563,12 +595,12 @@ export default function AdminCompanyDashboard() {
             />
             <div className="bg-white border rounded-xl p-4 shadow-sm">
               <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
-                <span>Units Shipped, Last 7 Days</span>
-                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{sumTotalPrepared}</span>
+                <span>Units Shipped (Selected Range)</span>
+                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{shippedTotalRange}</span>
               </div>
               <div className="w-full h-36">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={shipped7} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <AreaChart data={shippedRange} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="date" tickFormatter={(v) => formatDisplayDate(v)} tick={{ fontSize: 10 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
@@ -587,22 +619,6 @@ export default function AdminCompanyDashboard() {
             <MetricCard title="Inbound Quantity" value={snapshot?.inventory?.inbound ?? 0} />
             <MetricCard title="Allocated Quantity" value={snapshot?.inventory?.allocated ?? 0} />
             <MetricCard title="Unavailable Quantity" value={snapshot?.inventory?.unavailable ?? 0} />
-          </div>
-
-          <SectionTitle title="Billing" />
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
-            <MetricCard
-              title="Uninvoiced Charges"
-              value={`€${Number(moneySelectedInterval || 0).toFixed(2)}`}
-            />
-            <MetricCard
-              title="Unpaid, Invoiced Charges"
-              value={`€${Number(moneyMonthRunning || 0).toFixed(2)}`}
-            />
-            <MetricCard
-              title="Balance"
-              value={`€${Number(moneySelectedInterval || 0).toFixed(2)}`}
-            />
           </div>
 
           <div className="bg-white border rounded-xl p-4 shadow-sm">
