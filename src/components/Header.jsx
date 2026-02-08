@@ -94,10 +94,9 @@ function Header() {
     if (item.href === '/services-pricing' && item.name?.includes('&')) {
       const [before, after] = item.name.split('&');
       return (
-        <span className="inline-flex items-center gap-1 leading-none">
+        <span className="inline-flex flex-col leading-[1.05] text-center">
           <span>{before.trim()}</span>
-          <span className="text-[0.9em] leading-none align-middle">&</span>
-          <span>{after.trim()}</span>
+          <span className="text-[0.9em] leading-none">& {after.trim()}</span>
         </span>
       );
     }
