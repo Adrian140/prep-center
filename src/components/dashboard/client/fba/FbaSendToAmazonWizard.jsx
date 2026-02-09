@@ -2237,7 +2237,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const dims = getSafeDims(g.boxDimensions) || getSafeDims(fallbackDims);
       const weight = getPositiveNumber(g.boxWeight) || getPositiveNumber(fallbackWeight);
       const planBoxCount = planBoxesRaw.length || 0;
-      const count = planBoxCount > 0 ? planBoxCount : Math.max(1, Number(g.boxes) || 1);
+      const uiBoxCount = Number(g.boxes) || 0;
+      // Prefer the user's current UI box count; fall back to plan boxes only if UI has none.
+      const count = uiBoxCount > 0 ? uiBoxCount : planBoxCount > 0 ? planBoxCount : 1;
       let normalizedPackMode = g.packMode || "single";
       if (count > 1) normalizedPackMode = "multiple";
       const isMultiple = String(normalizedPackMode || "").toLowerCase() === "multiple";
