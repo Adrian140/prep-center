@@ -3767,9 +3767,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const resolveFbaShipmentId = () => {
     const list = Array.isArray(shipments) ? shipments : [];
-    const fromApi = list.find((s) => s?.source === 'api' && (s?.shipmentId || s?.id));
-    const fallback = fromApi || list.find((s) => s?.shipmentId || s?.id);
-    const candidate = fallback?.shipmentId || fallback?.id || null;
+    const fromApi = list.find((s) => s?.source === 'api' && (s?.amazonShipmentId || s?.shipmentConfirmationId || s?.shipmentId || s?.id));
+    const fallback = fromApi || list.find((s) => s?.amazonShipmentId || s?.shipmentConfirmationId || s?.shipmentId || s?.id);
+    const candidate =
+      fallback?.amazonShipmentId ||
+      fallback?.shipmentConfirmationId ||
+      fallback?.shipmentId ||
+      fallback?.id ||
+      null;
     if (!candidate) return null;
     const asText = String(candidate);
     if (asText.startsWith('s-') || asText.toLowerCase().startsWith('fallback-')) return null;

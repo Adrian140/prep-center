@@ -2143,6 +2143,10 @@ serve(async (req) => {
           null;
         const contents = payload?.contents || payload?.Contents || {};
         const amazonShipmentId =
+          payload?.shipmentConfirmationId ||
+          payload?.shipmentConfirmationID ||
+          payload?.ShipmentConfirmationId ||
+          payload?.ShipmentConfirmationID ||
           payload?.shipmentId ||
           payload?.ShipmentId ||
           payload?.shipmentID ||
@@ -4521,6 +4525,10 @@ serve(async (req) => {
         step2_confirmed_at: new Date().toISOString(),
         step2_summary: summaryWithSelection,
         step2_shipments: shipmentsWithAmazonIds,
+        fba_shipment_id:
+          shipmentsWithAmazonIds?.[0]?.amazonShipmentId ||
+          shipmentsWithAmazonIds?.[0]?.shipmentId ||
+          null,
         ...buildShipmentNameUpdate()
       })
       .eq("id", requestId);
