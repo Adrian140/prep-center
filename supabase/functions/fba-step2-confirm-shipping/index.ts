@@ -2767,6 +2767,14 @@ serve(async (req) => {
     const optionsCountByShipment: Record<string, number> = {};
     const partneredChargeByShipment: Record<string, number> = {};
     const nonPartneredChargeByShipment: Record<string, number> = {};
+    const listingShipmentIds = Array.from(
+      new Set(
+        placementShipments
+          .filter((sh: any) => !sh?.isPackingGroup && (sh?.shipmentId || sh?.id))
+          .map((sh: any) => String(sh?.shipmentId || sh?.id))
+          .filter((id: any) => isValidShipmentId(String(id)))
+      )
+    );
     const isPartneredRaw = (opt: any) => hasPartneredSolution([opt]);
     const extractChargeAmount = (opt: any) => {
       const fromPath = [
