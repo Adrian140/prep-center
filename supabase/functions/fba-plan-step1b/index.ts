@@ -1854,7 +1854,10 @@ serve(async (req) => {
               boxes: g.boxes,
               hasDimensions: Boolean(g.dimensions),
               hasWeight: Boolean(g.weight),
-              items: Array.isArray(g.items) ? g.items.length : 0
+              items: Array.isArray(g.items) ? g.items.length : 0,
+              dimensions: g.dimensions ?? g.boxDimensions ?? null,
+              weight: g.weight ?? g.boxWeight ?? null,
+              perBoxDetailsCount: Array.isArray(g.perBoxDetails) ? g.perBoxDetails.length : 0
             }))
           },
           null,
