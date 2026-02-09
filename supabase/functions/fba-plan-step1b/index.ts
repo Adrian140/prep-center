@@ -612,7 +612,7 @@ serve(async (req) => {
 
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
-      .select("id, destination_country, company_id, user_id, amazon_snapshot, inbound_plan_id")
+      .select("id, destination_country, company_id, user_id, amazon_snapshot, inbound_plan_id, step1_box_plan")
       .eq("id", requestId)
       .maybeSingle();
     if (reqErr) throw reqErr;
@@ -672,6 +672,13 @@ serve(async (req) => {
 
     const destCountry = (reqData.destination_country || "").toUpperCase();
     const inferredMarketplace = marketplaceByCountry[destCountry] || null;
+    const step1BoxPlanRaw = (reqData as any)?.step1_box_plan || {};
+    const step1BoxPlan =
+      step1BoxPlanRaw && typeof step1BoxPlanRaw === "object"
+        ? (step1BoxPlanRaw?.groups ? step1BoxPlanRaw : (step1BoxPlanRaw?.[destCountry] || step1BoxPlanRaw?.[inferredMarketplace] || null))
+        : null;
+    const step1Groups = step1BoxPlan?.groups && typeof step1BoxPlan.groups === "object" ? step1BoxPlan.groups : {};
+    const step1GroupKeys = Object.keys(step1Groups || {});
 
     // Fetch amazon integration
     const amazonIntegrationIdInput = body?.amazon_integration_id as string | undefined;
@@ -1794,6 +1801,51 @@ serve(async (req) => {
         }
         if (!g.contentInformationSource && cached.contentInformationSource) {
           g.contentInformationSource = cached.contentInformationSource;
+        }
+      });
+    }
+
+    // Dacă avem box plan-ul din Step 1, folosește-l ca fallback ca să nu pierdem cutiile
+    if (step1GroupKeys.length && Array.isArray(normalizedPackingGroups)) {
+      const onlyPlanGroupKey = step1GroupKeys.length === 1 ? step1GroupKeys[0] : null;
+      normalizedPackingGroups.forEach((g) => {
+        const gid = String(g.packingGroupId || g.id || "");
+        const planGroup = (gid && step1Groups[gid]) || (onlyPlanGroupKey ? step1Groups[onlyPlanGroupKey] : null);
+        if (!planGroup) return;
+        const planBoxes = Array.isArray(planGroup.boxes) ? planGroup.boxes : [];
+        const planBoxItems = Array.isArray(planGroup.boxItems) ? planGroup.boxItems : [];
+        if (!planBoxes.length) return;
+
+        const maxBoxes = 10;
+        const planCount = Math.min(planBoxes.length, maxBoxes);
+        const currentCount = Number(g.boxes || 0) || 0;
+        if (planCount > currentCount) {
+          g.boxes = planCount;
+          g.packMode = planCount > 1 ? "multiple" : g.packMode || "single";
+        }
+
+        const perBoxDetails = planBoxes
+          .slice(0, maxBoxes)
+          .map((box: any) => ({
+            length: Number(box?.length_cm ?? box?.length ?? 0) || 0,
+            width: Number(box?.width_cm ?? box?.width ?? 0) || 0,
+            height: Number(box?.height_cm ?? box?.height ?? 0) || 0,
+            weight: Number(box?.weight_kg ?? box?.weight ?? 0) || 0
+          }))
+          .filter((b: any) => b.length > 0 && b.width > 0 && b.height > 0 && b.weight > 0);
+        if (perBoxDetails.length) {
+          g.perBoxDetails = perBoxDetails;
+          if (!g.dimensions) {
+            const first = perBoxDetails[0];
+            g.dimensions = { length: first.length, width: first.width, height: first.height, unit: "CM" };
+          }
+          if (!g.weight) {
+            const first = perBoxDetails[0];
+            g.weight = { value: first.weight, unit: "KG" };
+          }
+        }
+        if (Array.isArray(planBoxItems) && planBoxItems.length) {
+          g.perBoxItems = planBoxItems.slice(0, maxBoxes);
         }
       });
     }
