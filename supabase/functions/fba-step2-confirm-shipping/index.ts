@@ -2082,6 +2082,16 @@ serve(async (req) => {
       throw err;
     }
 
+    // Pentru SPD, nu trimitem pallets/freightInformation (pot forta LTL)
+    if (includePackages) {
+      shipmentTransportationConfigurations = shipmentTransportationConfigurations.map((cfg: any) => {
+        const next = { ...cfg };
+        if (Array.isArray(next.pallets) && next.pallets.length) delete next.pallets;
+        if (next.freightInformation) delete next.freightInformation;
+        return next;
+      });
+    }
+
     console.log(JSON.stringify({
       tag: "transportation_payload_preview",
       traceId,
