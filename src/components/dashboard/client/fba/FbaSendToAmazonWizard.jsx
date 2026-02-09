@@ -2862,19 +2862,18 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const perBoxDetails = Array.isArray(g?.perBoxDetails) && g.perBoxDetails.length
         ? g.perBoxDetails
         : planPerBoxDetails;
-      const perBoxPackages = isMultiple
-        ? Array.from({ length: boxCount }).map((_, boxIdx) => {
-            const box = perBoxDetails?.[boxIdx] || null;
-            const perDims = getSafeDims(box);
-            const perWeight = getPositiveNumber(box?.weight);
-            if (perDims && perWeight) {
+      const perBoxPackages = isMultiple && perBoxDetails.length
+        ? perBoxDetails
+            .map((box) => {
+              const perDims = getSafeDims(box);
+              const perWeight = getPositiveNumber(box?.weight);
+              if (!perDims || !perWeight) return null;
               return {
                 dimensions: { length: perDims.length, width: perDims.width, height: perDims.height, unit: "CM" },
                 weight: { value: perWeight, unit: "KG" }
               };
-            }
-            return pkg || null;
-          }).filter(Boolean)
+            })
+            .filter(Boolean)
         : [];
       const fallbackPerBoxPackages = !perBoxPackages.length && planPerBoxDetails.length
         ? planPerBoxDetails.map((box) => ({

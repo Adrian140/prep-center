@@ -218,40 +218,6 @@ export default function FbaStep1bPacking({
     };
   };
 
-  const focusNextInPackCard = (event) => {
-    if (event.key !== 'Tab') return;
-    const container = event.currentTarget?.closest?.('[data-packgroup-card]');
-    if (!container) return;
-    const tag = event.target?.tagName;
-    if (!tag || !['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(tag)) return;
-    const focusables = Array.from(
-      container.querySelectorAll('input, select, textarea, button')
-    ).filter((el) => !el.disabled && el.tabIndex !== -1);
-    const idx = focusables.indexOf(event.target);
-    if (idx === -1 || focusables.length < 2) return;
-    const dir = event.shiftKey ? -1 : 1;
-    const nextIdx = idx + dir;
-    if (nextIdx < 0 || nextIdx >= focusables.length) return;
-    event.preventDefault();
-    focusables[nextIdx]?.focus();
-  };
-
-  const preventTextSelectInCard = (event) => {
-    const t = event.target;
-    if (!t) return;
-    const tag = t.tagName;
-    const isInteractive =
-      tag === 'INPUT' ||
-      tag === 'SELECT' ||
-      tag === 'TEXTAREA' ||
-      tag === 'BUTTON' ||
-      tag === 'LABEL' ||
-      tag === 'A' ||
-      t.isContentEditable;
-    if (isInteractive) return;
-    event.preventDefault();
-  };
-
   const buildPackingPayload = () => {
     const packages = [];
     const packingGroups = [];
@@ -961,13 +927,7 @@ export default function FbaStep1bPacking({
           )}
 
           {!waitingForAmazon && !showErrorOnly && visibleGroups.map((group) => (
-            <div
-              key={group.id}
-              className="border border-slate-200 rounded-lg overflow-hidden mb-4"
-              data-packgroup-card
-              onKeyDownCapture={focusNextInPackCard}
-              onMouseDownCapture={preventTextSelectInCard}
-            >
+            <div key={group.id} className="border border-slate-200 rounded-lg overflow-hidden mb-4">
               <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
                 <Box className="w-5 h-5 text-slate-500" />
                 <div>

@@ -2082,16 +2082,6 @@ serve(async (req) => {
       throw err;
     }
 
-    // Pentru SPD, nu trimitem pallets/freightInformation (pot forta LTL)
-    if (includePackages) {
-      shipmentTransportationConfigurations = shipmentTransportationConfigurations.map((cfg: any) => {
-        const next = { ...cfg };
-        if (Array.isArray(next.pallets) && next.pallets.length) delete next.pallets;
-        if (next.freightInformation) delete next.freightInformation;
-        return next;
-      });
-    }
-
     console.log(JSON.stringify({
       tag: "transportation_payload_preview",
       traceId,
@@ -2300,76 +2290,6 @@ serve(async (req) => {
       );
     }
     if (!requiresPallets && missingPkgs) {
-      // Fallback: daca lipsesc packages, incercam sa reconstruim din plan boxes
-      try {
-        const boxesRes = await signedFetch({
-          method: "GET",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/boxes`,
-          query: "",
-          payload: "",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.listInboundPlanBoxes",
-          marketplaceId,
-          sellerId
-        });
-        const planBoxes =
-          boxesRes?.json?.payload?.boxes ||
-          boxesRes?.json?.boxes ||
-          boxesRes?.json?.Boxes ||
-          [];
-        if (Array.isArray(planBoxes) && planBoxes.length) {
-          const packagesFromBoxes = planBoxes.map((b: any) => {
-            const dims = b?.dimensions || {};
-            const w = b?.weight || {};
-            const dimUnit = (dims?.unitOfMeasurement || dims?.unit || dims?.uom || "IN").toString().toUpperCase();
-            const weightUnit = (w?.unit || w?.uom || "LB").toString().toUpperCase();
-            const length = Number(dims?.length || 0);
-            const width = Number(dims?.width || 0);
-            const height = Number(dims?.height || 0);
-            const weightValue = Number(w?.value || 0);
-            if (!length || !width || !height || !weightValue) return null;
-            return {
-              dimensions: {
-                length: dimUnit === "IN" ? round2(length) : cmToIn(length),
-                width: dimUnit === "IN" ? round2(width) : cmToIn(width),
-                height: dimUnit === "IN" ? round2(height) : cmToIn(height),
-                unitOfMeasurement: "IN"
-              },
-              weight: {
-                value: weightUnit === "LB" ? round2(weightValue) : kgToLb(weightValue),
-                unitOfMeasurement: "LB"
-              },
-              quantity: Number(b?.quantity || 1) || 1
-            };
-          }).filter(Boolean);
-
-          if (packagesFromBoxes.length) {
-            shipmentTransportationConfigurations = shipmentTransportationConfigurations.map((cfg: any) => ({
-              ...cfg,
-              packages: packagesFromBoxes
-            }));
-            logStep("packages_fallback_from_boxes", {
-              traceId,
-              boxesCount: packagesFromBoxes.length
-            });
-          }
-        }
-      } catch (e) {
-        logStep("packages_fallback_failed", { traceId, error: String(e) });
-      }
-    }
-    // Re-evaluam missingPkgs dupa fallback
-    const missingPkgsAfterFallback = shipmentTransportationConfigurations.some(
-      (c: any) => !Array.isArray(c?.packages) || c.packages.length === 0
-    );
-    if (!requiresPallets && missingPkgsAfterFallback) {
       return new Response(
         JSON.stringify({
           error:
@@ -2847,14 +2767,6 @@ serve(async (req) => {
     const optionsCountByShipment: Record<string, number> = {};
     const partneredChargeByShipment: Record<string, number> = {};
     const nonPartneredChargeByShipment: Record<string, number> = {};
-    const listingShipmentIds = Array.from(
-      new Set(
-        placementShipments
-          .filter((sh: any) => !sh?.isPackingGroup && (sh?.shipmentId || sh?.id))
-          .map((sh: any) => String(sh?.shipmentId || sh?.id))
-          .filter((id: any) => isValidShipmentId(String(id)))
-      )
-    );
     const isPartneredRaw = (opt: any) => hasPartneredSolution([opt]);
     const extractChargeAmount = (opt: any) => {
       const fromPath = [
@@ -2926,50 +2838,6 @@ serve(async (req) => {
     }
     let optionsRawForSelection = optionsRawInitial;
     let optionsRawForDisplay = optionsRawInitial;
-    const normalizeShipMode = (val: any) => {
-      const up = String(val || "").toUpperCase();
-      if (up === "GROUND_SMALL_PARCEL" || up === "SPD" || up === "SMALL_PARCEL") return "SPD";
-      if (up === "FREIGHT_LTL" || up === "LTL") return "LTL";
-      if (up === "FREIGHT_FTL" || up === "FTL") return "FTL";
-      return up;
-    };
-    const hasMode = (opts: any[], mode: string) =>
-      (opts || []).some((o) => normalizeShipMode(o?.shippingMode || o?.mode) === mode);
-
-    // Dacă cerem SPD și Amazon nu întoarce niciun SPD pe listing cu shipmentId,
-    // mai încercăm o listare fără shipmentId și combinăm rezultatele.
-    if (
-      normalizeShipMode(effectiveShippingMode) === "SPD" &&
-      optionsRawInitial.length &&
-      !hasMode(optionsRawInitial, "SPD")
-    ) {
-      const { firstRes: listResFallback, collected: optionsRawFallback } =
-        await listTransportationOptionsOnce(effectivePlacementOptionId, null, {
-          probePartnered: true,
-          maxPages: 6
-        });
-      if (optionsRawFallback.length) {
-        const byId = new Map<string, any>();
-        const add = (opt: any) => {
-          const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
-          if (!id) return;
-          if (!byId.has(id)) byId.set(id, opt);
-        };
-        optionsRawInitial.forEach(add);
-        optionsRawFallback.forEach(add);
-        optionsRawForDisplay = Array.from(byId.values());
-        optionsRawForSelection = optionsRawForDisplay;
-        logStep("listTransportationOptions_spd_fallback", {
-          traceId,
-          placementOptionId: effectivePlacementOptionId,
-          shipmentIdForListing,
-          initialCount: optionsRawInitial.length,
-          fallbackCount: optionsRawFallback.length,
-          mergedCount: optionsRawForDisplay.length,
-          requestId: listResFallback?.requestId || null
-        });
-      }
-    }
     // For hazmat/non-partnered shipments, Amazon can legitimately return only USE_YOUR_OWN_CARRIER.
     // Fallback listing without shipmentId should be used only when shipment-scoped listing is empty.
     if (!optionsRawInitial.length && shipmentIdForListing) {
@@ -3401,6 +3269,61 @@ serve(async (req) => {
           .filter((id: any) => isValidShipmentId(String(id)))
       )
     );
+    let partneredChargeByShipment: Record<string, number> = {};
+    let nonPartneredChargeByShipment: Record<string, number> = {};
+    let partneredChargeTotal: number | null = null;
+    let nonPartneredChargeTotal: number | null = null;
+    if (shipmentIdsForTotals.length > 1) {
+      const minChargeFor = (opts: any[], partnered: boolean) => {
+        const charges = (opts || [])
+          .filter((opt: any) => detectPartnered(opt) === partnered)
+          .map((opt: any) => extractCharge(opt))
+          .filter((c: any) => Number.isFinite(c));
+        if (!charges.length) return null;
+        return Math.min(...charges);
+      };
+      for (const shipmentId of shipmentIdsForTotals) {
+        const { collected } = await listTransportationOptionsOnce(
+          String(effectivePlacementOptionId),
+          shipmentId,
+          { probePartnered: true, maxPages: 6 }
+        );
+        const list = Array.isArray(collected) ? collected : [];
+        const partneredMin = minChargeFor(list, true);
+        const nonPartneredMin = minChargeFor(list, false);
+        if (Number.isFinite(partneredMin)) partneredChargeByShipment[shipmentId] = partneredMin as number;
+        if (Number.isFinite(nonPartneredMin)) nonPartneredChargeByShipment[shipmentId] = nonPartneredMin as number;
+      }
+      const allPartnered = shipmentIdsForTotals.every((id) => Number.isFinite(partneredChargeByShipment[id]));
+      const allNonPartnered = shipmentIdsForTotals.every((id) => Number.isFinite(nonPartneredChargeByShipment[id]));
+      partneredChargeTotal = allPartnered
+        ? round2(
+            shipmentIdsForTotals.reduce((sum, id) => sum + (partneredChargeByShipment[id] || 0), 0)
+          )
+        : null;
+      nonPartneredChargeTotal = allNonPartnered
+        ? round2(
+            shipmentIdsForTotals.reduce((sum, id) => sum + (nonPartneredChargeByShipment[id] || 0), 0)
+          )
+        : null;
+      logStep("listTransportationOptions_multi_shipment", {
+        traceId,
+        placementOptionId: effectivePlacementOptionId,
+        shipmentIds: shipmentIdsForTotals,
+        partneredByShipment: Object.fromEntries(
+          shipmentIdsForTotals.map((id) => [id, Number.isFinite(partneredChargeByShipment[id])])
+        ),
+        optionsCountByShipment: Object.fromEntries(
+          shipmentIdsForTotals.map((id) => [id, Array.isArray(transportCache.get(`${effectivePlacementOptionId}|${id}`)) ? transportCache.get(`${effectivePlacementOptionId}|${id}`)!.length : 0])
+        ),
+        partneredAvailableForAll: allPartnered,
+        partneredAvailableForAny: shipmentIdsForTotals.some((id) => Number.isFinite(partneredChargeByShipment[id])),
+        partneredMissingShipments: shipmentIdsForTotals.filter((id) => !Number.isFinite(partneredChargeByShipment[id])),
+        partneredChargeTotal,
+        nonPartneredChargeTotal
+      });
+    }
+
     const normalizeOptions = (opts: any[]) =>
       Array.isArray(opts)
         ? opts.map((opt: any) => ({
