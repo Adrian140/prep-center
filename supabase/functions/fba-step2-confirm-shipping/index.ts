@@ -2885,6 +2885,45 @@ serve(async (req) => {
     if (!optionsRawForSelection.length) {
       optionsRawForSelection = optionsRawForDisplay;
     }
+    // Dacă Amazon a returnat doar LTL pentru shipmentId, dar cerem SPD, încercăm list fără shipmentId și combinăm.
+    const rawRequestedMode = String(effectiveShippingMode || "").toUpperCase();
+    const rawModes = Array.from(
+      new Set(
+        optionsRawForSelection
+          .map((o: any) => String(o?.shippingMode || o?.mode || "").toUpperCase())
+          .filter(Boolean)
+      )
+    );
+    const wantsSpd = ["SPD", "SMALL_PARCEL_DELIVERY", "SMALL_PARCEL", "GROUND_SMALL_PARCEL", "PARCEL"].includes(rawRequestedMode);
+    const hasSpdInRaw = rawModes.some((m) => ["SPD", "SMALL_PARCEL_DELIVERY", "SMALL_PARCEL", "GROUND_SMALL_PARCEL", "PARCEL"].includes(m));
+    if (wantsSpd && !hasSpdInRaw && shipmentIdForListing) {
+      const { firstRes: listResFallback, collected: optionsRawFallback } =
+        await listTransportationOptionsOnce(effectivePlacementOptionId, null, {
+          probePartnered: true,
+          maxPages: 6
+        });
+      const byId = new Map<string, any>();
+      const add = (opt: any) => {
+        const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
+        if (!id) return;
+        if (!byId.has(id)) byId.set(id, opt);
+      };
+      optionsRawForSelection.forEach(add);
+      optionsRawFallback.forEach(add);
+      const merged = Array.from(byId.values());
+      logStep("listTransportationOptions_mode_fallback", {
+        traceId,
+        placementOptionId: effectivePlacementOptionId,
+        shipmentId: shipmentIdForListing,
+        requestedMode: rawRequestedMode,
+        initialCount: optionsRawForSelection.length,
+        fallbackCount: optionsRawFallback.length,
+        mergedCount: merged.length,
+        requestId: listResFallback?.requestId || null
+      });
+      optionsRawForSelection = merged;
+      optionsRawForDisplay = merged;
+    }
     const partneredAvailableForAll = listingShipmentIds.length
       ? listingShipmentIds.every((sid) => partneredByShipment[sid])
       : hasPartneredSolution(optionsRawForSelection);
