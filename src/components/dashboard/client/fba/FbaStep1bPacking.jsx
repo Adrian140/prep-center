@@ -259,7 +259,7 @@ export default function FbaStep1bPacking({
         };
       });
       const allPerBoxComplete = perBoxNormalized.every((b) => b && b.dimensions && b.weight);
-      const normalizedPackMode = group.packMode || 'single';
+      const normalizedPackMode = boxCount > 1 ? 'multiple' : (group.packMode || 'single');
       const isMultiple = normalizedPackMode === 'multiple';
       const normalizedContentSource =
         contentInformationSource || (isMultiple ? 'BOX_CONTENT_PROVIDED' : null);
