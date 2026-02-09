@@ -2961,6 +2961,49 @@ serve(async (req) => {
       count: shipmentTransportationConfigurations.length,
       shippingMode: effectiveShippingMode
     });
+    const summarizePackages = (cfg: any) => {
+      const pkgs = Array.isArray(cfg?.packages) ? cfg.packages : [];
+      let maxWeight = 0;
+      let maxSide = 0;
+      let maxLength = 0;
+      let maxGirth = 0;
+      pkgs.forEach((pkg: any) => {
+        const weight = Number(pkg?.weight?.value || 0);
+        if (weight > maxWeight) maxWeight = weight;
+        const dims = pkg?.dimensions || {};
+        const sides = [dims?.length, dims?.width, dims?.height].map((n) => Number(n || 0));
+        const sorted = [...sides].sort((a, b) => b - a);
+        const length = Number(sorted?.[0] || 0);
+        const girth = 2 * (Number(sorted?.[1] || 0) + Number(sorted?.[2] || 0));
+        const maxSideLocal = Math.max(...sides);
+        if (length > maxLength) maxLength = length;
+        if (girth > maxGirth) maxGirth = girth;
+        if (maxSideLocal > maxSide) maxSide = maxSideLocal;
+      });
+      return {
+        count: pkgs.length,
+        maxWeight,
+        maxSide,
+        maxLength,
+        maxGirth
+      };
+    };
+    const summarizePallets = (cfg: any) => {
+      const pallets = Array.isArray(cfg?.pallets) ? cfg.pallets : [];
+      return {
+        count: pallets.length
+      };
+    };
+    logStep("shipmentTransportationConfigurations_details", {
+      traceId,
+      shippingMode: effectiveShippingMode,
+      shipments: shipmentTransportationConfigurations.map((cfg: any, idx: number) => ({
+        shipmentId: cfg?.shipmentId || `idx:${idx}`,
+        packages: summarizePackages(cfg),
+        pallets: summarizePallets(cfg),
+        freightInformation: Boolean(cfg?.freightInformation)
+      }))
+    });
 
     // Nu listam in bucla toate placement-urile in Step 2.
     // Conform fluxului UI, lucram strict pe placement-ul deja selectat/confirmat.
