@@ -2603,6 +2603,23 @@ serve(async (req) => {
       deliveryWindowEnd: deliveryWindowEndInput || null
     });
 
+    const listingShipmentIds = Array.from(
+      new Set(
+        (shipmentTransportationConfigurations || [])
+          .map((c: any) => c?.shipmentId)
+          .filter(Boolean)
+          .map((id: any) => String(id))
+          .filter((id: any) => isValidShipmentId(String(id)))
+      )
+    );
+    if (!listingShipmentIds.length) {
+      const fromPlacements = placementShipments
+        .filter((s: any) => !s?.isPackingGroup && (s?.shipmentId || s?.id))
+        .map((s: any) => String(s?.shipmentId || s?.id))
+        .filter((id: any) => isValidShipmentId(String(id)));
+      fromPlacements.forEach((id: string) => listingShipmentIds.push(id));
+    }
+
     const transportCache = new Map<string, any[]>();
     const hasPartneredSolution = (opts: any[]) =>
       Array.isArray(opts)
