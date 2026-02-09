@@ -2148,6 +2148,12 @@ serve(async (req) => {
           payload?.shipmentID ||
           payload?.ShipmentID ||
           null;
+        const shipmentConfirmationId =
+          payload?.shipmentConfirmationId ||
+          payload?.shipmentConfirmationID ||
+          payload?.ShipmentConfirmationId ||
+          payload?.shipmentConfirmation ||
+          null;
         const shipmentName =
           payload?.shipmentName ||
           payload?.ShipmentName ||
@@ -2223,6 +2229,7 @@ serve(async (req) => {
         list.push({
           id: shId,
           amazonShipmentId,
+          shipmentConfirmationId,
           name: shipmentName,
           from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
           to: (() => {
