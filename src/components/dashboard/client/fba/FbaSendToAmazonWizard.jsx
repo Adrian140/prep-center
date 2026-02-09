@@ -188,8 +188,6 @@ const aggregateTransportationOptions = (options = [], summary = null) => {
   const nonPartneredChargeTotal = Number.isFinite(summary?.nonPartneredChargeTotal)
     ? summary.nonPartneredChargeTotal
     : null;
-  const warehouseCountry = String(summary?.warehouseCountry || summary?.warehouse_country || '').toUpperCase();
-  const isGermany = warehouseCountry === 'DE';
   const grouped = {
     SPD_PARTNERED: [],
     SPD_NON_PARTNERED: [],
@@ -272,59 +270,6 @@ const aggregateTransportationOptions = (options = [], summary = null) => {
       shippingSolution: rep?.shippingSolution || rep?.raw?.shippingSolution || 'USE_YOUR_OWN_CARRIER'
     };
   };
-
-  if (isGermany && grouped.SPD_PARTNERED.length) {
-    const seen = new Set();
-    const normalizeSingle = (opt, partnered) => {
-      const optionId =
-        opt?.transportationOptionId ||
-        opt?.id ||
-        opt?.optionId ||
-        opt?.raw?.transportationOptionId ||
-        opt?.raw?.id ||
-        opt?.raw?.optionId ||
-        null;
-      const carrierName =
-        opt?.carrierName ||
-        opt?.raw?.carrier?.name ||
-        (partnered ? 'Amazon Partnered Carrier' : 'Non Amazon partnered carrier');
-      const charge = Number.isFinite(opt?.charge) ? opt.charge : null;
-      const base = {
-        ...opt,
-        id: optionId,
-        charge,
-        isPartnered: detectPartneredOption(opt),
-        chargeScope: 'per_shipment',
-        shipmentCount: shipmentCount || null
-      };
-      return {
-        ...base,
-        mode: 'GROUND_SMALL_PARCEL',
-        carrierName,
-        partnered,
-        shippingSolution: opt?.shippingSolution || opt?.raw?.shippingSolution || (partnered ? 'AMAZON_PARTNERED_CARRIER' : 'USE_YOUR_OWN_CARRIER')
-      };
-    };
-    const partneredOptions = grouped.SPD_PARTNERED
-      .map((opt) => normalizeSingle(opt, true))
-      .filter((opt) => {
-        const key = [
-          opt?.id || '',
-          String(opt?.carrierName || '').toUpperCase(),
-          String(opt?.shippingSolution || '').toUpperCase(),
-          String(opt?.mode || '').toUpperCase(),
-          String(opt?.charge ?? '')
-        ].join('|');
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-    return [
-      ...partneredOptions,
-      buildOption('SPD_NON_PARTNERED', grouped.SPD_NON_PARTNERED),
-      buildOption('LTL_FTL', grouped.LTL_FTL)
-    ].filter(Boolean);
-  }
 
   return [
     buildOption('SPD_PARTNERED', grouped.SPD_PARTNERED),
