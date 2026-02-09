@@ -2891,10 +2891,8 @@ serve(async (req) => {
     const nonPartneredChargeTotal = listingShipmentIds.length
       ? sumChargesFor(listingShipmentIds, nonPartneredChargeByShipment)
       : null;
-    if (listingShipmentIds.length > 1 && !partneredAvailableForAll) {
-      optionsRawForDisplay = optionsRawForDisplay.filter((opt) => !isPartneredRaw(opt));
-      optionsRawForSelection = optionsRawForSelection.filter((opt) => !isPartneredRaw(opt));
-    }
+    // Nu ascundem opțiunile partnered când nu sunt disponibile pentru toate shipment-urile.
+    // Le păstrăm pentru transparență și semnalăm explicit lipsurile în summary.
     const compactOptionsForLog = (opts: any[]) =>
       (opts || []).map((opt) => ({
         id: opt?.transportationOptionId || opt?.id || opt?.optionId || null,

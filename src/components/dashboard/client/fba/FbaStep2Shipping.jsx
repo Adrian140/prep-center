@@ -5,6 +5,7 @@ export default function FbaStep2Shipping({
   // Default the whole shipment object so we don't crash if the caller hasn't loaded data yet.
   shipment = {},
   shippingOptions = [],
+  shippingSummary = null,
   selectedTransportationOptionId = null,
   shippingConfirmed = false,
   onOptionSelect,
@@ -37,6 +38,11 @@ export default function FbaStep2Shipping({
   );
   const selectedOption =
     optionsList.find((opt) => opt?.id === selectedTransportationOptionId) || null;
+  const partneredAvailableForAll = shippingSummary?.partneredAvailableForAll ?? null;
+  const partneredAvailableForAny = shippingSummary?.partneredAvailableForAny ?? null;
+  const partneredMissingShipments = Array.isArray(shippingSummary?.partneredMissingShipments)
+    ? shippingSummary.partneredMissingShipments.map((s) => String(s))
+    : [];
   const shipmentIds = useMemo(
     () =>
       (Array.isArray(shipments) ? shipments : [])
@@ -331,6 +337,14 @@ export default function FbaStep2Shipping({
               No shipping options available yet. Complete “Ready to ship”.
             </div>
           )}
+          {partneredAvailableForAny && partneredAvailableForAll === false && (
+            <div className="text-xs text-amber-700 border border-amber-200 bg-amber-50 rounded-md px-3 py-2">
+              Amazon partnered este disponibil doar pentru unele shipment-uri.
+              {partneredMissingShipments.length
+                ? ` Lipsă pentru: ${partneredMissingShipments.join(', ')}.`
+                : ''}
+            </div>
+          )}
           {['SPD', 'LTL', 'FTL', 'OTHER'].map((modeKey) => {
             const list = groupedOptions[modeKey] || [];
             if (!list.length) return null;
@@ -360,13 +374,18 @@ export default function FbaStep2Shipping({
                     const chargeText = Number.isFinite(opt?.charge) ? `€${opt.charge.toFixed(2)}` : '—';
                     const partneredLabel = opt?.partnered ? 'Amazon partnered' : 'Non Amazon partnered carrier';
                     const checked = Boolean(optionId) && optionId === selectedTransportationOptionId;
+                    const partneredDisabled =
+                      Boolean(opt?.partnered) &&
+                      partneredAvailableForAll === false &&
+                      shipmentIds.length > 1;
+                    const canSelect = Boolean(optionId) && !partneredDisabled;
                     return (
                       <label
                         key={optionId || carrierLabel}
-                        className={`flex items-center justify-between gap-3 px-3 py-2 border rounded-md ${checked ? 'border-blue-500 bg-blue-50' : 'border-slate-200'} ${optionId ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                        className={`flex items-center justify-between gap-3 px-3 py-2 border rounded-md ${checked ? 'border-blue-500 bg-blue-50' : 'border-slate-200'} ${canSelect ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (!optionId) return;
+                          if (!canSelect) return;
                           onOptionSelect?.({ ...opt, id: optionId });
                         }}
                       >
@@ -379,6 +398,11 @@ export default function FbaStep2Shipping({
                             </span>
                           )}
                           {solution && <span className="text-xs text-slate-400">{solution}</span>}
+                          {partneredDisabled && (
+                            <span className="text-xs text-amber-700">
+                              Disponibil doar pentru unele shipment-uri.
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-semibold">{chargeText}</span>
@@ -387,11 +411,11 @@ export default function FbaStep2Shipping({
                             id={`shipping-option-${optionId || carrierLabel}`}
                             name="shipping-option"
                             checked={checked}
-                            disabled={!optionId}
+                            disabled={!canSelect}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => {
                               e.stopPropagation();
-                              if (!optionId) return;
+                              if (!canSelect) return;
                               onOptionSelect?.({ ...opt, id: optionId });
                             }}
                           />

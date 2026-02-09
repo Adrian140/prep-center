@@ -4330,6 +4330,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             warning
           }}
           shippingOptions={shippingOptions}
+          shippingSummary={shippingSummary}
           selectedTransportationOptionId={selectedTransportationOptionId}
           carrierTouched={carrierTouched}
           shippingConfirmed={shippingConfirmed}
