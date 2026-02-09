@@ -1881,7 +1881,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const fallbackWeight = planPerBoxDetails[0]?.weight ?? null;
       const resolvedDims = getSafeDims(g?.boxDimensions) || getSafeDims(fallbackDims);
       const resolvedWeight = getPositiveNumber(g?.boxWeight) || getPositiveNumber(fallbackWeight);
-      const boxes = Math.max(1, Number(g?.boxes || planBoxes.length || 1));
+      const uiBoxCount = Number(g?.boxes || 0);
+      const planBoxCount = planBoxes.length || 0;
+      const boxes = Math.max(1, planBoxCount || 0, uiBoxCount || 0);
       const packMode = g?.packMode || (boxes > 1 ? 'multiple' : 'single');
       const perBoxDetails =
         Array.isArray(g?.perBoxDetails) && g.perBoxDetails.length
