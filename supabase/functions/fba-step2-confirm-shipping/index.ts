@@ -2290,6 +2290,76 @@ serve(async (req) => {
       );
     }
     if (!requiresPallets && missingPkgs) {
+      // Fallback: daca lipsesc packages, incercam sa reconstruim din plan boxes
+      try {
+        const boxesRes = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/boxes`,
+          query: "",
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.listInboundPlanBoxes",
+          marketplaceId,
+          sellerId
+        });
+        const planBoxes =
+          boxesRes?.json?.payload?.boxes ||
+          boxesRes?.json?.boxes ||
+          boxesRes?.json?.Boxes ||
+          [];
+        if (Array.isArray(planBoxes) && planBoxes.length) {
+          const packagesFromBoxes = planBoxes.map((b: any) => {
+            const dims = b?.dimensions || {};
+            const w = b?.weight || {};
+            const dimUnit = (dims?.unitOfMeasurement || dims?.unit || dims?.uom || "IN").toString().toUpperCase();
+            const weightUnit = (w?.unit || w?.uom || "LB").toString().toUpperCase();
+            const length = Number(dims?.length || 0);
+            const width = Number(dims?.width || 0);
+            const height = Number(dims?.height || 0);
+            const weightValue = Number(w?.value || 0);
+            if (!length || !width || !height || !weightValue) return null;
+            return {
+              dimensions: {
+                length: dimUnit === "IN" ? round2(length) : cmToIn(length),
+                width: dimUnit === "IN" ? round2(width) : cmToIn(width),
+                height: dimUnit === "IN" ? round2(height) : cmToIn(height),
+                unitOfMeasurement: "IN"
+              },
+              weight: {
+                value: weightUnit === "LB" ? round2(weightValue) : kgToLb(weightValue),
+                unitOfMeasurement: "LB"
+              },
+              quantity: Number(b?.quantity || 1) || 1
+            };
+          }).filter(Boolean);
+
+          if (packagesFromBoxes.length) {
+            shipmentTransportationConfigurations = shipmentTransportationConfigurations.map((cfg: any) => ({
+              ...cfg,
+              packages: packagesFromBoxes
+            }));
+            logStep("packages_fallback_from_boxes", {
+              traceId,
+              boxesCount: packagesFromBoxes.length
+            });
+          }
+        }
+      } catch (e) {
+        logStep("packages_fallback_failed", { traceId, error: String(e) });
+      }
+    }
+    // Re-evaluam missingPkgs dupa fallback
+    const missingPkgsAfterFallback = shipmentTransportationConfigurations.some(
+      (c: any) => !Array.isArray(c?.packages) || c.packages.length === 0
+    );
+    if (!requiresPallets && missingPkgsAfterFallback) {
       return new Response(
         JSON.stringify({
           error:
