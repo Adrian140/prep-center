@@ -2663,6 +2663,7 @@ serve(async (req) => {
         hardMaxPages?: number;
         requiredOptionId?: string | null;
         forceRefresh?: boolean;
+        allPages?: boolean;
       }
     ) => {
       const cacheKey = `${placementOptionIdParam}|${shipmentIdParam || ""}`;
@@ -2681,11 +2682,13 @@ serve(async (req) => {
         }
       }
       const probePartnered = Boolean(opts?.probePartnered);
+      const allPages = Boolean(opts?.allPages);
       const maxPages = Math.max(1, Math.min(Number(opts?.maxPages ?? 6), 12));
       const hardMaxPages = Math.max(
         maxPages,
         Math.min(Number(opts?.hardMaxPages ?? (requiredOptionId ? 40 : maxPages)), 60)
       );
+      const absoluteHardCap = 200; // safety guard
       let firstRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
       const collected: any[] = [];
       let nextToken: string | null = null;
@@ -2744,8 +2747,21 @@ serve(async (req) => {
         const reachedHardLimit = pagesFetched >= hardMaxPages;
         const needMoreForRequired = Boolean(requiredOptionId) && firstRequiredOptionPage === null;
         if (!nextToken) break;
-        if (reachedHardLimit) break;
-        if (reachedSoftLimit && !needMoreForRequired) break;
+        if (!allPages) {
+          if (reachedHardLimit) break;
+          if (reachedSoftLimit && !needMoreForRequired) break;
+        }
+        if (pagesFetched >= absoluteHardCap) {
+          logStep("listTransportationOptions_hard_cap", {
+            traceId,
+            placementOptionId: placementOptionIdParam,
+            shipmentId: shipmentIdParam || null,
+            pagesFetched,
+            hardCap: absoluteHardCap,
+            requiredOptionId
+          });
+          break;
+        }
       } while (true);
       if (probePartnered) {
         logStep("listTransportationOptions_partnered_probe", {
@@ -2755,6 +2771,7 @@ serve(async (req) => {
           pagesFetched,
           maxPages,
           hardMaxPages,
+          allPages,
           requiredOptionId,
           firstRequiredOptionPage,
           partneredFound: hasPartneredSolution(collected),
@@ -2815,7 +2832,7 @@ serve(async (req) => {
         const primaryRes = await listTransportationOptionsOnce(
           effectivePlacementOptionId,
           primaryShipmentId,
-          { probePartnered: true, maxPages: 6 }
+          { probePartnered: true, maxPages: 6, allPages: true }
         );
         listRes = primaryRes.firstRes;
         optionsRawInitial = primaryRes.collected;
@@ -2834,7 +2851,7 @@ serve(async (req) => {
           const res = await listTransportationOptionsOnce(
             effectivePlacementOptionId,
             sid,
-            { probePartnered: true, maxPages: 6 }
+            { probePartnered: true, maxPages: 6, allPages: true }
           );
           partneredByShipment[sid] = hasPartneredSolution(res.collected);
           optionsCountByShipment[sid] = res.collected.length;
@@ -2852,7 +2869,7 @@ serve(async (req) => {
       const fallbackRes = await listTransportationOptionsOnce(
         effectivePlacementOptionId,
         shipmentIdForListing,
-        { probePartnered: true, maxPages: 6 }
+        { probePartnered: true, maxPages: 6, allPages: true }
       );
       listRes = fallbackRes.firstRes;
       optionsRawInitial = fallbackRes.collected;
@@ -2865,7 +2882,8 @@ serve(async (req) => {
       const { firstRes: listResFallback, collected: optionsRawFallback } =
         await listTransportationOptionsOnce(effectivePlacementOptionId, null, {
           probePartnered: true,
-          maxPages: 6
+          maxPages: 6,
+          allPages: true
         });
       const byId = new Map<string, any>();
       const add = (opt: any) => {
@@ -2904,7 +2922,8 @@ serve(async (req) => {
       const { firstRes: listResFallback, collected: optionsRawFallback } =
         await listTransportationOptionsOnce(effectivePlacementOptionId, null, {
           probePartnered: true,
-          maxPages: 6
+          maxPages: 6,
+          allPages: true
         });
       const byId = new Map<string, any>();
       const add = (opt: any) => {
