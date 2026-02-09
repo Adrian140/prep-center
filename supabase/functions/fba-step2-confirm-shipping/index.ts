@@ -2907,7 +2907,8 @@ serve(async (req) => {
     if (!optionsRawForSelection.length) {
       optionsRawForSelection = optionsRawForDisplay;
     }
-    // Dacă Amazon a returnat doar LTL pentru shipmentId, dar cerem SPD, încercăm list fără shipmentId și combinăm.
+    // Pentru PCP-SPD, Amazon uneori returnează partnered doar la nivel de placement (fără shipmentId).
+    // Deci, când cerem SPD, facem întotdeauna listare și fără shipmentId și combinăm.
     const rawRequestedMode = String(effectiveShippingMode || "").toUpperCase();
     const rawModes = Array.from(
       new Set(
@@ -2918,7 +2919,7 @@ serve(async (req) => {
     );
     const wantsSpd = ["SPD", "SMALL_PARCEL_DELIVERY", "SMALL_PARCEL", "GROUND_SMALL_PARCEL", "PARCEL"].includes(rawRequestedMode);
     const hasSpdInRaw = rawModes.some((m) => ["SPD", "SMALL_PARCEL_DELIVERY", "SMALL_PARCEL", "GROUND_SMALL_PARCEL", "PARCEL"].includes(m));
-    if (wantsSpd && !hasSpdInRaw && shipmentIdForListing) {
+    if (wantsSpd) {
       const { firstRes: listResFallback, collected: optionsRawFallback } =
         await listTransportationOptionsOnce(effectivePlacementOptionId, null, {
           probePartnered: true,
@@ -2942,7 +2943,9 @@ serve(async (req) => {
         initialCount: optionsRawForSelection.length,
         fallbackCount: optionsRawFallback.length,
         mergedCount: merged.length,
-        requestId: listResFallback?.requestId || null
+        requestId: listResFallback?.requestId || null,
+        forced: true,
+        hadSpdInShipmentScoped: hasSpdInRaw
       });
       optionsRawForSelection = merged;
       optionsRawForDisplay = merged;
