@@ -1754,6 +1754,7 @@ serve(async (req) => {
         const normalizedShipments = normalizePlacementShipments(placementShipments);
         const summary = {
           alreadyConfirmed: true,
+          warehouseCountry,
           selectedTransportationOptionId,
           partneredAllowed: null,
           partneredRate: null,
@@ -2775,6 +2776,14 @@ serve(async (req) => {
     const optionsCountByShipment: Record<string, number> = {};
     const partneredChargeByShipment: Record<string, number> = {};
     const nonPartneredChargeByShipment: Record<string, number> = {};
+    const listingShipmentIds = Array.from(
+      new Set(
+        placementShipments
+          .filter((sh: any) => !sh?.isPackingGroup && (sh?.shipmentId || sh?.id))
+          .map((sh: any) => String(sh?.shipmentId || sh?.id))
+          .filter((id: any) => isValidShipmentId(String(id)))
+      )
+    );
     const isPartneredRaw = (opt: any) => hasPartneredSolution([opt]);
     const extractChargeAmount = (opt: any) => {
       const fromPath = [
@@ -3277,61 +3286,6 @@ serve(async (req) => {
           .filter((id: any) => isValidShipmentId(String(id)))
       )
     );
-    let partneredChargeByShipment: Record<string, number> = {};
-    let nonPartneredChargeByShipment: Record<string, number> = {};
-    let partneredChargeTotal: number | null = null;
-    let nonPartneredChargeTotal: number | null = null;
-    if (shipmentIdsForTotals.length > 1) {
-      const minChargeFor = (opts: any[], partnered: boolean) => {
-        const charges = (opts || [])
-          .filter((opt: any) => detectPartnered(opt) === partnered)
-          .map((opt: any) => extractCharge(opt))
-          .filter((c: any) => Number.isFinite(c));
-        if (!charges.length) return null;
-        return Math.min(...charges);
-      };
-      for (const shipmentId of shipmentIdsForTotals) {
-        const { collected } = await listTransportationOptionsOnce(
-          String(effectivePlacementOptionId),
-          shipmentId,
-          { probePartnered: true, maxPages: 6 }
-        );
-        const list = Array.isArray(collected) ? collected : [];
-        const partneredMin = minChargeFor(list, true);
-        const nonPartneredMin = minChargeFor(list, false);
-        if (Number.isFinite(partneredMin)) partneredChargeByShipment[shipmentId] = partneredMin as number;
-        if (Number.isFinite(nonPartneredMin)) nonPartneredChargeByShipment[shipmentId] = nonPartneredMin as number;
-      }
-      const allPartnered = shipmentIdsForTotals.every((id) => Number.isFinite(partneredChargeByShipment[id]));
-      const allNonPartnered = shipmentIdsForTotals.every((id) => Number.isFinite(nonPartneredChargeByShipment[id]));
-      partneredChargeTotal = allPartnered
-        ? round2(
-            shipmentIdsForTotals.reduce((sum, id) => sum + (partneredChargeByShipment[id] || 0), 0)
-          )
-        : null;
-      nonPartneredChargeTotal = allNonPartnered
-        ? round2(
-            shipmentIdsForTotals.reduce((sum, id) => sum + (nonPartneredChargeByShipment[id] || 0), 0)
-          )
-        : null;
-      logStep("listTransportationOptions_multi_shipment", {
-        traceId,
-        placementOptionId: effectivePlacementOptionId,
-        shipmentIds: shipmentIdsForTotals,
-        partneredByShipment: Object.fromEntries(
-          shipmentIdsForTotals.map((id) => [id, Number.isFinite(partneredChargeByShipment[id])])
-        ),
-        optionsCountByShipment: Object.fromEntries(
-          shipmentIdsForTotals.map((id) => [id, Array.isArray(transportCache.get(`${effectivePlacementOptionId}|${id}`)) ? transportCache.get(`${effectivePlacementOptionId}|${id}`)!.length : 0])
-        ),
-        partneredAvailableForAll: allPartnered,
-        partneredAvailableForAny: shipmentIdsForTotals.some((id) => Number.isFinite(partneredChargeByShipment[id])),
-        partneredMissingShipments: shipmentIdsForTotals.filter((id) => !Number.isFinite(partneredChargeByShipment[id])),
-        partneredChargeTotal,
-        nonPartneredChargeTotal
-      });
-    }
-
     const normalizeOptions = (opts: any[]) =>
       Array.isArray(opts)
         ? opts.map((opt: any) => ({
@@ -3499,6 +3453,7 @@ serve(async (req) => {
         : null;
     const summary = {
       partneredAllowed: Boolean(partneredOpt),
+      warehouseCountry,
       partneredAvailableForAll,
       partneredAvailableForAny,
       partneredMissingShipments,
@@ -4274,6 +4229,7 @@ serve(async (req) => {
           const normalizedShipments = normalizePlacementShipments(placementShipments);
           const summary = {
             alreadyConfirmed: true,
+            warehouseCountry,
             selectedTransportationOptionId,
             partneredAllowed: null,
             partneredRate: null,
