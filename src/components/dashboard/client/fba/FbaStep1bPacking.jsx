@@ -222,16 +222,34 @@ export default function FbaStep1bPacking({
     if (event.key !== 'Tab') return;
     const container = event.currentTarget?.closest?.('[data-packgroup-card]');
     if (!container) return;
+    const tag = event.target?.tagName;
+    if (!tag || !['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(tag)) return;
     const focusables = Array.from(
       container.querySelectorAll('input, select, textarea, button')
     ).filter((el) => !el.disabled && el.tabIndex !== -1);
-    const idx = focusables.indexOf(event.currentTarget);
+    const idx = focusables.indexOf(event.target);
     if (idx === -1 || focusables.length < 2) return;
     const dir = event.shiftKey ? -1 : 1;
     const nextIdx = idx + dir;
     if (nextIdx < 0 || nextIdx >= focusables.length) return;
     event.preventDefault();
     focusables[nextIdx]?.focus();
+  };
+
+  const preventTextSelectInCard = (event) => {
+    const t = event.target;
+    if (!t) return;
+    const tag = t.tagName;
+    const isInteractive =
+      tag === 'INPUT' ||
+      tag === 'SELECT' ||
+      tag === 'TEXTAREA' ||
+      tag === 'BUTTON' ||
+      tag === 'LABEL' ||
+      tag === 'A' ||
+      t.isContentEditable;
+    if (isInteractive) return;
+    event.preventDefault();
   };
 
   const buildPackingPayload = () => {
@@ -943,7 +961,13 @@ export default function FbaStep1bPacking({
           )}
 
           {!waitingForAmazon && !showErrorOnly && visibleGroups.map((group) => (
-            <div key={group.id} className="border border-slate-200 rounded-lg overflow-hidden mb-4">
+            <div
+              key={group.id}
+              className="border border-slate-200 rounded-lg overflow-hidden mb-4"
+              data-packgroup-card
+              onKeyDownCapture={focusNextInPackCard}
+              onMouseDownCapture={preventTextSelectInCard}
+            >
               <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
                 <Box className="w-5 h-5 text-slate-500" />
                 <div>
@@ -1036,10 +1060,7 @@ export default function FbaStep1bPacking({
                 </div>
 
                 {group.packMode === 'single' && (
-                  <div
-                    className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-3"
-                    data-packgroup-card
-                  >
+                  <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-3">
                     <div className="font-semibold text-slate-900 text-sm">Packing information for 1 box</div>
                     {(() => {
                       const draftDims = getDraft(group).boxDimensions || {};
@@ -1067,7 +1088,6 @@ export default function FbaStep1bPacking({
                                   })
                                 }
                                 onBlur={() => commitDraft(group, ["boxDimensions"])}
-                                onKeyDown={focusNextInPackCard}
                                 className="border rounded-md px-3 py-2 w-20"
                                 placeholder="L"
                               />
@@ -1086,7 +1106,6 @@ export default function FbaStep1bPacking({
                                   })
                                 }
                                 onBlur={() => commitDraft(group, ["boxDimensions"])}
-                                onKeyDown={focusNextInPackCard}
                                 className="border rounded-md px-3 py-2 w-20"
                                 placeholder="W"
                               />
@@ -1105,7 +1124,6 @@ export default function FbaStep1bPacking({
                                   })
                                 }
                                 onBlur={() => commitDraft(group, ["boxDimensions"])}
-                                onKeyDown={focusNextInPackCard}
                                 className="border rounded-md px-3 py-2 w-20"
                                 placeholder="H"
                               />
@@ -1123,7 +1141,6 @@ export default function FbaStep1bPacking({
                         value={getDraft(group).boxWeight ?? group.boxWeight ?? ''}
                         onChange={(e) => setDraftValue(group.id, { boxWeight: e.target.value })}
                         onBlur={() => commitDraft(group, ["boxWeight"])}
-                        onKeyDown={focusNextInPackCard}
                         className="border rounded-md px-3 py-2 w-24"
                         placeholder="kg"
                       />
