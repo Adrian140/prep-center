@@ -218,6 +218,22 @@ export default function FbaStep1bPacking({
     };
   };
 
+  const focusNextInPackCard = (event) => {
+    if (event.key !== 'Tab') return;
+    const container = event.currentTarget?.closest?.('[data-packgroup-card]');
+    if (!container) return;
+    const focusables = Array.from(
+      container.querySelectorAll('input, select, textarea, button')
+    ).filter((el) => !el.disabled && el.tabIndex !== -1);
+    const idx = focusables.indexOf(event.currentTarget);
+    if (idx === -1 || focusables.length < 2) return;
+    const dir = event.shiftKey ? -1 : 1;
+    const nextIdx = idx + dir;
+    if (nextIdx < 0 || nextIdx >= focusables.length) return;
+    event.preventDefault();
+    focusables[nextIdx]?.focus();
+  };
+
   const buildPackingPayload = () => {
     const packages = [];
     const packingGroups = [];
@@ -1020,7 +1036,10 @@ export default function FbaStep1bPacking({
                 </div>
 
                 {group.packMode === 'single' && (
-                  <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-3">
+                  <div
+                    className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-3"
+                    data-packgroup-card
+                  >
                     <div className="font-semibold text-slate-900 text-sm">Packing information for 1 box</div>
                     {(() => {
                       const draftDims = getDraft(group).boxDimensions || {};
@@ -1048,6 +1067,7 @@ export default function FbaStep1bPacking({
                                   })
                                 }
                                 onBlur={() => commitDraft(group, ["boxDimensions"])}
+                                onKeyDown={focusNextInPackCard}
                                 className="border rounded-md px-3 py-2 w-20"
                                 placeholder="L"
                               />
@@ -1066,6 +1086,7 @@ export default function FbaStep1bPacking({
                                   })
                                 }
                                 onBlur={() => commitDraft(group, ["boxDimensions"])}
+                                onKeyDown={focusNextInPackCard}
                                 className="border rounded-md px-3 py-2 w-20"
                                 placeholder="W"
                               />
@@ -1084,6 +1105,7 @@ export default function FbaStep1bPacking({
                                   })
                                 }
                                 onBlur={() => commitDraft(group, ["boxDimensions"])}
+                                onKeyDown={focusNextInPackCard}
                                 className="border rounded-md px-3 py-2 w-20"
                                 placeholder="H"
                               />
@@ -1101,6 +1123,7 @@ export default function FbaStep1bPacking({
                         value={getDraft(group).boxWeight ?? group.boxWeight ?? ''}
                         onChange={(e) => setDraftValue(group.id, { boxWeight: e.target.value })}
                         onBlur={() => commitDraft(group, ["boxWeight"])}
+                        onKeyDown={focusNextInPackCard}
                         className="border rounded-md px-3 py-2 w-24"
                         placeholder="kg"
                       />
