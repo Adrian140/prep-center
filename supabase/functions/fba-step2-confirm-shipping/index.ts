@@ -2846,6 +2846,50 @@ serve(async (req) => {
     }
     let optionsRawForSelection = optionsRawInitial;
     let optionsRawForDisplay = optionsRawInitial;
+    const normalizeShipMode = (val: any) => {
+      const up = String(val || "").toUpperCase();
+      if (up === "GROUND_SMALL_PARCEL" || up === "SPD" || up === "SMALL_PARCEL") return "SPD";
+      if (up === "FREIGHT_LTL" || up === "LTL") return "LTL";
+      if (up === "FREIGHT_FTL" || up === "FTL") return "FTL";
+      return up;
+    };
+    const hasMode = (opts: any[], mode: string) =>
+      (opts || []).some((o) => normalizeShipMode(o?.shippingMode || o?.mode) === mode);
+
+    // Dacă cerem SPD și Amazon nu întoarce niciun SPD pe listing cu shipmentId,
+    // mai încercăm o listare fără shipmentId și combinăm rezultatele.
+    if (
+      normalizeShipMode(effectiveShippingMode) === "SPD" &&
+      optionsRawInitial.length &&
+      !hasMode(optionsRawInitial, "SPD")
+    ) {
+      const { firstRes: listResFallback, collected: optionsRawFallback } =
+        await listTransportationOptionsOnce(effectivePlacementOptionId, null, {
+          probePartnered: true,
+          maxPages: 6
+        });
+      if (optionsRawFallback.length) {
+        const byId = new Map<string, any>();
+        const add = (opt: any) => {
+          const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
+          if (!id) return;
+          if (!byId.has(id)) byId.set(id, opt);
+        };
+        optionsRawInitial.forEach(add);
+        optionsRawFallback.forEach(add);
+        optionsRawForDisplay = Array.from(byId.values());
+        optionsRawForSelection = optionsRawForDisplay;
+        logStep("listTransportationOptions_spd_fallback", {
+          traceId,
+          placementOptionId: effectivePlacementOptionId,
+          shipmentIdForListing,
+          initialCount: optionsRawInitial.length,
+          fallbackCount: optionsRawFallback.length,
+          mergedCount: optionsRawForDisplay.length,
+          requestId: listResFallback?.requestId || null
+        });
+      }
+    }
     // For hazmat/non-partnered shipments, Amazon can legitimately return only USE_YOUR_OWN_CARRIER.
     // Fallback listing without shipmentId should be used only when shipment-scoped listing is empty.
     if (!optionsRawInitial.length && shipmentIdForListing) {
