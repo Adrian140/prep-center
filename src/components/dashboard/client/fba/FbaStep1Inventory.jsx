@@ -222,6 +222,11 @@ export default function FbaStep1Inventory({
     onSkuServicesChange((prev) => ({ ...(prev || {}), [skuId]: next }));
   }, [onSkuServicesChange]);
 
+  const withLocalId = useCallback(
+    (entry) => ({ ...entry, _local_id: entry?._local_id || `svc-${Date.now()}-${Math.random().toString(16).slice(2, 8)}` }),
+    []
+  );
+
   const handleAddSkuService = useCallback((sku) => {
     const skuId = sku?.id;
     if (!skuId) return;
@@ -233,20 +238,20 @@ export default function FbaStep1Inventory({
       available[0];
     const first = preferred;
     if (!first) return;
-    const nextEntry = {
+    const nextEntry = withLocalId({
       service_id: first.id,
       service_name: first.service_name,
       unit_price: Number(first.price || 0),
       units: Math.max(1, Number(sku.units || 0) || 1)
-    };
+    });
     setSkuServices(skuId, [...current, nextEntry]);
-  }, [serviceOptions, setSkuServices, skuServicesById]);
+  }, [serviceOptions, setSkuServices, skuServicesById, withLocalId]);
 
   const handleSkuServiceChange = useCallback((skuId, idx, patch) => {
     const current = Array.isArray(skuServicesById?.[skuId]) ? skuServicesById[skuId] : [];
-    const next = current.map((row, i) => (i === idx ? { ...row, ...patch } : row));
+    const next = current.map((row, i) => (i === idx ? withLocalId({ ...row, ...patch }) : row));
     setSkuServices(skuId, next);
-  }, [setSkuServices, skuServicesById]);
+  }, [setSkuServices, skuServicesById, withLocalId]);
 
   const handleRemoveSkuService = useCallback((skuId, idx) => {
     const current = Array.isArray(skuServicesById?.[skuId]) ? skuServicesById[skuId] : [];
@@ -1453,7 +1458,10 @@ export default function FbaStep1Inventory({
                 ])
                 .filter(([, options]) => options.length > 0);
               return (
-                <div key={`${sku.id}-svc-${idx}`} className="border border-slate-200 rounded-md p-2">
+                <div
+                  key={svc?._local_id || `${sku.id}-svc-${idx}`}
+                  className="border border-slate-200 rounded-md p-2"
+                >
                   <div className="flex items-center gap-2 mb-2">
                     <select
                       className="border rounded-md px-2 py-1 text-xs flex-1 min-w-0 whitespace-normal break-words"

@@ -1618,6 +1618,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
     if (servicesLoadedRef.current) return;
     let cancelled = false;
+    const withLocalId = (entry) => ({
+      ...entry,
+      _local_id: entry?._local_id || `svc-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+    });
     (async () => {
       const { data, error } = await supabase
         .from('prep_request_services')
@@ -1631,12 +1635,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const nextSkuServices = {};
       const nextBoxServices = [];
       (data || []).forEach((row) => {
-        const entry = {
+        const entry = withLocalId({
           service_id: row.service_id || null,
           service_name: row.service_name,
           unit_price: Number(row.unit_price || 0),
           units: Number(row.units || 0)
-        };
+        });
         if (row.item_type === 'box') {
           nextBoxServices.push(entry);
           return;
