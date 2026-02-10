@@ -746,6 +746,25 @@ export default function FbaStep1Inventory({
     [updateGroupPlan]
   );
 
+  const handleBoxDetailsTab = useCallback((event) => {
+    if (event.key !== 'Tab') return;
+    const container = event.currentTarget.closest('[data-box-details]');
+    if (!container) return;
+    const focusables = Array.from(
+      container.querySelectorAll('input, select, textarea, button')
+    ).filter((el) => !el.disabled && el.tabIndex !== -1);
+    if (focusables.length === 0) return;
+    const currentIndex = focusables.indexOf(event.currentTarget);
+    if (currentIndex === -1) return;
+    event.preventDefault();
+    const dir = event.shiftKey ? -1 : 1;
+    let nextIndex = currentIndex + dir;
+    if (nextIndex < 0) nextIndex = focusables.length - 1;
+    if (nextIndex >= focusables.length) nextIndex = 0;
+    const next = focusables[nextIndex];
+    next?.focus?.();
+  }, []);
+
   const toggleDimensionAssignment = useCallback(
     (groupId, setId, box, boxIdx, checked, labelFallback, seedSet = null) => {
       updateGroupPlan(
@@ -2023,7 +2042,7 @@ export default function FbaStep1Inventory({
               </div>
               {boxes.length === 0 && <div className="text-sm text-slate-500">No boxes yet.</div>}
               {boxes.length > 0 && (
-                <div className="border border-slate-200 rounded-md bg-white">
+                <div className="border border-slate-200 rounded-md bg-white" data-box-details>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2 px-3 py-2 text-xs text-slate-600 border-b border-slate-200">
                     <div>
                       <span className="font-semibold text-slate-800">Total SKUs:</span> {groupSkus.length}
@@ -2118,6 +2137,7 @@ export default function FbaStep1Inventory({
                                   min={0}
                                   step="0.1"
                                   value={valueForField('weight_kg', box?.weight_kg ?? box?.weight ?? '')}
+                                  onKeyDown={handleBoxDetailsTab}
                                   onChange={(e) =>
                                     setBoxDimDrafts((prev) => ({
                                       ...(prev || {}),
@@ -2176,12 +2196,13 @@ export default function FbaStep1Inventory({
                                     type="number"
                                     min={0}
                                     step="0.1"
-                                    value={valueForField('length_cm', set?.length_cm ?? '')}
-                                    onChange={(e) =>
-                                      setBoxDimDrafts((prev) => ({
-                                        ...(prev || {}),
-                                        [buildKey('length_cm')]: e.target.value
-                                      }))
+                                  value={valueForField('length_cm', set?.length_cm ?? '')}
+                                  onKeyDown={handleBoxDetailsTab}
+                                  onChange={(e) =>
+                                    setBoxDimDrafts((prev) => ({
+                                      ...(prev || {}),
+                                      [buildKey('length_cm')]: e.target.value
+                                    }))
                                     }
                                     onBlur={(e) => commitSet('length_cm', e.target.value)}
                                     onKeyDown={handleDimKeyDown('length_cm')}
@@ -2193,12 +2214,13 @@ export default function FbaStep1Inventory({
                                     type="number"
                                     min={0}
                                     step="0.1"
-                                    value={valueForField('width_cm', set?.width_cm ?? '')}
-                                    onChange={(e) =>
-                                      setBoxDimDrafts((prev) => ({
-                                        ...(prev || {}),
-                                        [buildKey('width_cm')]: e.target.value
-                                      }))
+                                  value={valueForField('width_cm', set?.width_cm ?? '')}
+                                  onKeyDown={handleBoxDetailsTab}
+                                  onChange={(e) =>
+                                    setBoxDimDrafts((prev) => ({
+                                      ...(prev || {}),
+                                      [buildKey('width_cm')]: e.target.value
+                                    }))
                                     }
                                     onBlur={(e) => commitSet('width_cm', e.target.value)}
                                     onKeyDown={handleDimKeyDown('width_cm')}
@@ -2210,12 +2232,13 @@ export default function FbaStep1Inventory({
                                     type="number"
                                     min={0}
                                     step="0.1"
-                                    value={valueForField('height_cm', set?.height_cm ?? '')}
-                                    onChange={(e) =>
-                                      setBoxDimDrafts((prev) => ({
-                                        ...(prev || {}),
-                                        [buildKey('height_cm')]: e.target.value
-                                      }))
+                                  value={valueForField('height_cm', set?.height_cm ?? '')}
+                                  onKeyDown={handleBoxDetailsTab}
+                                  onChange={(e) =>
+                                    setBoxDimDrafts((prev) => ({
+                                      ...(prev || {}),
+                                      [buildKey('height_cm')]: e.target.value
+                                    }))
                                     }
                                     onBlur={(e) => commitSet('height_cm', e.target.value)}
                                     onKeyDown={handleDimKeyDown('height_cm')}
@@ -2244,6 +2267,7 @@ export default function FbaStep1Inventory({
                                     <input
                                       type="checkbox"
                                       checked={checked}
+                                      onKeyDown={handleBoxDetailsTab}
                                       onChange={(e) =>
                                         toggleDimensionAssignment(
                                           group.groupId,
