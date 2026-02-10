@@ -290,15 +290,15 @@ export default function FbaStep1Inventory({
   const handleAddBoxService = useCallback(() => {
     const first = boxOptions[0];
     if (!first) return;
-    const nextEntry = {
+    const nextEntry = withLocalId({
       service_id: first.id,
       service_name: first.service_name,
       unit_price: Number(first.price || 0),
       units: 1
-    };
+    });
     const current = Array.isArray(boxServices) ? boxServices : [];
     setBoxes([...current, nextEntry]);
-  }, [boxOptions, boxServices, setBoxes]);
+  }, [boxOptions, boxServices, setBoxes, withLocalId]);
   const skuEligibilityBlocking = skuStatuses.some((s) =>
     ['missing', 'inactive', 'restricted', 'inbound_unavailable'].includes(String(s.state))
   );
@@ -1902,7 +1902,10 @@ export default function FbaStep1Inventory({
           {boxServices.map((svc, idx) => {
             const total = Number(svc.unit_price || 0) * Number(svc.units || 0);
             return (
-              <div key={`box-svc-${idx}`} className="flex flex-wrap items-center gap-3 border border-slate-200 rounded-md p-2">
+              <div
+                key={svc?._local_id || `box-svc-${idx}`}
+                className="flex flex-wrap items-center gap-3 border border-slate-200 rounded-md p-2"
+              >
                 <select
                   className="border rounded-md px-2 py-1 text-xs min-w-[220px]"
                   value={svc.service_name || ''}
@@ -1911,12 +1914,12 @@ export default function FbaStep1Inventory({
                     if (!selected) return;
                     const next = boxServices.map((row, i) =>
                       i === idx
-                        ? {
+                        ? withLocalId({
                             ...row,
                             service_id: selected.id,
                             service_name: selected.service_name,
                             unit_price: Number(selected.price || 0)
-                          }
+                          })
                         : row
                     );
                     setBoxes(next);
@@ -1946,7 +1949,7 @@ export default function FbaStep1Inventory({
                     value={svc.units ?? 0}
                     onChange={(e) => {
                       const next = boxServices.map((row, i) =>
-                        i === idx ? { ...row, units: Number(e.target.value || 0) } : row
+                        i === idx ? withLocalId({ ...row, units: Number(e.target.value || 0) }) : row
                       );
                       setBoxes(next);
                       schedulePersist();
