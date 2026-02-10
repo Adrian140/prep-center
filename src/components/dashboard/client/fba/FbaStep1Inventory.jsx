@@ -765,6 +765,17 @@ export default function FbaStep1Inventory({
     next?.focus?.();
   }, []);
 
+  const handleBoxDetailsKeyDown = useCallback(
+    (fallback) => (event) => {
+      if (event.key === 'Tab') {
+        handleBoxDetailsTab(event);
+        return;
+      }
+      fallback?.(event);
+    },
+    [handleBoxDetailsTab]
+  );
+
   const toggleDimensionAssignment = useCallback(
     (groupId, setId, box, boxIdx, checked, labelFallback, seedSet = null) => {
       updateGroupPlan(
@@ -2137,7 +2148,7 @@ export default function FbaStep1Inventory({
                                   min={0}
                                   step="0.1"
                                   value={valueForField('weight_kg', box?.weight_kg ?? box?.weight ?? '')}
-                                  onKeyDown={handleBoxDetailsTab}
+                                  onKeyDown={handleBoxDetailsKeyDown(handleDimKeyDown('weight_kg'))}
                                   onChange={(e) =>
                                     setBoxDimDrafts((prev) => ({
                                       ...(prev || {}),
@@ -2145,7 +2156,6 @@ export default function FbaStep1Inventory({
                                     }))
                                   }
                                   onBlur={(e) => commitDim('weight_kg', e.target.value)}
-                                  onKeyDown={handleDimKeyDown('weight_kg')}
                                   className="w-20 h-8 border rounded-sm px-2 py-1 text-xs text-center"
                                   placeholder="0"
                                 />
@@ -2197,7 +2207,7 @@ export default function FbaStep1Inventory({
                                     min={0}
                                     step="0.1"
                                   value={valueForField('length_cm', set?.length_cm ?? '')}
-                                  onKeyDown={handleBoxDetailsTab}
+                                  onKeyDown={handleBoxDetailsKeyDown(handleDimKeyDown('length_cm'))}
                                   onChange={(e) =>
                                     setBoxDimDrafts((prev) => ({
                                       ...(prev || {}),
@@ -2205,7 +2215,6 @@ export default function FbaStep1Inventory({
                                     }))
                                     }
                                     onBlur={(e) => commitSet('length_cm', e.target.value)}
-                                    onKeyDown={handleDimKeyDown('length_cm')}
                                     className="w-16 h-8 border rounded-sm px-2 py-1 text-xs text-center"
                                     placeholder="L"
                                   />
@@ -2215,7 +2224,7 @@ export default function FbaStep1Inventory({
                                     min={0}
                                     step="0.1"
                                   value={valueForField('width_cm', set?.width_cm ?? '')}
-                                  onKeyDown={handleBoxDetailsTab}
+                                  onKeyDown={handleBoxDetailsKeyDown(handleDimKeyDown('width_cm'))}
                                   onChange={(e) =>
                                     setBoxDimDrafts((prev) => ({
                                       ...(prev || {}),
@@ -2223,7 +2232,6 @@ export default function FbaStep1Inventory({
                                     }))
                                     }
                                     onBlur={(e) => commitSet('width_cm', e.target.value)}
-                                    onKeyDown={handleDimKeyDown('width_cm')}
                                     className="w-16 h-8 border rounded-sm px-2 py-1 text-xs text-center"
                                     placeholder="W"
                                   />
@@ -2233,7 +2241,7 @@ export default function FbaStep1Inventory({
                                     min={0}
                                     step="0.1"
                                   value={valueForField('height_cm', set?.height_cm ?? '')}
-                                  onKeyDown={handleBoxDetailsTab}
+                                  onKeyDown={handleBoxDetailsKeyDown(handleDimKeyDown('height_cm'))}
                                   onChange={(e) =>
                                     setBoxDimDrafts((prev) => ({
                                       ...(prev || {}),
@@ -2241,7 +2249,6 @@ export default function FbaStep1Inventory({
                                     }))
                                     }
                                     onBlur={(e) => commitSet('height_cm', e.target.value)}
-                                    onKeyDown={handleDimKeyDown('height_cm')}
                                     className="w-16 h-8 border rounded-sm px-2 py-1 text-xs text-center"
                                     placeholder="H"
                                   />
