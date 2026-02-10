@@ -391,7 +391,12 @@ export default function FbaStep1Inventory({
           return {
             groupLabel: single.groupLabel || labelFallback || 'Single box',
             boxes: Array.isArray(single.boxes) ? single.boxes : [],
-            boxItems: Array.isArray(single.boxItems) ? single.boxItems : []
+            boxItems: Array.isArray(single.boxItems) ? single.boxItems : [],
+            dimension_sets: Array.isArray(single.dimension_sets) ? single.dimension_sets : [],
+            dimension_assignments:
+              single.dimension_assignments && typeof single.dimension_assignments === 'object'
+                ? single.dimension_assignments
+                : {}
           };
         }
       }
@@ -400,10 +405,21 @@ export default function FbaStep1Inventory({
         return {
           groupLabel: existing.groupLabel || labelFallback || groupId,
           boxes: Array.isArray(existing.boxes) ? existing.boxes : [],
-          boxItems: Array.isArray(existing.boxItems) ? existing.boxItems : []
+          boxItems: Array.isArray(existing.boxItems) ? existing.boxItems : [],
+          dimension_sets: Array.isArray(existing.dimension_sets) ? existing.dimension_sets : [],
+          dimension_assignments:
+            existing.dimension_assignments && typeof existing.dimension_assignments === 'object'
+              ? existing.dimension_assignments
+              : {}
         };
       }
-      return { groupLabel: labelFallback || groupId, boxes: [], boxItems: [] };
+      return {
+        groupLabel: labelFallback || groupId,
+        boxes: [],
+        boxItems: [],
+        dimension_sets: [],
+        dimension_assignments: {}
+      };
     },
     [safeBoxPlan.groups]
   );
@@ -835,17 +851,10 @@ export default function FbaStep1Inventory({
       Object.entries(safeBoxPlan.groups || {}).forEach(([groupId, groupPlan]) => {
         const boxes = Array.isArray(groupPlan?.boxes) ? groupPlan.boxes : [];
         const maxIdx = Math.max(0, boxes.length - 1);
-        const currentIdx = Number(next[groupId] ?? -1);
-        const boxItems = Array.isArray(groupPlan?.boxItems) ? groupPlan.boxItems : [];
-        const lastUsedIndex = boxItems.reduce((lastIdx, items, idx) => {
-          const hasItems = Object.values(items || {}).some((qty) => Number(qty || 0) > 0);
-          return hasItems ? idx : lastIdx;
-        }, -1);
-        if (currentIdx < 0 && lastUsedIndex >= 0) {
-          next[groupId] = Math.min(lastUsedIndex, maxIdx);
-          changed = true;
-          return;
-        }
+        const currentIdxRaw = next[groupId];
+        if (currentIdxRaw === undefined || currentIdxRaw === null) return;
+        const currentIdx = Number(currentIdxRaw);
+        if (!Number.isFinite(currentIdx)) return;
         if (currentIdx > maxIdx) {
           next[groupId] = maxIdx;
           changed = true;
@@ -1094,7 +1103,7 @@ export default function FbaStep1Inventory({
     const activeIndexRaw = activeBoxByGroup[groupId];
     const activeIndex =
       activeIndexRaw === undefined || activeIndexRaw === null
-        ? maxBoxIndex
+        ? 0
         : Math.min(Math.max(0, Number(activeIndexRaw) || 0), Math.max(maxBoxIndex, 0));
 
     const servicesForSku = Array.isArray(skuServicesById?.[sku.id]) ? skuServicesById[sku.id] : [];
@@ -1241,10 +1250,10 @@ export default function FbaStep1Inventory({
                   type="button"
                   onClick={() => {
                     const currentCount = Math.max(0, boxes.length);
-                    const defaultIdx = currentCount > 0 ? Math.max(0, Math.min(activeIndex, currentCount - 1)) : 0;
-                    const shouldAppend = currentCount > 0 && activeIndex >= currentCount - 1;
-                    const targetIdx = shouldAppend ? currentCount : defaultIdx;
-                    const desiredCount = shouldAppend ? currentCount + 1 : Math.max(1, currentCount || defaultIdx + 1);
+                    const hasAssignments = assignedEntries.length > 0;
+                    const clampedActive = currentCount > 0 ? Math.max(0, Math.min(activeIndex, currentCount - 1)) : activeIndex;
+                    const targetIdx = hasAssignments ? currentCount : clampedActive;
+                    const desiredCount = Math.max(1, currentCount, targetIdx + 1);
                     ensureGroupBoxCount(groupId, desiredCount, groupLabel);
                     updateBoxItemQty(groupId, targetIdx, skuKey, 0, groupLabel, true);
                     setActiveBoxIndex(groupId, targetIdx);
@@ -1282,6 +1291,7 @@ export default function FbaStep1Inventory({
                   ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
                   updateBoxItemQty(groupId, nextIdx, skuKey, entry.qty, groupLabel, true);
                   updateBoxItemQty(groupId, entry.boxIdx, skuKey, 0, groupLabel);
+                  setActiveBoxIndex(groupId, nextIdx);
                   setBoxIndexDrafts((prev) => {
                     const next = { ...(prev || {}) };
                     delete next[draftKey];
@@ -1325,9 +1335,6 @@ export default function FbaStep1Inventory({
                       const num = raw === '' ? 0 : Number(raw);
                       const nextValue = Number.isFinite(num) ? num : 0;
                       updateBoxItemQty(groupId, entry.boxIdx, skuKey, nextValue, groupLabel, entry.hasKey);
-                      if (nextValue > 0 && entry.boxIdx >= activeIndex) {
-                        setActiveBoxIndex(groupId, entry.boxIdx);
-                      }
                       setBoxQtyDrafts((prev) => {
                         const next = { ...(prev || {}) };
                         delete next[qtyDraftKey];
