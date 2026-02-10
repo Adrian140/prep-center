@@ -1246,8 +1246,6 @@ export default function FbaStep1Inventory({
                     const hasAssignments = assignedEntries.length > 0;
                     const clampedActive = currentCount > 0 ? Math.max(0, Math.min(activeIndex, currentCount - 1)) : activeIndex;
                     const targetIdx = hasAssignments ? currentCount : clampedActive;
-                    const desiredCount = Math.max(1, currentCount, targetIdx + 1);
-                    ensureGroupBoxCount(groupId, desiredCount, groupLabel);
                     updateBoxItemQty(groupId, targetIdx, skuKey, 0, groupLabel, true);
                     setActiveBoxIndex(groupId, targetIdx);
                   }}
