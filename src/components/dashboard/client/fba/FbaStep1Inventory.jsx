@@ -1439,8 +1439,8 @@ export default function FbaStep1Inventory({
             </div>
           </div>
         </td>
-        <td className="py-3">
-          <div className="space-y-2">
+        <td className="py-3 w-[320px] min-w-[320px]">
+          <div className="space-y-2 w-[320px] min-w-[320px] max-w-[320px]">
             {servicesForSku.length === 0 && (
               <div className="text-xs text-slate-500">No services selected.</div>
             )}
@@ -1460,11 +1460,11 @@ export default function FbaStep1Inventory({
               return (
                 <div
                   key={svc?._local_id || `${sku.id}-svc-${idx}`}
-                  className="border border-slate-200 rounded-md p-2"
+                  className="border border-slate-200 rounded-md p-2 w-full"
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <select
-                      className="border rounded-md px-2 py-1 text-xs flex-1 min-w-0 whitespace-normal break-words"
+                      className="border rounded-md px-2 py-1 text-xs flex-1 min-w-0 w-full whitespace-normal break-words"
                       value={svc.service_name || ''}
                       onChange={(e) => {
                         const selected = serviceOptions.find((opt) => opt.service_name === e.target.value);
