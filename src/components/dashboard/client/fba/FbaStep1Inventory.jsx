@@ -680,6 +680,10 @@ export default function FbaStep1Inventory({
         (current) => {
           const nextBoxes = [...(current.boxes || [])];
           const box = { ...(nextBoxes[boxIndex] || {}) };
+          const prevValue = box[field];
+          if (String(prevValue ?? '') === String(value ?? '')) {
+            return current;
+          }
           box[field] = value;
           nextBoxes[boxIndex] = box;
           return { ...current, boxes: nextBoxes };
@@ -711,6 +715,10 @@ export default function FbaStep1Inventory({
               height_cm: seedSet?.height_cm ?? ''
             });
             idx = nextSets.length - 1;
+          }
+          const prevValue = nextSets[idx]?.[field];
+          if (String(prevValue ?? '') === String(value ?? '')) {
+            return current;
           }
           const nextSet = { ...nextSets[idx], [field]: value };
           nextSets[idx] = nextSet;
