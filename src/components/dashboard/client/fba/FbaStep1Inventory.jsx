@@ -1103,7 +1103,7 @@ export default function FbaStep1Inventory({
     const activeIndexRaw = activeBoxByGroup[groupId];
     const activeIndex =
       activeIndexRaw === undefined || activeIndexRaw === null
-        ? 0
+        ? Math.max(maxBoxIndex, 0)
         : Math.min(Math.max(0, Number(activeIndexRaw) || 0), Math.max(maxBoxIndex, 0));
 
     const servicesForSku = Array.isArray(skuServicesById?.[sku.id]) ? skuServicesById[sku.id] : [];
