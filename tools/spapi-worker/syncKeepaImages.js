@@ -28,9 +28,11 @@ function assertEnv() {
     missing.push('SUPABASE_SERVICE_ROLE');
   if (
     !process.env.KEEPA_API_KEY &&
-    !process.env.VITE_KEEPA_API_KEY
+    !process.env.VITE_KEEPA_API_KEY &&
+    !process.env.KEEPA_API_KEYS &&
+    !process.env.VITE_KEEPA_API_KEYS
   ) {
-    missing.push('KEEPA_API_KEY');
+    missing.push('KEEPA_API_KEY or KEEPA_API_KEYS');
   }
   if (missing.length) {
     throw new Error(

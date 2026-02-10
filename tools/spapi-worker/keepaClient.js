@@ -26,8 +26,18 @@ const KEEPA_DOMAINS = parseDomainList(
   process.env.KEEPA_DOMAINS || process.env.VITE_KEEPA_DOMAINS,
   DEFAULT_DOMAIN
 );
+const parseKeyList = (raw) => {
+  if (typeof raw !== 'string' || !raw.trim().length) return [];
+  return raw
+    .split(',')
+    .map((part) => part.trim())
+    .filter((value) => value.length > 0);
+};
 const KEEPA_API_KEY =
   process.env.KEEPA_API_KEY || process.env.VITE_KEEPA_API_KEY || null;
+const KEEPA_API_KEYS = parseKeyList(
+  process.env.KEEPA_API_KEYS || process.env.VITE_KEEPA_API_KEYS || ''
+);
 const DEFAULT_IMAGE_SIZE = Number(
   process.env.KEEPA_IMAGE_SIZE ||
     process.env.VITE_KEEPA_IMAGE_SIZE ||
@@ -63,7 +73,9 @@ const TOKEN_SAFETY_REMAINING = Math.max(
 const MIN_INTERVAL_MS = Math.ceil(60000 / TOKENS_PER_MINUTE);
 
 const imageCache = new Map();
-let lastCallAt = 0;
+const keyPool = (KEEPA_API_KEYS.length ? KEEPA_API_KEYS : [KEEPA_API_KEY])
+  .filter(Boolean)
+  .map((key) => ({ key, lastCallAt: 0 }));
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -71,9 +83,9 @@ const normalizeAsin = (asin) =>
   typeof asin === 'string' ? asin.trim().toUpperCase() : '';
 
 const ensureApiKey = () => {
-  if (!KEEPA_API_KEY) {
+  if (!keyPool.length) {
     throw new Error(
-      'Missing Keepa API key. Set KEEPA_API_KEY (or VITE_KEEPA_API_KEY) in your env.'
+      'Missing Keepa API key. Set KEEPA_API_KEY or KEEPA_API_KEYS (or VITE_KEEPA_API_KEY/VITE_KEEPA_API_KEYS) in your env.'
     );
   }
 };
@@ -83,11 +95,21 @@ const buildCacheKey = (asin, size, allImages, domain) =>
 
 const rateLimit = async () => {
   const now = Date.now();
-  const elapsed = now - lastCallAt;
-  if (elapsed < MIN_INTERVAL_MS) {
-    await sleep(MIN_INTERVAL_MS - elapsed);
+  let selected = keyPool[0];
+  let earliestReadyAt = selected.lastCallAt + MIN_INTERVAL_MS;
+  for (const entry of keyPool) {
+    const readyAt = entry.lastCallAt + MIN_INTERVAL_MS;
+    if (readyAt < earliestReadyAt) {
+      earliestReadyAt = readyAt;
+      selected = entry;
+    }
   }
-  lastCallAt = Date.now();
+  const waitMs = Math.max(0, earliestReadyAt - now);
+  if (waitMs > 0) {
+    await sleep(waitMs);
+  }
+  selected.lastCallAt = Date.now();
+  return selected.key;
 };
 
 const buildImageUrl = (imageId, size) => {
@@ -147,9 +169,9 @@ const fetchImpl = async (url) => {
 };
 
 const fetchProductPayload = async (asin, domain, attempt = 0) => {
-  await rateLimit();
+  const apiKey = await rateLimit();
 
-  const url = `https://api.keepa.com/product?key=${KEEPA_API_KEY}&domain=${domain}&asin=${asin}`;
+  const url = `https://api.keepa.com/product?key=${apiKey}&domain=${domain}&asin=${asin}`;
   const response = await fetchImpl(url);
 
   if (await maybeBackoff(response, attempt)) {
