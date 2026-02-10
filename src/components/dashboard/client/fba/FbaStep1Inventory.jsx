@@ -1153,7 +1153,7 @@ export default function FbaStep1Inventory({
     const servicesForSku = Array.isArray(skuServicesById?.[sku.id]) ? skuServicesById[sku.id] : [];
     return (
       <tr key={sku.id} className="align-top">
-        <td className="py-3">
+        <td className="py-3 w-[320px] min-w-[320px]">
           <div className="flex gap-3">
             <img
               src={sku.image || placeholderImg}
@@ -1832,13 +1832,13 @@ export default function FbaStep1Inventory({
       </div>
 
       <div className="px-6 py-4 overflow-x-auto">
-        <table className="min-w-full text-sm text-slate-700">
+        <table className="min-w-full text-sm text-slate-700 table-fixed">
           <colgroup>
             <col className="w-[30%]" />
             <col className="w-[18%]" />
             <col className="w-[22%]" />
             <col className="w-[12%]" />
-            <col className="w-[12%]" />
+            <col className="w-[320px] min-w-[320px]" />
           </colgroup>
           <thead>
             <tr className="text-left text-slate-500 uppercase text-xs">
@@ -1846,7 +1846,7 @@ export default function FbaStep1Inventory({
               <th className="py-2">Packing details</th>
               <th className="py-2">Information / action</th>
               <th className="py-2">Quantity to send</th>
-              <th className="py-2 text-center">Services</th>
+              <th className="py-2 text-center w-[320px] min-w-[320px]">Services</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
