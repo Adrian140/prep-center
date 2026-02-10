@@ -1255,10 +1255,16 @@ export default function FbaStep1Inventory({
                   + Add box
                 </button>
               </div>
-              {assignedEntries.length === 0 && (
+              {assignedEntries.length === 0 && boxes.length === 0 && (
                 <div className="text-xs text-slate-500 mt-1">No boxes assigned yet.</div>
               )}
-              {assignedEntries.map((entry) => {
+              {(
+                assignedEntries.length > 0
+                  ? assignedEntries
+                  : boxes.length
+                    ? [{ boxIdx: activeIndex, qty: 0, hasKey: true, isPlaceholder: true }]
+                    : []
+              ).map((entry) => {
                 const draftKey = getBoxDraftKey(groupId, skuKey, entry.boxIdx);
                 const draftValue = boxIndexDrafts[draftKey];
                 const boxInputValue = draftValue === undefined || draftValue === null ? entry.boxIdx + 1 : draftValue;
@@ -1283,7 +1289,7 @@ export default function FbaStep1Inventory({
                   }
                   ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
                   updateBoxItemQty(groupId, nextIdx, skuKey, entry.qty, groupLabel, true);
-                  updateBoxItemQty(groupId, entry.boxIdx, skuKey, 0, groupLabel);
+                  updateBoxItemQty(groupId, entry.boxIdx, skuKey, 0, groupLabel, entry.hasKey || entry.isPlaceholder);
                   setActiveBoxIndex(groupId, nextIdx);
                   setBoxIndexDrafts((prev) => {
                     const next = { ...(prev || {}) };
