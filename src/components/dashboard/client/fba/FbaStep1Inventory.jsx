@@ -837,6 +837,52 @@ export default function FbaStep1Inventory({
     [updateGroupPlan]
   );
 
+  const moveBoxItemQty = useCallback(
+    (groupId, fromIdx, toIdx, skuKey, qty, labelFallback, keepZeroFrom = false, keepZeroTo = false) => {
+      updateGroupPlan(
+        groupId,
+        (current) => {
+          const nextBoxes = [...(current.boxes || [])];
+          const nextItems = [...(current.boxItems || [])];
+          while (nextBoxes.length <= Math.max(fromIdx, toIdx)) {
+            nextBoxes.push({
+              id: `box-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+              length_cm: '',
+              width_cm: '',
+              height_cm: '',
+              weight_kg: ''
+            });
+          }
+          while (nextItems.length <= Math.max(fromIdx, toIdx)) {
+            nextItems.push({});
+          }
+          const fromItems = { ...(nextItems[fromIdx] || {}) };
+          const toItems = { ...(nextItems[toIdx] || {}) };
+          const nextQty = Number(qty || 0);
+          if (nextQty <= 0) {
+            if (keepZeroTo) {
+              toItems[skuKey] = 0;
+            } else {
+              delete toItems[skuKey];
+            }
+          } else {
+            toItems[skuKey] = nextQty;
+          }
+          if (keepZeroFrom) {
+            fromItems[skuKey] = 0;
+          } else {
+            delete fromItems[skuKey];
+          }
+          nextItems[fromIdx] = fromItems;
+          nextItems[toIdx] = toItems;
+          return { ...current, boxes: nextBoxes, boxItems: nextItems };
+        },
+        labelFallback
+      );
+    },
+    [updateGroupPlan]
+  );
+
   useEffect(() => {
     setActiveBoxByGroup((prev) => {
       const next = { ...(prev || {}) };
@@ -1285,9 +1331,16 @@ export default function FbaStep1Inventory({
                     });
                     return;
                   }
-                  ensureGroupBoxCount(groupId, nextIdx + 1, groupLabel);
-                  updateBoxItemQty(groupId, nextIdx, skuKey, entry.qty, groupLabel, true);
-                  updateBoxItemQty(groupId, entry.boxIdx, skuKey, 0, groupLabel, entry.hasKey || entry.isPlaceholder);
+                  moveBoxItemQty(
+                    groupId,
+                    entry.boxIdx,
+                    nextIdx,
+                    skuKey,
+                    entry.qty,
+                    groupLabel,
+                    entry.hasKey || entry.isPlaceholder,
+                    true
+                  );
                   setActiveBoxIndex(groupId, nextIdx);
                   setBoxIndexDrafts((prev) => {
                     const next = { ...(prev || {}) };
