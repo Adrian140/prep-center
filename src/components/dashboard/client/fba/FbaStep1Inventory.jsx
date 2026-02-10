@@ -829,14 +829,7 @@ export default function FbaStep1Inventory({
             boxItems[skuKey] = Number(value);
           }
           nextItems[boxIndex] = boxItems;
-          const lastUsedIndex = nextItems.reduce((lastIdx, items, idx) => {
-            const hasItems = Object.keys(items || {}).length > 0;
-            return hasItems ? idx : lastIdx;
-          }, -1);
-          const trimmedCount = lastUsedIndex + 1;
-          const trimmedBoxes = nextBoxes.slice(0, Math.max(0, trimmedCount));
-          const trimmedItems = nextItems.slice(0, Math.max(0, trimmedCount));
-          return { ...current, boxes: trimmedBoxes, boxItems: trimmedItems };
+          return { ...current, boxes: nextBoxes, boxItems: nextItems };
         },
         labelFallback
       );
