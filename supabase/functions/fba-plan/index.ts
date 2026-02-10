@@ -494,6 +494,42 @@ function extractInboundUnavailableSkus(primary: { json: any; text: string }): st
   return [];
 }
 
+function extractSkuErrorReasons(primary: { json: any; text: string }): Record<string, string> {
+  const collect = (obj: any) => {
+    const errs = obj?.errors || obj?.payload?.errors || [];
+    if (!Array.isArray(errs)) return {};
+    const out: Record<string, string> = {};
+    for (const e of errs) {
+      const msg = String(e?.message || e?.Message || "");
+      if (!msg) continue;
+      // Example: "ERROR: The following MSKUs are not valid: [SKU1, SKU2]."
+      const match = msg.match(/MSKUs?[^\[]*\[([^\]]+)\]/i);
+      if (!match || !match[1]) continue;
+      match[1]
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .forEach((sku) => {
+          out[normalizeSku(sku)] = msg;
+        });
+    }
+    return out;
+  };
+
+  const fromJson = collect(primary.json);
+  if (Object.keys(fromJson).length) return fromJson;
+
+  if (primary.text) {
+    try {
+      const parsed = JSON.parse(primary.text);
+      return collect(parsed);
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
 function chooseFixValue(field: InboundField, msg: string, accepted: OwnerVal[]): OwnerVal | null {
   const up = msg.toUpperCase();
   if (up.includes("DOES NOT REQUIRE") && accepted.includes("NONE")) return "NONE";
@@ -1133,8 +1169,11 @@ async function checkSkuStatus(params: {
     const hasBuyable = statusList.includes("BUYABLE") || statusList.includes("ACTIVE");
     const hasDiscoverable = statusList.includes("DISCOVERABLE");
 
+    if (!Array.isArray(summaries) || summaries.length === 0) {
+      return { state: "missing", reason: "Listing lipsă pe marketplace (summaries gol)." };
+    }
     if (!statusList.length) {
-      return { state: "ok", reason: "Listing găsit (Listings API 200). Status lipsă/omitted." };
+      return { state: "missing", reason: "Listing lipsă pe marketplace (status absent)." };
     }
     if (hasBuyable) {
       return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")}` };
@@ -3316,6 +3355,10 @@ serve(async (req) => {
           json: amazonJson,
           text: lastResponseText || ""
         });
+        const skuErrorReasons = extractSkuErrorReasons({
+          json: amazonJson,
+          text: lastResponseText || ""
+        });
         if (inboundUnavailableSkus.length) {
           for (const sku of inboundUnavailableSkus) {
             const existing = skuStatuses.find((s) => normalizeSku(s.sku) === sku);
@@ -3325,6 +3368,19 @@ serve(async (req) => {
               existing.reason = reason;
             } else {
               skuStatuses.push({ sku, asin: null, state: "inbound_unavailable", reason });
+            }
+          }
+        }
+        const errorSkus = Object.keys(skuErrorReasons);
+        if (errorSkus.length) {
+          for (const sku of errorSkus) {
+            const existing = skuStatuses.find((s) => normalizeSku(s.sku) === sku);
+            const reason = skuErrorReasons[sku] || "Eroare Amazon pentru acest SKU.";
+            if (existing) {
+              existing.state = "missing";
+              existing.reason = reason;
+            } else {
+              skuStatuses.push({ sku, asin: null, state: "missing", reason });
             }
           }
         }

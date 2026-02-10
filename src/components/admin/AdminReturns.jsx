@@ -4,6 +4,7 @@ import Section from '../common/Section';
 import { supabase } from '../../config/supabase';
 import { useMarket } from '@/contexts/MarketContext';
 import { normalizeMarketCode } from '@/utils/market';
+import { buildPrepQtyPatch, getPrepQtyForMarket } from '@/utils/marketStock';
 
 const statusOptions = ['pending', 'processing', 'done', 'cancelled'];
 
@@ -28,6 +29,8 @@ export default function AdminReturns() {
         company_id,
         user_id,
         marketplace,
+        warehouse_country,
+        country,
         status,
         notes,
         created_at,
@@ -54,16 +57,18 @@ export default function AdminReturns() {
     if (err && marketCode && String(err.message || '').toLowerCase().includes('warehouse_country')) {
       const retry = await supabase
         .from('returns')
-        .select(`
-          id,
-          company_id,
-          user_id,
-          marketplace,
-          status,
-          notes,
-          created_at,
-          updated_at,
-          done_at,
+          .select(`
+        id,
+        company_id,
+        user_id,
+        marketplace,
+        warehouse_country,
+        country,
+        status,
+        notes,
+        created_at,
+        updated_at,
+        done_at,
           stock_adjusted,
           return_items (
             id,
@@ -178,7 +183,7 @@ export default function AdminReturns() {
     if (item.stock_item_id) {
       const { data } = await supabase
         .from('stock_items')
-        .select('id, qty')
+        .select('id, qty, prep_qty_by_country')
         .eq('id', item.stock_item_id)
         .maybeSingle();
       return data || null;
@@ -186,7 +191,7 @@ export default function AdminReturns() {
     if (item.asin) {
       const { data } = await supabase
         .from('stock_items')
-        .select('id, qty')
+        .select('id, qty, prep_qty_by_country')
         .eq('company_id', companyId)
         .eq('asin', item.asin)
         .maybeSingle();
@@ -195,7 +200,7 @@ export default function AdminReturns() {
     if (item.sku) {
       const { data } = await supabase
         .from('stock_items')
-        .select('id, qty')
+        .select('id, qty, prep_qty_by_country')
         .eq('company_id', companyId)
         .eq('sku', item.sku)
         .maybeSingle();
@@ -206,12 +211,15 @@ export default function AdminReturns() {
 
   const adjustStockForReturn = async (row) => {
     const items = Array.isArray(row.return_items) ? row.return_items : [];
+    const market = normalizeMarketCode(row.warehouse_country || row.country || row.marketplace || currentMarket) || 'FR';
     for (const item of items) {
       const stockRow = await resolveStockItem(item, row.company_id);
       if (!stockRow) continue;
-      const currentQty = Number(stockRow.qty || 0);
-      const nextQty = Math.max(currentQty - Number(item.qty || 0), 0);
-      await supabase.from('stock_items').update({ qty: nextQty }).eq('id', stockRow.id);
+      const currentMarketQty = getPrepQtyForMarket(stockRow, market);
+      const nextMarketQty = Math.max(currentMarketQty - Number(item.qty || 0), 0);
+      const patch = buildPrepQtyPatch(stockRow, market, nextMarketQty);
+      const { error: stockErr } = await supabase.from('stock_items').update(patch).eq('id', stockRow.id);
+      if (stockErr) throw stockErr;
     }
   };
 
@@ -223,8 +231,14 @@ export default function AdminReturns() {
       done_at: status === 'done' ? new Date().toISOString() : null
     };
     if (status === 'done' && !row.stock_adjusted) {
-      await adjustStockForReturn(row);
-      patch.stock_adjusted = true;
+      try {
+        await adjustStockForReturn(row);
+        patch.stock_adjusted = true;
+      } catch (stockErr) {
+        alert(stockErr?.message || 'Nu am putut actualiza stocul pentru retur.');
+        setSavingId(null);
+        return;
+      }
     }
     const { error: err } = await supabase.from('returns').update(patch).eq('id', row.id);
     if (err) {

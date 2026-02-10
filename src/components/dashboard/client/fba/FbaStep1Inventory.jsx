@@ -350,6 +350,7 @@ export default function FbaStep1Inventory({
   const [boxQtyDrafts, setBoxQtyDrafts] = useState({});
   const [boxDimDrafts, setBoxDimDrafts] = useState({});
   const [singleBoxMode, setSingleBoxMode] = useState(false);
+  const boxScrollRefs = useRef({});
 
   const normalizedPackGroups = Array.isArray(packGroupsPreview) ? packGroupsPreview : [];
   const hasPackGroups = normalizedPackGroups.some((g) => Array.isArray(g?.items) && g.items.length > 0);
@@ -519,6 +520,70 @@ export default function FbaStep1Inventory({
   const getDimDraftKey = useCallback((groupId, boxIdx, field) => {
     return `${groupId}::${boxIdx}::${field}`;
   }, []);
+  const getDimSetDraftKey = useCallback((groupId, setId, field) => {
+    return `${groupId}::dimset::${setId}::${field}`;
+  }, []);
+  const setBoxScrollRef = useCallback((groupId, key) => (el) => {
+    if (!el) return;
+    if (!boxScrollRefs.current[groupId]) {
+      boxScrollRefs.current[groupId] = {};
+    }
+    boxScrollRefs.current[groupId][key] = el;
+  }, []);
+  const syncBoxScroll = useCallback((groupId, sourceKey) => (event) => {
+    const refs = boxScrollRefs.current[groupId];
+    if (!refs) return;
+    const targetKey = sourceKey === 'top' ? 'bottom' : 'top';
+    const target = refs[targetKey];
+    if (!target) return;
+    const nextLeft = event.currentTarget.scrollLeft;
+    if (target.scrollLeft !== nextLeft) {
+      target.scrollLeft = nextLeft;
+    }
+  }, []);
+
+  const deriveDimensionMetaFromBoxes = useCallback((groupId, groupPlan) => {
+    const boxes = Array.isArray(groupPlan?.boxes) ? groupPlan.boxes : [];
+    const keyToSetId = new Map();
+    const sets = [];
+    const assignments = {};
+    boxes.forEach((box, idx) => {
+      const length = Number(box?.length_cm ?? box?.length ?? 0);
+      const width = Number(box?.width_cm ?? box?.width ?? 0);
+      const height = Number(box?.height_cm ?? box?.height ?? 0);
+      if (!length || !width || !height) return;
+      const key = `${length}x${width}x${height}`;
+      let setId = keyToSetId.get(key);
+      if (!setId) {
+        setId = `dimset-${groupId}-${keyToSetId.size + 1}`;
+        keyToSetId.set(key, setId);
+        sets.push({ id: setId, length_cm: length, width_cm: width, height_cm: height });
+      }
+      const boxId = box?.id || `${groupId}-box-${idx}`;
+      assignments[boxId] = setId;
+    });
+    return { sets, assignments };
+  }, []);
+
+  const normalizeDimensionMeta = useCallback(
+    (groupId, groupPlan) => {
+      const existingSets = Array.isArray(groupPlan?.dimension_sets) ? groupPlan.dimension_sets : [];
+      const existingAssignments =
+        groupPlan?.dimension_assignments && typeof groupPlan.dimension_assignments === 'object'
+          ? groupPlan.dimension_assignments
+          : {};
+      if (existingSets.length) {
+        return { sets: existingSets, assignments: existingAssignments };
+      }
+      const derived = deriveDimensionMetaFromBoxes(groupId, groupPlan);
+      if (derived.sets.length) return derived;
+      return {
+        sets: [{ id: `dimset-${groupId}-1`, length_cm: '', width_cm: '', height_cm: '' }],
+        assignments: {}
+      };
+    },
+    [deriveDimensionMetaFromBoxes]
+  );
 
   const ensureGroupBoxCount = useCallback(
     (groupId, count, labelFallback) => {
@@ -573,9 +638,13 @@ export default function FbaStep1Inventory({
       updateGroupPlan(
         groupId,
         (current) => {
+          const removedBox = current.boxes?.[boxIndex];
+          const removedBoxId = removedBox?.id || `${groupId}-box-${boxIndex}`;
           const nextBoxes = (current.boxes || []).filter((_, idx) => idx !== boxIndex);
           const nextItems = (current.boxItems || []).filter((_, idx) => idx !== boxIndex);
-          return { ...current, boxes: nextBoxes, boxItems: nextItems };
+          const nextAssignments = { ...(current.dimension_assignments || {}) };
+          delete nextAssignments[removedBoxId];
+          return { ...current, boxes: nextBoxes, boxItems: nextItems, dimension_assignments: nextAssignments };
         },
         labelFallback
       );
@@ -593,6 +662,120 @@ export default function FbaStep1Inventory({
           box[field] = value;
           nextBoxes[boxIndex] = box;
           return { ...current, boxes: nextBoxes };
+        },
+        labelFallback
+      );
+    },
+    [updateGroupPlan]
+  );
+
+  const updateDimensionSet = useCallback(
+    (groupId, setId, field, value, labelFallback, seedSet = null, seedAssignments = null) => {
+      updateGroupPlan(
+        groupId,
+        (current) => {
+          const nextBoxes = [...(current.boxes || [])];
+          const nextAssignments = {
+            ...(seedAssignments && Object.keys(current.dimension_assignments || {}).length === 0
+              ? seedAssignments
+              : current.dimension_assignments || {})
+          };
+          const nextSets = Array.isArray(current.dimension_sets) ? [...current.dimension_sets] : [];
+          let idx = nextSets.findIndex((s) => s.id === setId);
+          if (idx < 0) {
+            nextSets.push({
+              id: setId,
+              length_cm: seedSet?.length_cm ?? '',
+              width_cm: seedSet?.width_cm ?? '',
+              height_cm: seedSet?.height_cm ?? ''
+            });
+            idx = nextSets.length - 1;
+          }
+          const nextSet = { ...nextSets[idx], [field]: value };
+          nextSets[idx] = nextSet;
+          nextBoxes.forEach((box, boxIdx) => {
+            const boxId = box?.id || `${groupId}-box-${boxIdx}`;
+            if (nextAssignments[boxId] === setId) {
+              nextBoxes[boxIdx] = {
+                ...box,
+                length_cm: nextSet.length_cm ?? '',
+                width_cm: nextSet.width_cm ?? '',
+                height_cm: nextSet.height_cm ?? ''
+              };
+            }
+          });
+          return {
+            ...current,
+            boxes: nextBoxes,
+            dimension_sets: nextSets,
+            dimension_assignments: nextAssignments
+          };
+        },
+        labelFallback
+      );
+    },
+    [updateGroupPlan]
+  );
+
+  const toggleDimensionAssignment = useCallback(
+    (groupId, setId, box, boxIdx, checked, labelFallback, seedSet = null) => {
+      updateGroupPlan(
+        groupId,
+        (current) => {
+          const nextBoxes = [...(current.boxes || [])];
+          const nextAssignments = { ...(current.dimension_assignments || {}) };
+          const nextSets = Array.isArray(current.dimension_sets) ? [...current.dimension_sets] : [];
+          if (!nextSets.find((s) => s.id === setId)) {
+            nextSets.push({
+              id: setId,
+              length_cm: seedSet?.length_cm ?? '',
+              width_cm: seedSet?.width_cm ?? '',
+              height_cm: seedSet?.height_cm ?? ''
+            });
+          }
+          const set = nextSets.find((s) => s.id === setId);
+          const boxId = box?.id || `${groupId}-box-${boxIdx}`;
+          if (checked) {
+            nextAssignments[boxId] = setId;
+            nextBoxes[boxIdx] = {
+              ...box,
+              length_cm: set?.length_cm ?? '',
+              width_cm: set?.width_cm ?? '',
+              height_cm: set?.height_cm ?? ''
+            };
+          } else {
+            if (nextAssignments[boxId] === setId) {
+              delete nextAssignments[boxId];
+            }
+            nextBoxes[boxIdx] = {
+              ...box,
+              length_cm: '',
+              width_cm: '',
+              height_cm: ''
+            };
+          }
+          return {
+            ...current,
+            boxes: nextBoxes,
+            dimension_sets: nextSets,
+            dimension_assignments: nextAssignments
+          };
+        },
+        labelFallback
+      );
+    },
+    [updateGroupPlan]
+  );
+
+  const addDimensionSet = useCallback(
+    (groupId, labelFallback) => {
+      const nextId = `dimset-${groupId}-${Date.now().toString(16)}`;
+      updateGroupPlan(
+        groupId,
+        (current) => {
+          const nextSets = Array.isArray(current.dimension_sets) ? [...current.dimension_sets] : [];
+          nextSets.push({ id: nextId, length_cm: '', width_cm: '', height_cm: '' });
+          return { ...current, dimension_sets: nextSets };
         },
         labelFallback
       );
@@ -1059,7 +1242,7 @@ export default function FbaStep1Inventory({
                   onClick={() => {
                     const currentCount = Math.max(0, boxes.length);
                     const defaultIdx = currentCount > 0 ? Math.max(0, Math.min(activeIndex, currentCount - 1)) : 0;
-                    const shouldAppend = assignedEntries.length > 0 && activeIndex >= currentCount - 1;
+                    const shouldAppend = currentCount > 0 && activeIndex >= currentCount - 1;
                     const targetIdx = shouldAppend ? currentCount : defaultIdx;
                     const desiredCount = shouldAppend ? currentCount + 1 : Math.max(1, currentCount || defaultIdx + 1);
                     ensureGroupBoxCount(groupId, desiredCount, groupLabel);
@@ -1737,119 +1920,278 @@ export default function FbaStep1Inventory({
         {planGroupsForDisplay.map((group) => {
           const groupPlan = getGroupPlan(group.groupId, group.label);
           const boxes = Array.isArray(groupPlan.boxes) ? groupPlan.boxes : [];
+          const boxItems = Array.isArray(groupPlan.boxItems) ? groupPlan.boxItems : [];
+          const { sets: dimensionSets, assignments: dimensionAssignments } = normalizeDimensionMeta(
+            group.groupId,
+            groupPlan
+          );
+          const groupSkus = skus.filter((sku) => {
+            const info = skuGroupMap.get(sku.id);
+            return (info?.groupId || 'ungrouped') === group.groupId;
+          });
+          const totalUnits = groupSkus.reduce((sum, sku) => sum + Number(sku.units || 0), 0);
+          const boxedUnits = boxItems.reduce((sum, box) => {
+            return (
+              sum +
+              Object.values(box || {}).reduce((acc, val) => acc + Number(val || 0), 0)
+            );
+          }, 0);
+          const showScrollbars = boxes.length > 10;
+          const labelColWidth = 260;
+          const boxColWidth = 100;
+          const tableWidth = labelColWidth + boxes.length * boxColWidth;
           return (
             <div key={group.groupId} className="border border-slate-200 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="font-semibold text-slate-800">{group.label}</div>
               </div>
               {boxes.length === 0 && <div className="text-sm text-slate-500">No boxes yet.</div>}
-              {boxes.map((box, idx) => {
-                const buildKey = (field) => getDimDraftKey(group.groupId, idx, field);
-                const valueForField = (field, fallback) => {
-                  const draft = boxDimDrafts[buildKey(field)];
-                  return draft !== undefined && draft !== null ? draft : fallback;
-                };
-                const commitDim = (field, rawValue) => {
-                  updateBoxDim(group.groupId, idx, field, rawValue, group.label);
-                  setBoxDimDrafts((prev) => {
-                    const next = { ...(prev || {}) };
-                    delete next[buildKey(field)];
-                    return next;
-                  });
-                };
-                const handleDimKeyDown = (field) => (event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    commitDim(field, event.currentTarget.value);
-                    event.currentTarget.blur();
-                    return;
-                  }
-                  preventEnterSubmit(event);
-                };
-                return (
-                  <div
-                    key={box.id || `${group.groupId}-box-${idx}`}
-                    className="border border-slate-200 rounded-md p-3 bg-slate-50"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold text-slate-800">Box {idx + 1}</div>
-                      <button
-                        className="text-sm text-red-600"
-                        onClick={() => removeBoxFromGroup(group.groupId, idx, group.label)}
-                        type="button"
-                      >
-                        ✕
-                      </button>
+              {boxes.length > 0 && (
+                <div className="border border-slate-200 rounded-md bg-white">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 px-3 py-2 text-xs text-slate-600 border-b border-slate-200">
+                    <div>
+                      <span className="font-semibold text-slate-800">Total SKUs:</span> {groupSkus.length}
                     </div>
-                    <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
-                      <input
-                        type="number"
-                        min={0}
-                        step="1"
-                        value={valueForField('length_cm', box?.length_cm ?? box?.length ?? '')}
-                        onChange={(e) =>
-                          setBoxDimDrafts((prev) => ({
-                            ...(prev || {}),
-                            [buildKey('length_cm')]: e.target.value
-                          }))
-                        }
-                        onBlur={(e) => commitDim('length_cm', e.target.value)}
-                        onKeyDown={handleDimKeyDown('length_cm')}
-                        className="border rounded-md px-3 py-2 text-sm"
-                        placeholder="Length (cm)"
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        step="1"
-                        value={valueForField('width_cm', box?.width_cm ?? box?.width ?? '')}
-                        onChange={(e) =>
-                          setBoxDimDrafts((prev) => ({
-                            ...(prev || {}),
-                            [buildKey('width_cm')]: e.target.value
-                          }))
-                        }
-                        onBlur={(e) => commitDim('width_cm', e.target.value)}
-                        onKeyDown={handleDimKeyDown('width_cm')}
-                        className="border rounded-md px-3 py-2 text-sm"
-                        placeholder="Width (cm)"
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        step="1"
-                        value={valueForField('height_cm', box?.height_cm ?? box?.height ?? '')}
-                        onChange={(e) =>
-                          setBoxDimDrafts((prev) => ({
-                            ...(prev || {}),
-                            [buildKey('height_cm')]: e.target.value
-                          }))
-                        }
-                        onBlur={(e) => commitDim('height_cm', e.target.value)}
-                        onKeyDown={handleDimKeyDown('height_cm')}
-                        className="border rounded-md px-3 py-2 text-sm"
-                        placeholder="Height (cm)"
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        step="1"
-                        value={valueForField('weight_kg', box?.weight_kg ?? box?.weight ?? '')}
-                        onChange={(e) =>
-                          setBoxDimDrafts((prev) => ({
-                            ...(prev || {}),
-                            [buildKey('weight_kg')]: e.target.value
-                          }))
-                        }
-                        onBlur={(e) => commitDim('weight_kg', e.target.value)}
-                        onKeyDown={handleDimKeyDown('weight_kg')}
-                        className="border rounded-md px-3 py-2 text-sm"
-                        placeholder="Weight (kg)"
-                      />
+                    <div>
+                      <span className="font-semibold text-slate-800">Units boxed:</span> {boxedUnits} of {totalUnits}
+                    </div>
+                    <div className="text-slate-500">
+                      Enter the box contents above and the box weights and dimensions below
                     </div>
                   </div>
-                );
-              })}
+
+                  {showScrollbars && (
+                    <div
+                      ref={setBoxScrollRef(group.groupId, 'top')}
+                      onScroll={syncBoxScroll(group.groupId, 'top')}
+                      className="overflow-x-auto border-b border-slate-200"
+                    >
+                      <div style={{ width: `${tableWidth}px`, height: 12 }} />
+                    </div>
+                  )}
+
+                  <div
+                    ref={setBoxScrollRef(group.groupId, 'bottom')}
+                    onScroll={syncBoxScroll(group.groupId, 'bottom')}
+                    className="overflow-x-auto"
+                  >
+                    <table
+                      className="min-w-max w-full text-xs border-separate border-spacing-0"
+                      style={{ minWidth: `${tableWidth}px` }}
+                    >
+                      <thead>
+                        <tr>
+                          <th className="sticky left-0 top-0 z-20 bg-slate-50 border-b border-slate-200 text-left px-3 py-2 w-[260px]">
+                            &nbsp;
+                          </th>
+                          {boxes.map((box, idx) => (
+                            <th
+                              key={box.id || `${group.groupId}-box-head-${idx}`}
+                              className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 px-3 py-2 text-center min-w-[100px]"
+                            >
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="font-semibold text-slate-700">Box {idx + 1}</span>
+                                <button
+                                  type="button"
+                                  className="text-slate-400 hover:text-red-600 text-xs"
+                                  onClick={() => removeBoxFromGroup(group.groupId, idx, group.label)}
+                                  aria-label={`Remove box ${idx + 1}`}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="sticky left-0 z-10 bg-white border-b border-slate-200 px-3 py-2">
+                            <div className="text-xs font-semibold text-slate-700">Box weight (kg)</div>
+                          </td>
+                          {boxes.map((box, idx) => {
+                            const buildKey = (field) => getDimDraftKey(group.groupId, idx, field);
+                            const valueForField = (field, fallback) => {
+                              const draft = boxDimDrafts[buildKey(field)];
+                              return draft !== undefined && draft !== null ? draft : fallback;
+                            };
+                            const commitDim = (field, rawValue) => {
+                              updateBoxDim(group.groupId, idx, field, rawValue, group.label);
+                              setBoxDimDrafts((prev) => {
+                                const next = { ...(prev || {}) };
+                                delete next[buildKey(field)];
+                                return next;
+                              });
+                            };
+                            const handleDimKeyDown = (field) => (event) => {
+                              if (event.key === 'Enter') {
+                                event.preventDefault();
+                                commitDim(field, event.currentTarget.value);
+                                event.currentTarget.blur();
+                                return;
+                              }
+                              preventEnterSubmit(event);
+                            };
+                            return (
+                              <td
+                                key={box.id || `${group.groupId}-box-weight-${idx}`}
+                                className="border-b border-slate-200 px-3 py-2 text-center"
+                              >
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.1"
+                                  value={valueForField('weight_kg', box?.weight_kg ?? box?.weight ?? '')}
+                                  onChange={(e) =>
+                                    setBoxDimDrafts((prev) => ({
+                                      ...(prev || {}),
+                                      [buildKey('weight_kg')]: e.target.value
+                                    }))
+                                  }
+                                  onBlur={(e) => commitDim('weight_kg', e.target.value)}
+                                  onKeyDown={handleDimKeyDown('weight_kg')}
+                                  className="w-20 h-8 border rounded-sm px-2 py-1 text-xs text-center"
+                                  placeholder="0"
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+
+                        {dimensionSets.map((set, setIdx) => {
+                          const buildKey = (field) => getDimSetDraftKey(group.groupId, set.id, field);
+                          const valueForField = (field, fallback) => {
+                            const draft = boxDimDrafts[buildKey(field)];
+                            return draft !== undefined && draft !== null ? draft : fallback;
+                          };
+                          const commitSet = (field, rawValue) => {
+                            updateDimensionSet(
+                              group.groupId,
+                              set.id,
+                              field,
+                              rawValue,
+                              group.label,
+                              set,
+                              dimensionAssignments
+                            );
+                            setBoxDimDrafts((prev) => {
+                              const next = { ...(prev || {}) };
+                              delete next[buildKey(field)];
+                              return next;
+                            });
+                          };
+                          const handleDimKeyDown = (field) => (event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              commitSet(field, event.currentTarget.value);
+                              event.currentTarget.blur();
+                              return;
+                            }
+                            preventEnterSubmit(event);
+                          };
+                          return (
+                            <tr key={set.id}>
+                              <td className="sticky left-0 z-10 bg-white border-b border-slate-200 px-3 py-2 align-top">
+                                <div className="text-xs font-semibold text-slate-700">
+                                  Box dimensions (cm){setIdx > 0 ? ` ${setIdx + 1}` : ''}
+                                </div>
+                                <div className="mt-1 flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="0.1"
+                                    value={valueForField('length_cm', set?.length_cm ?? '')}
+                                    onChange={(e) =>
+                                      setBoxDimDrafts((prev) => ({
+                                        ...(prev || {}),
+                                        [buildKey('length_cm')]: e.target.value
+                                      }))
+                                    }
+                                    onBlur={(e) => commitSet('length_cm', e.target.value)}
+                                    onKeyDown={handleDimKeyDown('length_cm')}
+                                    className="w-16 h-8 border rounded-sm px-2 py-1 text-xs text-center"
+                                    placeholder="L"
+                                  />
+                                  <span className="text-slate-400 text-[10px]">x</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="0.1"
+                                    value={valueForField('width_cm', set?.width_cm ?? '')}
+                                    onChange={(e) =>
+                                      setBoxDimDrafts((prev) => ({
+                                        ...(prev || {}),
+                                        [buildKey('width_cm')]: e.target.value
+                                      }))
+                                    }
+                                    onBlur={(e) => commitSet('width_cm', e.target.value)}
+                                    onKeyDown={handleDimKeyDown('width_cm')}
+                                    className="w-16 h-8 border rounded-sm px-2 py-1 text-xs text-center"
+                                    placeholder="W"
+                                  />
+                                  <span className="text-slate-400 text-[10px]">x</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="0.1"
+                                    value={valueForField('height_cm', set?.height_cm ?? '')}
+                                    onChange={(e) =>
+                                      setBoxDimDrafts((prev) => ({
+                                        ...(prev || {}),
+                                        [buildKey('height_cm')]: e.target.value
+                                      }))
+                                    }
+                                    onBlur={(e) => commitSet('height_cm', e.target.value)}
+                                    onKeyDown={handleDimKeyDown('height_cm')}
+                                    className="w-16 h-8 border rounded-sm px-2 py-1 text-xs text-center"
+                                    placeholder="H"
+                                  />
+                                </div>
+                                {setIdx === 0 && (
+                                  <button
+                                    type="button"
+                                    className="mt-1 text-xs text-blue-700 hover:text-blue-800"
+                                    onClick={() => addDimensionSet(group.groupId, group.label)}
+                                  >
+                                    + Add another box dimension
+                                  </button>
+                                )}
+                              </td>
+                              {boxes.map((box, idx) => {
+                                const boxId = box?.id || `${group.groupId}-box-${idx}`;
+                                const checked = dimensionAssignments[boxId] === set.id;
+                                return (
+                                  <td
+                                    key={`${boxId}-${set.id}`}
+                                    className="border-b border-slate-200 px-3 py-2 text-center align-middle"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={(e) =>
+                                        toggleDimensionAssignment(
+                                          group.groupId,
+                                          set.id,
+                                          box,
+                                          idx,
+                                          e.target.checked,
+                                          group.label,
+                                          set
+                                        )
+                                      }
+                                      className="h-4 w-4"
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
