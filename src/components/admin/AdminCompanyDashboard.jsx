@@ -147,13 +147,13 @@ export default function AdminCompanyDashboard() {
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [search, setSearch] = useState('');
 
-  const [dateFrom, setDateFrom] = useState(() => shiftDays(29));
+  const [dateFrom, setDateFrom] = useState(() => todayIso());
   const [dateTo, setDateTo] = useState(() => todayIso());
 
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState('');
   const [snapshot, setSnapshot] = useState(null);
-  const [chartRange, setChartRange] = useState(30);
+  const [chartRange, setChartRange] = useState(1);
   const [chartSnapshot, setChartSnapshot] = useState(null);
   const [loadingChart, setLoadingChart] = useState(false);
   const [chartError, setChartError] = useState('');
