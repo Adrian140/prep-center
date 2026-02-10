@@ -32,7 +32,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
-          KEEPA_API_KEY: ${{ secrets.KEEPA_API_KEY }}
+          KEEPA_API_KEYS: ${{ secrets.KEEPA_API_KEYS }}
           KEEPA_DOMAIN: ${{ secrets.KEEPA_DOMAIN || '4' }}
           KEEPA_TOKENS_PER_MINUTE: ${{ secrets.KEEPA_TOKENS_PER_MINUTE || '1' }}
           KEEPA_TOKEN_SAFETY_REMAINING: ${{ secrets.KEEPA_TOKEN_SAFETY_REMAINING || '0' }}
