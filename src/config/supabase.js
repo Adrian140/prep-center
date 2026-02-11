@@ -3498,19 +3498,12 @@ getAllReceivingShipments: async (options = {}) => {
     if (data) return { data, error: null };
 
     const display = clientDisplayName?.trim() || 'Client';
-    const payload = {
-      company_id: companyId,
-      client_user_id: userId,
-      client_display_name: display,
-      country: market,
-      created_by: userId
-    };
-    const created = await supabase
-      .from('chat_conversations')
-      .insert(payload)
-      .select('*')
-      .single();
-    return created;
+    const created = await supabase.rpc('chat_create_conversation', {
+      p_company_id: companyId,
+      p_country: market,
+      p_client_display_name: display
+    });
+    return { data: created.data, error: created.error };
   },
 
   listChatConversations: async ({ country, search } = {}) => {
