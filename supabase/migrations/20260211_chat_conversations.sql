@@ -144,50 +144,6 @@ begin
 end;
 $$;
 
--- security definer: create or return a conversation for the current user
-create or replace function public.chat_create_conversation(
-  p_company_id uuid,
-  p_country text,
-  p_client_display_name text
-)
-returns public.chat_conversations
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_country text := upper(coalesce(p_country, 'FR'));
-  v_display text := coalesce(nullif(trim(p_client_display_name), ''), 'Client');
-  v_row public.chat_conversations;
-begin
-  if auth.uid() is null then
-    raise exception 'AUTH_REQUIRED';
-  end if;
-  if v_country not in ('FR','DE','IT','ES') then
-    raise exception 'INVALID_COUNTRY';
-  end if;
-
-  insert into public.chat_conversations (
-    company_id,
-    client_user_id,
-    client_display_name,
-    country,
-    created_by
-  ) values (
-    p_company_id,
-    auth.uid(),
-    v_display,
-    v_country,
-    auth.uid()
-  )
-  on conflict (company_id, country)
-  do update set updated_at = now()
-  returning * into v_row;
-
-  return v_row;
-end;
-$$;
-
 -- Trigger: update conversation last message
 create or replace function public.chat_update_conversation_on_message()
 returns trigger
@@ -311,7 +267,13 @@ begin
           created_by = auth.uid()
           and (
             company_id = (select company_id from public.profiles where id = auth.uid())
-            or company_id = auth.uid()
+            or (
+              company_id = auth.uid()
+              and (
+                not exists (select 1 from public.profiles where id = auth.uid())
+                or (select company_id from public.profiles where id = auth.uid()) is null
+              )
+            )
           )
         )
       );
