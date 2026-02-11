@@ -2570,7 +2570,14 @@ serve(async (req) => {
 
       const listRes = await listPrepDetails(targetSkus);
       if (!listRes || !listRes.res.ok) {
-        warnings.push(`listPrepDetails a eșuat în preflight (${listRes?.res?.status ?? "n/a"}).`);
+        warnings.push(`listPrepDetails a eșuat în preflight (${listRes?.res?.status ?? "n/a"}). încerc fallback setPrepDetails.`);
+        const remediation = await applyMissingPrepClassification(targetSkus);
+        if (remediation.warnings.length) warnings.push(...remediation.warnings);
+        if (!remediation.applied) {
+          warnings.push(
+            `Nu am putut completa automat prep classification pentru SKU-uri: ${targetSkus.join(", ")}.`
+          );
+        }
         return { warnings };
       }
 
@@ -3141,7 +3148,21 @@ serve(async (req) => {
     }
 
     if (inboundPlanId && inboundPlanErrored(inboundPlanStatus) && !prepClassificationRetried) {
+      const allRequestSkus = Array.from(
+        new Set(collapsedItems.map((c) => normalizeSku(c.sku)).filter(Boolean))
+      );
       let prepClassificationSkus = extractPrepClassificationSkus(operationProblems);
+      if (prepClassificationSkus.length && allRequestSkus.length) {
+        const requestSet = new Set(allRequestSkus);
+        const matched = prepClassificationSkus.filter((sku) => requestSet.has(normalizeSku(sku)));
+        const unmatched = prepClassificationSkus.filter((sku) => !requestSet.has(normalizeSku(sku)));
+        if (unmatched.length) {
+          planWarnings.push(
+            `Amazon a returnat resource-uri fără mapare directă la SKU (${unmatched.join(", ")}); folosesc SKU-urile din request pentru auto-remediere.`
+          );
+        }
+        prepClassificationSkus = matched.length ? matched : allRequestSkus;
+      }
       if (!prepClassificationSkus.length && operationId) {
         const opLatest = await fetchOperationStatus(operationId);
         const latestProblems = Array.isArray(opLatest?.problems) ? opLatest.problems : [];
@@ -3149,12 +3170,15 @@ serve(async (req) => {
           operationProblems = latestProblems;
           operationRaw = opLatest?.raw || operationRaw;
           prepClassificationSkus = extractPrepClassificationSkus(operationProblems);
+          if (prepClassificationSkus.length && allRequestSkus.length) {
+            const requestSet = new Set(allRequestSkus);
+            const matched = prepClassificationSkus.filter((sku) => requestSet.has(normalizeSku(sku)));
+            prepClassificationSkus = matched.length ? matched : allRequestSkus;
+          }
         }
       }
       if (!prepClassificationSkus.length) {
-        prepClassificationSkus = Array.from(
-          new Set(collapsedItems.map((c) => normalizeSku(c.sku)).filter(Boolean))
-        );
+        prepClassificationSkus = allRequestSkus;
         if (prepClassificationSkus.length) {
           planWarnings.push(
             `Plan ERRORED fara SKU explicit in operationProblems; incerc auto-remediere prep pe toate SKU-urile (${prepClassificationSkus.join(", ")}).`
