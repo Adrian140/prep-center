@@ -88,6 +88,7 @@ export default function FbaStep1Inventory({
   boxServices = [],
   onBoxServicesChange,
   onPersistServices,
+  operationProblems = [],
   onNext
 }) {
   const resolvedInboundPlanId =
@@ -1874,6 +1875,24 @@ export default function FbaStep1Inventory({
             (skuEligibilityBlocking
               ? 'Some products are not eligible for the selected marketplace.'
               : 'Amazon inbound plan is not ready. Retry Step 1 to regenerate the plan.')}
+        </div>
+      )}
+      {Array.isArray(operationProblems) && operationProblems.length > 0 && (
+        <div className="px-6 py-3 border-b text-sm bg-red-50 text-red-700 border-red-200">
+          <div className="font-semibold">Amazon reported blocking issues for some SKUs:</div>
+          <ul className="mt-2 list-disc pl-5 space-y-1">
+            {operationProblems.slice(0, 8).map((p, idx) => {
+              const code = p?.code || p?.Code || 'UNKNOWN';
+              const message = p?.message || p?.Message || 'Unknown error';
+              const details = p?.details || p?.Details || null;
+              return (
+                <li key={`op-problem-${idx}`}>
+                  <span className="font-semibold">{code}</span>: {message}
+                  {details ? ` (${details})` : ''}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
       {loadingPlan && skus.length === 0 && (

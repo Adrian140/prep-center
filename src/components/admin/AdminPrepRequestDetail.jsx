@@ -199,6 +199,12 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
         statusCode: data?.status || plan.statusCode || null,
         operationId: data?.operationId || plan.operationId || null,
         operationStatus: data?.operationStatus || plan.operationStatus || null,
+        operationProblems:
+          data?.operationProblems ||
+          plan.operationProblems ||
+          data?.operationRaw?.operationProblems ||
+          plan.operationRaw?.operationProblems ||
+          [],
         inboundPlanStatus: data?.inboundPlanStatus || plan.inboundPlanStatus || null,
         shipmentsPending: data?.shipmentsPending ?? plan.shipmentsPending ?? false
       };
@@ -216,6 +222,12 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
       statusCode: data?.status || plan.statusCode || null,
       operationId: data?.operationId || plan.operationId || null,
       operationStatus: data?.operationStatus || plan.operationStatus || null,
+      operationProblems:
+        data?.operationProblems ||
+        plan.operationProblems ||
+        data?.operationRaw?.operationProblems ||
+        plan.operationRaw?.operationProblems ||
+        [],
       inboundPlanStatus: data?.inboundPlanStatus || plan.inboundPlanStatus || null,
       shipmentsPending: data?.shipmentsPending ?? plan.shipmentsPending ?? false
     };

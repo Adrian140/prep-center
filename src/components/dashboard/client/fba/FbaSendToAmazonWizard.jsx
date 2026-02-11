@@ -612,6 +612,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [allowNoInboundPlan, setAllowNoInboundPlan] = useState(false);
   const [inboundPlanMissing, setInboundPlanMissing] = useState(false);
   const [skuStatuses, setSkuStatuses] = useState(initialSkuStatuses);
+  const [operationProblems, setOperationProblems] = useState(
+    Array.isArray(initialPlan?.operationProblems) ? initialPlan.operationProblems : []
+  );
   const [blocking, setBlocking] = useState(false);
   const [shippingOptions, setShippingOptions] = useState(
     historyMode ? (Array.isArray(initialShippingOptions) ? initialShippingOptions : []) : []
@@ -1473,6 +1476,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           warning: pWarning,
           shipmentMode: pShipmentMode,
           skuStatuses: pSkuStatuses,
+          operationProblems: pOperationProblems,
           blocking: pBlocking,
           sourceAddress: pSourceAddress,
           source_address: pSourceAddressAlt
@@ -1509,6 +1513,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...normalizeShipmentModeFromData(pShipmentMode) }));
         if (response?.palletDetails) setPalletDetails((prev) => ({ ...prev, ...response.palletDetails }));
         if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
+        setOperationProblems(Array.isArray(pOperationProblems) ? pOperationProblems : []);
         setBlocking(Boolean(pBlocking));
         if (typeof pWarning === 'string') {
           const reqId = response.requestId || response.request_id || null;
@@ -4002,6 +4007,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             warning: pWarning,
             shipmentMode: pShipmentMode,
             skuStatuses: pSkuStatuses,
+            operationProblems: pOperationProblems,
             blocking: pBlocking,
             requestId: respReqId,
             inboundPlanId: respInboundId
@@ -4023,6 +4029,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
           if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
           if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
+          setOperationProblems(Array.isArray(pOperationProblems) ? pOperationProblems : []);
           setBlocking(Boolean(pBlocking));
           if (typeof pWarning === 'string') {
             const reqId = response.requestId || response.request_id || null;
@@ -4305,6 +4312,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           onPersistServices={persistServicesToDb}
           inboundPlanCopy={wizardCopy}
           onNext={persistStep1AndReloadPlan}
+          operationProblems={operationProblems}
           error={planError || step1SaveError}
         />
       );
