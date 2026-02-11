@@ -110,7 +110,7 @@ const getConfirmedQty = (item) => {
   const base =
     item.received_units != null
       ? Number(item.received_units)
-      : Number(item.quantity_received || 0);
+      : 0;
   return Number.isFinite(base) && base >= 0 ? base : 0;
 };
 

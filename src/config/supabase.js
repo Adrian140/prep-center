@@ -2840,7 +2840,7 @@ createReceivingShipment: async (shipmentData) => {
               item.qty ??
               item.requested ??
               0,
-            received_units: item.received_units ?? item.quantity_received ?? item.quantity ?? 0
+            received_units: item.received_units ?? 0
           });
         });
       }
@@ -3125,7 +3125,7 @@ getAllReceivingShipments: async (options = {}) => {
             item.qty ??
             item.requested ??
             0,
-          received_units: item.received_units ?? item.quantity_received ?? item.quantity ?? 0
+          received_units: item.received_units ?? 0
         });
       });
     }
@@ -3279,7 +3279,7 @@ getAllReceivingShipments: async (options = {}) => {
         const quantityReceived = Math.max(
           0,
           Number(
-            item.received_units != null ? item.received_units : item.quantity_received || 0
+            item.received_units != null ? item.received_units : 0
           )
         );
         const intent = resolveFbaIntent(item);

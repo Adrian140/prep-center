@@ -169,7 +169,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
     const base =
       item.received_units != null
         ? Number(item.received_units)
-        : Number(item.quantity_received || 0);
+        : 0;
     return Number.isFinite(base) && base >= 0 ? base : 0;
   };
 
@@ -251,7 +251,7 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
     if (savingRowRef.current.has(item.id)) return;
     const draft = Object.prototype.hasOwnProperty.call(receivedDrafts, item.id)
       ? receivedDrafts[item.id]
-      : item.received_units ?? item.quantity_received;
+      : item.received_units ?? 0;
     const parsed = Math.max(0, Math.floor(Number(draft) || 0));
     const current = getConfirmedQty(item);
     if (parsed === current) {
