@@ -281,9 +281,19 @@ Deno.serve(async (req) => {
     if (req.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
     }
-    if (INTERNAL_SERVICE_ROLE_KEY) {
-      const internalKey = req.headers.get("x-internal-service-key") || "";
-      if (internalKey !== INTERNAL_SERVICE_ROLE_KEY) {
+    const internalKey = req.headers.get("x-internal-service-key") || "";
+    const apiKey = req.headers.get("apikey") || "";
+    const authHeader = req.headers.get("authorization") || "";
+    const bearer = authHeader.replace(/^Bearer\s+/i, "");
+    const allowedKeys = new Set(
+      [INTERNAL_SERVICE_ROLE_KEY, SUPABASE_SERVICE_ROLE].filter(Boolean)
+    );
+    if (allowedKeys.size > 0) {
+      const authorized =
+        allowedKeys.has(internalKey) ||
+        allowedKeys.has(apiKey) ||
+        allowedKeys.has(bearer);
+      if (!authorized) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
