@@ -101,6 +101,7 @@ export default function FbaStep1Inventory({
   const marketplaceRaw = data?.marketplace || '';
   const rawSkus = Array.isArray(data?.skus) ? data.skus : [];
   const skus = rawSkus;
+  const ignoredItems = Array.isArray(data?.ignoredItems) ? data.ignoredItems : [];
 
   const marketplaceIdByCountry = {
     FR: 'A13V1IB3VIYZZH',
@@ -1580,6 +1581,44 @@ export default function FbaStep1Inventory({
     );
   };
 
+  const renderIgnoredSkuRow = (item, idx) => {
+    const itemId = item?.id || `ignored-${idx + 1}`;
+    const title = item?.product_name || `Line ${idx + 1}`;
+    const asin = item?.asin || '—';
+    const units = Number(item?.units || 0) || 0;
+    const reason = item?.reason || 'Missing SKU';
+    return (
+      <tr key={`ignored-${itemId}`} className="align-top bg-slate-50 opacity-80">
+        <td className="py-3 w-[320px] min-w-[320px]">
+          <div className="flex gap-3">
+            <img
+              src={placeholderImg}
+              alt={title}
+              className="w-12 h-12 object-contain border border-slate-200 rounded"
+            />
+            <div>
+              <div className="font-semibold text-slate-900">{title}</div>
+              <div className="text-xs text-slate-500">SKU: missing</div>
+              <div className="text-xs text-slate-500">ASIN: {asin}</div>
+              <div className="mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded text-amber-800 bg-amber-50 border-amber-200">
+                Ignored
+                <span className="text-slate-500">· {reason}</span>
+              </div>
+            </div>
+          </div>
+        </td>
+        <td className="py-3 text-xs text-slate-500">Blocked until SKU is completed.</td>
+        <td className="py-3 text-xs text-slate-500">This line is excluded from Step 1b and Shipping.</td>
+        <td className="py-3">
+          <div className="text-sm text-slate-600">{units}</div>
+        </td>
+        <td className="py-3 w-[320px] min-w-[320px]">
+          <div className="text-xs text-slate-500">Services locked for ignored line.</div>
+        </td>
+      </tr>
+    );
+  };
+
   // Prefill prep selections as "No prep needed" for all SKUs (Amazon expects a choice).
   useEffect(() => {
     setPrepSelections((prev) => {
@@ -1820,7 +1859,10 @@ export default function FbaStep1Inventory({
         <div className="flex items-center gap-3 flex-wrap">
           <CheckCircle className="w-5 h-5 text-emerald-600" />
           <div className="font-semibold text-slate-900">Step 1 - Confirmed inventory to send</div>
-          <div className="text-sm text-slate-500">SKUs confirmed ({skus.length})</div>
+          <div className="text-sm text-slate-500">
+            SKUs confirmed ({skus.length})
+            {ignoredItems.length > 0 ? ` · Ignored lines (${ignoredItems.length})` : ''}
+          </div>
         </div>
       </div>
 
@@ -1837,6 +1879,11 @@ export default function FbaStep1Inventory({
       {loadingPlan && skus.length === 0 && (
         <div className="px-6 py-3 border-b text-sm bg-amber-50 text-amber-800 border-amber-200">
           Amazon plan is still loading. Waiting for generated SKUs/shipments; nothing to show yet.
+        </div>
+      )}
+      {ignoredItems.length > 0 && (
+        <div className="px-6 py-3 border-b text-sm bg-amber-50 text-amber-800 border-amber-200">
+          {ignoredItems.length} line(s) without SKU were ignored. Complete SKU on those lines if you want to include them.
         </div>
       )}
 
@@ -1915,6 +1962,7 @@ export default function FbaStep1Inventory({
               }
               return null;
             })}
+            {ignoredItems.map((item, idx) => renderIgnoredSkuRow(item, idx))}
           </tbody>
         </table>
       </div>

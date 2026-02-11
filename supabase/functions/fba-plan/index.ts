@@ -1780,6 +1780,18 @@ serve(async (req) => {
     const items: PrepRequestItem[] = (Array.isArray(reqData.prep_request_items) ? reqData.prep_request_items : []).filter(
       (it) => effectiveUnits(it) > 0
     );
+    const missingSkuItems = items.filter((it) => !normalizeSku(it.sku || ""));
+    const ignoredItems = missingSkuItems.map((it) => ({
+      id: it.id,
+      asin: it.asin || null,
+      product_name: it.product_name || null,
+      units: effectiveUnits(it),
+      reason: "Missing SKU"
+    }));
+    const ignoredItemsWarning = ignoredItems.length
+      ? `Au fost ignorate ${ignoredItems.length} linii fără SKU; completează SKU dacă vrei să le incluzi în plan.`
+      : "";
+    const validItems = items.filter((it) => !!normalizeSku(it.sku || ""));
     // Collapse duplicate SKUs: Amazon folosește MSKU ca cheie și comasează cantitățile, deci agregăm local.
     type CollapsedItem = {
       sku: string;
@@ -1790,7 +1802,7 @@ serve(async (req) => {
     };
     const collapsedItems: CollapsedItem[] = (() => {
       const map = new Map<string, CollapsedItem>();
-      for (const it of items) {
+      for (const it of validItems) {
         const skuKey = normalizeSku(it.sku || "");
         if (!skuKey) continue;
         const qty = effectiveUnits(it);
@@ -1812,13 +1824,12 @@ serve(async (req) => {
       }
       return Array.from(map.values()).filter((x) => x.units > 0);
     })();
-    const missingSkuItems = items.filter((it) => !normalizeSku(it.sku || ""));
-    if (missingSkuItems.length) {
+    if (!validItems.length) {
       return new Response(
         JSON.stringify({
-          error: "Există linii fără SKU. Completează SKU înainte de a crea planul.",
+          error: "Nu există linii valide cu SKU. Completează SKU pentru a continua.",
           blocking: true,
-          missing: missingSkuItems.map((it) => ({ id: it.id, asin: it.asin || null, product_name: it.product_name || null })),
+          missing: ignoredItems,
           traceId
         }),
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
@@ -1826,7 +1837,7 @@ serve(async (req) => {
     }
     const stockItemIds = Array.from(
       new Set(
-        items
+        validItems
           .map((it) => it.stock_item_id)
           .filter((id): id is number => typeof id === "number" && Number.isFinite(id))
       )
@@ -1844,7 +1855,7 @@ serve(async (req) => {
         }, {} as Record<number, { image_url?: string | null; sku?: string | null; asin?: string | null; name?: string | null }>);
       }
     }
-    if (!items.length) {
+    if (!validItems.length) {
       return new Response(
         JSON.stringify({
           error: "Nu există unități de trimis. Setează o cantitate > 0 înainte de a continua.",
@@ -1860,7 +1871,7 @@ serve(async (req) => {
 
     const fetchListingImages = async () => {
       const images: Record<string, string> = {};
-      const missing = items.filter((it) => {
+      const missing = validItems.filter((it) => {
         const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
         const hasLocalImage = Boolean(stock?.image_url);
         return it.sku && !hasLocalImage;
@@ -1904,7 +1915,7 @@ serve(async (req) => {
 
     const listingImages = await fetchListingImages();
     const stockImageBySku: Record<string, string> = {};
-    items.forEach((it) => {
+    validItems.forEach((it) => {
       const skuKey = normalizeSku(it.sku || "");
       if (!skuKey) return;
       if (stockImageBySku[skuKey]) return;
@@ -1990,7 +2001,7 @@ serve(async (req) => {
     const dbExpiryByItemId: Record<string, { date: string | null; source: string | null }> = {};
 
     // Pre-fill with existing DB values (persisted previously)
-    items.forEach((it) => {
+    validItems.forEach((it) => {
       const key = normalizeSku(it.sku || it.asin || "");
       const dbVal = normalizeExpiryInput(it.expiration_date);
       dbExpiryByItemId[it.id] = { date: dbVal, source: it.expiration_source || null };
@@ -2017,7 +2028,7 @@ serve(async (req) => {
     };
     // Autofill expiry with +16 months from today when required and missing (before attempting plan)
     const today = new Date();
-    items.forEach((it) => {
+    validItems.forEach((it) => {
       const key = normalizeSku(it.sku || it.asin || "");
       const skuOnly = normalizeSku(it.sku || "");
       const requiresExpiry =
@@ -2031,7 +2042,7 @@ serve(async (req) => {
     });
 
     // Safety net: if Amazon later complains about missing expiration, ensure every SKU has one.
-    items.forEach((it) => {
+    validItems.forEach((it) => {
       const key = normalizeSku(it.sku || it.asin || "");
       if (!expirations[key]) {
         const auto = addMonths(today, 16).toISOString().split("T")[0];
@@ -2042,7 +2053,7 @@ serve(async (req) => {
 
     // Persist expirations that were auto/manual filled but missing in DB
     const expiryUpdates: { id: string; expiration_date: string; expiration_source: string | null }[] = [];
-    items.forEach((it) => {
+    validItems.forEach((it) => {
       const key = normalizeSku(it.sku || it.asin || "");
       const newDate = key ? expirations[key] || null : null;
       const newSource = key ? expirySourceBySku[key] || (newDate ? "existing" : null) : null;
@@ -2115,6 +2126,7 @@ serve(async (req) => {
           `SKU fără listing pe marketplace (${missing.map((m) => m.sku).join(", ")}). Verifică dacă există ca FBA.`
         );
       }
+      if (ignoredItemsWarning) warningParts.push(ignoredItemsWarning);
       if (prepGuidanceWarning) warningParts.push(prepGuidanceWarning);
       const warning = warningParts.filter(Boolean).join(" ");
       if (blocking.length || missing.length) {
@@ -2159,6 +2171,7 @@ serve(async (req) => {
           shipments: [],
           raw: null,
           skuStatuses,
+          ignoredItems,
           warning,
           blocking: blocking.length > 0
         };
@@ -3269,7 +3282,8 @@ serve(async (req) => {
         shipments: [],
         raw: null,
         skuStatuses,
-        warning: warn,
+        ignoredItems,
+        warning: [warn, ignoredItemsWarning].filter(Boolean).join(" "),
         blocking: true
       };
       return new Response(JSON.stringify({ plan, traceId, scopes: lwaScopes }), {
@@ -3325,7 +3339,7 @@ serve(async (req) => {
           operationProblems: operationProblems?.slice?.(0, 5) || null,
           operationRaw: operationRaw || null
         });
-        const fallbackSkus = items.map((it, idx) => {
+        const fallbackSkus = validItems.map((it, idx) => {
           const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
           const prepInfo = prepGuidanceMap[it.sku || it.asin || ""] || {};
           const requiresExpiry =
@@ -3420,7 +3434,8 @@ serve(async (req) => {
           shipments: [],
           raw: null,
           skuStatuses,
-          warning: `Amazon a refuzat crearea planului. Încearcă din nou sau verifică permisiunile Inbound pe marketplace.${statusInfo}${operationInfo}${optionsInfo}${problemsInfo ? ` ${problemsInfo}` : ""}${inboundUnavailableInfo}${extraWarnings}`,
+          ignoredItems,
+          warning: `Amazon a refuzat crearea planului. Încearcă din nou sau verifică permisiunile Inbound pe marketplace.${statusInfo}${operationInfo}${optionsInfo}${problemsInfo ? ` ${problemsInfo}` : ""}${inboundUnavailableInfo}${extraWarnings}${ignoredItemsWarning ? ` ${ignoredItemsWarning}` : ""}`,
           blocking: true,
           requestId: primaryRequestId || null
         };
@@ -3554,7 +3569,7 @@ serve(async (req) => {
     });
 
     const skuMeta = new Map<string, { title: string | null; image: string | null }>();
-    items.forEach((it) => {
+    validItems.forEach((it) => {
       const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
       const key = normalizeSku(it.sku || stock?.sku || it.asin || "");
       if (!key) return;
@@ -3826,10 +3841,11 @@ serve(async (req) => {
       shipments,
       raw: amazonJson,
       skuStatuses,
-      warning: combinedWarning
+      ignoredItems,
+      warning: [combinedWarning, ignoredItemsWarning].filter(Boolean).join(" ")
     };
 
-    const serverQuantities = items.map((it) => ({
+    const serverQuantities = validItems.map((it) => ({
       itemId: it.id,
       sku: normalizeSku(it.sku || ""),
       units: effectiveUnits(it)
