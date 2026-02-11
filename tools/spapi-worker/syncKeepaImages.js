@@ -4,7 +4,7 @@ import { supabase } from './supabaseClient.js';
 import { getKeepaMainImage } from './keepaClient.js';
 
 const ITEMS_PER_RUN = Number(
-  process.env.KEEPA_ITEMS_PER_RUN || process.env.VITE_KEEPA_ITEMS_PER_RUN || 30
+  process.env.KEEPA_ITEMS_PER_RUN || process.env.VITE_KEEPA_ITEMS_PER_RUN || 0
 );
 const ITEMS_PER_COMPANY = Number(
   process.env.KEEPA_ITEMS_PER_COMPANY ||
