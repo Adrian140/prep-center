@@ -20,6 +20,12 @@ const MAX_KEEPA_RETRIES = Number(
 const KEEPA_RETRY_DELAY_MS = Number(
   process.env.KEEPA_RETRY_DELAY_MS || process.env.VITE_KEEPA_RETRY_DELAY_MS || 5000
 );
+const MAX_BATCH_SIZE = Math.max(
+  1,
+  Number(
+    process.env.KEEPA_BATCH_LIMIT || process.env.VITE_KEEPA_BATCH_LIMIT || 200
+  )
+);
 
 function assertEnv() {
   const missing = [];
@@ -126,10 +132,14 @@ async function backoffRows(companyId, rowIds) {
 
 async function runSync() {
 
+  const runCap =
+    Number.isFinite(ITEMS_PER_RUN) && ITEMS_PER_RUN > 0
+      ? ITEMS_PER_RUN
+      : Number.POSITIVE_INFINITY;
   const companyLimitDescriptor =
-    ITEMS_PER_COMPANY > 0 ? `${ITEMS_PER_COMPANY}` : 'no explicit limit (run cap applies)';
+    ITEMS_PER_COMPANY > 0 ? `${ITEMS_PER_COMPANY}` : 'no limit (process until empty)';
   console.log(
-    `[Keepa sync] Starting run with max ${ITEMS_PER_RUN} items (per company ${companyLimitDescriptor}).`
+    `[Keepa sync] Starting run with max ${Number.isFinite(runCap) ? runCap : '∞'} items (per company ${companyLimitDescriptor}).`
   );
 
   const companyIds = await fetchActiveCompanyIds();
@@ -142,34 +152,34 @@ async function runSync() {
   let processed = 0;
 
   for (const companyId of companyIds) {
-    if (processed >= ITEMS_PER_RUN) break;
+    if (processed >= runCap) break;
     let processedForCompany = 0;
 
     const companyLimit =
-      ITEMS_PER_COMPANY > 0 ? ITEMS_PER_COMPANY : ITEMS_PER_RUN;
+      ITEMS_PER_COMPANY > 0 ? ITEMS_PER_COMPANY : Number.POSITIVE_INFINITY;
     let skipCompany = false;
 
     while (
-      processed < ITEMS_PER_RUN &&
+      processed < runCap &&
       processedForCompany < companyLimit
     ) {
-      const remainingForRun = ITEMS_PER_RUN - processed;
+      const remainingForRun = runCap - processed;
       const remainingForCompany = companyLimit - processedForCompany;
-      const batchLimit = Math.min(remainingForRun, remainingForCompany);
+      const batchLimit = Math.min(remainingForRun, remainingForCompany, MAX_BATCH_SIZE);
       if (batchLimit <= 0) break;
 
       const rows = await fetchMissingImageRows(companyId, batchLimit);
       if (!rows.length) break;
 
       console.log(
-        `[Keepa sync] Company ${companyId} – processing ${rows.length} items (run ${processed + processedForCompany}/${ITEMS_PER_RUN}, company ${processedForCompany}/${companyLimit}).`
+        `[Keepa sync] Company ${companyId} – processing ${rows.length} items (run ${processed + processedForCompany}/${Number.isFinite(runCap) ? runCap : '∞'}, company ${processedForCompany}/${Number.isFinite(companyLimit) ? companyLimit : '∞'}).`
       );
 
       let fetchedImagesThisBatch = 0;
       const attemptedRowIds = [];
 
       for (const row of rows) {
-        if (processed >= ITEMS_PER_RUN || processedForCompany >= companyLimit) {
+        if (processed >= runCap || processedForCompany >= companyLimit) {
           break;
         }
         attemptedRowIds.push(row.id);
@@ -236,7 +246,7 @@ async function runSync() {
             console.warn(
               '[Keepa sync] Keepa tokens low or rate limited (429) – stopping sync run early.'
             );
-            writeOutputs({ processed, limitReached: processed >= ITEMS_PER_RUN });
+            writeOutputs({ processed, limitReached: processed >= runCap });
             return;
           }
           continue;
@@ -268,7 +278,7 @@ async function runSync() {
   console.log(
     `[Keepa sync] Completed run. Images updated for ${processed} stock items.`
   );
-  writeOutputs({ processed, limitReached: processed >= ITEMS_PER_RUN });
+  writeOutputs({ processed, limitReached: processed >= runCap });
 }
 
 syncKeepaImages().catch((err) => {
