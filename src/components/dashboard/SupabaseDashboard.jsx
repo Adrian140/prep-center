@@ -347,7 +347,7 @@ const renderTabContent = useMemo(() => {
 
   return (
     <>
-    <div className="min-h-screen bg-gray-50 py-4">
+    <div className="min-h-screen bg-gray-50 py-4 notranslate" translate="no">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
         {activeTab === 'activity' && (
           <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
@@ -483,7 +483,7 @@ const renderTabContent = useMemo(() => {
                 </button>
               </div>
             )}
-            <div className="bg-white rounded-xl shadow-sm p-5 animate-fade-in">
+            <div key={activeTab} className="bg-white rounded-xl shadow-sm p-5 animate-fade-in">
               <ErrorBoundary>
                 {renderTabContent}
               </ErrorBoundary>
