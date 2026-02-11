@@ -737,6 +737,14 @@ resetPassword: async (email) => {
       .single();
   },
 
+  createProfile: async (profileData) => {
+    return await supabase
+      .from('profiles')
+      .insert(profileData)
+      .select()
+      .single();
+  },
+
   updateProfile: async (userId, updates) => {
     return await supabase
       .from('profiles')

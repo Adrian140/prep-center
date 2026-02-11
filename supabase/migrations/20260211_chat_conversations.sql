@@ -72,6 +72,7 @@ create index if not exists chat_message_audit_conversation_idx
 create or replace function public.safe_uuid(p_value text)
 returns uuid
 language plpgsql
+set search_path = public
 immutable
 as $$
 begin
@@ -86,17 +87,19 @@ $$;
 create or replace function public.chat_is_member(p_conversation_id uuid)
 returns boolean
 language sql
+set search_path = public
 stable
 as $$
   select exists (
     select 1
     from public.chat_conversations c
-    join public.profiles p on p.id = auth.uid()
+    left join public.profiles p on p.id = auth.uid()
     where c.id = p_conversation_id
       and (
         public.e_admin()
         or (p.company_id is not null and c.company_id = p.company_id)
-        or (c.created_by = p.id)
+        or (c.created_by = auth.uid())
+        or (c.client_user_id = auth.uid())
       )
   );
 $$;
@@ -105,6 +108,7 @@ $$;
 create or replace function public.chat_unread_count(p_conversation_id uuid)
 returns integer
 language sql
+set search_path = public
 stable
 as $$
   select count(*)
@@ -121,6 +125,7 @@ $$;
 create or replace function public.chat_mark_read(p_conversation_id uuid)
 returns integer
 language plpgsql
+set search_path = public
 as $$
 declare
   inserted_count integer := 0;
@@ -143,6 +148,7 @@ $$;
 create or replace function public.chat_update_conversation_on_message()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   update public.chat_conversations
@@ -158,6 +164,7 @@ $$;
 create or replace function public.chat_audit_message_update()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   if new.body is distinct from old.body then
@@ -173,6 +180,7 @@ $$;
 create or replace function public.chat_audit_message_delete()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   insert into public.chat_message_audit (message_id, conversation_id, action, actor_id)
@@ -184,6 +192,7 @@ $$;
 create or replace function public.chat_touch_message_on_attachment()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   update public.chat_messages
