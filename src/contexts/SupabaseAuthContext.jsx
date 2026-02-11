@@ -73,7 +73,7 @@ export const SupabaseAuthProvider = ({ children }) => {
 
       if (u) {
         setProfileLoading(true);
-        loadUserProfile(u).catch((err) => {
+        loadUserProfile(u.id).catch((err) => {
           console.error('loadUserProfile error:', err);
           setProfileLoading(false);
         });
@@ -96,7 +96,7 @@ export const SupabaseAuthProvider = ({ children }) => {
 
       if (u) {
         setProfileLoading(true);
-        loadUserProfile(u).catch((err) => {
+        loadUserProfile(u.id).catch((err) => {
           console.error('loadUserProfile error:', err);
           setProfileLoading(false);
         });
@@ -132,54 +132,14 @@ export const SupabaseAuthProvider = ({ children }) => {
     }
   }, [profile?.language, changeLanguage]);
 
-  const deriveNameParts = (user) => {
-    const meta = user?.user_metadata || {};
-    const full =
-      meta.full_name ||
-      meta.name ||
-      [meta.first_name, meta.last_name].filter(Boolean).join(' ').trim();
-    if (full) {
-      const parts = String(full).trim().split(/\s+/);
-      const first = parts.shift() || '';
-      const last = parts.join(' ').trim();
-      return { first_name: first || null, last_name: last || null };
-    }
-    return { first_name: meta.first_name || null, last_name: meta.last_name || null };
-  };
-
-  const loadUserProfile = async (userObj) => {
-    const userId = userObj?.id || userObj;
+  const loadUserProfile = async (userId) => {
     try {
       setProfileLoading(true);
       const { data, error } = await supabaseHelpers.getProfile(userId);
       if (error) {
-        const isMissing =
-          error?.code === 'PGRST116' ||
-          String(error?.message || '').toLowerCase().includes('0 rows');
-        if (!isMissing) {
-          console.error('Error loading profile:', error);
-          setProfile(null);
-          return null;
-        }
-        const nameParts = deriveNameParts(userObj);
-        const payload = {
-          id: userId,
-          email: userObj?.email || null,
-          first_name: nameParts.first_name,
-          last_name: nameParts.last_name,
-          country: (userObj?.user_metadata?.country || 'FR').toUpperCase(),
-          language: currentLanguage || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        const created = await supabaseHelpers.createProfile(payload);
-        if (created?.error) {
-          console.error('Error creating profile:', created.error);
-          setProfile(null);
-          return null;
-        }
-        setProfile(created.data);
-        return created.data;
+        console.error('Error loading profile:', error);
+        setProfile(null);
+        return null;
       }
       setProfile(data);
       return data;
@@ -212,13 +172,7 @@ export const SupabaseAuthProvider = ({ children }) => {
       const { data: profileData, error: profileError } = await supabaseHelpers.getProfile(signInData.user.id);
       setLoading(false);
       if (profileError) {
-        const created = await loadUserProfile(signInData.user);
-        return {
-          success: true,
-          user: signInData.user,
-          profile: created || null,
-          emailVerified: !!(signInData.user.email_confirmed_at || signInData.user.confirmed_at),
-        };
+        return { success: true, user: signInData.user, profile: null };
       }
       setProfile(profileData);
       return {
