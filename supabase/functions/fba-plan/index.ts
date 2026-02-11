@@ -3346,6 +3346,9 @@ serve(async (req) => {
           sellerId,
           requestId: primaryRequestId
         });
+        planWarnings.push(
+          "Informare Amazon: planul a fost creat cu succes, dar lista `shipments` este încă goală în acest răspuns. Fluxul continuă normal din Step 1b pe baza packing options / packing groups."
+        );
         // Nu mai blocăm Step 1: lăsăm UI să continue cu planul activ, packing se face în 1b.
       } else {
         console.error("createInboundPlan primary error", {

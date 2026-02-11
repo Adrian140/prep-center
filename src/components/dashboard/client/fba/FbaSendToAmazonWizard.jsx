@@ -1515,10 +1515,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
         setOperationProblems(Array.isArray(pOperationProblems) ? pOperationProblems : []);
         setBlocking(Boolean(pBlocking));
-        if (typeof pWarning === 'string') {
+        if (typeof pWarning === 'string' && pWarning.trim()) {
           const reqId = response.requestId || response.request_id || null;
           const trId = response.traceId || response.trace_id || null;
-          const extra = [pWarning, reqId ? `RequestId: ${reqId}` : null, trId ? `TraceId: ${trId}` : null]
+          const extra = [
+            pWarning.trim(),
+            reqId || trId ? `Detalii suport: ${[reqId ? `RequestId: ${reqId}` : null, trId ? `TraceId: ${trId}` : null].filter(Boolean).join(' · ')}` : null
+          ]
             .filter(Boolean)
             .join(' · ');
           setPlanError((prevError) => prevError || extra);
@@ -4031,10 +4034,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
           setOperationProblems(Array.isArray(pOperationProblems) ? pOperationProblems : []);
           setBlocking(Boolean(pBlocking));
-          if (typeof pWarning === 'string') {
+          if (typeof pWarning === 'string' && pWarning.trim()) {
             const reqId = response.requestId || response.request_id || null;
             const trId = response.traceId || response.trace_id || null;
-            const extra = [pWarning, reqId ? `RequestId: ${reqId}` : null, trId ? `TraceId: ${trId}` : null]
+            const extra = [
+              pWarning.trim(),
+              reqId || trId ? `Detalii suport: ${[reqId ? `RequestId: ${reqId}` : null, trId ? `TraceId: ${trId}` : null].filter(Boolean).join(' · ')}` : null
+            ]
               .filter(Boolean)
               .join(' · ');
             setPlanError((prevError) => prevError || extra);
