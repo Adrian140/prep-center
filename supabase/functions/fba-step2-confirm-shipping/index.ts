@@ -13,6 +13,7 @@ const SUPABASE_SERVICE_ROLE_KEY =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
   Deno.env.get("SUPABASE_SERVICE_ROLE") ||
   "";
+const INTERNAL_SERVICE_ROLE_KEY = Deno.env.get("INTERNAL_SERVICE_ROLE_KEY") || "";
 const LWA_CLIENT_ID = Deno.env.get("SPAPI_LWA_CLIENT_ID") || "";
 const LWA_CLIENT_SECRET = Deno.env.get("SPAPI_LWA_CLIENT_SECRET") || "";
 const AWS_ACCESS_KEY_ID = Deno.env.get("AWS_ACCESS_KEY_ID") || "";
@@ -4520,8 +4521,8 @@ serve(async (req) => {
         const emailRes = await fetch(`${SUPABASE_URL}/functions/v1/send_prep_confirm_email`, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
             apikey: SUPABASE_SERVICE_ROLE_KEY,
+            "x-internal-service-key": INTERNAL_SERVICE_ROLE_KEY || SUPABASE_SERVICE_ROLE_KEY,
             "Content-Type": "application/json"
           },
           body: JSON.stringify(payload)

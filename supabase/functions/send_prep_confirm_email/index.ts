@@ -6,7 +6,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-service-key",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -44,6 +44,7 @@ const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "contact@prep-center.eu";
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY")  ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE") ?? "";
+const INTERNAL_SERVICE_ROLE_KEY = Deno.env.get("INTERNAL_SERVICE_ROLE_KEY") ?? "";
 
 const supabase =
   SUPABASE_URL && SUPABASE_SERVICE_ROLE
@@ -279,6 +280,15 @@ Deno.serve(async (req) => {
   try {
     if (req.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
+    }
+    if (INTERNAL_SERVICE_ROLE_KEY) {
+      const internalKey = req.headers.get("x-internal-service-key") || "";
+      if (internalKey !== INTERNAL_SERVICE_ROLE_KEY) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
     }
     if (!RESEND_KEY) {
       return new Response("Missing RESEND_API_KEY", { status: 500, headers: corsHeaders });
