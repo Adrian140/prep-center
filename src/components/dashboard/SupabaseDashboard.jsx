@@ -283,10 +283,7 @@ function SupabaseDashboard() {
     if (!profile?.id) return;
     setReviewSubmitting(true);
     const reviewerName =
-      profile.store_name ||
       [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim() ||
-      profile.email ||
-      user?.email ||
       'Client PrepCenter';
     try {
       await supabaseHelpers.createReview({

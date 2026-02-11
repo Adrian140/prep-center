@@ -700,7 +700,7 @@ const saveNotifSettings = async () => {
           e.target.reset(); // Clear form after submission
         }} className="space-y-4">
           <div>
-            <label htmlFor="reviewer_name" className="block text-sm font-medium text-text-primary mb-2">Nume Recenzor *</label>
+            <label htmlFor="reviewer_name" className="block text-sm font-medium text-text-primary mb-2">Nume persoană *</label>
             <input type="text" id="reviewer_name" name="reviewer_name" required className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
           </div>
           <div>
