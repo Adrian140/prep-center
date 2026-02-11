@@ -27,10 +27,9 @@ export default function ChatThread({
   clientName,
   isAdmin = false,
   onClose,
-  labels = {},
-  initialMessages = []
+  labels = {}
 }) {
-  const [messages, setMessages] = useState(initialMessages);
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -129,17 +128,6 @@ export default function ChatThread({
       }
     };
   }, [conversationId, currentUserId]);
-
-  useEffect(() => {
-    if (!conversationId || !messages.length) return;
-    try {
-      const payload = messages.slice(-200);
-      localStorage.setItem(
-        `chat:messages:${conversationId}`,
-        JSON.stringify(payload)
-      );
-    } catch {}
-  }, [conversationId, messages]);
 
   const loadMore = async () => {
     if (!conversationId || loadingMore || !hasMore) return;
