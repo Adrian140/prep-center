@@ -267,7 +267,13 @@ begin
           created_by = auth.uid()
           and (
             company_id = (select company_id from public.profiles where id = auth.uid())
-            or (company_id = auth.uid() and (select company_id from public.profiles where id = auth.uid()) is null)
+            or (
+              company_id = auth.uid()
+              and (
+                not exists (select 1 from public.profiles where id = auth.uid())
+                or (select company_id from public.profiles where id = auth.uid()) is null
+              )
+            )
           )
         )
       );
