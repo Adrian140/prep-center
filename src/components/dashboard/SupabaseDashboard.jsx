@@ -38,6 +38,7 @@ import ClientBalanceBar from './client/ClientBalanceBar';
 import ClientAffiliates from './client/ClientAffiliates';
 import ClientBoxEstimator from './client/ClientBoxEstimator';
 import ClientQogitaShipments from './client/ClientQogitaShipments';
+import ClientChatWidget from './client/ClientChatWidget';
 import { tabSessionStorage } from '@/utils/tabStorage';
 import { supabaseHelpers } from '@/config/supabase';
 import { supabase } from '@/config/supabase';
@@ -538,7 +539,8 @@ const renderTabContent = useMemo(() => {
             </div>
           </div>
         </div>
-      )}
+    )}
+    <ClientChatWidget />
     </>
   );
 }

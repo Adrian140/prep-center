@@ -3470,7 +3470,155 @@ getAllReceivingShipments: async (options = {}) => {
 
     // 3) Anything else = invalid (Amazon nu acceptă alte lungimi/formate ca GTIN valid)
     return { valid: false, type: 'Unknown', formatted: raw0 };
- }
+  },
+
+  // ===== Chat =====
+  getChatConversation: async ({ companyId, country, userId, clientDisplayName }) => {
+    if (!companyId || !country || !userId) {
+      return { data: null, error: new Error('Missing chat conversation parameters') };
+    }
+    const market = String(country || 'FR').toUpperCase();
+    const { data, error } = await supabase
+      .from('chat_conversations')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('country', market)
+      .maybeSingle();
+    if (error && error.code !== 'PGRST116') {
+      return { data: null, error };
+    }
+    if (data) return { data, error: null };
+
+    const display = clientDisplayName?.trim() || 'Client';
+    const payload = {
+      company_id: companyId,
+      client_user_id: userId,
+      client_display_name: display,
+      country: market,
+      created_by: userId
+    };
+    const created = await supabase
+      .from('chat_conversations')
+      .insert(payload)
+      .select('*')
+      .single();
+    return created;
+  },
+
+  listChatConversations: async ({ country, search } = {}) => {
+    let query = supabase
+      .from('chat_conversations')
+      .select('*')
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false });
+    if (country) query = query.eq('country', String(country).toUpperCase());
+    if (search) query = query.ilike('client_display_name', `%${search}%`);
+    return await query;
+  },
+
+  listChatMessages: async ({ conversationId, limit = 50, before } = {}) => {
+    if (!conversationId) return { data: [], error: null };
+    let query = supabase
+      .from('chat_messages')
+      .select(
+        'id, conversation_id, sender_id, sender_role, body, created_at, updated_at, edited_at, chat_message_reads(user_id, read_at), chat_message_attachments(id, storage_path, file_name, mime_type, size_bytes)'
+      )
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (before) query = query.lt('created_at', before);
+    const res = await query;
+    if (res.data) {
+      res.data = res.data.slice().reverse();
+    }
+    return res;
+  },
+
+  sendChatMessage: async ({ conversationId, senderId, senderRole = 'client', body }) => {
+    if (!conversationId || !senderId || !body?.trim()) {
+      return { data: null, error: new Error('Missing chat message data') };
+    }
+    return await supabase
+      .from('chat_messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_id: senderId,
+        sender_role: senderRole,
+        body: body.trim()
+      })
+      .select('*')
+      .single();
+  },
+
+  updateChatMessage: async ({ messageId, body }) => {
+    if (!messageId || !body?.trim()) {
+      return { data: null, error: new Error('Missing chat update data') };
+    }
+    return await supabase
+      .from('chat_messages')
+      .update({ body: body.trim() })
+      .eq('id', messageId)
+      .select('*')
+      .single();
+  },
+
+  deleteChatMessage: async ({ messageId }) => {
+    if (!messageId) return { data: null, error: new Error('Missing message id') };
+    return await supabase.from('chat_messages').delete().eq('id', messageId);
+  },
+
+  getChatUnreadCount: async ({ conversationId }) => {
+    if (!conversationId) return { data: 0, error: null };
+    return await supabase.rpc('chat_unread_count', {
+      p_conversation_id: conversationId
+    });
+  },
+
+  markChatRead: async ({ conversationId }) => {
+    if (!conversationId) return { data: 0, error: null };
+    return await supabase.rpc('chat_mark_read', {
+      p_conversation_id: conversationId
+    });
+  },
+
+  uploadChatAttachment: async ({ conversationId, messageId, file }) => {
+    if (!conversationId || !messageId || !file) {
+      return { data: null, error: new Error('Missing attachment data') };
+    }
+    const safeName = String(file.name || 'attachment')
+      .replace(/[^\w.\-]+/g, '_')
+      .slice(0, 120);
+    const path = `chat/${conversationId}/${messageId}/${Date.now()}_${safeName}`;
+    const upload = await supabase
+      .storage
+      .from('chat-attachments')
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || 'application/octet-stream'
+      });
+    if (upload.error) return upload;
+    const meta = await supabase
+      .from('chat_message_attachments')
+      .insert({
+        message_id: messageId,
+        storage_path: path,
+        file_name: file.name || 'attachment',
+        mime_type: file.type || null,
+        size_bytes: Number(file.size || 0) || null
+      })
+      .select('*')
+      .single();
+    return meta;
+  },
+
+  getChatAttachmentUrl: async ({ path, expiresIn = 3600 }) => {
+    if (!path) return { data: null, error: null };
+    return await supabase
+      .storage
+      .from('chat-attachments')
+      .createSignedUrl(path, expiresIn);
+  }
 };
 
 export { supabase as default };
