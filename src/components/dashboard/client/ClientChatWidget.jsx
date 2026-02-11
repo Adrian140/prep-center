@@ -28,20 +28,34 @@ export default function ClientChatWidget() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [profileForm, setProfileForm] = useState({ first_name: '', last_name: '' });
+  const [resolvedCompanyId, setResolvedCompanyId] = useState(null);
 
-  const companyId = profile?.company_id || user?.id || null;
+  const companyId = resolvedCompanyId || profile?.company_id || user?.id || null;
   const market = String(currentMarket || profile?.country || 'FR').toUpperCase();
   const staffLabel = staffLabelByCountry(market);
   const clientName = useMemo(() => buildClientName(profile, user), [profile, user]);
 
   useEffect(() => {
-    if (!user?.id || !companyId || !market) return;
+    if (!user?.id || !market || !open) return;
     let mounted = true;
     const loadConversation = async () => {
       setLoading(true);
       setError('');
+      let effectiveCompanyId = profile?.company_id || null;
+      if (!effectiveCompanyId) {
+        const prof = await supabaseHelpers.getProfile(user.id);
+        if (prof?.data?.company_id) {
+          effectiveCompanyId = prof.data.company_id;
+        } else if (!prof?.error && prof?.data?.id) {
+          effectiveCompanyId = prof.data.company_id || user.id;
+        }
+      }
+      if (!effectiveCompanyId) {
+        effectiveCompanyId = user.id;
+      }
+      if (mounted) setResolvedCompanyId(effectiveCompanyId);
       const res = await supabaseHelpers.getChatConversation({
-        companyId,
+        companyId: effectiveCompanyId,
         country: market,
         userId: user.id,
         clientDisplayName: clientName
@@ -55,11 +69,11 @@ export default function ClientChatWidget() {
       }
       setLoading(false);
     };
-    if (open) loadConversation();
+    loadConversation();
     return () => {
       mounted = false;
     };
-  }, [user?.id, companyId, market, clientName, open]);
+  }, [user?.id, market, clientName, open, profile?.company_id]);
 
   useEffect(() => {
     if (!conversation?.id || open) {
@@ -105,7 +119,7 @@ export default function ClientChatWidget() {
     setLoading(false);
     setProfileForm({ first_name: '', last_name: '' });
     const convo = await supabaseHelpers.getChatConversation({
-      companyId,
+      companyId: resolvedCompanyId || companyId,
       country: market,
       userId: user.id,
       clientDisplayName: `${first} ${last}`
