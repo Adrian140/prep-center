@@ -110,6 +110,13 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
   const isAdmin = authProfile?.is_admin === true || authProfile?.account_type === 'admin';
   const isLimitedAdmin = authProfile?.is_limited_admin === true;
   const canAdminDelete = isAdmin && !isLimitedAdmin;
+  const canDeletePrepRequest = (row) => {
+    if (!row?.id) return false;
+    const status = String(row.status || 'pending').toLowerCase();
+    if (status !== 'pending') return false;
+    if (isAdmin) return canAdminDelete;
+    return true;
+  };
 
   const formatDateParts = (value) => {
     if (!value) return { date: '—', time: '' };
@@ -947,7 +954,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                         View request
                         <ChevronDown className="w-4 h-4" />
                       </button>
-                        {pending && canAdminDelete && (
+                        {canDeletePrepRequest(row) && (
                           <button
                             className="text-sm text-red-600 hover:underline disabled:opacity-50"
                             disabled={deletingId === row.id}
@@ -1351,6 +1358,15 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 )}
 
                 <div className="px-6 mb-6 flex justify-end gap-2">
+                  {canDeletePrepRequest(reqHeader) && (
+                    <button
+                      className="border border-red-300 text-red-700 rounded px-4 py-2 hover:bg-red-50 disabled:opacity-50"
+                      disabled={deletingId === reqHeader?.id}
+                      onClick={() => handleDeleteRequest(reqHeader?.id)}
+                    >
+                      {deletingId === reqHeader?.id ? t('common.deleting') || 'Deleting...' : t('common.delete') || 'Delete'}
+                    </button>
+                  )}
                   <button className="border rounded px-4 py-2" onClick={() => setReqOpen(false)}>
                     {t('ClientPrepShipments.drawer.close')}
                   </button>
