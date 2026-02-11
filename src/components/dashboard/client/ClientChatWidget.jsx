@@ -31,11 +31,16 @@ export default function ClientChatWidget() {
   const [error, setError] = useState('');
   const [profileForm, setProfileForm] = useState({ first_name: '', last_name: '' });
   const [resolvedCompanyId, setResolvedCompanyId] = useState(null);
+  const [cachedMessages, setCachedMessages] = useState([]);
 
   const companyId = resolvedCompanyId || profile?.company_id || user?.id || null;
   const market = String(currentMarket || profile?.country || 'FR').toUpperCase();
   const staffLabel = staffLabelByCountry(market);
   const clientName = useMemo(() => buildClientName(profile, user), [profile, user]);
+  const cacheKey = useMemo(
+    () => `chat:conversation:${companyId || 'unknown'}:${market}`,
+    [companyId, market]
+  );
 
   useEffect(() => {
     if (!user?.id || !market || !open) return;
@@ -70,6 +75,9 @@ export default function ClientChatWidget() {
       if (!mounted) return;
       if (!res.error) {
         setConversation(res.data);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(res.data));
+        } catch {}
       } else {
         setConversation(null);
         setError(res.error?.message || t('chat.errorFallback', 'Chat unavailable.'));
@@ -81,6 +89,28 @@ export default function ClientChatWidget() {
       mounted = false;
     };
   }, [user?.id, market, clientName, open, profile?.company_id, session?.access_token]);
+
+  useEffect(() => {
+    if (!open) return;
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      let cachedConv = null;
+      if (raw && !conversation) {
+        cachedConv = JSON.parse(raw);
+        if (cachedConv?.id) {
+          setConversation(cachedConv);
+        }
+      }
+      const msgKey = cachedConv?.id ? `chat:messages:${cachedConv.id}` : null;
+      if (msgKey) {
+        const rawMsgs = localStorage.getItem(msgKey);
+        if (rawMsgs) {
+          const parsedMsgs = JSON.parse(rawMsgs);
+          if (Array.isArray(parsedMsgs)) setCachedMessages(parsedMsgs);
+        }
+      }
+    } catch {}
+  }, [open, cacheKey, conversation]);
 
   useEffect(() => {
     if (!conversation?.id || open) {
@@ -145,6 +175,7 @@ export default function ClientChatWidget() {
               senderRole="client"
               staffLabel={staffLabel}
               clientName={clientName}
+              initialMessages={cachedMessages}
               labels={{
                 loadingMessages: t('chat.loadingMessages', 'Loading messages...'),
                 loadMore: t('chat.loadMore', 'Load more'),
