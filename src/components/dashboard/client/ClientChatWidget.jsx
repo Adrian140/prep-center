@@ -20,7 +20,7 @@ const staffLabelByCountry = (country) => {
 };
 
 export default function ClientChatWidget() {
-  const { user, profile } = useSupabaseAuth();
+  const { user, profile, session } = useSupabaseAuth();
   const { currentMarket } = useMarket();
   const [open, setOpen] = useState(false);
   const [conversation, setConversation] = useState(null);
@@ -41,6 +41,11 @@ export default function ClientChatWidget() {
     const loadConversation = async () => {
       setLoading(true);
       setError('');
+      if (!session?.access_token) {
+        setLoading(false);
+        setError('Chat is loading. Please refresh and try again.');
+        return;
+      }
       let effectiveCompanyId = profile?.company_id || null;
       if (!effectiveCompanyId) {
         const prof = await supabaseHelpers.getProfile(user.id);
@@ -73,7 +78,7 @@ export default function ClientChatWidget() {
     return () => {
       mounted = false;
     };
-  }, [user?.id, market, clientName, open, profile?.company_id]);
+  }, [user?.id, market, clientName, open, profile?.company_id, session?.access_token]);
 
   useEffect(() => {
     if (!conversation?.id || open) {
