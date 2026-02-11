@@ -25,6 +25,7 @@ export default function ClientChatWidget() {
   const [open, setOpen] = useState(false);
   const [conversation, setConversation] = useState(null);
   const [unread, setUnread] = useState(0);
+  const [chatUnavailable, setChatUnavailable] = useState(false);
 
   const companyId = profile?.company_id || user?.id || null;
   const market = String(currentMarket || profile?.country || 'FR').toUpperCase();
@@ -35,14 +36,27 @@ export default function ClientChatWidget() {
     if (!user?.id || !companyId || !market) return;
     let mounted = true;
     const loadConversation = async () => {
-      const res = await supabaseHelpers.getChatConversation({
-        companyId,
-        country: market,
-        userId: user.id,
-        clientDisplayName: clientName
-      });
-      if (!mounted) return;
-      if (!res.error) setConversation(res.data);
+      try {
+        const res = await supabaseHelpers.getChatConversation({
+          companyId,
+          country: market,
+          userId: user.id,
+          clientDisplayName: clientName
+        });
+        if (!mounted) return;
+        if (res?.forbidden) {
+          setChatUnavailable(true);
+          setConversation(null);
+          return;
+        }
+        if (!res?.error) {
+          setConversation(res.data || null);
+          setChatUnavailable(false);
+        }
+      } catch (err) {
+        if (!mounted) return;
+        console.error('Failed to load client chat conversation:', err);
+      }
     };
     loadConversation();
     return () => {
@@ -70,7 +84,7 @@ export default function ClientChatWidget() {
     };
   }, [conversation?.id, open]);
 
-  if (!user || !companyId) return null;
+  if (!user || !companyId || chatUnavailable) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-50">

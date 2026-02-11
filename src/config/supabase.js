@@ -3484,6 +3484,16 @@ getAllReceivingShipments: async (options = {}) => {
       .eq('company_id', companyId)
       .eq('country', market)
       .maybeSingle();
+    const isForbiddenSelect =
+      error &&
+      (error.code === '42501' ||
+        error.status === 403 ||
+        /forbidden|permission denied|row-level security/i.test(
+          String(error.message || '')
+        ));
+    if (isForbiddenSelect) {
+      return { data: null, error: null, forbidden: true };
+    }
     if (error && error.code !== 'PGRST116') {
       return { data: null, error };
     }
@@ -3502,6 +3512,16 @@ getAllReceivingShipments: async (options = {}) => {
       .insert(payload)
       .select('*')
       .single();
+    const isForbiddenInsert =
+      created?.error &&
+      (created.error.code === '42501' ||
+        created.error.status === 403 ||
+        /forbidden|permission denied|row-level security/i.test(
+          String(created.error.message || '')
+        ));
+    if (isForbiddenInsert) {
+      return { data: null, error: null, forbidden: true };
+    }
     return created;
   },
 
