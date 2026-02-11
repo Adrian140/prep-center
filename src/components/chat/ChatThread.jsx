@@ -26,8 +26,7 @@ export default function ChatThread({
   staffLabel,
   clientName,
   isAdmin = false,
-  onClose,
-  labels = {}
+  onClose
 }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -265,7 +264,7 @@ export default function ChatThread({
     const seen = reads.some((r) => r.user_id && r.user_id !== currentUserId);
     return (
       <span className="text-[10px] text-slate-400">
-        {seen ? (labels.seen || 'Seen') : (labels.delivered || 'Delivered')}
+        {seen ? 'Seen' : 'Delivered'}
       </span>
     );
   };
@@ -303,14 +302,12 @@ export default function ChatThread({
               disabled={loadingMore}
               className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50"
             >
-              {loadingMore ? (labels.loadingShort || 'Loading...') : (labels.loadMore || 'Load more')}
+              {loadingMore ? 'Loading...' : 'Load more'}
             </button>
           </div>
         )}
         {loading && (
-          <div className="text-center text-xs text-slate-400">
-            {labels.loadingMessages || 'Loading messages...'}
-          </div>
+          <div className="text-center text-xs text-slate-400">Loading messages...</div>
         )}
         {messages.map((msg) => {
           const isMine = msg.sender_id === currentUserId;
@@ -334,13 +331,13 @@ export default function ChatThread({
                         onClick={saveEdit}
                         className="rounded-md bg-slate-900 px-3 py-1 text-xs text-white"
                       >
-                        {labels.save || 'Save'}
+                        Save
                       </button>
                       <button
                         onClick={cancelEdit}
                         className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-600"
                       >
-                        {labels.cancel || 'Cancel'}
+                        Cancel
                       </button>
                     </div>
                   </div>
@@ -360,7 +357,7 @@ export default function ChatThread({
                         className="inline-flex items-center gap-1 text-white/80 hover:text-white"
                       >
                         <Pencil size={12} />
-                        {labels.edit || 'Edit'}
+                        Edit
                       </button>
                     )}
                     {canDelete && (
@@ -369,7 +366,7 @@ export default function ChatThread({
                         className="inline-flex items-center gap-1 text-white/80 hover:text-white"
                       >
                         <Trash2 size={12} />
-                        {labels.delete || 'Delete'}
+                        Delete
                       </button>
                     )}
                   </div>
@@ -382,10 +379,7 @@ export default function ChatThread({
       <div className="border-t border-slate-200 p-3">
         {files.length > 0 && (
           <div className="mb-2 text-xs text-slate-500">
-            {(labels.attachmentsReady || '{count} attachment(s) ready').replace(
-              '{count}',
-              String(files.length)
-            )}
+            {files.length} attachment(s) ready
           </div>
         )}
         <div className="flex items-end gap-2">
@@ -403,7 +397,7 @@ export default function ChatThread({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             rows={2}
-            placeholder={labels.placeholder || 'Type your message...'}
+            placeholder="Type your message..."
             className="flex-1 resize-none rounded-lg border border-slate-200 p-2 text-sm"
           />
           <button
@@ -415,7 +409,7 @@ export default function ChatThread({
           </button>
         </div>
         <div className="mt-1 text-[11px] text-slate-400">
-          {labels.filesHint || 'Files: JPG, PNG, PDF up to 10MB'}
+          Files: JPG, PNG, PDF up to 10MB
         </div>
       </div>
     </div>
