@@ -4,6 +4,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
 import { supabaseHelpers } from '@/config/supabase';
 import ChatThread from '@/components/chat/ChatThread';
+import { useDashboardTranslation } from '@/translations';
 
 const buildClientName = (profile, user) => {
   const name = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim();
@@ -22,6 +23,7 @@ const staffLabelByCountry = (country) => {
 export default function ClientChatWidget() {
   const { user, profile, session } = useSupabaseAuth();
   const { currentMarket } = useMarket();
+  const { t } = useDashboardTranslation();
   const [open, setOpen] = useState(false);
   const [conversation, setConversation] = useState(null);
   const [unread, setUnread] = useState(0);
@@ -43,7 +45,7 @@ export default function ClientChatWidget() {
       setError('');
       if (!session?.access_token) {
         setLoading(false);
-        setError('Chat is loading. Please refresh and try again.');
+        setError(t('chat.authLoading', 'Chat is loading. Please refresh and try again.'));
         return;
       }
       let effectiveCompanyId = profile?.company_id || null;
@@ -70,7 +72,7 @@ export default function ClientChatWidget() {
         setConversation(res.data);
       } else {
         setConversation(null);
-        setError(res.error?.message || 'Chat unavailable.');
+        setError(res.error?.message || t('chat.errorFallback', 'Chat unavailable.'));
       }
       setLoading(false);
     };
@@ -117,7 +119,7 @@ export default function ClientChatWidget() {
       last_name: last
     });
     if (res?.error) {
-      setError(res.error.message || 'Failed to save profile.');
+      setError(res.error.message || t('chat.errorFallback', 'Chat unavailable.'));
       setLoading(false);
       return;
     }
@@ -143,36 +145,52 @@ export default function ClientChatWidget() {
               senderRole="client"
               staffLabel={staffLabel}
               clientName={clientName}
+              labels={{
+                loadingMessages: t('chat.loadingMessages', 'Loading messages...'),
+                loadMore: t('chat.loadMore', 'Load more'),
+                loadingShort: t('chat.loadingShort', 'Loading...'),
+                placeholder: t('chat.placeholder', 'Type your message...'),
+                attachmentsReady: t('chat.attachmentsReady', '{count} attachment(s) ready'),
+                filesHint: t('chat.filesHint', 'Files: JPG, PNG, PDF up to 10MB'),
+                save: t('common.save', 'Save'),
+                cancel: t('common.cancel', 'Cancel'),
+                edit: t('common.edit', 'Edit'),
+                delete: t('common.delete', 'Delete'),
+                seen: t('chat.seen', 'Seen'),
+                delivered: t('chat.delivered', 'Delivered')
+              }}
               onClose={() => setOpen(false)}
             />
           ) : (
             <div className="flex h-full flex-col bg-white">
               <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                <div className="text-sm font-semibold text-slate-900">Chat</div>
+                <div className="text-sm font-semibold text-slate-900">
+                  {t('chat.title', 'Chat')}
+                </div>
                 <button
                   onClick={() => setOpen(false)}
                   className="rounded-full p-1 text-slate-500 hover:text-slate-700"
                   aria-label="Close chat"
                 >
-                  ✕
+                  {t('chat.close', 'Close')}
                 </button>
               </div>
               <div className="flex-1 px-4 py-6 text-sm text-slate-600">
                 {needsProfileDetails ? (
                   <form onSubmit={submitProfile} className="space-y-3">
                     <div className="text-slate-900 font-medium">
-                      Completează numele pentru a porni chatul
+                      {t('chat.initTitle', 'Complete your name to start the chat')}
                     </div>
                     <input
                       value={profileForm.first_name}
                       onChange={(e) => setProfileForm((p) => ({ ...p, first_name: e.target.value }))}
-                      placeholder="Prenume"
+                      placeholder={t('chat.firstName', 'First name')}
                       className="w-full rounded-lg border border-slate-200 px-3 py-2"
                     />
                     <input
                       value={profileForm.last_name}
                       onChange={(e) => setProfileForm((p) => ({ ...p, last_name: e.target.value }))}
-                      placeholder="Nume"
+                      placeholder={t('chat.lastName', 'Last name')}
                       className="w-full rounded-lg border border-slate-200 px-3 py-2"
                     />
                     <button
@@ -180,13 +198,17 @@ export default function ClientChatWidget() {
                       disabled={loading}
                       className="w-full rounded-lg bg-primary px-3 py-2 text-white"
                     >
-                      {loading ? 'Se salvează...' : 'Continuă'}
+                      {loading ? t('chat.loadingShort', 'Loading...') : t('chat.continue', 'Continue')}
                     </button>
                   </form>
                 ) : (
                   <div className="space-y-2">
-                    <div>Inițializăm conversația...</div>
-                    {loading && <div className="text-xs text-slate-400">Se încarcă...</div>}
+                    <div>{t('chat.initLoading', 'Initializing conversation...')}</div>
+                    {loading && (
+                      <div className="text-xs text-slate-400">
+                        {t('chat.loadingShort', 'Loading...')}
+                      </div>
+                    )}
                     {error && <div className="text-xs text-red-500">{error}</div>}
                   </div>
                 )}
