@@ -95,7 +95,20 @@ function SupabaseLoginForm() {
     setLoading(true);
     setError('');
 
-    const result = await signIn(formData.email, formData.password);
+    const timeoutMs = 12000;
+    const result = await Promise.race([
+      signIn(formData.email, formData.password),
+      new Promise((resolve) =>
+        setTimeout(
+          () =>
+            resolve({
+              success: false,
+              error: 'Login timeout. Please try again.'
+            }),
+          timeoutMs
+        )
+      )
+    ]);
 
     if (!result.success) {
       let errorMessage = result.error || 'An unknown error occurred.';
