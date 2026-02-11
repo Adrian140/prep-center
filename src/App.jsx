@@ -95,25 +95,39 @@ function MaintenanceGate({ children, skipPaths = [] }) {
   React.useEffect(() => {
     if (shouldSkip) return;
     let cancelled = false;
-    const load = async () => {
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'maintenance_mode')
-        .maybeSingle();
-      if (cancelled) return;
-      if (!error && data?.value) {
-        setState({
-          loading: false,
-          enabled: !!data.value.enabled,
-          message: data.value.message || "Nous effectuons une courte maintenance. Merci de réessayer dans quelques minutes."
-        });
-      } else {
+    const timeout = setTimeout(() => {
+      if (!cancelled) {
         setState({ loading: false, enabled: false, message: '' });
+      }
+    }, 4000);
+    const load = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'maintenance_mode')
+          .maybeSingle();
+        if (cancelled) return;
+        if (!error && data?.value) {
+          setState({
+            loading: false,
+            enabled: !!data.value.enabled,
+            message: data.value.message || "Nous effectuons une courte maintenance. Merci de réessayer dans quelques minutes."
+          });
+        } else {
+          setState({ loading: false, enabled: false, message: '' });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setState({ loading: false, enabled: false, message: '' });
+        }
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [shouldSkip]);
 
   if (shouldSkip) {
