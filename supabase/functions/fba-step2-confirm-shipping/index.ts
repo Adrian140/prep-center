@@ -2324,6 +2324,7 @@ serve(async (req) => {
 
     // SPD partnered limits/eligibility checks (EU vs NA)
     const spdWarnings: string[] = [];
+    let spdDiagnostic: Record<string, any> | null = null;
     if (includePackages) {
       const spdErrors: string[] = [];
       let maxWeightLb = 0;
@@ -2331,6 +2332,10 @@ serve(async (req) => {
       let maxLengthIn = 0;
       let maxLengthGirthIn = 0;
       let packagesCount = 0;
+      let oversizedPackagesCount = 0;
+      let oversizedSingleUnitPackages = 0;
+      let oversizedMultiUnitPackages = 0;
+      let oversizedUnknownContentPackages = 0;
 
       shipmentTransportationConfigurations.forEach((cfg, cfgIdx) => {
         const pkgs = Array.isArray(cfg?.packages) ? cfg.packages : [];
@@ -2408,6 +2413,16 @@ serve(async (req) => {
             }
 
             if (!withinStandardDims && !withinSingleOversizeException) {
+              if (Number.isFinite(maxSide) && maxSide > SPD_MAX_SIDE_IN) {
+                oversizedPackagesCount += 1;
+                if (contentUnits > 1 || contentSkuCount > 1) {
+                  oversizedMultiUnitPackages += 1;
+                } else if (isSingleOversizeItemBox) {
+                  oversizedSingleUnitPackages += 1;
+                } else {
+                  oversizedUnknownContentPackages += 1;
+                }
+              }
               spdErrors.push(
                 `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: dimensiuni ${lengthIn.toFixed(
                   2
@@ -2420,6 +2435,10 @@ serve(async (req) => {
                 )} cm și celelalte laturi ≤ 63.5 cm; excepție doar pentru cutie cu 1 singur produs oversized.`
               );
             } else if (!withinStandardDims && withinSingleOversizeException) {
+              if (Number.isFinite(maxSide) && maxSide > SPD_MAX_SIDE_IN) {
+                oversizedPackagesCount += 1;
+                oversizedSingleUnitPackages += 1;
+              }
               spdWarnings.push(
                 `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: aplicată excepția single-item oversized pentru SPD.`
               );
@@ -2450,6 +2469,23 @@ serve(async (req) => {
       });
 
       const effectiveBoxesCount = boxesCount > 0 ? boxesCount : packagesCount;
+      spdDiagnostic = {
+        marketplaceId,
+        isEuMarketplace,
+        boxesCount: effectiveBoxesCount,
+        packagesCount,
+        maxWeightLb: maxWeightLb ? Number(maxWeightLb.toFixed(2)) : 0,
+        maxWeightKg: maxWeightLb ? Number(lbToKg(maxWeightLb).toFixed(2)) : 0,
+        maxSideIn: maxSideIn ? Number(maxSideIn.toFixed(2)) : 0,
+        maxSideCm: maxSideIn ? Number((maxSideIn * 2.54).toFixed(2)) : 0,
+        maxLengthIn: maxLengthIn ? Number(maxLengthIn.toFixed(2)) : 0,
+        maxLengthCm: maxLengthIn ? Number((maxLengthIn * 2.54).toFixed(2)) : 0,
+        maxLengthGirthIn: maxLengthGirthIn ? Number(maxLengthGirthIn.toFixed(2)) : 0,
+        oversizedPackagesCount,
+        oversizedSingleUnitPackages,
+        oversizedMultiUnitPackages,
+        oversizedUnknownContentPackages
+      };
       if (effectiveBoxesCount > 200) {
         spdWarnings.push(
           `Număr cutii ${effectiveBoxesCount} > 200. SPD PCP poate fi indisponibil (limită 200 boxes/shipment).`
@@ -2541,7 +2577,6 @@ serve(async (req) => {
         readyToShipWindow: { start: cfg?.readyToShipWindow?.start }
       };
       if (cfg?.contactInformation) base.contactInformation = cfg.contactInformation;
-      if (Array.isArray(cfg?.packages) && cfg.packages.length) base.packages = cfg.packages;
       if (Array.isArray(cfg?.pallets) && cfg.pallets.length) base.pallets = cfg.pallets;
       if (cfg?.freightInformation) base.freightInformation = cfg.freightInformation;
       return base;
@@ -3642,6 +3677,9 @@ serve(async (req) => {
       nonPartneredChargeByShipment: Object.keys(nonPartneredChargeByShipment).length ? nonPartneredChargeByShipment : null,
       nonPartneredChargeTotal
     };
+    if (spdDiagnostic) {
+      summary["spdDiagnostic"] = spdDiagnostic;
+    }
     const summaryWithSelection = {
       ...summary,
       selectedOptionId: selectedOption?.id || null,
@@ -3656,8 +3694,41 @@ serve(async (req) => {
       summary["warnings"] = spdWarnings;
     }
     if (!partneredOpt) {
+      const suspectedReasons: string[] = [];
+      if (spdDiagnostic?.isEuMarketplace) {
+        const maxSideCm = Number(spdDiagnostic?.maxSideCm || 0);
+        const maxWeightKg = Number(spdDiagnostic?.maxWeightKg || 0);
+        const oversizedMultiUnit = Number(spdDiagnostic?.oversizedMultiUnitPackages || 0);
+        const oversizedUnknown = Number(spdDiagnostic?.oversizedUnknownContentPackages || 0);
+        if (maxSideCm > 63.5) {
+          suspectedReasons.push(
+            `Max side ${maxSideCm.toFixed(2)} cm depășește 63.5 cm; PCP SPD poate fi indisponibil pe lane-ul curent.`
+          );
+        }
+        if (oversizedMultiUnit > 0) {
+          suspectedReasons.push(
+            `${oversizedMultiUnit} pachete >63.5 cm par multi-unit; excepția documentată se aplică doar pentru single oversized item per box.`
+          );
+        }
+        if (oversizedUnknown > 0) {
+          suspectedReasons.push(
+            `${oversizedUnknown} pachete >63.5 cm nu au metadata clară de conținut (single-unit vs multi-unit).`
+          );
+        }
+        if (maxWeightKg > 23) {
+          suspectedReasons.push(
+            `Max weight ${maxWeightKg.toFixed(2)} kg depășește 23 kg; PCP SPD este de obicei indisponibil.`
+          );
+        }
+      }
+      if (!suspectedReasons.length) {
+        suspectedReasons.push(
+          "Amazon nu a returnat partnered pentru acest request; verifică terms PCP acceptate în Seller Central și eligibilitatea lane/postcode/carrier."
+        );
+      }
       summary["partneredMissingReason"] =
         "Amazon nu a returnat AMAZON_PARTNERED_CARRIER pentru acest placement/transportation request.";
+      summary["partneredSuspectedReasons"] = suspectedReasons;
       logStep("partnered_missing", {
         traceId,
         placementOptionId: effectivePlacementOptionId,
@@ -3669,7 +3740,9 @@ serve(async (req) => {
         hasPallets,
         hasFreightInformation: !missingFreightInfo,
         contactInformationPresent: Boolean(contactInformation),
-        spdWarningsCount: spdWarnings.length
+        spdWarningsCount: spdWarnings.length,
+        spdDiagnostic,
+        suspectedReasons
       });
     }
 
