@@ -1837,17 +1837,87 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setStep1SaveError('');
   };
 
-  const handleAddSku = (skuId) => {
-    setPlan((prev) => ({
-      ...prev,
-      skus: (prev.skus || []).map((sku) =>
-        sku.id === skuId
-          ? { ...sku, excluded: false, units: Math.max(1, Number(sku.units || 0) || 1) }
-          : sku
-      )
-    }));
-    invalidateFrom('1');
-    setStep1SaveError('');
+  const handleAddSku = async (skuInput) => {
+    const skuId = typeof skuInput === 'string' ? skuInput : skuInput?.id || null;
+    const requestId = resolveRequestId();
+
+    if (skuId) {
+      setPlan((prev) => ({
+        ...prev,
+        skus: (prev.skus || []).map((sku) =>
+          sku.id === skuId
+            ? { ...sku, excluded: false, units: Math.max(1, Number(sku.units || 0) || 1) }
+            : sku
+        )
+      }));
+      invalidateFrom('1');
+      setStep1SaveError('');
+      return;
+    }
+
+    if (!skuInput || skuInput?.source !== 'inventory') return;
+    if (!requestId) {
+      setStep1SaveError('Missing requestId. Reload page and retry adding product.');
+      return;
+    }
+    const normalizedSku = String(skuInput.sku || '').trim().toUpperCase();
+    const normalizedAsin = String(skuInput.asin || '').trim().toUpperCase();
+    const existing = (Array.isArray(plan?.skus) ? plan.skus : []).find((row) => {
+      const rowSku = String(row?.sku || '').trim().toUpperCase();
+      const rowAsin = String(row?.asin || '').trim().toUpperCase();
+      return (normalizedSku && rowSku === normalizedSku) || (normalizedAsin && rowAsin === normalizedAsin);
+    });
+    if (existing?.id) {
+      setPlan((prev) => ({
+        ...prev,
+        skus: (prev.skus || []).map((row) =>
+          row.id === existing.id
+            ? { ...row, excluded: false, units: Math.max(1, Number(row.units || 0) || 1) }
+            : row
+        )
+      }));
+      invalidateFrom('1');
+      setStep1SaveError('');
+      return;
+    }
+
+    const payload = {
+      prep_request_id: requestId,
+      stock_item_id: skuInput.stockItemId || null,
+      asin: String(skuInput.asin || '').trim() || null,
+      sku: String(skuInput.sku || '').trim() || null,
+      product_name: String(skuInput.title || '').trim() || null,
+      units_requested: 1,
+      units_sent: 1
+    };
+    try {
+      const { data: inserted, error: insertErr } = await supabase
+        .from('prep_request_items')
+        .insert(payload)
+        .select('id, stock_item_id, asin, sku, product_name, units_requested, units_sent')
+        .single();
+      if (insertErr) throw insertErr;
+      const newSku = {
+        id: inserted?.id,
+        title: inserted?.product_name || skuInput?.title || skuInput?.sku || skuInput?.asin || 'New product',
+        sku: inserted?.sku || skuInput?.sku || '',
+        asin: inserted?.asin || skuInput?.asin || '',
+        image: skuInput?.image || null,
+        stock_item_id: inserted?.stock_item_id || skuInput?.stockItemId || null,
+        storageType: 'Standard-size',
+        packing: 'individual',
+        units: Math.max(1, Number(inserted?.units_sent || inserted?.units_requested || 1)),
+        excluded: false
+      };
+      setPlan((prev) => ({
+        ...prev,
+        skus: [...(Array.isArray(prev?.skus) ? prev.skus : []), newSku]
+      }));
+      invalidateFrom('1');
+      setStep1SaveError('');
+    } catch (e) {
+      setStep1SaveError(e?.message || 'Could not add product from inventory.');
+    }
   };
 
   const handleExpiryChange = (skuId, value) => {

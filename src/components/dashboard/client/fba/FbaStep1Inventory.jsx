@@ -105,8 +105,13 @@ export default function FbaStep1Inventory({
   const marketplaceRaw = data?.marketplace || '';
   const rawSkus = Array.isArray(data?.skus) ? data.skus : [];
   const skus = rawSkus.filter((sku) => !sku?.excluded);
+  const companyId = data?.companyId || data?.company_id || null;
+  const userId = data?.userId || data?.user_id || null;
   const [addSkuQuery, setAddSkuQuery] = useState('');
   const [addSkuOpen, setAddSkuOpen] = useState(false);
+  const [inventoryResults, setInventoryResults] = useState([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [addSkuBusyKey, setAddSkuBusyKey] = useState('');
   const ignoredItems = Array.isArray(data?.ignoredItems) ? data.ignoredItems : [];
 
   const marketplaceIdByCountry = {
@@ -143,6 +148,69 @@ export default function FbaStep1Inventory({
       return haystack.includes(normalizedQuery);
     });
   }, [addSkuQuery, rawSkus]);
+  const activeSkuKeys = useMemo(() => {
+    const set = new Set();
+    skus.forEach((sku) => {
+      const skuKey = String(sku?.sku || '').trim().toUpperCase();
+      const asinKey = String(sku?.asin || '').trim().toUpperCase();
+      if (skuKey) set.add(`SKU:${skuKey}`);
+      if (asinKey) set.add(`ASIN:${asinKey}`);
+      if (sku?.stock_item_id) set.add(`STOCK:${sku.stock_item_id}`);
+    });
+    return set;
+  }, [skus]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!addSkuOpen) return;
+      const q = String(addSkuQuery || '').trim();
+      if (q.length < 2) {
+        setInventoryResults([]);
+        return;
+      }
+      if (!companyId && !userId) {
+        setInventoryResults([]);
+        return;
+      }
+      setInventoryLoading(true);
+      try {
+        let query = supabase
+          .from('stock_items')
+          .select('id, name, sku, asin, image_url, company_id, user_id')
+          .or(`name.ilike.%${q}%,sku.ilike.%${q}%,asin.ilike.%${q}%`)
+          .order('created_at', { ascending: false })
+          .limit(30);
+        if (companyId) {
+          query = query.eq('company_id', companyId);
+        } else if (userId) {
+          query = query.eq('user_id', userId);
+        }
+        const { data: rows } = await query;
+        if (cancelled) return;
+        const filtered = (Array.isArray(rows) ? rows : []).filter((row) => {
+          const skuKey = String(row?.sku || '').trim().toUpperCase();
+          const asinKey = String(row?.asin || '').trim().toUpperCase();
+          const stockKey = row?.id ? `STOCK:${row.id}` : '';
+          if (stockKey && activeSkuKeys.has(stockKey)) return false;
+          if (skuKey && activeSkuKeys.has(`SKU:${skuKey}`)) return false;
+          if (asinKey && activeSkuKeys.has(`ASIN:${asinKey}`)) return false;
+          return true;
+        });
+        setInventoryResults(filtered);
+      } catch (e) {
+        if (!cancelled) {
+          setInventoryResults([]);
+        }
+      } finally {
+        if (!cancelled) setInventoryLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [addSkuOpen, addSkuQuery, activeSkuKeys, companyId, userId]);
   const missingInboundPlan = !resolvedInboundPlanId;
   const inboundCopy = {
     banner: '',
@@ -1920,9 +1988,55 @@ export default function FbaStep1Inventory({
               placeholder="Search SKU / ASIN / product name"
               className="border rounded-md px-3 py-2 text-sm w-full md:w-[420px] bg-white"
             />
+            <div className="text-xs text-slate-500">Search in inventory and add product into this shipment request.</div>
             <div className="max-h-56 overflow-auto border border-slate-200 rounded-md bg-white">
+              {inventoryLoading && (
+                <div className="px-3 py-2 text-xs text-slate-500">Searching inventory...</div>
+              )}
+              {!inventoryLoading && inventoryResults.map((item) => {
+                const key = `inventory-${item.id}`;
+                const busy = addSkuBusyKey === key;
+                return (
+                  <div key={key} className="px-3 py-2 flex items-center justify-between gap-3 border-b last:border-b-0 bg-emerald-50/40">
+                    <div className="min-w-0">
+                      <div className="text-sm text-slate-800 truncate">{item.name || item.sku || item.asin}</div>
+                      <div className="text-xs text-slate-500 truncate">SKU: {item.sku || '—'} · ASIN: {item.asin || '—'}</div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-2 py-1 rounded"
+                      onClick={async () => {
+                        try {
+                          setAddSkuBusyKey(key);
+                          await onAddSku?.({
+                            source: 'inventory',
+                            stockItemId: item.id,
+                            sku: item.sku || null,
+                            asin: item.asin || null,
+                            title: item.name || null,
+                            image: item.image_url || null
+                          });
+                        } finally {
+                          setAddSkuBusyKey('');
+                        }
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                );
+              })}
+              {!inventoryLoading && addSkuQuery.trim().length >= 2 && inventoryResults.length === 0 && (
+                <div className="px-3 py-2 text-xs text-slate-500 border-b">No inventory results.</div>
+              )}
+              {addSkuCandidates.length > 0 && (
+                <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 bg-slate-50 border-b">
+                  Already in request (hidden)
+                </div>
+              )}
               {addSkuCandidates.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-slate-500">No products available to add.</div>
+                <div className="px-3 py-2 text-xs text-slate-500">No hidden products in this request.</div>
               ) : (
                 addSkuCandidates.slice(0, 50).map((sku) => (
                   <div key={`add-${sku.id}`} className="px-3 py-2 flex items-center justify-between gap-3 border-b last:border-b-0">
@@ -1932,8 +2046,17 @@ export default function FbaStep1Inventory({
                     </div>
                     <button
                       type="button"
-                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded"
-                      onClick={() => onAddSku?.(sku.id)}
+                      disabled={addSkuBusyKey === `existing-${sku.id}`}
+                      className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-2 py-1 rounded"
+                      onClick={async () => {
+                        try {
+                          const key = `existing-${sku.id}`;
+                          setAddSkuBusyKey(key);
+                          await onAddSku?.(sku.id);
+                        } finally {
+                          setAddSkuBusyKey('');
+                        }
+                      }}
                     >
                       Add
                     </button>
