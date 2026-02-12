@@ -11,8 +11,6 @@ permissions:
 
 jobs:
   relaunch:
-    # Prevent accidental loops from non-main branches.
-    if: ${{ github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     steps:
       - name: Relaunch keepa sync immediately
@@ -20,6 +18,20 @@ jobs:
         with:
           github-token: ${{ github.token }}
           script: |
+            const branch = context.payload.workflow_run.head_branch || '';
+            const { data: repoData } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            const defaultBranch = String(repoData.default_branch || 'main');
+
+            // Avoid loops from non-default branches, but allow empty head_branch
+            // because canceled/timed-out runs can sometimes miss it.
+            if (branch && branch !== defaultBranch) {
+              core.info(`Run branch "${branch}" is not default branch "${defaultBranch}", skipping relaunch.`);
+              return;
+            }
+
             const workflowId = 'sync-keepa-images.yml';
             const { data } = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
@@ -42,7 +54,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: workflowId,
-              ref: 'main'
+              ref: defaultBranch
             });
 
             core.info('Run nou Keepa a fost trimis imediat după finalizarea precedentului.');
