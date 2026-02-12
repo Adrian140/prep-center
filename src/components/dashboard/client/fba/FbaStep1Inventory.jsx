@@ -86,6 +86,7 @@ export default function FbaStep1Inventory({
   onAddSku,
   onChangeExpiry,
   onChangePrep,
+  onRecheckAssignment,
   skuServicesById = {},
   onSkuServicesChange,
   boxServices = [],
@@ -112,6 +113,7 @@ export default function FbaStep1Inventory({
   const [inventoryResults, setInventoryResults] = useState([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [addSkuBusyKey, setAddSkuBusyKey] = useState('');
+  const [recheckingSkuId, setRecheckingSkuId] = useState('');
   const ignoredItems = Array.isArray(data?.ignoredItems) ? data.ignoredItems : [];
 
   const marketplaceIdByCountry = {
@@ -1286,6 +1288,8 @@ export default function FbaStep1Inventory({
         : Math.min(Math.max(0, Number(activeIndexRaw) || 0), Math.max(maxBoxIndex, 0));
 
     const servicesForSku = Array.isArray(skuServicesById?.[sku.id]) ? skuServicesById[sku.id] : [];
+    const canRecheckAssignment = typeof onRecheckAssignment === 'function' && (groupLabel === 'Unassigned' || state === 'unknown');
+    const isRechecking = recheckingSkuId === sku.id;
     return (
       <tr key={sku.id} className="align-top">
         <td className="py-3 w-[320px] min-w-[320px]">
@@ -1379,6 +1383,22 @@ export default function FbaStep1Inventory({
               >
                 More inputs
               </button>
+              {canRecheckAssignment && (
+                <button
+                  className="text-xs text-amber-700 underline disabled:opacity-60"
+                  disabled={isRechecking}
+                  onClick={async () => {
+                    try {
+                      setRecheckingSkuId(sku.id);
+                      await onRecheckAssignment?.(sku);
+                    } finally {
+                      setRecheckingSkuId('');
+                    }
+                  }}
+                >
+                  {isRechecking ? 'Rechecking...' : 'Recheck assign'}
+                </button>
+              )}
             </div>
             {sku.readyToPack && (
               <div className="mt-2 flex items-center gap-1 text-emerald-600 text-xs font-semibold">
