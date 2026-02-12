@@ -10,7 +10,8 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    # Keep a hard guard above the step-level timeout.
+    timeout-minutes: 360
     permissions:
       contents: read
       actions: write
@@ -40,4 +41,16 @@ jobs:
           # For this workflow we force unlimited per run and per company.
           KEEPA_ITEMS_PER_RUN: '0'
           KEEPA_ITEMS_PER_COMPANY: '0'
-        run: npm run sync-keepa-images
+        run: |
+          set +e
+          timeout --signal=TERM --kill-after=30s 330m npm run sync-keepa-images
+          exit_code=$?
+
+          # 124 = timeout reached. Treat as controlled stop so workflow stays green.
+          if [ "$exit_code" -eq 124 ]; then
+            echo "Keepa sync reached 5h30 runtime limit; ending successfully for relaunch."
+            exit 0
+          fi
+
+          # Any other non-zero exit is a real failure and should stay red.
+          exit "$exit_code"
