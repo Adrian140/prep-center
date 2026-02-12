@@ -1168,32 +1168,81 @@ async function checkSkuStatus(params: {
   const { sku, asin, marketplaceId, host, region, lwaToken, tempCreds, sellerId, traceId } = params;
   const cleanSku = normalizeSku(sku);
   if (!cleanSku) {
-    return { state: "unknown", reason: "SKU lipsă sau nevalid după normalizare" };
+    return { state: "unknown", reason: "SKU lipsă sau nevalid după normalizare", canonicalSku: cleanSku };
   }
   const fallbackReason = "Nu am putut verifica statusul în Amazon";
 
-  // Listings Items check
-  let debug: Record<string, unknown> = {};
-  try {
-    const listingsPath = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(cleanSku)}`;
-    const listingsQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=attributes,summaries`;
-    const { res, json, text } = await spapiGet({
-      host,
-      region,
-      path: listingsPath,
-      query: listingsQuery,
-      lwaToken,
-      tempCreds,
-      traceId,
-      operationName: "listings.getItem",
-      marketplaceId,
-      sellerId
-    });
+  const skuCandidates = Array.from(
+    new Set([cleanSku, cleanSku.toLowerCase(), cleanSku.toUpperCase()].map((v) => normalizeSku(v)).filter(Boolean))
+  );
+  const toStatusList = (val: any): string[] => {
+    if (Array.isArray(val)) return val.map((v) => String(v || "").trim()).filter(Boolean);
+    if (typeof val === "string") return val.split(",").map((v) => v.trim()).filter(Boolean);
+    if (val != null) return [String(val).trim()].filter(Boolean);
+    return [];
+  };
+  let canonicalSku = cleanSku;
+  let sawNotFound = false;
+  let non404ListingError: { status: number; text: string } | null = null;
 
-    if (res.status === 404) {
-      return { state: "missing", reason: "Listing inexistent pe marketplace-ul destinație" };
+  try {
+    for (const candidateSku of skuCandidates) {
+      const listingsPath = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(candidateSku)}`;
+      const listingsQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=attributes,summaries`;
+      const { res, json, text } = await spapiGet({
+        host,
+        region,
+        path: listingsPath,
+        query: listingsQuery,
+        lwaToken,
+        tempCreds,
+        traceId,
+        operationName: "listings.getItem",
+        marketplaceId,
+        sellerId
+      });
+
+      if (res.status === 404) {
+        sawNotFound = true;
+        continue;
+      }
+      if (!res.ok) {
+        non404ListingError = { status: res.status, text };
+        break;
+      }
+
+      canonicalSku = candidateSku;
+      const summaries = json?.payload?.summaries || json?.summaries || [];
+      let status = "";
+      if (Array.isArray(summaries)) {
+        const s = summaries.find((x: any) => String(x?.marketplaceId || x?.marketplace_id || "") === String(marketplaceId));
+        status = String(s?.status || s?.Status || "");
+      }
+
+      const statusList = toStatusList(status).map((v) => v.toUpperCase());
+      const hasBuyable = statusList.includes("BUYABLE") || statusList.includes("ACTIVE");
+      const hasDiscoverable = statusList.includes("DISCOVERABLE");
+
+      if (!Array.isArray(summaries) || summaries.length === 0) {
+        return { state: "missing", reason: "Listing lipsă pe marketplace (summaries gol).", canonicalSku };
+      }
+      if (!statusList.length) {
+        return { state: "missing", reason: "Listing lipsă pe marketplace (status absent).", canonicalSku };
+      }
+      if (hasBuyable) {
+        return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")}`, canonicalSku };
+      }
+      if (hasDiscoverable) {
+        return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")} (considerat eligibil)`, canonicalSku };
+      }
+      return { state: "inactive", reason: `Listing găsit cu status ${statusList.join(",")}`, canonicalSku };
     }
-    if (!res.ok) {
+
+    if (sawNotFound && !non404ListingError) {
+      return { state: "missing", reason: "Listing inexistent pe marketplace-ul destinație", canonicalSku: cleanSku };
+    }
+
+    if (non404ListingError) {
       const cat = await catalogCheck({
         asin,
         marketplaceId,
@@ -1205,43 +1254,18 @@ async function checkSkuStatus(params: {
         sellerId
       });
       if (cat.found) {
-        return { state: "ok", reason: `Catalog găsit; Listings API ${res.status}` };
+        return {
+          state: "ok",
+          reason: `Catalog găsit; Listings API ${non404ListingError.status}`,
+          canonicalSku: canonicalSku || cleanSku
+        };
       }
-      return { state: "unknown", reason: `Eroare Listings API (${res.status}): ${text}` };
+      return {
+        state: "unknown",
+        reason: `Eroare Listings API (${non404ListingError.status}): ${non404ListingError.text}`,
+        canonicalSku: canonicalSku || cleanSku
+      };
     }
-
-    // Listings Items 200 => listing există pe marketplace; nu mai blocăm pe Catalog.
-    const summaries = json?.payload?.summaries || json?.summaries || [];
-    const toStatusList = (val: any): string[] => {
-      if (Array.isArray(val)) return val.map((v) => String(v || "").trim()).filter(Boolean);
-      if (typeof val === "string") return val.split(",").map((v) => v.trim()).filter(Boolean);
-      if (val != null) return [String(val).trim()].filter(Boolean);
-      return [];
-    };
-
-    let status = "";
-    if (Array.isArray(summaries)) {
-      const s = summaries.find((x: any) => String(x?.marketplaceId || x?.marketplace_id || "") === String(marketplaceId));
-      status = String(s?.status || s?.Status || "");
-    }
-
-    const statusList = toStatusList(status).map((v) => v.toUpperCase());
-    const hasBuyable = statusList.includes("BUYABLE") || statusList.includes("ACTIVE");
-    const hasDiscoverable = statusList.includes("DISCOVERABLE");
-
-    if (!Array.isArray(summaries) || summaries.length === 0) {
-      return { state: "missing", reason: "Listing lipsă pe marketplace (summaries gol)." };
-    }
-    if (!statusList.length) {
-      return { state: "missing", reason: "Listing lipsă pe marketplace (status absent)." };
-    }
-    if (hasBuyable) {
-      return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")}` };
-    }
-    if (hasDiscoverable) {
-      return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")} (considerat eligibil)` };
-    }
-    return { state: "inactive", reason: `Listing găsit cu status ${statusList.join(",")}` };
   } catch (e) {
     const cat = await catalogCheck({
       asin,
@@ -1266,9 +1290,13 @@ async function checkSkuStatus(params: {
       });
     }
     if (cat.found) {
-      return { state: "ok", reason: `Catalog găsit; ${fallbackReason}` };
+      return { state: "ok", reason: `Catalog găsit; ${fallbackReason}`, canonicalSku: canonicalSku || cleanSku };
     }
-    return { state: "unknown", reason: `${fallbackReason}: ${e instanceof Error ? e.message : e}` };
+    return {
+      state: "unknown",
+      reason: `${fallbackReason}: ${e instanceof Error ? e.message : e}`,
+      canonicalSku: canonicalSku || cleanSku
+    };
   }
 
   // Restrictions / eligibility check (best-effort)
@@ -1295,19 +1323,27 @@ async function checkSkuStatus(params: {
         );
         if (blocking) {
           const reason = blocking?.message || blocking?.ReasonMessage || "Produs restricționat pe acest marketplace";
-          return { state: "restricted", reason };
+          return { state: "restricted", reason, canonicalSku: canonicalSku || cleanSku };
         }
       } else if (res.status !== 404) {
         // 404 can happen if endpoint unsupported; treat as best-effort
-        return { state: "unknown", reason: `Eroare Restrictions API (${res.status}): ${text}` };
+        return {
+          state: "unknown",
+          reason: `Eroare Restrictions API (${res.status}): ${text}`,
+          canonicalSku: canonicalSku || cleanSku
+        };
       }
     } catch (e) {
       // best-effort; non-blocking
-      return { state: "unknown", reason: `${fallbackReason}: ${e instanceof Error ? e.message : e}` };
+      return {
+        state: "unknown",
+        reason: `${fallbackReason}: ${e instanceof Error ? e.message : e}`,
+        canonicalSku: canonicalSku || cleanSku
+      };
     }
   }
 
-  return { state: "ok", reason: "" };
+  return { state: "ok", reason: "", canonicalSku: canonicalSku || cleanSku };
 }
 
 async function fetchPrepGuidance(params: {
@@ -2158,8 +2194,9 @@ serve(async (req) => {
     });
 
     // Pre-eligibility check per SKU for destination marketplace
-    const skuStatuses: { sku: string; asin: string | null; state: string; reason: string }[] = [];
+    const skuStatuses: { sku: string; asin: string | null; state: string; reason: string; inputSku?: string }[] = [];
     for (const c of collapsedItems) {
+      const inputSku = c.sku;
       const status = await checkSkuStatus({
         sku: c.sku,
         asin: c.asin,
@@ -2171,7 +2208,22 @@ serve(async (req) => {
         sellerId,
         traceId
       });
-      skuStatuses.push({ sku: c.sku, asin: c.asin || null, state: status.state, reason: status.reason });
+      const canonicalSku = normalizeSku((status as any)?.canonicalSku || c.sku);
+      if (canonicalSku && canonicalSku !== c.sku) {
+        console.log("sku_case_normalized", {
+          traceId,
+          inputSku: c.sku,
+          canonicalSku
+        });
+        c.sku = canonicalSku;
+      }
+      skuStatuses.push({
+        sku: c.sku,
+        asin: c.asin || null,
+        state: status.state,
+        reason: status.reason,
+        inputSku
+      });
     }
 
     const blocking = skuStatuses.filter((s) => ["inactive", "restricted", "inbound_unavailable"].includes(String(s.state)));
