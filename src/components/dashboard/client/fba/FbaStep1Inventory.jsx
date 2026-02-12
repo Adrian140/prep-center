@@ -1183,11 +1183,13 @@ export default function FbaStep1Inventory({
         const weight = Number(box?.weight_kg || box?.weight || 0);
         if (!length || !width || !height || !weight) missingDims += 1;
         const maxDim = Math.max(length, width, height);
-        if (maxDim > MAX_STANDARD_BOX_CM) oversize += 1;
+        const isOversize = maxDim > MAX_STANDARD_BOX_CM;
         if (weight > MAX_STANDARD_BOX_KG) overweight += 1;
         const items = boxItems[idx] || {};
         const assigned = Object.values(items).reduce((sum, val) => sum + Number(val || 0), 0);
         if (assigned <= 0) emptyBoxes += 1;
+        // EU SPD rule: boxes over 63.5 cm are acceptable only when that box contains exactly 1 unit.
+        if (isOversize && assigned !== 1) oversize += 1;
       });
     });
 
@@ -1196,7 +1198,11 @@ export default function FbaStep1Inventory({
     if (missingDims) issues.push('Add dimensions and weight for every box.');
     if (emptyBoxes) issues.push('Some boxes are empty. Remove them or add items.');
     if (overweight) issues.push(`Weight exceeds the ${MAX_STANDARD_BOX_KG} kg limit.`);
-    if (oversize) issues.push(`A dimension exceeds the ${MAX_STANDARD_BOX_CM} cm limit.`);
+    if (oversize) {
+      issues.push(
+        `A dimension exceeds the ${MAX_STANDARD_BOX_CM} cm limit for a box that does not contain exactly 1 unit.`
+      );
+    }
 
     return { isValid: issues.length === 0, messages: issues };
   }, [
