@@ -1920,7 +1920,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
   };
 
-  const handleRecheckAssignment = useCallback(async (_sku) => {
+  async function handleRecheckAssignment(_sku) {
     setStep1SaveError('');
     setPackGroupsPreview([]);
     await refreshStep('1');
@@ -1928,7 +1928,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (!previewRes?.ok) {
       setStep1SaveError(previewRes?.message || 'Could not recheck pack assignment for this SKU.');
     }
-  }, [refreshStep]);
+  }
 
   const handleExpiryChange = (skuId, value) => {
     setPlan((prev) => ({
