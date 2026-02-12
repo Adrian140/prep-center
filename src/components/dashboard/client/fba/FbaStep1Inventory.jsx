@@ -64,6 +64,7 @@ export default function FbaStep1Inventory({
   skuStatuses = [],
   blocking = false,
   error = '',
+  notice = '',
   loadingPlan = false,
   saving = false,
   inboundPlanId = null,
@@ -143,6 +144,17 @@ export default function FbaStep1Inventory({
       skuStatuses.find((s) => s.id && s.id === sku.id);
     return match || { state: 'unknown', reason: '' };
   };
+  const humanizeOperationProblem = useCallback((problem) => {
+    const message = String(problem?.message || problem?.Message || '').trim();
+    if (!message) return 'Amazon a raportat o problemă pentru acest produs. Verifică și încearcă din nou.';
+    if (/prep classification/i.test(message)) {
+      return 'Lipsește categoria de pregătire (prep) pentru acest SKU. Selectează opțiunea de prep și retrimite.';
+    }
+    if (/not available for inbound/i.test(message)) {
+      return 'Produsul nu este eligibil momentan pentru inbound pe marketplace-ul selectat.';
+    }
+    return message.replace(/\bFBA_INB_\d+\b[:\s-]*/gi, '').trim();
+  }, []);
   const [serviceOptions, setServiceOptions] = useState([]);
   const [boxOptions, setBoxOptions] = useState([]);
   const persistTimerRef = useRef(null);
@@ -1877,18 +1889,19 @@ export default function FbaStep1Inventory({
               : 'Amazon inbound plan is not ready. Retry Step 1 to regenerate the plan.')}
         </div>
       )}
+      {!error && notice && (
+        <div className="px-6 py-3 border-b text-sm bg-amber-50 text-amber-800 border-amber-200">
+          {notice}
+        </div>
+      )}
       {Array.isArray(operationProblems) && operationProblems.length > 0 && (
         <div className="px-6 py-3 border-b text-sm bg-red-50 text-red-700 border-red-200">
-          <div className="font-semibold">Amazon reported blocking issues for some SKUs:</div>
+          <div className="font-semibold">Amazon reported issues for some SKUs:</div>
           <ul className="mt-2 list-disc pl-5 space-y-1">
             {operationProblems.slice(0, 8).map((p, idx) => {
-              const code = p?.code || p?.Code || 'UNKNOWN';
-              const message = p?.message || p?.Message || 'Unknown error';
-              const details = p?.details || p?.Details || null;
               return (
                 <li key={`op-problem-${idx}`}>
-                  <span className="font-semibold">{code}</span>: {message}
-                  {details ? ` (${details})` : ''}
+                  {humanizeOperationProblem(p)}
                 </li>
               );
             })}

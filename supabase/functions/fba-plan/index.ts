@@ -3759,6 +3759,14 @@ serve(async (req) => {
     });
 
     const combinedWarning = planWarnings.length ? planWarnings.join(" ") : null;
+    const operationLooksSuccessful =
+      String(operationStatus || "").toUpperCase() === "SUCCESS" ||
+      String(inboundPlanStatus || "").toUpperCase() === "ACTIVE";
+    const uiOperationProblems = operationLooksSuccessful
+      ? []
+      : Array.isArray(operationProblems)
+      ? operationProblems
+      : [];
     // Nu bloca UI pe lipsa shipments; pentru step1 este suficient să existe inboundPlanId.
     const shipmentsPending = !safeInboundPlanId;
     // Persist inboundPlanId when newly created so viitoarele apeluri nu mai generează plan nou
@@ -3867,9 +3875,11 @@ serve(async (req) => {
       step1BoxPlan,
       shipments,
       raw: amazonJson,
+      operationProblems: uiOperationProblems,
       skuStatuses,
       ignoredItems,
-      warning: [combinedWarning, ignoredItemsWarning].filter(Boolean).join(" ")
+      warning: [combinedWarning, ignoredItemsWarning].filter(Boolean).join(" "),
+      blocking: false
     };
 
     const serverQuantities = validItems.map((it) => ({
@@ -3887,7 +3897,9 @@ serve(async (req) => {
         inboundPlanStatus: safeInboundPlanId ? inboundPlanStatus || null : null,
         operationId,
         operationStatus,
+        operationProblems: uiOperationProblems,
         packingOptionId,
+        blocking: false,
         shipmentsPending,
         scopes: lwaScopes,
         serverQuantities

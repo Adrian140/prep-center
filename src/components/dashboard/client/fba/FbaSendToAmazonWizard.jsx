@@ -607,6 +607,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [planLoaded, setPlanLoaded] = useState(false);
   const [planError, setPlanError] = useState('');
+  const [planNotice, setPlanNotice] = useState('');
   const [step1Saving, setStep1Saving] = useState(false);
   const [step1SaveError, setStep1SaveError] = useState('');
   const [allowNoInboundPlan, setAllowNoInboundPlan] = useState(false);
@@ -712,6 +713,18 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const shippingRetryTimerRef = useRef(null);
   const shippingFetchLockRef = useRef({ inFlight: false, lastKey: "", lastAt: 0 });
   const selectedOptionSignatureRef = useRef(null);
+  const toFriendlyPlanNotice = useCallback((warning) => {
+    const raw = String(warning || '').trim();
+    if (!raw) return '';
+    if (/shipments.+goal|fluxul continu[aă] normal|packing options/i.test(raw)) {
+      return 'Planul Amazon a fost creat cu succes. Poți continua cu împachetarea (Step 1b).';
+    }
+    return raw
+      .replace(/`/g, '')
+      .replace(/\b(RequestId|TraceId)\s*:\s*[A-Za-z0-9-]+/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }, []);
   const planMissingRetryRef = useRef(0);
   const trackingPrefillRef = useRef(false);
   const trackingLoadRequestedRef = useRef(false);
@@ -1447,6 +1460,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     async function loadPlan() {
       setLoadingPlan(true);
       setPlanError('');
+      setPlanNotice('');
       setStep1SaveError('');
       const hasCachedGroups = hasRealPackGroups(packGroupsRef.current);
       const workflowAlreadyStarted =
@@ -1516,15 +1530,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         setOperationProblems(Array.isArray(pOperationProblems) ? pOperationProblems : []);
         setBlocking(Boolean(pBlocking));
         if (typeof pWarning === 'string' && pWarning.trim()) {
-          const reqId = response.requestId || response.request_id || null;
-          const trId = response.traceId || response.trace_id || null;
-          const extra = [
-            pWarning.trim(),
-            reqId || trId ? `Detalii suport: ${[reqId ? `RequestId: ${reqId}` : null, trId ? `TraceId: ${trId}` : null].filter(Boolean).join(' · ')}` : null
-          ]
-            .filter(Boolean)
-            .join(' · ');
-          setPlanError((prevError) => prevError || extra);
+          setPlanNotice((prevNotice) => prevNotice || toFriendlyPlanNotice(pWarning));
         }
       } catch (e) {
         if (!cancelled) setPlanError(e?.message || 'Failed to load Amazon plan.');
@@ -1535,7 +1541,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         }
       }
     }
-  }, [autoLoadPlan, fetchPlan, normalizePackGroups, planLoaded, runFetchPlan, snapshotServerUnits]);
+  }, [autoLoadPlan, fetchPlan, normalizePackGroups, planLoaded, runFetchPlan, snapshotServerUnits, toFriendlyPlanNotice]);
 
   useEffect(() => {
     if (!planLoaded) return;
@@ -4035,15 +4041,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           setOperationProblems(Array.isArray(pOperationProblems) ? pOperationProblems : []);
           setBlocking(Boolean(pBlocking));
           if (typeof pWarning === 'string' && pWarning.trim()) {
-            const reqId = response.requestId || response.request_id || null;
-            const trId = response.traceId || response.trace_id || null;
-            const extra = [
-              pWarning.trim(),
-              reqId || trId ? `Detalii suport: ${[reqId ? `RequestId: ${reqId}` : null, trId ? `TraceId: ${trId}` : null].filter(Boolean).join(' · ')}` : null
-            ]
-              .filter(Boolean)
-              .join(' · ');
-            setPlanError((prevError) => prevError || extra);
+            setPlanNotice((prevNotice) => prevNotice || toFriendlyPlanNotice(pWarning));
           }
           // Nu declanșăm automat Step 1b la refresh Step 1.
         });
@@ -4056,7 +4054,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setLoadingPlan(false);
       setPlanLoaded(true);
     },
-    [fetchPlan, fetchShippingOptions, normalizePackGroups, runFetchPlan, snapshotServerUnits]
+    [fetchPlan, fetchShippingOptions, normalizePackGroups, runFetchPlan, snapshotServerUnits, toFriendlyPlanNotice]
   );
 
   const handleInboundPlanRetry = useCallback(() => {
@@ -4319,6 +4317,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           inboundPlanCopy={wizardCopy}
           onNext={persistStep1AndReloadPlan}
           operationProblems={operationProblems}
+          notice={planNotice}
           error={planError || step1SaveError}
         />
       );
