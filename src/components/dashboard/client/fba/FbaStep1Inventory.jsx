@@ -104,7 +104,7 @@ export default function FbaStep1Inventory({
   const shipFrom = data?.shipFrom || {};
   const marketplaceRaw = data?.marketplace || '';
   const rawSkus = Array.isArray(data?.skus) ? data.skus : [];
-  const skus = rawSkus.filter((sku) => !sku?.excluded);
+  const skus = useMemo(() => rawSkus.filter((sku) => !sku?.excluded), [rawSkus]);
   const companyId = data?.companyId || data?.company_id || null;
   const userId = data?.userId || data?.user_id || null;
   const [addSkuQuery, setAddSkuQuery] = useState('');
@@ -202,9 +202,10 @@ export default function FbaStep1Inventory({
         if (!cancelled) setInventoryLoading(false);
       }
     };
-    run();
+    const timer = setTimeout(run, 250);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [addSkuOpen, addSkuQuery, activeSkuKeys, companyId, userId]);
   const missingInboundPlan = !resolvedInboundPlanId;
