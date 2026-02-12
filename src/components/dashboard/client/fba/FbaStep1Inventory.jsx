@@ -152,9 +152,7 @@ export default function FbaStep1Inventory({
     const set = new Set();
     skus.forEach((sku) => {
       const skuKey = String(sku?.sku || '').trim().toUpperCase();
-      const asinKey = String(sku?.asin || '').trim().toUpperCase();
       if (skuKey) set.add(`SKU:${skuKey}`);
-      if (asinKey) set.add(`ASIN:${asinKey}`);
       if (sku?.stock_item_id) set.add(`STOCK:${sku.stock_item_id}`);
     });
     return set;
@@ -190,11 +188,9 @@ export default function FbaStep1Inventory({
         if (cancelled) return;
         const filtered = (Array.isArray(rows) ? rows : []).filter((row) => {
           const skuKey = String(row?.sku || '').trim().toUpperCase();
-          const asinKey = String(row?.asin || '').trim().toUpperCase();
           const stockKey = row?.id ? `STOCK:${row.id}` : '';
           if (stockKey && activeSkuKeys.has(stockKey)) return false;
           if (skuKey && activeSkuKeys.has(`SKU:${skuKey}`)) return false;
-          if (asinKey && activeSkuKeys.has(`ASIN:${asinKey}`)) return false;
           return true;
         });
         setInventoryResults(filtered);
