@@ -1158,6 +1158,11 @@ export default function FbaStep1Inventory({
     const prepList = formatPrepList(sku.prepInstructions || sku.prepNotes || []);
     const needsPrepNotice =
       sku.prepRequired || prepList.length > 0 || sku.manufacturerBarcodeEligible === false;
+    const prepNeedsAction = prepList.length > 0 || sku.prepRequired;
+    const prepNoticeClass = prepNeedsAction ? 'text-xs text-red-700' : 'text-xs text-emerald-700';
+    const prepNoticeText = prepList.length
+      ? `Prep required: ${prepList.join(', ')}`
+      : `Prep set: ${sku.prepRequired ? 'Prep needed' : 'No prep needed'}`;
     const prepResolved = prepSelection.resolved;
     const needsExpiry = Boolean(sku.expiryRequired);
     const badgeClass =
@@ -1277,10 +1282,8 @@ export default function FbaStep1Inventory({
               </div>
             )}
             {needsPrepNotice && (
-              <div className="text-xs text-amber-700">
-                {prepList.length
-                  ? `Prep required: ${prepList.join(', ')}`
-                  : `Prep set: ${sku.prepRequired ? 'Prep needed' : 'No prep needed'}`}
+              <div className={prepNoticeClass}>
+                {prepNoticeText}
               </div>
             )}
             {needsExpiry && <div className="text-xs text-amber-700">Expiration date required</div>}
