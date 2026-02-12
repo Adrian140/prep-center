@@ -1837,6 +1837,19 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setStep1SaveError('');
   };
 
+  const handleAddSku = (skuId) => {
+    setPlan((prev) => ({
+      ...prev,
+      skus: (prev.skus || []).map((sku) =>
+        sku.id === skuId
+          ? { ...sku, excluded: false, units: Math.max(1, Number(sku.units || 0) || 1) }
+          : sku
+      )
+    }));
+    invalidateFrom('1');
+    setStep1SaveError('');
+  };
+
   const handleExpiryChange = (skuId, value) => {
     setPlan((prev) => ({
       ...prev,
@@ -4348,6 +4361,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           onChangePacking={handlePackingChange}
           onChangeQuantity={handleQuantityChange}
           onRemoveSku={handleRemoveSku}
+          onAddSku={handleAddSku}
           onChangeExpiry={handleExpiryChange}
           onChangePrep={handlePrepChange}
           skuServicesById={skuServicesById}

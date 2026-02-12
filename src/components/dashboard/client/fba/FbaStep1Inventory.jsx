@@ -83,6 +83,7 @@ export default function FbaStep1Inventory({
   onChangePacking,
   onChangeQuantity,
   onRemoveSku,
+  onAddSku,
   onChangeExpiry,
   onChangePrep,
   skuServicesById = {},
@@ -104,6 +105,8 @@ export default function FbaStep1Inventory({
   const marketplaceRaw = data?.marketplace || '';
   const rawSkus = Array.isArray(data?.skus) ? data.skus : [];
   const skus = rawSkus.filter((sku) => !sku?.excluded);
+  const [addSkuQuery, setAddSkuQuery] = useState('');
+  const [addSkuOpen, setAddSkuOpen] = useState(false);
   const ignoredItems = Array.isArray(data?.ignoredItems) ? data.ignoredItems : [];
 
   const marketplaceIdByCountry = {
@@ -131,6 +134,15 @@ export default function FbaStep1Inventory({
   })();
   const totalUnits = skus.reduce((sum, sku) => sum + Number(sku.units || 0), 0);
   const hasUnits = totalUnits > 0;
+  const addSkuCandidates = useMemo(() => {
+    const normalizedQuery = String(addSkuQuery || '').trim().toLowerCase();
+    const base = rawSkus.filter((sku) => sku?.excluded || Number(sku?.units || 0) <= 0);
+    if (!normalizedQuery) return base;
+    return base.filter((sku) => {
+      const haystack = [sku?.title, sku?.product_name, sku?.sku, sku?.asin].map((v) => String(v || '').toLowerCase()).join(' ');
+      return haystack.includes(normalizedQuery);
+    });
+  }, [addSkuQuery, rawSkus]);
   const missingInboundPlan = !resolvedInboundPlanId;
   const inboundCopy = {
     banner: '',
@@ -1888,7 +1900,50 @@ export default function FbaStep1Inventory({
             {ignoredItems.length > 0 ? ` · Ignored lines (${ignoredItems.length})` : ''}
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md shadow-sm"
+            onClick={() => setAddSkuOpen((prev) => !prev)}
+          >
+            {addSkuOpen ? 'Close add' : 'Add product'}
+          </button>
+        </div>
       </div>
+      {addSkuOpen && (
+        <div className="px-6 py-3 border-b border-slate-200 bg-slate-50">
+          <div className="flex flex-col gap-2">
+            <input
+              type="text"
+              value={addSkuQuery}
+              onChange={(e) => setAddSkuQuery(e.target.value)}
+              placeholder="Search SKU / ASIN / product name"
+              className="border rounded-md px-3 py-2 text-sm w-full md:w-[420px] bg-white"
+            />
+            <div className="max-h-56 overflow-auto border border-slate-200 rounded-md bg-white">
+              {addSkuCandidates.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-slate-500">No products available to add.</div>
+              ) : (
+                addSkuCandidates.slice(0, 50).map((sku) => (
+                  <div key={`add-${sku.id}`} className="px-3 py-2 flex items-center justify-between gap-3 border-b last:border-b-0">
+                    <div className="min-w-0">
+                      <div className="text-sm text-slate-800 truncate">{sku.title || sku.product_name || sku.sku || sku.asin}</div>
+                      <div className="text-xs text-slate-500 truncate">SKU: {sku.sku || '—'} · ASIN: {sku.asin || '—'}</div>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded"
+                      onClick={() => onAddSku?.(sku.id)}
+                    >
+                      Add
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {(error || hasBlocking) && (
         <div
