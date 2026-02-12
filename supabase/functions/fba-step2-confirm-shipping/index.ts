@@ -1999,17 +1999,7 @@ serve(async (req) => {
     const hasContactName = Boolean(contactInformation?.name && String(contactInformation.name).trim());
     const hasContactPhone = Boolean(contactInformation?.phoneNumber && String(contactInformation.phoneNumber).trim());
     const hasContactEmail = Boolean(contactInformation?.email && String(contactInformation.email).trim());
-    if (!hasContactName || !hasContactPhone || !hasContactEmail) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "contactInformation complet (name, phoneNumber, email) este obligatoriu pentru generateTransportationOptions.",
-          code: "CONTACT_INFORMATION_REQUIRED",
-          traceId
-        }),
-        { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
-    }
+    const hasCompleteContactInformation = hasContactName && hasContactPhone && hasContactEmail;
     const mergedIncomingConfigs = (() => {
       const map = new Map<string, any>();
       (shipmentTransportConfigs || []).forEach((cfg: any, idx: number) => {
@@ -2054,6 +2044,7 @@ serve(async (req) => {
           (shipmentTransportConfigs || [])[idx] ||
           {};
         const rawStart =
+          (includePackages && shipDateParsed ? shipDateParsed.toISOString() : null) ||
           cfg.readyToShipWindow?.start ||
           cfg.ready_to_ship_window?.start ||
           globalReadyWindow?.start ||
@@ -2071,7 +2062,8 @@ serve(async (req) => {
           shipmentId: shId
         };
         if (rawEnd) baseCfg.readyToShipWindow.end = rawEnd;
-        if (contactInformation) baseCfg.contactInformation = contactInformation;
+        // For SPD, keep payload minimal (closer to Seller Central flow); contact info is mainly needed for LTL partnered.
+        if (!includePackages && hasCompleteContactInformation) baseCfg.contactInformation = contactInformation;
         const pkgsFromCfg = normalizePackages(cfg?.packages);
         if (pkgsFromCfg) baseCfg.packages = pkgsFromCfg;
         const pallets = normalizePallets(cfg?.pallets);
@@ -2576,7 +2568,7 @@ serve(async (req) => {
         shipmentId: cfg?.shipmentId,
         readyToShipWindow: { start: cfg?.readyToShipWindow?.start }
       };
-      if (cfg?.contactInformation) base.contactInformation = cfg.contactInformation;
+      if (!includePackages && cfg?.contactInformation) base.contactInformation = cfg.contactInformation;
       if (Array.isArray(cfg?.pallets) && cfg.pallets.length) base.pallets = cfg.pallets;
       if (cfg?.freightInformation) base.freightInformation = cfg.freightInformation;
       return base;
