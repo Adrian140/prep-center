@@ -934,6 +934,17 @@ const marketplaceByCountry: Record<string, string> = {
   PT: "A1RKKUPIHCS9HS",
   GR: "A1RKKUPIHCS9HS"
 };
+const marketplaceNameById: Record<string, string> = {
+  A13V1IB3VIYZZH: "France",
+  A1PA6795UKMFR9: "Germany",
+  A1RKKUPIHCS9HS: "Spain",
+  APJ6JRA9NG5V4: "Italy",
+  A1805IZSGTT6HS: "Netherlands",
+  A2NODRKZP88ZB9: "Sweden",
+  A1C3SOZRARQ6R3: "Poland",
+  A1F83G8C2ARO7P: "United Kingdom",
+  A2Q3Y263D00KWC: "Belgium"
+};
 
 type TempCreds = {
   accessKeyId: string;
@@ -2166,13 +2177,14 @@ serve(async (req) => {
     const blocking = skuStatuses.filter((s) => ["inactive", "restricted", "inbound_unavailable"].includes(String(s.state)));
     if (skuStatuses.length) {
       const warningParts: string[] = [];
+      const marketplaceLabel = marketplaceNameById[String(marketplaceId || "").toUpperCase()] || String(marketplaceId || "");
       if (blocking.length) {
-        warningParts.push(`Unele produse nu sunt eligibile pe marketplace-ul destinație (${marketplaceId}).`);
+        warningParts.push(`Unele produse nu sunt eligibile pe marketplace-ul destinație (${marketplaceLabel}).`);
       }
       const missing = skuStatuses.filter((s) => s.state === "missing");
       if (missing.length) {
         warningParts.push(
-          `SKU fără listing pe marketplace (${missing.map((m) => m.sku).join(", ")}). Verifică dacă există ca FBA.`
+          `SKU fără listing pe marketplace ${marketplaceLabel} (${missing.map((m) => m.sku).join(", ")}). Verifică dacă există ca FBA.`
         );
       }
       if (ignoredItemsWarning) warningParts.push(ignoredItemsWarning);

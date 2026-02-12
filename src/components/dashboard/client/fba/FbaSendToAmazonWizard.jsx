@@ -2872,6 +2872,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     packGroups.forEach((g, idx) => {
       const { planGroup } = resolvePlanGroupForPackGroup(g);
       const planBoxesRaw = Array.isArray(planGroup?.boxes) ? planGroup.boxes : [];
+      const planBoxItems = Array.isArray(planGroup?.boxItems) ? planGroup.boxItems : [];
+      const boxContentSummary = (boxIdx) => {
+        const raw = planBoxItems?.[boxIdx] || {};
+        const entries = Object.entries(raw).filter(([, qty]) => Number(qty || 0) > 0);
+        const units = entries.reduce((sum, [, qty]) => sum + (Number(qty || 0) || 0), 0);
+        return {
+          contentUnits: units > 0 ? units : null,
+          contentSkuCount: entries.length > 0 ? entries.length : null
+        };
+      };
       const planPerBoxDetails = planBoxesRaw
         .map((box) => {
           const length = getPositiveNumber(box?.length_cm ?? box?.length);
@@ -2903,22 +2913,30 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         : planPerBoxDetails;
       const perBoxPackages = isMultiple && perBoxDetails.length
         ? perBoxDetails
-            .map((box) => {
+            .map((box, boxIdx) => {
               const perDims = getSafeDims(box);
               const perWeight = getPositiveNumber(box?.weight);
               if (!perDims || !perWeight) return null;
+              const summary = boxContentSummary(boxIdx);
               return {
                 dimensions: { length: perDims.length, width: perDims.width, height: perDims.height, unit: "CM" },
-                weight: { value: perWeight, unit: "KG" }
+                weight: { value: perWeight, unit: "KG" },
+                ...(summary.contentUnits ? { contentUnits: summary.contentUnits } : {}),
+                ...(summary.contentSkuCount ? { contentSkuCount: summary.contentSkuCount } : {})
               };
             })
             .filter(Boolean)
         : [];
       const fallbackPerBoxPackages = !perBoxPackages.length && planPerBoxDetails.length
-        ? planPerBoxDetails.map((box) => ({
-            dimensions: { length: box.length, width: box.width, height: box.height, unit: "CM" },
-            weight: { value: box.weight, unit: "KG" }
-          }))
+        ? planPerBoxDetails.map((box, boxIdx) => {
+            const summary = boxContentSummary(boxIdx);
+            return {
+              dimensions: { length: box.length, width: box.width, height: box.height, unit: "CM" },
+              weight: { value: box.weight, unit: "KG" },
+              ...(summary.contentUnits ? { contentUnits: summary.contentUnits } : {}),
+              ...(summary.contentSkuCount ? { contentSkuCount: summary.contentSkuCount } : {})
+            };
+          })
         : [];
       const packingGroupId = g.packingGroupId || null;
       if (!packingGroupId) return;
@@ -2954,7 +2972,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         existing.packages.push(...fallbackPerBoxPackages);
       } else if (pkg) {
         for (let i = 0; i < boxCount; i += 1) {
-          existing.packages.push(pkg);
+          const summary = boxContentSummary(i);
+          existing.packages.push({
+            ...pkg,
+            ...(summary.contentUnits ? { contentUnits: summary.contentUnits } : {}),
+            ...(summary.contentSkuCount ? { contentSkuCount: summary.contentSkuCount } : {})
+          });
         }
       }
       byShipment.set(shId, existing);

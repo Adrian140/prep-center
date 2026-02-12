@@ -1862,6 +1862,20 @@ serve(async (req) => {
           const weightValue = Number(w?.value);
           const dimUnit = (dims?.unitOfMeasurement || dims?.unit || dims?.uom || "CM").toString().toUpperCase();
           const weightUnit = (w?.unit || w?.uom || "KG").toString().toUpperCase();
+          const contentUnits = Number(
+            p?.contentUnits ??
+              p?.content_units ??
+              p?._contentUnits ??
+              p?.packageContentUnits ??
+              p?.package_content_units
+          );
+          const contentSkuCount = Number(
+            p?.contentSkuCount ??
+              p?.content_sku_count ??
+              p?._contentSkuCount ??
+              p?.packageContentSkuCount ??
+              p?.package_content_sku_count
+          );
           if (!Number.isFinite(length) || length <= 0) return null;
           if (!Number.isFinite(width) || width <= 0) return null;
           if (!Number.isFinite(height) || height <= 0) return null;
@@ -1879,7 +1893,9 @@ serve(async (req) => {
           return {
             dimensions: normalizedDims,
             weight: normalizedWeight,
-            quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1
+            quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+            ...(Number.isFinite(contentUnits) && contentUnits > 0 ? { contentUnits } : {}),
+            ...(Number.isFinite(contentSkuCount) && contentSkuCount > 0 ? { contentSkuCount } : {})
           };
         })
         .filter(Boolean);
@@ -2335,15 +2351,51 @@ serve(async (req) => {
           if (lengthGirthIn > maxLengthGirthIn) maxLengthGirthIn = lengthGirthIn;
 
           if (isEuMarketplace) {
-            const SPD_MAX_SIDE_IN = 25; // 63.5 cm
-            const SPD_HARD_MAX_WEIGHT_LB = kgToLb(23); // 23 kg limit
+            const EU_LENGTH_36IN_MARKETPLACES = new Set([
+              "A13V1IB3VIYZZH", // FR
+              "A1PA6795UKMFR9", // DE
+              "APJ6JRA9NG5V4", // IT
+              "A1RKKUPIHCS9HS", // ES
+              "A1F83G8C2ARO7P" // UK
+            ]);
+            const useExtendedLengthRule = EU_LENGTH_36IN_MARKETPLACES.has(String(marketplaceId || "").trim());
+            const SPD_MAX_SIDE_IN = 25; // 63.5 cm (width/height)
+            const SPD_MAX_LENGTH_IN = useExtendedLengthRule ? 36 : 25; // 91.4 cm (or legacy 63.5)
+            const SPD_HARD_MAX_WEIGHT_LB = kgToLb(23); // 23 kg standard
+            const SINGLE_OVERSIZE_MAX_SIDE_IN = cmToIn(73.7); // 29 in (single-item oversize exception)
+            const SINGLE_OVERSIZE_MAX_WEIGHT_LB = kgToLb(30);
             const SPD_WARN_WEIGHT_LB = kgToLb(15); // 15 kg: cere eticheta "Heavy package"
+            const mediumSide = Number(sorted?.[1] || 0);
+            const smallSide = Number(sorted?.[2] || 0);
+            const contentUnits = Number(pkg?.contentUnits || 0);
+            const contentSkuCount = Number(pkg?.contentSkuCount || 0);
+            const isSingleOversizeItemBox = contentUnits === 1 && contentSkuCount === 1;
+            const withinStandardDims =
+              Number.isFinite(lengthIn) &&
+              Number.isFinite(mediumSide) &&
+              Number.isFinite(smallSide) &&
+              lengthIn <= SPD_MAX_LENGTH_IN &&
+              mediumSide <= SPD_MAX_SIDE_IN &&
+              smallSide <= SPD_MAX_SIDE_IN;
+            const withinSingleOversizeException =
+              isSingleOversizeItemBox &&
+              Number.isFinite(maxSide) &&
+              maxSide <= SINGLE_OVERSIZE_MAX_SIDE_IN &&
+              weightLb <= SINGLE_OVERSIZE_MAX_WEIGHT_LB;
 
-            if (weightLb > SPD_HARD_MAX_WEIGHT_LB) {
+            if (weightLb > SPD_HARD_MAX_WEIGHT_LB && !withinSingleOversizeException) {
               spdErrors.push(
                 `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: ${weightLb.toFixed(
                   2
                 )} lb (${lbToKg(weightLb).toFixed(2)} kg) depășește 23 kg - împarte cutia sau folosește LTL.`
+              );
+            } else if (weightLb > SPD_HARD_MAX_WEIGHT_LB && withinSingleOversizeException) {
+              spdWarnings.push(
+                `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: ${weightLb.toFixed(
+                  2
+                )} lb (${lbToKg(weightLb).toFixed(
+                  2
+                )} kg) depășește 23 kg, permis doar ca excepție single-item oversized.`
               );
             } else if (weightLb >= SPD_WARN_WEIGHT_LB) {
               spdWarnings.push(
@@ -2355,13 +2407,21 @@ serve(async (req) => {
               );
             }
 
-            if (Number.isFinite(maxSide) && maxSide > SPD_MAX_SIDE_IN) {
+            if (!withinStandardDims && !withinSingleOversizeException) {
               spdErrors.push(
-                `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: latura maximă ${maxSide.toFixed(
+                `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: dimensiuni ${lengthIn.toFixed(
                   2
-                )} in (${(maxSide * 2.54).toFixed(
+                )} x ${mediumSide.toFixed(2)} x ${smallSide.toFixed(2)} in (${(lengthIn * 2.54).toFixed(
                   2
-                )} cm) depășește 63.5 cm. SPD PCP nu este disponibil; ajustează cutia sau folosește LTL.`
+                )} x ${(mediumSide * 2.54).toFixed(2)} x ${(smallSide * 2.54).toFixed(
+                  2
+                )} cm) nu respectă SPD. Limite: lungime ≤ ${(SPD_MAX_LENGTH_IN * 2.54).toFixed(
+                  1
+                )} cm și celelalte laturi ≤ 63.5 cm; excepție doar pentru cutie cu 1 singur produs oversized.`
+              );
+            } else if (!withinStandardDims && withinSingleOversizeException) {
+              spdWarnings.push(
+                `Shipment ${cfg?.shipmentId || cfgIdx + 1} pkg ${pkgIdx + 1}: aplicată excepția single-item oversized pentru SPD.`
               );
             }
           } else {
@@ -2424,7 +2484,7 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({
             error:
-              "Coletele nu respectă regulile SPD (EU): max 23 kg și max 63.5 cm pe latură.",
+              "Coletele nu respectă regulile SPD (EU): greutate max 23 kg și limite de dimensiuni depășite.",
             code: "SPD_PACKAGE_NOT_ELIGIBLE",
             details: spdErrors,
             traceId
