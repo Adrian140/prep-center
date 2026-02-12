@@ -82,6 +82,7 @@ export default function FbaStep1Inventory({
   inboundPlanCopy = {},
   onChangePacking,
   onChangeQuantity,
+  onRemoveSku,
   onChangeExpiry,
   onChangePrep,
   skuServicesById = {},
@@ -102,7 +103,7 @@ export default function FbaStep1Inventory({
   const shipFrom = data?.shipFrom || {};
   const marketplaceRaw = data?.marketplace || '';
   const rawSkus = Array.isArray(data?.skus) ? data.skus : [];
-  const skus = rawSkus;
+  const skus = rawSkus.filter((sku) => !sku?.excluded);
   const ignoredItems = Array.isArray(data?.ignoredItems) ? data.ignoredItems : [];
 
   const marketplaceIdByCountry = {
@@ -1338,6 +1339,13 @@ export default function FbaStep1Inventory({
                 className="border rounded-md px-2 py-1 text-sm"
               />
             )}
+            <button
+              type="button"
+              className="self-start text-xs text-red-600 underline"
+              onClick={() => onRemoveSku?.(sku.id)}
+            >
+              Elimina listing
+            </button>
             <div className="border border-slate-200 rounded-md p-2 bg-slate-50">
               <div className="flex items-center justify-between text-xs text-slate-600">
                 <span>Boxes</span>

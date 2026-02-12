@@ -530,6 +530,55 @@ function extractSkuErrorReasons(primary: { json: any; text: string }): Record<st
   return {};
 }
 
+function parsePrepTypeListBlock(raw: string): string[][] {
+  const out: string[][] = [];
+  const block = String(raw || "");
+  const matches = block.matchAll(/\[([A-Z0-9_,\s-]+)\]/g);
+  for (const m of matches) {
+    const content = String(m?.[1] || "").trim();
+    if (!content) continue;
+    const list = content
+      .split(",")
+      .map((token) => toInboundPrepType(token.trim()))
+      .filter((token): token is string => !!token);
+    if (list.length) out.push(Array.from(new Set(list)));
+  }
+  return out;
+}
+
+function extractExpectedPrepTypesBySku(primary: { json: any; text: string }): Record<string, string[]> {
+  const collect = (obj: any) => {
+    const errs = obj?.errors || obj?.payload?.errors || [];
+    if (!Array.isArray(errs)) return {};
+    const out: Record<string, string[]> = {};
+    for (const e of errs) {
+      const msg = String(e?.message || e?.Message || "");
+      if (!msg || !/Expected one of the following prep type lists:/i.test(msg)) continue;
+      const skuMatch = msg.match(/msku\s*=\s*([^,\)]+)/i);
+      const sku = normalizeSku(skuMatch?.[1] || "");
+      if (!sku) continue;
+      const listsMatch = msg.match(/Expected one of the following prep type lists:\s*(.+?)\s*for input/i);
+      const parsedLists = parsePrepTypeListBlock(listsMatch?.[1] || "");
+      if (!parsedLists.length) continue;
+      out[sku] = parsedLists[0];
+    }
+    return out;
+  };
+
+  const fromJson = collect(primary.json);
+  if (Object.keys(fromJson).length) return fromJson;
+
+  if (primary.text) {
+    try {
+      const parsed = JSON.parse(primary.text);
+      return collect(parsed);
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
 function chooseFixValue(field: InboundField, msg: string, accepted: OwnerVal[]): OwnerVal | null {
   const up = msg.toUpperCase();
   if (up.includes("DOES NOT REQUIRE") && accepted.includes("NONE")) return "NONE";
@@ -2517,11 +2566,20 @@ serve(async (req) => {
       const payload: Array<{ msku: string; prepCategory: string; prepTypes: string[] }> = [];
       for (const sku of targetSkus) {
         const entry = bySku[sku] || null;
-        const prepTypes = buildPrepTypesFromHints(sku, entry?.prepTypes || []);
+        let prepTypes = buildPrepTypesFromHints(sku, entry?.prepTypes || []);
         const prepCategory = choosePrepCategoryForSku(sku, entry, prepTypes);
         if (!prepCategory) {
           warnings.push(`Nu pot deduce prepCategory pentru SKU ${sku}; las cazul pentru setare manuală în Amazon.`);
           continue;
+        }
+        // Amazon expects a strict prepTypes set for prepCategory=NONE.
+        // Example error: "Expected one of ... [[ITEM_NO_PREP]]" when ITEM_LABELING is sent.
+        if (prepCategory === "NONE") {
+          prepTypes = ["ITEM_NO_PREP"];
+        } else {
+          // For non-NONE categories, keep actionable prep types and avoid sending ITEM_NO_PREP as sole signal.
+          const filtered = prepTypes.filter((t) => t !== "ITEM_NO_PREP");
+          if (filtered.length) prepTypes = filtered;
         }
         payload.push({ msku: sku, prepCategory, prepTypes });
       }
@@ -2539,6 +2597,51 @@ serve(async (req) => {
 
       const setRes = await setPrepDetails(payload);
       if (!setRes || !setRes.res.ok) {
+        const expectedBySku = extractExpectedPrepTypesBySku({
+          json: setRes?.json,
+          text: setRes?.text || ""
+        });
+        const payloadRetry = payload.map((row) => {
+          const expected = expectedBySku[normalizeSku(row.msku)] || null;
+          if (!expected || !expected.length) return row;
+          return { ...row, prepTypes: expected };
+        });
+        const hasAdaptiveRetry = payloadRetry.some((row, idx) => {
+          const prev = payload[idx]?.prepTypes || [];
+          const next = row?.prepTypes || [];
+          if (prev.length !== next.length) return true;
+          return prev.some((v, i) => v !== next[i]);
+        });
+
+        if (hasAdaptiveRetry) {
+          console.log("prep-classification adaptive retry from Amazon expected prepTypes", {
+            traceId,
+            skuCount: Object.keys(expectedBySku).length,
+            skus: Object.keys(expectedBySku)
+          });
+          const retryRes = await setPrepDetails(payloadRetry);
+          if (!retryRes || !retryRes.res.ok) {
+            warnings.push(`Amazon setPrepDetails a eșuat (${retryRes?.res?.status ?? setRes?.res?.status ?? "n/a"}).`);
+            return { applied: false, warnings };
+          }
+          const retryOpId = extractOperationId(retryRes.json);
+          if (!retryOpId) {
+            warnings.push("setPrepDetails (retry) nu a întors operationId; nu pot confirma aplicarea.");
+            return { applied: false, warnings };
+          }
+          const retryOp = await pollOperationStatus(retryOpId);
+          const retryState = String(retryOp?.state || "").toUpperCase();
+          if (retryState !== "SUCCESS") {
+            warnings.push(`setPrepDetails retry operation ${retryOpId} a returnat status ${retryState || "UNKNOWN"}.`);
+            return { applied: false, warnings };
+          }
+          const refreshResAfterRetry = await listPrepDetails(targetSkus);
+          if (refreshResAfterRetry?.res?.ok) {
+            syncPrepConstraintsFromEntries(extractPrepDetailsEntries(refreshResAfterRetry.json));
+          }
+          return { applied: true, warnings };
+        }
+
         warnings.push(`Amazon setPrepDetails a eșuat (${setRes?.res?.status ?? "n/a"}).`);
         return { applied: false, warnings };
       }

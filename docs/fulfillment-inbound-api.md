@@ -100,6 +100,8 @@ flowchart TD
 - In payload-ul initial `createInboundPlan`, daca guidance-ul indica `NoAdditionalPrepRequired` sau doar `Labeling`/`NoPrep`, pornim direct cu `prepOwner=NONE` (evitam primul 400 cu retry).
 - Daca `listPrepDetails` intoarce `prepCategory` nevalida (gol, `UNKNOWN`, `FC_PROVIDED` sau categorie neacceptata), incercam auto-remediere prin `setPrepDetails` inainte de primul `createInboundPlan`.
 - Fallback: daca `listPrepDetails` esueaza temporar, incercam `setPrepDetails` pe baza guidance-ului deja extras (cand poate fi dedus in siguranta), apoi reluam `createInboundPlan`.
+- `setPrepDetails` valideaza strict combinatia `prepCategory + prepTypes` per SKU. Daca Amazon returneaza eroare de tip `Expected one of the following prep type lists ...`, trebuie retrimis payload-ul exact cu una din listele acceptate din mesajul de eroare (ex: pentru `prepCategory=NONE`, Amazon poate accepta doar `[[ITEM_NO_PREP]]`).
+- Implementarea trebuie sa suporte retry adaptiv pe baza mesajului Amazon, nu doar mapping static local, deoarece seturile acceptate pot varia per SKU/marketplace.
 - Atentie: documentatia oficiala nu enumera exhaustiv toate erorile operationale runtime (ex: combinatii specifice SKU/marketplace), deci trebuie tratate explicit in cod pe baza `operationProblems`/`errors`.
 
 ## LTL/FTL - Cerinte stricte (conform SP-API)

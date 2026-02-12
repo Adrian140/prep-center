@@ -107,29 +107,16 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
     UK: 'A1F83G8C2ARO7P'
   };
 
-  const wizardPlan = useMemo(() => {
-    if (!row) return null;
-    const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
-    return {
-      shipFrom: {
-        name: row.client_name || 'Prep Center',
-        address: row.destination_country || '—'
-      },
-      marketplace: MARKETPLACE_ID[row.destination_country] || row.destination_country || 'FR',
-      skus: items.map((it, idx) => ({
-        id: it.id || `sku-${idx}`,
-        title: it.product_name || it.stock_item?.name || `SKU ${idx + 1}`,
-        sku: it.sku || it.stock_item?.sku || '—',
-        asin: it.asin || it.stock_item?.asin || '—',
-        storageType: 'Standard-size',
-        packing: 'individual',
-        units: Number(it.units_sent ?? it.units_requested ?? 0),
-        expiry: '',
-        prepRequired: false,
-        readyToPack: true
-      }))
-    };
+  const wizardSnapshot = useMemo(() => {
+    if (!row?.amazon_snapshot || typeof row.amazon_snapshot !== 'object') return {};
+    return row.amazon_snapshot;
   }, [row]);
+
+  const wizardInboundSnapshot = useMemo(() => {
+    const inbound = wizardSnapshot?.fba_inbound;
+    if (inbound && typeof inbound === 'object') return inbound;
+    return wizardSnapshot && typeof wizardSnapshot === 'object' ? wizardSnapshot : {};
+  }, [wizardSnapshot]);
 
   useEffect(() => {
     if (!requestId) return;
@@ -138,7 +125,42 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
     }
   }, [openWizard, requestId]);
 
+  const wizardStep2Summary = useMemo(() => row?.step2_summary || null, [row]);
+  const wizardStep2Shipments = useMemo(
+    () => (Array.isArray(row?.step2_shipments) ? row.step2_shipments : []),
+    [row]
+  );
+
   const wizardPackGroups = useMemo(() => {
+    const fromSnapshot = Array.isArray(wizardInboundSnapshot?.packingGroups)
+      ? wizardInboundSnapshot.packingGroups
+      : [];
+    if (fromSnapshot.length) {
+      return fromSnapshot.map((pg, idx) => {
+        const items = Array.isArray(pg?.items) ? pg.items : [];
+        const units =
+          Number(pg?.units) ||
+          items.reduce((sum, it) => sum + (Number(it?.quantity || it?.units || 0) || 0), 0);
+        return {
+          id: pg?.id || pg?.packingGroupId || `pg-${idx + 1}`,
+          packingGroupId: pg?.packingGroupId || pg?.id || `pg-${idx + 1}`,
+          title: pg?.title || pg?.destLabel || `Pack group ${idx + 1}`,
+          items,
+          skuCount: Number(pg?.skuCount) || items.length || 0,
+          units: units || 0,
+          boxes: Math.max(1, Number(pg?.boxes) || 1),
+          packMode: pg?.packMode || 'single',
+          boxDimensions: pg?.boxDimensions || pg?.dimensions || null,
+          boxWeight: pg?.boxWeight ?? pg?.weight ?? null,
+          perBoxDetails: pg?.perBoxDetails || pg?.per_box_details || null,
+          perBoxItems: pg?.perBoxItems || pg?.per_box_items || null,
+          contentInformationSource: pg?.contentInformationSource || pg?.content_information_source || null,
+          warning: null,
+          image: pg?.image || placeholderImg
+        };
+      });
+    }
+
     if (!row) return [];
     const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
     return items.map((it, idx) => ({
@@ -151,7 +173,78 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
       warning: null,
       image: it.stock_item?.image_url || placeholderImg
     }));
-  }, [row]);
+  }, [placeholderImg, row, wizardInboundSnapshot]);
+
+  const wizardPlan = useMemo(() => {
+    if (!row) return null;
+    const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
+    const sourceAddress =
+      wizardInboundSnapshot?.sourceAddress ||
+      wizardInboundSnapshot?.source_address ||
+      null;
+    const rawShipFrom = sourceAddress
+      ? [
+          sourceAddress?.name || sourceAddress?.companyName || '',
+          sourceAddress?.addressLine1 || sourceAddress?.addressLine2 || '',
+          sourceAddress?.city || '',
+          sourceAddress?.postalCode || '',
+          sourceAddress?.countryCode || ''
+        ]
+          .filter(Boolean)
+          .join(', ')
+      : null;
+    const snapshotSkus = Array.isArray(wizardInboundSnapshot?.skus) ? wizardInboundSnapshot.skus : [];
+    const skuMap = new Map();
+    snapshotSkus.forEach((s) => {
+      const key = String(s?.sku || s?.msku || '').trim().toUpperCase();
+      if (key) skuMap.set(key, s);
+    });
+
+    const skus = items.map((it, idx) => {
+      const key = String(it?.sku || '').trim().toUpperCase();
+      const snap = (key && skuMap.get(key)) || {};
+      return {
+        id: it.id || `sku-${idx}`,
+        title: it.product_name || snap?.title || snap?.name || it.stock_item?.name || `SKU ${idx + 1}`,
+        sku: it.sku || snap?.sku || snap?.msku || it.stock_item?.sku || '—',
+        asin: it.asin || snap?.asin || it.stock_item?.asin || '—',
+        storageType: snap?.storageType || 'Standard-size',
+        packing: 'individual',
+        units: Number(it.units_sent ?? it.units_requested ?? 0),
+        expiry: it.expiration_date || snap?.expiration || '',
+        prepRequired: false,
+        readyToPack: true
+      };
+    });
+
+    const inboundPlanId = row?.inbound_plan_id || wizardInboundSnapshot?.inboundPlanId || wizardInboundSnapshot?.inbound_plan_id || null;
+    const packingOptionId = row?.packing_option_id || wizardInboundSnapshot?.packingOptionId || wizardInboundSnapshot?.packing_option_id || null;
+    const placementOptionId = row?.placement_option_id || wizardInboundSnapshot?.placementOptionId || wizardInboundSnapshot?.placement_option_id || null;
+
+    return {
+      id: row.id,
+      requestId: row.id,
+      request_id: row.id,
+      prepRequestId: row.id,
+      inboundPlanId,
+      inbound_plan_id: inboundPlanId,
+      packingOptionId,
+      packing_option_id: packingOptionId,
+      placementOptionId,
+      placement_option_id: placementOptionId,
+      step1BoxPlan: row?.step1_box_plan || wizardInboundSnapshot?.step1BoxPlan || wizardInboundSnapshot?.step1_box_plan || {},
+      step1_box_plan: row?.step1_box_plan || wizardInboundSnapshot?.step1BoxPlan || wizardInboundSnapshot?.step1_box_plan || {},
+      shipFrom: {
+        name: row.client_name || sourceAddress?.name || sourceAddress?.companyName || 'Prep Center',
+        address: rawShipFrom || row.destination_country || '—'
+      },
+      sourceAddress,
+      marketplace: MARKETPLACE_ID[row.destination_country] || row.destination_country || 'FR',
+      skus,
+      packGroups: wizardPackGroups,
+      shipments: wizardStep2Shipments
+    };
+  }, [row, wizardInboundSnapshot, wizardPackGroups, wizardStep2Shipments]);
 
   const fetchPlanFromEdge = useCallback(async () => {
     if (!row?.id) throw new Error('Missing request id');
@@ -234,6 +327,9 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
   }, [row?.id, session]);
 
   const wizardShipments = useMemo(() => {
+    if (wizardStep2Shipments.length) return wizardStep2Shipments;
+    const fromSnapshot = Array.isArray(wizardInboundSnapshot?.shipments) ? wizardInboundSnapshot.shipments : [];
+    if (fromSnapshot.length) return fromSnapshot;
     if (!row) return [];
     const totalUnits = (row.prep_request_items || []).reduce(
       (sum, it) => sum + Number(it.units_sent ?? it.units_requested ?? 0),
@@ -250,11 +346,20 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
         units: totalUnits || 0
       }
     ];
-  }, [row]);
+  }, [row, wizardInboundSnapshot, wizardStep2Shipments]);
 
-  const wizardStep2Summary = useMemo(() => row?.step2_summary || null, [row]);
-  const wizardStep2Shipments = useMemo(
-    () => (Array.isArray(row?.step2_shipments) ? row.step2_shipments : []),
+  const wizardTrackingList = useMemo(
+    () =>
+      (row?.prep_request_tracking || []).map((t, idx) => ({
+        id: t?.id || `trk-${idx + 1}`,
+        box: idx + 1,
+        label: t?.box_label || `BOX-${idx + 1}`,
+        trackingId: t?.tracking_id || '',
+        status: t?.tracking_id ? 'Confirmed' : 'Pending',
+        weight: null,
+        dimensions: '',
+        boxId: t?.box_id || null
+      })),
     [row]
   );
   const wizardTrackingIds = useMemo(
@@ -314,22 +419,38 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
     };
   }, [row, wizardSelectedCarrier, wizardSelectedMode, wizardSelectedPartnered, wizardStep2Summary]);
 
-  const wizardHistoryMode = Boolean(openWizard || row?.step2_confirmed_at || row?.step4_confirmed_at);
+  const wizardHistoryMode = Boolean(openWizard || row?.step2_confirmed_at || row?.step4_confirmed_at || row?.status === 'confirmed');
+  const wizardHasStep1 = Boolean(Array.isArray(row?.prep_request_items) && row.prep_request_items.length);
+  const wizardHasStep1b = Boolean(
+    wizardPackGroups.length ||
+      (row?.step1_box_plan && typeof row.step1_box_plan === 'object' && Object.keys(row.step1_box_plan || {}).length)
+  );
+  const wizardHasStep2 = Boolean(
+    row?.step2_confirmed_at ||
+      row?.transportation_option_id ||
+      wizardStep2Summary?.selectedOptionId ||
+      wizardStep2Shipments.length
+  );
+  const wizardHasStep3 = Boolean(row?.fba_shipment_id || row?.status === 'confirmed');
+  const wizardHasStep4 = Boolean(wizardTrackingIds.length || row?.step4_confirmed_at);
+
   const wizardCompletedSteps = useMemo(() => {
     const steps = [];
-    if (Array.isArray(row?.prep_request_items) && row.prep_request_items.length) {
-      steps.push('1', '1b');
-    }
-    if (row?.step2_confirmed_at) steps.push('2');
-    if (wizardTrackingIds.length || row?.step4_confirmed_at) steps.push('4');
+    if (wizardHasStep1) steps.push('1');
+    if (wizardHasStep1b || wizardHasStep1) steps.push('1b');
+    if (wizardHasStep2) steps.push('2');
+    if (wizardHasStep3) steps.push('3');
+    if (wizardHasStep4) steps.push('4');
     return Array.from(new Set(steps));
-  }, [row, wizardTrackingIds.length]);
+  }, [wizardHasStep1, wizardHasStep1b, wizardHasStep2, wizardHasStep3, wizardHasStep4]);
+
   const wizardInitialStep = useMemo(() => {
-    if (openWizard) return '2';
-    if (wizardTrackingIds.length || row?.step4_confirmed_at) return '4';
-    if (row?.step2_confirmed_at) return '2';
+    if (wizardHasStep4) return '4';
+    if (wizardHasStep3) return '3';
+    if (wizardHasStep2) return '2';
+    if (wizardHasStep1b) return '1b';
     return '1';
-  }, [openWizard, row, wizardTrackingIds.length]);
+  }, [wizardHasStep1b, wizardHasStep2, wizardHasStep3, wizardHasStep4]);
 
   // ---- helpers (afisare cod + nume)
   const codeOf = (it) => (it?.asin || it?.sku || "");
@@ -1128,7 +1249,7 @@ onChanged?.();
           initialPacking={wizardPackGroups}
           initialShipmentMode={wizardShipmentMode}
           initialShipmentList={wizardStep2Shipments.length ? wizardStep2Shipments : wizardShipments}
-          initialTrackingList={[]}
+          initialTrackingList={wizardTrackingList}
           initialTrackingIds={wizardTrackingIds}
           initialCompletedSteps={wizardCompletedSteps}
           initialShippingOptions={wizardShippingOptions}

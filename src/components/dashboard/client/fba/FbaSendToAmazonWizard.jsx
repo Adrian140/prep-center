@@ -1262,7 +1262,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (prevStorageKeyRef.current === storageKeyBase) return;
     prevStorageKeyRef.current = storageKeyBase;
 
-    const normalizedInitialGroups = normalizePackGroups(initialPackGroups || []);
+    const normalizedInitialGroups = normalizePackGroups(initialPacking || []);
     const hasInbound =
       Boolean(planRef.current?.inboundPlanId || planRef.current?.inbound_plan_id || plan?.inboundPlanId || plan?.inbound_plan_id);
     const hasRealGroups = hasRealPackGroups(packGroupsRef.current);
@@ -1326,7 +1326,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   }, [
     storageKeyBase,
     initialPlan,
-    initialPackGroups,
+    initialPacking,
     initialShipmentMode,
     initialShipmentList,
     initialTrackingList,
@@ -1816,6 +1816,23 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       ...prev,
       skus: prev.skus.map((sku) => (sku.id === skuId ? { ...sku, units: Math.max(0, value) } : sku))
     }));
+    invalidateFrom('1');
+    setStep1SaveError('');
+  };
+
+  const handleRemoveSku = (skuId) => {
+    setPlan((prev) => ({
+      ...prev,
+      skus: prev.skus.map((sku) =>
+        sku.id === skuId ? { ...sku, units: 0, excluded: true } : sku
+      )
+    }));
+    setSkuServicesById((prev) => {
+      if (!prev || !prev[skuId]) return prev;
+      const next = { ...prev };
+      delete next[skuId];
+      return next;
+    });
     invalidateFrom('1');
     setStep1SaveError('');
   };
@@ -4307,6 +4324,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           onBypassInboundPlan={handleInboundPlanBypass}
           onChangePacking={handlePackingChange}
           onChangeQuantity={handleQuantityChange}
+          onRemoveSku={handleRemoveSku}
           onChangeExpiry={handleExpiryChange}
           onChangePrep={handlePrepChange}
           skuServicesById={skuServicesById}
