@@ -90,12 +90,19 @@ const normalizeShipDate = (val) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-// Return an ISO datetime; if the selected date is today, push it +6h from now; otherwise use 12:00 UTC.
-// If the date is in the past, clamp to today +6h.
+// Return an ISO datetime:
+// - if input already contains time, normalize that exact moment to ISO
+// - if input is a date only, keep previous logic (today/past => now+6h, future => 12:00 UTC)
 const normalizeReadyStartIso = (dateStr) => {
+  const raw = String(dateStr || '').trim();
+  if (raw && raw.includes('T')) {
+    const dt = new Date(raw);
+    if (Number.isFinite(dt.getTime())) return dt.toISOString();
+  }
+
   const today = new Date();
   const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-  const targetDate = dateStr ? new Date(`${dateStr}T00:00:00Z`) : todayStart;
+  const targetDate = raw ? new Date(`${raw}T00:00:00Z`) : todayStart;
   const isPast = targetDate < todayStart;
   const isToday = !isPast && targetDate.getTime() === todayStart.getTime();
 

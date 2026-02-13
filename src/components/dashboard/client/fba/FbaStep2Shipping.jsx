@@ -65,6 +65,19 @@ export default function FbaStep2Shipping({
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+  const formatLocalDateTimeInput = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+  const toDateOnly = (value) => {
+    const str = String(value || '').trim();
+    const m = str.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : '';
+  };
   useEffect(() => {
     if (!shipmentIds.length) return;
     const missing = shipmentIds.filter((id) => !readyWindowByShipment?.[id]?.start);
@@ -103,7 +116,8 @@ export default function FbaStep2Shipping({
   );
 
   const shipmentList = useMemo(() => (Array.isArray(shipments) ? shipments : []), [shipments]);
-  const globalReadyStart = shipmentIds.length ? readyWindowByShipment?.[shipmentIds[0]]?.start || '' : '';
+  const globalReadyStartRaw = shipmentIds.length ? readyWindowByShipment?.[shipmentIds[0]]?.start || '' : '';
+  const globalReadyStart = toDateOnly(globalReadyStartRaw);
   const globalReadyEnd = shipmentIds.length ? readyWindowByShipment?.[shipmentIds[0]]?.end || '' : '';
   const normalizeOptionMode = (mode) => {
     const up = String(mode || '').toUpperCase();
@@ -284,20 +298,37 @@ export default function FbaStep2Shipping({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:items-end">
               <div>
                 <div className="text-xs text-slate-600 mb-1">Ready to ship — start *</div>
-                <input
-                  type="date"
-                  value={globalReadyStart}
-                  onChange={(e) => {
-                    const nextStart = e.target.value;
-                    shipmentIds.forEach((id) => {
-                      onReadyWindowChange?.(id, {
-                        start: nextStart,
-                        end: readyWindowByShipment?.[id]?.end || ''
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={globalReadyStart}
+                    onChange={(e) => {
+                      const nextStart = e.target.value;
+                      shipmentIds.forEach((id) => {
+                        onReadyWindowChange?.(id, {
+                          start: nextStart,
+                          end: readyWindowByShipment?.[id]?.end || ''
+                        });
                       });
-                    });
-                  }}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
+                    }}
+                    className="w-[170px] border rounded-md px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sameDayStart = formatLocalDateTimeInput(new Date(Date.now() + 6 * 60 * 60 * 1000));
+                      shipmentIds.forEach((id) => {
+                        onReadyWindowChange?.(id, {
+                          start: sameDayStart,
+                          end: readyWindowByShipment?.[id]?.end || ''
+                        });
+                      });
+                    }}
+                    className="px-3 py-2 rounded-md text-xs font-semibold border border-amber-400 bg-amber-300 text-amber-900 hover:bg-amber-200"
+                  >
+                    Same Day
+                  </button>
+                </div>
               </div>
               {requireEnd ? (
                 <div className="flex flex-col gap-2">
