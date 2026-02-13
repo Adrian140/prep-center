@@ -150,6 +150,7 @@ export default function FbaStep2Shipping({
   const spdOptions = groupedOptions.SPD || [];
   const spdPartneredOptions = useMemo(() => dedupeByCarrier(spdOptions.filter((o) => Boolean(o?.partnered))), [spdOptions]);
   const spdNonPartneredOptions = useMemo(() => dedupeByCarrier(spdOptions.filter((o) => !o?.partnered)), [spdOptions]);
+  const hasSpdOptions = spdOptions.length > 0;
   const modeKeys = useMemo(
     () => ['SPD', 'LTL', 'FTL', 'OTHER'].filter((k) => (groupedOptions[k] || []).length > 0),
     [groupedOptions]
@@ -397,7 +398,7 @@ export default function FbaStep2Shipping({
                 : ''}
             </div>
           )}
-          {modeKeys.length > 1 && (
+          {!hasSpdOptions && modeKeys.length > 1 && (
             <div className="flex flex-wrap gap-2">
               {modeKeys.map((modeKey) => {
                 const label =
@@ -424,27 +425,90 @@ export default function FbaStep2Shipping({
               })}
             </div>
           )}
-          {modeKeys.map((modeKey) => {
-            if (!activeModeKey || modeKey !== activeModeKey) return null;
-            const list = groupedOptions[modeKey] || [];
-            if (!list.length) return null;
-            const title =
-              modeKey === 'SPD'
-                ? 'Small parcel delivery (SPD)'
-                : modeKey === 'LTL'
+          {hasSpdOptions ? (
+            <div className="space-y-2">
+              <div className="text-xs font-semibold text-slate-600">Small parcel delivery (SPD)</div>
+              <div className="flex flex-wrap gap-3">
+                {spdPartneredOptions.map((opt) => {
+                  const carrierLabel = getCarrierLabel(opt);
+                  const optionId = getOptionId(opt);
+                  const chargeText = Number.isFinite(opt?.charge) ? `€${opt.charge.toFixed(2)}` : '—';
+                  const checked = Boolean(optionId) && optionId === selectedTransportationOptionId;
+                  const partneredDisabled =
+                    Boolean(opt?.partnered) &&
+                    partneredAvailableForAll === false &&
+                    shipmentIds.length > 1;
+                  const canSelect = Boolean(optionId) && !partneredDisabled;
+                  return (
+                    <label
+                      key={optionId || carrierLabel}
+                      className={`w-full sm:w-[220px] md:w-[240px] border rounded-md p-3 flex flex-col gap-1 ${
+                        checked ? 'border-blue-600 bg-blue-50' : 'border-slate-300'
+                      } ${canSelect ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!canSelect) return;
+                        onOptionSelect?.({ ...opt, id: optionId });
+                      }}
+                    >
+                      <div className="font-semibold text-sm">{carrierLabel}</div>
+                      <div className="text-xs text-slate-500">Amazon partnered carrier</div>
+                      <div className="text-[11px] text-slate-400">AMAZON_PARTNERED_CARRIER</div>
+                      <div className="mt-1 text-2xl font-semibold text-slate-800">{chargeText}</div>
+                    </label>
+                  );
+                })}
+                {spdNonPartneredOptions.length > 0 && (
+                  <div className="w-full sm:w-[220px] md:w-[260px] border border-slate-300 rounded-md p-3 flex flex-col gap-2">
+                    <div className="font-semibold text-sm">Non Amazon partnered carrier</div>
+                    <select
+                      value={selectedOption?.partnered ? '' : (selectedTransportationOptionId || '')}
+                      onChange={(e) => {
+                        const id = e.target.value || '';
+                        if (!id) return;
+                        const chosen = spdNonPartneredOptions.find((o) => getOptionId(o) === id);
+                        if (chosen) onOptionSelect?.({ ...chosen, id });
+                      }}
+                      className="w-full border rounded-md px-3 py-2 text-sm"
+                    >
+                      <option value="">Select carrier</option>
+                      {spdNonPartneredOptions.map((opt) => {
+                        const id = getOptionId(opt);
+                        if (!id) return null;
+                        const carrierLabel = getCarrierLabel(opt);
+                        const price = Number.isFinite(opt?.charge) ? ` (€${opt.charge.toFixed(2)})` : '';
+                        return (
+                          <option key={`non-pcp-${id}`} value={id}>
+                            {carrierLabel}{price}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            modeKeys.map((modeKey) => {
+              if (!activeModeKey || modeKey !== activeModeKey) return null;
+              const list = groupedOptions[modeKey] || [];
+              if (!list.length) return null;
+              const title =
+                modeKey === 'LTL'
                   ? 'Less-than-truckload (LTL)'
                   : modeKey === 'FTL'
                     ? 'Full truckload (FTL)'
                     : 'Other';
-            return (
-              <div key={modeKey} className="space-y-2">
-                <div className="text-xs font-semibold text-slate-600">{title}</div>
-                {modeKey === 'SPD' ? (
-                  <div className="flex flex-wrap gap-3">
-                    {spdPartneredOptions.map((opt) => {
-                      const carrierLabel = getCarrierLabel(opt);
+              return (
+                <div key={modeKey} className="space-y-2">
+                  <div className="text-xs font-semibold text-slate-600">{title}</div>
+                  <div className="space-y-2">
+                    {list.map((opt) => {
+                      const carrierLabel = opt?.carrierName || 'Carrier';
                       const optionId = getOptionId(opt);
+                      const solution = String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase();
                       const chargeText = Number.isFinite(opt?.charge) ? `€${opt.charge.toFixed(2)}` : '—';
+                      const partneredLabel = opt?.partnered ? 'Amazon partnered' : 'Non Amazon partnered carrier';
                       const checked = Boolean(optionId) && optionId === selectedTransportationOptionId;
                       const partneredDisabled =
                         Boolean(opt?.partnered) &&
@@ -454,124 +518,45 @@ export default function FbaStep2Shipping({
                       return (
                         <label
                           key={optionId || carrierLabel}
-                          className={`w-full sm:w-[220px] md:w-[240px] border rounded-md p-3 flex flex-col gap-1 ${
-                            checked ? 'border-blue-600 bg-blue-50' : 'border-slate-300'
-                          } ${canSelect ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+                          className={`flex items-center justify-between gap-3 px-3 py-2 border rounded-md ${checked ? 'border-blue-500 bg-blue-50' : 'border-slate-200'} ${canSelect ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (!canSelect) return;
                             onOptionSelect?.({ ...opt, id: optionId });
                           }}
                         >
-                          <div className="font-semibold text-sm">{carrierLabel}</div>
-                          <div className="text-xs text-slate-500">Amazon partnered carrier</div>
-                          <div className="text-[11px] text-slate-400">AMAZON_PARTNERED_CARRIER</div>
-                          <div className="mt-1 text-2xl font-semibold text-slate-800">{chargeText}</div>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-sm">{carrierLabel}</span>
+                            <span className="text-xs text-slate-500">{partneredLabel}</span>
+                            {solution && <span className="text-xs text-slate-400">{solution}</span>}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-semibold">{chargeText}</span>
+                            <input
+                              type="radio"
+                              id={`shipping-option-${optionId || carrierLabel}`}
+                              name="shipping-option"
+                              checked={checked}
+                              disabled={!canSelect}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                if (!canSelect) return;
+                                onOptionSelect?.({ ...opt, id: optionId });
+                              }}
+                            />
+                          </div>
                         </label>
                       );
                     })}
-                    <div className="w-full sm:w-[220px] md:w-[260px] border border-slate-300 rounded-md p-3 flex flex-col gap-2">
-                      <div className="font-semibold text-sm">Non Amazon partnered carrier</div>
-                      <select
-                        value={selectedOption?.partnered ? '' : (selectedTransportationOptionId || '')}
-                        onChange={(e) => {
-                          const id = e.target.value || '';
-                          if (!id) return;
-                          const chosen = spdNonPartneredOptions.find((o) => getOptionId(o) === id);
-                          if (chosen) onOptionSelect?.({ ...chosen, id });
-                        }}
-                        className="w-full border rounded-md px-3 py-2 text-sm"
-                      >
-                        <option value="">Select carrier</option>
-                        {spdNonPartneredOptions.map((opt) => {
-                          const id = getOptionId(opt);
-                          if (!id) return null;
-                          const carrierLabel = getCarrierLabel(opt);
-                          const price = Number.isFinite(opt?.charge) ? ` (€${opt.charge.toFixed(2)})` : '';
-                          return (
-                            <option key={`non-pcp-${id}`} value={id}>
-                              {carrierLabel}{price}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
                   </div>
-                ) : (
-                <div className="space-y-2">
-                  {list.map((opt) => {
-                    const carrierLabel = opt?.carrierName || 'Carrier';
-                    const optionId =
-                      opt?.id ||
-                      opt?.transportationOptionId ||
-                      opt?.optionId ||
-                      opt?.raw?.transportationOptionId ||
-                      opt?.raw?.id ||
-                      opt?.raw?.optionId ||
-                      null;
-                    const solution = String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase();
-                    const chargeText = Number.isFinite(opt?.charge) ? `€${opt.charge.toFixed(2)}` : '—';
-                    const partneredLabel = opt?.partnered ? 'Amazon partnered' : 'Non Amazon partnered carrier';
-                    const checked = Boolean(optionId) && optionId === selectedTransportationOptionId;
-                    const partneredDisabled =
-                      Boolean(opt?.partnered) &&
-                      partneredAvailableForAll === false &&
-                      shipmentIds.length > 1;
-                    const canSelect = Boolean(optionId) && !partneredDisabled;
-                    return (
-                      <label
-                        key={optionId || carrierLabel}
-                        className={`flex items-center justify-between gap-3 px-3 py-2 border rounded-md ${checked ? 'border-blue-500 bg-blue-50' : 'border-slate-200'} ${canSelect ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!canSelect) return;
-                          onOptionSelect?.({ ...opt, id: optionId });
-                        }}
-                      >
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-sm">{carrierLabel}</span>
-                    <span className="text-xs text-slate-500">{partneredLabel}</span>
-                          {opt?.chargeScope === 'total' && Number.isFinite(opt?.shipmentCount) && (
-                            <span className="text-xs text-slate-500">
-                              {tt('totalShipments', 'Total shipments')}: {opt.shipmentCount}
-                            </span>
-                          )}
-                          {solution && <span className="text-xs text-slate-400">{solution}</span>}
-                          {partneredDisabled && (
-                            <span className="text-xs text-amber-700">
-                              {tt('availableForSomeShipments', 'Available only for some shipments.')}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-semibold">{chargeText}</span>
-                          <input
-                            type="radio"
-                            id={`shipping-option-${optionId || carrierLabel}`}
-                            name="shipping-option"
-                            checked={checked}
-                            disabled={!canSelect}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              if (!canSelect) return;
-                              onOptionSelect?.({ ...opt, id: optionId });
-                            }}
-                          />
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-                )}
-                {modeKey !== 'SPD' && (
                   <div className="text-xs text-slate-500">
                     {tt('ltlFtlRequirements', 'Palletization and freight information are required for LTL/FTL.')}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                </div>
+              );
+            })
+          )}
           {optionsList.length > 0 && !selectedOption && (
             <div className="text-xs text-red-600">
               {tt('selectTransportBeforeConfirm', 'Select a transport option before confirmation.')}
