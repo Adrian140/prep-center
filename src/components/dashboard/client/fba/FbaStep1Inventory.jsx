@@ -106,6 +106,44 @@ export default function FbaStep1Inventory({
   const marketplaceRaw = data?.marketplace || '';
   const rawSkus = Array.isArray(data?.skus) ? data.skus : [];
   const skus = useMemo(() => rawSkus.filter((sku) => !sku?.excluded), [rawSkus]);
+  const normalizeKey = useCallback((value) => String(value || '').trim().toUpperCase(), []);
+  const getSkuCandidateKeys = useCallback(
+    (sku) =>
+      [
+        sku?.sku,
+        sku?.msku,
+        sku?.SellerSKU,
+        sku?.sellerSku,
+        sku?.asin,
+        sku?.id
+      ]
+        .map((v) => normalizeKey(v))
+        .filter(Boolean),
+    [normalizeKey]
+  );
+  const getItemCandidateKeys = useCallback(
+    (item) =>
+      [
+        item?.sku,
+        item?.msku,
+        item?.SellerSKU,
+        item?.sellerSku,
+        item?.asin,
+        item?.fnsku
+      ]
+        .map((v) => normalizeKey(v))
+        .filter(Boolean),
+    [normalizeKey]
+  );
+  const getSkuToken = useCallback(
+    (sku, idx) => {
+      const idKey = normalizeKey(sku?.id);
+      if (idKey) return `ID:${idKey}`;
+      const skuKey = normalizeKey(sku?.sku || sku?.msku || sku?.SellerSKU || sku?.sellerSku || sku?.asin || '');
+      return `ROW:${idx}:${skuKey || 'UNKNOWN'}`;
+    },
+    [normalizeKey]
+  );
   const companyId = data?.companyId || data?.company_id || null;
   const userId = data?.userId || data?.user_id || null;
   const [addSkuQuery, setAddSkuQuery] = useState('');
@@ -540,13 +578,18 @@ export default function FbaStep1Inventory({
     });
 
     const nextGroups = {};
-    const matchedSkuIds = new Set();
-    const skuLookup = new Map();
-    skus.forEach((sku) => {
-      const skuKey = String(sku.sku || '').trim().toUpperCase();
-      const asinKey = String(sku.asin || '').trim().toUpperCase();
-      if (skuKey) skuLookup.set(skuKey, sku);
-      if (asinKey) skuLookup.set(asinKey, sku);
+    const usedTokens = new Set();
+    const skuByToken = new Map();
+    const tokenById = new Map();
+    const lookup = new Map();
+    skus.forEach((sku, idx) => {
+      const token = getSkuToken(sku, idx);
+      skuByToken.set(token, sku);
+      if (sku?.id) tokenById.set(sku.id, token);
+      getSkuCandidateKeys(sku).forEach((key) => {
+        if (!lookup.has(key)) lookup.set(key, []);
+        lookup.get(key).push(token);
+      });
     });
 
     const ensureGroup = (groupId, label) => {
@@ -565,7 +608,8 @@ export default function FbaStep1Inventory({
       const key = sku.sku || sku.asin || sku.id;
       ensureGroup(groupId, label);
       nextGroups[groupId].boxItems[0][key] = qty;
-      matchedSkuIds.add(sku.id);
+      const token = sku?.id ? tokenById.get(sku.id) : null;
+      if (token) usedTokens.add(token);
     };
 
     if (hasPackGroups) {
@@ -574,9 +618,17 @@ export default function FbaStep1Inventory({
         const groupLabel = `Pack group ${idx + 1}`;
         const items = Array.isArray(group?.items) ? group.items : [];
         items.forEach((item) => {
-          const key = String(item?.sku || item?.msku || item?.SellerSKU || item?.asin || '').trim().toUpperCase();
-          if (!key) return;
-          const matched = skuLookup.get(key);
+          const keys = getItemCandidateKeys(item);
+          if (!keys.length) return;
+          let matched = null;
+          for (const key of keys) {
+            const candidates = lookup.get(key) || [];
+            const freeToken = candidates.find((token) => !usedTokens.has(token));
+            if (!freeToken) continue;
+            matched = skuByToken.get(freeToken) || null;
+            usedTokens.add(freeToken);
+            break;
+          }
           if (matched) {
             assignSku(matched, groupId, groupLabel);
           }
@@ -584,8 +636,9 @@ export default function FbaStep1Inventory({
       });
     }
 
-    skus.forEach((sku) => {
-      if (matchedSkuIds.has(sku.id)) return;
+    skus.forEach((sku, idx) => {
+      const token = getSkuToken(sku, idx);
+      if (usedTokens.has(token)) return;
       assignSku(sku, 'ungrouped', 'All items');
     });
 
@@ -603,7 +656,7 @@ export default function FbaStep1Inventory({
     setBoxIndexDrafts({});
     setBoxQtyDrafts({});
     setBoxDimDrafts({});
-  }, [hasPackGroups, normalizedPackGroups, skus, updateBoxPlan]);
+  }, [getItemCandidateKeys, getSkuCandidateKeys, getSkuToken, hasPackGroups, normalizedPackGroups, skus, updateBoxPlan]);
 
   const preventEnterSubmit = useCallback((event) => {
     if (event.key === 'Enter') {
@@ -1049,14 +1102,17 @@ export default function FbaStep1Inventory({
         groupLabel: 'All items'
       }));
     }
-    const skuByKey = new Map();
-    skus.forEach((sku) => {
-      const skuKey = String(sku.sku || '').trim().toUpperCase();
-      const asinKey = String(sku.asin || '').trim().toUpperCase();
-      if (skuKey) skuByKey.set(skuKey, sku);
-      if (asinKey) skuByKey.set(asinKey, sku);
+    const tokenToSku = new Map();
+    const lookup = new Map();
+    const usedTokens = new Set();
+    skus.forEach((sku, idx) => {
+      const token = getSkuToken(sku, idx);
+      tokenToSku.set(token, sku);
+      getSkuCandidateKeys(sku).forEach((key) => {
+        if (!lookup.has(key)) lookup.set(key, []);
+        lookup.get(key).push(token);
+      });
     });
-    const usedSkuIds = new Set();
     const rows = [];
     normalizedPackGroups.forEach((group, idx) => {
       const items = Array.isArray(group?.items) ? group.items : [];
@@ -1070,10 +1126,19 @@ export default function FbaStep1Inventory({
         groupId
       });
       items.forEach((it) => {
-        const key = String(it?.sku || it?.msku || it?.SellerSKU || it?.asin || '').trim().toUpperCase();
-        const matched = key ? skuByKey.get(key) : null;
-        if (matched && !usedSkuIds.has(matched.id)) {
-          usedSkuIds.add(matched.id);
+        const keys = getItemCandidateKeys(it);
+        let matched = null;
+        let matchedToken = null;
+        for (const key of keys) {
+          const candidates = lookup.get(key) || [];
+          const freeToken = candidates.find((token) => !usedTokens.has(token));
+          if (!freeToken) continue;
+          matched = tokenToSku.get(freeToken) || null;
+          matchedToken = freeToken;
+          break;
+        }
+        if (matched && matchedToken) {
+          usedTokens.add(matchedToken);
           rows.push({
             type: 'sku',
             sku: matched,
@@ -1084,7 +1149,7 @@ export default function FbaStep1Inventory({
         }
       });
     });
-    const unassigned = skus.filter((sku) => !usedSkuIds.has(sku.id));
+    const unassigned = skus.filter((sku, idx) => !usedTokens.has(getSkuToken(sku, idx)));
     if (unassigned.length) {
       rows.push({ type: 'group', label: 'Unassigned', key: 'pack-unassigned', groupId: 'pack-unassigned' });
       unassigned.forEach((sku) =>
