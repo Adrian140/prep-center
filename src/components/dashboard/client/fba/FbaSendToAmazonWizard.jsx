@@ -610,6 +610,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [planNotice, setPlanNotice] = useState('');
   const [step1Saving, setStep1Saving] = useState(false);
   const [step1SaveError, setStep1SaveError] = useState('');
+  const [step1HiddenSkuIds, setStep1HiddenSkuIds] = useState({});
   const [allowNoInboundPlan, setAllowNoInboundPlan] = useState(false);
   const [inboundPlanMissing, setInboundPlanMissing] = useState(false);
   const [skuStatuses, setSkuStatuses] = useState(initialSkuStatuses);
@@ -1886,6 +1887,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       )
     }));
     setStep1BoxPlanByMarket((prev) => removeSkuFromStep1Plan(prev, identifiers));
+    setStep1HiddenSkuIds((prev) => ({ ...(prev || {}), [String(skuId)]: true }));
     if (requestId && typeof skuId === 'string') {
       // Persist immediately so Step1 refresh doesn't resurrect removed SKU from stale DB quantities.
       supabase
@@ -1923,6 +1925,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             : sku
         )
       }));
+      setStep1HiddenSkuIds((prev) => {
+        if (!prev || !prev[String(skuId)]) return prev;
+        const next = { ...prev };
+        delete next[String(skuId)];
+        return next;
+      });
       if (requestId && typeof skuId === 'string') {
         supabase
           .from('prep_request_items')
@@ -1961,6 +1969,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             : row
         )
       }));
+      setStep1HiddenSkuIds((prev) => {
+        if (!prev || !prev[String(existing.id)]) return prev;
+        const next = { ...prev };
+        delete next[String(existing.id)];
+        return next;
+      });
       supabase
         .from('prep_request_items')
         .update({ units_sent: nextQty })
@@ -2011,6 +2025,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         ...prev,
         skus: [...(Array.isArray(prev?.skus) ? prev.skus : []), newSku]
       }));
+      setStep1HiddenSkuIds((prev) => {
+        if (!prev || !prev[String(newSku?.id)]) return prev;
+        const next = { ...prev };
+        delete next[String(newSku?.id)];
+        return next;
+      });
       invalidateFrom('1');
       setStep1SaveError('');
     } catch (e) {
@@ -4531,10 +4551,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   ]);
 
   const renderContent = (stepKey) => {
+    const step1VisibleSkus = (Array.isArray(plan?.skus) ? plan.skus : []).filter(
+      (sku) => !step1HiddenSkuIds[String(sku?.id || '')]
+    );
+    const step1PlanData = { ...plan, skus: step1VisibleSkus };
     if (stepKey === '1') {
       return (
         <FbaStep1Inventory
-          data={plan}
+          data={step1PlanData}
           skuStatuses={skuStatuses}
           blocking={blocking}
           saving={step1Saving}
@@ -4658,10 +4682,20 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     );
   };
 
-  const skuCount = useMemo(() => (Array.isArray(plan?.skus) ? plan.skus.length : 0), [plan?.skus]);
+  const skuCount = useMemo(() => {
+    const visible = (Array.isArray(plan?.skus) ? plan.skus : []).filter(
+      (sku) => !step1HiddenSkuIds[String(sku?.id || '')]
+    );
+    return visible.length;
+  }, [plan?.skus, step1HiddenSkuIds]);
   const unitCount = useMemo(
-    () => (Array.isArray(plan?.skus) ? plan.skus.reduce((s, it) => s + (Number(it.units) || 0), 0) : 0),
-    [plan?.skus]
+    () => {
+      const visible = (Array.isArray(plan?.skus) ? plan.skus : []).filter(
+        (sku) => !step1HiddenSkuIds[String(sku?.id || '')]
+      );
+      return visible.reduce((s, it) => s + (Number(it.units) || 0), 0);
+    },
+    [plan?.skus, step1HiddenSkuIds]
   );
   const packUnits = useMemo(() => {
     if (Array.isArray(packGroups) && packGroups.length) {
