@@ -1876,6 +1876,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   );
 
   const handleRemoveSku = (skuId) => {
+    const requestId = resolveRequestId();
     const removedSku = (Array.isArray(plan?.skus) ? plan.skus : []).find((sku) => sku.id === skuId) || null;
     const identifiers = collectSkuIdentifiers(removedSku || { id: skuId });
     setPlan((prev) => ({
@@ -1885,6 +1886,18 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       )
     }));
     setStep1BoxPlanByMarket((prev) => removeSkuFromStep1Plan(prev, identifiers));
+    if (requestId && typeof skuId === 'string') {
+      // Persist immediately so Step1 refresh doesn't resurrect removed SKU from stale DB quantities.
+      supabase
+        .from('prep_request_items')
+        .update({ units_sent: 0 })
+        .eq('id', skuId)
+        .then(({ error }) => {
+          if (error) {
+            console.warn('remove sku units_sent persist failed', { requestId, skuId, error: error.message });
+          }
+        });
+    }
     setSkuServicesById((prev) => {
       if (!prev || !prev[skuId]) return prev;
       const next = { ...prev };
@@ -1900,14 +1913,27 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const requestId = resolveRequestId();
 
     if (skuId) {
+      const existingRow = (Array.isArray(plan?.skus) ? plan.skus : []).find((sku) => sku.id === skuId) || null;
+      const nextQty = Math.max(1, Number(existingRow?.units || 0) || 1);
       setPlan((prev) => ({
         ...prev,
         skus: (prev.skus || []).map((sku) =>
           sku.id === skuId
-            ? { ...sku, excluded: false, units: Math.max(1, Number(sku.units || 0) || 1) }
+            ? { ...sku, excluded: false, units: nextQty }
             : sku
         )
       }));
+      if (requestId && typeof skuId === 'string') {
+        supabase
+          .from('prep_request_items')
+          .update({ units_sent: nextQty })
+          .eq('id', skuId)
+          .then(({ error }) => {
+            if (error) {
+              console.warn('re-add sku units_sent persist failed', { requestId, skuId, error: error.message });
+            }
+          });
+      }
       invalidateFrom('1');
       setStep1SaveError('');
       return;
@@ -1926,14 +1952,28 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return (normalizedSku && rowSku === normalizedSku) || (normalizedAsin && rowAsin === normalizedAsin);
     });
     if (existing?.id) {
+      const nextQty = Math.max(1, Number(existing.units || 0) || 1);
       setPlan((prev) => ({
         ...prev,
         skus: (prev.skus || []).map((row) =>
           row.id === existing.id
-            ? { ...row, excluded: false, units: Math.max(1, Number(row.units || 0) || 1) }
+            ? { ...row, excluded: false, units: nextQty }
             : row
         )
       }));
+      supabase
+        .from('prep_request_items')
+        .update({ units_sent: nextQty })
+        .eq('id', existing.id)
+        .then(({ error }) => {
+          if (error) {
+            console.warn('re-enable existing sku units_sent persist failed', {
+              requestId,
+              skuId: existing.id,
+              error: error.message
+            });
+          }
+        });
       invalidateFrom('1');
       setStep1SaveError('');
       return;
