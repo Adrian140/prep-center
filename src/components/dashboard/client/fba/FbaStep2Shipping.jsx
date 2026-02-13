@@ -125,6 +125,46 @@ export default function FbaStep2Shipping({
     });
     return groups;
   }, [optionsList]);
+  const getOptionId = (opt) =>
+    opt?.id ||
+    opt?.transportationOptionId ||
+    opt?.optionId ||
+    opt?.raw?.transportationOptionId ||
+    opt?.raw?.id ||
+    opt?.raw?.optionId ||
+    null;
+  const getCarrierLabel = (opt) => String(opt?.carrierName || opt?.raw?.carrier?.name || opt?.raw?.carrier?.alphaCode || 'Carrier');
+  const dedupeByCarrier = (list = []) => {
+    const map = new Map();
+    (Array.isArray(list) ? list : []).forEach((opt) => {
+      const id = getOptionId(opt);
+      if (!id) return;
+      const key = getCarrierLabel(opt).trim().toUpperCase();
+      const prev = map.get(key);
+      const prevCharge = Number.isFinite(prev?.charge) ? Number(prev.charge) : Number.MAX_SAFE_INTEGER;
+      const nextCharge = Number.isFinite(opt?.charge) ? Number(opt.charge) : Number.MAX_SAFE_INTEGER;
+      if (!prev || nextCharge < prevCharge) map.set(key, { ...opt, id });
+    });
+    return Array.from(map.values());
+  };
+  const spdOptions = groupedOptions.SPD || [];
+  const spdPartneredOptions = useMemo(() => dedupeByCarrier(spdOptions.filter((o) => Boolean(o?.partnered))), [spdOptions]);
+  const spdNonPartneredOptions = useMemo(() => dedupeByCarrier(spdOptions.filter((o) => !o?.partnered)), [spdOptions]);
+  const modeKeys = useMemo(
+    () => ['SPD', 'LTL', 'FTL', 'OTHER'].filter((k) => (groupedOptions[k] || []).length > 0),
+    [groupedOptions]
+  );
+  const [selectedModeKey, setSelectedModeKey] = useState('');
+  useEffect(() => {
+    const normalized = normalizeOptionMode(selectedOption?.mode || method);
+    if (normalized && modeKeys.includes(normalized)) {
+      setSelectedModeKey(normalized);
+      return;
+    }
+    if (!selectedModeKey || !modeKeys.includes(selectedModeKey)) {
+      setSelectedModeKey(modeKeys.includes('SPD') ? 'SPD' : modeKeys[0] || '');
+    }
+  }, [modeKeys, method, selectedModeKey, selectedOption?.mode]);
   const selectedMode = normalizeOptionMode(selectedOption?.mode || method);
   const requireEnd = ['LTL', 'FTL', 'FREIGHT_LTL', 'FREIGHT_FTL'].includes(String(selectedMode || '').toUpperCase());
   const needsDeliveryWindow = Array.isArray(selectedOption?.raw?.preconditions)
@@ -352,7 +392,35 @@ export default function FbaStep2Shipping({
                 : ''}
             </div>
           )}
-          {['SPD', 'LTL', 'FTL', 'OTHER'].map((modeKey) => {
+          {modeKeys.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              {modeKeys.map((modeKey) => {
+                const label =
+                  modeKey === 'SPD'
+                    ? 'Small parcel delivery (SPD)'
+                    : modeKey === 'LTL'
+                      ? 'Less-than-truckload (LTL)'
+                      : modeKey === 'FTL'
+                        ? 'Full truckload (FTL)'
+                        : 'Other';
+                const active = selectedModeKey === modeKey;
+                return (
+                  <button
+                    key={`mode-tab-${modeKey}`}
+                    type="button"
+                    onClick={() => setSelectedModeKey(modeKey)}
+                    className={`px-3 py-1.5 text-xs rounded-md border ${
+                      active ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-300 text-slate-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {modeKeys.map((modeKey) => {
+            if (selectedModeKey && modeKey !== selectedModeKey) return null;
             const list = groupedOptions[modeKey] || [];
             if (!list.length) return null;
             const title =
@@ -366,6 +434,65 @@ export default function FbaStep2Shipping({
             return (
               <div key={modeKey} className="space-y-2">
                 <div className="text-xs font-semibold text-slate-600">{title}</div>
+                {modeKey === 'SPD' ? (
+                  <div className="flex flex-wrap gap-3">
+                    {spdPartneredOptions.map((opt) => {
+                      const carrierLabel = getCarrierLabel(opt);
+                      const optionId = getOptionId(opt);
+                      const chargeText = Number.isFinite(opt?.charge) ? `€${opt.charge.toFixed(2)}` : '—';
+                      const checked = Boolean(optionId) && optionId === selectedTransportationOptionId;
+                      const partneredDisabled =
+                        Boolean(opt?.partnered) &&
+                        partneredAvailableForAll === false &&
+                        shipmentIds.length > 1;
+                      const canSelect = Boolean(optionId) && !partneredDisabled;
+                      return (
+                        <label
+                          key={optionId || carrierLabel}
+                          className={`w-full sm:w-[220px] md:w-[240px] border rounded-md p-3 flex flex-col gap-1 ${
+                            checked ? 'border-blue-600 bg-blue-50' : 'border-slate-300'
+                          } ${canSelect ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!canSelect) return;
+                            onOptionSelect?.({ ...opt, id: optionId });
+                          }}
+                        >
+                          <div className="font-semibold text-sm">{carrierLabel}</div>
+                          <div className="text-xs text-slate-500">Amazon partnered carrier</div>
+                          <div className="text-[11px] text-slate-400">AMAZON_PARTNERED_CARRIER</div>
+                          <div className="mt-1 text-2xl font-semibold text-slate-800">{chargeText}</div>
+                        </label>
+                      );
+                    })}
+                    <div className="w-full sm:w-[220px] md:w-[260px] border border-slate-300 rounded-md p-3 flex flex-col gap-2">
+                      <div className="font-semibold text-sm">Non Amazon partnered carrier</div>
+                      <select
+                        value={selectedOption?.partnered ? '' : (selectedTransportationOptionId || '')}
+                        onChange={(e) => {
+                          const id = e.target.value || '';
+                          if (!id) return;
+                          const chosen = spdNonPartneredOptions.find((o) => getOptionId(o) === id);
+                          if (chosen) onOptionSelect?.({ ...chosen, id });
+                        }}
+                        className="w-full border rounded-md px-3 py-2 text-sm"
+                      >
+                        <option value="">Select carrier</option>
+                        {spdNonPartneredOptions.map((opt) => {
+                          const id = getOptionId(opt);
+                          if (!id) return null;
+                          const carrierLabel = getCarrierLabel(opt);
+                          const price = Number.isFinite(opt?.charge) ? ` (€${opt.charge.toFixed(2)})` : '';
+                          return (
+                            <option key={`non-pcp-${id}`} value={id}>
+                              {carrierLabel}{price}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+                ) : (
                 <div className="space-y-2">
                   {list.map((opt) => {
                     const carrierLabel = opt?.carrierName || 'Carrier';
@@ -431,6 +558,7 @@ export default function FbaStep2Shipping({
                     );
                   })}
                 </div>
+                )}
                 {modeKey !== 'SPD' && (
                   <div className="text-xs text-slate-500">
                     {tt('ltlFtlRequirements', 'Palletization and freight information are required for LTL/FTL.')}
