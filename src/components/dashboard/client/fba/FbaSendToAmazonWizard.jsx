@@ -4215,7 +4215,20 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
     // Reset date pentru pașii următori
     if (stepKey === '1') {
+      // Orice modificare de SKU/cantitate în Step 1 invalidează planul Amazon curent.
+      // Setăm explicit ID-urile la null în state ca să nu mai reutilizăm accidental un plan vechi.
+      setPlan((prev) => ({
+        ...prev,
+        inboundPlanId: null,
+        inbound_plan_id: null,
+        placementOptionId: null,
+        placement_option_id: null,
+        packingOptionId: null,
+        packing_option_id: null
+      }));
       setPackGroups([]);
+      setPackGroupsPreview([]);
+      setPackGroupsPreviewError('');
       setPackGroupsLoaded(false);
       setShipments([]);
       setTracking([]);

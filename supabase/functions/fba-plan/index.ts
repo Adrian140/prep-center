@@ -1721,12 +1721,10 @@ serve(async (req) => {
     const snapshotPackingGroupsFallback =
       Array.isArray(snapshotFbaInbound?.packingGroups) ? snapshotFbaInbound.packingGroups : [];
     const effectiveUnits = (it: { units_sent?: number | null; units_requested?: number | null }) => {
-      const hasExistingPlan = Boolean(inboundPlanId);
       const sent = it?.units_sent;
       const requested = it?.units_requested;
-      if (!hasExistingPlan && sent === 0 && Number(requested || 0) > 0) {
-        return Number(requested || 0) || 0;
-      }
+      // units_sent este sursa de adevăr după orice edit în Step 1 (inclusiv 0 = SKU exclus).
+      // Facem fallback la units_requested doar când units_sent nu este setat deloc.
       if (sent === null || sent === undefined) return Number(requested || 0) || 0;
       return Number(sent || 0) || 0;
     };
