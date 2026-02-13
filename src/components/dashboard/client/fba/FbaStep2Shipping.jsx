@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
+import { useDashboardTranslation } from '@/translations';
 
 export default function FbaStep2Shipping({
   // Default the whole shipment object so we don't crash if the caller hasn't loaded data yet.
@@ -21,6 +22,12 @@ export default function FbaStep2Shipping({
   error = '',
   readyWindowByShipment = {}
 }) {
+  const { t } = useDashboardTranslation();
+  const tt = (key, fallback) => {
+    const path = `Fba.step2.${key}`;
+    const value = t(path);
+    return value === path ? fallback : value;
+  };
   const {
     deliveryWindowStart = '',
     deliveryWindowEnd = '',
@@ -135,7 +142,7 @@ export default function FbaStep2Shipping({
   const totalWeight = shipmentList.reduce((s, sh) => s + toKg(sh.weight, sh.weight_unit), 0);
   const carrierName = selectedOption?.carrierName || carrier?.name || 'Carrier';
   const summaryTitle = useMemo(() => {
-    if (!selectedOption) return 'Selectează un curier';
+    if (!selectedOption) return tt('selectCarrier', 'Select a carrier');
     const modeLabel =
       selectedMode === 'LTL'
         ? 'Less-than-truckload (LTL)'
@@ -143,7 +150,7 @@ export default function FbaStep2Shipping({
           ? 'Full truckload (FTL)'
           : 'Small parcel delivery (SPD)';
     return `${carrierName} · ${modeLabel}`;
-  }, [carrierName, selectedMode, selectedOption]);
+  }, [carrierName, selectedMode, selectedOption, tt]);
 
   const renderShipmentCard = (s) => {
     const shKey = String(s.id || s.shipmentId || '').trim();
@@ -210,7 +217,7 @@ export default function FbaStep2Shipping({
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
         <CheckCircle className="w-5 h-5 text-emerald-600" />
-        <div className="font-semibold text-slate-900">Step 2 - Confirm shipping</div>
+        <div className="font-semibold text-slate-900">{tt('title', 'Step 2 - Confirm shipping')}</div>
       </div>
 
       <div className="px-6 py-4 space-y-4">
@@ -276,11 +283,11 @@ export default function FbaStep2Shipping({
                           : 'bg-slate-200 text-slate-500 cursor-not-allowed'
                       }`}
                     >
-                      {shippingLoading ? 'Se încarcă…' : 'Confirm ready date'}
+                      {shippingLoading ? tt('loading', 'Loading…') : tt('confirmReadyDate', 'Confirm ready date')}
                     </button>
                   </div>
                   <div className="text-[11px] text-amber-700">
-                    Start obligatoriu; end devine obligatoriu dacă alegi LTL/FTL.
+                    {tt('readyWindowHint', 'Start is required; end becomes required if you choose LTL/FTL.')}
                   </div>
                 </div>
               ) : (
@@ -289,7 +296,7 @@ export default function FbaStep2Shipping({
             </div>
             {shipmentIds.length > 1 && (
               <div className="text-[11px] text-slate-500 mt-2">
-                Data selectată se aplică tuturor expedițiilor.
+                {tt('readyWindowAllShipments', 'The selected date applies to all shipments.')}
               </div>
             )}
           </div>
@@ -391,16 +398,16 @@ export default function FbaStep2Shipping({
                       >
                         <div className="flex flex-col">
                           <span className="font-semibold text-sm">{carrierLabel}</span>
-                          <span className="text-xs text-slate-500">{partneredLabel}</span>
+                    <span className="text-xs text-slate-500">{partneredLabel}</span>
                           {opt?.chargeScope === 'total' && Number.isFinite(opt?.shipmentCount) && (
                             <span className="text-xs text-slate-500">
-                              Total {opt.shipmentCount} expedieri
+                              {tt('totalShipments', 'Total shipments')}: {opt.shipmentCount}
                             </span>
                           )}
                           {solution && <span className="text-xs text-slate-400">{solution}</span>}
                           {partneredDisabled && (
                             <span className="text-xs text-amber-700">
-                              Disponibil doar pentru unele shipment-uri.
+                              {tt('availableForSomeShipments', 'Available only for some shipments.')}
                             </span>
                           )}
                         </div>
@@ -426,7 +433,7 @@ export default function FbaStep2Shipping({
                 </div>
                 {modeKey !== 'SPD' && (
                   <div className="text-xs text-slate-500">
-                    Pentru LTL/FTL sunt necesare paletizare și freight information.
+                    {tt('ltlFtlRequirements', 'Palletization and freight information are required for LTL/FTL.')}
                   </div>
                 )}
               </div>
@@ -434,7 +441,7 @@ export default function FbaStep2Shipping({
           })}
           {optionsList.length > 0 && !selectedOption && (
             <div className="text-xs text-red-600">
-              Selectează o opțiune de transport înainte de confirmare.
+              {tt('selectTransportBeforeConfirm', 'Select a transport option before confirmation.')}
             </div>
           )}
         </div>
@@ -557,7 +564,7 @@ export default function FbaStep2Shipping({
               </div>
             </div>
             <div className="text-xs text-slate-500">
-              Amazon folosește aceste date pentru opțiuni LTL/FTL și tarife PCP.
+              {tt('palletFreightHint', 'Amazon uses these details for LTL/FTL options and PCP rates.')}
             </div>
           </div>
         )}

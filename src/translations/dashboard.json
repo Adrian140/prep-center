@@ -899,20 +899,20 @@
       }
     },
     "Wizard": {
-      "title": "Envoyer à Amazon",
-      "subtitle": "UI alignée sur les étapes Amazon (live)",
-      "step1Title": "Étape 1 - Inventaire confirmé à envoyer",
-      "step1bTitle": "Étape 1b - Emballer les unités individuelles",
-      "step2Title": "Étape 2 - Confirmer l’expédition",
-      "step3Title": "Étape 3 - Étiquettes de carton générées",
-      "step4Title": "Étape finale : Détails de tracking",
-      "viewEdit": "Voir/Éditer",
-      "refresh": "Rafraîchir",
-      "notStarted": "Non démarré",
-      "packReady": "Vous pouvez commencer l’emballage",
-      "noPackGroups": "Aucun groupe d’emballage pour l’instant",
-      "trackingCaptured": "Tracking enregistré",
-      "labelFormat": "Format d’étiquette",
+      "title": "Send to Amazon",
+      "subtitle": "UI aligned to Amazon steps (live)",
+      "step1Title": "Step 1 - Confirmed inventory to send",
+      "step1bTitle": "Step 1b - Pack individual units",
+      "step2Title": "Step 2 - Confirm shipping",
+      "step3Title": "Step 3 - Box labels printed",
+      "step4Title": "Final step: Tracking details",
+      "viewEdit": "View/Edit",
+      "refresh": "Refresh",
+      "notStarted": "Not started",
+      "packReady": "You can start packing now",
+      "noPackGroups": "No pack groups yet",
+      "trackingCaptured": "Tracking captured",
+      "labelFormat": "Label format",
       "retry": "Retry",
       "continueAnyway": "Continue anyway",
       "inboundPlanMissingBanner": "Amazon has not generated inboundPlanId yet. You can retry or continue without it if your box plan is ready.",
@@ -963,6 +963,21 @@
       "modalCancel": "Close",
       "modalSubmit": "Submit review",
       "modalSubmitting": "Submitting…"
+    },
+    "Fba": {
+      "step2": {
+        "title": "Step 2 - Confirm shipping",
+        "selectCarrier": "Select a carrier",
+        "loading": "Loading…",
+        "confirmReadyDate": "Confirm ready date",
+        "readyWindowHint": "Start is required; end becomes required if you choose LTL/FTL.",
+        "readyWindowAllShipments": "The selected date applies to all shipments.",
+        "totalShipments": "Total shipments",
+        "availableForSomeShipments": "Available only for some shipments.",
+        "ltlFtlRequirements": "Palletization and freight information are required for LTL/FTL.",
+        "selectTransportBeforeConfirm": "Select a transport option before confirmation.",
+        "palletFreightHint": "Amazon uses these details for LTL/FTL options and PCP rates."
+      }
     }
   },
   "ro": {
@@ -1874,6 +1889,21 @@
       "modalCancel": "Închide",
       "modalSubmit": "Trimite recenzia",
       "modalSubmitting": "Se trimite…"
+    },
+    "Fba": {
+      "step2": {
+        "title": "Pasul 2 - Confirmă livrarea",
+        "selectCarrier": "Selectează un curier",
+        "loading": "Se încarcă…",
+        "confirmReadyDate": "Confirmă data ready",
+        "readyWindowHint": "Start este obligatoriu; end devine obligatoriu dacă alegi LTL/FTL.",
+        "readyWindowAllShipments": "Data selectată se aplică tuturor expedițiilor.",
+        "totalShipments": "Total expediții",
+        "availableForSomeShipments": "Disponibil doar pentru unele expediții.",
+        "ltlFtlRequirements": "Pentru LTL/FTL sunt necesare paletizare și informații de freight.",
+        "selectTransportBeforeConfirm": "Selectează o opțiune de transport înainte de confirmare.",
+        "palletFreightHint": "Amazon folosește aceste date pentru opțiuni LTL/FTL și tarife PCP."
+      }
     }
   },
   "fr": {
@@ -2687,29 +2717,29 @@
       }
     },
     "Wizard": {
-      "title": "An Amazon senden",
-      "subtitle": "UI an die Amazon-Schritte angelehnt (live)",
-      "step1Title": "Schritt 1 - Bestätigter Bestand für den Versand",
-      "step1bTitle": "Schritt 1b - Einzelne Einheiten verpacken",
-      "step2Title": "Schritt 2 - Versand bestätigen",
-      "step3Title": "Schritt 3 - Kartonetiketten erstellt",
-      "step4Title": "Letzter Schritt: Tracking-Details",
-      "viewEdit": "Ansehen/Bearbeiten",
-      "refresh": "Aktualisieren",
-      "notStarted": "Nicht gestartet",
-      "packReady": "Du kannst mit dem Verpacken beginnen",
-      "noPackGroups": "Noch keine Packgruppen",
-      "trackingCaptured": "Tracking erfasst",
-      "labelFormat": "Etikettenformat",
-      "retry": "Retry",
-      "continueAnyway": "Continue anyway",
-      "inboundPlanMissingBanner": "Amazon has not generated inboundPlanId yet. You can retry or continue without it if your box plan is ready.",
-      "inboundPlanMissingWait": "Waiting for inboundPlanId from Amazon; you can’t continue until the plan is loaded.",
-      "inboundPlanMissingError": "Waiting for inboundPlanId from Amazon. Try again in a few seconds.",
-      "missingIdsError": "Missing inboundPlanId or requestId; reload the plan.",
-      "packingGroupsWait": "Amazon has not returned packing groups yet. Try again in a few seconds.",
-      "packingPreviewUnavailable": "Preview unavailable right now.",
-      "inboundPlanEmpty": "Inbound plan is still empty. Try again in a few seconds."
+      "title": "Envoyer à Amazon",
+      "subtitle": "UI alignée sur les étapes Amazon (live)",
+      "step1Title": "Étape 1 - Inventaire confirmé à envoyer",
+      "step1bTitle": "Étape 1b - Emballer les unités individuelles",
+      "step2Title": "Étape 2 - Confirmer l’expédition",
+      "step3Title": "Étape 3 - Étiquettes de carton générées",
+      "step4Title": "Étape finale : Détails de suivi",
+      "viewEdit": "Voir/Éditer",
+      "refresh": "Rafraîchir",
+      "notStarted": "Non démarré",
+      "packReady": "Vous pouvez commencer l’emballage",
+      "noPackGroups": "Aucun groupe d’emballage pour le moment",
+      "trackingCaptured": "Suivi enregistré",
+      "labelFormat": "Format d’étiquette",
+      "retry": "Réessayer",
+      "continueAnyway": "Continuer quand même",
+      "inboundPlanMissingBanner": "Amazon n’a pas encore généré l’inboundPlanId. Vous pouvez réessayer ou continuer sans lui si votre plan de cartons est prêt.",
+      "inboundPlanMissingWait": "En attente de l’inboundPlanId Amazon ; vous ne pouvez pas continuer tant que le plan n’est pas chargé.",
+      "inboundPlanMissingError": "En attente de l’inboundPlanId Amazon. Réessayez dans quelques secondes.",
+      "missingIdsError": "inboundPlanId ou requestId manquant ; rechargez le plan.",
+      "packingGroupsWait": "Amazon n’a pas encore renvoyé les groupes de colisage. Réessayez dans quelques secondes.",
+      "packingPreviewUnavailable": "Aperçu indisponible pour le moment.",
+      "inboundPlanEmpty": "Le plan inbound est encore vide. Réessayez dans quelques secondes."
     },
     "ClientReceiving": {
       "delete": "Supprimer",
@@ -2754,6 +2784,21 @@
       "modalCancel": "Fermer",
       "modalSubmit": "Envoyer l’avis",
       "modalSubmitting": "Envoi…"
+    },
+    "Fba": {
+      "step2": {
+        "title": "Étape 2 - Confirmer l’expédition",
+        "selectCarrier": "Sélectionnez un transporteur",
+        "loading": "Chargement…",
+        "confirmReadyDate": "Confirmer la date prête à expédier",
+        "readyWindowHint": "La date de début est obligatoire ; la fin devient obligatoire si vous choisissez LTL/FTL.",
+        "readyWindowAllShipments": "La date sélectionnée s’applique à toutes les expéditions.",
+        "totalShipments": "Total des expéditions",
+        "availableForSomeShipments": "Disponible uniquement pour certaines expéditions.",
+        "ltlFtlRequirements": "La palettisation et les informations de fret sont requises pour LTL/FTL.",
+        "selectTransportBeforeConfirm": "Sélectionnez une option de transport avant confirmation.",
+        "palletFreightHint": "Amazon utilise ces données pour les options LTL/FTL et les tarifs PCP."
+      }
     }
   },
   "de": {
@@ -3515,29 +3560,29 @@
       }
     },
     "Wizard": {
-      "title": "Send to Amazon",
-      "subtitle": "UI aligned to Amazon steps (live)",
-      "step1Title": "Step 1 - Confirmed inventory to send",
-      "step1bTitle": "Step 1b - Pack individual units",
-      "step2Title": "Step 2 - Confirm shipping",
-      "step3Title": "Step 3 - Box labels printed",
-      "step4Title": "Final step: Tracking details",
-      "viewEdit": "View/Edit",
-      "refresh": "Refresh",
-      "notStarted": "Not started",
-      "packReady": "You can start packing now",
-      "noPackGroups": "No pack groups yet",
-      "trackingCaptured": "Tracking captured",
-      "labelFormat": "Label format",
-      "retry": "Retry",
-      "continueAnyway": "Continue anyway",
-      "inboundPlanMissingBanner": "Amazon has not generated inboundPlanId yet. You can retry or continue without it if your box plan is ready.",
-      "inboundPlanMissingWait": "Waiting for inboundPlanId from Amazon; you can’t continue until the plan is loaded.",
-      "inboundPlanMissingError": "Waiting for inboundPlanId from Amazon. Try again in a few seconds.",
-      "missingIdsError": "Missing inboundPlanId or requestId; reload the plan.",
-      "packingGroupsWait": "Amazon has not returned packing groups yet. Try again in a few seconds.",
-      "packingPreviewUnavailable": "Preview unavailable right now.",
-      "inboundPlanEmpty": "Inbound plan is still empty. Try again in a few seconds."
+      "title": "An Amazon senden",
+      "subtitle": "UI an die Amazon-Schritte angelehnt (live)",
+      "step1Title": "Schritt 1 - Bestätigter Bestand für den Versand",
+      "step1bTitle": "Schritt 1b - Einzelne Einheiten verpacken",
+      "step2Title": "Schritt 2 - Versand bestätigen",
+      "step3Title": "Schritt 3 - Kartonetiketten gedruckt",
+      "step4Title": "Letzter Schritt: Tracking-Details",
+      "viewEdit": "Ansehen/Bearbeiten",
+      "refresh": "Aktualisieren",
+      "notStarted": "Nicht gestartet",
+      "packReady": "Du kannst jetzt mit dem Verpacken beginnen",
+      "noPackGroups": "Noch keine Packgruppen",
+      "trackingCaptured": "Tracking erfasst",
+      "labelFormat": "Etikettenformat",
+      "retry": "Erneut versuchen",
+      "continueAnyway": "Trotzdem fortfahren",
+      "inboundPlanMissingBanner": "Amazon hat noch keine inboundPlanId erzeugt. Du kannst erneut versuchen oder ohne sie fortfahren, wenn dein Kartonplan fertig ist.",
+      "inboundPlanMissingWait": "Warte auf inboundPlanId von Amazon; du kannst erst weiter, wenn der Plan geladen ist.",
+      "inboundPlanMissingError": "Warte auf inboundPlanId von Amazon. Bitte in ein paar Sekunden erneut versuchen.",
+      "missingIdsError": "inboundPlanId oder requestId fehlt; Plan neu laden.",
+      "packingGroupsWait": "Amazon hat die Packgruppen noch nicht zurückgegeben. Bitte in ein paar Sekunden erneut versuchen.",
+      "packingPreviewUnavailable": "Vorschau derzeit nicht verfügbar.",
+      "inboundPlanEmpty": "Der Inbound-Plan ist noch leer. Bitte in ein paar Sekunden erneut versuchen."
     },
     "ClientReceiving": {
       "delete": "Löschen",
@@ -3582,6 +3627,21 @@
       "modalCancel": "Schließen",
       "modalSubmit": "Feedback senden",
       "modalSubmitting": "Wird gesendet…"
+    },
+    "Fba": {
+      "step2": {
+        "title": "Schritt 2 - Versand bestätigen",
+        "selectCarrier": "Einen Transportdienst auswählen",
+        "loading": "Wird geladen…",
+        "confirmReadyDate": "Bereitstellungsdatum bestätigen",
+        "readyWindowHint": "Start ist erforderlich; Ende wird erforderlich, wenn du LTL/FTL auswählst.",
+        "readyWindowAllShipments": "Das ausgewählte Datum gilt für alle Sendungen.",
+        "totalShipments": "Gesamtsendungen",
+        "availableForSomeShipments": "Nur für einige Sendungen verfügbar.",
+        "ltlFtlRequirements": "Palettierung und Frachtinformationen sind für LTL/FTL erforderlich.",
+        "selectTransportBeforeConfirm": "Wähle vor der Bestätigung eine Transportoption.",
+        "palletFreightHint": "Amazon verwendet diese Daten für LTL/FTL-Optionen und PCP-Tarife."
+      }
     }
   },
   "it": {
@@ -4410,6 +4470,21 @@
       "modalCancel": "Chiudi",
       "modalSubmit": "Invia recensione",
       "modalSubmitting": "Invio…"
+    },
+    "Fba": {
+      "step2": {
+        "title": "Step 2 - Confirm shipping",
+        "selectCarrier": "Select a carrier",
+        "loading": "Loading…",
+        "confirmReadyDate": "Confirm ready date",
+        "readyWindowHint": "Start is required; end becomes required if you choose LTL/FTL.",
+        "readyWindowAllShipments": "The selected date applies to all shipments.",
+        "totalShipments": "Total shipments",
+        "availableForSomeShipments": "Available only for some shipments.",
+        "ltlFtlRequirements": "Palletization and freight information are required for LTL/FTL.",
+        "selectTransportBeforeConfirm": "Select a transport option before confirmation.",
+        "palletFreightHint": "Amazon uses these details for LTL/FTL options and PCP rates."
+      }
     }
   },
   "es": {
@@ -5238,6 +5313,21 @@
       "modalCancel": "Cerrar",
       "modalSubmit": "Enviar reseña",
       "modalSubmitting": "Enviando…"
+    },
+    "Fba": {
+      "step2": {
+        "title": "Step 2 - Confirm shipping",
+        "selectCarrier": "Select a carrier",
+        "loading": "Loading…",
+        "confirmReadyDate": "Confirm ready date",
+        "readyWindowHint": "Start is required; end becomes required if you choose LTL/FTL.",
+        "readyWindowAllShipments": "The selected date applies to all shipments.",
+        "totalShipments": "Total shipments",
+        "availableForSomeShipments": "Available only for some shipments.",
+        "ltlFtlRequirements": "Palletization and freight information are required for LTL/FTL.",
+        "selectTransportBeforeConfirm": "Select a transport option before confirmation.",
+        "palletFreightHint": "Amazon uses these details for LTL/FTL options and PCP rates."
+      }
     }
   }
 }
