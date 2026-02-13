@@ -180,102 +180,76 @@ const normalizeTransportMode = (mode) => {
   return up;
 };
 
+const extractOptionCharge = (opt) => {
+  const candidate = [
+    opt?.charge,
+    opt?.quote?.cost?.amount,
+    opt?.raw?.quote?.cost?.amount,
+    opt?.raw?.charge?.totalCharge?.amount,
+    opt?.raw?.totalCharge?.amount,
+    opt?.raw?.chargeAmount?.amount,
+    opt?.raw?.estimatedCharge?.amount,
+    opt?.raw?.price?.amount
+  ].find((v) => v !== null && v !== undefined);
+  const val = Number(candidate);
+  return Number.isFinite(val) ? val : null;
+};
+
 const aggregateTransportationOptions = (options = [], summary = null) => {
   const shipmentCount = Number(summary?.shipmentCount || summary?.shipment_count || 0) || 0;
-  const partneredChargeTotal = Number.isFinite(summary?.partneredChargeTotal)
-    ? summary.partneredChargeTotal
-    : null;
-  const nonPartneredChargeTotal = Number.isFinite(summary?.nonPartneredChargeTotal)
-    ? summary.nonPartneredChargeTotal
-    : null;
-  const grouped = {
-    SPD_PARTNERED: [],
-    SPD_NON_PARTNERED: [],
-    LTL_FTL: []
-  };
-  (Array.isArray(options) ? options : []).forEach((opt) => {
-    const mode =
-      normalizeTransportMode(opt?.mode || opt?.shippingMode || opt?.raw?.shippingMode || opt?.transportationOption?.shippingMode);
-    if (mode === 'SPD') {
-      if (detectPartneredOption(opt)) grouped.SPD_PARTNERED.push(opt);
-      else grouped.SPD_NON_PARTNERED.push(opt);
-      return;
-    }
-    if (mode === 'LTL' || mode === 'FTL') {
-      grouped.LTL_FTL.push(opt);
-    }
+  const seen = new Set();
+  const list = (Array.isArray(options) ? options : [])
+    .map((opt) => {
+      const optionId =
+        opt?.id ||
+        opt?.transportationOptionId ||
+        opt?.optionId ||
+        opt?.raw?.transportationOptionId ||
+        opt?.raw?.id ||
+        opt?.raw?.optionId ||
+        null;
+      if (!optionId) return null;
+      if (seen.has(optionId)) return null;
+      seen.add(optionId);
+      const partnered = detectPartneredOption(opt);
+      const mode = opt?.mode || opt?.shippingMode || opt?.raw?.shippingMode || 'GROUND_SMALL_PARCEL';
+      const shippingSolution =
+        opt?.shippingSolution ||
+        opt?.raw?.shippingSolution ||
+        (partnered ? 'AMAZON_PARTNERED_CARRIER' : 'USE_YOUR_OWN_CARRIER');
+      const carrierName =
+        opt?.carrierName ||
+        opt?.raw?.carrier?.name ||
+        opt?.raw?.carrier?.alphaCode ||
+        opt?.raw?.carrier ||
+        (partnered ? 'Amazon Partnered Carrier' : 'Non Amazon partnered carrier');
+      return {
+        ...opt,
+        id: optionId,
+        partnered,
+        isPartnered: partnered,
+        mode,
+        shippingSolution,
+        carrierName,
+        charge: extractOptionCharge(opt),
+        shipmentCount: shipmentCount || null
+      };
+    })
+    .filter(Boolean);
+
+  return list.sort((a, b) => {
+    const modeA = normalizeTransportMode(a?.mode || a?.shippingMode);
+    const modeB = normalizeTransportMode(b?.mode || b?.shippingMode);
+    const modeRank = { SPD: 0, LTL: 1, FTL: 2 };
+    const rankA = modeRank[modeA] ?? 9;
+    const rankB = modeRank[modeB] ?? 9;
+    if (rankA !== rankB) return rankA - rankB;
+    if (Boolean(a?.partnered) !== Boolean(b?.partnered)) return a?.partnered ? -1 : 1;
+    const chargeA = Number.isFinite(a?.charge) ? Number(a.charge) : Number.MAX_SAFE_INTEGER;
+    const chargeB = Number.isFinite(b?.charge) ? Number(b.charge) : Number.MAX_SAFE_INTEGER;
+    if (chargeA !== chargeB) return chargeA - chargeB;
+    return String(a?.carrierName || '').localeCompare(String(b?.carrierName || ''));
   });
-
-  const pickRepresentative = (list) => {
-    if (!list.length) return null;
-    return list.find((o) => Number.isFinite(o?.charge)) || list[0];
-  };
-  const minCharge = (list) => {
-    const charges = list.map((o) => o?.charge).filter((c) => Number.isFinite(c));
-    if (!charges.length) return null;
-    return Math.min(...charges);
-  };
-
-  const resolveChargeOverride = (key) => {
-    if (shipmentCount <= 1) return null;
-    if (key === 'SPD_PARTNERED' && Number.isFinite(partneredChargeTotal)) return partneredChargeTotal;
-    if (key === 'SPD_NON_PARTNERED' && Number.isFinite(nonPartneredChargeTotal)) return nonPartneredChargeTotal;
-    return null;
-  };
-
-  const buildOption = (key, list) => {
-    if (!list.length) return null;
-    const rep = pickRepresentative(list);
-    const overrideCharge = resolveChargeOverride(key);
-    const charge = Number.isFinite(overrideCharge) ? overrideCharge : minCharge(list);
-    const optionId =
-      rep?.transportationOptionId ||
-      rep?.id ||
-      rep?.optionId ||
-      rep?.raw?.transportationOptionId ||
-      rep?.raw?.id ||
-      rep?.raw?.optionId ||
-      null;
-    const base = {
-      ...rep,
-      charge,
-      id: optionId,
-      isPartnered: detectPartneredOption(rep),
-      chargeScope: Number.isFinite(overrideCharge) ? 'total' : 'per_shipment',
-      shipmentCount: shipmentCount || null
-    };
-    if (key === 'SPD_PARTNERED') {
-      return {
-        ...base,
-        mode: 'GROUND_SMALL_PARCEL',
-        carrierName: rep?.carrierName || 'Amazon Partnered Carrier',
-        partnered: true,
-        shippingSolution: rep?.shippingSolution || rep?.raw?.shippingSolution || 'AMAZON_PARTNERED_CARRIER'
-      };
-    }
-    if (key === 'SPD_NON_PARTNERED') {
-      return {
-        ...base,
-        mode: 'GROUND_SMALL_PARCEL',
-        carrierName: rep?.carrierName || 'Non Amazon partnered carrier',
-        partnered: false,
-        shippingSolution: rep?.shippingSolution || rep?.raw?.shippingSolution || 'USE_YOUR_OWN_CARRIER'
-      };
-    }
-    return {
-      ...base,
-      mode: 'FREIGHT_LTL',
-      carrierName: rep?.carrierName || 'LTL/FTL (non-partnered)',
-      partnered: false,
-      shippingSolution: rep?.shippingSolution || rep?.raw?.shippingSolution || 'USE_YOUR_OWN_CARRIER'
-    };
-  };
-
-  return [
-    buildOption('SPD_PARTNERED', grouped.SPD_PARTNERED),
-    buildOption('SPD_NON_PARTNERED', grouped.SPD_NON_PARTNERED),
-    buildOption('LTL_FTL', grouped.LTL_FTL)
-  ].filter(Boolean);
 };
 
 const parseMaybeJson = (raw) => {

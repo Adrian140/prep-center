@@ -218,7 +218,7 @@ export default function FbaStep1Inventory({
       try {
         let query = supabase
           .from('stock_items')
-          .select('id, name, sku, asin, image_url, company_id, user_id')
+          .select('id, name, sku, asin, image_url, qty, company_id, user_id')
           .or(`name.ilike.%${q}%,sku.ilike.%${q}%,asin.ilike.%${q}%`)
           .order('created_at', { ascending: false })
           .limit(30);
@@ -2087,11 +2087,12 @@ export default function FbaStep1Inventory({
               {!inventoryLoading && inventoryResults.map((item) => {
                 const key = `inventory-${item.id}`;
                 const busy = addSkuBusyKey === key;
+                const stockQty = Number.isFinite(Number(item?.qty)) ? Number(item.qty) : 0;
                 return (
                   <div key={key} className="px-3 py-2 flex items-center justify-between gap-3 border-b last:border-b-0 bg-emerald-50/40">
                     <div className="min-w-0">
                       <div className="text-sm text-slate-800 truncate">{item.name || item.sku || item.asin}</div>
-                      <div className="text-xs text-slate-500 truncate">SKU: {item.sku || '—'} · ASIN: {item.asin || '—'}</div>
+                      <div className="text-xs text-slate-500 truncate">SKU: {item.sku || '—'} · ASIN: {item.asin || '—'} · Stock: {stockQty}</div>
                     </div>
                     <button
                       type="button"

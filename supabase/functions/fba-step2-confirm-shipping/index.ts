@@ -2739,23 +2739,27 @@ serve(async (req) => {
         : false;
     const dedupeTransportationOptions = (opts: any[]) => {
       const byId = new Map<string, any>();
-      const byComposite = new Map<string, any>();
-      const buildComposite = (opt: any) => {
-        const carrier = opt?.carrier?.alphaCode || opt?.carrier?.name || opt?.carrier || "";
-        const mode = opt?.shippingMode || opt?.mode || "";
-        const solution = opt?.shippingSolution || opt?.shippingSolutionId || "";
-        return `${String(carrier)}|${String(mode)}|${String(solution)}`;
-      };
+      const withoutIdDistinct: any[] = [];
+      const withoutIdSeen = new Set<string>();
       (opts || []).forEach((opt: any) => {
         const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "");
         if (id) {
           if (!byId.has(id)) byId.set(id, opt);
           return;
         }
-        const key = buildComposite(opt);
-        if (!byComposite.has(key)) byComposite.set(key, opt);
+        const key = JSON.stringify({
+          carrier: opt?.carrier || null,
+          shippingMode: opt?.shippingMode || opt?.mode || null,
+          shippingSolution: opt?.shippingSolution || opt?.shippingSolutionId || null,
+          shipmentId: opt?.shipmentId || null,
+          preconditions: opt?.preconditions || null,
+          quote: opt?.quote || null
+        });
+        if (withoutIdSeen.has(key)) return;
+        withoutIdSeen.add(key);
+        withoutIdDistinct.push(opt);
       });
-      return [...byId.values(), ...byComposite.values()];
+      return [...byId.values(), ...withoutIdDistinct];
     };
     const listTransportationOptionsOnce = async (
       placementOptionIdParam: string,
