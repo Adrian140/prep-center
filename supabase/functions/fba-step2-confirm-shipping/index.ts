@@ -3014,8 +3014,9 @@ serve(async (req) => {
     if (!optionsRawForSelection.length) {
       optionsRawForSelection = optionsRawForDisplay;
     }
-    // Pentru PCP-SPD, Amazon uneori returnează partnered doar la nivel de placement (fără shipmentId).
-    // Deci, când cerem SPD, facem întotdeauna listare și fără shipmentId și combinăm.
+    // Pentru PCP-SPD, Amazon poate returna partnered doar la nivel de placement (fără shipmentId),
+    // dar fallback-ul fără shipmentId trebuie folosit doar când rezultatul shipment-scoped este gol
+    // sau nu are niciun partnered. Altfel riscăm să amestecăm seturi și să rotim carrierii în UI.
     const rawRequestedMode = String(effectiveShippingMode || "").toUpperCase();
     const rawModes = Array.from(
       new Set(
@@ -3026,7 +3027,11 @@ serve(async (req) => {
     );
     const wantsSpd = ["SPD", "SMALL_PARCEL_DELIVERY", "SMALL_PARCEL", "GROUND_SMALL_PARCEL", "PARCEL"].includes(rawRequestedMode);
     const hasSpdInRaw = rawModes.some((m) => ["SPD", "SMALL_PARCEL_DELIVERY", "SMALL_PARCEL", "GROUND_SMALL_PARCEL", "PARCEL"].includes(m));
-    if (wantsSpd) {
+    const hasPartneredInShipmentScoped = hasPartneredSolution(optionsRawForSelection);
+    const shouldUsePlacementFallbackForSpd =
+      wantsSpd &&
+      (!optionsRawForSelection.length || !hasPartneredInShipmentScoped);
+    if (shouldUsePlacementFallbackForSpd) {
       const { firstRes: listResFallback, collected: optionsRawFallback } =
         await listTransportationOptionsOnce(effectivePlacementOptionId, null, {
           probePartnered: true,
@@ -3051,7 +3056,8 @@ serve(async (req) => {
         fallbackCount: optionsRawFallback.length,
         mergedCount: merged.length,
         requestId: listResFallback?.requestId || null,
-        forced: true,
+        forced: false,
+        reason: !optionsRawForSelection.length ? "shipment_scoped_empty" : "shipment_scoped_no_partnered",
         hadSpdInShipmentScoped: hasSpdInRaw
       });
       optionsRawForSelection = merged;
