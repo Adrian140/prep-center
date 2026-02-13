@@ -154,7 +154,7 @@ export default function FbaStep2Shipping({
     () => ['SPD', 'LTL', 'FTL', 'OTHER'].filter((k) => (groupedOptions[k] || []).length > 0),
     [groupedOptions]
   );
-  const [selectedModeKey, setSelectedModeKey] = useState('');
+  const [selectedModeKey, setSelectedModeKey] = useState('SPD');
   useEffect(() => {
     const normalized = normalizeOptionMode(selectedOption?.mode || method);
     if (normalized && modeKeys.includes(normalized)) {
@@ -165,6 +165,11 @@ export default function FbaStep2Shipping({
       setSelectedModeKey(modeKeys.includes('SPD') ? 'SPD' : modeKeys[0] || '');
     }
   }, [modeKeys, method, selectedModeKey, selectedOption?.mode]);
+  const activeModeKey = useMemo(() => {
+    if (selectedModeKey && modeKeys.includes(selectedModeKey)) return selectedModeKey;
+    if (modeKeys.includes('SPD')) return 'SPD';
+    return modeKeys[0] || '';
+  }, [modeKeys, selectedModeKey]);
   const selectedMode = normalizeOptionMode(selectedOption?.mode || method);
   const requireEnd = ['LTL', 'FTL', 'FREIGHT_LTL', 'FREIGHT_FTL'].includes(String(selectedMode || '').toUpperCase());
   const needsDeliveryWindow = Array.isArray(selectedOption?.raw?.preconditions)
@@ -420,7 +425,7 @@ export default function FbaStep2Shipping({
             </div>
           )}
           {modeKeys.map((modeKey) => {
-            if (selectedModeKey && modeKey !== selectedModeKey) return null;
+            if (!activeModeKey || modeKey !== activeModeKey) return null;
             const list = groupedOptions[modeKey] || [];
             if (!list.length) return null;
             const title =
