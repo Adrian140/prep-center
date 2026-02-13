@@ -105,7 +105,10 @@ export default function FbaStep1Inventory({
   const shipFrom = data?.shipFrom || {};
   const marketplaceRaw = data?.marketplace || '';
   const rawSkus = Array.isArray(data?.skus) ? data.skus : [];
-  const skus = useMemo(() => rawSkus.filter((sku) => !sku?.excluded), [rawSkus]);
+  const skus = useMemo(
+    () => rawSkus.filter((sku) => !sku?.excluded && Number(sku?.units || 0) > 0),
+    [rawSkus]
+  );
   const normalizeKey = useCallback((value) => String(value || '').trim().toUpperCase(), []);
   const getSkuCandidateKeys = useCallback(
     (sku) =>

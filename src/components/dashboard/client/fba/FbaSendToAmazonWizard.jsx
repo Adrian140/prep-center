@@ -1820,13 +1820,71 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setStep1SaveError('');
   };
 
+  const normalizeStep1Key = useCallback((value) => String(value || '').trim().toUpperCase(), []);
+  const collectSkuIdentifiers = useCallback(
+    (sku) =>
+      [
+        sku?.id,
+        sku?.sku,
+        sku?.msku,
+        sku?.SellerSKU,
+        sku?.sellerSku,
+        sku?.asin
+      ]
+        .map((v) => normalizeStep1Key(v))
+        .filter(Boolean),
+    [normalizeStep1Key]
+  );
+  const removeSkuFromStep1Plan = useCallback(
+    (planByMarket, identifiers) => {
+      if (!planByMarket || typeof planByMarket !== 'object') return planByMarket || {};
+      const blocked = new Set((Array.isArray(identifiers) ? identifiers : []).map((v) => normalizeStep1Key(v)).filter(Boolean));
+      if (!blocked.size) return planByMarket;
+      const nextMarkets = {};
+      Object.entries(planByMarket).forEach(([marketKey, marketPlan]) => {
+        const groups = marketPlan?.groups && typeof marketPlan.groups === 'object' ? marketPlan.groups : {};
+        const nextGroups = {};
+        Object.entries(groups).forEach(([groupId, group]) => {
+          const boxItems = Array.isArray(group?.boxItems) ? group.boxItems : [];
+          const cleanedBoxItems = boxItems.map((box) => {
+            if (!box || typeof box !== 'object') return {};
+            const out = {};
+            Object.entries(box).forEach(([k, qty]) => {
+              const norm = normalizeStep1Key(k);
+              if (blocked.has(norm)) return;
+              out[k] = qty;
+            });
+            return out;
+          });
+          const hasAnyAssigned = cleanedBoxItems.some((box) =>
+            Object.values(box || {}).some((qty) => Number(qty || 0) > 0)
+          );
+          if (!hasAnyAssigned) return;
+          nextGroups[groupId] = {
+            ...group,
+            boxItems: cleanedBoxItems
+          };
+        });
+        nextMarkets[marketKey] = {
+          ...(marketPlan && typeof marketPlan === 'object' ? marketPlan : {}),
+          groups: nextGroups
+        };
+      });
+      return nextMarkets;
+    },
+    [normalizeStep1Key]
+  );
+
   const handleRemoveSku = (skuId) => {
+    const removedSku = (Array.isArray(plan?.skus) ? plan.skus : []).find((sku) => sku.id === skuId) || null;
+    const identifiers = collectSkuIdentifiers(removedSku || { id: skuId });
     setPlan((prev) => ({
       ...prev,
       skus: prev.skus.map((sku) =>
         sku.id === skuId ? { ...sku, units: 0, excluded: true } : sku
       )
     }));
+    setStep1BoxPlanByMarket((prev) => removeSkuFromStep1Plan(prev, identifiers));
     setSkuServicesById((prev) => {
       if (!prev || !prev[skuId]) return prev;
       const next = { ...prev };
@@ -4417,9 +4475,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
   }, [
     allowNoInboundPlan,
+    collectSkuIdentifiers,
     completeAndNext,
     fetchPlan,
     plan?.skus,
+    removeSkuFromStep1Plan,
     skuServicesById,
     boxServices,
     persistServicesToDb,
