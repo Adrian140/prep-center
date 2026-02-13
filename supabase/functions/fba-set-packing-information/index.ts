@@ -124,20 +124,20 @@ function normalizeDimensions(input: any) {
   const height = Number(shape.height ?? shape.Height ?? shape.h ?? 0);
   const dims = [length, width, height];
   if (!dims.every((n) => Number.isFinite(n) && n > 0)) return null;
-  const toInches = (cm: number) => Number((cm / 2.54).toFixed(2));
+  const toCm = (inch: number) => Number((inch * 2.54).toFixed(2));
   if (unit === "IN") {
     return {
-      length: Number(length.toFixed(2)),
-      width: Number(width.toFixed(2)),
-      height: Number(height.toFixed(2)),
-      unitOfMeasurement: "IN"
+      length: toCm(length),
+      width: toCm(width),
+      height: toCm(height),
+      unitOfMeasurement: "CM"
     };
   }
   return {
-    length: toInches(length),
-    width: toInches(width),
-    height: toInches(height),
-    unitOfMeasurement: "IN"
+    length: Number(length.toFixed(2)),
+    width: Number(width.toFixed(2)),
+    height: Number(height.toFixed(2)),
+    unitOfMeasurement: "CM"
   };
 }
 
@@ -145,21 +145,20 @@ function normalizeWeight(input: any) {
   const toFixedFloor = (value: number) => Math.floor(value * 100) / 100;
   if (typeof input === "number") {
     if (!Number.isFinite(input) || input <= 0) return null;
-    const toPounds = (kg: number) => toFixedFloor(kg * 2.2046226218);
-    return { value: toPounds(input), unit: "LB" };
+    const safeKg = input >= 23 ? input - 0.05 : input;
+    return { value: toFixedFloor(safeKg), unit: "KG" };
   }
   if (!input) return null;
   const unit = String(input.unit || "KG").toUpperCase();
   const value = Number(input.value || 0);
   if (!Number.isFinite(value) || value <= 0) return null;
   if (unit === "LB") {
-    const lbValue = toFixedFloor(value);
-    return { value: lbValue >= 50.71 ? 50.7 : lbValue, unit: "LB" };
+    const kgValue = toFixedFloor(value / 2.2046226218);
+    const safeKg = kgValue >= 23 ? kgValue - 0.05 : kgValue;
+    return { value: toFixedFloor(safeKg), unit: "KG" };
   }
   const safeKg = value >= 23 ? value - 0.05 : value;
-  const toPounds = (kg: number) => toFixedFloor(kg * 2.2046226218);
-  const lbValue = toPounds(safeKg);
-  return { value: lbValue >= 50.71 ? 50.7 : lbValue, unit: "LB" };
+  return { value: toFixedFloor(safeKg), unit: "KG" };
 }
 
 function normalizeItem(input: any) {

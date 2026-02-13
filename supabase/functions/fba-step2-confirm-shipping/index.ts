@@ -206,6 +206,12 @@ function cmToIn(cm: any) {
   return round2(num / 2.54);
 }
 
+function inToCm(inches: any) {
+  const num = Number(inches);
+  if (!Number.isFinite(num)) return 0;
+  return round2(num * 2.54);
+}
+
 function kgToLb(kg: any) {
   const num = Number(kg);
   if (!Number.isFinite(num)) return 0;
@@ -1881,14 +1887,14 @@ serve(async (req) => {
           if (!Number.isFinite(height) || height <= 0) return null;
           if (!Number.isFinite(weightValue) || weightValue <= 0) return null;
           const normalizedDims = {
-            length: dimUnit === "IN" ? round2(length) : cmToIn(length),
-            width: dimUnit === "IN" ? round2(width) : cmToIn(width),
-            height: dimUnit === "IN" ? round2(height) : cmToIn(height),
-            unitOfMeasurement: "IN"
+            length: dimUnit === "IN" ? inToCm(length) : round2(length),
+            width: dimUnit === "IN" ? inToCm(width) : round2(width),
+            height: dimUnit === "IN" ? inToCm(height) : round2(height),
+            unitOfMeasurement: "CM"
           };
           const normalizedWeight = {
-            value: weightUnit === "LB" ? round2(weightValue) : kgToLb(weightValue),
-            unitOfMeasurement: "LB"
+            value: weightUnit === "LB" ? lbToKg(weightValue) : round2(weightValue),
+            unitOfMeasurement: "KG"
           };
           return {
             dimensions: normalizedDims,
@@ -1919,14 +1925,14 @@ serve(async (req) => {
           if (!Number.isFinite(height) || height <= 0) return null;
           if (!Number.isFinite(weightValue) || weightValue <= 0) return null;
           const normalizedDims = {
-            length: dimUnit === "IN" ? round2(length) : cmToIn(length),
-            width: dimUnit === "IN" ? round2(width) : cmToIn(width),
-            height: dimUnit === "IN" ? round2(height) : cmToIn(height),
-            unitOfMeasurement: "IN"
+            length: dimUnit === "IN" ? inToCm(length) : round2(length),
+            width: dimUnit === "IN" ? inToCm(width) : round2(width),
+            height: dimUnit === "IN" ? inToCm(height) : round2(height),
+            unitOfMeasurement: "CM"
           };
           const normalizedWeight = {
-            value: weightUnit === "LB" ? round2(weightValue) : kgToLb(weightValue),
-            unitOfMeasurement: "LB"
+            value: weightUnit === "LB" ? lbToKg(weightValue) : round2(weightValue),
+            unitOfMeasurement: "KG"
           };
           const stackability = (p?.stackability || "STACKABLE").toString().toUpperCase();
           return {
@@ -1960,14 +1966,14 @@ serve(async (req) => {
       const dimUnit = (dimsRaw?.unit || dimsRaw?.unitOfMeasurement || dimsRaw?.uom || "CM").toString().toUpperCase();
       const weightUnit = (weightRaw?.unit || weightRaw?.uom || "KG").toString().toUpperCase();
       const normDims = {
-        length: dimUnit === "IN" ? round2(Number(dimsRaw?.length)) : cmToIn(dimsRaw?.length),
-        width: dimUnit === "IN" ? round2(Number(dimsRaw?.width)) : cmToIn(dimsRaw?.width),
-        height: dimUnit === "IN" ? round2(Number(dimsRaw?.height)) : cmToIn(dimsRaw?.height),
-        unitOfMeasurement: "IN"
+        length: dimUnit === "IN" ? inToCm(Number(dimsRaw?.length)) : round2(Number(dimsRaw?.length)),
+        width: dimUnit === "IN" ? inToCm(Number(dimsRaw?.width)) : round2(Number(dimsRaw?.width)),
+        height: dimUnit === "IN" ? inToCm(Number(dimsRaw?.height)) : round2(Number(dimsRaw?.height)),
+        unitOfMeasurement: "CM"
       };
       const normWeight = {
-        value: weightUnit === "LB" ? round2(Number(weightRaw?.value)) : kgToLb(weightRaw?.value),
-        unitOfMeasurement: "LB"
+        value: weightUnit === "LB" ? lbToKg(Number(weightRaw?.value)) : round2(Number(weightRaw?.value)),
+        unitOfMeasurement: "KG"
       };
       return {
         quantity: boxes,
@@ -2333,9 +2339,15 @@ serve(async (req) => {
         const pkgs = Array.isArray(cfg?.packages) ? cfg.packages : [];
         packagesCount += pkgs.length;
         pkgs.forEach((pkg, pkgIdx) => {
-          const weightLb = Number(pkg?.weight?.value || 0);
+          const weightRaw = Number(pkg?.weight?.value || 0);
+          const weightUnit = String(pkg?.weight?.unit || pkg?.weight?.unitOfMeasurement || "KG").toUpperCase();
+          const weightLb = weightUnit === "LB" ? weightRaw : kgToLb(weightRaw);
           const dims = pkg?.dimensions || {};
-          const sides = [dims?.length, dims?.width, dims?.height].map((n) => Number(n || 0));
+          const dimUnit = String(dims?.unitOfMeasurement || dims?.unit || "CM").toUpperCase();
+          const sides = [dims?.length, dims?.width, dims?.height].map((n) => {
+            const value = Number(n || 0);
+            return dimUnit === "IN" ? value : cmToIn(value);
+          });
           const sorted = [...sides].sort((a, b) => b - a);
           const lengthIn = Number(sorted?.[0] || 0);
           const girthIn = 2 * ((Number(sorted?.[1] || 0)) + (Number(sorted?.[2] || 0)));
