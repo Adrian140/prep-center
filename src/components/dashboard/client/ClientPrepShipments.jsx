@@ -8,6 +8,15 @@ import { buildPrepQtyPatch, mapStockRowsForMarket } from '@/utils/marketStock';
 
 const CLIENT_NOTE_MARKER = "[CLIENT_NOTE]";
 const ADMIN_NOTE_MARKER = "[ADMIN_NOTE]";
+const HISTORY_COUNTRIES = ['FR', 'DE'];
+
+const normalizeCountryCode = (value, fallback = 'FR') => {
+  const code = String(value || '').trim().toUpperCase();
+  return code || fallback;
+};
+
+const resolveRequestCountry = (row) =>
+  normalizeCountryCode(row?.warehouse_country || row?.destination_country || 'FR');
 
 const parseHeaderNotes = (raw) => {
   const text = String(raw || "");
@@ -89,12 +98,17 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
   const { t } = useDashboardTranslation();
   const supportError = t('common.supportError');
   const [rows, setRows] = useState([]);
+  const [stockRows, setStockRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [stock, setStock] = useState([]);
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryDraftQty, setInventoryDraftQty] = useState({});
+  const [activeCountry, setActiveCountry] = useState(() => {
+    const market = normalizeCountryCode(currentMarket, '');
+    return HISTORY_COUNTRIES.includes(market) ? market : 'FR';
+  });
 
   const [reqOpen, setReqOpen] = useState(false);
   const [reqLoading, setReqLoading] = useState(false);
@@ -312,7 +326,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
     if (existing) return existing.id;
     if (!targetProfile?.company_id) return null;
 
-    const prepPatch = buildPrepQtyPatch({}, currentMarket, 0);
+    const prepPatch = buildPrepQtyPatch({}, activeCountry, 0);
     const payload = {
       company_id: targetProfile.company_id,
       user_id: targetProfile.id,
@@ -327,7 +341,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
 
     const { data, error } = await supabase.from('stock_items').insert(payload).select().single();
     if (error) throw error;
-    const [mapped] = mapStockRowsForMarket([data], currentMarket);
+    const [mapped] = mapStockRowsForMarket([data], activeCountry);
     setStock((prev) => [mapped, ...prev]);
     return data.id;
   };
@@ -388,7 +402,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
     if (!requestId) {
       setReqHeader({
         id: null,
-        destination_country: currentMarket || targetProfile?.company_country || 'FR',
+        destination_country: activeCountry || targetProfile?.company_country || 'FR',
         status: 'pending',
         created_at: new Date().toISOString(),
         fba_shipment_id: null,
@@ -550,12 +564,13 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
 
     const load = async () => {
       setLoading(true);
-      const prepQuery = () =>
+      const prepQuery = (includeWarehouseCountry = true) =>
         supabase
           .from('prep_requests')
           .select(`
             id,
             destination_country,
+            ${includeWarehouseCountry ? 'warehouse_country,' : ''}
             created_at,
             confirmed_at,
             status,
@@ -587,12 +602,8 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
           .eq('user_id', targetProfile.id)
           .order('created_at', { ascending: false })
           .limit(100);
-      let prepPromise = prepQuery();
-      if (currentMarket) {
-        prepPromise = prepPromise.eq('warehouse_country', currentMarket);
-      }
       const [prepRes, stockResCompany, stockResUser] = await Promise.all([
-        prepPromise,
+        prepQuery(true),
         supabase
           .from('stock_items')
           .select('*')
@@ -608,8 +619,8 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
       ]);
 
       if (!active) return;
-      if (prepRes.error && currentMarket && String(prepRes.error.message || '').toLowerCase().includes('warehouse_country')) {
-        const retry = await prepQuery();
+      if (prepRes.error && String(prepRes.error.message || '').toLowerCase().includes('warehouse_country')) {
+        const retry = await prepQuery(false);
         if (retry.error) {
           setError(supportError);
           setRows([]);
@@ -628,7 +639,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
       const userItems = Array.isArray(stockResUser.data) ? stockResUser.data : [];
       const merged = [...companyItems, ...userItems].filter(Boolean);
       const deduped = Array.from(new Map(merged.map((it) => [it.id, it])).values());
-      setStock(mapStockRowsForMarket(deduped, currentMarket));
+      setStockRows(deduped);
       setLoading(false);
     };
 
@@ -637,6 +648,17 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
       active = false;
     };
   }, [targetProfile?.id, targetProfile?.company_id, currentMarket]);
+
+  useEffect(() => {
+    const market = normalizeCountryCode(currentMarket, '');
+    if (HISTORY_COUNTRIES.includes(market)) {
+      setActiveCountry(market);
+    }
+  }, [currentMarket]);
+
+  useEffect(() => {
+    setStock(mapStockRowsForMarket(stockRows, activeCountry));
+  }, [stockRows, activeCountry]);
 
   const reqClientNote = parseHeaderNotes(reqHeader?.obs_admin).clientNote;
   const reqStep2Shipments = useMemo(
@@ -652,11 +674,16 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
   const headerTrackingIds = (reqHeader?.prep_request_tracking || [])
     .map((t) => t?.tracking_id)
     .filter(Boolean);
+  const countryRows = useMemo(
+    () => rows.filter((row) => resolveRequestCountry(row) === activeCountry),
+    [rows, activeCountry]
+  );
+
   const filteredRows = useMemo(() => {
     const raw = searchTerm.trim().toLowerCase();
-    if (!raw) return rows;
+    if (!raw) return countryRows;
     const tokens = raw.split(/\s+/).filter(Boolean);
-    return rows.filter((row) => {
+    return countryRows.filter((row) => {
       const snapshot = row.amazon_snapshot || {};
       const step2Shipments = normalizeStep2Shipments(row.step2_shipments);
       const step2Text = step2Shipments
@@ -688,7 +715,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
       const haystack = `${headerText} ${itemText}`;
       return tokens.every((token) => haystack.includes(token));
     });
-  }, [rows, searchTerm]);
+  }, [countryRows, searchTerm]);
 
   const displayRows = useMemo(
     () =>
@@ -723,6 +750,25 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mr-2">
+            {HISTORY_COUNTRIES.map((code) => {
+              const active = activeCountry === code;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setActiveCountry(code)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                    active
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-white text-text-secondary border-gray-200 hover:border-primary hover:text-primary'
+                  }`}
+                >
+                  {code}
+                </button>
+              );
+            })}
+          </div>
           <button
             onClick={() => openReqEditor(null)}
             className="text-sm px-3 py-2 border rounded-md text-slate-700 hover:bg-slate-100"
@@ -744,7 +790,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search shipments..."
+                placeholder={`Search ${activeCountry} shipments...`}
                 className="pl-8 pr-3 py-1.5 border rounded-md text-sm w-64"
               />
             </div>

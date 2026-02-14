@@ -103,6 +103,15 @@ const DATE_LOCALE_MAP = {
 };
 
 const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
+const HISTORY_COUNTRIES = ['FR', 'DE'];
+
+const normalizeCountryCode = (value, fallback = 'FR') => {
+  const code = String(value || '').trim().toUpperCase();
+  return code || fallback;
+};
+
+const resolveShipmentCountry = (shipment) =>
+  normalizeCountryCode(shipment?.warehouse_country || shipment?.destination_country || 'FR');
 
 const getExpectedQty = (item) => Math.max(0, Number(item?.quantity_received || 0));
 const getConfirmedQty = (item) => {
@@ -160,6 +169,7 @@ function ClientReceiving() {
   const DATE_LOCALE = DATE_LOCALE_MAP[currentLanguage] || 'en-US';
 
   const [shipments, setShipments] = useState([]);
+  const [stockRows, setStockRows] = useState([]);
   const [carriers, setCarriers] = useState(FALLBACK_CARRIERS);
   const [loading, setLoading] = useState(true);
   const [selectedShipment, setSelectedShipment] = useState(null);
@@ -175,6 +185,10 @@ function ClientReceiving() {
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryDraftQty, setInventoryDraftQty] = useState({});
   const [shipmentsSearch, setShipmentsSearch] = useState('');
+  const [activeCountry, setActiveCountry] = useState(() => {
+    const market = normalizeCountryCode(currentMarket, '');
+    return HISTORY_COUNTRIES.includes(market) ? market : 'FR';
+  });
   const copyToClipboard = async (label, value) => {
     const text = String(value || '').trim();
     if (!text) return;
@@ -196,7 +210,7 @@ function ClientReceiving() {
     });
   }, [stock, inventorySearch]);
 
-  const filteredShipments = useMemo(() => {
+  const searchedShipments = useMemo(() => {
     const rawTerm = shipmentsSearch.trim().toLowerCase();
     const cleanTerm = rawTerm.replace(/\s+/g, '');
     if (!cleanTerm) return shipments;
@@ -228,6 +242,11 @@ function ClientReceiving() {
       });
     });
   }, [shipments, shipmentsSearch]);
+
+  const filteredShipments = useMemo(
+    () => searchedShipments.filter((shipment) => resolveShipmentCountry(shipment) === activeCountry),
+    [searchedShipments, activeCountry]
+  );
 
   const resolveText = (keys, fallback) => {
     for (const key of keys) {
@@ -295,7 +314,7 @@ const resolveBoxesCount = (shipment) => {
     setLoading(true);
     try {
       const [shipmentsRes, carriersRes, stockResCompany, stockResUser] = await Promise.all([
-        supabaseHelpers.getClientReceivingShipments(profile.company_id, currentMarket),
+        supabaseHelpers.getClientReceivingShipments(profile.company_id),
         supabaseHelpers.getCarriers(),
         supabase
           .from('stock_items')
@@ -331,7 +350,7 @@ const resolveBoxesCount = (shipment) => {
 
       setShipments(sortedShipments);
       setCarriers(normalizeCarriers(carriersRes.data || []));
-      setStock(mapStockRowsForMarket(deduped, currentMarket));
+      setStockRows(deduped);
       return sortedShipments;
     } catch (error) {
       setShipments([]);
@@ -350,7 +369,25 @@ const resolveBoxesCount = (shipment) => {
     setEditItems([]);
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.company_id, currentMarket]);
+  }, [profile?.company_id, profile?.id]);
+
+  useEffect(() => {
+    const market = normalizeCountryCode(currentMarket, '');
+    if (HISTORY_COUNTRIES.includes(market)) {
+      setActiveCountry(market);
+    }
+  }, [currentMarket]);
+
+  useEffect(() => {
+    setStock(mapStockRowsForMarket(stockRows, activeCountry));
+  }, [stockRows, activeCountry]);
+
+  useEffect(() => {
+    if (!selectedShipment) return;
+    if (resolveShipmentCountry(selectedShipment) === activeCountry) return;
+    setSelectedShipment(null);
+    setEditMode(false);
+  }, [activeCountry, selectedShipment]);
 
   useEffect(() => {
     if (!editMode) {
@@ -699,6 +736,14 @@ const resolveBoxesCount = (shipment) => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col">
+              <span className="text-xs text-text-secondary">
+                {t('receptionForm.created_for') || 'Created in'}
+              </span>
+              <span className="inline-flex px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-sm font-medium">
+                {resolveShipmentCountry(selectedShipment)}
+              </span>
+            </div>
             <div className="flex flex-col">
               <span className="text-xs text-text-secondary">{t('receptionForm.destination') || 'Destination'}</span>
               {editMode ? (
@@ -1314,17 +1359,38 @@ const resolveBoxesCount = (shipment) => {
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 pt-4">
-          <div className="text-sm text-text-secondary">
-            Search receptions by client/tracking or product (SKU, ASIN, title).
+        <div className="flex flex-col gap-3 px-4 pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {HISTORY_COUNTRIES.map((code) => {
+              const active = activeCountry === code;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setActiveCountry(code)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                    active
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-white text-text-secondary border-gray-200 hover:border-primary hover:text-primary'
+                  }`}
+                >
+                  {code}
+                </button>
+              );
+            })}
           </div>
-          <input
-            type="text"
-            value={shipmentsSearch}
-            onChange={(e) => setShipmentsSearch(e.target.value)}
-            placeholder="Search receptions..."
-            className="w-full sm:w-80 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary"
-          />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="text-sm text-text-secondary">
+              Search receptions in {activeCountry} by client/tracking or product (SKU, ASIN, title).
+            </div>
+            <input
+              type="text"
+              value={shipmentsSearch}
+              onChange={(e) => setShipmentsSearch(e.target.value)}
+              placeholder={`Search ${activeCountry} receptions...`}
+              className="w-full sm:w-80 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary"
+            />
+          </div>
         </div>
         <table className="w-full min-w-[900px]">
           <thead className="bg-gray-50">
