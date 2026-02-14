@@ -45,6 +45,7 @@ export default function AdminOther({
     obs_admin: ''
   });
   const [serviceOptions, setServiceOptions] = useState([]);
+  const [servicePriceMap, setServicePriceMap] = useState({});
 
   useEffect(() => {
     const today = todayStr();
@@ -64,6 +65,7 @@ export default function AdminOther({
       }
       const seen = new Set();
       const options = [];
+      const prices = {};
       (data || []).forEach((row) => {
         const name = String(row?.service_name || '').trim();
         const category = String(row?.category || '').toLowerCase();
@@ -72,8 +74,12 @@ export default function AdminOther({
         if (seen.has(name)) return;
         seen.add(name);
         options.push(name);
+        prices[name] = row?.price ?? '';
       });
-      if (!cancelled) setServiceOptions(options);
+      if (!cancelled) {
+        setServiceOptions(options);
+        setServicePriceMap(prices);
+      }
     };
     fetchServiceOptions();
     return () => {
@@ -85,9 +91,14 @@ export default function AdminOther({
     if (!serviceOptions.length) return;
     setForm((prev) => {
       if ((prev?.service || '').trim()) return prev;
-      return { ...prev, service: serviceOptions[0] };
+      const firstService = serviceOptions[0];
+      return {
+        ...prev,
+        service: firstService,
+        unit_price: servicePriceMap[firstService] ?? prev.unit_price
+      };
     });
-  }, [serviceOptions, setForm]);
+  }, [serviceOptions, servicePriceMap, setForm]);
 
   const handleAdd = async () => {
     if (!companyId) return;
@@ -185,7 +196,14 @@ export default function AdminOther({
             <select
               className="border rounded px-2 py-1 w-48"
               value={form.service}
-              onChange={(e) => setForm((s) => ({ ...s, service: e.target.value }))}
+              onChange={(e) => {
+                const nextService = e.target.value;
+                setForm((s) => ({
+                  ...s,
+                  service: nextService,
+                  unit_price: nextService ? (servicePriceMap[nextService] ?? s.unit_price) : s.unit_price
+                }));
+              }}
             >
               <option value="">Select service…</option>
               {serviceOptions.map((opt) => (
@@ -200,6 +218,13 @@ export default function AdminOther({
               className="border rounded px-2 py-1 w-48"
               value={form.service}
               onChange={(e) => setForm((s) => ({ ...s, service: e.target.value }))}
+              onBlur={(e) => {
+                const value = (e.target.value || '').trim();
+                if (!value) return;
+                const autoPrice = servicePriceMap[value];
+                if (autoPrice == null || autoPrice === '') return;
+                setForm((s) => ({ ...s, service: value, unit_price: autoPrice }));
+              }}
             />
           </div>
           <input
