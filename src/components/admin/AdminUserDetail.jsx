@@ -371,6 +371,7 @@ if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
               reload={loadAll}
               companyId={companyId}
               profile={profile}
+              currentMarket={currentMarket}
               billingSelectedLines={billingSelections}
               onToggleBillingSelection={toggleBillingSelection}
               canSelectForBilling={canManageInvoices}

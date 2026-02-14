@@ -27,6 +27,7 @@ export default function AdminOther({
   reload,
   companyId,
   profile,
+  currentMarket,
   billingSelectedLines = {},
   onToggleBillingSelection,
   canSelectForBilling = true
@@ -43,10 +44,7 @@ export default function AdminOther({
     units: '',
     obs_admin: ''
   });
-  const [serviceOptions, setServiceOptions] = useSessionStorage('admin-other-service-options', [
-    'Extra Services',
-    'Add-ons for branding, paperwork and translations.'
-  ]);
+  const [serviceOptions, setServiceOptions] = useState([]);
 
   useEffect(() => {
     const today = todayStr();
@@ -55,6 +53,41 @@ export default function AdminOther({
       return { ...prev, service_date: today };
     });
   }, [companyId, setForm]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchServiceOptions = async () => {
+      const { data, error } = await supabaseHelpers.getPricingServices(currentMarket);
+      if (error) {
+        console.error('Failed to load Other pricing services', error);
+        return;
+      }
+      const seen = new Set();
+      const options = [];
+      (data || []).forEach((row) => {
+        const name = String(row?.service_name || '').trim();
+        const category = String(row?.category || '').toLowerCase();
+        if (!name) return;
+        if (!category.includes('extra') && !category.includes('storage')) return;
+        if (seen.has(name)) return;
+        seen.add(name);
+        options.push(name);
+      });
+      if (!cancelled) setServiceOptions(options);
+    };
+    fetchServiceOptions();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentMarket]);
+
+  useEffect(() => {
+    if (!serviceOptions.length) return;
+    setForm((prev) => {
+      if ((prev?.service || '').trim()) return prev;
+      return { ...prev, service: serviceOptions[0] };
+    });
+  }, [serviceOptions, setForm]);
 
   const handleAdd = async () => {
     if (!companyId) return;
@@ -167,12 +200,6 @@ export default function AdminOther({
               className="border rounded px-2 py-1 w-48"
               value={form.service}
               onChange={(e) => setForm((s) => ({ ...s, service: e.target.value }))}
-              onBlur={(e) => {
-                const v = (e.target.value || '').trim();
-                if (v && !serviceOptions.includes(v)) {
-                  setServiceOptions((prev) => Array.from(new Set([...prev, v])));
-                }
-              }}
             />
           </div>
           <input
