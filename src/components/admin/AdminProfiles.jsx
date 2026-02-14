@@ -14,7 +14,7 @@ import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
 import { useMarket } from "@/contexts/MarketContext";
 import { normalizeMarketCode } from "@/utils/market";
 
-const PER_PAGE = 30;
+const PER_PAGE = 60;
 const fmt2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "0.00");
 
 // --- date helpers (LOCAL, fără UTC drift)
