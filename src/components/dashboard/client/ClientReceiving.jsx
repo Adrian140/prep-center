@@ -1432,6 +1432,14 @@ const resolveBoxesCount = (shipment) => {
                   shipment.tracking_ids,
                   shipment.tracking_id
                 );
+                const shipmentItems = Array.isArray(shipment.receiving_items)
+                  ? shipment.receiving_items
+                  : [];
+                const skuCount = shipmentItems.length;
+                const totalPcs = shipmentItems.reduce(
+                  (sum, item) => sum + Math.max(0, Number(item?.quantity_received || 0)),
+                  0
+                );
                 const status = shipment.derived_status || shipment.status;
                 const canDelete = !['processed', 'cancelled', 'received'].includes(status);
 
@@ -1486,7 +1494,7 @@ const resolveBoxesCount = (shipment) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-text-primary">
-                        {(shipment.receiving_items?.length || 0)} {t('units_label')}
+                        {skuCount} sku / {totalPcs} pcs
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-text-secondary">
