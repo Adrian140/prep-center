@@ -3580,7 +3580,7 @@ serve(async (req) => {
             isPartnered: detectPartnered(opt),
             partnered: detectPartnered(opt),
             mode: opt.mode || opt.shippingMode || opt.method || null,
-            carrierName: opt.carrierName || opt.carrier?.name || opt.carrier?.alphaCode || opt.carrier || null,
+            carrierName: opt.carrier?.name || opt.carrierName || opt.carrier?.alphaCode || opt.carrier || null,
             charge: extractCharge(opt),
             shipmentId:
               opt.shipmentId ||
@@ -3640,7 +3640,7 @@ serve(async (req) => {
       );
       const carrierCode = normalizeCarrier(raw?.carrier?.alphaCode || raw?.carrierCode || "");
       const carrierName = normalizeCarrier(
-        opt.carrierName || raw?.carrier?.name || raw?.carrier?.alphaCode || raw?.carrier || ""
+        raw?.carrier?.name || opt.carrierName || raw?.carrier?.alphaCode || raw?.carrier || ""
       );
       const partnered =
         typeof opt.partnered === "boolean" ? opt.partnered : detectPartnered(raw);

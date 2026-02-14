@@ -28,6 +28,33 @@ export default function FbaStep2Shipping({
     const value = t(path);
     return value === path ? fallback : value;
   };
+  const carrierCodeLabels = {
+    UPS: 'UPS',
+    UPSN: 'UPS',
+    DHL: 'DHL',
+    DPD: 'DPD',
+    GLS: 'GLS',
+    TNT: 'TNT',
+    USPS: 'USPS',
+    FDEG: 'FedEx',
+    FDXG: 'FedEx Ground',
+    FDXE: 'FedEx Express'
+  };
+  const looksLikeInternalCode = (value) => /^[A-Z0-9]{4,6}$/.test(String(value || '').trim());
+  const getCarrierLabel = (opt) => {
+    const rawName = String(opt?.raw?.carrier?.name || opt?.carrierName || '').trim();
+    const rawCode = String(opt?.raw?.carrier?.alphaCode || '').trim().toUpperCase();
+    if (rawName) {
+      const upperName = rawName.toUpperCase();
+      if (!(looksLikeInternalCode(upperName) && !carrierCodeLabels[upperName])) {
+        return rawName;
+      }
+      if (carrierCodeLabels[upperName]) return carrierCodeLabels[upperName];
+    }
+    if (rawCode && carrierCodeLabels[rawCode]) return carrierCodeLabels[rawCode];
+    if (rawCode && looksLikeInternalCode(rawCode)) return 'Other carrier';
+    return rawName || rawCode || 'Carrier';
+  };
   const {
     deliveryWindowStart = '',
     deliveryWindowEnd = '',
@@ -147,13 +174,13 @@ export default function FbaStep2Shipping({
     opt?.raw?.id ||
     opt?.raw?.optionId ||
     null;
-  const getCarrierLabel = (opt) => String(opt?.carrierName || opt?.raw?.carrier?.name || opt?.raw?.carrier?.alphaCode || 'Carrier');
   const dedupeByCarrier = (list = []) => {
     const map = new Map();
     (Array.isArray(list) ? list : []).forEach((opt) => {
       const id = getOptionId(opt);
       if (!id) return;
-      const key = getCarrierLabel(opt).trim().toUpperCase();
+      const codeKey = String(opt?.raw?.carrier?.alphaCode || '').trim().toUpperCase();
+      const key = (codeKey || getCarrierLabel(opt)).trim().toUpperCase();
       const prev = map.get(key);
       const prevCharge = Number.isFinite(prev?.charge) ? Number(prev.charge) : Number.MAX_SAFE_INTEGER;
       const nextCharge = Number.isFinite(opt?.charge) ? Number(opt.charge) : Number.MAX_SAFE_INTEGER;
@@ -163,7 +190,21 @@ export default function FbaStep2Shipping({
   };
   const spdOptions = groupedOptions.SPD || [];
   const spdPartneredOptions = useMemo(() => dedupeByCarrier(spdOptions.filter((o) => Boolean(o?.partnered))), [spdOptions]);
-  const spdNonPartneredOptions = useMemo(() => dedupeByCarrier(spdOptions.filter((o) => !o?.partnered)), [spdOptions]);
+  const spdNonPartneredOptions = useMemo(() => {
+    const list = dedupeByCarrier(spdOptions.filter((o) => !o?.partnered));
+    const isOtherCarrier = (opt) => {
+      const code = String(opt?.raw?.carrier?.alphaCode || '').trim().toUpperCase();
+      const label = getCarrierLabel(opt).trim().toUpperCase();
+      return code === 'OTHER' || label === 'OTHER' || label === 'OTHER CARRIER';
+    };
+    return [...list].sort((a, b) => {
+      const aOther = isOtherCarrier(a);
+      const bOther = isOtherCarrier(b);
+      if (aOther && !bOther) return 1;
+      if (!aOther && bOther) return -1;
+      return getCarrierLabel(a).localeCompare(getCarrierLabel(b));
+    });
+  }, [spdOptions]);
   const hasSpdOptions = spdOptions.length > 0;
   const modeKeys = useMemo(
     () => ['SPD', 'LTL', 'FTL', 'OTHER'].filter((k) => (groupedOptions[k] || []).length > 0),

@@ -122,6 +122,36 @@ const getTomorrowIsoDate = () => {
   return d.toISOString().slice(0, 10);
 };
 
+const CARRIER_CODE_LABELS = {
+  UPS: 'UPS',
+  UPSN: 'UPS',
+  DHL: 'DHL',
+  DPD: 'DPD',
+  GLS: 'GLS',
+  TNT: 'TNT',
+  USPS: 'USPS',
+  FDEG: 'FedEx',
+  FDXG: 'FedEx Ground',
+  FDXE: 'FedEx Express'
+};
+
+const looksLikeInternalCarrierCode = (value) => /^[A-Z0-9]{4,6}$/.test(String(value || '').trim());
+
+const resolveCarrierDisplayName = (carrier = {}, fallback = '') => {
+  const rawName = String(carrier?.name || fallback || '').trim();
+  const rawCode = String(carrier?.alphaCode || '').trim().toUpperCase();
+  if (rawName) {
+    const upperName = rawName.toUpperCase();
+    if (!(looksLikeInternalCarrierCode(upperName) && !CARRIER_CODE_LABELS[upperName])) {
+      return rawName;
+    }
+    if (CARRIER_CODE_LABELS[upperName]) return CARRIER_CODE_LABELS[upperName];
+  }
+  if (rawCode && CARRIER_CODE_LABELS[rawCode]) return CARRIER_CODE_LABELS[rawCode];
+  if (rawCode && looksLikeInternalCarrierCode(rawCode)) return 'Other carrier';
+  return rawName || rawCode || 'Carrier';
+};
+
 const detectPartneredOption = (opt = {}) => {
   const explicit =
     opt?.isPartnered ??
@@ -224,12 +254,10 @@ const aggregateTransportationOptions = (options = [], summary = null) => {
         opt?.shippingSolution ||
         opt?.raw?.shippingSolution ||
         (partnered ? 'AMAZON_PARTNERED_CARRIER' : 'USE_YOUR_OWN_CARRIER');
-      const carrierName =
-        opt?.carrierName ||
-        opt?.raw?.carrier?.name ||
-        opt?.raw?.carrier?.alphaCode ||
-        opt?.raw?.carrier ||
-        (partnered ? 'Amazon Partnered Carrier' : 'Non Amazon partnered carrier');
+      const carrierName = resolveCarrierDisplayName(
+        opt?.raw?.carrier,
+        opt?.carrierName || opt?.raw?.carrier?.alphaCode || opt?.raw?.carrier || ''
+      ) || (partnered ? 'Amazon Partnered Carrier' : 'Non Amazon partnered carrier');
       return {
         ...opt,
         id: optionId,
@@ -3519,7 +3547,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const match = (shippingOptions || []).find((opt) => {
         const optMode = normalizeOptionMode(opt.mode || opt.shippingMode);
         const optSolution = String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase();
-        const optCarrierName = String(opt?.carrierName || opt?.raw?.carrier?.name || '').trim().toUpperCase();
+        const optCarrierName = String(opt?.raw?.carrier?.name || opt?.carrierName || '').trim().toUpperCase();
         const optCarrierCode = String(opt?.raw?.carrier?.alphaCode || '').trim().toUpperCase();
         return (
           Boolean(opt?.partnered) === signature.partnered &&
@@ -3627,7 +3655,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             null,
           selected_carrier_name:
             signature?.carrierName ||
-            String(selectedOpt?.carrierName || selectedOpt?.raw?.carrier?.name || '').trim().toUpperCase() ||
+            String(selectedOpt?.raw?.carrier?.name || selectedOpt?.carrierName || '').trim().toUpperCase() ||
             null,
           selected_carrier_code:
             signature?.carrierCode ||
@@ -3906,7 +3934,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       mode: nextMethod || null,
       partnered: Boolean(opt.partnered),
       shippingSolution: String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase(),
-      carrierName: String(opt?.carrierName || opt?.raw?.carrier?.name || '').trim().toUpperCase(),
+      carrierName: String(opt?.raw?.carrier?.name || opt?.carrierName || '').trim().toUpperCase(),
       carrierCode: String(opt?.raw?.carrier?.alphaCode || '').trim().toUpperCase()
     };
     setShipmentMode((prev) => ({
