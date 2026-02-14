@@ -618,6 +618,24 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [shippingConfirming, setShippingConfirming] = useState(false);
   const [skipPacking, setSkipPacking] = useState(false);
   const [forcePartneredOnly, setForcePartneredOnly] = useState(false);
+  const [skuServicesById, setSkuServicesById] = useState({});
+  const [boxServices, setBoxServices] = useState([]);
+  const hasDangerousGoodsService = useMemo(() => {
+    const dgPattern = /\bdg\b|dangerous|hazmat|lithium|battery/i;
+    const allServices = [
+      ...Object.values(skuServicesById || {}).flat(),
+      ...(Array.isArray(boxServices) ? boxServices : [])
+    ];
+    return allServices.some((svc) => dgPattern.test(String(svc?.service_name || '')));
+  }, [skuServicesById, boxServices]);
+  const hasTrackingIds = useMemo(
+    () => (Array.isArray(tracking) ? tracking.some((t) => String(t?.trackingId || '').trim().length > 0) : false),
+    [tracking]
+  );
+  const skipReadyWindowValidationAfterPickup = useMemo(
+    () => Boolean(shippingConfirmed && hasTrackingIds && !hasDangerousGoodsService),
+    [shippingConfirmed, hasTrackingIds, hasDangerousGoodsService]
+  );
   useEffect(() => {
     shippingOptionsRef.current = Array.isArray(shippingOptions) ? shippingOptions : [];
   }, [shippingOptions]);
@@ -642,8 +660,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       deliveryWindowStart: startIso,
       deliveryWindowEnd: endIso || ''
     }));
-    fetchShippingOptions({ force: true });
-  }, [shipmentMode?.method, fetchShippingOptions]);
+    if (!skipReadyWindowValidationAfterPickup) {
+      fetchShippingOptions({ force: true });
+    }
+  }, [shipmentMode?.method, fetchShippingOptions, skipReadyWindowValidationAfterPickup]);
   const isFallbackId = useCallback((v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-"), []);
   const hasRealPackGroups = useCallback(
     (groups) =>
@@ -689,8 +709,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const packingPreviewFetchRef = useRef(false);
   const fetchPlanInFlightRef = useRef(false);
   const servicesLoadedRef = useRef(false);
-  const [skuServicesById, setSkuServicesById] = useState({});
-  const [boxServices, setBoxServices] = useState([]);
   const shippingRetryRef = useRef(0);
   const shippingRetryTimerRef = useRef(null);
   const shippingFetchLockRef = useRef({ inFlight: false, lastKey: "", lastAt: 0 });
@@ -3253,6 +3271,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return false;
     });
     if (missingReady) {
+      if (skipReadyWindowValidationAfterPickup) {
+        setShippingError('');
+        return;
+      }
       setShippingError('Completează “Ready to ship” (start) pentru toate expedierile înainte de a cere opțiuni de curier.');
       return;
     }
@@ -3479,6 +3501,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
     return true;
   };
+
+  useEffect(() => {
+    if (!skipReadyWindowValidationAfterPickup) return;
+    if (!shippingError) return;
+    if (/ready to ship|opțiuni de curier|shipment/i.test(String(shippingError))) {
+      setShippingError('');
+    }
+  }, [skipReadyWindowValidationAfterPickup, shippingError]);
 
   useEffect(() => {
     if (!selectedTransportationOptionId) return;
