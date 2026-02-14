@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Package, ChevronDown, Search } from 'lucide-react';
+import { Package, ChevronDown, Search, Loader2 } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
 import { supabase, supabaseHelpers } from '../../../config/supabase';
@@ -680,8 +680,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
           .eq('user_id', targetProfile.id)
           .order('created_at', { ascending: false })
           .limit(100);
-      const [prepRes, stockResCompany, stockResUser] = await Promise.all([
-        prepQuery(true),
+      const stockPromise = Promise.all([
         supabase
           .from('stock_items')
           .select('*')
@@ -696,6 +695,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
           .limit(5000)
       ]);
 
+      const prepRes = await prepQuery(true);
       if (!active) return;
       if (
         prepRes.error &&
@@ -719,12 +719,15 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
         setError('');
         setRows(Array.isArray(prepRes.data) ? prepRes.data : []);
       }
+      setLoading(false);
+
+      const [stockResCompany, stockResUser] = await stockPromise;
+      if (!active) return;
       const companyItems = Array.isArray(stockResCompany.data) ? stockResCompany.data : [];
       const userItems = Array.isArray(stockResUser.data) ? stockResUser.data : [];
       const merged = [...companyItems, ...userItems].filter(Boolean);
       const deduped = Array.from(new Map(merged.map((it) => [it.id, it])).values());
       setStockRows(deduped);
-      setLoading(false);
     };
 
     load();
@@ -878,7 +881,12 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 className="pl-8 pr-3 py-1.5 border rounded-md text-sm w-64"
               />
             </div>
-            {loading && <span className="text-xs text-text-light">{t('common.loading')}</span>}
+            {loading && (
+              <span className="inline-flex items-center gap-2 text-xs text-text-light">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {t('common.loading')}
+              </span>
+            )}
           </div>
       </div>
 
@@ -905,6 +913,16 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
               </tr>
             </thead>
             <tbody>
+                      {loading && (
+                        <tr>
+                          <td colSpan={10} className="px-4 py-10 text-center text-text-secondary">
+                            <span className="inline-flex items-center gap-2">
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              {t('common.loading')}
+                            </span>
+                          </td>
+                        </tr>
+                      )}
                       {!loading && filteredRows.length === 0 && (
                         <tr>
                           <td colSpan={10} className="px-4 py-8 text-center text-text-light">
