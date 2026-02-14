@@ -2737,6 +2737,42 @@ serve(async (req) => {
             return solution.includes("AMAZON_PARTNERED") || solution.includes("PARTNERED_CARRIER");
           })
         : false;
+    const normalizeCarrierToken = (value: any) => String(value || "").trim().toUpperCase();
+    const isPartneredOption = (opt: any) => {
+      const solution = String(
+        opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || ""
+      ).toUpperCase();
+      return solution.includes("AMAZON_PARTNERED") || solution.includes("PARTNERED_CARRIER");
+    };
+    const extractCarrierTokens = (opt: any) => {
+      const tokens = new Set<string>();
+      const add = (value: any) => {
+        const normalized = normalizeCarrierToken(value);
+        if (normalized) tokens.add(normalized);
+      };
+      add(opt?.carrierName);
+      add(opt?.carrier?.name);
+      add(opt?.carrier?.alphaCode);
+      add(opt?.carrierCode);
+      return tokens;
+    };
+    const hasCarrierTarget = (carriers: Set<string>, target: string) => {
+      const rx = new RegExp(`\\b${target}\\b`, "i");
+      for (const carrier of carriers) {
+        if (rx.test(carrier)) return true;
+      }
+      return false;
+    };
+    const normalizedShippingMode = String(effectiveShippingMode || "").toUpperCase();
+    const isSpdMode = ["SPD", "SMALL_PARCEL_DELIVERY", "SMALL_PARCEL", "GROUND_SMALL_PARCEL", "PARCEL"].includes(
+      normalizedShippingMode
+    );
+    const pcpEarlyStopTargets =
+      warehouseCountry === "FR"
+        ? ["UPS"]
+        : warehouseCountry === "DE"
+          ? ["UPS", "DHL", "DPD"]
+          : [];
     const dedupeTransportationOptions = (opts: any[]) => {
       const byId = new Map<string, any>();
       const withoutIdDistinct: any[] = [];
@@ -2796,6 +2832,12 @@ serve(async (req) => {
         Math.min(Number(opts?.hardMaxPages ?? (requiredOptionId ? 40 : maxPages)), 60)
       );
       const absoluteHardCap = 200; // safety guard
+      const canUsePcpEarlyStop =
+        probePartnered &&
+        !requiredOptionId &&
+        isSpdMode &&
+        pcpEarlyStopTargets.length > 0;
+      const foundPcpCarriers = new Set<string>();
       let firstRes: Awaited<ReturnType<typeof signedFetch>> | null = null;
       const collected: any[] = [];
       let nextToken: string | null = null;
@@ -2835,6 +2877,31 @@ serve(async (req) => {
           [];
         const pageChunk = Array.isArray(pageRaw) ? pageRaw : [];
         if (pageChunk.length) collected.push(...pageChunk);
+        if (canUsePcpEarlyStop && pageChunk.length) {
+          pageChunk.forEach((opt: any) => {
+            if (!isPartneredOption(opt)) return;
+            const tokens = extractCarrierTokens(opt);
+            pcpEarlyStopTargets.forEach((target) => {
+              if (hasCarrierTarget(tokens, target)) {
+                foundPcpCarriers.add(target);
+              }
+            });
+          });
+          const matchedAllTargets = pcpEarlyStopTargets.every((target) => foundPcpCarriers.has(target));
+          if (matchedAllTargets) {
+            logStep("listTransportationOptions_pcp_early_stop", {
+              traceId,
+              placementOptionId: placementOptionIdParam,
+              shipmentId: shipmentIdParam || null,
+              warehouseCountry,
+              targets: pcpEarlyStopTargets,
+              found: Array.from(foundPcpCarriers.values()),
+              pagesFetched,
+              collected: collected.length
+            });
+            break;
+          }
+        }
         if (probePartnered && firstPartneredPage === null && hasPartneredSolution(pageChunk)) {
           firstPartneredPage = pagesFetched;
         }
