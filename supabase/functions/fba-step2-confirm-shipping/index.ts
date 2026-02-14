@@ -1701,6 +1701,95 @@ serve(async (req) => {
       return { selectedTransportationOptionId, requestId: shDetail?.requestId || null };
     };
 
+    const extractOptionCharge = (opt: any) => {
+      const fromPath = [
+        opt?.quote?.cost?.amount,
+        opt?.quote?.cost?.value,
+        opt?.charge?.totalCharge?.amount,
+        opt?.totalCharge?.amount,
+        opt?.chargeAmount?.amount,
+        opt?.estimatedCharge?.amount,
+        opt?.price?.amount
+      ].find((v) => v !== undefined && v !== null);
+      const value = Number(fromPath);
+      return Number.isFinite(value) ? value : null;
+    };
+
+    const detectPartneredOptionLocal = (opt: any) => {
+      const shippingSolution = String(
+        opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || ""
+      ).toUpperCase();
+      if (shippingSolution.includes("AMAZON_PARTNERED")) return true;
+      if (shippingSolution.includes("USE_YOUR_OWN_CARRIER")) return false;
+      return null;
+    };
+
+    const getConfirmedTransportationOptionMeta = async (
+      shipmentId: string,
+      transportationOptionId: string | null
+    ) => {
+      const targetId = String(transportationOptionId || "").trim();
+      if (!targetId) return null;
+      let nextToken: string | null = null;
+      const visited = new Set<string>();
+      let page = 0;
+      while (page < 8) {
+        page += 1;
+        const params = new URLSearchParams();
+        params.set("pageSize", "20");
+        if (effectivePlacementOptionId) params.set("placementOptionId", String(effectivePlacementOptionId));
+        if (shipmentId) params.set("shipmentId", shipmentId);
+        if (nextToken) params.set("paginationToken", nextToken);
+        const res = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
+          query: params.toString(),
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.listTransportationOptions",
+          marketplaceId,
+          sellerId
+        });
+        if (!res?.res?.ok) break;
+        const payload = res?.json?.payload || res?.json || {};
+        const options = Array.isArray(payload?.transportationOptions)
+          ? payload.transportationOptions
+          : Array.isArray(res?.json?.transportationOptions)
+            ? res.json.transportationOptions
+            : [];
+        const match = options.find((opt: any) => {
+          const id = String(opt?.transportationOptionId || opt?.id || opt?.optionId || "").trim();
+          return id && id === targetId;
+        });
+        if (match) {
+          return {
+            charge: extractOptionCharge(match),
+            carrierName: match?.carrier?.name || match?.carrierName || match?.carrier?.alphaCode || null,
+            mode: match?.shippingMode || match?.mode || null,
+            solution: match?.shippingSolution || match?.shippingSolutionId || null,
+            partnered: detectPartneredOptionLocal(match)
+          };
+        }
+        const candidateToken =
+          payload?.pagination?.nextToken ||
+          payload?.pagination?.next_token ||
+          res?.json?.pagination?.nextToken ||
+          res?.json?.pagination?.next_token ||
+          null;
+        if (!candidateToken || visited.has(candidateToken)) break;
+        visited.add(candidateToken);
+        nextToken = candidateToken;
+      }
+      return null;
+    };
+
     const ensureShipmentNamesPrefixed = async (shipmentIds: string[]) => {
       for (const shipmentId of shipmentIds) {
         const shDetail = await signedFetch({
@@ -1757,25 +1846,30 @@ serve(async (req) => {
     if (firstShipmentId) {
       const { selectedTransportationOptionId } = await getSelectedTransportationOptionId(String(firstShipmentId));
       if (selectedTransportationOptionId) {
+        const optionMeta = await getConfirmedTransportationOptionMeta(
+          String(firstShipmentId),
+          String(selectedTransportationOptionId)
+        );
         const normalizedShipments = normalizePlacementShipments(placementShipments);
         const summary = {
           alreadyConfirmed: true,
           selectedTransportationOptionId,
-          partneredAllowed: null,
-          partneredRate: null,
+          partneredAllowed: optionMeta?.partnered === null ? null : Boolean(optionMeta?.partnered),
+          partneredRate:
+            optionMeta?.partnered === true && Number.isFinite(optionMeta?.charge) ? optionMeta?.charge : null,
           defaultOptionId: selectedTransportationOptionId,
-          defaultCarrier: "Amazon confirmed carrier",
-          defaultMode: effectiveShippingMode || null,
-          defaultCharge: null
+          defaultCarrier: optionMeta?.carrierName || "Amazon confirmed carrier",
+          defaultMode: optionMeta?.mode || effectiveShippingMode || null,
+          defaultCharge: Number.isFinite(optionMeta?.charge) ? optionMeta?.charge : null
         };
         const summaryWithSelection = {
           ...summary,
           selectedOptionId: selectedTransportationOptionId,
-          selectedCarrier: "Amazon confirmed carrier",
-          selectedMode: effectiveShippingMode || null,
-          selectedCharge: null,
-          selectedPartnered: null,
-          selectedSolution: null
+          selectedCarrier: optionMeta?.carrierName || "Amazon confirmed carrier",
+          selectedMode: optionMeta?.mode || effectiveShippingMode || null,
+          selectedCharge: Number.isFinite(optionMeta?.charge) ? optionMeta?.charge : null,
+          selectedPartnered: optionMeta?.partnered,
+          selectedSolution: optionMeta?.solution || null
         };
         const { error: updErr } = await supabase
           .from("prep_requests")
@@ -4550,25 +4644,30 @@ serve(async (req) => {
       if (alreadyConfirmed && firstShipmentId) {
         const { selectedTransportationOptionId } = await getSelectedTransportationOptionId(String(firstShipmentId));
         if (selectedTransportationOptionId) {
+          const optionMeta = await getConfirmedTransportationOptionMeta(
+            String(firstShipmentId),
+            String(selectedTransportationOptionId)
+          );
           const normalizedShipments = normalizePlacementShipments(placementShipments);
           const summary = {
             alreadyConfirmed: true,
             selectedTransportationOptionId,
-            partneredAllowed: null,
-            partneredRate: null,
+            partneredAllowed: optionMeta?.partnered === null ? null : Boolean(optionMeta?.partnered),
+            partneredRate:
+              optionMeta?.partnered === true && Number.isFinite(optionMeta?.charge) ? optionMeta?.charge : null,
             defaultOptionId: selectedTransportationOptionId,
-            defaultCarrier: "Amazon confirmed carrier",
-            defaultMode: effectiveShippingMode || null,
-            defaultCharge: null
+            defaultCarrier: optionMeta?.carrierName || "Amazon confirmed carrier",
+            defaultMode: optionMeta?.mode || effectiveShippingMode || null,
+            defaultCharge: Number.isFinite(optionMeta?.charge) ? optionMeta?.charge : null
           };
           const summaryWithSelection = {
             ...summary,
             selectedOptionId: selectedTransportationOptionId,
-            selectedCarrier: "Amazon confirmed carrier",
-            selectedMode: effectiveShippingMode || null,
-            selectedCharge: null,
-            selectedPartnered: null,
-            selectedSolution: null
+            selectedCarrier: optionMeta?.carrierName || "Amazon confirmed carrier",
+            selectedMode: optionMeta?.mode || effectiveShippingMode || null,
+            selectedCharge: Number.isFinite(optionMeta?.charge) ? optionMeta?.charge : null,
+            selectedPartnered: optionMeta?.partnered,
+            selectedSolution: optionMeta?.solution || null
           };
           const { error: updErr } = await supabase
             .from("prep_requests")
