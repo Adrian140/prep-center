@@ -1,6 +1,6 @@
 // FILE: src/components/admin/AdminProfiles.jsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase, supabaseHelpers } from "@/config/supabase";
+import { supabase } from "@/config/supabase";
 import {
   ChevronLeft,
   ChevronRight,
@@ -29,125 +29,47 @@ function isoLocal(d) {
   return `${y}-${m}-${day}`;
 }
 function monthKey(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
-const sumLineRows = (rows = [], qtyField = "units") =>
-  (rows || []).reduce((acc, row) => {
-    const total =
-      row?.total != null
-        ? Number(row.total)
-        : Number(row?.unit_price || 0) * Number(row?.[qtyField] || 0);
-    return acc + (Number.isFinite(total) ? total : 0);
-  }, 0);
+const chunk = (items = [], size = 300) => {
+  const out = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(items.slice(i, i + size));
+  }
+  return out;
+};
 
-const sumOtherLineRows = (rows = []) => sumLineRows(rows, "units");
+async function fetchAdminClientBalances({ companyIds = [], startDate, endDate, prevStart, prevEnd, market }) {
+  const ids = Array.from(new Set((companyIds || []).filter(Boolean)));
+  if (!ids.length) return new Map();
+  const marketCode = normalizeMarketCode(market) || null;
 
-async function mapWithConcurrency(items, limit, mapper) {
-  const results = new Array(items.length);
-  let idx = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (idx < items.length) {
-      const current = idx++;
-      results[current] = await mapper(items[current], current);
-    }
-  });
-  await Promise.all(workers);
-  return results;
-}
+  const batches = chunk(ids, 300);
+  const rows = [];
+  for (const batchIds of batches) {
+    // eslint-disable-next-line no-await-in-loop
+    const { data, error } = await supabase.rpc('get_admin_clients_balances', {
+      p_company_ids: batchIds,
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_prev_start_date: prevStart,
+      p_prev_end_date: prevEnd,
+      p_country: marketCode
+    });
+    if (error) throw error;
+    rows.push(...(Array.isArray(data) ? data : []));
+  }
 
-async function sumOtherLines(companyId, startDate, endDate, market) {
-  if (!companyId || !startDate || !endDate) return 0;
-  const marketCode = normalizeMarketCode(market);
-  const withCountry = (query) =>
-    marketCode ? query.eq('country', marketCode) : query;
-
-  const { data, error } = await withCountry(
-    supabase
-      .from("other_lines")
-      .select("total, unit_price, units, service_date")
-      .eq("company_id", companyId)
-      .gte("service_date", startDate)
-      .lte("service_date", endDate)
+  return new Map(
+    rows
+      .filter((row) => row?.company_id)
+      .map((row) => [
+        row.company_id,
+        {
+          currentSold: Number(row.current_sold || 0),
+          carry: Number(row.carry || 0),
+          diff: Number(row.live_balance || 0)
+        }
+      ])
   );
-  if (error || !Array.isArray(data)) {
-    return 0;
-  }
-  return sumOtherLineRows(data);
-}
-
-async function fetchPaidAmountRange(companyId, startDate, endDate, market) {
-  if (!companyId || !startDate || !endDate) return 0;
-  const marketCode = normalizeMarketCode(market);
-  const withCountry = (query) =>
-    marketCode ? query.eq('country', marketCode) : query;
-
-  const { data, error } = await withCountry(
-    supabase
-      .from('invoices')
-      .select('amount')
-      .eq('company_id', companyId)
-      .gte('issue_date', startDate)
-      .lte('issue_date', endDate)
-      .or('status.ilike.paid,status.ilike.settled')
-  );
-  if (error || !Array.isArray(data)) {
-    return 0;
-  }
-  return data.reduce((sum, row) => {
-    const amount = Number(row?.amount);
-    return sum + (Number.isFinite(amount) ? amount : 0);
-  }, 0);
-}
-
-async function fetchServiceLineSums(companyId, startDate, endDate, market) {
-  if (!companyId) return { current: 0, carry: 0 };
-  const marketCode = normalizeMarketCode(market);
-  const withCountry = (query) =>
-    marketCode ? query.eq('country', marketCode) : query;
-
-  const [fbaMonth, fbaPrev, fbmMonth, fbmPrev] = await Promise.all([
-    withCountry(
-      supabase
-        .from('fba_lines')
-        .select('total, unit_price, units, service_date')
-        .eq('company_id', companyId)
-        .gte('service_date', startDate)
-        .lte('service_date', endDate)
-    ),
-    withCountry(
-      supabase
-        .from('fba_lines')
-        .select('total, unit_price, units, service_date')
-        .eq('company_id', companyId)
-        .lt('service_date', startDate)
-    ),
-    withCountry(
-      supabase
-        .from('fbm_lines')
-        .select('total, unit_price, orders_units, service_date')
-        .eq('company_id', companyId)
-        .gte('service_date', startDate)
-        .lte('service_date', endDate)
-    ),
-    withCountry(
-      supabase
-        .from('fbm_lines')
-        .select('total, unit_price, orders_units, service_date')
-        .eq('company_id', companyId)
-        .lt('service_date', startDate)
-    )
-  ]);
-
-  if (fbaMonth.error || fbaPrev.error || fbmMonth.error || fbmPrev.error) {
-    return { current: 0, carry: 0 };
-  }
-
-  const current =
-    sumLineRows(fbaMonth.data, 'units') +
-    sumLineRows(fbmMonth.data, 'orders_units');
-  const carry =
-    sumLineRows(fbaPrev.data, 'units') +
-    sumLineRows(fbmPrev.data, 'orders_units');
-
-  return { current, carry };
 }
 
 const getBalanceState = (value) => {
@@ -482,7 +404,10 @@ const tableTotals = useMemo(() => {
     let mounted = true;
 
     (async () => {
-      if (!showBalances || rows.length === 0) return;
+      if (!showBalances || rows.length === 0) {
+        if (mounted) setCalc({});
+        return;
+      }
 
       const [y, m] = selectedMonth.split("-").map(Number);
       const monthStart = new Date(y, m - 1, 1);
@@ -494,52 +419,36 @@ const tableTotals = useMemo(() => {
       const prevStart = isoLocal(prevMonthStart);
       const prevEnd = isoLocal(prevEndDate);
 
-        const entries = await mapWithConcurrency(rows, 8, async (p) => {
-          if (!p.company_id) return [p.id, { currentSold: 0, carry: 0, diff: 0 }];
-
-          const [marketSums, liveBalanceRes] = await Promise.all([
-            fetchServiceLineSums(p.company_id, start, end, currentMarket),
-            supabaseHelpers.getCompanyLiveBalance(
-              p.company_id,
-              currentMarket
-            ),
-          ]);
-          const liveBalance = Number.isFinite(liveBalanceRes?.data)
-            ? liveBalanceRes.data
-            : 0;
-
-          let current = Number(marketSums.current ?? 0);
-          const currentOther = await sumOtherLines(p.company_id, start, end, currentMarket);
-          current += currentOther;
-
-          const prevServiceSums = await fetchServiceLineSums(
-            p.company_id,
-            prevStart,
-            prevEnd,
-            currentMarket
-          );
-          const prevOther = await sumOtherLines(p.company_id, prevStart, prevEnd, currentMarket);
-          const prevPaid = await fetchPaidAmountRange(
-            p.company_id,
-            prevStart,
-            prevEnd,
-            currentMarket
-          );
-          const prevServices =
-            Number(prevServiceSums.current ?? 0) + Number(prevOther ?? 0);
-          const carry = prevServices - prevPaid;
-
-          return [p.id, { currentSold: current, carry, diff: liveBalance }];
+      try {
+        const companyIds = rows.map((p) => p.company_id).filter(Boolean);
+        const balancesByCompany = await fetchAdminClientBalances({
+          companyIds,
+          startDate: start,
+          endDate: end,
+          prevStart,
+          prevEnd,
+          market: currentMarket
         });
 
-      if (mounted) {
-        setCalc((prev) => {
-          const next = { ...prev };
-          entries.forEach(([id, values]) => {
-            if (id) next[id] = values;
+        if (mounted) {
+          const next = {};
+          rows.forEach((p) => {
+            next[p.id] = balancesByCompany.get(p.company_id) || {
+              currentSold: 0,
+              carry: 0,
+              diff: 0
+            };
           });
-          return next;
-        });
+          setCalc(next);
+        }
+      } catch (e) {
+        if (mounted) {
+          const fallback = {};
+          rows.forEach((p) => {
+            fallback[p.id] = { currentSold: 0, carry: 0, diff: 0 };
+          });
+          setCalc(fallback);
+        }
       }
     })();
 
