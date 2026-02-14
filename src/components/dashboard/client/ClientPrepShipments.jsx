@@ -965,7 +965,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 const feeData = resolveFbaFeeData({ row, shipment, snapshot });
                 const feeBoxes = feeData.totalBoxes ?? 1;
                 const feeText =
-                  Number.isFinite(feeData.totalFee)
+                  Number.isFinite(feeData.totalFee) && Number(feeData.totalFee) > 0
                     ? `${feeBoxes} box / ${formatEuro(feeData.totalFee)}`
                     : '—';
                 const amazonStatusRaw =
