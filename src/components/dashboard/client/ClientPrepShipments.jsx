@@ -69,6 +69,16 @@ const normalizeStep2Shipments = (value) => {
       legacyShipmentId: sh?.legacyShipmentId || sh?.legacy_shipment_id || null,
       skuCount: sh?.skuCount ?? sh?.skus ?? null,
       units: sh?.units ?? null,
+      boxes:
+        sh?.boxes ??
+        sh?.boxCount ??
+        sh?.box_count ??
+        sh?.packageCount ??
+        sh?.package_count ??
+        sh?.cartons ??
+        sh?.cartons_count ??
+        sh?.numberOfBoxes ??
+        null,
       items: Array.isArray(sh?.items) ? sh.items : null,
       toText: sh?.to || null,
       shipToAddress: sh?.shipToAddress || sh?.ship_to_address || sh?.destination?.address || sh?.destination || null,
@@ -89,6 +99,73 @@ const pickAmazonShipmentId = ({ shipment, row, snapshot }) => {
     snapshot?.shipment_id
   ];
   return candidates.find((id) => isAmazonShipmentId(id)) || null;
+};
+
+const formatEuro = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  const fixed = num.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+  return `${fixed} euro`;
+};
+
+const firstFiniteNumber = (candidates = []) => {
+  for (const value of candidates) {
+    const num = Number(value);
+    if (Number.isFinite(num)) return num;
+  }
+  return null;
+};
+
+const toUpperText = (value) => String(value || '').trim().toUpperCase();
+
+const isAmazonPartneredFromRow = (row, shipment, snapshot) => {
+  const summary = row?.step2_summary || {};
+  if (typeof summary?.selectedPartnered === 'boolean') return summary.selectedPartnered;
+  const solution = toUpperText(
+    summary?.selectedSolution ||
+      summary?.defaultSolution ||
+      shipment?.shippingSolution ||
+      shipment?.selectedShippingSolution ||
+      snapshot?.shipping_solution
+  );
+  if (solution.includes('AMAZON_PARTNERED') || solution.includes('PARTNERED_CARRIER')) return true;
+  const carrier = toUpperText(
+    summary?.selectedCarrier ||
+      summary?.defaultCarrier ||
+      shipment?.carrierName ||
+      snapshot?.carrier_name
+  );
+  return carrier.includes('AMAZON');
+};
+
+const resolveFbaFeeData = ({ row, shipment, snapshot }) => {
+  const step2Shipments = normalizeStep2Shipments(row?.step2_shipments);
+  const boxesFromShipments = step2Shipments.reduce((sum, sh) => sum + (Number(sh?.boxes) || 0), 0);
+  const totalBoxes = firstFiniteNumber([
+    shipment?.boxes,
+    boxesFromShipments > 0 ? boxesFromShipments : null,
+    snapshot?.total_boxes,
+    snapshot?.boxes_count,
+    snapshot?.box_count
+  ]);
+  const summary = row?.step2_summary || {};
+  const totalFee = firstFiniteNumber([
+    summary?.selectedCharge,
+    summary?.defaultCharge,
+    shipment?.charge,
+    shipment?.selectedOption?.charge,
+    shipment?.selectedTransportationOption?.charge,
+    snapshot?.selected_transportation_option?.charge,
+    snapshot?.transportation_option?.charge,
+    snapshot?.transportation_charge?.amount,
+    snapshot?.total_charge?.amount,
+    snapshot?.quote?.cost?.amount
+  ]);
+  return {
+    isPartnered: isAmazonPartneredFromRow(row, shipment, snapshot),
+    totalBoxes: Number.isFinite(totalBoxes) && totalBoxes > 0 ? Math.round(totalBoxes) : null,
+    totalFee
+  };
 };
 
 export default function ClientPrepShipments({ profileOverride } = {}) {
@@ -564,13 +641,14 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
 
     const load = async () => {
       setLoading(true);
-      const prepQuery = (includeWarehouseCountry = true) =>
+      const prepQuery = (includeWarehouseCountry = true, includeStep2Summary = true) =>
         supabase
           .from('prep_requests')
           .select(`
             id,
             destination_country,
             ${includeWarehouseCountry ? 'warehouse_country,' : ''}
+            ${includeStep2Summary ? 'step2_summary,' : ''}
             created_at,
             confirmed_at,
             status,
@@ -619,8 +697,14 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
       ]);
 
       if (!active) return;
-      if (prepRes.error && String(prepRes.error.message || '').toLowerCase().includes('warehouse_country')) {
-        const retry = await prepQuery(false);
+      if (
+        prepRes.error &&
+        (
+          String(prepRes.error.message || '').toLowerCase().includes('warehouse_country') ||
+          String(prepRes.error.message || '').toLowerCase().includes('step2_summary')
+        )
+      ) {
+        const retry = await prepQuery(false, false);
         if (retry.error) {
           setError(supportError);
           setRows([]);
@@ -810,6 +894,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 <th className="px-4 py-2 text-left">Created</th>
                 <th className="px-4 py-2 text-left">Last updated</th>
                 <th className="px-4 py-2 text-left">Ship to</th>
+                <th className="px-4 py-2 text-left w-[140px]">FBA fee</th>
                 <th className="px-4 py-2 text-left">SKUs</th>
                 <th className="px-4 py-2 text-left">Units expected</th>
                 <th className="px-4 py-2 text-left">Status Amazon</th>
@@ -822,7 +907,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
             <tbody>
                       {!loading && filteredRows.length === 0 && (
                         <tr>
-                          <td colSpan={9} className="px-4 py-8 text-center text-text-light">
+                          <td colSpan={10} className="px-4 py-8 text-center text-text-light">
                             {t('ClientPrepShipments.table.empty')}
                           </td>
                         </tr>
@@ -872,22 +957,17 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                   row.amazon_units_located ?? snapshot.units_located ?? snapshot.units_received
                 );
                 const unitsLocated = Number.isFinite(unitsLocatedRaw) ? unitsLocatedRaw : null;
-                const shipToText =
-                  shipment?.toText ||
-                  shipment?.shipToAddress?.name ||
-                  shipment?.shipToAddress?.addressLine1 ||
-                  shipment?.shipToAddress?.address ||
-                  row.amazon_destination_code ||
-                  snapshot.destination_code ||
-                  destCode;
-                const shipToLines = shipment?.shipToAddress
-                  ? formatAddressLines(shipment.shipToAddress)
-                  : (shipment?.toText ? splitAddressLines(shipment.toText) : []);
                 const deliveryWindow =
                   row.amazon_delivery_window ||
                   snapshot.delivery_window ||
                   snapshot.deliveryWindow ||
                   '';
+                const feeData = resolveFbaFeeData({ row, shipment, snapshot });
+                const feeBoxes = feeData.totalBoxes ?? 1;
+                const feeText =
+                  feeData.isPartnered && Number.isFinite(feeData.totalFee)
+                    ? `${feeBoxes} box / ${formatEuro(feeData.totalFee)}`
+                    : '—';
                 const amazonStatusRaw =
                   row.amazon_status ||
                   snapshot.transport_status ||
@@ -949,19 +1029,12 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                       <div className="text-xs text-text-secondary">{lastUpdatedParts.time}</div>
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <div className="space-y-0.5">
-                        {(shipToLines.length ? shipToLines : [shipToText]).map((line, idx) => (
-                          <div key={`shipto-line-${idx}`} className="text-sm text-text-primary break-words">
-                            {line}
-                          </div>
-                        ))}
-                        <div className="text-xs text-text-secondary">{destLabel}</div>
-                      </div>
-                      {deliveryWindow && (
-                        <div className="text-xs text-text-secondary mt-1">
-                          Delivery window {deliveryWindow}
-                        </div>
-                      )}
+                      <div className="text-sm text-text-primary">{destLabel}</div>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <span className="text-xs font-semibold text-text-primary whitespace-nowrap">
+                        {feeText}
+                      </span>
                     </td>
                     <td className="px-4 py-3 align-top">
                       <span className="text-primary font-semibold">{skusCount}</span>
