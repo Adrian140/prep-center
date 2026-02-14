@@ -54,3 +54,31 @@ jobs:
 
           # Any other non-zero exit is a real failure and should stay red.
           exit "$exit_code"
+
+      - name: Relaunch immediately
+        if: ${{ success() }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          script: |
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'sync-keepa-images.yml',
+              per_page: 5
+            });
+            const hasActive = (data.workflow_runs || []).some((r) =>
+              r.id !== context.runId &&
+              ['in_progress', 'queued', 'waiting', 'requested'].includes(r.status)
+            );
+            if (hasActive) {
+              core.info('Există deja un run în desfășurare/queue; nu mai trimit unul nou.');
+              return;
+            }
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'sync-keepa-images.yml',
+              ref: 'main'
+            });
+            core.info('Run nou trimis prin workflow_dispatch.');
