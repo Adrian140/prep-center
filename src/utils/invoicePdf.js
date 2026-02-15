@@ -1,3 +1,5 @@
+import { jsPDF } from 'jspdf';
+
 const formatMoney = (value) => {
   const number = Number(value || 0);
   return number.toLocaleString('fr-FR', {
@@ -107,7 +109,6 @@ export const buildInvoicePdfBlob = async ({
   legalNote,
   templateImage
 }) => {
-  const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();

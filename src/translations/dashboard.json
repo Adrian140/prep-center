@@ -455,7 +455,8 @@
       },
       "guides": {
         "button": "Video guide",
-        "error": "Cannot open guide ({lang}): {msg}"
+        "error": "Cannot open guide ({lang}): {msg}",
+        "unavailable": "Guide unavailable for section \"{section}\"."
       },
       "priceColumn": {
         "label": "Purchase price (€)",
@@ -1391,7 +1392,8 @@
       },
       "guides": {
         "button": "Ghid video",
-        "error": "Nu pot deschide ghidul ({lang}): {msg}"
+        "error": "Nu pot deschide ghidul ({lang}): {msg}",
+        "unavailable": "Ghid indisponibil pentru secțiunea \"{section}\"."
       },
       "priceColumn": {
         "label": "Preț achiziție (€)",
@@ -2364,7 +2366,8 @@
       },
       "guides": {
         "button": "Guide vidéo",
-        "error": "Impossible d’ouvrir le guide ({lang}) : {msg}"
+        "error": "Impossible d’ouvrir le guide ({lang}) : {msg}",
+        "unavailable": "Guide indisponible pour la section \"{section}\"."
       },
       "priceColumn": {
         "label": "Prix d'achat (€)",
@@ -3207,7 +3210,8 @@
       },
       "guides": {
         "button": "Videoanleitung",
-        "error": "Leitfaden kann nicht geöffnet werden ({lang}): {msg}"
+        "error": "Leitfaden kann nicht geöffnet werden ({lang}): {msg}",
+        "unavailable": "Leitfaden für den Bereich \"{section}\" ist nicht verfügbar."
       },
       "priceColumn": {
         "label": "Einkaufspreis (€)",
@@ -4050,7 +4054,8 @@
       },
       "guides": {
         "button": "Guida video",
-        "error": "Impossibile aprire la guida ({lang}): {msg}"
+        "error": "Impossibile aprire la guida ({lang}): {msg}",
+        "unavailable": "Guida non disponibile per la sezione \"{section}\"."
       },
       "priceColumn": {
         "label": "Prezzo di acquisto (€)",
@@ -4893,7 +4898,8 @@
       },
       "guides": {
         "button": "Guía en vídeo",
-        "error": "No se puede abrir la guía ({lang}): {msg}"
+        "error": "No se puede abrir la guía ({lang}): {msg}",
+        "unavailable": "Guía no disponible para la sección \"{section}\"."
       },
       "priceColumn": {
         "label": "Precio de compra (€)",

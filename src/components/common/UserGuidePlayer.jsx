@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabaseHelpers } from '@/config/supabase';
 import { X, Play, AlertCircle } from 'lucide-react';
 
-export default function UserGuidePlayer({ section, title = 'User Guide' }) {
+export default function UserGuidePlayer({ section, title = 'Video guide', unavailableText }) {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [src, setSrc] = useState('');
+  const missingGuideText = useMemo(() => {
+    if (unavailableText) return unavailableText;
+    return `Guide unavailable for section "${section}".`;
+  }, [section, unavailableText]);
 
   useEffect(() => {
     let mounted = true;
@@ -78,7 +82,7 @@ export default function UserGuidePlayer({ section, title = 'User Guide' }) {
                 isYouTube(src) ? (
                   <iframe
                     src={toEmbed(src)}
-                    title="User Guide"
+                    title={title}
                     className="w-full aspect-video"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
@@ -90,7 +94,7 @@ export default function UserGuidePlayer({ section, title = 'User Guide' }) {
                 <div className="w-full aspect-video bg-black/80 text-white flex items-center justify-center p-4">
                   <div className="flex items-center gap-2 text-sm">
                     <AlertCircle className="w-4 h-4" />
-                    <span>Ghid indisponibil pentru secțiunea „{section}”.</span>
+                    <span>{missingGuideText}</span>
                   </div>
                 </div>
               )}

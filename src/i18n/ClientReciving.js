@@ -757,7 +757,7 @@ export const CLIENT_RECIVING_DICT = {
     template_filename: "sablon_receptie.csv", 
     or: "sau",
 
-    guide_video: "📹 Tutorial: Ghid utilizator",
+    guide_video: "📹 Ghid video",
   guide_tutorial: "📹 Tutorial: Ghid utilizator",
   import_instructions_pdf: "Ghid video import",
   preparation_request_guide_pdf: "Ghid cerere de pregătire PDF",

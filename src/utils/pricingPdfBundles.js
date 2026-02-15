@@ -1,7 +1,7 @@
 import { saveAs } from 'file-saver';
+import { jsPDF } from 'jspdf';
 
 export async function exportPricingBundlePdf({ title, categories = [], groups = {}, filename }) {
-  const { jsPDF } = await import('jspdf');
   const doc = new jsPDF();
   const marginX = 14;
   const pageHeight = 280;

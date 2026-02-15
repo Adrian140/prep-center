@@ -2336,7 +2336,11 @@ const saveReqChanges = async () => {
               {t('ClientStock.createProduct.button')}
             </button>
             {!hideGuides && (
-              <UserGuidePlayer section="stock" title={t('ClientStock.guides.button')} />
+              <UserGuidePlayer
+                section="stock"
+                title={t('ClientStock.guides.button')}
+                unavailableText={t('ClientStock.guides.unavailable', { section: 'stock' })}
+              />
             )}
             <button
               type="button"
