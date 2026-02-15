@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ArrowLeft, User } from 'lucide-react';
+import { saveAs } from 'file-saver';
 import { supabase, supabaseHelpers } from '../../config/supabase';
 import Section from '../common/Section';
 import AdminClientInvoices from './AdminClientInvoices';
@@ -43,6 +44,29 @@ const normalizeIssuerProfiles = (savedProfiles) => {
     base.DE = { ...DEFAULT_ISSUER_PROFILES.DE };
   }
   return base;
+};
+
+const sanitizeFilePart = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const formatInvoiceDateForFilename = (value) => {
+  if (!value) return 'unknown-date';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return sanitizeFilePart(value).replace(/\//g, '-');
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
+const buildLocalInvoiceFilename = ({ invoiceDate, billedCompanyName }) => {
+  const datePart = formatInvoiceDateForFilename(invoiceDate);
+  const companyPart = sanitizeFilePart(billedCompanyName || 'Client');
+  return `${datePart} EcomPrepHub -> ${companyPart}.pdf`;
 };
 
 export default function AdminUserDetail({ profile, onBack }) {
@@ -329,6 +353,14 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
         `invoice-${String(generatedInvoiceNumber).replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`,
         { type: 'application/pdf' }
       );
+      const billedCompanyName =
+        billingProfile?.company_name ||
+        [billingProfile?.first_name, billingProfile?.last_name].filter(Boolean).join(' ') ||
+        'Client';
+      const localDownloadName = buildLocalInvoiceFilename({
+        invoiceDate,
+        billedCompanyName
+      });
 
       const description = [
         `Issuer: ${issuerProfile?.company_name || issuerCountry}`,
@@ -353,6 +385,8 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
         setBillingSaving(false);
         return { error: uploadRes.error };
       }
+
+      saveAs(pdfBlob, localDownloadName);
 
       if (billingInvoice?.id && uploadRes?.data?.id) {
         await supabase
