@@ -552,6 +552,11 @@ if (!countersSettingsRes?.error && countersSettingsRes?.data?.value) {
               invoiceCounters={invoiceCounters}
               issuerProfiles={issuerProfiles}
               onSaveIssuerProfile={handleSaveIssuerProfile}
+              onSaveBillingProfile={async (billingProfileId, updates) => {
+                const { error } = await supabaseHelpers.updateBillingProfile(billingProfileId, updates);
+                if (!error) await loadAll();
+                return { error };
+              }}
               onSave={handleBillingSave}
               onClear={clearBillingSelections}
               isSaving={billingSaving}

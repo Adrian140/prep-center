@@ -24,6 +24,7 @@ export default function BillingSelectionPanel({
   invoiceCounters = { FR: 189, DE: 1 },
   issuerProfiles = DEFAULT_ISSUER_PROFILES,
   onSaveIssuerProfile,
+  onSaveBillingProfile,
   onSave,
   onClear,
   isSaving = false,
@@ -34,12 +35,14 @@ export default function BillingSelectionPanel({
   const [status, setStatus] = useState('pending');
   const [issuerCountry, setIssuerCountry] = useState(currentMarket || 'FR');
   const [issuerDraft, setIssuerDraft] = useState(issuerProfiles?.[currentMarket || 'FR'] || DEFAULT_ISSUER_PROFILES.FR);
+  const [clientDraft, setClientDraft] = useState(null);
+  const [editingClient, setEditingClient] = useState(false);
+  const [editingIssuer, setEditingIssuer] = useState(false);
   const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
     setIssuerDraft(issuerProfiles?.[issuerCountry] || DEFAULT_ISSUER_PROFILES[issuerCountry] || DEFAULT_ISSUER_PROFILES.FR);
   }, [issuerCountry, issuerProfiles]);
-
   const aggregated = useMemo(() => {
     const groups = {};
     const lineRefs = [];
@@ -83,6 +86,24 @@ export default function BillingSelectionPanel({
   }, [billingProfiles, currentMarket]);
 
   const activeBillingProfile = defaultBillingProfile;
+  useEffect(() => {
+    if (!activeBillingProfile) {
+      setClientDraft(null);
+      return;
+    }
+    setClientDraft({
+      type: activeBillingProfile.type || 'company',
+      company_name: activeBillingProfile.company_name || '',
+      first_name: activeBillingProfile.first_name || '',
+      last_name: activeBillingProfile.last_name || '',
+      address: activeBillingProfile.address || '',
+      postal_code: activeBillingProfile.postal_code || '',
+      city: activeBillingProfile.city || '',
+      country: activeBillingProfile.country || '',
+      vat_number: activeBillingProfile.vat_number || '',
+      phone: activeBillingProfile.phone || clientPhone || ''
+    });
+  }, [activeBillingProfile, clientPhone]);
 
   const issuerProfile = issuerDraft || issuerProfiles?.[issuerCountry] || DEFAULT_ISSUER_PROFILES[issuerCountry] || DEFAULT_ISSUER_PROFILES.FR;
   const customerCountry = String(activeBillingProfile?.country || '').toUpperCase();
@@ -107,6 +128,28 @@ export default function BillingSelectionPanel({
       return;
     }
     setFeedback('Datele emitentului au fost salvate.');
+    setEditingIssuer(false);
+  };
+  const handleSaveClient = async () => {
+    if (!onSaveBillingProfile || !activeBillingProfile?.id || !clientDraft) return;
+    const result = await onSaveBillingProfile(activeBillingProfile.id, {
+      type: clientDraft.type || activeBillingProfile.type,
+      company_name: clientDraft.company_name || null,
+      first_name: clientDraft.first_name || null,
+      last_name: clientDraft.last_name || null,
+      address: clientDraft.address || null,
+      postal_code: clientDraft.postal_code || null,
+      city: clientDraft.city || null,
+      country: clientDraft.country || null,
+      vat_number: clientDraft.vat_number || null,
+      phone: clientDraft.phone || null
+    });
+    if (result?.error) {
+      setFeedback(result.error.message || 'Nu am putut salva datele clientului.');
+      return;
+    }
+    setFeedback('Datele clientului au fost salvate.');
+    setEditingClient(false);
   };
 
   const handleSave = async () => {
@@ -222,42 +265,102 @@ export default function BillingSelectionPanel({
           </div>
         </div>
 
-        <div className="rounded border border-gray-200 bg-gray-50 p-3">
+        <div className="relative rounded border border-gray-200 bg-gray-50 p-3 pb-10">
           <p className="text-[13px] font-medium text-text-secondary">Adresă facturare client (din profil salvat)</p>
           {activeBillingProfile ? (
-            <div className="mt-1 text-xs text-text-secondary space-y-0.5">
-              <p className="font-semibold text-text-primary">
-                {activeBillingProfile.company_name || [activeBillingProfile.first_name, activeBillingProfile.last_name].filter(Boolean).join(' ') || '-'}
-              </p>
-              <p>{activeBillingProfile.address || '-'}</p>
-              <p>{`${activeBillingProfile.postal_code || ''} ${activeBillingProfile.city || ''}`.trim() || '-'}</p>
-              <p>{String(activeBillingProfile.country || '').toUpperCase() || '-'}</p>
-              <p>VAT: {activeBillingProfile.vat_number || '-'}</p>
-              {clientEmail ? <p>Email: {clientEmail}</p> : null}
-              {(activeBillingProfile.phone || clientPhone) ? (
-                <p>Telefon: {activeBillingProfile.phone || clientPhone}</p>
-              ) : null}
-            </div>
+            editingClient ? (
+              <div className="mt-2 space-y-2">
+                <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Company name" value={clientDraft?.company_name || ''} onChange={(e) => setClientDraft((prev) => ({ ...(prev || {}), company_name: e.target.value }))} />
+                <div className="grid grid-cols-2 gap-2">
+                  <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="First name" value={clientDraft?.first_name || ''} onChange={(e) => setClientDraft((prev) => ({ ...(prev || {}), first_name: e.target.value }))} />
+                  <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Last name" value={clientDraft?.last_name || ''} onChange={(e) => setClientDraft((prev) => ({ ...(prev || {}), last_name: e.target.value }))} />
+                </div>
+                <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Address" value={clientDraft?.address || ''} onChange={(e) => setClientDraft((prev) => ({ ...(prev || {}), address: e.target.value }))} />
+                <div className="grid grid-cols-2 gap-2">
+                  <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Postal code" value={clientDraft?.postal_code || ''} onChange={(e) => setClientDraft((prev) => ({ ...(prev || {}), postal_code: e.target.value }))} />
+                  <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="City" value={clientDraft?.city || ''} onChange={(e) => setClientDraft((prev) => ({ ...(prev || {}), city: e.target.value }))} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Country" value={clientDraft?.country || ''} onChange={(e) => setClientDraft((prev) => ({ ...(prev || {}), country: e.target.value.toUpperCase() }))} />
+                  <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="VAT number" value={clientDraft?.vat_number || ''} onChange={(e) => setClientDraft((prev) => ({ ...(prev || {}), vat_number: e.target.value }))} />
+                </div>
+                <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Phone" value={clientDraft?.phone || ''} onChange={(e) => setClientDraft((prev) => ({ ...(prev || {}), phone: e.target.value }))} />
+                <div className="text-xs text-text-secondary">{clientEmail ? `Email (din sistem): ${clientEmail}` : 'Email (din sistem): -'}</div>
+                <div className="flex items-center justify-end gap-2">
+                  <button type="button" onClick={() => setEditingClient(false)} className="rounded border border-gray-300 px-2 py-1 text-xs">Cancel</button>
+                  <button type="button" onClick={handleSaveClient} className="rounded border border-primary px-2 py-1 text-xs text-primary">Save</button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-1 text-xs text-text-secondary space-y-0.5">
+                <p className="font-semibold text-text-primary">
+                  {activeBillingProfile.company_name || [activeBillingProfile.first_name, activeBillingProfile.last_name].filter(Boolean).join(' ') || '-'}
+                </p>
+                <p>{activeBillingProfile.address || '-'}</p>
+                <p>{`${activeBillingProfile.postal_code || ''} ${activeBillingProfile.city || ''}`.trim() || '-'}</p>
+                <p>{String(activeBillingProfile.country || '').toUpperCase() || '-'}</p>
+                <p>VAT: {activeBillingProfile.vat_number || '-'}</p>
+                {clientEmail ? <p>Email: {clientEmail}</p> : null}
+                {(activeBillingProfile.phone || clientPhone) ? (
+                  <p>Telefon: {activeBillingProfile.phone || clientPhone}</p>
+                ) : null}
+              </div>
+            )
           ) : (
             <p className="mt-1 text-xs text-red-600">Clientul nu are adresă de facturare salvată.</p>
+          )}
+          {activeBillingProfile && !editingClient && (
+            <button
+              type="button"
+              onClick={() => setEditingClient(true)}
+              className="absolute bottom-2 right-2 rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50"
+            >
+              Edit
+            </button>
           )}
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 p-3 space-y-2">
+      <div className="relative rounded-lg border border-gray-200 p-3 pb-10 space-y-2">
         <p className="text-xs font-semibold text-text-secondary uppercase">Date emitent ({issuerCountry})</p>
-        <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Company name" value={issuerProfile?.company_name || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), company_name: e.target.value, country: issuerCountry }))} />
-        <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="VAT number" value={issuerProfile?.vat_number || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), vat_number: e.target.value, country: issuerCountry }))} />
-        <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Address" value={issuerProfile?.address_line1 || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), address_line1: e.target.value, country: issuerCountry }))} />
-        <div className="grid grid-cols-2 gap-2">
-          <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Postal code" value={issuerProfile?.postal_code || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), postal_code: e.target.value, country: issuerCountry }))} />
-          <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="City" value={issuerProfile?.city || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), city: e.target.value, country: issuerCountry }))} />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Email" value={issuerProfile?.email || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), email: e.target.value, country: issuerCountry }))} />
-          <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Phone" value={issuerProfile?.phone || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), phone: e.target.value, country: issuerCountry }))} />
-        </div>
-        <button type="button" onClick={handleSaveIssuer} className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-text-primary hover:bg-gray-50">Save issuer profile</button>
+        {editingIssuer ? (
+          <>
+            <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Company name" value={issuerProfile?.company_name || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), company_name: e.target.value, country: issuerCountry }))} />
+            <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="VAT number" value={issuerProfile?.vat_number || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), vat_number: e.target.value, country: issuerCountry }))} />
+            <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Address" value={issuerProfile?.address_line1 || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), address_line1: e.target.value, country: issuerCountry }))} />
+            <div className="grid grid-cols-2 gap-2">
+              <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Postal code" value={issuerProfile?.postal_code || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), postal_code: e.target.value, country: issuerCountry }))} />
+              <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="City" value={issuerProfile?.city || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), city: e.target.value, country: issuerCountry }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Email" value={issuerProfile?.email || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), email: e.target.value, country: issuerCountry }))} />
+              <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Phone" value={issuerProfile?.phone || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), phone: e.target.value, country: issuerCountry }))} />
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button type="button" onClick={() => setEditingIssuer(false)} className="rounded border border-gray-300 px-2 py-1 text-xs">Cancel</button>
+              <button type="button" onClick={handleSaveIssuer} className="rounded border border-primary px-2 py-1 text-xs text-primary">Save</button>
+            </div>
+          </>
+        ) : (
+          <div className="mt-1 text-xs text-text-secondary space-y-0.5">
+            <p className="font-semibold text-text-primary">{issuerProfile?.company_name || '-'}</p>
+            <p>{issuerProfile?.address_line1 || '-'}</p>
+            <p>{`${issuerProfile?.postal_code || ''} ${issuerProfile?.city || ''}`.trim() || '-'}</p>
+            <p>{String(issuerProfile?.country || issuerCountry).toUpperCase()}</p>
+            <p>VAT: {issuerProfile?.vat_number || '-'}</p>
+            {issuerProfile?.email ? <p>Email: {issuerProfile.email}</p> : null}
+            {issuerProfile?.phone ? <p>Telefon: {issuerProfile.phone}</p> : null}
+          </div>
+        )}
+        {!editingIssuer && (
+          <button
+            type="button"
+            onClick={() => setEditingIssuer(true)}
+            className="absolute bottom-2 right-2 rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50"
+          >
+            Edit
+          </button>
+        )}
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-text-secondary space-y-1">
