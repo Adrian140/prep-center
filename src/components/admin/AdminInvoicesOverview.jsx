@@ -6,6 +6,7 @@ import { supabase, supabaseHelpers } from '@/config/supabase';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
 import { useMarket } from '@/contexts/MarketContext';
 import { buildInvoicePdfBlob } from '@/utils/invoicePdf';
+import { DEFAULT_ISSUER_PROFILES } from '@/utils/invoiceTax';
 
 const toMonthInput = (date = new Date()) => {
   const year = date.getFullYear();
@@ -378,11 +379,95 @@ export default function AdminInvoicesOverview() {
     setConvertingId(row.id);
     setError('');
     try {
-      const payload = row.document_payload || {};
-      if (!payload?.issuerProfile || !payload?.billingProfile || !Array.isArray(payload?.items)) {
-        throw new Error('This proforma cannot be converted (missing payload snapshot).');
+      const issuerCode = String(row.country || row?.document_payload?.issuerProfile?.country || '').toUpperCase() || 'FR';
+      let payload = row.document_payload || {};
+
+      const hasSnapshot =
+        payload?.issuerProfile &&
+        payload?.billingProfile &&
+        Array.isArray(payload?.items) &&
+        payload.items.length > 0;
+
+      if (!hasSnapshot) {
+        const [issuerSettingsRes, billingProfilesRes, profileRes] = await Promise.all([
+          supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'invoice_issuer_profiles')
+            .maybeSingle(),
+          row.user_id ? supabaseHelpers.getBillingProfiles(row.user_id) : Promise.resolve({ data: [], error: null }),
+          row.user_id
+            ? supabase
+                .from('profiles')
+                .select('id, first_name, last_name, email, phone, company_name, country')
+                .eq('id', row.user_id)
+                .maybeSingle()
+            : Promise.resolve({ data: null, error: null })
+        ]);
+
+        const issuerProfiles = issuerSettingsRes?.data?.value || {};
+        const issuerProfile =
+          issuerProfiles?.[issuerCode] ||
+          DEFAULT_ISSUER_PROFILES?.[issuerCode] ||
+          DEFAULT_ISSUER_PROFILES.FR;
+
+        const profile = profileRes?.data || {};
+        const billingCandidates = Array.isArray(billingProfilesRes?.data) ? billingProfilesRes.data : [];
+        const billingProfileFromDb =
+          billingCandidates.find((entry) => entry?.is_default) ||
+          billingCandidates[0] ||
+          null;
+
+        const billingProfile =
+          billingProfileFromDb ||
+          {
+            type: 'company',
+            company_name: profile?.company_name || companyNames[row.company_id] || clientNames[row.user_id] || '-',
+            first_name: profile?.first_name || '',
+            last_name: profile?.last_name || '',
+            address: '',
+            postal_code: '',
+            city: '',
+            country: profile?.country || issuerCode,
+            vat_number: ''
+          };
+
+        const netAmount = roundMoney(row.amount ?? 0);
+        const vatAmount = roundMoney(row.vat_amount ?? 0);
+        const grossAmount = roundMoney(netAmount + vatAmount);
+        const vatRate = netAmount > 0 ? Math.max(0, vatAmount / netAmount) : 0;
+        const totals = {
+          net: netAmount,
+          vat: vatAmount,
+          gross: grossAmount,
+          vatRate,
+          vatLabel: vatRate > 0 ? `VAT ${Math.round(vatRate * 100)}%` : 'VAT 0%',
+          legalNote: ''
+        };
+
+        payload = {
+          ...payload,
+          issuerProfile,
+          billingProfile,
+          customerEmail: payload?.customerEmail || profile?.email || '',
+          customerPhone: payload?.customerPhone || billingProfile?.phone || profile?.phone || '',
+          items: Array.isArray(payload?.items) && payload.items.length > 0
+            ? payload.items
+            : [
+                {
+                  service: `Converted from proforma ${row.invoice_number || row.id}`,
+                  units: 1,
+                  unitPrice: netAmount,
+                  total: netAmount
+                }
+              ],
+          totals: {
+            ...totals,
+            ...(payload?.totals || {})
+          }
+        };
       }
-      const issuerCode = String(row.country || payload?.issuerProfile?.country || '').toUpperCase() || 'FR';
+
       const { data: counterRow, error: counterError } = await supabase
         .from('app_settings')
         .select('value')
