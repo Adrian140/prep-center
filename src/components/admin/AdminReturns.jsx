@@ -8,7 +8,7 @@ import { buildPrepQtyPatch, getPrepQtyForMarket } from '@/utils/marketStock';
 
 const statusOptions = ['pending', 'processing', 'done', 'cancelled'];
 
-export default function AdminReturns() {
+export default function AdminReturns({ companyId = null, profile = null }) {
   const { currentMarket } = useMarket();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -49,15 +49,21 @@ export default function AdminReturns() {
       `)
       .order('created_at', { ascending: false })
       .limit(200);
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+    if (profile?.id) {
+      query = query.eq('user_id', profile.id);
+    }
     const marketCode = normalizeMarketCode(currentMarket);
     if (marketCode) {
       query = query.eq('warehouse_country', marketCode);
     }
     let { data, error: err } = await query;
     if (err && marketCode && String(err.message || '').toLowerCase().includes('warehouse_country')) {
-      const retry = await supabase
+      let retry = supabase
         .from('returns')
-          .select(`
+        .select(`
         id,
         company_id,
         user_id,
@@ -79,11 +85,18 @@ export default function AdminReturns() {
             stock_item_id
           ),
           return_files (id, file_type, url, name)
-        `)
+        `);
+      if (companyId) {
+        retry = retry.eq('company_id', companyId);
+      }
+      if (profile?.id) {
+        retry = retry.eq('user_id', profile.id);
+      }
+      const retryResult = await retry
         .order('created_at', { ascending: false })
         .limit(200);
-      data = retry.data;
-      err = retry.error;
+      data = retryResult.data;
+      err = retryResult.error;
     }
     if (err) setError(err.message);
     let baseRows = Array.isArray(data) ? data : [];
@@ -172,7 +185,7 @@ export default function AdminReturns() {
 
   useEffect(() => {
     load();
-  }, [currentMarket]);
+  }, [currentMarket, companyId, profile?.id]);
 
   const filtered = useMemo(() => {
     if (!filter) return rows;
