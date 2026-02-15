@@ -588,12 +588,12 @@ export default function AdminInvoicesOverview() {
                   const vat = Number(row.vat_amount || 0);
                   const gross = net + vat;
                   const pending = isPendingStatus(row.status);
-                  const rowHighlightClass = isProforma(row) ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-gray-50';
+                  const rowHighlightClass = isProforma(row) ? 'bg-yellow-50 hover:bg-yellow-100' : 'hover:bg-gray-50';
                   return (
                     <tr key={row.id} className={`border-t border-gray-100 ${rowHighlightClass}`}>
                       <td className="px-4 py-3 whitespace-nowrap">{formatDate(row.issue_date)}</td>
                       <td className="px-4 py-3 whitespace-nowrap font-medium text-text-primary">
-                        {isProforma(row) ? `PROFORMA #${row.invoice_number || '-'}` : `#${row.invoice_number || '-'}`}
+                        {isProforma(row) ? `#Proforma ${row.invoice_number || '-'}` : `#${row.invoice_number || '-'}`}
                       </td>
                       <td className="px-4 py-3">{companyNames[row.company_id] || '-'}</td>
                       <td className="px-4 py-3">{clientNames[row.user_id] || '-'}</td>
@@ -610,7 +610,7 @@ export default function AdminInvoicesOverview() {
                       </td>
                       <td className="px-4 py-3">
                         {isProforma(row) ? (
-                          <span className="inline-flex items-center rounded border border-sky-200 bg-sky-100 px-2 py-1 text-xs font-medium text-sky-800">
+                          <span className="inline-flex items-center rounded border border-yellow-300 bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800">
                             proforma
                           </span>
                         ) : (
