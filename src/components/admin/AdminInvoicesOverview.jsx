@@ -57,6 +57,7 @@ export default function AdminInvoicesOverview() {
   const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
   const [companyNames, setCompanyNames] = useState({});
+  const [clientNames, setClientNames] = useState({});
 
   const loadInvoices = async () => {
     setLoading(true);
@@ -67,7 +68,7 @@ export default function AdminInvoicesOverview() {
 
       let query = supabase
         .from('invoices')
-        .select('id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, country, created_at, file_path')
+        .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, country, created_at, file_path')
         .eq('country', country)
         .gte('issue_date', start)
         .lt('issue_date', endExclusive)
@@ -84,7 +85,7 @@ export default function AdminInvoicesOverview() {
       if (missingCountryColumn) {
         const fallback = await supabase
           .from('invoices')
-          .select('id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, created_at, file_path')
+          .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, created_at, file_path')
           .gte('issue_date', start)
           .lt('issue_date', endExclusive)
           .order('issue_date', { ascending: false })
@@ -114,6 +115,9 @@ export default function AdminInvoicesOverview() {
       const companyIds = Array.from(
         new Set(ordered.map((row) => row.company_id).filter(Boolean))
       );
+      const userIds = Array.from(
+        new Set(ordered.map((row) => row.user_id).filter(Boolean))
+      );
 
       if (!companyIds.length) {
         setCompanyNames({});
@@ -131,10 +135,31 @@ export default function AdminInvoicesOverview() {
         }, {});
         setCompanyNames(lookup);
       }
+
+      if (!userIds.length) {
+        setClientNames({});
+      } else {
+        const { data: users, error: usersError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, email')
+          .in('id', userIds);
+        if (usersError) throw usersError;
+
+        const userLookup = (users || []).reduce((acc, entry) => {
+          const fullName = [entry.first_name, entry.last_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+          acc[entry.id] = fullName || entry.email || entry.id;
+          return acc;
+        }, {});
+        setClientNames(userLookup);
+      }
     } catch (err) {
       setError(err?.message || t('adminInvoices.loadError'));
       setRows([]);
       setCompanyNames({});
+      setClientNames({});
     } finally {
       setLoading(false);
     }
@@ -169,7 +194,7 @@ export default function AdminInvoicesOverview() {
 
   const exportMonthlyCsv = () => {
     const csvRows = [
-      ['Invoice', 'Date', 'Client', 'Country', 'Net', 'VAT', 'Total', 'Status']
+      ['Invoice', 'Date', 'Company', 'Client name', 'Country', 'Net', 'VAT', 'Total', 'Status']
     ];
     rows.forEach((row) => {
       const net = Number(row.amount || 0);
@@ -178,6 +203,7 @@ export default function AdminInvoicesOverview() {
         row.invoice_number || '',
         row.issue_date || '',
         companyNames[row.company_id] || '',
+        clientNames[row.user_id] || '',
         row.country || country,
         net.toFixed(2),
         vat.toFixed(2),
@@ -314,7 +340,8 @@ export default function AdminInvoicesOverview() {
                 <tr>
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.date')}</th>
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.invoice')}</th>
-                  <th className="px-4 py-3 text-left">{t('adminInvoices.table.client')}</th>
+                  <th className="px-4 py-3 text-left">{t('adminInvoices.table.company')}</th>
+                  <th className="px-4 py-3 text-left">{t('adminInvoices.table.clientName')}</th>
                   <th className="px-4 py-3 text-right">{t('adminInvoices.table.net')}</th>
                   <th className="px-4 py-3 text-right">{t('adminInvoices.table.vat')}</th>
                   <th className="px-4 py-3 text-right">{t('adminInvoices.table.total')}</th>
@@ -334,6 +361,7 @@ export default function AdminInvoicesOverview() {
                         #{row.invoice_number || '-'}
                       </td>
                       <td className="px-4 py-3">{companyNames[row.company_id] || '-'}</td>
+                      <td className="px-4 py-3">{clientNames[row.user_id] || '-'}</td>
                       <td className="px-4 py-3 text-right">{formatAmount(net)} €</td>
                       <td className="px-4 py-3 text-right">{formatAmount(vat)} €</td>
                       <td className="px-4 py-3 text-right font-semibold text-text-primary">

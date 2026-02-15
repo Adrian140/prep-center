@@ -412,7 +412,9 @@
         "net": "Net",
         "vat": "VAT",
         "total": "Total",
-        "status": "Status"
+        "status": "Status",
+        "company": "Company",
+        "clientName": "Client name"
       }
     }
   },
@@ -506,7 +508,9 @@
         "net": "Net",
         "vat": "TVA",
         "total": "Total",
-        "status": "Statut"
+        "status": "Statut",
+        "company": "Société",
+        "clientName": "Nom client"
       }
     }
   },
@@ -878,7 +882,9 @@
         "net": "Net",
         "vat": "TVA",
         "total": "Total",
-        "status": "Status"
+        "status": "Status",
+        "company": "Companie",
+        "clientName": "Nume client"
       }
     }
   }
