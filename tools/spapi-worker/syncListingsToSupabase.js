@@ -553,11 +553,14 @@ async function syncListingsIntegration(integration) {
     }
     const normalized = normalizeListings(listingRaw);
     const listingRows = filterListings(normalized);
+    const listingRowsWithImage = listingRows.filter(
+      (r) => r.imageUrl && String(r.imageUrl).trim().length > 0
+    ).length;
 
     const emptySku = listingRaw.filter((r) => !String(r.sku || '').trim()).length;
     const emptyAsin = listingRaw.filter((r) => !String(r.asin || '').trim() && !String(r.productId || '').trim()).length;
     console.log(
-      `[Listings sync] ${integration.id} raw=${listingRaw.length} normalized=${normalized.length} filtered=${listingRows.length} emptySku=${emptySku} emptyAsin=${emptyAsin}`
+      `[Listings sync] ${integration.id} raw=${listingRaw.length} normalized=${normalized.length} filtered=${listingRows.length} withImage=${listingRowsWithImage} emptySku=${emptySku} emptyAsin=${emptyAsin}`
     );
 
     if (!listingRows.length) {
@@ -600,6 +603,8 @@ async function syncListingsIntegration(integration) {
 
     const seen = new Set();
     const inserts = [];
+    let insertsWithImage = 0;
+    const updatesWithImage = new Set();
     const updatesById = new Map();
     const asinEanRows = [];
     const queueUpdate = (patch) => {
@@ -629,6 +634,7 @@ async function syncListingsIntegration(integration) {
         if (hasIncomingImage && !hasExistingImage) {
           patch.image_url = listing.imageUrl;
           shouldPatch = true;
+          updatesWithImage.add(row.id);
         }
         const needsNameReplace = isCorruptedName(row.name);
         const hasExistingSku = row.sku && String(row.sku).trim().length > 0;
@@ -664,6 +670,7 @@ async function syncListingsIntegration(integration) {
             patch.image_url = listing.imageUrl;
             r.image_url = listing.imageUrl;
             shouldPatch = true;
+            updatesWithImage.add(r.id);
           }
           // Dacă rândul din stoc nu are SKU, dar raportul Amazon îl are, îl completăm.
           if (
@@ -722,6 +729,9 @@ async function syncListingsIntegration(integration) {
             image_url: listing.imageUrl || null,
             qty: 0
           });
+          if (listing.imageUrl && String(listing.imageUrl).trim().length > 0) {
+            insertsWithImage += 1;
+          }
         }
       }
 
@@ -767,7 +777,7 @@ async function syncListingsIntegration(integration) {
       .eq('id', integration.id);
 
     console.log(
-      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows).`
+      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows, images: report=${listingRowsWithImage}, inserted=${insertsWithImage}, updated=${updatesWithImage.size}).`
     );
   } catch (err) {
     console.error(
