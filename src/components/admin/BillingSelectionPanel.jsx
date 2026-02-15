@@ -457,6 +457,7 @@ export default function BillingSelectionPanel({
               <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Postal code" value={issuerProfile?.postal_code || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), postal_code: e.target.value, country: issuerCountry }))} />
               <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="City" value={issuerProfile?.city || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), city: e.target.value, country: issuerCountry }))} />
             </div>
+            <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Website" value={issuerProfile?.website || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), website: e.target.value, country: issuerCountry }))} />
             <div className="grid grid-cols-2 gap-2">
               <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Email" value={issuerProfile?.email || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), email: e.target.value, country: issuerCountry }))} />
               <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Phone" value={issuerProfile?.phone || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), phone: e.target.value, country: issuerCountry }))} />
@@ -473,6 +474,7 @@ export default function BillingSelectionPanel({
             <p>{`${issuerProfile?.postal_code || ''} ${issuerProfile?.city || ''}`.trim() || '-'}</p>
             <p>{String(issuerProfile?.country || issuerCountry).toUpperCase()}</p>
             <p>VAT: {issuerProfile?.vat_number || '-'}</p>
+            {issuerProfile?.website ? <p>Website: {issuerProfile.website}</p> : null}
             {issuerProfile?.email ? <p>Email: {issuerProfile.email}</p> : null}
             {issuerProfile?.phone ? <p>Telefon: {issuerProfile.phone}</p> : null}
           </div>
