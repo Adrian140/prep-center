@@ -148,7 +148,12 @@ function resolveMarketplaceIds(integration) {
   const allowed = new Set(ALLOWED_MARKETPLACE_IDS);
   const keepAllowed = (list) => list.filter((id) => allowed.has(id));
   if (Array.isArray(integration?.marketplace_ids) && integration.marketplace_ids.length) {
-    return keepAllowed(integration.marketplace_ids);
+    const list = keepAllowed(integration.marketplace_ids);
+    const preferred = integration?.marketplace_id;
+    if (preferred && list.includes(preferred)) {
+      return [preferred, ...list.filter((id) => id !== preferred)];
+    }
+    return list;
   }
   if (integration?.marketplace_id) return keepAllowed([integration.marketplace_id]);
   if (process.env.SPAPI_MARKETPLACE_ID) return keepAllowed([process.env.SPAPI_MARKETPLACE_ID]);
@@ -162,6 +167,18 @@ function isUnauthorizedError(err) {
     code.includes('unauthorized') ||
     message.includes('unauthorized') ||
     message.includes('access to requested resource is denied')
+  );
+}
+
+function isCatalogNotFoundError(err) {
+  const message = String(err?.message || err || '').toLowerCase();
+  const code = String(err?.code || '').toLowerCase();
+  const details = String(err?.details || '').toLowerCase();
+  return (
+    code.includes('notfound') ||
+    message.includes('not found in marketplace') ||
+    message.includes('requested item') ||
+    details.includes('not found in marketplace')
   );
 }
 
@@ -288,17 +305,37 @@ async function syncIntegrationImages(integration, runState) {
       }
 
       let found = null;
+      let hadNonNotFoundError = false;
       for (const marketplaceId of marketplaceIds) {
-        found = await getCatalogMainImage(spClient, asin, marketplaceId);
-        if (found) {
-          runState.foundByMarketplace[marketplaceId] =
-            (runState.foundByMarketplace[marketplaceId] || 0) + 1;
-          break;
+        try {
+          found = await getCatalogMainImage(spClient, asin, marketplaceId);
+          if (found) {
+            runState.foundByMarketplace[marketplaceId] =
+              (runState.foundByMarketplace[marketplaceId] || 0) + 1;
+            break;
+          }
+        } catch (err) {
+          if (isCatalogNotFoundError(err)) {
+            // ASIN not available in this marketplace; try next marketplace.
+            continue;
+          }
+          if (isUnauthorizedError(err)) {
+            throw err;
+          }
+          hadNonNotFoundError = true;
+          console.warn(
+            `[Catalog image sync] Catalog lookup warning integration=${integration.id} asin=${asin} marketplace=${marketplaceId}: ${err?.message || err}`
+          );
+          continue;
         }
       }
 
       if (!found) {
-        runState.notFound += 1;
+        if (hadNonNotFoundError) {
+          runState.failed += 1;
+        } else {
+          runState.notFound += 1;
+        }
         continue;
       }
 
