@@ -1043,11 +1043,32 @@ resetPassword: async (email) => {
         if (uploadError) throw uploadError;
       }
 
-     const { data, error } = await supabase
+     const payload = { ...invoiceData, file_path: filePath };
+     let { data, error } = await supabase
        .from('invoices')
-       .insert({ ...invoiceData, file_path: filePath })
+       .insert(payload)
        .select()
        .single();
+
+      const hasMissingColumnError =
+        error &&
+        /column/i.test(String(error.message || '')) &&
+        /does not exist/i.test(String(error.message || ''));
+      if (hasMissingColumnError) {
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.document_type;
+        delete fallbackPayload.converted_to_invoice_id;
+        delete fallbackPayload.converted_from_proforma_id;
+        delete fallbackPayload.document_payload;
+        delete fallbackPayload.billing_invoice_id;
+        const retry = await supabase
+          .from('invoices')
+          .insert(fallbackPayload)
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
 
       return { data, error };
     } catch (error) {

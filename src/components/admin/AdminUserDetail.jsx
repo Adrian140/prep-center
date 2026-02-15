@@ -69,6 +69,18 @@ const buildLocalInvoiceFilename = ({ invoiceDate, billedCompanyName }) => {
   return `${datePart} EcomPrepHub -> ${companyPart}.pdf`;
 };
 
+const buildDocumentNumber = ({ issuerCode, counterValue, documentType }) => {
+  const isProforma = String(documentType || '').toLowerCase() === 'proforma';
+  if (isProforma) {
+    return issuerCode === 'DE'
+      ? `EcomPrepHub Germany PF${String(counterValue).padStart(3, '0')}`
+      : `EcomPrepHub France PF${String(counterValue).padStart(3, '0')}`;
+  }
+  return issuerCode === 'DE'
+    ? `EcomPrepHub Germany ${String(counterValue).padStart(3, '0')}`
+    : `EcomPrepHub France ${counterValue}`;
+};
+
 export default function AdminUserDetail({ profile, onBack }) {
   const { profile: currentAdmin } = useSupabaseAuth();
   const { currentMarket, availableMarkets } = useMarket();
@@ -88,6 +100,7 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [issuerProfiles, setIssuerProfiles] = useState(DEFAULT_ISSUER_PROFILES);
   const [invoiceTemplates, setInvoiceTemplates] = useState({});
   const [invoiceCounters, setInvoiceCounters] = useState({ FR: 189, DE: 1 });
+  const [proformaCounters, setProformaCounters] = useState({ FR: 1, DE: 1 });
   const hasBillingSelection = canManageInvoices && Object.keys(billingSelections).length > 0;
   const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns', 'requests'];
   const allowedSections = isLimitedAdmin ? ['stock'] : serviceSections;
@@ -192,7 +205,7 @@ const ensureCompany = async () => {
       ? [null, null, null, results[0]]
       : results;
     let billingProfilesRes = await supabaseHelpers.getBillingProfiles(profile?.id);
-    const [issuerSettingsRes, countersSettingsRes, templateSettingsRes] = await Promise.all([
+    const [issuerSettingsRes, countersSettingsRes, proformaCountersRes, templateSettingsRes] = await Promise.all([
       supabase
       .from('app_settings')
       .select('value')
@@ -202,6 +215,11 @@ const ensureCompany = async () => {
         .from('app_settings')
         .select('value')
         .eq('key', 'invoice_number_counters')
+        .maybeSingle(),
+      supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'proforma_number_counters')
         .maybeSingle(),
       supabase
         .from('app_settings')
@@ -249,6 +267,14 @@ if (!countersSettingsRes?.error && countersSettingsRes?.data?.value) {
 } else {
   setInvoiceCounters({ FR: 189, DE: 1 });
 }
+if (!proformaCountersRes?.error && proformaCountersRes?.data?.value) {
+  setProformaCounters({
+    FR: Number(proformaCountersRes.data.value.FR) || 1,
+    DE: Number(proformaCountersRes.data.value.DE) || 1
+  });
+} else {
+  setProformaCounters({ FR: 1, DE: 1 });
+}
 if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
   setInvoiceTemplates(templateSettingsRes.data.value || {});
 } else {
@@ -276,13 +302,9 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
     });
   }, [canManageInvoices]);
 
-  const clearBillingSelections = useCallback(() => {
-    setBillingSelections({});
-    setBillingError('');
-  }, []);
-
   const handleBillingSave = useCallback(
     async ({
+      documentType,
       invoiceDate,
       dueDate,
       status,
@@ -305,16 +327,25 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
       setBillingSaving(true);
       setBillingError('');
       const issuerCode = String(issuerCountry || currentMarket || 'FR').toUpperCase();
+      const normalizedDocType = String(documentType || 'invoice').toLowerCase() === 'proforma' ? 'proforma' : 'invoice';
       if (!allowedIssuerCountries.includes(issuerCode)) {
         const error = new Error(`Emitent nepermis pentru acest admin: ${issuerCode}`);
         setBillingError(error.message);
         setBillingSaving(false);
         return { error };
       }
-      const counterValue = Number(invoiceCounterValue) || Number(invoiceCounters?.[issuerCode]) || (issuerCode === 'FR' ? 189 : 1);
-      const generatedInvoiceNumber = issuerCode === 'DE'
-        ? `EcomPrepHub Germany ${String(counterValue).padStart(3, '0')}`
-        : `EcomPrepHub France ${counterValue}`;
+      const counterSource = normalizedDocType === 'proforma'
+        ? proformaCounters
+        : invoiceCounters;
+      const counterFallback = normalizedDocType === 'proforma'
+        ? 1
+        : (issuerCode === 'FR' ? 189 : 1);
+      const counterValue = Number(invoiceCounterValue) || Number(counterSource?.[issuerCode]) || counterFallback;
+      const generatedInvoiceNumber = buildDocumentNumber({
+        issuerCode,
+        counterValue,
+        documentType: normalizedDocType
+      });
       const { data: billingInvoice, error } = await supabaseHelpers.createBillingInvoice({
         company_id: company.id,
         user_id: profile?.id,
@@ -370,6 +401,26 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
 
       const uploadRes = await supabaseHelpers.uploadInvoice(pdfFile, profile?.id, {
         invoice_number: generatedInvoiceNumber,
+        document_type: normalizedDocType,
+        converted_to_invoice_id: null,
+        converted_from_proforma_id: null,
+        billing_invoice_id: billingInvoice?.id || null,
+        document_payload: {
+          issuerProfile,
+          billingProfile,
+          customerEmail,
+          customerPhone,
+          items: items || [],
+          totals: {
+            net: roundMoney(totals?.net ?? 0),
+            vat: roundMoney(totals?.vat ?? 0),
+            gross: roundMoney(totals?.gross ?? 0),
+            vatLabel: totals?.vatLabel || 'TVA',
+            vatRate: Number(totals?.vatRate ?? 0),
+            legalNote: totals?.legalNote || ''
+          },
+          dueDate: dueDate || null
+        },
         amount: roundMoney(totals?.net ?? 0),
         vat_amount: roundMoney(totals?.vat ?? 0),
         description,
@@ -395,19 +446,36 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
           .eq('id', uploadRes.data.id);
       }
 
-      const nextCounters = {
-        ...invoiceCounters,
-        [issuerCode]: counterValue + 1
-      };
-      const countersSave = await supabase
-        .from('app_settings')
-        .upsert({
-          key: 'invoice_number_counters',
-          value: nextCounters,
-          updated_at: new Date().toISOString()
-        });
-      if (!countersSave.error) {
-        setInvoiceCounters(nextCounters);
+      if (normalizedDocType === 'proforma') {
+        const nextProformaCounters = {
+          ...proformaCounters,
+          [issuerCode]: counterValue + 1
+        };
+        const proformaCounterSave = await supabase
+          .from('app_settings')
+          .upsert({
+            key: 'proforma_number_counters',
+            value: nextProformaCounters,
+            updated_at: new Date().toISOString()
+          });
+        if (!proformaCounterSave.error) {
+          setProformaCounters(nextProformaCounters);
+        }
+      } else {
+        const nextCounters = {
+          ...invoiceCounters,
+          [issuerCode]: counterValue + 1
+        };
+        const countersSave = await supabase
+          .from('app_settings')
+          .upsert({
+            key: 'invoice_number_counters',
+            value: nextCounters,
+            updated_at: new Date().toISOString()
+          });
+        if (!countersSave.error) {
+          setInvoiceCounters(nextCounters);
+        }
       }
 
       setBillingSaving(false);
@@ -415,11 +483,12 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
       await loadAll();
       return { error: null };
     },
-    [company?.id, profile?.id, currentMarket, invoiceCounters, invoiceTemplates, allowedIssuerCountries, loadAll]
+    [company?.id, profile?.id, currentMarket, invoiceCounters, proformaCounters, invoiceTemplates, allowedIssuerCountries, loadAll]
   );
 
   const handleBillingPreview = useCallback(
     async ({
+      documentType,
       invoiceDate,
       dueDate,
       issuerCountry,
@@ -436,10 +505,19 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
       if (!allowedIssuerCountries.includes(issuerCode)) {
         return { error: new Error(`Emitent nepermis pentru acest admin: ${issuerCode}`) };
       }
-      const counterValue = Number(invoiceCounterValue) || Number(invoiceCounters?.[issuerCode]) || (issuerCode === 'FR' ? 189 : 1);
-      const generatedInvoiceNumber = issuerCode === 'DE'
-        ? `EcomPrepHub Germany ${String(counterValue).padStart(3, '0')}`
-        : `EcomPrepHub France ${counterValue}`;
+      const normalizedDocType = String(documentType || 'invoice').toLowerCase() === 'proforma' ? 'proforma' : 'invoice';
+      const counterSource = normalizedDocType === 'proforma'
+        ? proformaCounters
+        : invoiceCounters;
+      const counterFallback = normalizedDocType === 'proforma'
+        ? 1
+        : (issuerCode === 'FR' ? 189 : 1);
+      const counterValue = Number(invoiceCounterValue) || Number(counterSource?.[issuerCode]) || counterFallback;
+      const generatedInvoiceNumber = buildDocumentNumber({
+        issuerCode,
+        counterValue,
+        documentType: normalizedDocType
+      });
       const pdfBlob = await buildInvoicePdfBlob({
         invoiceNumber: generatedInvoiceNumber,
         invoiceDate,
@@ -464,7 +542,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
       setTimeout(() => URL.revokeObjectURL(url), 10000);
       return { error: null };
     },
-    [currentMarket, allowedIssuerCountries, invoiceCounters, invoiceTemplates]
+    [currentMarket, allowedIssuerCountries, invoiceCounters, proformaCounters, invoiceTemplates]
   );
 
   const handleSaveIssuerProfile = useCallback(async (countryCode, nextProfile) => {
@@ -491,27 +569,6 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
     setIssuerProfiles(merged);
     return { error: null };
   }, [issuerProfiles]);
-
-  const handleSaveInvoiceTemplate = useCallback(async (countryCode, templateImage) => {
-    const code = String(countryCode || '').toUpperCase();
-    if (!code) return { error: new Error('Țara template-ului lipsește.') };
-    const nextTemplates = { ...invoiceTemplates };
-    if (templateImage) {
-      nextTemplates[code] = templateImage;
-    } else {
-      delete nextTemplates[code];
-    }
-    const { error } = await supabase
-      .from('app_settings')
-      .upsert({
-        key: 'invoice_pdf_templates',
-        value: nextTemplates,
-        updated_at: new Date().toISOString()
-      });
-    if (error) return { error };
-    setInvoiceTemplates(nextTemplates);
-    return { error: null };
-  }, [invoiceTemplates]);
 
   const displayName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Utilizator';
@@ -717,11 +774,10 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
               clientSignupCountry={profile?.country || ''}
               currentMarket={currentMarket || 'FR'}
               invoiceCounters={invoiceCounters}
+              proformaCounters={proformaCounters}
               issuerProfiles={issuerProfiles}
-              invoiceTemplates={invoiceTemplates}
               allowedIssuerCountries={allowedIssuerCountries}
               onSaveIssuerProfile={handleSaveIssuerProfile}
-              onSaveInvoiceTemplate={handleSaveInvoiceTemplate}
               onSaveBillingProfile={async (billingProfileId, updates) => {
                 const { error } = await supabaseHelpers.updateBillingProfile(billingProfileId, updates);
                 if (!error) await loadAll();
@@ -729,7 +785,6 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
               }}
               onSave={handleBillingSave}
               onPreview={handleBillingPreview}
-              onClear={clearBillingSelections}
               isSaving={billingSaving}
               error={billingError}
             />

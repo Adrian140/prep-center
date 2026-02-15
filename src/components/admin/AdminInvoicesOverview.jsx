@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Download, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Download, Loader2, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { supabase, supabaseHelpers } from '@/config/supabase';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
 import { useMarket } from '@/contexts/MarketContext';
+import { buildInvoicePdfBlob } from '@/utils/invoicePdf';
 
 const toMonthInput = (date = new Date()) => {
   const year = date.getFullYear();
@@ -50,6 +51,32 @@ const safeFileName = (value) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-zA-Z0-9._-]/g, '_');
 
+const toIsoDate = (value = new Date()) => {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 10);
+  return d.toISOString().slice(0, 10);
+};
+
+const roundMoney = (value) => {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return 0;
+  return Math.round(number * 100) / 100;
+};
+
+const isProforma = (row) => String(row?.document_type || 'invoice').toLowerCase() === 'proforma';
+
+const buildDocumentNumber = ({ issuerCode, counterValue, documentType }) => {
+  const normalizedType = String(documentType || 'invoice').toLowerCase();
+  if (normalizedType === 'proforma') {
+    return issuerCode === 'DE'
+      ? `EcomPrepHub Germany PF${String(counterValue).padStart(3, '0')}`
+      : `EcomPrepHub France PF${String(counterValue).padStart(3, '0')}`;
+  }
+  return issuerCode === 'DE'
+    ? `EcomPrepHub Germany ${String(counterValue).padStart(3, '0')}`
+    : `EcomPrepHub France ${counterValue}`;
+};
+
 export default function AdminInvoicesOverview() {
   const { t } = useAdminTranslation();
   const { currentMarket, availableMarkets, markets } = useMarket();
@@ -60,6 +87,7 @@ export default function AdminInvoicesOverview() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState(null);
+  const [convertingId, setConvertingId] = useState(null);
   const [rows, setRows] = useState([]);
   const [companyNames, setCompanyNames] = useState({});
   const [clientNames, setClientNames] = useState({});
@@ -92,7 +120,7 @@ export default function AdminInvoicesOverview() {
 
       let query = supabase
         .from('invoices')
-        .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, country, created_at, file_path')
+        .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, country, created_at, file_path, description, document_type, converted_to_invoice_id, converted_from_proforma_id, document_payload, billing_invoice_id')
         .eq('country', country);
       if (viewMode === 'outstanding') {
         query = query.eq('status', 'pending');
@@ -107,15 +135,15 @@ export default function AdminInvoicesOverview() {
 
       let { data, error: invoicesError } = await query;
 
-      const missingCountryColumn =
+      const missingColumns =
         invoicesError &&
-        /country/i.test(String(invoicesError.message || '')) &&
+        /column/i.test(String(invoicesError.message || '')) &&
         /does not exist/i.test(String(invoicesError.message || ''));
 
-      if (missingCountryColumn) {
+      if (missingColumns) {
         let fallbackQuery = supabase
           .from('invoices')
-          .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, created_at, file_path');
+          .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, country, created_at, file_path, description');
         if (viewMode === 'outstanding') {
           fallbackQuery = fallbackQuery.eq('status', 'pending');
         } else {
@@ -126,7 +154,14 @@ export default function AdminInvoicesOverview() {
         const fallback = await fallbackQuery
           .order('issue_date', { ascending: false })
           .order('created_at', { ascending: false });
-        data = fallback.data;
+        data = (fallback.data || []).map((row) => ({
+          ...row,
+          document_type: 'invoice',
+          converted_to_invoice_id: null,
+          converted_from_proforma_id: null,
+          document_payload: null,
+          billing_invoice_id: null
+        }));
         invoicesError = fallback.error;
       }
 
@@ -134,7 +169,8 @@ export default function AdminInvoicesOverview() {
         throw invoicesError;
       }
 
-      const list = Array.isArray(data) ? data : [];
+      const list = (Array.isArray(data) ? data : [])
+        .filter((row) => !(isProforma(row) && row.converted_to_invoice_id));
 
       const ordered = [...list].sort((a, b) => {
         const pendingA = isPendingStatus(a.status) ? 0 : 1;
@@ -330,6 +366,111 @@ export default function AdminInvoicesOverview() {
     }
   };
 
+  const convertProforma = async (row) => {
+    if (!row?.id || !isProforma(row) || row.converted_to_invoice_id) return;
+    const ok = window.confirm(`Convert proforma #${row.invoice_number || row.id} to final invoice?`);
+    if (!ok) return;
+    setConvertingId(row.id);
+    setError('');
+    try {
+      const payload = row.document_payload || {};
+      if (!payload?.issuerProfile || !payload?.billingProfile || !Array.isArray(payload?.items)) {
+        throw new Error('This proforma cannot be converted (missing payload snapshot).');
+      }
+      const issuerCode = String(row.country || payload?.issuerProfile?.country || '').toUpperCase() || 'FR';
+      const { data: counterRow, error: counterError } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'invoice_number_counters')
+        .maybeSingle();
+      if (counterError) throw counterError;
+      const counters = counterRow?.value || {};
+      const fallback = issuerCode === 'FR' ? 189 : 1;
+      const nextCounter = Number(counters?.[issuerCode]) || fallback;
+      const finalInvoiceNumber = buildDocumentNumber({
+        issuerCode,
+        counterValue: nextCounter,
+        documentType: 'invoice'
+      });
+
+      const invoiceDate = toIsoDate(new Date());
+      const totals = payload?.totals || {};
+      const pdfBlob = await buildInvoicePdfBlob({
+        invoiceNumber: finalInvoiceNumber,
+        invoiceDate,
+        dueDate: payload?.dueDate || null,
+        issuer: payload?.issuerProfile,
+        customer: payload?.billingProfile,
+        customerEmail: payload?.customerEmail || '',
+        customerPhone: payload?.customerPhone || '',
+        items: payload?.items || [],
+        totals: {
+          net: roundMoney(totals?.net ?? row.amount ?? 0),
+          vat: roundMoney(totals?.vat ?? row.vat_amount ?? 0),
+          gross: roundMoney(totals?.gross ?? (Number(row.amount || 0) + Number(row.vat_amount || 0))),
+          vatLabel: totals?.vatLabel || 'VAT',
+          vatRate: Number(totals?.vatRate ?? 0)
+        },
+        legalNote: totals?.legalNote || '',
+        templateImage: null
+      });
+
+      const file = new File([pdfBlob], `${safeFileName(finalInvoiceNumber)}.pdf`, {
+        type: 'application/pdf'
+      });
+
+      const description = String(row.description || '').replace(/^PROFORMA\s*\|\s*/i, '');
+      const uploadRes = await supabaseHelpers.uploadInvoice(file, row.user_id, {
+        invoice_number: finalInvoiceNumber,
+        document_type: 'invoice',
+        converted_from_proforma_id: row.id,
+        converted_to_invoice_id: null,
+        billing_invoice_id: row.billing_invoice_id || null,
+        document_payload: payload,
+        amount: roundMoney(row.amount ?? totals?.net ?? 0),
+        vat_amount: roundMoney(row.vat_amount ?? totals?.vat ?? 0),
+        description,
+        issue_date: invoiceDate,
+        due_date: payload?.dueDate || null,
+        status: 'pending',
+        company_id: row.company_id,
+        user_id: row.user_id,
+        country: issuerCode
+      });
+      if (uploadRes?.error) throw uploadRes.error;
+
+      const finalRow = uploadRes?.data;
+      if (!finalRow?.id) {
+        throw new Error('Invoice conversion failed (missing final invoice row).');
+      }
+
+      const { error: markError } = await supabase
+        .from('invoices')
+        .update({ status: 'converted', converted_to_invoice_id: finalRow.id })
+        .eq('id', row.id);
+      if (markError) throw markError;
+
+      const nextCounters = {
+        ...counters,
+        [issuerCode]: nextCounter + 1
+      };
+      const { error: saveCounterError } = await supabase
+        .from('app_settings')
+        .upsert({
+          key: 'invoice_number_counters',
+          value: nextCounters,
+          updated_at: new Date().toISOString()
+        });
+      if (saveCounterError) throw saveCounterError;
+
+      await loadInvoices();
+    } catch (err) {
+      setError(err?.message || t('adminInvoices.loadError'));
+    } finally {
+      setConvertingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -436,6 +577,7 @@ export default function AdminInvoicesOverview() {
                   <th className="px-4 py-3 text-right">Amount</th>
                   <th className="px-4 py-3 text-right">{t('adminInvoices.table.total')}</th>
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.status')}</th>
+                  <th className="px-4 py-3 text-left">Convert</th>
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.download')}</th>
                   <th className="px-4 py-3 text-left">Delete</th>
                 </tr>
@@ -450,7 +592,7 @@ export default function AdminInvoicesOverview() {
                     <tr key={row.id} className="border-t border-gray-100 hover:bg-gray-50">
                       <td className="px-4 py-3 whitespace-nowrap">{formatDate(row.issue_date)}</td>
                       <td className="px-4 py-3 whitespace-nowrap font-medium text-text-primary">
-                        #{row.invoice_number || '-'}
+                        {isProforma(row) ? `PROFORMA #${row.invoice_number || '-'}` : `#${row.invoice_number || '-'}`}
                       </td>
                       <td className="px-4 py-3">{companyNames[row.company_id] || '-'}</td>
                       <td className="px-4 py-3">{clientNames[row.user_id] || '-'}</td>
@@ -466,18 +608,39 @@ export default function AdminInvoicesOverview() {
                         {formatAmount(gross)} €
                       </td>
                       <td className="px-4 py-3">
-                        <select
-                          value={String(row.status || 'pending').toLowerCase()}
-                          onChange={(event) => updateStatus(row.id, event.target.value)}
-                          className={`px-2 py-1 rounded text-xs font-medium border ${
-                            pending
-                              ? 'bg-amber-100 text-amber-800 border-amber-200'
-                              : 'bg-green-100 text-green-700 border-green-200'
-                          }`}
-                        >
-                          <option value="pending">pending</option>
-                          <option value="paid">paid</option>
-                        </select>
+                        {isProforma(row) ? (
+                          <span className="inline-flex items-center rounded border border-sky-200 bg-sky-100 px-2 py-1 text-xs font-medium text-sky-800">
+                            proforma
+                          </span>
+                        ) : (
+                          <select
+                            value={String(row.status || 'pending').toLowerCase()}
+                            onChange={(event) => updateStatus(row.id, event.target.value)}
+                            className={`px-2 py-1 rounded text-xs font-medium border ${
+                              pending
+                                ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                : 'bg-green-100 text-green-700 border-green-200'
+                            }`}
+                          >
+                            <option value="pending">pending</option>
+                            <option value="paid">paid</option>
+                          </select>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isProforma(row) ? (
+                          <button
+                            type="button"
+                            onClick={() => convertProforma(row)}
+                            disabled={convertingId === row.id}
+                            className="inline-flex items-center gap-1 rounded border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            {convertingId === row.id ? 'Converting...' : 'Convert'}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-text-secondary">-</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <button

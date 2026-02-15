@@ -8,13 +8,6 @@ const formatUnits = (value) => {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 };
 
-const plusDays = (isoDate, days = 14) => {
-  const source = isoDate ? new Date(isoDate) : new Date();
-  if (Number.isNaN(source.getTime())) return todayIso();
-  source.setDate(source.getDate() + days);
-  return source.toISOString().slice(0, 10);
-};
-
 export default function BillingSelectionPanel({
   selections = {},
   billingProfiles = [],
@@ -24,18 +17,18 @@ export default function BillingSelectionPanel({
   currentMarket = 'FR',
   allowedIssuerCountries = ['FR', 'DE'],
   invoiceCounters = { FR: 189, DE: 1 },
+  proformaCounters = { FR: 1, DE: 1 },
   issuerProfiles = DEFAULT_ISSUER_PROFILES,
-  invoiceTemplates = {},
   onSaveIssuerProfile,
   onSaveBillingProfile,
   onSave,
   onPreview,
-  onClear,
   isSaving = false,
   error: externalError
 }) {
   const [invoiceDate, setInvoiceDate] = useState(todayIso());
   const [dueDate, setDueDate] = useState('');
+  const [documentType, setDocumentType] = useState('invoice');
   const [status, setStatus] = useState('pending');
   const [issuerCountry, setIssuerCountry] = useState(currentMarket || 'FR');
   const [issuerDraft, setIssuerDraft] = useState(issuerProfiles?.[currentMarket || 'FR'] || DEFAULT_ISSUER_PROFILES.FR);
@@ -133,15 +126,17 @@ export default function BillingSelectionPanel({
   const taxRule = getSimpleVatRule({ issuerCountry, customerCountry });
   const vatAmount = roundMoney(aggregated.total * taxRule.vatRate);
   const grossTotal = roundMoney(aggregated.total + vatAmount);
-  const previewCounter = Number(invoiceCounters?.[issuerCountry]) || (issuerCountry === 'FR' ? 189 : 1);
-  const previewInvoiceNumber = issuerCountry === 'DE'
-    ? `EcomPrepHub Germany ${String(previewCounter).padStart(3, '0')}`
-    : `EcomPrepHub France ${previewCounter}`;
-
-  const handleClear = () => {
-    onClear?.();
-    setFeedback('');
-  };
+  const isProforma = documentType === 'proforma';
+  const previewCounter = isProforma
+    ? (Number(proformaCounters?.[issuerCountry]) || 1)
+    : (Number(invoiceCounters?.[issuerCountry]) || (issuerCountry === 'FR' ? 189 : 1));
+  const previewInvoiceNumber = isProforma
+    ? (issuerCountry === 'DE'
+      ? `EcomPrepHub Germany PF${String(previewCounter).padStart(3, '0')}`
+      : `EcomPrepHub France PF${String(previewCounter).padStart(3, '0')}`)
+    : (issuerCountry === 'DE'
+      ? `EcomPrepHub Germany ${String(previewCounter).padStart(3, '0')}`
+      : `EcomPrepHub France ${previewCounter}`);
 
   const handleSaveIssuer = async () => {
     if (!onSaveIssuerProfile) return;
@@ -188,6 +183,7 @@ export default function BillingSelectionPanel({
     const payload = {
       invoiceNumber: previewInvoiceNumber,
       invoiceCounterValue: previewCounter,
+      documentType,
       invoiceDate: invoiceDate || todayIso(),
       dueDate: dueDate || null,
       status,
@@ -214,10 +210,11 @@ export default function BillingSelectionPanel({
       setFeedback(result.error.message || 'Nu am putut salva factura.');
       return;
     }
-    setFeedback('Factura a fost salvată și urcată în contul clientului.');
+    setFeedback(isProforma ? 'Proforma a fost salvată și urcată în contul clientului.' : 'Factura a fost salvată și urcată în contul clientului.');
     setInvoiceDate(todayIso());
     setDueDate('');
     setStatus('pending');
+    setDocumentType('invoice');
   };
 
   const handlePreview = async () => {
@@ -232,6 +229,7 @@ export default function BillingSelectionPanel({
     const payload = {
       invoiceNumber: previewInvoiceNumber,
       invoiceCounterValue: previewCounter,
+      documentType,
       invoiceDate: invoiceDate || todayIso(),
       dueDate: dueDate || null,
       issuerCountry,
@@ -311,6 +309,13 @@ export default function BillingSelectionPanel({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[13px] font-medium text-text-secondary">Document</label>
+            <select className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none" value={documentType} onChange={(event) => setDocumentType(event.target.value)}>
+              <option value="invoice">Invoice</option>
+              <option value="proforma">Proforma</option>
+            </select>
+          </div>
           <div>
             <label className="block text-[13px] font-medium text-text-secondary">Companie emitentă</label>
             <select
@@ -448,10 +453,7 @@ export default function BillingSelectionPanel({
           Preview
         </button>
         <button type="button" onClick={handleSave} disabled={isSaving || aggregated.count === 0} className="flex-1 rounded bg-primary px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
-          {isSaving ? 'Salvez...' : 'Create invoice'}
-        </button>
-        <button type="button" onClick={handleClear} className="rounded border border-gray-200 px-3 py-2 text-sm font-semibold text-text-primary">
-          Golește selecția
+          {isSaving ? 'Salvez...' : (isProforma ? 'Create proforma' : 'Create invoice')}
         </button>
       </div>
     </div>
