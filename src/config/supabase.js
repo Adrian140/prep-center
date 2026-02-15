@@ -104,6 +104,20 @@ const isDuplicateKeyError = (error) => {
   );
 };
 
+const blobToBase64 = async (blob) => {
+  if (!blob) return '';
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = String(reader.result || '');
+      const base64 = result.includes(',') ? result.split(',')[1] : result;
+      resolve(base64 || '');
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
 const ensureStockItemForReceiving = async (item, processedBy) => {
   if (item.stock_item_id) {
     const { data } = await supabase
@@ -1692,6 +1706,20 @@ createPrepItem: async (requestId, item) => {
       }
 
       return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  },
+
+  sendInvoiceEmail: async (payload, pdfBlob) => {
+    try {
+      const attachmentBase64 = pdfBlob ? await blobToBase64(pdfBlob) : '';
+      const body = {
+        ...payload,
+        attachment_base64: attachmentBase64 || undefined
+      };
+      const { error } = await supabase.functions.invoke('send_invoice_email', { body });
+      return { error: error || null };
     } catch (error) {
       return { error };
     }

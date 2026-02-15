@@ -462,6 +462,28 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
         return { error: uploadRes.error };
       }
 
+      if (customerEmail) {
+        const emailRes = await supabaseHelpers.sendInvoiceEmail(
+          {
+            email: customerEmail,
+            client_name: [billingProfile?.first_name, billingProfile?.last_name].filter(Boolean).join(' ') || null,
+            company_name: billingProfile?.company_name || null,
+            document_type: normalizedDocType,
+            invoice_number: generatedInvoiceNumber,
+            issue_date: invoiceDate,
+            due_date: dueDate || null,
+            net_amount: roundMoney(totals?.net ?? 0),
+            vat_amount: roundMoney(totals?.vat ?? 0),
+            total_amount: roundMoney(totals?.gross ?? 0),
+            attachment_filename: `${String(generatedInvoiceNumber).replace(/[^a-zA-Z0-9._-]/g, '_')}.pdf`
+          },
+          pdfBlob
+        );
+        if (emailRes?.error) {
+          console.error('sendInvoiceEmail error', emailRes.error);
+        }
+      }
+
       saveAs(pdfBlob, localDownloadName);
 
       if (billingInvoice?.id && uploadRes?.data?.id) {

@@ -547,6 +547,32 @@ export default function AdminInvoicesOverview() {
         throw new Error('Invoice conversion failed (missing final invoice row).');
       }
 
+      if (payload?.customerEmail) {
+        const emailRes = await supabaseHelpers.sendInvoiceEmail(
+          {
+            email: payload.customerEmail,
+            client_name: [payload?.billingProfile?.first_name, payload?.billingProfile?.last_name]
+              .filter(Boolean)
+              .join(' ') || null,
+            company_name: payload?.billingProfile?.company_name || null,
+            document_type: 'invoice',
+            invoice_number: finalInvoiceNumber,
+            issue_date: invoiceDate,
+            due_date: payload?.dueDate || null,
+            net_amount: roundMoney(row.amount ?? totals?.net ?? 0),
+            vat_amount: roundMoney(row.vat_amount ?? totals?.vat ?? 0),
+            total_amount: roundMoney(
+              totals?.gross ?? (Number(row.amount || 0) + Number(row.vat_amount || 0))
+            ),
+            attachment_filename: `${safeFileName(finalInvoiceNumber)}.pdf`
+          },
+          pdfBlob
+        );
+        if (emailRes?.error) {
+          console.error('sendInvoiceEmail on conversion error', emailRes.error);
+        }
+      }
+
       let { error: markError } = await supabase
         .from('invoices')
         .update({ status: 'converted', converted_to_invoice_id: finalRow.id })
