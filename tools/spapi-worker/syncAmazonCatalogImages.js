@@ -20,6 +20,10 @@ const MAX_ITEMS_PER_RUN =
   Number.isFinite(MAX_ITEMS_PER_RUN_RAW) && MAX_ITEMS_PER_RUN_RAW > 0
     ? MAX_ITEMS_PER_RUN_RAW
     : Number.POSITIVE_INFINITY;
+const MIN_MISSING_IMAGES_PER_COMPANY = Math.max(
+  1,
+  Number(process.env.SPAPI_CATALOG_IMAGE_MIN_MISSING_PER_COMPANY || 2)
+);
 const MARKETPLACE_FILTER = process.env.SPAPI_CATALOG_IMAGE_MARKETPLACE_ID || null;
 const ALLOWED_MARKETPLACE_IDS = String(
   process.env.SPAPI_CATALOG_IMAGE_MARKETPLACE_IDS ||
@@ -67,9 +71,47 @@ function singleModeIntegration() {
   return null;
 }
 
+async function fetchEligibleCompanyIds(minMissing = MIN_MISSING_IMAGES_PER_COMPANY) {
+  const counts = new Map();
+  const chunkSize = 10000;
+  let from = 0;
+
+  while (true) {
+    const to = from + chunkSize - 1;
+    const { data, error } = await supabase
+      .from('stock_items')
+      .select('company_id')
+      .not('company_id', 'is', null)
+      .not('asin', 'is', null)
+      .or('image_url.is.null,image_url.eq.')
+      .range(from, to);
+    if (error) throw error;
+    if (!data || !data.length) break;
+
+    for (const row of data) {
+      const companyId = row?.company_id;
+      if (!companyId) continue;
+      counts.set(companyId, (counts.get(companyId) || 0) + 1);
+    }
+
+    if (data.length < chunkSize) break;
+    from += chunkSize;
+  }
+
+  const eligible = new Set();
+  for (const [companyId, count] of counts.entries()) {
+    if (count >= minMissing) eligible.add(companyId);
+  }
+  return eligible;
+}
+
 async function fetchActiveIntegrations() {
   const single = singleModeIntegration();
   if (single) return single;
+  const eligibleCompanies = await fetchEligibleCompanyIds();
+  if (!eligibleCompanies.size) {
+    return [];
+  }
 
   let query = supabase
     .from('amazon_integrations')
@@ -140,8 +182,12 @@ async function fetchActiveIntegrations() {
     })
     .filter(Boolean);
 
-  if (withTokens.length <= MAX_INTEGRATIONS_PER_RUN) return withTokens;
-  return withTokens.slice(0, MAX_INTEGRATIONS_PER_RUN);
+  const eligibleIntegrations = withTokens.filter((row) =>
+    eligibleCompanies.has(row.company_id)
+  );
+
+  if (eligibleIntegrations.length <= MAX_INTEGRATIONS_PER_RUN) return eligibleIntegrations;
+  return eligibleIntegrations.slice(0, MAX_INTEGRATIONS_PER_RUN);
 }
 
 function resolveMarketplaceIds(integration) {
@@ -214,13 +260,14 @@ async function getCatalogMainImage(spClient, asin, marketplaceId) {
 }
 
 async function fetchMissingRows(companyId, limit) {
-  const { data, error } = await supabase
+  const query = supabase
     .from('stock_items')
     .select('id, asin')
     .eq('company_id', companyId)
-    .is('image_url', null)
-    .not('asin', 'is', null)
-    .limit(limit);
+    .or('image_url.is.null,image_url.eq.')
+    .not('asin', 'is', null);
+  const safeLimit = Number.isFinite(limit) ? limit : 5000;
+  const { data, error } = await query.limit(safeLimit);
   if (error) throw error;
   return data || [];
 }
