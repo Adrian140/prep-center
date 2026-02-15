@@ -558,11 +558,29 @@ async function fillMissingImagesFromCatalog({
   let notFound = 0;
   let failed = 0;
 
-  const { data: cachedRows, error: cacheReadErr } = await supabase
-    .from('asin_assets')
-    .select('asin, image_urls')
-    .in('asin', uniqueAsins);
-  if (cacheReadErr) throw cacheReadErr;
+  let cachedRows = [];
+  try {
+    const cacheRes = await runWithTransientRetry(
+      async () => {
+        const res = await supabase
+          .from('asin_assets')
+          .select('asin, image_urls')
+          .in('asin', uniqueAsins);
+        if (res?.error) throw res.error;
+        return res;
+      },
+      `catalog-cache-read company=${companyId}`
+    );
+    cachedRows = cacheRes?.data || [];
+  } catch (cacheErr) {
+    // Non-fatal: dacă nu putem citi cache-ul, continuăm direct cu API calls.
+    console.warn(
+      `[Listings sync] catalog cache read failed for company=${companyId}; continuing without cache: ${extractErrorText(
+        cacheErr
+      ).slice(0, 300)}`
+    );
+    cachedRows = [];
+  }
 
   const cacheMap = new Map();
   for (const row of cachedRows || []) {
