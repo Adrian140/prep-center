@@ -29,6 +29,7 @@ export default function BillingSelectionPanel({
   onSaveIssuerProfile,
   onSaveBillingProfile,
   onSave,
+  onPreview,
   onClear,
   isSaving = false,
   error: externalError
@@ -219,6 +220,44 @@ export default function BillingSelectionPanel({
     setStatus('pending');
   };
 
+  const handlePreview = async () => {
+    if (!aggregated.count) {
+      setFeedback('Selectează cel puțin o linie.');
+      return;
+    }
+    if (!activeBillingProfile?.id) {
+      setFeedback('Clientul nu are un profil de facturare salvat.');
+      return;
+    }
+    const payload = {
+      invoiceNumber: previewInvoiceNumber,
+      invoiceCounterValue: previewCounter,
+      invoiceDate: invoiceDate || todayIso(),
+      dueDate: dueDate || null,
+      issuerCountry,
+      issuerProfile,
+      billingProfile: activeBillingProfile,
+      customerEmail: clientEmail,
+      customerPhone: clientPhone,
+      lines: aggregated.lineRefs,
+      items: aggregated.items,
+      totals: {
+        net: aggregated.total,
+        vat: vatAmount,
+        gross: grossTotal,
+        vatRate: taxRule.vatRate,
+        vatLabel: taxRule.vatLabel,
+        legalNote: taxRule.legalNote
+      },
+      templateImage: null
+    };
+    setFeedback('');
+    const result = onPreview ? await onPreview(payload) : { error: null };
+    if (result?.error) {
+      setFeedback(result.error.message || 'Nu am putut genera preview-ul.');
+    }
+  };
+
   return (
     <div className="space-y-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
       <div className="space-y-1">
@@ -405,6 +444,9 @@ export default function BillingSelectionPanel({
       {(feedback || externalError) && <p className="text-sm text-red-600">{feedback || externalError}</p>}
 
       <div className="flex flex-wrap gap-2 pt-2">
+        <button type="button" onClick={handlePreview} disabled={isSaving || aggregated.count === 0} className="rounded border border-gray-200 px-3 py-2 text-sm font-semibold text-text-primary disabled:cursor-not-allowed disabled:opacity-60">
+          Preview
+        </button>
         <button type="button" onClick={handleSave} disabled={isSaving || aggregated.count === 0} className="flex-1 rounded bg-primary px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
           {isSaving ? 'Salvez...' : 'Create invoice'}
         </button>

@@ -384,6 +384,55 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
     [company?.id, profile?.id, currentMarket, invoiceCounters, invoiceTemplates, allowedIssuerCountries, loadAll]
   );
 
+  const handleBillingPreview = useCallback(
+    async ({
+      invoiceDate,
+      dueDate,
+      issuerCountry,
+      issuerProfile,
+      billingProfile,
+      customerEmail,
+      customerPhone,
+      invoiceCounterValue,
+      templateImage,
+      items,
+      totals
+    }) => {
+      const issuerCode = String(issuerCountry || currentMarket || 'FR').toUpperCase();
+      if (!allowedIssuerCountries.includes(issuerCode)) {
+        return { error: new Error(`Emitent nepermis pentru acest admin: ${issuerCode}`) };
+      }
+      const counterValue = Number(invoiceCounterValue) || Number(invoiceCounters?.[issuerCode]) || (issuerCode === 'FR' ? 189 : 1);
+      const generatedInvoiceNumber = issuerCode === 'DE'
+        ? `EcomPrepHub Germany ${String(counterValue).padStart(3, '0')}`
+        : `EcomPrepHub France ${counterValue}`;
+      const pdfBlob = await buildInvoicePdfBlob({
+        invoiceNumber: generatedInvoiceNumber,
+        invoiceDate,
+        dueDate,
+        issuer: issuerProfile,
+        customer: billingProfile,
+        customerEmail,
+        customerPhone,
+        items: items || [],
+        totals: {
+          net: roundMoney(totals?.net ?? 0),
+          vat: roundMoney(totals?.vat ?? 0),
+          gross: roundMoney(totals?.gross ?? 0),
+          vatLabel: totals?.vatLabel || 'TVA',
+          vatRate: Number(totals?.vatRate ?? 0)
+        },
+        legalNote: totals?.legalNote || '',
+        templateImage: templateImage || invoiceTemplates?.[issuerCode] || null
+      });
+      const url = URL.createObjectURL(pdfBlob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      return { error: null };
+    },
+    [currentMarket, allowedIssuerCountries, invoiceCounters, invoiceTemplates]
+  );
+
   const handleSaveIssuerProfile = useCallback(async (countryCode, nextProfile) => {
     const code = String(countryCode || '').toUpperCase();
     if (!code) return { error: new Error('Țara emitentă lipsește.') };
@@ -645,6 +694,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
                 return { error };
               }}
               onSave={handleBillingSave}
+              onPreview={handleBillingPreview}
               onClear={clearBillingSelections}
               isSaving={billingSaving}
               error={billingError}
