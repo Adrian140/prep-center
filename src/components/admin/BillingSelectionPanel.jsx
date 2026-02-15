@@ -21,6 +21,7 @@ export default function BillingSelectionPanel({
   clientEmail = '',
   clientPhone = '',
   currentMarket = 'FR',
+  allowedIssuerCountries = ['FR', 'DE'],
   invoiceCounters = { FR: 189, DE: 1 },
   issuerProfiles = DEFAULT_ISSUER_PROFILES,
   invoiceTemplates = {},
@@ -46,6 +47,18 @@ export default function BillingSelectionPanel({
   useEffect(() => {
     setIssuerDraft(issuerProfiles?.[issuerCountry] || DEFAULT_ISSUER_PROFILES[issuerCountry] || DEFAULT_ISSUER_PROFILES.FR);
   }, [issuerCountry, issuerProfiles]);
+  const issuerOptions = useMemo(() => {
+    const list = (allowedIssuerCountries || [])
+      .map((code) => String(code || '').toUpperCase())
+      .filter((code) => code === 'FR' || code === 'DE');
+    if (!list.length) return [String(currentMarket || 'FR').toUpperCase()];
+    return Array.from(new Set(list));
+  }, [allowedIssuerCountries, currentMarket]);
+  useEffect(() => {
+    if (!issuerOptions.includes(issuerCountry)) {
+      setIssuerCountry(issuerOptions[0]);
+    }
+  }, [issuerOptions, issuerCountry]);
   const aggregated = useMemo(() => {
     const groups = {};
     const lineRefs = [];
@@ -325,9 +338,14 @@ export default function BillingSelectionPanel({
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="block text-[13px] font-medium text-text-secondary">Companie emitentă</label>
-            <select className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none" value={issuerCountry} onChange={(event) => setIssuerCountry(event.target.value)}>
-              <option value="FR">France</option>
-              <option value="DE">Germany</option>
+            <select
+              className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:text-text-secondary"
+              value={issuerCountry}
+              onChange={(event) => setIssuerCountry(event.target.value)}
+              disabled={issuerOptions.length <= 1}
+            >
+              {issuerOptions.includes('FR') ? <option value="FR">France</option> : null}
+              {issuerOptions.includes('DE') ? <option value="DE">Germany</option> : null}
             </select>
           </div>
           <div>

@@ -47,7 +47,7 @@ const normalizeIssuerProfiles = (savedProfiles) => {
 
 export default function AdminUserDetail({ profile, onBack }) {
   const { profile: currentAdmin } = useSupabaseAuth();
-  const { currentMarket } = useMarket();
+  const { currentMarket, availableMarkets } = useMarket();
   const isLimitedAdmin = Boolean(currentAdmin?.is_limited_admin);
   const canManageInvoices = !isLimitedAdmin;
   const [companyId, setCompanyId] = useState(profile?.company_id || null);
@@ -67,6 +67,17 @@ export default function AdminUserDetail({ profile, onBack }) {
   const hasBillingSelection = canManageInvoices && Object.keys(billingSelections).length > 0;
   const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns', 'requests'];
   const allowedSections = isLimitedAdmin ? ['stock'] : serviceSections;
+  const allowedIssuerCountries = (
+    Array.isArray(availableMarkets)
+      ? availableMarkets
+          .map((code) => String(code || '').toUpperCase())
+          .filter((code) => code === 'FR' || code === 'DE')
+      : []
+  );
+  if (!allowedIssuerCountries.length) {
+    const fallbackMarket = String(currentMarket || 'FR').toUpperCase();
+    allowedIssuerCountries.push(fallbackMarket === 'DE' ? 'DE' : 'FR');
+  }
 
   // panouri “secundare” (billing / invoices)
   const [activePanel, setActivePanel] = useState(null);
@@ -270,6 +281,12 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
       setBillingSaving(true);
       setBillingError('');
       const issuerCode = String(issuerCountry || currentMarket || 'FR').toUpperCase();
+      if (!allowedIssuerCountries.includes(issuerCode)) {
+        const error = new Error(`Emitent nepermis pentru acest admin: ${issuerCode}`);
+        setBillingError(error.message);
+        setBillingSaving(false);
+        return { error };
+      }
       const counterValue = Number(invoiceCounterValue) || Number(invoiceCounters?.[issuerCode]) || (issuerCode === 'FR' ? 189 : 1);
       const generatedInvoiceNumber = issuerCode === 'DE'
         ? `EcomPrepHub Germany ${String(counterValue).padStart(3, '0')}`
@@ -364,7 +381,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
       await loadAll();
       return { error: null };
     },
-    [company?.id, profile?.id, currentMarket, invoiceCounters, invoiceTemplates, loadAll]
+    [company?.id, profile?.id, currentMarket, invoiceCounters, invoiceTemplates, allowedIssuerCountries, loadAll]
   );
 
   const handleSaveIssuerProfile = useCallback(async (countryCode, nextProfile) => {
@@ -618,6 +635,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
               invoiceCounters={invoiceCounters}
               issuerProfiles={issuerProfiles}
               invoiceTemplates={invoiceTemplates}
+              allowedIssuerCountries={allowedIssuerCountries}
               onSaveIssuerProfile={handleSaveIssuerProfile}
               onSaveInvoiceTemplate={handleSaveInvoiceTemplate}
               onSaveBillingProfile={async (billingProfileId, updates) => {
