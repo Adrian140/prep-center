@@ -20,12 +20,19 @@ import { buildInvoicePdfBlob } from '@/utils/invoicePdf';
 import { DEFAULT_ISSUER_PROFILES, roundMoney } from '@/utils/invoiceTax';
 
 const shouldUpgradeLegacyDeIssuer = (profile) =>
-  profile &&
-  (
-    String(profile.company_name || '').trim() === 'Prep Center Germany' ||
-    String(profile.vat_number || '').trim() === 'DE000000000' ||
-    String(profile.address_line1 || '').trim() === 'Musterstrasse 1'
-  );
+  (() => {
+    if (!profile) return false;
+    const company = String(profile.company_name || '').trim().toLowerCase();
+    const address = String(profile.address_line1 || '').trim().toLowerCase();
+    const email = String(profile.email || '').trim().toLowerCase();
+    const vat = String(profile.vat_number || '').trim().toUpperCase();
+    return (
+      company.includes('prep center germany') ||
+      address.includes('musterstrasse') ||
+      email === 'billing-de@prep-center.eu' ||
+      vat === 'DE000000000'
+    );
+  })();
 
 const normalizeIssuerProfiles = (savedProfiles) => {
   const base = {
@@ -185,7 +192,17 @@ if (!isLimitedAdmin) {
 if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
 if (!billingProfilesRes?.error) setBillingProfiles(billingProfilesRes?.data || []);
 if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
-  setIssuerProfiles(normalizeIssuerProfiles(issuerSettingsRes.data.value));
+  const normalizedIssuerProfiles = normalizeIssuerProfiles(issuerSettingsRes.data.value);
+  setIssuerProfiles(normalizedIssuerProfiles);
+  if (JSON.stringify(normalizedIssuerProfiles) !== JSON.stringify(issuerSettingsRes.data.value || {})) {
+    await supabase
+      .from('app_settings')
+      .upsert({
+        key: 'invoice_issuer_profiles',
+        value: normalizedIssuerProfiles,
+        updated_at: new Date().toISOString()
+      });
+  }
 } else {
   setIssuerProfiles(normalizeIssuerProfiles(null));
 }

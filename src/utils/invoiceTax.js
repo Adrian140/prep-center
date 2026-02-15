@@ -16,7 +16,7 @@ export const DEFAULT_ISSUER_PROFILES = {
   DE: {
     country: 'DE',
     company_name: 'Alina-Elena Cenusa',
-    vat_number: 'DE3605531094',
+    vat_number: 'DE360531094',
     registration_number: '',
     address_line1: 'Schondelgrund 15',
     city: 'Hornberg',
