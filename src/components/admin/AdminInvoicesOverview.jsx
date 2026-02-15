@@ -294,7 +294,7 @@ export default function AdminInvoicesOverview() {
   };
 
   const exportMonthlyZip = async () => {
-    const withFiles = rows.filter((row) => row.file_path);
+    const withFiles = rows.filter((row) => row.file_path && !isProforma(row));
     if (!withFiles.length) return;
     setExporting(true);
     try {
@@ -588,8 +588,9 @@ export default function AdminInvoicesOverview() {
                   const vat = Number(row.vat_amount || 0);
                   const gross = net + vat;
                   const pending = isPendingStatus(row.status);
+                  const rowHighlightClass = isProforma(row) ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-gray-50';
                   return (
-                    <tr key={row.id} className="border-t border-gray-100 hover:bg-gray-50">
+                    <tr key={row.id} className={`border-t border-gray-100 ${rowHighlightClass}`}>
                       <td className="px-4 py-3 whitespace-nowrap">{formatDate(row.issue_date)}</td>
                       <td className="px-4 py-3 whitespace-nowrap font-medium text-text-primary">
                         {isProforma(row) ? `PROFORMA #${row.invoice_number || '-'}` : `#${row.invoice_number || '-'}`}
