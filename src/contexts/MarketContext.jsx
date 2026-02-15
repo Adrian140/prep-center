@@ -43,8 +43,9 @@ export const MarketProvider = ({ children }) => {
         : [];
       const adminAllowed = isSuperAdmin
         ? Object.keys(MARKETS)
-        : profileAllowed;
-      const adminAllMarkets = isAdmin ? Object.keys(MARKETS) : [];
+        : profileCountry
+          ? [profileCountry]
+          : [];
       if (adminAllowed.length) seed.push(...adminAllowed);
 
       let storedList = [];
@@ -60,7 +61,7 @@ export const MarketProvider = ({ children }) => {
 
       const nextAvailable = sanitizeMarkets([...seed, ...storedList]);
       const adminScoped = isAdmin
-        ? sanitizeMarkets(adminAllowed.length ? adminAllowed : adminAllMarkets)
+        ? sanitizeMarkets(adminAllowed)
         : null;
       const finalAvailable = adminScoped && adminScoped.length
         ? adminScoped

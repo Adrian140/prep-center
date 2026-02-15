@@ -4,11 +4,7 @@ import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { supabase, supabaseHelpers } from '@/config/supabase';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
-
-const COUNTRIES = [
-  { code: 'FR', label: 'France' },
-  { code: 'DE', label: 'Germany' }
-];
+import { useMarket } from '@/contexts/MarketContext';
 
 const toMonthInput = (date = new Date()) => {
   const year = date.getFullYear();
@@ -56,7 +52,8 @@ const safeFileName = (value) =>
 
 export default function AdminInvoicesOverview() {
   const { t } = useAdminTranslation();
-  const [country, setCountry] = useState('FR');
+  const { currentMarket, availableMarkets, markets } = useMarket();
+  const [country, setCountry] = useState(String(currentMarket || 'FR').toUpperCase());
   const [month, setMonth] = useState(toMonthInput());
   const [viewMode, setViewMode] = useState('monthly');
   const [loading, setLoading] = useState(true);
@@ -65,6 +62,25 @@ export default function AdminInvoicesOverview() {
   const [rows, setRows] = useState([]);
   const [companyNames, setCompanyNames] = useState({});
   const [clientNames, setClientNames] = useState({});
+  const countryOptions = useMemo(
+    () =>
+      (availableMarkets || [])
+        .map((code) => String(code || '').toUpperCase())
+        .filter(Boolean)
+        .map((code) => ({ code, label: markets?.[code]?.name || code })),
+    [availableMarkets, markets]
+  );
+
+  useEffect(() => {
+    const market = String(currentMarket || '').toUpperCase();
+    if (market && market !== country) {
+      setCountry(market);
+      return;
+    }
+    if (countryOptions.length > 0 && !countryOptions.some((item) => item.code === country)) {
+      setCountry(countryOptions[0].code);
+    }
+  }, [currentMarket, countryOptions, country]);
 
   const loadInvoices = async () => {
     setLoading(true);
@@ -323,7 +339,7 @@ export default function AdminInvoicesOverview() {
           >
             {t('adminInvoices.tabs.outstanding')}
           </button>
-          {COUNTRIES.map((entry) => (
+          {countryOptions.map((entry) => (
             <button
               key={entry.code}
               onClick={() => setCountry(entry.code)}
