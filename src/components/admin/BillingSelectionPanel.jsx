@@ -20,6 +20,7 @@ export default function BillingSelectionPanel({
   billingProfiles = [],
   clientEmail = '',
   clientPhone = '',
+  clientSignupCountry = '',
   currentMarket = 'FR',
   allowedIssuerCountries = ['FR', 'DE'],
   invoiceCounters = { FR: 189, DE: 1 },
@@ -95,12 +96,18 @@ export default function BillingSelectionPanel({
 
   const defaultBillingProfile = useMemo(() => {
     if (!billingProfiles.length) return null;
+    const signupCountry = String(clientSignupCountry || '').toUpperCase();
+    const bySignupCountry = signupCountry
+      ? billingProfiles.find(
+          (profile) => String(profile.country || '').toUpperCase() === signupCountry
+        )
+      : null;
     const byDefaultFlag = billingProfiles.find((profile) => profile.is_default);
     const byMarket = billingProfiles.find(
       (profile) => String(profile.country || '').toUpperCase() === String(currentMarket || '').toUpperCase()
     );
-    return byDefaultFlag || byMarket || billingProfiles[0];
-  }, [billingProfiles, currentMarket]);
+    return bySignupCountry || byDefaultFlag || byMarket || billingProfiles[0];
+  }, [billingProfiles, currentMarket, clientSignupCountry]);
 
   const activeBillingProfile = defaultBillingProfile;
   useEffect(() => {

@@ -631,6 +631,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
               billingProfiles={billingProfiles}
               clientEmail={profile?.email || ''}
               clientPhone={profile?.phone || ''}
+              clientSignupCountry={profile?.country || ''}
               currentMarket={currentMarket || 'FR'}
               invoiceCounters={invoiceCounters}
               issuerProfiles={issuerProfiles}
