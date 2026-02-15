@@ -433,8 +433,7 @@ export default function AdminInvoicesOverview() {
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.invoice')}</th>
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.company')}</th>
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.clientName')}</th>
-                  <th className="px-4 py-3 text-right">{t('adminInvoices.table.net')}</th>
-                  <th className="px-4 py-3 text-right">{t('adminInvoices.table.vat')}</th>
+                  <th className="px-4 py-3 text-right">Amount</th>
                   <th className="px-4 py-3 text-right">{t('adminInvoices.table.total')}</th>
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.status')}</th>
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.download')}</th>
@@ -455,8 +454,14 @@ export default function AdminInvoicesOverview() {
                       </td>
                       <td className="px-4 py-3">{companyNames[row.company_id] || '-'}</td>
                       <td className="px-4 py-3">{clientNames[row.user_id] || '-'}</td>
-                      <td className="px-4 py-3 text-right">{formatAmount(net)} €</td>
-                      <td className="px-4 py-3 text-right">{formatAmount(vat)} €</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex flex-col items-end leading-tight">
+                          <span className="text-[11px] uppercase tracking-wide text-text-secondary">Amount ex VAT</span>
+                          <span className="font-medium text-text-primary">{formatAmount(net)} €</span>
+                          <span className="mt-1 text-[11px] uppercase tracking-wide text-text-secondary">VAT</span>
+                          <span>{formatAmount(vat)} €</span>
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-right font-semibold text-text-primary">
                         {formatAmount(gross)} €
                       </td>
