@@ -35,23 +35,23 @@ export const getSimpleVatRule = ({ issuerCountry, customerCountry }) => {
   if (issuer === 'FR' && customer === 'FR') {
     return {
       vatRate: 0.2,
-      vatLabel: 'TVA 20%',
-      legalNote: 'TVA locale FR aplicată (B2B FR -> FR).'
+      vatLabel: 'VAT 20%',
+      legalNote: 'French domestic VAT applies (B2B FR to FR).'
     };
   }
 
   if (issuer === 'DE' && customer === 'FR') {
     return {
       vatRate: 0,
-      vatLabel: 'TVA 0%',
-      legalNote: 'Exonéré de TVA - livraison intracommunautaire / autoliquidation (B2B DE -> FR).'
+      vatLabel: 'VAT 0%',
+      legalNote: 'VAT exempt intra-community B2B supply (reverse charge, DE to FR).'
     };
   }
 
   return {
     vatRate: 0,
-    vatLabel: 'TVA 0%',
-    legalNote: 'Regulă simplificată: TVA 0% pentru această combinație de țări în v1.'
+    vatLabel: 'VAT 0%',
+    legalNote: 'Simplified VAT rule: 0% VAT for this country combination (v1).'
   };
 };
 

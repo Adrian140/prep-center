@@ -1,6 +1,6 @@
 const formatMoney = (value) => {
   const number = Number(value || 0);
-  return number.toLocaleString('ro-RO', {
+  return number.toLocaleString('en-GB', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -10,12 +10,19 @@ const formatDate = (value) => {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleDateString('ro-RO');
+  return date.toLocaleDateString('en-GB');
 };
 
 const normalizeText = (value) => {
   if (value == null) return '';
   return String(value).replace(/\s+/g, ' ').trim();
+};
+
+const textLines = (doc, lines, x, yStart, step = 4.6) => {
+  (lines || []).forEach((line, i) => {
+    doc.text(normalizeText(line), x, yStart + i * step);
+  });
+  return (lines || []).length * step;
 };
 
 export const buildInvoicePdfBlob = async ({
@@ -33,41 +40,50 @@ export const buildInvoicePdfBlob = async ({
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const left = 14;
-  const right = pageWidth - 14;
+  const left = 12;
+  const right = doc.internal.pageSize.getWidth() - 12;
+  const contentWidth = right - left;
+  const customerX = left + contentWidth / 2 + 3;
+  const issuerX = left + 3;
   let y = 14;
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(17);
+  doc.setFontSize(18);
   doc.text('INVOICE', left, y);
 
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(`No: ${normalizeText(invoiceNumber) || '-'}`, right, y - 2, { align: 'right' });
-  doc.text(`Date: ${formatDate(invoiceDate)}`, right, y + 3, { align: 'right' });
-  doc.text(`Due: ${formatDate(dueDate)}`, right, y + 8, { align: 'right' });
+  doc.text(`Invoice No: ${normalizeText(invoiceNumber) || '-'}`, right, y - 2, { align: 'right' });
+  doc.text(`Issue Date: ${formatDate(invoiceDate)}`, right, y + 3, { align: 'right' });
+  if (dueDate) {
+    doc.text(`Due Date: ${formatDate(dueDate)}`, right, y + 8, { align: 'right' });
+  }
 
-  y += 18;
-
+  y += 12;
+  doc.setDrawColor(220);
+  doc.setFillColor(248, 249, 250);
+  doc.rect(left, y, contentWidth, 8, 'FD');
   doc.setFont('helvetica', 'bold');
-  doc.text('Issuer', left, y);
-  doc.text('Bill To', 110, y);
-  y += 5;
+  doc.setFontSize(10);
+  doc.text('Issuer Details', issuerX, y + 5.3);
+  doc.text('Bill To', customerX, y + 5.3);
 
+  y += 11;
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+
   const issuerLines = [
     issuer?.company_name,
     issuer?.address_line1,
     `${issuer?.postal_code || ''} ${issuer?.city || ''}`.trim(),
     issuer?.country,
     issuer?.vat_number ? `VAT: ${issuer.vat_number}` : null,
-    issuer?.registration_number ? `Reg: ${issuer.registration_number}` : null,
-    issuer?.email,
-    issuer?.phone,
-    issuer?.website,
+    issuer?.registration_number ? `Registration: ${issuer.registration_number}` : null,
+    issuer?.email ? `Email: ${issuer.email}` : null,
+    issuer?.phone ? `Phone: ${issuer.phone}` : null,
+    issuer?.website ? `Website: ${issuer.website}` : null,
     issuer?.iban ? `IBAN: ${issuer.iban}` : null,
-    issuer?.bic ? `BIC: ${issuer.bic}` : null
+    issuer?.bic ? `BIC/SWIFT: ${issuer.bic}` : null
   ].filter(Boolean);
 
   const customerLines = [
@@ -80,63 +96,95 @@ export const buildInvoicePdfBlob = async ({
     customerPhone ? `Phone: ${customerPhone}` : null
   ].filter(Boolean);
 
-  issuerLines.forEach((line, index) => doc.text(normalizeText(line), left, y + index * 4.8));
-  customerLines.forEach((line, index) => doc.text(normalizeText(line), 110, y + index * 4.8));
+  const issuerHeight = textLines(doc, issuerLines, issuerX, y);
+  const customerHeight = textLines(doc, customerLines, customerX, y);
 
-  y += Math.max(issuerLines.length, customerLines.length) * 4.8 + 6;
+  y += Math.max(issuerHeight, customerHeight) + 6;
 
+  const tableHeaderY = y;
+  doc.setFillColor(243, 244, 246);
+  doc.rect(left, tableHeaderY, contentWidth, 8, 'F');
   doc.setDrawColor(220);
-  doc.setFillColor(248, 249, 250);
-  doc.rect(left, y, right - left, 8, 'FD');
+  doc.rect(left, tableHeaderY, contentWidth, 8);
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text('Service', left + 2, y + 5.2);
-  doc.text('Qty', 120, y + 5.2, { align: 'right' });
-  doc.text('Unit', 150, y + 5.2, { align: 'right' });
-  doc.text('Net', right - 2, y + 5.2, { align: 'right' });
+  doc.text('Description', left + 2, tableHeaderY + 5.2);
+  doc.text('Qty', left + 118, tableHeaderY + 5.2, { align: 'right' });
+  doc.text('Unit Price', left + 148, tableHeaderY + 5.2, { align: 'right' });
+  doc.text('Net Amount', right - 2, tableHeaderY + 5.2, { align: 'right' });
 
-  y += 10;
+  y = tableHeaderY + 10;
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.2);
+
+  const drawTableHeader = () => {
+    const rowY = y - 8;
+    doc.setFillColor(243, 244, 246);
+    doc.rect(left, rowY, contentWidth, 8, 'F');
+    doc.setDrawColor(220);
+    doc.rect(left, rowY, contentWidth, 8);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('Description', left + 2, rowY + 5.2);
+    doc.text('Qty', left + 118, rowY + 5.2, { align: 'right' });
+    doc.text('Unit Price', left + 148, rowY + 5.2, { align: 'right' });
+    doc.text('Net Amount', right - 2, rowY + 5.2, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.2);
+  };
 
   items.forEach((item) => {
-    if (y > 255) {
+    if (y > 270) {
       doc.addPage();
-      y = 20;
+      y = 18;
+      drawTableHeader();
+      y += 2;
     }
 
-    const service = normalizeText(item.service || '-');
+    const description = normalizeText(item.service || '-');
     const qty = Number(item.units || 0);
-    const unit = Number(item.unitPrice || 0);
-    const lineTotal = Number(item.total || qty * unit || 0);
+    const unitPrice = Number(item.unitPrice || 0);
+    const lineTotal = Number(item.total || qty * unitPrice || 0);
 
-    doc.text(service, left + 2, y);
-    doc.text(String(Number.isInteger(qty) ? qty : qty.toFixed(2)), 120, y, { align: 'right' });
-    doc.text(`${formatMoney(unit)} €`, 150, y, { align: 'right' });
-    doc.text(`${formatMoney(lineTotal)} €`, right - 2, y, { align: 'right' });
+    const descriptionLines = doc.splitTextToSize(description, 102);
+    const rowHeight = Math.max(6, descriptionLines.length * 4.4);
 
-    y += 6;
+    doc.text(descriptionLines, left + 2, y);
+    doc.text(String(Number.isInteger(qty) ? qty : qty.toFixed(2)), left + 118, y, { align: 'right' });
+    doc.text(`${formatMoney(unitPrice)} EUR`, left + 148, y, { align: 'right' });
+    doc.text(`${formatMoney(lineTotal)} EUR`, right - 2, y, { align: 'right' });
+
+    y += rowHeight;
+    doc.setDrawColor(238);
+    doc.line(left, y - 2, right, y - 2);
   });
 
-  y += 3;
-  doc.setDrawColor(230);
-  doc.line(120, y, right, y);
-  y += 6;
+  y += 4;
+  const totalsX = left + 112;
+  const totalsW = contentWidth - 112;
+  doc.setDrawColor(220);
+  doc.rect(totalsX, y - 3, totalsW, 20);
 
-  doc.text(`Net total: ${formatMoney(totals.net)} €`, right, y, { align: 'right' });
-  y += 5;
-  doc.text(`${totals.vatLabel}: ${formatMoney(totals.vat)} €`, right, y, { align: 'right' });
-  y += 5;
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Total: ${formatMoney(totals.gross)} €`, right, y, { align: 'right' });
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.text('Net Total', totalsX + 3, y + 2);
+  doc.text(`${formatMoney(totals?.net)} EUR`, right - 3, y + 2, { align: 'right' });
+  doc.text(totals?.vatLabel || 'VAT', totalsX + 3, y + 8);
+  doc.text(`${formatMoney(totals?.vat)} EUR`, right - 3, y + 8, { align: 'right' });
 
+  doc.setFont('helvetica', 'bold');
+  doc.text('Grand Total', totalsX + 3, y + 14);
+  doc.text(`${formatMoney(totals?.gross)} EUR`, right - 3, y + 14, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
   if (legalNote) {
-    y += 10;
-    const noteLines = doc.splitTextToSize(`Legal note: ${legalNote}`, right - left);
-    doc.setFontSize(8.5);
-    doc.text(noteLines, left, y);
+    y += 24;
+    doc.setFontSize(8.7);
+    doc.text('Legal Note:', left, y);
+    const noteLines = doc.splitTextToSize(normalizeText(legalNote), contentWidth);
+    doc.text(noteLines, left, y + 4);
   }
 
-  const blob = doc.output('blob');
-  return blob;
+  return doc.output('blob');
 };
