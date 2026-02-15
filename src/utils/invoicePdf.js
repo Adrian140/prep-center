@@ -86,6 +86,14 @@ const drawLines = (doc, lines, x, y, step = 4.9) => {
   return cursor;
 };
 
+const FR_ISSUER_FOOTER_LINES = [
+  'GLOBAL FULFILL HUB',
+  'Siege social : 32 RUE DE LA LIBERATION, 35540 PLERGUER',
+  'SASU au capital de 500€',
+  'N° SIRET : 94137311000019 / RCS SAINT MALO 941373110 / APE : 5229B',
+  'N° TVA intracommunautaire : FR38 941373110'
+];
+
 export const buildInvoicePdfBlob = async ({
   invoiceNumber,
   invoiceDate,
@@ -300,11 +308,20 @@ export const buildInvoicePdfBlob = async ({
   doc.text('Total:', totalsLabelX, y);
   doc.text(`${formatMoney(totals?.gross)} €`, totalsValueX, y, { align: 'right' });
 
-  // Footer legal note
+  // Footer
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  const footerY = pageH - 12;
-  doc.text(`Legal note: ${normalizeText(legalNote || '')}`, left, footerY);
+  const issuerCountry = String(issuer?.country || '').toUpperCase();
+  if (issuerCountry === 'FR') {
+    doc.setDrawColor(188, 198, 210);
+    doc.setLineWidth(0.4);
+    doc.line(10, pageH - 28, pageW - 10, pageH - 28);
+    doc.setFontSize(6.3);
+    drawLines(doc, FR_ISSUER_FOOTER_LINES, 10.5, pageH - 22, 4.6);
+  } else {
+    doc.setFontSize(6.5);
+    const footerY = pageH - 12;
+    doc.text(`Legal note: ${normalizeText(legalNote || '')}`, left, footerY);
+  }
 
   return doc.output('blob');
 };
