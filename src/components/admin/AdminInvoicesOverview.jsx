@@ -599,9 +599,9 @@ export default function AdminInvoicesOverview() {
                       <td className="px-4 py-3">{clientNames[row.user_id] || '-'}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex flex-col items-end leading-tight">
-                          <span className="text-[11px] uppercase tracking-wide text-text-secondary">Amount ex VAT</span>
+                          <span className="text-[11px] text-text-secondary">Amount</span>
                           <span className="font-medium text-text-primary">{formatAmount(net)} €</span>
-                          <span className="mt-1 text-[11px] uppercase tracking-wide text-text-secondary">VAT</span>
+                          <span className="mt-1 text-[11px] text-text-secondary">VAT</span>
                           <span>{formatAmount(vat)} €</span>
                         </div>
                       </td>
