@@ -205,8 +205,19 @@ async function runSync() {
             image = await fetchKeepaImageWithRetries(row.asin);
           }
           if (!image) {
+            const missSummary =
+              Array.isArray(res?.domainMisses) && res.domainMisses.length
+                ? ` misses=${res.domainMisses
+                    .map((m) => `${m.domain}:${m.reason}`)
+                    .join('|')}`
+                : '';
+            const triedSummary =
+              Array.isArray(res?.domainsTried) && res.domainsTried.length
+                ? ` tried=[${res.domainsTried.join(',')}]`
+                : '';
+            const errSummary = res?.error ? ` error="${res.error}"` : '';
             console.log(
-              `[Keepa sync] No image returned for asin=${row.asin}, skipping.`
+              `[Keepa sync] No image returned for asin=${row.asin}, skipping.${triedSummary}${missSummary}${errSummary}`
             );
             continue;
           }

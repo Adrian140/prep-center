@@ -222,8 +222,11 @@ export const getKeepaImages = async ({
 
   const domains = KEEPA_DOMAINS.length ? KEEPA_DOMAINS : [DEFAULT_DOMAIN];
   let tokensLeft = null;
+  const domainsTried = [];
+  const domainMisses = [];
 
   for (const domain of domains) {
+    domainsTried.push(domain);
     const cacheKey = buildCacheKey(normalizedAsin, size, allImages, domain);
     if (!forceRefresh && imageCache.has(cacheKey)) {
       const cached = imageCache.get(cacheKey);
@@ -232,9 +235,12 @@ export const getKeepaImages = async ({
           images: cached,
           fromCache: true,
           tokensLeft: null,
-          domain
+          domain,
+          domainsTried,
+          domainMisses
         };
       }
+      domainMisses.push({ domain, reason: 'cached_empty' });
       continue;
     }
 
@@ -247,17 +253,27 @@ export const getKeepaImages = async ({
       }
     } catch (err) {
       const msg = err?.message || err;
-      return { images: [], fromCache: false, tokensLeft, error: String(msg || '') };
+      domainMisses.push({ domain, reason: 'error', message: String(msg || '') });
+      return {
+        images: [],
+        fromCache: false,
+        tokensLeft,
+        error: String(msg || ''),
+        domainsTried,
+        domainMisses
+      };
     }
 
     if (!product) {
       imageCache.set(cacheKey, []);
+      domainMisses.push({ domain, reason: 'no_product' });
       continue;
     }
 
     const ids = extractImageIds(product);
     if (!ids.length) {
       imageCache.set(cacheKey, []);
+      domainMisses.push({ domain, reason: 'no_images' });
       continue;
     }
 
@@ -268,13 +284,21 @@ export const getKeepaImages = async ({
 
     if (urls.length) {
       imageCache.set(cacheKey, urls);
-      return { images: urls, fromCache: false, tokensLeft, domain };
+      return {
+        images: urls,
+        fromCache: false,
+        tokensLeft,
+        domain,
+        domainsTried,
+        domainMisses
+      };
     }
 
     imageCache.set(cacheKey, []);
+    domainMisses.push({ domain, reason: 'no_urls' });
   }
 
-  return { images: [], fromCache: false, tokensLeft };
+  return { images: [], fromCache: false, tokensLeft, domainsTried, domainMisses };
 };
 
 export const getKeepaMainImage = async (options = {}) => {
@@ -284,6 +308,8 @@ export const getKeepaMainImage = async (options = {}) => {
     tokensLeft: res.tokensLeft,
     fromCache: res.fromCache,
     domain: res.domain,
-    error: res.error || null
+    error: res.error || null,
+    domainsTried: res.domainsTried || [],
+    domainMisses: res.domainMisses || []
   };
 };
