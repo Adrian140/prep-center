@@ -19,6 +19,9 @@ const MAX_INTEGRATIONS_PER_RUN = Number(
 const DEBUG_LISTING_HEADERS =
   String(process.env.SPAPI_LISTING_DEBUG_HEADERS || '').toLowerCase() === 'true' ||
   String(process.env.SPAPI_LISTING_DEBUG_HEADERS || '').trim() === '1';
+const DEBUG_LISTING_RAW_HEADER =
+  String(process.env.SPAPI_LISTING_DEBUG_RAW_HEADER || '').toLowerCase() === 'true' ||
+  String(process.env.SPAPI_LISTING_DEBUG_RAW_HEADER || '').trim() === '1';
 
 function assertBaseEnv() {
   const missing = [];
@@ -446,6 +449,31 @@ async function fetchListingRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
   const reportId = await createListingReport(spClient, marketplaceId);
   const documentId = await waitForReport(spClient, reportId);
   const documentText = await downloadReportDocument(spClient, documentId);
+  if (DEBUG_LISTING_RAW_HEADER) {
+    const lines = String(documentText || '')
+      .replace(/^\uFEFF/, '')
+      .split(/\r?\n/)
+      .filter((line) => line.trim() !== '');
+    const headerLine = lines[0] || '';
+    const delimiter = headerLine.includes('\t')
+      ? '\\t'
+      : headerLine.includes(';')
+      ? ';'
+      : ',';
+    const headerNormalized = headerLine.toLowerCase();
+    const hasImageHeader =
+      headerNormalized.includes('image-url') ||
+      headerNormalized.includes('image_url') ||
+      headerNormalized.includes('imageurl') ||
+      headerNormalized.includes('url-image') ||
+      headerNormalized.includes('url image');
+    console.log(
+      `[Listings sync] raw-header marketplace=${marketplaceId} delimiter=${delimiter} hasImageHeader=${hasImageHeader} header="${headerLine.slice(
+        0,
+        1000
+      )}"`
+    );
+  }
   return parseListingRows(documentText);
 }
 
