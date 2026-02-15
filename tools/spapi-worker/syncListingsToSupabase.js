@@ -24,6 +24,13 @@ const DEBUG_LISTING_RAW_HEADER =
   String(process.env.SPAPI_LISTING_DEBUG_RAW_HEADER || '').trim() === '1';
 const LISTING_FETCH_IMAGES_FROM_CATALOG =
   String(process.env.SPAPI_LISTING_FETCH_IMAGES_FROM_CATALOG || 'true').toLowerCase() !== 'false';
+const LISTING_CATALOG_MARKETPLACE_IDS = String(
+  process.env.SPAPI_LISTING_CATALOG_MARKETPLACE_IDS ||
+    'A13V1IB3VIYZZH,A1PA6795UKMFR9,APJ6JRA9NG5V4,A1RKKUPIHCS9HS'
+)
+  .split(',')
+  .map((v) => v.trim())
+  .filter(Boolean);
 const TRANSIENT_RETRY_MAX_ATTEMPTS = Number(
   process.env.SPAPI_TRANSIENT_RETRY_MAX_ATTEMPTS || 5
 );
@@ -188,6 +195,18 @@ function isTransientError(err) {
   );
 }
 
+function isCatalogNotFoundError(err) {
+  const text = extractErrorText(err).toLowerCase();
+  const code = String(err?.code || '').toLowerCase();
+  const details = String(err?.details || '').toLowerCase();
+  return (
+    code.includes('notfound') ||
+    text.includes('not found in marketplace') ||
+    text.includes('requested item') ||
+    details.includes('not found in marketplace')
+  );
+}
+
 async function runWithTransientRetry(fn, label) {
   let attempt = 0;
   while (attempt < TRANSIENT_RETRY_MAX_ATTEMPTS) {
@@ -218,6 +237,18 @@ function resolveMarketplaceId(integration) {
     return integration.marketplace_ids[0];
   }
   return null;
+}
+
+function resolveCatalogMarketplaceIds(preferredMarketplaceId) {
+  const merged = new Set(LISTING_CATALOG_MARKETPLACE_IDS);
+  if (preferredMarketplaceId) {
+    merged.add(preferredMarketplaceId);
+  }
+  const list = Array.from(merged).filter(Boolean);
+  if (preferredMarketplaceId && list.includes(preferredMarketplaceId)) {
+    return [preferredMarketplaceId, ...list.filter((id) => id !== preferredMarketplaceId)];
+  }
+  return list;
 }
 
 async function createListingReport(spClient, marketplaceId) {
@@ -557,6 +588,7 @@ async function fillMissingImagesFromCatalog({
   let reused = 0;
   let notFound = 0;
   let failed = 0;
+  const catalogMarketplaceIds = resolveCatalogMarketplaceIds(marketplaceId);
 
   const CACHE_READ_CHUNK_SIZE = Number(process.env.SPAPI_ASIN_ASSETS_READ_CHUNK || 300);
   let cachedRows = [];
@@ -612,7 +644,18 @@ async function fillMissingImagesFromCatalog({
         continue;
       }
 
-      const image = await fetchCatalogMainImage(spClient, asin, marketplaceId);
+      let image = null;
+      for (const marketId of catalogMarketplaceIds) {
+        try {
+          image = await fetchCatalogMainImage(spClient, asin, marketId);
+          if (image) break;
+        } catch (err) {
+          if (isCatalogNotFoundError(err)) {
+            continue;
+          }
+          throw err;
+        }
+      }
       if (!image) {
         notFound += 1;
         continue;
