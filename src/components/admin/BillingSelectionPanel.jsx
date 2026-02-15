@@ -95,10 +95,11 @@ export default function BillingSelectionPanel({
 
   const defaultBillingProfile = useMemo(() => {
     if (!billingProfiles.length) return null;
+    const byDefaultFlag = billingProfiles.find((profile) => profile.is_default);
     const byMarket = billingProfiles.find(
       (profile) => String(profile.country || '').toUpperCase() === String(currentMarket || '').toUpperCase()
     );
-    return byMarket || billingProfiles.find((profile) => profile.is_default) || billingProfiles[0];
+    return byDefaultFlag || byMarket || billingProfiles[0];
   }, [billingProfiles, currentMarket]);
 
   const activeBillingProfile = defaultBillingProfile;
