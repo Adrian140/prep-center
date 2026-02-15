@@ -71,6 +71,11 @@ function SupabaseBillingProfiles() {
     () => profiles.filter((profile) => normalizeCountry(profile.country) === marketCode),
     [profiles, marketCode, normalizeCountry]
   );
+  const displayedProfiles = useMemo(
+    () => (marketProfiles.length > 0 ? marketProfiles : profiles),
+    [marketProfiles, profiles]
+  );
+  const showingFallbackProfiles = marketProfiles.length === 0 && profiles.length > 0;
   useEffect(() => {
     if (user) {
       fetchProfiles();
@@ -237,6 +242,12 @@ function SupabaseBillingProfiles() {
             : 'bg-red-50 border border-red-200 text-red-600'
         }`}>
           {message}
+        </div>
+      )}
+
+      {showingFallbackProfiles && (
+        <div className="mb-6 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-sm">
+          No billing profiles found for {marketCode}. Showing profiles from other countries.
         </div>
       )}
 
@@ -491,7 +502,7 @@ function SupabaseBillingProfiles() {
 
       {/* Profiles List */}
       <div className="space-y-4">
-        {marketProfiles.map((profile) => (
+        {displayedProfiles.map((profile) => (
           <div key={profile.id} className="bg-white border border-gray-200 rounded-xl p-6">
             <div className="flex justify-between items-start">
               <div className="flex-1">
@@ -540,7 +551,7 @@ function SupabaseBillingProfiles() {
         ))}
       </div>
 
-      {marketProfiles.length === 0 && !isCreating && (
+      {profiles.length === 0 && !isCreating && (
         <div className="text-center py-12">
           <Building className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-text-secondary mb-2">
