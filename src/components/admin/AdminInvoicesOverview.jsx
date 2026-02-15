@@ -71,6 +71,17 @@ const isProforma = (row) => {
   return /\bPF\d+\b/.test(number);
 };
 
+const invoiceColumnMissingInError = (error, column) => {
+  if (!error) return false;
+  const needle = String(column || '').toLowerCase();
+  const parts = [
+    String(error.message || ''),
+    String(error.details || ''),
+    String(error.hint || '')
+  ].map((part) => part.toLowerCase());
+  return parts.some((part) => part.includes(needle));
+};
+
 const buildDocumentNumber = ({ issuerCode, counterValue, documentType }) => {
   const normalizedType = String(documentType || 'invoice').toLowerCase();
   if (normalizedType === 'proforma') {
@@ -144,7 +155,7 @@ export default function AdminInvoicesOverview() {
       const missingColumns =
         invoicesError &&
         ['document_type', 'converted_to_invoice_id', 'converted_from_proforma_id', 'document_payload', 'billing_invoice_id']
-          .some((column) => String(invoicesError.message || '').toLowerCase().includes(String(column).toLowerCase()));
+          .some((column) => invoiceColumnMissingInError(invoicesError, column));
 
       if (missingColumns) {
         let fallbackQuery = supabase
@@ -535,10 +546,18 @@ export default function AdminInvoicesOverview() {
         throw new Error('Invoice conversion failed (missing final invoice row).');
       }
 
-      const { error: markError } = await supabase
+      let { error: markError } = await supabase
         .from('invoices')
         .update({ status: 'converted', converted_to_invoice_id: finalRow.id })
         .eq('id', row.id);
+
+      if (markError && invoiceColumnMissingInError(markError, 'converted_to_invoice_id')) {
+        const fallbackMark = await supabase
+          .from('invoices')
+          .update({ status: 'converted' })
+          .eq('id', row.id);
+        markError = fallbackMark.error;
+      }
       if (markError) throw markError;
 
       const nextCounters = {
