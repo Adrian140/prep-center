@@ -28,7 +28,6 @@ export default function BillingSelectionPanel({
 }) {
   const [invoiceDate, setInvoiceDate] = useState(todayIso());
   const [dueDate, setDueDate] = useState('');
-  const [documentType, setDocumentType] = useState('invoice');
   const [status, setStatus] = useState('pending');
   const [issuerCountry, setIssuerCountry] = useState(currentMarket || 'FR');
   const [issuerDraft, setIssuerDraft] = useState(issuerProfiles?.[currentMarket || 'FR'] || DEFAULT_ISSUER_PROFILES.FR);
@@ -126,17 +125,21 @@ export default function BillingSelectionPanel({
   const taxRule = getSimpleVatRule({ issuerCountry, customerCountry });
   const vatAmount = roundMoney(aggregated.total * taxRule.vatRate);
   const grossTotal = roundMoney(aggregated.total + vatAmount);
-  const isProforma = documentType === 'proforma';
-  const previewCounter = isProforma
-    ? (Number(proformaCounters?.[issuerCountry]) || 1)
-    : (Number(invoiceCounters?.[issuerCountry]) || (issuerCountry === 'FR' ? 189 : 1));
-  const previewInvoiceNumber = isProforma
-    ? (issuerCountry === 'DE'
-      ? `EcomPrepHub Germany PF${String(previewCounter).padStart(3, '0')}`
-      : `EcomPrepHub France PF${String(previewCounter).padStart(3, '0')}`)
-    : (issuerCountry === 'DE'
-      ? `EcomPrepHub Germany ${String(previewCounter).padStart(3, '0')}`
-      : `EcomPrepHub France ${previewCounter}`);
+  const getDocumentPreview = (documentType = 'invoice') => {
+    const normalizedType = String(documentType || 'invoice').toLowerCase() === 'proforma' ? 'proforma' : 'invoice';
+    const counter = normalizedType === 'proforma'
+      ? (Number(proformaCounters?.[issuerCountry]) || 1)
+      : (Number(invoiceCounters?.[issuerCountry]) || (issuerCountry === 'FR' ? 189 : 1));
+    const invoiceNumber = normalizedType === 'proforma'
+      ? (issuerCountry === 'DE'
+        ? `EcomPrepHub Germany PF${String(counter).padStart(3, '0')}`
+        : `EcomPrepHub France PF${String(counter).padStart(3, '0')}`)
+      : (issuerCountry === 'DE'
+        ? `EcomPrepHub Germany ${String(counter).padStart(3, '0')}`
+        : `EcomPrepHub France ${counter}`);
+    return { counter, invoiceNumber, documentType: normalizedType };
+  };
+  const invoicePreview = getDocumentPreview('invoice');
 
   const handleSaveIssuer = async () => {
     if (!onSaveIssuerProfile) return;
@@ -170,7 +173,7 @@ export default function BillingSelectionPanel({
     setEditingClient(false);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (documentType = 'invoice') => {
     if (!aggregated.count) {
       setFeedback('Selectează cel puțin o linie.');
       return;
@@ -180,10 +183,11 @@ export default function BillingSelectionPanel({
       return;
     }
 
+    const docPreview = getDocumentPreview(documentType);
     const payload = {
-      invoiceNumber: previewInvoiceNumber,
-      invoiceCounterValue: previewCounter,
-      documentType,
+      invoiceNumber: docPreview.invoiceNumber,
+      invoiceCounterValue: docPreview.counter,
+      documentType: docPreview.documentType,
       invoiceDate: invoiceDate || todayIso(),
       dueDate: dueDate || null,
       status,
@@ -210,11 +214,14 @@ export default function BillingSelectionPanel({
       setFeedback(result.error.message || 'Nu am putut salva factura.');
       return;
     }
-    setFeedback(isProforma ? 'Proforma a fost salvată și urcată în contul clientului.' : 'Factura a fost salvată și urcată în contul clientului.');
+    setFeedback(
+      docPreview.documentType === 'proforma'
+        ? 'Proforma a fost salvată și urcată în contul clientului.'
+        : 'Factura a fost salvată și urcată în contul clientului.'
+    );
     setInvoiceDate(todayIso());
     setDueDate('');
     setStatus('pending');
-    setDocumentType('invoice');
   };
 
   const handlePreview = async () => {
@@ -226,10 +233,11 @@ export default function BillingSelectionPanel({
       setFeedback('Clientul nu are un profil de facturare salvat.');
       return;
     }
+    const docPreview = getDocumentPreview('invoice');
     const payload = {
-      invoiceNumber: previewInvoiceNumber,
-      invoiceCounterValue: previewCounter,
-      documentType,
+      invoiceNumber: docPreview.invoiceNumber,
+      invoiceCounterValue: docPreview.counter,
+      documentType: docPreview.documentType,
       invoiceDate: invoiceDate || todayIso(),
       dueDate: dueDate || null,
       issuerCountry,
@@ -292,7 +300,7 @@ export default function BillingSelectionPanel({
         <input
           type="text"
           className="w-full rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-text-secondary"
-          value={previewInvoiceNumber}
+          value={invoicePreview.invoiceNumber}
           disabled
         />
 
@@ -309,13 +317,6 @@ export default function BillingSelectionPanel({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-[13px] font-medium text-text-secondary">Document</label>
-            <select className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none" value={documentType} onChange={(event) => setDocumentType(event.target.value)}>
-              <option value="invoice">Invoice</option>
-              <option value="proforma">Proforma</option>
-            </select>
-          </div>
           <div>
             <label className="block text-[13px] font-medium text-text-secondary">Companie emitentă</label>
             <select
@@ -452,8 +453,11 @@ export default function BillingSelectionPanel({
         <button type="button" onClick={handlePreview} disabled={isSaving || aggregated.count === 0} className="rounded border border-gray-200 px-3 py-2 text-sm font-semibold text-text-primary disabled:cursor-not-allowed disabled:opacity-60">
           Preview
         </button>
-        <button type="button" onClick={handleSave} disabled={isSaving || aggregated.count === 0} className="flex-1 rounded bg-primary px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
-          {isSaving ? 'Salvez...' : (isProforma ? 'Create proforma' : 'Create invoice')}
+        <button type="button" onClick={() => handleSave('invoice')} disabled={isSaving || aggregated.count === 0} className="rounded bg-primary px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
+          {isSaving ? 'Saving...' : 'Create invoice'}
+        </button>
+        <button type="button" onClick={() => handleSave('proforma')} disabled={isSaving || aggregated.count === 0} className="rounded bg-orange-500 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60">
+          {isSaving ? 'Saving...' : 'Create proforma'}
         </button>
       </div>
     </div>

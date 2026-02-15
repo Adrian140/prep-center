@@ -1052,8 +1052,8 @@ resetPassword: async (email) => {
 
       const hasMissingColumnError =
         error &&
-        /column/i.test(String(error.message || '')) &&
-        /does not exist/i.test(String(error.message || ''));
+        ['document_type', 'converted_to_invoice_id', 'converted_from_proforma_id', 'document_payload', 'billing_invoice_id']
+          .some((column) => isMissingColumnError(error, column));
       if (hasMissingColumnError) {
         const fallbackPayload = { ...payload };
         delete fallbackPayload.document_type;

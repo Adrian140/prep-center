@@ -137,8 +137,8 @@ export default function AdminInvoicesOverview() {
 
       const missingColumns =
         invoicesError &&
-        /column/i.test(String(invoicesError.message || '')) &&
-        /does not exist/i.test(String(invoicesError.message || ''));
+        ['document_type', 'converted_to_invoice_id', 'converted_from_proforma_id', 'document_payload', 'billing_invoice_id']
+          .some((column) => String(invoicesError.message || '').toLowerCase().includes(String(column).toLowerCase()));
 
       if (missingColumns) {
         let fallbackQuery = supabase
