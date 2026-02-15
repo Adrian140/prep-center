@@ -160,7 +160,8 @@ export default function AdminInvoicesOverview() {
       if (missingColumns) {
         let fallbackQuery = supabase
           .from('invoices')
-          .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, country, created_at, file_path, description');
+          .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, country, created_at, file_path, description')
+          .eq('country', country);
         if (viewMode === 'outstanding') {
           fallbackQuery = fallbackQuery.eq('status', 'pending');
         } else {
