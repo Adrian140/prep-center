@@ -18,6 +18,58 @@ const normalizeText = (value) => {
   return String(value).replace(/\s+/g, ' ').trim();
 };
 
+const isBrowser = () => typeof window !== 'undefined' && typeof document !== 'undefined';
+
+const loadImageElement = (src) =>
+  new Promise((resolve, reject) => {
+    if (!isBrowser()) {
+      reject(new Error('Image loading is only available in browser context.'));
+      return;
+    }
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Could not load image: ${src}`));
+    image.src = src;
+  });
+
+const createLogoVariant = async (
+  src,
+  { rotateDeg = 0, opacity = 1, tint = null, tintStrength = 0 } = {}
+) => {
+  if (!isBrowser()) return null;
+  const image = await loadImageElement(src);
+  const rad = (rotateDeg * Math.PI) / 180;
+  const sin = Math.abs(Math.sin(rad));
+  const cos = Math.abs(Math.cos(rad));
+
+  const outW = Math.max(1, Math.round(image.width * cos + image.height * sin));
+  const outH = Math.max(1, Math.round(image.width * sin + image.height * cos));
+  const canvas = document.createElement('canvas');
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.save();
+  ctx.translate(outW / 2, outH / 2);
+  ctx.rotate(rad);
+  ctx.globalAlpha = opacity;
+  ctx.drawImage(image, -image.width / 2, -image.height / 2, image.width, image.height);
+  ctx.restore();
+
+  if (Array.isArray(tint) && tint.length === 3 && tintStrength > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, Math.max(0, tintStrength));
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = `rgb(${tint[0]}, ${tint[1]}, ${tint[2]})`;
+    ctx.fillRect(0, 0, outW, outH);
+    ctx.restore();
+  }
+
+  return canvas.toDataURL('image/png');
+};
+
 const textLines = (doc, lines, x, yStart, step = 4.6) => {
   (lines || []).forEach((line, i) => {
     doc.text(normalizeText(line), x, yStart + i * step);
@@ -39,9 +91,35 @@ export const buildInvoicePdfBlob = async ({
 }) => {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  let topLogoData = null;
+  let watermarkLogoData = null;
+  try {
+    topLogoData = await createLogoVariant('/branding/fulfillment-prep-logo.png', {
+      opacity: 1
+    });
+    watermarkLogoData = await createLogoVariant('/branding/fulfillment-prep-logo.png', {
+      rotateDeg: 90,
+      opacity: 0.12,
+      tint: [45, 147, 255],
+      tintStrength: 0.45
+    });
+  } catch {
+    topLogoData = null;
+    watermarkLogoData = null;
+  }
+
+  // soft blue transparent-like base tint to match requested style
+  doc.setFillColor(244, 249, 255);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  if (watermarkLogoData) {
+    doc.addImage(watermarkLogoData, 'PNG', pageWidth - 86, 22, 72, 230, undefined, 'FAST');
+  }
 
   const left = 12;
-  const right = doc.internal.pageSize.getWidth() - 12;
+  const right = pageWidth - 12;
   const contentWidth = right - left;
   const customerX = left + contentWidth / 2 + 3;
   const issuerX = left + 3;
@@ -71,6 +149,10 @@ export const buildInvoicePdfBlob = async ({
   y += 11;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
+  if (topLogoData) {
+    doc.addImage(topLogoData, 'PNG', issuerX, y - 1, 42, 13, undefined, 'FAST');
+    y += 14;
+  }
 
   const issuerLines = [
     issuer?.company_name,
