@@ -302,6 +302,30 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
     });
   }, [canManageInvoices]);
 
+  const selectAllUninvoicedForSection = useCallback((section) => {
+    if (!canManageInvoices) return;
+    const source =
+      section === 'fba'
+        ? fbaRows
+        : section === 'fbm'
+          ? fbmRows
+          : section === 'other'
+            ? otherRows
+            : [];
+    if (!Array.isArray(source) || !source.length) return;
+    setBillingSelections((prev) => {
+      const next = { ...prev };
+      source.forEach((row) => {
+        if (!row?.id || row?.billing_invoice_id) return;
+        const key = `${section}:${row.id}`;
+        if (!next[key]) {
+          next[key] = { section, row };
+        }
+      });
+      return next;
+    });
+  }, [canManageInvoices, fbaRows, fbmRows, otherRows]);
+
   const handleBillingSave = useCallback(
     async ({
       documentType,
@@ -729,6 +753,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
               billingSelectedLines={billingSelections}
               onToggleBillingSelection={toggleBillingSelection}
               canSelectForBilling={canManageInvoices}
+              onSelectAllUninvoiced={() => selectAllUninvoicedForSection('fba')}
             />
           )}
             {activeSection === 'fbm' && (
@@ -740,6 +765,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
               billingSelectedLines={billingSelections}
               onToggleBillingSelection={toggleBillingSelection}
               canSelectForBilling={canManageInvoices}
+              onSelectAllUninvoiced={() => selectAllUninvoicedForSection('fbm')}
             />
           )}
             {activeSection === 'other' && (
@@ -752,6 +778,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
               billingSelectedLines={billingSelections}
               onToggleBillingSelection={toggleBillingSelection}
               canSelectForBilling={canManageInvoices}
+              onSelectAllUninvoiced={() => selectAllUninvoicedForSection('other')}
             />
           )}
           {activeSection === 'stock' && (

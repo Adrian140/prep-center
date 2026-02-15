@@ -1183,49 +1183,76 @@ resetPassword: async (email) => {
 
   // ===== Client Activity =====
   listFbaLinesByCompany: async (companyId, country) => {
-    const run = async (useCountry) => {
+    const run = async (useCountry, withInvoice = true) => {
       let query = supabase
         .from('fba_lines')
-        .select('*')
+        .select(
+          withInvoice
+            ? '*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)'
+            : '*'
+        )
         .eq('company_id', companyId);
       if (useCountry) query = query.eq('country', useCountry);
       return await query.order('service_date', { ascending: false });
     };
-    const { data, error } = await run(country);
+    let { data, error } = await run(country, true);
+    if (error && /relationship|foreign key|billing_invoice/i.test(String(error.message || ''))) {
+      const fallback = await run(country, false);
+      data = fallback.data;
+      error = fallback.error;
+    }
     if (error && country && isMissingColumnError(error, 'country')) {
-      return await run(null);
+      return await run(null, true);
     }
     return { data, error };
   },
 
   listFbmLinesByCompany: async (companyId, country) => {
-    const run = async (useCountry) => {
+    const run = async (useCountry, withInvoice = true) => {
       let query = supabase
         .from('fbm_lines')
-        .select('*')
+        .select(
+          withInvoice
+            ? '*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)'
+            : '*'
+        )
         .eq('company_id', companyId);
       if (useCountry) query = query.eq('country', useCountry);
       return await query.order('service_date', { ascending: false });
     };
-    const { data, error } = await run(country);
+    let { data, error } = await run(country, true);
+    if (error && /relationship|foreign key|billing_invoice/i.test(String(error.message || ''))) {
+      const fallback = await run(country, false);
+      data = fallback.data;
+      error = fallback.error;
+    }
     if (error && country && isMissingColumnError(error, 'country')) {
-      return await run(null);
+      return await run(null, true);
     }
     return { data, error };
   },
 
   listOtherLinesByCompany: async (companyId, country) => {
-    const run = async (useCountry) => {
+    const run = async (useCountry, withInvoice = true) => {
       let query = supabase
         .from('other_lines')
-        .select('*')
+        .select(
+          withInvoice
+            ? '*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)'
+            : '*'
+        )
         .eq('company_id', companyId);
       if (useCountry) query = query.eq('country', useCountry);
       return await query.order('service_date', { ascending: false });
     };
-    const { data, error } = await run(country);
+    let { data, error } = await run(country, true);
+    if (error && /relationship|foreign key|billing_invoice/i.test(String(error.message || ''))) {
+      const fallback = await run(country, false);
+      data = fallback.data;
+      error = fallback.error;
+    }
     if (error && country && isMissingColumnError(error, 'country')) {
-      return await run(null);
+      return await run(null, true);
     }
     return { data, error };
   },

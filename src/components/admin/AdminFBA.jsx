@@ -54,7 +54,8 @@ export default function AdminFBA({
   currentMarket,
   billingSelectedLines = {},
   onToggleBillingSelection,
-  canSelectForBilling = true
+  canSelectForBilling = true,
+  onSelectAllUninvoiced
 }) {
   const { t, tp, lang } = useAdminTranslation();
   const [edit, setEdit] = useState(null);
@@ -387,6 +388,15 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
           <button onClick={handleAdd} className="bg-primary text-white px-3 py-1 rounded">
             Adaugă
           </button>
+          {canSelectForBilling && (
+            <button
+              type="button"
+              onClick={onSelectAllUninvoiced}
+              className="border rounded px-3 py-1 text-sm"
+            >
+              Select all uninvoiced
+            </button>
+          )}
         </div>
       }
     >

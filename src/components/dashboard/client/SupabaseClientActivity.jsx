@@ -42,6 +42,14 @@ const splitObs = (value) => {
   return { id, note };
 };
 
+const formatInvoiceTooltip = (invoice) => {
+  if (!invoice) return null;
+  const formattedDate = invoice.invoice_date
+    ? new Date(invoice.invoice_date).toLocaleDateString('ro-RO')
+    : null;
+  return `Factură #${invoice.invoice_number}${formattedDate ? ` · ${formattedDate}` : ''}`;
+};
+
 const currentMonthStr = () => {
   const now = new Date();
   const pad = (v) => String(v).padStart(2, '0');
@@ -504,7 +512,11 @@ export default function SupabaseClientActivity() {
                       ? Number(r.total)
                       : Number(r.unit_price || 0) * (Number.isFinite(qty) ? qty : 0);
                   return (
-                    <tr key={r.id} className="border-t">
+                    <tr
+                      key={r.id}
+                      className={`border-t ${r.billing_invoice_id ? 'bg-blue-50 hover:bg-blue-50' : ''}`}
+                      title={formatInvoiceTooltip(r.billing_invoice)}
+                    >
                       <td className="px-3 py-2">{r.service_date}</td>
                       <td className="px-3 py-2">{formatOtherServiceName(r.service, t)}</td>
                       <td className="px-3 py-2 text-right">
@@ -567,7 +579,10 @@ export default function SupabaseClientActivity() {
                         return (
                           <tr
                             key={r.id}
-                            className={`${isFirst ? 'border-t' : 'border-t-0'} ${isLast ? 'border-b' : ''}`}
+                            className={`${isFirst ? 'border-t' : 'border-t-0'} ${isLast ? 'border-b' : ''} ${
+                              r.billing_invoice_id ? 'bg-blue-50 hover:bg-blue-50' : ''
+                            }`}
+                            title={formatInvoiceTooltip(r.billing_invoice)}
                           >
                             <td className="px-3 py-2">{r.service_date}</td>
                             <td className="px-3 py-2">{formatOtherServiceName(r.service, t)}</td>

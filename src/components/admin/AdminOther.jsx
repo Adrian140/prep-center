@@ -30,7 +30,8 @@ export default function AdminOther({
   currentMarket,
   billingSelectedLines = {},
   onToggleBillingSelection,
-  canSelectForBilling = true
+  canSelectForBilling = true,
+  onSelectAllUninvoiced
 }) {
   const { t } = useAdminTranslation();
   const [edit, setEdit] = useState(null);
@@ -259,6 +260,15 @@ export default function AdminOther({
           >
             Adaugă
           </button>
+          {canSelectForBilling && (
+            <button
+              type="button"
+              onClick={onSelectAllUninvoiced}
+              className="border rounded px-3 py-1 text-sm"
+            >
+              Select all uninvoiced
+            </button>
+          )}
         </div>
       }
     >

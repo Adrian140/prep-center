@@ -50,7 +50,8 @@ export default function AdminFBM({
   profile,
   billingSelectedLines = {},
   onToggleBillingSelection,
-  canSelectForBilling = true
+  canSelectForBilling = true,
+  onSelectAllUninvoiced
 }) {
   const [edit, setEdit] = useState(null);
   const [presets, setPresets] = useState(loadPresets());
@@ -314,6 +315,15 @@ export default function AdminFBM({
           <button onClick={handleAdd} className="bg-primary text-white px-3 py-1 rounded">
             Adaugă
           </button>
+          {canSelectForBilling && (
+            <button
+              type="button"
+              onClick={onSelectAllUninvoiced}
+              className="border rounded px-3 py-1 text-sm"
+            >
+              Select all uninvoiced
+            </button>
+          )}
         </div>
       }
     >
