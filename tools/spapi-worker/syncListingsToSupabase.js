@@ -493,15 +493,45 @@ async function fillMissingImagesFromCatalog({
     )
   );
   if (!uniqueAsins.length) {
-    return { processed: 0, found: 0, notFound: 0, failed: 0 };
+    return { processed: 0, found: 0, reused: 0, notFound: 0, failed: 0 };
   }
 
   let found = 0;
+  let reused = 0;
   let notFound = 0;
   let failed = 0;
 
+  const { data: cachedRows, error: cacheReadErr } = await supabase
+    .from('asin_assets')
+    .select('asin, image_urls')
+    .in('asin', uniqueAsins);
+  if (cacheReadErr) throw cacheReadErr;
+
+  const cacheMap = new Map();
+  for (const row of cachedRows || []) {
+    const image = Array.isArray(row?.image_urls)
+      ? row.image_urls.find((u) => typeof u === 'string' && u.trim().length)
+      : null;
+    if (image && row?.asin) {
+      cacheMap.set(String(row.asin).trim().toUpperCase(), String(image).trim());
+    }
+  }
+
   for (const asin of uniqueAsins) {
     try {
+      const cachedImage = cacheMap.get(asin);
+      if (cachedImage) {
+        const { error: updateCachedErr } = await supabase
+          .from('stock_items')
+          .update({ image_url: cachedImage })
+          .eq('company_id', companyId)
+          .eq('asin', asin)
+          .is('image_url', null);
+        if (updateCachedErr) throw updateCachedErr;
+        reused += 1;
+        continue;
+      }
+
       const image = await fetchCatalogMainImage(spClient, asin, marketplaceId);
       if (!image) {
         notFound += 1;
@@ -533,7 +563,7 @@ async function fillMissingImagesFromCatalog({
     }
   }
 
-  return { processed: uniqueAsins.length, found, notFound, failed };
+  return { processed: uniqueAsins.length, found, reused, notFound, failed };
 }
 
 async function fetchListingRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
@@ -740,6 +770,9 @@ async function syncListingsIntegration(integration) {
     for (const listing of listingRows) {
       if (!listing.key || seen.has(listing.key)) continue;
       seen.add(listing.key);
+      if (listing.asin) {
+        catalogImageCandidates.add(String(listing.asin).trim().toUpperCase());
+      }
 
       const row = existingByKey.get(listing.key);
       if (row) {
@@ -758,9 +791,6 @@ async function syncListingsIntegration(integration) {
           patch.image_url = listing.imageUrl;
           shouldPatch = true;
           updatesWithImage.add(row.id);
-        }
-        if (!hasIncomingImage && !hasExistingImage && listing.asin) {
-          catalogImageCandidates.add(String(listing.asin).trim().toUpperCase());
         }
         const needsNameReplace = isCorruptedName(row.name);
         const hasExistingSku = row.sku && String(row.sku).trim().length > 0;
@@ -797,9 +827,6 @@ async function syncListingsIntegration(integration) {
             r.image_url = listing.imageUrl;
             shouldPatch = true;
             updatesWithImage.add(r.id);
-          }
-          if (!hasIncomingImage && !hasExistingImage && listing.asin) {
-            catalogImageCandidates.add(String(listing.asin).trim().toUpperCase());
           }
           // Dacă rândul din stoc nu are SKU, dar raportul Amazon îl are, îl completăm.
           if (
@@ -860,8 +887,6 @@ async function syncListingsIntegration(integration) {
           });
           if (listing.imageUrl && String(listing.imageUrl).trim().length > 0) {
             insertsWithImage += 1;
-          } else if (listing.asin) {
-            catalogImageCandidates.add(String(listing.asin).trim().toUpperCase());
           }
         }
       }
@@ -915,7 +940,7 @@ async function syncListingsIntegration(integration) {
       .eq('id', integration.id);
 
     console.log(
-      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows, images: report=${listingRowsWithImage}, inserted=${insertsWithImage}, updated=${updatesWithImage.size}, catalogProcessed=${catalogImageStats.processed}, catalogFound=${catalogImageStats.found}, catalogNotFound=${catalogImageStats.notFound}, catalogFailed=${catalogImageStats.failed}).`
+      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows, images: report=${listingRowsWithImage}, inserted=${insertsWithImage}, updated=${updatesWithImage.size}, catalogProcessed=${catalogImageStats.processed}, catalogFound=${catalogImageStats.found}, catalogReused=${catalogImageStats.reused}, catalogNotFound=${catalogImageStats.notFound}, catalogFailed=${catalogImageStats.failed}).`
     );
   } catch (err) {
     console.error(
