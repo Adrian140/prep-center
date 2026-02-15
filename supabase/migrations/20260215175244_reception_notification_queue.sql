@@ -75,7 +75,7 @@ $$;
 
 drop trigger if exists trg_queue_reception_notification_from_items on public.receiving_items;
 create trigger trg_queue_reception_notification_from_items
-after insert or update of quantity_received, received_units, is_received, updated_at
+after insert or update of quantity_received, received_units, is_received
 on public.receiving_items
 for each row
 execute function public.queue_reception_notification_from_items();
@@ -130,7 +130,7 @@ $$;
 
 drop trigger if exists trg_queue_reception_notification_from_shipments on public.receiving_shipments;
 create trigger trg_queue_reception_notification_from_shipments
-after insert or update of status, updated_at
+after insert or update of status, received_at, processed_at
 on public.receiving_shipments
 for each row
 execute function public.queue_reception_notification_from_shipments();
