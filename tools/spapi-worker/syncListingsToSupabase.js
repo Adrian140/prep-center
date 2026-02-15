@@ -16,6 +16,9 @@ const MAX_INTEGRATIONS_PER_RUN = Number(
     process.env.SPAPI_MAX_INTEGRATIONS_PER_RUN ||
     20
 );
+const DEBUG_LISTING_HEADERS =
+  String(process.env.SPAPI_LISTING_DEBUG_HEADERS || '').toLowerCase() === 'true' ||
+  String(process.env.SPAPI_LISTING_DEBUG_HEADERS || '').trim() === '1';
 
 function assertBaseEnv() {
   const missing = [];
@@ -264,6 +267,12 @@ const LISTING_COLUMN_ALIASES = new Map([
   ['canal-de-gestion', 'fulfillmentChannel'],
   ['canal gestion', 'fulfillmentChannel'],
   ['canale-di-evasione', 'fulfillmentChannel'],
+  ['image-url', 'imageUrl'],
+  ['imageurl', 'imageUrl'],
+  ['url-image', 'imageUrl'],
+  ['url image', 'imageUrl'],
+  ['url-immagine', 'imageUrl'],
+  ['url-imagen', 'imageUrl'],
   ['product-id', 'productId'],
   ['id-produit', 'productId'],
   ['id-prodotto', 'productId'],
@@ -371,12 +380,21 @@ function normalizeListings(rawRows = []) {
     if (!sku && !asin) continue;
 
     const key = normalizeIdentifier(sku || asin);
+    const imageUrl = sanitizeText(
+      row.imageUrl ||
+        row['image-url'] ||
+        row['image_url'] ||
+        row['url-image'] ||
+        row['url-immagine'] ||
+        row['url-imagen']
+    );
     normalized.push({
       key,
       sku: sku || null,
       asin: asin || null,
       ean: ean || null,
       name: sanitizeText(row.name) || null,
+      imageUrl: imageUrl || null,
       status: (row.status || '').trim(),
       fulfillmentChannel: (row.fulfillmentChannel || '').trim()
     });
@@ -439,7 +457,7 @@ async function fetchCompanyStockItems(companyId, chunkSize = 1000) {
     const to = from + chunkSize - 1;
     const { data, error } = await supabase
       .from('stock_items')
-      .select('id, company_id, user_id, sku, asin, name', { head: false })
+      .select('id, company_id, user_id, sku, asin, ean, name, image_url', { head: false })
       .eq('company_id', companyId)
       .range(from, to);
     if (error) throw error;
@@ -525,6 +543,14 @@ async function syncListingsIntegration(integration) {
 
   try {
     const listingRaw = await fetchListingRows(spClient, marketplaceId);
+    if (DEBUG_LISTING_HEADERS && listingRaw.length) {
+      const headers = Object.keys(listingRaw[0] || {});
+      console.log(
+        `[Listings sync] ${integration.id} headers=${headers.join(',')} image-column=${
+          headers.includes('imageUrl') || headers.includes('image-url') ? 'yes' : 'no'
+        }`
+      );
+    }
     const normalized = normalizeListings(listingRaw);
     const listingRows = filterListings(normalized);
 
@@ -593,9 +619,15 @@ async function syncListingsIntegration(integration) {
         let shouldPatch = false;
         const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
         const hasExistingName = row.name && String(row.name).trim().length > 0;
+        const hasIncomingImage = listing.imageUrl && String(listing.imageUrl).trim().length > 0;
+        const hasExistingImage = row.image_url && String(row.image_url).trim().length > 0;
         const needsEan = listing.ean && (!row.ean || !String(row.ean).trim().length);
         if (needsEan) {
           patch.ean = listing.ean;
+          shouldPatch = true;
+        }
+        if (hasIncomingImage && !hasExistingImage) {
+          patch.image_url = listing.imageUrl;
           shouldPatch = true;
         }
         const needsNameReplace = isCorruptedName(row.name);
@@ -615,6 +647,8 @@ async function syncListingsIntegration(integration) {
           const incomingSku = listing.sku && String(listing.sku).trim();
           const hasExistingName = r.name && String(r.name).trim().length > 0;
           const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
+          const hasIncomingImage = listing.imageUrl && String(listing.imageUrl).trim().length > 0;
+          const hasExistingImage = r.image_url && String(r.image_url).trim().length > 0;
           const existingSkuNormalized = normalizeIdentifier(r.sku);
           const incomingSkuNormalized = normalizeIdentifier(incomingSku);
           const needsNameReplace = isCorruptedName(r.name);
@@ -624,6 +658,11 @@ async function syncListingsIntegration(integration) {
           if (needsEan) {
             patch.ean = listing.ean;
             r.ean = listing.ean;
+            shouldPatch = true;
+          }
+          if (hasIncomingImage && !hasExistingImage) {
+            patch.image_url = listing.imageUrl;
+            r.image_url = listing.imageUrl;
             shouldPatch = true;
           }
           // Dacă rândul din stoc nu are SKU, dar raportul Amazon îl are, îl completăm.
@@ -680,6 +719,7 @@ async function syncListingsIntegration(integration) {
             sku: listing.sku || null,
             ean: listing.ean || null,
             name: listing.name || listing.asin || listing.sku,
+            image_url: listing.imageUrl || null,
             qty: 0
           });
         }
