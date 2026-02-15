@@ -22,6 +22,8 @@ const DEBUG_LISTING_HEADERS =
 const DEBUG_LISTING_RAW_HEADER =
   String(process.env.SPAPI_LISTING_DEBUG_RAW_HEADER || '').toLowerCase() === 'true' ||
   String(process.env.SPAPI_LISTING_DEBUG_RAW_HEADER || '').trim() === '1';
+const LISTING_FETCH_IMAGES_FROM_CATALOG =
+  String(process.env.SPAPI_LISTING_FETCH_IMAGES_FROM_CATALOG || 'true').toLowerCase() !== 'false';
 
 function assertBaseEnv() {
   const missing = [];
@@ -442,6 +444,98 @@ const isCorruptedName = (name) => {
   return String(name).includes('\uFFFD');
 };
 
+function pickCatalogMainImage(payload) {
+  const root = payload?.payload || payload || {};
+  const imageSets = Array.isArray(root.images) ? root.images : [];
+  for (const set of imageSets) {
+    const images = Array.isArray(set?.images) ? set.images : [];
+    if (!images.length) continue;
+    const main = images.find((img) => String(img?.variant || '').toUpperCase() === 'MAIN');
+    const first = main || images[0];
+    const link = first?.link || first?.url || first?.URL || null;
+    if (typeof link === 'string' && link.trim().length) {
+      return link.trim();
+    }
+  }
+  return null;
+}
+
+async function fetchCatalogMainImage(spClient, asin, marketplaceId) {
+  const res = await spClient.callAPI({
+    operation: 'getCatalogItem',
+    endpoint: 'catalogItems',
+    path: { asin },
+    query: {
+      marketplaceIds: [marketplaceId],
+      includedData: ['images']
+    },
+    options: {
+      version: '2022-04-01'
+    }
+  });
+  return pickCatalogMainImage(res);
+}
+
+async function fillMissingImagesFromCatalog({
+  spClient,
+  companyId,
+  marketplaceId,
+  asins
+}) {
+  if (!LISTING_FETCH_IMAGES_FROM_CATALOG) {
+    return { processed: 0, found: 0, notFound: 0, failed: 0 };
+  }
+  const uniqueAsins = Array.from(
+    new Set(
+      (asins || [])
+        .map((a) => (typeof a === 'string' ? a.trim().toUpperCase() : ''))
+        .filter(Boolean)
+    )
+  );
+  if (!uniqueAsins.length) {
+    return { processed: 0, found: 0, notFound: 0, failed: 0 };
+  }
+
+  let found = 0;
+  let notFound = 0;
+  let failed = 0;
+
+  for (const asin of uniqueAsins) {
+    try {
+      const image = await fetchCatalogMainImage(spClient, asin, marketplaceId);
+      if (!image) {
+        notFound += 1;
+        continue;
+      }
+
+      const { error: cacheErr } = await supabase.from('asin_assets').upsert({
+        asin,
+        image_urls: [image],
+        source: 'amazon_catalog',
+        fetched_at: new Date().toISOString()
+      });
+      if (cacheErr) throw cacheErr;
+
+      const { error: updateErr } = await supabase
+        .from('stock_items')
+        .update({ image_url: image })
+        .eq('company_id', companyId)
+        .eq('asin', asin)
+        .is('image_url', null);
+      if (updateErr) throw updateErr;
+
+      found += 1;
+    } catch (err) {
+      failed += 1;
+      console.warn(
+        `[Listings sync] Catalog image lookup failed company=${companyId} asin=${asin}: ${err?.message || err}`
+      );
+    }
+  }
+
+  return { processed: uniqueAsins.length, found, notFound, failed };
+}
+
 async function fetchListingRows(spClient, marketplaceId = DEFAULT_MARKETPLACE) {
   if (!marketplaceId) {
     throw new Error('Marketplace ID is required for listing reports');
@@ -633,6 +727,7 @@ async function syncListingsIntegration(integration) {
     const inserts = [];
     let insertsWithImage = 0;
     const updatesWithImage = new Set();
+    const catalogImageCandidates = new Set();
     const updatesById = new Map();
     const asinEanRows = [];
     const queueUpdate = (patch) => {
@@ -663,6 +758,9 @@ async function syncListingsIntegration(integration) {
           patch.image_url = listing.imageUrl;
           shouldPatch = true;
           updatesWithImage.add(row.id);
+        }
+        if (!hasIncomingImage && !hasExistingImage && listing.asin) {
+          catalogImageCandidates.add(String(listing.asin).trim().toUpperCase());
         }
         const needsNameReplace = isCorruptedName(row.name);
         const hasExistingSku = row.sku && String(row.sku).trim().length > 0;
@@ -699,6 +797,9 @@ async function syncListingsIntegration(integration) {
             r.image_url = listing.imageUrl;
             shouldPatch = true;
             updatesWithImage.add(r.id);
+          }
+          if (!hasIncomingImage && !hasExistingImage && listing.asin) {
+            catalogImageCandidates.add(String(listing.asin).trim().toUpperCase());
           }
           // Dacă rândul din stoc nu are SKU, dar raportul Amazon îl are, îl completăm.
           if (
@@ -759,6 +860,8 @@ async function syncListingsIntegration(integration) {
           });
           if (listing.imageUrl && String(listing.imageUrl).trim().length > 0) {
             insertsWithImage += 1;
+          } else if (listing.asin) {
+            catalogImageCandidates.add(String(listing.asin).trim().toUpperCase());
           }
         }
       }
@@ -799,13 +902,20 @@ async function syncListingsIntegration(integration) {
       }
     }
 
+    const catalogImageStats = await fillMissingImagesFromCatalog({
+      spClient,
+      companyId: integration.company_id,
+      marketplaceId,
+      asins: Array.from(catalogImageCandidates)
+    });
+
     await supabase
       .from('amazon_integrations')
       .update({ last_synced_at: new Date().toISOString(), last_error: null })
       .eq('id', integration.id);
 
     console.log(
-      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows, images: report=${listingRowsWithImage}, inserted=${insertsWithImage}, updated=${updatesWithImage.size}).`
+      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows, images: report=${listingRowsWithImage}, inserted=${insertsWithImage}, updated=${updatesWithImage.size}, catalogProcessed=${catalogImageStats.processed}, catalogFound=${catalogImageStats.found}, catalogNotFound=${catalogImageStats.notFound}, catalogFailed=${catalogImageStats.failed}).`
     );
   } catch (err) {
     console.error(
