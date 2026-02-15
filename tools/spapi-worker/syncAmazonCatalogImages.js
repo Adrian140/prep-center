@@ -2,17 +2,32 @@ import 'dotenv/config';
 import { createSpClient } from './spapiClient.js';
 import { supabase } from './supabaseClient.js';
 
-const MAX_INTEGRATIONS_PER_RUN = Number(
+const MAX_INTEGRATIONS_PER_RUN_RAW = Number(
   process.env.SPAPI_CATALOG_IMAGE_MAX_INTEGRATIONS_PER_RUN ||
     process.env.SPAPI_MAX_INTEGRATIONS_PER_RUN ||
     20
 );
-const MAX_ITEMS_PER_RUN = Number(
+const MAX_ITEMS_PER_RUN_RAW = Number(
   process.env.SPAPI_CATALOG_IMAGE_ITEMS_PER_RUN ||
     process.env.SPAPI_ITEMS_PER_RUN ||
     1000
 );
+const MAX_INTEGRATIONS_PER_RUN =
+  Number.isFinite(MAX_INTEGRATIONS_PER_RUN_RAW) && MAX_INTEGRATIONS_PER_RUN_RAW > 0
+    ? MAX_INTEGRATIONS_PER_RUN_RAW
+    : Number.POSITIVE_INFINITY;
+const MAX_ITEMS_PER_RUN =
+  Number.isFinite(MAX_ITEMS_PER_RUN_RAW) && MAX_ITEMS_PER_RUN_RAW > 0
+    ? MAX_ITEMS_PER_RUN_RAW
+    : Number.POSITIVE_INFINITY;
 const MARKETPLACE_FILTER = process.env.SPAPI_CATALOG_IMAGE_MARKETPLACE_ID || null;
+const ALLOWED_MARKETPLACE_IDS = String(
+  process.env.SPAPI_CATALOG_IMAGE_MARKETPLACE_IDS ||
+    'A1PA6795UKMFR9,A13V1IB3VIYZZH,APJ6JRA9NG5V4,A1RKKUPIHCS9HS'
+)
+  .split(',')
+  .map((v) => v.trim())
+  .filter(Boolean);
 
 function assertBaseEnv() {
   const missing = [];
@@ -130,11 +145,13 @@ async function fetchActiveIntegrations() {
 }
 
 function resolveMarketplaceIds(integration) {
+  const allowed = new Set(ALLOWED_MARKETPLACE_IDS);
+  const keepAllowed = (list) => list.filter((id) => allowed.has(id));
   if (Array.isArray(integration?.marketplace_ids) && integration.marketplace_ids.length) {
-    return integration.marketplace_ids;
+    return keepAllowed(integration.marketplace_ids);
   }
-  if (integration?.marketplace_id) return [integration.marketplace_id];
-  if (process.env.SPAPI_MARKETPLACE_ID) return [process.env.SPAPI_MARKETPLACE_ID];
+  if (integration?.marketplace_id) return keepAllowed([integration.marketplace_id]);
+  if (process.env.SPAPI_MARKETPLACE_ID) return keepAllowed([process.env.SPAPI_MARKETPLACE_ID]);
   return [];
 }
 
@@ -220,7 +237,9 @@ async function syncIntegrationImages(integration, runState) {
     return;
   }
 
-  const remaining = Math.max(0, MAX_ITEMS_PER_RUN - runState.processed);
+  const remaining = Number.isFinite(MAX_ITEMS_PER_RUN)
+    ? Math.max(0, MAX_ITEMS_PER_RUN - runState.processed)
+    : Number.POSITIVE_INFINITY;
   if (remaining === 0) return;
 
   const rows = await fetchMissingRows(integration.company_id, remaining);
@@ -249,7 +268,7 @@ async function syncIntegrationImages(integration, runState) {
   );
 
   for (const asin of uniqueAsins) {
-    if (runState.processed >= MAX_ITEMS_PER_RUN) break;
+    if (Number.isFinite(MAX_ITEMS_PER_RUN) && runState.processed >= MAX_ITEMS_PER_RUN) break;
     runState.processed += 1;
 
     try {
@@ -322,7 +341,7 @@ async function main() {
   };
 
   for (const integration of integrations) {
-    if (runState.processed >= MAX_ITEMS_PER_RUN) break;
+    if (Number.isFinite(MAX_ITEMS_PER_RUN) && runState.processed >= MAX_ITEMS_PER_RUN) break;
     await syncIntegrationImages(integration, runState);
   }
 
@@ -340,4 +359,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exitCode = 1;
   });
 }
-

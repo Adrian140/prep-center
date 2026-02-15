@@ -35,9 +35,11 @@ jobs:
           SPAPI_ROLE_ARN: ${{ secrets.SPAPI_ROLE_ARN }}
           SPAPI_REGION: ${{ secrets.SPAPI_REGION || 'eu' }}
           SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
-          # Optional: set to FR only (A13V1IB3VIYZZH) for focused testing.
+          # Optional: set to a single marketplace ID for focused testing.
           SPAPI_CATALOG_IMAGE_MARKETPLACE_ID: ${{ secrets.SPAPI_CATALOG_IMAGE_MARKETPLACE_ID || '' }}
-          SPAPI_CATALOG_IMAGE_MAX_INTEGRATIONS_PER_RUN: ${{ secrets.SPAPI_CATALOG_IMAGE_MAX_INTEGRATIONS_PER_RUN || '20' }}
-          SPAPI_CATALOG_IMAGE_ITEMS_PER_RUN: ${{ secrets.SPAPI_CATALOG_IMAGE_ITEMS_PER_RUN || '1000' }}
+          # Default scope: DE, FR, IT, ES
+          SPAPI_CATALOG_IMAGE_MARKETPLACE_IDS: ${{ secrets.SPAPI_CATALOG_IMAGE_MARKETPLACE_IDS || 'A1PA6795UKMFR9,A13V1IB3VIYZZH,APJ6JRA9NG5V4,A1RKKUPIHCS9HS' }}
+          # 0 means unlimited in this script.
+          SPAPI_CATALOG_IMAGE_MAX_INTEGRATIONS_PER_RUN: ${{ secrets.SPAPI_CATALOG_IMAGE_MAX_INTEGRATIONS_PER_RUN || '0' }}
+          SPAPI_CATALOG_IMAGE_ITEMS_PER_RUN: ${{ secrets.SPAPI_CATALOG_IMAGE_ITEMS_PER_RUN || '0' }}
         run: npm run sync-amazon-catalog-images
-
