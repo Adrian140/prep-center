@@ -224,11 +224,11 @@ export const buildInvoicePdfBlob = async ({
   // Table header
   const tableX = left;
   const tableW = right - left;
-  const colDescEnd = tableX + 82;
+  const colDescEnd = tableX + 76;
   const colQtyEnd = colDescEnd + 18;
   const colUnitEnd = colQtyEnd + 18;
   const colUnitPriceEnd = colUnitEnd + 24;
-  const colVatRateEnd = colUnitPriceEnd + 16;
+  const colVatRateEnd = colUnitPriceEnd + 18;
   const vatRateText = formatVatRate(totals?.vatRate ?? 0);
 
   doc.setFillColor(221, 229, 238);
@@ -242,7 +242,7 @@ export const buildInvoicePdfBlob = async ({
   doc.text('Qty', colDescEnd + 9, y + 5.4, { align: 'center' });
   doc.text('Unit', colQtyEnd + 9, y + 5.4, { align: 'center' });
   doc.text('Unit price', colUnitEnd + 12, y + 5.4, { align: 'center' });
-  doc.text('VAT rate', colUnitPriceEnd + 8, y + 5.4, { align: 'center' });
+  doc.text('VAT rate', colUnitPriceEnd + 9, y + 5.4, { align: 'center' });
   doc.text('Net amount', right - 2, y + 5.4, { align: 'right' });
 
   [colDescEnd, colQtyEnd, colUnitEnd, colUnitPriceEnd, colVatRateEnd].forEach((lineX) => {
@@ -256,7 +256,9 @@ export const buildInvoicePdfBlob = async ({
   doc.setFontSize(8.2);
   items.forEach((item, idx) => {
     const rowFill = idx % 2 === 0 ? [234, 238, 244] : [226, 232, 238];
-    const rowH = 8.5;
+    const service = normalizeText(item.service || '-');
+    const serviceLines = doc.splitTextToSize(service, colDescEnd - tableX - 4);
+    const rowH = Math.max(8.5, serviceLines.length * 4.3 + 3.8);
     doc.setFillColor(rowFill[0], rowFill[1], rowFill[2]);
     doc.rect(tableX, y, tableW, rowH, 'F');
     doc.setDrawColor(188, 198, 210);
@@ -265,17 +267,17 @@ export const buildInvoicePdfBlob = async ({
       doc.line(lineX, y, lineX, y + rowH);
     });
 
-    const service = normalizeText(item.service || '-');
     const qty = Number(item.units || 0);
     const unit = Number(item.unitPrice || 0);
     const net = Number(item.total || qty * unit || 0);
+    const midY = y + rowH / 2 + 1.5;
 
-    doc.text(service, tableX + 2, y + 5.5);
-    doc.text(String(Number.isInteger(qty) ? qty : qty.toFixed(2)), colDescEnd + 9, y + 5.5, { align: 'center' });
-    doc.text('unit', colQtyEnd + 9, y + 5.5, { align: 'center' });
-    doc.text(`${formatMoney(unit)} €`, colUnitEnd + 12, y + 5.5, { align: 'center' });
-    doc.text(vatRateText, colUnitPriceEnd + 8, y + 5.5, { align: 'center' });
-    doc.text(`${formatMoney(net)} €`, right - 2, y + 5.5, { align: 'right' });
+    doc.text(serviceLines, tableX + 2, y + 4.8);
+    doc.text(String(Number.isInteger(qty) ? qty : qty.toFixed(2)), colDescEnd + 9, midY, { align: 'center' });
+    doc.text('unit', colQtyEnd + 9, midY, { align: 'center' });
+    doc.text(`${formatMoney(unit)} €`, colUnitEnd + 12, midY, { align: 'center' });
+    doc.text(vatRateText, colUnitPriceEnd + 9, midY, { align: 'center' });
+    doc.text(`${formatMoney(net)} €`, right - 2, midY, { align: 'right' });
 
     y += rowH;
   });
