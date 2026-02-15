@@ -893,10 +893,6 @@ async function syncListingsIntegration(integration) {
     for (const listing of listingRows) {
       if (!listing.key || seen.has(listing.key)) continue;
       seen.add(listing.key);
-      if (listing.asin) {
-        catalogImageCandidates.add(String(listing.asin).trim().toUpperCase());
-      }
-
       const row = existingByKey.get(listing.key);
       if (row) {
         const patch = { id: row.id };
@@ -1008,6 +1004,10 @@ async function syncListingsIntegration(integration) {
             image_url: listing.imageUrl || null,
             qty: 0
           });
+          if (listing.asin && !(listing.imageUrl && String(listing.imageUrl).trim().length > 0)) {
+            // Fetch catalog image only for newly inserted ASINs in this run.
+            catalogImageCandidates.add(String(listing.asin).trim().toUpperCase());
+          }
           if (listing.imageUrl && String(listing.imageUrl).trim().length > 0) {
             insertsWithImage += 1;
           }
