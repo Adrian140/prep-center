@@ -185,7 +185,9 @@ export const buildInvoicePdfBlob = async ({
   doc.setFontSize(8.5);
   doc.text(`${documentNumberLabel} ${normalizeText(invoiceNumber) || '-'}`, left, top + 7);
   doc.text(`Date: ${formatDate(invoiceDate)}`, right, top + 1, { align: 'right' });
-  doc.text(`Due: ${dueDate ? formatDate(dueDate) : '-'}`, right, top + 7, { align: 'right' });
+  if (dueDate) {
+    doc.text(`Due: ${formatDate(dueDate)}`, right, top + 7, { align: 'right' });
+  }
 
   doc.setDrawColor(186, 212, 238);
   doc.setLineWidth(0.35);
