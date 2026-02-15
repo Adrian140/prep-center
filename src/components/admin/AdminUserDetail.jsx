@@ -19,6 +19,25 @@ import { useMarket } from '@/contexts/MarketContext';
 import { buildInvoicePdfBlob } from '@/utils/invoicePdf';
 import { DEFAULT_ISSUER_PROFILES, roundMoney } from '@/utils/invoiceTax';
 
+const shouldUpgradeLegacyDeIssuer = (profile) =>
+  profile &&
+  (
+    String(profile.company_name || '').trim() === 'Prep Center Germany' ||
+    String(profile.vat_number || '').trim() === 'DE000000000' ||
+    String(profile.address_line1 || '').trim() === 'Musterstrasse 1'
+  );
+
+const normalizeIssuerProfiles = (savedProfiles) => {
+  const base = {
+    FR: { ...DEFAULT_ISSUER_PROFILES.FR, ...(savedProfiles?.FR || {}) },
+    DE: { ...DEFAULT_ISSUER_PROFILES.DE, ...(savedProfiles?.DE || {}) }
+  };
+  if (shouldUpgradeLegacyDeIssuer(savedProfiles?.DE)) {
+    base.DE = { ...DEFAULT_ISSUER_PROFILES.DE };
+  }
+  return base;
+};
+
 export default function AdminUserDetail({ profile, onBack }) {
   const { profile: currentAdmin } = useSupabaseAuth();
   const { currentMarket } = useMarket();
@@ -166,12 +185,9 @@ if (!isLimitedAdmin) {
 if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
 if (!billingProfilesRes?.error) setBillingProfiles(billingProfilesRes?.data || []);
 if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
-  setIssuerProfiles({
-    ...DEFAULT_ISSUER_PROFILES,
-    ...issuerSettingsRes.data.value
-  });
+  setIssuerProfiles(normalizeIssuerProfiles(issuerSettingsRes.data.value));
 } else {
-  setIssuerProfiles(DEFAULT_ISSUER_PROFILES);
+  setIssuerProfiles(normalizeIssuerProfiles(null));
 }
 if (!countersSettingsRes?.error && countersSettingsRes?.data?.value) {
   setInvoiceCounters({
@@ -337,14 +353,14 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
   const handleSaveIssuerProfile = useCallback(async (countryCode, nextProfile) => {
     const code = String(countryCode || '').toUpperCase();
     if (!code) return { error: new Error('Țara emitentă lipsește.') };
-    const merged = {
+    const merged = normalizeIssuerProfiles({
       ...issuerProfiles,
       [code]: {
         ...(issuerProfiles?.[code] || {}),
         ...nextProfile,
         country: code
       }
-    };
+    });
     const { error } = await supabase
       .from('app_settings')
       .upsert({

@@ -15,14 +15,17 @@ export const DEFAULT_ISSUER_PROFILES = {
   },
   DE: {
     country: 'DE',
-    company_name: 'Prep Center Germany',
-    vat_number: 'DE000000000',
-    registration_number: 'HRB 000000',
-    address_line1: 'Musterstrasse 1',
-    city: 'Berlin',
-    postal_code: '10115',
-    phone: '+49 0 00 00 00 00',
-    email: 'billing-de@prep-center.eu'
+    company_name: 'Alina-Elena Cenusa',
+    vat_number: 'DE3605531094',
+    registration_number: '',
+    address_line1: 'Schondelgrund 15',
+    city: 'Hornberg',
+    postal_code: '87132',
+    phone: '+49 176 24963618',
+    email: 'logistics.de@prep-center.eu',
+    website: 'https://prep-center.eu',
+    iban: '',
+    bic: ''
   }
 };
 
