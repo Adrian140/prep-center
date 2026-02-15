@@ -385,6 +385,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
       }
 
       const pdfBlob = await buildInvoicePdfBlob({
+        documentType: normalizedDocType,
         invoiceNumber: generatedInvoiceNumber,
         invoiceDate,
         dueDate,
@@ -543,6 +544,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
         documentType: normalizedDocType
       });
       const pdfBlob = await buildInvoicePdfBlob({
+        documentType: normalizedDocType,
         invoiceNumber: generatedInvoiceNumber,
         invoiceDate,
         dueDate,

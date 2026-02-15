@@ -97,6 +97,7 @@ const FR_ISSUER_FOOTER_LINES = [
 ];
 
 export const buildInvoicePdfBlob = async ({
+  documentType = 'invoice',
   invoiceNumber,
   invoiceDate,
   dueDate,
@@ -170,16 +171,19 @@ export const buildInvoicePdfBlob = async ({
   const right = pageW - margin;
   const top = 22;
   const mid = pageW / 2;
+  const normalizedDocType = String(documentType || 'invoice').toLowerCase() === 'proforma' ? 'proforma' : 'invoice';
+  const documentTitle = normalizedDocType === 'proforma' ? 'PROFORMA' : 'INVOICE';
+  const documentNumberLabel = normalizedDocType === 'proforma' ? 'Proforma No:' : 'No:';
 
   // Header
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11.5);
   doc.setTextColor(8, 22, 43);
-  doc.text('INVOICE', left, top);
+  doc.text(documentTitle, left, top);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.text(`No: ${normalizeText(invoiceNumber) || '-'}`, left, top + 7);
+  doc.text(`${documentNumberLabel} ${normalizeText(invoiceNumber) || '-'}`, left, top + 7);
   doc.text(`Date: ${formatDate(invoiceDate)}`, right, top + 1, { align: 'right' });
   doc.text(`Due: ${dueDate ? formatDate(dueDate) : '-'}`, right, top + 7, { align: 'right' });
 

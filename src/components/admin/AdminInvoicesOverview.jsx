@@ -396,6 +396,7 @@ export default function AdminInvoicesOverview() {
       const invoiceDate = toIsoDate(new Date());
       const totals = payload?.totals || {};
       const pdfBlob = await buildInvoicePdfBlob({
+        documentType: 'invoice',
         invoiceNumber: finalInvoiceNumber,
         invoiceDate,
         dueDate: payload?.dueDate || null,
