@@ -24,6 +24,10 @@ const DEBUG_LISTING_RAW_HEADER =
   String(process.env.SPAPI_LISTING_DEBUG_RAW_HEADER || '').trim() === '1';
 const LISTING_FETCH_IMAGES_FROM_CATALOG =
   String(process.env.SPAPI_LISTING_FETCH_IMAGES_FROM_CATALOG || 'true').toLowerCase() !== 'false';
+const TRANSIENT_RETRY_MAX_ATTEMPTS = Number(
+  process.env.SPAPI_TRANSIENT_RETRY_MAX_ATTEMPTS || 5
+);
+const TRANSIENT_RETRY_BASE_MS = Number(process.env.SPAPI_TRANSIENT_RETRY_BASE_MS || 2000);
 
 function assertBaseEnv() {
   const missing = [];
@@ -151,6 +155,59 @@ async function fetchActiveIntegrations() {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function extractErrorText(err) {
+  if (!err) return '';
+  const responseData = err?.response?.data;
+  if (typeof responseData === 'string') return responseData;
+  if (typeof responseData?.message === 'string') return responseData.message;
+  if (typeof err?.message === 'string') return err.message;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
+}
+
+function isTransientError(err) {
+  const status = Number(err?.status || err?.code || err?.response?.status || 0);
+  if ([408, 429, 500, 502, 503, 504].includes(status)) return true;
+  const text = extractErrorText(err).toLowerCase();
+  return (
+    text.includes('502 bad gateway') ||
+    text.includes('503 service unavailable') ||
+    text.includes('504 gateway') ||
+    text.includes('cloudflare') ||
+    text.includes('timeout') ||
+    text.includes('timed out') ||
+    text.includes('fetch failed') ||
+    text.includes('ecconnreset') ||
+    text.includes('econnreset') ||
+    text.includes('etimedout')
+  );
+}
+
+async function runWithTransientRetry(fn, label) {
+  let attempt = 0;
+  while (attempt < TRANSIENT_RETRY_MAX_ATTEMPTS) {
+    attempt += 1;
+    try {
+      return await fn();
+    } catch (err) {
+      const retryable = isTransientError(err);
+      if (!retryable || attempt >= TRANSIENT_RETRY_MAX_ATTEMPTS) {
+        throw err;
+      }
+      const waitMs = TRANSIENT_RETRY_BASE_MS * attempt;
+      console.warn(
+        `[Listings sync] transient error in ${label}, retry ${attempt}/${TRANSIENT_RETRY_MAX_ATTEMPTS} in ${waitMs}ms: ${extractErrorText(
+          err
+        ).slice(0, 300)}`
+      );
+      await delay(waitMs);
+    }
+  }
 }
 
 function resolveMarketplaceId(integration) {
@@ -956,7 +1013,10 @@ async function syncListingsIntegration(integration) {
 
 async function main() {
   assertBaseEnv();
-  const integrations = await fetchActiveIntegrations();
+  const integrations = await runWithTransientRetry(
+    () => fetchActiveIntegrations(),
+    'fetchActiveIntegrations'
+  );
   if (!integrations.length) {
     console.log('No active amazon_integrations found for listings. Nothing to do.');
     return;
