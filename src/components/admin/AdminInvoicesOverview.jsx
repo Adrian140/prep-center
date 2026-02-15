@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Download, Loader2, RefreshCw } from 'lucide-react';
+import { Download, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { supabase, supabaseHelpers } from '@/config/supabase';
@@ -59,6 +59,7 @@ export default function AdminInvoicesOverview() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
   const [rows, setRows] = useState([]);
   const [companyNames, setCompanyNames] = useState({});
   const [clientNames, setClientNames] = useState({});
@@ -310,6 +311,25 @@ export default function AdminInvoicesOverview() {
     });
   };
 
+  const deleteInvoice = async (row) => {
+    if (!row?.id) return;
+    const label = row.invoice_number ? `#${row.invoice_number}` : 'this invoice';
+    const confirmed = window.confirm(`Delete ${label}? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    setError('');
+    setDeletingId(row.id);
+    try {
+      const { error: deleteError } = await supabaseHelpers.deleteInvoice(row);
+      if (deleteError) throw deleteError;
+      setRows((prev) => prev.filter((entry) => entry.id !== row.id));
+    } catch (err) {
+      setError(err?.message || t('adminInvoices.loadError'));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -418,6 +438,7 @@ export default function AdminInvoicesOverview() {
                   <th className="px-4 py-3 text-right">{t('adminInvoices.table.total')}</th>
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.status')}</th>
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.download')}</th>
+                  <th className="px-4 py-3 text-left">Delete</th>
                 </tr>
               </thead>
               <tbody>
@@ -463,6 +484,18 @@ export default function AdminInvoicesOverview() {
                         >
                           <Download className="w-3.5 h-3.5" />
                           {t('adminInvoices.table.download')}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => deleteInvoice(row)}
+                          disabled={deletingId === row.id}
+                          className="inline-flex items-center gap-1 rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          title="Delete invoice"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {deletingId === row.id ? 'Deleting...' : 'Delete'}
                         </button>
                       </td>
                     </tr>

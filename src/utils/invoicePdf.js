@@ -129,6 +129,9 @@ export const buildInvoicePdfBlob = async ({
     try {
       const ext = templateData.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
       doc.addImage(templateData, ext, 0, 0, pageW, pageH, undefined, 'FAST');
+      // Keep template as visual background only; clear content canvas to avoid text overlaps.
+      doc.setFillColor(243, 248, 255);
+      doc.rect(10, 14, pageW - 20, pageH - 24, 'F');
     } catch {
       templateData = '';
     }
