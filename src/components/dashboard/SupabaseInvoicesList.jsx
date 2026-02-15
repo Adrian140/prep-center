@@ -146,8 +146,8 @@ function SupabaseInvoicesList() {
     <div>
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold text-text-primary">{t('invoices.title')}</h2>
-        <div className="text-sm text-text-secondary">
+        <h2 className="text-lg font-bold text-text-primary">{t('invoices.title')}</h2>
+        <div className="text-xs text-text-secondary">
           {tp('invoices.total', { n: filteredInvoices.length })}
         </div>
       </div>
@@ -169,11 +169,11 @@ function SupabaseInvoicesList() {
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label htmlFor="search" className="block text-sm font-medium text-text-primary mb-2">
+            <label htmlFor="search" className="block text-xs font-medium text-text-primary mb-1.5">
               {t('invoices.filters.search')}
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light w-3.5 h-3.5" />
               <input
                 type="text"
                 id="search"
@@ -186,7 +186,7 @@ function SupabaseInvoicesList() {
           </div>
 
           <div>
-            <label htmlFor="status" className="block text-sm font-medium text-text-primary mb-2">
+            <label htmlFor="status" className="block text-xs font-medium text-text-primary mb-1.5">
               {t('invoices.filters.status')}
             </label>
             <select
@@ -204,7 +204,7 @@ function SupabaseInvoicesList() {
           </div>
 
           <div>
-            <label htmlFor="date" className="block text-sm font-medium text-text-primary mb-2">
+            <label htmlFor="date" className="block text-xs font-medium text-text-primary mb-1.5">
               {t('invoices.filters.period')}
             </label>
             <select
@@ -230,21 +230,21 @@ function SupabaseInvoicesList() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <FileText className="w-4 h-4 text-text-secondary shrink-0" />
-                  <h3 className="text-[15px] font-semibold text-text-primary truncate">
+                  <h3 className="text-sm font-semibold text-text-primary truncate">
                     {tp('invoices.card.invoice', { no: invoice.invoice_number })}
                   </h3>
-                  <span className={`px-2 py-0.5 text-[11px] rounded-full ${getStatusColor(invoice.status)}`}>
+                  <span className={`px-1.5 py-0.5 text-[10px] rounded-full ${getStatusColor(invoice.status)}`}>
                     {getStatusText(invoice.status)}
                   </span>
                 </div>
-                <div className="text-text-secondary space-y-0.5 text-[13px]">
+                <div className="text-text-secondary space-y-0.5 text-xs">
                   <div className="flex items-center">
-                    <Calendar className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                    <Calendar className="w-3 h-3 mr-1.5 shrink-0" />
                     <span>{t('invoices.card.date')}: {new Date(invoice.issue_date).toLocaleDateString('en-GB')}</span>
                   </div>
                   {invoice.due_date && (
                     <div className="flex items-center">
-                      <Calendar className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                      <Calendar className="w-3 h-3 mr-1.5 shrink-0" />
                       <span>{t('invoices.card.due')}: {new Date(invoice.due_date).toLocaleDateString('en-GB')}</span>
                     </div>
                   )}
@@ -254,11 +254,11 @@ function SupabaseInvoicesList() {
 
               <div className="flex flex-col md:items-end gap-1.5">
                 <div className="text-left md:text-right">
-                  <p className="text-2xl md:text-[28px] leading-none font-extrabold text-text-primary tracking-tight">
+                  <p className="text-lg md:text-xl leading-none font-extrabold text-text-primary tracking-tight">
                     {tp('invoices.card.amount', { amount: parseFloat(invoice.amount || 0).toFixed(2) })}
                   </p>
                   {invoice.vat_amount && (
-                    <p className="text-[11px] text-text-secondary mt-0.5">
+                    <p className="text-[10px] text-text-secondary mt-0.5">
                       {tp('invoices.card.vat', { vat: parseFloat(invoice.vat_amount).toFixed(2) })}
                     </p>
                   )}
@@ -268,14 +268,14 @@ function SupabaseInvoicesList() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => viewInvoice(invoice)}
-                      className="inline-flex items-center px-2 py-1 text-xs text-primary border border-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
+                      className="inline-flex items-center px-2 py-1 text-[11px] text-primary border border-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
                     >
                       <Eye className="w-3 h-3 mr-1" />
                       {t('invoices.card.view')}
                     </button>
                     <button
                       onClick={() => downloadInvoice(invoice)}
-                      className="inline-flex items-center px-2 py-1 text-xs bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                      className="inline-flex items-center px-2 py-1 text-[11px] bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
                     >
                       <Download className="w-3 h-3 mr-1" />
                       {t('invoices.card.download')}
