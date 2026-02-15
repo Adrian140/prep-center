@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Download, Loader2, RefreshCw } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { supabase, supabaseHelpers } from '@/config/supabase';
@@ -47,6 +47,12 @@ const formatAmount = (value) => {
     maximumFractionDigits: 2
   });
 };
+
+const safeFileName = (value) =>
+  String(value || 'invoice')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_');
 
 export default function AdminInvoicesOverview() {
   const { t } = useAdminTranslation();
@@ -253,6 +259,17 @@ export default function AdminInvoicesOverview() {
     }
   };
 
+  const downloadInvoice = async (row) => {
+    if (!row?.file_path) return;
+    const { data, error: downloadError } = await supabaseHelpers.downloadInvoice(row.file_path);
+    if (downloadError || !data) {
+      setError(downloadError?.message || t('adminInvoices.loadError'));
+      return;
+    }
+    const name = safeFileName(row.invoice_number || row.id);
+    saveAs(data, `${name}.pdf`);
+  };
+
   const updateStatus = async (invoiceId, value) => {
     const next = String(value || '').toLowerCase();
     if (!['pending', 'paid'].includes(next)) return;
@@ -384,6 +401,7 @@ export default function AdminInvoicesOverview() {
                   <th className="px-4 py-3 text-right">{t('adminInvoices.table.vat')}</th>
                   <th className="px-4 py-3 text-right">{t('adminInvoices.table.total')}</th>
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.status')}</th>
+                  <th className="px-4 py-3 text-left">{t('adminInvoices.table.download')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -418,6 +436,18 @@ export default function AdminInvoicesOverview() {
                           <option value="pending">pending</option>
                           <option value="paid">paid</option>
                         </select>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => downloadInvoice(row)}
+                          disabled={!row.file_path}
+                          className="inline-flex items-center gap-1 rounded border border-gray-300 px-2 py-1 text-xs font-medium text-text-primary hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          title={row.file_path ? t('adminInvoices.table.download') : t('adminInvoices.table.noFile')}
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          {t('adminInvoices.table.download')}
+                        </button>
                       </td>
                     </tr>
                   );

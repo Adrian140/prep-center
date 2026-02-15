@@ -414,7 +414,9 @@
         "total": "Total",
         "status": "Status",
         "company": "Company",
-        "clientName": "Client name"
+        "clientName": "Client name",
+        "download": "Download",
+        "noFile": "No PDF file"
       },
       "tabs": {
         "monthly": "Current month",
@@ -514,7 +516,9 @@
         "total": "Total",
         "status": "Statut",
         "company": "Société",
-        "clientName": "Nom client"
+        "clientName": "Nom client",
+        "download": "Télécharger",
+        "noFile": "Pas de fichier PDF"
       },
       "tabs": {
         "monthly": "Mois courant",
@@ -892,7 +896,9 @@
         "total": "Total",
         "status": "Status",
         "company": "Companie",
-        "clientName": "Nume client"
+        "clientName": "Nume client",
+        "download": "Descarcă",
+        "noFile": "Fără fișier PDF"
       },
       "tabs": {
         "monthly": "Luna curentă",
