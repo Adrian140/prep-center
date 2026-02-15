@@ -100,7 +100,7 @@ async function fetchKeepaImageWithRetries(asin) {
       if (/keepa api error \(429\)/i.test(res.error)) {
         attempts += 1;
         if (attempts > MAX_KEEPA_RETRIES) {
-          return null;
+          return { image: null, error: res.error, domainsTried: res?.domainsTried || [], domainMisses: res?.domainMisses || [] };
         }
         console.warn(
           `[Keepa sync] Rate limited for asin=${asin}, waiting ${KEEPA_RETRY_DELAY_MS}ms (attempt ${attempts}/${MAX_KEEPA_RETRIES}).`
@@ -109,9 +109,14 @@ async function fetchKeepaImageWithRetries(asin) {
         continue;
       }
     }
-    return res?.image || null;
+    return {
+      image: res?.image || null,
+      error: res?.error || null,
+      domainsTried: res?.domainsTried || [],
+      domainMisses: res?.domainMisses || []
+    };
   }
-  return null;
+  return { image: null, error: null, domainsTried: [], domainMisses: [] };
 }
 
 async function backoffRows(companyId, rowIds) {
@@ -191,6 +196,7 @@ async function runSync() {
             .eq('asin', row.asin)
             .maybeSingle();
           let imageFromCache = null;
+          let keepaRes = null;
           const urls = cache?.image_urls;
           if (Array.isArray(urls) && urls.length) {
             imageFromCache =
@@ -202,9 +208,11 @@ async function runSync() {
             console.log(
               `[Keepa sync] Fetching image for company=${companyId}, stock_item=${row.id}, asin=${row.asin}`
             );
-            image = await fetchKeepaImageWithRetries(row.asin);
+            keepaRes = await fetchKeepaImageWithRetries(row.asin);
+            image = keepaRes?.image || null;
           }
           if (!image) {
+            const res = keepaRes;
             const missSummary =
               Array.isArray(res?.domainMisses) && res.domainMisses.length
                 ? ` misses=${res.domainMisses
