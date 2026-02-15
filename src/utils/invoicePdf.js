@@ -104,7 +104,7 @@ export const buildInvoicePdfBlob = async ({
     topLogoData = await createLogoVariant('/branding/fulfillment-prep-logo.png', { opacity: 0.5 });
     watermarkLogoData = await createLogoVariant('/branding/fulfillment-prep-logo.png', {
       rotateDeg: 90,
-      opacity: 0.16,
+      opacity: 0.24,
       tint: [45, 147, 255],
       tintStrength: 0.55
     });
@@ -132,6 +132,9 @@ export const buildInvoicePdfBlob = async ({
       // Keep template as visual background only; clear content canvas to avoid text overlaps.
       doc.setFillColor(243, 248, 255);
       doc.rect(10, 14, pageW - 20, pageH - 24, 'F');
+      if (watermarkLogoData) {
+        doc.addImage(watermarkLogoData, 'PNG', pageW / 2 - 32, 70, 60, 156, undefined, 'FAST');
+      }
     } catch {
       templateData = '';
     }
@@ -171,7 +174,7 @@ export const buildInvoicePdfBlob = async ({
   // Top tiny logo above issuer block
   const infoStartY = top + 26;
   if (topLogoData) {
-    doc.addImage(topLogoData, 'PNG', left + 7, infoStartY - 8, 16, 6, undefined, 'FAST');
+    doc.addImage(topLogoData, 'PNG', left + 3, infoStartY - 12, 28, 10, undefined, 'FAST');
   }
 
   doc.setFont('helvetica', 'bold');
