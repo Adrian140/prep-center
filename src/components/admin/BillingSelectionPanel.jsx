@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_ISSUER_PROFILES, getSimpleVatRule, roundMoney } from '@/utils/invoiceTax';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -22,6 +22,7 @@ export default function BillingSelectionPanel({
   clientPhone = '',
   currentMarket = 'FR',
   issuerProfiles = DEFAULT_ISSUER_PROFILES,
+  onSaveIssuerProfile,
   onSave,
   onClear,
   isSaving = false,
@@ -32,8 +33,13 @@ export default function BillingSelectionPanel({
   const [dueDate, setDueDate] = useState(plusDays(todayIso(), 14));
   const [status, setStatus] = useState('pending');
   const [issuerCountry, setIssuerCountry] = useState(currentMarket || 'FR');
+  const [issuerDraft, setIssuerDraft] = useState(issuerProfiles?.[currentMarket || 'FR'] || DEFAULT_ISSUER_PROFILES.FR);
   const [billingProfileId, setBillingProfileId] = useState('');
   const [feedback, setFeedback] = useState('');
+
+  useEffect(() => {
+    setIssuerDraft(issuerProfiles?.[issuerCountry] || DEFAULT_ISSUER_PROFILES[issuerCountry] || DEFAULT_ISSUER_PROFILES.FR);
+  }, [issuerCountry, issuerProfiles]);
 
   const aggregated = useMemo(() => {
     const groups = {};
@@ -43,8 +49,7 @@ export default function BillingSelectionPanel({
       if (!row?.id) return;
       const units = Number(row.units ?? row.orders_units ?? 0);
       const unitPrice = Number(row.unit_price ?? 0);
-      const candidateTotal =
-        row.total != null ? Number(row.total) : Number.isFinite(unitPrice * units) ? unitPrice * units : 0;
+      const candidateTotal = row.total != null ? Number(row.total) : Number.isFinite(unitPrice * units) ? unitPrice * units : 0;
       const lineTotal = Number.isFinite(candidateTotal) ? candidateTotal : 0;
       total += lineTotal;
       const key = `${section}:${String(row.service || '—')}:${unitPrice}`;
@@ -61,9 +66,7 @@ export default function BillingSelectionPanel({
       groups[key].total += lineTotal;
       lineRefs.push({ section, id: row.id });
     });
-    const items = Object.values(groups).sort((a, b) =>
-      a.service.localeCompare(b.service)
-    );
+    const items = Object.values(groups).sort((a, b) => a.service.localeCompare(b.service));
     return {
       items,
       total: roundMoney(total),
@@ -87,7 +90,7 @@ export default function BillingSelectionPanel({
 
   const activeBillingProfile = selectedBillingProfile || defaultBillingProfile;
 
-  const issuerProfile = issuerProfiles?.[issuerCountry] || DEFAULT_ISSUER_PROFILES[issuerCountry] || DEFAULT_ISSUER_PROFILES.FR;
+  const issuerProfile = issuerDraft || issuerProfiles?.[issuerCountry] || DEFAULT_ISSUER_PROFILES[issuerCountry] || DEFAULT_ISSUER_PROFILES.FR;
   const customerCountry = String(activeBillingProfile?.country || '').toUpperCase();
   const taxRule = getSimpleVatRule({ issuerCountry, customerCountry });
   const vatAmount = roundMoney(aggregated.total * taxRule.vatRate);
@@ -96,6 +99,16 @@ export default function BillingSelectionPanel({
   const handleClear = () => {
     onClear?.();
     setFeedback('');
+  };
+
+  const handleSaveIssuer = async () => {
+    if (!onSaveIssuerProfile) return;
+    const result = await onSaveIssuerProfile(issuerCountry, issuerProfile);
+    if (result?.error) {
+      setFeedback(result.error.message || 'Nu am putut salva emitentul.');
+      return;
+    }
+    setFeedback('Datele emitentului au fost salvate.');
   };
 
   const handleSave = async () => {
@@ -153,17 +166,13 @@ export default function BillingSelectionPanel({
         <p className="text-xs uppercase tracking-wide text-text-secondary">Panou facturare</p>
         <p className="flex items-baseline justify-between text-lg font-semibold text-text-primary">
           <span>Coș: {aggregated.count} {aggregated.count === 1 ? 'linie' : 'linii'}</span>
-          <span className="text-sm text-text-secondary">
-            Net: {formatMoney(aggregated.total)} €
-          </span>
+          <span className="text-sm text-text-secondary">Net: {formatMoney(aggregated.total)} €</span>
         </p>
       </div>
 
       <div className="space-y-2 rounded-lg border border-dashed border-gray-200 p-3 text-sm">
         {aggregated.items.length === 0 ? (
-          <p className="text-xs text-text-secondary">
-            Selectează linii din FBA/FBM/Other pentru a începe.
-          </p>
+          <p className="text-xs text-text-secondary">Selectează linii din FBA/FBM/Other pentru a începe.</p>
         ) : (
           <ul className="space-y-2">
             {aggregated.items.map((item) => (
@@ -172,14 +181,10 @@ export default function BillingSelectionPanel({
                   <p className="font-medium text-text-primary">{item.service}</p>
                   <p className="text-xs text-text-secondary">
                     {item.section.toUpperCase()} · {formatUnits(item.units)} unități
-                    {Number.isFinite(item.unitPrice) && (
-                      <> · @{formatMoney(item.unitPrice)} €</>
-                    )}
+                    {Number.isFinite(item.unitPrice) && <> · @{formatMoney(item.unitPrice)} €</>}
                   </p>
                 </div>
-                <div className="text-sm font-semibold text-text-primary">
-                  {formatMoney(item.total)} €
-                </div>
+                <div className="text-sm font-semibold text-text-primary">{formatMoney(item.total)} €</div>
               </li>
             ))}
           </ul>
@@ -199,43 +204,25 @@ export default function BillingSelectionPanel({
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="block text-[13px] font-medium text-text-secondary">Data facturii</label>
-            <input
-              type="date"
-              className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              value={invoiceDate}
-              onChange={(event) => setInvoiceDate(event.target.value)}
-            />
+            <input type="date" className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} />
           </div>
           <div>
             <label className="block text-[13px] font-medium text-text-secondary">Scadență</label>
-            <input
-              type="date"
-              className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              value={dueDate}
-              onChange={(event) => setDueDate(event.target.value)}
-            />
+            <input type="date" className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="block text-[13px] font-medium text-text-secondary">Companie emitentă</label>
-            <select
-              className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              value={issuerCountry}
-              onChange={(event) => setIssuerCountry(event.target.value)}
-            >
+            <select className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none" value={issuerCountry} onChange={(event) => setIssuerCountry(event.target.value)}>
               <option value="FR">France</option>
               <option value="DE">Germany</option>
             </select>
           </div>
           <div>
             <label className="block text-[13px] font-medium text-text-secondary">Status</label>
-            <select
-              className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-            >
+            <select className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none" value={status} onChange={(event) => setStatus(event.target.value)}>
               <option value="pending">Pending</option>
               <option value="paid">Paid</option>
             </select>
@@ -244,17 +231,10 @@ export default function BillingSelectionPanel({
 
         <div>
           <label className="block text-[13px] font-medium text-text-secondary">Adresă facturare client</label>
-          <select
-            className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            value={billingProfileId || defaultBillingProfile?.id || ''}
-            onChange={(event) => setBillingProfileId(event.target.value)}
-          >
+          <select className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none" value={billingProfileId || defaultBillingProfile?.id || ''} onChange={(event) => setBillingProfileId(event.target.value)}>
             {!billingProfiles.length && <option value="">Nu există profil de facturare</option>}
             {billingProfiles.map((item) => {
-              const label =
-                item.type === 'company'
-                  ? item.company_name || 'Company'
-                  : `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'Individual';
+              const label = item.type === 'company' ? item.company_name || 'Company' : `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'Individual';
               return (
                 <option key={item.id} value={item.id}>
                   {label} · {String(item.country || '').toUpperCase()}
@@ -263,6 +243,22 @@ export default function BillingSelectionPanel({
             })}
           </select>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-gray-200 p-3 space-y-2">
+        <p className="text-xs font-semibold text-text-secondary uppercase">Date emitent ({issuerCountry})</p>
+        <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Company name" value={issuerProfile?.company_name || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), company_name: e.target.value, country: issuerCountry }))} />
+        <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="VAT number" value={issuerProfile?.vat_number || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), vat_number: e.target.value, country: issuerCountry }))} />
+        <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Address" value={issuerProfile?.address_line1 || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), address_line1: e.target.value, country: issuerCountry }))} />
+        <div className="grid grid-cols-2 gap-2">
+          <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Postal code" value={issuerProfile?.postal_code || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), postal_code: e.target.value, country: issuerCountry }))} />
+          <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="City" value={issuerProfile?.city || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), city: e.target.value, country: issuerCountry }))} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Email" value={issuerProfile?.email || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), email: e.target.value, country: issuerCountry }))} />
+          <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Phone" value={issuerProfile?.phone || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), phone: e.target.value, country: issuerCountry }))} />
+        </div>
+        <button type="button" onClick={handleSaveIssuer} className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-text-primary hover:bg-gray-50">Save issuer profile</button>
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-text-secondary space-y-1">
@@ -276,26 +272,13 @@ export default function BillingSelectionPanel({
         <p className="font-semibold text-text-primary"><strong>Total final:</strong> {formatMoney(grossTotal)} €</p>
       </div>
 
-      {(feedback || externalError) && (
-        <p className="text-sm text-red-600">
-          {feedback || externalError}
-        </p>
-      )}
+      {(feedback || externalError) && <p className="text-sm text-red-600">{feedback || externalError}</p>}
 
       <div className="flex flex-wrap gap-2 pt-2">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={isSaving || aggregated.count === 0}
-          className="flex-1 rounded bg-primary px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <button type="button" onClick={handleSave} disabled={isSaving || aggregated.count === 0} className="flex-1 rounded bg-primary px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
           {isSaving ? 'Salvez...' : 'Create invoice'}
         </button>
-        <button
-          type="button"
-          onClick={handleClear}
-          className="rounded border border-gray-200 px-3 py-2 text-sm font-semibold text-text-primary"
-        >
+        <button type="button" onClick={handleClear} className="rounded border border-gray-200 px-3 py-2 text-sm font-semibold text-text-primary">
           Golește selecția
         </button>
       </div>

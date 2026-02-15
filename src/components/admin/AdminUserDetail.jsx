@@ -17,7 +17,7 @@ import BillingSelectionPanel from './BillingSelectionPanel';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
 import { buildInvoicePdfBlob } from '@/utils/invoicePdf';
-import { roundMoney } from '@/utils/invoiceTax';
+import { DEFAULT_ISSUER_PROFILES, roundMoney } from '@/utils/invoiceTax';
 
 export default function AdminUserDetail({ profile, onBack }) {
   const { profile: currentAdmin } = useSupabaseAuth();
@@ -35,6 +35,7 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingError, setBillingError] = useState('');
   const [billingProfiles, setBillingProfiles] = useState([]);
+  const [issuerProfiles, setIssuerProfiles] = useState(DEFAULT_ISSUER_PROFILES);
   const hasBillingSelection = canManageInvoices && Object.keys(billingSelections).length > 0;
   const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns', 'requests'];
   const allowedSections = isLimitedAdmin ? ['stock'] : serviceSections;
@@ -128,6 +129,11 @@ const ensureCompany = async () => {
       ? [null, null, null, results[0]]
       : results;
     let billingProfilesRes = await supabaseHelpers.getBillingProfiles(profile?.id);
+    const issuerSettingsRes = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'invoice_issuer_profiles')
+      .maybeSingle();
     if (!billingProfilesRes?.error && (!billingProfilesRes?.data || billingProfilesRes.data.length === 0)) {
       await supabaseHelpers.seedBillingProfilesFromSignup(profile?.id);
       billingProfilesRes = await supabaseHelpers.getBillingProfiles(profile?.id);
@@ -145,6 +151,14 @@ if (!isLimitedAdmin) {
 }
 if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
 if (!billingProfilesRes?.error) setBillingProfiles(billingProfilesRes?.data || []);
+if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
+  setIssuerProfiles({
+    ...DEFAULT_ISSUER_PROFILES,
+    ...issuerSettingsRes.data.value
+  });
+} else {
+  setIssuerProfiles(DEFAULT_ISSUER_PROFILES);
+}
 
   };
 
@@ -271,6 +285,31 @@ if (!billingProfilesRes?.error) setBillingProfiles(billingProfilesRes?.data || [
     },
     [company?.id, profile?.id, currentMarket, loadAll]
   );
+
+  const handleSaveIssuerProfile = useCallback(async (countryCode, nextProfile) => {
+    const code = String(countryCode || '').toUpperCase();
+    if (!code) return { error: new Error('Țara emitentă lipsește.') };
+    const merged = {
+      ...issuerProfiles,
+      [code]: {
+        ...(issuerProfiles?.[code] || {}),
+        ...nextProfile,
+        country: code
+      }
+    };
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert({
+        key: 'invoice_issuer_profiles',
+        value: merged,
+        updated_at: new Date().toISOString()
+      });
+    if (error) {
+      return { error };
+    }
+    setIssuerProfiles(merged);
+    return { error: null };
+  }, [issuerProfiles]);
 
   const displayName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Utilizator';
@@ -474,6 +513,8 @@ if (!billingProfilesRes?.error) setBillingProfiles(billingProfilesRes?.data || [
               clientEmail={profile?.email || ''}
               clientPhone={profile?.phone || ''}
               currentMarket={currentMarket || 'FR'}
+              issuerProfiles={issuerProfiles}
+              onSaveIssuerProfile={handleSaveIssuerProfile}
               onSave={handleBillingSave}
               onClear={clearBillingSelections}
               isSaving={billingSaving}
