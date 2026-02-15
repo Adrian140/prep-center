@@ -145,7 +145,7 @@ function SupabaseInvoicesList() {
   return (
     <div>
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-text-primary">{t('invoices.title')}</h2>
         <div className="text-sm text-text-secondary">
           {tp('invoices.total', { n: filteredInvoices.length })}
@@ -155,7 +155,7 @@ function SupabaseInvoicesList() {
       {/* Flash message */}
       {message && (
         <div
-          className={`mb-6 px-4 py-3 rounded-lg ${
+          className={`mb-4 px-3 py-2 rounded-lg text-sm ${
             message.toLowerCase().includes('success')
               ? 'bg-green-50 border border-green-200 text-green-600'
               : 'bg-red-50 border border-red-200 text-red-600'
@@ -166,7 +166,7 @@ function SupabaseInvoicesList() {
       )}
 
       {/* Filters */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label htmlFor="search" className="block text-sm font-medium text-text-primary mb-2">
@@ -180,7 +180,7 @@ function SupabaseInvoicesList() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                  placeholder={t('invoices.filters.searchPh')}
-                className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="pl-10 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
           </div>
@@ -193,7 +193,7 @@ function SupabaseInvoicesList() {
               id="status"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               <option value="all">{t('invoices.filters.all')}</option>
               <option value="paid">{t('invoices.filters.paid')}</option>
@@ -211,7 +211,7 @@ function SupabaseInvoicesList() {
               id="date"
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             >
                <option value="all">{t('invoices.filters.all')}</option>
               <option value="last30">{t('invoices.filters.last30')}</option>
@@ -223,70 +223,70 @@ function SupabaseInvoicesList() {
       </div>
 
       {/* Invoices list */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {filteredInvoices.map((invoice) => (
-          <div key={invoice.id} className="bg-white border border-gray-200 rounded-xl p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between">
-              <div className="flex-1 mb-4 md:mb-0">
-                <div className="flex items-center mb-2">
-                  <FileText className="w-5 h-5 text-text-secondary mr-2" />
-                  <h3 className="text-lg font-semibold text-text-primary">
+          <div key={invoice.id} className="bg-white border border-gray-200 rounded-xl p-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <FileText className="w-4 h-4 text-text-secondary shrink-0" />
+                  <h3 className="text-base font-semibold text-text-primary truncate">
                     {tp('invoices.card.invoice', { no: invoice.invoice_number })}
                   </h3>
-                  <span className={`ml-3 px-2 py-1 text-xs rounded-full ${getStatusColor(invoice.status)}`}>
+                  <span className={`px-2 py-0.5 text-[11px] rounded-full ${getStatusColor(invoice.status)}`}>
                     {getStatusText(invoice.status)}
                   </span>
                 </div>
-                <div className="text-text-secondary space-y-1">
+                <div className="text-text-secondary space-y-0.5 text-sm">
                   <div className="flex items-center">
-                    <Calendar className="w-4 h-4 mr-2" />
+                    <Calendar className="w-3.5 h-3.5 mr-1.5 shrink-0" />
                     <span>{t('invoices.card.date')}: {new Date(invoice.issue_date).toLocaleDateString('en-GB')}</span>
                   </div>
                   {invoice.due_date && (
                     <div className="flex items-center">
-                      <Calendar className="w-4 h-4 mr-2" />
+                      <Calendar className="w-3.5 h-3.5 mr-1.5 shrink-0" />
                       <span>{t('invoices.card.due')}: {new Date(invoice.due_date).toLocaleDateString('en-GB')}</span>
                     </div>
                   )}
-                  {invoice.description && <p className="text-sm">{invoice.description}</p>}
+                  {invoice.description && <p className="text-xs text-text-light truncate">{invoice.description}</p>}
                 </div>
               </div>
 
-              <div className="flex flex-col md:flex-row items-start md:items-center space-y-2 md:space-y-0 md:space-x-4">
-  <div className="text-right">
-    <p className="text-2xl font-bold text-text-primary">
-      {tp('invoices.card.amount', { amount: parseFloat(invoice.amount || 0).toFixed(2) })}
-    </p>
-    {invoice.vat_amount && (
-      <p className="text-sm text-text-secondary">
-        {tp('invoices.card.vat', { vat: parseFloat(invoice.vat_amount).toFixed(2) })}
-      </p>
-    )}
-  </div>
+              <div className="flex flex-col md:items-end gap-2">
+                <div className="text-left md:text-right">
+                  <p className="text-3xl md:text-[32px] leading-none font-extrabold text-text-primary tracking-tight">
+                    {tp('invoices.card.amount', { amount: parseFloat(invoice.amount || 0).toFixed(2) })}
+                  </p>
+                  {invoice.vat_amount && (
+                    <p className="text-xs text-text-secondary mt-1">
+                      {tp('invoices.card.vat', { vat: parseFloat(invoice.vat_amount).toFixed(2) })}
+                    </p>
+                  )}
+                </div>
 
-  {invoice.file_path ? (
-    <div className="flex space-x-2">
-      <button
-        onClick={() => viewInvoice(invoice)}
-        className="flex items-center px-3 py-2 text-primary border border-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
-      >
-        <Eye className="w-4 h-4 mr-1" />
-        {t('invoices.card.view')}
-      </button>
-      <button
-        onClick={() => downloadInvoice(invoice)}
-        className="flex items-center px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-      >
-        <Download className="w-4 h-4 mr-1" />
-        {t('invoices.card.download')}
-      </button>
-    </div>
-  ) : (
-    <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
-      {t('invoices.card.noFile')}
-    </span>
-  )}
-</div>
+                {invoice.file_path ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => viewInvoice(invoice)}
+                      className="inline-flex items-center px-2.5 py-1.5 text-sm text-primary border border-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
+                    >
+                      <Eye className="w-3.5 h-3.5 mr-1" />
+                      {t('invoices.card.view')}
+                    </button>
+                    <button
+                      onClick={() => downloadInvoice(invoice)}
+                      className="inline-flex items-center px-2.5 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1" />
+                      {t('invoices.card.download')}
+                    </button>
+                  </div>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
+                    {t('invoices.card.noFile')}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         ))}
