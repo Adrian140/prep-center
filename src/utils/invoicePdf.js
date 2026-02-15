@@ -1,6 +1,6 @@
 const formatMoney = (value) => {
   const number = Number(value || 0);
-  return number.toLocaleString('en-GB', {
+  return number.toLocaleString('fr-FR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -70,11 +70,13 @@ const createLogoVariant = async (
   return canvas.toDataURL('image/png');
 };
 
-const textLines = (doc, lines, x, yStart, step = 4.6) => {
-  (lines || []).forEach((line, i) => {
-    doc.text(normalizeText(line), x, yStart + i * step);
-  });
-  return (lines || []).length * step;
+const drawLines = (doc, lines, x, y, step = 4.9) => {
+  let cursor = y;
+  for (const line of lines) {
+    doc.text(normalizeText(line), x, cursor);
+    cursor += step;
+  }
+  return cursor;
 };
 
 export const buildInvoicePdfBlob = async ({
@@ -91,68 +93,67 @@ export const buildInvoicePdfBlob = async ({
 }) => {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
 
   let topLogoData = null;
   let watermarkLogoData = null;
   try {
-    topLogoData = await createLogoVariant('/branding/fulfillment-prep-logo.png', {
-      opacity: 1
-    });
+    topLogoData = await createLogoVariant('/branding/fulfillment-prep-logo.png', { opacity: 0.5 });
     watermarkLogoData = await createLogoVariant('/branding/fulfillment-prep-logo.png', {
       rotateDeg: 90,
-      opacity: 0.12,
+      opacity: 0.16,
       tint: [45, 147, 255],
-      tintStrength: 0.45
+      tintStrength: 0.55
     });
   } catch {
     topLogoData = null;
     watermarkLogoData = null;
   }
 
-  // soft blue transparent-like base tint to match requested style
-  doc.setFillColor(244, 249, 255);
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  // blue page tint close to styled reference
+  doc.setFillColor(63, 151, 235);
+  doc.rect(0, 0, pageW, pageH, 'F');
+
   if (watermarkLogoData) {
-    doc.addImage(watermarkLogoData, 'PNG', pageWidth - 86, 22, 72, 230, undefined, 'FAST');
+    doc.addImage(watermarkLogoData, 'PNG', pageW / 2 - 30, 74, 56, 148, undefined, 'FAST');
   }
 
-  const left = 12;
-  const right = pageWidth - 12;
-  const contentWidth = right - left;
-  const customerX = left + contentWidth / 2 + 3;
-  const issuerX = left + 3;
-  let y = 14;
+  const margin = 18;
+  const left = margin;
+  const right = pageW - margin;
+  const top = 22;
+  const mid = pageW / 2;
 
+  // Header
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text('INVOICE', left, y);
+  doc.setFontSize(11.5);
+  doc.setTextColor(8, 22, 43);
+  doc.text('INVOICE', left, top);
 
-  doc.setFontSize(9.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Invoice No: ${normalizeText(invoiceNumber) || '-'}`, right, y - 2, { align: 'right' });
-  doc.text(`Issue Date: ${formatDate(invoiceDate)}`, right, y + 3, { align: 'right' });
-  if (dueDate) {
-    doc.text(`Due Date: ${formatDate(dueDate)}`, right, y + 8, { align: 'right' });
-  }
+  doc.setFontSize(8.5);
+  doc.text(`No: ${normalizeText(invoiceNumber) || '-'}`, left, top + 7);
+  doc.text(`Date: ${formatDate(invoiceDate)}`, right, top + 1, { align: 'right' });
+  doc.text(`Due: ${dueDate ? formatDate(dueDate) : '-'}`, right, top + 7, { align: 'right' });
 
-  y += 12;
-  doc.setDrawColor(220);
-  doc.setFillColor(248, 249, 250);
-  doc.rect(left, y, contentWidth, 8, 'FD');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.text('Issuer Details', issuerX, y + 5.3);
-  doc.text('Bill To', customerX, y + 5.3);
+  doc.setDrawColor(186, 212, 238);
+  doc.setLineWidth(0.35);
+  doc.line(left, top + 11, right, top + 11);
 
-  y += 11;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9.5);
+  // Top tiny logo above issuer block
+  const infoStartY = top + 26;
   if (topLogoData) {
-    doc.addImage(topLogoData, 'PNG', issuerX, y - 1, 42, 13, undefined, 'FAST');
-    y += 14;
+    doc.addImage(topLogoData, 'PNG', left + 7, infoStartY - 8, 16, 6, undefined, 'FAST');
   }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.4);
+  doc.text('Issuer', left, infoStartY + 7);
+  doc.text('Bill To', mid + 2, infoStartY + 7);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.2);
 
   const issuerLines = [
     issuer?.company_name,
@@ -160,15 +161,15 @@ export const buildInvoicePdfBlob = async ({
     `${issuer?.postal_code || ''} ${issuer?.city || ''}`.trim(),
     issuer?.country,
     issuer?.vat_number ? `VAT: ${issuer.vat_number}` : null,
-    issuer?.registration_number ? `Registration: ${issuer.registration_number}` : null,
-    issuer?.email ? `Email: ${issuer.email}` : null,
-    issuer?.phone ? `Phone: ${issuer.phone}` : null,
-    issuer?.website ? `Website: ${issuer.website}` : null,
+    issuer?.registration_number ? `Reg: ${issuer.registration_number}` : null,
+    issuer?.email,
+    issuer?.phone,
+    issuer?.website,
     issuer?.iban ? `IBAN: ${issuer.iban}` : null,
-    issuer?.bic ? `BIC/SWIFT: ${issuer.bic}` : null
+    issuer?.bic ? `BIC: ${issuer.bic}` : null
   ].filter(Boolean);
 
-  const customerLines = [
+  const billToLines = [
     customer?.company_name || [customer?.first_name, customer?.last_name].filter(Boolean).join(' '),
     customer?.address,
     `${customer?.postal_code || ''} ${customer?.city || ''}`.trim(),
@@ -178,95 +179,79 @@ export const buildInvoicePdfBlob = async ({
     customerPhone ? `Phone: ${customerPhone}` : null
   ].filter(Boolean);
 
-  const issuerHeight = textLines(doc, issuerLines, issuerX, y);
-  const customerHeight = textLines(doc, customerLines, customerX, y);
+  const issuerBottom = drawLines(doc, issuerLines, left, infoStartY + 13, 4.6);
+  const billToBottom = drawLines(doc, billToLines, mid + 2, infoStartY + 13, 4.6);
 
-  y += Math.max(issuerHeight, customerHeight) + 6;
+  let y = Math.max(issuerBottom, billToBottom) + 7;
 
-  const tableHeaderY = y;
-  doc.setFillColor(243, 244, 246);
-  doc.rect(left, tableHeaderY, contentWidth, 8, 'F');
-  doc.setDrawColor(220);
-  doc.rect(left, tableHeaderY, contentWidth, 8);
+  // Table header
+  const tableX = left;
+  const tableW = right - left;
+  const colQty = tableX + tableW * 0.63;
+  const colUnit = tableX + tableW * 0.72;
+  const colNet = tableX + tableW * 0.86;
+
+  doc.setFillColor(221, 229, 238);
+  doc.rect(tableX, y, tableW, 8.2, 'F');
+  doc.setDrawColor(188, 198, 210);
+  doc.rect(tableX, y, tableW, 8.2);
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text('Description', left + 2, tableHeaderY + 5.2);
-  doc.text('Qty', left + 118, tableHeaderY + 5.2, { align: 'right' });
-  doc.text('Unit Price', left + 148, tableHeaderY + 5.2, { align: 'right' });
-  doc.text('Net Amount', right - 2, tableHeaderY + 5.2, { align: 'right' });
+  doc.setFontSize(8.4);
+  doc.text('Service', tableX + 2, y + 5.4);
+  doc.text('Qty', colQty + 2, y + 5.4);
+  doc.text('Unit', colUnit + 2, y + 5.4);
+  doc.text('Net', right - 2, y + 5.4, { align: 'right' });
 
-  y = tableHeaderY + 10;
+  y += 8.2;
+
+  // Items
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9.2);
+  doc.setFontSize(8.2);
+  items.forEach((item, idx) => {
+    const rowFill = idx % 2 === 0 ? [234, 238, 244] : [226, 232, 238];
+    const rowH = 8.5;
+    doc.setFillColor(rowFill[0], rowFill[1], rowFill[2]);
+    doc.rect(tableX, y, tableW, rowH, 'F');
+    doc.setDrawColor(188, 198, 210);
+    doc.rect(tableX, y, tableW, rowH);
 
-  const drawTableHeader = () => {
-    const rowY = y - 8;
-    doc.setFillColor(243, 244, 246);
-    doc.rect(left, rowY, contentWidth, 8, 'F');
-    doc.setDrawColor(220);
-    doc.rect(left, rowY, contentWidth, 8);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.text('Description', left + 2, rowY + 5.2);
-    doc.text('Qty', left + 118, rowY + 5.2, { align: 'right' });
-    doc.text('Unit Price', left + 148, rowY + 5.2, { align: 'right' });
-    doc.text('Net Amount', right - 2, rowY + 5.2, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9.2);
-  };
-
-  items.forEach((item) => {
-    if (y > 270) {
-      doc.addPage();
-      y = 18;
-      drawTableHeader();
-      y += 2;
-    }
-
-    const description = normalizeText(item.service || '-');
+    const service = normalizeText(item.service || '-');
     const qty = Number(item.units || 0);
-    const unitPrice = Number(item.unitPrice || 0);
-    const lineTotal = Number(item.total || qty * unitPrice || 0);
+    const unit = Number(item.unitPrice || 0);
+    const net = Number(item.total || qty * unit || 0);
 
-    const descriptionLines = doc.splitTextToSize(description, 102);
-    const rowHeight = Math.max(6, descriptionLines.length * 4.4);
+    doc.text(service, tableX + 2, y + 5.5);
+    doc.text(String(Number.isInteger(qty) ? qty : qty.toFixed(2)), colQty + 2, y + 5.5);
+    doc.text(`${formatMoney(unit)} €`, colUnit + 2, y + 5.5);
+    doc.text(`${formatMoney(net)} €`, right - 2, y + 5.5, { align: 'right' });
 
-    doc.text(descriptionLines, left + 2, y);
-    doc.text(String(Number.isInteger(qty) ? qty : qty.toFixed(2)), left + 118, y, { align: 'right' });
-    doc.text(`${formatMoney(unitPrice)} EUR`, left + 148, y, { align: 'right' });
-    doc.text(`${formatMoney(lineTotal)} EUR`, right - 2, y, { align: 'right' });
-
-    y += rowHeight;
-    doc.setDrawColor(238);
-    doc.line(left, y - 2, right, y - 2);
+    y += rowH;
   });
 
+  // Totals (plain, right aligned under table)
   y += 4;
-  const totalsX = left + 112;
-  const totalsW = contentWidth - 112;
-  doc.setDrawColor(220);
-  doc.rect(totalsX, y - 3, totalsW, 20);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9.5);
-  doc.text('Net Total', totalsX + 3, y + 2);
-  doc.text(`${formatMoney(totals?.net)} EUR`, right - 3, y + 2, { align: 'right' });
-  doc.text(totals?.vatLabel || 'VAT', totalsX + 3, y + 8);
-  doc.text(`${formatMoney(totals?.vat)} EUR`, right - 3, y + 8, { align: 'right' });
-
+  const totalsLabelX = right - 58;
+  const totalsValueX = right - 2;
   doc.setFont('helvetica', 'bold');
-  doc.text('Grand Total', totalsX + 3, y + 14);
-  doc.text(`${formatMoney(totals?.gross)} EUR`, right - 3, y + 14, { align: 'right' });
+  doc.setFontSize(9.2);
+  doc.text('Net total:', totalsLabelX, y);
+  doc.text(`${formatMoney(totals?.net)} €`, totalsValueX, y, { align: 'right' });
 
+  y += 6;
+  doc.text(totals?.vatLabel || 'VAT:', totalsLabelX, y);
+  doc.text(`${formatMoney(totals?.vat)} €`, totalsValueX, y, { align: 'right' });
+
+  y += 6;
+  doc.setFontSize(10.2);
+  doc.text('Total:', totalsLabelX, y);
+  doc.text(`${formatMoney(totals?.gross)} €`, totalsValueX, y, { align: 'right' });
+
+  // Footer legal note
   doc.setFont('helvetica', 'normal');
-  if (legalNote) {
-    y += 24;
-    doc.setFontSize(8.7);
-    doc.text('Legal Note:', left, y);
-    const noteLines = doc.splitTextToSize(normalizeText(legalNote), contentWidth);
-    doc.text(noteLines, left, y + 4);
-  }
+  doc.setFontSize(6.5);
+  const footerY = pageH - 12;
+  doc.text(`Legal note: ${normalizeText(legalNote || '')}`, left, footerY);
 
   return doc.output('blob');
 };
