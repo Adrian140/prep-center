@@ -415,37 +415,39 @@ export default function BillingSelectionPanel({
 
       <div className="relative rounded-lg border border-gray-200 p-3 pb-10 space-y-2">
         <p className="text-xs font-semibold text-text-secondary uppercase">Date emitent ({issuerCountry})</p>
-        <div className="rounded border border-gray-200 bg-gray-50 p-2 text-xs text-text-secondary">
-          <p className="font-medium text-text-primary">Invoice template ({issuerCountry})</p>
-          <p>{activeTemplate ? 'Template activ' : 'Niciun template încărcat (fallback default).'}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <label className="cursor-pointer rounded border border-gray-300 bg-white px-2 py-1 hover:bg-gray-50">
-              {templateSaving ? 'Uploading...' : 'Upload template'}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="hidden"
-                onChange={handleTemplateUpload}
-                disabled={templateSaving}
-              />
-            </label>
-            {activeTemplate ? (
-              <>
-                <a href={activeTemplate} target="_blank" rel="noreferrer" className="rounded border border-gray-300 bg-white px-2 py-1 hover:bg-gray-50">
-                  Preview
-                </a>
-                <button
-                  type="button"
-                  onClick={handleTemplateRemove}
-                  className="rounded border border-red-200 bg-white px-2 py-1 text-red-600 hover:bg-red-50"
+        {false && (
+          <div className="rounded border border-gray-200 bg-gray-50 p-2 text-xs text-text-secondary">
+            <p className="font-medium text-text-primary">Invoice template ({issuerCountry})</p>
+            <p>{activeTemplate ? 'Template activ' : 'Niciun template încărcat (fallback default).'}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <label className="cursor-pointer rounded border border-gray-300 bg-white px-2 py-1 hover:bg-gray-50">
+                {templateSaving ? 'Uploading...' : 'Upload template'}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleTemplateUpload}
                   disabled={templateSaving}
-                >
-                  Remove
-                </button>
-              </>
-            ) : null}
+                />
+              </label>
+              {activeTemplate ? (
+                <>
+                  <a href={activeTemplate} target="_blank" rel="noreferrer" className="rounded border border-gray-300 bg-white px-2 py-1 hover:bg-gray-50">
+                    Preview
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleTemplateRemove}
+                    className="rounded border border-red-200 bg-white px-2 py-1 text-red-600 hover:bg-red-50"
+                    disabled={templateSaving}
+                  >
+                    Remove
+                  </button>
+                </>
+              ) : null}
+            </div>
           </div>
-        </div>
+        )}
         {editingIssuer ? (
           <>
             <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Company name" value={issuerProfile?.company_name || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), company_name: e.target.value, country: issuerCountry }))} />

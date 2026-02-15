@@ -125,7 +125,7 @@ export const buildInvoicePdfBlob = async ({
     });
     if (!templateData) {
       const issuerCountry = String(issuer?.country || '').toUpperCase();
-      if (issuerCountry === 'FR') {
+      if (issuerCountry === 'FR' || issuerCountry === 'DE') {
         templateData = '/branding/invoice-template-fr.png';
       }
     }
@@ -317,6 +317,8 @@ export const buildInvoicePdfBlob = async ({
     doc.line(10, pageH - 28, pageW - 10, pageH - 28);
     doc.setFontSize(6.3);
     drawLines(doc, FR_ISSUER_FOOTER_LINES, 10.5, pageH - 22, 4.6);
+  } else if (issuerCountry === 'DE') {
+    // No footer block for Germany invoices.
   } else {
     doc.setFontSize(6.5);
     const footerY = pageH - 12;
