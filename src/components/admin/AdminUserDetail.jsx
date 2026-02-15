@@ -36,6 +36,7 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [billingError, setBillingError] = useState('');
   const [billingProfiles, setBillingProfiles] = useState([]);
   const [issuerProfiles, setIssuerProfiles] = useState(DEFAULT_ISSUER_PROFILES);
+  const [invoiceTemplates, setInvoiceTemplates] = useState({});
   const [invoiceCounters, setInvoiceCounters] = useState({ FR: 189, DE: 1 });
   const hasBillingSelection = canManageInvoices && Object.keys(billingSelections).length > 0;
   const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns', 'requests'];
@@ -130,7 +131,7 @@ const ensureCompany = async () => {
       ? [null, null, null, results[0]]
       : results;
     let billingProfilesRes = await supabaseHelpers.getBillingProfiles(profile?.id);
-    const [issuerSettingsRes, countersSettingsRes] = await Promise.all([
+    const [issuerSettingsRes, countersSettingsRes, templateSettingsRes] = await Promise.all([
       supabase
       .from('app_settings')
       .select('value')
@@ -140,6 +141,11 @@ const ensureCompany = async () => {
         .from('app_settings')
         .select('value')
         .eq('key', 'invoice_number_counters')
+        .maybeSingle(),
+      supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'invoice_pdf_templates')
         .maybeSingle()
     ]);
     if (!billingProfilesRes?.error && (!billingProfilesRes?.data || billingProfilesRes.data.length === 0)) {
@@ -175,6 +181,11 @@ if (!countersSettingsRes?.error && countersSettingsRes?.data?.value) {
 } else {
   setInvoiceCounters({ FR: 189, DE: 1 });
 }
+if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
+  setInvoiceTemplates(templateSettingsRes.data.value || {});
+} else {
+  setInvoiceTemplates({});
+}
 
   };
 
@@ -204,7 +215,6 @@ if (!countersSettingsRes?.error && countersSettingsRes?.data?.value) {
 
   const handleBillingSave = useCallback(
     async ({
-      invoiceNumber,
       invoiceDate,
       dueDate,
       status,
@@ -214,6 +224,7 @@ if (!countersSettingsRes?.error && countersSettingsRes?.data?.value) {
       customerEmail,
       customerPhone,
       invoiceCounterValue,
+      templateImage,
       lines,
       items,
       totals
@@ -259,7 +270,8 @@ if (!countersSettingsRes?.error && countersSettingsRes?.data?.value) {
           gross: roundMoney(totals?.gross ?? 0),
           vatLabel: totals?.vatLabel || 'TVA'
         },
-        legalNote: totals?.legalNote || ''
+        legalNote: totals?.legalNote || '',
+        templateImage: templateImage || invoiceTemplates?.[issuerCode] || null
       });
 
       const pdfFile = new File(
@@ -319,7 +331,7 @@ if (!countersSettingsRes?.error && countersSettingsRes?.data?.value) {
       await loadAll();
       return { error: null };
     },
-    [company?.id, profile?.id, currentMarket, invoiceCounters, loadAll]
+    [company?.id, profile?.id, currentMarket, invoiceCounters, invoiceTemplates, loadAll]
   );
 
   const handleSaveIssuerProfile = useCallback(async (countryCode, nextProfile) => {
@@ -346,6 +358,27 @@ if (!countersSettingsRes?.error && countersSettingsRes?.data?.value) {
     setIssuerProfiles(merged);
     return { error: null };
   }, [issuerProfiles]);
+
+  const handleSaveInvoiceTemplate = useCallback(async (countryCode, templateImage) => {
+    const code = String(countryCode || '').toUpperCase();
+    if (!code) return { error: new Error('Țara template-ului lipsește.') };
+    const nextTemplates = { ...invoiceTemplates };
+    if (templateImage) {
+      nextTemplates[code] = templateImage;
+    } else {
+      delete nextTemplates[code];
+    }
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert({
+        key: 'invoice_pdf_templates',
+        value: nextTemplates,
+        updated_at: new Date().toISOString()
+      });
+    if (error) return { error };
+    setInvoiceTemplates(nextTemplates);
+    return { error: null };
+  }, [invoiceTemplates]);
 
   const displayName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Utilizator';
@@ -551,7 +584,9 @@ if (!countersSettingsRes?.error && countersSettingsRes?.data?.value) {
               currentMarket={currentMarket || 'FR'}
               invoiceCounters={invoiceCounters}
               issuerProfiles={issuerProfiles}
+              invoiceTemplates={invoiceTemplates}
               onSaveIssuerProfile={handleSaveIssuerProfile}
+              onSaveInvoiceTemplate={handleSaveInvoiceTemplate}
               onSaveBillingProfile={async (billingProfileId, updates) => {
                 const { error } = await supabaseHelpers.updateBillingProfile(billingProfileId, updates);
                 if (!error) await loadAll();

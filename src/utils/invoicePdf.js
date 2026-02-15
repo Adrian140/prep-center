@@ -89,7 +89,8 @@ export const buildInvoicePdfBlob = async ({
   customerPhone,
   items = [],
   totals,
-  legalNote
+  legalNote,
+  templateImage
 }) => {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -98,6 +99,7 @@ export const buildInvoicePdfBlob = async ({
 
   let topLogoData = null;
   let watermarkLogoData = null;
+  let templateData = normalizeText(templateImage);
   try {
     topLogoData = await createLogoVariant('/branding/fulfillment-prep-logo.png', { opacity: 0.5 });
     watermarkLogoData = await createLogoVariant('/branding/fulfillment-prep-logo.png', {
@@ -106,17 +108,39 @@ export const buildInvoicePdfBlob = async ({
       tint: [45, 147, 255],
       tintStrength: 0.55
     });
+    if (!templateData) {
+      const issuerCountry = String(issuer?.country || '').toUpperCase();
+      if (issuerCountry === 'FR') {
+        templateData = '/branding/invoice-template-fr.png';
+      }
+    }
+    if (templateData && templateData.startsWith('/')) {
+      const loadedTemplate = await createLogoVariant(templateData, { opacity: 1 });
+      if (loadedTemplate) {
+        templateData = loadedTemplate;
+      }
+    }
   } catch {
     topLogoData = null;
     watermarkLogoData = null;
   }
 
-  // blue page tint close to styled reference
-  doc.setFillColor(63, 151, 235);
-  doc.rect(0, 0, pageW, pageH, 'F');
+  if (templateData) {
+    try {
+      const ext = templateData.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+      doc.addImage(templateData, ext, 0, 0, pageW, pageH, undefined, 'FAST');
+    } catch {
+      templateData = '';
+    }
+  }
+  if (!templateData) {
+    // blue page tint close to styled reference
+    doc.setFillColor(63, 151, 235);
+    doc.rect(0, 0, pageW, pageH, 'F');
 
-  if (watermarkLogoData) {
-    doc.addImage(watermarkLogoData, 'PNG', pageW / 2 - 30, 74, 56, 148, undefined, 'FAST');
+    if (watermarkLogoData) {
+      doc.addImage(watermarkLogoData, 'PNG', pageW / 2 - 30, 74, 56, 148, undefined, 'FAST');
+    }
   }
 
   const margin = 18;
