@@ -24,8 +24,8 @@ export const DEFAULT_ISSUER_PROFILES = {
     phone: '+49 176 24963618',
     email: 'logistics.de@prep-center.eu',
     website: 'https://prep-center.eu',
-    iban: '',
-    bic: ''
+    iban: 'BE98 9676 6791 5993',
+    bic: 'TRWIBEB1XXX'
   }
 };
 
