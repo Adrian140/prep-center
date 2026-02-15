@@ -63,7 +63,12 @@ const roundMoney = (value) => {
   return Math.round(number * 100) / 100;
 };
 
-const isProforma = (row) => String(row?.document_type || 'invoice').toLowerCase() === 'proforma';
+const isProforma = (row) => {
+  const byType = String(row?.document_type || '').toLowerCase() === 'proforma';
+  if (byType) return true;
+  const number = String(row?.invoice_number || '').toUpperCase();
+  return /\bPF\d+\b/.test(number);
+};
 
 const buildDocumentNumber = ({ issuerCode, counterValue, documentType }) => {
   const normalizedType = String(documentType || 'invoice').toLowerCase();
