@@ -573,6 +573,20 @@ export default function AdminInvoicesOverview() {
         });
       if (saveCounterError) throw saveCounterError;
 
+      // After a successful conversion, remove the source proforma row.
+      const { error: deleteProformaError } = await supabaseHelpers.deleteInvoice(row);
+      if (deleteProformaError) {
+        const hardDelete = await supabase
+          .from('invoices')
+          .delete()
+          .eq('id', row.id);
+        if (hardDelete.error) {
+          setError(
+            `Invoice converted, but failed to remove proforma: ${hardDelete.error.message || deleteProformaError.message || 'Unknown error'}`
+          );
+        }
+      }
+
       await loadInvoices();
     } catch (err) {
       setError(err?.message || t('adminInvoices.loadError'));
