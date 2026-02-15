@@ -17,6 +17,7 @@ import AdminPricing from './AdminPricing';
 import AdminShippingRates from './AdminShippingRates';
 import AdminReturns from './AdminReturns';
 import AdminChat from './AdminChat';
+import AdminInvoicesOverview from './AdminInvoicesOverview';
 import { getTabId } from '@/utils/tabIdentity';
 import { tabSessionStorage } from '@/utils/tabStorage';
 import SupabaseSecuritySettings from '@/components/dashboard/SupabaseSecuritySettings';
@@ -73,7 +74,7 @@ useEffect(() => {
   const lastUrlTabRef = useRef(null);
   const validTabs = [
     'analytics', 'dashboard', 'profiles', 'receiving', 'prep-requests', 'returns',
-    'pricing', 'boxes', 'prep-business', 'reviews', 'user-guide', 'chat', 'security', 'settings'
+    'pricing', 'boxes', 'prep-business', 'reviews', 'user-guide', 'chat', 'security', 'invoices', 'settings'
   ];
   // ✅ Save & restore last selected admin tab
   const [activeTab, setActiveTab] = useState(() => {
@@ -205,6 +206,7 @@ useEffect(() => {
     { id: 'chat', label: 'Chat', icon: Users },
     { id: 'security', label: t('sidebar.security'), icon: Shield },
     { id: 'analytics', label: t('sidebar.analytics'), icon: BarChart3 },
+    { id: 'invoices', label: t('sidebar.invoices'), icon: FileText },
     { id: 'settings', label: t('sidebar.settings'), icon: Settings }
   ]), [t]);
 
@@ -1546,6 +1548,7 @@ const renderTabContent = () => {
     case 'chat': return <AdminChat />;
     case 'prep-business': return <AdminPrepBusinessIntegrations />;
     case 'security': return <SupabaseSecuritySettings />;
+    case 'invoices': return <AdminInvoicesOverview />;
     case 'settings': return renderSettingsTab();
     default:
       return (

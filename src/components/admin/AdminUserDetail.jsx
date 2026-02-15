@@ -16,6 +16,8 @@ import { useSessionStorage } from '@/hooks/useSessionStorage';
 import BillingSelectionPanel from './BillingSelectionPanel';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
+import { buildInvoicePdfBlob } from '@/utils/invoicePdf';
+import { roundMoney } from '@/utils/invoiceTax';
 
 export default function AdminUserDetail({ profile, onBack }) {
   const { profile: currentAdmin } = useSupabaseAuth();
@@ -32,6 +34,7 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [billingSelections, setBillingSelections] = useState({});
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingError, setBillingError] = useState('');
+  const [billingProfiles, setBillingProfiles] = useState([]);
   const hasBillingSelection = canManageInvoices && Object.keys(billingSelections).length > 0;
   const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns', 'requests'];
   const allowedSections = isLimitedAdmin ? ['stock'] : serviceSections;
@@ -124,6 +127,11 @@ const ensureCompany = async () => {
     const [fbaRes, fbmRes, otherRes, returnsRes] = isLimitedAdmin
       ? [null, null, null, results[0]]
       : results;
+    let billingProfilesRes = await supabaseHelpers.getBillingProfiles(profile?.id);
+    if (!billingProfilesRes?.error && (!billingProfilesRes?.data || billingProfilesRes.data.length === 0)) {
+      await supabaseHelpers.seedBillingProfilesFromSignup(profile?.id);
+      billingProfilesRes = await supabaseHelpers.getBillingProfiles(profile?.id);
+    }
 
 setCompany({ id: cid, name: profile.company_name || profile.first_name || profile.email });
 if (!isLimitedAdmin) {
@@ -136,6 +144,7 @@ if (!isLimitedAdmin) {
   setOtherRows([]);
 }
 if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
+if (!billingProfilesRes?.error) setBillingProfiles(billingProfilesRes?.data || []);
 
   };
 
@@ -164,7 +173,21 @@ if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
   }, []);
 
   const handleBillingSave = useCallback(
-    async ({ invoiceNumber, invoiceDate, lines, total }) => {
+    async ({
+      invoiceNumber,
+      invoiceDate,
+      dueDate,
+      status,
+      issuerCountry,
+      issuerProfile,
+      billingProfileId,
+      billingProfile,
+      customerEmail,
+      customerPhone,
+      lines,
+      items,
+      totals
+    }) => {
     if (!company?.id) {
       const error = new Error('Nicio companie selectată.');
       setBillingError(error.message);
@@ -172,12 +195,12 @@ if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
     }
       setBillingSaving(true);
       setBillingError('');
-      const { error } = await supabaseHelpers.createBillingInvoice({
+      const { data: billingInvoice, error } = await supabaseHelpers.createBillingInvoice({
         company_id: company.id,
         user_id: profile?.id,
         invoice_number: invoiceNumber,
         invoice_date: invoiceDate,
-        total_amount: total,
+        total_amount: totals?.gross ?? 0,
         lines
       });
       if (error) {
@@ -185,12 +208,68 @@ if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
         setBillingSaving(false);
         return { error };
       }
+
+      const pdfBlob = await buildInvoicePdfBlob({
+        invoiceNumber,
+        invoiceDate,
+        dueDate,
+        issuer: issuerProfile,
+        customer: billingProfile,
+        customerEmail,
+        customerPhone,
+        items: items || [],
+        totals: {
+          net: roundMoney(totals?.net ?? 0),
+          vat: roundMoney(totals?.vat ?? 0),
+          gross: roundMoney(totals?.gross ?? 0),
+          vatLabel: totals?.vatLabel || 'TVA'
+        },
+        legalNote: totals?.legalNote || ''
+      });
+
+      const pdfFile = new File(
+        [pdfBlob],
+        `invoice-${String(invoiceNumber).replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`,
+        { type: 'application/pdf' }
+      );
+
+      const description = [
+        `Issuer: ${issuerProfile?.company_name || issuerCountry}`,
+        `Billing profile: ${billingProfile?.company_name || [billingProfile?.first_name, billingProfile?.last_name].filter(Boolean).join(' ') || '-'}`,
+        totals?.legalNote ? `Note: ${totals.legalNote}` : null
+      ].filter(Boolean).join(' | ');
+
+      const uploadRes = await supabaseHelpers.uploadInvoice(pdfFile, profile?.id, {
+        invoice_number: invoiceNumber,
+        amount: roundMoney(totals?.net ?? 0),
+        vat_amount: roundMoney(totals?.vat ?? 0),
+        description,
+        issue_date: invoiceDate,
+        due_date: dueDate || null,
+        status: status || 'pending',
+        company_id: company.id,
+        user_id: profile?.id,
+        country: issuerCountry || currentMarket || 'FR'
+      });
+      if (uploadRes?.error) {
+        setBillingError(uploadRes.error.message || 'Factura PDF nu a putut fi urcată.');
+        setBillingSaving(false);
+        return { error: uploadRes.error };
+      }
+
+      if (billingInvoice?.id && uploadRes?.data?.id) {
+        await supabase
+          .from('invoices')
+          .update({ description: `${description} | Billing invoice ID: ${billingInvoice.id}` })
+          .eq('id', uploadRes.data.id);
+      }
+
       setBillingSaving(false);
       setBillingSelections({});
       await loadAll();
       return { error: null };
     },
-    [company?.id, profile?.id, loadAll]
+    [company?.id, profile?.id, currentMarket, loadAll]
   );
 
   const displayName =
@@ -391,6 +470,10 @@ if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
           <div className="lg:w-[360px] lg:flex-shrink-0">
             <BillingSelectionPanel
               selections={billingSelections}
+              billingProfiles={billingProfiles}
+              clientEmail={profile?.email || ''}
+              clientPhone={profile?.phone || ''}
+              currentMarket={currentMarket || 'FR'}
               onSave={handleBillingSave}
               onClear={clearBillingSelections}
               isSaving={billingSaving}

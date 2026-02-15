@@ -16,7 +16,8 @@
       "userGuide": "User Guide",
       "security": "Security",
       "settings": "Settings",
-      "affiliates": "Affiliates"
+      "affiliates": "Affiliates",
+      "invoices": "Invoices"
     },
     "common": {
       "loading": "Loading…",
@@ -363,7 +364,6 @@
       "updateError": "Could not save changes.",
       "offerPercent": "{percent}% on all turnover",
       "offerTier": "≥ {amount} → {percent}%",
-      "offerTier": "≥ {amount} → {percent}%",
       "offerThreshold": "{below}% below {threshold}, {above}% above",
       "offerFixed": "One-time bonus {amount} after {threshold}",
       "offerNone": "No payout settings",
@@ -392,277 +392,122 @@
       "deleteConfirm": "Delete this affiliate code? Assigned clients will lose the link.",
       "deleteSuccess": "Affiliate code deleted.",
       "deleteError": "Unable to delete affiliate code."
+    },
+    "adminInvoices": {
+      "title": "Admin invoices by country",
+      "subtitle": "Monthly bulk view with Pending sorted first.",
+      "monthLabel": "Billing month",
+      "loadError": "Unable to load invoices.",
+      "empty": "No invoices found for the selected filters.",
+      "cards": {
+        "totalInvoices": "Total invoices",
+        "pendingInvoices": "Pending invoices",
+        "netTotal": "Net total",
+        "grossTotal": "Gross total"
+      },
+      "table": {
+        "date": "Date",
+        "invoice": "Invoice",
+        "client": "Client",
+        "net": "Net",
+        "vat": "VAT",
+        "total": "Total",
+        "status": "Status"
+      }
     }
   },
   "fr": {
-    "shell": {
-      "title": "Panneau administrateur",
-      "subtitle": ""
+    "adminDashboard": {
+      "title": "Tableau de bord",
+      "subtitle": "Vue opérationnelle",
+      "aggregateLabel": "Toutes les entreprises (agrégé)",
+      "companyLabel": "Entreprise : {name}",
+      "searchPlaceholder": "Rechercher une entreprise…",
+      "unknownCompany": "Sans nom",
+      "noCompaniesOption": "Aucune entreprise trouvée",
+      "allCompaniesOption": "Toutes les entreprises",
+      "loadingCompanies": "Chargement des entreprises…",
+      "noCompanies": "Aucune entreprise à afficher.",
+      "loadingData": "Chargement des données…",
+      "noData": "Pas de données pour l’intervalle sélectionné.",
+      "errors": {
+        "loadCompanies": "Impossible de charger les entreprises.",
+        "loadData": "Impossible de charger les données.",
+        "loadChart": "Impossible de charger les données du graphique."
+      },
+      "quick": {
+        "today": "Aujourd’hui",
+        "last7": "7j",
+        "last30": "30j"
+      },
+      "balanceTitle": "Balance",
+      "balanceSubtitleSingle": "Intervalle : €{total}",
+      "balanceSubtitleInterval": "Total intervalle : €{total}",
+      "preparedTitle": "Unités préparées",
+      "preparedSubtitleSingle": "Intervalle : {total}",
+      "preparedSubtitleInterval": "Total intervalle : {total}",
+      "receptionsTitle": "Réceptions",
+      "receptionsSubtitleSingle": "Intervalle : {total}",
+      "receptionsSubtitleInterval": "Total intervalle : {total}",
+      "stockTitle": "Unités en stock",
+      "stockSubtitleAll": "Stock actuel (toutes les entreprises)",
+      "stockSubtitleCompany": "Stock actuel (global, sans filtre société)",
+      "sectionInbound": "Entrant",
+      "sectionAmazon": "Amazon",
+      "sectionInventory": "Inventaire",
+      "sectionBilling": "Facturation",
+      "arrivingToday": "Arrivages aujourd’hui",
+      "arrivingLastDays": "Arrivages des {days} derniers jours",
+      "receivedToday": "Réceptionné aujourd’hui",
+      "receivedLastDays": "Réceptionné sur {days} jours",
+      "unitsReceivedRange": "Unités reçues (période sélectionnée)",
+      "unitsShippedRange": "Unités expédiées (période sélectionnée)",
+      "shippedToday": "Expédié aujourd’hui",
+      "shippedLastDays": "Expédié sur {days} jours",
+      "inProgressLabel": "En cours",
+      "shipmentsLabel": "Expéditions",
+      "unitsLabel": "Unités",
+      "quantityInStock": "Quantité en stock",
+      "availableQuantity": "Quantité disponible",
+      "inboundQuantity": "Quantité en inbound",
+      "allocatedQuantity": "Quantité allouée",
+      "unavailableQuantity": "Quantité indisponible",
+      "chartTitle": "Statistiques quotidiennes",
+      "chartRangeLabel": "Derniers {days} jours",
+      "loadingChart": "Chargement du graphique…",
+      "noChartData": "Pas de données pour la plage sélectionnée.",
+      "chartPrepared": "Préparé",
+      "chartReceiving": "Réceptionné",
+      "chartBalance": "Balance",
+      "statusOrdersTitle": "Statuts des commandes (intervalle)",
+      "statusShipmentsTitle": "Statuts des réceptions (intervalle)",
+      "noOrdersStatus": "Aucune commande dans cet intervalle.",
+      "noShipmentsStatus": "Aucune réception dans cet intervalle."
     },
     "sidebar": {
-      "analytics": "Analytics",
-      "profiles": "Clients",
-      "receiving": "Réceptions",
-      "prepRequests": "Demandes de préparation",
-      "services": "Services",
-      "pricing": "Tarifs",
-      "homeContent": "Contenu d'accueil",
-      "reviews": "Avis",
-      "userGuide": "Guide utilisateur",
-      "security": "Sécurité",
-      "settings": "Paramètres",
-      "affiliates": "Affiliates"
+      "invoices": "Factures"
     },
-    "common": {
-      "loading": "Chargement…",
-      "errorPrefix": "Erreur",
-      "delete": "Supprimer",
-      "cancel": "Annuler",
-      "save": "Enregistrer",
-      "refresh": "Actualiser",
-      "signOut": "Se déconnecter",
-      "accessDeniedTitle": "Accès refusé",
-      "accessDeniedDesc": "Votre compte n'a pas de permissions administrateur."
-    },
-    "clients": {
-      "filters": {
-        "month": "Mois",
-        "prevMonth": "Mois précédent",
-        "nextMonth": "Mois suivant",
-        "balance": "Filtre solde",
-        "search": "Recherche",
-        "searchPlaceholder": "Nom / société / email / téléphone…"
-      },
-      "balanceFilters": {
-        "all": "Tous",
-        "advance": "Avec avance",
-        "overdue": "En retard"
-      },
-      "buttons": {
-        "exportCsv": "Exporter CSV",
-        "showEmail": "Afficher l'email",
-        "hideEmail": "Masquer l'email",
-        "toggleEmail": "Afficher / masquer la colonne email",
-        "showPhone": "Afficher le téléphone",
-        "hidePhone": "Masquer le téléphone",
-        "togglePhone": "Afficher / masquer la colonne téléphone",
-        "showPricing": "Afficher accès tarifs",
-        "hidePricing": "Masquer accès tarifs",
-        "togglePricing": "Afficher / masquer la colonne tarifs"
-      },
-      "rpcRange": "Période RPC : {start} (inclus) → {end} (inclus)",
-      "table": {
-        "index": "N°",
-        "store": "Store",
-        "name": "Nom",
-        "company": "Société",
-        "email": "Email",
-        "phone": "Téléphone",
-        "createdAt": "Créé le",
-        "pricingVisibility": "Accès tarifs",
-        "pricingVisible": "Affichés",
-        "pricingHidden": "Masqués",
-        "currentBalance": "Solde",
-        "carryBalance": "Solde restant / avance",
-        "liveBalance": "Solde du jour",
-        "actions": "Actions",
-        "open": "Ouvrir"
-      },
-      "csv": {
-        "name": "Nom",
-        "company": "Société",
-        "email": "Email",
-        "createdAt": "Créé le",
-        "current": "Solde",
-        "carry": "Restant / avance",
-        "live": "Solde du jour",
-        "footer": "Total page courante"
-      },
-      "empty": "Aucun client trouvé.",
-      "totalLabel": "Nombre de clients : {count}",
-      "pagination": "Page {page} / {total}",
-      "paginationPrev": "Page précédente",
-      "paginationNext": "Page suivante",
-      "messages": {
-        "priceAccessEnabled": "Le client peut maintenant voir les tarifs.",
-        "priceAccessDisabled": "Tarifs masqués pour ce client.",
-        "priceAccessError": "Impossible de mettre à jour l'accès aux tarifs."
-      }
-    },
-    "serviceNames": {
-      "photoSubscription": "Abonnement stockage photos",
-      "manualPhoto": "Prise de photos manuelle"
-    },
-    "adminPricing": {
-      "title": "Gestionnaire de tarifs",
-      "subtitle": "Ajoutez, modifiez ou publiez les tarifs FBA, FBM, extra et stockage en un seul endroit.",
-      "sync": "Synchroniser avec le site",
-      "export": "Exporter le classeur de tarifs",
-      "loading": "Chargement des tarifs…",
-      "save": "Enregistrer",
-      "saving": "Enregistrement…",
-      "addPrep": "Ajouter un service de préparation",
-      "addPlatform": "Ajouter une plateforme",
-      "addService": "Ajouter un service",
-      "addStorage": "Ajouter un type de stockage",
-      "fields": {
-        "service": "Nom du service",
-        "price": "Tarif",
-        "unit": "Unité"
-      },
-      "validation": "Ligne {index} : renseignez nom, tarif et unité.",
-      "saveSuccess": "Tarifs enregistrés avec succès.",
-      "saveError": "Impossible d’enregistrer les tarifs.",
-      "loadError": "Impossible de charger les tarifs.",
-      "exportError": "Échec de la génération du classeur.",
-      "groups": {
-        "fba": {
-          "title": "Services FBA Prep",
-          "subtitle": "Préparation inbound par unité."
-        },
-        "fbm": {
-          "title": "Fulfillment FBM",
-          "subtitle": "Traitement par commande suivant la plateforme."
-        },
-        "extra": {
-          "title": "Services additionnels",
-          "subtitle": "Branding, inserts et traductions."
-        },
-        "storage": {
-          "title": "Stockage",
-          "subtitle": "Formules mensuelles et suppléments."
-        },
-        "custom": {
-          "title": "Catégorie personnalisée",
-          "subtitle": "Publiée depuis l’admin."
-        }
-      }
-    },
-    "receiving": {
-      "title": "Gestion des réceptions",
-      "subtitle": "Gérez les annonces de réception des clients",
-      "filters": {
-        "status": "Tous les statuts",
-        "searchPlaceholder": "Rechercher par tracking, client, email…"
-      },
-      "buttons": {
-        "markSelected": "Marquer la sélection comme reçue",
-        "refresh": "Actualiser"
-      },
-      "status": {
-        "draft": "Brouillon",
-        "submitted": "Soumise",
-        "received": "Reçue",
-        "processed": "Traitée",
-        "cancelled": "Annulée"
-      },
-      "messages": {
-        "selectOne": "Sélectionnez d'abord au moins une réception.",
-        "marked": "Réception marquée comme reçue.",
-        "deleted": "Réception supprimée avec succès.",
-        "processed": "Réception traitée vers le stock.",
-        "bulkMarked": "{count} réception(s) marquée(s) comme reçue(s).",
-        "error": "Erreur",
-        "processingError": "Erreur de traitement",
-        "deleteError": "Erreur de suppression"
-      },
-      "confirm": {
-        "mark": "Marquer cette réception comme reçue ?",
-        "bulkMark": "Marquer les réceptions sélectionnées comme reçues ?",
-        "delete": "Supprimer cette réception ? Cette action est définitive.",
-        "process": "Traiter cette réception vers le stock ? Cette action est irréversible."
+    "adminInvoices": {
+      "title": "Factures admin par pays",
+      "subtitle": "Vue mensuelle en masse avec Pending affiché en premier.",
+      "monthLabel": "Mois de facturation",
+      "loadError": "Impossible de charger les factures.",
+      "empty": "Aucune facture pour les filtres sélectionnés.",
+      "cards": {
+        "totalInvoices": "Factures totales",
+        "pendingInvoices": "Factures en attente",
+        "netTotal": "Total net",
+        "grossTotal": "Total TTC"
       },
       "table": {
-        "client": "Client",
-        "carrier": "Transporteur",
-        "tracking": "Tracking",
-        "status": "Statut",
-        "products": "Produits",
-        "lines": "Lignes",
         "date": "Date",
-        "actions": "Actions",
-        "noRows": "Aucune réception trouvée",
-        "more": "+{count} de plus"
-      },
-      "detail": {
+        "invoice": "Facture",
         "client": "Client",
-        "carrier": "Transporteur",
-        "otherCarrier": "Nom du transporteur",
-        "trackingNumbers": "Numéros de suivi",
-        "addTracking": "Ajouter un numéro de suivi",
-        "trackingPlaceholder": "Ex: 1Z999AA1234567890",
-        "fbaIds": "ID(s) d'expédition FBA",
-        "addFba": "Ajouter un ID FBA",
-        "notes": "Notes",
-        "status": "Statut",
-        "actions": {
-          "mark": "Marquer comme reçu",
-          "delete": "Supprimer",
-          "process": "Traiter vers le stock"
-        },
-        "products": "Produits"
+        "net": "Net",
+        "vat": "TVA",
+        "total": "Total",
+        "status": "Statut"
       }
-    },
-    "affiliates": {
-      "title": "Affiliate program",
-      "subtitle": "Create referral codes, approve requests, and track commissions.",
-      "createTitle": "Create affiliate code",
-      "ownerSelect": "Client owner",
-      "ownerPlaceholder": "Select client…",
-      "ownerLoading": "Chargement des clients…",
-      "ownerEmpty": "Aucun client disponible pour le moment. Ils apparaîtront après une demande de code.",
-      "ownerHasCode": "a déjà un code",
-      "codeLabel": "Code",
-      "labelLabel": "Label",
-      "descriptionLabel": "Description",
-      "descriptionPlaceholder": "Internal note",
-      "payoutType": "Payout type",
-      "modePercent": "Percentage",
-      "modeThreshold": "Threshold / fixed",
-      "percentBelow": "Percent under threshold",
-      "percentAbove": "Percent over threshold",
-      "threshold": "Threshold (EUR)",
-      "fixedAmount": "Fixed amount (EUR)",
-      "createBtn": "Create code",
-      "createSuccess": "Affiliate code created.",
-      "formError": "Owner and code are required.",
-      "requestsTitle": "Pending requests",
-      "requestApprove": "Use request",
-      "requestReject": "Reject",
-      "noNotes": "No note provided",
-      "viewMembers": "Members",
-      "membersCount": "{count} members",
-      "disable": "Disable",
-      "enable": "Enable",
-      "assignedTitle": "Assigned clients",
-      "candidatesTitle": "Clients who entered the code",
-      "noAssigned": "No assigned clients yet.",
-      "noCandidates": "No pending clients.",
-      "assign": "Assign",
-      "remove": "Remove",
-      "requestsEmpty": "No affiliate requests yet.",
-      "editCode": "Edit",
-      "saveChanges": "Save changes",
-      "cancelEdit": "Cancel",
-      "updateSuccess": "Affiliate code updated.",
-      "updateError": "Could not save changes.",
-      "offerPercent": "{percent}% on all turnover",
-      "offerThreshold": "{below}% below {threshold}, {above}% above",
-      "offerFixed": "One-time bonus {amount} after {threshold}",
-      "offerNone": "No payout settings",
-      "memberBilling": "{billed} billed · share {commission}",
-      "discount": {
-        "amountLabel": "Remise par client (EUR)",
-        "applyAll": "Appliquer la remise à tous les clients",
-        "note": "Crée dans Other pour chaque client une ligne « Réduction pour les affiliés » avec un prix/unité de -{amount} et une note admin avec le code {code}.",
-        "invalidAmount": "Saisissez une remise positive (ex. 10 pour -10 €).",
-        "appliedCount": "Remise appliquée à {count} entreprise(s).",
-        "alreadyApplied": "Tous les clients de ce code ont déjà la remise."
-      },
-      "deleteCode": "Delete affiliate code",
-      "deleteConfirm": "Delete this affiliate code? Assigned clients will lose the link.",
-      "deleteSuccess": "Affiliate code deleted.",
-      "deleteError": "Unable to delete affiliate code."
     }
   },
   "ro": {
@@ -682,7 +527,8 @@
       "userGuide": "Ghid utilizator",
       "security": "Securitate",
       "settings": "Setări",
-      "affiliates": "Afiliați"
+      "affiliates": "Afiliați",
+      "invoices": "Facturi"
     },
     "common": {
       "loading": "Se încarcă…",
@@ -1012,75 +858,28 @@
       "deleteConfirm": "Ștergi acest cod? Clienții asignați vor pierde legătura.",
       "deleteSuccess": "Codul de afiliat a fost șters.",
       "deleteError": "Nu am putut șterge codul."
-    }
-  },
-  "fr": {
-    "adminDashboard": {
-      "title": "Tableau de bord",
-      "subtitle": "Vue opérationnelle",
-      "aggregateLabel": "Toutes les entreprises (agrégé)",
-      "companyLabel": "Entreprise : {name}",
-      "searchPlaceholder": "Rechercher une entreprise…",
-      "unknownCompany": "Sans nom",
-      "noCompaniesOption": "Aucune entreprise trouvée",
-      "allCompaniesOption": "Toutes les entreprises",
-      "loadingCompanies": "Chargement des entreprises…",
-      "noCompanies": "Aucune entreprise à afficher.",
-      "loadingData": "Chargement des données…",
-      "noData": "Pas de données pour l’intervalle sélectionné.",
-      "errors": {
-        "loadCompanies": "Impossible de charger les entreprises.",
-        "loadData": "Impossible de charger les données.",
-        "loadChart": "Impossible de charger les données du graphique."
+    },
+    "adminInvoices": {
+      "title": "Facturi admin pe țări",
+      "subtitle": "Vizualizare bulk pe lună, cu Pending afișat primul.",
+      "monthLabel": "Luna facturare",
+      "loadError": "Nu am putut încărca facturile.",
+      "empty": "Nu există facturi pentru filtrele selectate.",
+      "cards": {
+        "totalInvoices": "Facturi totale",
+        "pendingInvoices": "Facturi pending",
+        "netTotal": "Total net",
+        "grossTotal": "Total brut"
       },
-      "quick": {
-        "today": "Aujourd’hui",
-        "last7": "7j",
-        "last30": "30j"
-      },
-      "balanceTitle": "Balance",
-      "balanceSubtitleSingle": "Intervalle : €{total}",
-      "balanceSubtitleInterval": "Total intervalle : €{total}",
-      "preparedTitle": "Unités préparées",
-      "preparedSubtitleSingle": "Intervalle : {total}",
-      "preparedSubtitleInterval": "Total intervalle : {total}",
-      "receptionsTitle": "Réceptions",
-      "receptionsSubtitleSingle": "Intervalle : {total}",
-      "receptionsSubtitleInterval": "Total intervalle : {total}",
-      "stockTitle": "Unités en stock",
-      "stockSubtitleAll": "Stock actuel (toutes les entreprises)",
-      "stockSubtitleCompany": "Stock actuel (global, sans filtre société)",
-      "sectionInbound": "Entrant",
-      "sectionAmazon": "Amazon",
-      "sectionInventory": "Inventaire",
-      "sectionBilling": "Facturation",
-      "arrivingToday": "Arrivages aujourd’hui",
-      "arrivingLastDays": "Arrivages des {days} derniers jours",
-      "receivedToday": "Réceptionné aujourd’hui",
-      "receivedLastDays": "Réceptionné sur {days} jours",
-      "unitsReceivedRange": "Unités reçues (période sélectionnée)",
-      "unitsShippedRange": "Unités expédiées (période sélectionnée)",
-      "shippedToday": "Expédié aujourd’hui",
-      "shippedLastDays": "Expédié sur {days} jours",
-      "inProgressLabel": "En cours",
-      "shipmentsLabel": "Expéditions",
-      "unitsLabel": "Unités",
-      "quantityInStock": "Quantité en stock",
-      "availableQuantity": "Quantité disponible",
-      "inboundQuantity": "Quantité en inbound",
-      "allocatedQuantity": "Quantité allouée",
-      "unavailableQuantity": "Quantité indisponible",
-      "chartTitle": "Statistiques quotidiennes",
-      "chartRangeLabel": "Derniers {days} jours",
-      "loadingChart": "Chargement du graphique…",
-      "noChartData": "Pas de données pour la plage sélectionnée.",
-      "chartPrepared": "Préparé",
-      "chartReceiving": "Réceptionné",
-      "chartBalance": "Balance",
-      "statusOrdersTitle": "Statuts des commandes (intervalle)",
-      "statusShipmentsTitle": "Statuts des réceptions (intervalle)",
-      "noOrdersStatus": "Aucune commande dans cet intervalle.",
-      "noShipmentsStatus": "Aucune réception dans cet intervalle."
+      "table": {
+        "date": "Dată",
+        "invoice": "Factură",
+        "client": "Client",
+        "net": "Net",
+        "vat": "TVA",
+        "total": "Total",
+        "status": "Status"
+      }
     }
   }
 }

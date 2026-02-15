@@ -1,15 +1,27 @@
 import React, { useMemo, useState } from 'react';
+import { DEFAULT_ISSUER_PROFILES, getSimpleVatRule, roundMoney } from '@/utils/invoiceTax';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
-const formatMoney = (value) =>
-  Number.isFinite(value) ? value.toFixed(2) : '0.00';
+const formatMoney = (value) => roundMoney(value).toFixed(2);
 const formatUnits = (value) => {
   if (!Number.isFinite(value)) return '0';
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 };
 
+const plusDays = (isoDate, days = 14) => {
+  const source = isoDate ? new Date(isoDate) : new Date();
+  if (Number.isNaN(source.getTime())) return todayIso();
+  source.setDate(source.getDate() + days);
+  return source.toISOString().slice(0, 10);
+};
+
 export default function BillingSelectionPanel({
   selections = {},
+  billingProfiles = [],
+  clientEmail = '',
+  clientPhone = '',
+  currentMarket = 'FR',
+  issuerProfiles = DEFAULT_ISSUER_PROFILES,
   onSave,
   onClear,
   isSaving = false,
@@ -17,6 +29,10 @@ export default function BillingSelectionPanel({
 }) {
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(todayIso());
+  const [dueDate, setDueDate] = useState(plusDays(todayIso(), 14));
+  const [status, setStatus] = useState('pending');
+  const [issuerCountry, setIssuerCountry] = useState(currentMarket || 'FR');
+  const [billingProfileId, setBillingProfileId] = useState('');
   const [feedback, setFeedback] = useState('');
 
   const aggregated = useMemo(() => {
@@ -50,11 +66,32 @@ export default function BillingSelectionPanel({
     );
     return {
       items,
-      total,
+      total: roundMoney(total),
       count: lineRefs.length,
       lineRefs
     };
   }, [selections]);
+
+  const selectedBillingProfile = useMemo(
+    () => billingProfiles.find((profile) => profile.id === billingProfileId) || null,
+    [billingProfiles, billingProfileId]
+  );
+
+  const defaultBillingProfile = useMemo(() => {
+    if (!billingProfiles.length) return null;
+    const byMarket = billingProfiles.find(
+      (profile) => String(profile.country || '').toUpperCase() === String(currentMarket || '').toUpperCase()
+    );
+    return byMarket || billingProfiles.find((profile) => profile.is_default) || billingProfiles[0];
+  }, [billingProfiles, currentMarket]);
+
+  const activeBillingProfile = selectedBillingProfile || defaultBillingProfile;
+
+  const issuerProfile = issuerProfiles?.[issuerCountry] || DEFAULT_ISSUER_PROFILES[issuerCountry] || DEFAULT_ISSUER_PROFILES.FR;
+  const customerCountry = String(activeBillingProfile?.country || '').toUpperCase();
+  const taxRule = getSimpleVatRule({ issuerCountry, customerCountry });
+  const vatAmount = roundMoney(aggregated.total * taxRule.vatRate);
+  const grossTotal = roundMoney(aggregated.total + vatAmount);
 
   const handleClear = () => {
     onClear?.();
@@ -70,11 +107,32 @@ export default function BillingSelectionPanel({
       setFeedback('Completează numărul facturii.');
       return;
     }
+    if (!activeBillingProfile?.id) {
+      setFeedback('Clientul nu are un profil de facturare salvat.');
+      return;
+    }
+
     const payload = {
       invoiceNumber: invoiceNumber.trim(),
       invoiceDate: invoiceDate || todayIso(),
-      total: aggregated.total,
-      lines: aggregated.lineRefs
+      dueDate: dueDate || plusDays(invoiceDate || todayIso(), 14),
+      status,
+      issuerCountry,
+      issuerProfile,
+      billingProfileId: activeBillingProfile.id,
+      billingProfile: activeBillingProfile,
+      customerEmail: clientEmail,
+      customerPhone: clientPhone,
+      lines: aggregated.lineRefs,
+      items: aggregated.items,
+      totals: {
+        net: aggregated.total,
+        vat: vatAmount,
+        gross: grossTotal,
+        vatRate: taxRule.vatRate,
+        vatLabel: taxRule.vatLabel,
+        legalNote: taxRule.legalNote
+      }
     };
     setFeedback('');
     const result = onSave ? await onSave(payload) : { error: null };
@@ -82,9 +140,11 @@ export default function BillingSelectionPanel({
       setFeedback(result.error.message || 'Nu am putut salva factura.');
       return;
     }
-    setFeedback('Factura a fost salvată.');
+    setFeedback('Factura a fost salvată și urcată în contul clientului.');
     setInvoiceNumber('');
     setInvoiceDate(todayIso());
+    setDueDate(plusDays(todayIso(), 14));
+    setStatus('pending');
   };
 
   return (
@@ -94,7 +154,7 @@ export default function BillingSelectionPanel({
         <p className="flex items-baseline justify-between text-lg font-semibold text-text-primary">
           <span>Coș: {aggregated.count} {aggregated.count === 1 ? 'linie' : 'linii'}</span>
           <span className="text-sm text-text-secondary">
-            Total: {formatMoney(aggregated.total)} €
+            Net: {formatMoney(aggregated.total)} €
           </span>
         </p>
       </div>
@@ -126,26 +186,94 @@ export default function BillingSelectionPanel({
         )}
       </div>
 
-      <div className="space-y-2 text-sm">
-        <label className="block text-[13px] font-medium text-text-secondary">
-          Număr factură
-        </label>
+      <div className="grid grid-cols-1 gap-2 text-sm">
+        <label className="block text-[13px] font-medium text-text-secondary">Număr factură</label>
         <input
           type="text"
           className="w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           value={invoiceNumber}
           onChange={(event) => setInvoiceNumber(event.target.value)}
-          placeholder="Ex: 2025-123"
+          placeholder="Ex: FR-2026-001"
         />
-        <label className="block text-[13px] font-medium text-text-secondary">
-          Data facturii
-        </label>
-        <input
-          type="date"
-          className="w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-          value={invoiceDate}
-          onChange={(event) => setInvoiceDate(event.target.value)}
-        />
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[13px] font-medium text-text-secondary">Data facturii</label>
+            <input
+              type="date"
+              className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+              value={invoiceDate}
+              onChange={(event) => setInvoiceDate(event.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-[13px] font-medium text-text-secondary">Scadență</label>
+            <input
+              type="date"
+              className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[13px] font-medium text-text-secondary">Companie emitentă</label>
+            <select
+              className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+              value={issuerCountry}
+              onChange={(event) => setIssuerCountry(event.target.value)}
+            >
+              <option value="FR">France</option>
+              <option value="DE">Germany</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[13px] font-medium text-text-secondary">Status</label>
+            <select
+              className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+            >
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[13px] font-medium text-text-secondary">Adresă facturare client</label>
+          <select
+            className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            value={billingProfileId || defaultBillingProfile?.id || ''}
+            onChange={(event) => setBillingProfileId(event.target.value)}
+          >
+            {!billingProfiles.length && <option value="">Nu există profil de facturare</option>}
+            {billingProfiles.map((item) => {
+              const label =
+                item.type === 'company'
+                  ? item.company_name || 'Company'
+                  : `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'Individual';
+              return (
+                <option key={item.id} value={item.id}>
+                  {label} · {String(item.country || '').toUpperCase()}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-text-secondary space-y-1">
+        <p><strong>Emitent:</strong> {issuerProfile?.company_name} ({issuerCountry})</p>
+        <p><strong>Client:</strong> {activeBillingProfile?.company_name || [activeBillingProfile?.first_name, activeBillingProfile?.last_name].filter(Boolean).join(' ') || '-'}</p>
+        <p><strong>Email:</strong> {clientEmail || '-'}</p>
+        <p><strong>Telefon:</strong> {clientPhone || '-'}</p>
+        <p><strong>Regulă TVA:</strong> {taxRule.vatLabel}</p>
+        <p><strong>Total net:</strong> {formatMoney(aggregated.total)} €</p>
+        <p><strong>TVA:</strong> {formatMoney(vatAmount)} €</p>
+        <p className="font-semibold text-text-primary"><strong>Total final:</strong> {formatMoney(grossTotal)} €</p>
       </div>
 
       {(feedback || externalError) && (
@@ -161,7 +289,7 @@ export default function BillingSelectionPanel({
           disabled={isSaving || aggregated.count === 0}
           className="flex-1 rounded bg-primary px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSaving ? 'Salvez...' : 'Salvează factură'}
+          {isSaving ? 'Salvez...' : 'Create invoice'}
         </button>
         <button
           type="button"
