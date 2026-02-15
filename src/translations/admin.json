@@ -415,6 +415,10 @@
         "status": "Status",
         "company": "Company",
         "clientName": "Client name"
+      },
+      "tabs": {
+        "monthly": "Current month",
+        "outstanding": "Outstanding pending"
       }
     }
   },
@@ -511,6 +515,10 @@
         "status": "Statut",
         "company": "Société",
         "clientName": "Nom client"
+      },
+      "tabs": {
+        "monthly": "Mois courant",
+        "outstanding": "Impayées en attente"
       }
     }
   },
@@ -885,6 +893,10 @@
         "status": "Status",
         "company": "Companie",
         "clientName": "Nume client"
+      },
+      "tabs": {
+        "monthly": "Luna curentă",
+        "outstanding": "Restanțe neplătite"
       }
     }
   }

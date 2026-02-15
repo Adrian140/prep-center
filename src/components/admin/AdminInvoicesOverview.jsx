@@ -52,6 +52,7 @@ export default function AdminInvoicesOverview() {
   const { t } = useAdminTranslation();
   const [country, setCountry] = useState('FR');
   const [month, setMonth] = useState(toMonthInput());
+  const [viewMode, setViewMode] = useState('monthly');
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
@@ -69,9 +70,15 @@ export default function AdminInvoicesOverview() {
       let query = supabase
         .from('invoices')
         .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, country, created_at, file_path')
-        .eq('country', country)
-        .gte('issue_date', start)
-        .lt('issue_date', endExclusive)
+        .eq('country', country);
+      if (viewMode === 'outstanding') {
+        query = query.eq('status', 'pending');
+      } else {
+        query = query
+          .gte('issue_date', start)
+          .lt('issue_date', endExclusive);
+      }
+      query = query
         .order('issue_date', { ascending: false })
         .order('created_at', { ascending: false });
 
@@ -83,11 +90,17 @@ export default function AdminInvoicesOverview() {
         /does not exist/i.test(String(invoicesError.message || ''));
 
       if (missingCountryColumn) {
-        const fallback = await supabase
+        let fallbackQuery = supabase
           .from('invoices')
-          .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, created_at, file_path')
-          .gte('issue_date', start)
-          .lt('issue_date', endExclusive)
+          .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, created_at, file_path');
+        if (viewMode === 'outstanding') {
+          fallbackQuery = fallbackQuery.eq('status', 'pending');
+        } else {
+          fallbackQuery = fallbackQuery
+            .gte('issue_date', start)
+            .lt('issue_date', endExclusive);
+        }
+        const fallback = await fallbackQuery
           .order('issue_date', { ascending: false })
           .order('created_at', { ascending: false });
         data = fallback.data;
@@ -107,6 +120,9 @@ export default function AdminInvoicesOverview() {
 
         const dateA = new Date(a.issue_date || a.created_at || 0).getTime();
         const dateB = new Date(b.issue_date || b.created_at || 0).getTime();
+        if (viewMode === 'outstanding') {
+          return dateA - dateB;
+        }
         return dateB - dateA;
       });
 
@@ -168,7 +184,7 @@ export default function AdminInvoicesOverview() {
   useEffect(() => {
     loadInvoices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [country, month]);
+  }, [country, month, viewMode]);
 
   const summary = useMemo(() => {
     let net = 0;
@@ -270,6 +286,26 @@ export default function AdminInvoicesOverview() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewMode('monthly')}
+            className={`px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+              viewMode === 'monthly'
+                ? 'bg-primary text-white border-primary'
+                : 'bg-white text-text-primary border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            {t('adminInvoices.tabs.monthly')}
+          </button>
+          <button
+            onClick={() => setViewMode('outstanding')}
+            className={`px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+              viewMode === 'outstanding'
+                ? 'bg-amber-600 text-white border-amber-600'
+                : 'bg-white text-text-primary border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            {t('adminInvoices.tabs.outstanding')}
+          </button>
           {COUNTRIES.map((entry) => (
             <button
               key={entry.code}
@@ -283,13 +319,15 @@ export default function AdminInvoicesOverview() {
               {entry.label}
             </button>
           ))}
-          <input
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-            aria-label={t('adminInvoices.monthLabel')}
-          />
+          {viewMode === 'monthly' && (
+            <input
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+              aria-label={t('adminInvoices.monthLabel')}
+            />
+          )}
           <button onClick={loadInvoices} className="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
             <RefreshCw className="w-4 h-4" /> {t('common.refresh')}
           </button>
