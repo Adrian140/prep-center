@@ -233,6 +233,10 @@ export default function BillingSelectionPanel({
               <p>{`${activeBillingProfile.postal_code || ''} ${activeBillingProfile.city || ''}`.trim() || '-'}</p>
               <p>{String(activeBillingProfile.country || '').toUpperCase() || '-'}</p>
               <p>VAT: {activeBillingProfile.vat_number || '-'}</p>
+              {clientEmail ? <p>Email: {clientEmail}</p> : null}
+              {(activeBillingProfile.phone || clientPhone) ? (
+                <p>Telefon: {activeBillingProfile.phone || clientPhone}</p>
+              ) : null}
             </div>
           ) : (
             <p className="mt-1 text-xs text-red-600">Clientul nu are adresă de facturare salvată.</p>
