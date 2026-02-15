@@ -27,7 +27,6 @@ export default function BillingSelectionPanel({
   issuerProfiles = DEFAULT_ISSUER_PROFILES,
   invoiceTemplates = {},
   onSaveIssuerProfile,
-  onSaveInvoiceTemplate,
   onSaveBillingProfile,
   onSave,
   onClear,
@@ -42,7 +41,6 @@ export default function BillingSelectionPanel({
   const [clientDraft, setClientDraft] = useState(null);
   const [editingClient, setEditingClient] = useState(false);
   const [editingIssuer, setEditingIssuer] = useState(false);
-  const [templateSaving, setTemplateSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
@@ -130,7 +128,6 @@ export default function BillingSelectionPanel({
   }, [activeBillingProfile, clientPhone]);
 
   const issuerProfile = issuerDraft || issuerProfiles?.[issuerCountry] || DEFAULT_ISSUER_PROFILES[issuerCountry] || DEFAULT_ISSUER_PROFILES.FR;
-  const activeTemplate = invoiceTemplates?.[issuerCountry] || null;
   const customerCountry = String(activeBillingProfile?.country || '').toUpperCase();
   const taxRule = getSimpleVatRule({ issuerCountry, customerCountry });
   const vatAmount = roundMoney(aggregated.total * taxRule.vatRate);
@@ -208,7 +205,7 @@ export default function BillingSelectionPanel({
         vatLabel: taxRule.vatLabel,
         legalNote: taxRule.legalNote
       },
-      templateImage: activeTemplate || null
+      templateImage: null
     };
     setFeedback('');
     const result = onSave ? await onSave(payload) : { error: null };
@@ -220,75 +217,6 @@ export default function BillingSelectionPanel({
     setInvoiceDate(todayIso());
     setDueDate('');
     setStatus('pending');
-  };
-
-  const fileToDataUrl = (file) =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(new Error('Nu am putut citi fișierul.'));
-      reader.readAsDataURL(file);
-    });
-
-  const normalizeTemplateToA4 = (dataUrl) =>
-    new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const width = 1240;
-        const height = 1754;
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Nu am putut pregăti template-ul.'));
-          return;
-        }
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.92));
-      };
-      img.onerror = () => reject(new Error('Imagine template invalidă.'));
-      img.src = dataUrl;
-    });
-
-  const handleTemplateUpload = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    if (!String(file.type || '').startsWith('image/')) {
-      setFeedback('Template-ul trebuie să fie imagine (PNG/JPG).');
-      return;
-    }
-    if (!onSaveInvoiceTemplate) return;
-    try {
-      setTemplateSaving(true);
-      const dataUrl = await fileToDataUrl(file);
-      const normalized = await normalizeTemplateToA4(dataUrl);
-      const result = await onSaveInvoiceTemplate(issuerCountry, normalized);
-      if (result?.error) {
-        setFeedback(result.error.message || 'Nu am putut salva template-ul.');
-      } else {
-        setFeedback(`Template salvat pentru ${issuerCountry}.`);
-      }
-    } catch (err) {
-      setFeedback(err?.message || 'Nu am putut încărca template-ul.');
-    } finally {
-      setTemplateSaving(false);
-    }
-  };
-
-  const handleTemplateRemove = async () => {
-    if (!onSaveInvoiceTemplate) return;
-    setTemplateSaving(true);
-    const result = await onSaveInvoiceTemplate(issuerCountry, null);
-    if (result?.error) {
-      setFeedback(result.error.message || 'Nu am putut șterge template-ul.');
-    } else {
-      setFeedback(`Template șters pentru ${issuerCountry}.`);
-    }
-    setTemplateSaving(false);
   };
 
   return (
@@ -423,39 +351,6 @@ export default function BillingSelectionPanel({
 
       <div className="relative rounded-lg border border-gray-200 p-3 pb-10 space-y-2">
         <p className="text-xs font-semibold text-text-secondary uppercase">Date emitent ({issuerCountry})</p>
-        {false && (
-          <div className="rounded border border-gray-200 bg-gray-50 p-2 text-xs text-text-secondary">
-            <p className="font-medium text-text-primary">Invoice template ({issuerCountry})</p>
-            <p>{activeTemplate ? 'Template activ' : 'Niciun template încărcat (fallback default).'}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <label className="cursor-pointer rounded border border-gray-300 bg-white px-2 py-1 hover:bg-gray-50">
-                {templateSaving ? 'Uploading...' : 'Upload template'}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
-                  onChange={handleTemplateUpload}
-                  disabled={templateSaving}
-                />
-              </label>
-              {activeTemplate ? (
-                <>
-                  <a href={activeTemplate} target="_blank" rel="noreferrer" className="rounded border border-gray-300 bg-white px-2 py-1 hover:bg-gray-50">
-                    Preview
-                  </a>
-                  <button
-                    type="button"
-                    onClick={handleTemplateRemove}
-                    className="rounded border border-red-200 bg-white px-2 py-1 text-red-600 hover:bg-red-50"
-                    disabled={templateSaving}
-                  >
-                    Remove
-                  </button>
-                </>
-              ) : null}
-            </div>
-          </div>
-        )}
         {editingIssuer ? (
           <>
             <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Company name" value={issuerProfile?.company_name || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), company_name: e.target.value, country: issuerCountry }))} />
