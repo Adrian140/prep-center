@@ -18,6 +18,13 @@ const normalizeText = (value) => {
   return String(value).replace(/\s+/g, ' ').trim();
 };
 
+const formatVatRate = (rate) => {
+  const value = Number(rate || 0) * 100;
+  if (!Number.isFinite(value)) return '0%';
+  if (Math.abs(value - Math.round(value)) < 0.0001) return `${Math.round(value)}%`;
+  return `${value.toFixed(2)}%`;
+};
+
 const isBrowser = () => typeof window !== 'undefined' && typeof document !== 'undefined';
 
 const loadImageElement = (src) =>
@@ -217,9 +224,12 @@ export const buildInvoicePdfBlob = async ({
   // Table header
   const tableX = left;
   const tableW = right - left;
-  const colQty = tableX + tableW * 0.63;
-  const colUnit = tableX + tableW * 0.72;
-  const colNet = tableX + tableW * 0.86;
+  const colDescEnd = tableX + 82;
+  const colQtyEnd = colDescEnd + 18;
+  const colUnitEnd = colQtyEnd + 18;
+  const colUnitPriceEnd = colUnitEnd + 24;
+  const colVatRateEnd = colUnitPriceEnd + 16;
+  const vatRateText = formatVatRate(totals?.vatRate ?? 0);
 
   doc.setFillColor(221, 229, 238);
   doc.rect(tableX, y, tableW, 8.2, 'F');
@@ -228,10 +238,16 @@ export const buildInvoicePdfBlob = async ({
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.4);
-  doc.text('Service', tableX + 2, y + 5.4);
-  doc.text('Qty', colQty + 2, y + 5.4);
-  doc.text('Unit', colUnit + 2, y + 5.4);
-  doc.text('Net', right - 2, y + 5.4, { align: 'right' });
+  doc.text('Description', tableX + 2, y + 5.4);
+  doc.text('Qty', colDescEnd + 9, y + 5.4, { align: 'center' });
+  doc.text('Unit', colQtyEnd + 9, y + 5.4, { align: 'center' });
+  doc.text('Unit price', colUnitEnd + 12, y + 5.4, { align: 'center' });
+  doc.text('VAT rate', colUnitPriceEnd + 8, y + 5.4, { align: 'center' });
+  doc.text('Net amount', right - 2, y + 5.4, { align: 'right' });
+
+  [colDescEnd, colQtyEnd, colUnitEnd, colUnitPriceEnd, colVatRateEnd].forEach((lineX) => {
+    doc.line(lineX, y, lineX, y + 8.2);
+  });
 
   y += 8.2;
 
@@ -245,6 +261,9 @@ export const buildInvoicePdfBlob = async ({
     doc.rect(tableX, y, tableW, rowH, 'F');
     doc.setDrawColor(188, 198, 210);
     doc.rect(tableX, y, tableW, rowH);
+    [colDescEnd, colQtyEnd, colUnitEnd, colUnitPriceEnd, colVatRateEnd].forEach((lineX) => {
+      doc.line(lineX, y, lineX, y + rowH);
+    });
 
     const service = normalizeText(item.service || '-');
     const qty = Number(item.units || 0);
@@ -252,8 +271,10 @@ export const buildInvoicePdfBlob = async ({
     const net = Number(item.total || qty * unit || 0);
 
     doc.text(service, tableX + 2, y + 5.5);
-    doc.text(String(Number.isInteger(qty) ? qty : qty.toFixed(2)), colQty + 2, y + 5.5);
-    doc.text(`${formatMoney(unit)} €`, colUnit + 2, y + 5.5);
+    doc.text(String(Number.isInteger(qty) ? qty : qty.toFixed(2)), colDescEnd + 9, y + 5.5, { align: 'center' });
+    doc.text('unit', colQtyEnd + 9, y + 5.5, { align: 'center' });
+    doc.text(`${formatMoney(unit)} €`, colUnitEnd + 12, y + 5.5, { align: 'center' });
+    doc.text(vatRateText, colUnitPriceEnd + 8, y + 5.5, { align: 'center' });
     doc.text(`${formatMoney(net)} €`, right - 2, y + 5.5, { align: 'right' });
 
     y += rowH;
