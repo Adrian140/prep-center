@@ -21,6 +21,7 @@ export default function BillingSelectionPanel({
   clientEmail = '',
   clientPhone = '',
   currentMarket = 'FR',
+  invoiceCounters = { FR: 189, DE: 1 },
   issuerProfiles = DEFAULT_ISSUER_PROFILES,
   onSaveIssuerProfile,
   onSave,
@@ -28,13 +29,11 @@ export default function BillingSelectionPanel({
   isSaving = false,
   error: externalError
 }) {
-  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(todayIso());
-  const [dueDate, setDueDate] = useState(plusDays(todayIso(), 14));
+  const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState('pending');
   const [issuerCountry, setIssuerCountry] = useState(currentMarket || 'FR');
   const [issuerDraft, setIssuerDraft] = useState(issuerProfiles?.[currentMarket || 'FR'] || DEFAULT_ISSUER_PROFILES.FR);
-  const [billingProfileId, setBillingProfileId] = useState('');
   const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
@@ -75,11 +74,6 @@ export default function BillingSelectionPanel({
     };
   }, [selections]);
 
-  const selectedBillingProfile = useMemo(
-    () => billingProfiles.find((profile) => profile.id === billingProfileId) || null,
-    [billingProfiles, billingProfileId]
-  );
-
   const defaultBillingProfile = useMemo(() => {
     if (!billingProfiles.length) return null;
     const byMarket = billingProfiles.find(
@@ -88,13 +82,17 @@ export default function BillingSelectionPanel({
     return byMarket || billingProfiles.find((profile) => profile.is_default) || billingProfiles[0];
   }, [billingProfiles, currentMarket]);
 
-  const activeBillingProfile = selectedBillingProfile || defaultBillingProfile;
+  const activeBillingProfile = defaultBillingProfile;
 
   const issuerProfile = issuerDraft || issuerProfiles?.[issuerCountry] || DEFAULT_ISSUER_PROFILES[issuerCountry] || DEFAULT_ISSUER_PROFILES.FR;
   const customerCountry = String(activeBillingProfile?.country || '').toUpperCase();
   const taxRule = getSimpleVatRule({ issuerCountry, customerCountry });
   const vatAmount = roundMoney(aggregated.total * taxRule.vatRate);
   const grossTotal = roundMoney(aggregated.total + vatAmount);
+  const previewCounter = Number(invoiceCounters?.[issuerCountry]) || (issuerCountry === 'FR' ? 189 : 1);
+  const previewInvoiceNumber = issuerCountry === 'DE'
+    ? `EcomPrepHub Germany ${String(previewCounter).padStart(3, '0')}`
+    : `EcomPrepHub France ${previewCounter}`;
 
   const handleClear = () => {
     onClear?.();
@@ -116,23 +114,19 @@ export default function BillingSelectionPanel({
       setFeedback('Selectează cel puțin o linie.');
       return;
     }
-    if (!invoiceNumber.trim()) {
-      setFeedback('Completează numărul facturii.');
-      return;
-    }
     if (!activeBillingProfile?.id) {
       setFeedback('Clientul nu are un profil de facturare salvat.');
       return;
     }
 
     const payload = {
-      invoiceNumber: invoiceNumber.trim(),
+      invoiceNumber: previewInvoiceNumber,
+      invoiceCounterValue: previewCounter,
       invoiceDate: invoiceDate || todayIso(),
-      dueDate: dueDate || plusDays(invoiceDate || todayIso(), 14),
+      dueDate: dueDate || null,
       status,
       issuerCountry,
       issuerProfile,
-      billingProfileId: activeBillingProfile.id,
       billingProfile: activeBillingProfile,
       customerEmail: clientEmail,
       customerPhone: clientPhone,
@@ -154,9 +148,8 @@ export default function BillingSelectionPanel({
       return;
     }
     setFeedback('Factura a fost salvată și urcată în contul clientului.');
-    setInvoiceNumber('');
     setInvoiceDate(todayIso());
-    setDueDate(plusDays(todayIso(), 14));
+    setDueDate('');
     setStatus('pending');
   };
 
@@ -192,13 +185,12 @@ export default function BillingSelectionPanel({
       </div>
 
       <div className="grid grid-cols-1 gap-2 text-sm">
-        <label className="block text-[13px] font-medium text-text-secondary">Număr factură</label>
+        <label className="block text-[13px] font-medium text-text-secondary">Număr factură (auto)</label>
         <input
           type="text"
-          className="w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-          value={invoiceNumber}
-          onChange={(event) => setInvoiceNumber(event.target.value)}
-          placeholder="Ex: FR-2026-001"
+          className="w-full rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-text-secondary"
+          value={previewInvoiceNumber}
+          disabled
         />
 
         <div className="grid grid-cols-2 gap-2">
@@ -209,6 +201,7 @@ export default function BillingSelectionPanel({
           <div>
             <label className="block text-[13px] font-medium text-text-secondary">Scadență</label>
             <input type="date" className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+            <p className="mt-1 text-[11px] text-text-secondary">Lasă gol dacă nu dorești scadență.</p>
           </div>
         </div>
 
@@ -229,19 +222,21 @@ export default function BillingSelectionPanel({
           </div>
         </div>
 
-        <div>
-          <label className="block text-[13px] font-medium text-text-secondary">Adresă facturare client</label>
-          <select className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none" value={billingProfileId || defaultBillingProfile?.id || ''} onChange={(event) => setBillingProfileId(event.target.value)}>
-            {!billingProfiles.length && <option value="">Nu există profil de facturare</option>}
-            {billingProfiles.map((item) => {
-              const label = item.type === 'company' ? item.company_name || 'Company' : `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'Individual';
-              return (
-                <option key={item.id} value={item.id}>
-                  {label} · {String(item.country || '').toUpperCase()}
-                </option>
-              );
-            })}
-          </select>
+        <div className="rounded border border-gray-200 bg-gray-50 p-3">
+          <p className="text-[13px] font-medium text-text-secondary">Adresă facturare client (din profil salvat)</p>
+          {activeBillingProfile ? (
+            <div className="mt-1 text-xs text-text-secondary space-y-0.5">
+              <p className="font-semibold text-text-primary">
+                {activeBillingProfile.company_name || [activeBillingProfile.first_name, activeBillingProfile.last_name].filter(Boolean).join(' ') || '-'}
+              </p>
+              <p>{activeBillingProfile.address || '-'}</p>
+              <p>{`${activeBillingProfile.postal_code || ''} ${activeBillingProfile.city || ''}`.trim() || '-'}</p>
+              <p>{String(activeBillingProfile.country || '').toUpperCase() || '-'}</p>
+              <p>VAT: {activeBillingProfile.vat_number || '-'}</p>
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-red-600">Clientul nu are adresă de facturare salvată.</p>
+          )}
         </div>
       </div>
 

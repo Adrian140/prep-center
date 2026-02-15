@@ -36,6 +36,7 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [billingError, setBillingError] = useState('');
   const [billingProfiles, setBillingProfiles] = useState([]);
   const [issuerProfiles, setIssuerProfiles] = useState(DEFAULT_ISSUER_PROFILES);
+  const [invoiceCounters, setInvoiceCounters] = useState({ FR: 189, DE: 1 });
   const hasBillingSelection = canManageInvoices && Object.keys(billingSelections).length > 0;
   const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns', 'requests'];
   const allowedSections = isLimitedAdmin ? ['stock'] : serviceSections;
@@ -129,11 +130,18 @@ const ensureCompany = async () => {
       ? [null, null, null, results[0]]
       : results;
     let billingProfilesRes = await supabaseHelpers.getBillingProfiles(profile?.id);
-    const issuerSettingsRes = await supabase
+    const [issuerSettingsRes, countersSettingsRes] = await Promise.all([
+      supabase
       .from('app_settings')
       .select('value')
       .eq('key', 'invoice_issuer_profiles')
-      .maybeSingle();
+      .maybeSingle(),
+      supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'invoice_number_counters')
+        .maybeSingle()
+    ]);
     if (!billingProfilesRes?.error && (!billingProfilesRes?.data || billingProfilesRes.data.length === 0)) {
       await supabaseHelpers.seedBillingProfilesFromSignup(profile?.id);
       billingProfilesRes = await supabaseHelpers.getBillingProfiles(profile?.id);
@@ -158,6 +166,14 @@ if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
   });
 } else {
   setIssuerProfiles(DEFAULT_ISSUER_PROFILES);
+}
+if (!countersSettingsRes?.error && countersSettingsRes?.data?.value) {
+  setInvoiceCounters({
+    FR: Number(countersSettingsRes.data.value.FR) || 189,
+    DE: Number(countersSettingsRes.data.value.DE) || 1
+  });
+} else {
+  setInvoiceCounters({ FR: 189, DE: 1 });
 }
 
   };
@@ -194,10 +210,10 @@ if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
       status,
       issuerCountry,
       issuerProfile,
-      billingProfileId,
       billingProfile,
       customerEmail,
       customerPhone,
+      invoiceCounterValue,
       lines,
       items,
       totals
@@ -209,10 +225,15 @@ if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
     }
       setBillingSaving(true);
       setBillingError('');
+      const issuerCode = String(issuerCountry || currentMarket || 'FR').toUpperCase();
+      const counterValue = Number(invoiceCounterValue) || Number(invoiceCounters?.[issuerCode]) || (issuerCode === 'FR' ? 189 : 1);
+      const generatedInvoiceNumber = issuerCode === 'DE'
+        ? `EcomPrepHub Germany ${String(counterValue).padStart(3, '0')}`
+        : `EcomPrepHub France ${counterValue}`;
       const { data: billingInvoice, error } = await supabaseHelpers.createBillingInvoice({
         company_id: company.id,
         user_id: profile?.id,
-        invoice_number: invoiceNumber,
+        invoice_number: generatedInvoiceNumber,
         invoice_date: invoiceDate,
         total_amount: totals?.gross ?? 0,
         lines
@@ -224,7 +245,7 @@ if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
       }
 
       const pdfBlob = await buildInvoicePdfBlob({
-        invoiceNumber,
+        invoiceNumber: generatedInvoiceNumber,
         invoiceDate,
         dueDate,
         issuer: issuerProfile,
@@ -243,7 +264,7 @@ if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
 
       const pdfFile = new File(
         [pdfBlob],
-        `invoice-${String(invoiceNumber).replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`,
+        `invoice-${String(generatedInvoiceNumber).replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`,
         { type: 'application/pdf' }
       );
 
@@ -254,7 +275,7 @@ if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
       ].filter(Boolean).join(' | ');
 
       const uploadRes = await supabaseHelpers.uploadInvoice(pdfFile, profile?.id, {
-        invoice_number: invoiceNumber,
+        invoice_number: generatedInvoiceNumber,
         amount: roundMoney(totals?.net ?? 0),
         vat_amount: roundMoney(totals?.vat ?? 0),
         description,
@@ -278,12 +299,27 @@ if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
           .eq('id', uploadRes.data.id);
       }
 
+      const nextCounters = {
+        ...invoiceCounters,
+        [issuerCode]: counterValue + 1
+      };
+      const countersSave = await supabase
+        .from('app_settings')
+        .upsert({
+          key: 'invoice_number_counters',
+          value: nextCounters,
+          updated_at: new Date().toISOString()
+        });
+      if (!countersSave.error) {
+        setInvoiceCounters(nextCounters);
+      }
+
       setBillingSaving(false);
       setBillingSelections({});
       await loadAll();
       return { error: null };
     },
-    [company?.id, profile?.id, currentMarket, loadAll]
+    [company?.id, profile?.id, currentMarket, invoiceCounters, loadAll]
   );
 
   const handleSaveIssuerProfile = useCallback(async (countryCode, nextProfile) => {
@@ -513,6 +549,7 @@ if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
               clientEmail={profile?.email || ''}
               clientPhone={profile?.phone || ''}
               currentMarket={currentMarket || 'FR'}
+              invoiceCounters={invoiceCounters}
               issuerProfiles={issuerProfiles}
               onSaveIssuerProfile={handleSaveIssuerProfile}
               onSave={handleBillingSave}
