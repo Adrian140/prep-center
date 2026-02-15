@@ -1128,7 +1128,7 @@ resetPassword: async (email) => {
     };
     const { data: invoice, error: insertError } = await supabase
       .from('billing_invoices')
-      .insert([payload])
+      .upsert([payload], { onConflict: 'company_id,invoice_number' })
       .select('*')
       .single();
     if (insertError) {
