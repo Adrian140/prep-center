@@ -396,8 +396,6 @@ export default function BillingSelectionPanel({
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-text-secondary space-y-1">
         <p><strong>Emitent:</strong> {issuerProfile?.company_name} ({issuerCountry})</p>
         <p><strong>Client:</strong> {activeBillingProfile?.company_name || [activeBillingProfile?.first_name, activeBillingProfile?.last_name].filter(Boolean).join(' ') || '-'}</p>
-        <p><strong>Email:</strong> {clientEmail || '-'}</p>
-        <p><strong>Telefon:</strong> {clientPhone || '-'}</p>
         <p><strong>Regulă TVA:</strong> {taxRule.vatLabel}</p>
         <p><strong>Total net:</strong> {formatMoney(aggregated.total)} €</p>
         <p><strong>TVA:</strong> {formatMoney(vatAmount)} €</p>
