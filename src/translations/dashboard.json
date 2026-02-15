@@ -454,7 +454,7 @@
         "UK": "United Kingdom"
       },
       "guides": {
-        "button": "Video guide",
+        "button": "Video tutorial",
         "error": "Cannot open guide ({lang}): {msg}",
         "unavailable": "Guide unavailable for section \"{section}\"."
       },
@@ -1391,7 +1391,7 @@
         "UK": "Regatul Unit"
       },
       "guides": {
-        "button": "Ghid video",
+        "button": "Tutorial video",
         "error": "Nu pot deschide ghidul ({lang}): {msg}",
         "unavailable": "Ghid indisponibil pentru secțiunea \"{section}\"."
       },
@@ -2365,7 +2365,7 @@
         "UK": "Royaume-Uni"
       },
       "guides": {
-        "button": "Guide vidéo",
+        "button": "Tutoriel vidéo",
         "error": "Impossible d’ouvrir le guide ({lang}) : {msg}",
         "unavailable": "Guide indisponible pour la section \"{section}\"."
       },
@@ -3209,7 +3209,7 @@
         "UK": "Vereinigtes Königreich"
       },
       "guides": {
-        "button": "Videoanleitung",
+        "button": "Video-Tutorial",
         "error": "Leitfaden kann nicht geöffnet werden ({lang}): {msg}",
         "unavailable": "Leitfaden für den Bereich \"{section}\" ist nicht verfügbar."
       },
@@ -4053,7 +4053,7 @@
         "UK": "Regno Unito"
       },
       "guides": {
-        "button": "Guida video",
+        "button": "Tutorial video",
         "error": "Impossibile aprire la guida ({lang}): {msg}",
         "unavailable": "Guida non disponibile per la sezione \"{section}\"."
       },
@@ -4897,7 +4897,7 @@
         "UK": "Reino Unido"
       },
       "guides": {
-        "button": "Guía en vídeo",
+        "button": "Tutorial en vídeo",
         "error": "No se puede abrir la guía ({lang}): {msg}",
         "unavailable": "Guía no disponible para la sección \"{section}\"."
       },
