@@ -64,7 +64,10 @@ export const buildInvoicePdfBlob = async ({
     issuer?.vat_number ? `VAT: ${issuer.vat_number}` : null,
     issuer?.registration_number ? `Reg: ${issuer.registration_number}` : null,
     issuer?.email,
-    issuer?.phone
+    issuer?.phone,
+    issuer?.website,
+    issuer?.iban ? `IBAN: ${issuer.iban}` : null,
+    issuer?.bic ? `BIC: ${issuer.bic}` : null
   ].filter(Boolean);
 
   const customerLines = [

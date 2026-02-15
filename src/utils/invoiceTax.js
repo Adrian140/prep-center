@@ -1,14 +1,17 @@
 export const DEFAULT_ISSUER_PROFILES = {
   FR: {
     country: 'FR',
-    company_name: 'Prep Center France',
-    vat_number: 'FRXX000000000',
-    registration_number: 'SIREN 000 000 000',
-    address_line1: '1 Rue Exemple',
-    city: 'Lille',
-    postal_code: '59000',
-    phone: '+33 0 00 00 00 00',
-    email: 'billing-fr@prep-center.eu'
+    company_name: 'GLOBAL FULFILL HUB',
+    vat_number: 'FR38941373110',
+    registration_number: 'SIRET 941373110 00019',
+    address_line1: '32 RUE DE LA LIBERATION',
+    city: 'PLERGUER',
+    postal_code: '35540',
+    phone: '+33 675 11 62 18',
+    email: 'contact@prep-center.eu',
+    website: 'https://prep-center.eu',
+    iban: 'BE28905309130620',
+    bic: 'TRWIBEB1XXX'
   },
   DE: {
     country: 'DE',
