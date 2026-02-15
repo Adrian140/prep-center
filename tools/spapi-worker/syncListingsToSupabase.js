@@ -558,20 +558,25 @@ async function fillMissingImagesFromCatalog({
   let notFound = 0;
   let failed = 0;
 
+  const CACHE_READ_CHUNK_SIZE = Number(process.env.SPAPI_ASIN_ASSETS_READ_CHUNK || 300);
   let cachedRows = [];
   try {
-    const cacheRes = await runWithTransientRetry(
-      async () => {
-        const res = await supabase
-          .from('asin_assets')
-          .select('asin, image_urls')
-          .in('asin', uniqueAsins);
-        if (res?.error) throw res.error;
-        return res;
-      },
-      `catalog-cache-read company=${companyId}`
-    );
-    cachedRows = cacheRes?.data || [];
+    for (let i = 0; i < uniqueAsins.length; i += CACHE_READ_CHUNK_SIZE) {
+      const chunk = uniqueAsins.slice(i, i + CACHE_READ_CHUNK_SIZE);
+      if (!chunk.length) continue;
+      const cacheRes = await runWithTransientRetry(
+        async () => {
+          const res = await supabase
+            .from('asin_assets')
+            .select('asin, image_urls')
+            .in('asin', chunk);
+          if (res?.error) throw res.error;
+          return res;
+        },
+        `catalog-cache-read company=${companyId} chunk=${Math.floor(i / CACHE_READ_CHUNK_SIZE) + 1}`
+      );
+      cachedRows.push(...(cacheRes?.data || []));
+    }
   } catch (cacheErr) {
     // Non-fatal: dacă nu putem citi cache-ul, continuăm direct cu API calls.
     console.warn(
