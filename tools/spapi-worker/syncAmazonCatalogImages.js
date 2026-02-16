@@ -255,16 +255,41 @@ async function getCatalogData(spClient, asin, marketplaceId) {
 }
 
 async function fetchMissingRows(companyId, limit) {
+  const safeLimit = Number.isFinite(limit) ? limit : 5000;
   const query = supabase
     .from('stock_items')
     .select('id, asin, name')
     .eq('company_id', companyId)
     .or('image_url.is.null,image_url.eq.,name.is.null,name.eq.,name.eq.-')
     .not('asin', 'is', null);
-  const safeLimit = Number.isFinite(limit) ? limit : 5000;
-  const { data, error } = await query.limit(safeLimit);
+  const { data: baseRows, error } = await query.limit(safeLimit);
   if (error) throw error;
-  return data || [];
+
+  // Extra pass: include rows where title is placeholder equal to ASIN.
+  const { data: candidateRows, error: candidateErr } = await supabase
+    .from('stock_items')
+    .select('id, asin, name')
+    .eq('company_id', companyId)
+    .not('asin', 'is', null)
+    .not('name', 'is', null)
+    .neq('name', '')
+    .neq('name', '-')
+    .limit(Math.max(2000, safeLimit * 2));
+  if (candidateErr) throw candidateErr;
+
+  const rowsById = new Map();
+  for (const row of baseRows || []) {
+    rowsById.set(row.id, row);
+  }
+  for (const row of candidateRows || []) {
+    const asin = String(row?.asin || '').trim().toUpperCase();
+    const name = String(row?.name || '').trim().toUpperCase();
+    if (asin && name && asin === name) {
+      rowsById.set(row.id, row);
+    }
+  }
+
+  return Array.from(rowsById.values()).slice(0, safeLimit);
 }
 
 async function upsertAsinAsset(asin, imageUrl) {
@@ -297,6 +322,15 @@ async function fillStockTitles(companyId, asin, title) {
     .eq('asin', asin)
     .or('name.is.null,name.eq.,name.eq.-');
   if (error) throw error;
+
+  // Also replace placeholder titles that are literally the ASIN.
+  const { error: asinNameErr } = await supabase
+    .from('stock_items')
+    .update({ name: clean })
+    .eq('company_id', companyId)
+    .eq('asin', asin)
+    .eq('name', asin);
+  if (asinNameErr) throw asinNameErr;
 }
 
 async function syncIntegrationImages(integration, runState) {
@@ -334,7 +368,8 @@ async function syncIntegrationImages(integration, runState) {
     rows
       .filter((r) => {
         const name = typeof r?.name === 'string' ? r.name.trim() : '';
-        return !name || name === '-';
+        const asin = typeof r?.asin === 'string' ? r.asin.trim() : '';
+        return !name || name === '-' || (asin && name.toUpperCase() === asin.toUpperCase());
       })
       .map((r) => (typeof r?.asin === 'string' ? r.asin.trim().toUpperCase() : ''))
       .filter(isValidAsin)
