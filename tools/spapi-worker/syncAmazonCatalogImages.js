@@ -243,28 +243,64 @@ function pickFirstCatalogImage(payload) {
   return null;
 }
 
-async function getCatalogMainImage(spClient, asin, marketplaceId) {
+function pickCatalogTitle(payload) {
+  const root = payload?.payload || payload || {};
+  const summaries = Array.isArray(root.summaries) ? root.summaries : [];
+  for (const summary of summaries) {
+    const title = summary?.itemName || summary?.item_name || summary?.displayName || null;
+    if (typeof title === 'string' && title.trim().length) {
+      return title.trim();
+    }
+  }
+  const attrs = root?.attributes || {};
+  const candidates = ['item_name', 'itemName', 'title', 'product_title'];
+  for (const key of candidates) {
+    const v = attrs?.[key];
+    if (Array.isArray(v) && v.length) {
+      const first = v[0];
+      const title =
+        first?.value ||
+        first?.displayValue ||
+        first?.item_name ||
+        first?.itemName ||
+        first?.title ||
+        null;
+      if (typeof title === 'string' && title.trim().length) {
+        return title.trim();
+      }
+    }
+    if (typeof v === 'string' && v.trim().length) {
+      return v.trim();
+    }
+  }
+  return null;
+}
+
+async function getCatalogData(spClient, asin, marketplaceId) {
   const result = await spClient.callAPI({
     operation: 'getCatalogItem',
     endpoint: 'catalogItems',
     path: { asin },
     query: {
       marketplaceIds: [marketplaceId],
-      includedData: ['images']
+      includedData: ['images', 'summaries']
     },
     options: {
       version: '2022-04-01'
     }
   });
-  return pickFirstCatalogImage(result);
+  return {
+    image: pickFirstCatalogImage(result),
+    title: pickCatalogTitle(result)
+  };
 }
 
 async function fetchMissingRows(companyId, limit) {
   const query = supabase
     .from('stock_items')
-    .select('id, asin')
+    .select('id, asin, name')
     .eq('company_id', companyId)
-    .or('image_url.is.null,image_url.eq.')
+    .or('image_url.is.null,image_url.eq.,name.is.null,name.eq.,name.eq.-')
     .not('asin', 'is', null);
   const safeLimit = Number.isFinite(limit) ? limit : 5000;
   const { data, error } = await query.limit(safeLimit);
@@ -289,6 +325,18 @@ async function fillStockImages(companyId, asin, imageUrl) {
     .eq('company_id', companyId)
     .eq('asin', asin)
     .is('image_url', null);
+  if (error) throw error;
+}
+
+async function fillStockTitles(companyId, asin, title) {
+  if (!title || !String(title).trim().length) return;
+  const clean = String(title).trim();
+  const { error } = await supabase
+    .from('stock_items')
+    .update({ name: clean })
+    .eq('company_id', companyId)
+    .eq('asin', asin)
+    .or('name.is.null,name.eq.,name.eq.-');
   if (error) throw error;
 }
 
@@ -321,6 +369,15 @@ async function syncIntegrationImages(integration, runState) {
         .filter(Boolean)
     )
   );
+  const missingTitleAsins = new Set(
+    rows
+      .filter((r) => {
+        const name = typeof r?.name === 'string' ? r.name.trim() : '';
+        return !name || name === '-';
+      })
+      .map((r) => (typeof r?.asin === 'string' ? r.asin.trim().toUpperCase() : ''))
+      .filter(Boolean)
+  );
 
   const spClient = createSpClient({
     refreshToken: integration.refresh_token,
@@ -347,16 +404,25 @@ async function syncIntegrationImages(integration, runState) {
         : null;
       if (cached) {
         await fillStockImages(integration.company_id, asin, cached);
-        runState.reused += 1;
-        continue;
+        if (!missingTitleAsins.has(asin)) {
+          runState.reused += 1;
+          continue;
+        }
       }
 
-      let found = null;
+      let foundImage = cached || null;
+      let foundTitle = null;
       let hadNonNotFoundError = false;
       for (const marketplaceId of marketplaceIds) {
         try {
-          found = await getCatalogMainImage(spClient, asin, marketplaceId);
-          if (found) {
+          const catalog = await getCatalogData(spClient, asin, marketplaceId);
+          if (!foundImage && catalog?.image) {
+            foundImage = catalog.image;
+          }
+          if (!foundTitle && catalog?.title) {
+            foundTitle = catalog.title;
+          }
+          if (foundImage || foundTitle) {
             runState.foundByMarketplace[marketplaceId] =
               (runState.foundByMarketplace[marketplaceId] || 0) + 1;
             break;
@@ -377,7 +443,7 @@ async function syncIntegrationImages(integration, runState) {
         }
       }
 
-      if (!found) {
+      if (!foundImage && !foundTitle) {
         if (hadNonNotFoundError) {
           runState.failed += 1;
         } else {
@@ -386,9 +452,20 @@ async function syncIntegrationImages(integration, runState) {
         continue;
       }
 
-      await upsertAsinAsset(asin, found);
-      await fillStockImages(integration.company_id, asin, found);
-      runState.found += 1;
+      if (foundImage && !cached) {
+        await upsertAsinAsset(asin, foundImage);
+      }
+      if (foundImage) {
+        await fillStockImages(integration.company_id, asin, foundImage);
+      }
+      if (foundTitle) {
+        await fillStockTitles(integration.company_id, asin, foundTitle);
+      }
+      if (cached && !foundTitle) {
+        runState.reused += 1;
+      } else {
+        runState.found += 1;
+      }
     } catch (err) {
       if (isUnauthorizedError(err)) {
         console.warn(
