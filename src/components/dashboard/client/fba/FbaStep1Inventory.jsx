@@ -992,6 +992,40 @@ export default function FbaStep1Inventory({
     [updateGroupPlan]
   );
 
+  const removeDimensionSet = useCallback(
+    (groupId, setId, labelFallback) => {
+      updateGroupPlan(
+        groupId,
+        (current) => {
+          const currentSets = Array.isArray(current.dimension_sets) ? current.dimension_sets : [];
+          if (currentSets.length <= 1) return current;
+          const nextSets = currentSets.filter((set) => set?.id !== setId);
+          const nextAssignments = { ...(current.dimension_assignments || {}) };
+          const nextBoxes = [...(current.boxes || [])];
+          nextBoxes.forEach((box, boxIdx) => {
+            const boxId = box?.id || `${groupId}-box-${boxIdx}`;
+            if (nextAssignments[boxId] !== setId) return;
+            delete nextAssignments[boxId];
+            nextBoxes[boxIdx] = {
+              ...box,
+              length_cm: '',
+              width_cm: '',
+              height_cm: ''
+            };
+          });
+          return {
+            ...current,
+            boxes: nextBoxes,
+            dimension_sets: nextSets,
+            dimension_assignments: nextAssignments
+          };
+        },
+        labelFallback
+      );
+    },
+    [updateGroupPlan]
+  );
+
   const updateBoxItemQty = useCallback(
     (groupId, boxIndex, skuKey, value, labelFallback, keepZero = false) => {
       updateGroupPlan(
@@ -2559,8 +2593,20 @@ export default function FbaStep1Inventory({
                           return (
                             <tr key={set.id}>
                               <td className="sticky left-0 z-10 bg-white border-b border-slate-200 px-3 py-2 align-top">
-                                <div className="text-xs font-semibold text-slate-700">
-                                  Box dimensions (cm){setIdx > 0 ? ` ${setIdx + 1}` : ''}
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="text-xs font-semibold text-slate-700">
+                                    Box dimensions (cm){setIdx > 0 ? ` ${setIdx + 1}` : ''}
+                                  </div>
+                                  {setIdx > 0 && dimensionSets.length > 1 && (
+                                    <button
+                                      type="button"
+                                      className="text-xs text-slate-400 hover:text-red-600"
+                                      onClick={() => removeDimensionSet(group.groupId, set.id, group.label)}
+                                      aria-label={`Remove box dimensions ${setIdx + 1}`}
+                                    >
+                                      x
+                                    </button>
+                                  )}
                                 </div>
                                 <div className="mt-1 flex items-center gap-1">
                                   <input
