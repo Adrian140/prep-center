@@ -482,7 +482,7 @@ export default function FbaSendToAmazonWizard({
     const list = Array.isArray(groups) ? groups : [];
     return list;
   }, []);
-  const allowPersistence = true; // păstrăm workflow-ul local pentru reluare exactă pe request
+  const allowPersistence = false; // dezactivăm persistența nouă până când schema DB este prezentă peste tot
   const normalizePackGroups = useCallback(
     (groups = []) => {
       const list = Array.isArray(groups) ? groups : [];
