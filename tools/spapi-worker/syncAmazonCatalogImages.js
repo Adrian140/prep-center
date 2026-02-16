@@ -160,6 +160,11 @@ function resolveMarketplaceIds(integration) {
   return [];
 }
 
+function isValidAsin(value) {
+  const v = String(value || '').trim().toUpperCase();
+  return /^[A-Z0-9]{10}$/.test(v);
+}
+
 function isUnauthorizedError(err) {
   const message = String(err?.message || err || '').toLowerCase();
   const code = String(err?.code || '').toLowerCase();
@@ -323,6 +328,8 @@ async function syncIntegrationImages(integration, runState) {
         .filter(Boolean)
     )
   );
+  const validAsins = uniqueAsins.filter(isValidAsin);
+  const skippedInvalidAsins = uniqueAsins.length - validAsins.length;
   const missingTitleAsins = new Set(
     rows
       .filter((r) => {
@@ -330,6 +337,7 @@ async function syncIntegrationImages(integration, runState) {
         return !name || name === '-';
       })
       .map((r) => (typeof r?.asin === 'string' ? r.asin.trim().toUpperCase() : ''))
+      .filter(isValidAsin)
       .filter(Boolean)
   );
 
@@ -339,10 +347,10 @@ async function syncIntegrationImages(integration, runState) {
   });
 
   console.log(
-    `[Catalog image sync] Integration ${integration.id} company=${integration.company_id} marketplaces=${marketplaceIds.join(',')} uniqueAsins=${uniqueAsins.length}`
+    `[Catalog image sync] Integration ${integration.id} company=${integration.company_id} marketplaces=${marketplaceIds.join(',')} uniqueAsins=${uniqueAsins.length} validAsins=${validAsins.length} skippedInvalid=${skippedInvalidAsins}`
   );
 
-  for (const asin of uniqueAsins) {
+  for (const asin of validAsins) {
     if (Number.isFinite(MAX_ITEMS_PER_RUN) && runState.processed >= MAX_ITEMS_PER_RUN) break;
     runState.processed += 1;
 
