@@ -2041,7 +2041,7 @@ createPrepItem: async (requestId, item) => {
       withCompany(
         supabase
           .from('fba_lines')
-          .select('total, unit_price, units, service_date')
+          .select('total, unit_price, units, service_date, prep_request_id')
       )
     )
       .gte('service_date', dateFrom)
@@ -2086,6 +2086,18 @@ createPrepItem: async (requestId, item) => {
       balancePromise
     ]);
     let pendingItemsRes = await pendingItemsPromise;
+    if (fbaLinesRes?.error && isMissingColumnError(fbaLinesRes.error, 'prep_request_id')) {
+      fbaLinesRes = await withCountry(
+        withCompany(
+          supabase
+            .from('fba_lines')
+            .select('total, unit_price, units, service_date')
+        )
+      )
+        .gte('service_date', dateFrom)
+        .lte('service_date', dateTo)
+        .limit(20000);
+    }
     const needsWarehouseRetry =
       marketCode &&
       [returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes]
@@ -2228,6 +2240,36 @@ createPrepItem: async (requestId, item) => {
     const fbaLines = Array.isArray(fbaLinesRes.data) ? fbaLinesRes.data : [];
     const fbmLines = Array.isArray(fbmLinesRes.data) ? fbmLinesRes.data : [];
     const otherLines = Array.isArray(otherLinesRes.data) ? otherLinesRes.data : [];
+    const fbaPrepRequestIds = Array.from(
+      new Set(
+        fbaLines
+          .map((row) => row?.prep_request_id)
+          .filter(Boolean)
+      )
+    );
+    const fbaFinalizedDateByRequestId = new Map();
+    if (fbaPrepRequestIds.length) {
+      let prepDatesQuery = supabase
+        .from('prep_requests')
+        .select('id, step4_confirmed_at, confirmed_at')
+        .in('id', fbaPrepRequestIds)
+        .limit(20000);
+      if (companyId) prepDatesQuery = prepDatesQuery.eq('company_id', companyId);
+      if (marketCode) prepDatesQuery = prepDatesQuery.eq('warehouse_country', marketCode);
+      const prepDatesRes = await prepDatesQuery;
+      const prepDatesRows = Array.isArray(prepDatesRes.data) ? prepDatesRes.data : [];
+      prepDatesRows.forEach((row) => {
+        const effectiveDate = row?.step4_confirmed_at || row?.confirmed_at || null;
+        if (!effectiveDate) return;
+        fbaFinalizedDateByRequestId.set(row.id, String(effectiveDate).slice(0, 10));
+      });
+    }
+    const fbaLinesForFinance = fbaLines.map((row) => {
+      const requestId = row?.prep_request_id || null;
+      const finalizedDate = requestId ? fbaFinalizedDateByRequestId.get(requestId) : null;
+      if (!finalizedDate) return row;
+      return { ...row, service_date: finalizedDate };
+    });
 
     const filterCompanyJoin = (rows, extractor) => {
       if (!companyId) return rows;
@@ -2335,17 +2377,17 @@ createPrepItem: async (requestId, item) => {
         }, 0);
 
     const financeAmounts = {
-      fba: sumAmount(fbaLines, 'service_date', 'units'),
+      fba: sumAmount(fbaLinesForFinance, 'service_date', 'units'),
       fbm: sumAmount(fbmLines, 'service_date', 'orders_units'),
       other: sumAmount(otherLines, 'service_date', 'units')
     };
     const financeAmountsToday = {
-      fba: sumAmountByDate(fbaLines, 'service_date', 'units'),
+      fba: sumAmountByDate(fbaLinesForFinance, 'service_date', 'units'),
       fbm: sumAmountByDate(fbmLines, 'service_date', 'orders_units'),
       other: sumAmountByDate(otherLines, 'service_date', 'units')
     };
     const financeAmountsTodayAbsolute = {
-      fba: sumAmountByExactDate(fbaLines, 'service_date', 'units', endKey),
+      fba: sumAmountByExactDate(fbaLinesForFinance, 'service_date', 'units', endKey),
       fbm: sumAmountByExactDate(fbmLines, 'service_date', 'orders_units', endKey),
       other: sumAmountByExactDate(otherLines, 'service_date', 'units', endKey)
     };
@@ -2370,7 +2412,7 @@ createPrepItem: async (requestId, item) => {
     };
 
     const financeDailyAmounts = buildDailyAmounts(
-      [...fbaLines, ...fbmLines, ...otherLines],
+      [...fbaLinesForFinance, ...fbmLines, ...otherLines],
       'service_date',
       'units'
     );
