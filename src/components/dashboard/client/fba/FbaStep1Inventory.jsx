@@ -93,6 +93,7 @@ export default function FbaStep1Inventory({
   onBoxServicesChange,
   onPersistServices,
   operationProblems = [],
+  onSubmitListingAttributes,
   onNext
 }) {
   const resolvedInboundPlanId =
@@ -155,6 +156,9 @@ export default function FbaStep1Inventory({
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [addSkuBusyKey, setAddSkuBusyKey] = useState('');
   const [recheckingSkuId, setRecheckingSkuId] = useState('');
+  const [listingAttrDraftsBySku, setListingAttrDraftsBySku] = useState({});
+  const [listingAttrSavingBySku, setListingAttrSavingBySku] = useState({});
+  const [listingAttrErrorBySku, setListingAttrErrorBySku] = useState({});
   const ignoredItems = Array.isArray(data?.ignoredItems) ? data.ignoredItems : [];
 
   const marketplaceIdByCountry = {
@@ -259,11 +263,24 @@ export default function FbaStep1Inventory({
     continueAnyway: ''
   };
   const statusForSku = (sku) => {
-    const match =
-      skuStatuses.find((s) => s.sku === sku.sku) ||
-      skuStatuses.find((s) => s.asin && s.asin === sku.asin) ||
-      skuStatuses.find((s) => s.id && s.id === sku.id);
-    return match || { state: 'unknown', reason: '' };
+    const skuKeys = getSkuCandidateKeys(sku);
+    for (const key of skuKeys) {
+      const match = skuStatuses.find((s) => {
+        const statusKeys = [
+          s?.sku,
+          s?.msku,
+          s?.SellerSKU,
+          s?.sellerSku,
+          s?.asin,
+          s?.id
+        ]
+          .map((v) => normalizeKey(v))
+          .filter(Boolean);
+        return statusKeys.includes(key);
+      });
+      if (match) return match;
+    }
+    return { state: 'unknown', reason: '' };
   };
   const humanizeOperationProblem = useCallback((problem) => {
     const message = String(problem?.message || problem?.Message || '').trim();
@@ -276,6 +293,32 @@ export default function FbaStep1Inventory({
     }
     return message.replace(/\bFBA_INB_\d+\b[:\s-]*/gi, '').trim();
   }, []);
+  const listingAttrRequirementsBySku = useMemo(() => {
+    const map = new Map();
+    (Array.isArray(operationProblems) ? operationProblems : []).forEach((problem) => {
+      const code = String(problem?.code || '').toUpperCase();
+      const message = String(problem?.message || '').toLowerCase();
+      const details = String(problem?.details || '').toLowerCase();
+      const combined = `${message} ${details}`;
+      const resourceMatch = String(problem?.details || '').match(/resource\s+'([^']+)'/i);
+      const explicitSkuMatch = String(problem?.message || '').match(/\bSKU\s*[:=]\s*([A-Za-z0-9._\- ]+)/i);
+      const resourceKey = normalizeKey(resourceMatch?.[1] || explicitSkuMatch?.[1] || '');
+      if (!resourceKey) return;
+      const needsDimensions =
+        code === 'FBA_INB_0004' ||
+        combined.includes('dimensions need to be provided');
+      const needsWeight =
+        code === 'FBA_INB_0005' ||
+        combined.includes('weight need to be provided');
+      if (!needsDimensions && !needsWeight) return;
+      const current = map.get(resourceKey) || { needsDimensions: false, needsWeight: false, messages: [] };
+      current.needsDimensions = current.needsDimensions || needsDimensions;
+      current.needsWeight = current.needsWeight || needsWeight;
+      if (problem?.message) current.messages.push(String(problem.message));
+      map.set(resourceKey, current);
+    });
+    return map;
+  }, [normalizeKey, operationProblems]);
   const [serviceOptions, setServiceOptions] = useState([]);
   const [boxOptions, setBoxOptions] = useState([]);
   const persistTimerRef = useRef(null);
@@ -1398,6 +1441,11 @@ export default function FbaStep1Inventory({
     const servicesForSku = Array.isArray(skuServicesById?.[sku.id]) ? skuServicesById[sku.id] : [];
     const canRecheckAssignment = typeof onRecheckAssignment === 'function' && (groupLabel === 'Unassigned' || state === 'unknown');
     const isRechecking = recheckingSkuId === sku.id;
+    const skuReqKey = normalizeKey(sku?.sku || sku?.msku || sku?.SellerSKU || sku?.sellerSku || sku?.asin || sku?.id || '');
+    const listingAttrReq = listingAttrRequirementsBySku.get(skuReqKey) || null;
+    const listingDraft = listingAttrDraftsBySku[skuReqKey] || { length_cm: '', width_cm: '', height_cm: '', weight_kg: '' };
+    const listingSaving = Boolean(listingAttrSavingBySku[skuReqKey]);
+    const listingError = listingAttrErrorBySku[skuReqKey] || '';
     return (
       <tr key={sku.id} className="align-top">
         <td className="py-3 w-[320px] min-w-[320px]">
@@ -1513,12 +1561,140 @@ export default function FbaStep1Inventory({
                 <CheckCircle className="w-4 h-4" /> Ready to pack
               </div>
             )}
+            {listingAttrReq && (
+              <div className="mt-2 p-2 border border-amber-200 rounded-md bg-amber-50 space-y-2">
+                <div className="text-[11px] font-semibold text-amber-800">
+                  Amazon needs product package attributes for this SKU.
+                </div>
+                {listingAttrReq.needsDimensions && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.1"
+                      placeholder="L (cm)"
+                      value={listingDraft.length_cm}
+                      onChange={(e) =>
+                        setListingAttrDraftsBySku((prev) => ({
+                          ...(prev || {}),
+                          [skuReqKey]: {
+                            ...(prev?.[skuReqKey] || {}),
+                            length_cm: e.target.value
+                          }
+                        }))
+                      }
+                      className="w-16 h-8 border rounded-sm px-2 py-1 text-xs text-center"
+                    />
+                    <span className="text-slate-400 text-[10px]">x</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.1"
+                      placeholder="W (cm)"
+                      value={listingDraft.width_cm}
+                      onChange={(e) =>
+                        setListingAttrDraftsBySku((prev) => ({
+                          ...(prev || {}),
+                          [skuReqKey]: {
+                            ...(prev?.[skuReqKey] || {}),
+                            width_cm: e.target.value
+                          }
+                        }))
+                      }
+                      className="w-16 h-8 border rounded-sm px-2 py-1 text-xs text-center"
+                    />
+                    <span className="text-slate-400 text-[10px]">x</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.1"
+                      placeholder="H (cm)"
+                      value={listingDraft.height_cm}
+                      onChange={(e) =>
+                        setListingAttrDraftsBySku((prev) => ({
+                          ...(prev || {}),
+                          [skuReqKey]: {
+                            ...(prev?.[skuReqKey] || {}),
+                            height_cm: e.target.value
+                          }
+                        }))
+                      }
+                      className="w-16 h-8 border rounded-sm px-2 py-1 text-xs text-center"
+                    />
+                  </div>
+                )}
+                {listingAttrReq.needsWeight && (
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    placeholder="Weight (kg)"
+                    value={listingDraft.weight_kg}
+                    onChange={(e) =>
+                      setListingAttrDraftsBySku((prev) => ({
+                        ...(prev || {}),
+                        [skuReqKey]: {
+                          ...(prev?.[skuReqKey] || {}),
+                          weight_kg: e.target.value
+                        }
+                      }))
+                    }
+                    className="w-24 h-8 border rounded-sm px-2 py-1 text-xs text-center"
+                  />
+                )}
+                <button
+                  type="button"
+                  disabled={listingSaving}
+                  className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-2 py-1 rounded"
+                  onClick={async () => {
+                    try {
+                      setListingAttrErrorBySku((prev) => ({ ...(prev || {}), [skuReqKey]: '' }));
+                      setListingAttrSavingBySku((prev) => ({ ...(prev || {}), [skuReqKey]: true }));
+                      const payload = {
+                        length_cm: listingDraft.length_cm,
+                        width_cm: listingDraft.width_cm,
+                        height_cm: listingDraft.height_cm,
+                        weight_kg: listingDraft.weight_kg
+                      };
+                      if (listingAttrReq.needsDimensions) {
+                        const l = Number(payload.length_cm || 0);
+                        const w = Number(payload.width_cm || 0);
+                        const h = Number(payload.height_cm || 0);
+                        if (!(l > 0 && w > 0 && h > 0)) {
+                          throw new Error('Complete product dimensions (L/W/H).');
+                        }
+                      }
+                      if (listingAttrReq.needsWeight) {
+                        const weight = Number(payload.weight_kg || 0);
+                        if (!(weight > 0)) {
+                          throw new Error('Complete product weight.');
+                        }
+                      }
+                      if (typeof onSubmitListingAttributes === 'function') {
+                        await onSubmitListingAttributes(sku?.sku || skuReqKey, payload);
+                      }
+                    } catch (e) {
+                      setListingAttrErrorBySku((prev) => ({
+                        ...(prev || {}),
+                        [skuReqKey]: e?.message || 'Could not send attributes to Amazon.'
+                      }));
+                    } finally {
+                      setListingAttrSavingBySku((prev) => ({ ...(prev || {}), [skuReqKey]: false }));
+                    }
+                  }}
+                >
+                  {listingSaving ? 'Sending...' : 'Send product attributes to Amazon'}
+                </button>
+                {listingError ? <div className="text-[11px] text-red-700">{listingError}</div> : null}
+              </div>
+            )}
           </div>
         </td>
         <td className="py-3">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 className="px-2 py-1 border rounded-md text-sm"
                 onClick={() => onChangeQuantity(sku.id, Math.max(0, Number(sku.units || 0) - 1))}
               >
@@ -1533,6 +1709,7 @@ export default function FbaStep1Inventory({
                 onChange={(e) => onChangeQuantity(sku.id, Number(e.target.value || 0))}
               />
               <button
+                type="button"
                 className="px-2 py-1 border rounded-md text-sm"
                 onClick={() => onChangeQuantity(sku.id, Number(sku.units || 0) + 1)}
               >

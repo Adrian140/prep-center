@@ -482,7 +482,7 @@ export default function FbaSendToAmazonWizard({
     const list = Array.isArray(groups) ? groups : [];
     return list;
   }, []);
-const allowPersistence = false; // forțează reluarea workflow-ului de la Step 1; nu restaurăm din localStorage
+  const allowPersistence = true; // păstrăm workflow-ul local pentru reluare exactă pe request
   const normalizePackGroups = useCallback(
     (groups = []) => {
       const list = Array.isArray(groups) ? groups : [];
@@ -1246,33 +1246,33 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   // Persistăm ultimul pas vizitat ca să nu se piardă la refresh (cheie per shipment).
   const storageKeyBase = useMemo(() => {
-    const inboundId =
-      plan?.inboundPlanId ||
-      plan?.inbound_plan_id ||
-      initialPlan?.inboundPlanId ||
-      initialPlan?.inbound_plan_id ||
-      null;
-    if (inboundId) return inboundId;
-    return (
+    const requestScopedKey =
       plan?.requestId ||
       plan?.request_id ||
       initialPlan?.requestId ||
       initialPlan?.request_id ||
       plan?.id ||
       initialPlan?.id ||
+      null;
+    if (requestScopedKey) return requestScopedKey;
+    return (
+      plan?.inboundPlanId ||
+      plan?.inbound_plan_id ||
+      initialPlan?.inboundPlanId ||
+      initialPlan?.inbound_plan_id ||
       null
     );
   }, [
-    plan?.inboundPlanId,
-    plan?.inbound_plan_id,
-    initialPlan?.inboundPlanId,
-    initialPlan?.inbound_plan_id,
     plan?.requestId,
     plan?.request_id,
     plan?.id,
     initialPlan?.requestId,
     initialPlan?.request_id,
-    initialPlan?.id
+    initialPlan?.id,
+    plan?.inboundPlanId,
+    plan?.inbound_plan_id,
+    initialPlan?.inboundPlanId,
+    initialPlan?.inbound_plan_id
   ]);
   const stepStorageKey = useMemo(() => {
     if (!storageKeyBase) return null;
@@ -1283,6 +1283,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return `fba-wizard-state-${storageKeyBase}`;
   }, [storageKeyBase]);
   const [restoredState, setRestoredState] = useState(false);
+  const dbStateLoadedRef = useRef(false);
+  const dbPersistTimerRef = useRef(null);
+  const lastDbSnapshotRef = useRef('');
   const prevStorageKeyRef = useRef(storageKeyBase);
   const requestKeyRef = useRef(initialRequestKey);
 
@@ -1390,20 +1393,31 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     window.localStorage.setItem(stepStorageKey, String(currentStep));
   }, [allowPersistence, currentStep, stepStorageKey]);
 
-  // Rehidratează starea locală după refresh (similar cu "Active workflow" din Amazon)
+  // Rehidratează starea wizard-ului din DB (amazon_snapshot.fba_wizard) + localStorage fallback.
   useEffect(() => {
     if (!allowPersistence) {
       setRestoredState(true);
       return;
     }
     if (typeof window === 'undefined' || restoredState || !stateStorageKey) return;
-    const raw = window.localStorage.getItem(stateStorageKey);
-    if (!raw) {
-      setRestoredState(true);
-      return;
-    }
-    try {
-      const data = JSON.parse(raw);
+    let cancelled = false;
+
+    const parseSnapshot = (raw) => {
+      if (!raw) return null;
+      try {
+        return typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch {
+        return null;
+      }
+    };
+
+    const ts = (val) => {
+      const num = Date.parse(String(val || ''));
+      return Number.isFinite(num) ? num : 0;
+    };
+
+    const applySnapshot = (data) => {
+      if (!data || typeof data !== 'object') return;
       if (data?.plan) setPlan((prev) => ({ ...prev, ...data.plan }));
       const normalized = Array.isArray(data?.packGroups) ? normalizePackGroups(data.packGroups) : [];
       if (normalized.length) setPackGroups((prev) => mergePackGroups(prev, normalized));
@@ -1420,12 +1434,63 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (Array.isArray(data?.completedSteps)) setCompletedSteps(data.completedSteps);
       if (data?.currentStep && stepsOrder.includes(data.currentStep)) setCurrentStep(data.currentStep);
       if (data?.step1BoxPlanByMarket) setStep1BoxPlanByMarket(data.step1BoxPlanByMarket);
-    } catch {
-      // ignore corrupt cache
-    } finally {
-      setRestoredState(true);
-    }
-  }, [allowPersistence, stateStorageKey, stepsOrder, restoredState, normalizePackGroups, mergePackGroups, hasRealPackGroups]);
+    };
+
+    (async () => {
+      try {
+        const localData = parseSnapshot(window.localStorage.getItem(stateStorageKey));
+        const initialDbData = parseSnapshot(initialPlan?.amazon_snapshot?.fba_wizard || null);
+        let historyData = null;
+        let dbData = initialDbData;
+        const requestId = resolveRequestId();
+        if (requestId && !dbStateLoadedRef.current) {
+          const { data: historyRows, error: historyError } = await supabase
+            .from('prep_request_wizard_history')
+            .select('payload, created_at')
+            .eq('request_ref_id', requestId)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          if (!historyError && Array.isArray(historyRows) && historyRows.length > 0) {
+            historyData = parseSnapshot(historyRows[0]?.payload || null);
+          }
+          const { data, error } = await supabase
+            .from('prep_requests')
+            .select('amazon_snapshot')
+            .eq('id', requestId)
+            .maybeSingle();
+          if (!error) {
+            dbData = parseSnapshot(data?.amazon_snapshot?.fba_wizard || null) || dbData;
+          }
+          dbStateLoadedRef.current = true;
+        }
+
+        if (cancelled) return;
+        const dbCandidate = ts(historyData?.updatedAt) >= ts(dbData?.updatedAt) ? historyData || dbData : dbData || historyData;
+        const chosen = ts(dbCandidate?.updatedAt) >= ts(localData?.updatedAt)
+          ? dbCandidate || localData
+          : localData || dbCandidate;
+        if (chosen) applySnapshot(chosen);
+      } catch {
+        // fallback: ignore restore failures
+      } finally {
+        if (!cancelled) setRestoredState(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    allowPersistence,
+    stateStorageKey,
+    stepsOrder,
+    restoredState,
+    normalizePackGroups,
+    mergePackGroups,
+    hasRealPackGroups,
+    initialPlan?.amazon_snapshot,
+    resolveRequestId
+  ]);
 
   // Persistă starea curentă ca să poți relua workflow-ul după refresh.
   useEffect(() => {
@@ -1445,7 +1510,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       packingOptions,
       placementOptionId,
       completedSteps,
-      currentStep
+      currentStep,
+      updatedAt: new Date().toISOString()
     };
     window.localStorage.setItem(stateStorageKey, JSON.stringify(snapshot));
   }, [
@@ -1466,15 +1532,86 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     stateStorageKey
   ]);
 
-  // Curăță localStorage la mount pentru a forța reluarea de la Step 1
+  // Persistă snapshot-ul wizard-ului în DB pentru resume cross-device/tab.
   useEffect(() => {
-    if (historyMode) return;
-    if (typeof window === 'undefined') return;
-    if (stepStorageKey) window.localStorage.removeItem(stepStorageKey);
-    if (stateStorageKey) window.localStorage.removeItem(stateStorageKey);
-    setCurrentStep('1');
-    setCompletedSteps([]);
-  }, [historyMode, stateStorageKey, stepStorageKey]);
+    if (!allowPersistence) return;
+    const requestId = resolveRequestId();
+    if (!requestId) return;
+    const snapshot = {
+      plan,
+      packGroups,
+      step1BoxPlanByMarket,
+      shipmentMode,
+      palletDetails,
+      shipments,
+      labelFormat,
+      tracking,
+      packingOptionId,
+      packingOptions,
+      placementOptionId,
+      completedSteps,
+      currentStep,
+      updatedAt: new Date().toISOString()
+    };
+    const serialized = JSON.stringify(snapshot);
+    if (serialized === lastDbSnapshotRef.current) return;
+    if (dbPersistTimerRef.current) clearTimeout(dbPersistTimerRef.current);
+    dbPersistTimerRef.current = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('prep_requests')
+          .select('amazon_snapshot')
+          .eq('id', requestId)
+          .maybeSingle();
+        if (error) throw error;
+        const currentSnapshot =
+          data?.amazon_snapshot && typeof data.amazon_snapshot === 'object' ? data.amazon_snapshot : {};
+        const nextSnapshot = {
+          ...currentSnapshot,
+          fba_wizard: snapshot
+        };
+        const { error: updateError } = await supabase
+          .from('prep_requests')
+          .update({ amazon_snapshot: nextSnapshot })
+          .eq('id', requestId);
+        if (updateError) throw updateError;
+        const { error: historyInsertError } = await supabase
+          .from('prep_request_wizard_history')
+          .insert({
+            request_id: requestId,
+            request_ref_id: requestId,
+            step_key: String(snapshot?.currentStep || currentStep || '1'),
+            payload: snapshot,
+            source: 'client'
+          });
+        if (historyInsertError) {
+          console.warn('Persist wizard history snapshot failed', historyInsertError);
+        }
+        lastDbSnapshotRef.current = serialized;
+      } catch (e) {
+        console.warn('Persist wizard snapshot failed', e);
+      }
+    }, 1200);
+    return () => {
+      if (dbPersistTimerRef.current) clearTimeout(dbPersistTimerRef.current);
+    };
+  }, [
+    allowPersistence,
+    resolveRequestId,
+    plan,
+    packGroups,
+    step1BoxPlanByMarket,
+    shipmentMode,
+    palletDetails,
+    shipments,
+    labelFormat,
+    tracking,
+    packingOptionId,
+    packingOptions,
+    placementOptionId,
+    completedSteps,
+    currentStep
+  ]);
 
   useEffect(() => {
     if (!autoLoadPlan && !fetchPlan) return;
@@ -1840,11 +1977,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   };
 
   const handleQuantityChange = (skuId, value) => {
-    setPlan((prev) => ({
-      ...prev,
-      skus: prev.skus.map((sku) => (sku.id === skuId ? { ...sku, units: Math.max(0, value) } : sku))
-    }));
-    invalidateFrom('1');
+    setPlan((prev) => {
+      const nextSkus = (Array.isArray(prev?.skus) ? prev.skus : []).map((sku) =>
+        sku.id === skuId ? { ...sku, units: Math.max(0, value) } : sku
+      );
+      return { ...prev, skus: nextSkus };
+    });
+    // Pentru schimbări de cantitate nu invalidăm planul/pack groups.
     setStep1SaveError('');
   };
 
@@ -1933,7 +2072,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       delete next[skuId];
       return next;
     });
-    invalidateFrom('1');
+    // La remove nu recalculăm pack groups și nu invalidăm planul curent.
     setStep1SaveError('');
   };
 
@@ -4362,6 +4501,77 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setPlanError('');
   }, []);
 
+  const submitListingAttributesForSku = useCallback(
+    async (sku, attrs) => {
+      const requestId = resolveRequestId();
+      if (!requestId) throw new Error('Missing requestId.');
+      const cleanSku = String(sku || '').trim();
+      if (!cleanSku) throw new Error('Missing SKU.');
+      const normalizePositive = (v) => {
+        const num = Number(v);
+        return Number.isFinite(num) && num > 0 ? num : null;
+      };
+      const { data, error } = await supabase.functions.invoke('fba-plan', {
+        body: {
+          request_id: requestId,
+          listingAttributesBySku: {
+            [cleanSku]: {
+              length_cm: normalizePositive(attrs?.length_cm),
+              width_cm: normalizePositive(attrs?.width_cm),
+              height_cm: normalizePositive(attrs?.height_cm),
+              weight_kg: normalizePositive(attrs?.weight_kg)
+            }
+          }
+        }
+      });
+      if (error) throw error;
+      const response = data?.plan || null;
+      if (!response) throw new Error('Amazon plan did not respond.');
+      const {
+        shipFrom: pFrom,
+        marketplace: pMarket,
+        skus: pSkus,
+        packGroups: pGroups,
+        shipments: pShipments,
+        warning: pWarning,
+        shipmentMode: pShipmentMode,
+        skuStatuses: pSkuStatuses,
+        operationProblems: pOperationProblems,
+        blocking: pBlocking
+      } = response;
+      if (pFrom && pMarket && Array.isArray(pSkus)) {
+        setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
+        snapshotServerUnits(pSkus);
+      } else {
+        setPlan((prev) => ({ ...prev, ...response }));
+        if (Array.isArray(response?.skus)) snapshotServerUnits(response.skus);
+      }
+      if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
+      if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
+      if (Array.isArray(pGroups)) {
+        const normalized = normalizePackGroups(pGroups);
+        setPackGroups((prev) => mergePackGroups(prev, normalized));
+        setPackGroupsLoaded(hasRealPackGroups(normalized));
+      }
+      if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
+      if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
+      if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
+      setOperationProblems(Array.isArray(pOperationProblems) ? pOperationProblems : []);
+      setBlocking(Boolean(pBlocking));
+      if (typeof pWarning === 'string' && pWarning.trim()) {
+        setPlanNotice(toFriendlyPlanNotice(pWarning));
+      }
+    },
+    [
+      resolveRequestId,
+      snapshotServerUnits,
+      normalizePackGroups,
+      mergePackGroups,
+      hasRealPackGroups,
+      toFriendlyPlanNotice
+    ]
+  );
+
   const invalidateFrom = (stepKey) => {
     const idx = stepsOrder.indexOf(stepKey);
     if (idx === -1) return;
@@ -4629,6 +4839,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           inboundPlanCopy={wizardCopy}
           onNext={persistStep1AndReloadPlan}
           operationProblems={operationProblems}
+          onSubmitListingAttributes={submitListingAttributesForSku}
           notice={planNotice}
           error={planError || step1SaveError}
         />

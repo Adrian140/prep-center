@@ -530,6 +530,51 @@ function extractSkuErrorReasons(primary: { json: any; text: string }): Record<st
   return {};
 }
 
+function extractSkuErrorReasonsFromOperationProblems(operationProblems: any[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const p of Array.isArray(operationProblems) ? operationProblems : []) {
+    const msg = String(p?.message || p?.Message || "").trim();
+    const details = String(p?.details || p?.Details || "").trim();
+    const combined = `${msg} ${details}`.trim();
+    if (!combined) continue;
+
+    const resourceMatch = combined.match(/resource\s+'([^']+)'/i);
+    if (resourceMatch?.[1]) {
+      const sku = normalizeSku(resourceMatch[1]);
+      if (sku) out[sku] = msg || details || "Amazon reported an issue for this SKU.";
+      continue;
+    }
+
+    const skuMatch = combined.match(/\bSKU\s*[:=]\s*([A-Za-z0-9._\- ]+)/i);
+    if (skuMatch?.[1]) {
+      const sku = normalizeSku(skuMatch[1]);
+      if (sku) out[sku] = msg || details || "Amazon reported an issue for this SKU.";
+    }
+  }
+  return out;
+}
+
+function parseRequiredProductAttrsBySku(operationProblems: any[]): Record<string, { needsDimensions: boolean; needsWeight: boolean }> {
+  const out: Record<string, { needsDimensions: boolean; needsWeight: boolean }> = {};
+  for (const p of Array.isArray(operationProblems) ? operationProblems : []) {
+    const code = String(p?.code || "").toUpperCase();
+    const msg = String(p?.message || "").toLowerCase();
+    const details = String(p?.details || "").toLowerCase();
+    const combined = `${msg} ${details}`;
+    const resourceMatch = String(p?.details || "").match(/resource\s+'([^']+)'/i);
+    const sku = normalizeSku(resourceMatch?.[1] || "");
+    if (!sku) continue;
+    const needsDimensions = code === "FBA_INB_0004" || combined.includes("dimensions need to be provided");
+    const needsWeight = code === "FBA_INB_0005" || combined.includes("weight need to be provided");
+    if (!needsDimensions && !needsWeight) continue;
+    const cur = out[sku] || { needsDimensions: false, needsWeight: false };
+    cur.needsDimensions = cur.needsDimensions || needsDimensions;
+    cur.needsWeight = cur.needsWeight || needsWeight;
+    out[sku] = cur;
+  }
+  return out;
+}
+
 function parsePrepTypeListBlock(raw: string): string[][] {
   const out: string[][] = [];
   const block = String(raw || "");
@@ -1621,6 +1666,28 @@ serve(async (req) => {
       const qty = Math.floor(num);
       quantitiesByItemId[key] = qty;
     });
+    const listingAttributesBySkuRaw = (body?.listingAttributesBySku as Record<string, any>) || {};
+    const listingAttributesBySku: Record<
+      string,
+      { length_cm?: number | null; width_cm?: number | null; height_cm?: number | null; weight_kg?: number | null }
+    > = {};
+    Object.entries(listingAttributesBySkuRaw).forEach(([skuRaw, attrsRaw]) => {
+      const sku = normalizeSku(skuRaw);
+      if (!sku || !attrsRaw || typeof attrsRaw !== "object") return;
+      const toPositive = (v: unknown) => {
+        const num = Number(v);
+        return Number.isFinite(num) && num > 0 ? num : null;
+      };
+      const next = {
+        length_cm: toPositive(attrsRaw?.length_cm),
+        width_cm: toPositive(attrsRaw?.width_cm),
+        height_cm: toPositive(attrsRaw?.height_cm),
+        weight_kg: toPositive(attrsRaw?.weight_kg)
+      };
+      if (next.length_cm || next.width_cm || next.height_cm || next.weight_kg) {
+        listingAttributesBySku[sku] = next;
+      }
+    });
     const isUuid = /^[0-9a-fA-F-]{36}$/.test(requestId);
     if (!requestId || !isUuid) {
       return new Response(JSON.stringify({ error: "request_id is required and must be a UUID" }), {
@@ -2360,6 +2427,135 @@ serve(async (req) => {
     const planWarnings: string[] = [];
     let planWarning: string | null = null;
     let appliedOverrides: Record<string, InboundFix> = {};
+
+    const applyListingAttributesUpdates = async () => {
+      const entries = Object.entries(listingAttributesBySku || {});
+      if (!entries.length) return;
+      for (const [skuKeyRaw, attrs] of entries) {
+        const skuKey = normalizeSku(skuKeyRaw);
+        if (!skuKey) continue;
+        const length = Number(attrs?.length_cm || 0);
+        const width = Number(attrs?.width_cm || 0);
+        const height = Number(attrs?.height_cm || 0);
+        const weight = Number(attrs?.weight_kg || 0);
+        const hasDims = length > 0 && width > 0 && height > 0;
+        const hasWeight = weight > 0;
+        if (!hasDims && !hasWeight) continue;
+
+        const listingsPath = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(skuKey)}`;
+        const getQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=summaries`;
+        const getRes = await spapiGet({
+          host,
+          region: awsRegion,
+          path: listingsPath,
+          query: getQuery,
+          lwaToken: lwaAccessToken,
+          tempCreds,
+          traceId,
+          operationName: "listings.getItem.productType",
+          marketplaceId,
+          sellerId
+        });
+        if (!getRes.res.ok) {
+          planWarnings.push(
+            `Nu am putut citi productType pentru SKU ${skuKey} (status ${getRes.res.status}).`
+          );
+          continue;
+        }
+        const summaries = getRes.json?.summaries || getRes.json?.payload?.summaries || [];
+        const summary =
+          (Array.isArray(summaries) ? summaries : []).find(
+            (s: any) => String(s?.marketplaceId || s?.marketplace_id || "") === String(marketplaceId)
+          ) || (Array.isArray(summaries) ? summaries[0] : null);
+        const productType = String(summary?.productType || summary?.product_type || "").trim();
+        if (!productType) {
+          planWarnings.push(`SKU ${skuKey} nu are productType în listing; nu pot trimite atributele.`);
+          continue;
+        }
+
+        const patches: any[] = [];
+        if (hasDims) {
+          patches.push({
+            op: "replace",
+            path: "/attributes/item_package_dimensions",
+            value: [
+              {
+                length: { value: length, unit: "centimeters" },
+                width: { value: width, unit: "centimeters" },
+                height: { value: height, unit: "centimeters" }
+              }
+            ]
+          });
+        }
+        if (hasWeight) {
+          patches.push({
+            op: "replace",
+            path: "/attributes/item_package_weight",
+            value: [{ value: weight, unit: "kilograms" }]
+          });
+        }
+        if (!patches.length) continue;
+
+        const patchBody = JSON.stringify({ productType, patches });
+        const previewQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}&mode=VALIDATION_PREVIEW`;
+        const preview = await signedFetch({
+          method: "PATCH",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: listingsPath,
+          query: previewQuery,
+          payload: patchBody,
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "listings.patchItem.validationPreview",
+          marketplaceId,
+          sellerId
+        });
+        const previewIssues = Array.isArray(preview.json?.issues) ? preview.json.issues : [];
+        const previewBlocking = previewIssues.some((i: any) => String(i?.severity || "").toUpperCase() === "ERROR");
+        if (!preview.res.ok || previewBlocking) {
+          const issueText = previewIssues
+            .slice(0, 2)
+            .map((i: any) => i?.message || i?.code || "")
+            .filter(Boolean)
+            .join(" | ");
+          planWarnings.push(
+            `Validarea atributelor pentru SKU ${skuKey} a eșuat.${issueText ? ` ${issueText}` : ""}`
+          );
+          continue;
+        }
+
+        const patchQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}`;
+        const patchRes = await signedFetch({
+          method: "PATCH",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: listingsPath,
+          query: patchQuery,
+          payload: patchBody,
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "listings.patchItem",
+          marketplaceId,
+          sellerId
+        });
+        if (!patchRes.res.ok) {
+          planWarnings.push(
+            `Nu am putut salva atributele de produs pentru SKU ${skuKey} (status ${patchRes.res.status}).`
+          );
+          continue;
+        }
+        planWarnings.push(`Atributele produsului au fost trimise la Amazon pentru SKU ${skuKey}.`);
+      }
+    };
 
     // SP-API expects the resource under /inbound/fba (not /fba/inbound)
     const path = "/inbound/fba/2024-03-20/inboundPlans";
@@ -3289,6 +3485,10 @@ serve(async (req) => {
       }
     };
 
+    if (Object.keys(listingAttributesBySku).length) {
+      await applyListingAttributesUpdates();
+    }
+
     if (!inboundPlanId) {
       await runCreateInboundPlanAttempts();
     }
@@ -3565,6 +3765,15 @@ serve(async (req) => {
           json: amazonJson,
           text: lastResponseText || ""
         });
+        const requiredProductAttrsBySku = parseRequiredProductAttrsBySku(operationProblems);
+        const requiredAttrSkus = Object.keys(requiredProductAttrsBySku);
+        if (requiredAttrSkus.length && !Object.keys(listingAttributesBySku).length) {
+          planWarnings.push(
+            `Amazon cere atribute de produs pentru SKU-uri (${requiredAttrSkus.join(", ")}). Completează dimensiuni/greutate produs și retrimite Step 1.`
+          );
+        }
+        const skuErrorReasonsFromOperation = extractSkuErrorReasonsFromOperationProblems(operationProblems);
+        const mergedSkuErrorReasons = { ...skuErrorReasons, ...skuErrorReasonsFromOperation };
         if (inboundUnavailableSkus.length) {
           for (const sku of inboundUnavailableSkus) {
             const existing = skuStatuses.find((s) => normalizeSku(s.sku) === sku);
@@ -3577,11 +3786,11 @@ serve(async (req) => {
             }
           }
         }
-        const errorSkus = Object.keys(skuErrorReasons);
+        const errorSkus = Object.keys(mergedSkuErrorReasons);
         if (errorSkus.length) {
           for (const sku of errorSkus) {
             const existing = skuStatuses.find((s) => normalizeSku(s.sku) === sku);
-            const reason = skuErrorReasons[sku] || "Eroare Amazon pentru acest SKU.";
+            const reason = mergedSkuErrorReasons[sku] || "Eroare Amazon pentru acest SKU.";
             if (existing) {
               existing.state = "missing";
               existing.reason = reason;
@@ -3629,7 +3838,8 @@ serve(async (req) => {
           ignoredItems,
           warning: `Amazon a refuzat crearea planului. Încearcă din nou sau verifică permisiunile Inbound pe marketplace.${statusInfo}${operationInfo}${optionsInfo}${problemsInfo ? ` ${problemsInfo}` : ""}${inboundUnavailableInfo}${extraWarnings}${ignoredItemsWarning ? ` ${ignoredItemsWarning}` : ""}`,
           blocking: true,
-          requestId: primaryRequestId || null
+          requestId: primaryRequestId || null,
+          listingAttributesRequiredBySku: requiredProductAttrsBySku
         };
         return new Response(JSON.stringify({ plan: fallbackPlan, traceId, status: createHttpStatus, requestId: primaryRequestId || null, inboundPlanId, inboundPlanStatus, operationId, operationStatus, operationProblems, operationRaw, scopes: lwaScopes }), {
           status: 200,
@@ -4041,6 +4251,7 @@ serve(async (req) => {
       shipments,
       raw: amazonJson,
       operationProblems: uiOperationProblems,
+      listingAttributesRequiredBySku: parseRequiredProductAttrsBySku(uiOperationProblems),
       skuStatuses,
       ignoredItems,
       warning: [combinedWarning, ignoredItemsWarning].filter(Boolean).join(" "),
