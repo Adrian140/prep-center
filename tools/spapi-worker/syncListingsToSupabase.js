@@ -912,8 +912,8 @@ async function syncListingsIntegration(integration) {
           updatesWithImage.add(row.id);
         }
         const needsNameReplace = isCorruptedName(row.name);
-        const hasExistingSku = row.sku && String(row.sku).trim().length > 0;
-        if (!hasExistingSku && (!hasExistingName || needsNameReplace) && hasIncomingName) {
+        // Keep existing valid titles, but backfill missing/corrupted ones.
+        if ((!hasExistingName || needsNameReplace) && hasIncomingName) {
           patch.name = listing.name;
           shouldPatch = true;
         }
