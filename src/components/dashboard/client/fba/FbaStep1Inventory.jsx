@@ -960,13 +960,12 @@ export default function FbaStep1Inventory({
 
   const handleBoxDetailsKeyDown = useCallback(
     (fallback) => (event) => {
-      if (event.key === 'Tab') {
-        handleBoxDetailsTab(event);
-        return;
-      }
+      // Lăsăm Tab-ul nativ al browserului pentru a păstra ordinea firească a celulelor.
+      // Interceptarea custom producea salt de focus în afara contextului dorit.
+      if (event.key === 'Tab') return;
       fallback?.(event);
     },
-    [handleBoxDetailsTab]
+    []
   );
 
   const toggleDimensionAssignment = useCallback(
@@ -2858,7 +2857,6 @@ export default function FbaStep1Inventory({
                                     <input
                                       type="checkbox"
                                       checked={checked}
-                                      onKeyDown={handleBoxDetailsTab}
                                       onChange={(e) =>
                                         toggleDimensionAssignment(
                                           group.groupId,
