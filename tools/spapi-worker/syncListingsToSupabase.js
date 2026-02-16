@@ -532,6 +532,14 @@ const isCorruptedName = (name) => {
   return String(name).includes('\uFFFD');
 };
 
+const isPlaceholderName = (name, asin) => {
+  const n = String(name || '').trim();
+  const a = String(asin || '').trim();
+  if (!n) return true;
+  if (n === '-') return true;
+  return a && n.toUpperCase() === a.toUpperCase();
+};
+
 function pickCatalogMainImage(payload) {
   const root = payload?.payload || payload || {};
   const imageSets = Array.isArray(root.images) ? root.images : [];
@@ -911,7 +919,7 @@ async function syncListingsIntegration(integration) {
           shouldPatch = true;
           updatesWithImage.add(row.id);
         }
-        const needsNameReplace = isCorruptedName(row.name);
+        const needsNameReplace = isCorruptedName(row.name) || isPlaceholderName(row.name, row.asin || listing.asin);
         // Keep existing valid titles, but backfill missing/corrupted ones.
         if ((!hasExistingName || needsNameReplace) && hasIncomingName) {
           patch.name = listing.name;
@@ -932,7 +940,7 @@ async function syncListingsIntegration(integration) {
           const hasExistingImage = r.image_url && String(r.image_url).trim().length > 0;
           const existingSkuNormalized = normalizeIdentifier(r.sku);
           const incomingSkuNormalized = normalizeIdentifier(incomingSku);
-          const needsNameReplace = isCorruptedName(r.name);
+          const needsNameReplace = isCorruptedName(r.name) || isPlaceholderName(r.name, r.asin || listing.asin);
           const patch = { id: r.id };
           let shouldPatch = false;
           const needsEan = listing.ean && (!r.ean || !String(r.ean).trim().length);
