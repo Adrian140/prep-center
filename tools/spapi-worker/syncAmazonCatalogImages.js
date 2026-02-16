@@ -385,6 +385,9 @@ async function syncIntegrationImages(integration, runState) {
     `[Catalog image sync] Integration ${integration.id} company=${integration.company_id} marketplaces=${marketplaceIds.join(',')} uniqueAsins=${uniqueAsins.length} validAsins=${validAsins.length} skippedInvalid=${skippedInvalidAsins}`
   );
 
+  let integrationImagesFilled = 0;
+  let integrationTitlesFilled = 0;
+
   for (const asin of validAsins) {
     if (Number.isFinite(MAX_ITEMS_PER_RUN) && runState.processed >= MAX_ITEMS_PER_RUN) break;
     runState.processed += 1;
@@ -454,9 +457,11 @@ async function syncIntegrationImages(integration, runState) {
       }
       if (foundImage) {
         await fillStockImages(integration.company_id, asin, foundImage);
+        integrationImagesFilled += 1;
       }
       if (foundTitle) {
         await fillStockTitles(integration.company_id, asin, foundTitle);
+        integrationTitlesFilled += 1;
       }
       if (cached && !foundTitle) {
         runState.reused += 1;
@@ -478,6 +483,12 @@ async function syncIntegrationImages(integration, runState) {
       runState.failed += 1;
     }
   }
+
+  runState.imagesFilled += integrationImagesFilled;
+  runState.titlesFilled += integrationTitlesFilled;
+  console.log(
+    `[Catalog image sync] Integration ${integration.id} results: imagesFilled=${integrationImagesFilled} titlesFilled=${integrationTitlesFilled}`
+  );
 }
 
 async function main() {
@@ -495,7 +506,9 @@ async function main() {
     notFound: 0,
     failed: 0,
     unauthorized: 0,
-    foundByMarketplace: {}
+    foundByMarketplace: {},
+    imagesFilled: 0,
+    titlesFilled: 0
   };
 
   for (const integration of integrations) {
@@ -504,7 +517,7 @@ async function main() {
   }
 
   console.log(
-    `[Catalog image sync] Done. processed=${runState.processed} found=${runState.found} reused=${runState.reused} notFound=${runState.notFound} failed=${runState.failed} unauthorized=${runState.unauthorized}`
+    `[Catalog image sync] Done. processed=${runState.processed} found=${runState.found} reused=${runState.reused} notFound=${runState.notFound} failed=${runState.failed} unauthorized=${runState.unauthorized} imagesFilled=${runState.imagesFilled} titlesFilled=${runState.titlesFilled}`
   );
   console.log(
     `[Catalog image sync] Found by marketplace: ${JSON.stringify(runState.foundByMarketplace)}`
