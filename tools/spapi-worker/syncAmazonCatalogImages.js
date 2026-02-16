@@ -308,7 +308,7 @@ async function fillStockImages(companyId, asin, imageUrl) {
     .update({ image_url: imageUrl })
     .eq('company_id', companyId)
     .eq('asin', asin)
-    .is('image_url', null);
+    .or('image_url.is.null,image_url.eq.');
   if (error) throw error;
 }
 
@@ -323,14 +323,26 @@ async function fillStockTitles(companyId, asin, title) {
     .or('name.is.null,name.eq.,name.eq.-');
   if (error) throw error;
 
-  // Also replace placeholder titles that are literally the ASIN.
-  const { error: asinNameErr } = await supabase
+  // Also replace placeholder titles that are literally the ASIN (case/space-insensitive).
+  const { data: asinNameRows, error: asinNameReadErr } = await supabase
     .from('stock_items')
-    .update({ name: clean })
+    .select('id, name')
     .eq('company_id', companyId)
     .eq('asin', asin)
-    .eq('name', asin);
-  if (asinNameErr) throw asinNameErr;
+    .not('name', 'is', null);
+  if (asinNameReadErr) throw asinNameReadErr;
+  const asinNorm = String(asin || '').trim().toUpperCase();
+  const placeholderIds = (asinNameRows || [])
+    .filter((row) => String(row?.name || '').trim().toUpperCase() === asinNorm)
+    .map((row) => row.id)
+    .filter(Boolean);
+  if (placeholderIds.length) {
+    const { error: asinNameErr } = await supabase
+      .from('stock_items')
+      .update({ name: clean })
+      .in('id', placeholderIds);
+    if (asinNameErr) throw asinNameErr;
+  }
 }
 
 async function syncIntegrationImages(integration, runState) {
