@@ -2766,6 +2766,28 @@ export default function FbaStep1Inventory({
                             }
                             preventEnterSubmit(event);
                           };
+                          const handleDimensionTab = (field) => (event) => {
+                            if (event.key !== 'Tab') {
+                              handleDimKeyDown(field)(event);
+                              return;
+                            }
+                            const order = ['length_cm', 'width_cm', 'height_cm'];
+                            const idx = order.indexOf(field);
+                            if (idx === -1) return;
+                            const dir = event.shiftKey ? -1 : 1;
+                            const targetField = order[idx + dir] || null;
+                            if (!targetField) return;
+                            event.preventDefault();
+                            commitSet(field, event.currentTarget.value);
+                            const row = event.currentTarget.closest('tr');
+                            const selector =
+                              `input[data-dim-nav=\"1\"][data-group-id=\"${group.groupId}\"]` +
+                              `[data-set-id=\"${set.id}\"][data-dim-field=\"${targetField}\"]`;
+                            const next = row?.querySelector(selector) || document.querySelector(selector);
+                            if (next && typeof next.focus === 'function') {
+                              requestAnimationFrame(() => next.focus());
+                            }
+                          };
                           return (
                             <tr key={set.id}>
                               <td className="sticky left-0 z-10 bg-white border-b border-slate-200 px-3 py-2 align-top">
@@ -2789,8 +2811,12 @@ export default function FbaStep1Inventory({
                                     type="number"
                                     min={0}
                                     step="0.1"
+                                  data-dim-nav="1"
+                                  data-group-id={group.groupId}
+                                  data-set-id={set.id}
+                                  data-dim-field="length_cm"
                                   value={valueForField('length_cm', set?.length_cm ?? '')}
-                                  onKeyDown={handleBoxDetailsKeyDown(handleDimKeyDown('length_cm'))}
+                                  onKeyDown={handleDimensionTab('length_cm')}
                                   onChange={(e) =>
                                     setBoxDimDrafts((prev) => ({
                                       ...(prev || {}),
@@ -2806,8 +2832,12 @@ export default function FbaStep1Inventory({
                                     type="number"
                                     min={0}
                                     step="0.1"
+                                  data-dim-nav="1"
+                                  data-group-id={group.groupId}
+                                  data-set-id={set.id}
+                                  data-dim-field="width_cm"
                                   value={valueForField('width_cm', set?.width_cm ?? '')}
-                                  onKeyDown={handleBoxDetailsKeyDown(handleDimKeyDown('width_cm'))}
+                                  onKeyDown={handleDimensionTab('width_cm')}
                                   onChange={(e) =>
                                     setBoxDimDrafts((prev) => ({
                                       ...(prev || {}),
@@ -2823,8 +2853,12 @@ export default function FbaStep1Inventory({
                                     type="number"
                                     min={0}
                                     step="0.1"
+                                  data-dim-nav="1"
+                                  data-group-id={group.groupId}
+                                  data-set-id={set.id}
+                                  data-dim-field="height_cm"
                                   value={valueForField('height_cm', set?.height_cm ?? '')}
-                                  onKeyDown={handleBoxDetailsKeyDown(handleDimKeyDown('height_cm'))}
+                                  onKeyDown={handleDimensionTab('height_cm')}
                                   onChange={(e) =>
                                     setBoxDimDrafts((prev) => ({
                                       ...(prev || {}),
