@@ -83,15 +83,33 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
     () => ({
       en: {
         noId: 'No ID (—)',
-        lines: (count) => `${count} lines for this shipment`
+        lines: (count) => `${count} lines for this shipment`,
+        shippingCompletedAt: (when) => `Shipping completed: ${when}`
       },
       ro: {
         noId: 'Fără ID (—)',
-        lines: (count) => `${count} linii pentru această expediere`
+        lines: (count) => `${count} linii pentru această expediere`,
+        shippingCompletedAt: (when) => `Shipping încheiat: ${when}`
       },
       fr: {
         noId: 'Sans ID (—)',
-        lines: (count) => `${count} lignes pour cette expédition`
+        lines: (count) => `${count} lignes pour cette expédition`,
+        shippingCompletedAt: (when) => `Expédition terminée : ${when}`
+      },
+      de: {
+        noId: 'Ohne ID (—)',
+        lines: (count) => `${count} Zeilen für diese Sendung`,
+        shippingCompletedAt: (when) => `Versand abgeschlossen: ${when}`
+      },
+      it: {
+        noId: 'Senza ID (—)',
+        lines: (count) => `${count} righe per questa spedizione`,
+        shippingCompletedAt: (when) => `Spedizione completata: ${when}`
+      },
+      es: {
+        noId: 'Sin ID (—)',
+        lines: (count) => `${count} líneas para este envío`,
+        shippingCompletedAt: (when) => `Envío completado: ${when}`
       }
     }),
     []
@@ -107,6 +125,14 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
     const fb = fallbackGroupLabels[lang] || fallbackGroupLabels.en;
     const raw = t('adminFBA.group.noId');
     return raw && raw !== 'adminFBA.group.noId' ? raw : fb.noId;
+  };
+
+  const resolveShippingCompletedLabel = (when) => {
+    const fb = fallbackGroupLabels[lang] || fallbackGroupLabels.en;
+    const raw = tp('adminFBA.group.shippingCompletedAt', { when });
+    return raw && !raw.includes('adminFBA.group.shippingCompletedAt')
+      ? raw
+      : fb.shippingCompletedAt(when);
   };
 
   useEffect(() => {
@@ -355,7 +381,15 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
     if (!value) return null;
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return null;
-    return date.toLocaleString('ro-RO', {
+    const localeByLang = {
+      ro: 'ro-RO',
+      en: 'en-GB',
+      fr: 'fr-FR',
+      de: 'de-DE',
+      it: 'it-IT',
+      es: 'es-ES'
+    };
+    return date.toLocaleString(localeByLang[lang] || 'en-GB', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -539,7 +573,11 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
                             </span>
                             {formatShippingCompletedAt(shippingCompletedByFbaId[String(group.key || '').trim().toUpperCase()]) && (
                               <span className="text-emerald-700 text-xs font-medium">
-                                Shipping încheiat: {formatShippingCompletedAt(shippingCompletedByFbaId[String(group.key || '').trim().toUpperCase()])}
+                                {resolveShippingCompletedLabel(
+                                  formatShippingCompletedAt(
+                                    shippingCompletedByFbaId[String(group.key || '').trim().toUpperCase()]
+                                  )
+                                )}
                               </span>
                             )}
                           </span>

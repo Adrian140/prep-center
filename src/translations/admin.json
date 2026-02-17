@@ -422,6 +422,11 @@
         "monthly": "Current month",
         "outstanding": "Outstanding pending"
       }
+    },
+    "adminFBA": {
+      "group": {
+        "shippingCompletedAt": "Shipping completed: {when}"
+      }
     }
   },
   "fr": {
@@ -523,6 +528,11 @@
       "tabs": {
         "monthly": "Mois courant",
         "outstanding": "Impayées en attente"
+      }
+    },
+    "adminFBA": {
+      "group": {
+        "shippingCompletedAt": "Expédition terminée : {when}"
       }
     }
   },
@@ -903,6 +913,11 @@
       "tabs": {
         "monthly": "Luna curentă",
         "outstanding": "Restanțe neplătite"
+      }
+    },
+    "adminFBA": {
+      "group": {
+        "shippingCompletedAt": "Shipping încheiat: {when}"
       }
     }
   }
