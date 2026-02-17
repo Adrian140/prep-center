@@ -2292,15 +2292,36 @@ export default function FbaStep1Inventory({
         box_height_cm: boxHeightCm,
         box_weight_kg: boxWeightKg
       };
-      const { data: savedRow, error } = await supabase
+      // Avoid relying on DB unique constraint for ON CONFLICT; some environments miss it.
+      const { data: existingRow, error: existingErr } = await supabase
         .from('packing_templates')
-        .upsert(payload, { onConflict: 'company_id,marketplace_id,sku,name' })
         .select('id')
+        .eq('company_id', payload.company_id)
+        .eq('marketplace_id', payload.marketplace_id)
+        .eq('sku', payload.sku)
+        .eq('name', payload.name)
+        .order('updated_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
-      savedTemplateId = Array.isArray(savedRow) && savedRow[0]?.id ? savedRow[0].id : null;
-      if (error) {
-        console.error('packing template upsert error', error);
-        throw error;
+      if (existingErr) throw existingErr;
+
+      if (existingRow?.id) {
+        const { data: updatedRow, error: updateErr } = await supabase
+          .from('packing_templates')
+          .update(payload)
+          .eq('id', existingRow.id)
+          .select('id')
+          .maybeSingle();
+        if (updateErr) throw updateErr;
+        savedTemplateId = updatedRow?.id || existingRow.id;
+      } else {
+        const { data: insertedRow, error: insertErr } = await supabase
+          .from('packing_templates')
+          .insert(payload)
+          .select('id')
+          .maybeSingle();
+        if (insertErr) throw insertErr;
+        savedTemplateId = insertedRow?.id || null;
       }
       // Reload templates
       const { data: rows } = await supabase
