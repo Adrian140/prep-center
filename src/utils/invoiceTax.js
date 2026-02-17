@@ -26,6 +26,20 @@ export const DEFAULT_ISSUER_PROFILES = {
     website: 'https://prep-center.eu',
     iban: 'BE98 9676 6791 5993',
     bic: 'TRWIBEB1XXX'
+  },
+  RO: {
+    country: 'RO',
+    company_name: 'SHIFT MARKETING LOGIC S.R.L.',
+    vat_number: 'RO45812121',
+    registration_number: '',
+    address_line1: 'Sat. Puiesti, Com. Puiesti, Nr. 590',
+    city: 'Puiesti, Judet Vaslui',
+    postal_code: '737425',
+    phone: '',
+    email: '',
+    website: '',
+    iban: '',
+    bic: ''
   }
 };
 
@@ -43,11 +57,11 @@ export const getSimpleVatRule = ({ issuerCountry, customerCountry }) => {
     };
   }
 
-  if (issuer === 'DE' && customer === 'FR') {
+  if ((issuer === 'DE' || issuer === 'RO') && customer === 'FR') {
     return {
       vatRate: 0,
       vatLabel: 'VAT 0%',
-      legalNote: 'VAT exempt intra-community B2B supply (reverse charge, DE to FR).'
+      legalNote: `VAT exempt intra-community B2B supply (reverse charge, ${issuer} to FR).`
     };
   }
 

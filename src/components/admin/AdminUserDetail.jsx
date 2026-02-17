@@ -38,7 +38,8 @@ const shouldUpgradeLegacyDeIssuer = (profile) =>
 const normalizeIssuerProfiles = (savedProfiles) => {
   const base = {
     FR: { ...DEFAULT_ISSUER_PROFILES.FR, ...(savedProfiles?.FR || {}) },
-    DE: { ...DEFAULT_ISSUER_PROFILES.DE, ...(savedProfiles?.DE || {}) }
+    DE: { ...DEFAULT_ISSUER_PROFILES.DE, ...(savedProfiles?.DE || {}) },
+    RO: { ...DEFAULT_ISSUER_PROFILES.RO, ...(savedProfiles?.RO || {}) }
   };
   if (shouldUpgradeLegacyDeIssuer(savedProfiles?.DE)) {
     base.DE = { ...DEFAULT_ISSUER_PROFILES.DE };
@@ -74,10 +75,14 @@ const buildDocumentNumber = ({ issuerCode, counterValue, documentType }) => {
   if (isProforma) {
     return issuerCode === 'DE'
       ? `EcomPrepHub Germany PF${String(counterValue).padStart(3, '0')}`
+      : issuerCode === 'RO'
+        ? `EcomPrepHub Romania PF${String(counterValue).padStart(3, '0')}`
       : `EcomPrepHub France PF${String(counterValue).padStart(3, '0')}`;
   }
   return issuerCode === 'DE'
     ? `EcomPrepHub Germany ${String(counterValue).padStart(3, '0')}`
+    : issuerCode === 'RO'
+      ? `EcomPrepHub Romania ${String(counterValue).padStart(3, '0')}`
     : `EcomPrepHub France ${counterValue}`;
 };
 
@@ -99,8 +104,8 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [billingProfiles, setBillingProfiles] = useState([]);
   const [issuerProfiles, setIssuerProfiles] = useState(DEFAULT_ISSUER_PROFILES);
   const [invoiceTemplates, setInvoiceTemplates] = useState({});
-  const [invoiceCounters, setInvoiceCounters] = useState({ FR: 189, DE: 1 });
-  const [proformaCounters, setProformaCounters] = useState({ FR: 1, DE: 1 });
+  const [invoiceCounters, setInvoiceCounters] = useState({ FR: 189, DE: 1, RO: 1 });
+  const [proformaCounters, setProformaCounters] = useState({ FR: 1, DE: 1, RO: 1 });
   const hasBillingSelection = canManageInvoices && Object.keys(billingSelections).length > 0;
   const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns', 'requests'];
   const allowedSections = isLimitedAdmin ? ['stock'] : serviceSections;
@@ -108,12 +113,21 @@ export default function AdminUserDetail({ profile, onBack }) {
     Array.isArray(availableMarkets)
       ? availableMarkets
           .map((code) => String(code || '').toUpperCase())
-          .filter((code) => code === 'FR' || code === 'DE')
+          .filter((code) => code === 'FR' || code === 'DE' || code === 'RO')
       : []
   );
+  if (!allowedIssuerCountries.includes('RO')) {
+    allowedIssuerCountries.push('RO');
+  }
   if (!allowedIssuerCountries.length) {
     const fallbackMarket = String(currentMarket || 'FR').toUpperCase();
-    allowedIssuerCountries.push(fallbackMarket === 'DE' ? 'DE' : 'FR');
+    if (fallbackMarket === 'DE') {
+      allowedIssuerCountries.push('DE');
+    } else if (fallbackMarket === 'RO') {
+      allowedIssuerCountries.push('RO');
+    } else {
+      allowedIssuerCountries.push('FR');
+    }
   }
 
   // panouri “secundare” (billing / invoices)
@@ -262,18 +276,20 @@ if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
 if (!countersSettingsRes?.error && countersSettingsRes?.data?.value) {
   setInvoiceCounters({
     FR: Number(countersSettingsRes.data.value.FR) || 189,
-    DE: Number(countersSettingsRes.data.value.DE) || 1
+    DE: Number(countersSettingsRes.data.value.DE) || 1,
+    RO: Number(countersSettingsRes.data.value.RO) || 1
   });
 } else {
-  setInvoiceCounters({ FR: 189, DE: 1 });
+  setInvoiceCounters({ FR: 189, DE: 1, RO: 1 });
 }
 if (!proformaCountersRes?.error && proformaCountersRes?.data?.value) {
   setProformaCounters({
     FR: Number(proformaCountersRes.data.value.FR) || 1,
-    DE: Number(proformaCountersRes.data.value.DE) || 1
+    DE: Number(proformaCountersRes.data.value.DE) || 1,
+    RO: Number(proformaCountersRes.data.value.RO) || 1
   });
 } else {
-  setProformaCounters({ FR: 1, DE: 1 });
+  setProformaCounters({ FR: 1, DE: 1, RO: 1 });
 }
 if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
   setInvoiceTemplates(templateSettingsRes.data.value || {});

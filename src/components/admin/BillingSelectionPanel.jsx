@@ -15,7 +15,7 @@ export default function BillingSelectionPanel({
   clientPhone = '',
   clientSignupCountry = '',
   currentMarket = 'FR',
-  allowedIssuerCountries = ['FR', 'DE'],
+  allowedIssuerCountries = ['FR', 'DE', 'RO'],
   invoiceCounters = { FR: 189, DE: 1 },
   proformaCounters = { FR: 1, DE: 1 },
   issuerProfiles = DEFAULT_ISSUER_PROFILES,
@@ -42,7 +42,7 @@ export default function BillingSelectionPanel({
   const issuerOptions = useMemo(() => {
     const list = (allowedIssuerCountries || [])
       .map((code) => String(code || '').toUpperCase())
-      .filter((code) => code === 'FR' || code === 'DE');
+      .filter((code) => code === 'FR' || code === 'DE' || code === 'RO');
     if (!list.length) return [String(currentMarket || 'FR').toUpperCase()];
     return Array.from(new Set(list));
   }, [allowedIssuerCountries, currentMarket]);
@@ -133,9 +133,13 @@ export default function BillingSelectionPanel({
     const invoiceNumber = normalizedType === 'proforma'
       ? (issuerCountry === 'DE'
         ? `EcomPrepHub Germany PF${String(counter).padStart(3, '0')}`
+        : issuerCountry === 'RO'
+          ? `EcomPrepHub Romania PF${String(counter).padStart(3, '0')}`
         : `EcomPrepHub France PF${String(counter).padStart(3, '0')}`)
       : (issuerCountry === 'DE'
         ? `EcomPrepHub Germany ${String(counter).padStart(3, '0')}`
+        : issuerCountry === 'RO'
+          ? `EcomPrepHub Romania ${String(counter).padStart(3, '0')}`
         : `EcomPrepHub France ${counter}`);
     return { counter, invoiceNumber, documentType: normalizedType };
   };
