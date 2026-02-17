@@ -38,6 +38,15 @@ type PrepRequestItem = {
   product_name: string | null;
   units_requested: number | null;
   units_sent: number | null;
+  packing_template_id?: string | null;
+  packing_template_name?: string | null;
+  packing_template_type?: string | null;
+  units_per_box?: number | null;
+  boxes_count?: number | null;
+  box_length_cm?: number | null;
+  box_width_cm?: number | null;
+  box_height_cm?: number | null;
+  box_weight_kg?: number | null;
   expiration_date?: string | null;
   expiration_source?: string | null;
   stock_item_id?: number | null;
@@ -1725,7 +1734,7 @@ serve(async (req) => {
     const { data: reqDataRaw, error: reqErr } = await supabase
       .from("prep_requests")
       .select(
-        "id, destination_country, warehouse_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, step1_box_plan, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
+        "id, destination_country, warehouse_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, step1_box_plan, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, packing_template_id, packing_template_name, packing_template_type, units_per_box, boxes_count, box_length_cm, box_width_cm, box_height_cm, box_weight_kg, stock_item_id, expiration_date, expiration_source)"
       )
       .eq("id", requestId)
       .maybeSingle();
@@ -1784,7 +1793,7 @@ serve(async (req) => {
         const { data: refetchReq, error: refetchErr } = await supabase
           .from("prep_requests")
           .select(
-            "id, destination_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, step1_box_plan, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, stock_item_id, expiration_date, expiration_source)"
+            "id, destination_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, step1_box_plan, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, packing_template_id, packing_template_name, packing_template_type, units_per_box, boxes_count, box_length_cm, box_width_cm, box_height_cm, box_weight_kg, stock_item_id, expiration_date, expiration_source)"
           )
           .eq("id", requestId)
           .maybeSingle();
@@ -1985,6 +1994,15 @@ serve(async (req) => {
       product_name: string | null;
       units: number;
       itemIds: string[];
+      packing_template_id: string | null;
+      packing_template_name: string | null;
+      packing_template_type: string | null;
+      units_per_box: number | null;
+      boxes_count: number | null;
+      box_length_cm: number | null;
+      box_width_cm: number | null;
+      box_height_cm: number | null;
+      box_weight_kg: number | null;
     };
     const collapsedItems: CollapsedItem[] = (() => {
       const map = new Map<string, CollapsedItem>();
@@ -1998,13 +2016,31 @@ serve(async (req) => {
           existing.itemIds.push(String(it.id));
           if (!existing.asin && it.asin) existing.asin = it.asin;
           if (!existing.product_name && it.product_name) existing.product_name = it.product_name;
+          if (!existing.packing_template_id && it.packing_template_id) existing.packing_template_id = it.packing_template_id;
+          if (!existing.packing_template_name && it.packing_template_name) existing.packing_template_name = it.packing_template_name;
+          if (!existing.packing_template_type && it.packing_template_type) existing.packing_template_type = it.packing_template_type;
+          if (!existing.units_per_box && it.units_per_box) existing.units_per_box = Number(it.units_per_box) || null;
+          if (!existing.boxes_count && it.boxes_count) existing.boxes_count = Number(it.boxes_count) || null;
+          if (!existing.box_length_cm && it.box_length_cm) existing.box_length_cm = Number(it.box_length_cm) || null;
+          if (!existing.box_width_cm && it.box_width_cm) existing.box_width_cm = Number(it.box_width_cm) || null;
+          if (!existing.box_height_cm && it.box_height_cm) existing.box_height_cm = Number(it.box_height_cm) || null;
+          if (!existing.box_weight_kg && it.box_weight_kg) existing.box_weight_kg = Number(it.box_weight_kg) || null;
         } else {
           map.set(skuKey, {
             sku: skuKey,
             asin: it.asin || null,
             product_name: it.product_name || null,
             units: qty,
-            itemIds: [String(it.id)]
+            itemIds: [String(it.id)],
+            packing_template_id: it.packing_template_id || null,
+            packing_template_name: it.packing_template_name || null,
+            packing_template_type: it.packing_template_type || null,
+            units_per_box: Number(it.units_per_box || 0) || null,
+            boxes_count: Number(it.boxes_count || 0) || null,
+            box_length_cm: Number(it.box_length_cm || 0) || null,
+            box_width_cm: Number(it.box_width_cm || 0) || null,
+            box_height_cm: Number(it.box_height_cm || 0) || null,
+            box_weight_kg: Number(it.box_weight_kg || 0) || null
           });
         }
       }
@@ -2349,7 +2385,15 @@ serve(async (req) => {
           sku: c.sku || "",
           asin: c.asin || "",
           storageType: "Standard-size",
-          packing: "individual",
+          packing: c.packing_template_type || "individual",
+          packingTemplateId: c.packing_template_id || null,
+          packingTemplateName: c.packing_template_name || null,
+          unitsPerBox: c.units_per_box || null,
+          boxesCount: c.boxes_count || null,
+          boxLengthCm: c.box_length_cm || null,
+          boxWidthCm: c.box_width_cm || null,
+          boxHeightCm: c.box_height_cm || null,
+          boxWeightKg: c.box_weight_kg || null,
           units: Number(c.units) || 0,
           expiry: expiryVal,
           expirySource: expirySourceBySku[expiryKey] || null,
@@ -3709,7 +3753,15 @@ serve(async (req) => {
           sku: c.sku || "",
           asin: c.asin || "",
           storageType: "Standard-size",
-          packing: "individual",
+          packing: c.packing_template_type || "individual",
+          packingTemplateId: c.packing_template_id || null,
+          packingTemplateName: c.packing_template_name || null,
+          unitsPerBox: c.units_per_box || null,
+          boxesCount: c.boxes_count || null,
+          boxLengthCm: c.box_length_cm || null,
+          boxWidthCm: c.box_width_cm || null,
+          boxHeightCm: c.box_height_cm || null,
+          boxWeightKg: c.box_weight_kg || null,
           units: Number(c.units) || 0,
           expiry: expirations[key] || "",
           expirySource: expirySourceBySku[key] || null,
@@ -3808,7 +3860,15 @@ serve(async (req) => {
             sku: it.sku || stock?.sku || "",
             asin: it.asin || stock?.asin || "",
             storageType: "Standard-size",
-            packing: "individual",
+            packing: it.packing_template_type || "individual",
+            packingTemplateId: it.packing_template_id || null,
+            packingTemplateName: it.packing_template_name || null,
+            unitsPerBox: Number(it.units_per_box || 0) || null,
+            boxesCount: Number(it.boxes_count || 0) || null,
+            boxLengthCm: Number(it.box_length_cm || 0) || null,
+            boxWidthCm: Number(it.box_width_cm || 0) || null,
+            boxHeightCm: Number(it.box_height_cm || 0) || null,
+            boxWeightKg: Number(it.box_weight_kg || 0) || null,
             units: Number(it.units_sent ?? it.units_requested ?? 0) || 0,
             expiry: expirations[key] || "",
             expirySource: expirySourceBySku[key] || null,
@@ -4203,7 +4263,15 @@ serve(async (req) => {
         asin: c.asin || "",
         storageType: "Standard-size",
         fnsku: fnskuBySku[c.sku] || null,
-        packing: "individual",
+        packing: c.packing_template_type || "individual",
+        packingTemplateId: c.packing_template_id || null,
+        packingTemplateName: c.packing_template_name || null,
+        unitsPerBox: c.units_per_box || null,
+        boxesCount: c.boxes_count || null,
+        boxLengthCm: c.box_length_cm || null,
+        boxWidthCm: c.box_width_cm || null,
+        boxHeightCm: c.box_height_cm || null,
+        boxWeightKg: c.box_weight_kg || null,
         units: Number(c.units) || 0,
         expiry: expiryVal,
         expirySource: expirySourceBySku[skuKey] || null,

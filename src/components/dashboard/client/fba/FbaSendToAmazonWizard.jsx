@@ -943,11 +943,26 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const needsExpiryDefault = Boolean(sku?.expiryRequired) && !existingExpiry;
       const expiryDefault = needsExpiryDefault ? formatDateInput(addMonths(new Date(), 18)) : null;
       const expiryDate = existingExpiry && !sku?.expiryDate ? existingExpiry : null;
+      const unitsPerBoxRaw = sku?.unitsPerBox ?? sku?.units_per_box ?? null;
+      const unitsPerBoxNum = Number(unitsPerBoxRaw);
+      const unitsPerBox = Number.isFinite(unitsPerBoxNum) && unitsPerBoxNum > 0 ? Math.floor(unitsPerBoxNum) : null;
+      const boxesCountRaw = sku?.boxesCount ?? sku?.boxes_count ?? null;
+      const boxesCountNum = Number(boxesCountRaw);
+      const boxesCount = Number.isFinite(boxesCountNum) && boxesCountNum > 0 ? Math.floor(boxesCountNum) : null;
       const nextSku = {
         ...sku,
         ...(image && !sku.image ? { image } : null),
         ...(needsExpiryDefault ? { expiryDate: expiryDefault, expiry: expiryDefault } : null),
-        ...(expiryDate ? { expiryDate, expiry: sku?.expiry || expiryDate } : null)
+        ...(expiryDate ? { expiryDate, expiry: sku?.expiry || expiryDate } : null),
+        packing: sku?.packing || sku?.packing_template_type || 'individual',
+        packingTemplateId: sku?.packingTemplateId ?? sku?.packing_template_id ?? null,
+        packingTemplateName: sku?.packingTemplateName ?? sku?.packing_template_name ?? null,
+        unitsPerBox,
+        boxesCount,
+        boxLengthCm: sku?.boxLengthCm ?? sku?.box_length_cm ?? null,
+        boxWidthCm: sku?.boxWidthCm ?? sku?.box_width_cm ?? null,
+        boxHeightCm: sku?.boxHeightCm ?? sku?.box_height_cm ?? null,
+        boxWeightKg: sku?.boxWeightKg ?? sku?.box_weight_kg ?? null
       };
       return nextSku;
     });
@@ -1963,7 +1978,20 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setPlan((prev) => ({
         ...prev,
         skus: prev.skus.map((sku) =>
-          sku.id === skuId ? { ...sku, packing: patch, packingTemplateId: null, packingTemplateName: null, unitsPerBox: null } : sku
+          sku.id === skuId
+            ? {
+                ...sku,
+                packing: patch,
+                packingTemplateId: null,
+                packingTemplateName: null,
+                unitsPerBox: null,
+                boxesCount: null,
+                boxLengthCm: null,
+                boxWidthCm: null,
+                boxHeightCm: null,
+                boxWeightKg: null
+              }
+            : sku
         )
       }));
       invalidateFrom('1');
@@ -4644,7 +4672,25 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       .map((sku) => {
         if (!sku?.id) return null;
         const qty = Math.max(0, Number(sku.units) || 0);
-        return { id: sku.id, units_sent: qty };
+        const unitsPerBox = Number(sku.unitsPerBox);
+        const boxesCount = Number(sku.boxesCount);
+        const boxLengthCm = Number(sku.boxLengthCm);
+        const boxWidthCm = Number(sku.boxWidthCm);
+        const boxHeightCm = Number(sku.boxHeightCm);
+        const boxWeightKg = Number(sku.boxWeightKg);
+        return {
+          id: sku.id,
+          units_sent: qty,
+          packing_template_id: sku.packingTemplateId || null,
+          packing_template_name: sku.packingTemplateName || null,
+          packing_template_type: sku.packing || null,
+          units_per_box: Number.isFinite(unitsPerBox) && unitsPerBox > 0 ? Math.floor(unitsPerBox) : null,
+          boxes_count: Number.isFinite(boxesCount) && boxesCount > 0 ? Math.floor(boxesCount) : null,
+          box_length_cm: Number.isFinite(boxLengthCm) && boxLengthCm > 0 ? boxLengthCm : null,
+          box_width_cm: Number.isFinite(boxWidthCm) && boxWidthCm > 0 ? boxWidthCm : null,
+          box_height_cm: Number.isFinite(boxHeightCm) && boxHeightCm > 0 ? boxHeightCm : null,
+          box_weight_kg: Number.isFinite(boxWeightKg) && boxWeightKg > 0 ? boxWeightKg : null
+        };
       })
       .filter(Boolean);
     const updatesForDb = updates.filter((u) => isUuid(u.id));
@@ -4686,10 +4732,21 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       // ca să sincronizăm serverul înainte de a recrea inbound plan-ul)
       for (const row of updatesForDb) {
         // eslint-disable-next-line no-await-in-loop
-        const { error: saveErr } = await supabase
-          .from('prep_request_items')
-          .update({ units_sent: row.units_sent })
-          .eq('id', row.id);
+          const { error: saveErr } = await supabase
+            .from('prep_request_items')
+            .update({
+              units_sent: row.units_sent,
+              packing_template_id: row.packing_template_id,
+              packing_template_name: row.packing_template_name,
+              packing_template_type: row.packing_template_type,
+              units_per_box: row.units_per_box,
+              boxes_count: row.boxes_count,
+              box_length_cm: row.box_length_cm,
+              box_width_cm: row.box_width_cm,
+              box_height_cm: row.box_height_cm,
+              box_weight_kg: row.box_weight_kg
+            })
+            .eq('id', row.id);
         if (saveErr) throw saveErr;
       }
 

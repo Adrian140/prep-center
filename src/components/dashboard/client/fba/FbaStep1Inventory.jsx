@@ -74,6 +74,12 @@ const parsePositiveLocalizedDecimal = (value) => {
   return Number.isFinite(num) && num > 0 ? num : null;
 };
 
+const parsePositiveInteger = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return Math.floor(num);
+};
+
 export default function FbaStep1Inventory({
   data,
   skuStatuses = [],
@@ -1548,6 +1554,12 @@ export default function FbaStep1Inventory({
     const canSubmitListingAttrs = Boolean(
       listingAttrReq && !listingSaving && hasRequiredListingAttrs && hasListingAttrChanges
     );
+    const unitsPerBox = parsePositiveInteger(sku.unitsPerBox);
+    const isCasePacked = String(sku.packing || '').toLowerCase() === 'case' || !!unitsPerBox;
+    const computedBoxesCount = unitsPerBox
+      ? Math.max(1, parsePositiveInteger(sku.boxesCount) || Math.ceil((Number(sku.units || 0) || 0) / unitsPerBox) || 1)
+      : null;
+    const effectiveUnits = Number(sku.units || 0) || 0;
     return (
       <tr key={sku.id} className="align-top">
         <td className="py-3 w-[320px] min-w-[320px]">
@@ -1587,11 +1599,20 @@ export default function FbaStep1Inventory({
                 (t) => t.name === val && (t.sku === sku.sku || (t.asin && t.asin === sku.asin))
               );
               if (template) {
+                const templateUnits = parsePositiveInteger(template.units_per_box);
+                const nextBoxes = templateUnits
+                  ? Math.max(1, Math.ceil((Number(sku.units || 0) || 0) / templateUnits))
+                  : null;
                 onChangePacking(sku.id, {
                   packing: template.template_type === 'case' ? 'case' : 'individual',
                   packingTemplateId: template.id,
                   packingTemplateName: template.name,
-                  unitsPerBox: template.units_per_box || null
+                  unitsPerBox: templateUnits,
+                  boxesCount: nextBoxes,
+                  boxLengthCm: template.box_length_cm ?? null,
+                  boxWidthCm: template.box_width_cm ?? null,
+                  boxHeightCm: template.box_height_cm ?? null,
+                  boxWeightKg: template.box_weight_kg ?? null
                 });
                 return;
               }
@@ -1599,7 +1620,12 @@ export default function FbaStep1Inventory({
                 packing: val,
                 packingTemplateId: null,
                 packingTemplateName: null,
-                unitsPerBox: null
+                unitsPerBox: null,
+                boxesCount: null,
+                boxLengthCm: null,
+                boxWidthCm: null,
+                boxHeightCm: null,
+                boxWeightKg: null
               });
             }}
             className="border rounded-md px-3 py-2 text-sm w-full"
@@ -1664,6 +1690,17 @@ export default function FbaStep1Inventory({
             {sku.readyToPack && (
               <div className="mt-2 flex items-center gap-1 text-emerald-600 text-xs font-semibold">
                 <CheckCircle className="w-4 h-4" /> Ready to pack
+              </div>
+            )}
+            {sku.packingTemplateName && (
+              <div className="text-[11px] text-slate-600">
+                Template: <span className="font-semibold">{sku.packingTemplateName}</span>
+                {unitsPerBox ? ` · Units/box: ${unitsPerBox}` : ''}
+              </div>
+            )}
+            {!sku.packingTemplateName && isCasePacked && unitsPerBox && (
+              <div className="text-[11px] text-slate-600">
+                Case pack · Units/box: <span className="font-semibold">{unitsPerBox}</span>
               </div>
             )}
             {listingAttrReq && (
@@ -1795,30 +1832,57 @@ export default function FbaStep1Inventory({
         </td>
         <td className="py-3">
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="px-2 py-1 border rounded-md text-sm"
-                onClick={() => onChangeQuantity(sku.id, Math.max(0, Number(sku.units || 0) - 1))}
-              >
-                -
-              </button>
-              <input
-                type="number"
-                className="w-16 border rounded-md px-2 py-1 text-sm"
-                value={sku.units || 0}
-                min={0}
-                onKeyDown={preventEnterSubmit}
-                onChange={(e) => onChangeQuantity(sku.id, Number(e.target.value || 0))}
-              />
-              <button
-                type="button"
-                className="px-2 py-1 border rounded-md text-sm"
-                onClick={() => onChangeQuantity(sku.id, Number(sku.units || 0) + 1)}
-              >
-                +
-              </button>
-            </div>
+            {isCasePacked && unitsPerBox ? (
+              <div className="grid grid-cols-[72px_12px_72px] items-center gap-2">
+                <input
+                  type="number"
+                  className="w-[72px] border rounded-md px-2 py-1 text-sm"
+                  value={computedBoxesCount || 0}
+                  min={0}
+                  onKeyDown={preventEnterSubmit}
+                  onChange={(e) => {
+                    const nextBoxes = Math.max(0, parsePositiveInteger(e.target.value) || 0);
+                    const nextUnits = nextBoxes * unitsPerBox;
+                    onChangePacking?.(sku.id, { boxesCount: nextBoxes || null });
+                    onChangeQuantity(sku.id, nextUnits);
+                  }}
+                />
+                <span className="text-slate-400 text-xs text-center">=</span>
+                <input
+                  type="number"
+                  className="w-[72px] border rounded-md px-2 py-1 text-sm bg-slate-100 text-slate-600"
+                  value={effectiveUnits}
+                  min={0}
+                  readOnly
+                  tabIndex={-1}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="px-2 py-1 border rounded-md text-sm"
+                  onClick={() => onChangeQuantity(sku.id, Math.max(0, Number(sku.units || 0) - 1))}
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  className="w-16 border rounded-md px-2 py-1 text-sm"
+                  value={sku.units || 0}
+                  min={0}
+                  onKeyDown={preventEnterSubmit}
+                  onChange={(e) => onChangeQuantity(sku.id, Number(e.target.value || 0))}
+                />
+                <button
+                  type="button"
+                  className="px-2 py-1 border rounded-md text-sm"
+                  onClick={() => onChangeQuantity(sku.id, Number(sku.units || 0) + 1)}
+                >
+                  +
+                </button>
+              </div>
+            )}
             {needsExpiry && (
               <input
                 type="date"
@@ -2147,16 +2211,18 @@ export default function FbaStep1Inventory({
   }, [skus]);
 
   const openPackingModal = (sku) => {
+    setTemplateError('');
+    const currentUnitsPerBox = parsePositiveInteger(sku?.unitsPerBox);
     setPackingModal({
       open: true,
       sku,
-      templateType: 'case',
-      unitsPerBox: '',
-      boxL: '',
-      boxW: '',
-      boxH: '',
-      boxWeight: '',
-      templateName: ''
+      templateType: String(sku?.packing || '').toLowerCase() === 'case' ? 'case' : 'individual',
+      unitsPerBox: currentUnitsPerBox ? String(currentUnitsPerBox) : '',
+      boxL: sku?.boxLengthCm ? String(sku.boxLengthCm) : '',
+      boxW: sku?.boxWidthCm ? String(sku.boxWidthCm) : '',
+      boxH: sku?.boxHeightCm ? String(sku.boxHeightCm) : '',
+      boxWeight: sku?.boxWeightKg ? String(sku.boxWeightKg) : '',
+      templateName: sku?.packingTemplateName || ''
     });
   };
 
@@ -2164,6 +2230,7 @@ export default function FbaStep1Inventory({
 
   const savePackingTemplate = async () => {
     if (packingModal.sku) {
+      setTemplateError('');
       const derivedName =
         packingModal.templateName || (packingModal.unitsPerBox ? `pack ${packingModal.unitsPerBox}` : '');
       if (!derivedName) {
@@ -2172,7 +2239,19 @@ export default function FbaStep1Inventory({
       }
 
       const templateType = packingModal.templateType === 'case' ? 'case' : 'individual';
-      const unitsPerBox = packingModal.unitsPerBox ? Number(packingModal.unitsPerBox) : null;
+      const unitsPerBox = parsePositiveInteger(packingModal.unitsPerBox);
+      if (templateType === 'case' && !unitsPerBox) {
+        setTemplateError('Units per box must be greater than 0 for case pack.');
+        return;
+      }
+      const boxLengthCm = parsePositiveLocalizedDecimal(packingModal.boxL);
+      const boxWidthCm = parsePositiveLocalizedDecimal(packingModal.boxW);
+      const boxHeightCm = parsePositiveLocalizedDecimal(packingModal.boxH);
+      const boxWeightKg = parsePositiveLocalizedDecimal(packingModal.boxWeight);
+      const boxesCount = unitsPerBox
+        ? Math.max(1, Math.ceil((Number(packingModal.sku.units || 0) || 0) / unitsPerBox))
+        : null;
+      let savedTemplateId = null;
 
       // Persist template if we have a name and companyId
       if (!data?.companyId) {
@@ -2187,14 +2266,17 @@ export default function FbaStep1Inventory({
             name: derivedName,
             template_type: templateType,
             units_per_box: unitsPerBox,
-            box_length_cm: packingModal.boxL ? Number(packingModal.boxL) : null,
-            box_width_cm: packingModal.boxW ? Number(packingModal.boxW) : null,
-            box_height_cm: packingModal.boxH ? Number(packingModal.boxH) : null,
-            box_weight_kg: packingModal.boxWeight ? Number(packingModal.boxWeight) : null
+            box_length_cm: boxLengthCm,
+            box_width_cm: boxWidthCm,
+            box_height_cm: boxHeightCm,
+            box_weight_kg: boxWeightKg
           };
-          const { error } = await supabase
+          const { data: savedRow, error } = await supabase
             .from('packing_templates')
-            .upsert(payload, { onConflict: 'company_id,marketplace_id,sku,name' });
+            .upsert(payload, { onConflict: 'company_id,marketplace_id,sku,name' })
+            .select('id')
+            .maybeSingle();
+          savedTemplateId = Array.isArray(savedRow) && savedRow[0]?.id ? savedRow[0].id : null;
           if (error) {
             console.error('packing template upsert error', error);
             throw error;
@@ -2213,8 +2295,14 @@ export default function FbaStep1Inventory({
 
       onChangePacking(packingModal.sku.id, {
         packing: templateType,
+        packingTemplateId: savedTemplateId,
         packingTemplateName: derivedName || null,
-        unitsPerBox
+        unitsPerBox,
+        boxesCount,
+        boxLengthCm,
+        boxWidthCm,
+        boxHeightCm,
+        boxWeightKg
       });
     }
     closePackingModal();
@@ -3113,7 +3201,12 @@ export default function FbaStep1Inventory({
               <div className="text-sm font-semibold text-slate-900">Packing details</div>
               <button onClick={closePackingModal} className="text-slate-500 hover:text-slate-700 text-xs">Close</button>
             </div>
-            <div className="px-3 py-2.5 space-y-2.5">
+              <div className="px-3 py-2.5 space-y-2.5">
+              {templateError ? (
+                <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-2 py-1.5">
+                  {templateError}
+                </div>
+              ) : null}
               {packingModal.sku && (
                 <div className="flex gap-2 items-center">
                   <img
