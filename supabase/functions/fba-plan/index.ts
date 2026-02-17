@@ -3807,24 +3807,32 @@ serve(async (req) => {
             }
           }
         }
-        const extraWarnings = planWarnings.length ? ` ${planWarnings.join(" ")}` : "";
-        const statusInfo = inboundPlanStatus
-          ? ` Status plan: ${inboundPlanStatus}${inboundPlanId ? ` (${inboundPlanId})` : ""}.`
-          : inboundPlanId
-          ? ` InboundPlanId: ${inboundPlanId}.`
-          : "";
-        const optionsInfo =
-          _lastPackingOptions.length || _lastPlacementOptions.length
-            ? ` Packing options: ${_lastPackingOptions.length}, placement options: ${_lastPlacementOptions.length}.`
-            : "";
-        const operationInfo = operationId
-          ? ` Operation: ${operationStatus || "necunoscut"} (${operationId}).`
-          : "";
-        const problemsInfo = operationProblems?.length
-          ? ` Probleme raportate: ${operationProblems
-              .slice(0, 3)
-              .map((p: any) => p?.message || p?.code || safeJson(p))
-              .join(" | ")}`
+        const userSafeWarnings = planWarnings.filter((w) => {
+          const lower = String(w || "").toLowerCase();
+          return !(
+            lower.includes("operationproblems") ||
+            lower.includes("auto-remediere") ||
+            lower.includes("sku explicit") ||
+            lower.includes("fără mapare directă") ||
+            lower.includes("inboundplanid") ||
+            lower.includes("packing options") ||
+            lower.includes("placement options")
+          );
+        });
+        const extraWarnings = userSafeWarnings.length ? ` ${userSafeWarnings.join(" ")}` : "";
+        const firstProblemRaw = operationProblems
+          ?.map((p: any) => p?.message || p?.code || "")
+          .find((m: string) => String(m || "").trim().length > 0) || "";
+        const firstProblem = String(firstProblemRaw)
+          .replace(/^ERROR:\s*/i, "")
+          .replace(/\[fnskuList:[^\]]+\]/i, "")
+          .replace(/\s+/g, " ")
+          .trim();
+        const isDangerousGoodsIssue = /dangerous goods|hazmat|marf[ăa] periculoas/i.test(String(firstProblemRaw));
+        const problemsInfo = firstProblem
+          ? isDangerousGoodsIssue
+            ? " Amazon spune că unul sau mai multe produse sunt considerate marfă periculoasă și momentan nu pot fi trimise în acest plan."
+            : ` Motiv raportat de Amazon: ${firstProblem}.`
           : "";
         const inboundUnavailableInfo = inboundUnavailableSkus.length
           ? ` SKU-uri indisponibile pentru inbound: ${inboundUnavailableSkus.join(", ")}.`
@@ -3844,7 +3852,7 @@ serve(async (req) => {
           raw: null,
           skuStatuses,
           ignoredItems,
-          warning: `Amazon a refuzat crearea planului. Încearcă din nou sau verifică permisiunile Inbound pe marketplace.${statusInfo}${operationInfo}${optionsInfo}${problemsInfo ? ` ${problemsInfo}` : ""}${inboundUnavailableInfo}${extraWarnings}${ignoredItemsWarning ? ` ${ignoredItemsWarning}` : ""}`,
+          warning: `Amazon nu a putut crea planul de trimitere pentru acest request.${problemsInfo} Verifică produsele marcate cu roșu și încearcă din nou.${inboundUnavailableInfo}${extraWarnings}${ignoredItemsWarning ? ` ${ignoredItemsWarning}` : ""}`,
           blocking: true,
           requestId: primaryRequestId || null,
           listingAttributesRequiredBySku: requiredProductAttrsBySku
