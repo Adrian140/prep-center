@@ -331,6 +331,7 @@ export default function BillingSelectionPanel({
             >
               {issuerOptions.includes('FR') ? <option value="FR">France</option> : null}
               {issuerOptions.includes('DE') ? <option value="DE">Germany</option> : null}
+              {issuerOptions.includes('RO') ? <option value="RO">Romania</option> : null}
             </select>
           </div>
           <div>
@@ -399,7 +400,26 @@ export default function BillingSelectionPanel({
       </div>
 
       <div className="relative rounded-lg border border-gray-200 p-3 pb-10 space-y-2">
-        <p className="text-xs font-semibold text-text-secondary uppercase">Date emitent ({issuerCountry})</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-text-secondary uppercase">Date emitent ({issuerCountry})</p>
+          <select
+            className="max-w-[220px] rounded border border-gray-200 bg-white px-2 py-1 text-xs text-text-primary focus:border-primary focus:outline-none"
+            value={issuerCountry}
+            onChange={(event) => setIssuerCountry(event.target.value)}
+            disabled={issuerOptions.length <= 1}
+            title="Select issuer company"
+          >
+            {issuerOptions.includes('FR') ? (
+              <option value="FR">{issuerProfiles?.FR?.company_name || 'GLOBAL FULFILL HUB'}</option>
+            ) : null}
+            {issuerOptions.includes('DE') ? (
+              <option value="DE">{issuerProfiles?.DE?.company_name || 'Germany issuer'}</option>
+            ) : null}
+            {issuerOptions.includes('RO') ? (
+              <option value="RO">{issuerProfiles?.RO?.company_name || 'SHIFT MARKETING LOGIC S.R.L.'}</option>
+            ) : null}
+          </select>
+        </div>
         {editingIssuer ? (
           <>
             <input className="w-full rounded border border-gray-200 px-3 py-2 text-sm" placeholder="Company name" value={issuerProfile?.company_name || ''} onChange={(e) => setIssuerDraft((prev) => ({ ...(prev || {}), company_name: e.target.value, country: issuerCountry }))} />
