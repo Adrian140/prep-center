@@ -967,6 +967,70 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return nextSku;
     });
   }, []);
+  const mergeSkusWithLocal = useCallback(
+    (incomingSkus = [], localSkus = []) => {
+      const normalizedIncoming = normalizeSkus(incomingSkus);
+      const normalizedLocal = normalizeSkus(localSkus);
+      const localById = new Map();
+      const localBySku = new Map();
+      normalizedLocal.forEach((sku) => {
+        const idKey = String(sku?.id || '').trim();
+        const skuKey = String(sku?.sku || sku?.msku || '').trim().toUpperCase();
+        if (idKey) localById.set(idKey, sku);
+        if (skuKey) localBySku.set(skuKey, sku);
+      });
+
+      return normalizedIncoming.map((serverSku) => {
+        const idKey = String(serverSku?.id || '').trim();
+        const skuKey = String(serverSku?.sku || serverSku?.msku || '').trim().toUpperCase();
+        const localSku = (idKey && localById.get(idKey)) || (skuKey && localBySku.get(skuKey)) || null;
+        if (!localSku) return serverSku;
+
+        const serverPacking = String(serverSku?.packing || '').trim().toLowerCase();
+        const localPacking = String(localSku?.packing || '').trim().toLowerCase();
+        const serverHasTemplate = Boolean(serverSku?.packingTemplateId || serverSku?.packingTemplateName);
+        const localHasTemplate = Boolean(localSku?.packingTemplateId || localSku?.packingTemplateName);
+        const shouldKeepLocalTemplate =
+          localHasTemplate && !serverHasTemplate && (serverPacking === '' || serverPacking === 'individual');
+
+        const keepPositiveNumber = (serverVal, localVal) => {
+          const serverNum = Number(serverVal);
+          if (Number.isFinite(serverNum) && serverNum > 0) return serverNum;
+          const localNum = Number(localVal);
+          return Number.isFinite(localNum) && localNum > 0 ? localNum : null;
+        };
+
+        const merged = {
+          ...serverSku,
+          unitsPerBox: keepPositiveNumber(serverSku?.unitsPerBox, localSku?.unitsPerBox),
+          boxesCount: keepPositiveNumber(serverSku?.boxesCount, localSku?.boxesCount),
+          boxLengthCm: keepPositiveNumber(serverSku?.boxLengthCm, localSku?.boxLengthCm),
+          boxWidthCm: keepPositiveNumber(serverSku?.boxWidthCm, localSku?.boxWidthCm),
+          boxHeightCm: keepPositiveNumber(serverSku?.boxHeightCm, localSku?.boxHeightCm),
+          boxWeightKg: keepPositiveNumber(serverSku?.boxWeightKg, localSku?.boxWeightKg)
+        };
+
+        if (shouldKeepLocalTemplate) {
+          return {
+            ...merged,
+            packing: localSku?.packing || serverSku?.packing || 'individual',
+            packingTemplateId: localSku?.packingTemplateId || null,
+            packingTemplateName: localSku?.packingTemplateName || null
+          };
+        }
+
+        if ((!serverPacking || serverPacking === 'individual') && localPacking && localPacking !== 'individual') {
+          return {
+            ...merged,
+            packing: localSku?.packing || serverSku?.packing || 'individual'
+          };
+        }
+
+        return merged;
+      });
+    },
+    [normalizeSkus]
+  );
   const snapshotServerUnits = useCallback((skus = []) => {
     const map = new Map();
     (Array.isArray(skus) ? skus : []).forEach((sku) => {
@@ -1677,7 +1741,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         } = response;
         const sourceAddress = pSourceAddress || pSourceAddressAlt || null;
         if (pFrom && pMarket && Array.isArray(pSkus)) {
-          const normSkus = normalizeSkus(pSkus);
+          const normSkus = mergeSkusWithLocal(pSkus, planRef.current?.skus || []);
           setPlan((prev) => ({
             ...prev,
             ...response,
@@ -1694,7 +1758,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             shipFrom: mergeShipFromWithSource(pFrom || prev?.shipFrom, sourceAddress),
             sourceAddress: sourceAddress || prev?.sourceAddress || null
           }));
-          if (Array.isArray(response?.skus)) snapshotServerUnits(normalizeSkus(response.skus));
+          if (Array.isArray(response?.skus)) snapshotServerUnits(mergeSkusWithLocal(response.skus, planRef.current?.skus || []));
         }
         if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
         if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
@@ -1721,7 +1785,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         }
       }
     }
-  }, [autoLoadPlan, fetchPlan, normalizePackGroups, planLoaded, runFetchPlan, snapshotServerUnits, toFriendlyPlanNotice]);
+  }, [autoLoadPlan, fetchPlan, mergeSkusWithLocal, normalizePackGroups, planLoaded, runFetchPlan, snapshotServerUnits, toFriendlyPlanNotice]);
 
   useEffect(() => {
     if (!planLoaded) return;
@@ -1758,7 +1822,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         } = response;
         const sourceAddress = pSourceAddress || pSourceAddressAlt || null;
         if (pFrom && pMarket && Array.isArray(pSkus)) {
-          const normSkus = normalizeSkus(pSkus);
+          const normSkus = mergeSkusWithLocal(pSkus, planRef.current?.skus || []);
           setPlan((prev) => ({
             ...prev,
             ...response,
@@ -1775,7 +1839,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             shipFrom: mergeShipFromWithSource(pFrom || prev?.shipFrom, sourceAddress),
             sourceAddress: sourceAddress || prev?.sourceAddress || null
           }));
-          if (Array.isArray(response?.skus)) snapshotServerUnits(normalizeSkus(response.skus));
+          if (Array.isArray(response?.skus)) snapshotServerUnits(mergeSkusWithLocal(response.skus, planRef.current?.skus || []));
         }
       } catch (e) {
         if (!cancelled) setPlanError((prev) => prev || e?.message || 'Failed to reload Amazon plan.');
@@ -1786,7 +1850,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return () => {
       cancelled = true;
     };
-  }, [planLoaded, fetchPlan, resolveInboundPlanId, resolveRequestId, runFetchPlan, snapshotServerUnits]);
+  }, [fetchPlan, mergeSkusWithLocal, planLoaded, resolveInboundPlanId, resolveRequestId, runFetchPlan, snapshotServerUnits]);
   useEffect(() => {
     const planBoxPlan = plan?.step1BoxPlan || plan?.step1_box_plan || null;
     if (!planBoxPlan || typeof planBoxPlan !== 'object') return;
@@ -4479,11 +4543,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             inboundPlanId: respInboundId
           } = response;
           if (pFrom && pMarket && Array.isArray(pSkus)) {
-            setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
-            snapshotServerUnits(pSkus);
+            const mergedSkus = mergeSkusWithLocal(pSkus, planRef.current?.skus || []);
+            setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: mergedSkus }));
+            snapshotServerUnits(mergedSkus);
           } else {
             setPlan((prev) => ({ ...prev, ...response }));
-            if (Array.isArray(response?.skus)) snapshotServerUnits(response.skus);
+            if (Array.isArray(response?.skus)) snapshotServerUnits(mergeSkusWithLocal(response.skus, planRef.current?.skus || []));
           }
           if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
           if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
@@ -4511,7 +4576,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setLoadingPlan(false);
       setPlanLoaded(true);
     },
-    [fetchPlan, fetchShippingOptions, normalizePackGroups, runFetchPlan, snapshotServerUnits, toFriendlyPlanNotice]
+    [fetchPlan, fetchShippingOptions, mergeSkusWithLocal, normalizePackGroups, runFetchPlan, snapshotServerUnits, toFriendlyPlanNotice]
   );
 
   const handleInboundPlanRetry = useCallback(() => {
@@ -4564,11 +4629,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         blocking: pBlocking
       } = response;
       if (pFrom && pMarket && Array.isArray(pSkus)) {
-        setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: pSkus }));
-        snapshotServerUnits(pSkus);
+        const mergedSkus = mergeSkusWithLocal(pSkus, planRef.current?.skus || []);
+        setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: mergedSkus }));
+        snapshotServerUnits(mergedSkus);
       } else {
         setPlan((prev) => ({ ...prev, ...response }));
-        if (Array.isArray(response?.skus)) snapshotServerUnits(response.skus);
+        if (Array.isArray(response?.skus)) snapshotServerUnits(mergeSkusWithLocal(response.skus, planRef.current?.skus || []));
       }
       if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
       if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
@@ -4588,6 +4654,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     },
     [
       resolveRequestId,
+      mergeSkusWithLocal,
       snapshotServerUnits,
       normalizePackGroups,
       mergePackGroups,
