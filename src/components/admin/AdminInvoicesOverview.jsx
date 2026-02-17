@@ -29,6 +29,13 @@ const monthBounds = (monthValue) => {
   return { start, endExclusive };
 };
 
+const getInvoiceCountriesForView = (selectedCountry) => {
+  const code = String(selectedCountry || '').toUpperCase();
+  // Business rule: Romania-issued invoices are managed together with France in admin list.
+  if (code === 'FR') return ['FR', 'RO'];
+  return [code || 'FR'];
+};
+
 const isPendingStatus = (status) => String(status || '').trim().toLowerCase() === 'pending';
 
 const formatDate = (value) => {
@@ -134,11 +141,12 @@ export default function AdminInvoicesOverview() {
 
     try {
       const { start, endExclusive } = monthBounds(month);
+      const visibleCountries = getInvoiceCountriesForView(country);
 
       let query = supabase
         .from('invoices')
         .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, country, created_at, file_path, description, document_type, converted_to_invoice_id, converted_from_proforma_id, document_payload, billing_invoice_id')
-        .eq('country', country);
+        .in('country', visibleCountries);
       if (viewMode === 'outstanding') {
         query = query.eq('status', 'pending');
       } else {
@@ -161,7 +169,7 @@ export default function AdminInvoicesOverview() {
         let fallbackQuery = supabase
           .from('invoices')
           .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, country, created_at, file_path, description')
-          .eq('country', country);
+          .in('country', visibleCountries);
         if (viewMode === 'outstanding') {
           fallbackQuery = fallbackQuery.eq('status', 'pending');
         } else {
