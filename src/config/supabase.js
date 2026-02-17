@@ -1433,8 +1433,16 @@ const items = (draftData.items || []).map((it) => ({
       status,
       destination_country,
       warehouse_country,
+      fba_shipment_id,
+      amazon_reference_id,
+      amazon_shipment_name,
+      amazon_destination_code,
+      amazon_status,
+      amazon_snapshot,
+      step2_shipments,
       step2_confirmed_at,
       step4_confirmed_at,
+      prep_request_tracking(tracking_id),
       profiles(first_name, last_name, email, company_name, store_name),
       companies(name)
     `;

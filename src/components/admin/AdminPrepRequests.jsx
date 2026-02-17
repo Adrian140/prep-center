@@ -134,6 +134,29 @@ export default function AdminPrepRequests() {
 
     const matchesSearch = (row) => {
       if (!tokens.length) return true;
+      const snapshot = row?.amazon_snapshot || {};
+      const step2Shipments = Array.isArray(row?.step2_shipments) ? row.step2_shipments : [];
+      const step2Text = step2Shipments
+        .map((shipment) => {
+          if (!shipment) return '';
+          return [
+            shipment.shipmentId,
+            shipment.shipment_id,
+            shipment.amazonShipmentId,
+            shipment.amazon_shipment_id,
+            shipment.shipmentConfirmationId,
+            shipment.packingGroupId,
+            shipment.name,
+          ]
+            .filter(Boolean)
+            .join(' ');
+        })
+        .filter(Boolean)
+        .join(' ');
+      const trackingText = (Array.isArray(row?.prep_request_tracking) ? row.prep_request_tracking : [])
+        .map((entry) => entry?.tracking_id)
+        .filter(Boolean)
+        .join(' ');
       const fields = [
         row.id,
         row.user_email,
@@ -143,6 +166,19 @@ export default function AdminPrepRequests() {
         row.client_name,
         row.destination_country,
         row.status,
+        row.fba_shipment_id,
+        row.amazon_reference_id,
+        row.amazon_shipment_name,
+        row.amazon_destination_code,
+        row.amazon_status,
+        snapshot.shipment_id,
+        snapshot.reference_id,
+        snapshot.shipment_reference_id,
+        snapshot.shipment_name,
+        snapshot.destination_code,
+        snapshot.status,
+        step2Text,
+        trackingText,
       ]
         .filter(Boolean)
         .map((v) => String(v).toLowerCase());
@@ -198,7 +234,7 @@ export default function AdminPrepRequests() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Caută în ID / nume / email / companie / store / status / țară…"
+            placeholder="Caută în ID / FBA ID / nume / email / companie / store / status / țară…"
             className="pl-9 pr-3 py-2 w-80 border rounded-lg"
           />
         </div>
