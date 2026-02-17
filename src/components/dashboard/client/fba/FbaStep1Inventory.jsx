@@ -80,6 +80,19 @@ const parsePositiveInteger = (value) => {
   return Math.floor(num);
 };
 
+const PACKING_TYPE = {
+  CASE: 'case',
+  INDIVIDUAL: 'individual',
+  SINGLE_SKU_PALLET: 'single_sku_pallet'
+};
+
+const normalizePackingType = (value) => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw === PACKING_TYPE.CASE) return PACKING_TYPE.CASE;
+  if (raw === PACKING_TYPE.SINGLE_SKU_PALLET || raw === 'single-sku-pallet') return PACKING_TYPE.SINGLE_SKU_PALLET;
+  return PACKING_TYPE.INDIVIDUAL;
+};
+
 export default function FbaStep1Inventory({
   data,
   skuStatuses = [],
@@ -564,7 +577,7 @@ export default function FbaStep1Inventory({
   const [packingModal, setPackingModal] = useState({
     open: false,
     sku: null,
-    templateType: 'case',
+    templateType: PACKING_TYPE.CASE,
     unitsPerBox: '',
     boxL: '',
     boxW: '',
@@ -1555,7 +1568,8 @@ export default function FbaStep1Inventory({
       listingAttrReq && !listingSaving && hasRequiredListingAttrs && hasListingAttrChanges
     );
     const unitsPerBox = parsePositiveInteger(sku.unitsPerBox);
-    const isCasePacked = String(sku.packing || '').toLowerCase() === 'case' || !!unitsPerBox;
+    const normalizedPackingType = normalizePackingType(sku.packing);
+    const isCasePacked = normalizedPackingType === PACKING_TYPE.CASE || !!unitsPerBox;
     const computedBoxesCount = unitsPerBox
       ? Math.max(1, parsePositiveInteger(sku.boxesCount) || Math.ceil((Number(sku.units || 0) || 0) / unitsPerBox) || 1)
       : null;
@@ -1600,11 +1614,12 @@ export default function FbaStep1Inventory({
               );
               if (template) {
                 const templateUnits = parsePositiveInteger(template.units_per_box);
+                const normalizedTemplateType = normalizePackingType(template.template_type);
                 const nextBoxes = templateUnits
                   ? Math.max(1, Math.ceil((Number(sku.units || 0) || 0) / templateUnits))
                   : null;
                 onChangePacking(sku.id, {
-                  packing: template.template_type === 'case' ? 'case' : 'individual',
+                  packing: normalizedTemplateType,
                   packingTemplateId: template.id,
                   packingTemplateName: template.name,
                   unitsPerBox: templateUnits,
@@ -1639,6 +1654,7 @@ export default function FbaStep1Inventory({
               ))}
             <option value="individual">Individual units</option>
             <option value="case">Case packed</option>
+            <option value="single_sku_pallet">Single SKU pallet</option>
             <option value="__template__">Create packing template</option>
           </select>
         </td>
@@ -1702,6 +1718,9 @@ export default function FbaStep1Inventory({
               <div className="text-[11px] text-slate-600">
                 Case pack · Units/box: <span className="font-semibold">{unitsPerBox}</span>
               </div>
+            )}
+            {!sku.packingTemplateName && normalizedPackingType === PACKING_TYPE.SINGLE_SKU_PALLET && (
+              <div className="text-[11px] text-slate-600">Single SKU pallet</div>
             )}
             {listingAttrReq && (
               <div className="mt-2 p-2 border border-amber-200 rounded-md bg-amber-50 space-y-2">
@@ -2216,7 +2235,7 @@ export default function FbaStep1Inventory({
     setPackingModal({
       open: true,
       sku,
-      templateType: String(sku?.packing || '').toLowerCase() === 'case' ? 'case' : 'individual',
+      templateType: normalizePackingType(sku?.packing || sku?.packingTemplateType || null),
       unitsPerBox: currentUnitsPerBox ? String(currentUnitsPerBox) : '',
       boxL: sku?.boxLengthCm ? String(sku.boxLengthCm) : '',
       boxW: sku?.boxWidthCm ? String(sku.boxWidthCm) : '',
@@ -2238,9 +2257,9 @@ export default function FbaStep1Inventory({
       return;
     }
 
-    const templateType = packingModal.templateType === 'case' ? 'case' : 'individual';
+    const templateType = normalizePackingType(packingModal.templateType);
     const unitsPerBox = parsePositiveInteger(packingModal.unitsPerBox);
-    if (templateType === 'case' && !unitsPerBox) {
+    if (templateType === PACKING_TYPE.CASE && !unitsPerBox) {
       setTemplateError('Units per box must be greater than 0 for case pack.');
       return;
     }
@@ -3242,6 +3261,7 @@ export default function FbaStep1Inventory({
                   >
                     <option value="case">Case pack</option>
                     <option value="individual">Individual units</option>
+                    <option value="single_sku_pallet">Single SKU pallet</option>
                   </select>
                 </div>
               </div>
