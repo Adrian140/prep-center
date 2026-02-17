@@ -2285,7 +2285,14 @@ serve(async (req) => {
         pkgList.forEach((p: any) => {
           const w = Number(p?.weight?.value || 0);
           if (!Number.isFinite(w) || w <= 0) return;
-          const unit = (p?.weight?.unit || p?.weight?.uom || "LB").toString().toUpperCase();
+          const unit = (
+            p?.weight?.unit ||
+            p?.weight?.unitOfMeasurement ||
+            p?.weight?.uom ||
+            "KG"
+          )
+            .toString()
+            .toUpperCase();
           weightFromPackages += w;
           if (!weightFromPackagesUnit) weightFromPackagesUnit = unit;
         });
@@ -2294,7 +2301,14 @@ serve(async (req) => {
         palletList.forEach((p: any) => {
           const w = Number(p?.weight?.value || 0);
           if (!Number.isFinite(w) || w <= 0) return;
-          const unit = (p?.weight?.unit || p?.weight?.uom || "LB").toString().toUpperCase();
+          const unit = (
+            p?.weight?.unit ||
+            p?.weight?.unitOfMeasurement ||
+            p?.weight?.uom ||
+            "KG"
+          )
+            .toString()
+            .toUpperCase();
           weightFromPallets += w;
           if (!weightFromPalletsUnit) weightFromPalletsUnit = unit;
         });
