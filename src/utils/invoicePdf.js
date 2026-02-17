@@ -126,10 +126,8 @@ export const buildInvoicePdfBlob = async ({
       tintStrength: 0.55
     });
     if (!templateData) {
-      const issuerCountry = String(issuer?.country || '').toUpperCase();
-      if (issuerCountry === 'FR' || issuerCountry === 'DE') {
-        templateData = '/branding/invoice-template-fr.png';
-      }
+      // Keep a consistent visual template for all issuer countries.
+      templateData = '/branding/invoice-template-fr.png';
     }
     if (templateData && templateData.startsWith('/')) {
       const loadedTemplate = await createLogoVariant(templateData, { opacity: 1 });
@@ -157,8 +155,8 @@ export const buildInvoicePdfBlob = async ({
     }
   }
   if (!templateData) {
-    // blue page tint close to styled reference
-    doc.setFillColor(63, 151, 235);
+    // Fallback keeps the same light style (no blue full-page tint).
+    doc.setFillColor(243, 248, 255);
     doc.rect(0, 0, pageW, pageH, 'F');
 
     if (watermarkLogoData) {
