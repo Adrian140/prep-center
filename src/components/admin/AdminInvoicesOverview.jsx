@@ -352,6 +352,7 @@ export default function AdminInvoicesOverview() {
   const updateStatus = async (invoiceId, value) => {
     const next = String(value || '').toLowerCase();
     if (!['pending', 'paid'].includes(next)) return;
+    const targetRow = rows.find((row) => row.id === invoiceId) || null;
     const { error: updateError } = await supabase
       .from('invoices')
       .update({ status: next })
@@ -360,6 +361,22 @@ export default function AdminInvoicesOverview() {
       setError(updateError.message || t('adminInvoices.loadError'));
       return;
     }
+
+    // Keep client live balance in sync when status changes from admin invoices list.
+    if (targetRow?.company_id) {
+      const marketForBalance = String(targetRow.country || country || '').toUpperCase() || null;
+      const { data: liveBalance, error: balanceError } = await supabaseHelpers.getCompanyLiveBalance(
+        targetRow.company_id,
+        marketForBalance
+      );
+      if (!balanceError && Number.isFinite(Number(liveBalance))) {
+        await supabase
+          .from('profiles')
+          .update({ current_balance: Number(liveBalance) })
+          .eq('company_id', targetRow.company_id);
+      }
+    }
+
     setRows((prev) => {
       const updated = prev.map((row) => (row.id === invoiceId ? { ...row, status: next } : row));
       return [...updated].sort((a, b) => {
