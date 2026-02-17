@@ -127,6 +127,17 @@ function toBool(v: any): boolean | null {
   return null;
 }
 
+function parsePositiveDecimal(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const normalized = raw.replace(/\s+/g, "").replace(",", ".");
+  if (!/^-?\d*\.?\d+$/.test(normalized)) return null;
+  const num = Number(normalized);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return num;
+}
+
 function normalizeWarehouseCountry(input: any) {
   const raw = String(input || "").trim().toUpperCase();
   if (raw === "DE" || raw === "GERMANY" || raw === "DEU") return "DE";
@@ -1681,15 +1692,11 @@ serve(async (req) => {
     Object.entries(listingAttributesBySkuRaw).forEach(([skuRaw, attrsRaw]) => {
       const sku = normalizeSku(skuRaw);
       if (!sku || !attrsRaw || typeof attrsRaw !== "object") return;
-      const toPositive = (v: unknown) => {
-        const num = Number(v);
-        return Number.isFinite(num) && num > 0 ? num : null;
-      };
       const next = {
-        length_cm: toPositive(attrsRaw?.length_cm),
-        width_cm: toPositive(attrsRaw?.width_cm),
-        height_cm: toPositive(attrsRaw?.height_cm),
-        weight_kg: toPositive(attrsRaw?.weight_kg)
+        length_cm: parsePositiveDecimal(attrsRaw?.length_cm),
+        width_cm: parsePositiveDecimal(attrsRaw?.width_cm),
+        height_cm: parsePositiveDecimal(attrsRaw?.height_cm),
+        weight_kg: parsePositiveDecimal(attrsRaw?.weight_kg)
       };
       if (next.length_cm || next.width_cm || next.height_cm || next.weight_kg) {
         listingAttributesBySku[sku] = next;
@@ -2442,10 +2449,10 @@ serve(async (req) => {
       for (const [skuKeyRaw, attrs] of entries) {
         const skuKey = normalizeSku(skuKeyRaw);
         if (!skuKey) continue;
-        const length = Number(attrs?.length_cm || 0);
-        const width = Number(attrs?.width_cm || 0);
-        const height = Number(attrs?.height_cm || 0);
-        const weight = Number(attrs?.weight_kg || 0);
+        const length = parsePositiveDecimal(attrs?.length_cm) || 0;
+        const width = parsePositiveDecimal(attrs?.width_cm) || 0;
+        const height = parsePositiveDecimal(attrs?.height_cm) || 0;
+        const weight = parsePositiveDecimal(attrs?.weight_kg) || 0;
         const hasDims = length > 0 && width > 0 && height > 0;
         const hasWeight = weight > 0;
         if (!hasDims && !hasWeight) continue;

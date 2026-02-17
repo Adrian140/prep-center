@@ -4507,19 +4507,15 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (!requestId) throw new Error('Missing requestId.');
       const cleanSku = String(sku || '').trim();
       if (!cleanSku) throw new Error('Missing SKU.');
-      const normalizePositive = (v) => {
-        const num = Number(v);
-        return Number.isFinite(num) && num > 0 ? num : null;
-      };
       const { data, error } = await supabase.functions.invoke('fba-plan', {
         body: {
           request_id: requestId,
           listingAttributesBySku: {
             [cleanSku]: {
-              length_cm: normalizePositive(attrs?.length_cm),
-              width_cm: normalizePositive(attrs?.width_cm),
-              height_cm: normalizePositive(attrs?.height_cm),
-              weight_kg: normalizePositive(attrs?.weight_kg)
+              length_cm: getPositiveNumber(attrs?.length_cm),
+              width_cm: getPositiveNumber(attrs?.width_cm),
+              height_cm: getPositiveNumber(attrs?.height_cm),
+              weight_kg: getPositiveNumber(attrs?.weight_kg)
             }
           }
         }

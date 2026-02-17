@@ -59,6 +59,21 @@ const formatPrepList = (raw) => {
   return Array.from(new Set(mapped));
 };
 
+const parseLocalizedDecimal = (value) => {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const normalized = raw.replace(/\s+/g, '').replace(',', '.');
+  if (!/^-?\d*\.?\d+$/.test(normalized)) return null;
+  const num = Number(normalized);
+  return Number.isFinite(num) ? num : null;
+};
+
+const parsePositiveLocalizedDecimal = (value) => {
+  const num = parseLocalizedDecimal(value);
+  return Number.isFinite(num) && num > 0 ? num : null;
+};
+
 export default function FbaStep1Inventory({
   data,
   skuStatuses = [],
@@ -161,6 +176,7 @@ export default function FbaStep1Inventory({
   const [listingAttrDraftsBySku, setListingAttrDraftsBySku] = useState({});
   const [listingAttrSavingBySku, setListingAttrSavingBySku] = useState({});
   const [listingAttrErrorBySku, setListingAttrErrorBySku] = useState({});
+  const [listingAttrLastSubmittedBySku, setListingAttrLastSubmittedBySku] = useState({});
   const ignoredItems = Array.isArray(data?.ignoredItems) ? data.ignoredItems : [];
 
   const marketplaceIdByCountry = {
@@ -1508,6 +1524,28 @@ export default function FbaStep1Inventory({
     const listingDraft = listingAttrDraftsBySku[skuReqKey] || { length_cm: '', width_cm: '', height_cm: '', weight_kg: '' };
     const listingSaving = Boolean(listingAttrSavingBySku[skuReqKey]);
     const listingError = listingAttrErrorBySku[skuReqKey] || '';
+    const normalizedListingPayload = {
+      length_cm: parsePositiveLocalizedDecimal(listingDraft.length_cm),
+      width_cm: parsePositiveLocalizedDecimal(listingDraft.width_cm),
+      height_cm: parsePositiveLocalizedDecimal(listingDraft.height_cm),
+      weight_kg: parsePositiveLocalizedDecimal(listingDraft.weight_kg)
+    };
+    const hasRequiredDimensions =
+      !listingAttrReq?.needsDimensions ||
+      (normalizedListingPayload.length_cm && normalizedListingPayload.width_cm && normalizedListingPayload.height_cm);
+    const hasRequiredWeight = !listingAttrReq?.needsWeight || normalizedListingPayload.weight_kg;
+    const hasRequiredListingAttrs = Boolean(hasRequiredDimensions && hasRequiredWeight);
+    const lastSubmittedListingAttrs = listingAttrLastSubmittedBySku[skuReqKey] || null;
+    const listingFieldsToCompare = [
+      ...(listingAttrReq?.needsDimensions ? ['length_cm', 'width_cm', 'height_cm'] : []),
+      ...(listingAttrReq?.needsWeight ? ['weight_kg'] : [])
+    ];
+    const hasListingAttrChanges =
+      !lastSubmittedListingAttrs ||
+      listingFieldsToCompare.some((field) => normalizedListingPayload[field] !== lastSubmittedListingAttrs[field]);
+    const canSubmitListingAttrs = Boolean(
+      listingAttrReq && !listingSaving && hasRequiredListingAttrs && hasListingAttrChanges
+    );
     return (
       <tr key={sku.id} className="align-top">
         <td className="py-3 w-[320px] min-w-[320px]">
@@ -1634,9 +1672,8 @@ export default function FbaStep1Inventory({
                 {listingAttrReq.needsDimensions && (
                   <div className="flex items-center gap-1">
                     <input
-                      type="number"
-                      min={0}
-                      step="0.1"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="L (cm)"
                       value={listingDraft.length_cm}
                       onChange={(e) =>
@@ -1652,9 +1689,8 @@ export default function FbaStep1Inventory({
                     />
                     <span className="text-slate-400 text-[10px]">x</span>
                     <input
-                      type="number"
-                      min={0}
-                      step="0.1"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="W (cm)"
                       value={listingDraft.width_cm}
                       onChange={(e) =>
@@ -1670,9 +1706,8 @@ export default function FbaStep1Inventory({
                     />
                     <span className="text-slate-400 text-[10px]">x</span>
                     <input
-                      type="number"
-                      min={0}
-                      step="0.1"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="H (cm)"
                       value={listingDraft.height_cm}
                       onChange={(e) =>
@@ -1690,9 +1725,8 @@ export default function FbaStep1Inventory({
                 )}
                 {listingAttrReq.needsWeight && (
                   <input
-                    type="number"
-                    min={0}
-                    step="0.1"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="Weight (kg)"
                     value={listingDraft.weight_kg}
                     onChange={(e) =>
@@ -1709,18 +1743,13 @@ export default function FbaStep1Inventory({
                 )}
                 <button
                   type="button"
-                  disabled={listingSaving}
+                  disabled={!canSubmitListingAttrs}
                   className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-2 py-1 rounded"
                   onClick={async () => {
                     try {
                       setListingAttrErrorBySku((prev) => ({ ...(prev || {}), [skuReqKey]: '' }));
                       setListingAttrSavingBySku((prev) => ({ ...(prev || {}), [skuReqKey]: true }));
-                      const payload = {
-                        length_cm: listingDraft.length_cm,
-                        width_cm: listingDraft.width_cm,
-                        height_cm: listingDraft.height_cm,
-                        weight_kg: listingDraft.weight_kg
-                      };
+                      const payload = { ...normalizedListingPayload };
                       if (listingAttrReq.needsDimensions) {
                         const l = Number(payload.length_cm || 0);
                         const w = Number(payload.width_cm || 0);
@@ -1737,6 +1766,10 @@ export default function FbaStep1Inventory({
                       }
                       if (typeof onSubmitListingAttributes === 'function') {
                         await onSubmitListingAttributes(sku?.sku || skuReqKey, payload);
+                        setListingAttrLastSubmittedBySku((prev) => ({
+                          ...(prev || {}),
+                          [skuReqKey]: payload
+                        }));
                       }
                     } catch (e) {
                       setListingAttrErrorBySku((prev) => ({
@@ -1750,6 +1783,9 @@ export default function FbaStep1Inventory({
                 >
                   {listingSaving ? 'Sending...' : 'Send product attributes to Amazon'}
                 </button>
+                {!listingSaving && !hasListingAttrChanges ? (
+                  <div className="text-[11px] text-slate-600">No changes to send.</div>
+                ) : null}
                 {listingError ? <div className="text-[11px] text-red-700">{listingError}</div> : null}
               </div>
             )}
