@@ -116,7 +116,9 @@ export const buildInvoicePdfBlob = async ({
 
   let topLogoData = null;
   let watermarkLogoData = null;
-  let templateData = normalizeText(templateImage);
+  // Force the same visual template for all issuer countries.
+  // Ignore custom uploaded/data URL templates to keep layout consistent.
+  let templateData = '/branding/invoice-template-fr.png';
   try {
     topLogoData = await createLogoVariant('/branding/fulfillment-prep-logo.png', { opacity: 0.5 });
     watermarkLogoData = await createLogoVariant('/branding/fulfillment-prep-logo.png', {
@@ -125,10 +127,6 @@ export const buildInvoicePdfBlob = async ({
       tint: [45, 147, 255],
       tintStrength: 0.55
     });
-    if (!templateData) {
-      // Keep a consistent visual template for all issuer countries.
-      templateData = '/branding/invoice-template-fr.png';
-    }
     if (templateData && templateData.startsWith('/')) {
       const loadedTemplate = await createLogoVariant(templateData, { opacity: 1 });
       if (loadedTemplate) {
