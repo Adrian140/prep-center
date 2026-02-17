@@ -586,6 +586,17 @@ function parseRequiredProductAttrsBySku(operationProblems: any[]): Record<string
   return out;
 }
 
+function hasPrepClassificationIssue(operationProblems: any[]): boolean {
+  for (const p of Array.isArray(operationProblems) ? operationProblems : []) {
+    const code = String(p?.code || "").toUpperCase();
+    const msg = String(p?.message || "").toLowerCase();
+    const details = String(p?.details || "").toLowerCase();
+    if (code === "FBA_INB_0182") return true;
+    if (`${msg} ${details}`.includes("prep classification")) return true;
+  }
+  return false;
+}
+
 function parsePrepTypeListBlock(raw: string): string[][] {
   const out: string[][] = [];
   const block = String(raw || "");
@@ -3527,7 +3538,12 @@ serve(async (req) => {
       _lastPlacementOptions = _lastPlacementOptions.length ? _lastPlacementOptions : fetched.fetchedPlacementOptions || [];
     }
 
-    if (inboundPlanId && inboundPlanErrored(inboundPlanStatus) && !prepClassificationRetried) {
+    const shouldAttemptPrepClassificationRetry =
+      inboundPlanId &&
+      inboundPlanErrored(inboundPlanStatus) &&
+      !prepClassificationRetried &&
+      hasPrepClassificationIssue(operationProblems);
+    if (shouldAttemptPrepClassificationRetry) {
       const allRequestSkus = Array.from(
         new Set(collapsedItems.map((c) => normalizeSku(c.sku)).filter(Boolean))
       );
@@ -3789,6 +3805,16 @@ serve(async (req) => {
         }
         const skuErrorReasonsFromOperation = extractSkuErrorReasonsFromOperationProblems(operationProblems);
         const mergedSkuErrorReasons = { ...skuErrorReasons, ...skuErrorReasonsFromOperation };
+        const operationCodes = new Set(
+          (Array.isArray(operationProblems) ? operationProblems : [])
+            .map((p: any) => String(p?.code || "").toUpperCase())
+            .filter(Boolean)
+        );
+        const hasCatalogListingBlockers =
+          operationCodes.has("FBA_INB_0017") ||
+          operationCodes.has("FBA_INB_0018") ||
+          operationCodes.has("FBA_INB_0019") ||
+          operationCodes.has("FBA_INB_0034");
         if (inboundUnavailableSkus.length) {
           for (const sku of inboundUnavailableSkus) {
             const existing = skuStatuses.find((s) => normalizeSku(s.sku) === sku);
@@ -3844,6 +3870,9 @@ serve(async (req) => {
         const inboundUnavailableInfo = inboundUnavailableSkus.length
           ? ` SKU-uri indisponibile pentru inbound: ${inboundUnavailableSkus.join(", ")}.`
           : "";
+        const listingBlockerInfo = hasCatalogListingBlockers
+          ? " Amazon cere listing valid în marketplace-ul destinație (titlu/categorie/atribute), iar pentru acest SKU poate fi necesară recrearea listingului cu product labels înainte de inbound."
+          : "";
         const fallbackPlan = {
           source: "amazon",
           amazonIntegrationId,
@@ -3859,7 +3888,7 @@ serve(async (req) => {
           raw: null,
           skuStatuses,
           ignoredItems,
-          warning: `Amazon nu a putut crea planul de trimitere pentru acest request.${problemsInfo} Verifică produsele marcate cu roșu și încearcă din nou.${inboundUnavailableInfo}${extraWarnings}${ignoredItemsWarning ? ` ${ignoredItemsWarning}` : ""}`,
+          warning: `Amazon nu a putut crea planul de trimitere pentru acest request.${problemsInfo}${listingBlockerInfo} Verifică produsele marcate cu roșu și încearcă din nou.${inboundUnavailableInfo}${extraWarnings}${ignoredItemsWarning ? ` ${ignoredItemsWarning}` : ""}`,
           blocking: true,
           requestId: primaryRequestId || null,
           listingAttributesRequiredBySku: requiredProductAttrsBySku
