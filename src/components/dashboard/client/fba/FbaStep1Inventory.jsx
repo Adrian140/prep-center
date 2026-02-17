@@ -3107,46 +3107,44 @@ export default function FbaStep1Inventory({
         </div>
 
       {packingModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
-            <div className="px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
-              <div className="text-base font-semibold text-slate-900">Packing details</div>
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/25 px-4 pt-20">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[70vh] overflow-y-auto">
+            <div className="px-3 py-2 border-b border-slate-200 flex items-center justify-between">
+              <div className="text-sm font-semibold text-slate-900">Packing details</div>
               <button onClick={closePackingModal} className="text-slate-500 hover:text-slate-700 text-xs">Close</button>
             </div>
-            <div className="px-4 py-3 space-y-3">
+            <div className="px-3 py-2.5 space-y-2.5">
               {packingModal.sku && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <img
                     src={packingModal.sku.image || placeholderImg}
                     alt={packingModal.sku.title}
-                    className="w-10 h-10 object-contain border border-slate-200 rounded"
+                    className="w-8 h-8 object-contain border border-slate-200 rounded"
                   />
-                  <div className="text-xs text-slate-800">
-                    <div className="font-semibold text-slate-900 leading-snug line-clamp-2">{packingModal.sku.title}</div>
+                  <div className="text-[11px] text-slate-800 min-w-0">
+                    <div className="font-semibold text-slate-900 truncate">{packingModal.sku.title}</div>
                     <div className="text-xs text-slate-600">SKU: {packingModal.sku.sku}</div>
-                    <div className="text-xs text-slate-600">ASIN: {packingModal.sku.asin}</div>
-                    <div className="text-xs text-slate-600">Storage: {packingModal.sku.storageType}</div>
                   </div>
                 </div>
               )}
 
-              <div className="grid md:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs font-semibold text-slate-800">Packing template name</label>
+                  <label className="text-[11px] font-semibold text-slate-800">Template name</label>
                   <input
                     type="text"
                     value={packingModal.templateName}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, templateName: e.target.value }))}
-                    className="mt-1 w-full border rounded-md px-2.5 py-1.5 text-xs"
-                    placeholder="e.g. 12 units per box"
+                    className="mt-1 w-full border rounded-md px-2 py-1 text-xs"
+                    placeholder="e.g. 12/box"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-800">Template type</label>
+                  <label className="text-[11px] font-semibold text-slate-800">Type</label>
                   <select
                     value={packingModal.templateType}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, templateType: e.target.value }))}
-                    className="mt-1 w-full border rounded-md px-2.5 py-1.5 text-xs"
+                    className="mt-1 w-full border rounded-md px-2 py-1 text-xs"
                   >
                     <option value="case">Case pack</option>
                     <option value="individual">Individual units</option>
@@ -3154,73 +3152,72 @@ export default function FbaStep1Inventory({
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs font-semibold text-slate-800">Units per box</label>
+                  <label className="text-[11px] font-semibold text-slate-800">Units/box</label>
                   <input
                     type="number"
                     min={0}
                     value={packingModal.unitsPerBox}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, unitsPerBox: e.target.value }))}
-                    className="mt-1 w-full border rounded-md px-2.5 py-1.5 text-xs"
+                    className="mt-1 w-full border rounded-md px-2 py-1 text-xs"
                   />
                 </div>
-                <div className="md:col-span-3">
-                  <label className="text-xs font-semibold text-slate-800">Box dimensions (cm)</label>
-                  <div className="mt-1 grid grid-cols-3 gap-2">
-                    <input
-                      type="number"
-                      min={0}
-                      value={packingModal.boxL}
-                      onChange={(e) => setPackingModal((prev) => ({ ...prev, boxL: e.target.value }))}
-                      className="border rounded-md px-2.5 py-1.5 text-xs"
-                      placeholder="L"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      value={packingModal.boxW}
-                      onChange={(e) => setPackingModal((prev) => ({ ...prev, boxW: e.target.value }))}
-                      className="border rounded-md px-2.5 py-1.5 text-xs"
-                      placeholder="W"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      value={packingModal.boxH}
-                      onChange={(e) => setPackingModal((prev) => ({ ...prev, boxH: e.target.value }))}
-                      className="border rounded-md px-2.5 py-1.5 text-xs"
-                      placeholder="H"
-                    />
-                  </div>
-                </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-800">Box weight (kg)</label>
+                  <label className="text-[11px] font-semibold text-slate-800">Weight (kg)</label>
                   <input
                     type="number"
                     min={0}
                     value={packingModal.boxWeight}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, boxWeight: e.target.value }))}
-                    className="mt-1 w-full border rounded-md px-2.5 py-1.5 text-xs"
+                    className="mt-1 w-full border rounded-md px-2 py-1 text-xs"
                     placeholder="0.0"
                   />
                 </div>
               </div>
 
-              <div className="text-xs text-slate-700">
-                <div className="font-semibold text-slate-800">Prep category:</div>
-                <div className="text-emerald-700">No prep needed</div>
-                <div className="text-slate-600 mt-1">Manufacturer barcode required (no additional labelling needed)</div>
+              <div>
+                <label className="text-[11px] font-semibold text-slate-800">Dimensions (cm)</label>
+                <div className="mt-1 grid grid-cols-3 gap-1.5">
+                  <input
+                    type="number"
+                    min={0}
+                    value={packingModal.boxL}
+                    onChange={(e) => setPackingModal((prev) => ({ ...prev, boxL: e.target.value }))}
+                    className="border rounded-md px-2 py-1 text-xs"
+                    placeholder="L"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    value={packingModal.boxW}
+                    onChange={(e) => setPackingModal((prev) => ({ ...prev, boxW: e.target.value }))}
+                    className="border rounded-md px-2 py-1 text-xs"
+                    placeholder="W"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    value={packingModal.boxH}
+                    onChange={(e) => setPackingModal((prev) => ({ ...prev, boxH: e.target.value }))}
+                    className="border rounded-md px-2 py-1 text-xs"
+                    placeholder="H"
+                  />
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-600">
+                <span className="font-semibold text-slate-800">Prep:</span> No prep needed
               </div>
             </div>
 
-            <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
-              <button onClick={closePackingModal} className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-xs">
+            <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+              <button onClick={closePackingModal} className="px-2.5 py-1 rounded-md border border-slate-300 text-slate-700 text-xs">
                 Cancel
               </button>
               <button
                 onClick={savePackingTemplate}
-                className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm"
+                className="px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm"
               >
                 Save
               </button>
