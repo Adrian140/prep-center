@@ -41,35 +41,39 @@ async function fetchAdminClientBalances({ companyIds = [], startDate, endDate, p
   const ids = Array.from(new Set((companyIds || []).filter(Boolean)));
   if (!ids.length) return new Map();
   const marketCode = normalizeMarketCode(market) || null;
+  const countriesForBalance = marketCode === 'FR' ? ['FR', 'RO'] : [marketCode];
 
   const batches = chunk(ids, 300);
-  const rows = [];
+  const merged = new Map();
   for (const batchIds of batches) {
-    // eslint-disable-next-line no-await-in-loop
-    const { data, error } = await supabase.rpc('get_admin_clients_balances', {
-      p_company_ids: batchIds,
-      p_start_date: startDate,
-      p_end_date: endDate,
-      p_prev_start_date: prevStart,
-      p_prev_end_date: prevEnd,
-      p_country: marketCode
-    });
-    if (error) throw error;
-    rows.push(...(Array.isArray(data) ? data : []));
+    for (const countryCode of countriesForBalance) {
+      // eslint-disable-next-line no-await-in-loop
+      const { data, error } = await supabase.rpc('get_admin_clients_balances', {
+        p_company_ids: batchIds,
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_prev_start_date: prevStart,
+        p_prev_end_date: prevEnd,
+        p_country: countryCode
+      });
+      if (error) throw error;
+      (Array.isArray(data) ? data : []).forEach((row) => {
+        if (!row?.company_id) return;
+        const prevRow = merged.get(row.company_id) || {
+          currentSold: 0,
+          carry: 0,
+          diff: 0
+        };
+        merged.set(row.company_id, {
+          currentSold: prevRow.currentSold + Number(row.current_sold || 0),
+          carry: prevRow.carry + Number(row.carry || 0),
+          diff: prevRow.diff + Number(row.live_balance || 0)
+        });
+      });
+    }
   }
 
-  return new Map(
-    rows
-      .filter((row) => row?.company_id)
-      .map((row) => [
-        row.company_id,
-        {
-          currentSold: Number(row.current_sold || 0),
-          carry: Number(row.carry || 0),
-          diff: Number(row.live_balance || 0)
-        }
-      ])
-  );
+  return merged;
 }
 
 const getBalanceState = (value) => {
