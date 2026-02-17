@@ -3108,21 +3108,21 @@ export default function FbaStep1Inventory({
 
       {packingModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <div className="text-lg font-semibold text-slate-900">Packing details</div>
-              <button onClick={closePackingModal} className="text-slate-500 hover:text-slate-700 text-sm">Close</button>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+            <div className="px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+              <div className="text-base font-semibold text-slate-900">Packing details</div>
+              <button onClick={closePackingModal} className="text-slate-500 hover:text-slate-700 text-xs">Close</button>
             </div>
-            <div className="px-6 py-5 space-y-5">
+            <div className="px-4 py-3 space-y-3">
               {packingModal.sku && (
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <img
                     src={packingModal.sku.image || placeholderImg}
                     alt={packingModal.sku.title}
-                    className="w-14 h-14 object-contain border border-slate-200 rounded"
+                    className="w-10 h-10 object-contain border border-slate-200 rounded"
                   />
-                  <div className="text-sm text-slate-800">
-                    <div className="font-semibold text-slate-900 leading-snug">{packingModal.sku.title}</div>
+                  <div className="text-xs text-slate-800">
+                    <div className="font-semibold text-slate-900 leading-snug line-clamp-2">{packingModal.sku.title}</div>
                     <div className="text-xs text-slate-600">SKU: {packingModal.sku.sku}</div>
                     <div className="text-xs text-slate-600">ASIN: {packingModal.sku.asin}</div>
                     <div className="text-xs text-slate-600">Storage: {packingModal.sku.storageType}</div>
@@ -3130,23 +3130,23 @@ export default function FbaStep1Inventory({
                 </div>
               )}
 
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-sm font-semibold text-slate-800">Packing template name</label>
+                  <label className="text-xs font-semibold text-slate-800">Packing template name</label>
                   <input
                     type="text"
                     value={packingModal.templateName}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, templateName: e.target.value }))}
-                    className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                    className="mt-1 w-full border rounded-md px-2.5 py-1.5 text-xs"
                     placeholder="e.g. 12 units per box"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-slate-800">Template type</label>
+                  <label className="text-xs font-semibold text-slate-800">Template type</label>
                   <select
                     value={packingModal.templateType}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, templateType: e.target.value }))}
-                    className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                    className="mt-1 w-full border rounded-md px-2.5 py-1.5 text-xs"
                   >
                     <option value="case">Case pack</option>
                     <option value="individual">Individual units</option>
@@ -3154,26 +3154,26 @@ export default function FbaStep1Inventory({
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-4 gap-4">
+              <div className="grid md:grid-cols-4 gap-2.5">
                 <div>
-                  <label className="text-sm font-semibold text-slate-800">Units per box</label>
+                  <label className="text-xs font-semibold text-slate-800">Units per box</label>
                   <input
                     type="number"
                     min={0}
                     value={packingModal.unitsPerBox}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, unitsPerBox: e.target.value }))}
-                    className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                    className="mt-1 w-full border rounded-md px-2.5 py-1.5 text-xs"
                   />
                 </div>
                 <div className="md:col-span-3">
-                  <label className="text-sm font-semibold text-slate-800">Box dimensions (cm)</label>
+                  <label className="text-xs font-semibold text-slate-800">Box dimensions (cm)</label>
                   <div className="mt-1 grid grid-cols-3 gap-2">
                     <input
                       type="number"
                       min={0}
                       value={packingModal.boxL}
                       onChange={(e) => setPackingModal((prev) => ({ ...prev, boxL: e.target.value }))}
-                      className="border rounded-md px-3 py-2 text-sm"
+                      className="border rounded-md px-2.5 py-1.5 text-xs"
                       placeholder="L"
                     />
                     <input
@@ -3181,7 +3181,7 @@ export default function FbaStep1Inventory({
                       min={0}
                       value={packingModal.boxW}
                       onChange={(e) => setPackingModal((prev) => ({ ...prev, boxW: e.target.value }))}
-                      className="border rounded-md px-3 py-2 text-sm"
+                      className="border rounded-md px-2.5 py-1.5 text-xs"
                       placeholder="W"
                     />
                     <input
@@ -3189,38 +3189,38 @@ export default function FbaStep1Inventory({
                       min={0}
                       value={packingModal.boxH}
                       onChange={(e) => setPackingModal((prev) => ({ ...prev, boxH: e.target.value }))}
-                      className="border rounded-md px-3 py-2 text-sm"
+                      className="border rounded-md px-2.5 py-1.5 text-xs"
                       placeholder="H"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-slate-800">Box weight (kg)</label>
+                  <label className="text-xs font-semibold text-slate-800">Box weight (kg)</label>
                   <input
                     type="number"
                     min={0}
                     value={packingModal.boxWeight}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, boxWeight: e.target.value }))}
-                    className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                    className="mt-1 w-full border rounded-md px-2.5 py-1.5 text-xs"
                     placeholder="0.0"
                   />
                 </div>
               </div>
 
-              <div className="text-sm text-slate-700">
+              <div className="text-xs text-slate-700">
                 <div className="font-semibold text-slate-800">Prep category:</div>
                 <div className="text-emerald-700">No prep needed</div>
                 <div className="text-slate-600 mt-1">Manufacturer barcode required (no additional labelling needed)</div>
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-              <button onClick={closePackingModal} className="px-4 py-2 rounded-md border border-slate-300 text-slate-700 text-sm">
+            <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+              <button onClick={closePackingModal} className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-xs">
                 Cancel
               </button>
               <button
                 onClick={savePackingTemplate}
-                className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm"
+                className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm"
               >
                 Save
               </button>
