@@ -319,6 +319,45 @@ export default function FbaStep1Inventory({
     });
     return map;
   }, [normalizeKey, operationProblems]);
+  const operationProblemsBySkuKey = useMemo(() => {
+    const map = new Map();
+    const add = (rawKey, message) => {
+      const key = normalizeKey(rawKey);
+      if (!key || !message) return;
+      const list = map.get(key) || [];
+      if (!list.includes(message)) list.push(message);
+      map.set(key, list);
+    };
+    (Array.isArray(operationProblems) ? operationProblems : []).forEach((problem) => {
+      const msg = humanizeOperationProblem(problem);
+      if (!msg) return;
+      const rawMessage = String(problem?.message || problem?.Message || '');
+      const rawDetails = String(problem?.details || problem?.Details || '');
+      const combined = `${rawMessage} ${rawDetails}`;
+
+      const resourceMatch = combined.match(/resource\s+'([^']+)'/i);
+      if (resourceMatch?.[1]) add(resourceMatch[1], msg);
+
+      const skuMatch = combined.match(/\bSKU\s*[:=]\s*([A-Za-z0-9._\- ]+)/i);
+      if (skuMatch?.[1]) add(skuMatch[1], msg);
+
+      const asinMatch = combined.match(/\bASIN\s*[:=]\s*([A-Za-z0-9]{10})/i);
+      if (asinMatch?.[1]) add(asinMatch[1], msg);
+
+      const fnskuListMatch = combined.match(/\bfnskuList\s*:\s*([A-Za-z0-9,\s._\-]+)/i);
+      if (fnskuListMatch?.[1]) {
+        fnskuListMatch[1]
+          .split(',')
+          .map((value) => String(value || '').trim())
+          .filter(Boolean)
+          .forEach((fnsku) => add(fnsku, msg));
+      }
+
+      const fnskuMatch = combined.match(/\bFNSKU\s*[:=]\s*([A-Za-z0-9._\-]+)/i);
+      if (fnskuMatch?.[1]) add(fnskuMatch[1], msg);
+    });
+    return map;
+  }, [humanizeOperationProblem, normalizeKey, operationProblems]);
   const [serviceOptions, setServiceOptions] = useState([]);
   const [boxOptions, setBoxOptions] = useState([]);
   const persistTimerRef = useRef(null);
@@ -1442,6 +1481,12 @@ export default function FbaStep1Inventory({
     const isRechecking = recheckingSkuId === sku.id;
     const skuReqKey = normalizeKey(sku?.sku || sku?.msku || sku?.SellerSKU || sku?.sellerSku || sku?.asin || sku?.id || '');
     const listingAttrReq = listingAttrRequirementsBySku.get(skuReqKey) || null;
+    const listingProblemMessages = [
+      ...(operationProblemsBySkuKey.get(normalizeKey(sku?.sku)) || []),
+      ...(operationProblemsBySkuKey.get(normalizeKey(sku?.asin)) || []),
+      ...(operationProblemsBySkuKey.get(normalizeKey(sku?.fnsku)) || [])
+    ];
+    const listingProblem = listingProblemMessages.length ? listingProblemMessages[0] : '';
     const listingDraft = listingAttrDraftsBySku[skuReqKey] || { length_cm: '', width_cm: '', height_cm: '', weight_kg: '' };
     const listingSaving = Boolean(listingAttrSavingBySku[skuReqKey]);
     const listingError = listingAttrErrorBySku[skuReqKey] || '';
@@ -1465,6 +1510,9 @@ export default function FbaStep1Inventory({
                 {badgeLabel}
                 {status.reason ? <span className="text-slate-500">· {status.reason}</span> : null}
               </div>
+              {listingProblem ? (
+                <div className="mt-1 text-xs text-red-700 font-medium">{listingProblem}</div>
+              ) : null}
             </div>
           </div>
         </td>
