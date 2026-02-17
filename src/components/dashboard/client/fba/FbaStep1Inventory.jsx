@@ -1016,6 +1016,7 @@ export default function FbaStep1Inventory({
     if (event.key !== 'Tab') return;
     const container = event.currentTarget.closest('[data-box-details]');
     if (!container) return;
+    event.stopPropagation();
     const focusables = Array.from(
       container.querySelectorAll('[data-box-input="1"]')
     ).filter((el) => !el.disabled && el.tabIndex !== -1);
@@ -1024,7 +1025,8 @@ export default function FbaStep1Inventory({
     if (currentIndex === -1) return;
     const dir = event.shiftKey ? -1 : 1;
     let nextIndex = currentIndex + dir;
-    if (nextIndex < 0 || nextIndex >= focusables.length) return;
+    if (nextIndex < 0) nextIndex = focusables.length - 1;
+    if (nextIndex >= focusables.length) nextIndex = 0;
     event.preventDefault();
     const next = focusables[nextIndex];
     next?.focus?.();
