@@ -2456,7 +2456,9 @@ serve(async (req) => {
 
     const applyListingAttributesUpdates = async () => {
       const entries = Object.entries(listingAttributesBySku || {});
-      if (!entries.length) return;
+      if (!entries.length) return { attempted: 0, patched: 0 };
+      let attempted = 0;
+      let patched = 0;
       for (const [skuKeyRaw, attrs] of entries) {
         const skuKey = normalizeSku(skuKeyRaw);
         if (!skuKey) continue;
@@ -2467,6 +2469,7 @@ serve(async (req) => {
         const hasDims = length > 0 && width > 0 && height > 0;
         const hasWeight = weight > 0;
         if (!hasDims && !hasWeight) continue;
+        attempted += 1;
 
         const listingsPath = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(skuKey)}`;
         const getQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=summaries`;
@@ -2579,8 +2582,10 @@ serve(async (req) => {
           );
           continue;
         }
+        patched += 1;
         planWarnings.push(`Atributele produsului au fost trimise la Amazon pentru SKU ${skuKey}.`);
       }
+      return { attempted, patched };
     };
 
     // SP-API expects the resource under /inbound/fba (not /fba/inbound)
@@ -3511,8 +3516,36 @@ serve(async (req) => {
       }
     };
 
+    let listingAttrsResult: { attempted: number; patched: number } = { attempted: 0, patched: 0 };
     if (Object.keys(listingAttributesBySku).length) {
-      await applyListingAttributesUpdates();
+      listingAttrsResult = await applyListingAttributesUpdates();
+    }
+
+    // Dacă userul a trimis atribute către listing, forțăm recrearea planului în aceeași execuție.
+    // Altfel putem rămâne pe un inboundPlanId ERRORED existent până la următorul retry manual.
+    if (listingAttrsResult.patched > 0 && inboundPlanId) {
+      try {
+        await supabase
+          .from("prep_requests")
+          .update({ inbound_plan_id: null })
+          .eq("id", requestId)
+          .eq("inbound_plan_id", inboundPlanId);
+      } catch (resetErr) {
+        console.warn("reset inbound_plan_id after listing attrs patch failed", { traceId, error: resetErr });
+      }
+      inboundPlanId = null;
+      inboundPlanStatus = null;
+      plans = [];
+      _lastPackingOptions = [];
+      _lastPlacementOptions = [];
+      operationId = null;
+      operationStatus = null;
+      operationProblems = [];
+      operationRaw = null;
+      createHttpStatus = null;
+      amazonJson = null;
+      lastResponseText = null;
+      primaryRequestId = null;
     }
 
     if (!inboundPlanId) {
