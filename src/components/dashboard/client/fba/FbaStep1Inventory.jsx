@@ -118,6 +118,8 @@ export default function FbaStep1Inventory({
         sku?.msku,
         sku?.SellerSKU,
         sku?.sellerSku,
+        sku?.fnsku,
+        sku?.fnSku,
         sku?.asin,
         sku?.id
       ]
@@ -265,17 +267,19 @@ export default function FbaStep1Inventory({
   const statusForSku = (sku) => {
     const skuKeys = getSkuCandidateKeys(sku);
     for (const key of skuKeys) {
-      const match = skuStatuses.find((s) => {
-        const statusKeys = [
-          s?.sku,
-          s?.msku,
-          s?.SellerSKU,
-          s?.sellerSku,
-          s?.asin,
-          s?.id
-        ]
-          .map((v) => normalizeKey(v))
-          .filter(Boolean);
+        const match = skuStatuses.find((s) => {
+          const statusKeys = [
+            s?.sku,
+            s?.msku,
+            s?.SellerSKU,
+            s?.sellerSku,
+            s?.fnsku,
+            s?.fnSku,
+            s?.asin,
+            s?.id
+          ]
+            .map((v) => normalizeKey(v))
+            .filter(Boolean);
         return statusKeys.includes(key);
       });
       if (match) return match;
@@ -321,6 +325,12 @@ export default function FbaStep1Inventory({
   }, [normalizeKey, operationProblems]);
   const operationProblemsBySkuKey = useMemo(() => {
     const map = new Map();
+    const fnskuToSku = new Map();
+    (Array.isArray(skuStatuses) ? skuStatuses : []).forEach((s) => {
+      const fnskuKey = normalizeKey(s?.fnsku || s?.fnSku || '');
+      const skuKey = normalizeKey(s?.sku || s?.msku || s?.SellerSKU || s?.sellerSku || '');
+      if (fnskuKey && skuKey) fnskuToSku.set(fnskuKey, skuKey);
+    });
     const add = (rawKey, message) => {
       const key = normalizeKey(rawKey);
       if (!key || !message) return;
@@ -350,14 +360,22 @@ export default function FbaStep1Inventory({
           .split(',')
           .map((value) => String(value || '').trim())
           .filter(Boolean)
-          .forEach((fnsku) => add(fnsku, msg));
+          .forEach((fnsku) => {
+            add(fnsku, msg);
+            const mappedSku = fnskuToSku.get(normalizeKey(fnsku));
+            if (mappedSku) add(mappedSku, msg);
+          });
       }
 
       const fnskuMatch = combined.match(/\bFNSKU\s*[:=]\s*([A-Za-z0-9._\-]+)/i);
-      if (fnskuMatch?.[1]) add(fnskuMatch[1], msg);
+      if (fnskuMatch?.[1]) {
+        add(fnskuMatch[1], msg);
+        const mappedSku = fnskuToSku.get(normalizeKey(fnskuMatch[1]));
+        if (mappedSku) add(mappedSku, msg);
+      }
     });
     return map;
-  }, [humanizeOperationProblem, normalizeKey, operationProblems]);
+  }, [humanizeOperationProblem, normalizeKey, operationProblems, skuStatuses]);
   const [serviceOptions, setServiceOptions] = useState([]);
   const [boxOptions, setBoxOptions] = useState([]);
   const persistTimerRef = useRef(null);

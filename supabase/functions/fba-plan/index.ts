@@ -1227,6 +1227,7 @@ async function checkSkuStatus(params: {
     return [];
   };
   let canonicalSku = cleanSku;
+  let canonicalFnsku: string | null = null;
   let sawNotFound = false;
   let non404ListingError: { status: number; text: string } | null = null;
 
@@ -1262,6 +1263,7 @@ async function checkSkuStatus(params: {
       if (Array.isArray(summaries)) {
         const s = summaries.find((x: any) => String(x?.marketplaceId || x?.marketplace_id || "") === String(marketplaceId));
         status = String(s?.status || s?.Status || "");
+        canonicalFnsku = String(s?.fnSku || s?.fnsku || s?.FNSKU || "").trim() || null;
       }
 
       const statusList = toStatusList(status).map((v) => v.toUpperCase());
@@ -1269,22 +1271,22 @@ async function checkSkuStatus(params: {
       const hasDiscoverable = statusList.includes("DISCOVERABLE");
 
       if (!Array.isArray(summaries) || summaries.length === 0) {
-        return { state: "missing", reason: "Listing lipsă pe marketplace (summaries gol).", canonicalSku };
+        return { state: "missing", reason: "Listing lipsă pe marketplace (summaries gol).", canonicalSku, fnsku: canonicalFnsku };
       }
       if (!statusList.length) {
-        return { state: "missing", reason: "Listing lipsă pe marketplace (status absent).", canonicalSku };
+        return { state: "missing", reason: "Listing lipsă pe marketplace (status absent).", canonicalSku, fnsku: canonicalFnsku };
       }
       if (hasBuyable) {
-        return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")}`, canonicalSku };
+        return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")}`, canonicalSku, fnsku: canonicalFnsku };
       }
       if (hasDiscoverable) {
-        return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")} (considerat eligibil)`, canonicalSku };
+        return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")} (considerat eligibil)`, canonicalSku, fnsku: canonicalFnsku };
       }
-      return { state: "inactive", reason: `Listing găsit cu status ${statusList.join(",")}`, canonicalSku };
+      return { state: "inactive", reason: `Listing găsit cu status ${statusList.join(",")}`, canonicalSku, fnsku: canonicalFnsku };
     }
 
     if (sawNotFound && !non404ListingError) {
-      return { state: "missing", reason: "Listing inexistent pe marketplace-ul destinație", canonicalSku: cleanSku };
+      return { state: "missing", reason: "Listing inexistent pe marketplace-ul destinație", canonicalSku: cleanSku, fnsku: null };
     }
 
     if (non404ListingError) {
@@ -1302,13 +1304,15 @@ async function checkSkuStatus(params: {
         return {
           state: "ok",
           reason: `Catalog găsit; Listings API ${non404ListingError.status}`,
-          canonicalSku: canonicalSku || cleanSku
+          canonicalSku: canonicalSku || cleanSku,
+          fnsku: canonicalFnsku
         };
       }
       return {
         state: "unknown",
         reason: `Eroare Listings API (${non404ListingError.status}): ${non404ListingError.text}`,
-        canonicalSku: canonicalSku || cleanSku
+        canonicalSku: canonicalSku || cleanSku,
+        fnsku: canonicalFnsku
       };
     }
   } catch (e) {
@@ -1340,7 +1344,8 @@ async function checkSkuStatus(params: {
     return {
       state: "unknown",
       reason: `${fallbackReason}: ${e instanceof Error ? e.message : e}`,
-      canonicalSku: canonicalSku || cleanSku
+      canonicalSku: canonicalSku || cleanSku,
+      fnsku: canonicalFnsku
     };
   }
 
@@ -1368,14 +1373,15 @@ async function checkSkuStatus(params: {
         );
         if (blocking) {
           const reason = blocking?.message || blocking?.ReasonMessage || "Produs restricționat pe acest marketplace";
-          return { state: "restricted", reason, canonicalSku: canonicalSku || cleanSku };
+          return { state: "restricted", reason, canonicalSku: canonicalSku || cleanSku, fnsku: canonicalFnsku };
         }
       } else if (res.status !== 404) {
         // 404 can happen if endpoint unsupported; treat as best-effort
         return {
           state: "unknown",
           reason: `Eroare Restrictions API (${res.status}): ${text}`,
-          canonicalSku: canonicalSku || cleanSku
+          canonicalSku: canonicalSku || cleanSku,
+          fnsku: canonicalFnsku
         };
       }
     } catch (e) {
@@ -1383,12 +1389,13 @@ async function checkSkuStatus(params: {
       return {
         state: "unknown",
         reason: `${fallbackReason}: ${e instanceof Error ? e.message : e}`,
-        canonicalSku: canonicalSku || cleanSku
+        canonicalSku: canonicalSku || cleanSku,
+        fnsku: canonicalFnsku
       };
     }
   }
 
-  return { state: "ok", reason: "", canonicalSku: canonicalSku || cleanSku };
+  return { state: "ok", reason: "", canonicalSku: canonicalSku || cleanSku, fnsku: canonicalFnsku };
 }
 
 async function fetchPrepGuidance(params: {
@@ -2259,7 +2266,7 @@ serve(async (req) => {
     });
 
     // Pre-eligibility check per SKU for destination marketplace
-    const skuStatuses: { sku: string; asin: string | null; state: string; reason: string; inputSku?: string }[] = [];
+    const skuStatuses: { sku: string; asin: string | null; state: string; reason: string; inputSku?: string; fnsku?: string | null }[] = [];
     for (const c of collapsedItems) {
       const inputSku = c.sku;
       const status = await checkSkuStatus({
@@ -2287,7 +2294,8 @@ serve(async (req) => {
         asin: c.asin || null,
         state: status.state,
         reason: status.reason,
-        inputSku
+        inputSku,
+        fnsku: (status as any)?.fnsku || null
       });
     }
 
