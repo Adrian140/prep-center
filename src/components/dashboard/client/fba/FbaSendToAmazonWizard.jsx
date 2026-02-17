@@ -5065,12 +5065,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const step3Complete = isCompleted('3') && Boolean(labelFormat);
   const step4Complete = isCompleted('4') && (trackingSummary.tracked > 0 || isPartneredShipment);
 
-  const StepRow = ({ stepKey, title, subtitle, summary }) => {
+  const renderStepRow = ({ stepKey, title, subtitle, summary }) => {
     const active = currentStep === stepKey;
     const done = isCompleted(stepKey);
     const canRefresh = stepKey === '2' || stepKey === '3' || stepKey === '4' || Boolean(fetchPlan);
     return (
       <div
+        key={`step-row-${stepKey}`}
         className={`px-3 py-2 border border-slate-200 bg-white rounded-lg transition-all ${active ? 'ring-2 ring-blue-500' : ''}`}
       >
         <div className="flex items-center justify-between">
@@ -5118,44 +5119,42 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       </div>
 
       <div className="space-y-2">
-        <StepRow
-          stepKey="1"
-          title={tt('step1Title', 'Step 1 - Confirmed inventory to send')}
-          subtitle={`SKUs: ${skuCount} · Units: ${unitCount} · Ship from: ${plan?.shipFrom?.name || plan?.shipFrom?.address || '—'}`}
-          summary={plan?.marketplace ? `Marketplace: ${plan.marketplace}` : null}
-        />
-        <StepRow
-          stepKey="1b"
-          title={tt('step1bTitle', 'Step 1b - Pack individual units')}
-          subtitle={`Pack groups: ${packGroups?.length || 0} · Units: ${packUnits} · Boxes: ${boxesCount}`}
-          summary={packGroups?.length ? tt('packReady', 'You can start packing now') : tt('noPackGroups', 'No pack groups yet')}
-        />
-        <StepRow
-          stepKey="2"
-          title={tt('step2Title', 'Step 2 - Confirm shipping')}
-          subtitle={
+        {renderStepRow({
+          stepKey: '1',
+          title: tt('step1Title', 'Step 1 - Confirmed inventory to send'),
+          subtitle: `SKUs: ${skuCount} · Units: ${unitCount} · Ship from: ${plan?.shipFrom?.name || plan?.shipFrom?.address || '—'}`,
+          summary: plan?.marketplace ? `Marketplace: ${plan.marketplace}` : null
+        })}
+        {renderStepRow({
+          stepKey: '1b',
+          title: tt('step1bTitle', 'Step 1b - Pack individual units'),
+          subtitle: `Pack groups: ${packGroups?.length || 0} · Units: ${packUnits} · Boxes: ${boxesCount}`,
+          summary: packGroups?.length ? tt('packReady', 'You can start packing now') : tt('noPackGroups', 'No pack groups yet')
+        })}
+        {renderStepRow({
+          stepKey: '2',
+          title: tt('step2Title', 'Step 2 - Confirm shipping'),
+          subtitle:
             step2Complete
               ? `Destinations: ${shipmentSummary.dests} · Method: ${shipmentSummary.method} · Carrier: ${shipmentSummary.carrierName}`
-              : tt('notStarted', 'Not started')
-          }
-          summary={null}
-        />
-        <StepRow
-          stepKey="3"
-          title={tt('step3Title', 'Step 3 - Box labels printed')}
-          subtitle={step3Complete ? `Shipments: ${shipments?.length || 0}` : tt('notStarted', 'Not started')}
-          summary={step3Complete ? `${tt('labelFormat', 'Label format')}: ${labelFormat}` : null}
-        />
-        <StepRow
-          stepKey="4"
-          title={tt('step4Title', 'Final step: Tracking details')}
-          subtitle={
+              : tt('notStarted', 'Not started'),
+          summary: null
+        })}
+        {renderStepRow({
+          stepKey: '3',
+          title: tt('step3Title', 'Step 3 - Box labels printed'),
+          subtitle: step3Complete ? `Shipments: ${shipments?.length || 0}` : tt('notStarted', 'Not started'),
+          summary: step3Complete ? `${tt('labelFormat', 'Label format')}: ${labelFormat}` : null
+        })}
+        {renderStepRow({
+          stepKey: '4',
+          title: tt('step4Title', 'Final step: Tracking details'),
+          subtitle:
             step4Complete
               ? `Boxes: ${trackingSummary.totalBoxes} · Tracking IDs: ${trackingSummary.tracked}`
-              : tt('notStarted', 'Not started')
-          }
-          summary={step4Complete ? tt('trackingCaptured', 'Tracking captured') : null}
-        />
+              : tt('notStarted', 'Not started'),
+          summary: step4Complete ? tt('trackingCaptured', 'Tracking captured') : null
+        })}
       </div>
     </div>
   );
