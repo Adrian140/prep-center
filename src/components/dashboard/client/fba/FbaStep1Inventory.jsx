@@ -2229,82 +2229,83 @@ export default function FbaStep1Inventory({
   const closePackingModal = () => setPackingModal((prev) => ({ ...prev, open: false, sku: null }));
 
   const savePackingTemplate = async () => {
-    if (packingModal.sku) {
-      setTemplateError('');
-      const derivedName =
-        packingModal.templateName || (packingModal.unitsPerBox ? `pack ${packingModal.unitsPerBox}` : '');
-      if (!derivedName) {
-        setTemplateError('Set a name or units per box for the template.');
-        return;
-      }
-
-      const templateType = packingModal.templateType === 'case' ? 'case' : 'individual';
-      const unitsPerBox = parsePositiveInteger(packingModal.unitsPerBox);
-      if (templateType === 'case' && !unitsPerBox) {
-        setTemplateError('Units per box must be greater than 0 for case pack.');
-        return;
-      }
-      const boxLengthCm = parsePositiveLocalizedDecimal(packingModal.boxL);
-      const boxWidthCm = parsePositiveLocalizedDecimal(packingModal.boxW);
-      const boxHeightCm = parsePositiveLocalizedDecimal(packingModal.boxH);
-      const boxWeightKg = parsePositiveLocalizedDecimal(packingModal.boxWeight);
-      const boxesCount = unitsPerBox
-        ? Math.max(1, Math.ceil((Number(packingModal.sku.units || 0) || 0) / unitsPerBox))
-        : null;
-      let savedTemplateId = null;
-
-      // Persist template if we have a name and companyId
-      if (!data?.companyId) {
-        setTemplateError('Missing companyId in plan; cannot save template.');
-      } else {
-        try {
-          const payload = {
-            company_id: data.companyId,
-            marketplace_id: marketplaceId,
-            sku: packingModal.sku.sku || null,
-            asin: packingModal.sku.asin || null,
-            name: derivedName,
-            template_type: templateType,
-            units_per_box: unitsPerBox,
-            box_length_cm: boxLengthCm,
-            box_width_cm: boxWidthCm,
-            box_height_cm: boxHeightCm,
-            box_weight_kg: boxWeightKg
-          };
-          const { data: savedRow, error } = await supabase
-            .from('packing_templates')
-            .upsert(payload, { onConflict: 'company_id,marketplace_id,sku,name' })
-            .select('id')
-            .maybeSingle();
-          savedTemplateId = Array.isArray(savedRow) && savedRow[0]?.id ? savedRow[0].id : null;
-          if (error) {
-            console.error('packing template upsert error', error);
-            throw error;
-          }
-          // Reload templates
-          const { data: rows } = await supabase
-            .from('packing_templates')
-            .select('*')
-            .eq('company_id', data.companyId)
-            .eq('marketplace_id', marketplaceId);
-          setTemplates(Array.isArray(rows) ? rows : []);
-        } catch (e) {
-          setTemplateError(e?.message || 'Could not save template.');
-        }
-      }
-
-      onChangePacking(packingModal.sku.id, {
-        packing: templateType,
-        packingTemplateId: savedTemplateId,
-        packingTemplateName: derivedName || null,
-        unitsPerBox,
-        boxesCount,
-        boxLengthCm,
-        boxWidthCm,
-        boxHeightCm,
-        boxWeightKg
-      });
+    if (!packingModal.sku) return;
+    setTemplateError('');
+    const derivedName =
+      packingModal.templateName || (packingModal.unitsPerBox ? `pack ${packingModal.unitsPerBox}` : '');
+    if (!derivedName) {
+      setTemplateError('Set a name or units per box for the template.');
+      return;
     }
+
+    const templateType = packingModal.templateType === 'case' ? 'case' : 'individual';
+    const unitsPerBox = parsePositiveInteger(packingModal.unitsPerBox);
+    if (templateType === 'case' && !unitsPerBox) {
+      setTemplateError('Units per box must be greater than 0 for case pack.');
+      return;
+    }
+    const boxLengthCm = parsePositiveLocalizedDecimal(packingModal.boxL);
+    const boxWidthCm = parsePositiveLocalizedDecimal(packingModal.boxW);
+    const boxHeightCm = parsePositiveLocalizedDecimal(packingModal.boxH);
+    const boxWeightKg = parsePositiveLocalizedDecimal(packingModal.boxWeight);
+    const boxesCount = unitsPerBox
+      ? Math.max(1, Math.ceil((Number(packingModal.sku.units || 0) || 0) / unitsPerBox))
+      : null;
+    let savedTemplateId = null;
+
+    // Persist template if we have a name and companyId.
+    // Keep modal open on any error so user can continue editing.
+    if (!data?.companyId) {
+      setTemplateError('Missing companyId in plan; cannot save template.');
+      return;
+    }
+    try {
+      const payload = {
+        company_id: data.companyId,
+        marketplace_id: marketplaceId,
+        sku: packingModal.sku.sku || null,
+        asin: packingModal.sku.asin || null,
+        name: derivedName,
+        template_type: templateType,
+        units_per_box: unitsPerBox,
+        box_length_cm: boxLengthCm,
+        box_width_cm: boxWidthCm,
+        box_height_cm: boxHeightCm,
+        box_weight_kg: boxWeightKg
+      };
+      const { data: savedRow, error } = await supabase
+        .from('packing_templates')
+        .upsert(payload, { onConflict: 'company_id,marketplace_id,sku,name' })
+        .select('id')
+        .maybeSingle();
+      savedTemplateId = Array.isArray(savedRow) && savedRow[0]?.id ? savedRow[0].id : null;
+      if (error) {
+        console.error('packing template upsert error', error);
+        throw error;
+      }
+      // Reload templates
+      const { data: rows } = await supabase
+        .from('packing_templates')
+        .select('*')
+        .eq('company_id', data.companyId)
+        .eq('marketplace_id', marketplaceId);
+      setTemplates(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      setTemplateError(e?.message || 'Could not save template.');
+      return;
+    }
+
+    onChangePacking(packingModal.sku.id, {
+      packing: templateType,
+      packingTemplateId: savedTemplateId,
+      packingTemplateName: derivedName || null,
+      unitsPerBox,
+      boxesCount,
+      boxLengthCm,
+      boxWidthCm,
+      boxHeightCm,
+      boxWeightKg
+    });
     closePackingModal();
   };
 
