@@ -62,6 +62,7 @@ export default function AdminFBA({
   const [presets, setPresets] = useState(loadPresets());
   const [serviceOptions, setServiceOptions] = useState([]);
   const [lastObsAdmin, setLastObsAdmin] = useState('');
+  const [shippingCompletedByFbaId, setShippingCompletedByFbaId] = useState({});
 
   const formStorageKey = companyId
     ? `admin-fba-form-${companyId}`
@@ -131,6 +132,77 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
     };
     fetchServices();
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const normalizeFbaId = (value) => String(value || '').trim().toUpperCase();
+    const extractShipmentIds = (row) => {
+      const ids = new Set();
+      const add = (value) => {
+        const normalized = normalizeFbaId(value);
+        if (normalized) ids.add(normalized);
+      };
+      add(row?.fba_shipment_id);
+      add(row?.amazon_snapshot?.shipment_id);
+      const step2 = Array.isArray(row?.step2_shipments) ? row.step2_shipments : [];
+      step2.forEach((shipment) => {
+        add(shipment?.shipmentId);
+        add(shipment?.shipment_id);
+        add(shipment?.amazonShipmentId);
+        add(shipment?.amazon_shipment_id);
+        add(shipment?.shipmentConfirmationId);
+      });
+      return Array.from(ids);
+    };
+
+    const loadShippingCompleted = async () => {
+      if (!companyId) {
+        setShippingCompletedByFbaId({});
+        return;
+      }
+      let query = supabase
+        .from('prep_requests')
+        .select('fba_shipment_id, step2_confirmed_at, step2_shipments, amazon_snapshot')
+        .eq('company_id', companyId)
+        .not('step2_confirmed_at', 'is', null);
+      if (currentMarket) {
+        query = query.eq('warehouse_country', String(currentMarket).toUpperCase());
+      }
+      let { data, error } = await query;
+      if (
+        error &&
+        currentMarket &&
+        String(error.message || '').toLowerCase().includes('warehouse_country')
+      ) {
+        const retry = await supabase
+          .from('prep_requests')
+          .select('fba_shipment_id, step2_confirmed_at, step2_shipments, amazon_snapshot')
+          .eq('company_id', companyId)
+          .not('step2_confirmed_at', 'is', null);
+        data = retry.data;
+      }
+      if (!active) return;
+      const next = {};
+      (Array.isArray(data) ? data : []).forEach((row) => {
+        const timestamp = row?.step2_confirmed_at;
+        if (!timestamp) return;
+        const dateMs = Date.parse(timestamp);
+        if (!Number.isFinite(dateMs)) return;
+        extractShipmentIds(row).forEach((id) => {
+          const currentMs = next[id] ? Date.parse(next[id]) : Number.NEGATIVE_INFINITY;
+          if (!Number.isFinite(currentMs) || dateMs > currentMs) {
+            next[id] = timestamp;
+          }
+        });
+      });
+      setShippingCompletedByFbaId(next);
+    };
+
+    loadShippingCompleted();
+    return () => {
+      active = false;
+    };
+  }, [companyId, currentMarket]);
 
   useEffect(() => {
     if (!serviceOptions.length) return;
@@ -278,6 +350,19 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
       return acc + (Number.isFinite(total) ? total : 0);
     }, 0);
   }, [orderedRows]);
+
+  const formatShippingCompletedAt = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString('ro-RO', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   return (
     <Section
@@ -452,6 +537,11 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
                               <ChevronDown className="w-4 h-4" />
                               {resolveGroupLinesLabel(group.items.length)}
                             </span>
+                            {formatShippingCompletedAt(shippingCompletedByFbaId[String(group.key || '').trim().toUpperCase()]) && (
+                              <span className="text-emerald-700 text-xs font-medium">
+                                Shipping încheiat: {formatShippingCompletedAt(shippingCompletedByFbaId[String(group.key || '').trim().toUpperCase()])}
+                              </span>
+                            )}
                           </span>
                         </td>
                       </tr>
