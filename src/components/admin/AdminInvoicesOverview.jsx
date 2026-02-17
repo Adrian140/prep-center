@@ -362,23 +362,48 @@ export default function AdminInvoicesOverview() {
       return;
     }
 
+    let effectiveCompanyId = targetRow?.company_id || null;
+    // If invoice is linked to a fallback/auto company but user has a real company_id,
+    // align the invoice to that company so balance RPC includes it for the right client.
+    if (targetRow?.user_id) {
+      const { data: ownerProfile } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', targetRow.user_id)
+        .maybeSingle();
+      const ownerCompanyId = ownerProfile?.company_id || null;
+      if (ownerCompanyId && ownerCompanyId !== targetRow?.company_id) {
+        const { error: alignError } = await supabase
+          .from('invoices')
+          .update({ company_id: ownerCompanyId })
+          .eq('id', invoiceId);
+        if (!alignError) {
+          effectiveCompanyId = ownerCompanyId;
+        }
+      }
+    }
+
     // Keep client live balance in sync when status changes from admin invoices list.
-    if (targetRow?.company_id) {
+    if (effectiveCompanyId) {
       const marketForBalance = String(targetRow.country || country || '').toUpperCase() || null;
       const { data: liveBalance, error: balanceError } = await supabaseHelpers.getCompanyLiveBalance(
-        targetRow.company_id,
+        effectiveCompanyId,
         marketForBalance
       );
       if (!balanceError && Number.isFinite(Number(liveBalance))) {
         await supabase
           .from('profiles')
           .update({ current_balance: Number(liveBalance) })
-          .eq('company_id', targetRow.company_id);
+          .eq('company_id', effectiveCompanyId);
       }
     }
 
     setRows((prev) => {
-      const updated = prev.map((row) => (row.id === invoiceId ? { ...row, status: next } : row));
+      const updated = prev.map((row) =>
+        row.id === invoiceId
+          ? { ...row, status: next, company_id: effectiveCompanyId || row.company_id }
+          : row
+      );
       return [...updated].sort((a, b) => {
         const pendingA = isPendingStatus(a.status) ? 0 : 1;
         const pendingB = isPendingStatus(b.status) ? 0 : 1;
