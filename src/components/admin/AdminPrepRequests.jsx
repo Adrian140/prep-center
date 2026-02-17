@@ -29,7 +29,6 @@ export default function AdminPrepRequests() {
   const [status, setStatus] = useState(initialState.status || 'all'); // all | pending | confirmed | cancelled
   const [q, setQ] = useState(initialState.q || '');             // căutare simplă
   const [rows, setRows] = useState([]);
-  const [count, setCount] = useState(0);
   const [page, setPage] = useState(initialPage);
   const pageSize = 10;
   const [loading, setLoading] = useState(true);
@@ -69,25 +68,22 @@ export default function AdminPrepRequests() {
   }
 };
 
- const load = async (p = page) => {
+ const load = async (p = 1) => {
   setLoading(true);
   setFlash('');
   try {
-    const { data, error, count: c } = await supabaseHelpers.listPrepRequests({
+    const { data, error } = await supabaseHelpers.listPrepRequests({
       status: status === 'all' ? undefined : status,
-      warehouseCountry: currentMarket,
-      page: p,
-      pageSize,
+      warehouseCountry: currentMarket
     });
     if (error) throw error;
 
-    setRows(Array.isArray(data) ? data : []);
-    setCount(c || 0);
+    const list = Array.isArray(data) ? data : [];
+    setRows(list);
     setPage(p);
   } catch (e) {
     console.error('listPrepRequests failed:', e?.message || e);
     setRows([]);
-    setCount(0);
     setFlash(e?.message || 'Eroare la încărcare.');
   } finally {
     setLoading(false);
@@ -110,15 +106,8 @@ export default function AdminPrepRequests() {
 
   useEffect(() => {
     if (firstLoadRef.current) return;
-    load(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmedQuery, currentMarket]);
-
-  useEffect(() => {
-    if (firstLoadRef.current) return;
-    load(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentMarket]);
+    setPage(1);
+  }, [trimmedQuery]);
 
   useEffect(() => {
     writeJSON(tabSessionStorage, STORAGE_KEY, { status, q, page, selectedId, selectedView });
@@ -186,26 +175,29 @@ export default function AdminPrepRequests() {
       return tokens.every((t) => fields.some((f) => f.includes(t)));
     };
 
-    const base = rows
-      .map((row, index) => ({ row, index }))
-      .filter(({ row }) => matchesSearch(row));
+    const base = rows.filter((row) => matchesSearch(row));
 
     return base
       .slice()
       .sort((a, b) => {
-        const pa = STATUS_PRIORITY[a.row.status] ?? 99;
-        const pb = STATUS_PRIORITY[b.row.status] ?? 99;
+        const pa = STATUS_PRIORITY[a.status] ?? 99;
+        const pb = STATUS_PRIORITY[b.status] ?? 99;
         if (pa !== pb) return pa - pb;
-        return a.index - b.index;
+        const ta = new Date(a.created_at || 0).getTime();
+        const tb = new Date(b.created_at || 0).getTime();
+        return tb - ta;
       })
-      .map(({ row }) => row);
+      .map((row) => row);
   }, [rows, trimmedQuery]);
 
-  const totalBase = trimmedQuery ? filtered.length : count;
+  const totalBase = filtered.length;
   const totalPages = Math.max(1, Math.ceil(Math.max(1, totalBase) / pageSize));
-  const displayRows = filtered;
+  const displayRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
   const handlePageChange = (next) => {
-    load(next);
+    setPage(next);
   };
 
   if (selectedId) {
