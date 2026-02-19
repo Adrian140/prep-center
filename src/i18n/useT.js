@@ -27,7 +27,7 @@ const translations = {
   },
 
   ro: {
-    nav: { home: 'Acasă', exchange: 'Exchange', resale: 'Revânzare', services: 'Servicii & Prețuri', about: 'Despre', contact: 'Contact' },
+    nav: { home: 'Acasă', exchange: 'Schimb', resale: 'Revânzare', services: 'Servicii & Prețuri', about: 'Despre', contact: 'Contact' },
     actions: {
       login:'Autentificare',
       admin:'Panou Admin',
@@ -49,7 +49,7 @@ const translations = {
   },
 
   fr: {
-    nav: { home: 'Accueil', exchange: 'Exchange', resale: 'Revente', services: 'Services & Tarifs', about: 'À propos', contact: 'Contact' },
+    nav: { home: 'Accueil', exchange: 'Échange', resale: 'Revente', services: 'Services & Tarifs', about: 'À propos', contact: 'Contact' },
     actions: {
       login:'Connexion',
       admin:'Panneau Admin',
@@ -71,7 +71,7 @@ const translations = {
   },
 
   de: {
-    nav: { home: 'Startseite', exchange: 'Exchange', resale: 'Wiederverkauf', services: 'Leistungen & Preise', about: 'Über uns', contact: 'Kontakt' },
+    nav: { home: 'Startseite', exchange: 'Austausch', resale: 'Wiederverkauf', services: 'Leistungen & Preise', about: 'Über uns', contact: 'Kontakt' },
     actions: {
       login:'Anmelden',
       admin:'Adminbereich',
