@@ -905,6 +905,10 @@ async function syncListingsIntegration(integration) {
       if (row) {
         const patch = { id: row.id };
         let shouldPatch = false;
+        const incomingSku = listing.sku && String(listing.sku).trim();
+        const existingSku = row.sku && String(row.sku).trim();
+        const normalizedIncomingSku = normalizeIdentifier(incomingSku);
+        const normalizedExistingSku = normalizeIdentifier(existingSku);
         const hasIncomingName = listing.name && String(listing.name).trim().length > 0;
         const hasExistingName = row.name && String(row.name).trim().length > 0;
         const hasIncomingImage = listing.imageUrl && String(listing.imageUrl).trim().length > 0;
@@ -925,6 +929,18 @@ async function syncListingsIntegration(integration) {
           patch.name = listing.name;
           shouldPatch = true;
         }
+        // Keep SKU exactly as Amazon reports it (including letter casing).
+        // We only patch when normalized value is the same, to avoid changing identity.
+        if (
+          incomingSku &&
+          existingSku &&
+          normalizedIncomingSku &&
+          normalizedIncomingSku === normalizedExistingSku &&
+          incomingSku !== existingSku
+        ) {
+          patch.sku = incomingSku;
+          shouldPatch = true;
+        }
         if (shouldPatch) queueUpdate(patch);
         continue;
       }
@@ -932,6 +948,7 @@ async function syncListingsIntegration(integration) {
       const asinKey = listing.asin ? listing.asin.trim().toUpperCase() : '';
       if (asinKey && existingByAsin.has(asinKey)) {
         const rowsForAsin = existingByAsin.get(asinKey) || [];
+        let insertedForAsinMismatch = false;
         for (const r of rowsForAsin) {
           const incomingSku = listing.sku && String(listing.sku).trim();
           const hasExistingName = r.name && String(r.name).trim().length > 0;
@@ -955,11 +972,11 @@ async function syncListingsIntegration(integration) {
             shouldPatch = true;
             updatesWithImage.add(r.id);
           }
-          // Dacă rândul din stoc nu are SKU, dar raportul Amazon îl are, îl completăm.
-          if (
-            incomingSku &&
-            (!existingSkuNormalized || existingSkuNormalized !== incomingSkuNormalized)
-          ) {
+          // Complete SKU only when missing in DB.
+          // Do NOT overwrite an existing SKU based on ASIN-only matching:
+          // one ASIN can have multiple seller SKUs (FBA/FBM variants), and this can
+          // corrupt identifiers if the report row is ambiguous or inconsistent.
+          if (incomingSku && !existingSkuNormalized) {
             const comboKey = makeCombinationKey(r.company_id, incomingSku, r.asin);
             if (comboKey && existingCombinationKeys.has(comboKey)) {
               console.warn(
@@ -976,6 +993,50 @@ async function syncListingsIntegration(integration) {
                 existingByKey.set(normalizedKey, { ...r });
               }
               shouldPatch = true;
+            }
+          } else if (
+            incomingSku &&
+            existingSkuNormalized &&
+            existingSkuNormalized !== incomingSkuNormalized
+          ) {
+            if (!insertedForAsinMismatch && listing.asin) {
+              const comboKey = makeCombinationKey(
+                integration.company_id,
+                incomingSku,
+                listing.asin
+              );
+              if (comboKey && existingCombinationKeys.has(comboKey)) {
+                console.warn(
+                  `[Listings sync] SKU mismatch for company ${r.company_id} asin ${r.asin}: existing "${r.sku}", incoming "${incomingSku}" already exists as separate row.`
+                );
+              } else {
+                inserts.push({
+                  company_id: integration.company_id,
+                  user_id: integration.user_id,
+                  asin: listing.asin || null,
+                  sku: incomingSku || null,
+                  ean: listing.ean || null,
+                  name: listing.name || listing.asin || incomingSku,
+                  image_url: listing.imageUrl || null,
+                  qty: 0
+                });
+                if (comboKey) {
+                  existingCombinationKeys.add(comboKey);
+                }
+                if (
+                  listing.asin &&
+                  !(listing.imageUrl && String(listing.imageUrl).trim().length > 0)
+                ) {
+                  catalogImageCandidates.add(String(listing.asin).trim().toUpperCase());
+                }
+                if (listing.imageUrl && String(listing.imageUrl).trim().length > 0) {
+                  insertsWithImage += 1;
+                }
+                console.warn(
+                  `[Listings sync] SKU mismatch for company ${r.company_id} asin ${r.asin}: created separate row for incoming SKU "${incomingSku}" (kept existing "${r.sku}").`
+                );
+              }
+              insertedForAsinMismatch = true;
             }
           }
           const shouldUpdateName =

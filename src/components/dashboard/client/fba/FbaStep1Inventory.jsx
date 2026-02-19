@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle } from 'lucide-react';
 import { supabase } from '@/config/supabase';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useDashboardTranslation } from '@/translations';
 
 const FieldLabel = ({ label, action = null, children }) => (
   <div className="flex flex-col gap-1 text-sm text-slate-700">
@@ -86,6 +88,243 @@ const PACKING_TYPE = {
   SINGLE_SKU_PALLET: 'single_sku_pallet'
 };
 
+const STEP1_COPY = {
+  en: {
+    opDefaultIssue: 'Amazon reported an issue for this SKU. Review and try again.',
+    opMissingPrep: 'Prep classification is missing for this SKU. Choose prep and submit again.',
+    opNotEligible: 'This product is currently not eligible for inbound on the selected marketplace.',
+    validationMissingBoxes: 'Add at least one box for every pack with units.',
+    validationMissingAssignments: 'Distribute all units into boxes (Assigned must equal Units).',
+    validationMissingDims: 'Add dimensions and weight for every box.',
+    validationEmptyBoxes: 'Some boxes are empty. Remove them or add items.',
+    validationOverweight: 'Weight exceeds the {kg} kg limit.',
+    validationOversize: 'A dimension exceeds the {cm} cm limit for a box that does not contain exactly 1 unit.',
+    prepRequired: 'Prep required: {list}',
+    prepSetNeeded: 'Prep set: Prep needed',
+    prepSetNone: 'Prep set: No prep needed',
+    statusEligible: 'Eligible',
+    statusListingMissing: 'Listing missing',
+    statusListingInactive: 'Listing inactive',
+    statusRestricted: 'Restricted',
+    statusUnknown: 'Unknown',
+    readyToPack: 'Ready to pack',
+    removeListing: 'Remove listing',
+    noBoxesAssignedYet: 'No boxes assigned yet.',
+    noServicesSelected: 'No services selected.',
+    notEligibleBanner: 'Some products are not eligible for the selected marketplace.',
+    inboundPlanNotReady: 'Amazon inbound plan is not ready. Retry Step 1 to regenerate the plan.',
+    operationIssuesTitle: 'Amazon reported issues for some SKUs:',
+    planStillLoading: 'Amazon plan is still loading. Waiting for generated SKUs/shipments; nothing to show yet.',
+    ignoredLinesNotice: '{count} line(s) without SKU were ignored. Complete SKU on those lines if you want to include them.',
+    completeBoxPlanning: 'Complete box planning before continuing.',
+    noUnitsWarning: 'No units to send. Set at least 1 unit.',
+    alertNotEligible: 'Some SKUs are not eligible on Amazon; fix eligibility and try again.',
+    alertPlanNotReady: 'Amazon inbound plan is not ready. Retry Step 1.',
+    waitingAmazon: 'Waiting for Amazon response...',
+    saving: 'Saving…',
+    resolveEligibility: 'Resolve eligibility in Amazon',
+    retryStep1: 'Retry Step 1',
+    waitingPlan: 'Waiting for Amazon plan',
+    addUnits: 'Add units',
+    continueToPacking: 'Continue to packing'
+  },
+  ro: {
+    opDefaultIssue: 'Amazon a raportat o problemă pentru acest SKU. Verifică și încearcă din nou.',
+    opMissingPrep: 'Lipsește categoria de pregătire (prep) pentru acest SKU. Selectează prep și retrimite.',
+    opNotEligible: 'Acest produs nu este eligibil momentan pentru inbound pe marketplace-ul selectat.',
+    validationMissingBoxes: 'Adaugă cel puțin o cutie pentru fiecare grup cu unități.',
+    validationMissingAssignments: 'Distribuie toate unitățile în cutii (Assigned trebuie să fie egal cu Units).',
+    validationMissingDims: 'Completează dimensiunile și greutatea pentru fiecare cutie.',
+    validationEmptyBoxes: 'Unele cutii sunt goale. Elimină-le sau adaugă produse.',
+    validationOverweight: 'Greutatea depășește limita de {kg} kg.',
+    validationOversize: 'O dimensiune depășește limita de {cm} cm pentru o cutie care nu conține exact 1 unitate.',
+    prepRequired: 'Pregătire necesară: {list}',
+    prepSetNeeded: 'Pregătire setată: necesară',
+    prepSetNone: 'Pregătire setată: nu este necesară',
+    statusEligible: 'Eligibil',
+    statusListingMissing: 'Listing lipsă',
+    statusListingInactive: 'Listing inactiv',
+    statusRestricted: 'Restricționat',
+    statusUnknown: 'Necunoscut',
+    readyToPack: 'Gata de ambalare',
+    removeListing: 'Elimină listing',
+    noBoxesAssignedYet: 'Nicio cutie alocată încă.',
+    noServicesSelected: 'Niciun serviciu selectat.',
+    notEligibleBanner: 'Unele produse nu sunt eligibile pentru marketplace-ul selectat.',
+    inboundPlanNotReady: 'Planul inbound Amazon nu este pregătit. Reîncearcă Pasul 1 pentru regenerare.',
+    operationIssuesTitle: 'Amazon a raportat probleme pentru unele SKU-uri:',
+    planStillLoading: 'Planul Amazon încă se încarcă. Așteptăm SKU-urile/shipments generate.',
+    ignoredLinesNotice: '{count} linie(linii) fără SKU au fost ignorate. Completează SKU dacă vrei să le incluzi.',
+    completeBoxPlanning: 'Finalizează planificarea cutiilor înainte de continuare.',
+    noUnitsWarning: 'Nu există unități de trimis. Setează cel puțin 1 unitate.',
+    alertNotEligible: 'Unele SKU-uri nu sunt eligibile în Amazon; corectează și încearcă din nou.',
+    alertPlanNotReady: 'Planul inbound Amazon nu este gata. Reîncearcă Pasul 1.',
+    waitingAmazon: 'Se așteaptă răspunsul Amazon...',
+    saving: 'Se salvează…',
+    resolveEligibility: 'Rezolvă eligibilitatea în Amazon',
+    retryStep1: 'Reîncearcă Pasul 1',
+    waitingPlan: 'Se așteaptă planul Amazon',
+    addUnits: 'Adaugă unități',
+    continueToPacking: 'Continuă la împachetare'
+  },
+  fr: {
+    opDefaultIssue: 'Amazon a signalé un problème pour ce SKU. Vérifiez et réessayez.',
+    opMissingPrep: 'La classification prep est manquante pour ce SKU. Sélectionnez-la et renvoyez.',
+    opNotEligible: 'Ce produit n’est pas éligible à l’inbound sur la marketplace sélectionnée.',
+    validationMissingBoxes: 'Ajoutez au moins une boîte pour chaque groupe avec des unités.',
+    validationMissingAssignments: 'Répartissez toutes les unités dans les boîtes (Assigned = Units).',
+    validationMissingDims: 'Ajoutez dimensions et poids pour chaque boîte.',
+    validationEmptyBoxes: 'Certaines boîtes sont vides. Supprimez-les ou ajoutez des articles.',
+    validationOverweight: 'Le poids dépasse la limite de {kg} kg.',
+    validationOversize: 'Une dimension dépasse la limite de {cm} cm pour une boîte qui ne contient pas exactement 1 unité.',
+    prepRequired: 'Préparation requise : {list}',
+    prepSetNeeded: 'Préparation définie : requise',
+    prepSetNone: 'Préparation définie : non requise',
+    statusEligible: 'Éligible',
+    statusListingMissing: 'Annonce manquante',
+    statusListingInactive: 'Annonce inactive',
+    statusRestricted: 'Restreint',
+    statusUnknown: 'Inconnu',
+    readyToPack: 'Prêt à emballer',
+    removeListing: 'Supprimer l’annonce',
+    noBoxesAssignedYet: 'Aucune boîte assignée pour le moment.',
+    noServicesSelected: 'Aucun service sélectionné.',
+    notEligibleBanner: 'Certains produits ne sont pas éligibles pour la marketplace sélectionnée.',
+    inboundPlanNotReady: 'Le plan inbound Amazon n’est pas prêt. Réessayez l’étape 1.',
+    operationIssuesTitle: 'Amazon a signalé des problèmes pour certains SKU :',
+    planStillLoading: 'Le plan Amazon est encore en cours de chargement.',
+    ignoredLinesNotice: '{count} ligne(s) sans SKU ont été ignorées.',
+    completeBoxPlanning: 'Complétez le plan de boîtes avant de continuer.',
+    noUnitsWarning: 'Aucune unité à envoyer. Définissez au moins 1 unité.',
+    alertNotEligible: 'Certains SKU ne sont pas éligibles sur Amazon ; corrigez puis réessayez.',
+    alertPlanNotReady: 'Le plan inbound Amazon n’est pas prêt. Réessayez l’étape 1.',
+    waitingAmazon: 'En attente de la réponse Amazon...',
+    saving: 'Enregistrement…',
+    resolveEligibility: 'Résoudre l’éligibilité dans Amazon',
+    retryStep1: 'Réessayer l’étape 1',
+    waitingPlan: 'En attente du plan Amazon',
+    addUnits: 'Ajouter des unités',
+    continueToPacking: 'Continuer vers l’emballage'
+  },
+  de: {
+    opDefaultIssue: 'Amazon hat ein Problem für diese SKU gemeldet. Prüfen und erneut versuchen.',
+    opMissingPrep: 'Die Prep-Klassifizierung fehlt für diese SKU. Bitte auswählen und erneut senden.',
+    opNotEligible: 'Dieses Produkt ist für Inbound auf dem gewählten Marktplatz derzeit nicht berechtigt.',
+    validationMissingBoxes: 'Füge mindestens eine Box für jede Gruppe mit Einheiten hinzu.',
+    validationMissingAssignments: 'Verteile alle Einheiten auf Boxen (Assigned muss Units entsprechen).',
+    validationMissingDims: 'Füge Maße und Gewicht für jede Box hinzu.',
+    validationEmptyBoxes: 'Einige Boxen sind leer. Entferne sie oder füge Artikel hinzu.',
+    validationOverweight: 'Gewicht überschreitet das Limit von {kg} kg.',
+    validationOversize: 'Ein Maß überschreitet das Limit von {cm} cm für eine Box ohne genau 1 Einheit.',
+    prepRequired: 'Vorbereitung erforderlich: {list}',
+    prepSetNeeded: 'Vorbereitung gesetzt: erforderlich',
+    prepSetNone: 'Vorbereitung gesetzt: nicht erforderlich',
+    statusEligible: 'Berechtigt',
+    statusListingMissing: 'Listing fehlt',
+    statusListingInactive: 'Listing inaktiv',
+    statusRestricted: 'Eingeschränkt',
+    statusUnknown: 'Unbekannt',
+    readyToPack: 'Packbereit',
+    removeListing: 'Listing entfernen',
+    noBoxesAssignedYet: 'Noch keine Box zugewiesen.',
+    noServicesSelected: 'Keine Services ausgewählt.',
+    notEligibleBanner: 'Einige Produkte sind für den gewählten Marktplatz nicht berechtigt.',
+    inboundPlanNotReady: 'Amazon Inbound-Plan ist nicht bereit. Schritt 1 erneut versuchen.',
+    operationIssuesTitle: 'Amazon hat für einige SKUs Probleme gemeldet:',
+    planStillLoading: 'Amazon-Plan wird noch geladen.',
+    ignoredLinesNotice: '{count} Zeile(n) ohne SKU wurden ignoriert.',
+    completeBoxPlanning: 'Box-Planung vor dem Fortfahren abschließen.',
+    noUnitsWarning: 'Keine Einheiten zum Senden. Mindestens 1 Einheit setzen.',
+    alertNotEligible: 'Einige SKUs sind bei Amazon nicht berechtigt. Bitte korrigieren und erneut versuchen.',
+    alertPlanNotReady: 'Amazon Inbound-Plan ist nicht bereit. Schritt 1 erneut versuchen.',
+    waitingAmazon: 'Warte auf Amazon-Antwort...',
+    saving: 'Speichern…',
+    resolveEligibility: 'Berechtigung in Amazon lösen',
+    retryStep1: 'Schritt 1 wiederholen',
+    waitingPlan: 'Warte auf Amazon-Plan',
+    addUnits: 'Einheiten hinzufügen',
+    continueToPacking: 'Zum Packen weiter'
+  },
+  it: {
+    opDefaultIssue: 'Amazon ha segnalato un problema per questo SKU. Controlla e riprova.',
+    opMissingPrep: 'Manca la classificazione prep per questo SKU. Selezionala e invia di nuovo.',
+    opNotEligible: 'Questo prodotto non è idoneo all’inbound sul marketplace selezionato.',
+    validationMissingBoxes: 'Aggiungi almeno una scatola per ogni gruppo con unità.',
+    validationMissingAssignments: 'Distribuisci tutte le unità nelle scatole (Assigned deve essere uguale a Units).',
+    validationMissingDims: 'Aggiungi dimensioni e peso per ogni scatola.',
+    validationEmptyBoxes: 'Alcune scatole sono vuote. Rimuovile o aggiungi articoli.',
+    validationOverweight: 'Il peso supera il limite di {kg} kg.',
+    validationOversize: 'Una dimensione supera il limite di {cm} cm per una scatola che non contiene esattamente 1 unità.',
+    prepRequired: 'Prep richiesto: {list}',
+    prepSetNeeded: 'Prep impostato: richiesto',
+    prepSetNone: 'Prep impostato: non richiesto',
+    statusEligible: 'Idoneo',
+    statusListingMissing: 'Listing mancante',
+    statusListingInactive: 'Listing inattivo',
+    statusRestricted: 'Limitato',
+    statusUnknown: 'Sconosciuto',
+    readyToPack: 'Pronto per l’imballaggio',
+    removeListing: 'Rimuovi listing',
+    noBoxesAssignedYet: 'Nessuna scatola assegnata.',
+    noServicesSelected: 'Nessun servizio selezionato.',
+    notEligibleBanner: 'Alcuni prodotti non sono idonei per il marketplace selezionato.',
+    inboundPlanNotReady: 'Il piano inbound Amazon non è pronto. Riprova lo Step 1.',
+    operationIssuesTitle: 'Amazon ha segnalato problemi per alcuni SKU:',
+    planStillLoading: 'Il piano Amazon è ancora in caricamento.',
+    ignoredLinesNotice: '{count} riga(e) senza SKU sono state ignorate.',
+    completeBoxPlanning: 'Completa la pianificazione delle scatole prima di continuare.',
+    noUnitsWarning: 'Nessuna unità da inviare. Imposta almeno 1 unità.',
+    alertNotEligible: 'Alcuni SKU non sono idonei su Amazon; correggi e riprova.',
+    alertPlanNotReady: 'Il piano inbound Amazon non è pronto. Riprova lo Step 1.',
+    waitingAmazon: 'In attesa della risposta di Amazon...',
+    saving: 'Salvataggio…',
+    resolveEligibility: 'Risolvi idoneità in Amazon',
+    retryStep1: 'Riprova Step 1',
+    waitingPlan: 'In attesa del piano Amazon',
+    addUnits: 'Aggiungi unità',
+    continueToPacking: 'Continua al packing'
+  },
+  es: {
+    opDefaultIssue: 'Amazon informó un problema para este SKU. Revísalo e inténtalo de nuevo.',
+    opMissingPrep: 'Falta la clasificación prep para este SKU. Selecciónala y vuelve a enviar.',
+    opNotEligible: 'Este producto no es apto para inbound en el marketplace seleccionado.',
+    validationMissingBoxes: 'Añade al menos una caja para cada grupo con unidades.',
+    validationMissingAssignments: 'Distribuye todas las unidades en cajas (Assigned debe ser igual a Units).',
+    validationMissingDims: 'Añade dimensiones y peso para cada caja.',
+    validationEmptyBoxes: 'Algunas cajas están vacías. Elimínalas o añade artículos.',
+    validationOverweight: 'El peso supera el límite de {kg} kg.',
+    validationOversize: 'Una dimensión supera el límite de {cm} cm para una caja que no contiene exactamente 1 unidad.',
+    prepRequired: 'Preparación requerida: {list}',
+    prepSetNeeded: 'Preparación configurada: requerida',
+    prepSetNone: 'Preparación configurada: no requerida',
+    statusEligible: 'Elegible',
+    statusListingMissing: 'Listing faltante',
+    statusListingInactive: 'Listing inactivo',
+    statusRestricted: 'Restringido',
+    statusUnknown: 'Desconocido',
+    readyToPack: 'Listo para preparar',
+    removeListing: 'Eliminar listing',
+    noBoxesAssignedYet: 'Aún no hay cajas asignadas.',
+    noServicesSelected: 'No hay servicios seleccionados.',
+    notEligibleBanner: 'Algunos productos no son elegibles para el marketplace seleccionado.',
+    inboundPlanNotReady: 'El plan inbound de Amazon no está listo. Reintenta el Paso 1.',
+    operationIssuesTitle: 'Amazon informó problemas para algunos SKU:',
+    planStillLoading: 'El plan de Amazon todavía se está cargando.',
+    ignoredLinesNotice: 'Se ignoraron {count} línea(s) sin SKU.',
+    completeBoxPlanning: 'Completa la planificación de cajas antes de continuar.',
+    noUnitsWarning: 'No hay unidades para enviar. Define al menos 1 unidad.',
+    alertNotEligible: 'Algunos SKU no son elegibles en Amazon; corrige e inténtalo de nuevo.',
+    alertPlanNotReady: 'El plan inbound de Amazon no está listo. Reintenta el Paso 1.',
+    waitingAmazon: 'Esperando respuesta de Amazon...',
+    saving: 'Guardando…',
+    resolveEligibility: 'Resolver elegibilidad en Amazon',
+    retryStep1: 'Reintentar Paso 1',
+    waitingPlan: 'Esperando plan de Amazon',
+    addUnits: 'Agregar unidades',
+    continueToPacking: 'Continuar al empaquetado'
+  }
+};
+
 const normalizePackingType = (value) => {
   const raw = String(value || '').trim().toLowerCase();
   if (raw === PACKING_TYPE.CASE) return PACKING_TYPE.CASE;
@@ -130,6 +369,19 @@ export default function FbaStep1Inventory({
   onSubmitListingAttributes,
   onNext
 }) {
+  const { currentLanguage } = useLanguage();
+  const { t } = useDashboardTranslation();
+  const copy = STEP1_COPY[currentLanguage] || STEP1_COPY.en;
+  const tr = useCallback(
+    (key, fallback = '', vars = {}) => {
+      const path = `Wizard.${key}`;
+      const fromDashboard = t(path);
+      const template = fromDashboard !== path ? fromDashboard : copy[key] || fallback || key;
+      return String(template).replace(/\{(\w+)\}/g, (_, varKey) => String(vars[varKey] ?? `{${varKey}}`));
+    },
+    [copy, t]
+  );
+
   const resolvedInboundPlanId =
     inboundPlanId ||
     data?.inboundPlanId ||
@@ -323,15 +575,15 @@ export default function FbaStep1Inventory({
   };
   const humanizeOperationProblem = useCallback((problem) => {
     const message = String(problem?.message || problem?.Message || '').trim();
-    if (!message) return 'Amazon a raportat o problemă pentru acest produs. Verifică și încearcă din nou.';
+    if (!message) return tr('opDefaultIssue');
     if (/prep classification/i.test(message)) {
-      return 'Lipsește categoria de pregătire (prep) pentru acest SKU. Selectează opțiunea de prep și retrimite.';
+      return tr('opMissingPrep');
     }
     if (/not available for inbound/i.test(message)) {
-      return 'Produsul nu este eligibil momentan pentru inbound pe marketplace-ul selectat.';
+      return tr('opNotEligible');
     }
     return message.replace(/\bFBA_INB_\d+\b[:\s-]*/gi, '').trim();
-  }, []);
+  }, [tr]);
   const listingAttrRequirementsBySku = useMemo(() => {
     const map = new Map();
     (Array.isArray(operationProblems) ? operationProblems : []).forEach((problem) => {
@@ -1431,15 +1683,13 @@ export default function FbaStep1Inventory({
       });
     });
 
-    if (missingBoxes) issues.push('Add at least one box for every pack with units.');
-    if (missingAssignments) issues.push('Distribute all units into boxes (Assigned must equal Units).');
-    if (missingDims) issues.push('Add dimensions and weight for every box.');
-    if (emptyBoxes) issues.push('Some boxes are empty. Remove them or add items.');
-    if (overweight) issues.push(`Weight exceeds the ${MAX_STANDARD_BOX_KG} kg limit.`);
+    if (missingBoxes) issues.push(tr('validationMissingBoxes'));
+    if (missingAssignments) issues.push(tr('validationMissingAssignments'));
+    if (missingDims) issues.push(tr('validationMissingDims'));
+    if (emptyBoxes) issues.push(tr('validationEmptyBoxes'));
+    if (overweight) issues.push(tr('validationOverweight', '', { kg: MAX_STANDARD_BOX_KG }));
     if (oversize) {
-      issues.push(
-        `A dimension exceeds the ${MAX_STANDARD_BOX_CM} cm limit for a box that does not contain exactly 1 unit.`
-      );
+      issues.push(tr('validationOversize', '', { cm: MAX_STANDARD_BOX_CM }));
     }
 
     return { isValid: issues.length === 0, messages: issues };
@@ -1450,7 +1700,8 @@ export default function FbaStep1Inventory({
     getGroupPlan,
     planGroupsForDisplay,
     MAX_STANDARD_BOX_CM,
-    MAX_STANDARD_BOX_KG
+    MAX_STANDARD_BOX_KG,
+    tr
   ]);
 
   const continueDisabled =
@@ -1484,8 +1735,8 @@ export default function FbaStep1Inventory({
     const prepNeedsAction = prepList.length > 0 || sku.prepRequired;
     const prepNoticeClass = prepNeedsAction ? 'text-xs text-red-700' : 'text-xs text-emerald-700';
     const prepNoticeText = prepList.length
-      ? `Prep required: ${prepList.join(', ')}`
-      : `Prep set: ${sku.prepRequired ? 'Prep needed' : 'No prep needed'}`;
+      ? tr('prepRequired', '', { list: prepList.join(', ') })
+      : (sku.prepRequired ? tr('prepSetNeeded') : tr('prepSetNone'));
     const prepResolved = prepSelection.resolved;
     const needsExpiry = Boolean(sku.expiryRequired);
     const badgeClass =
@@ -1499,14 +1750,14 @@ export default function FbaStep1Inventory({
 
     const badgeLabel =
       state === 'ok'
-        ? 'Eligible'
+        ? tr('statusEligible')
         : state === 'missing'
-          ? 'Listing missing'
+          ? tr('statusListingMissing')
           : state === 'inactive'
-            ? 'Listing inactive'
+            ? tr('statusListingInactive')
             : state === 'restricted'
-              ? 'Restricted'
-              : 'Unknown';
+              ? tr('statusRestricted')
+              : tr('statusUnknown');
 
     const skuKey = String(sku.sku || sku.asin || sku.id);
     const groupPlan = getGroupPlan(groupId, groupLabel);
@@ -1705,7 +1956,7 @@ export default function FbaStep1Inventory({
             </div>
             {sku.readyToPack && (
               <div className="mt-2 flex items-center gap-1 text-emerald-600 text-xs font-semibold">
-                <CheckCircle className="w-4 h-4" /> Ready to pack
+                <CheckCircle className="w-4 h-4" /> {tr('readyToPack')}
               </div>
             )}
             {sku.packingTemplateName && (
@@ -1915,7 +2166,7 @@ export default function FbaStep1Inventory({
               className="self-start text-xs text-red-600 underline"
               onClick={() => onRemoveSku?.(sku.id)}
             >
-              Elimina listing
+              {tr('removeListing')}
             </button>
             <div className="border border-slate-200 rounded-md p-2 bg-slate-50">
               <div className="flex items-center justify-between text-xs text-slate-600">
@@ -1936,7 +2187,7 @@ export default function FbaStep1Inventory({
                 </button>
               </div>
               {assignedEntries.length === 0 && boxes.length === 0 && (
-                <div className="text-xs text-slate-500 mt-1">No boxes assigned yet.</div>
+                <div className="text-xs text-slate-500 mt-1">{tr('noBoxesAssignedYet')}</div>
               )}
               {(
                 assignedEntries.length > 0
@@ -2073,7 +2324,7 @@ export default function FbaStep1Inventory({
         <td className="py-3 w-[320px] min-w-[320px]">
           <div className="space-y-2 w-[320px] min-w-[320px] max-w-[320px]">
             {servicesForSku.length === 0 && (
-              <div className="text-xs text-slate-500">No services selected.</div>
+              <div className="text-xs text-slate-500">{tr('noServicesSelected')}</div>
             )}
             {servicesForSku.map((svc, idx) => {
               const total = Number(svc.unit_price || 0) * Number(svc.units || 0);
@@ -2609,8 +2860,8 @@ export default function FbaStep1Inventory({
         >
           {error ||
             (skuEligibilityBlocking
-              ? 'Some products are not eligible for the selected marketplace.'
-              : 'Amazon inbound plan is not ready. Retry Step 1 to regenerate the plan.')}
+              ? tr('notEligibleBanner')
+              : tr('inboundPlanNotReady'))}
         </div>
       )}
       {!error && notice && (
@@ -2620,7 +2871,7 @@ export default function FbaStep1Inventory({
       )}
       {Array.isArray(operationProblems) && operationProblems.length > 0 && (
         <div className="px-6 py-3 border-b text-sm bg-red-50 text-red-700 border-red-200">
-          <div className="font-semibold">Amazon reported issues for some SKUs:</div>
+          <div className="font-semibold">{tr('operationIssuesTitle')}</div>
           <ul className="mt-2 list-disc pl-5 space-y-1">
             {operationProblems.slice(0, 8).map((p, idx) => {
               return (
@@ -2634,12 +2885,12 @@ export default function FbaStep1Inventory({
       )}
       {loadingPlan && skus.length === 0 && (
         <div className="px-6 py-3 border-b text-sm bg-amber-50 text-amber-800 border-amber-200">
-          Amazon plan is still loading. Waiting for generated SKUs/shipments; nothing to show yet.
+          {tr('planStillLoading')}
         </div>
       )}
       {ignoredItems.length > 0 && (
         <div className="px-6 py-3 border-b text-sm bg-amber-50 text-amber-800 border-amber-200">
-          {ignoredItems.length} line(s) without SKU were ignored. Complete SKU on those lines if you want to include them.
+          {tr('ignoredLinesNotice', '', { count: ignoredItems.length })}
         </div>
       )}
 
@@ -3191,22 +3442,22 @@ export default function FbaStep1Inventory({
           {/* removed inboundPlan missing/wait banners */}
           {hasUnits && !boxPlanValidation.isValid && (
             <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-md">
-              Complete box planning before continuing.
+              {tr('completeBoxPlanning')}
             </div>
           )}
           {!hasUnits && (
             <div className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-md">
-              No units to send. Set at least 1 unit.
+              {tr('noUnitsWarning')}
             </div>
           )}
           <button
             onClick={() => {
               if (skuEligibilityBlocking) {
-                alert('Some SKUs are not eligible on Amazon; fix eligibility and try again.');
+                alert(tr('alertNotEligible'));
                 return;
               }
               if (hasBlocking) {
-                alert(error || 'Amazon inbound plan is not ready. Retry Step 1.');
+                alert(error || tr('alertPlanNotReady'));
                 return;
               }
               const disabled = continueDisabled;
@@ -3219,18 +3470,18 @@ export default function FbaStep1Inventory({
             }`}
           >
             {loadingPlan && skus.length === 0
-              ? 'Waiting for Amazon response...'
+              ? tr('waitingAmazon')
               : saving
-                ? 'Saving…'
+                ? tr('saving')
                 : hasBlocking
                   ? skuEligibilityBlocking
-                    ? 'Resolve eligibility in Amazon'
-                    : 'Retry Step 1'
+                    ? tr('resolveEligibility')
+                    : tr('retryStep1')
                   : (!allowNoInboundPlan && (!inboundPlanId || !requestId))
-                    ? 'Waiting for Amazon plan'
+                    ? tr('waitingPlan')
                     : !hasUnits
-                      ? 'Add units'
-                      : 'Continue to packing'}
+                      ? tr('addUnits')
+                      : tr('continueToPacking')}
             </button>
           </div>
         </div>
