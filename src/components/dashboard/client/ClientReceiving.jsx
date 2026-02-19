@@ -1493,8 +1493,11 @@ const resolveBoxesCount = (shipment) => {
                         {truncateLabel(shipment.client_store_name || shipment.store_name || '—', 30)}
                       </button>
                       {shipment.notes && (
-                        <div className="text-xs text-text-secondary line-clamp-2">
-                          {shipment.notes}
+                        <div
+                          className="text-xs text-text-secondary"
+                          title={shipment.notes}
+                        >
+                          {truncateLabel(shipment.notes, 30)}
                         </div>
                       )}
                     </td>
