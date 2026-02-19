@@ -3917,6 +3917,35 @@ getAllReceivingShipments: async (options = {}) => {
     };
   },
 
+  updateClientMarketListing: async ({
+    listingId,
+    productName,
+    asin,
+    ean,
+    country,
+    priceEur,
+    quantity,
+    note
+  } = {}) => {
+    if (!listingId) return { data: null, error: new Error('Missing listing id') };
+    const payload = {
+      product_name: productName?.trim() || 'Product',
+      asin: asin?.trim() || null,
+      ean: ean?.trim() || null,
+      country: String(country || 'FR').toUpperCase(),
+      price_eur: Number(priceEur || 0),
+      quantity: Math.max(1, Number(quantity || 1)),
+      note: note?.trim() || null,
+      updated_at: new Date().toISOString()
+    };
+    const res = await supabase
+      .from('client_market_listings')
+      .update(payload)
+      .eq('id', listingId);
+    if (res?.error) return res;
+    return { data: { id: listingId, ...payload }, error: null };
+  },
+
   finalizeClientMarketSale: async ({ listingId, units } = {}) => {
     if (!listingId) return { data: null, error: new Error('Missing listing id') };
     return await supabase.rpc('client_market_finalize_sale', {

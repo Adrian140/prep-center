@@ -58,7 +58,11 @@ const BUTIC_COPY = {
     publishFailed: 'Could not publish offer. Please try again.',
     sendFailed: 'Could not send message. Please try again.',
     finalizeSale: 'Finalize sale',
+    editListing: 'Edit',
+    saveChanges: 'Save',
+    cancelEdit: 'Cancel',
     removeFromSale: 'Remove from sale',
+    editFailed: 'Could not update the offer. Please try again.',
     finalizeSaleError: 'Could not finalize the sale. Please try again.',
     removeSaleError: 'Could not remove the offer. Please try again.',
     saleFeeHint: 'Finalizing applies an FBA fee of 0.05 EUR per unit.',
@@ -113,7 +117,11 @@ const BUTIC_COPY = {
     publishFailed: 'Oferta nu a putut fi publicata. Incearca din nou.',
     sendFailed: 'Mesajul nu a putut fi trimis. Incearca din nou.',
     finalizeSale: 'Vanzare finalizata',
+    editListing: 'Editeaza',
+    saveChanges: 'Salveaza',
+    cancelEdit: 'Anuleaza',
     removeFromSale: 'Sterge din vanzare',
+    editFailed: 'Oferta nu a putut fi actualizata. Incearca din nou.',
     finalizeSaleError: 'Vanzarea nu a putut fi finalizata. Incearca din nou.',
     removeSaleError: 'Oferta nu a putut fi stearsa. Incearca din nou.',
     saleFeeHint: 'Finalizarea aplica taxa FBA de 0.05 EUR per produs.',
@@ -168,7 +176,11 @@ const BUTIC_COPY = {
     publishFailed: 'Impossible de publier l offre. Reessayez.',
     sendFailed: 'Impossible d envoyer le message. Reessayez.',
     finalizeSale: 'Vente finalisee',
+    editListing: 'Modifier',
+    saveChanges: 'Sauvegarder',
+    cancelEdit: 'Annuler',
     removeFromSale: 'Retirer de la vente',
+    editFailed: 'Impossible de mettre a jour l offre. Reessayez.',
     finalizeSaleError: 'Impossible de finaliser la vente. Reessayez.',
     removeSaleError: 'Impossible de retirer l offre. Reessayez.',
     saleFeeHint: 'La finalisation applique des frais FBA de 0.05 EUR par unite.',
@@ -223,7 +235,11 @@ const BUTIC_COPY = {
     publishFailed: 'Angebot konnte nicht veroffentlicht werden. Bitte erneut versuchen.',
     sendFailed: 'Nachricht konnte nicht gesendet werden. Bitte erneut versuchen.',
     finalizeSale: 'Verkauf abschliessen',
+    editListing: 'Bearbeiten',
+    saveChanges: 'Speichern',
+    cancelEdit: 'Abbrechen',
     removeFromSale: 'Aus Verkauf entfernen',
+    editFailed: 'Angebot konnte nicht aktualisiert werden. Bitte erneut versuchen.',
     finalizeSaleError: 'Verkauf konnte nicht abgeschlossen werden. Bitte erneut versuchen.',
     removeSaleError: 'Angebot konnte nicht entfernt werden. Bitte erneut versuchen.',
     saleFeeHint: 'Beim Abschluss wird eine FBA-Gebuhr von 0.05 EUR pro Einheit berechnet.',
@@ -278,7 +294,11 @@ const BUTIC_COPY = {
     publishFailed: 'Impossibile pubblicare l offerta. Riprova.',
     sendFailed: 'Impossibile inviare il messaggio. Riprova.',
     finalizeSale: 'Vendita completata',
+    editListing: 'Modifica',
+    saveChanges: 'Salva',
+    cancelEdit: 'Annulla',
     removeFromSale: 'Rimuovi dalla vendita',
+    editFailed: 'Impossibile aggiornare l offerta. Riprova.',
     finalizeSaleError: 'Impossibile completare la vendita. Riprova.',
     removeSaleError: 'Impossibile rimuovere l offerta. Riprova.',
     saleFeeHint: 'La chiusura applica una tariffa FBA di 0.05 EUR per unita.',
@@ -333,7 +353,11 @@ const BUTIC_COPY = {
     publishFailed: 'No se pudo publicar la oferta. Intentalo de nuevo.',
     sendFailed: 'No se pudo enviar el mensaje. Intentalo de nuevo.',
     finalizeSale: 'Venta finalizada',
+    editListing: 'Editar',
+    saveChanges: 'Guardar',
+    cancelEdit: 'Cancelar',
     removeFromSale: 'Quitar de la venta',
+    editFailed: 'No se pudo actualizar la oferta. Intentalo de nuevo.',
     finalizeSaleError: 'No se pudo finalizar la venta. Intentalo de nuevo.',
     removeSaleError: 'No se pudo quitar la oferta. Intentalo de nuevo.',
     saleFeeHint: 'Al finalizar se aplica una tarifa FBA de 0.05 EUR por unidad.',
@@ -394,6 +418,16 @@ export default function Butic() {
   const [createError, setCreateError] = useState('');
   const [listingActionError, setListingActionError] = useState('');
   const [busyListingId, setBusyListingId] = useState(null);
+  const [editingListingId, setEditingListingId] = useState(null);
+  const [editDraft, setEditDraft] = useState({
+    productName: '',
+    asin: '',
+    ean: '',
+    country: '',
+    quantity: '1',
+    priceEur: '',
+    note: ''
+  });
   const [failedImageIds, setFailedImageIds] = useState(() => new Set());
   const [showChat, setShowChat] = useState(false);
   const [conversations, setConversations] = useState([]);
@@ -621,6 +655,73 @@ export default function Butic() {
     setBusyListingId(null);
   };
 
+  const beginEditListing = (listing) => {
+    if (!listing?.id) return;
+    setListingActionError('');
+    setEditingListingId(listing.id);
+    setEditDraft({
+      productName: listing.product_name || '',
+      asin: listing.asin || '',
+      ean: listing.ean || '',
+      country: String(listing.country || '').toUpperCase(),
+      quantity: String(Math.max(1, Number(listing.quantity || 1))),
+      priceEur: String(Number(listing.price_eur || 0)),
+      note: listing.note || ''
+    });
+  };
+
+  const cancelEditListing = () => {
+    setEditingListingId(null);
+    setEditDraft({
+      productName: '',
+      asin: '',
+      ean: '',
+      country: '',
+      quantity: '1',
+      priceEur: '',
+      note: ''
+    });
+  };
+
+  const saveEditListing = async (listing) => {
+    if (!listing?.id || busyListingId) return;
+    const parsedPrice = Number(editDraft.priceEur);
+    const parsedQty = Number(editDraft.quantity);
+    if (!editDraft.country || !OFFER_COUNTRY_OPTIONS.includes(editDraft.country)) {
+      setListingActionError(copy.selectCountryError);
+      return;
+    }
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      setListingActionError(copy.invalidPrice);
+      return;
+    }
+    if (!Number.isFinite(parsedQty) || parsedQty < 1) {
+      setListingActionError(copy.quantityInvalidError);
+      return;
+    }
+    setBusyListingId(listing.id);
+    setListingActionError('');
+    const res = await supabaseHelpers.updateClientMarketListing({
+      listingId: listing.id,
+      productName: editDraft.productName,
+      asin: editDraft.asin,
+      ean: editDraft.ean,
+      country: editDraft.country,
+      priceEur: parsedPrice,
+      quantity: Math.floor(parsedQty),
+      note: editDraft.note
+    });
+    if (res?.error) {
+      console.error('Failed to update listing:', res.error);
+      const errMessage = String(res.error?.message || '');
+      setListingActionError(errMessage ? `${copy.editFailed} (${errMessage})` : copy.editFailed);
+    } else {
+      await loadAllListings();
+      cancelEditListing();
+    }
+    setBusyListingId(null);
+  };
+
   const openListingChat = async (listing) => {
     if (!listing?.id || !me) return;
     const conv = await supabaseHelpers.getOrCreateClientMarketConversation({
@@ -744,34 +845,131 @@ export default function Butic() {
                           </span>
                         )}
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        {formatProductCodes(copy, listing.asin, listing.ean)}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-600">
-                        {listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR · {listing.country || '-'}
-                      </div>
-                      {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
+                      {editingListingId === listing.id ? (
+                        <div className="mt-2 space-y-2">
+                          <input
+                            value={editDraft.productName}
+                            onChange={(e) => setEditDraft((prev) => ({ ...prev, productName: e.target.value }))}
+                            className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                            placeholder="Product name"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              value={editDraft.asin}
+                              onChange={(e) => setEditDraft((prev) => ({ ...prev, asin: e.target.value }))}
+                              className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                              placeholder="ASIN"
+                            />
+                            <input
+                              value={editDraft.ean}
+                              onChange={(e) => setEditDraft((prev) => ({ ...prev, ean: e.target.value }))}
+                              className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                              placeholder="EAN"
+                            />
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <select
+                              value={editDraft.country}
+                              onChange={(e) =>
+                                setEditDraft((prev) => ({ ...prev, country: String(e.target.value || '').toUpperCase() }))
+                              }
+                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                            >
+                              <option value="">Country</option>
+                              {OFFER_COUNTRY_OPTIONS.map((code) => (
+                                <option key={code} value={code}>{code}</option>
+                              ))}
+                            </select>
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={editDraft.quantity}
+                              onChange={(e) => setEditDraft((prev) => ({ ...prev, quantity: e.target.value }))}
+                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                              placeholder={copy.quantityToSellLabel}
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={editDraft.priceEur}
+                              onChange={(e) => setEditDraft((prev) => ({ ...prev, priceEur: e.target.value }))}
+                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                              placeholder={copy.pricePlaceholder}
+                            />
+                          </div>
+                          <textarea
+                            value={editDraft.note}
+                            onChange={(e) => setEditDraft((prev) => ({ ...prev, note: e.target.value }))}
+                            rows={2}
+                            className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                            placeholder={copy.notePlaceholder}
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="mt-1 text-xs text-slate-500">
+                            {formatProductCodes(copy, listing.asin, listing.ean)}
+                          </div>
+                          <div className="mt-1 text-xs text-slate-600">
+                            {listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR · {listing.country || '-'}
+                          </div>
+                          {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col gap-2">
                     {listing.owner_user_id === me ? (
                       <>
-                        <button
-                          type="button"
-                          onClick={() => finalizeListingSale(listing)}
-                          disabled={busyListingId === listing.id}
-                          className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-                        >
-                          {copy.finalizeSale}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeListing(listing)}
-                          disabled={busyListingId === listing.id}
-                          className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                        >
-                          {copy.removeFromSale}
-                        </button>
+                        {editingListingId === listing.id ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => saveEditListing(listing)}
+                              disabled={busyListingId === listing.id}
+                              className="rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
+                            >
+                              {copy.saveChanges}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEditListing}
+                              disabled={busyListingId === listing.id}
+                              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                            >
+                              {copy.cancelEdit}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => beginEditListing(listing)}
+                              disabled={busyListingId === listing.id}
+                              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                            >
+                              {copy.editListing}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => finalizeListingSale(listing)}
+                              disabled={busyListingId === listing.id}
+                              className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                              {copy.finalizeSale}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeListing(listing)}
+                              disabled={busyListingId === listing.id}
+                              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                            >
+                              {copy.removeFromSale}
+                            </button>
+                          </>
+                        )}
                       </>
                     ) : (
                       <button
