@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Building2, MessageCircle } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
@@ -22,6 +22,7 @@ export default function AdminChatWidget() {
   const [activeId, setActiveId] = useState(null);
   const [metaByConversationId, setMetaByConversationId] = useState({});
   const [unreadByConversationId, setUnreadByConversationId] = useState({});
+  const widgetRef = useRef(null);
 
   const isAdmin = profile?.is_admin === true || profile?.account_type === 'admin';
   const market = String(currentMarket || 'FR').toUpperCase();
@@ -118,6 +119,22 @@ export default function AdminChatWidget() {
     };
   }, [user?.id, isAdmin, market, activeId]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event) => {
+      if (!widgetRef.current) return;
+      if (!widgetRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
+  }, [open]);
+
   const unreadTotal = useMemo(
     () => Object.values(unreadByConversationId).reduce((sum, n) => sum + Number(n || 0), 0),
     [unreadByConversationId]
@@ -132,7 +149,7 @@ export default function AdminChatWidget() {
   if (!isAdmin || !user?.id) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div ref={widgetRef} className="fixed bottom-6 right-6 z-50">
       {open && (
         <div className="mb-3 h-[560px] w-[760px] max-w-[96vw] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
           <div className="grid h-full grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)]">

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
@@ -29,6 +29,7 @@ export default function ClientChatWidget() {
   const [conversationsByMarket, setConversationsByMarket] = useState({});
   const [unreadByMarket, setUnreadByMarket] = useState({});
   const [statusByMarket, setStatusByMarket] = useState({});
+  const widgetRef = useRef(null);
 
   const companyId = profile?.company_id || user?.id || null;
   const clientName = useMemo(() => buildClientName(profile, user), [profile, user]);
@@ -113,6 +114,22 @@ export default function ClientChatWidget() {
     };
   }, [conversationsByMarket, open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event) => {
+      if (!widgetRef.current) return;
+      if (!widgetRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
+  }, [open]);
+
   if (!user || !companyId) return null;
 
   const selectedConversation = conversationsByMarket[selectedMarket] || null;
@@ -121,7 +138,7 @@ export default function ClientChatWidget() {
   const unreadTotal = Object.values(unreadByMarket).reduce((sum, n) => sum + Number(n || 0), 0);
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div ref={widgetRef} className="fixed bottom-6 right-6 z-50">
       {open && (
         <div className="mb-3 h-[520px] w-[360px] max-w-[90vw] overflow-hidden rounded-2xl border border-slate-200 shadow-2xl">
           <div className="flex h-full flex-col bg-white">
