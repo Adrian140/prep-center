@@ -25,6 +25,8 @@ export default function ChatThread({
   senderRole,
   staffLabel,
   clientName,
+  headerTitle,
+  headerSubtitle,
   isAdmin = false,
   onClose
 }) {
@@ -312,12 +314,14 @@ export default function ChatThread({
   };
 
   const header = useMemo(() => {
+    const title = headerTitle || staffName;
+    const subtitle = headerSubtitle ?? (staffPerson || '');
     return (
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div>
-          <div className="text-sm font-semibold text-slate-900">{staffName}</div>
-          {staffPerson && (
-            <div className="text-xs text-slate-500">{staffPerson}</div>
+          <div className="text-sm font-semibold text-slate-900">{title}</div>
+          {subtitle && (
+            <div className="text-xs text-slate-500">{subtitle}</div>
           )}
         </div>
         {onClose && (
@@ -331,7 +335,7 @@ export default function ChatThread({
         )}
       </div>
     );
-  }, [staffName, staffPerson, onClose]);
+  }, [staffName, staffPerson, onClose, headerTitle, headerSubtitle]);
 
   return (
     <div className="flex h-full flex-col bg-white">
