@@ -141,23 +141,26 @@ export default function ClientChatWidget() {
                           ? 'border-primary bg-primary text-white'
                           : forbidden
                           ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                          : marketUnread > 0
+                          ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
-                      {market}
+                      <span>{market}</span>
                       {marketUnread > 0 && (
-                        <span
-                          className={`absolute -right-1.5 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] ${
-                            active ? 'bg-white text-red-600' : 'bg-red-600 text-white'
-                          }`}
-                        >
-                          {marketUnread > 9 ? '9+' : marketUnread}
+                        <span className="ml-1 text-[10px] font-semibold">
+                          {marketUnread > 99 ? '99+' : marketUnread}
                         </span>
                       )}
                     </button>
                   );
                 })}
-                <div className="text-xs text-slate-500">{staffLabel.name}</div>
+                <div className="leading-tight">
+                  <div className="text-xs text-slate-500">{staffLabel.name}</div>
+                  {staffLabel.person && (
+                    <div className="text-[11px] text-slate-400">{staffLabel.person}</div>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => setOpen(false)}
