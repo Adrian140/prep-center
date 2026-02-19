@@ -43,6 +43,10 @@ export default function ChatThread({
   const [attachmentUrls, setAttachmentUrls] = useState({});
   const scrollRef = useRef(null);
   const subscriptionRef = useRef(null);
+  const scrollToBottom = () => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  };
 
   const staffName = staffLabel?.name || 'EcomPrepHub';
   const staffPerson = staffLabel?.person || '';
@@ -85,9 +89,11 @@ export default function ChatThread({
       }
       setLoading(false);
       supabaseHelpers.markChatRead({ conversationId }).catch(() => {});
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      }
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom();
+        });
+      });
     };
 
     loadInitial();
@@ -121,6 +127,7 @@ export default function ChatThread({
           if (!mounted) return;
           if (payload.eventType === 'INSERT') {
             mergeMessages([payload.new]);
+            requestAnimationFrame(scrollToBottom);
             if (payload.new?.sender_id !== currentUserId) {
               supabaseHelpers.markChatRead({ conversationId }).catch(() => {});
             }
@@ -211,6 +218,7 @@ export default function ChatThread({
     }
     if (res.data) {
       mergeMessages([res.data]);
+      requestAnimationFrame(scrollToBottom);
       if (files.length > 0) {
         for (const file of files) {
           await supabaseHelpers.uploadChatAttachment({
