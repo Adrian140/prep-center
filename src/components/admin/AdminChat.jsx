@@ -210,14 +210,35 @@ export default function AdminChat() {
 
   const filteredConversations = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return conversations;
-    return conversations.filter((conv) => {
+    const base = !q
+      ? conversations
+      : conversations.filter((conv) => {
       const meta = metaByConversationId[conv.id];
       const company = String(meta?.companyName || '').toLowerCase();
       const client = String(meta?.clientName || conv.client_display_name || '').toLowerCase();
       return company.includes(q) || client.includes(q);
     });
-  }, [conversations, metaByConversationId, search]);
+    return [...base].sort((a, b) => {
+      const unreadA = Number(unreadByConversationId[a.id] || 0);
+      const unreadB = Number(unreadByConversationId[b.id] || 0);
+      const hasUnreadA = unreadA > 0 ? 1 : 0;
+      const hasUnreadB = unreadB > 0 ? 1 : 0;
+      if (hasUnreadA !== hasUnreadB) return hasUnreadB - hasUnreadA;
+      const tsA = new Date(
+        metaByConversationId[a.id]?.lastMessage?.created_at ||
+          a.last_message_at ||
+          a.created_at ||
+          0
+      ).getTime();
+      const tsB = new Date(
+        metaByConversationId[b.id]?.lastMessage?.created_at ||
+          b.last_message_at ||
+          b.created_at ||
+          0
+      ).getTime();
+      return tsB - tsA;
+    });
+  }, [conversations, metaByConversationId, search, unreadByConversationId]);
 
   const filteredCompanies = useMemo(() => {
     const q = companySearch.trim().toLowerCase();
@@ -304,7 +325,7 @@ export default function AdminChat() {
             <button
               key={conv.id}
               onClick={() => setActiveId(conv.id)}
-              className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+              className={`w-full rounded-lg border px-2.5 py-1.5 text-left text-sm ${
                 conv.id === activeId
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -312,24 +333,24 @@ export default function AdminChat() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 font-semibold text-slate-900">
+                  <div className="flex items-center gap-1.5 text-[15px] font-semibold leading-tight text-slate-900">
                     <Building2 size={14} className="text-slate-400" />
                     <span className="truncate">{meta.companyName || 'Company'}</span>
                   </div>
-                  <div className="truncate text-[12px] text-slate-500">
+                  <div className="truncate text-[11px] text-slate-500">
                     {meta.clientName || conv.client_display_name || 'Client'}
                   </div>
                 </div>
                 {unread > 0 && (
-                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-white">
+                  <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-semibold text-white">
                     {unread}
                   </span>
                 )}
               </div>
-              <div className="mt-1 truncate text-[11px] text-slate-500">
+              <div className="mt-0.5 truncate text-[10px] text-slate-500">
                 {preview}
               </div>
-              <div className="mt-1 text-[11px] text-slate-400">
+              <div className="mt-0.5 text-[10px] text-slate-400">
                 {conv.last_message_at ? new Date(conv.last_message_at).toLocaleString() : 'No activity'}
               </div>
             </button>
