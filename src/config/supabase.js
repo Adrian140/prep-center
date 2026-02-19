@@ -3883,12 +3883,18 @@ getAllReceivingShipments: async (options = {}) => {
 
   setClientMarketListingActive: async ({ listingId, isActive }) => {
     if (!listingId) return { data: null, error: new Error('Missing listing id') };
-    return await supabase
+    const res = await supabase
       .from('client_market_listings')
       .update({ is_active: !!isActive, updated_at: new Date().toISOString() })
-      .eq('id', listingId)
-      .select('*')
-      .single();
+      .eq('id', listingId);
+    if (res?.error) return res;
+    return {
+      data: {
+        id: listingId,
+        is_active: !!isActive
+      },
+      error: null
+    };
   },
 
   finalizeClientMarketSale: async ({ listingId, units } = {}) => {
