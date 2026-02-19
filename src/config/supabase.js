@@ -3616,6 +3616,18 @@ getAllReceivingShipments: async (options = {}) => {
       .eq('company_id', companyId)
       .eq('country', market)
       .maybeSingle();
+    const fallbackByUser = async () => {
+      const byUser = await supabase
+        .from('chat_conversations')
+        .select('*')
+        .eq('client_user_id', userId)
+        .eq('country', market)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!byUser?.error && byUser?.data) return { data: byUser.data, error: null };
+      return null;
+    };
     const isForbiddenSelect =
       error &&
       (error.code === '42501' ||
@@ -3624,12 +3636,16 @@ getAllReceivingShipments: async (options = {}) => {
           String(error.message || '')
         ));
     if (isForbiddenSelect) {
+      const fallback = await fallbackByUser();
+      if (fallback) return fallback;
       return { data: null, error: null, forbidden: true };
     }
     if (error && error.code !== 'PGRST116') {
       return { data: null, error };
     }
     if (data) return { data, error: null };
+    const fallback = await fallbackByUser();
+    if (fallback) return fallback;
 
     const display = clientDisplayName?.trim() || 'Client';
     const payload = {
@@ -3651,7 +3667,20 @@ getAllReceivingShipments: async (options = {}) => {
         /forbidden|permission denied|row-level security/i.test(
           String(created.error.message || '')
         ));
+    if (isForbiddenInsert && companyId !== userId) {
+      const createdByUser = await supabase
+        .from('chat_conversations')
+        .insert({
+          ...payload,
+          company_id: userId
+        })
+        .select('*')
+        .single();
+      if (!createdByUser?.error && createdByUser?.data) return createdByUser;
+    }
     if (isForbiddenInsert) {
+      const fallbackAfterInsert = await fallbackByUser();
+      if (fallbackAfterInsert) return fallbackAfterInsert;
       return { data: null, error: null, forbidden: true };
     }
     return created;
