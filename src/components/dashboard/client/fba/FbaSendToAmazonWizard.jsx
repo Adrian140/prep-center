@@ -3038,14 +3038,46 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           generate_placement_options: true
         }
       });
-      if (error) throw error;
-      if (data?.traceId && !import.meta.env.PROD) {
-        console.log('setPackingInformation traceId', data.traceId);
+      let responseData = data;
+      if (error) {
+        const parsed = await extractFunctionInvokeError(error);
+        const payload = parsed?.payload && typeof parsed.payload === 'object' ? parsed.payload : null;
+        if (!payload) {
+          throw new Error(parsed?.message || error?.message || 'SetPackingInformation failed.');
+        }
+        responseData = {
+          ...payload,
+          ...(parsed?.status ? { status: parsed.status } : {}),
+          ...(parsed?.message ? { message: payload?.message || payload?.error || parsed.message } : {})
+        };
       }
-      if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
+      const response = responseData && typeof responseData === 'object' ? responseData : {};
+      if (!response?.ok) {
+        const trace = response?.traceId || response?.trace_id || null;
+        const detail =
+          response?.message ||
+          response?.error ||
+          response?.detail ||
+          'SetPackingInformation failed.';
+        const withTrace = trace ? `${detail} · TraceId ${trace}` : detail;
+        throw new Error(withTrace);
+      }
+      if (response?.traceId && !import.meta.env.PROD) {
+        console.log('setPackingInformation traceId', response.traceId);
+      }
+      if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
       completeAndNext('1b');
     } catch (e) {
-      setPackingSubmitError(e?.message || 'SetPackingInformation failed.');
+      const parsed = await extractFunctionInvokeError(e);
+      const payload = parsed?.payload && typeof parsed.payload === 'object' ? parsed.payload : null;
+      const trace = payload?.traceId || payload?.trace_id || null;
+      const message =
+        payload?.message ||
+        payload?.error ||
+        parsed?.message ||
+        e?.message ||
+        'SetPackingInformation failed.';
+      setPackingSubmitError(trace ? `${message} · TraceId ${trace}` : message);
     } finally {
       setPackingSubmitLoading(false);
     }
