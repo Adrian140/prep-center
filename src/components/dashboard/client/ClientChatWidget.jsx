@@ -32,27 +32,13 @@ export default function ClientChatWidget() {
 
   const companyId = profile?.company_id || user?.id || null;
   const clientName = useMemo(() => buildClientName(profile, user), [profile, user]);
-  const availableMarkets = useMemo(() => {
-    const seed = [];
-    if (Array.isArray(profile?.allowed_markets)) seed.push(...profile.allowed_markets);
-    if (profile?.country) seed.push(profile.country);
-    if (currentMarket) seed.push(currentMarket);
-    const normalized = Array.from(
-      new Set(seed.map((m) => String(m || '').toUpperCase()).filter(Boolean))
-    ).filter((m) => SUPPORTED_CHAT_MARKETS.includes(m));
-    return normalized.length ? normalized : ['FR'];
-  }, [profile?.allowed_markets, profile?.country, currentMarket]);
+  const trackedMarkets = SUPPORTED_CHAT_MARKETS;
 
   useEffect(() => {
-    const preferred = String(currentMarket || '').toUpperCase();
-    const next =
-      availableMarkets.includes(preferred)
-        ? preferred
-        : availableMarkets.includes(selectedMarket)
-        ? selectedMarket
-        : availableMarkets[0];
+    const preferred = String(currentMarket || 'FR').toUpperCase();
+    const next = SUPPORTED_CHAT_MARKETS.includes(preferred) ? preferred : 'FR';
     if (next && next !== selectedMarket) setSelectedMarket(next);
-  }, [availableMarkets, currentMarket, selectedMarket]);
+  }, [currentMarket, selectedMarket]);
 
   const setMarketStatus = (market, patch) => {
     setStatusByMarket((prev) => ({ ...prev, [market]: { ...(prev[market] || {}), ...patch } }));
@@ -96,17 +82,17 @@ export default function ClientChatWidget() {
   };
 
   useEffect(() => {
-    if (!user?.id || !companyId || availableMarkets.length === 0) return;
-    availableMarkets.forEach((market) => {
+    if (!user?.id || !companyId || trackedMarkets.length === 0) return;
+    trackedMarkets.forEach((market) => {
       loadConversation(market);
     });
-  }, [user?.id, companyId, clientName, availableMarkets.join('|')]);
+  }, [user?.id, companyId, clientName]);
 
   useEffect(() => {
     let cancelled = false;
     const fetchUnread = async () => {
       const entries = await Promise.all(
-        availableMarkets.map(async (market) => {
+        trackedMarkets.map(async (market) => {
           const conv = conversationsByMarket[market];
           if (!conv?.id) return [market, 0];
           const res = await supabaseHelpers.getChatUnreadCount({
@@ -125,7 +111,7 @@ export default function ClientChatWidget() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [availableMarkets.join('|'), conversationsByMarket, open]);
+  }, [conversationsByMarket, open]);
 
   if (!user || !companyId) return null;
 
@@ -141,16 +127,20 @@ export default function ClientChatWidget() {
           <div className="flex h-full flex-col bg-white">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div className="flex items-center gap-2">
-                {availableMarkets.map((market) => {
+                {trackedMarkets.map((market) => {
                   const active = market === selectedMarket;
                   const marketUnread = unreadByMarket[market] || 0;
+                  const forbidden = statusByMarket[market]?.forbidden === true;
                   return (
                     <button
                       key={market}
                       onClick={() => setSelectedMarket(market)}
+                      disabled={forbidden}
                       className={`relative rounded-lg border px-3 py-1.5 text-xs font-semibold ${
                         active
                           ? 'border-primary bg-primary text-white'
+                          : forbidden
+                          ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
