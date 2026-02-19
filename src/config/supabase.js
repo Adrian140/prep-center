@@ -3608,7 +3608,8 @@ getAllReceivingShipments: async (options = {}) => {
     if (!companyId || !country || !userId) {
       return { data: null, error: new Error('Missing chat conversation parameters') };
     }
-    const market = String(country || 'FR').toUpperCase();
+    const rawMarket = String(country || 'FR').toUpperCase();
+    const market = ['FR', 'DE', 'IT', 'ES'].includes(rawMarket) ? rawMarket : 'FR';
     const { data, error } = await supabase
       .from('chat_conversations')
       .select('*')

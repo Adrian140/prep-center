@@ -26,39 +26,54 @@ export default function ClientChatWidget() {
   const [conversation, setConversation] = useState(null);
   const [unread, setUnread] = useState(0);
   const [chatUnavailable, setChatUnavailable] = useState(false);
+  const [loadingConversation, setLoadingConversation] = useState(true);
+  const [conversationError, setConversationError] = useState('');
 
   const companyId = profile?.company_id || user?.id || null;
   const market = String(currentMarket || profile?.country || 'FR').toUpperCase();
   const staffLabel = staffLabelByCountry(market);
   const clientName = useMemo(() => buildClientName(profile, user), [profile, user]);
 
+  const loadConversation = async () => {
+    if (!user?.id || !companyId || !market) return;
+    setLoadingConversation(true);
+    setConversationError('');
+    try {
+      const res = await supabaseHelpers.getChatConversation({
+        companyId,
+        country: market,
+        userId: user.id,
+        clientDisplayName: clientName
+      });
+      if (res?.forbidden) {
+        setChatUnavailable(true);
+        setConversation(null);
+        return;
+      }
+      if (res?.error) {
+        setConversation(null);
+        setConversationError(res.error.message || 'Could not load chat.');
+        return;
+      }
+      setConversation(res?.data || null);
+      setChatUnavailable(false);
+    } catch (err) {
+      setConversation(null);
+      setConversationError(err?.message || 'Could not load chat.');
+      console.error('Failed to load client chat conversation:', err);
+    } finally {
+      setLoadingConversation(false);
+    }
+  };
+
   useEffect(() => {
     if (!user?.id || !companyId || !market) return;
     let mounted = true;
-    const loadConversation = async () => {
-      try {
-        const res = await supabaseHelpers.getChatConversation({
-          companyId,
-          country: market,
-          userId: user.id,
-          clientDisplayName: clientName
-        });
-        if (!mounted) return;
-        if (res?.forbidden) {
-          setChatUnavailable(true);
-          setConversation(null);
-          return;
-        }
-        if (!res?.error) {
-          setConversation(res.data || null);
-          setChatUnavailable(false);
-        }
-      } catch (err) {
-        if (!mounted) return;
-        console.error('Failed to load client chat conversation:', err);
-      }
+    const run = async () => {
+      await loadConversation();
+      if (!mounted) return;
     };
-    loadConversation();
+    run();
     return () => {
       mounted = false;
     };
@@ -88,16 +103,51 @@ export default function ClientChatWidget() {
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
-      {open && conversation && (
+      {open && (
         <div className="mb-3 h-[520px] w-[360px] max-w-[90vw] overflow-hidden rounded-2xl border border-slate-200 shadow-2xl">
-          <ChatThread
-            conversation={conversation}
-            currentUserId={user.id}
-            senderRole="client"
-            staffLabel={staffLabel}
-            clientName={clientName}
-            onClose={() => setOpen(false)}
-          />
+          {conversation ? (
+            <ChatThread
+              conversation={conversation}
+              currentUserId={user.id}
+              senderRole="client"
+              staffLabel={staffLabel}
+              clientName={clientName}
+              onClose={() => setOpen(false)}
+            />
+          ) : (
+            <div className="flex h-full flex-col bg-white">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">Chat support</div>
+                  <div className="text-xs text-slate-500">{staffLabel.name}</div>
+                </div>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="rounded-full p-1 text-slate-500 hover:text-slate-700"
+                  aria-label="Close chat"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-slate-500">
+                {loadingConversation ? (
+                  <span>Loading chat...</span>
+                ) : conversationError ? (
+                  <div className="space-y-3">
+                    <div>{conversationError}</div>
+                    <button
+                      onClick={loadConversation}
+                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <span>Preparing chat...</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
       <button
