@@ -474,23 +474,23 @@ export default function Butic() {
   };
 
   useEffect(() => {
-    if (!me || isAdmin) return;
+    if (!me) return;
     loadAllListings();
     const timer = setInterval(loadAllListings, 10000);
     return () => clearInterval(timer);
-  }, [me, isAdmin, allSearch]);
+  }, [me, allSearch]);
 
   useEffect(() => {
-    if (!me || isAdmin) return;
+    if (!me) return;
     loadInventory();
-  }, [me, isAdmin, inventorySearch]);
+  }, [me, inventorySearch]);
 
   useEffect(() => {
-    if (!me || isAdmin) return;
+    if (!me) return;
     loadConversations();
     const timer = setInterval(loadConversations, 5000);
     return () => clearInterval(timer);
-  }, [me, isAdmin, market]);
+  }, [me, market]);
 
   const selectedInventoryItem = useMemo(
     () => inventoryItems.find((item) => String(item.id) === String(selectedStockItemId)) || null,
@@ -762,7 +762,7 @@ export default function Butic() {
     setSending(false);
   };
 
-  if (!user || isAdmin) {
+  if (!user) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-16">
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600">
