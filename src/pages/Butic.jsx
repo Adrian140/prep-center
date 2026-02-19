@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MessageCircle, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -777,28 +777,6 @@ export default function Butic() {
 
   return (
     <div className="mx-auto max-w-[1500px] px-4 py-6">
-      <div className="mb-4 flex items-start justify-between gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-4">
-        <div>
-          <div className="text-lg font-semibold text-orange-800">
-            {t('nav.exchange', 'Exchange')}
-          </div>
-          <div className="text-sm text-orange-700">{copy.heroDescription}</div>
-        </div>
-        <button
-          onClick={() =>
-            window.dispatchEvent(
-              new CustomEvent(CHAT_OPEN_B2B_EVENT, {
-                detail: { market }
-              })
-            )
-          }
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90"
-        >
-          <MessageCircle size={16} />
-          {copy.openChat}
-        </button>
-      </div>
-
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="rounded-2xl border border-slate-200 bg-white p-4">
           <div className="mb-3 text-sm font-semibold text-slate-800">{copy.allOffers}</div>
