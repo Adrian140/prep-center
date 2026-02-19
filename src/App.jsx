@@ -27,6 +27,7 @@ import ForgotPasswordForm from './components/auth/ForgotPasswordForm';
 import UpdatePasswordForm from './components/auth/UpdatePasswordForm';
 
 import SupabaseDashboard from './components/dashboard/SupabaseDashboard';
+import ClientChatWidget from './components/dashboard/client/ClientChatWidget';
 import AdminAnalytics from './components/admin/AdminAnalytics';
 
 import { supabase } from './config/supabase';
@@ -290,6 +291,7 @@ export default function App() {
           </Routes>
         </MaintenanceGate>
       </main>
+      <ClientChatWidget />
       <Footer />
       <CookieBanner />
     </div>

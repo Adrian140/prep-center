@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Send } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
-import { supabaseHelpers } from '@/config/supabase';
+import { supabase, supabaseHelpers } from '@/config/supabase';
 import ChatThread from '@/components/chat/ChatThread';
 
 const SUPPORTED_CHAT_MARKETS = ['FR', 'DE'];
+const CHAT_OPEN_B2B_EVENT = 'client-chat:open-b2b';
 
 const buildClientName = (profile, user) => {
   const name = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim();
@@ -21,15 +22,50 @@ const staffLabelByCountry = (country) => {
   return { name: 'EcomPrepHub France', person: 'Adrian Bucur' };
 };
 
+const formatMessageTime = (value) => {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+};
+
+const listingFromConversation = (conv) => {
+  const row = conv?.client_market_listings;
+  if (Array.isArray(row)) return row[0] || null;
+  return row || null;
+};
+
 export default function ClientChatWidget() {
   const { user, profile } = useSupabaseAuth();
   const { currentMarket } = useMarket();
+
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState('support'); // support | b2b
+
   const [selectedMarket, setSelectedMarket] = useState('FR');
   const [conversationsByMarket, setConversationsByMarket] = useState({});
   const [unreadByMarket, setUnreadByMarket] = useState({});
   const [statusByMarket, setStatusByMarket] = useState({});
+
+  const [b2bConversations, setB2bConversations] = useState([]);
+  const [b2bLoading, setB2bLoading] = useState(false);
+  const [b2bError, setB2bError] = useState('');
+  const [activeB2bConversationId, setActiveB2bConversationId] = useState(null);
+  const [b2bMessages, setB2bMessages] = useState([]);
+  const [b2bInput, setB2bInput] = useState('');
+  const [b2bSending, setB2bSending] = useState(false);
+  const [b2bSendError, setB2bSendError] = useState('');
+
   const widgetRef = useRef(null);
+  const b2bScrollRef = useRef(null);
+
+  const isAdmin = !!(
+    profile?.account_type === 'admin' ||
+    profile?.is_admin === true ||
+    user?.user_metadata?.account_type === 'admin'
+  );
 
   const companyId = profile?.company_id || user?.id || null;
   const clientName = useMemo(() => buildClientName(profile, user), [profile, user]);
@@ -45,7 +81,7 @@ export default function ClientChatWidget() {
     setStatusByMarket((prev) => ({ ...prev, [market]: { ...(prev[market] || {}), ...patch } }));
   };
 
-  const loadConversation = async (market, { silent = false } = {}) => {
+  const loadSupportConversation = async (market, { silent = false } = {}) => {
     if (!user?.id || !companyId || !market) return;
     if (!silent) setMarketStatus(market, { loading: true, error: '', forbidden: false });
     try {
@@ -78,16 +114,96 @@ export default function ClientChatWidget() {
         error: err?.message || 'Could not load chat.',
         forbidden: false
       });
-      console.error('Failed to load client chat conversation:', err);
+      console.error('Failed to load client support conversation:', err);
     }
   };
 
-  useEffect(() => {
-    if (!user?.id || !companyId || trackedMarkets.length === 0) return;
-    trackedMarkets.forEach((market) => {
-      loadConversation(market);
+  const loadB2bConversations = async ({ silent = false } = {}) => {
+    if (!user?.id) return;
+    if (!silent) setB2bLoading(true);
+    setB2bError('');
+    const res = await supabaseHelpers.listClientMarketConversations();
+    if (res?.error) {
+      console.error('Failed to load B2B conversations:', res.error);
+      setB2bError(res.error.message || 'Could not load B2B chat.');
+      if (!silent) setB2bLoading(false);
+      return;
+    }
+    const rows = Array.isArray(res?.data) ? res.data : [];
+    setB2bConversations(rows);
+    setActiveB2bConversationId((prev) => {
+      if (prev && rows.some((row) => row.id === prev)) return prev;
+      return rows[0]?.id || null;
     });
-  }, [user?.id, companyId, clientName]);
+    if (!silent) setB2bLoading(false);
+  };
+
+  const loadB2bMessages = async (conversationId) => {
+    if (!conversationId) {
+      setB2bMessages([]);
+      return;
+    }
+    const res = await supabaseHelpers.listClientMarketMessages({
+      conversationId,
+      limit: 200
+    });
+    if (res?.error) {
+      console.error('Failed to load B2B messages:', res.error);
+      return;
+    }
+    const rows = Array.isArray(res?.data) ? res.data : [];
+    setB2bMessages(rows);
+    requestAnimationFrame(() => {
+      if (b2bScrollRef.current) {
+        b2bScrollRef.current.scrollTop = b2bScrollRef.current.scrollHeight;
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (!user?.id || !companyId || isAdmin || trackedMarkets.length === 0) return;
+    trackedMarkets.forEach((market) => {
+      loadSupportConversation(market);
+    });
+  }, [user?.id, companyId, clientName, isAdmin]);
+
+  useEffect(() => {
+    if (!user?.id || isAdmin) return;
+    loadB2bConversations();
+    const timer = setInterval(() => loadB2bConversations({ silent: true }), 6000);
+    return () => clearInterval(timer);
+  }, [user?.id, isAdmin]);
+
+  useEffect(() => {
+    if (!activeB2bConversationId) return;
+    loadB2bMessages(activeB2bConversationId);
+    const timer = setInterval(() => loadB2bMessages(activeB2bConversationId), 5000);
+    return () => clearInterval(timer);
+  }, [activeB2bConversationId]);
+
+  useEffect(() => {
+    if (!activeB2bConversationId) return;
+    const channel = supabase
+      .channel(`client-widget-b2b-${activeB2bConversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'client_market_messages',
+          filter: `conversation_id=eq.${activeB2bConversationId}`
+        },
+        () => {
+          loadB2bMessages(activeB2bConversationId);
+          loadB2bConversations({ silent: true });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeB2bConversationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,7 +228,7 @@ export default function ClientChatWidget() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [conversationsByMarket, open]);
+  }, [conversationsByMarket]);
 
   useEffect(() => {
     if (!open) return;
@@ -130,54 +246,82 @@ export default function ClientChatWidget() {
     };
   }, [open]);
 
-  if (!user || !companyId) return null;
+  useEffect(() => {
+    const handleOpenB2b = (event) => {
+      const detail = event?.detail || {};
+      const targetConversationId = detail?.conversationId || null;
+      setMode('b2b');
+      setOpen(true);
+      if (targetConversationId) {
+        setActiveB2bConversationId(targetConversationId);
+      }
+      if (detail?.market && SUPPORTED_CHAT_MARKETS.includes(String(detail.market).toUpperCase())) {
+        setSelectedMarket(String(detail.market).toUpperCase());
+      }
+      loadB2bConversations({ silent: true });
+    };
+    window.addEventListener(CHAT_OPEN_B2B_EVENT, handleOpenB2b);
+    return () => {
+      window.removeEventListener(CHAT_OPEN_B2B_EVENT, handleOpenB2b);
+    };
+  }, []);
 
-  const selectedConversation = conversationsByMarket[selectedMarket] || null;
-  const selectedStatus = statusByMarket[selectedMarket] || {};
+  const sendB2bMessage = async () => {
+    if (!activeB2bConversationId || !user?.id || !b2bInput.trim() || b2bSending) return;
+    setB2bSending(true);
+    setB2bSendError('');
+    const res = await supabaseHelpers.sendClientMarketMessage({
+      conversationId: activeB2bConversationId,
+      senderUserId: user.id,
+      body: b2bInput
+    });
+    if (res?.error) {
+      console.error('Failed to send B2B message:', res.error);
+      setB2bSendError(res.error.message || 'Could not send message.');
+      setB2bSending(false);
+      return;
+    }
+    setB2bInput('');
+    await loadB2bMessages(activeB2bConversationId);
+    await loadB2bConversations({ silent: true });
+    setB2bSending(false);
+  };
+
+  if (!user || !companyId || isAdmin) return null;
+
+  const selectedSupportConversation = conversationsByMarket[selectedMarket] || null;
+  const selectedSupportStatus = statusByMarket[selectedMarket] || {};
   const staffLabel = staffLabelByCountry(selectedMarket);
-  const unreadTotal = Object.values(unreadByMarket).reduce((sum, n) => sum + Number(n || 0), 0);
+  const supportUnreadTotal = Object.values(unreadByMarket).reduce((sum, n) => sum + Number(n || 0), 0);
+  const activeB2bConversation = b2bConversations.find((row) => row.id === activeB2bConversationId) || null;
 
   return (
     <div ref={widgetRef} className="fixed bottom-6 right-6 z-50">
       {open && (
-        <div className="mb-3 h-[520px] w-[360px] max-w-[90vw] overflow-hidden rounded-2xl border border-slate-200 shadow-2xl">
+        <div className="mb-3 h-[560px] w-[380px] max-w-[95vw] overflow-hidden rounded-2xl border border-slate-200 shadow-2xl">
           <div className="flex h-full flex-col bg-white">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
               <div className="flex items-center gap-2">
-                {trackedMarkets.map((market) => {
-                  const active = market === selectedMarket;
-                  const marketUnread = unreadByMarket[market] || 0;
-                  const forbidden = statusByMarket[market]?.forbidden === true;
-                  return (
-                    <button
-                      key={market}
-                      onClick={() => setSelectedMarket(market)}
-                      disabled={forbidden}
-                      className={`relative rounded-lg border px-3 py-1.5 text-xs font-semibold ${
-                        active
-                          ? 'border-primary bg-primary text-white'
-                          : forbidden
-                          ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
-                          : marketUnread > 0
-                          ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span>{market}</span>
-                      {marketUnread > 0 && (
-                        <span className="ml-1 text-[10px] font-semibold">
-                          {marketUnread > 99 ? '99+' : marketUnread}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-                <div className="leading-tight">
-                  <div className="text-xs text-slate-500">{staffLabel.name}</div>
-                  {staffLabel.person && (
-                    <div className="text-[11px] text-slate-400">{staffLabel.person}</div>
-                  )}
-                </div>
+                <button
+                  onClick={() => setMode('support')}
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold ${
+                    mode === 'support'
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  Support
+                </button>
+                <button
+                  onClick={() => setMode('b2b')}
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold ${
+                    mode === 'b2b'
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  B2B
+                </button>
               </div>
               <button
                 onClick={() => setOpen(false)}
@@ -187,52 +331,177 @@ export default function ClientChatWidget() {
                 ×
               </button>
             </div>
-            <div className="min-h-0 flex-1">
-              {selectedConversation ? (
-                <ChatThread
-                  conversation={selectedConversation}
-                  currentUserId={user.id}
-                  senderRole="client"
-                  staffLabel={staffLabel}
-                  clientName={clientName}
-                  onClose={() => setOpen(false)}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-500">
-                  {selectedStatus?.loading ? (
-                    <span>Loading chat...</span>
-                  ) : selectedStatus?.error ? (
-                    <div className="space-y-3">
-                      <div>{selectedStatus.error}</div>
-                      <button
-                        onClick={() => loadConversation(selectedMarket)}
-                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                      >
-                        Retry
-                      </button>
+
+            {mode === 'support' ? (
+              <>
+                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    {trackedMarkets.map((market) => {
+                      const active = market === selectedMarket;
+                      const marketUnread = unreadByMarket[market] || 0;
+                      const forbidden = statusByMarket[market]?.forbidden === true;
+                      return (
+                        <button
+                          key={market}
+                          onClick={() => setSelectedMarket(market)}
+                          disabled={forbidden}
+                          className={`relative rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                            active
+                              ? 'border-primary bg-primary text-white'
+                              : forbidden
+                              ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                              : marketUnread > 0
+                              ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span>{market}</span>
+                          {marketUnread > 0 && (
+                            <span className="ml-1 text-[10px] font-semibold">
+                              {marketUnread > 99 ? '99+' : marketUnread}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                    <div className="leading-tight">
+                      <div className="text-xs text-slate-500">{staffLabel.name}</div>
+                      {staffLabel.person && (
+                        <div className="text-[11px] text-slate-400">{staffLabel.person}</div>
+                      )}
                     </div>
-                  ) : selectedStatus?.forbidden ? (
-                    <span>Chat is not enabled for this market.</span>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1">
+                  {selectedSupportConversation ? (
+                    <ChatThread
+                      conversation={selectedSupportConversation}
+                      currentUserId={user.id}
+                      senderRole="client"
+                      staffLabel={staffLabel}
+                      clientName={clientName}
+                      onClose={() => setOpen(false)}
+                    />
                   ) : (
-                    <span>Preparing chat...</span>
+                    <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-500">
+                      {selectedSupportStatus?.loading ? (
+                        <span>Loading chat...</span>
+                      ) : selectedSupportStatus?.error ? (
+                        <div className="space-y-3">
+                          <div>{selectedSupportStatus.error}</div>
+                          <button
+                            onClick={() => loadSupportConversation(selectedMarket)}
+                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      ) : selectedSupportStatus?.forbidden ? (
+                        <span>Chat is not enabled for this market.</span>
+                      ) : (
+                        <span>Preparing chat...</span>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <div className="grid min-h-0 flex-1 grid-cols-[130px_minmax(0,1fr)]">
+                <div className="border-r border-slate-200 p-2">
+                  <div className="max-h-full space-y-2 overflow-y-auto pr-1">
+                    {b2bLoading && <div className="text-[11px] text-slate-500">Loading...</div>}
+                    {!b2bLoading && b2bConversations.length === 0 && (
+                      <div className="text-[11px] text-slate-500">No B2B chats yet.</div>
+                    )}
+                    {b2bConversations.map((conv) => {
+                      const listing = listingFromConversation(conv);
+                      const active = conv.id === activeB2bConversationId;
+                      return (
+                        <button
+                          key={conv.id}
+                          onClick={() => setActiveB2bConversationId(conv.id)}
+                          className={`w-full rounded-lg border p-2 text-left ${
+                            active ? 'border-primary bg-primary/10' : 'border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="truncate text-[11px] font-semibold text-slate-800">
+                            {listing?.product_name || 'B2B Listing'}
+                          </div>
+                          <div className="mt-1 text-[10px] text-slate-500">
+                            {listing?.country || conv.country || '-'}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex min-h-0 flex-col">
+                  <div className="border-b border-slate-200 px-3 py-2">
+                    <div className="text-xs font-semibold text-slate-800 truncate">
+                      {listingFromConversation(activeB2bConversation)?.product_name || 'B2B chat'}
+                    </div>
+                    <div className="text-[11px] text-slate-500 truncate">
+                      {listingFromConversation(activeB2bConversation)?.asin ? `ASIN ${listingFromConversation(activeB2bConversation)?.asin}` : 'Marketplace client chat'}
+                    </div>
+                  </div>
+                  <div ref={b2bScrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+                    {!activeB2bConversationId && (
+                      <div className="text-xs text-slate-500">Select a B2B conversation.</div>
+                    )}
+                    {b2bMessages.map((msg) => {
+                      const mine = msg.sender_user_id === user.id;
+                      return (
+                        <div key={msg.id} className={`mb-2 flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs ${mine ? 'bg-primary text-white' : 'bg-slate-100 text-slate-900'}`}>
+                            <div className="whitespace-pre-wrap">{msg.body}</div>
+                            <div className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-slate-500'}`}>
+                              {formatMessageTime(msg.created_at)}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-slate-200 p-2">
+                    <div className="flex items-end gap-2">
+                      <textarea
+                        value={b2bInput}
+                        onChange={(e) => setB2bInput(e.target.value)}
+                        rows={2}
+                        placeholder="Type your message..."
+                        className="flex-1 resize-none rounded-lg border border-slate-200 p-2 text-xs"
+                      />
+                      <button
+                        onClick={sendB2bMessage}
+                        disabled={!activeB2bConversationId || !b2bInput.trim() || b2bSending}
+                        className="rounded-lg bg-primary px-2.5 py-2 text-white hover:bg-primary/90 disabled:opacity-50"
+                        aria-label="Send"
+                      >
+                        <Send size={14} />
+                      </button>
+                    </div>
+                    {!!b2bError && <div className="mt-1 text-[11px] text-rose-600">{b2bError}</div>}
+                    {!!b2bSendError && <div className="mt-1 text-[11px] text-rose-600">{b2bSendError}</div>}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
+
       <button
         onClick={() => setOpen((prev) => !prev)}
         className={`relative flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg ${
-          unreadTotal > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'
+          supportUnreadTotal > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'
         }`}
         aria-label="Open chat"
       >
         <MessageCircle size={24} />
-        {unreadTotal > 0 && (
+        {supportUnreadTotal > 0 && (
           <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-semibold text-red-600 ring-2 ring-red-600">
-            {unreadTotal > 99 ? '99+' : unreadTotal}
+            {supportUnreadTotal > 99 ? '99+' : supportUnreadTotal}
           </span>
         )}
       </button>

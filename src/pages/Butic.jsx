@@ -7,6 +7,7 @@ import { supabase, supabaseHelpers } from '@/config/supabase';
 import { useT } from '@/i18n/useT';
 
 const OFFER_COUNTRY_OPTIONS = ['FR', 'DE'];
+const CHAT_OPEN_B2B_EVENT = 'client-chat:open-b2b';
 
 const BUTIC_COPY = {
   en: {
@@ -16,6 +17,7 @@ const BUTIC_COPY = {
     searchAllPlaceholder: 'ASIN / EAN / name',
     loading: 'Loading...',
     noOffers: 'No offers available.',
+    myOfferTag: 'My offer',
     contact: 'Contact',
     qtyUnit: 'pcs',
     myOffersFromInventory: 'My offers (from inventory)',
@@ -30,7 +32,12 @@ const BUTIC_COPY = {
     addForSale: 'Add for sale',
     listingCountryLabel: 'Storage country',
     listingCountryPlaceholder: 'Select country (FR/DE)',
+    listingCountryHelp: 'Select the warehouse country where your goods are physically stored.',
+    countryNotSelected: 'not selected',
     locatedIn: 'Product "{name}" is in {country}.',
+    quantityToSellLabel: 'Quantity to sell',
+    quantityToSellPlaceholder: 'Quantity to sell',
+    availableStockLabel: 'Available stock',
     noMyOffers: 'You have no published offers yet.',
     chatTitle: 'Marketplace chat',
     chatSubtitle: 'Client-to-client negotiation',
@@ -45,6 +52,8 @@ const BUTIC_COPY = {
     invalidPrice: 'Enter a valid price greater than 0.',
     selectProductError: 'Select a product from inventory first.',
     selectCountryError: 'Select storage country (FR or DE).',
+    quantityInvalidError: 'Enter a valid quantity to sell.',
+    quantityExceedsError: 'Quantity to sell cannot be greater than available stock.',
     publishFailed: 'Could not publish offer. Please try again.',
     sendFailed: 'Could not send message. Please try again.',
     finalizeSale: 'Finalize sale',
@@ -62,6 +71,7 @@ const BUTIC_COPY = {
     searchAllPlaceholder: 'ASIN / EAN / nume',
     loading: 'Se incarca...',
     noOffers: 'Nu exista oferte.',
+    myOfferTag: 'Oferta mea',
     contact: 'Contacteaza',
     qtyUnit: 'buc',
     myOffersFromInventory: 'Ofertele mele (din inventar)',
@@ -76,7 +86,12 @@ const BUTIC_COPY = {
     addForSale: 'Adauga la vanzare',
     listingCountryLabel: 'Tara depozitare',
     listingCountryPlaceholder: 'Selecteaza tara (FR/DE)',
+    listingCountryHelp: 'Selecteaza tara depozitului unde marfa este stocata fizic.',
+    countryNotSelected: 'neselectata',
     locatedIn: 'Produsul "{name}" se afla in {country}.',
+    quantityToSellLabel: 'Cantitate de vandut',
+    quantityToSellPlaceholder: 'Cantitate de vandut',
+    availableStockLabel: 'Stoc disponibil',
     noMyOffers: 'Nu ai oferte publicate.',
     chatTitle: 'Chat Butic',
     chatSubtitle: 'Negociere intre clienti',
@@ -91,6 +106,8 @@ const BUTIC_COPY = {
     invalidPrice: 'Introdu un pret valid mai mare ca 0.',
     selectProductError: 'Selecteaza mai intai un produs din inventar.',
     selectCountryError: 'Selecteaza tara de depozitare (FR sau DE).',
+    quantityInvalidError: 'Introdu o cantitate valida pentru vanzare.',
+    quantityExceedsError: 'Cantitatea de vandut nu poate depasi stocul disponibil.',
     publishFailed: 'Oferta nu a putut fi publicata. Incearca din nou.',
     sendFailed: 'Mesajul nu a putut fi trimis. Incearca din nou.',
     finalizeSale: 'Vanzare finalizata',
@@ -108,6 +125,7 @@ const BUTIC_COPY = {
     searchAllPlaceholder: 'ASIN / EAN / nom',
     loading: 'Chargement...',
     noOffers: 'Aucune offre disponible.',
+    myOfferTag: 'Mon offre',
     contact: 'Contacter',
     qtyUnit: 'pcs',
     myOffersFromInventory: 'Mes offres (depuis inventaire)',
@@ -122,7 +140,12 @@ const BUTIC_COPY = {
     addForSale: 'Ajouter a la vente',
     listingCountryLabel: 'Pays de stockage',
     listingCountryPlaceholder: 'Selectionnez le pays (FR/DE)',
+    listingCountryHelp: 'Selectionnez le pays de l entrepot ou la marchandise est stockee physiquement.',
+    countryNotSelected: 'non selectionne',
     locatedIn: 'Le produit "{name}" est en {country}.',
+    quantityToSellLabel: 'Quantite a vendre',
+    quantityToSellPlaceholder: 'Quantite a vendre',
+    availableStockLabel: 'Stock disponible',
     noMyOffers: 'Aucune offre publiee.',
     chatTitle: 'Chat B2B',
     chatSubtitle: 'Negociation entre clients',
@@ -137,6 +160,8 @@ const BUTIC_COPY = {
     invalidPrice: 'Entrez un prix valide superieur a 0.',
     selectProductError: 'Selectionnez d abord un produit de l inventaire.',
     selectCountryError: 'Selectionnez le pays de stockage (FR ou DE).',
+    quantityInvalidError: 'Entrez une quantite valide a vendre.',
+    quantityExceedsError: 'La quantite a vendre ne peut pas depasser le stock disponible.',
     publishFailed: 'Impossible de publier l offre. Reessayez.',
     sendFailed: 'Impossible d envoyer le message. Reessayez.',
     finalizeSale: 'Vente finalisee',
@@ -154,6 +179,7 @@ const BUTIC_COPY = {
     searchAllPlaceholder: 'ASIN / EAN / Name',
     loading: 'Wird geladen...',
     noOffers: 'Keine Angebote vorhanden.',
+    myOfferTag: 'Mein Angebot',
     contact: 'Kontaktieren',
     qtyUnit: 'Stk',
     myOffersFromInventory: 'Meine Angebote (aus Bestand)',
@@ -168,7 +194,12 @@ const BUTIC_COPY = {
     addForSale: 'Zum Verkauf hinzufugen',
     listingCountryLabel: 'Lagerland',
     listingCountryPlaceholder: 'Land auswahlen (FR/DE)',
+    listingCountryHelp: 'Wahle das Land des Lagers, in dem die Ware physisch gelagert ist.',
+    countryNotSelected: 'nicht ausgewahlt',
     locatedIn: 'Produkt "{name}" befindet sich in {country}.',
+    quantityToSellLabel: 'Menge zum Verkauf',
+    quantityToSellPlaceholder: 'Menge zum Verkauf',
+    availableStockLabel: 'Verfugbarer Bestand',
     noMyOffers: 'Noch keine veroffentlichten Angebote.',
     chatTitle: 'Marketplace-Chat',
     chatSubtitle: 'Verhandlung zwischen Kunden',
@@ -183,6 +214,8 @@ const BUTIC_COPY = {
     invalidPrice: 'Gib einen gultigen Preis grosser 0 ein.',
     selectProductError: 'Wahle zuerst ein Produkt aus dem Bestand.',
     selectCountryError: 'Wahle das Lagerland (FR oder DE).',
+    quantityInvalidError: 'Gib eine gultige Verkaufsmenge ein.',
+    quantityExceedsError: 'Die Verkaufsmenge darf den verfugbaren Bestand nicht ubersteigen.',
     publishFailed: 'Angebot konnte nicht veroffentlicht werden. Bitte erneut versuchen.',
     sendFailed: 'Nachricht konnte nicht gesendet werden. Bitte erneut versuchen.',
     finalizeSale: 'Verkauf abschliessen',
@@ -200,6 +233,7 @@ const BUTIC_COPY = {
     searchAllPlaceholder: 'ASIN / EAN / nome',
     loading: 'Caricamento...',
     noOffers: 'Nessuna offerta disponibile.',
+    myOfferTag: 'La mia offerta',
     contact: 'Contatta',
     qtyUnit: 'pz',
     myOffersFromInventory: 'Le mie offerte (da inventario)',
@@ -214,7 +248,12 @@ const BUTIC_COPY = {
     addForSale: 'Aggiungi in vendita',
     listingCountryLabel: 'Paese di stoccaggio',
     listingCountryPlaceholder: 'Seleziona paese (FR/DE)',
+    listingCountryHelp: 'Seleziona il paese del magazzino dove la merce e fisicamente stoccata.',
+    countryNotSelected: 'non selezionato',
     locatedIn: 'Il prodotto "{name}" si trova in {country}.',
+    quantityToSellLabel: 'Quantita da vendere',
+    quantityToSellPlaceholder: 'Quantita da vendere',
+    availableStockLabel: 'Stock disponibile',
     noMyOffers: 'Nessuna offerta pubblicata.',
     chatTitle: 'Chat Marketplace',
     chatSubtitle: 'Negoziazione tra clienti',
@@ -229,6 +268,8 @@ const BUTIC_COPY = {
     invalidPrice: 'Inserisci un prezzo valido maggiore di 0.',
     selectProductError: 'Seleziona prima un prodotto dall inventario.',
     selectCountryError: 'Seleziona il paese di stoccaggio (FR o DE).',
+    quantityInvalidError: 'Inserisci una quantita valida da vendere.',
+    quantityExceedsError: 'La quantita da vendere non puo superare lo stock disponibile.',
     publishFailed: 'Impossibile pubblicare l offerta. Riprova.',
     sendFailed: 'Impossibile inviare il messaggio. Riprova.',
     finalizeSale: 'Vendita completata',
@@ -246,6 +287,7 @@ const BUTIC_COPY = {
     searchAllPlaceholder: 'ASIN / EAN / nombre',
     loading: 'Cargando...',
     noOffers: 'No hay ofertas disponibles.',
+    myOfferTag: 'Mi oferta',
     contact: 'Contactar',
     qtyUnit: 'uds',
     myOffersFromInventory: 'Mis ofertas (desde inventario)',
@@ -260,7 +302,12 @@ const BUTIC_COPY = {
     addForSale: 'Agregar en venta',
     listingCountryLabel: 'Pais de almacen',
     listingCountryPlaceholder: 'Selecciona pais (FR/DE)',
+    listingCountryHelp: 'Selecciona el pais del almacen donde la mercancia esta guardada fisicamente.',
+    countryNotSelected: 'no seleccionado',
     locatedIn: 'El producto "{name}" esta en {country}.',
+    quantityToSellLabel: 'Cantidad a vender',
+    quantityToSellPlaceholder: 'Cantidad a vender',
+    availableStockLabel: 'Stock disponible',
     noMyOffers: 'No tienes ofertas publicadas.',
     chatTitle: 'Chat Marketplace',
     chatSubtitle: 'Negociacion entre clientes',
@@ -275,6 +322,8 @@ const BUTIC_COPY = {
     invalidPrice: 'Introduce un precio valido mayor que 0.',
     selectProductError: 'Selecciona primero un producto del inventario.',
     selectCountryError: 'Selecciona el pais de almacen (FR o DE).',
+    quantityInvalidError: 'Introduce una cantidad valida para vender.',
+    quantityExceedsError: 'La cantidad a vender no puede superar el stock disponible.',
     publishFailed: 'No se pudo publicar la oferta. Intentalo de nuevo.',
     sendFailed: 'No se pudo enviar el mensaje. Intentalo de nuevo.',
     finalizeSale: 'Venta finalizada',
@@ -302,6 +351,14 @@ function formatProductCodes(copy, asin, ean) {
   return copy.noCode;
 }
 
+function getListingImageUrl(listing) {
+  const stockItem = listing?.stock_item;
+  if (Array.isArray(stockItem)) {
+    return stockItem?.[0]?.image_url || null;
+  }
+  return stockItem?.image_url || null;
+}
+
 export default function Butic() {
   const t = useT();
   const { currentLanguage } = useLanguage();
@@ -316,6 +373,7 @@ export default function Butic() {
   const [inventoryItems, setInventoryItems] = useState([]);
   const [selectedStockItemId, setSelectedStockItemId] = useState('');
   const [offerCountry, setOfferCountry] = useState('');
+  const [quantityToSell, setQuantityToSell] = useState('1');
   const [priceEur, setPriceEur] = useState('');
   const [note, setNote] = useState('');
   const [creating, setCreating] = useState(false);
@@ -340,15 +398,6 @@ export default function Butic() {
   const me = user?.id || null;
   const market = String(currentMarket || profile?.country || 'FR').toUpperCase();
   const myCompanyId = profile?.company_id || me;
-
-  useEffect(() => {
-    const marketCode = String(currentMarket || '').toUpperCase();
-    if (OFFER_COUNTRY_OPTIONS.includes(marketCode)) {
-      setOfferCountry(marketCode);
-    } else {
-      setOfferCountry('');
-    }
-  }, [currentMarket]);
 
   const loadAllListings = async () => {
     if (!me) return;
@@ -405,14 +454,25 @@ export default function Butic() {
     [inventoryItems, selectedStockItemId]
   );
 
+  useEffect(() => {
+    if (!selectedInventoryItem) {
+      setQuantityToSell('1');
+      return;
+    }
+    const stock = Math.max(1, Number(selectedInventoryItem.qty || 1));
+    setQuantityToSell((prev) => {
+      const numeric = Number(prev);
+      if (!Number.isFinite(numeric) || numeric < 1) return '1';
+      if (numeric > stock) return String(stock);
+      return prev;
+    });
+  }, [selectedInventoryItem?.id, selectedInventoryItem?.qty]);
+
   const myListings = useMemo(
     () => allListings.filter((row) => row.owner_user_id === me),
     [allListings, me]
   );
-  const marketListings = useMemo(
-    () => allListings.filter((row) => row.owner_user_id !== me),
-    [allListings, me]
-  );
+  const marketListings = useMemo(() => allListings, [allListings]);
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeConversationId) || null,
@@ -469,6 +529,16 @@ export default function Butic() {
       setCreateError(copy.selectCountryError);
       return;
     }
+    const availableStock = Math.max(1, Number(selectedInventoryItem.qty || 1));
+    const parsedQuantity = Number(quantityToSell);
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity < 1) {
+      setCreateError(copy.quantityInvalidError);
+      return;
+    }
+    if (parsedQuantity > availableStock) {
+      setCreateError(copy.quantityExceedsError);
+      return;
+    }
     const parsedPrice = Number(priceEur);
     if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
       setCreateError(copy.invalidPrice);
@@ -488,7 +558,7 @@ export default function Butic() {
       ean: selectedInventoryItem.ean || null,
       productName: selectedInventoryItem.name || 'Product',
       priceEur: parsedPrice,
-      quantity: Math.max(1, Number(selectedInventoryItem.qty || 1)),
+      quantity: Math.max(1, Math.floor(parsedQuantity)),
       note
     });
     if (res?.error) {
@@ -499,6 +569,8 @@ export default function Butic() {
       setPriceEur('');
       setNote('');
       setSelectedStockItemId('');
+      setOfferCountry('');
+      setQuantityToSell('1');
       setCreateError('');
       loadAllListings();
     }
@@ -549,8 +621,17 @@ export default function Butic() {
       return;
     }
     await loadConversations();
-    if (conv?.data?.id) setActiveConversationId(conv.data.id);
-    setShowChat(true);
+    if (conv?.data?.id) {
+      setActiveConversationId(conv.data.id);
+      window.dispatchEvent(
+        new CustomEvent(CHAT_OPEN_B2B_EVENT, {
+          detail: {
+            conversationId: conv.data.id,
+            market: listing?.country || market
+          }
+        })
+      );
+    }
   };
 
   const sendMessage = async () => {
@@ -593,7 +674,13 @@ export default function Butic() {
           <div className="text-sm text-orange-700">{copy.heroDescription}</div>
         </div>
         <button
-          onClick={() => setShowChat(true)}
+          onClick={() =>
+            window.dispatchEvent(
+              new CustomEvent(CHAT_OPEN_B2B_EVENT, {
+                detail: { market }
+              })
+            )
+          }
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90"
         >
           <MessageCircle size={16} />
@@ -619,14 +706,41 @@ export default function Butic() {
             )}
             {marketListings.map((listing) => (
               <div key={listing.id} className="rounded-xl border border-slate-200 p-3">
-                <div className="text-sm font-semibold text-slate-900">{listing.product_name}</div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {formatProductCodes(copy, listing.asin, listing.ean)}
+                <div className="flex items-start gap-3">
+                  <img
+                    src={
+                      failedImageIds.has(`listing-${listing.id}`)
+                        ? '/images/product-placeholder.png'
+                        : (getListingImageUrl(listing) || '/images/product-placeholder.png')
+                    }
+                    onError={() => {
+                      setFailedImageIds((prev) => {
+                        const next = new Set(prev);
+                        next.add(`listing-${listing.id}`);
+                        return next;
+                      });
+                    }}
+                    alt={listing.product_name || 'Product'}
+                    className="h-14 w-14 shrink-0 rounded-lg border border-slate-200 object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-semibold text-slate-900">{listing.product_name}</div>
+                      {listing.owner_user_id === me && (
+                        <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
+                          {copy.myOfferTag}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      {formatProductCodes(copy, listing.asin, listing.ean)}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-600">
+                      {listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR · {listing.country || '-'}
+                    </div>
+                    {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
+                  </div>
                 </div>
-                <div className="mt-1 text-xs text-slate-600">
-                  {listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR · {listing.country || '-'}
-                </div>
-                {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
                 <button
                   onClick={() => openListingChat(listing)}
                   className="mt-2 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
@@ -703,7 +817,7 @@ export default function Butic() {
                 <div className="text-xs text-slate-500">
                   {copy.locatedIn
                     .replace('{name}', selectedInventoryItem.name || 'Product')
-                    .replace('{country}', offerCountry || '-')}
+                    .replace('{country}', offerCountry || copy.countryNotSelected)}
                 </div>
               )}
               <select
@@ -720,6 +834,23 @@ export default function Butic() {
                   </option>
                 ))}
               </select>
+              <div className="text-xs text-slate-500">{copy.listingCountryHelp}</div>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={quantityToSell}
+                onChange={(e) => setQuantityToSell(e.target.value)}
+                placeholder={copy.quantityToSellPlaceholder}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                aria-label={copy.quantityToSellLabel}
+                required
+              />
+              {selectedInventoryItem && (
+                <div className="text-xs text-slate-500">
+                  {copy.availableStockLabel}: {Math.max(1, Number(selectedInventoryItem.qty || 1))}
+                </div>
+              )}
               <input
                 type="number"
                 step="0.01"
@@ -740,7 +871,7 @@ export default function Butic() {
               {createError && <div className="text-xs font-medium text-red-600">{createError}</div>}
               <button
                 type="submit"
-                disabled={!selectedStockItemId || !priceEur || !offerCountry || creating}
+                disabled={!selectedStockItemId || !priceEur || !offerCountry || !quantityToSell || creating}
                 className="w-full rounded-lg bg-orange-500 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
               >
                 {creating ? copy.publishing : copy.addForSale}
@@ -760,7 +891,6 @@ export default function Butic() {
                 <div className="mt-1 text-xs text-slate-600">
                   {listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR
                 </div>
-                <div className="mt-1 text-xs text-slate-500">{copy.saleFeeHint}</div>
                 {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
                 <div className="mt-2 flex items-center gap-2">
                   <button
@@ -786,7 +916,7 @@ export default function Butic() {
         </section>
       </div>
 
-      {showChat && (
+      {false && showChat && (
         <div className="fixed inset-0 z-[80] bg-black/35 p-4">
           <div className="mx-auto flex h-full max-h-[860px] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">

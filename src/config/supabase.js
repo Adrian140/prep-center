@@ -3815,7 +3815,7 @@ getAllReceivingShipments: async (options = {}) => {
   listClientMarketListings: async ({ country, search, limit = 200 } = {}) => {
     let query = supabase
       .from('client_market_listings')
-      .select('id, owner_user_id, owner_company_id, stock_item_id, country, asin, ean, product_name, price_eur, quantity, note, is_active, sale_finalized_at, sale_finalized_units, created_at')
+      .select('id, owner_user_id, owner_company_id, stock_item_id, country, asin, ean, product_name, price_eur, quantity, note, is_active, sale_finalized_at, sale_finalized_units, created_at, stock_item:stock_items(image_url)')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(limit);

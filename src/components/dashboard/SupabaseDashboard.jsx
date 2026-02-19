@@ -38,7 +38,6 @@ import ClientBalanceBar from './client/ClientBalanceBar';
 import ClientAffiliates from './client/ClientAffiliates';
 import ClientBoxEstimator from './client/ClientBoxEstimator';
 import ClientQogitaShipments from './client/ClientQogitaShipments';
-import ClientChatWidget from './client/ClientChatWidget';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { tabSessionStorage } from '@/utils/tabStorage';
 import { supabaseHelpers } from '@/config/supabase';
@@ -543,9 +542,6 @@ const renderTabContent = useMemo(() => {
           </div>
         </div>
     )}
-    <ErrorBoundary>
-      <ClientChatWidget />
-    </ErrorBoundary>
     </>
   );
 }
