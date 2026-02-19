@@ -3809,6 +3809,108 @@ getAllReceivingShipments: async (options = {}) => {
       .storage
       .from('chat-attachments')
       .createSignedUrl(path, expiresIn);
+  },
+
+  // ===== Client Marketplace (Butic) =====
+  listClientMarketListings: async ({ country, search, limit = 200 } = {}) => {
+    let query = supabase
+      .from('client_market_listings')
+      .select('id, owner_user_id, owner_company_id, country, asin, ean, product_name, price_eur, quantity, note, is_active, created_at')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (country) query = query.eq('country', String(country).toUpperCase());
+    const q = String(search || '').trim();
+    if (q) {
+      query = query.or(
+        `asin.ilike.%${q}%,ean.ilike.%${q}%,product_name.ilike.%${q}%`
+      );
+    }
+    return await query;
+  },
+
+  createClientMarketListing: async ({
+    ownerUserId,
+    ownerCompanyId,
+    country,
+    asin,
+    ean,
+    productName,
+    priceEur,
+    quantity,
+    note
+  }) => {
+    if (!ownerUserId || !productName?.trim()) {
+      return { data: null, error: new Error('Missing listing data') };
+    }
+    return await supabase
+      .from('client_market_listings')
+      .insert({
+        owner_user_id: ownerUserId,
+        owner_company_id: ownerCompanyId || ownerUserId,
+        country: String(country || 'FR').toUpperCase(),
+        asin: asin?.trim() || null,
+        ean: ean?.trim() || null,
+        product_name: productName.trim(),
+        price_eur: Number(priceEur || 0),
+        quantity: Number(quantity || 1),
+        note: note?.trim() || null
+      })
+      .select('*')
+      .single();
+  },
+
+  setClientMarketListingActive: async ({ listingId, isActive }) => {
+    if (!listingId) return { data: null, error: new Error('Missing listing id') };
+    return await supabase
+      .from('client_market_listings')
+      .update({ is_active: !!isActive, updated_at: new Date().toISOString() })
+      .eq('id', listingId)
+      .select('*')
+      .single();
+  },
+
+  getOrCreateClientMarketConversation: async ({ listingId }) => {
+    if (!listingId) return { data: null, error: new Error('Missing listing id') };
+    return await supabase.rpc('client_market_get_or_create_conversation', {
+      p_listing_id: listingId
+    });
+  },
+
+  listClientMarketConversations: async ({ country } = {}) => {
+    let query = supabase
+      .from('client_market_conversations')
+      .select('id, listing_id, country, seller_user_id, buyer_user_id, created_at, last_message_at, client_market_listings(id, asin, ean, product_name, price_eur, quantity, country)')
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false });
+    if (country) query = query.eq('country', String(country).toUpperCase());
+    return await query;
+  },
+
+  listClientMarketMessages: async ({ conversationId, limit = 200 } = {}) => {
+    if (!conversationId) return { data: [], error: null };
+    const res = await supabase
+      .from('client_market_messages')
+      .select('id, conversation_id, sender_user_id, body, created_at')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+      .limit(limit);
+    return res;
+  },
+
+  sendClientMarketMessage: async ({ conversationId, senderUserId, body }) => {
+    if (!conversationId || !senderUserId || !body?.trim()) {
+      return { data: null, error: new Error('Missing marketplace message data') };
+    }
+    return await supabase
+      .from('client_market_messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_user_id: senderUserId,
+        body: body.trim()
+      })
+      .select('*')
+      .single();
   }
 };
 

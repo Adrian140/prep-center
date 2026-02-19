@@ -14,6 +14,7 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import AuthCallback from './pages/AuthCallback';
 import AmazonIntegrationCallback from './pages/AmazonIntegrationCallback';
 import Integrations from './pages/Integrations';
+import Butic from './pages/Butic';
 
 import AdminLoginInfo from './components/AdminLoginInfo';
 import SupabaseAdminPanel from './components/admin/SupabaseAdminPanel';
@@ -250,6 +251,16 @@ export default function App() {
                 <MaintenanceGate>
                   <ClientRoute>
                     <SupabaseDashboard />
+                  </ClientRoute>
+                </MaintenanceGate>
+              }
+            />
+            <Route
+              path="/butic"
+              element={
+                <MaintenanceGate>
+                  <ClientRoute>
+                    <Butic />
                   </ClientRoute>
                 </MaintenanceGate>
               }

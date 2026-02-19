@@ -154,6 +154,7 @@ function Header() {
   const navigation = useMemo(() => {
     const base = [
       { name: t('nav.home'),     href: '/' },
+      { name: 'Butic', href: '/butic', accent: 'orange', hide: !isAuthenticated || isAdmin },
       { name: t('nav.services'), href: '/services-pricing' },
       { name: 'Integrations', href: '/integrations', hide: hasIntegration && isAuthenticated && !isAdmin },
       { name: t('nav.about'),    href: '/about' },
@@ -237,7 +238,11 @@ function Header() {
                 key={item.href}
                 to={item.href}
                 className={`shrink-0 px-1.5 lg:px-2 xl:px-2.5 py-1.5 text-[12px] md:text-[13px] lg:text-sm font-medium rounded-lg transition-all duration-200 ${
-                  isActive(item.href)
+                  item.accent === 'orange'
+                    ? isActive(item.href)
+                      ? 'text-orange-800 bg-orange-100 border border-orange-300'
+                      : 'text-orange-700 bg-orange-50 border border-orange-200 hover:bg-orange-100'
+                    : isActive(item.href)
                     ? 'text-primary bg-blue-50 border border-blue-200'
                     : 'text-text-secondary hover:text-primary hover:bg-gray-50'
                 }`}
@@ -346,9 +351,13 @@ function Header() {
                     key={item.href}
                     to={item.href}
                     className={`block px-4 py-3 text-base font-medium rounded-lg transition-colors ${
-                      isActive(item.href)
-                    ? 'text-primary bg-blue-50 border border-blue-200'
-                    : 'text-text-secondary hover:text-primary hover:bg-gray-50'
+                      item.accent === 'orange'
+                        ? isActive(item.href)
+                          ? 'text-orange-800 bg-orange-100 border border-orange-300'
+                          : 'text-orange-700 bg-orange-50 border border-orange-200 hover:bg-orange-100'
+                        : isActive(item.href)
+                          ? 'text-primary bg-blue-50 border border-blue-200'
+                          : 'text-text-secondary hover:text-primary hover:bg-gray-50'
                     }`}
                     onClick={() => setIsMenuOpen(false)}
                   >
