@@ -344,10 +344,36 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
       }
     }
     if (hasPerBoxDetails && !perBoxItemsRaw.length) {
-      const shouldAttachItems = items.length && contentInformationSource === "BOX_CONTENT_PROVIDED" && boxCount === 1;
-      const resolvedSource = shouldAttachItems ? "BOX_CONTENT_PROVIDED" : contentInformationSource;
+      const detailsCount = Math.max(1, perBoxDetailsRaw.length || boxCount || 1);
+      const shouldDistributeItems = items.length && contentInformationSource === "BOX_CONTENT_PROVIDED";
+      const distributedItemsByBox: any[][] = shouldDistributeItems
+        ? Array.from({ length: detailsCount }, () => [])
+        : [];
+      if (shouldDistributeItems) {
+        // Fallback: dacă UI nu a trimis perBoxItems, distribuim cantitățile totale pe boxe
+        // pentru a păstra totalurile și a trece validarea Amazon.
+        items.forEach((it: any) => {
+          const qtyTotal = Math.max(0, Number(it?.quantity || 0) || 0);
+          if (!qtyTotal) return;
+          const base = Math.floor(qtyTotal / detailsCount);
+          let remainder = qtyTotal % detailsCount;
+          for (let idx = 0; idx < detailsCount; idx += 1) {
+            const qty = base + (remainder > 0 ? 1 : 0);
+            if (remainder > 0) remainder -= 1;
+            if (qty <= 0) continue;
+            distributedItemsByBox[idx].push({
+              msku: it.msku,
+              quantity: qty,
+              prepOwner: it.prepOwner,
+              labelOwner: it.labelOwner,
+              ...(it.expiration ? { expiration: it.expiration } : {}),
+              ...(it.manufacturingLotCode ? { manufacturingLotCode: it.manufacturingLotCode } : {})
+            });
+          }
+        });
+      }
       const boxes = perBoxDetailsRaw
-        .map((box: any) => {
+        .map((box: any, idx: number) => {
           const perDims = normalizeDimensions({
             length: parseNumber(box?.length),
             width: parseNumber(box?.width),
@@ -359,19 +385,15 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
             unit: box?.unitWeight || box?.unit || "KG"
           });
           if (!perDims || !perWeight) return null;
+          const distributedItems = distributedItemsByBox[idx] || [];
+          const shouldAttachItems = distributedItems.length > 0;
+          const resolvedSource = shouldAttachItems ? "BOX_CONTENT_PROVIDED" : "MANUAL_PROCESS";
           return {
             quantity: 1,
             contentInformationSource: resolvedSource,
             ...(shouldAttachItems
               ? {
-                  items: items.map((it) => ({
-                    msku: it.msku,
-                    quantity: it.quantity,
-                    prepOwner: it.prepOwner,
-                    labelOwner: it.labelOwner,
-                    ...(it.expiration ? { expiration: it.expiration } : {}),
-                    ...(it.manufacturingLotCode ? { manufacturingLotCode: it.manufacturingLotCode } : {})
-                  }))
+                  items: distributedItems
                 }
               : {}),
             dimensions: perDims,
