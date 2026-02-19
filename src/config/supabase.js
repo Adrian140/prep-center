@@ -3610,6 +3610,17 @@ getAllReceivingShipments: async (options = {}) => {
     }
     const rawMarket = String(country || 'FR').toUpperCase();
     const market = ['FR', 'DE', 'IT', 'ES'].includes(rawMarket) ? rawMarket : 'FR';
+    const display = clientDisplayName?.trim() || 'Client';
+
+    // Preferred path: server-side get-or-create to avoid client RLS edge-cases.
+    const rpcRes = await supabase.rpc('chat_get_or_create_conversation', {
+      p_country: market,
+      p_client_display_name: display
+    });
+    if (!rpcRes?.error && rpcRes?.data) {
+      return { data: rpcRes.data, error: null };
+    }
+
     const { data, error } = await supabase
       .from('chat_conversations')
       .select('*')
@@ -3647,7 +3658,6 @@ getAllReceivingShipments: async (options = {}) => {
     const fallback = await fallbackByUser();
     if (fallback) return fallback;
 
-    const display = clientDisplayName?.trim() || 'Client';
     const payload = {
       company_id: companyId,
       client_user_id: userId,
