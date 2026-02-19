@@ -21,6 +21,7 @@ export default function AdminChat() {
   const [activeId, setActiveId] = useState(null);
   const [search, setSearch] = useState('');
   const [companies, setCompanies] = useState([]);
+  const [companySearch, setCompanySearch] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [companyActionLoading, setCompanyActionLoading] = useState(false);
   const [metaByConversationId, setMetaByConversationId] = useState({});
@@ -218,6 +219,27 @@ export default function AdminChat() {
     });
   }, [conversations, metaByConversationId, search]);
 
+  const filteredCompanies = useMemo(() => {
+    const q = companySearch.trim().toLowerCase();
+    if (!q) return companies;
+    const ranked = companies
+      .map((company) => {
+        const name = String(company.companyName || '').toLowerCase();
+        const words = name.split(/\s+/).filter(Boolean);
+        let rank = 99;
+        if (name.startsWith(q)) rank = 0;
+        else if (words.some((w) => w.startsWith(q))) rank = 1;
+        else if (name.includes(q)) rank = 2;
+        return { company, rank };
+      })
+      .filter((entry) => entry.rank < 99)
+      .sort((a, b) => {
+        if (a.rank !== b.rank) return a.rank - b.rank;
+        return a.company.companyName.localeCompare(b.company.companyName);
+      });
+    return ranked.map((entry) => entry.company);
+  }, [companies, companySearch]);
+
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -225,6 +247,12 @@ export default function AdminChat() {
           <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             Start Chat By Company
           </div>
+          <input
+            value={companySearch}
+            onChange={(e) => setCompanySearch(e.target.value)}
+            placeholder="Search company name..."
+            className="w-full rounded-lg border border-slate-200 px-2 py-2 text-sm"
+          />
           <div className="flex items-center gap-2">
             <select
               value={selectedCompanyId}
@@ -232,7 +260,7 @@ export default function AdminChat() {
               className="w-full rounded-lg border border-slate-200 px-2 py-2 text-sm"
             >
               <option value="">Select company...</option>
-              {companies.map((company) => (
+              {filteredCompanies.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.companyName}
                 </option>
@@ -246,6 +274,11 @@ export default function AdminChat() {
               {companyActionLoading ? 'Opening...' : 'Start'}
             </button>
           </div>
+          {!!companySearch && (
+            <div className="text-[11px] text-slate-500">
+              {filteredCompanies.length} match(es)
+            </div>
+          )}
         </div>
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5">
           <Search size={16} className="text-slate-400" />
