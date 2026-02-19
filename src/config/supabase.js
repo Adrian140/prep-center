@@ -67,6 +67,10 @@ const normalizeCode = (value) => {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
 };
+const normalizePrepDestinationCountry = (value) => {
+  const code = String(value || 'FR').trim().toUpperCase();
+  return code === 'GB' ? 'UK' : code;
+};
 const normalizeAsin = (value) => {
   const trimmed = normalizeCode(value);
   return trimmed ? trimmed.toUpperCase() : null;
@@ -1352,8 +1356,9 @@ resetPassword: async (email) => {
           draftData.user_id ??
           (await supabase.auth.getUser()).data?.user?.id ??
           null,
-        destination_country:
-          draftData.destination_country || draftData.country, // compat
+        destination_country: normalizePrepDestinationCountry(
+          draftData.destination_country || draftData.country
+        ),
         warehouse_country: warehouseCountry,
         status: 'pending',
       };

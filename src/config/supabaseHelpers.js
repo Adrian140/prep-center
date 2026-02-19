@@ -55,6 +55,11 @@ const normalizeCode = (value) =>
 const normalizeEmail = (value) =>
   typeof value === 'string' ? value.trim().toLowerCase() : value ?? null;
 
+const normalizePrepDestinationCountry = (value) => {
+  const code = String(value || 'FR').trim().toUpperCase();
+  return code === 'GB' ? 'UK' : code;
+};
+
 const PREP_BUSINESS_INTEGRATIONS_TABLE = 'prep_business_integrations';
 const PREP_BUSINESS_IMPORTS_TABLE = 'prep_business_imports';
 
@@ -114,7 +119,7 @@ export const supabaseHelpers = {
     const basePayload = {
       user_id: data.user_id,
       company_id: data.company_id,
-      destination_country: data.destination_country || "FR",
+      destination_country: normalizePrepDestinationCountry(data.destination_country || "FR"),
       warehouse_country: warehouseCountry,
       status: data.status || "pending",
       obs_admin: data.obs_admin || null,
