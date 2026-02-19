@@ -17,6 +17,7 @@ import AdminPricing from './AdminPricing';
 import AdminShippingRates from './AdminShippingRates';
 import AdminReturns from './AdminReturns';
 import AdminChat from './AdminChat';
+import AdminChatWidget from './AdminChatWidget';
 import AdminInvoicesOverview from './AdminInvoicesOverview';
 import { getTabId } from '@/utils/tabIdentity';
 import { tabSessionStorage } from '@/utils/tabStorage';
@@ -1645,6 +1646,7 @@ if (!isAdmin) {
           </div>
         </div>
       </div>
+      <AdminChatWidget />
     </div>
   );
 }
