@@ -21,6 +21,7 @@ const BUTIC_COPY = {
     contact: 'Contact',
     qtyUnit: 'pcs',
     myOffersFromInventory: 'My offers (from inventory)',
+    inventorySectionHint: 'Only products with stock greater than 0 are shown here.',
     inventorySearchPlaceholder: 'Search inventory: ASIN / EAN / name',
     noInventoryStock: 'No products with available stock.',
     stockLabel: 'Stock',
@@ -75,6 +76,7 @@ const BUTIC_COPY = {
     contact: 'Contacteaza',
     qtyUnit: 'buc',
     myOffersFromInventory: 'Ofertele mele (din inventar)',
+    inventorySectionHint: 'Aici apar doar produsele cu stoc mai mare de 0.',
     inventorySearchPlaceholder: 'Cauta in inventar: ASIN / EAN / nume',
     noInventoryStock: 'Nu ai produse cu stoc disponibil.',
     stockLabel: 'Stoc',
@@ -129,6 +131,7 @@ const BUTIC_COPY = {
     contact: 'Contacter',
     qtyUnit: 'pcs',
     myOffersFromInventory: 'Mes offres (depuis inventaire)',
+    inventorySectionHint: 'Seuls les produits avec un stock superieur a 0 sont affiches ici.',
     inventorySearchPlaceholder: 'Rechercher en inventaire: ASIN / EAN / nom',
     noInventoryStock: 'Aucun produit avec stock disponible.',
     stockLabel: 'Stock',
@@ -183,6 +186,7 @@ const BUTIC_COPY = {
     contact: 'Kontaktieren',
     qtyUnit: 'Stk',
     myOffersFromInventory: 'Meine Angebote (aus Bestand)',
+    inventorySectionHint: 'Hier werden nur Produkte mit Bestand grosser als 0 angezeigt.',
     inventorySearchPlaceholder: 'Im Bestand suchen: ASIN / EAN / Name',
     noInventoryStock: 'Keine Produkte mit verfugbarem Bestand.',
     stockLabel: 'Bestand',
@@ -237,6 +241,7 @@ const BUTIC_COPY = {
     contact: 'Contatta',
     qtyUnit: 'pz',
     myOffersFromInventory: 'Le mie offerte (da inventario)',
+    inventorySectionHint: 'Qui vengono mostrati solo i prodotti con stock maggiore di 0.',
     inventorySearchPlaceholder: 'Cerca in inventario: ASIN / EAN / nome',
     noInventoryStock: 'Nessun prodotto con stock disponibile.',
     stockLabel: 'Stock',
@@ -291,6 +296,7 @@ const BUTIC_COPY = {
     contact: 'Contactar',
     qtyUnit: 'uds',
     myOffersFromInventory: 'Mis ofertas (desde inventario)',
+    inventorySectionHint: 'Aqui se muestran solo productos con stock mayor que 0.',
     inventorySearchPlaceholder: 'Buscar en inventario: ASIN / EAN / nombre',
     noInventoryStock: 'No tienes productos con stock disponible.',
     stockLabel: 'Stock',
@@ -776,6 +782,7 @@ export default function Butic() {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4">
           <div className="mb-3 text-sm font-semibold text-slate-800">{copy.myOffersFromInventory}</div>
+          <div className="mb-2 text-xs text-slate-500">{copy.inventorySectionHint}</div>
           <div className="rounded-xl border border-slate-200 p-3">
             <input
               value={inventorySearch}
