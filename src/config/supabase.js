@@ -3815,7 +3815,7 @@ getAllReceivingShipments: async (options = {}) => {
   listClientMarketListings: async ({ country, search, limit = 200 } = {}) => {
     let query = supabase
       .from('client_market_listings')
-      .select('id, owner_user_id, owner_company_id, country, asin, ean, product_name, price_eur, quantity, note, is_active, created_at')
+      .select('id, owner_user_id, owner_company_id, stock_item_id, country, asin, ean, product_name, price_eur, quantity, note, is_active, created_at')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -3832,6 +3832,7 @@ getAllReceivingShipments: async (options = {}) => {
   createClientMarketListing: async ({
     ownerUserId,
     ownerCompanyId,
+    stockItemId,
     country,
     asin,
     ean,
@@ -3848,6 +3849,7 @@ getAllReceivingShipments: async (options = {}) => {
       .insert({
         owner_user_id: ownerUserId,
         owner_company_id: ownerCompanyId || ownerUserId,
+        stock_item_id: stockItemId || null,
         country: String(country || 'FR').toUpperCase(),
         asin: asin?.trim() || null,
         ean: ean?.trim() || null,
@@ -3858,6 +3860,21 @@ getAllReceivingShipments: async (options = {}) => {
       })
       .select('*')
       .single();
+  },
+
+  listClientInventoryForMarket: async ({ companyId, search, limit = 500 } = {}) => {
+    if (!companyId) return { data: [], error: null };
+    let query = supabase
+      .from('stock_items')
+      .select('id, company_id, name, asin, ean, qty')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    const q = String(search || '').trim();
+    if (q) {
+      query = query.or(`name.ilike.%${q}%,asin.ilike.%${q}%,ean.ilike.%${q}%`);
+    }
+    return await query;
   },
 
   setClientMarketListingActive: async ({ listingId, isActive }) => {

@@ -4,30 +4,27 @@ import { useMarket } from '@/contexts/MarketContext';
 import { supabase, supabaseHelpers } from '@/config/supabase';
 import { useT } from '@/i18n/useT';
 
+const COUNTRY_OPTIONS = ['ALL', 'FR', 'DE', 'IT', 'ES'];
+
 export default function Butic() {
   const t = useT();
   const { user, profile } = useSupabaseAuth();
   const { currentMarket } = useMarket();
-  const [search, setSearch] = useState('');
   const [countryFilter, setCountryFilter] = useState('ALL');
-  const [onlyMine, setOnlyMine] = useState(false);
+  const [allSearch, setAllSearch] = useState('');
+  const [inventorySearch, setInventorySearch] = useState('');
   const [loadingListings, setLoadingListings] = useState(false);
-  const [listings, setListings] = useState([]);
+  const [allListings, setAllListings] = useState([]);
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [selectedStockItemId, setSelectedStockItemId] = useState('');
+  const [priceEur, setPriceEur] = useState('');
+  const [note, setNote] = useState('');
   const [creating, setCreating] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
-  const [loadingMessages, setLoadingMessages] = useState(false);
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
   const [sending, setSending] = useState(false);
-  const [form, setForm] = useState({
-    asin: '',
-    ean: '',
-    productName: '',
-    priceEur: '',
-    quantity: 1,
-    note: ''
-  });
   const messagesRef = useRef(null);
 
   const isAdmin = !!(
@@ -35,23 +32,32 @@ export default function Butic() {
     profile?.is_admin === true ||
     user?.user_metadata?.account_type === 'admin'
   );
-  const market = String(currentMarket || profile?.country || 'FR').toUpperCase();
   const me = user?.id || null;
+  const market = String(currentMarket || profile?.country || 'FR').toUpperCase();
+  const myCompanyId = profile?.company_id || me;
 
   useEffect(() => {
     setCountryFilter(String(currentMarket || 'FR').toUpperCase());
   }, [currentMarket]);
 
-  const loadListings = async () => {
+  const loadAllListings = async () => {
     if (!me) return;
     setLoadingListings(true);
     const res = await supabaseHelpers.listClientMarketListings({
       country: countryFilter === 'ALL' ? null : countryFilter,
-      search: search.trim() || null
+      search: allSearch.trim() || null
     });
-    const rows = (res?.data || []).filter((row) => (onlyMine ? row.owner_user_id === me : true));
-    setListings(rows);
+    setAllListings(res?.data || []);
     setLoadingListings(false);
+  };
+
+  const loadInventory = async () => {
+    if (!myCompanyId) return;
+    const res = await supabaseHelpers.listClientInventoryForMarket({
+      companyId: myCompanyId,
+      search: inventorySearch.trim() || null
+    });
+    setInventoryItems((res?.data || []).filter((row) => Number(row?.qty || 0) > 0));
   };
 
   const loadConversations = async () => {
@@ -59,9 +65,7 @@ export default function Butic() {
     const res = await supabaseHelpers.listClientMarketConversations({ country: market });
     const rows = res?.data || [];
     setConversations(rows);
-    if (!activeConversationId && rows.length) {
-      setActiveConversationId(rows[0].id);
-    }
+    if (!activeConversationId && rows.length) setActiveConversationId(rows[0].id);
     if (activeConversationId && rows.length && !rows.some((r) => r.id === activeConversationId)) {
       setActiveConversationId(rows[0].id);
     }
@@ -69,17 +73,36 @@ export default function Butic() {
 
   useEffect(() => {
     if (!me || isAdmin) return;
-    loadListings();
-    const t = setInterval(loadListings, 10000);
-    return () => clearInterval(t);
-  }, [me, isAdmin, market, search, onlyMine, countryFilter]);
+    loadAllListings();
+    const timer = setInterval(loadAllListings, 10000);
+    return () => clearInterval(timer);
+  }, [me, isAdmin, countryFilter, allSearch]);
+
+  useEffect(() => {
+    if (!me || isAdmin) return;
+    loadInventory();
+  }, [me, isAdmin, myCompanyId, inventorySearch]);
 
   useEffect(() => {
     if (!me || isAdmin) return;
     loadConversations();
-    const t = setInterval(loadConversations, 5000);
-    return () => clearInterval(t);
+    const timer = setInterval(loadConversations, 5000);
+    return () => clearInterval(timer);
   }, [me, isAdmin, market]);
+
+  const selectedInventoryItem = useMemo(
+    () => inventoryItems.find((item) => item.id === selectedStockItemId) || null,
+    [inventoryItems, selectedStockItemId]
+  );
+
+  const myListings = useMemo(
+    () => allListings.filter((row) => row.owner_user_id === me),
+    [allListings, me]
+  );
+  const marketListings = useMemo(
+    () => allListings.filter((row) => row.owner_user_id !== me),
+    [allListings, me]
+  );
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeConversationId) || null,
@@ -91,12 +114,10 @@ export default function Butic() {
       setMessages([]);
       return;
     }
-    setLoadingMessages(true);
     const res = await supabaseHelpers.listClientMarketMessages({
       conversationId: activeConversationId
     });
     setMessages(res?.data || []);
-    setLoadingMessages(false);
     requestAnimationFrame(() => {
       if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
     });
@@ -128,34 +149,35 @@ export default function Butic() {
     };
   }, [activeConversationId]);
 
-  const createListing = async (event) => {
+  const createListingFromInventory = async (event) => {
     event.preventDefault();
-    if (!me || !form.productName.trim() || !form.priceEur) return;
+    if (!selectedInventoryItem || !priceEur || !me) return;
     setCreating(true);
-    const ownerCompanyId = profile?.company_id || me;
     const res = await supabaseHelpers.createClientMarketListing({
       ownerUserId: me,
-      ownerCompanyId,
+      ownerCompanyId: myCompanyId,
+      stockItemId: selectedInventoryItem.id,
       country: market,
-      asin: form.asin,
-      ean: form.ean,
-      productName: form.productName,
-      priceEur: form.priceEur,
-      quantity: form.quantity,
-      note: form.note
+      asin: selectedInventoryItem.asin || null,
+      ean: selectedInventoryItem.ean || null,
+      productName: selectedInventoryItem.name || 'Product',
+      priceEur,
+      quantity: Math.max(1, Number(selectedInventoryItem.qty || 1)),
+      note
     });
     if (res?.error) {
       console.error('Failed to create listing:', res.error);
     } else {
-      setForm({ asin: '', ean: '', productName: '', priceEur: '', quantity: 1, note: '' });
-      loadListings();
+      setPriceEur('');
+      setNote('');
+      setSelectedStockItemId('');
+      loadAllListings();
     }
     setCreating(false);
   };
 
   const openListingChat = async (listing) => {
     if (!listing?.id || !me) return;
-    if (listing.owner_user_id === me) return;
     const conv = await supabaseHelpers.getOrCreateClientMarketConversation({
       listingId: listing.id
     });
@@ -164,9 +186,7 @@ export default function Butic() {
       return;
     }
     await loadConversations();
-    if (conv?.data?.id) {
-      setActiveConversationId(conv.data.id);
-    }
+    if (conv?.data?.id) setActiveConversationId(conv.data.id);
   };
 
   const sendMessage = async () => {
@@ -198,153 +218,134 @@ export default function Butic() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6">
+    <div className="mx-auto max-w-[1600px] px-4 py-6">
       <div className="mb-4 rounded-2xl border border-orange-200 bg-orange-50 p-4">
         <div className="text-lg font-semibold text-orange-800">
           {t('nav.exchange', 'Exchange')} & {t('nav.resale', 'Revente')}
         </div>
         <div className="text-sm text-orange-700">
-          Listările afișează doar produsul. Fără nume companie. Discuțiile se fac privat în chat.
+          1) Toate ofertele clienților, 2) Ofertele tale din inventar, 3) Chat de negociere.
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[420px_minmax(0,1fr)]">
-        <div className="space-y-4">
-          <form onSubmit={createListing} className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="mb-3 text-sm font-semibold text-slate-800">Adaugă produs în Butic</div>
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                value={form.asin}
-                onChange={(e) => setForm((f) => ({ ...f, asin: e.target.value }))}
-                placeholder="ASIN"
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-              <input
-                value={form.ean}
-                onChange={(e) => setForm((f) => ({ ...f, ean: e.target.value }))}
-                placeholder="EAN"
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-            </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_420px_minmax(0,1fr)]">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="mb-3 text-sm font-semibold text-slate-800">Toate ofertele</div>
+          <div className="mb-2 flex items-center gap-2">
+            <select
+              value={countryFilter}
+              onChange={(e) => setCountryFilter(e.target.value)}
+              className="rounded-lg border border-slate-200 px-2 py-2 text-sm"
+            >
+              {COUNTRY_OPTIONS.map((code) => (
+                <option key={code} value={code}>
+                  {code === 'ALL' ? 'All' : code}
+                </option>
+              ))}
+            </select>
             <input
-              value={form.productName}
-              onChange={(e) => setForm((f) => ({ ...f, productName: e.target.value }))}
-              placeholder="Nume produs"
-              className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={allSearch}
+              onChange={(e) => setAllSearch(e.target.value)}
+              placeholder="ASIN / EAN / nume"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="max-h-[760px] space-y-2 overflow-y-auto pr-1">
+            {loadingListings && <div className="text-sm text-slate-500">Se încarcă...</div>}
+            {!loadingListings && marketListings.length === 0 && (
+              <div className="text-sm text-slate-500">Nu există oferte.</div>
+            )}
+            {marketListings.map((listing) => (
+              <div key={listing.id} className="rounded-xl border border-slate-200 p-3">
+                <div className="text-sm font-semibold text-slate-900">{listing.product_name}</div>
+                <div className="mt-1 text-xs text-slate-500">
+                  {listing.asin ? `ASIN: ${listing.asin} · ` : ''}
+                  {listing.ean ? `EAN: ${listing.ean}` : ''}
+                </div>
+                <div className="mt-1 text-xs text-slate-600">
+                  {listing.quantity} buc · {Number(listing.price_eur || 0).toFixed(2)} EUR
+                </div>
+                {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
+                <button
+                  onClick={() => openListingChat(listing)}
+                  className="mt-2 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
+                >
+                  Contactează
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="mb-3 text-sm font-semibold text-slate-800">Ofertele mele (din inventar)</div>
+          <form onSubmit={createListingFromInventory} className="space-y-2 rounded-xl border border-slate-200 p-3">
+            <input
+              value={inventorySearch}
+              onChange={(e) => setInventorySearch(e.target.value)}
+              placeholder="Caută în inventar: ASIN / EAN / nume"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+            <select
+              value={selectedStockItemId}
+              onChange={(e) => setSelectedStockItemId(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              required
+            >
+              <option value="">Selectează produs din inventar...</option>
+              {inventoryItems.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {(item.name || 'Produs')} | ASIN {item.asin || '-'} | EAN {item.ean || '-'} | Qty {item.qty || 0}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={priceEur}
+              onChange={(e) => setPriceEur(e.target.value)}
+              placeholder="Preț EUR"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               required
             />
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.priceEur}
-                onChange={(e) => setForm((f) => ({ ...f, priceEur: e.target.value }))}
-                placeholder="Preț EUR"
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                required
-              />
-              <input
-                type="number"
-                min="1"
-                value={form.quantity}
-                onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
-                placeholder="Cantitate"
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-            </div>
             <textarea
-              value={form.note}
-              onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
               placeholder="Notă (opțional)"
               rows={2}
-              className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
             <button
               type="submit"
-              disabled={creating}
-              className="mt-2 w-full rounded-lg bg-orange-500 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+              disabled={!selectedStockItemId || !priceEur || creating}
+              className="w-full rounded-lg bg-orange-500 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
             >
-              {creating ? 'Se adaugă...' : 'Publică produs'}
+              {creating ? 'Se publică...' : 'Publică oferta'}
             </button>
           </form>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <select
-                value={countryFilter}
-                onChange={(e) => setCountryFilter(e.target.value)}
-                className="rounded-lg border border-slate-200 px-2 py-2 text-sm"
-              >
-                <option value="ALL">All countries</option>
-                <option value="FR">FR</option>
-                <option value="DE">DE</option>
-                <option value="IT">IT</option>
-                <option value="ES">ES</option>
-              </select>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Caută după ASIN / EAN / nume"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-              <label className="inline-flex items-center gap-1 text-xs text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={onlyMine}
-                  onChange={(e) => setOnlyMine(e.target.checked)}
-                />
-                ale mele
-              </label>
-            </div>
-
-            <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
-              {loadingListings && <div className="text-sm text-slate-500">Se încarcă...</div>}
-              {!loadingListings && listings.length === 0 && (
-                <div className="text-sm text-slate-500">Nu există produse încă.</div>
-              )}
-              {listings.map((listing) => (
-                <div key={listing.id} className="rounded-xl border border-slate-200 p-3">
-                  <div className="text-sm font-semibold text-slate-900">{listing.product_name}</div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    {listing.asin ? `ASIN: ${listing.asin} · ` : ''}
-                    {listing.ean ? `EAN: ${listing.ean}` : ''}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-600">
-                    {listing.quantity} buc · {Number(listing.price_eur || 0).toFixed(2)} EUR
-                  </div>
-                  {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="text-[11px] text-slate-400">
-                      {new Date(listing.created_at).toLocaleString()}
-                    </div>
-                    {listing.owner_user_id === me ? (
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
-                        Listingul tău
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => openListingChat(listing)}
-                        className="rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
-                      >
-                        Contactează
-                      </button>
-                    )}
-                  </div>
+          <div className="mt-3 max-h-[440px] space-y-2 overflow-y-auto pr-1">
+            {myListings.length === 0 && <div className="text-sm text-slate-500">Nu ai oferte publicate.</div>}
+            {myListings.map((listing) => (
+              <div key={listing.id} className="rounded-xl border border-orange-200 bg-orange-50 p-3">
+                <div className="text-sm font-semibold text-slate-900">{listing.product_name}</div>
+                <div className="mt-1 text-xs text-slate-600">
+                  {listing.quantity} buc · {Number(listing.price_eur || 0).toFixed(2)} EUR
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        </div>
+        </section>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-0 overflow-hidden">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="border-b border-slate-200 px-4 py-3">
             <div className="text-sm font-semibold text-slate-900">Chat Butic</div>
-            <div className="text-xs text-slate-500">Discuții anonime între clienți</div>
+            <div className="text-xs text-slate-500">Negociere între clienți</div>
           </div>
-          <div className="grid h-[760px] grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="grid h-[820px] grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
             <div className="border-r border-slate-200 p-3">
-              <div className="max-h-[700px] space-y-2 overflow-y-auto pr-1">
+              <div className="max-h-[770px] space-y-2 overflow-y-auto pr-1">
                 {conversations.length === 0 && (
                   <div className="text-sm text-slate-500">Nu ai conversații încă.</div>
                 )}
@@ -376,9 +377,8 @@ export default function Butic() {
             <div className="flex h-full flex-col">
               <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 py-3">
                 {!activeConversation && (
-                  <div className="text-sm text-slate-500">Alege o conversație sau apasă „Contactează” pe un produs.</div>
+                  <div className="text-sm text-slate-500">Alege o conversație sau apasă „Contactează”.</div>
                 )}
-                {loadingMessages && <div className="text-sm text-slate-500">Se încarcă mesaje...</div>}
                 {messages.map((msg) => {
                   const mine = msg.sender_user_id === me;
                   return (
@@ -410,13 +410,10 @@ export default function Butic() {
                     Trimite
                   </button>
                 </div>
-                <div className="mt-1 text-[11px] text-slate-400">
-                  Pentru facturi: atașarea de fișiere vine în pasul următor.
-                </div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );
