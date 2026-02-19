@@ -3866,7 +3866,7 @@ getAllReceivingShipments: async (options = {}) => {
     if (!companyId) return { data: [], error: null };
     let query = supabase
       .from('stock_items')
-      .select('id, company_id, name, asin, ean, qty')
+      .select('id, company_id, name, asin, ean, qty, image_url')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(limit);
