@@ -468,10 +468,6 @@ export default function Butic() {
     });
   }, [selectedInventoryItem?.id, selectedInventoryItem?.qty]);
 
-  const myListings = useMemo(
-    () => allListings.filter((row) => row.owner_user_id === me),
-    [allListings, me]
-  );
   const marketListings = useMemo(() => allListings, [allListings]);
 
   const activeConversation = useMemo(
@@ -704,49 +700,75 @@ export default function Butic() {
             {!loadingListings && marketListings.length === 0 && (
               <div className="text-sm text-slate-500">{copy.noOffers}</div>
             )}
+            {listingActionError && <div className="text-xs font-medium text-red-600">{listingActionError}</div>}
             {marketListings.map((listing) => (
               <div key={listing.id} className="rounded-xl border border-slate-200 p-3">
-                <div className="flex items-start gap-3">
-                  <img
-                    src={
-                      failedImageIds.has(`listing-${listing.id}`)
-                        ? '/images/product-placeholder.png'
-                        : (getListingImageUrl(listing) || '/images/product-placeholder.png')
-                    }
-                    onError={() => {
-                      setFailedImageIds((prev) => {
-                        const next = new Set(prev);
-                        next.add(`listing-${listing.id}`);
-                        return next;
-                      });
-                    }}
-                    alt={listing.product_name || 'Product'}
-                    className="h-14 w-14 shrink-0 rounded-lg border border-slate-200 object-cover"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm font-semibold text-slate-900">{listing.product_name}</div>
-                      {listing.owner_user_id === me && (
-                        <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
-                          {copy.myOfferTag}
-                        </span>
-                      )}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <img
+                      src={
+                        failedImageIds.has(`listing-${listing.id}`)
+                          ? '/images/product-placeholder.png'
+                          : (getListingImageUrl(listing) || '/images/product-placeholder.png')
+                      }
+                      onError={() => {
+                        setFailedImageIds((prev) => {
+                          const next = new Set(prev);
+                          next.add(`listing-${listing.id}`);
+                          return next;
+                        });
+                      }}
+                      alt={listing.product_name || 'Product'}
+                      className="h-14 w-14 shrink-0 rounded-lg border border-slate-200 object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-semibold text-slate-900">{listing.product_name}</div>
+                        {listing.owner_user_id === me && (
+                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
+                            {copy.myOfferTag}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {formatProductCodes(copy, listing.asin, listing.ean)}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-600">
+                        {listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR · {listing.country || '-'}
+                      </div>
+                      {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
                     </div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      {formatProductCodes(copy, listing.asin, listing.ean)}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-600">
-                      {listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR · {listing.country || '-'}
-                    </div>
-                    {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
+                  </div>
+                  <div className="flex shrink-0 flex-col gap-2">
+                    {listing.owner_user_id === me ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => finalizeListingSale(listing)}
+                          disabled={busyListingId === listing.id}
+                          className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                        >
+                          {copy.finalizeSale}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeListing(listing)}
+                          disabled={busyListingId === listing.id}
+                          className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                        >
+                          {copy.removeFromSale}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => openListingChat(listing)}
+                        className="rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
+                      >
+                        {copy.contact}
+                      </button>
+                    )}
                   </div>
                 </div>
-                <button
-                  onClick={() => openListingChat(listing)}
-                  className="mt-2 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
-                >
-                  {copy.contact}
-                </button>
               </div>
             ))}
           </div>
@@ -879,40 +901,6 @@ export default function Butic() {
             </form>
           </div>
 
-          <div className="mt-3 max-h-[360px] space-y-2 overflow-y-auto pr-1">
-            {myListings.length === 0 && <div className="text-sm text-slate-500">{copy.noMyOffers}</div>}
-            {listingActionError && <div className="text-xs font-medium text-red-600">{listingActionError}</div>}
-            {myListings.map((listing) => (
-              <div key={listing.id} className="rounded-xl border border-orange-200 bg-orange-50 p-3">
-                <div className="text-sm font-semibold text-slate-900">{listing.product_name}</div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {formatProductCodes(copy, listing.asin, listing.ean)}
-                </div>
-                <div className="mt-1 text-xs text-slate-600">
-                  {listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR
-                </div>
-                {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
-                <div className="mt-2 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => finalizeListingSale(listing)}
-                    disabled={busyListingId === listing.id}
-                    className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-                  >
-                    {copy.finalizeSale}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeListing(listing)}
-                    disabled={busyListingId === listing.id}
-                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                  >
-                    {copy.removeFromSale}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
         </section>
       </div>
 
