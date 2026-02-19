@@ -185,8 +185,11 @@ useEffect(() => {
   const [pendingPrepCount, setPendingPrepCount] = useState(0);
   const [pendingReturnsCount, setPendingReturnsCount] = useState(0);
   const [pendingAffiliateCount, setPendingAffiliateCount] = useState(0);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const pendingCountsInFlightRef = useRef(false);
   const pendingCountsLastRunRef = useRef(0);
+  const chatUnreadInFlightRef = useRef(false);
+  const chatUnreadLastRunRef = useRef(0);
   const [reviews, setReviews] = useState([]); // Added reviews state
   const [contentData, setContentData] = useState({}); // Added contentData state
   const [servicesLanguage, setServicesLanguage] = useState('en');
@@ -294,6 +297,52 @@ useEffect(() => {
       }
     };
   }, [currentMarket]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadChatUnread = async () => {
+      if (!user?.id) return;
+      if (chatUnreadInFlightRef.current) return;
+      const now = Date.now();
+      if (now - chatUnreadLastRunRef.current < 3000) return;
+      chatUnreadInFlightRef.current = true;
+      try {
+        const convRes = await supabaseHelpers.listChatConversations({
+          country: currentMarket || null
+        });
+        const rows = convRes?.data || [];
+        const unreadEntries = await Promise.all(
+          rows.map(async (conv) => {
+            const res = await supabaseHelpers.getChatUnreadCount({ conversationId: conv.id });
+            return Number(res?.data || 0);
+          })
+        );
+        if (!mounted) return;
+        setChatUnreadCount(unreadEntries.reduce((sum, n) => sum + n, 0));
+        chatUnreadLastRunRef.current = Date.now();
+      } finally {
+        chatUnreadInFlightRef.current = false;
+      }
+    };
+    const tick = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadChatUnread();
+    };
+    tick();
+    const intervalId = setInterval(tick, 5000);
+    const onVisibility = () => tick();
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility);
+    }
+    return () => {
+      mounted = false;
+      clearInterval(intervalId);
+      chatUnreadInFlightRef.current = false;
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
+    };
+  }, [user?.id, currentMarket]);
 
   const fetchServices = async () => {
     try {
@@ -1619,6 +1668,10 @@ if (!isAdmin) {
                             ? activeTab === tab.id
                               ? 'bg-green-600 text-white'
                               : 'bg-green-50 text-green-700 hover:bg-green-100'
+                          : tab.id === 'chat' && chatUnreadCount > 0
+                            ? activeTab === tab.id
+                              ? 'bg-red-600 text-white'
+                              : 'bg-red-50 text-red-700 hover:bg-red-100'
                           : activeTab === tab.id
                             ? 'bg-primary text-white'
                             : 'text-text-secondary hover:bg-gray-50'
@@ -1626,6 +1679,13 @@ if (!isAdmin) {
                   >
                     <tab.icon className="w-4 h-4 mr-2" />
                     {tab.label}
+                    {tab.id === 'chat' && chatUnreadCount > 0 && (
+                      <span className={`ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
+                        activeTab === tab.id ? 'bg-white text-red-600' : 'bg-red-600 text-white'
+                      }`}>
+                        {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                      </span>
+                    )}
                   </button>
                 ))}
               </nav>
