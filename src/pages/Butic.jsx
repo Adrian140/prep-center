@@ -365,6 +365,14 @@ function getListingImageUrl(listing) {
   return stockItem?.image_url || null;
 }
 
+function getAvailableInventoryStock(item) {
+  const qty = Number(item?.qty || 0);
+  const byCountry = item?.prep_qty_by_country;
+  if (!byCountry || typeof byCountry !== 'object') return qty;
+  const prepSum = Object.values(byCountry).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  return Math.max(qty, prepSum);
+}
+
 export default function Butic() {
   const t = useT();
   const { currentLanguage } = useLanguage();
@@ -417,12 +425,11 @@ export default function Butic() {
   };
 
   const loadInventory = async () => {
-    if (!myCompanyId) return;
     const res = await supabaseHelpers.listClientInventoryForMarket({
-      companyId: myCompanyId,
+      companyId: null,
       search: inventorySearch.trim() || null
     });
-    setInventoryItems((res?.data || []).filter((row) => Number(row?.qty || 0) > 0));
+    setInventoryItems((res?.data || []).filter((row) => getAvailableInventoryStock(row) > 0));
   };
 
   const loadConversations = async () => {
@@ -446,7 +453,7 @@ export default function Butic() {
   useEffect(() => {
     if (!me || isAdmin) return;
     loadInventory();
-  }, [me, isAdmin, myCompanyId, inventorySearch]);
+  }, [me, isAdmin, inventorySearch]);
 
   useEffect(() => {
     if (!me || isAdmin) return;
@@ -465,7 +472,7 @@ export default function Butic() {
       setQuantityToSell('1');
       return;
     }
-    const stock = Math.max(1, Number(selectedInventoryItem.qty || 1));
+    const stock = Math.max(1, getAvailableInventoryStock(selectedInventoryItem));
     setQuantityToSell((prev) => {
       const numeric = Number(prev);
       if (!Number.isFinite(numeric) || numeric < 1) return '1';
@@ -531,7 +538,7 @@ export default function Butic() {
       setCreateError(copy.selectCountryError);
       return;
     }
-    const availableStock = Math.max(1, Number(selectedInventoryItem.qty || 1));
+    const availableStock = Math.max(1, getAvailableInventoryStock(selectedInventoryItem));
     const parsedQuantity = Number(quantityToSell);
     if (!Number.isFinite(parsedQuantity) || parsedQuantity < 1) {
       setCreateError(copy.quantityInvalidError);
@@ -829,7 +836,7 @@ export default function Butic() {
                       </div>
                     </div>
                     <div className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
-                      {copy.stockLabel} {Number(item.qty || 0)}
+                      {copy.stockLabel} {getAvailableInventoryStock(item)}
                     </div>
                   </div>
                 </button>
@@ -877,7 +884,7 @@ export default function Butic() {
               />
               {selectedInventoryItem && (
                 <div className="text-xs text-slate-500">
-                  {copy.availableStockLabel}: {Math.max(1, Number(selectedInventoryItem.qty || 1))}
+                  {copy.availableStockLabel}: {Math.max(1, getAvailableInventoryStock(selectedInventoryItem))}
                 </div>
               )}
               <input

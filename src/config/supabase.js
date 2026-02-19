@@ -3866,14 +3866,13 @@ getAllReceivingShipments: async (options = {}) => {
       .single();
   },
 
-  listClientInventoryForMarket: async ({ companyId, search, limit = 500 } = {}) => {
-    if (!companyId) return { data: [], error: null };
+  listClientInventoryForMarket: async ({ companyId, search, limit = 50000 } = {}) => {
     let query = supabase
       .from('stock_items')
-      .select('id, company_id, name, asin, ean, qty, image_url')
-      .eq('company_id', companyId)
+      .select('id, company_id, name, asin, ean, qty, prep_qty_by_country, image_url')
       .order('created_at', { ascending: false })
       .limit(limit);
+    if (companyId) query = query.eq('company_id', companyId);
     const q = String(search || '').trim();
     if (q) {
       query = query.or(`name.ilike.%${q}%,asin.ilike.%${q}%,ean.ilike.%${q}%`);
