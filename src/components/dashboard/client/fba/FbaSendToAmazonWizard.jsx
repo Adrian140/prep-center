@@ -3166,31 +3166,44 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           packing_group_updates: packingGroupUpdates
         }
       });
-      if (error) throw error;
-      if (Array.isArray(data?.packingOptions)) setPackingOptions(sanitizePackingOptions(data.packingOptions));
-      if (data?.code === 'PACKING_GROUPS_NOT_READY') {
-        const trace = data?.traceId || data?.trace_id || null;
-        const msg = data?.message || wizardCopy.packingWait;
+      let resolvedData = data;
+      if (error) {
+        const parsed = await extractFunctionInvokeError(error);
+        if (parsed?.payload && typeof parsed.payload === 'object') {
+          resolvedData = {
+            ...parsed.payload,
+            ...(parsed?.status ? { status: parsed.status } : {}),
+            ...(parsed?.message ? { message: parsed.message } : {})
+          };
+        } else {
+          throw new Error(parsed?.message || error?.message || 'Could not reload packing groups.');
+        }
+      }
+      const responseData = resolvedData && typeof resolvedData === 'object' ? resolvedData : {};
+      if (Array.isArray(responseData?.packingOptions)) setPackingOptions(sanitizePackingOptions(responseData.packingOptions));
+      if (['PACKING_GROUPS_NOT_READY', 'PACKING_GROUPS_PROCESSING'].includes(responseData?.code)) {
+        const trace = responseData?.traceId || responseData?.trace_id || null;
+        const msg = responseData?.message || wizardCopy.packingWait;
         setPackingReadyError(trace ? `${msg} · TraceId ${trace}` : msg);
         setInboundPlanMissing(true);
         if (!hasRealPackGroups(packGroups)) {
           setPackGroups([]); // nu afișăm nimic local dacă nu avem packing groups reale
         }
-        return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: msg, traceId: trace };
+        return { ok: false, code: responseData?.code || 'PACKING_GROUPS_NOT_READY', message: msg, traceId: trace };
       }
-      if (data?.code === 'PACKING_OPTIONS_NOT_READY') {
-        const trace = data?.traceId || data?.trace_id || null;
-        const msg = data?.message || wizardCopy.inboundPlanEmpty;
+      if (['PACKING_OPTIONS_NOT_READY', 'PACKING_OPTIONS_PROCESSING'].includes(responseData?.code)) {
+        const trace = responseData?.traceId || responseData?.trace_id || null;
+        const msg = responseData?.message || wizardCopy.inboundPlanEmpty;
         setPackingReadyError(trace ? `${msg} · TraceId ${trace}` : msg);
         setInboundPlanMissing(true);
         if (!hasRealPackGroups(packGroups)) {
           setPackGroups([]);
         }
-        return { ok: false, code: 'PACKING_OPTIONS_NOT_READY', message: msg, traceId: trace };
+        return { ok: false, code: responseData?.code || 'PACKING_OPTIONS_NOT_READY', message: msg, traceId: trace };
       }
-      if (data?.code === 'PLACEMENT_ALREADY_ACCEPTED') {
-        const cachedGroups = Array.isArray(data?.packingGroups) ? data.packingGroups : [];
-        const trace = data?.traceId || data?.trace_id || null;
+      if (responseData?.code === 'PLACEMENT_ALREADY_ACCEPTED') {
+        const cachedGroups = Array.isArray(responseData?.packingGroups) ? responseData.packingGroups : [];
+        const trace = responseData?.traceId || responseData?.trace_id || null;
         if (!cachedGroups.length) {
           const msg =
             'Plan is already ACCEPTED in Amazon and packing groups cannot be regenerated. Retry only if you have saved packing groups.';
@@ -3198,27 +3211,27 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           return { ok: false, code: 'PLACEMENT_ALREADY_ACCEPTED', message: msg, traceId: trace };
         }
         setPackingReadyError('Plan is already ACCEPTED in Amazon; using saved packing groups.');
-        if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
-        if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
+        if (responseData?.packingOptionId) setPackingOptionId(responseData.packingOptionId);
+        if (responseData?.placementOptionId) setPlacementOptionId(responseData.placementOptionId);
         const normalized = normalizePackGroups(cachedGroups);
         setPackGroupsLoaded(true);
         setPackGroups((prev) => mergePackGroups(prev, normalized));
-        if (Array.isArray(data?.shipments)) setShipments(data.shipments);
+        if (Array.isArray(responseData?.shipments)) setShipments(responseData.shipments);
         setPlanError('');
-        if (Array.isArray(data?.quantityMismatches) && data.quantityMismatches.length) {
-          const first = data.quantityMismatches[0];
+        if (Array.isArray(responseData?.quantityMismatches) && responseData.quantityMismatches.length) {
+          const first = responseData.quantityMismatches[0];
           const msg = `Quantities differ between UI and Amazon (${first.sku}: Amazon ${first.amazon} vs confirmed ${first.confirmed}).`;
           setPackGroups([]); // nu folosi grupuri Amazon cu cantități vechi
           setPackingReadyError(msg);
-          return { ok: false, code: 'PACKING_QTY_MISMATCH', quantityMismatches: data.quantityMismatches };
+          return { ok: false, code: 'PACKING_QTY_MISMATCH', quantityMismatches: responseData.quantityMismatches };
         }
-        return { ok: true, code: 'PLACEMENT_ALREADY_ACCEPTED', packingOptionId: data?.packingOptionId || null, packingGroups: normalized };
+        return { ok: true, code: 'PLACEMENT_ALREADY_ACCEPTED', packingOptionId: responseData?.packingOptionId || null, packingGroups: normalized };
       }
-      if (data?.packingOptionId) setPackingOptionId(data.packingOptionId);
-      if (data?.placementOptionId) setPlacementOptionId(data.placementOptionId);
-      if (Array.isArray(data?.packingOptions)) setPackingOptions(sanitizePackingOptions(data.packingOptions));
-      if (Array.isArray(data?.packingGroups)) {
-        const normalized = normalizePackGroups(data.packingGroups);
+      if (responseData?.packingOptionId) setPackingOptionId(responseData.packingOptionId);
+      if (responseData?.placementOptionId) setPlacementOptionId(responseData.placementOptionId);
+      if (Array.isArray(responseData?.packingOptions)) setPackingOptions(sanitizePackingOptions(responseData.packingOptions));
+      if (Array.isArray(responseData?.packingGroups)) {
+        const normalized = normalizePackGroups(responseData.packingGroups);
         const filtered = normalized.filter((g) => g.packingGroupId && !isFallbackId(g.packingGroupId));
         if (!filtered.length) {
           const msg = 'Packing groups are missing from Amazon response. Try again in a few seconds.';
@@ -3233,21 +3246,21 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           // sincronizează packingOptionId în plan ca să nu trimitem un ID vechi la setPackingInformation
           setPlan((prev) => ({
             ...prev,
-            packingOptionId: data?.packingOptionId || prev?.packingOptionId || null,
-            packing_option_id: data?.packingOptionId || prev?.packing_option_id || null,
+            packingOptionId: responseData?.packingOptionId || prev?.packingOptionId || null,
+            packing_option_id: responseData?.packingOptionId || prev?.packing_option_id || null,
             inboundPlanId,
             inbound_plan_id: inboundPlanId
           }));
-          if (Array.isArray(data?.quantityMismatches) && data.quantityMismatches.length) {
-            const first = data.quantityMismatches[0];
+          if (Array.isArray(responseData?.quantityMismatches) && responseData.quantityMismatches.length) {
+            const first = responseData.quantityMismatches[0];
             const msg = `Quantities differ between UI and Amazon (${first.sku}: Amazon ${first.amazon} vs confirmed ${first.confirmed}).`;
             setPackGroups([]); // evităm afișarea grupurilor cu cantități vechi
             setPackingReadyError(msg);
-            return { ok: false, code: 'PACKING_QTY_MISMATCH', quantityMismatches: data.quantityMismatches };
+            return { ok: false, code: 'PACKING_QTY_MISMATCH', quantityMismatches: responseData.quantityMismatches };
           }
-          return { ok: true, packingOptionId: data?.packingOptionId || null, packingGroups: filtered };
+          return { ok: true, packingOptionId: responseData?.packingOptionId || null, packingGroups: filtered };
         }
-        if (Array.isArray(data?.shipments)) setShipments(data.shipments);
+        if (Array.isArray(responseData?.shipments)) setShipments(responseData.shipments);
         setPlanError('');
         return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: 'Packing groups are missing from Amazon response.' };
     };
@@ -3258,7 +3271,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       for (let i = 1; i <= maxAttempts; i += 1) {
         const res = await attemptFetch();
         if (res?.ok) return res;
-        if (res?.code !== 'PACKING_GROUPS_NOT_READY') return res;
+        const transientCodes = [
+          'PACKING_GROUPS_NOT_READY',
+          'PACKING_GROUPS_PROCESSING',
+          'PACKING_OPTIONS_NOT_READY',
+          'PACKING_OPTIONS_PROCESSING',
+          'PLAN_STILL_CREATING'
+        ];
+        if (!transientCodes.includes(res?.code)) return res;
         // backoff mic înainte de următoarea încercare
         // eslint-disable-next-line no-await-in-loop
         await new Promise((resolve) => setTimeout(resolve, 800 * i));
@@ -4785,7 +4805,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         // eslint-disable-next-line no-await-in-loop
         const res = await refreshPackingGroups();
         if (res?.ok) return { ok: true };
-        const transientCodes = ['PACKING_GROUPS_NOT_READY', 'PLAN_STILL_CREATING', 'MISSING_IDS'];
+        const transientCodes = [
+          'PACKING_GROUPS_NOT_READY',
+          'PACKING_GROUPS_PROCESSING',
+          'PACKING_OPTIONS_NOT_READY',
+          'PACKING_OPTIONS_PROCESSING',
+          'PLAN_STILL_CREATING',
+          'MISSING_IDS'
+        ];
         if (!transientCodes.includes(res?.code)) return res;
         if (attempt < maxAttempts) {
           // eslint-disable-next-line no-await-in-loop
