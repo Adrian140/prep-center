@@ -2,31 +2,334 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MessageCircle, X } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase, supabaseHelpers } from '@/config/supabase';
 import { useT } from '@/i18n/useT';
 
-const COUNTRY_OPTIONS = ['ALL', 'FR', 'DE', 'IT', 'ES'];
+const OFFER_COUNTRY_OPTIONS = ['FR', 'DE'];
+
+const BUTIC_COPY = {
+  en: {
+    heroDescription: 'Anonymous offers. Add products for sale directly from your inventory with price and note.',
+    openChat: 'Open chat',
+    allOffers: 'All offers',
+    searchAllPlaceholder: 'ASIN / EAN / name',
+    loading: 'Loading...',
+    noOffers: 'No offers available.',
+    contact: 'Contact',
+    qtyUnit: 'pcs',
+    myOffersFromInventory: 'My offers (from inventory)',
+    inventorySearchPlaceholder: 'Search inventory: ASIN / EAN / name',
+    noInventoryStock: 'No products with available stock.',
+    stockLabel: 'Stock',
+    selectedLabel: 'Selected',
+    selectHint: 'Select a product from inventory, then add price and note.',
+    pricePlaceholder: 'Price EUR',
+    notePlaceholder: 'Note (optional)',
+    publishing: 'Publishing...',
+    addForSale: 'Add for sale',
+    listingCountryLabel: 'Storage country',
+    listingCountryPlaceholder: 'Select country (FR/DE)',
+    locatedIn: 'Product "{name}" is in {country}.',
+    noMyOffers: 'You have no published offers yet.',
+    chatTitle: 'Marketplace chat',
+    chatSubtitle: 'Client-to-client negotiation',
+    closeChat: 'Close chat',
+    noConversations: 'No conversations yet.',
+    listingFallback: 'Listing',
+    noCode: 'No code',
+    selectConversation: 'Choose a conversation or click "Contact".',
+    writeMessagePlaceholder: 'Write a message...',
+    send: 'Send',
+    authOnly: 'Marketplace is available only for authenticated clients.',
+    invalidPrice: 'Enter a valid price greater than 0.',
+    selectProductError: 'Select a product from inventory first.',
+    selectCountryError: 'Select storage country (FR or DE).',
+    publishFailed: 'Could not publish offer. Please try again.',
+    sendFailed: 'Could not send message. Please try again.',
+    finalizeSale: 'Finalize sale',
+    removeFromSale: 'Remove from sale',
+    finalizeSaleError: 'Could not finalize the sale. Please try again.',
+    removeSaleError: 'Could not remove the offer. Please try again.',
+    saleFeeHint: 'Finalizing applies an FBA fee of 0.05 EUR per unit.',
+    asin: 'ASIN',
+    ean: 'EAN',
+  },
+  ro: {
+    heroDescription: 'Oferte anonime. Tu adaugi la vanzare direct din inventar, cu pret si nota.',
+    openChat: 'Deschide chat',
+    allOffers: 'Toate ofertele',
+    searchAllPlaceholder: 'ASIN / EAN / nume',
+    loading: 'Se incarca...',
+    noOffers: 'Nu exista oferte.',
+    contact: 'Contacteaza',
+    qtyUnit: 'buc',
+    myOffersFromInventory: 'Ofertele mele (din inventar)',
+    inventorySearchPlaceholder: 'Cauta in inventar: ASIN / EAN / nume',
+    noInventoryStock: 'Nu ai produse cu stoc disponibil.',
+    stockLabel: 'Stoc',
+    selectedLabel: 'Selectat',
+    selectHint: 'Selecteaza un produs din inventar, apoi adauga pret + nota.',
+    pricePlaceholder: 'Pret EUR',
+    notePlaceholder: 'Nota (optional)',
+    publishing: 'Se publica...',
+    addForSale: 'Adauga la vanzare',
+    listingCountryLabel: 'Tara depozitare',
+    listingCountryPlaceholder: 'Selecteaza tara (FR/DE)',
+    locatedIn: 'Produsul "{name}" se afla in {country}.',
+    noMyOffers: 'Nu ai oferte publicate.',
+    chatTitle: 'Chat Butic',
+    chatSubtitle: 'Negociere intre clienti',
+    closeChat: 'Inchide chat',
+    noConversations: 'Nu ai conversatii inca.',
+    listingFallback: 'Oferta',
+    noCode: 'Fara cod',
+    selectConversation: 'Alege o conversatie sau apasa "Contacteaza".',
+    writeMessagePlaceholder: 'Scrie mesaj...',
+    send: 'Trimite',
+    authOnly: 'Buticul este disponibil doar pentru clienti autentificati.',
+    invalidPrice: 'Introdu un pret valid mai mare ca 0.',
+    selectProductError: 'Selecteaza mai intai un produs din inventar.',
+    selectCountryError: 'Selecteaza tara de depozitare (FR sau DE).',
+    publishFailed: 'Oferta nu a putut fi publicata. Incearca din nou.',
+    sendFailed: 'Mesajul nu a putut fi trimis. Incearca din nou.',
+    finalizeSale: 'Vanzare finalizata',
+    removeFromSale: 'Sterge din vanzare',
+    finalizeSaleError: 'Vanzarea nu a putut fi finalizata. Incearca din nou.',
+    removeSaleError: 'Oferta nu a putut fi stearsa. Incearca din nou.',
+    saleFeeHint: 'Finalizarea aplica taxa FBA de 0.05 EUR per produs.',
+    asin: 'ASIN',
+    ean: 'EAN',
+  },
+  fr: {
+    heroDescription: 'Offres anonymes. Ajoutez des produits a vendre depuis votre inventaire avec prix et note.',
+    openChat: 'Ouvrir le chat',
+    allOffers: 'Toutes les offres',
+    searchAllPlaceholder: 'ASIN / EAN / nom',
+    loading: 'Chargement...',
+    noOffers: 'Aucune offre disponible.',
+    contact: 'Contacter',
+    qtyUnit: 'pcs',
+    myOffersFromInventory: 'Mes offres (depuis inventaire)',
+    inventorySearchPlaceholder: 'Rechercher en inventaire: ASIN / EAN / nom',
+    noInventoryStock: 'Aucun produit avec stock disponible.',
+    stockLabel: 'Stock',
+    selectedLabel: 'Selectionne',
+    selectHint: 'Selectionnez un produit de votre inventaire, puis ajoutez prix + note.',
+    pricePlaceholder: 'Prix EUR',
+    notePlaceholder: 'Note (optionnelle)',
+    publishing: 'Publication...',
+    addForSale: 'Ajouter a la vente',
+    listingCountryLabel: 'Pays de stockage',
+    listingCountryPlaceholder: 'Selectionnez le pays (FR/DE)',
+    locatedIn: 'Le produit "{name}" est en {country}.',
+    noMyOffers: 'Aucune offre publiee.',
+    chatTitle: 'Chat B2B',
+    chatSubtitle: 'Negociation entre clients',
+    closeChat: 'Fermer le chat',
+    noConversations: 'Pas encore de conversations.',
+    listingFallback: 'Annonce',
+    noCode: 'Sans code',
+    selectConversation: 'Choisissez une conversation ou cliquez sur "Contacter".',
+    writeMessagePlaceholder: 'Ecrivez un message...',
+    send: 'Envoyer',
+    authOnly: 'Le marche est disponible uniquement pour les clients connectes.',
+    invalidPrice: 'Entrez un prix valide superieur a 0.',
+    selectProductError: 'Selectionnez d abord un produit de l inventaire.',
+    selectCountryError: 'Selectionnez le pays de stockage (FR ou DE).',
+    publishFailed: 'Impossible de publier l offre. Reessayez.',
+    sendFailed: 'Impossible d envoyer le message. Reessayez.',
+    finalizeSale: 'Vente finalisee',
+    removeFromSale: 'Retirer de la vente',
+    finalizeSaleError: 'Impossible de finaliser la vente. Reessayez.',
+    removeSaleError: 'Impossible de retirer l offre. Reessayez.',
+    saleFeeHint: 'La finalisation applique des frais FBA de 0.05 EUR par unite.',
+    asin: 'ASIN',
+    ean: 'EAN',
+  },
+  de: {
+    heroDescription: 'Anonyme Angebote. Produkte direkt aus dem Bestand mit Preis und Notiz anbieten.',
+    openChat: 'Chat offnen',
+    allOffers: 'Alle Angebote',
+    searchAllPlaceholder: 'ASIN / EAN / Name',
+    loading: 'Wird geladen...',
+    noOffers: 'Keine Angebote vorhanden.',
+    contact: 'Kontaktieren',
+    qtyUnit: 'Stk',
+    myOffersFromInventory: 'Meine Angebote (aus Bestand)',
+    inventorySearchPlaceholder: 'Im Bestand suchen: ASIN / EAN / Name',
+    noInventoryStock: 'Keine Produkte mit verfugbarem Bestand.',
+    stockLabel: 'Bestand',
+    selectedLabel: 'Ausgewahlt',
+    selectHint: 'Produkt aus dem Bestand auswahlen, dann Preis + Notiz hinzufugen.',
+    pricePlaceholder: 'Preis EUR',
+    notePlaceholder: 'Notiz (optional)',
+    publishing: 'Wird veroffentlicht...',
+    addForSale: 'Zum Verkauf hinzufugen',
+    listingCountryLabel: 'Lagerland',
+    listingCountryPlaceholder: 'Land auswahlen (FR/DE)',
+    locatedIn: 'Produkt "{name}" befindet sich in {country}.',
+    noMyOffers: 'Noch keine veroffentlichten Angebote.',
+    chatTitle: 'Marketplace-Chat',
+    chatSubtitle: 'Verhandlung zwischen Kunden',
+    closeChat: 'Chat schliessen',
+    noConversations: 'Noch keine Unterhaltungen.',
+    listingFallback: 'Angebot',
+    noCode: 'Kein Code',
+    selectConversation: 'Wahle eine Unterhaltung oder klicke auf "Kontaktieren".',
+    writeMessagePlaceholder: 'Nachricht schreiben...',
+    send: 'Senden',
+    authOnly: 'Der Marktplatz ist nur fur angemeldete Kunden verfugbar.',
+    invalidPrice: 'Gib einen gultigen Preis grosser 0 ein.',
+    selectProductError: 'Wahle zuerst ein Produkt aus dem Bestand.',
+    selectCountryError: 'Wahle das Lagerland (FR oder DE).',
+    publishFailed: 'Angebot konnte nicht veroffentlicht werden. Bitte erneut versuchen.',
+    sendFailed: 'Nachricht konnte nicht gesendet werden. Bitte erneut versuchen.',
+    finalizeSale: 'Verkauf abschliessen',
+    removeFromSale: 'Aus Verkauf entfernen',
+    finalizeSaleError: 'Verkauf konnte nicht abgeschlossen werden. Bitte erneut versuchen.',
+    removeSaleError: 'Angebot konnte nicht entfernt werden. Bitte erneut versuchen.',
+    saleFeeHint: 'Beim Abschluss wird eine FBA-Gebuhr von 0.05 EUR pro Einheit berechnet.',
+    asin: 'ASIN',
+    ean: 'EAN',
+  },
+  it: {
+    heroDescription: 'Offerte anonime. Aggiungi prodotti in vendita direttamente dal tuo inventario con prezzo e nota.',
+    openChat: 'Apri chat',
+    allOffers: 'Tutte le offerte',
+    searchAllPlaceholder: 'ASIN / EAN / nome',
+    loading: 'Caricamento...',
+    noOffers: 'Nessuna offerta disponibile.',
+    contact: 'Contatta',
+    qtyUnit: 'pz',
+    myOffersFromInventory: 'Le mie offerte (da inventario)',
+    inventorySearchPlaceholder: 'Cerca in inventario: ASIN / EAN / nome',
+    noInventoryStock: 'Nessun prodotto con stock disponibile.',
+    stockLabel: 'Stock',
+    selectedLabel: 'Selezionato',
+    selectHint: 'Seleziona un prodotto dall inventario, poi aggiungi prezzo + nota.',
+    pricePlaceholder: 'Prezzo EUR',
+    notePlaceholder: 'Nota (opzionale)',
+    publishing: 'Pubblicazione...',
+    addForSale: 'Aggiungi in vendita',
+    listingCountryLabel: 'Paese di stoccaggio',
+    listingCountryPlaceholder: 'Seleziona paese (FR/DE)',
+    locatedIn: 'Il prodotto "{name}" si trova in {country}.',
+    noMyOffers: 'Nessuna offerta pubblicata.',
+    chatTitle: 'Chat Marketplace',
+    chatSubtitle: 'Negoziazione tra clienti',
+    closeChat: 'Chiudi chat',
+    noConversations: 'Nessuna conversazione.',
+    listingFallback: 'Annuncio',
+    noCode: 'Nessun codice',
+    selectConversation: 'Scegli una conversazione o premi "Contatta".',
+    writeMessagePlaceholder: 'Scrivi un messaggio...',
+    send: 'Invia',
+    authOnly: 'Il marketplace e disponibile solo per clienti autenticati.',
+    invalidPrice: 'Inserisci un prezzo valido maggiore di 0.',
+    selectProductError: 'Seleziona prima un prodotto dall inventario.',
+    selectCountryError: 'Seleziona il paese di stoccaggio (FR o DE).',
+    publishFailed: 'Impossibile pubblicare l offerta. Riprova.',
+    sendFailed: 'Impossibile inviare il messaggio. Riprova.',
+    finalizeSale: 'Vendita completata',
+    removeFromSale: 'Rimuovi dalla vendita',
+    finalizeSaleError: 'Impossibile completare la vendita. Riprova.',
+    removeSaleError: 'Impossibile rimuovere l offerta. Riprova.',
+    saleFeeHint: 'La chiusura applica una tariffa FBA di 0.05 EUR per unita.',
+    asin: 'ASIN',
+    ean: 'EAN',
+  },
+  es: {
+    heroDescription: 'Ofertas anonimas. Agrega productos para vender desde tu inventario con precio y nota.',
+    openChat: 'Abrir chat',
+    allOffers: 'Todas las ofertas',
+    searchAllPlaceholder: 'ASIN / EAN / nombre',
+    loading: 'Cargando...',
+    noOffers: 'No hay ofertas disponibles.',
+    contact: 'Contactar',
+    qtyUnit: 'uds',
+    myOffersFromInventory: 'Mis ofertas (desde inventario)',
+    inventorySearchPlaceholder: 'Buscar en inventario: ASIN / EAN / nombre',
+    noInventoryStock: 'No tienes productos con stock disponible.',
+    stockLabel: 'Stock',
+    selectedLabel: 'Seleccionado',
+    selectHint: 'Selecciona un producto del inventario y agrega precio + nota.',
+    pricePlaceholder: 'Precio EUR',
+    notePlaceholder: 'Nota (opcional)',
+    publishing: 'Publicando...',
+    addForSale: 'Agregar en venta',
+    listingCountryLabel: 'Pais de almacen',
+    listingCountryPlaceholder: 'Selecciona pais (FR/DE)',
+    locatedIn: 'El producto "{name}" esta en {country}.',
+    noMyOffers: 'No tienes ofertas publicadas.',
+    chatTitle: 'Chat Marketplace',
+    chatSubtitle: 'Negociacion entre clientes',
+    closeChat: 'Cerrar chat',
+    noConversations: 'No tienes conversaciones aun.',
+    listingFallback: 'Oferta',
+    noCode: 'Sin codigo',
+    selectConversation: 'Elige una conversacion o pulsa "Contactar".',
+    writeMessagePlaceholder: 'Escribe un mensaje...',
+    send: 'Enviar',
+    authOnly: 'El marketplace esta disponible solo para clientes autenticados.',
+    invalidPrice: 'Introduce un precio valido mayor que 0.',
+    selectProductError: 'Selecciona primero un producto del inventario.',
+    selectCountryError: 'Selecciona el pais de almacen (FR o DE).',
+    publishFailed: 'No se pudo publicar la oferta. Intentalo de nuevo.',
+    sendFailed: 'No se pudo enviar el mensaje. Intentalo de nuevo.',
+    finalizeSale: 'Venta finalizada',
+    removeFromSale: 'Quitar de la venta',
+    finalizeSaleError: 'No se pudo finalizar la venta. Intentalo de nuevo.',
+    removeSaleError: 'No se pudo quitar la oferta. Intentalo de nuevo.',
+    saleFeeHint: 'Al finalizar se aplica una tarifa FBA de 0.05 EUR por unidad.',
+    asin: 'ASIN',
+    ean: 'EAN',
+  }
+};
+
+function formatProductCodes(copy, asin, ean) {
+  const normalizedAsin = String(asin || '').trim();
+  const normalizedEan = String(ean || '').trim();
+  if (normalizedAsin && normalizedEan) {
+    return `${copy.asin}: ${normalizedAsin} · ${copy.ean}: ${normalizedEan}`;
+  }
+  if (normalizedAsin) {
+    return `${copy.asin}: ${normalizedAsin}`;
+  }
+  if (normalizedEan) {
+    return `${copy.ean}: ${normalizedEan}`;
+  }
+  return copy.noCode;
+}
 
 export default function Butic() {
   const t = useT();
+  const { currentLanguage } = useLanguage();
+  const copy = BUTIC_COPY[currentLanguage] || BUTIC_COPY.en;
+
   const { user, profile } = useSupabaseAuth();
   const { currentMarket } = useMarket();
-  const [countryFilter, setCountryFilter] = useState('ALL');
   const [allSearch, setAllSearch] = useState('');
   const [inventorySearch, setInventorySearch] = useState('');
   const [loadingListings, setLoadingListings] = useState(false);
   const [allListings, setAllListings] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [selectedStockItemId, setSelectedStockItemId] = useState('');
+  const [offerCountry, setOfferCountry] = useState('');
   const [priceEur, setPriceEur] = useState('');
   const [note, setNote] = useState('');
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [listingActionError, setListingActionError] = useState('');
+  const [busyListingId, setBusyListingId] = useState(null);
+  const [failedImageIds, setFailedImageIds] = useState(() => new Set());
   const [showChat, setShowChat] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
   const messagesRef = useRef(null);
 
   const isAdmin = !!(
@@ -39,14 +342,19 @@ export default function Butic() {
   const myCompanyId = profile?.company_id || me;
 
   useEffect(() => {
-    setCountryFilter(String(currentMarket || 'FR').toUpperCase());
+    const marketCode = String(currentMarket || '').toUpperCase();
+    if (OFFER_COUNTRY_OPTIONS.includes(marketCode)) {
+      setOfferCountry(marketCode);
+    } else {
+      setOfferCountry('');
+    }
   }, [currentMarket]);
 
   const loadAllListings = async () => {
     if (!me) return;
     setLoadingListings(true);
     const res = await supabaseHelpers.listClientMarketListings({
-      country: countryFilter === 'ALL' ? null : countryFilter,
+      country: null,
       search: allSearch.trim() || null
     });
     setAllListings(res?.data || []);
@@ -78,7 +386,7 @@ export default function Butic() {
     loadAllListings();
     const timer = setInterval(loadAllListings, 10000);
     return () => clearInterval(timer);
-  }, [me, isAdmin, countryFilter, allSearch]);
+  }, [me, isAdmin, allSearch]);
 
   useEffect(() => {
     if (!me || isAdmin) return;
@@ -153,29 +461,82 @@ export default function Butic() {
 
   const createListingFromInventory = async (event) => {
     event.preventDefault();
-    if (!selectedInventoryItem || !priceEur || !me) return;
+    if (!selectedInventoryItem) {
+      setCreateError(copy.selectProductError);
+      return;
+    }
+    if (!offerCountry || !OFFER_COUNTRY_OPTIONS.includes(offerCountry)) {
+      setCreateError(copy.selectCountryError);
+      return;
+    }
+    const parsedPrice = Number(priceEur);
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      setCreateError(copy.invalidPrice);
+      return;
+    }
+    if (!me) return;
+
+    setCreateError('');
     setCreating(true);
+    setListingActionError('');
     const res = await supabaseHelpers.createClientMarketListing({
       ownerUserId: me,
       ownerCompanyId: myCompanyId,
       stockItemId: selectedInventoryItem.id,
-      country: market,
+      country: offerCountry,
       asin: selectedInventoryItem.asin || null,
       ean: selectedInventoryItem.ean || null,
       productName: selectedInventoryItem.name || 'Product',
-      priceEur,
+      priceEur: parsedPrice,
       quantity: Math.max(1, Number(selectedInventoryItem.qty || 1)),
       note
     });
     if (res?.error) {
       console.error('Failed to create listing:', res.error);
+      const errMessage = String(res.error?.message || '');
+      setCreateError(errMessage ? `${copy.publishFailed} (${errMessage})` : copy.publishFailed);
     } else {
       setPriceEur('');
       setNote('');
       setSelectedStockItemId('');
+      setCreateError('');
       loadAllListings();
     }
     setCreating(false);
+  };
+
+  const finalizeListingSale = async (listing) => {
+    if (!listing?.id || busyListingId) return;
+    setBusyListingId(listing.id);
+    setListingActionError('');
+    const res = await supabaseHelpers.finalizeClientMarketSale({
+      listingId: listing.id,
+      units: listing.quantity
+    });
+    if (res?.error) {
+      console.error('Failed to finalize listing sale:', res.error);
+      setListingActionError(copy.finalizeSaleError);
+    } else {
+      await loadAllListings();
+    }
+    setBusyListingId(null);
+  };
+
+  const removeListing = async (listing) => {
+    if (!listing?.id || busyListingId) return;
+    setBusyListingId(listing.id);
+    setListingActionError('');
+    const res = await supabaseHelpers.setClientMarketListingActive({
+      listingId: listing.id,
+      isActive: false
+    });
+    if (res?.error) {
+      console.error('Failed to remove listing:', res.error);
+      setListingActionError(copy.removeSaleError);
+    } else {
+      await loadAllListings();
+    }
+    setBusyListingId(null);
   };
 
   const openListingChat = async (listing) => {
@@ -195,6 +556,7 @@ export default function Butic() {
   const sendMessage = async () => {
     if (!activeConversationId || !me || !messageInput.trim() || sending) return;
     setSending(true);
+    setSendError('');
     const res = await supabaseHelpers.sendClientMarketMessage({
       conversationId: activeConversationId,
       senderUserId: me,
@@ -206,6 +568,7 @@ export default function Butic() {
       loadConversations();
     } else {
       console.error('Failed to send marketplace message:', res.error);
+      setSendError(copy.sendFailed);
     }
     setSending(false);
   };
@@ -214,7 +577,7 @@ export default function Butic() {
     return (
       <div className="mx-auto max-w-4xl px-4 py-16">
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600">
-          Butic este disponibil doar pentru clienți autentificați.
+          {copy.authOnly}
         </div>
       </div>
     );
@@ -225,64 +588,50 @@ export default function Butic() {
       <div className="mb-4 flex items-start justify-between gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-4">
         <div>
           <div className="text-lg font-semibold text-orange-800">
-            {t('nav.exchange', 'Exchange')} & {t('nav.resale', 'Revente')}
+            {t('nav.exchange', 'Exchange')}
           </div>
-          <div className="text-sm text-orange-700">
-            Oferte anonime. Tu adaugi la vânzare direct din inventar, cu preț și notă.
-          </div>
+          <div className="text-sm text-orange-700">{copy.heroDescription}</div>
         </div>
         <button
           onClick={() => setShowChat(true)}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90"
         >
           <MessageCircle size={16} />
-          Deschide chat
+          {copy.openChat}
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="rounded-2xl border border-slate-200 bg-white p-4">
-          <div className="mb-3 text-sm font-semibold text-slate-800">Toate ofertele</div>
+          <div className="mb-3 text-sm font-semibold text-slate-800">{copy.allOffers}</div>
           <div className="mb-2 flex items-center gap-2">
-            <select
-              value={countryFilter}
-              onChange={(e) => setCountryFilter(e.target.value)}
-              className="rounded-lg border border-slate-200 px-2 py-2 text-sm"
-            >
-              {COUNTRY_OPTIONS.map((code) => (
-                <option key={code} value={code}>
-                  {code === 'ALL' ? 'All' : code}
-                </option>
-              ))}
-            </select>
             <input
               value={allSearch}
               onChange={(e) => setAllSearch(e.target.value)}
-              placeholder="ASIN / EAN / nume"
+              placeholder={copy.searchAllPlaceholder}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
           </div>
           <div className="max-h-[760px] space-y-2 overflow-y-auto pr-1">
-            {loadingListings && <div className="text-sm text-slate-500">Se încarcă...</div>}
+            {loadingListings && <div className="text-sm text-slate-500">{copy.loading}</div>}
             {!loadingListings && marketListings.length === 0 && (
-              <div className="text-sm text-slate-500">Nu există oferte.</div>
+              <div className="text-sm text-slate-500">{copy.noOffers}</div>
             )}
             {marketListings.map((listing) => (
               <div key={listing.id} className="rounded-xl border border-slate-200 p-3">
                 <div className="text-sm font-semibold text-slate-900">{listing.product_name}</div>
                 <div className="mt-1 text-xs text-slate-500">
-                  {listing.asin ? `ASIN: ${listing.asin} · ` : ''}
-                  {listing.ean ? `EAN: ${listing.ean}` : ''}
+                  {formatProductCodes(copy, listing.asin, listing.ean)}
                 </div>
                 <div className="mt-1 text-xs text-slate-600">
-                  {listing.quantity} buc · {Number(listing.price_eur || 0).toFixed(2)} EUR
+                  {listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR · {listing.country || '-'}
                 </div>
                 {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
                 <button
                   onClick={() => openListingChat(listing)}
                   className="mt-2 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
                 >
-                  Contactează
+                  {copy.contact}
                 </button>
               </div>
             ))}
@@ -290,18 +639,18 @@ export default function Butic() {
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4">
-          <div className="mb-3 text-sm font-semibold text-slate-800">Ofertele mele (din inventar)</div>
+          <div className="mb-3 text-sm font-semibold text-slate-800">{copy.myOffersFromInventory}</div>
           <div className="rounded-xl border border-slate-200 p-3">
             <input
               value={inventorySearch}
               onChange={(e) => setInventorySearch(e.target.value)}
-              placeholder="Caută în inventar: ASIN / EAN / nume"
+              placeholder={copy.inventorySearchPlaceholder}
               className="mb-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
 
             <div className="max-h-[280px] space-y-2 overflow-y-auto pr-1">
               {inventoryItems.length === 0 && (
-                <div className="text-sm text-slate-500">Nu ai produse cu stoc disponibil.</div>
+                <div className="text-sm text-slate-500">{copy.noInventoryStock}</div>
               )}
               {inventoryItems.map((item) => (
                 <button
@@ -315,21 +664,29 @@ export default function Butic() {
                 >
                   <div className="flex items-center gap-3">
                     <img
-                      src={item.image_url || '/images/product-placeholder.png'}
-                      onError={(e) => {
-                        e.currentTarget.src = '/images/product-placeholder.png';
+                      src={
+                        failedImageIds.has(String(item.id))
+                          ? '/images/product-placeholder.png'
+                          : (item.image_url || '/images/product-placeholder.png')
+                      }
+                      onError={() => {
+                        setFailedImageIds((prev) => {
+                          const next = new Set(prev);
+                          next.add(String(item.id));
+                          return next;
+                        });
                       }}
                       alt={item.name || 'Product'}
                       className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-slate-800">{item.name || 'Produs'}</div>
+                      <div className="truncate text-sm font-semibold text-slate-800">{item.name || 'Product'}</div>
                       <div className="truncate text-xs text-slate-500">
-                        ASIN {item.asin || '-'} · EAN {item.ean || '-'}
+                        {formatProductCodes(copy, item.asin, item.ean)}
                       </div>
                     </div>
                     <div className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
-                      Stock {Number(item.qty || 0)}
+                      {copy.stockLabel} {Number(item.qty || 0)}
                     </div>
                   </div>
                 </button>
@@ -339,43 +696,89 @@ export default function Butic() {
             <form onSubmit={createListingFromInventory} className="mt-3 space-y-2 border-t border-slate-200 pt-3">
               <div className="text-xs text-slate-500">
                 {selectedInventoryItem
-                  ? `Selectat: ${selectedInventoryItem.name || 'Produs'}`
-                  : 'Selectează un produs din inventar, apoi adaugă preț + notă.'}
+                  ? `${copy.selectedLabel}: ${selectedInventoryItem.name || 'Product'} (${formatProductCodes(copy, selectedInventoryItem.asin, selectedInventoryItem.ean)})`
+                  : copy.selectHint}
               </div>
+              {selectedInventoryItem && (
+                <div className="text-xs text-slate-500">
+                  {copy.locatedIn
+                    .replace('{name}', selectedInventoryItem.name || 'Product')
+                    .replace('{country}', offerCountry || '-')}
+                </div>
+              )}
+              <select
+                value={offerCountry}
+                onChange={(e) => setOfferCountry(String(e.target.value || '').toUpperCase())}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                aria-label={copy.listingCountryLabel}
+                required
+              >
+                <option value="">{copy.listingCountryPlaceholder}</option>
+                {OFFER_COUNTRY_OPTIONS.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={priceEur}
                 onChange={(e) => setPriceEur(e.target.value)}
-                placeholder="Preț EUR"
+                placeholder={copy.pricePlaceholder}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 required
               />
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Notă (opțional)"
+                placeholder={copy.notePlaceholder}
                 rows={2}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               />
+              {createError && <div className="text-xs font-medium text-red-600">{createError}</div>}
               <button
                 type="submit"
-                disabled={!selectedStockItemId || !priceEur || creating}
+                disabled={!selectedStockItemId || !priceEur || !offerCountry || creating}
                 className="w-full rounded-lg bg-orange-500 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
               >
-                {creating ? 'Se publică...' : 'Adaugă la vânzare'}
+                {creating ? copy.publishing : copy.addForSale}
               </button>
             </form>
           </div>
 
           <div className="mt-3 max-h-[360px] space-y-2 overflow-y-auto pr-1">
-            {myListings.length === 0 && <div className="text-sm text-slate-500">Nu ai oferte publicate.</div>}
+            {myListings.length === 0 && <div className="text-sm text-slate-500">{copy.noMyOffers}</div>}
+            {listingActionError && <div className="text-xs font-medium text-red-600">{listingActionError}</div>}
             {myListings.map((listing) => (
               <div key={listing.id} className="rounded-xl border border-orange-200 bg-orange-50 p-3">
                 <div className="text-sm font-semibold text-slate-900">{listing.product_name}</div>
+                <div className="mt-1 text-xs text-slate-500">
+                  {formatProductCodes(copy, listing.asin, listing.ean)}
+                </div>
                 <div className="mt-1 text-xs text-slate-600">
-                  {listing.quantity} buc · {Number(listing.price_eur || 0).toFixed(2)} EUR
+                  {listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR
+                </div>
+                <div className="mt-1 text-xs text-slate-500">{copy.saleFeeHint}</div>
+                {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => finalizeListingSale(listing)}
+                    disabled={busyListingId === listing.id}
+                    className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {copy.finalizeSale}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeListing(listing)}
+                    disabled={busyListingId === listing.id}
+                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    {copy.removeFromSale}
+                  </button>
                 </div>
               </div>
             ))}
@@ -388,13 +791,13 @@ export default function Butic() {
           <div className="mx-auto flex h-full max-h-[860px] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
-                <div className="text-sm font-semibold text-slate-900">Chat Butic</div>
-                <div className="text-xs text-slate-500">Negociere între clienți</div>
+                <div className="text-sm font-semibold text-slate-900">{copy.chatTitle}</div>
+                <div className="text-xs text-slate-500">{copy.chatSubtitle}</div>
               </div>
               <button
                 onClick={() => setShowChat(false)}
                 className="rounded-full p-1 text-slate-500 hover:text-slate-700"
-                aria-label="Close chat"
+                aria-label={copy.closeChat}
               >
                 <X size={16} />
               </button>
@@ -404,7 +807,7 @@ export default function Butic() {
               <div className="border-r border-slate-200 p-3">
                 <div className="max-h-full space-y-2 overflow-y-auto pr-1">
                   {conversations.length === 0 && (
-                    <div className="text-sm text-slate-500">Nu ai conversații încă.</div>
+                    <div className="text-sm text-slate-500">{copy.noConversations}</div>
                   )}
                   {conversations.map((conv) => {
                     const listing = Array.isArray(conv.client_market_listings)
@@ -421,10 +824,10 @@ export default function Butic() {
                         }`}
                       >
                         <div className="truncate text-xs font-semibold text-slate-800">
-                          {listing?.product_name || 'Listing'}
+                          {listing?.product_name || copy.listingFallback}
                         </div>
                         <div className="mt-1 text-[11px] text-slate-500">
-                          {listing?.asin ? `ASIN ${listing.asin}` : listing?.ean ? `EAN ${listing.ean}` : 'No code'}
+                          {formatProductCodes(copy, listing?.asin, listing?.ean)}
                         </div>
                       </button>
                     );
@@ -434,7 +837,7 @@ export default function Butic() {
               <div className="flex h-full min-h-0 flex-col">
                 <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 py-3">
                   {!activeConversation && (
-                    <div className="text-sm text-slate-500">Alege o conversație sau apasă „Contactează”.</div>
+                    <div className="text-sm text-slate-500">{copy.selectConversation}</div>
                   )}
                   {messages.map((msg) => {
                     const mine = msg.sender_user_id === me;
@@ -456,7 +859,7 @@ export default function Butic() {
                       value={messageInput}
                       onChange={(e) => setMessageInput(e.target.value)}
                       rows={2}
-                      placeholder="Scrie mesaj..."
+                      placeholder={copy.writeMessagePlaceholder}
                       className="flex-1 resize-none rounded-lg border border-slate-200 p-2 text-sm"
                     />
                     <button
@@ -464,9 +867,10 @@ export default function Butic() {
                       disabled={!activeConversation || !messageInput.trim() || sending}
                       className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
                     >
-                      Trimite
+                      {copy.send}
                     </button>
                   </div>
+                  {sendError && <div className="mt-2 text-xs font-medium text-red-600">{sendError}</div>}
                 </div>
               </div>
             </div>

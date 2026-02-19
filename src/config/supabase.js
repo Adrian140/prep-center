@@ -3815,7 +3815,7 @@ getAllReceivingShipments: async (options = {}) => {
   listClientMarketListings: async ({ country, search, limit = 200 } = {}) => {
     let query = supabase
       .from('client_market_listings')
-      .select('id, owner_user_id, owner_company_id, stock_item_id, country, asin, ean, product_name, price_eur, quantity, note, is_active, created_at')
+      .select('id, owner_user_id, owner_company_id, stock_item_id, country, asin, ean, product_name, price_eur, quantity, note, is_active, sale_finalized_at, sale_finalized_units, created_at')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -3844,11 +3844,15 @@ getAllReceivingShipments: async (options = {}) => {
     if (!ownerUserId || !productName?.trim()) {
       return { data: null, error: new Error('Missing listing data') };
     }
+    const isUuid = (value) =>
+      typeof value === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+    const safeOwnerCompanyId = isUuid(ownerCompanyId) ? ownerCompanyId : ownerUserId;
     return await supabase
       .from('client_market_listings')
       .insert({
         owner_user_id: ownerUserId,
-        owner_company_id: ownerCompanyId || ownerUserId,
+        owner_company_id: safeOwnerCompanyId,
         stock_item_id: stockItemId || null,
         country: String(country || 'FR').toUpperCase(),
         asin: asin?.trim() || null,
@@ -3885,6 +3889,14 @@ getAllReceivingShipments: async (options = {}) => {
       .eq('id', listingId)
       .select('*')
       .single();
+  },
+
+  finalizeClientMarketSale: async ({ listingId, units } = {}) => {
+    if (!listingId) return { data: null, error: new Error('Missing listing id') };
+    return await supabase.rpc('client_market_finalize_sale', {
+      p_listing_id: listingId,
+      p_units: Number.isFinite(Number(units)) ? Number(units) : null
+    });
   },
 
   getOrCreateClientMarketConversation: async ({ listingId }) => {

@@ -154,7 +154,7 @@ function Header() {
   const navigation = useMemo(() => {
     const base = [
       { name: t('nav.home'),     href: '/' },
-      { name: `${t('nav.exchange', 'Exchange')} & ${t('nav.resale', 'Revente')}`, href: '/butic', accent: 'orange', hide: !isAuthenticated || isAdmin },
+      { name: t('nav.exchange', 'Exchange'), href: '/butic', accent: 'orange', hide: !isAuthenticated || isAdmin },
       { name: t('nav.services'), href: '/services-pricing' },
       { name: 'Integrations', href: '/integrations', hide: hasIntegration && isAuthenticated && !isAdmin },
       { name: t('nav.about'),    href: '/about' },
