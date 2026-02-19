@@ -20,12 +20,35 @@ export default function AdminChat() {
   const [conversations, setConversations] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [search, setSearch] = useState('');
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [companyActionLoading, setCompanyActionLoading] = useState(false);
   const [metaByConversationId, setMetaByConversationId] = useState({});
   const [unreadByConversationId, setUnreadByConversationId] = useState({});
   const [loading, setLoading] = useState(false);
 
   const market = String(currentMarket || 'FR').toUpperCase();
   const staffLabel = staffLabelByCountry(market);
+
+  const loadConversations = async ({ keepActive = true } = {}) => {
+    setLoading(true);
+    const res = await supabaseHelpers.listChatConversations({
+      country: market,
+      search: search?.trim() || null
+    });
+    const rows = res.data || [];
+    setConversations(rows);
+    await hydrateConversationMeta(rows);
+    if (!keepActive && rows.length) {
+      setActiveId(rows[0].id);
+    } else if (!activeId && rows.length) {
+      setActiveId(rows[0].id);
+    } else if (activeId && rows.length && !rows.some((r) => r.id === activeId)) {
+      setActiveId(rows[0].id);
+    }
+    setLoading(false);
+    return rows;
+  };
 
   const hydrateConversationMeta = async (rows = []) => {
     if (!rows.length) {
@@ -98,22 +121,7 @@ export default function AdminChat() {
     if (!user?.id) return;
     let mounted = true;
     const load = async () => {
-      setLoading(true);
-      const res = await supabaseHelpers.listChatConversations({
-        country: market,
-        search: search?.trim() || null
-      });
-      if (!mounted) return;
-      const rows = res.data || [];
-      setConversations(rows);
-      await hydrateConversationMeta(rows);
-      if (!activeId && rows.length) {
-        setActiveId(rows[0].id);
-      }
-      if (activeId && rows.length && !rows.some((r) => r.id === activeId)) {
-        setActiveId(rows[0].id);
-      }
-      setLoading(false);
+      await loadConversations();
     };
     load();
     const timer = setInterval(load, 5000);
@@ -122,6 +130,76 @@ export default function AdminChat() {
       clearInterval(timer);
     };
   }, [user?.id, market, search, activeId]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    const loadCompanies = async () => {
+      const res = await supabase
+        .from('profiles')
+        .select('id, company_id, first_name, last_name, company_name, store_name, country, allowed_markets, account_type')
+        .neq('account_type', 'admin')
+        .order('company_name', { ascending: true })
+        .limit(2000);
+      if (cancelled || res?.error) return;
+      const byCompany = new Map();
+      (res.data || []).forEach((row) => {
+        const key = row.company_id || row.id;
+        const existing = byCompany.get(key);
+        const currentName = row.company_name || row.store_name || '';
+        const existingName = existing?.companyName || '';
+        if (!existing || currentName.length > existingName.length) {
+          byCompany.set(key, {
+            id: key,
+            companyName: currentName || 'Company',
+            contactName: [row.first_name, row.last_name].filter(Boolean).join(' ').trim() || 'Client',
+            clientUserId: row.id
+          });
+        }
+      });
+      setCompanies(Array.from(byCompany.values()).sort((a, b) => a.companyName.localeCompare(b.companyName)));
+    };
+    loadCompanies();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const createOrOpenCompanyChat = async () => {
+    if (!selectedCompanyId || !user?.id) return;
+    const company = companies.find((c) => c.id === selectedCompanyId);
+    if (!company?.clientUserId) return;
+    setCompanyActionLoading(true);
+    const existing = conversations.find((c) => c.company_id === selectedCompanyId && c.country === market);
+    if (existing?.id) {
+      setActiveId(existing.id);
+      setCompanyActionLoading(false);
+      return;
+    }
+    const created = await supabase
+      .from('chat_conversations')
+      .insert({
+        company_id: selectedCompanyId,
+        client_user_id: company.clientUserId,
+        client_display_name: company.contactName || 'Client',
+        country: market,
+        created_by: user.id
+      })
+      .select('*')
+      .single();
+    if (!created?.error && created?.data?.id) {
+      await loadConversations({ keepActive: true });
+      setActiveId(created.data.id);
+    } else {
+      const rowsAfter = await loadConversations({ keepActive: true });
+      const recovered = (rowsAfter || []).find((c) => c.company_id === selectedCompanyId && c.country === market);
+      if (recovered?.id) setActiveId(recovered.id);
+      if (created?.error) {
+        console.error('Failed to create company chat conversation:', created.error);
+      }
+    }
+    setCompanyActionLoading(false);
+  };
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeId) || null,
@@ -143,6 +221,32 @@ export default function AdminChat() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="mb-3 space-y-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            Start Chat By Company
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedCompanyId}
+              onChange={(e) => setSelectedCompanyId(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-2 py-2 text-sm"
+            >
+              <option value="">Select company...</option>
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.companyName}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={createOrOpenCompanyChat}
+              disabled={!selectedCompanyId || companyActionLoading}
+              className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+            >
+              {companyActionLoading ? 'Opening...' : 'Start'}
+            </button>
+          </div>
+        </div>
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5">
           <Search size={16} className="text-slate-400" />
           <input
