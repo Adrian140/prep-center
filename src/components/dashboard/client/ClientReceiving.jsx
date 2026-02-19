@@ -896,7 +896,16 @@ const resolveBoxesCount = (shipment) => {
                   placeholder={storePlaceholder}
                 />
               ) : (
-                <p className="text-text-primary">
+                <p
+                  className="text-text-primary"
+                  title={selectedShipment.client_store_name || selectedShipment.store_name || '—'}
+                  onDoubleClick={() =>
+                    copyToClipboard(
+                      'Store reference',
+                      selectedShipment.client_store_name || selectedShipment.store_name || ''
+                    )
+                  }
+                >
                   {selectedShipment.client_store_name || selectedShipment.store_name || '—'}
                 </p>
               )}
@@ -1481,7 +1490,7 @@ const resolveBoxesCount = (shipment) => {
                         }
                         className="block text-text-primary text-left hover:text-primary"
                       >
-                        {truncateLabel(shipment.client_store_name || shipment.store_name || '—')}
+                        {truncateLabel(shipment.client_store_name || shipment.store_name || '—', 30)}
                       </button>
                       {shipment.notes && (
                         <div className="text-xs text-text-secondary line-clamp-2">
