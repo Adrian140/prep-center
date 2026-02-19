@@ -5,7 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 // Dicționar minimal pentru Header/Actions (fără fallback).
 const translations = {
   en: {
-    nav: { home: 'Home', services: 'Services & Pricing', about: 'About', contact: 'Contact' },
+    nav: { home: 'Home', exchange: 'Exchange', resale: 'Resale', services: 'Services & Pricing', about: 'About', contact: 'Contact' },
     actions: {
       login:'Login',
       admin:'Admin Panel',
@@ -27,7 +27,7 @@ const translations = {
   },
 
   ro: {
-    nav: { home: 'Acasă', services: 'Servicii & Prețuri', about: 'Despre', contact: 'Contact' },
+    nav: { home: 'Acasă', exchange: 'Exchange', resale: 'Revânzare', services: 'Servicii & Prețuri', about: 'Despre', contact: 'Contact' },
     actions: {
       login:'Autentificare',
       admin:'Panou Admin',
@@ -49,7 +49,7 @@ const translations = {
   },
 
   fr: {
-    nav: { home: 'Accueil', services: 'Services & Tarifs', about: 'À propos', contact: 'Contact' },
+    nav: { home: 'Accueil', exchange: 'Exchange', resale: 'Revente', services: 'Services & Tarifs', about: 'À propos', contact: 'Contact' },
     actions: {
       login:'Connexion',
       admin:'Panneau Admin',
@@ -71,7 +71,7 @@ const translations = {
   },
 
   de: {
-    nav: { home: 'Startseite', services: 'Leistungen & Preise', about: 'Über uns', contact: 'Kontakt' },
+    nav: { home: 'Startseite', exchange: 'Exchange', resale: 'Wiederverkauf', services: 'Leistungen & Preise', about: 'Über uns', contact: 'Kontakt' },
     actions: {
       login:'Anmelden',
       admin:'Adminbereich',
@@ -93,7 +93,7 @@ const translations = {
   },
 
   it: {
-    nav: { home: 'Home', services: 'Servizi e Prezzi', about: 'Chi siamo', contact: 'Contatti' },
+    nav: { home: 'Home', exchange: 'Scambio', resale: 'Rivendita', services: 'Servizi e Prezzi', about: 'Chi siamo', contact: 'Contatti' },
     actions: {
       login:'Accedi',
       admin:'Pannello Admin',
@@ -115,7 +115,7 @@ const translations = {
   },
 
   es: {
-    nav: { home: 'Inicio', services: 'Servicios y Precios', about: 'Sobre nosotros', contact: 'Contacto' },
+    nav: { home: 'Inicio', exchange: 'Intercambio', resale: 'Reventa', services: 'Servicios y Precios', about: 'Sobre nosotros', contact: 'Contacto' },
     actions: {
       login:'Iniciar sesión',
       admin:'Panel de administración',
@@ -137,7 +137,7 @@ const translations = {
   },
 
   pl: {
-    nav: { home: 'Strona główna', services: 'Usługi i Cennik', about: 'O nas', contact: 'Kontakt' },
+    nav: { home: 'Strona główna', exchange: 'Wymiana', resale: 'Odsprzedaż', services: 'Usługi i Cennik', about: 'O nas', contact: 'Kontakt' },
     actions: {
       login:'Zaloguj się',
       admin:'Panel administratora',

@@ -2,11 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
 import { supabase, supabaseHelpers } from '@/config/supabase';
+import { useT } from '@/i18n/useT';
 
 export default function Butic() {
+  const t = useT();
   const { user, profile } = useSupabaseAuth();
   const { currentMarket } = useMarket();
   const [search, setSearch] = useState('');
+  const [countryFilter, setCountryFilter] = useState('ALL');
   const [onlyMine, setOnlyMine] = useState(false);
   const [loadingListings, setLoadingListings] = useState(false);
   const [listings, setListings] = useState([]);
@@ -35,11 +38,15 @@ export default function Butic() {
   const market = String(currentMarket || profile?.country || 'FR').toUpperCase();
   const me = user?.id || null;
 
+  useEffect(() => {
+    setCountryFilter(String(currentMarket || 'FR').toUpperCase());
+  }, [currentMarket]);
+
   const loadListings = async () => {
     if (!me) return;
     setLoadingListings(true);
     const res = await supabaseHelpers.listClientMarketListings({
-      country: market,
+      country: countryFilter === 'ALL' ? null : countryFilter,
       search: search.trim() || null
     });
     const rows = (res?.data || []).filter((row) => (onlyMine ? row.owner_user_id === me : true));
@@ -65,7 +72,7 @@ export default function Butic() {
     loadListings();
     const t = setInterval(loadListings, 10000);
     return () => clearInterval(t);
-  }, [me, isAdmin, market, search, onlyMine]);
+  }, [me, isAdmin, market, search, onlyMine, countryFilter]);
 
   useEffect(() => {
     if (!me || isAdmin) return;
@@ -193,7 +200,9 @@ export default function Butic() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
       <div className="mb-4 rounded-2xl border border-orange-200 bg-orange-50 p-4">
-        <div className="text-lg font-semibold text-orange-800">Butic B2B (Anonim)</div>
+        <div className="text-lg font-semibold text-orange-800">
+          {t('nav.exchange', 'Exchange')} & {t('nav.resale', 'Revente')}
+        </div>
         <div className="text-sm text-orange-700">
           Listările afișează doar produsul. Fără nume companie. Discuțiile se fac privat în chat.
         </div>
@@ -262,6 +271,17 @@ export default function Butic() {
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <div className="mb-2 flex items-center gap-2">
+              <select
+                value={countryFilter}
+                onChange={(e) => setCountryFilter(e.target.value)}
+                className="rounded-lg border border-slate-200 px-2 py-2 text-sm"
+              >
+                <option value="ALL">All countries</option>
+                <option value="FR">FR</option>
+                <option value="DE">DE</option>
+                <option value="IT">IT</option>
+                <option value="ES">ES</option>
+              </select>
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
