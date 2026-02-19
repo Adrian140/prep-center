@@ -3984,6 +3984,17 @@ getAllReceivingShipments: async (options = {}) => {
     return res;
   },
 
+  getClientMarketConversationLatestMessage: async ({ conversationId } = {}) => {
+    if (!conversationId) return { data: null, error: null };
+    return await supabase
+      .from('client_market_messages')
+      .select('id, conversation_id, sender_user_id, created_at')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+  },
+
   sendClientMarketMessage: async ({ conversationId, senderUserId, body }) => {
     if (!conversationId || !senderUserId || !body?.trim()) {
       return { data: null, error: new Error('Missing marketplace message data') };

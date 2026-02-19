@@ -50,6 +50,8 @@ export default function ClientChatWidget() {
   const [statusByMarket, setStatusByMarket] = useState({});
 
   const [b2bConversations, setB2bConversations] = useState([]);
+  const [b2bUnreadByConversationId, setB2bUnreadByConversationId] = useState({});
+  const [b2bReadByConversationId, setB2bReadByConversationId] = useState({});
   const [b2bLoading, setB2bLoading] = useState(false);
   const [b2bError, setB2bError] = useState('');
   const [activeB2bConversationId, setActiveB2bConversationId] = useState(null);
@@ -60,6 +62,10 @@ export default function ClientChatWidget() {
 
   const widgetRef = useRef(null);
   const b2bScrollRef = useRef(null);
+  const b2bReadStorageKey = useMemo(
+    () => (user?.id ? `client_b2b_read_v1_${user.id}` : ''),
+    [user?.id]
+  );
 
   const isAdmin = !!(
     profile?.account_type === 'admin' ||
@@ -76,6 +82,40 @@ export default function ClientChatWidget() {
     const next = SUPPORTED_CHAT_MARKETS.includes(preferred) ? preferred : 'FR';
     if (next && next !== selectedMarket) setSelectedMarket(next);
   }, [currentMarket, selectedMarket]);
+
+  useEffect(() => {
+    if (!b2bReadStorageKey) return;
+    try {
+      const raw = localStorage.getItem(b2bReadStorageKey);
+      if (!raw) {
+        setB2bReadByConversationId({});
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      setB2bReadByConversationId(parsed && typeof parsed === 'object' ? parsed : {});
+    } catch {
+      setB2bReadByConversationId({});
+    }
+  }, [b2bReadStorageKey]);
+
+  useEffect(() => {
+    if (!b2bReadStorageKey) return;
+    try {
+      localStorage.setItem(b2bReadStorageKey, JSON.stringify(b2bReadByConversationId || {}));
+    } catch {
+      // ignore storage write errors
+    }
+  }, [b2bReadStorageKey, b2bReadByConversationId]);
+
+  const markB2bConversationRead = (conversationId, at) => {
+    if (!conversationId) return;
+    const stamp = String(at || new Date().toISOString());
+    setB2bReadByConversationId((prev) => {
+      const current = prev?.[conversationId];
+      if (current && new Date(current).getTime() >= new Date(stamp).getTime()) return prev;
+      return { ...(prev || {}), [conversationId]: stamp };
+    });
+  };
 
   const setMarketStatus = (market, patch) => {
     setStatusByMarket((prev) => ({ ...prev, [market]: { ...(prev[market] || {}), ...patch } }));
@@ -182,6 +222,13 @@ export default function ClientChatWidget() {
   }, [activeB2bConversationId]);
 
   useEffect(() => {
+    if (!open || mode !== 'b2b' || !activeB2bConversationId || !b2bMessages.length) return;
+    const last = b2bMessages[b2bMessages.length - 1];
+    if (!last?.created_at) return;
+    markB2bConversationRead(activeB2bConversationId, last.created_at);
+  }, [open, mode, activeB2bConversationId, b2bMessages]);
+
+  useEffect(() => {
     if (!activeB2bConversationId) return;
     const channel = supabase
       .channel(`client-widget-b2b-${activeB2bConversationId}`)
@@ -229,6 +276,35 @@ export default function ClientChatWidget() {
       clearInterval(timer);
     };
   }, [conversationsByMarket]);
+
+  useEffect(() => {
+    if (!user?.id || isAdmin) return;
+    let cancelled = false;
+    const fetchB2bUnread = async () => {
+      const entries = await Promise.all(
+        b2bConversations.map(async (conv) => {
+          const res = await supabaseHelpers.getClientMarketConversationLatestMessage({
+            conversationId: conv.id
+          });
+          const latest = res?.data || null;
+          if (!latest?.created_at) return [conv.id, 0];
+          if (latest.sender_user_id === user.id) return [conv.id, 0];
+          const lastRead = b2bReadByConversationId?.[conv.id];
+          if (!lastRead) return [conv.id, 1];
+          return [conv.id, new Date(latest.created_at).getTime() > new Date(lastRead).getTime() ? 1 : 0];
+        })
+      );
+      if (!cancelled) {
+        setB2bUnreadByConversationId(Object.fromEntries(entries));
+      }
+    };
+    fetchB2bUnread();
+    const timer = setInterval(fetchB2bUnread, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [b2bConversations, b2bReadByConversationId, user?.id, isAdmin]);
 
   useEffect(() => {
     if (!open) return;
@@ -284,6 +360,7 @@ export default function ClientChatWidget() {
     setB2bInput('');
     await loadB2bMessages(activeB2bConversationId);
     await loadB2bConversations({ silent: true });
+    markB2bConversationRead(activeB2bConversationId);
     setB2bSending(false);
   };
 
@@ -293,6 +370,8 @@ export default function ClientChatWidget() {
   const selectedSupportStatus = statusByMarket[selectedMarket] || {};
   const staffLabel = staffLabelByCountry(selectedMarket);
   const supportUnreadTotal = Object.values(unreadByMarket).reduce((sum, n) => sum + Number(n || 0), 0);
+  const b2bUnreadTotal = Object.values(b2bUnreadByConversationId).reduce((sum, n) => sum + Number(n || 0), 0);
+  const totalUnread = supportUnreadTotal + b2bUnreadTotal;
   const activeB2bConversation = b2bConversations.find((row) => row.id === activeB2bConversationId) || null;
 
   return (
@@ -321,6 +400,11 @@ export default function ClientChatWidget() {
                   }`}
                 >
                   B2B
+                  {b2bUnreadTotal > 0 && (
+                    <span className="ml-1 rounded-full bg-white/90 px-1 text-[10px] font-semibold text-red-600">
+                      {b2bUnreadTotal > 99 ? '99+' : b2bUnreadTotal}
+                    </span>
+                  )}
                 </button>
               </div>
               <button
@@ -416,16 +500,31 @@ export default function ClientChatWidget() {
                     {b2bConversations.map((conv) => {
                       const listing = listingFromConversation(conv);
                       const active = conv.id === activeB2bConversationId;
+                      const unread = b2bUnreadByConversationId[conv.id] || 0;
                       return (
                         <button
                           key={conv.id}
-                          onClick={() => setActiveB2bConversationId(conv.id)}
+                          onClick={() => {
+                            setActiveB2bConversationId(conv.id);
+                            markB2bConversationRead(conv.id);
+                          }}
                           className={`w-full rounded-lg border p-2 text-left ${
-                            active ? 'border-primary bg-primary/10' : 'border-slate-200 hover:bg-slate-50'
+                            active
+                              ? 'border-primary bg-primary/10'
+                              : unread > 0
+                              ? 'border-red-200 bg-red-50 hover:bg-red-100'
+                              : 'border-slate-200 hover:bg-slate-50'
                           }`}
                         >
-                          <div className="truncate text-[11px] font-semibold text-slate-800">
-                            {listing?.product_name || 'B2B Listing'}
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="truncate text-[11px] font-semibold text-slate-800">
+                              {listing?.product_name || 'B2B Listing'}
+                            </div>
+                            {unread > 0 && (
+                              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-semibold text-white">
+                                {unread > 99 ? '99+' : unread}
+                              </span>
+                            )}
                           </div>
                           <div className="mt-1 text-[10px] text-slate-500">
                             {listing?.country || conv.country || '-'}
@@ -494,14 +593,14 @@ export default function ClientChatWidget() {
       <button
         onClick={() => setOpen((prev) => !prev)}
         className={`relative flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg ${
-          supportUnreadTotal > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'
+          totalUnread > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'
         }`}
         aria-label="Open chat"
       >
         <MessageCircle size={24} />
-        {supportUnreadTotal > 0 && (
+        {totalUnread > 0 && (
           <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-semibold text-red-600 ring-2 ring-red-600">
-            {supportUnreadTotal > 99 ? '99+' : supportUnreadTotal}
+            {totalUnread > 99 ? '99+' : totalUnread}
           </span>
         )}
       </button>
