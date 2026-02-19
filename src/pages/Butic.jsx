@@ -613,7 +613,8 @@ export default function Butic() {
     });
     if (res?.error) {
       console.error('Failed to remove listing:', res.error);
-      setListingActionError(copy.removeSaleError);
+      const errMessage = String(res.error?.message || '');
+      setListingActionError(errMessage ? `${copy.removeSaleError} (${errMessage})` : copy.removeSaleError);
     } else {
       await loadAllListings();
     }

@@ -3882,6 +3882,27 @@ getAllReceivingShipments: async (options = {}) => {
 
   setClientMarketListingActive: async ({ listingId, isActive }) => {
     if (!listingId) return { data: null, error: new Error('Missing listing id') };
+    if (isActive === false) {
+      const del = await supabase
+        .from('client_market_listings')
+        .delete()
+        .eq('id', listingId);
+      if (!del?.error) {
+        return {
+          data: { id: listingId, is_active: false, deleted: true },
+          error: null
+        };
+      }
+      const updateFallback = await supabase
+        .from('client_market_listings')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', listingId);
+      if (updateFallback?.error) return updateFallback;
+      return {
+        data: { id: listingId, is_active: false },
+        error: null
+      };
+    }
     const res = await supabase
       .from('client_market_listings')
       .update({ is_active: !!isActive, updated_at: new Date().toISOString() })
