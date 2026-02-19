@@ -35,6 +35,7 @@ export default function ChatThread({
   const [input, setInput] = useState('');
   const [files, setFiles] = useState([]);
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
   const [attachmentUrls, setAttachmentUrls] = useState({});
@@ -46,6 +47,24 @@ export default function ChatThread({
   const displayClient = clientName || 'Client';
 
   const conversationId = conversation?.id;
+
+  const mergeMessages = (incoming = []) => {
+    if (!Array.isArray(incoming) || incoming.length === 0) return;
+    setMessages((prev) => {
+      const map = new Map();
+      prev.forEach((msg) => {
+        if (msg?.id) map.set(msg.id, msg);
+      });
+      incoming.forEach((msg) => {
+        if (!msg?.id) return;
+        const prevMsg = map.get(msg.id) || {};
+        map.set(msg.id, { ...prevMsg, ...msg });
+      });
+      return Array.from(map.values()).sort(
+        (a, b) => new Date(a?.created_at || 0).getTime() - new Date(b?.created_at || 0).getTime()
+      );
+    });
+  };
 
   useEffect(() => {
     if (!conversationId) return;
@@ -99,15 +118,13 @@ export default function ChatThread({
         (payload) => {
           if (!mounted) return;
           if (payload.eventType === 'INSERT') {
-            setMessages((prev) => [...prev, payload.new]);
+            mergeMessages([payload.new]);
             if (payload.new?.sender_id !== currentUserId) {
               supabaseHelpers.markChatRead({ conversationId }).catch(() => {});
             }
           }
           if (payload.eventType === 'UPDATE') {
-            setMessages((prev) =>
-              prev.map((msg) => (msg.id === payload.new.id ? { ...msg, ...payload.new } : msg))
-            );
+            mergeMessages([payload.new]);
             refreshAttachments(payload.new?.id).catch(() => {});
           }
           if (payload.eventType === 'DELETE') {
@@ -127,6 +144,24 @@ export default function ChatThread({
       }
     };
   }, [conversationId, currentUserId]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    let cancelled = false;
+    const refresh = async () => {
+      const res = await supabaseHelpers.listChatMessages({
+        conversationId,
+        limit: PAGE_SIZE
+      });
+      if (cancelled || res?.error || !res?.data) return;
+      mergeMessages(res.data);
+    };
+    const timer = setInterval(refresh, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [conversationId]);
 
   const loadMore = async () => {
     if (!conversationId || loadingMore || !hasMore) return;
@@ -159,6 +194,7 @@ export default function ChatThread({
     const body = input.trim();
     if (!body && files.length === 0) return;
     setSending(true);
+    setSendError('');
     const messageBody = body || 'Attachment';
     const res = await supabaseHelpers.sendChatMessage({
       conversationId,
@@ -166,7 +202,13 @@ export default function ChatThread({
       senderRole,
       body: messageBody
     });
-    if (!res.error && res.data) {
+    if (res?.error) {
+      setSendError(res.error.message || 'Could not send message.');
+      setSending(false);
+      return;
+    }
+    if (res.data) {
+      mergeMessages([res.data]);
       if (files.length > 0) {
         for (const file of files) {
           await supabaseHelpers.uploadChatAttachment({
@@ -411,6 +453,9 @@ export default function ChatThread({
         <div className="mt-1 text-[11px] text-slate-400">
           Files: JPG, PNG, PDF up to 10MB
         </div>
+        {!!sendError && (
+          <div className="mt-1 text-[11px] text-rose-600">{sendError}</div>
+        )}
       </div>
     </div>
   );
