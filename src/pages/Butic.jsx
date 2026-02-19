@@ -382,11 +382,7 @@ function formatProductCodes(copy, asin, ean) {
 }
 
 function getListingImageUrl(listing) {
-  const stockItem = listing?.stock_item;
-  if (Array.isArray(stockItem)) {
-    return stockItem?.[0]?.image_url || null;
-  }
-  return stockItem?.image_url || null;
+  return listing?.image_url || null;
 }
 
 function getAvailableInventoryStock(item) {
@@ -599,6 +595,7 @@ export default function Butic() {
       country: offerCountry,
       asin: selectedInventoryItem.asin || null,
       ean: selectedInventoryItem.ean || null,
+      imageUrl: selectedInventoryItem.image_url || null,
       productName: selectedInventoryItem.name || 'Product',
       priceEur: parsedPrice,
       quantity: Math.max(1, Math.floor(parsedQuantity)),

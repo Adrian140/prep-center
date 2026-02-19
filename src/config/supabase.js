@@ -3815,7 +3815,7 @@ getAllReceivingShipments: async (options = {}) => {
   listClientMarketListings: async ({ country, search, limit = 200 } = {}) => {
     let query = supabase
       .from('client_market_listings')
-      .select('id, owner_user_id, owner_company_id, stock_item_id, country, asin, ean, product_name, price_eur, quantity, note, is_active, sale_finalized_at, sale_finalized_units, created_at, stock_item:stock_items(image_url)')
+      .select('id, owner_user_id, owner_company_id, stock_item_id, country, asin, ean, image_url, product_name, price_eur, quantity, note, is_active, sale_finalized_at, sale_finalized_units, created_at')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -3836,6 +3836,7 @@ getAllReceivingShipments: async (options = {}) => {
     country,
     asin,
     ean,
+    imageUrl,
     productName,
     priceEur,
     quantity,
@@ -3857,6 +3858,7 @@ getAllReceivingShipments: async (options = {}) => {
         country: String(country || 'FR').toUpperCase(),
         asin: asin?.trim() || null,
         ean: ean?.trim() || null,
+        image_url: imageUrl?.trim() || null,
         product_name: productName.trim(),
         price_eur: Number(priceEur || 0),
         quantity: Number(quantity || 1),
