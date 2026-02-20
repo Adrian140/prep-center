@@ -3194,6 +3194,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           inbound_plan_id: inboundPlanId,
           amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null,
           packing_option_id: selectedPackingOptionId || packingOptionId || null,
+          include_placement: true,
           reset_snapshot: resetSnapshot,
           packing_group_updates: packingGroupUpdates
         }
@@ -3703,7 +3704,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           delivery_window_start: normalizeShipDate(shipmentMode?.deliveryWindowStart) || null,
           delivery_window_end: normalizeShipDate(shipmentMode?.deliveryWindowEnd) || null,
           transportation_option_id: selectedTransportationOptionId,
-          auto_confirm_placement: true,
+          auto_confirm_placement: false,
           confirm: false
         }
       });

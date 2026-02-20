@@ -1086,7 +1086,8 @@ serve(async (req) => {
       return String(msg).toLowerCase().includes("generateplacementoptions");
     };
 
-    const listPlacementWithRetry = async () => {
+    const listPlacementWithRetry = async (preferredPlacementId?: string | null) => {
+      const preferred = String(preferredPlacementId || "").trim();
       for (let i = 1; i <= 10; i++) {
         const listRes = await signedFetch({
           method: "GET",
@@ -1112,7 +1113,14 @@ serve(async (req) => {
           [];
 
         const picked =
+          (preferred
+            ? placements.find((p: any) => {
+                const pid = p?.placementOptionId || p?.id || null;
+                return String(pid || "") === preferred;
+              })
+            : null) ||
           placements.find((p: any) => (p?.status || "").toUpperCase() === "OFFERED") ||
+          placements.find((p: any) => ["ACCEPTED", "CONFIRMED"].includes(String(p?.status || "").toUpperCase())) ||
           placements[0] ||
           null;
 
@@ -1202,7 +1210,7 @@ serve(async (req) => {
           { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
         );
       }
-      const { pid: listedPid } = await listPlacementWithRetry();
+      const { pid: listedPid } = await listPlacementWithRetry(effectivePlacementOptionId);
       effectivePlacementOptionId = listedPid;
       if (!effectivePlacementOptionId) {
         return new Response(JSON.stringify({
@@ -1216,7 +1224,7 @@ serve(async (req) => {
       opt?.placementOptionId || opt?.id || opt?.PlacementOptionId || null;
     const normalizePlacementStatus = (opt: any) => String(opt?.status || "").toUpperCase();
 
-    const placementList = await listPlacementWithRetry();
+    const placementList = await listPlacementWithRetry(effectivePlacementOptionId);
     const placementPid = placementList.pid;
     let placementOptions = placementList.placements;
     let confirmedPlacement = placementOptions.find((p: any) =>
@@ -1258,9 +1266,10 @@ serve(async (req) => {
         status: normalizePlacementStatus(confirmedPlacement)
       });
     } else {
-      const hasRequestedPlacement = placementOptions.some(
-        (p: any) => normalizePlacementId(p) === effectivePlacementOptionId
-      );
+      const hasRequestedPlacement = placementOptions.some((p: any) => {
+        const pid = normalizePlacementId(p);
+        return String(pid || "") === String(effectivePlacementOptionId || "");
+      });
       if (!hasRequestedPlacement && placementPid) {
         logStep("placementOptionOverride", {
           traceId,
@@ -1308,7 +1317,7 @@ serve(async (req) => {
       if (!placementConfirm?.res?.ok && isGeneratePlacementRequired(placementConfirm)) {
         const regenPlacement = await generatePlacementOptionsWithRetry();
         if (regenPlacement.ok) {
-          const { pid: listedPid } = await listPlacementWithRetry();
+          const { pid: listedPid } = await listPlacementWithRetry(effectivePlacementOptionId);
           if (listedPid) {
             effectivePlacementOptionId = listedPid;
             placementConfirm = await signedFetch({
@@ -1376,7 +1385,7 @@ serve(async (req) => {
         }
       }
 
-      const refreshedPlacement = await listPlacementWithRetry();
+      const refreshedPlacement = await listPlacementWithRetry(effectivePlacementOptionId);
       placementOptions = refreshedPlacement.placements;
       confirmedPlacement = placementOptions.find((p: any) =>
         ["ACCEPTED", "CONFIRMED"].includes(normalizePlacementStatus(p))
@@ -2275,6 +2284,15 @@ serve(async (req) => {
           sh?.destinationFc ||
           sh?.destination?.warehouseId ||
           null;
+        const destinationType = String(
+          payload?.destination?.destinationType ||
+          payload?.destinationType ||
+          payload?.DestinationType ||
+          ""
+        ).toUpperCase();
+        const isBoxLevelMultiDestination =
+          destinationType.includes("MULTIPLE_DESTINATION") ||
+          destinationType.includes("BOX_LEVEL");
         const cfg = configsByShipment.get(String(shId)) || {};
         const pgId = sh?.packingGroupId || sh?.packing_group_id || null;
         const pgMeta = pgId ? packingGroupSummary.get(String(pgId)) : null;
@@ -2353,12 +2371,16 @@ serve(async (req) => {
           name: shipmentName,
           from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
           to: (() => {
+            if (isBoxLevelMultiDestination) {
+              return "Multiple destinations via box-level inventory placement.";
+            }
             const addr = formatAddress(destinationAddress) || formatAddress(sh?.destinationAddress || sh?.to) || null;
             if (addr && destinationFc) return `${destinationFc} - ${addr}`;
             if (addr) return addr;
             return destinationFc || null;
           })(),
           destinationWarehouseId: destinationFc || null,
+          destinationType: destinationType || null,
           boxes: contents?.boxes || contents?.cartons || boxesFromCfg || null,
           skuCount: pgMeta?.skuCount ?? contents?.skuCount ?? null,
           units: pgMeta?.units ?? contents?.units ?? null,
