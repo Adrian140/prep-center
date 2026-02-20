@@ -250,7 +250,7 @@ export default function AdminAffiliates() {
       setMessage(t('affiliates.formError'));
       return;
     }
-    if (codes.some((c) => c.owner_profile_id === form.owner_profile_id)) {
+    if (codes.some((c) => c.owner_profile_id === form.owner_profile_id && c.active)) {
       setMessage(t('affiliates.ownerHasCode'));
       return;
     }
@@ -497,7 +497,7 @@ export default function AdminAffiliates() {
 
   const requestCards = useMemo(() => requests.filter((r) => r.status === 'pending'), [requests]);
   const takenOwnerIds = useMemo(
-    () => new Set((codes || []).map((c) => c.owner_profile_id).filter(Boolean)),
+    () => new Set((codes || []).filter((c) => c?.active).map((c) => c.owner_profile_id).filter(Boolean)),
     [codes]
   );
   const ownerChoices = useMemo(() => {

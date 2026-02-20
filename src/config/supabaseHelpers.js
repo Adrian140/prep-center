@@ -618,6 +618,7 @@ export const supabaseHelpers = {
       .from('affiliate_codes')
       .select('*')
       .eq('owner_profile_id', profileId)
+      .eq('active', true)
       .maybeSingle();
     if (error || !code) return { data: null, error };
 
