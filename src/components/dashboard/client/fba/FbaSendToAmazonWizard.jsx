@@ -3561,6 +3561,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   };
 
   const fetchCooldownRef = useRef(0);
+  const step2InitRef = useRef(false);
 
   async function fetchShippingOptions({ force = false } = {}) {
     if (typeof window === 'undefined') return; // rulează doar în browser
@@ -3658,6 +3659,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return;
     }
     const contactInformation = resolveContactInformation();
+    const globalReadyStart =
+      Object.values(readyWindowByShipment || {}).find((w) => w?.start)?.start || null;
+    const globalReadyEnd =
+      Object.values(readyWindowByShipment || {}).find((w) => w?.end)?.end || null;
     const requestKey = JSON.stringify({
       requestId,
       inboundPlanId,
@@ -3700,6 +3705,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           shipping_mode: shipmentMode?.method || null,
           ...(contactInformation ? { contact_information: contactInformation } : {}),
           shipment_transportation_configurations: configs,
+          ready_to_ship_window: globalReadyStart
+            ? {
+                start: globalReadyStart,
+                ...(globalReadyEnd ? { end: globalReadyEnd } : {})
+              }
+            : null,
           ship_date: normalizeShipDate(shipmentMode?.deliveryDate) || null,
           delivery_window_start: normalizeShipDate(shipmentMode?.deliveryWindowStart) || null,
           delivery_window_end: normalizeShipDate(shipmentMode?.deliveryWindowEnd) || null,
@@ -3918,6 +3929,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       let windowStart = normalizeShipDate(shipmentMode?.deliveryWindowStart);
       let windowEnd = normalizeShipDate(shipmentMode?.deliveryWindowEnd);
       const contactInformation = resolveContactInformation();
+      const globalReadyStart =
+        Object.values(readyWindowByShipment || {}).find((w) => w?.start)?.start || null;
+      const globalReadyEnd =
+        Object.values(readyWindowByShipment || {}).find((w) => w?.end)?.end || null;
       const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
           request_id: requestId,
@@ -3927,6 +3942,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           shipping_mode: shipmentMode?.method || null,
           ...(contactInformation ? { contact_information: contactInformation } : {}),
           shipment_transportation_configurations: configs,
+          ready_to_ship_window: globalReadyStart
+            ? {
+                start: globalReadyStart,
+                ...(globalReadyEnd ? { end: globalReadyEnd } : {})
+              }
+            : null,
           ship_date: shipDateIso,
           delivery_window_start: windowStart,
           delivery_window_end: windowEnd,
@@ -4049,15 +4070,19 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   useEffect(() => {
     if (currentStep !== '2') {
       setStep2Loaded(false);
+      step2InitRef.current = false;
       return;
     }
-    // când intrăm în Step 2, nu precompletăm ship/ETA; lăsăm utilizatorul să seteze manual.
-    setShipmentMode((prev) => ({
-      ...prev,
-      deliveryDate: '',
-      deliveryWindowStart: '',
-      deliveryWindowEnd: ''
-    }));
+    if (!step2InitRef.current) {
+      // Rulează o singură dată la intrarea în Step 2, ca să nu șteargă data setată de user.
+      setShipmentMode((prev) => ({
+        ...prev,
+        deliveryDate: '',
+        deliveryWindowStart: '',
+        deliveryWindowEnd: ''
+      }));
+      step2InitRef.current = true;
+    }
     if (selectedTransportationOptionId) {
       const opt = (shippingOptions || []).find((o) => o?.id === selectedTransportationOptionId);
       const optShipmentId = String(opt?.shipmentId || opt?.raw?.shipmentId || '').trim();
@@ -4076,7 +4101,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     // nu mai cerem automat opțiuni; așteptăm să existe ready window și click pe “Generează opțiuni curier”
     setStep2Loaded(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, step2Loaded, shipmentMode?.deliveryDate]);
+  }, [currentStep, step2Loaded]);
 
   // Prefill ready-to-ship windows from shipments (if backend already has them) and ensure map keys exist.
   useEffect(() => {
