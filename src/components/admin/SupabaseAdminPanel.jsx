@@ -197,11 +197,11 @@ useEffect(() => {
   const [integrationContent, setIntegrationContent] = useState({});
   const tabs = useMemo(() => ([
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    { id: 'chat', label: 'Chat', icon: Users },
     { id: 'profiles', label: t('sidebar.profiles'), icon: Users },
     { id: 'receiving', label: t('sidebar.receiving'), icon: Truck },
     { id: 'prep-requests', label: t('sidebar.prepRequests'), icon: PackageCheck },
     { id: 'returns', label: 'Returns', icon: Package },
+    { id: 'chat', label: 'Chat', icon: Users },
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
     { id: 'boxes', label: 'Boxes', icon: Boxes },
     { id: 'prep-business', label: 'Arbitrage One', icon: Link2 },
