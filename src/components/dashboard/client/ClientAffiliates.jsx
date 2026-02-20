@@ -63,7 +63,7 @@ export default function ClientAffiliates() {
   const [requestForm, setRequestForm] = useState({ preferredCode: '', notes: '' });
   const [submitting, setSubmitting] = useState(false);
   const [flash, setFlash] = useState(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState('');
   const [creditUsageByMarket, setCreditUsageByMarket] = useState({});
   const [creditAmounts, setCreditAmounts] = useState({});
   const [creditLoadingByMarket, setCreditLoadingByMarket] = useState({});
@@ -231,12 +231,19 @@ export default function ClientAffiliates() {
     }
   };
 
-  const handleCopyCode = async () => {
-    if (!ownerCode?.code) return;
+  const buildAffiliateLink = (code) => {
+    const raw = String(code || '').trim().toUpperCase();
+    if (!raw) return '';
+    const origin = window.location?.origin || '';
+    return `${origin}/register?affiliate=${encodeURIComponent(raw)}`;
+  };
+
+  const handleCopyValue = async (value, token) => {
+    if (!value) return;
     try {
-      await navigator.clipboard.writeText(ownerCode.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      await navigator.clipboard.writeText(value);
+      setCopied(token);
+      setTimeout(() => setCopied(''), 1800);
     } catch (err) {
       console.error('copy affiliate code', err);
     }
@@ -394,11 +401,11 @@ export default function ClientAffiliates() {
                       <span className="text-2xl font-semibold">{snapshot.code.code}</span>
                       <button
                         type="button"
-                        onClick={handleCopyCode}
+                        onClick={() => handleCopyValue(snapshot.code.code, `${market}-code`)}
                         className="text-sm text-primary flex items-center gap-1"
                       >
-                        {copied ? <ClipboardCheck className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}
-                        {copied
+                        {copied === `${market}-code` ? <ClipboardCheck className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}
+                        {copied === `${market}-code`
                           ? t('ClientAffiliates.codeCard.copied')
                           : t('ClientAffiliates.codeCard.copy')}
                       </button>
@@ -408,6 +415,30 @@ export default function ClientAffiliates() {
                         ? t('ClientAffiliates.codeCard.active')
                         : t('ClientAffiliates.codeCard.inactive')}
                     </p>
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                      <p className="text-[11px] uppercase tracking-wide text-text-secondary">Referral link</p>
+                      <a
+                        href={buildAffiliateLink(snapshot.code.code)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 block break-all text-xs text-primary hover:underline"
+                      >
+                        {buildAffiliateLink(snapshot.code.code)}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopyValue(
+                            buildAffiliateLink(snapshot.code.code),
+                            `${market}-link`
+                          )
+                        }
+                        className="mt-2 text-xs text-primary inline-flex items-center gap-1"
+                      >
+                        {copied === `${market}-link` ? <ClipboardCheck className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+                        {copied === `${market}-link` ? 'Copied' : 'Copy link'}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="border rounded-xl p-4">
