@@ -43,6 +43,9 @@ export default function ClientChatWidget() {
 
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState('support'); // support | b2b
+  const [isPageVisible, setIsPageVisible] = useState(() =>
+    typeof document === 'undefined' ? true : document.visibilityState === 'visible'
+  );
 
   const [selectedMarket, setSelectedMarket] = useState('FR');
   const [conversationsByMarket, setConversationsByMarket] = useState({});
@@ -106,6 +109,16 @@ export default function ClientChatWidget() {
       // ignore storage write errors
     }
   }, [b2bReadStorageKey, b2bReadByConversationId]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      setIsPageVisible(document.visibilityState === 'visible');
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, []);
 
   const markB2bConversationRead = (conversationId, at) => {
     if (!conversationId) return;
@@ -253,7 +266,9 @@ export default function ClientChatWidget() {
   }, [activeB2bConversationId]);
 
   useEffect(() => {
+    if (!user?.id || isAdmin || !isPageVisible) return;
     let cancelled = false;
+    const shouldPoll = open && mode === 'support';
     const fetchUnread = async () => {
       const entries = await Promise.all(
         trackedMarkets.map(async (market) => {
@@ -270,12 +285,12 @@ export default function ClientChatWidget() {
       }
     };
     fetchUnread();
-    const timer = setInterval(fetchUnread, 5000);
+    const timer = shouldPoll ? setInterval(fetchUnread, 5000) : null;
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      if (timer) clearInterval(timer);
     };
-  }, [conversationsByMarket]);
+  }, [conversationsByMarket, open, mode, isPageVisible, user?.id, isAdmin]);
 
   useEffect(() => {
     if (!user?.id || isAdmin) return;
