@@ -1223,10 +1223,17 @@ serve(async (req) => {
     const normalizePlacementId = (opt: any) =>
       opt?.placementOptionId || opt?.id || opt?.PlacementOptionId || null;
     const normalizePlacementStatus = (opt: any) => String(opt?.status || "").toUpperCase();
+    const keepOnlyPlacement = (options: any[], placementId: string | null) => {
+      if (!Array.isArray(options) || !options.length) return [];
+      const target = String(placementId || "").trim();
+      if (!target) return options;
+      const filtered = options.filter((p: any) => String(normalizePlacementId(p) || "") === target);
+      return filtered.length ? filtered : options;
+    };
 
     const placementList = await listPlacementWithRetry(effectivePlacementOptionId);
     const placementPid = placementList.pid;
-    let placementOptions = placementList.placements;
+    let placementOptions = keepOnlyPlacement(placementList.placements, effectivePlacementOptionId);
     let confirmedPlacement = placementOptions.find((p: any) =>
       ["ACCEPTED", "CONFIRMED"].includes(normalizePlacementStatus(p))
     );
@@ -1386,7 +1393,7 @@ serve(async (req) => {
       }
 
       const refreshedPlacement = await listPlacementWithRetry(effectivePlacementOptionId);
-      placementOptions = refreshedPlacement.placements;
+      placementOptions = keepOnlyPlacement(refreshedPlacement.placements, effectivePlacementOptionId);
       confirmedPlacement = placementOptions.find((p: any) =>
         ["ACCEPTED", "CONFIRMED"].includes(normalizePlacementStatus(p))
       );
@@ -1495,6 +1502,7 @@ serve(async (req) => {
       if (!name && !phoneNumber && !email) return null;
       return { name, phoneNumber, email };
     };
+    placementOptions = keepOnlyPlacement(placementOptions, effectivePlacementOptionId);
     const placementOptionShipmentIds = Array.isArray(placementOptions)
       ? placementOptions.flatMap((p: any) => p?.shipmentIds || []).filter(Boolean)
       : [];
