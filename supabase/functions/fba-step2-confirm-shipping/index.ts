@@ -1437,8 +1437,12 @@ serve(async (req) => {
       return last;
     };
 
-    const pollPlanForShipments = async () => {
-      for (let i = 1; i <= 12; i++) {
+    const selectedPlacementShipmentIds = Array.isArray(placementOptions)
+      ? placementOptions.flatMap((p: any) => p?.shipmentIds || []).filter(Boolean)
+      : [];
+
+    const pollPlanForShipments = async (maxAttempts = 12) => {
+      for (let i = 1; i <= maxAttempts; i++) {
         const res = await fetchPlanWithRetry();
         if (!res?.res?.ok) return { res, shipments: [] as any[] };
         const shipments =
@@ -1446,12 +1450,16 @@ serve(async (req) => {
           res?.json?.payload?.shipments ||
           [];
         if (Array.isArray(shipments) && shipments.length) return { res, shipments };
+        // For preview flow we can proceed using placementOption shipmentIds
+        // instead of waiting for plan.shipments hydration.
+        if (selectedPlacementShipmentIds.length > 0) return { res, shipments: [] as any[] };
         await delay(500 * i);
       }
       return { res: null, shipments: [] as any[] };
     };
 
-    const { res: planRes, shipments: placementShipmentsInitial } = await pollPlanForShipments();
+    const pollAttempts = shouldConfirm ? 12 : 3;
+    const { res: planRes, shipments: placementShipmentsInitial } = await pollPlanForShipments(pollAttempts);
     let placementShipments = placementShipmentsInitial;
     logStep("getInboundPlan snapshot", {
       traceId,
@@ -1589,8 +1597,9 @@ serve(async (req) => {
         listRes?.json?.payload?.placementOptions ||
         listRes?.json?.placementOptions ||
         [];
-      const ids = Array.isArray(list)
-        ? list.flatMap((p: any) => p?.shipmentIds || []).filter(Boolean)
+      const filtered = keepOnlyPlacement(list, effectivePlacementOptionId);
+      const ids = Array.isArray(filtered)
+        ? filtered.flatMap((p: any) => p?.shipmentIds || []).filter(Boolean)
         : [];
       logStep("placementOptions_shipments_debug", {
         traceId,
