@@ -3815,7 +3815,7 @@ getAllReceivingShipments: async (options = {}) => {
   listClientMarketListings: async ({ country, search, limit = 200 } = {}) => {
     let query = supabase
       .from('client_market_listings')
-      .select('id, owner_user_id, owner_company_id, stock_item_id, country, asin, ean, image_url, product_name, price_eur, quantity, note, is_active, sale_finalized_at, sale_finalized_units, created_at')
+      .select('id, owner_user_id, owner_company_id, stock_item_id, country, asin, ean, image_url, product_name, price_eur, quantity, note, link_fr, link_de, is_active, sale_finalized_at, sale_finalized_units, created_at')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -3840,7 +3840,9 @@ getAllReceivingShipments: async (options = {}) => {
     productName,
     priceEur,
     quantity,
-    note
+    note,
+    linkFr,
+    linkDe
   }) => {
     if (!ownerUserId || !productName?.trim()) {
       return { data: null, error: new Error('Missing listing data') };
@@ -3862,7 +3864,9 @@ getAllReceivingShipments: async (options = {}) => {
         product_name: productName.trim(),
         price_eur: Number(priceEur || 0),
         quantity: Number(quantity || 1),
-        note: note?.trim() || null
+        note: note?.trim() || null,
+        link_fr: linkFr?.trim() || null,
+        link_de: linkDe?.trim() || null
       })
       .select('*')
       .single();
@@ -3927,7 +3931,9 @@ getAllReceivingShipments: async (options = {}) => {
     country,
     priceEur,
     quantity,
-    note
+    note,
+    linkFr,
+    linkDe
   } = {}) => {
     if (!listingId) return { data: null, error: new Error('Missing listing id') };
     const payload = {
@@ -3938,6 +3944,8 @@ getAllReceivingShipments: async (options = {}) => {
       price_eur: Number(priceEur || 0),
       quantity: Math.max(1, Number(quantity || 1)),
       note: note?.trim() || null,
+      link_fr: linkFr?.trim() || null,
+      link_de: linkDe?.trim() || null,
       updated_at: new Date().toISOString()
     };
     const res = await supabase

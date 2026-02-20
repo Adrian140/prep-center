@@ -29,6 +29,9 @@ const BUTIC_COPY = {
     selectHint: 'Select a product from inventory, then add price and note.',
     pricePlaceholder: 'Price EUR',
     notePlaceholder: 'Note (optional)',
+    linkFrPlaceholder: 'FR link (optional)',
+    linkDePlaceholder: 'DE link (optional)',
+    linksLabel: 'Links',
     publishing: 'Publishing...',
     addForSale: 'Add for sale',
     listingCountryLabel: 'Storage country',
@@ -88,6 +91,9 @@ const BUTIC_COPY = {
     selectHint: 'Selecteaza un produs din inventar, apoi adauga pret + nota.',
     pricePlaceholder: 'Pret EUR',
     notePlaceholder: 'Nota (optional)',
+    linkFrPlaceholder: 'Link FR (optional)',
+    linkDePlaceholder: 'Link DE (optional)',
+    linksLabel: 'Linkuri',
     publishing: 'Se publica...',
     addForSale: 'Adauga la vanzare',
     listingCountryLabel: 'Tara depozitare',
@@ -147,6 +153,9 @@ const BUTIC_COPY = {
     selectHint: 'Selectionnez un produit de votre inventaire, puis ajoutez prix + note.',
     pricePlaceholder: 'Prix EUR',
     notePlaceholder: 'Note (optionnelle)',
+    linkFrPlaceholder: 'Lien FR (optionnel)',
+    linkDePlaceholder: 'Lien DE (optionnel)',
+    linksLabel: 'Liens',
     publishing: 'Publication...',
     addForSale: 'Ajouter a la vente',
     listingCountryLabel: 'Pays de stockage',
@@ -206,6 +215,9 @@ const BUTIC_COPY = {
     selectHint: 'Produkt aus dem Bestand auswahlen, dann Preis + Notiz hinzufugen.',
     pricePlaceholder: 'Preis EUR',
     notePlaceholder: 'Notiz (optional)',
+    linkFrPlaceholder: 'FR-Link (optional)',
+    linkDePlaceholder: 'DE-Link (optional)',
+    linksLabel: 'Links',
     publishing: 'Wird veroffentlicht...',
     addForSale: 'Zum Verkauf hinzufugen',
     listingCountryLabel: 'Lagerland',
@@ -265,6 +277,9 @@ const BUTIC_COPY = {
     selectHint: 'Seleziona un prodotto dall inventario, poi aggiungi prezzo + nota.',
     pricePlaceholder: 'Prezzo EUR',
     notePlaceholder: 'Nota (opzionale)',
+    linkFrPlaceholder: 'Link FR (opzionale)',
+    linkDePlaceholder: 'Link DE (opzionale)',
+    linksLabel: 'Link',
     publishing: 'Pubblicazione...',
     addForSale: 'Aggiungi in vendita',
     listingCountryLabel: 'Paese di stoccaggio',
@@ -324,6 +339,9 @@ const BUTIC_COPY = {
     selectHint: 'Selecciona un producto del inventario y agrega precio + nota.',
     pricePlaceholder: 'Precio EUR',
     notePlaceholder: 'Nota (opcional)',
+    linkFrPlaceholder: 'Enlace FR (opcional)',
+    linkDePlaceholder: 'Enlace DE (opcional)',
+    linksLabel: 'Enlaces',
     publishing: 'Publicando...',
     addForSale: 'Agregar en venta',
     listingCountryLabel: 'Pais de almacen',
@@ -385,6 +403,12 @@ function getListingImageUrl(listing) {
   return listing?.image_url || null;
 }
 
+function toExternalUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
 function getAvailableInventoryStock(item) {
   const qty = Number(item?.qty || 0);
   const byCountry = item?.prep_qty_by_country;
@@ -410,6 +434,8 @@ export default function Butic() {
   const [quantityToSell, setQuantityToSell] = useState('1');
   const [priceEur, setPriceEur] = useState('');
   const [note, setNote] = useState('');
+  const [linkFr, setLinkFr] = useState('');
+  const [linkDe, setLinkDe] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [listingActionError, setListingActionError] = useState('');
@@ -422,7 +448,9 @@ export default function Butic() {
     country: '',
     quantity: '1',
     priceEur: '',
-    note: ''
+    note: '',
+    linkFr: '',
+    linkDe: ''
   });
   const [failedImageIds, setFailedImageIds] = useState(() => new Set());
   const [showChat, setShowChat] = useState(false);
@@ -599,7 +627,9 @@ export default function Butic() {
       productName: selectedInventoryItem.name || 'Product',
       priceEur: parsedPrice,
       quantity: Math.max(1, Math.floor(parsedQuantity)),
-      note
+      note,
+      linkFr,
+      linkDe
     });
     if (res?.error) {
       console.error('Failed to create listing:', res.error);
@@ -608,6 +638,8 @@ export default function Butic() {
     } else {
       setPriceEur('');
       setNote('');
+      setLinkFr('');
+      setLinkDe('');
       setSelectedStockItemId('');
       setOfferCountry('');
       setQuantityToSell('1');
@@ -663,7 +695,9 @@ export default function Butic() {
       country: String(listing.country || '').toUpperCase(),
       quantity: String(Math.max(1, Number(listing.quantity || 1))),
       priceEur: String(Number(listing.price_eur || 0)),
-      note: listing.note || ''
+      note: listing.note || '',
+      linkFr: listing.link_fr || '',
+      linkDe: listing.link_de || ''
     });
   };
 
@@ -676,7 +710,9 @@ export default function Butic() {
       country: '',
       quantity: '1',
       priceEur: '',
-      note: ''
+      note: '',
+      linkFr: '',
+      linkDe: ''
     });
   };
 
@@ -706,7 +742,9 @@ export default function Butic() {
       country: editDraft.country,
       priceEur: parsedPrice,
       quantity: Math.floor(parsedQty),
-      note: editDraft.note
+      note: editDraft.note,
+      linkFr: editDraft.linkFr,
+      linkDe: editDraft.linkDe
     });
     if (res?.error) {
       console.error('Failed to update listing:', res.error);
@@ -842,6 +880,22 @@ export default function Butic() {
                               placeholder="EAN"
                             />
                           </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={editDraft.linkFr}
+                              onChange={(e) => setEditDraft((prev) => ({ ...prev, linkFr: e.target.value }))}
+                              className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                              placeholder={copy.linkFrPlaceholder}
+                            />
+                            <input
+                              type="text"
+                              value={editDraft.linkDe}
+                              onChange={(e) => setEditDraft((prev) => ({ ...prev, linkDe: e.target.value }))}
+                              className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                              placeholder={copy.linkDePlaceholder}
+                            />
+                          </div>
                           <div className="grid grid-cols-3 gap-2">
                             <select
                               value={editDraft.country}
@@ -891,6 +945,30 @@ export default function Butic() {
                             {listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR · {listing.country || '-'}
                           </div>
                           {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
+                          {(listing.link_fr || listing.link_de) && (
+                            <div className="mt-1 space-y-1 text-xs text-slate-600">
+                              {listing.link_fr && (
+                                <a
+                                  href={toExternalUrl(listing.link_fr)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="block text-primary hover:underline"
+                                >
+                                  FR: {listing.link_fr}
+                                </a>
+                              )}
+                              {listing.link_de && (
+                                <a
+                                  href={toExternalUrl(listing.link_de)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="block text-primary hover:underline"
+                                >
+                                  DE: {listing.link_de}
+                                </a>
+                              )}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -1076,6 +1154,20 @@ export default function Butic() {
                 onChange={(e) => setNote(e.target.value)}
                 placeholder={copy.notePlaceholder}
                 rows={2}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+              <input
+                type="text"
+                value={linkFr}
+                onChange={(e) => setLinkFr(e.target.value)}
+                placeholder={copy.linkFrPlaceholder}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+              <input
+                type="text"
+                value={linkDe}
+                onChange={(e) => setLinkDe(e.target.value)}
+                placeholder={copy.linkDePlaceholder}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               />
               {createError && <div className="text-xs font-medium text-red-600">{createError}</div>}
