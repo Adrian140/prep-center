@@ -3863,6 +3863,38 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setSelectedTransportationOptionId(null);
   }, [shippingOptions, selectedTransportationOptionId]);
 
+  useEffect(() => {
+    if (currentStep !== '2') return;
+    if (selectedTransportationOptionId) return;
+    const opts = Array.isArray(shippingOptions) ? shippingOptions : [];
+    if (!opts.length) return;
+    const pick =
+      (forcePartneredOnly ? opts.find((o) => Boolean(o?.partnered)) : null) ||
+      opts.find((o) => !o?.partnered && normalizeOptionMode(o?.mode || o?.shippingMode) === 'SPD') ||
+      opts.find((o) => !o?.partnered) ||
+      opts[0];
+    if (!pick?.id) return;
+    setSelectedTransportationOptionId(pick.id);
+    const nextMethod = normalizeOptionMode(pick.mode || pick.shippingMode);
+    selectedOptionSignatureRef.current = {
+      mode: nextMethod || null,
+      partnered: Boolean(pick.partnered),
+      shippingSolution: String(pick?.shippingSolution || pick?.raw?.shippingSolution || '').toUpperCase(),
+      carrierName: String(pick?.raw?.carrier?.name || pick?.carrierName || '').trim().toUpperCase(),
+      carrierCode: String(pick?.raw?.carrier?.alphaCode || '').trim().toUpperCase()
+    };
+    setShipmentMode((prev) => ({
+      ...prev,
+      method: nextMethod || prev.method,
+      carrier: {
+        partnered: Boolean(pick.partnered),
+        name: pick.carrierName || '',
+        rate: typeof pick.charge === 'number' ? pick.charge : prev?.carrier?.rate ?? null
+      }
+    }));
+    setCarrierTouched(true);
+  }, [currentStep, shippingOptions, selectedTransportationOptionId, forcePartneredOnly]);
+
   const confirmShippingOptions = useCallback(async () => {
     if (typeof window === 'undefined') return;
     const inboundPlanId = resolveInboundPlanId();
