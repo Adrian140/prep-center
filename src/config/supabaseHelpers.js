@@ -27,6 +27,23 @@ const createMonthMatcher = (billingMonth) => {
   };
 };
 
+const isInvoiceWithinAffiliateWindow = ({
+  invoiceDate,
+  memberCreatedAt,
+  payoutMonthsLimit
+} = {}) => {
+  const months = Number(payoutMonthsLimit || 0);
+  if (!Number.isFinite(months) || months <= 0) return true;
+  if (!invoiceDate) return false;
+  if (!memberCreatedAt) return true;
+  const invoiceTs = new Date(invoiceDate);
+  const memberTs = new Date(memberCreatedAt);
+  if (Number.isNaN(invoiceTs.getTime()) || Number.isNaN(memberTs.getTime())) return false;
+  const cutoff = new Date(memberTs);
+  cutoff.setMonth(cutoff.getMonth() + Math.floor(months));
+  return invoiceTs >= memberTs && invoiceTs < cutoff;
+};
+
 const isMissingColumnError = (error, column) => {
   if (!error) return false;
   const columnName = column.toLowerCase();
@@ -606,7 +623,7 @@ export const supabaseHelpers = {
 
     const { data: assigned } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, company_name, store_name, company_id, country, allowed_markets')
+      .select('id, first_name, last_name, company_name, store_name, company_id, country, allowed_markets, created_at')
       .eq('affiliate_code_id', code.id);
 
     const marketCode = normalizeMarketCode(country);
@@ -624,6 +641,11 @@ export const supabaseHelpers = {
     const companyIds = scoped
       .map((client) => client.company_id)
       .filter(Boolean);
+    const companyMeta = scoped.reduce((acc, client) => {
+      if (!client?.company_id) return acc;
+      acc[client.company_id] = client;
+      return acc;
+    }, {});
 
     let totals = {};
     if (companyIds.length > 0) {
@@ -645,6 +667,14 @@ export const supabaseHelpers = {
           return status === 'paid' || status.includes('paid');
         })
         .filter((inv) => monthMatcher(inv.issue_date || inv.created_at))
+        .filter((inv) => {
+          const company = companyMeta?.[inv.company_id];
+          return isInvoiceWithinAffiliateWindow({
+            invoiceDate: inv.issue_date || inv.created_at,
+            memberCreatedAt: company?.created_at,
+            payoutMonthsLimit: code?.payout_months_limit
+          });
+        })
         .forEach((inv) => {
           const net = Number(inv.amount ?? 0);
           const amount = Number.isFinite(net) ? net : 0;
@@ -777,7 +807,7 @@ export const supabaseHelpers = {
     const marketCode = normalizeMarketCode(country);
     const assignedPromise = supabase
       .from('profiles')
-      .select('id, first_name, last_name, company_name, store_name, country, allowed_markets, company_id, affiliate_code_input, affiliate_code_id, updated_at')
+      .select('id, first_name, last_name, company_name, store_name, country, allowed_markets, company_id, affiliate_code_input, affiliate_code_id, updated_at, created_at')
       .eq('affiliate_code_id', codeId)
       .order('updated_at', { ascending: true });
     const candidatesPromise = supabase
@@ -791,6 +821,11 @@ export const supabaseHelpers = {
       await Promise.all([assignedPromise, candidatesPromise]);
 
     let totals = {};
+    const { data: codeRow } = await supabase
+      .from('affiliate_codes')
+      .select('id, payout_months_limit')
+      .eq('id', codeId)
+      .maybeSingle();
     const scopedAssigned = marketCode
       ? (assigned || []).filter((client) => {
           const allowed = Array.isArray(client.allowed_markets) ? client.allowed_markets : [];
@@ -804,6 +839,11 @@ export const supabaseHelpers = {
     const companyIds = scopedAssigned
       .map((client) => client.company_id)
       .filter(Boolean);
+    const companyMeta = scopedAssigned.reduce((acc, client) => {
+      if (!client?.company_id) return acc;
+      acc[client.company_id] = client;
+      return acc;
+    }, {});
     if (companyIds.length > 0) {
       const monthMatcher = createMonthMatcher(billingMonth);
       let invoicesQuery = supabase
@@ -823,6 +863,14 @@ export const supabaseHelpers = {
           return status === 'paid' || status.includes('paid');
         })
         .filter((invoice) => monthMatcher(invoice.issue_date || invoice.created_at))
+        .filter((invoice) => {
+          const company = companyMeta?.[invoice.company_id];
+          return isInvoiceWithinAffiliateWindow({
+            invoiceDate: invoice.issue_date || invoice.created_at,
+            memberCreatedAt: company?.created_at,
+            payoutMonthsLimit: codeRow?.payout_months_limit
+          });
+        })
         .forEach((invoice) => {
           const net = Number(invoice.amount ?? 0);
           const amount = Number.isFinite(net) ? net : 0;

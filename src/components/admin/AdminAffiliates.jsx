@@ -23,6 +23,7 @@ const initialCodeForm = {
   percent_above_threshold: '',
   threshold_amount: '',
   fixed_amount: '',
+  payout_months_limit: '',
   payout_tiers: []
 };
 
@@ -156,6 +157,8 @@ export default function AdminAffiliates() {
 
   const describePayout = (code) => {
     if (!code) return t('affiliates.offerNone');
+    const monthsLimit = Number(code?.payout_months_limit || 0);
+    const windowLabel = monthsLimit > 0 ? ` · first ${monthsLimit} month(s)` : '';
     if (code.payout_type === 'threshold') {
       const threshold = Number(code.threshold_amount || 0);
       const below = Number(code.percent_below_threshold || 0);
@@ -169,23 +172,23 @@ export default function AdminAffiliates() {
         return `${summaryText} · ${tp('affiliates.offerFixed', {
           threshold: currencyFormatter.format(threshold),
           amount: currencyFormatter.format(Number(code.fixed_amount || 0))
-        })}`;
+        })}${windowLabel}`;
       }
-      return summaryText;
+      return `${summaryText}${windowLabel}`;
     }
     const tiers = sanitizeTiers(code.payout_tiers);
     if (tiers.length > 0) {
-      return tiers
+      return `${tiers
         .map((tier) =>
           tp('affiliates.offerTier', {
             amount: currencyFormatter.format(tier.min_amount),
             percent: tier.percent
           })
         )
-        .join(' • ');
+        .join(' • ')}${windowLabel}`;
     }
     const percent = Number(code.percent_below_threshold || code.percent_above_threshold || 0);
-    return tp('affiliates.offerPercent', { percent });
+    return `${tp('affiliates.offerPercent', { percent })}${windowLabel}`;
   };
 
   const loadData = async () => {
@@ -271,6 +274,7 @@ export default function AdminAffiliates() {
         percent_above_threshold: form.percent_above_threshold || null,
         threshold_amount: form.threshold_amount || null,
         fixed_amount: form.fixed_amount || null,
+        payout_months_limit: Number(form.payout_months_limit) > 0 ? Math.floor(Number(form.payout_months_limit)) : null,
         payout_tiers: tiersPayload
       };
       await supabaseHelpers.createAffiliateCode(payload);
@@ -424,6 +428,7 @@ export default function AdminAffiliates() {
       percent_above_threshold: code.percent_above_threshold ?? '',
       threshold_amount: code.threshold_amount ?? '',
       fixed_amount: code.fixed_amount ?? '',
+      payout_months_limit: code.payout_months_limit ?? '',
       payout_tiers: Array.isArray(code.payout_tiers) ? code.payout_tiers : []
     });
   };
@@ -448,6 +453,7 @@ export default function AdminAffiliates() {
         percent_above_threshold: editForm.percent_above_threshold || null,
         threshold_amount: editForm.threshold_amount || null,
         fixed_amount: editForm.fixed_amount || null,
+        payout_months_limit: Number(editForm.payout_months_limit) > 0 ? Math.floor(Number(editForm.payout_months_limit)) : null,
         payout_tiers: tiersPayload
       });
       cancelEdit();
@@ -617,7 +623,7 @@ export default function AdminAffiliates() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm text-text-secondary mb-1 block">{t('affiliates.fixedAmount')}</label>
               <input
@@ -636,6 +642,19 @@ export default function AdminAffiliates() {
                 className="w-full border rounded-lg px-3 py-2"
                 placeholder={t('affiliates.descriptionPlaceholder')}
               />
+            </div>
+            <div>
+              <label className="text-sm text-text-secondary mb-1 block">Commission months limit</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={form.payout_months_limit}
+                onChange={(e) => setForm((prev) => ({ ...prev, payout_months_limit: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="e.g. 2"
+              />
+              <p className="mt-1 text-xs text-text-secondary">Empty = unlimited commission period.</p>
             </div>
           </div>
 
@@ -998,6 +1017,19 @@ export default function AdminAffiliates() {
                           value={editForm.fixed_amount}
                           onChange={(e) => setEditForm((prev) => ({ ...prev, fixed_amount: e.target.value }))}
                         />
+                      </div>
+                      <div>
+                        <label className="text-xs uppercase text-text-secondary block mb-1">Commission months limit</label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          className="w-full border rounded-lg px-3 py-2"
+                          value={editForm.payout_months_limit}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, payout_months_limit: e.target.value }))}
+                          placeholder="e.g. 2"
+                        />
+                        <p className="mt-1 text-[11px] text-text-secondary">Empty = unlimited commission period.</p>
                       </div>
                     </div>
                     {editForm.payout_type === 'percentage' && (
