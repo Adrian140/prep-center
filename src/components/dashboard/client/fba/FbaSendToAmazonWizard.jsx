@@ -3870,6 +3870,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (!opts.length) return;
     const pick =
       (forcePartneredOnly ? opts.find((o) => Boolean(o?.partnered)) : null) ||
+      opts.find((o) => Boolean(o?.partnered) && normalizeOptionMode(o?.mode || o?.shippingMode) === 'SPD') ||
+      opts.find((o) => Boolean(o?.partnered)) ||
       opts.find((o) => !o?.partnered && normalizeOptionMode(o?.mode || o?.shippingMode) === 'SPD') ||
       opts.find((o) => !o?.partnered) ||
       opts[0];
@@ -3892,7 +3894,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         rate: typeof pick.charge === 'number' ? pick.charge : prev?.carrier?.rate ?? null
       }
     }));
-    setCarrierTouched(true);
+    setCarrierTouched(false);
   }, [currentStep, shippingOptions, selectedTransportationOptionId, forcePartneredOnly]);
 
   const confirmShippingOptions = useCallback(async () => {

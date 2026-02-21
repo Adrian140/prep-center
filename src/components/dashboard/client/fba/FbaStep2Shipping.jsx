@@ -172,26 +172,74 @@ export default function FbaStep2Shipping({
     opt?.optionId ||
     opt?.raw?.transportationOptionId ||
     opt?.raw?.id ||
-    opt?.raw?.optionId ||
-    null;
-  const dedupeByCarrier = (list = []) => {
+        opt?.raw?.optionId ||
+        null;
+  const aggregateByCarrier = (list = []) => {
     const map = new Map();
+    const currentShipmentIds = Array.isArray(shipmentIds) ? shipmentIds : [];
     (Array.isArray(list) ? list : []).forEach((opt) => {
       const id = getOptionId(opt);
       if (!id) return;
       const codeKey = String(opt?.raw?.carrier?.alphaCode || '').trim().toUpperCase();
       const key = (codeKey || getCarrierLabel(opt)).trim().toUpperCase();
-      const prev = map.get(key);
-      const prevCharge = Number.isFinite(prev?.charge) ? Number(prev.charge) : Number.MAX_SAFE_INTEGER;
+      const shipmentId = String(opt?.shipmentId || opt?.raw?.shipmentId || '').trim();
+      const entry =
+        map.get(key) ||
+        {
+          representative: null,
+          byShipment: new Map(),
+          key
+        };
+      const rep = entry.representative;
+      const repCharge = Number.isFinite(rep?.charge) ? Number(rep.charge) : Number.MAX_SAFE_INTEGER;
       const nextCharge = Number.isFinite(opt?.charge) ? Number(opt.charge) : Number.MAX_SAFE_INTEGER;
-      if (!prev || nextCharge < prevCharge) map.set(key, { ...opt, id });
+      if (!rep || nextCharge < repCharge) {
+        entry.representative = { ...opt, id };
+      }
+      if (shipmentId) {
+        const prevForShipment = entry.byShipment.get(shipmentId);
+        const prevShipmentCharge = Number.isFinite(prevForShipment?.charge)
+          ? Number(prevForShipment.charge)
+          : Number.MAX_SAFE_INTEGER;
+        if (!prevForShipment || nextCharge < prevShipmentCharge) {
+          entry.byShipment.set(shipmentId, { ...opt, id });
+        }
+      }
+      map.set(key, entry);
     });
-    return Array.from(map.values());
+    return Array.from(map.values()).map((entry) => {
+      const rep = entry.representative || {};
+      const shipmentKeys = Array.from(entry.byShipment.keys());
+      const coversAllShipments =
+        currentShipmentIds.length > 1 &&
+        currentShipmentIds.every((sid) => entry.byShipment.has(sid));
+      const aggregatedCharge = coversAllShipments
+        ? currentShipmentIds.reduce((sum, sid) => {
+            const shOpt = entry.byShipment.get(sid);
+            const ch = Number(shOpt?.charge);
+            return Number.isFinite(ch) ? sum + ch : sum;
+          }, 0)
+        : null;
+      const allChargesFinite =
+        coversAllShipments &&
+        currentShipmentIds.every((sid) => {
+          const shOpt = entry.byShipment.get(sid);
+          return Number.isFinite(Number(shOpt?.charge));
+        });
+      const displayCharge = allChargesFinite ? Number(aggregatedCharge.toFixed(2)) : rep?.charge ?? null;
+      return {
+        ...rep,
+        id: rep?.id || getOptionId(rep),
+        shipmentCoverage: shipmentKeys,
+        coversAllShipments,
+        charge: displayCharge
+      };
+    });
   };
   const spdOptions = groupedOptions.SPD || [];
-  const spdPartneredOptions = useMemo(() => dedupeByCarrier(spdOptions.filter((o) => Boolean(o?.partnered))), [spdOptions]);
+  const spdPartneredOptions = useMemo(() => aggregateByCarrier(spdOptions.filter((o) => Boolean(o?.partnered))), [spdOptions, shipmentIds]);
   const spdNonPartneredOptions = useMemo(() => {
-    const list = dedupeByCarrier(spdOptions.filter((o) => !o?.partnered));
+    const list = aggregateByCarrier(spdOptions.filter((o) => !o?.partnered));
     const isOtherCarrier = (opt) => {
       const code = String(opt?.raw?.carrier?.alphaCode || '').trim().toUpperCase();
       const label = getCarrierLabel(opt).trim().toUpperCase();
@@ -204,7 +252,7 @@ export default function FbaStep2Shipping({
       if (!aOther && bOther) return -1;
       return getCarrierLabel(a).localeCompare(getCarrierLabel(b));
     });
-  }, [spdOptions]);
+  }, [spdOptions, shipmentIds]);
   const hasSpdOptions = spdOptions.length > 0;
   const modeKeys = useMemo(
     () => ['SPD', 'LTL', 'FTL', 'OTHER'].filter((k) => (groupedOptions[k] || []).length > 0),
@@ -231,6 +279,14 @@ export default function FbaStep2Shipping({
   const needsDeliveryWindow = Array.isArray(selectedOption?.raw?.preconditions)
     ? selectedOption.raw.preconditions.map((p) => String(p).toUpperCase()).includes('CONFIRMED_DELIVERY_WINDOW')
     : false;
+  useEffect(() => {
+    if (!needsDeliveryWindow) return;
+    const base = String(globalReadyStartRaw || '').trim();
+    if (!base) return;
+    const normalized = base.includes('T') ? base : `${base}T16:45`;
+    if (deliveryWindowStart === normalized) return;
+    onDeliveryWindowChange?.({ start: normalized, end: '' });
+  }, [needsDeliveryWindow, globalReadyStartRaw, deliveryWindowStart, onDeliveryWindowChange]);
 
   // Nu auto-completăm end; îl lăsăm manual la LTL/FTL. Pentru SPD nu cerem end.
 
@@ -429,17 +485,8 @@ export default function FbaStep2Shipping({
           </div>
           {needsDeliveryWindow && (
             <div className="grid grid-cols-1 gap-3 text-sm">
-              <div>
-                <div className="text-xs text-slate-600 mb-1">Delivery window — start *</div>
-                <input
-                  type="datetime-local"
-                  value={deliveryWindowStart || ''}
-                  onChange={(e) => onDeliveryWindowChange?.({ start: e.target.value, end: '' })}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
-              </div>
               <div className="text-[11px] text-amber-700">
-                Opțiunea de curier cere delivery window confirmată (CONFIRMED_DELIVERY_WINDOW). Dacă nu alegi o fereastră, Amazon poate returna eroare la confirmare.
+                Opțiunea selectată cere delivery window confirmată (CONFIRMED_DELIVERY_WINDOW). Folosim automat data din Ready to ship.
               </div>
             </div>
           )}

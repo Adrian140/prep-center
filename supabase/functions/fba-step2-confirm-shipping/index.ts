@@ -1230,9 +1230,23 @@ serve(async (req) => {
       const filtered = options.filter((p: any) => String(normalizePlacementId(p) || "") === target);
       return filtered.length ? filtered : options;
     };
+    const hasPartneredSolutionFromList = (opts: any[]) =>
+      Array.isArray(opts)
+        ? opts.some((opt: any) => {
+            const solution = String(
+              opt?.shippingSolution || opt?.shippingSolutionId || opt?.shipping_solution || ""
+            ).toUpperCase();
+            return solution.includes("AMAZON_PARTNERED") || solution.includes("PARTNERED_CARRIER");
+          })
+        : false;
+    const isSpdModeRequestedForPlacement = () => {
+      const mode = String(effectiveShippingMode || "").toUpperCase();
+      return ["SPD", "SMALL_PARCEL_DELIVERY", "SMALL_PARCEL", "GROUND_SMALL_PARCEL", "PARCEL"].includes(mode);
+    };
 
     const placementList = await listPlacementWithRetry(effectivePlacementOptionId);
     const placementPid = placementList.pid;
+    const allPlacementOptions = Array.isArray(placementList.placements) ? placementList.placements : [];
     let placementOptions = keepOnlyPlacement(placementList.placements, effectivePlacementOptionId);
     let confirmedPlacement = placementOptions.find((p: any) =>
       ["ACCEPTED", "CONFIRMED"].includes(normalizePlacementStatus(p))
@@ -1251,6 +1265,123 @@ serve(async (req) => {
       boxesCount,
       placementStatus: confirmedPlacement ? normalizePlacementStatus(confirmedPlacement) : null
     });
+
+    const maybeSelectPlacementForPcp = async () => {
+      if (confirmedPlacement) return;
+      if (!isSpdModeRequestedForPlacement()) return;
+      const currentPlacementId = String(effectivePlacementOptionId || "").trim();
+      const candidates = allPlacementOptions
+        .map((p: any) => ({
+          id: String(normalizePlacementId(p) || "").trim(),
+          status: normalizePlacementStatus(p),
+          shipmentIds: Array.isArray(p?.shipmentIds) ? p.shipmentIds.filter(Boolean).map((id: any) => String(id)) : []
+        }))
+        .filter((p: any) => p.id)
+        .filter((p: any) => ["OFFERED", "ACCEPTED", "CONFIRMED"].includes(p.status));
+      if (candidates.length <= 1) return;
+
+      const diagnostics: any[] = [];
+      let best: { id: string; score: number } | null = null;
+
+      const probeTransportOptions = async (placementId: string, shipmentId: string | null) => {
+        const params = new URLSearchParams();
+        params.set("placementOptionId", placementId);
+        params.set("pageSize", "20");
+        if (shipmentId) params.set("shipmentId", shipmentId);
+        const res = await signedFetch({
+          method: "GET",
+          service: "execute-api",
+          region: awsRegion,
+          host,
+          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/transportationOptions`,
+          query: params.toString(),
+          payload: "",
+          accessKey: tempCreds.accessKeyId,
+          secretKey: tempCreds.secretAccessKey,
+          sessionToken: tempCreds.sessionToken,
+          lwaToken: lwaAccessToken,
+          traceId,
+          operationName: "inbound.v20240320.listTransportationOptions.placementProbe",
+          marketplaceId,
+          sellerId
+        });
+        const options =
+          res?.json?.payload?.transportationOptions ||
+          res?.json?.transportationOptions ||
+          [];
+        return Array.isArray(options) ? options : [];
+      };
+
+      for (const candidate of candidates) {
+        const shipmentId = candidate.shipmentIds[0] || null;
+        let destinationType: string | null = null;
+        if (shipmentId) {
+          const shRes = await signedFetch({
+            method: "GET",
+            service: "execute-api",
+            region: awsRegion,
+            host,
+            path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(
+              shipmentId
+            )}`,
+            query: "",
+            payload: "",
+            accessKey: tempCreds.accessKeyId,
+            secretKey: tempCreds.secretAccessKey,
+            sessionToken: tempCreds.sessionToken,
+            lwaToken: lwaAccessToken,
+            traceId,
+            operationName: "inbound.v20240320.getShipment.placementProbe",
+            marketplaceId,
+            sellerId
+          });
+          const shPayload = shRes?.json?.payload || shRes?.json || {};
+          destinationType = String(shPayload?.destination?.destinationType || "").toUpperCase() || null;
+        }
+        let options = await probeTransportOptions(candidate.id, shipmentId);
+        if (!options.length) options = await probeTransportOptions(candidate.id, null);
+        const hasPartnered = hasPartneredSolutionFromList(options);
+        const hasOptimizedDestination =
+          destinationType === "AMAZON_OPTIMIZED" || destinationType === "MULTIPLE_DESTINATIONS";
+        const score = (hasPartnered ? 100 : 0) + (hasOptimizedDestination ? 30 : 0);
+        diagnostics.push({
+          placementOptionId: candidate.id,
+          status: candidate.status,
+          shipmentId,
+          destinationType,
+          hasPartnered,
+          optionsCount: options.length,
+          score
+        });
+        if (!best || score > best.score) best = { id: candidate.id, score };
+      }
+
+      const currentDiag = diagnostics.find((d: any) => d.placementOptionId === currentPlacementId) || null;
+      const currentScore = currentDiag ? Number(currentDiag.score || 0) : -1;
+      if (best && best.id && best.id !== currentPlacementId && best.score > currentScore) {
+        const previous = effectivePlacementOptionId;
+        effectivePlacementOptionId = best.id;
+        placementOptions = keepOnlyPlacement(allPlacementOptions, effectivePlacementOptionId);
+        confirmedPlacement = placementOptions.find((p: any) =>
+          ["ACCEPTED", "CONFIRMED"].includes(normalizePlacementStatus(p))
+        );
+        logStep("placementOptionAutoSwitch", {
+          traceId,
+          reason: "pcp_probe",
+          previousPlacementOptionId: previous || null,
+          selectedPlacementOptionId: effectivePlacementOptionId,
+          diagnostics
+        });
+      } else {
+        logStep("placementOptionProbe", {
+          traceId,
+          selectedPlacementOptionId: effectivePlacementOptionId || null,
+          diagnostics
+        });
+      }
+    };
+
+    await maybeSelectPlacementForPcp();
 
     if (boxesCount === 0) {
       return new Response(
@@ -1609,6 +1740,151 @@ serve(async (req) => {
       });
       return ids;
     };
+    const parseTemplatePackIndex = (value: unknown): number | null => {
+      const raw = String(value || "").trim();
+      if (!raw) return null;
+      const match = raw.match(/^P\s*(\d+)\b/i);
+      if (!match) return null;
+      const idx = Number(match[1]);
+      if (!Number.isFinite(idx) || idx <= 0) return null;
+      return idx - 1;
+    };
+    const normalizeBoxDims = (dims: any) => {
+      if (!dims) return null;
+      const unit = String(dims?.unit || dims?.unitOfMeasurement || "CM").toUpperCase();
+      const toCm = (v: number) => (unit === "IN" ? inToCm(v) : round2(v));
+      const length = Number(dims?.length || 0);
+      const width = Number(dims?.width || 0);
+      const height = Number(dims?.height || 0);
+      if (!Number.isFinite(length) || !Number.isFinite(width) || !Number.isFinite(height)) return null;
+      if (length <= 0 || width <= 0 || height <= 0) return null;
+      return { length: toCm(length), width: toCm(width), height: toCm(height) };
+    };
+    const normalizeBoxWeightKg = (weight: any) => {
+      if (!weight) return null;
+      const unit = String(weight?.unit || weight?.unitOfMeasurement || "KG").toUpperCase();
+      const rawValue = Number(weight?.value || weight?.amount || 0);
+      if (!Number.isFinite(rawValue) || rawValue <= 0) return null;
+      return unit === "LB" ? lbToKg(rawValue) : round2(rawValue);
+    };
+    const listShipmentBoxes = async (shipmentId: string) => {
+      const res = await signedFetch({
+        method: "GET",
+        service: "execute-api",
+        region: awsRegion,
+        host,
+        path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shipmentId)}/boxes`,
+        query: "",
+        payload: "",
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        operationName: "inbound.v20240320.listShipmentBoxes",
+        marketplaceId,
+        sellerId
+      });
+      const boxes = res?.json?.payload?.boxes || res?.json?.boxes || [];
+      return Array.isArray(boxes) ? boxes : [];
+    };
+    const resolvePackingGroupIndexByShipment = async (
+      shipmentIdsRaw: any[],
+      groups: any[]
+    ): Promise<Map<string, number>> => {
+      const shipmentIds = (Array.isArray(shipmentIdsRaw) ? shipmentIdsRaw : [])
+        .map((id) => String(id || "").trim())
+        .filter(Boolean);
+      const mapByShipment = new Map<string, number>();
+      if (!shipmentIds.length || !Array.isArray(groups) || !groups.length) return mapByShipment;
+
+      const groupSignatures = groups.map((g: any, idx: number) => {
+        const pkg = g?.packageFromGroup || {};
+        const dims = normalizeBoxDims(pkg?.dimensions);
+        const weightKg = normalizeBoxWeightKg(pkg?.weight);
+        const quantity = Number(pkg?.quantity || g?.boxes || 0) || 0;
+        return {
+          idx,
+          quantity,
+          dims,
+          weightKg,
+          totalWeightKg: weightKg && quantity > 0 ? round2(weightKg * quantity) : null
+        };
+      });
+
+      const shipmentMeta = await Promise.all(
+        shipmentIds.map(async (sid) => {
+          const boxes = await listShipmentBoxes(sid);
+          const packIndexCandidates = new Set<number>();
+          let boxCount = 0;
+          let totalWeightKg = 0;
+          let firstDims: { length: number; width: number; height: number } | null = null;
+          boxes.forEach((box: any) => {
+            const qty = Math.max(1, Number(box?.quantity || 1) || 1);
+            boxCount += qty;
+            const tIndex =
+              parseTemplatePackIndex(box?.templateName) ??
+              parseTemplatePackIndex(box?.template_name) ??
+              null;
+            if (tIndex !== null) packIndexCandidates.add(tIndex);
+            const dims = normalizeBoxDims(box?.dimensions);
+            if (!firstDims && dims) firstDims = dims;
+            const w = normalizeBoxWeightKg(box?.weight);
+            if (w) totalWeightKg += round2(w * qty);
+          });
+          return {
+            sid,
+            boxCount: boxCount || null,
+            totalWeightKg: totalWeightKg > 0 ? round2(totalWeightKg) : null,
+            firstDims,
+            packIndexCandidates: Array.from(packIndexCandidates).filter((idx) => idx >= 0 && idx < groups.length)
+          };
+        })
+      );
+
+      const usedGroupIdx = new Set<number>();
+      shipmentMeta.forEach((meta) => {
+        if (meta.packIndexCandidates.length !== 1) return;
+        const idx = meta.packIndexCandidates[0];
+        if (usedGroupIdx.has(idx)) return;
+        usedGroupIdx.add(idx);
+        mapByShipment.set(meta.sid, idx);
+      });
+
+      shipmentMeta.forEach((meta) => {
+        if (mapByShipment.has(meta.sid)) return;
+        let bestIdx: number | null = null;
+        let bestScore = Number.NEGATIVE_INFINITY;
+        groupSignatures.forEach((sig) => {
+          if (usedGroupIdx.has(sig.idx)) return;
+          let score = 0;
+          if (meta.boxCount && sig.quantity) {
+            score += meta.boxCount === sig.quantity ? 50 : -Math.abs(meta.boxCount - sig.quantity) * 20;
+          }
+          if (meta.firstDims && sig.dims) {
+            const d =
+              Math.abs(meta.firstDims.length - sig.dims.length) +
+              Math.abs(meta.firstDims.width - sig.dims.width) +
+              Math.abs(meta.firstDims.height - sig.dims.height);
+            score += Math.max(0, 80 - d * 6);
+          }
+          if (meta.totalWeightKg && sig.totalWeightKg) {
+            const wDiff = Math.abs(meta.totalWeightKg - sig.totalWeightKg);
+            score += Math.max(0, 60 - wDiff * 12);
+          }
+          if (score > bestScore) {
+            bestScore = score;
+            bestIdx = sig.idx;
+          }
+        });
+        if (bestIdx !== null && bestScore >= 70) {
+          usedGroupIdx.add(bestIdx);
+          mapByShipment.set(meta.sid, bestIdx);
+        }
+      });
+
+      return mapByShipment;
+    };
     const planShipmentIds =
       Array.isArray(planPlacementOptions) && planPlacementOptions.length
         ? planPlacementOptions
@@ -1633,15 +1909,38 @@ serve(async (req) => {
       }
       // Folosește shipmentId-urile din placementOptions dacă există, altfel packingGroupId pentru quote.
       if (hasPlanShipmentIds) {
+        let shipmentToGroupIdx = new Map<string, number>();
+        try {
+          shipmentToGroupIdx = await resolvePackingGroupIndexByShipment(enrichedPlanShipmentIds, packingGroupsForTransport);
+        } catch (mapErr: any) {
+          logStep("shipment_to_group_mapping_failed", {
+            traceId,
+            error: mapErr?.message || String(mapErr)
+          });
+        }
         placementShipments = enrichedPlanShipmentIds.map((sid: any, idx: number) => ({
           id: sid,
           shipmentId: sid,
-          packingGroupId: packingGroupsForTransport?.[idx]?.packingGroupId || null,
-          packageFromGroup: packingGroupsForTransport?.[idx]?.packageFromGroup || null,
-          shipFromAddress: packingGroupsForTransport?.[idx]?.shipFromAddress || planSourceAddress || null,
-          boxes: packingGroupsForTransport?.[idx]?.boxes || null,
+          packingGroupId:
+            packingGroupsForTransport?.[shipmentToGroupIdx.get(String(sid)) ?? idx]?.packingGroupId || null,
+          packageFromGroup:
+            packingGroupsForTransport?.[shipmentToGroupIdx.get(String(sid)) ?? idx]?.packageFromGroup || null,
+          shipFromAddress:
+            packingGroupsForTransport?.[shipmentToGroupIdx.get(String(sid)) ?? idx]?.shipFromAddress ||
+            planSourceAddress ||
+            null,
+          boxes: packingGroupsForTransport?.[shipmentToGroupIdx.get(String(sid)) ?? idx]?.boxes || null,
           isPackingGroup: false
         }));
+        logStep("shipment_to_group_mapping_debug", {
+          traceId,
+          shipmentIds: enrichedPlanShipmentIds.map((sid: any) => String(sid)),
+          mapped: Array.from(shipmentToGroupIdx.entries()).map(([sid, gIdx]) => ({
+            shipmentId: sid,
+            groupIndex: gIdx,
+            packingGroupId: packingGroupsForTransport?.[gIdx]?.packingGroupId || null
+          }))
+        });
       } else {
         placementShipments = packingGroupsForTransport.map((g: any) => ({
           id: g.packingGroupId,
