@@ -3851,9 +3851,7 @@ getAllReceivingShipments: async (options = {}) => {
       typeof value === 'string' &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
     const safeOwnerCompanyId = isUuid(ownerCompanyId) ? ownerCompanyId : ownerUserId;
-    return await supabase
-      .from('client_market_listings')
-      .insert({
+    const payload = {
         owner_user_id: ownerUserId,
         owner_company_id: safeOwnerCompanyId,
         stock_item_id: stockItemId || null,
@@ -3867,7 +3865,38 @@ getAllReceivingShipments: async (options = {}) => {
         note: note?.trim() || null,
         link_fr: linkFr?.trim() || null,
         link_de: linkDe?.trim() || null
-      })
+      };
+
+    const primary = await supabase
+      .from('client_market_listings')
+      .insert(payload)
+      .select('*')
+      .single();
+    if (!primary?.error) return primary;
+
+    const msg = String(primary.error?.message || '').toLowerCase();
+    const canRetryWithoutOptionalColumns =
+      msg.includes('stock_item_id') ||
+      msg.includes('link_fr') ||
+      msg.includes('link_de') ||
+      msg.includes('image_url');
+    if (!canRetryWithoutOptionalColumns) return primary;
+
+    const minimalPayload = {
+      owner_user_id: payload.owner_user_id,
+      owner_company_id: payload.owner_company_id,
+      country: payload.country,
+      asin: payload.asin,
+      ean: payload.ean,
+      product_name: payload.product_name,
+      price_eur: payload.price_eur,
+      quantity: payload.quantity,
+      note: payload.note
+    };
+
+    return await supabase
+      .from('client_market_listings')
+      .insert(minimalPayload)
       .select('*')
       .single();
   },
@@ -3883,7 +3912,33 @@ getAllReceivingShipments: async (options = {}) => {
     if (q) {
       query = query.or(`name.ilike.%${q}%,asin.ilike.%${q}%,ean.ilike.%${q}%`);
     }
-    return await query;
+    const primary = await query;
+    if (!primary?.error) return primary;
+
+    // Fallback for environments where direct stock_items access is blocked by stricter RLS.
+    let fallback = supabase
+      .from('client_stock_items')
+      .select('stock_item_id, company_id, product_name, asin, ean, qty')
+      .order('stock_item_id', { ascending: false })
+      .limit(limit);
+    if (companyId) fallback = fallback.eq('company_id', companyId);
+    if (q) {
+      fallback = fallback.or(`product_name.ilike.%${q}%,asin.ilike.%${q}%,ean.ilike.%${q}%`);
+    }
+    const fallbackRes = await fallback;
+    if (fallbackRes?.error) return primary;
+
+    const mapped = (fallbackRes.data || []).map((row) => ({
+      id: row.stock_item_id,
+      company_id: row.company_id || null,
+      name: row.product_name || null,
+      asin: row.asin || null,
+      ean: row.ean || null,
+      qty: Number(row.qty || 0) || 0,
+      prep_qty_by_country: {},
+      image_url: null
+    }));
+    return { data: mapped, error: null };
   },
 
   setClientMarketListingActive: async ({ listingId, isActive }) => {

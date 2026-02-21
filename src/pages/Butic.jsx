@@ -469,7 +469,7 @@ export default function Butic() {
   );
   const me = user?.id || null;
   const market = String(currentMarket || profile?.country || 'FR').toUpperCase();
-  const myCompanyId = profile?.company_id || me;
+  const myCompanyId = profile?.company_id || null;
 
   const loadAllListings = async () => {
     if (!me) return;
@@ -484,7 +484,7 @@ export default function Butic() {
 
   const loadInventory = async () => {
     const res = await supabaseHelpers.listClientInventoryForMarket({
-      companyId: null,
+      companyId: myCompanyId || null,
       search: inventorySearch.trim() || null
     });
     setInventoryItems((res?.data || []).filter((row) => getAvailableInventoryStock(row) > 0));
@@ -511,7 +511,7 @@ export default function Butic() {
   useEffect(() => {
     if (!me) return;
     loadInventory();
-  }, [me, inventorySearch]);
+  }, [me, inventorySearch, myCompanyId]);
 
   useEffect(() => {
     if (!me) return;
@@ -618,7 +618,7 @@ export default function Butic() {
     setListingActionError('');
     const res = await supabaseHelpers.createClientMarketListing({
       ownerUserId: me,
-      ownerCompanyId: myCompanyId,
+      ownerCompanyId: myCompanyId || selectedInventoryItem?.company_id || me,
       stockItemId: selectedInventoryItem.id,
       country: offerCountry,
       asin: selectedInventoryItem.asin || null,
