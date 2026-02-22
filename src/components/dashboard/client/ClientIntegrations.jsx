@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link2, ExternalLink, CheckCircle, AlertTriangle, Loader2, RefreshCw, Unplug, Lock } from 'lucide-react';
+import { Link2, ExternalLink, CheckCircle, AlertTriangle, Loader2, RefreshCw, Unplug, Lock, ChevronDown } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
@@ -110,6 +110,35 @@ function StatusBadge({ status, t }) {
   );
 }
 
+function IntegrationPanel({
+  id,
+  title,
+  subtitle,
+  logo,
+  openId,
+  onToggle,
+  children
+}) {
+  const open = openId === id;
+  return (
+    <section className="bg-white border rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => onToggle(id)}
+        className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
+      >
+        <img src={logo} alt={title} className="w-14 h-14 rounded-lg object-cover border" />
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+          <p className="text-sm text-text-secondary truncate">{subtitle}</p>
+        </div>
+        <ChevronDown className={`w-5 h-5 text-text-secondary transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <div className="px-5 pb-5">{children}</div>}
+    </section>
+  );
+}
+
 export default function ClientIntegrations() {
   const { user, profile } = useSupabaseAuth();
   const { t, tp } = useDashboardTranslation();
@@ -137,6 +166,7 @@ export default function ClientIntegrations() {
   const [pbLoading, setPbLoading] = useState(true);
   const [pbSaving, setPbSaving] = useState(false);
   const [pbIntegration, setPbIntegration] = useState(null);
+  const [openIntegration, setOpenIntegration] = useState('ups');
 
   const clientId = import.meta.env.VITE_SPAPI_CLIENT_ID || '';
   const applicationId = import.meta.env.VITE_AMZ_APP_ID || clientId || '';
@@ -441,9 +471,26 @@ export default function ClientIntegrations() {
         </div>
       )}
 
-      <ClientUpsIntegration user={user} profile={profile} />
+      <IntegrationPanel
+        id="ups"
+        title="UPS"
+        subtitle="Conectare, etichete și facturi UPS"
+        logo="/branding/integrations/ups.svg"
+        openId={openIntegration}
+        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
+      >
+        <ClientUpsIntegration user={user} profile={profile} />
+      </IntegrationPanel>
 
-      <section className="bg-white border rounded-xl p-5 space-y-4">
+      <IntegrationPanel
+        id="arbitrage-one"
+        title={t('ClientIntegrations.prepbusiness.title')}
+        subtitle={t('ClientIntegrations.prepbusiness.desc')}
+        logo="/branding/integrations/arbitrage-one.svg"
+        openId={openIntegration}
+        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
+      >
+      <section className="border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-text-primary">
@@ -508,8 +555,17 @@ export default function ClientIntegrations() {
         )}
 
       </section>
+      </IntegrationPanel>
 
-      <section className="bg-white border rounded-xl p-5 space-y-4">
+      <IntegrationPanel
+        id="amazon"
+        title={t('ClientIntegrations.amazonTitle', 'Amazon Seller Central')}
+        subtitle={t('ClientIntegrations.instructions')}
+        logo="/branding/integrations/amazon.svg"
+        openId={openIntegration}
+        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
+      >
+      <section className="border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-text-primary">
@@ -618,8 +674,17 @@ export default function ClientIntegrations() {
           )}
         </div>
       </section>
+      </IntegrationPanel>
 
-      <section className="bg-white border rounded-xl p-5 space-y-4">
+      <IntegrationPanel
+        id="qogita"
+        title={t('ClientIntegrations.qogita.title')}
+        subtitle={t('ClientIntegrations.qogita.desc')}
+        logo="/branding/integrations/qogita.svg"
+        openId={openIntegration}
+        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
+      >
+      <section className="border rounded-xl p-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.qogita.title')}</h2>
@@ -687,6 +752,7 @@ export default function ClientIntegrations() {
           )}
         </div>
       </section>
+      </IntegrationPanel>
 
       {showQogitaModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
