@@ -252,7 +252,7 @@ serve(async (req) => {
   const shipmentPayload = {
     ShipmentRequest: {
       Request: {
-        RequestOption: "nonvalidate",
+        RequestOption: "validate",
         TransactionReference: {
           CustomerContext: order.external_order_id || order.id
         }
