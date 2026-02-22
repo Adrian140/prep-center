@@ -115,11 +115,18 @@ function IntegrationPanel({
   title,
   subtitle,
   logo,
+  fallbackLogo,
   openId,
   onToggle,
   children
 }) {
   const open = openId === id;
+  const [imgSrc, setImgSrc] = useState(logo);
+
+  useEffect(() => {
+    setImgSrc(logo);
+  }, [logo]);
+
   return (
     <section className="bg-white border rounded-xl overflow-hidden">
       <button
@@ -127,7 +134,14 @@ function IntegrationPanel({
         onClick={() => onToggle(id)}
         className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
       >
-        <img src={logo} alt={title} className="w-14 h-14 rounded-lg object-cover border" />
+        <img
+          src={imgSrc}
+          alt={title}
+          onError={() => {
+            if (fallbackLogo && imgSrc !== fallbackLogo) setImgSrc(fallbackLogo);
+          }}
+          className="w-20 h-14 rounded-lg object-contain border bg-white p-1"
+        />
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
           <p className="text-sm text-text-secondary truncate">{subtitle}</p>
@@ -472,96 +486,11 @@ export default function ClientIntegrations() {
       )}
 
       <IntegrationPanel
-        id="ups"
-        title="UPS"
-        subtitle="Conectare, etichete și facturi UPS"
-        logo="/branding/integrations/ups.svg"
-        openId={openIntegration}
-        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
-      >
-        <ClientUpsIntegration user={user} profile={profile} />
-      </IntegrationPanel>
-
-      <IntegrationPanel
-        id="arbitrage-one"
-        title={t('ClientIntegrations.prepbusiness.title')}
-        subtitle={t('ClientIntegrations.prepbusiness.desc')}
-        logo="/branding/integrations/arbitrage-one.svg"
-        openId={openIntegration}
-        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
-      >
-      <section className="border rounded-xl p-5 space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary">
-              {t('ClientIntegrations.prepbusiness.title')}
-            </h2>
-            <p className="text-sm text-text-secondary">
-              {t('ClientIntegrations.prepbusiness.desc')}
-            </p>
-          </div>
-          <div className="text-sm">
-            {pbStatus === 'active' || pbStatus === 'mapped' ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
-                <CheckCircle className="w-4 h-4" /> Active
-              </span>
-            ) : pbStatus === 'error' ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
-                <AlertTriangle className="w-4 h-4" /> Error
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700">
-                <Loader2 className="w-4 h-4" /> Pending
-              </span>
-            )}
-          </div>
-        </div>
-
-        <form onSubmit={handleSavePrepBusiness} className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-text-primary">
-              {t('ClientIntegrations.prepbusiness.emailLabel')}
-            </label>
-            <input
-              type="email"
-              value={pbEmail}
-              onChange={(e) => setPbEmail(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg bg-white"
-              placeholder={t('ClientIntegrations.prepbusiness.emailPlaceholder')}
-              required
-            />
-          </div>
-          <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
-            <p>{t('ClientIntegrations.prepbusiness.clientStep')}</p>
-            <p>{t('ClientIntegrations.prepbusiness.teamStep')}</p>
-          </div>
-          <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
-            <button
-              type="submit"
-              disabled={pbSaving || pbLoading}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
-            >
-              {pbSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-              {t('ClientIntegrations.prepbusiness.save')}
-            </button>
-            <p className="text-xs text-text-secondary">
-              {t('ClientIntegrations.prepbusiness.helper')}
-            </p>
-          </div>
-        </form>
-
-        {pbLastError && (
-          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{pbLastError}</div>
-        )}
-
-      </section>
-      </IntegrationPanel>
-
-      <IntegrationPanel
         id="amazon"
         title={t('ClientIntegrations.amazonTitle', 'Amazon Seller Central')}
         subtitle={t('ClientIntegrations.instructions')}
-        logo="/branding/integrations/amazon.svg"
+        logo="https://logo.clearbit.com/amazon.com"
+        fallbackLogo="/branding/integrations/amazon.svg"
         openId={openIntegration}
         onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
       >
@@ -677,10 +606,99 @@ export default function ClientIntegrations() {
       </IntegrationPanel>
 
       <IntegrationPanel
+        id="arbitrage-one"
+        title={t('ClientIntegrations.prepbusiness.title')}
+        subtitle={t('ClientIntegrations.prepbusiness.desc')}
+        logo="https://logo.clearbit.com/arbitrageone.de"
+        fallbackLogo="/branding/integrations/arbitrage-one.svg"
+        openId={openIntegration}
+        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
+      >
+      <section className="border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">
+              {t('ClientIntegrations.prepbusiness.title')}
+            </h2>
+            <p className="text-sm text-text-secondary">
+              {t('ClientIntegrations.prepbusiness.desc')}
+            </p>
+          </div>
+          <div className="text-sm">
+            {pbStatus === 'active' || pbStatus === 'mapped' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                <CheckCircle className="w-4 h-4" /> Active
+              </span>
+            ) : pbStatus === 'error' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
+                <AlertTriangle className="w-4 h-4" /> Error
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700">
+                <Loader2 className="w-4 h-4" /> Pending
+              </span>
+            )}
+          </div>
+        </div>
+
+        <form onSubmit={handleSavePrepBusiness} className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">
+              {t('ClientIntegrations.prepbusiness.emailLabel')}
+            </label>
+            <input
+              type="email"
+              value={pbEmail}
+              onChange={(e) => setPbEmail(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+              placeholder={t('ClientIntegrations.prepbusiness.emailPlaceholder')}
+              required
+            />
+          </div>
+          <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
+            <p>{t('ClientIntegrations.prepbusiness.clientStep')}</p>
+            <p>{t('ClientIntegrations.prepbusiness.teamStep')}</p>
+          </div>
+          <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
+            <button
+              type="submit"
+              disabled={pbSaving || pbLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+            >
+              {pbSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+              {t('ClientIntegrations.prepbusiness.save')}
+            </button>
+            <p className="text-xs text-text-secondary">
+              {t('ClientIntegrations.prepbusiness.helper')}
+            </p>
+          </div>
+        </form>
+
+        {pbLastError && (
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{pbLastError}</div>
+        )}
+
+      </section>
+      </IntegrationPanel>
+
+      <IntegrationPanel
+        id="ups"
+        title="UPS"
+        subtitle="Conectare, etichete și facturi UPS"
+        logo="https://logo.clearbit.com/ups.com"
+        fallbackLogo="/branding/integrations/ups.svg"
+        openId={openIntegration}
+        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
+      >
+        <ClientUpsIntegration user={user} profile={profile} />
+      </IntegrationPanel>
+
+      <IntegrationPanel
         id="qogita"
         title={t('ClientIntegrations.qogita.title')}
         subtitle={t('ClientIntegrations.qogita.desc')}
-        logo="/branding/integrations/qogita.svg"
+        logo="https://logo.clearbit.com/qogita.com"
+        fallbackLogo="/branding/integrations/qogita.svg"
         openId={openIntegration}
         onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
       >
