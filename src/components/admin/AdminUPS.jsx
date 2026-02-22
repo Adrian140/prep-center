@@ -47,6 +47,12 @@ export default function AdminUPS() {
   const [form, setForm] = useState({
     integration_id: '',
     warehouse_country: 'FR',
+    use_default_sender: true,
+    from_name: PREP_WAREHOUSES.FR.name,
+    from_address1: PREP_WAREHOUSES.FR.address1,
+    from_city: PREP_WAREHOUSES.FR.city,
+    from_postal_code: PREP_WAREHOUSES.FR.postal_code,
+    from_country_code: PREP_WAREHOUSES.FR.country_code,
     external_order_id: '',
     service_code: '11',
     destination_name: '',
@@ -184,6 +190,19 @@ export default function AdminUPS() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  useEffect(() => {
+    if (!form.use_default_sender) return;
+    const wh = PREP_WAREHOUSES[form.warehouse_country] || PREP_WAREHOUSES.FR;
+    setForm((prev) => ({
+      ...prev,
+      from_name: wh.name,
+      from_address1: wh.address1,
+      from_city: wh.city,
+      from_postal_code: wh.postal_code,
+      from_country_code: wh.country_code
+    }));
+  }, [form.warehouse_country, form.use_default_sender]);
+
   const openIntegrationForCreate = (integrationId) => {
     setOpenedIntegrationId(integrationId);
     setForm((prev) => ({ ...prev, integration_id: integrationId }));
@@ -261,11 +280,11 @@ export default function AdminUPS() {
         payment_type: 'BillShipper',
         currency: 'EUR',
         ship_from: {
-          name: selectedWarehouse.name,
-          address1: selectedWarehouse.address1,
-          city: selectedWarehouse.city,
-          postal_code: selectedWarehouse.postal_code,
-          country_code: selectedWarehouse.country_code
+          name: String(form.from_name || '').trim(),
+          address1: String(form.from_address1 || '').trim(),
+          city: String(form.from_city || '').trim(),
+          postal_code: String(form.from_postal_code || '').trim(),
+          country_code: String(form.from_country_code || 'FR').trim().toUpperCase()
         },
         ship_to: {
           name: String(form.destination_name || '').trim(),
@@ -304,6 +323,12 @@ export default function AdminUPS() {
       setSuccess(`Comanda UPS a fost creată. Tracking: ${labelRes.data?.tracking_number || '-'}`);
       setForm((prev) => ({
         ...prev,
+        use_default_sender: true,
+        from_name: selectedWarehouse.name,
+        from_address1: selectedWarehouse.address1,
+        from_city: selectedWarehouse.city,
+        from_postal_code: selectedWarehouse.postal_code,
+        from_country_code: selectedWarehouse.country_code,
         external_order_id: '',
         destination_name: '',
         destination_address1: '',
@@ -383,176 +408,98 @@ export default function AdminUPS() {
 
       <section ref={createOrderRef} className="bg-white border rounded-xl p-5">
         <h3 className="text-lg font-semibold text-text-primary mb-4">Create UPS order</h3>
-        <form onSubmit={handleCreateOrder} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="space-y-1 lg:col-span-2">
-            <span className="text-xs text-text-secondary">Opened client</span>
-            <div className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-sm">
-              {selectedIntegration
-                ? `${companyNames[selectedIntegration.company_id] || selectedIntegration.account_label || selectedIntegration.user_id || '-'}${selectedIntegration.ups_account_number ? ` | ${selectedIntegration.ups_account_number}` : ''}`
-                : 'Select Open from Connected accounts first'}
+        <form onSubmit={handleCreateOrder} className="space-y-4">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+            {selectedIntegration
+              ? `Opened client: ${companyNames[selectedIntegration.company_id] || selectedIntegration.account_label || selectedIntegration.user_id || '-'}${selectedIntegration.ups_account_number ? ` | ${selectedIntegration.ups_account_number}` : ''}`
+              : 'Select Open from Connected accounts first'}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-text-primary">From (Warehouse)</h4>
+                    <label className="inline-flex items-center gap-2 text-xs text-text-secondary">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(form.use_default_sender)}
+                        onChange={(event) => setField('use_default_sender', event.target.checked)}
+                      />
+                      Use default
+                    </label>
+                  </div>
+                  <label className="space-y-1 block">
+                    <span className="text-xs text-text-secondary">Warehouse preset</span>
+                    <select
+                      value={form.warehouse_country}
+                      onChange={(event) => setField('warehouse_country', event.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="FR">Prep Center France</option>
+                      <option value="DE">Prep Center Germany</option>
+                    </select>
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <input disabled={Boolean(form.use_default_sender)} value={form.from_name} onChange={(e) => setField('from_name', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="From name" />
+                    <input disabled={Boolean(form.use_default_sender)} value={form.from_country_code} maxLength={2} onChange={(e) => setField('from_country_code', e.target.value.toUpperCase())} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="Country" />
+                    <input disabled={Boolean(form.use_default_sender)} value={form.from_address1} onChange={(e) => setField('from_address1', e.target.value)} className="px-3 py-2 border rounded-lg md:col-span-2 disabled:bg-gray-100 disabled:text-gray-500" placeholder="Address" />
+                    <input disabled={Boolean(form.use_default_sender)} value={form.from_city} onChange={(e) => setField('from_city', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="City" />
+                    <input disabled={Boolean(form.use_default_sender)} value={form.from_postal_code} onChange={(e) => setField('from_postal_code', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="Postal code" />
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-4 space-y-3">
+                  <h4 className="font-semibold text-text-primary">To (Destination)</h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    <input value={form.destination_name} onChange={(e) => setField('destination_name', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination name" required />
+                    <input value={form.destination_address1} onChange={(e) => setField('destination_address1', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination address" required />
+                    <div className="grid grid-cols-3 gap-2">
+                      <input value={form.destination_city} onChange={(e) => setField('destination_city', e.target.value)} className="px-3 py-2 border rounded-lg col-span-2" placeholder="City" required />
+                      <input value={form.destination_country_code} maxLength={2} onChange={(e) => setField('destination_country_code', e.target.value.toUpperCase())} className="px-3 py-2 border rounded-lg" placeholder="CC" required />
+                    </div>
+                    <input value={form.destination_postal_code} onChange={(e) => setField('destination_postal_code', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Postal code" required />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-4">
+                <h4 className="font-semibold text-text-primary mb-3">Parcel & service</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2">
+                  <input value={form.external_order_id} onChange={(e) => setField('external_order_id', e.target.value)} className="px-3 py-2 border rounded-lg lg:col-span-2" placeholder="Order reference (optional)" />
+                  <select value={form.service_code} onChange={(e) => setField('service_code', e.target.value)} className="px-3 py-2 border rounded-lg">
+                    <option value="11">UPS Standard (11)</option>
+                    <option value="07">UPS Worldwide Express (07)</option>
+                    <option value="08">UPS Worldwide Expedited (08)</option>
+                  </select>
+                  <input value={form.promo_code} onChange={(e) => setField('promo_code', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Promo code" />
+                  <input type="number" min="0.01" step="0.01" value={form.weight_kg} onChange={(e) => setField('weight_kg', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Weight kg" required />
+                  <input type="number" min="0" step="0.1" value={form.length_cm} onChange={(e) => setField('length_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Length cm" />
+                  <input type="number" min="0" step="0.1" value={form.width_cm} onChange={(e) => setField('width_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Width cm" />
+                  <input type="number" min="0" step="0.1" value={form.height_cm} onChange={(e) => setField('height_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Height cm" />
+                </div>
+              </div>
             </div>
-          </div>
 
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Shipping from</span>
-            <select
-              value={form.warehouse_country}
-              onChange={(event) => setField('warehouse_country', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-            >
-              <option value="FR">Prep Center France</option>
-              <option value="DE">Prep Center Germany</option>
-            </select>
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Service code</span>
-            <select
-              value={form.service_code}
-              onChange={(event) => setField('service_code', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-            >
-              <option value="11">UPS Standard (11)</option>
-              <option value="07">UPS Worldwide Express (07)</option>
-              <option value="08">UPS Worldwide Expedited (08)</option>
-            </select>
-          </label>
-
-          <div className="lg:col-span-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-text-secondary">
-            Expeditor presetat: <b>{selectedWarehouse.name}</b>, {selectedWarehouse.address1}, {selectedWarehouse.postal_code} {selectedWarehouse.city}, {selectedWarehouse.country_code}
-          </div>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Order reference (optional)</span>
-            <input
-              value={form.external_order_id}
-              onChange={(event) => setField('external_order_id', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              placeholder="PC-UPS-2026-001"
-            />
-          </label>
-
-          <label className="space-y-1 lg:col-span-2">
-            <span className="text-xs text-text-secondary">Destination name</span>
-            <input
-              value={form.destination_name}
-              onChange={(event) => setField('destination_name', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              required
-            />
-          </label>
-
-          <label className="space-y-1 lg:col-span-1">
-            <span className="text-xs text-text-secondary">Promo code (optional)</span>
-            <input
-              value={form.promo_code}
-              onChange={(event) => setField('promo_code', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              placeholder="UPS-PROMO"
-            />
-          </label>
-
-          <label className="space-y-1 lg:col-span-2">
-            <span className="text-xs text-text-secondary">Destination address</span>
-            <input
-              value={form.destination_address1}
-              onChange={(event) => setField('destination_address1', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              required
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">City</span>
-            <input
-              value={form.destination_city}
-              onChange={(event) => setField('destination_city', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              required
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Postal code</span>
-            <input
-              value={form.destination_postal_code}
-              onChange={(event) => setField('destination_postal_code', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              required
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Country code</span>
-            <input
-              value={form.destination_country_code}
-              onChange={(event) => setField('destination_country_code', event.target.value.toUpperCase())}
-              maxLength={2}
-              className="w-full px-3 py-2 border rounded-lg"
-              required
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Weight (kg)</span>
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={form.weight_kg}
-              onChange={(event) => setField('weight_kg', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              required
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Length (cm)</span>
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={form.length_cm}
-              onChange={(event) => setField('length_cm', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Width (cm)</span>
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={form.width_cm}
-              onChange={(event) => setField('width_cm', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Height (cm)</span>
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={form.height_cm}
-              onChange={(event) => setField('height_cm', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-            />
-          </label>
-
-          <div className="lg:col-span-4">
-            <button
-              type="submit"
-              disabled={creating || !activeIntegrations.length || !selectedIntegration}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
-            >
-              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
-              Create order & buy UPS label
-            </button>
-            {!selectedIntegration && <p className="mt-2 text-xs text-red-600">Apasă Open pe clientul dorit.</p>}
-            {!activeIntegrations.length && <p className="mt-2 text-xs text-red-600">Nu există integrări UPS active pentru creare comandă.</p>}
+            <div className="rounded-lg border p-4 h-fit">
+              <h4 className="font-semibold text-text-primary mb-3">Summary</h4>
+              <div className="text-sm text-text-secondary space-y-2">
+                <div><b>From:</b> {form.from_postal_code} {form.from_city}, {form.from_country_code}</div>
+                <div><b>To:</b> {form.destination_postal_code || '-'} {form.destination_city || '-'}, {form.destination_country_code || '-'}</div>
+                <div><b>Parcel:</b> {form.weight_kg || '0'} kg, {form.length_cm || 0} x {form.width_cm || 0} x {form.height_cm || 0} cm</div>
+                <div><b>Promo:</b> {form.promo_code || '-'}</div>
+              </div>
+              <button
+                type="submit"
+                disabled={creating || !activeIntegrations.length || !selectedIntegration}
+                className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+              >
+                {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
+                Save & Buy Label
+              </button>
+              {!selectedIntegration && <p className="mt-2 text-xs text-red-600">Apasă Open pe clientul dorit.</p>}
+            </div>
           </div>
         </form>
       </section>
