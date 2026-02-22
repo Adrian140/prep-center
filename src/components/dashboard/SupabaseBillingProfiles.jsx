@@ -5,6 +5,68 @@ import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext'; // Changed
 import { supabaseHelpers } from '../../config/supabase';
 import { useMarket } from '../../contexts/MarketContext';
 import { normalizeMarketCode } from '../../utils/market';
+
+const EUROPE_COUNTRY_CODES = [
+  'AL', 'AD', 'AM', 'AT', 'AZ', 'BY', 'BE', 'BA', 'BG', 'HR', 'CY', 'CZ',
+  'DK', 'EE', 'FI', 'FR', 'GE', 'DE', 'GR', 'HU', 'IS', 'IE', 'IT', 'KZ',
+  'LV', 'LI', 'LT', 'LU', 'MT', 'MD', 'MC', 'ME', 'NL', 'MK', 'NO', 'PL',
+  'PT', 'RO', 'RU', 'SM', 'RS', 'SK', 'SI', 'ES', 'SE', 'CH', 'TR', 'UA',
+  'GB', 'VA'
+];
+
+const COUNTRY_FALLBACK_NAMES = {
+  AL: 'Albania',
+  AD: 'Andorra',
+  AM: 'Armenia',
+  AT: 'Austria',
+  AZ: 'Azerbaijan',
+  BY: 'Belarus',
+  BE: 'Belgium',
+  BA: 'Bosnia and Herzegovina',
+  BG: 'Bulgaria',
+  HR: 'Croatia',
+  CY: 'Cyprus',
+  CZ: 'Czech Republic',
+  DK: 'Denmark',
+  EE: 'Estonia',
+  FI: 'Finland',
+  FR: 'France',
+  GE: 'Georgia',
+  DE: 'Germany',
+  GR: 'Greece',
+  HU: 'Hungary',
+  IS: 'Iceland',
+  IE: 'Ireland',
+  IT: 'Italy',
+  KZ: 'Kazakhstan',
+  LV: 'Latvia',
+  LI: 'Liechtenstein',
+  LT: 'Lithuania',
+  LU: 'Luxembourg',
+  MT: 'Malta',
+  MD: 'Moldova',
+  MC: 'Monaco',
+  ME: 'Montenegro',
+  NL: 'Netherlands',
+  MK: 'North Macedonia',
+  NO: 'Norway',
+  PL: 'Poland',
+  PT: 'Portugal',
+  RO: 'Romania',
+  RU: 'Russia',
+  SM: 'San Marino',
+  RS: 'Serbia',
+  SK: 'Slovakia',
+  SI: 'Slovenia',
+  ES: 'Spain',
+  SE: 'Sweden',
+  CH: 'Switzerland',
+  TR: 'Turkey',
+  UA: 'Ukraine',
+  GB: 'United Kingdom',
+  VA: 'Vatican City'
+};
+
 function SupabaseBillingProfiles() {
   const { t } = useDashboardTranslation();
   const { user } = useSupabaseAuth();
@@ -33,14 +95,23 @@ function SupabaseBillingProfiles() {
     (value) => normalizeMarketCode(value) || String(value || '').toUpperCase(),
     []
   );
+  const getCountryLabel = useCallback(
+    (code) => {
+      const upper = String(code || '').toUpperCase();
+      const translated = t(`profile.countries.${upper}`);
+      if (translated && translated !== `profile.countries.${upper}`) return translated;
+      return COUNTRY_FALLBACK_NAMES[upper] || upper;
+    },
+    [t]
+  );
   const countries = useMemo(() => {
-    const base = ['FR', 'DE', 'IT', 'ES', 'RO'];
+    const base = EUROPE_COUNTRY_CODES;
     const ordered = [marketCode, ...base.filter((code) => code !== marketCode)];
     return ordered.map((code) => ({
       code,
-      name: t(`profile.countries.${code}`)
+      name: getCountryLabel(code)
     }));
-  }, [t, marketCode]);
+  }, [marketCode, getCountryLabel]);
 
   const templateProfile = useMemo(() => {
     const sameMarket = profiles.find((p) => normalizeCountry(p.country) === marketCode);
