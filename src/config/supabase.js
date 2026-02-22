@@ -108,6 +108,12 @@ const isDuplicateKeyError = (error) => {
   );
 };
 
+const sanitizeStorageName = (value) =>
+  String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_');
+
 const blobToBase64 = async (blob) => {
   if (!blob) return '';
   return await new Promise((resolve, reject) => {
@@ -1197,6 +1203,201 @@ resetPassword: async (email) => {
     return await supabase.storage
       .from('invoices')
       .createSignedUrl(filePath, expiresIn);
+  },
+
+  // ===== UPS Integrations / Shipping / Invoices =====
+  getUpsIntegrationForUser: async (userId) => {
+    if (!userId) return { data: null, error: new Error('Missing user id') };
+    const { data, error } = await supabase
+      .from('ups_integrations')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return { data, error };
+  },
+
+  upsertUpsIntegration: async (payload = {}) => {
+    if (!payload?.user_id) return { data: null, error: new Error('Missing user id') };
+    const record = {
+      id: payload.id,
+      user_id: payload.user_id,
+      company_id: payload.company_id || null,
+      status: payload.status || 'pending',
+      ups_account_number: payload.ups_account_number || null,
+      account_label: payload.account_label || null,
+      oauth_scope: payload.oauth_scope || null,
+      connected_at: payload.connected_at || null,
+      last_synced_at: payload.last_synced_at || null,
+      last_error: payload.last_error || null,
+      metadata: payload.metadata || {},
+      created_at: payload.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    const { data, error } = await supabase
+      .from('ups_integrations')
+      .upsert(record, { onConflict: 'user_id' })
+      .select('*')
+      .maybeSingle();
+    return { data, error };
+  },
+
+  listUpsIntegrations: async () => {
+    const { data, error } = await supabase
+      .from('ups_integrations')
+      .select('*')
+      .order('updated_at', { ascending: false });
+    return { data: data || [], error };
+  },
+
+  listUpsShippingOrders: async ({ userId, companyId, limit = 200 } = {}) => {
+    let query = supabase
+      .from('ups_shipping_orders')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (userId) query = query.eq('user_id', userId);
+    if (companyId) query = query.eq('company_id', companyId);
+    return await query;
+  },
+
+  createUpsShippingOrder: async (payload = {}) => {
+    if (!payload?.integration_id) return { data: null, error: new Error('Missing integration id') };
+    if (!payload?.user_id) return { data: null, error: new Error('Missing user id') };
+    const row = {
+      integration_id: payload.integration_id,
+      user_id: payload.user_id,
+      company_id: payload.company_id || null,
+      external_order_id: payload.external_order_id || null,
+      status: payload.status || 'draft',
+      service_code: payload.service_code || null,
+      packaging_type: payload.packaging_type || null,
+      payment_type: payload.payment_type || 'BillShipper',
+      currency: payload.currency || null,
+      total_charge: payload.total_charge ?? null,
+      tracking_number: payload.tracking_number || null,
+      label_file_path: payload.label_file_path || null,
+      label_format: payload.label_format || null,
+      ship_from: payload.ship_from || {},
+      ship_to: payload.ship_to || {},
+      package_data: payload.package_data || {},
+      request_payload: payload.request_payload || null,
+      response_payload: payload.response_payload || null,
+      last_error: payload.last_error || null
+    };
+    return await supabase
+      .from('ups_shipping_orders')
+      .insert(row)
+      .select('*')
+      .single();
+  },
+
+  updateUpsShippingOrder: async (orderId, patch = {}) => {
+    if (!orderId) return { data: null, error: new Error('Missing order id') };
+    return await supabase
+      .from('ups_shipping_orders')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', orderId)
+      .select('*')
+      .maybeSingle();
+  },
+
+  processUpsShippingLabel: async ({ order_id, integration_id } = {}) => {
+    if (!order_id) return { data: null, error: new Error('Missing order_id') };
+    return await supabase.functions.invoke('ups-create-label', {
+      body: { order_id, integration_id: integration_id || null }
+    });
+  },
+
+  listUpsInvoiceFiles: async ({ userId, companyId, integrationId, orderId, limit = 300 } = {}) => {
+    let query = supabase
+      .from('ups_invoice_files')
+      .select('*')
+      .order('invoice_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (userId) query = query.eq('user_id', userId);
+    if (companyId) query = query.eq('company_id', companyId);
+    if (integrationId) query = query.eq('integration_id', integrationId);
+    if (orderId) query = query.eq('order_id', orderId);
+    return await query;
+  },
+
+  uploadUpsInvoiceFile: async ({
+    file,
+    integration_id,
+    user_id,
+    company_id,
+    order_id = null,
+    invoice_number = null,
+    invoice_date = null,
+    currency = 'EUR',
+    amount_total = null,
+    source = 'manual',
+    status = 'received',
+    payload = null
+  } = {}) => {
+    if (!integration_id) return { data: null, error: new Error('Missing integration_id') };
+    if (!user_id) return { data: null, error: new Error('Missing user_id') };
+    if (!company_id) return { data: null, error: new Error('Missing company_id') };
+    if (!file) return { data: null, error: new Error('Missing file') };
+
+    const ext = (file.name?.split('.').pop() || 'pdf').toLowerCase();
+    const baseName = sanitizeStorageName(invoice_number || file.name || 'ups-invoice');
+    const fileName = `${Date.now()}-${baseName}.${ext}`;
+    const filePath = `${company_id}/invoices/${fileName}`;
+    const upload = await supabase.storage
+      .from('ups-documents')
+      .upload(filePath, file, { upsert: true, cacheControl: '3600' });
+    if (upload.error) return { data: null, error: upload.error };
+
+    const { data, error } = await supabase
+      .from('ups_invoice_files')
+      .insert({
+        integration_id,
+        order_id,
+        user_id,
+        company_id,
+        invoice_number,
+        invoice_date,
+        currency,
+        amount_total,
+        file_path: filePath,
+        file_name: file.name || fileName,
+        source,
+        status,
+        payload: payload || {}
+      })
+      .select('*')
+      .single();
+    return { data, error };
+  },
+
+  downloadUpsDocument: async (filePath) => {
+    if (!filePath) return { data: null, error: new Error('Missing file path') };
+    return await supabase.storage
+      .from('ups-documents')
+      .download(filePath);
+  },
+
+  getUpsDocumentSignedUrl: async (filePath, expiresIn = 60 * 60) => {
+    if (!filePath) return { data: null, error: new Error('Missing file path') };
+    return await supabase.storage
+      .from('ups-documents')
+      .createSignedUrl(filePath, expiresIn);
+  },
+
+  listUpsPostalCodes: async ({ countryCode, postalCode } = {}) => {
+    let query = supabase
+      .from('ups_postal_codes')
+      .select('*')
+      .order('country_code', { ascending: true })
+      .order('postal_code', { ascending: true })
+      .limit(500);
+    if (countryCode) query = query.eq('country_code', String(countryCode).toUpperCase());
+    if (postalCode) query = query.eq('postal_code', String(postalCode).trim());
+    return await query;
   },
 
   // ===== Client Activity =====

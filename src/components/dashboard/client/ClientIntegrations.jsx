@@ -3,6 +3,7 @@ import { Link2, ExternalLink, CheckCircle, AlertTriangle, Loader2, RefreshCw, Un
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
+import ClientUpsIntegration from './ClientUpsIntegration';
 
 const AMAZON_REGIONS = [
   { id: 'eu', consentUrl: 'https://sellercentral-europe.amazon.com/apps/authorize/consent', marketplaceId: 'A13V1IB3VIYZZH' },
@@ -439,6 +440,8 @@ export default function ClientIntegrations() {
           {flash}
         </div>
       )}
+
+      <ClientUpsIntegration user={user} profile={profile} />
 
       <section className="bg-white border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between gap-3">

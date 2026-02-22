@@ -17,6 +17,7 @@ import AdminPricing from './AdminPricing';
 import AdminShippingRates from './AdminShippingRates';
 import AdminReturns from './AdminReturns';
 import AdminChat from './AdminChat';
+import AdminUPS from './AdminUPS';
 import AdminChatWidget from './AdminChatWidget';
 import AdminInvoicesOverview from './AdminInvoicesOverview';
 import { getTabId } from '@/utils/tabIdentity';
@@ -75,7 +76,7 @@ useEffect(() => {
   const lastUrlTabRef = useRef(null);
   const validTabs = [
     'analytics', 'dashboard', 'profiles', 'receiving', 'prep-requests', 'returns',
-    'pricing', 'boxes', 'prep-business', 'reviews', 'user-guide', 'chat', 'security', 'invoices', 'settings'
+    'chat', 'ups', 'pricing', 'boxes', 'prep-business', 'reviews', 'user-guide', 'security', 'invoices', 'settings'
   ];
   // ✅ Save & restore last selected admin tab
   const [activeTab, setActiveTab] = useState(() => {
@@ -202,6 +203,7 @@ useEffect(() => {
     { id: 'prep-requests', label: t('sidebar.prepRequests'), icon: PackageCheck },
     { id: 'returns', label: 'Returns', icon: Package },
     { id: 'chat', label: 'Chat', icon: Users },
+    { id: 'ups', label: 'UPS', icon: Truck },
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
     { id: 'boxes', label: 'Boxes', icon: Boxes },
     { id: 'prep-business', label: 'Arbitrage One', icon: Link2 },
@@ -1596,6 +1598,7 @@ const renderTabContent = () => {
     case 'user-guide': return <AdminUserGuide />;
     case 'affiliates': return <AdminAffiliates />;
     case 'chat': return <AdminChat />;
+    case 'ups': return <AdminUPS />;
     case 'prep-business': return <AdminPrepBusinessIntegrations />;
     case 'security': return <SupabaseSecuritySettings />;
     case 'invoices': return <AdminInvoicesOverview />;
