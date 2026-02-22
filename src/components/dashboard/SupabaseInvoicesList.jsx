@@ -645,6 +645,15 @@ function SupabaseInvoicesList() {
             <div className="space-y-2.5">
               {upsFilteredInvoices.map((invoice) => {
                 const checked = Boolean(selectedUpsIds[invoice.id]);
+                const trackingNumber =
+                  invoice?.order?.tracking_number ||
+                  invoice?.payload?.tracking_number ||
+                  '-';
+                const orderDisplay =
+                  invoice?.order?.external_order_id ||
+                  invoice?.payload?.external_order_id ||
+                  invoice.order_id ||
+                  '-';
                 return (
                   <div key={invoice.id} className="border border-gray-200 rounded-xl px-3 py-2.5">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
@@ -667,7 +676,8 @@ function SupabaseInvoicesList() {
                               {t('invoices.card.date')}:{' '}
                               {new Date(invoice.invoice_date || invoice.created_at).toLocaleDateString('en-GB')}
                             </div>
-                            <div>{tt('invoices.ups.order', 'Order')}: {invoice.order_id || '-'}</div>
+                            <div>{tt('invoices.ups.order', 'Order')}: {orderDisplay}</div>
+                            <div>{tt('invoices.ups.tracking', 'Tracking')}: {trackingNumber}</div>
                             <div>
                               {tt('invoices.ups.amount', 'Amount')}:{' '}
                               {invoice.amount_total != null

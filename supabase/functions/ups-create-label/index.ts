@@ -395,6 +395,63 @@ serve(async (req) => {
     return jsonResponse({ error: updateError.message || "Failed to update order after UPS response." }, 500);
   }
 
+  // Keep client UPS invoices populated automatically after label creation.
+  const invoiceDate = new Date().toISOString().slice(0, 10);
+  const fallbackSuffix = String(order.external_order_id || order.id || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 10);
+  const invoiceNumber = `UPS-${invoiceDate}-${tracking || fallbackSuffix || crypto.randomUUID().slice(0, 8)}`;
+  const invoicePayload = {
+    ...(order.response_payload || {}),
+    ups_label_created_at: new Date().toISOString(),
+    tracking_number: tracking || null,
+    external_order_id: order.external_order_id || null,
+    sync_source: "ups-create-label"
+  };
+
+  const { data: existingInvoice } = await serviceClient
+    .from("ups_invoice_files")
+    .select("id")
+    .eq("order_id", order.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingInvoice?.id) {
+    await serviceClient
+      .from("ups_invoice_files")
+      .update({
+        integration_id: order.integration_id,
+        user_id: order.user_id,
+        company_id: order.company_id || null,
+        invoice_number: invoiceNumber,
+        invoice_date: invoiceDate,
+        currency: charge.currency || order.currency || "EUR",
+        amount_total: charge.amount ?? order.total_charge ?? null,
+        source: "ups-auto",
+        status: "received",
+        payload: invoicePayload,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", existingInvoice.id);
+  } else {
+    await serviceClient
+      .from("ups_invoice_files")
+      .insert({
+        integration_id: order.integration_id,
+        order_id: order.id,
+        user_id: order.user_id,
+        company_id: order.company_id || null,
+        invoice_number: invoiceNumber,
+        invoice_date: invoiceDate,
+        currency: charge.currency || order.currency || "EUR",
+        amount_total: charge.amount ?? order.total_charge ?? null,
+        file_path: null,
+        file_name: null,
+        source: "ups-auto",
+        status: "received",
+        payload: invoicePayload
+      });
+  }
+
   return jsonResponse({
     ok: true,
     order_id: order.id,

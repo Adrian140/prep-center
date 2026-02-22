@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, FileArchive, FileSpreadsheet, Loader2, RefreshCw, Upload, Truck } from 'lucide-react';
+import { CheckCircle, FileArchive, FileSpreadsheet, Loader2, RefreshCw } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { supabase, supabaseHelpers } from '@/config/supabase';
@@ -26,14 +26,6 @@ export default function AdminUPS() {
   const [companyNames, setCompanyNames] = useState({});
   const [flash, setFlash] = useState('');
   const [flashType, setFlashType] = useState('error');
-  const [uploading, setUploading] = useState(false);
-
-  const [selectedOrderId, setSelectedOrderId] = useState('');
-  const [uploadInvoiceNumber, setUploadInvoiceNumber] = useState('');
-  const [uploadInvoiceDate, setUploadInvoiceDate] = useState('');
-  const [uploadAmount, setUploadAmount] = useState('');
-  const [uploadCurrency, setUploadCurrency] = useState('EUR');
-  const [uploadFile, setUploadFile] = useState(null);
   const [downloadingZip, setDownloadingZip] = useState(false);
 
   const setSuccess = (message) => {
@@ -45,24 +37,6 @@ export default function AdminUPS() {
     setFlash(message);
     setFlashType('error');
   };
-
-  const byIntegrationId = useMemo(
-    () =>
-      integrations.reduce((acc, item) => {
-        acc[item.id] = item;
-        return acc;
-      }, {}),
-    [integrations]
-  );
-
-  const byOrderId = useMemo(
-    () =>
-      orders.reduce((acc, item) => {
-        acc[item.id] = item;
-        return acc;
-      }, {}),
-    [orders]
-  );
 
   const summary = useMemo(() => {
     const connected = integrations.filter((row) => row.status === 'connected' || row.status === 'active').length;
@@ -202,59 +176,6 @@ export default function AdminUPS() {
     } finally {
       setDownloadingZip(false);
     }
-  };
-
-  const handleUploadInvoice = async (event) => {
-    event.preventDefault();
-    if (!selectedOrderId) {
-      setError('Selectează o comandă UPS.');
-      return;
-    }
-    if (!uploadFile) {
-      setError('Încarcă un fișier PDF pentru factură.');
-      return;
-    }
-
-    const order = byOrderId[selectedOrderId];
-    if (!order) {
-      setError('Comanda UPS selectată nu mai există.');
-      return;
-    }
-
-    setUploading(true);
-    setFlash('');
-
-    const uploadRes = await supabaseHelpers.uploadUpsInvoiceFile({
-      file: uploadFile,
-      integration_id: order.integration_id,
-      order_id: order.id,
-      user_id: order.user_id,
-      company_id: order.company_id,
-      invoice_number: uploadInvoiceNumber.trim() || null,
-      invoice_date: uploadInvoiceDate || null,
-      currency: uploadCurrency || 'EUR',
-      amount_total: uploadAmount !== '' ? Number(uploadAmount) : null,
-      source: 'admin-manual',
-      status: 'received',
-      payload: {
-        external_order_id: order.external_order_id || null,
-        uploaded_from: 'admin-ups'
-      }
-    });
-
-    if (uploadRes.error) {
-      setError(uploadRes.error.message || 'Upload factură UPS eșuat.');
-      setUploading(false);
-      return;
-    }
-
-    setSuccess('Factura UPS a fost atașată comenzii.');
-    setUploadFile(null);
-    setUploadInvoiceNumber('');
-    setUploadInvoiceDate('');
-    setUploadAmount('');
-    await refresh();
-    setUploading(false);
   };
 
   if (loading) {
@@ -403,96 +324,12 @@ export default function AdminUPS() {
         )}
       </section>
 
-      <section className="bg-white border rounded-xl p-5 space-y-4">
-        <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-          <Upload className="w-4 h-4" /> Attach UPS invoice to order
-        </h3>
-
-        <form onSubmit={handleUploadInvoice} className="grid gap-3 md:grid-cols-3">
-          <label className="space-y-1 md:col-span-2">
-            <span className="text-xs text-text-secondary">UPS Order</span>
-            <select
-              value={selectedOrderId}
-              onChange={(event) => setSelectedOrderId(event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              required
-            >
-              <option value="">Select order...</option>
-              {orders.map((order) => {
-                const integration = byIntegrationId[order.integration_id];
-                const label = order.external_order_id || order.id;
-                return (
-                  <option key={order.id} value={order.id}>
-                    {label} | {order.status || '-'} | {integration?.ups_account_number || '-'}
-                  </option>
-                );
-              })}
-            </select>
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Invoice Number</span>
-            <input
-              value={uploadInvoiceNumber}
-              onChange={(event) => setUploadInvoiceNumber(event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              placeholder="UPS-INV-001"
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Invoice Date</span>
-            <input
-              type="date"
-              value={uploadInvoiceDate}
-              onChange={(event) => setUploadInvoiceDate(event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Amount</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={uploadAmount}
-              onChange={(event) => setUploadAmount(event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-text-secondary">Currency</span>
-            <input
-              value={uploadCurrency}
-              onChange={(event) => setUploadCurrency(event.target.value.toUpperCase())}
-              className="w-full px-3 py-2 border rounded-lg"
-              maxLength={3}
-            />
-          </label>
-
-          <label className="space-y-1 md:col-span-3">
-            <span className="text-xs text-text-secondary">PDF Invoice</span>
-            <input
-              type="file"
-              accept="application/pdf"
-              onChange={(event) => setUploadFile(event.target.files?.[0] || null)}
-              className="w-full px-3 py-2 border rounded-lg"
-              required
-            />
-          </label>
-
-          <div className="md:col-span-3">
-            <button
-              type="submit"
-              disabled={uploading}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
-            >
-              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Truck className="w-4 h-4" />} Upload & Attach Invoice
-            </button>
-          </div>
-        </form>
+      <section className="bg-white border rounded-xl p-5">
+        <h3 className="text-lg font-semibold text-text-primary">UPS invoice sync</h3>
+        <p className="text-sm text-text-secondary mt-1">
+          Facturile UPS se sincronizează automat pentru client, pe baza comenzilor create în platformă.
+          Adminul nu mai încarcă manual facturi UPS.
+        </p>
       </section>
 
       <section className="bg-white border rounded-xl overflow-hidden">

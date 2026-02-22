@@ -1313,7 +1313,7 @@ resetPassword: async (email) => {
   listUpsInvoiceFiles: async ({ userId, companyId, integrationId, orderId, limit = 300 } = {}) => {
     let query = supabase
       .from('ups_invoice_files')
-      .select('*')
+      .select('*, order:ups_shipping_orders(id, external_order_id, tracking_number, service_code, status, created_at)')
       .order('invoice_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -1321,7 +1321,21 @@ resetPassword: async (email) => {
     if (companyId) query = query.eq('company_id', companyId);
     if (integrationId) query = query.eq('integration_id', integrationId);
     if (orderId) query = query.eq('order_id', orderId);
-    return await query;
+    let result = await query;
+    if (result.error && /relationship|foreign key|ups_shipping_orders/i.test(String(result.error.message || ''))) {
+      let fallback = supabase
+        .from('ups_invoice_files')
+        .select('*')
+        .order('invoice_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (userId) fallback = fallback.eq('user_id', userId);
+      if (companyId) fallback = fallback.eq('company_id', companyId);
+      if (integrationId) fallback = fallback.eq('integration_id', integrationId);
+      if (orderId) fallback = fallback.eq('order_id', orderId);
+      result = await fallback;
+    }
+    return result;
   },
 
   uploadUpsInvoiceFile: async ({

@@ -146,7 +146,8 @@
         "exportXls": "Export XLS",
         "emptyMonth": "No UPS invoices for this month.",
         "order": "Order",
-        "amount": "Amount"
+        "amount": "Amount",
+        "tracking": "Tracking"
       },
       "accessDenied": "Access to invoices is disabled for this account."
     },
@@ -1168,7 +1169,8 @@
         "exportXls": "Export XLS",
         "emptyMonth": "Nu există facturi UPS pentru luna selectată.",
         "order": "Comandă",
-        "amount": "Sumă"
+        "amount": "Sumă",
+        "tracking": "Tracking"
       },
       "accessDenied": "Accesul la facturi este dezactivat pentru acest cont."
     },
@@ -2146,7 +2148,8 @@
         "exportXls": "Exporter XLS",
         "emptyMonth": "Aucune facture UPS pour ce mois.",
         "order": "Commande",
-        "amount": "Montant"
+        "amount": "Montant",
+        "tracking": "Suivi"
       },
       "accessDenied": "L’accès aux factures est désactivé pour ce compte."
     },
@@ -3085,7 +3088,8 @@
         "exportXls": "XLS exportieren",
         "emptyMonth": "Keine UPS-Rechnungen für diesen Monat.",
         "order": "Bestellung",
-        "amount": "Betrag"
+        "amount": "Betrag",
+        "tracking": "Tracking"
       },
       "accessDenied": "Der Zugriff auf Rechnungen ist für dieses Konto deaktiviert."
     },
@@ -3972,7 +3976,8 @@
         "exportXls": "Esporta XLS",
         "emptyMonth": "Nessuna fattura UPS per questo mese.",
         "order": "Ordine",
-        "amount": "Importo"
+        "amount": "Importo",
+        "tracking": "Tracking"
       },
       "accessDenied": "L’accesso alle fatture è disabilitato per questo account."
     },
@@ -4859,7 +4864,8 @@
         "exportXls": "Exportar XLS",
         "emptyMonth": "No hay facturas UPS para este mes.",
         "order": "Pedido",
-        "amount": "Importe"
+        "amount": "Importe",
+        "tracking": "Seguimiento"
       },
       "accessDenied": "El acceso a las facturas está desactivado para esta cuenta."
     },
