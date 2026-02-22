@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, ExternalLink, FileArchive, FileSpreadsheet, Loader2, PackagePlus, RefreshCw, Truck, Unplug, AlertTriangle } from 'lucide-react';
+import { CheckCircle, FileArchive, FileSpreadsheet, Loader2, PackagePlus, RefreshCw, Truck, Unplug, AlertTriangle } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { supabase, supabaseHelpers } from '@/config/supabase';
@@ -57,7 +57,10 @@ export default function ClientUpsIntegration({ user, profile }) {
   const [postalWarning, setPostalWarning] = useState('');
   const [downloadingZip, setDownloadingZip] = useState(false);
 
-  const hasUpsOauthConfig = Boolean(import.meta.env.VITE_UPS_CLIENT_ID) && Boolean(import.meta.env.VITE_UPS_REDIRECT_URI);
+  const upsClientId = import.meta.env.VITE_UPS_CLIENT_ID || '';
+  const upsRedirectUri = import.meta.env.VITE_UPS_REDIRECT_URI || `${window.location.origin}/auth/ups/callback`;
+  const upsBaseUrl = (import.meta.env.VITE_UPS_BASE_URL || import.meta.env.VITE_UPS_API_BASE_URL || 'https://onlinetools.ups.com').replace(/\/$/, '');
+  const hasUpsOauthConfig = Boolean(upsClientId) && Boolean(upsRedirectUri);
 
   const effectiveCompanyId = useMemo(
     () => profile?.company_id || profile?.companyId || user?.id || null,
@@ -144,10 +147,10 @@ export default function ClientUpsIntegration({ user, profile }) {
       id: integration?.id,
       user_id: user.id,
       company_id: effectiveCompanyId,
-      status: 'connected',
+      status: hasUpsOauthConfig ? 'pending' : 'connected',
       ups_account_number: account,
       account_label: connectAccountLabel.trim() || null,
-      connected_at: integration?.connected_at || new Date().toISOString(),
+      connected_at: integration?.connected_at || (hasUpsOauthConfig ? null : new Date().toISOString()),
       metadata: {
         oauth_configured: hasUpsOauthConfig,
         connected_from: 'client-dashboard'
@@ -160,7 +163,29 @@ export default function ClientUpsIntegration({ user, profile }) {
       setError(error.message || 'Conectarea UPS a eșuat.');
     } else {
       setIntegration(data);
-      setSuccess('Integrarea UPS a fost salvată. Poți crea etichete din platformă.');
+      if (!hasUpsOauthConfig) {
+        setSuccess('Integrarea UPS a fost salvată. Completează OAuth pentru etichete reale.');
+        setSaving(false);
+        return;
+      }
+
+      const statePayload = {
+        userId: user.id,
+        companyId: effectiveCompanyId,
+        integrationId: data?.id || null,
+        redirectUri: upsRedirectUri,
+        nonce: `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      };
+      const state = btoa(JSON.stringify(statePayload));
+      const query = new URLSearchParams({
+        client_id: upsClientId,
+        redirect_uri: upsRedirectUri,
+        response_type: 'code',
+        state
+      });
+      const authorizeUrl = `${upsBaseUrl}/security/v1/oauth/authorize?${query.toString()}`;
+      window.location.href = authorizeUrl;
+      return;
     }
     setSaving(false);
   };
@@ -435,17 +460,8 @@ export default function ClientUpsIntegration({ user, profile }) {
               disabled={saving}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
             >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} {isConnected ? 'Update UPS' : 'Connect UPS'}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} {isConnected ? 'Update & Reconnect UPS' : 'Connect UPS'}
             </button>
-            {!!import.meta.env.VITE_UPS_REDIRECT_URI && (
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border"
-                onClick={() => window.open(import.meta.env.VITE_UPS_REDIRECT_URI, '_blank', 'noopener')}
-              >
-                <ExternalLink className="w-4 h-4" /> OAuth URL
-              </button>
-            )}
           </div>
         </form>
 
