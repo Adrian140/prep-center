@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle, Loader2, PlusCircle, RefreshCw } from 'lucide-react';
 import { supabase, supabaseHelpers } from '@/config/supabase';
 
@@ -33,6 +33,7 @@ const asNumberOrNull = (value) => {
 };
 
 export default function AdminUPS() {
+  const createOrderRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -41,6 +42,7 @@ export default function AdminUPS() {
   const [companyNames, setCompanyNames] = useState({});
   const [flash, setFlash] = useState('');
   const [flashType, setFlashType] = useState('error');
+  const [openedIntegrationId, setOpenedIntegrationId] = useState('');
 
   const [form, setForm] = useState({
     integration_id: '',
@@ -100,7 +102,7 @@ export default function AdminUPS() {
     };
   }, [integrations.length, activeIntegrations.length, orders]);
 
-  const selectedIntegration = form.integration_id ? byIntegrationId[form.integration_id] : null;
+  const selectedIntegration = (openedIntegrationId || form.integration_id) ? byIntegrationId[openedIntegrationId || form.integration_id] : null;
   const selectedWarehouse = PREP_WAREHOUSES[form.warehouse_country] || PREP_WAREHOUSES.FR;
 
   const loadAll = async () => {
@@ -178,14 +180,16 @@ export default function AdminUPS() {
     })();
   }, []);
 
-  useEffect(() => {
-    if (!form.integration_id && activeIntegrations[0]?.id) {
-      setForm((prev) => ({ ...prev, integration_id: activeIntegrations[0].id }));
-    }
-  }, [activeIntegrations, form.integration_id]);
-
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const openIntegrationForCreate = (integrationId) => {
+    setOpenedIntegrationId(integrationId);
+    setForm((prev) => ({ ...prev, integration_id: integrationId }));
+    setTimeout(() => {
+      createOrderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
   };
 
   const validateDestinationPostalCode = async () => {
@@ -220,7 +224,7 @@ export default function AdminUPS() {
     event.preventDefault();
     setFlash('');
 
-    const integration = byIntegrationId[form.integration_id];
+    const integration = byIntegrationId[openedIntegrationId || form.integration_id];
     if (!integration) {
       setError('Selectează un cont UPS conectat.');
       return;
@@ -377,26 +381,17 @@ export default function AdminUPS() {
         </div>
       </div>
 
-      <section className="bg-white border rounded-xl p-5">
+      <section ref={createOrderRef} className="bg-white border rounded-xl p-5">
         <h3 className="text-lg font-semibold text-text-primary mb-4">Create UPS order</h3>
         <form onSubmit={handleCreateOrder} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <label className="space-y-1 lg:col-span-2">
-            <span className="text-xs text-text-secondary">Client UPS integration</span>
-            <select
-              value={form.integration_id}
-              onChange={(event) => setField('integration_id', event.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              required
-            >
-              <option value="">Select integration...</option>
-              {activeIntegrations.map((row) => (
-                <option key={row.id} value={row.id}>
-                  {(companyNames[row.company_id] || row.account_label || row.ups_account_number || row.user_id) || row.id}
-                  {row.ups_account_number ? ` | ${row.ups_account_number}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="space-y-1 lg:col-span-2">
+            <span className="text-xs text-text-secondary">Opened client</span>
+            <div className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-sm">
+              {selectedIntegration
+                ? `${companyNames[selectedIntegration.company_id] || selectedIntegration.account_label || selectedIntegration.user_id || '-'}${selectedIntegration.ups_account_number ? ` | ${selectedIntegration.ups_account_number}` : ''}`
+                : 'Select Open from Connected accounts first'}
+            </div>
+          </div>
 
           <label className="space-y-1">
             <span className="text-xs text-text-secondary">Shipping from</span>
@@ -550,15 +545,14 @@ export default function AdminUPS() {
           <div className="lg:col-span-4">
             <button
               type="submit"
-              disabled={creating || !activeIntegrations.length}
+              disabled={creating || !activeIntegrations.length || !selectedIntegration}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
             >
               {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
               Create order & buy UPS label
             </button>
-            {!activeIntegrations.length && (
-              <p className="mt-2 text-xs text-red-600">Nu există integrări UPS active pentru creare comandă.</p>
-            )}
+            {!selectedIntegration && <p className="mt-2 text-xs text-red-600">Apasă Open pe clientul dorit.</p>}
+            {!activeIntegrations.length && <p className="mt-2 text-xs text-red-600">Nu există integrări UPS active pentru creare comandă.</p>}
           </div>
         </form>
       </section>
@@ -583,6 +577,7 @@ export default function AdminUPS() {
                   <th className="px-4 py-3 text-left">Company</th>
                   <th className="px-4 py-3 text-left">Connected</th>
                   <th className="px-4 py-3 text-left">Last Error</th>
+                  <th className="px-4 py-3 text-left">Open</th>
                 </tr>
               </thead>
               <tbody>
@@ -602,6 +597,15 @@ export default function AdminUPS() {
                     <td className="px-4 py-3">{companyNames[row.company_id] || row.company_id || '-'}</td>
                     <td className="px-4 py-3">{formatDateTime(row.connected_at)}</td>
                     <td className="px-4 py-3">{row.last_error || '-'}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => openIntegrationForCreate(row.id)}
+                        className="px-2.5 py-1.5 text-xs border rounded-lg hover:bg-gray-50"
+                      >
+                        Open
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
