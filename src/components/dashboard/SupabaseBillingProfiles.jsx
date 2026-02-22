@@ -64,7 +64,8 @@ const COUNTRY_FALLBACK_NAMES = {
   TR: 'Turkey',
   UA: 'Ukraine',
   GB: 'United Kingdom',
-  VA: 'Vatican City'
+  VA: 'Vatican City',
+  OTHER: 'Other'
 };
 
 function SupabaseBillingProfiles() {
@@ -107,7 +108,8 @@ function SupabaseBillingProfiles() {
   const countries = useMemo(() => {
     const base = EUROPE_COUNTRY_CODES;
     const ordered = [marketCode, ...base.filter((code) => code !== marketCode)];
-    return ordered.map((code) => ({
+    const withOther = [...ordered.filter((code) => code !== 'OTHER'), 'OTHER'];
+    return withOther.map((code) => ({
       code,
       name: getCountryLabel(code)
     }));

@@ -5,6 +5,68 @@ import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../translations';
 import { useLanguage } from '../../contexts/LanguageContext';
 
+const EUROPE_COUNTRY_CODES = [
+  'AL', 'AD', 'AM', 'AT', 'AZ', 'BY', 'BE', 'BA', 'BG', 'HR', 'CY', 'CZ',
+  'DK', 'EE', 'FI', 'FR', 'GE', 'DE', 'GR', 'HU', 'IS', 'IE', 'IT', 'KZ',
+  'LV', 'LI', 'LT', 'LU', 'MT', 'MD', 'MC', 'ME', 'NL', 'MK', 'NO', 'PL',
+  'PT', 'RO', 'RU', 'SM', 'RS', 'SK', 'SI', 'ES', 'SE', 'CH', 'TR', 'UA',
+  'GB', 'VA'
+];
+
+const COUNTRY_FALLBACK_NAMES = {
+  AL: 'Albania',
+  AD: 'Andorra',
+  AM: 'Armenia',
+  AT: 'Austria',
+  AZ: 'Azerbaijan',
+  BY: 'Belarus',
+  BE: 'Belgium',
+  BA: 'Bosnia and Herzegovina',
+  BG: 'Bulgaria',
+  HR: 'Croatia',
+  CY: 'Cyprus',
+  CZ: 'Czech Republic',
+  DK: 'Denmark',
+  EE: 'Estonia',
+  FI: 'Finland',
+  FR: 'France',
+  GE: 'Georgia',
+  DE: 'Germany',
+  GR: 'Greece',
+  HU: 'Hungary',
+  IS: 'Iceland',
+  IE: 'Ireland',
+  IT: 'Italy',
+  KZ: 'Kazakhstan',
+  LV: 'Latvia',
+  LI: 'Liechtenstein',
+  LT: 'Lithuania',
+  LU: 'Luxembourg',
+  MT: 'Malta',
+  MD: 'Moldova',
+  MC: 'Monaco',
+  ME: 'Montenegro',
+  NL: 'Netherlands',
+  MK: 'North Macedonia',
+  NO: 'Norway',
+  PL: 'Poland',
+  PT: 'Portugal',
+  RO: 'Romania',
+  RU: 'Russia',
+  SM: 'San Marino',
+  RS: 'Serbia',
+  SK: 'Slovakia',
+  SI: 'Slovenia',
+  ES: 'Spain',
+  SE: 'Sweden',
+  CH: 'Switzerland',
+  TR: 'Turkey',
+  UA: 'Ukraine',
+  GB: 'United Kingdom',
+  VA: 'Vatican City',
+  OTHER: 'Other'
+};
+
 function SupabasePersonalProfile() {
   const { changeLanguage } = useLanguage();
   const { t } = useDashboardTranslation();
@@ -20,14 +82,14 @@ function SupabasePersonalProfile() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  const countries = [
-    { code: 'RO', name: 'Romania' },
-    { code: 'FR', name: 'France' },
-    { code: 'DE', name: 'Germany' },
-    { code: 'IT', name: 'Italy' },
-    { code: 'ES', name: 'Spain' },
-    { code: 'NL', name: 'Netherlands' },
-  ];
+  const countries = [...EUROPE_COUNTRY_CODES, 'OTHER'];
+
+  const getCountryLabel = (code) => {
+    const upper = String(code || '').toUpperCase();
+    const translated = t(`profile.countries.${upper}`);
+    if (translated && translated !== `profile.countries.${upper}`) return translated;
+    return COUNTRY_FALLBACK_NAMES[upper] || upper;
+  };
 
   const languages = [
     { code: 'en', name: 'English' },
@@ -189,8 +251,8 @@ function SupabasePersonalProfile() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-50"
             >
               {countries.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {t(`profile.countries.${c.code}`)}
+                <option key={c} value={c}>
+                  {getCountryLabel(c)}
                 </option>
               ))}
             </select>

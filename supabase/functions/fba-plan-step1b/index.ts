@@ -1498,6 +1498,70 @@ serve(async (req) => {
           marketplaceId,
           sellerId
         });
+      const normalizePlacementId = (p: any) => p?.placementOptionId || p?.id || null;
+      const normalizePlacementStatus = (p: any) => String(p?.status || "").toUpperCase();
+      const choosePreferredPlacementOption = async (options: any[]) => {
+        const list = Array.isArray(options) ? options : [];
+        if (!list.length) return null;
+        const offered = list.filter((p: any) => ["OFFERED", "ACCEPTED", "CONFIRMED"].includes(normalizePlacementStatus(p)));
+        const candidates = offered.length ? offered : list;
+        if (candidates.length === 1) {
+          return normalizePlacementId(candidates[0]) || null;
+        }
+
+        const diagnostics: any[] = [];
+        let best: { id: string; score: number } | null = null;
+
+        for (const p of candidates) {
+          const pid = String(normalizePlacementId(p) || "").trim();
+          if (!pid) continue;
+          const shipmentIds = Array.isArray(p?.shipmentIds) ? p.shipmentIds.filter(Boolean).map((id: any) => String(id)) : [];
+          const firstShipmentId = shipmentIds[0] || null;
+          let destinationType = "";
+          if (firstShipmentId) {
+            const shipmentRes = await signedFetch({
+              method: "GET",
+              service: "execute-api",
+              region: awsRegion,
+              host,
+              path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(firstShipmentId)}`,
+              query: "",
+              payload: "",
+              accessKey: tempCreds.accessKeyId,
+              secretKey: tempCreds.secretAccessKey,
+              sessionToken: tempCreds.sessionToken,
+              lwaToken: lwaAccessToken,
+              traceId,
+              operationName: "inbound.v20240320.getShipment.placementPick",
+              marketplaceId,
+              sellerId
+            });
+            const shPayload = shipmentRes?.json?.payload || shipmentRes?.json || {};
+            destinationType = String(shPayload?.destination?.destinationType || "").toUpperCase();
+          }
+          const isOptimized =
+            destinationType === "AMAZON_OPTIMIZED" || destinationType === "MULTIPLE_DESTINATIONS";
+          const score = (isOptimized ? 100 : 0) + (shipmentIds.length === 1 ? 10 : 0);
+          diagnostics.push({
+            placementOptionId: pid,
+            status: normalizePlacementStatus(p),
+            shipmentId: firstShipmentId,
+            destinationType: destinationType || null,
+            score
+          });
+          if (!best || score > best.score) best = { id: pid, score };
+        }
+
+        console.log(
+          JSON.stringify({
+            tag: "placement_option_pick",
+            traceId,
+            selectedPlacementOptionId: best?.id || null,
+            diagnostics
+          })
+        );
+        return best?.id || normalizePlacementId(candidates[0]) || null;
+      };
 
       let placementListRes: Awaited<ReturnType<typeof signedFetch>> | null = await listPlacementOptions();
       if (!placementListRes || (placementListRes.res.ok && !extractPlacementOptions(placementListRes).length)) {
@@ -1510,10 +1574,7 @@ serve(async (req) => {
         placementListRes = await listPlacementOptions();
       }
       placementOptionsList = extractPlacementOptions(placementListRes);
-      placementOptionId =
-        placementOptionsList?.[0]?.placementOptionId ||
-        placementOptionsList?.[0]?.id ||
-        null;
+      placementOptionId = await choosePreferredPlacementOption(placementOptionsList);
       if (!placementOptionId) {
         warnings.push("Nu am putut obține placementOptionId (generate/list).");
       }
