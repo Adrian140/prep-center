@@ -745,6 +745,26 @@
         "modeFull": "Send all units to Amazon",
         "modePartial": "Partial shipment",
         "requestCreated": "Request created. Check Prep Shipments."
+      },
+      "ups": {
+        "title": "UPS Connect",
+        "desc": "Connect your UPS account. Client-side label creation is temporarily disabled.",
+        "loading": "Loading UPS integration...",
+        "connectedAt": "Connected at",
+        "accountHint": "`Account Number` is no longer required for the connect button. We can add it later only where billing/label flows require it.",
+        "confirmDisconnect": "Disconnect UPS for this account?",
+        "actions": {
+          "connect": "Connect UPS",
+          "reconnect": "Reconnect UPS",
+          "disconnect": "Disconnect UPS"
+        },
+        "flash": {
+          "loadError": "Could not load UPS integration.",
+          "missingOauth": "UPS OAuth is not fully configured: set VITE_UPS_CLIENT_ID and VITE_UPS_REDIRECT_URI.",
+          "connectError": "UPS connection failed.",
+          "disconnectError": "Could not disconnect UPS.",
+          "disconnected": "UPS has been disconnected."
+        }
       }
     },
     "ClientAffiliates": {
@@ -1671,6 +1691,26 @@
         "modeFull": "Send all units to Amazon",
         "modePartial": "Partial shipment",
         "requestCreated": "Request created. Check Prep Shipments."
+      },
+      "ups": {
+        "title": "Conectare UPS",
+        "desc": "Conectează contul UPS. Crearea etichetelor din client este dezactivată momentan.",
+        "loading": "Se încarcă integrarea UPS...",
+        "connectedAt": "Conectat la",
+        "accountHint": "`Account Number` nu mai este obligatoriu pentru butonul de conectare. Îl putem adăuga ulterior doar unde este necesar pentru billing/etichete.",
+        "confirmDisconnect": "Confirmi deconectarea UPS pentru acest cont?",
+        "actions": {
+          "connect": "Conectează UPS",
+          "reconnect": "Reconectează UPS",
+          "disconnect": "Deconectează UPS"
+        },
+        "flash": {
+          "loadError": "Nu am putut încărca integrarea UPS.",
+          "missingOauth": "Configurare OAuth UPS incompletă: setează VITE_UPS_CLIENT_ID și VITE_UPS_REDIRECT_URI.",
+          "connectError": "Conectarea UPS a eșuat.",
+          "disconnectError": "Nu am putut deconecta UPS.",
+          "disconnected": "UPS a fost deconectat."
+        }
       }
     },
     "ClientAffiliates": {
@@ -2645,6 +2685,26 @@
         "modeFull": "Send all units to Amazon",
         "modePartial": "Partial shipment",
         "requestCreated": "Request created. Check Prep Shipments."
+      },
+      "ups": {
+        "title": "Connexion UPS",
+        "desc": "Connectez votre compte UPS. La création d’étiquettes côté client est temporairement désactivée.",
+        "loading": "Chargement de l’intégration UPS...",
+        "connectedAt": "Connecté le",
+        "accountHint": "`Account Number` n’est plus requis pour le bouton de connexion. Nous l’ajouterons plus tard uniquement là où le flux de facturation/étiquettes en a besoin.",
+        "confirmDisconnect": "Déconnecter UPS pour ce compte ?",
+        "actions": {
+          "connect": "Connecter UPS",
+          "reconnect": "Reconnecter UPS",
+          "disconnect": "Déconnecter UPS"
+        },
+        "flash": {
+          "loadError": "Impossible de charger l’intégration UPS.",
+          "missingOauth": "Configuration OAuth UPS incomplète : définissez VITE_UPS_CLIENT_ID et VITE_UPS_REDIRECT_URI.",
+          "connectError": "La connexion UPS a échoué.",
+          "disconnectError": "Impossible de déconnecter UPS.",
+          "disconnected": "UPS a été déconnecté."
+        }
       }
     },
     "reportsMenu": {
@@ -3489,6 +3549,26 @@
         "modeFull": "Send all units to Amazon",
         "modePartial": "Partial shipment",
         "requestCreated": "Request created. Check Prep Shipments."
+      },
+      "ups": {
+        "title": "UPS-Verbindung",
+        "desc": "Verbinde dein UPS-Konto. Die Etikettenerstellung im Kundenbereich ist vorübergehend deaktiviert.",
+        "loading": "UPS-Integration wird geladen...",
+        "connectedAt": "Verbunden am",
+        "accountHint": "`Account Number` ist für den Verbindungs-Button nicht mehr erforderlich. Wir fügen sie später nur dort hinzu, wo sie für Abrechnung/Label nötig ist.",
+        "confirmDisconnect": "UPS für dieses Konto trennen?",
+        "actions": {
+          "connect": "UPS verbinden",
+          "reconnect": "UPS erneut verbinden",
+          "disconnect": "UPS trennen"
+        },
+        "flash": {
+          "loadError": "UPS-Integration konnte nicht geladen werden.",
+          "missingOauth": "UPS OAuth ist unvollständig konfiguriert: VITE_UPS_CLIENT_ID und VITE_UPS_REDIRECT_URI setzen.",
+          "connectError": "UPS-Verbindung fehlgeschlagen.",
+          "disconnectError": "UPS konnte nicht getrennt werden.",
+          "disconnected": "UPS wurde getrennt."
+        }
       }
     },
     "reportsMenu": {
@@ -4333,6 +4413,26 @@
         "modeFull": "Send all units to Amazon",
         "modePartial": "Partial shipment",
         "requestCreated": "Request created. Check Prep Shipments."
+      },
+      "ups": {
+        "title": "Connessione UPS",
+        "desc": "Collega il tuo account UPS. La creazione etichette lato cliente è temporaneamente disattivata.",
+        "loading": "Caricamento integrazione UPS...",
+        "connectedAt": "Connesso il",
+        "accountHint": "`Account Number` non è più obbligatorio per il pulsante di connessione. Lo aggiungeremo dopo solo dove serve per fatturazione/etichette.",
+        "confirmDisconnect": "Disconnettere UPS per questo account?",
+        "actions": {
+          "connect": "Connetti UPS",
+          "reconnect": "Riconnetti UPS",
+          "disconnect": "Disconnetti UPS"
+        },
+        "flash": {
+          "loadError": "Impossibile caricare l’integrazione UPS.",
+          "missingOauth": "Configurazione OAuth UPS incompleta: imposta VITE_UPS_CLIENT_ID e VITE_UPS_REDIRECT_URI.",
+          "connectError": "Connessione UPS non riuscita.",
+          "disconnectError": "Impossibile disconnettere UPS.",
+          "disconnected": "UPS è stato disconnesso."
+        }
       }
     },
     "reportsMenu": {
@@ -5177,6 +5277,26 @@
         "modeFull": "Send all units to Amazon",
         "modePartial": "Partial shipment",
         "requestCreated": "Request created. Check Prep Shipments."
+      },
+      "ups": {
+        "title": "Conexión UPS",
+        "desc": "Conecta tu cuenta UPS. La creación de etiquetas desde cliente está desactivada temporalmente.",
+        "loading": "Cargando integración UPS...",
+        "connectedAt": "Conectado el",
+        "accountHint": "`Account Number` ya no es obligatorio para el botón de conexión. Lo añadiremos después solo donde sea necesario para facturación/etiquetas.",
+        "confirmDisconnect": "¿Desconectar UPS para esta cuenta?",
+        "actions": {
+          "connect": "Conectar UPS",
+          "reconnect": "Reconectar UPS",
+          "disconnect": "Desconectar UPS"
+        },
+        "flash": {
+          "loadError": "No se pudo cargar la integración UPS.",
+          "missingOauth": "Configuración OAuth de UPS incompleta: define VITE_UPS_CLIENT_ID y VITE_UPS_REDIRECT_URI.",
+          "connectError": "Falló la conexión UPS.",
+          "disconnectError": "No se pudo desconectar UPS.",
+          "disconnected": "UPS se ha desconectado."
+        }
       }
     },
     "reportsMenu": {

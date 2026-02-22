@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Loader2, RefreshCw, Unplug } from 'lucide-react';
 import { supabaseHelpers } from '@/config/supabase';
+import { useDashboardTranslation } from '@/translations';
 
 const formatDateTime = (value) => {
   if (!value) return '-';
@@ -10,6 +11,7 @@ const formatDateTime = (value) => {
 };
 
 export default function ClientUpsIntegration({ user, profile }) {
+  const { t } = useDashboardTranslation();
   const [integration, setIntegration] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -47,7 +49,7 @@ export default function ClientUpsIntegration({ user, profile }) {
     const { data, error } = await supabaseHelpers.getUpsIntegrationForUser(user.id);
     if (error) {
       setIntegration(null);
-      setError(error.message || 'Nu am putut încărca integrarea UPS.');
+      setError(error.message || t('ClientIntegrations.ups.flash.loadError'));
     } else {
       setIntegration(data || null);
     }
@@ -68,7 +70,7 @@ export default function ClientUpsIntegration({ user, profile }) {
   const handleConnectUps = async () => {
     if (!user?.id) return;
     if (!hasUpsOauthConfig) {
-      setError('Configurare OAuth UPS incompletă: setează VITE_UPS_CLIENT_ID și VITE_UPS_REDIRECT_URI.');
+      setError(t('ClientIntegrations.ups.flash.missingOauth'));
       return;
     }
 
@@ -91,7 +93,7 @@ export default function ClientUpsIntegration({ user, profile }) {
 
     const { data, error } = await supabaseHelpers.upsertUpsIntegration(payload);
     if (error) {
-      setError(error.message || 'Conectarea UPS a eșuat.');
+      setError(error.message || t('ClientIntegrations.ups.flash.connectError'));
       setSaving(false);
       return;
     }
@@ -116,7 +118,7 @@ export default function ClientUpsIntegration({ user, profile }) {
 
   const handleDisconnectUps = async () => {
     if (!integration?.id) return;
-    if (!window.confirm('Confirmi deconectarea UPS pentru acest cont?')) return;
+    if (!window.confirm(t('ClientIntegrations.ups.confirmDisconnect'))) return;
 
     const { data, error } = await supabaseHelpers.upsertUpsIntegration({
       ...integration,
@@ -130,19 +132,19 @@ export default function ClientUpsIntegration({ user, profile }) {
     });
 
     if (error) {
-      setError(error.message || 'Nu am putut deconecta integrarea UPS.');
+      setError(error.message || t('ClientIntegrations.ups.flash.disconnectError'));
       return;
     }
 
     setIntegration(data || null);
-    setSuccess('UPS a fost deconectat.');
+    setSuccess(t('ClientIntegrations.ups.flash.disconnected'));
   };
 
   if (loading) {
     return (
       <section className="bg-white border rounded-xl p-5">
         <div className="flex items-center gap-2 text-sm text-text-secondary">
-          <Loader2 className="w-4 h-4 animate-spin" /> Se încarcă integrarea UPS...
+          <Loader2 className="w-4 h-4 animate-spin" /> {t('ClientIntegrations.ups.loading')}
         </div>
       </section>
     );
@@ -153,22 +155,22 @@ export default function ClientUpsIntegration({ user, profile }) {
       <section className="bg-white border rounded-xl p-5 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-text-primary">UPS Connect</h2>
+            <h2 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.ups.title')}</h2>
             <p className="text-sm text-text-secondary">
-              Conectează contul UPS. Crearea etichetelor din client este dezactivată momentan.
+              {t('ClientIntegrations.ups.desc')}
             </p>
           </div>
           <button
             onClick={refreshAll}
             className="inline-flex items-center gap-2 border rounded-lg px-3 py-1.5 text-sm"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> {t('common.refresh')}
           </button>
         </div>
 
         {!hasUpsOauthConfig && (
           <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm">
-            Configurare OAuth UPS incompletă: setează `VITE_UPS_CLIENT_ID` și `VITE_UPS_REDIRECT_URI`.
+            {t('ClientIntegrations.ups.flash.missingOauth')}
           </div>
         )}
 
@@ -180,7 +182,7 @@ export default function ClientUpsIntegration({ user, profile }) {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-            {isConnected ? 'Reconnect UPS' : 'Connect UPS'}
+            {isConnected ? t('ClientIntegrations.ups.actions.reconnect') : t('ClientIntegrations.ups.actions.connect')}
           </button>
 
           {isConnected && (
@@ -188,7 +190,7 @@ export default function ClientUpsIntegration({ user, profile }) {
               onClick={handleDisconnectUps}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-500 text-red-600 hover:bg-red-50"
             >
-              <Unplug className="w-4 h-4" /> Disconnect UPS
+              <Unplug className="w-4 h-4" /> {t('ClientIntegrations.ups.actions.disconnect')}
             </button>
           )}
         </div>
@@ -210,10 +212,10 @@ export default function ClientUpsIntegration({ user, profile }) {
         <section className="bg-white border rounded-xl p-5">
           <h2 className="text-lg font-semibold text-text-primary">UPS</h2>
           <p className="text-sm text-text-secondary mt-1">
-            Conectat la: {formatDateTime(integration?.connected_at)}
+            {t('ClientIntegrations.ups.connectedAt')}: {formatDateTime(integration?.connected_at)}
           </p>
           <p className="text-xs text-text-secondary mt-2">
-            `Account Number` nu mai este obligatoriu pentru butonul de conectare. Îl putem adăuga ulterior doar unde e necesar la billing/label.
+            {t('ClientIntegrations.ups.accountHint')}
           </p>
         </section>
       )}
