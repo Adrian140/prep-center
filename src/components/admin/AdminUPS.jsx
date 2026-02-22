@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle, FileArchive, FileSpreadsheet, Loader2, RefreshCw, Upload, Truck } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
-import { supabaseHelpers } from '@/config/supabase';
+import { supabase, supabaseHelpers } from '@/config/supabase';
 
 const formatDateTime = (value) => {
   if (!value) return '-';
@@ -23,6 +23,7 @@ export default function AdminUPS() {
   const [integrations, setIntegrations] = useState([]);
   const [orders, setOrders] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [companyNames, setCompanyNames] = useState({});
   const [flash, setFlash] = useState('');
   const [flashType, setFlashType] = useState('error');
   const [uploading, setUploading] = useState(false);
@@ -91,6 +92,50 @@ export default function AdminUPS() {
     setIntegrations(intRes.data || []);
     setOrders(ordRes.data || []);
     setInvoices(invRes.data || []);
+
+    const integrationsData = intRes.data || [];
+    const ordersData = ordRes.data || [];
+    const invoicesData = invRes.data || [];
+    const companyIds = Array.from(
+      new Set(
+        [...integrationsData, ...ordersData, ...invoicesData]
+          .map((row) => row?.company_id)
+          .filter(Boolean)
+      )
+    );
+
+    if (!companyIds.length) {
+      setCompanyNames({});
+      return;
+    }
+
+    const names = {};
+    const [companiesRes, profilesRes] = await Promise.all([
+      supabase.from('companies').select('id,name').in('id', companyIds),
+      supabase.from('profiles').select('id,company_name,store_name,first_name,last_name,email').in('id', companyIds)
+    ]);
+
+    if (!companiesRes.error) {
+      (companiesRes.data || []).forEach((row) => {
+        if (!row?.id) return;
+        const label = String(row.name || '').trim();
+        if (label) names[row.id] = label;
+      });
+    }
+
+    if (!profilesRes.error) {
+      (profilesRes.data || []).forEach((row) => {
+        if (!row?.id || names[row.id]) return;
+        const label =
+          String(row.company_name || '').trim() ||
+          String(row.store_name || '').trim() ||
+          String([row.first_name, row.last_name].filter(Boolean).join(' ')).trim() ||
+          String(row.email || '').trim();
+        if (label) names[row.id] = label;
+      });
+    }
+
+    setCompanyNames(names);
   };
 
   const refresh = async () => {
@@ -309,7 +354,7 @@ export default function AdminUPS() {
                     </td>
                     <td className="px-4 py-3">{row.ups_account_number || '-'}</td>
                     <td className="px-4 py-3">{row.user_id || '-'}</td>
-                    <td className="px-4 py-3">{row.company_id || '-'}</td>
+                    <td className="px-4 py-3">{companyNames[row.company_id] || row.company_id || '-'}</td>
                     <td className="px-4 py-3">{formatDateTime(row.connected_at)}</td>
                     <td className="px-4 py-3">{row.last_error || '-'}</td>
                   </tr>
