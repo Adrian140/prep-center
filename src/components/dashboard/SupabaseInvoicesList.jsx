@@ -460,7 +460,7 @@ function SupabaseInvoicesList() {
   if (isLimitedAdmin) {
     return (
       <div className="bg-white border rounded-xl p-6 text-sm text-text-secondary">
-        Access to invoices is disabled for this account.
+        {t('invoices.accessDenied')}
       </div>
     );
   }
@@ -667,9 +667,9 @@ function SupabaseInvoicesList() {
                               {t('invoices.card.date')}:{' '}
                               {new Date(invoice.invoice_date || invoice.created_at).toLocaleDateString('en-GB')}
                             </div>
-                            <div>Order: {invoice.order_id || '-'}</div>
+                            <div>{tt('invoices.ups.order', 'Order')}: {invoice.order_id || '-'}</div>
                             <div>
-                              Amount:{' '}
+                              {tt('invoices.ups.amount', 'Amount')}:{' '}
                               {invoice.amount_total != null
                                 ? `${Number(invoice.amount_total).toFixed(2)} ${invoice.currency || 'EUR'}`
                                 : '-'}

@@ -124,8 +124,31 @@
       },
       "errors": {
         "download": "Error while downloading the invoice.",
-        "view": "Could not generate a view link."
-      }
+        "view": "Could not generate a view link.",
+        "upsDownload": "Could not download UPS invoice.",
+        "upsSelect": "Select at least one UPS invoice.",
+        "upsZip": "Could not generate UPS ZIP export.",
+        "upsXls": "Could not generate UPS XLS export."
+      },
+      "sections": {
+        "prepFr": "Invoice PrepCenter France",
+        "prepDe": "Invoice PrepCenter Germany",
+        "ups": "Invoice UPS"
+      },
+      "ups": {
+        "help": "Current month is preselected.",
+        "month": "Month",
+        "selectAll": "Select all",
+        "clear": "Clear",
+        "selected": "Selected",
+        "downloadZip": "Download ZIP",
+        "downloadOne": "Download",
+        "exportXls": "Export XLS",
+        "emptyMonth": "No UPS invoices for this month.",
+        "order": "Order",
+        "amount": "Amount"
+      },
+      "accessDenied": "Access to invoices is disabled for this account."
     },
     "profile": {
       "title": "Personal details",
@@ -1123,8 +1146,31 @@
       },
       "errors": {
         "download": "Eroare la descărcarea facturii.",
-        "view": "Nu am putut genera linkul de vizualizare."
-      }
+        "view": "Nu am putut genera linkul de vizualizare.",
+        "upsDownload": "Nu am putut descărca factura UPS.",
+        "upsSelect": "Selectează cel puțin o factură UPS.",
+        "upsZip": "Nu am putut genera exportul ZIP UPS.",
+        "upsXls": "Nu am putut genera exportul XLS UPS."
+      },
+      "sections": {
+        "prepFr": "Facturi PrepCenter Franța",
+        "prepDe": "Facturi PrepCenter Germania",
+        "ups": "Facturi UPS"
+      },
+      "ups": {
+        "help": "Luna curentă este preselectată.",
+        "month": "Lună",
+        "selectAll": "Selectează tot",
+        "clear": "Curăță",
+        "selected": "Selectate",
+        "downloadZip": "Descarcă ZIP",
+        "downloadOne": "Descarcă",
+        "exportXls": "Export XLS",
+        "emptyMonth": "Nu există facturi UPS pentru luna selectată.",
+        "order": "Comandă",
+        "amount": "Sumă"
+      },
+      "accessDenied": "Accesul la facturi este dezactivat pentru acest cont."
     },
     "profile": {
       "title": "Date personale",
@@ -2078,8 +2124,31 @@
       },
       "errors": {
         "download": "Erreur lors du téléchargement de la facture.",
-        "view": "Impossible de générer un lien de visualisation."
-      }
+        "view": "Impossible de générer un lien de visualisation.",
+        "upsDownload": "Impossible de télécharger la facture UPS.",
+        "upsSelect": "Sélectionnez au moins une facture UPS.",
+        "upsZip": "Impossible de générer l’export ZIP UPS.",
+        "upsXls": "Impossible de générer l’export XLS UPS."
+      },
+      "sections": {
+        "prepFr": "Factures PrepCenter France",
+        "prepDe": "Factures PrepCenter Allemagne",
+        "ups": "Factures UPS"
+      },
+      "ups": {
+        "help": "Le mois en cours est présélectionné.",
+        "month": "Mois",
+        "selectAll": "Tout sélectionner",
+        "clear": "Effacer",
+        "selected": "Sélectionnées",
+        "downloadZip": "Télécharger ZIP",
+        "downloadOne": "Télécharger",
+        "exportXls": "Exporter XLS",
+        "emptyMonth": "Aucune facture UPS pour ce mois.",
+        "order": "Commande",
+        "amount": "Montant"
+      },
+      "accessDenied": "L’accès aux factures est désactivé pour ce compte."
     },
     "profile": {
       "title": "Informations personnelles",
@@ -2994,8 +3063,31 @@
       },
       "errors": {
         "download": "Fehler beim Herunterladen der Rechnung.",
-        "view": "Ansichtslink konnte nicht erstellt werden."
-      }
+        "view": "Ansichtslink konnte nicht erstellt werden.",
+        "upsDownload": "UPS-Rechnung konnte nicht heruntergeladen werden.",
+        "upsSelect": "Bitte mindestens eine UPS-Rechnung auswählen.",
+        "upsZip": "UPS-ZIP-Export konnte nicht erstellt werden.",
+        "upsXls": "UPS-XLS-Export konnte nicht erstellt werden."
+      },
+      "sections": {
+        "prepFr": "Rechnungen PrepCenter Frankreich",
+        "prepDe": "Rechnungen PrepCenter Deutschland",
+        "ups": "UPS-Rechnungen"
+      },
+      "ups": {
+        "help": "Der aktuelle Monat ist vorausgewählt.",
+        "month": "Monat",
+        "selectAll": "Alle auswählen",
+        "clear": "Zurücksetzen",
+        "selected": "Ausgewählt",
+        "downloadZip": "ZIP herunterladen",
+        "downloadOne": "Herunterladen",
+        "exportXls": "XLS exportieren",
+        "emptyMonth": "Keine UPS-Rechnungen für diesen Monat.",
+        "order": "Bestellung",
+        "amount": "Betrag"
+      },
+      "accessDenied": "Der Zugriff auf Rechnungen ist für dieses Konto deaktiviert."
     },
     "profile": {
       "title": "Persönliche Daten",
@@ -3858,8 +3950,31 @@
       },
       "errors": {
         "download": "Errore durante il download della fattura.",
-        "view": "Impossibile generare il link di visualizzazione."
-      }
+        "view": "Impossibile generare il link di visualizzazione.",
+        "upsDownload": "Impossibile scaricare la fattura UPS.",
+        "upsSelect": "Seleziona almeno una fattura UPS.",
+        "upsZip": "Impossibile generare l’export ZIP UPS.",
+        "upsXls": "Impossibile generare l’export XLS UPS."
+      },
+      "sections": {
+        "prepFr": "Fatture PrepCenter Francia",
+        "prepDe": "Fatture PrepCenter Germania",
+        "ups": "Fatture UPS"
+      },
+      "ups": {
+        "help": "Il mese corrente è preselezionato.",
+        "month": "Mese",
+        "selectAll": "Seleziona tutto",
+        "clear": "Pulisci",
+        "selected": "Selezionate",
+        "downloadZip": "Scarica ZIP",
+        "downloadOne": "Scarica",
+        "exportXls": "Esporta XLS",
+        "emptyMonth": "Nessuna fattura UPS per questo mese.",
+        "order": "Ordine",
+        "amount": "Importo"
+      },
+      "accessDenied": "L’accesso alle fatture è disabilitato per questo account."
     },
     "profile": {
       "title": "Dati personali",
@@ -4722,8 +4837,31 @@
       },
       "errors": {
         "download": "Error al descargar la factura.",
-        "view": "No se pudo generar un enlace de visualización."
-      }
+        "view": "No se pudo generar un enlace de visualización.",
+        "upsDownload": "No se pudo descargar la factura de UPS.",
+        "upsSelect": "Selecciona al menos una factura de UPS.",
+        "upsZip": "No se pudo generar la exportación ZIP de UPS.",
+        "upsXls": "No se pudo generar la exportación XLS de UPS."
+      },
+      "sections": {
+        "prepFr": "Facturas PrepCenter Francia",
+        "prepDe": "Facturas PrepCenter Alemania",
+        "ups": "Facturas UPS"
+      },
+      "ups": {
+        "help": "El mes actual está preseleccionado.",
+        "month": "Mes",
+        "selectAll": "Seleccionar todo",
+        "clear": "Limpiar",
+        "selected": "Seleccionadas",
+        "downloadZip": "Descargar ZIP",
+        "downloadOne": "Descargar",
+        "exportXls": "Exportar XLS",
+        "emptyMonth": "No hay facturas UPS para este mes.",
+        "order": "Pedido",
+        "amount": "Importe"
+      },
+      "accessDenied": "El acceso a las facturas está desactivado para esta cuenta."
     },
     "profile": {
       "title": "Datos personales",
