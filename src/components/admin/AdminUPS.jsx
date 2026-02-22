@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle, Loader2, PlusCircle, RefreshCw } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CheckCircle, Loader2, PlusCircle, RefreshCw, X } from 'lucide-react';
 import { supabase, supabaseHelpers } from '@/config/supabase';
 
 const PREP_WAREHOUSES = {
@@ -32,8 +32,30 @@ const asNumberOrNull = (value) => {
   return Number.isFinite(number) ? number : null;
 };
 
+const buildInitialForm = () => ({
+  integration_id: '',
+  warehouse_country: 'FR',
+  use_default_sender: true,
+  from_name: PREP_WAREHOUSES.FR.name,
+  from_address1: PREP_WAREHOUSES.FR.address1,
+  from_city: PREP_WAREHOUSES.FR.city,
+  from_postal_code: PREP_WAREHOUSES.FR.postal_code,
+  from_country_code: PREP_WAREHOUSES.FR.country_code,
+  external_order_id: '',
+  service_code: '11',
+  destination_name: '',
+  destination_address1: '',
+  destination_city: '',
+  destination_postal_code: '',
+  destination_country_code: 'FR',
+  weight_kg: '1',
+  length_cm: '',
+  width_cm: '',
+  height_cm: '',
+  promo_code: ''
+});
+
 export default function AdminUPS() {
-  const createOrderRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -43,29 +65,8 @@ export default function AdminUPS() {
   const [flash, setFlash] = useState('');
   const [flashType, setFlashType] = useState('error');
   const [openedIntegrationId, setOpenedIntegrationId] = useState('');
-
-  const [form, setForm] = useState({
-    integration_id: '',
-    warehouse_country: 'FR',
-    use_default_sender: true,
-    from_name: PREP_WAREHOUSES.FR.name,
-    from_address1: PREP_WAREHOUSES.FR.address1,
-    from_city: PREP_WAREHOUSES.FR.city,
-    from_postal_code: PREP_WAREHOUSES.FR.postal_code,
-    from_country_code: PREP_WAREHOUSES.FR.country_code,
-    external_order_id: '',
-    service_code: '11',
-    destination_name: '',
-    destination_address1: '',
-    destination_city: '',
-    destination_postal_code: '',
-    destination_country_code: 'FR',
-    weight_kg: '1',
-    length_cm: '',
-    width_cm: '',
-    height_cm: '',
-    promo_code: ''
-  });
+  const [isClientWindowOpen, setIsClientWindowOpen] = useState(false);
+  const [form, setForm] = useState(buildInitialForm());
 
   const setSuccess = (message) => {
     setFlash(message);
@@ -78,58 +79,32 @@ export default function AdminUPS() {
   };
 
   const byIntegrationId = useMemo(
-    () =>
-      integrations.reduce((acc, item) => {
-        acc[item.id] = item;
-        return acc;
-      }, {}),
+    () => integrations.reduce((acc, item) => ({ ...acc, [item.id]: item }), {}),
     [integrations]
   );
 
-  const activeIntegrations = useMemo(
-    () =>
-      integrations.filter((row) => {
-        const status = String(row.status || '').toLowerCase();
-        return status === 'active' || status === 'connected';
-      }),
-    [integrations]
-  );
-
-  const summary = useMemo(() => {
-    const connected = activeIntegrations.length;
-    const pendingOrders = orders.filter((row) => String(row.status || '').toLowerCase() === 'pending').length;
-    const errors = orders.filter((row) => String(row.status || '').toLowerCase() === 'error').length;
-    return {
-      integrations: integrations.length,
-      connected,
-      orders: orders.length,
-      pendingOrders,
-      errors
-    };
-  }, [integrations.length, activeIntegrations.length, orders]);
-
-  const selectedIntegration = (openedIntegrationId || form.integration_id) ? byIntegrationId[openedIntegrationId || form.integration_id] : null;
+  const selectedIntegration = openedIntegrationId ? byIntegrationId[openedIntegrationId] : null;
   const selectedWarehouse = PREP_WAREHOUSES[form.warehouse_country] || PREP_WAREHOUSES.FR;
+
+  const clientOrders = useMemo(() => {
+    if (!selectedIntegration) return [];
+    return orders.filter((row) => row.integration_id === selectedIntegration.id);
+  }, [orders, selectedIntegration]);
 
   const loadAll = async () => {
     const [intRes, ordRes] = await Promise.all([
       supabaseHelpers.listUpsIntegrations(),
       supabaseHelpers.listUpsShippingOrders({ limit: 500 })
     ]);
-
     if (intRes.error) throw intRes.error;
     if (ordRes.error) throw ordRes.error;
 
     const integrationsData = intRes.data || [];
     const ordersData = ordRes.data || [];
-
     setIntegrations(integrationsData);
     setOrders(ordersData);
 
-    const companyIds = Array.from(
-      new Set([...integrationsData, ...ordersData].map((row) => row?.company_id).filter(Boolean))
-    );
-
+    const companyIds = Array.from(new Set([...integrationsData, ...ordersData].map((row) => row?.company_id).filter(Boolean)));
     if (!companyIds.length) {
       setCompanyNames({});
       return;
@@ -143,9 +118,8 @@ export default function AdminUPS() {
 
     if (!companiesRes.error) {
       (companiesRes.data || []).forEach((row) => {
-        if (!row?.id) return;
-        const label = String(row.name || '').trim();
-        if (label) names[row.id] = label;
+        const label = String(row?.name || '').trim();
+        if (row?.id && label) names[row.id] = label;
       });
     }
 
@@ -186,9 +160,7 @@ export default function AdminUPS() {
     })();
   }, []);
 
-  const setField = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   useEffect(() => {
     if (!form.use_default_sender) return;
@@ -204,11 +176,16 @@ export default function AdminUPS() {
   }, [form.warehouse_country, form.use_default_sender]);
 
   const openIntegrationForCreate = (integrationId) => {
+    const integration = byIntegrationId[integrationId];
+    if (!integration) return;
     setOpenedIntegrationId(integrationId);
-    setForm((prev) => ({ ...prev, integration_id: integrationId }));
-    setTimeout(() => {
-      createOrderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
+    setForm((prev) => ({ ...buildInitialForm(), integration_id: integrationId, warehouse_country: prev.warehouse_country }));
+    setIsClientWindowOpen(true);
+  };
+
+  const closeClientWindow = () => {
+    setIsClientWindowOpen(false);
+    setOpenedIntegrationId('');
   };
 
   const validateDestinationPostalCode = async () => {
@@ -220,22 +197,15 @@ export default function AdminUPS() {
       .from('ups_postal_codes')
       .select('id', { count: 'exact', head: true })
       .eq('country_code', countryCode);
+    if (countryCountError) return { ok: false, message: 'Nu am putut valida codul poștal UPS (eroare locală).' };
 
-    if (countryCountError) {
-      return { ok: false, message: 'Nu am putut valida codul poștal UPS (eroare locală).' };
-    }
-
-    // If local cache exists for this country, enforce exact postal code check.
     if ((count || 0) > 0) {
       const postalRes = await supabaseHelpers.listUpsPostalCodes({ countryCode, postalCode });
-      if (postalRes.error) {
-        return { ok: false, message: 'Nu am putut valida codul poștal UPS.' };
-      }
+      if (postalRes.error) return { ok: false, message: 'Nu am putut valida codul poștal UPS.' };
       if (!postalRes.data?.length) {
         return { ok: false, message: `Codul poștal ${postalCode} (${countryCode}) nu există în cache-ul UPS local.` };
       }
     }
-
     return { ok: true };
   };
 
@@ -243,15 +213,15 @@ export default function AdminUPS() {
     event.preventDefault();
     setFlash('');
 
-    const integration = byIntegrationId[openedIntegrationId || form.integration_id];
-    if (!integration) {
-      setError('Selectează un cont UPS conectat.');
+    if (!selectedIntegration) {
+      setError('Deschide mai întâi clientul pentru care creezi eticheta.');
       return;
     }
-    if (!integration.ups_account_number) {
-      setError('Contul UPS selectat nu are UPS Account Number setat.');
+    if (!selectedIntegration.ups_account_number) {
+      setError('Contul UPS al clientului nu are UPS Account Number.');
       return;
     }
+
     if (!form.destination_name || !form.destination_address1 || !form.destination_city || !form.destination_postal_code) {
       setError('Completează adresa de destinație (nume, adresă, oraș, cod poștal).');
       return;
@@ -270,9 +240,9 @@ export default function AdminUPS() {
         `UPS-${new Date().toISOString().slice(0, 10)}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
       const createRes = await supabaseHelpers.createUpsShippingOrder({
-        integration_id: integration.id,
-        user_id: integration.user_id,
-        company_id: integration.company_id || integration.user_id,
+        integration_id: selectedIntegration.id,
+        user_id: selectedIntegration.user_id,
+        company_id: selectedIntegration.company_id || selectedIntegration.user_id,
         external_order_id: externalOrderId,
         status: 'pending',
         service_code: form.service_code || '11',
@@ -301,7 +271,7 @@ export default function AdminUPS() {
           promo_code: String(form.promo_code || '').trim() || null
         },
         request_payload: {
-          created_from: 'admin-ups-order-form',
+          created_from: 'admin-ups-client-window',
           promo_code: String(form.promo_code || '').trim() || null
         }
       });
@@ -312,7 +282,7 @@ export default function AdminUPS() {
 
       const labelRes = await supabaseHelpers.processUpsShippingLabel({
         order_id: createRes.data.id,
-        integration_id: integration.id
+        integration_id: selectedIntegration.id
       });
 
       const labelError = labelRes.error || labelRes.data?.error;
@@ -320,15 +290,9 @@ export default function AdminUPS() {
         throw new Error(typeof labelError === 'string' ? labelError : labelError.message || 'UPS label creation failed.');
       }
 
-      setSuccess(`Comanda UPS a fost creată. Tracking: ${labelRes.data?.tracking_number || '-'}`);
+      setSuccess(`Eticheta UPS a fost creată pentru client. Tracking: ${labelRes.data?.tracking_number || '-'}`);
       setForm((prev) => ({
         ...prev,
-        use_default_sender: true,
-        from_name: selectedWarehouse.name,
-        from_address1: selectedWarehouse.address1,
-        from_city: selectedWarehouse.city,
-        from_postal_code: selectedWarehouse.postal_code,
-        from_country_code: selectedWarehouse.country_code,
         external_order_id: '',
         destination_name: '',
         destination_address1: '',
@@ -362,9 +326,7 @@ export default function AdminUPS() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-text-primary">UPS</h2>
-          <p className="text-sm text-text-secondary">
-            Management integrare UPS și generare etichete direct din admin.
-          </p>
+          <p className="text-sm text-text-secondary">Clienți care au conectat UPS.</p>
         </div>
         <button onClick={refresh} className="inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm">
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
@@ -383,133 +345,9 @@ export default function AdminUPS() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div className="bg-white border rounded-xl p-4">
-          <div className="text-xs text-text-secondary">UPS integrations</div>
-          <div className="text-2xl font-semibold text-text-primary">{summary.integrations}</div>
-        </div>
-        <div className="bg-white border rounded-xl p-4">
-          <div className="text-xs text-text-secondary">Connected</div>
-          <div className="text-2xl font-semibold text-emerald-700">{summary.connected}</div>
-        </div>
-        <div className="bg-white border rounded-xl p-4">
-          <div className="text-xs text-text-secondary">Orders</div>
-          <div className="text-2xl font-semibold text-text-primary">{summary.orders}</div>
-        </div>
-        <div className="bg-white border rounded-xl p-4">
-          <div className="text-xs text-text-secondary">Pending labels</div>
-          <div className="text-2xl font-semibold text-amber-700">{summary.pendingOrders}</div>
-        </div>
-        <div className="bg-white border rounded-xl p-4">
-          <div className="text-xs text-text-secondary">Label errors</div>
-          <div className="text-2xl font-semibold text-red-700">{summary.errors}</div>
-        </div>
-      </div>
-
-      <section ref={createOrderRef} className="bg-white border rounded-xl p-5">
-        <h3 className="text-lg font-semibold text-text-primary mb-4">Create UPS order</h3>
-        <form onSubmit={handleCreateOrder} className="space-y-4">
-          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
-            {selectedIntegration
-              ? `Opened client: ${companyNames[selectedIntegration.company_id] || selectedIntegration.account_label || selectedIntegration.user_id || '-'}${selectedIntegration.ups_account_number ? ` | ${selectedIntegration.ups_account_number}` : ''}`
-              : 'Select Open from Connected accounts first'}
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="rounded-lg border p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-text-primary">From (Warehouse)</h4>
-                    <label className="inline-flex items-center gap-2 text-xs text-text-secondary">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(form.use_default_sender)}
-                        onChange={(event) => setField('use_default_sender', event.target.checked)}
-                      />
-                      Use default
-                    </label>
-                  </div>
-                  <label className="space-y-1 block">
-                    <span className="text-xs text-text-secondary">Warehouse preset</span>
-                    <select
-                      value={form.warehouse_country}
-                      onChange={(event) => setField('warehouse_country', event.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    >
-                      <option value="FR">Prep Center France</option>
-                      <option value="DE">Prep Center Germany</option>
-                    </select>
-                  </label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <input disabled={Boolean(form.use_default_sender)} value={form.from_name} onChange={(e) => setField('from_name', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="From name" />
-                    <input disabled={Boolean(form.use_default_sender)} value={form.from_country_code} maxLength={2} onChange={(e) => setField('from_country_code', e.target.value.toUpperCase())} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="Country" />
-                    <input disabled={Boolean(form.use_default_sender)} value={form.from_address1} onChange={(e) => setField('from_address1', e.target.value)} className="px-3 py-2 border rounded-lg md:col-span-2 disabled:bg-gray-100 disabled:text-gray-500" placeholder="Address" />
-                    <input disabled={Boolean(form.use_default_sender)} value={form.from_city} onChange={(e) => setField('from_city', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="City" />
-                    <input disabled={Boolean(form.use_default_sender)} value={form.from_postal_code} onChange={(e) => setField('from_postal_code', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="Postal code" />
-                  </div>
-                </div>
-
-                <div className="rounded-lg border p-4 space-y-3">
-                  <h4 className="font-semibold text-text-primary">To (Destination)</h4>
-                  <div className="grid grid-cols-1 gap-2">
-                    <input value={form.destination_name} onChange={(e) => setField('destination_name', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination name" required />
-                    <input value={form.destination_address1} onChange={(e) => setField('destination_address1', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination address" required />
-                    <div className="grid grid-cols-3 gap-2">
-                      <input value={form.destination_city} onChange={(e) => setField('destination_city', e.target.value)} className="px-3 py-2 border rounded-lg col-span-2" placeholder="City" required />
-                      <input value={form.destination_country_code} maxLength={2} onChange={(e) => setField('destination_country_code', e.target.value.toUpperCase())} className="px-3 py-2 border rounded-lg" placeholder="CC" required />
-                    </div>
-                    <input value={form.destination_postal_code} onChange={(e) => setField('destination_postal_code', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Postal code" required />
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border p-4">
-                <h4 className="font-semibold text-text-primary mb-3">Parcel & service</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2">
-                  <input value={form.external_order_id} onChange={(e) => setField('external_order_id', e.target.value)} className="px-3 py-2 border rounded-lg lg:col-span-2" placeholder="Order reference (optional)" />
-                  <select value={form.service_code} onChange={(e) => setField('service_code', e.target.value)} className="px-3 py-2 border rounded-lg">
-                    <option value="11">UPS Standard (11)</option>
-                    <option value="07">UPS Worldwide Express (07)</option>
-                    <option value="08">UPS Worldwide Expedited (08)</option>
-                  </select>
-                  <input value={form.promo_code} onChange={(e) => setField('promo_code', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Promo code" />
-                  <input type="number" min="0.01" step="0.01" value={form.weight_kg} onChange={(e) => setField('weight_kg', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Weight kg" required />
-                  <input type="number" min="0" step="0.1" value={form.length_cm} onChange={(e) => setField('length_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Length cm" />
-                  <input type="number" min="0" step="0.1" value={form.width_cm} onChange={(e) => setField('width_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Width cm" />
-                  <input type="number" min="0" step="0.1" value={form.height_cm} onChange={(e) => setField('height_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Height cm" />
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg border p-4 h-fit">
-              <h4 className="font-semibold text-text-primary mb-3">Summary</h4>
-              <div className="text-sm text-text-secondary space-y-2">
-                <div><b>From:</b> {form.from_postal_code} {form.from_city}, {form.from_country_code}</div>
-                <div><b>To:</b> {form.destination_postal_code || '-'} {form.destination_city || '-'}, {form.destination_country_code || '-'}</div>
-                <div><b>Parcel:</b> {form.weight_kg || '0'} kg, {form.length_cm || 0} x {form.width_cm || 0} x {form.height_cm || 0} cm</div>
-                <div><b>Promo:</b> {form.promo_code || '-'}</div>
-              </div>
-              <button
-                type="submit"
-                disabled={creating || !activeIntegrations.length || !selectedIntegration}
-                className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
-              >
-                {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
-                Save & Buy Label
-              </button>
-              {!selectedIntegration && <p className="mt-2 text-xs text-red-600">Apasă Open pe clientul dorit.</p>}
-            </div>
-          </div>
-        </form>
-      </section>
-
       <section className="bg-white border rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b flex items-center justify-between gap-2">
-          <div>
-            <h3 className="text-lg font-semibold text-text-primary">Connected accounts</h3>
-            <p className="text-sm text-text-secondary">Clienți care au conectat UPS.</p>
-          </div>
+          <h3 className="text-lg font-semibold text-text-primary">Connected accounts</h3>
         </div>
         {integrations.length === 0 ? (
           <div className="px-5 py-6 text-sm text-text-secondary">Nicio integrare UPS încă.</div>
@@ -561,47 +399,148 @@ export default function AdminUPS() {
         )}
       </section>
 
-      <section className="bg-white border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b">
-          <h3 className="text-lg font-semibold text-text-primary">UPS shipping orders</h3>
-        </div>
-        {orders.length === 0 ? (
-          <div className="px-5 py-6 text-sm text-text-secondary">Nicio comandă UPS încă.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 text-text-secondary text-xs uppercase">
-                <tr>
-                  <th className="px-4 py-3 text-left">Order</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">Tracking</th>
-                  <th className="px-4 py-3 text-left">Destination</th>
-                  <th className="px-4 py-3 text-left">Promo</th>
-                  <th className="px-4 py-3 text-left">Charge</th>
-                  <th className="px-4 py-3 text-left">Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((row) => (
-                  <tr key={row.id} className="border-t">
-                    <td className="px-4 py-3">{row.external_order_id || row.id}</td>
-                    <td className="px-4 py-3">{row.status || '-'}</td>
-                    <td className="px-4 py-3">{row.tracking_number || '-'}</td>
-                    <td className="px-4 py-3">
-                      {row.ship_to?.postal_code || '-'} {row.ship_to?.city || ''} {row.ship_to?.country_code || ''}
-                    </td>
-                    <td className="px-4 py-3">{row.package_data?.promo_code || '-'}</td>
-                    <td className="px-4 py-3">
-                      {row.total_charge != null ? `${Number(row.total_charge).toFixed(2)} ${row.currency || 'EUR'}` : '-'}
-                    </td>
-                    <td className="px-4 py-3">{formatDateTime(row.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {isClientWindowOpen && selectedIntegration && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px] p-4 md:p-8 overflow-auto">
+          <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-xl border p-5">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-xl font-semibold text-text-primary">UPS Client Window</h3>
+                <p className="text-sm text-text-secondary mt-1">
+                  {companyNames[selectedIntegration.company_id] || selectedIntegration.account_label || selectedIntegration.user_id}
+                  {selectedIntegration.ups_account_number ? ` | ${selectedIntegration.ups_account_number}` : ''}
+                </p>
+              </div>
+              <button onClick={closeClientWindow} className="inline-flex items-center gap-1 px-3 py-1.5 border rounded-lg text-sm">
+                <X className="w-4 h-4" /> Close
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateOrder} className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="rounded-lg border p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-text-primary">From (Warehouse)</h4>
+                        <label className="inline-flex items-center gap-2 text-xs text-text-secondary">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(form.use_default_sender)}
+                            onChange={(event) => setField('use_default_sender', event.target.checked)}
+                          />
+                          Use default
+                        </label>
+                      </div>
+                      <label className="space-y-1 block">
+                        <span className="text-xs text-text-secondary">Warehouse preset</span>
+                        <select
+                          value={form.warehouse_country}
+                          onChange={(event) => setField('warehouse_country', event.target.value)}
+                          className="w-full px-3 py-2 border rounded-lg"
+                        >
+                          <option value="FR">Prep Center France</option>
+                          <option value="DE">Prep Center Germany</option>
+                        </select>
+                      </label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <input disabled={Boolean(form.use_default_sender)} value={form.from_name} onChange={(e) => setField('from_name', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="From name" />
+                        <input disabled={Boolean(form.use_default_sender)} value={form.from_country_code} maxLength={2} onChange={(e) => setField('from_country_code', e.target.value.toUpperCase())} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="Country" />
+                        <input disabled={Boolean(form.use_default_sender)} value={form.from_address1} onChange={(e) => setField('from_address1', e.target.value)} className="px-3 py-2 border rounded-lg md:col-span-2 disabled:bg-gray-100 disabled:text-gray-500" placeholder="Address" />
+                        <input disabled={Boolean(form.use_default_sender)} value={form.from_city} onChange={(e) => setField('from_city', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="City" />
+                        <input disabled={Boolean(form.use_default_sender)} value={form.from_postal_code} onChange={(e) => setField('from_postal_code', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="Postal code" />
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border p-4 space-y-3">
+                      <h4 className="font-semibold text-text-primary">To (Destination)</h4>
+                      <div className="grid grid-cols-1 gap-2">
+                        <input value={form.destination_name} onChange={(e) => setField('destination_name', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination name" required />
+                        <input value={form.destination_address1} onChange={(e) => setField('destination_address1', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination address" required />
+                        <div className="grid grid-cols-3 gap-2">
+                          <input value={form.destination_city} onChange={(e) => setField('destination_city', e.target.value)} className="px-3 py-2 border rounded-lg col-span-2" placeholder="City" required />
+                          <input value={form.destination_country_code} maxLength={2} onChange={(e) => setField('destination_country_code', e.target.value.toUpperCase())} className="px-3 py-2 border rounded-lg" placeholder="CC" required />
+                        </div>
+                        <input value={form.destination_postal_code} onChange={(e) => setField('destination_postal_code', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Postal code" required />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border p-4">
+                    <h4 className="font-semibold text-text-primary mb-3">Parcel & service</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2">
+                      <input value={form.external_order_id} onChange={(e) => setField('external_order_id', e.target.value)} className="px-3 py-2 border rounded-lg lg:col-span-2" placeholder="Order reference (optional)" />
+                      <select value={form.service_code} onChange={(e) => setField('service_code', e.target.value)} className="px-3 py-2 border rounded-lg">
+                        <option value="11">UPS Standard (11)</option>
+                        <option value="07">UPS Worldwide Express (07)</option>
+                        <option value="08">UPS Worldwide Expedited (08)</option>
+                      </select>
+                      <input value={form.promo_code} onChange={(e) => setField('promo_code', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Promo code" />
+                      <input type="number" min="0.01" step="0.01" value={form.weight_kg} onChange={(e) => setField('weight_kg', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Weight kg" required />
+                      <input type="number" min="0" step="0.1" value={form.length_cm} onChange={(e) => setField('length_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Length cm" />
+                      <input type="number" min="0" step="0.1" value={form.width_cm} onChange={(e) => setField('width_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Width cm" />
+                      <input type="number" min="0" step="0.1" value={form.height_cm} onChange={(e) => setField('height_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Height cm" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-4 h-fit">
+                  <h4 className="font-semibold text-text-primary mb-3">Summary</h4>
+                  <div className="text-sm text-text-secondary space-y-2">
+                    <div><b>From:</b> {form.from_postal_code} {form.from_city}, {form.from_country_code}</div>
+                    <div><b>To:</b> {form.destination_postal_code || '-'} {form.destination_city || '-'}, {form.destination_country_code || '-'}</div>
+                    <div><b>Parcel:</b> {form.weight_kg || '0'} kg, {form.length_cm || 0} x {form.width_cm || 0} x {form.height_cm || 0} cm</div>
+                    <div><b>Promo:</b> {form.promo_code || '-'}</div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={creating}
+                    className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+                  >
+                    {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
+                    Save & Buy Label
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <section className="mt-6 bg-white border rounded-xl overflow-hidden">
+              <div className="px-5 py-4 border-b">
+                <h4 className="text-lg font-semibold text-text-primary">Client UPS shipping orders</h4>
+              </div>
+              {clientOrders.length === 0 ? (
+                <div className="px-5 py-6 text-sm text-text-secondary">Nicio comandă UPS pentru acest client.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 text-text-secondary text-xs uppercase">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Order</th>
+                        <th className="px-4 py-3 text-left">Status</th>
+                        <th className="px-4 py-3 text-left">Tracking</th>
+                        <th className="px-4 py-3 text-left">Destination</th>
+                        <th className="px-4 py-3 text-left">Charge</th>
+                        <th className="px-4 py-3 text-left">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clientOrders.map((row) => (
+                        <tr key={row.id} className="border-t">
+                          <td className="px-4 py-3">{row.external_order_id || row.id}</td>
+                          <td className="px-4 py-3">{row.status || '-'}</td>
+                          <td className="px-4 py-3">{row.tracking_number || '-'}</td>
+                          <td className="px-4 py-3">{row.ship_to?.postal_code || '-'} {row.ship_to?.city || ''} {row.ship_to?.country_code || ''}</td>
+                          <td className="px-4 py-3">{row.total_charge != null ? `${Number(row.total_charge).toFixed(2)} ${row.currency || 'EUR'}` : '-'}</td>
+                          <td className="px-4 py-3">{formatDateTime(row.created_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
           </div>
-        )}
-      </section>
+        </div>
+      )}
     </div>
   );
 }
