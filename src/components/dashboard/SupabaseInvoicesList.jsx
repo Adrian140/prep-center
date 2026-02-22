@@ -42,12 +42,14 @@ function SupabaseInvoicesList() {
   const { t, tp } = useDashboardTranslation();
   const [invoices, setInvoices] = useState([]);
   const [upsInvoices, setUpsInvoices] = useState([]);
+  const [hasUpsIntegration, setHasUpsIntegration] = useState(false);
   const [loading, setLoading] = useState(true);
   const { user, profile } = useSupabaseAuth();
   const isLimitedAdmin = Boolean(profile?.is_limited_admin);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [activeSection, setActiveSection] = useState('prep_fr');
   const [upsMonth, setUpsMonth] = useState(currentMonthKey());
   const [selectedUpsIds, setSelectedUpsIds] = useState({});
 
@@ -83,12 +85,20 @@ function SupabaseInvoicesList() {
         supabaseHelpers.getInvoices(user.id),
         supabaseHelpers.listUpsInvoiceFiles({ userId: user.id, companyId, limit: 500 })
       ]);
+      const integrationRes = await supabaseHelpers.getUpsIntegrationForUser(user.id);
 
       if (prepRes.error) throw prepRes.error;
       if (upsRes.error) throw upsRes.error;
+      if (integrationRes.error) throw integrationRes.error;
 
       setInvoices(prepRes.data || []);
       setUpsInvoices(upsRes.data || []);
+      const status = String(integrationRes.data?.status || '').toLowerCase();
+      const upsConnected = status === 'connected' || status === 'active';
+      setHasUpsIntegration(upsConnected);
+      if (!upsConnected && activeSection === 'ups') {
+        setActiveSection('prep_fr');
+      }
       setSelectedUpsIds({});
       setUpsMonth(currentMonthKey());
     } catch (error) {
@@ -241,6 +251,35 @@ function SupabaseInvoicesList() {
     () => upsFilteredInvoices.filter((row) => selectedUpsIds[row.id]),
     [upsFilteredInvoices, selectedUpsIds]
   );
+
+  const invoiceSections = useMemo(() => {
+    const sections = [
+      {
+        key: 'prep_fr',
+        title: tt('invoices.sections.prepFr', 'Invoice PrepCenter France'),
+        count: prepFranceInvoices.length
+      },
+      {
+        key: 'prep_de',
+        title: tt('invoices.sections.prepDe', 'Invoice PrepCenter Germany'),
+        count: prepGermanyInvoices.length
+      }
+    ];
+    if (hasUpsIntegration) {
+      sections.push({
+        key: 'ups',
+        title: tt('invoices.sections.ups', 'Invoice UPS'),
+        count: upsFilteredInvoices.length
+      });
+    }
+    return sections;
+  }, [
+    hasUpsIntegration,
+    prepFranceInvoices.length,
+    prepGermanyInvoices.length,
+    upsFilteredInvoices.length,
+    tt
+  ]);
 
   const toggleUpsSelection = (id) => {
     setSelectedUpsIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -511,132 +550,163 @@ function SupabaseInvoicesList() {
         </div>
       </div>
 
+      <div className="max-w-6xl mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {invoiceSections.map((section) => {
+            const isActive = activeSection === section.key;
+            return (
+              <button
+                key={section.key}
+                type="button"
+                onClick={() => setActiveSection(section.key)}
+                className={`text-left border rounded-xl p-4 transition-colors ${
+                  isActive
+                    ? 'border-primary bg-blue-50'
+                    : 'border-gray-200 bg-white hover:border-primary/60'
+                }`}
+              >
+                <div className="text-sm font-semibold text-text-primary">{section.title}</div>
+                <div className="text-xs text-text-secondary mt-1">
+                  {tp('invoices.total', { n: section.count })}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="space-y-4 max-w-6xl">
-        {renderPrepSection(tt('invoices.sections.prepFr', 'Invoice PrepCenter France'), prepFranceInvoices)}
-        {renderPrepSection(tt('invoices.sections.prepDe', 'Invoice PrepCenter Germany'), prepGermanyInvoices)}
+        {activeSection === 'prep_fr' &&
+          renderPrepSection(tt('invoices.sections.prepFr', 'Invoice PrepCenter France'), prepFranceInvoices)}
 
-        <section className="bg-white border border-gray-200 rounded-xl p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <div>
-              <h3 className="text-base font-bold text-text-primary">{tt('invoices.sections.ups', 'Invoice UPS')}</h3>
-              <p className="text-xs text-text-secondary">{tt('invoices.ups.help', 'Current month is preselected.')}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <label htmlFor="ups-month" className="text-xs text-text-secondary">
-                {tt('invoices.ups.month', 'Month')}
-              </label>
-              <select
-                id="ups-month"
-                value={upsMonth}
-                onChange={(e) => {
-                  setUpsMonth(e.target.value);
-                  setSelectedUpsIds({});
-                }}
-                className="px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg"
-              >
-                {upsMonthOptions.map((key) => (
-                  <option key={key} value={key}>
-                    {formatMonthLabel(key)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+        {activeSection === 'prep_de' &&
+          renderPrepSection(tt('invoices.sections.prepDe', 'Invoice PrepCenter Germany'), prepGermanyInvoices)}
 
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <button onClick={selectAllUpsVisible} className="px-2.5 py-1.5 text-xs border rounded-lg">
-              {tt('invoices.ups.selectAll', 'Select all')}
-            </button>
-            <button onClick={clearUpsSelection} className="px-2.5 py-1.5 text-xs border rounded-lg">
-              {tt('invoices.ups.clear', 'Clear')}
-            </button>
-            <div className="text-xs text-text-secondary">
-              {tt('invoices.ups.selected', 'Selected')}: {selectedUpsRows.length}
+        {activeSection === 'ups' && hasUpsIntegration && (
+          <section className="bg-white border border-gray-200 rounded-xl p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div>
+                <h3 className="text-base font-bold text-text-primary">{tt('invoices.sections.ups', 'Invoice UPS')}</h3>
+                <p className="text-xs text-text-secondary">{tt('invoices.ups.help', 'Current month is preselected.')}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="ups-month" className="text-xs text-text-secondary">
+                  {tt('invoices.ups.month', 'Month')}
+                </label>
+                <select
+                  id="ups-month"
+                  value={upsMonth}
+                  onChange={(e) => {
+                    setUpsMonth(e.target.value);
+                    setSelectedUpsIds({});
+                  }}
+                  className="px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg"
+                >
+                  {upsMonthOptions.map((key) => (
+                    <option key={key} value={key}>
+                      {formatMonthLabel(key)}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                onClick={exportUpsSelectedZip}
-                disabled={exportingZip || selectedUpsRows.length === 0}
-                className="inline-flex items-center gap-1 px-3 py-1.5 border rounded-lg text-sm disabled:opacity-60"
-              >
-                <FileArchive className="w-4 h-4" />
-                {selectedUpsRows.length > 1
-                  ? tt('invoices.ups.downloadZip', 'Download ZIP')
-                  : tt('invoices.ups.downloadOne', 'Download')}
+
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <button onClick={selectAllUpsVisible} className="px-2.5 py-1.5 text-xs border rounded-lg">
+                {tt('invoices.ups.selectAll', 'Select all')}
               </button>
-              <button
-                onClick={exportUpsSelectedXls}
-                disabled={exportingXls || selectedUpsRows.length === 0}
-                className="inline-flex items-center gap-1 px-3 py-1.5 border rounded-lg text-sm disabled:opacity-60"
-              >
-                <FileSpreadsheet className="w-4 h-4" /> {tt('invoices.ups.exportXls', 'Export XLS')}
+              <button onClick={clearUpsSelection} className="px-2.5 py-1.5 text-xs border rounded-lg">
+                {tt('invoices.ups.clear', 'Clear')}
               </button>
+              <div className="text-xs text-text-secondary">
+                {tt('invoices.ups.selected', 'Selected')}: {selectedUpsRows.length}
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={exportUpsSelectedZip}
+                  disabled={exportingZip || selectedUpsRows.length === 0}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 border rounded-lg text-sm disabled:opacity-60"
+                >
+                  <FileArchive className="w-4 h-4" />
+                  {selectedUpsRows.length > 1
+                    ? tt('invoices.ups.downloadZip', 'Download ZIP')
+                    : tt('invoices.ups.downloadOne', 'Download')}
+                </button>
+                <button
+                  onClick={exportUpsSelectedXls}
+                  disabled={exportingXls || selectedUpsRows.length === 0}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 border rounded-lg text-sm disabled:opacity-60"
+                >
+                  <FileSpreadsheet className="w-4 h-4" /> {tt('invoices.ups.exportXls', 'Export XLS')}
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-2.5">
-            {upsFilteredInvoices.map((invoice) => {
-              const checked = Boolean(selectedUpsIds[invoice.id]);
-              return (
-                <div key={invoice.id} className="border border-gray-200 rounded-xl px-3 py-2.5">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleUpsSelection(invoice.id)}
-                        className="mt-1"
-                      />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <FileText className="w-4 h-4 text-text-secondary shrink-0" />
-                          <h4 className="text-sm font-semibold text-text-primary truncate">
-                            {invoice.invoice_number || invoice.file_name || invoice.id}
-                          </h4>
-                        </div>
-                        <div className="text-xs text-text-secondary space-y-0.5">
-                          <div>
-                            {t('invoices.card.date')}: {new Date(invoice.invoice_date || invoice.created_at).toLocaleDateString('en-GB')}
+            <div className="space-y-2.5">
+              {upsFilteredInvoices.map((invoice) => {
+                const checked = Boolean(selectedUpsIds[invoice.id]);
+                return (
+                  <div key={invoice.id} className="border border-gray-200 rounded-xl px-3 py-2.5">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleUpsSelection(invoice.id)}
+                          className="mt-1"
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <FileText className="w-4 h-4 text-text-secondary shrink-0" />
+                            <h4 className="text-sm font-semibold text-text-primary truncate">
+                              {invoice.invoice_number || invoice.file_name || invoice.id}
+                            </h4>
                           </div>
-                          <div>Order: {invoice.order_id || '-'}</div>
-                          <div>
-                            Amount:{' '}
-                            {invoice.amount_total != null
-                              ? `${Number(invoice.amount_total).toFixed(2)} ${invoice.currency || 'EUR'}`
-                              : '-'}
+                          <div className="text-xs text-text-secondary space-y-0.5">
+                            <div>
+                              {t('invoices.card.date')}:{' '}
+                              {new Date(invoice.invoice_date || invoice.created_at).toLocaleDateString('en-GB')}
+                            </div>
+                            <div>Order: {invoice.order_id || '-'}</div>
+                            <div>
+                              Amount:{' '}
+                              {invoice.amount_total != null
+                                ? `${Number(invoice.amount_total).toFixed(2)} ${invoice.currency || 'EUR'}`
+                                : '-'}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      {invoice.file_path ? (
-                        <button
-                          onClick={() => downloadUpsInvoice(invoice)}
-                          className="inline-flex items-center px-2 py-1 text-[11px] bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-                        >
-                          <Download className="w-3 h-3 mr-1" />
-                          {t('invoices.card.download')}
-                        </button>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
-                          {t('invoices.card.noFile')}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {invoice.file_path ? (
+                          <button
+                            onClick={() => downloadUpsInvoice(invoice)}
+                            className="inline-flex items-center px-2 py-1 text-[11px] bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                          >
+                            <Download className="w-3 h-3 mr-1" />
+                            {t('invoices.card.download')}
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
+                            {t('invoices.card.noFile')}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {upsFilteredInvoices.length === 0 && (
-            <div className="text-center py-8">
-              <FileText className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-text-light">{tt('invoices.ups.emptyMonth', 'No UPS invoices for this month.')}</p>
+                );
+              })}
             </div>
-          )}
-        </section>
+
+            {upsFilteredInvoices.length === 0 && (
+              <div className="text-center py-8">
+                <FileText className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-text-light">{tt('invoices.ups.emptyMonth', 'No UPS invoices for this month.')}</p>
+              </div>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );
