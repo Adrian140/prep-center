@@ -400,7 +400,7 @@ serve(async (req) => {
   const fallbackSuffix = String(order.external_order_id || order.id || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 10);
   const invoiceNumber = `UPS-${invoiceDate}-${tracking || fallbackSuffix || crypto.randomUUID().slice(0, 8)}`;
   const invoicePayload = {
-    ...(order.response_payload || {}),
+    ...(responseJson || {}),
     ups_label_created_at: new Date().toISOString(),
     tracking_number: tracking || null,
     external_order_id: order.external_order_id || null,
