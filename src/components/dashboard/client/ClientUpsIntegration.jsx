@@ -159,12 +159,17 @@ export default function ClientUpsIntegration({ user, profile }) {
             <p className="text-sm text-text-secondary">
               {t('ClientIntegrations.ups.desc')}
             </p>
+            {isConnected && (
+              <div className="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
+                <CheckCircle className="w-3 h-3" /> Connected
+              </div>
+            )}
           </div>
           <button
             onClick={refreshAll}
             className="inline-flex items-center gap-2 border rounded-lg px-3 py-1.5 text-sm"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> {t('common.refresh')}
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
           </button>
         </div>
 
