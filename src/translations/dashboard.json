@@ -989,9 +989,14 @@
       }
     },
     "market": {
+      "promptTitle": "New market",
+      "promptBody": "Do you want to create a new account for this country or use the same data from the current account?",
+      "promptCancel": "Cancel",
       "vatTitle": "Add VAT code for ",
       "vatSubtitle": "For this warehouse we need the VAT number of the selected country.",
       "vatSave": "Save VAT",
+      "vatRequired": "Please enter VAT number",
+      "vatSaveError": "Could not save VAT.",
       "promptNew": "Create new account",
       "promptSame": "Use same details",
       "missingVat": "Enter a VAT number"
@@ -1957,9 +1962,14 @@
       }
     },
     "market": {
+      "promptTitle": "Piață nouă",
+      "promptBody": "Vrei să creezi un cont nou pentru această țară sau să folosești aceleași date ca în contul curent?",
+      "promptCancel": "Anulează",
       "vatTitle": "Adaugă cod TVA pentru ",
       "vatSubtitle": "Pentru acest depozit avem nevoie de codul TVA al țării selectate.",
       "vatSave": "Salvează TVA",
+      "vatRequired": "Completează codul TVA",
+      "vatSaveError": "Nu am putut salva TVA-ul.",
       "promptNew": "Creează cont nou",
       "promptSame": "Folosește aceleași date",
       "missingVat": "Introdu un cod TVA"
@@ -2897,9 +2907,14 @@
       }
     },
     "market": {
+      "promptTitle": "Nouveau marché",
+      "promptBody": "Voulez-vous créer un nouveau compte pour ce pays ou utiliser les mêmes données que le compte actuel ?",
+      "promptCancel": "Annuler",
       "vatTitle": "Ajouter un numéro de TVA pour ",
       "vatSubtitle": "Pour cet entrepôt, nous avons besoin du numéro de TVA du pays sélectionné.",
       "vatSave": "Enregistrer la TVA",
+      "vatRequired": "Saisissez un numéro de TVA",
+      "vatSaveError": "Impossible d’enregistrer la TVA.",
       "promptNew": "Créer un nouveau compte",
       "promptSame": "Utiliser les mêmes informations",
       "missingVat": "Saisissez un numéro de TVA"
@@ -3785,9 +3800,14 @@
       }
     },
     "market": {
+      "promptTitle": "Neuer Marktplatz",
+      "promptBody": "Möchtest du für dieses Land ein neues Konto erstellen oder dieselben Daten wie im aktuellen Konto verwenden?",
+      "promptCancel": "Abbrechen",
       "vatTitle": "USt-IdNr. für ",
       "vatSubtitle": "Für dieses Lager benötigen wir die USt-IdNr. des ausgewählten Landes.",
       "vatSave": "USt speichern",
+      "vatRequired": "Bitte USt-IdNr. eingeben",
+      "vatSaveError": "USt konnte nicht gespeichert werden.",
       "promptNew": "Neues Konto erstellen",
       "promptSame": "Gleiche Daten verwenden",
       "missingVat": "USt-IdNr. eingeben"
@@ -4673,9 +4693,14 @@
       }
     },
     "market": {
+      "promptTitle": "Nuovo mercato",
+      "promptBody": "Vuoi creare un nuovo account per questo paese o usare gli stessi dati dell’account attuale?",
+      "promptCancel": "Annulla",
       "vatTitle": "Aggiungi codice IVA per ",
       "vatSubtitle": "Per questo magazzino serve il numero IVA del paese selezionato.",
       "vatSave": "Salva IVA",
+      "vatRequired": "Inserisci il numero IVA",
+      "vatSaveError": "Impossibile salvare l’IVA.",
       "promptNew": "Crea un nuovo account",
       "promptSame": "Usa gli stessi dati",
       "missingVat": "Inserisci un numero IVA"
@@ -5561,9 +5586,14 @@
       }
     },
     "market": {
+      "promptTitle": "Nuevo mercado",
+      "promptBody": "¿Quieres crear una cuenta nueva para este país o usar los mismos datos de la cuenta actual?",
+      "promptCancel": "Cancelar",
       "vatTitle": "Añadir código de IVA para ",
       "vatSubtitle": "Para este almacén necesitamos el número de IVA del país seleccionado.",
       "vatSave": "Guardar IVA",
+      "vatRequired": "Introduce el número de IVA",
+      "vatSaveError": "No se pudo guardar el IVA.",
       "promptNew": "Crear nueva cuenta",
       "promptSame": "Usar los mismos datos",
       "missingVat": "Introduce un número de IVA"
