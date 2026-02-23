@@ -232,6 +232,7 @@ export default function AdminUPS() {
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [showPostalMenu, setShowPostalMenu] = useState(false);
   const [showCityMenu, setShowCityMenu] = useState(false);
+  const [showCountryMenu, setShowCountryMenu] = useState(false);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [rateQuote, setRateQuote] = useState(null);
   const [promoMessage, setPromoMessage] = useState('');
@@ -278,6 +279,15 @@ export default function AdminUPS() {
       .filter((row) => String(row?.city || '').toLowerCase().startsWith(cityInput.toLowerCase()))
       .slice(0, 12);
   }, [citySuggestions, form.destination_city]);
+
+  const filteredCountrySuggestions = useMemo(() => {
+    const input = normalizeText(form.destination_country_name);
+    const list = Array.isArray(countryOptions) ? countryOptions : [];
+    if (!input) return list.slice(0, 14);
+    return list
+      .filter((row) => normalizeText(row.name).includes(input) || normalizeText(row.code).startsWith(input))
+      .slice(0, 14);
+  }, [countryOptions, form.destination_country_name]);
 
   const loadAll = async () => {
     const [intRes, ordRes] = await Promise.all([
@@ -389,6 +399,16 @@ export default function AdminUPS() {
       destination_postal_code: String(row?.postal_code || prev.destination_postal_code || '').trim()
     }));
     setShowCityMenu(false);
+  };
+
+  const selectCountrySuggestion = (country) => {
+    if (!country?.code) return;
+    setForm((prev) => ({
+      ...prev,
+      destination_country_code: country.code,
+      destination_country_name: country.name
+    }));
+    setShowCountryMenu(false);
   };
 
   useEffect(() => {
@@ -930,31 +950,54 @@ export default function AdminUPS() {
                               </div>
                             )}
                           </div>
-                          <input
-                            list="ups-country-names"
-                            value={form.destination_country_name}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              const parsed = parseCountryInput(value, countryOptions);
-                              setForm((prev) => ({
-                                ...prev,
-                                destination_country_name: value,
-                                destination_country_code: parsed?.code || prev.destination_country_code
-                              }));
-                            }}
-                            onBlur={() => {
-                              const parsed = parseCountryInput(form.destination_country_name, countryOptions);
-                              if (!parsed) return;
-                              setForm((prev) => ({
-                                ...prev,
-                                destination_country_code: parsed.code,
-                                destination_country_name: parsed.name
-                              }));
-                            }}
-                            className="px-3 py-2 border rounded-lg"
-                            placeholder="Country"
-                            required
-                          />
+                          <div className="relative">
+                            <input
+                              value={form.destination_country_name}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                const parsed = parseCountryInput(value, countryOptions);
+                                setForm((prev) => ({
+                                  ...prev,
+                                  destination_country_name: value,
+                                  destination_country_code: parsed?.code || prev.destination_country_code
+                                }));
+                                setShowCountryMenu(true);
+                              }}
+                              onFocus={() => setShowCountryMenu(true)}
+                              onBlur={() => {
+                                setTimeout(() => {
+                                  const parsed = parseCountryInput(form.destination_country_name, countryOptions);
+                                  if (parsed?.code) {
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      destination_country_code: parsed.code,
+                                      destination_country_name: parsed.name
+                                    }));
+                                  }
+                                  setShowCountryMenu(false);
+                                }, 120);
+                              }}
+                              className="px-3 py-2 border rounded-lg w-full"
+                              placeholder="Country"
+                              required
+                            />
+                            {showCountryMenu && filteredCountrySuggestions.length > 0 && (
+                              <div className="absolute z-20 left-0 right-0 mt-1 border rounded-lg bg-white shadow-lg max-h-56 overflow-auto">
+                                {filteredCountrySuggestions.map((country) => (
+                                  <button
+                                    key={`country-${country.code}`}
+                                    type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => selectCountrySuggestion(country)}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0"
+                                  >
+                                    <span className="font-medium">{country.name}</span>
+                                    <span className="text-text-secondary"> ({country.code})</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="relative">
                           <input
@@ -1101,11 +1144,6 @@ export default function AdminUPS() {
               <datalist id="ups-country-codes">
                 {countryOptions.map((country) => (
                   <option key={country.code} value={country.code} label={country.name} />
-                ))}
-              </datalist>
-              <datalist id="ups-country-names">
-                {countryOptions.map((country) => (
-                  <option key={`name-${country.code}`} value={country.name} label={country.code} />
                 ))}
               </datalist>
               <datalist id="ups-postal-suggestions">
