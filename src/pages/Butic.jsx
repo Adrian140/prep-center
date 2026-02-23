@@ -21,9 +21,9 @@ const BUTIC_COPY = {
     contact: 'Contact',
     qtyUnit: 'pcs',
     myOffersFromInventory: 'My offers (from inventory)',
-    inventorySectionHint: 'Only products with stock greater than 0 are shown here.',
+    inventorySectionHint: 'All inventory products are shown here. Products with stock are listed first.',
     inventorySearchPlaceholder: 'Search inventory: ASIN / EAN / name',
-    noInventoryStock: 'No products with available stock.',
+    noInventoryStock: 'No products found in inventory.',
     stockLabel: 'Stock',
     selectedLabel: 'Selected',
     selectHint: 'Select a product from inventory, then add price and note.',
@@ -83,9 +83,9 @@ const BUTIC_COPY = {
     contact: 'Contacteaza',
     qtyUnit: 'buc',
     myOffersFromInventory: 'Ofertele mele (din inventar)',
-    inventorySectionHint: 'Aici apar doar produsele cu stoc mai mare de 0.',
+    inventorySectionHint: 'Aici apar toate produsele din inventar. Cele cu stoc sunt afișate primele.',
     inventorySearchPlaceholder: 'Cauta in inventar: ASIN / EAN / nume',
-    noInventoryStock: 'Nu ai produse cu stoc disponibil.',
+    noInventoryStock: 'Nu ai produse în inventar.',
     stockLabel: 'Stoc',
     selectedLabel: 'Selectat',
     selectHint: 'Selecteaza un produs din inventar, apoi adauga pret + nota.',
@@ -145,9 +145,9 @@ const BUTIC_COPY = {
     contact: 'Contacter',
     qtyUnit: 'pcs',
     myOffersFromInventory: 'Mes offres (depuis inventaire)',
-    inventorySectionHint: 'Seuls les produits avec un stock superieur a 0 sont affiches ici.',
+    inventorySectionHint: 'Tous les produits de l inventaire sont affiches ici. Ceux avec stock apparaissent en premier.',
     inventorySearchPlaceholder: 'Rechercher en inventaire: ASIN / EAN / nom',
-    noInventoryStock: 'Aucun produit avec stock disponible.',
+    noInventoryStock: 'Aucun produit trouve dans l inventaire.',
     stockLabel: 'Stock',
     selectedLabel: 'Selectionne',
     selectHint: 'Selectionnez un produit de votre inventaire, puis ajoutez prix + note.',
@@ -207,9 +207,9 @@ const BUTIC_COPY = {
     contact: 'Kontaktieren',
     qtyUnit: 'Stk',
     myOffersFromInventory: 'Meine Angebote (aus Bestand)',
-    inventorySectionHint: 'Hier werden nur Produkte mit Bestand grosser als 0 angezeigt.',
+    inventorySectionHint: 'Hier werden alle Bestandsprodukte angezeigt. Produkte mit Bestand stehen oben.',
     inventorySearchPlaceholder: 'Im Bestand suchen: ASIN / EAN / Name',
-    noInventoryStock: 'Keine Produkte mit verfugbarem Bestand.',
+    noInventoryStock: 'Keine Produkte im Bestand gefunden.',
     stockLabel: 'Bestand',
     selectedLabel: 'Ausgewahlt',
     selectHint: 'Produkt aus dem Bestand auswahlen, dann Preis + Notiz hinzufugen.',
@@ -269,9 +269,9 @@ const BUTIC_COPY = {
     contact: 'Contatta',
     qtyUnit: 'pz',
     myOffersFromInventory: 'Le mie offerte (da inventario)',
-    inventorySectionHint: 'Qui vengono mostrati solo i prodotti con stock maggiore di 0.',
+    inventorySectionHint: 'Qui sono mostrati tutti i prodotti in inventario. Quelli con stock sono in alto.',
     inventorySearchPlaceholder: 'Cerca in inventario: ASIN / EAN / nome',
-    noInventoryStock: 'Nessun prodotto con stock disponibile.',
+    noInventoryStock: 'Nessun prodotto trovato in inventario.',
     stockLabel: 'Stock',
     selectedLabel: 'Selezionato',
     selectHint: 'Seleziona un prodotto dall inventario, poi aggiungi prezzo + nota.',
@@ -331,9 +331,9 @@ const BUTIC_COPY = {
     contact: 'Contactar',
     qtyUnit: 'uds',
     myOffersFromInventory: 'Mis ofertas (desde inventario)',
-    inventorySectionHint: 'Aqui se muestran solo productos con stock mayor que 0.',
+    inventorySectionHint: 'Aqui se muestran todos los productos del inventario. Los que tienen stock aparecen primero.',
     inventorySearchPlaceholder: 'Buscar en inventario: ASIN / EAN / nombre',
-    noInventoryStock: 'No tienes productos con stock disponible.',
+    noInventoryStock: 'No hay productos en inventario.',
     stockLabel: 'Stock',
     selectedLabel: 'Seleccionado',
     selectHint: 'Selecciona un producto del inventario y agrega precio + nota.',
@@ -487,7 +487,19 @@ export default function Butic() {
       companyId: myCompanyId || null,
       search: inventorySearch.trim() || null
     });
-    setInventoryItems((res?.data || []).filter((row) => getAvailableInventoryStock(row) > 0));
+    const rows = (res?.data || []).slice();
+    rows.sort((a, b) => {
+      const stockA = getAvailableInventoryStock(a);
+      const stockB = getAvailableInventoryStock(b);
+      const hasStockA = stockA > 0 ? 1 : 0;
+      const hasStockB = stockB > 0 ? 1 : 0;
+      if (hasStockA !== hasStockB) return hasStockB - hasStockA;
+      if (stockA !== stockB) return stockB - stockA;
+      return String(a?.name || a?.product_name || '').localeCompare(String(b?.name || b?.product_name || ''), undefined, {
+        sensitivity: 'base'
+      });
+    });
+    setInventoryItems(rows);
   };
 
   const loadConversations = async () => {
