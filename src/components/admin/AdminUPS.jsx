@@ -72,6 +72,7 @@ export default function AdminUPS() {
   const [flashType, setFlashType] = useState('error');
   const [openedIntegrationId, setOpenedIntegrationId] = useState('');
   const [isClientWindowOpen, setIsClientWindowOpen] = useState(false);
+  const [senderTouched, setSenderTouched] = useState(false);
   const [countryOptions, setCountryOptions] = useState(['FR', 'DE', 'IT', 'ES', 'NL', 'BE', 'AT', 'PL', 'CZ']);
   const [postalSuggestions, setPostalSuggestions] = useState([]);
   const [citySuggestions, setCitySuggestions] = useState([]);
@@ -169,7 +170,12 @@ export default function AdminUPS() {
     })();
   }, []);
 
-  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const setField = (key, value) => {
+    if (['from_name', 'from_address1', 'from_city', 'from_postal_code', 'from_country_code'].includes(key)) {
+      setSenderTouched(true);
+    }
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
 
   const syncCityFromPostal = () => {
     const postal = String(form.destination_postal_code || '').trim();
@@ -190,7 +196,7 @@ export default function AdminUPS() {
   };
 
   useEffect(() => {
-    if (!form.use_default_sender) return;
+    if (!form.use_default_sender || senderTouched) return;
     const wh = PREP_WAREHOUSES[form.warehouse_country] || PREP_WAREHOUSES.FR;
     setForm((prev) => ({
       ...prev,
@@ -200,7 +206,7 @@ export default function AdminUPS() {
       from_postal_code: wh.postal_code,
       from_country_code: wh.country_code
     }));
-  }, [form.warehouse_country, form.use_default_sender]);
+  }, [form.warehouse_country, form.use_default_sender, senderTouched]);
 
   useEffect(() => {
     if (!isClientWindowOpen) return;
@@ -255,6 +261,7 @@ export default function AdminUPS() {
     if (!integration) return;
     setOpenedIntegrationId(integrationId);
     setForm((prev) => ({ ...buildInitialForm(), integration_id: integrationId, warehouse_country: prev.warehouse_country }));
+    setSenderTouched(false);
     setIsClientWindowOpen(true);
   };
 
