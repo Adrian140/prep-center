@@ -66,6 +66,9 @@ export default function AdminUPS() {
   const [flashType, setFlashType] = useState('error');
   const [openedIntegrationId, setOpenedIntegrationId] = useState('');
   const [isClientWindowOpen, setIsClientWindowOpen] = useState(false);
+  const [countryOptions, setCountryOptions] = useState(['FR', 'DE', 'IT', 'ES', 'NL', 'BE', 'AT', 'PL', 'CZ']);
+  const [postalSuggestions, setPostalSuggestions] = useState([]);
+  const [citySuggestions, setCitySuggestions] = useState([]);
   const [form, setForm] = useState(buildInitialForm());
 
   const setSuccess = (message) => {
@@ -162,6 +165,24 @@ export default function AdminUPS() {
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
+  const syncCityFromPostal = () => {
+    const postal = String(form.destination_postal_code || '').trim();
+    if (!postal) return;
+    const match = postalSuggestions.find((row) => String(row.postal_code || '').trim() === postal);
+    if (match?.city && !form.destination_city) {
+      setForm((prev) => ({ ...prev, destination_city: String(match.city).trim() }));
+    }
+  };
+
+  const syncPostalFromCity = () => {
+    const city = String(form.destination_city || '').trim().toLowerCase();
+    if (!city) return;
+    const match = citySuggestions.find((row) => String(row.city || '').trim().toLowerCase() === city);
+    if (match?.postal_code && !form.destination_postal_code) {
+      setForm((prev) => ({ ...prev, destination_postal_code: String(match.postal_code).trim() }));
+    }
+  };
+
   useEffect(() => {
     if (!form.use_default_sender) return;
     const wh = PREP_WAREHOUSES[form.warehouse_country] || PREP_WAREHOUSES.FR;
@@ -174,6 +195,54 @@ export default function AdminUPS() {
       from_country_code: wh.country_code
     }));
   }, [form.warehouse_country, form.use_default_sender]);
+
+  useEffect(() => {
+    if (!isClientWindowOpen) return;
+    (async () => {
+      const { data } = await supabaseHelpers.listUpsPostalCountries();
+      if (Array.isArray(data) && data.length) setCountryOptions(data);
+    })();
+  }, [isClientWindowOpen]);
+
+  useEffect(() => {
+    if (!isClientWindowOpen) return;
+    const countryCode = String(form.destination_country_code || '').trim().toUpperCase();
+    const postalPrefix = String(form.destination_postal_code || '').trim();
+    if (!countryCode || postalPrefix.length < 2) {
+      setPostalSuggestions([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      const { data } = await supabaseHelpers.searchUpsPostalCodes({ countryCode, postalPrefix, limit: 30 });
+      setPostalSuggestions(Array.isArray(data) ? data : []);
+    }, 180);
+    return () => clearTimeout(t);
+  }, [isClientWindowOpen, form.destination_country_code, form.destination_postal_code]);
+
+  useEffect(() => {
+    if (!isClientWindowOpen) return;
+    const countryCode = String(form.destination_country_code || '').trim().toUpperCase();
+    const cityPrefix = String(form.destination_city || '').trim();
+    if (!countryCode || cityPrefix.length < 2) {
+      setCitySuggestions([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      const { data } = await supabaseHelpers.searchUpsPostalCodes({ countryCode, cityPrefix, limit: 30 });
+      const unique = [];
+      const seen = new Set();
+      (data || []).forEach((row) => {
+        const city = String(row.city || '').trim();
+        if (!city) return;
+        const key = `${city.toLowerCase()}|${row.postal_code || ''}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        unique.push(row);
+      });
+      setCitySuggestions(unique);
+    }, 180);
+    return () => clearTimeout(t);
+  }, [isClientWindowOpen, form.destination_country_code, form.destination_city]);
 
   const openIntegrationForCreate = (integrationId) => {
     const integration = byIntegrationId[integrationId];
@@ -444,7 +513,15 @@ export default function AdminUPS() {
                       </label>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <input disabled={Boolean(form.use_default_sender)} value={form.from_name} onChange={(e) => setField('from_name', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="From name" />
-                        <input disabled={Boolean(form.use_default_sender)} value={form.from_country_code} maxLength={2} onChange={(e) => setField('from_country_code', e.target.value.toUpperCase())} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="Country" />
+                        <input
+                          list="ups-country-codes"
+                          disabled={Boolean(form.use_default_sender)}
+                          value={form.from_country_code}
+                          maxLength={2}
+                          onChange={(e) => setField('from_country_code', e.target.value.toUpperCase())}
+                          className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500"
+                          placeholder="Country"
+                        />
                         <input disabled={Boolean(form.use_default_sender)} value={form.from_address1} onChange={(e) => setField('from_address1', e.target.value)} className="px-3 py-2 border rounded-lg md:col-span-2 disabled:bg-gray-100 disabled:text-gray-500" placeholder="Address" />
                         <input disabled={Boolean(form.use_default_sender)} value={form.from_city} onChange={(e) => setField('from_city', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="City" />
                         <input disabled={Boolean(form.use_default_sender)} value={form.from_postal_code} onChange={(e) => setField('from_postal_code', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="Postal code" />
@@ -457,10 +534,34 @@ export default function AdminUPS() {
                         <input value={form.destination_name} onChange={(e) => setField('destination_name', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination name" required />
                         <input value={form.destination_address1} onChange={(e) => setField('destination_address1', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination address" required />
                         <div className="grid grid-cols-3 gap-2">
-                          <input value={form.destination_city} onChange={(e) => setField('destination_city', e.target.value)} className="px-3 py-2 border rounded-lg col-span-2" placeholder="City" required />
-                          <input value={form.destination_country_code} maxLength={2} onChange={(e) => setField('destination_country_code', e.target.value.toUpperCase())} className="px-3 py-2 border rounded-lg" placeholder="CC" required />
+                          <input
+                            list="ups-city-suggestions"
+                            value={form.destination_city}
+                            onChange={(e) => setField('destination_city', e.target.value)}
+                            onBlur={syncPostalFromCity}
+                            className="px-3 py-2 border rounded-lg col-span-2"
+                            placeholder="City"
+                            required
+                          />
+                          <input
+                            list="ups-country-codes"
+                            value={form.destination_country_code}
+                            maxLength={2}
+                            onChange={(e) => setField('destination_country_code', e.target.value.toUpperCase())}
+                            className="px-3 py-2 border rounded-lg"
+                            placeholder="CC"
+                            required
+                          />
                         </div>
-                        <input value={form.destination_postal_code} onChange={(e) => setField('destination_postal_code', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Postal code" required />
+                        <input
+                          list="ups-postal-suggestions"
+                          value={form.destination_postal_code}
+                          onChange={(e) => setField('destination_postal_code', e.target.value)}
+                          onBlur={syncCityFromPostal}
+                          className="px-3 py-2 border rounded-lg"
+                          placeholder="Postal code"
+                          required
+                        />
                       </div>
                     </div>
                   </div>
@@ -501,6 +602,30 @@ export default function AdminUPS() {
                   </button>
                 </div>
               </div>
+
+              <datalist id="ups-country-codes">
+                {countryOptions.map((code) => (
+                  <option key={code} value={code} />
+                ))}
+              </datalist>
+              <datalist id="ups-postal-suggestions">
+                {postalSuggestions.map((row, idx) => (
+                  <option
+                    key={`${row.country_code}-${row.postal_code}-${idx}`}
+                    value={row.postal_code || ''}
+                    label={`${row.postal_code || ''}${row.city ? ` - ${row.city}` : ''}`}
+                  />
+                ))}
+              </datalist>
+              <datalist id="ups-city-suggestions">
+                {citySuggestions.map((row, idx) => (
+                  <option
+                    key={`${row.country_code}-${row.city}-${row.postal_code}-${idx}`}
+                    value={row.city || ''}
+                    label={`${row.city || ''}${row.postal_code ? ` (${row.postal_code})` : ''}`}
+                  />
+                ))}
+              </datalist>
             </form>
 
             <section className="mt-6 bg-white border rounded-xl overflow-hidden">

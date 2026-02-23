@@ -1414,6 +1414,30 @@ resetPassword: async (email) => {
     return await query;
   },
 
+  searchUpsPostalCodes: async ({ countryCode, postalPrefix, cityPrefix, limit = 30 } = {}) => {
+    let query = supabase
+      .from('ups_postal_codes')
+      .select('country_code,postal_code,city,state_code,is_serviceable')
+      .order('postal_code', { ascending: true })
+      .limit(Math.max(1, Math.min(200, Number(limit) || 30)));
+    if (countryCode) query = query.eq('country_code', String(countryCode).trim().toUpperCase());
+    if (postalPrefix) query = query.ilike('postal_code', `${String(postalPrefix).trim()}%`);
+    if (cityPrefix) query = query.ilike('city', `${String(cityPrefix).trim()}%`);
+    return await query;
+  },
+
+  listUpsPostalCountries: async ({ limit = 5000 } = {}) => {
+    const { data, error } = await supabase
+      .from('ups_postal_codes')
+      .select('country_code')
+      .limit(Math.max(10, Math.min(10000, Number(limit) || 5000)));
+    if (error) return { data: [], error };
+    const unique = Array.from(
+      new Set((data || []).map((row) => String(row.country_code || '').trim().toUpperCase()).filter(Boolean))
+    ).sort();
+    return { data: unique, error: null };
+  },
+
   // ===== Client Activity =====
   listFbaLinesByCompany: async (companyId, country) => {
     const run = async (useCountry, withInvoice = true) => {
