@@ -230,6 +230,7 @@ export default function AdminUPS() {
   const [countryOptions, setCountryOptions] = useState(getGlobalCountryOptions());
   const [postalSuggestions, setPostalSuggestions] = useState([]);
   const [citySuggestions, setCitySuggestions] = useState([]);
+  const [postalLoading, setPostalLoading] = useState(false);
   const [showPostalMenu, setShowPostalMenu] = useState(false);
   const [showCityMenu, setShowCityMenu] = useState(false);
   const [showCountryMenu, setShowCountryMenu] = useState(false);
@@ -437,9 +438,11 @@ export default function AdminUPS() {
     const postalPrefix = String(form.destination_postal_code || '').trim();
     if (!countryCode || postalPrefix.length < 2) {
       setPostalSuggestions([]);
+      setPostalLoading(false);
       return;
     }
     const t = setTimeout(async () => {
+      setPostalLoading(true);
       const prefixes = buildPostalSearchPrefixes(countryCode, postalPrefix);
       const queries = prefixes.length ? prefixes : [postalPrefix];
       const results = await Promise.all(queries.map((prefix) => supabaseHelpers.searchUpsPostalCodes({ countryCode, postalPrefix: prefix, limit: 40 })));
@@ -454,6 +457,7 @@ export default function AdminUPS() {
         });
       });
       setPostalSuggestions(merged.slice(0, 50));
+      setPostalLoading(false);
     }, 180);
     return () => clearTimeout(t);
   }, [isClientWindowOpen, form.destination_country_code, form.destination_postal_code]);
@@ -1033,6 +1037,13 @@ export default function AdminUPS() {
                                   <span className="text-text-secondary"> {row.city ? `- ${row.city}` : ''}</span>
                                 </button>
                               ))}
+                            </div>
+                          )}
+                          {showPostalMenu && !filteredPostalSuggestions.length && String(form.destination_postal_code || '').trim().length >= 2 && (
+                            <div className="absolute z-20 left-0 right-0 mt-1 border rounded-lg bg-white shadow-lg max-h-56 overflow-auto">
+                              <div className="px-3 py-2 text-sm text-text-secondary">
+                                {postalLoading ? 'Searching postal codes...' : 'No postal matches in local UPS cache for this prefix.'}
+                              </div>
                             </div>
                           )}
                         </div>
