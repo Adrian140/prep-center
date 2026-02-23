@@ -1310,6 +1310,12 @@ resetPassword: async (email) => {
     });
   },
 
+  getUpsRateQuote: async (payload = {}) => {
+    return await supabase.functions.invoke('ups-rate-quote', {
+      body: payload || {}
+    });
+  },
+
   listUpsInvoiceFiles: async ({ userId, companyId, integrationId, orderId, limit = 300 } = {}) => {
     let query = supabase
       .from('ups_invoice_files')

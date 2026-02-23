@@ -232,6 +232,9 @@ export default function AdminUPS() {
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [showPostalMenu, setShowPostalMenu] = useState(false);
   const [showCityMenu, setShowCityMenu] = useState(false);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [rateQuote, setRateQuote] = useState(null);
+  const [promoMessage, setPromoMessage] = useState('');
   const [form, setForm] = useState(buildInitialForm());
   const countryByCode = useMemo(
     () => countryOptions.reduce((acc, row) => ({ ...acc, [row.code]: row.name }), {}),
@@ -460,18 +463,39 @@ export default function AdminUPS() {
     return () => clearTimeout(t);
   }, [isClientWindowOpen, form.destination_country_code, form.destination_city]);
 
+  useEffect(() => {
+    if (!isClientWindowOpen) return;
+    setRateQuote(null);
+  }, [
+    isClientWindowOpen,
+    form.service_code,
+    form.packaging_type,
+    form.weight_kg,
+    form.length_cm,
+    form.width_cm,
+    form.height_cm,
+    form.destination_country_code,
+    form.destination_postal_code,
+    form.from_country_code,
+    form.from_postal_code
+  ]);
+
   const openIntegrationForCreate = (integrationId) => {
     const integration = byIntegrationId[integrationId];
     if (!integration) return;
     setOpenedIntegrationId(integrationId);
     setForm((prev) => ({ ...buildInitialForm(), integration_id: integrationId, warehouse_country: prev.warehouse_country }));
     setSenderTouched(false);
+    setRateQuote(null);
+    setPromoMessage('');
     setIsClientWindowOpen(true);
   };
 
   const closeClientWindow = () => {
     setIsClientWindowOpen(false);
     setOpenedIntegrationId('');
+    setRateQuote(null);
+    setPromoMessage('');
   };
 
   const validateDestinationPostalCode = async () => {
@@ -503,9 +527,76 @@ export default function AdminUPS() {
     return { ok: true };
   };
 
+  const validateRateInputs = () => {
+    const parsedCountry = parseCountryInput(form.destination_country_name || form.destination_country_code, countryOptions);
+    if (!parsedCountry?.code) return { ok: false, message: 'Selectează o țară validă pentru destinație.' };
+    if (!form.destination_postal_code) return { ok: false, message: 'Completează codul poștal de destinație pentru estimarea prețului.' };
+    const weight = asNumberOrNull(form.weight_kg);
+    if (!weight || weight <= 0) return { ok: false, message: 'Completează greutatea coletului pentru estimarea prețului.' };
+    return { ok: true, countryCode: parsedCountry.code, weight };
+  };
+
+  const runRateQuote = async ({ promoTriggered = false } = {}) => {
+    const check = validateRateInputs();
+    if (!check.ok) {
+      setError(check.message);
+      return;
+    }
+
+    const postalCheck = await validateDestinationPostalCode();
+    if (!postalCheck.ok) {
+      setError(postalCheck.message);
+      return;
+    }
+
+    setQuoteLoading(true);
+    setPromoMessage('');
+    try {
+      const res = await supabaseHelpers.getUpsRateQuote({
+        integration_id: selectedIntegration?.id,
+        service_code: form.service_code || '11',
+        packaging_type: form.packaging_type || '02',
+        reference_code: form.reference_code || null,
+        promo_code: form.promo_code || null,
+        ship_from: {
+          postal_code: String(form.from_postal_code || '').trim(),
+          country_code: String(form.from_country_code || 'FR').trim().toUpperCase()
+        },
+        ship_to: {
+          postal_code: String(form.destination_postal_code || '').trim(),
+          country_code: check.countryCode
+        },
+        package_data: {
+          weight_kg: check.weight,
+          length_cm: asNumberOrNull(form.length_cm),
+          width_cm: asNumberOrNull(form.width_cm),
+          height_cm: asNumberOrNull(form.height_cm)
+        }
+      });
+
+      const err = res?.error || res?.data?.error;
+      if (err) throw new Error(typeof err === 'string' ? err : err.message || 'Nu am putut obține estimarea UPS.');
+
+      setRateQuote(res.data?.quote || null);
+      if (promoTriggered) {
+        if (form.promo_code) {
+          setPromoMessage('UPS nu expune validare promo code în Rating API; prețul afișat este cel returnat de contul UPS conectat.');
+        } else {
+          setPromoMessage('Nu ai introdus promo code.');
+        }
+      }
+      setSuccess('Estimarea UPS a fost actualizată.');
+    } catch (error) {
+      setError(error.message || 'Nu am putut obține estimarea UPS.');
+    } finally {
+      setQuoteLoading(false);
+    }
+  };
+
   const handleCreateOrder = async (event) => {
     event.preventDefault();
     setFlash('');
+    setPromoMessage('');
 
     if (!selectedIntegration) {
       setError('Deschide mai întâi clientul pentru care creezi eticheta.');
@@ -552,7 +643,8 @@ export default function AdminUPS() {
         service_code: form.service_code || '11',
         packaging_type: form.packaging_type || '02',
         payment_type: 'BillShipper',
-        currency: 'EUR',
+        currency: rateQuote?.currency || 'EUR',
+        total_charge: rateQuote?.amount ?? null,
         ship_from: {
           company_name: String(form.from_company_name || '').trim() || null,
           contact_first_name: String(form.from_contact_first_name || '').trim(),
@@ -634,6 +726,7 @@ export default function AdminUPS() {
         declared_value: '',
         declared_currency: 'EUR'
       }));
+      setRateQuote(null);
       await refresh();
     } catch (error) {
       setError(error.message || 'Nu am putut crea comanda UPS.');
@@ -930,9 +1023,20 @@ export default function AdminUPS() {
                         <option value="65">UPS Saver (65)</option>
                         <option value="54">UPS Worldwide Express Plus (54)</option>
                       </select>
-                      <input value={form.promo_code} onChange={(e) => setField('promo_code', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Promo code" />
+                      <div className="flex gap-2">
+                        <input value={form.promo_code} onChange={(e) => setField('promo_code', e.target.value)} className="px-3 py-2 border rounded-lg w-full" placeholder="Promo code" />
+                        <button
+                          type="button"
+                          onClick={() => runRateQuote({ promoTriggered: true })}
+                          disabled={quoteLoading}
+                          className="px-3 py-2 border rounded-lg text-sm whitespace-nowrap"
+                        >
+                          {quoteLoading ? 'Applying...' : 'Apply'}
+                        </button>
+                      </div>
                       <input value={form.reference_code} onChange={(e) => setField('reference_code', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Reference code" />
                     </div>
+                    {promoMessage ? <div className="text-xs text-amber-700">{promoMessage}</div> : null}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       <select value={form.packaging_type} onChange={(e) => setField('packaging_type', e.target.value)} className="px-3 py-2 border rounded-lg">
                         <option value="02">Packaging: Customer Supplied (02)</option>
@@ -965,14 +1069,24 @@ export default function AdminUPS() {
 
                 <div className="rounded-lg border p-4 h-fit">
                   <h4 className="font-semibold text-text-primary mb-3">Summary</h4>
-                    <div className="text-sm text-text-secondary space-y-2">
-                      <div><b>From:</b> {form.from_postal_code} {form.from_city}, {form.from_country_code}</div>
-                      <div><b>To:</b> {form.destination_postal_code || '-'} {form.destination_city || '-'}, {form.destination_country_name || form.destination_country_code || '-'}</div>
-                      <div><b>Parcel:</b> {form.weight_kg || '0'} kg, {form.length_cm || 0} x {form.width_cm || 0} x {form.height_cm || 0} cm</div>
-                      <div><b>Service:</b> {form.service_code || '-'}</div>
-                      <div><b>Reference:</b> {form.reference_code || '-'}</div>
+                  <div className="text-sm text-text-secondary space-y-2">
+                    <div><b>From:</b> {form.from_postal_code} {form.from_city}, {form.from_country_code}</div>
+                    <div><b>To:</b> {form.destination_postal_code || '-'} {form.destination_city || '-'}, {form.destination_country_name || form.destination_country_code || '-'}</div>
+                    <div><b>Parcel:</b> {form.weight_kg || '0'} kg, {form.length_cm || 0} x {form.width_cm || 0} x {form.height_cm || 0} cm</div>
+                    <div><b>Service:</b> {form.service_code || '-'}</div>
+                    <div><b>Reference:</b> {form.reference_code || '-'}</div>
                     <div><b>Promo:</b> {form.promo_code || '-'}</div>
+                    <div><b>Estimated:</b> {rateQuote?.amount != null ? `${Number(rateQuote.amount).toFixed(2)} ${rateQuote.currency || 'EUR'}` : '-'}</div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => runRateQuote({ promoTriggered: false })}
+                    disabled={quoteLoading}
+                    className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border"
+                  >
+                    {quoteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                    Preview Price
+                  </button>
                   <button
                     type="submit"
                     disabled={creating}
