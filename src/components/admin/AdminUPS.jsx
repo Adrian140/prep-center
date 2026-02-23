@@ -222,6 +222,8 @@ export default function AdminUPS() {
   const [countryOptions, setCountryOptions] = useState(getGlobalCountryOptions());
   const [postalSuggestions, setPostalSuggestions] = useState([]);
   const [citySuggestions, setCitySuggestions] = useState([]);
+  const [showPostalMenu, setShowPostalMenu] = useState(false);
+  const [showCityMenu, setShowCityMenu] = useState(false);
   const [form, setForm] = useState(buildInitialForm());
   const countryByCode = useMemo(
     () => countryOptions.reduce((acc, row) => ({ ...acc, [row.code]: row.name }), {}),
@@ -250,6 +252,22 @@ export default function AdminUPS() {
     if (!selectedIntegration) return [];
     return orders.filter((row) => row.integration_id === selectedIntegration.id);
   }, [orders, selectedIntegration]);
+
+  const filteredPostalSuggestions = useMemo(() => {
+    const postalInput = String(form.destination_postal_code || '').trim();
+    if (!postalInput) return [];
+    return postalSuggestions
+      .filter((row) => String(row?.postal_code || '').toLowerCase().startsWith(postalInput.toLowerCase()))
+      .slice(0, 12);
+  }, [postalSuggestions, form.destination_postal_code]);
+
+  const filteredCitySuggestions = useMemo(() => {
+    const cityInput = String(form.destination_city || '').trim();
+    if (!cityInput) return [];
+    return citySuggestions
+      .filter((row) => String(row?.city || '').toLowerCase().startsWith(cityInput.toLowerCase()))
+      .slice(0, 12);
+  }, [citySuggestions, form.destination_city]);
 
   const loadAll = async () => {
     const [intRes, ordRes] = await Promise.all([
@@ -343,6 +361,24 @@ export default function AdminUPS() {
     if (match?.postal_code && !form.destination_postal_code) {
       setForm((prev) => ({ ...prev, destination_postal_code: String(match.postal_code).trim() }));
     }
+  };
+
+  const selectPostalSuggestion = (row) => {
+    setForm((prev) => ({
+      ...prev,
+      destination_postal_code: String(row?.postal_code || '').trim(),
+      destination_city: String(row?.city || prev.destination_city || '').trim()
+    }));
+    setShowPostalMenu(false);
+  };
+
+  const selectCitySuggestion = (row) => {
+    setForm((prev) => ({
+      ...prev,
+      destination_city: String(row?.city || '').trim(),
+      destination_postal_code: String(row?.postal_code || prev.destination_postal_code || '').trim()
+    }));
+    setShowCityMenu(false);
   };
 
   useEffect(() => {
@@ -737,15 +773,43 @@ export default function AdminUPS() {
                         <input value={form.destination_name} onChange={(e) => setField('destination_name', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination name" required />
                         <input value={form.destination_address1} onChange={(e) => setField('destination_address1', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination address" required />
                         <div className="grid grid-cols-3 gap-2">
-                          <input
-                            list="ups-city-suggestions"
-                            value={form.destination_city}
-                            onChange={(e) => setField('destination_city', e.target.value)}
-                            onBlur={syncPostalFromCity}
-                            className="px-3 py-2 border rounded-lg col-span-2"
-                            placeholder="City"
-                            required
-                          />
+                          <div className="relative col-span-2">
+                            <input
+                              list="ups-city-suggestions"
+                              value={form.destination_city}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setField('destination_city', value);
+                                setShowCityMenu(Boolean(String(value || '').trim()));
+                              }}
+                              onFocus={() => setShowCityMenu(Boolean(String(form.destination_city || '').trim()))}
+                              onBlur={() => {
+                                setTimeout(() => {
+                                  syncPostalFromCity();
+                                  setShowCityMenu(false);
+                                }, 120);
+                              }}
+                              className="px-3 py-2 border rounded-lg col-span-2 w-full"
+                              placeholder="City"
+                              required
+                            />
+                            {showCityMenu && filteredCitySuggestions.length > 0 && (
+                              <div className="absolute z-20 left-0 right-0 mt-1 border rounded-lg bg-white shadow-lg max-h-56 overflow-auto">
+                                {filteredCitySuggestions.map((row, idx) => (
+                                  <button
+                                    key={`${row.country_code || ''}-${row.city || ''}-${row.postal_code || ''}-${idx}`}
+                                    type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => selectCitySuggestion(row)}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0"
+                                  >
+                                    <span className="font-medium">{row.city || '-'}</span>
+                                    <span className="text-text-secondary"> {row.postal_code ? `(${row.postal_code})` : ''}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                           <input
                             list="ups-country-names"
                             value={form.destination_country_name}
@@ -772,15 +836,43 @@ export default function AdminUPS() {
                             required
                           />
                         </div>
-                        <input
-                          list="ups-postal-suggestions"
-                          value={form.destination_postal_code}
-                          onChange={(e) => setField('destination_postal_code', e.target.value)}
-                          onBlur={syncCityFromPostal}
-                          className="px-3 py-2 border rounded-lg"
-                          placeholder="Postal code"
-                          required
-                        />
+                        <div className="relative">
+                          <input
+                            list="ups-postal-suggestions"
+                            value={form.destination_postal_code}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setField('destination_postal_code', value);
+                              setShowPostalMenu(Boolean(String(value || '').trim()));
+                            }}
+                            onFocus={() => setShowPostalMenu(Boolean(String(form.destination_postal_code || '').trim()))}
+                            onBlur={() => {
+                              setTimeout(() => {
+                                syncCityFromPostal();
+                                setShowPostalMenu(false);
+                              }, 120);
+                            }}
+                            className="px-3 py-2 border rounded-lg w-full"
+                            placeholder="Postal code"
+                            required
+                          />
+                          {showPostalMenu && filteredPostalSuggestions.length > 0 && (
+                            <div className="absolute z-20 left-0 right-0 mt-1 border rounded-lg bg-white shadow-lg max-h-56 overflow-auto">
+                              {filteredPostalSuggestions.map((row, idx) => (
+                                <button
+                                  key={`${row.country_code || ''}-${row.postal_code || ''}-${row.city || ''}-${idx}`}
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => selectPostalSuggestion(row)}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0"
+                                >
+                                  <span className="font-medium">{row.postal_code || '-'}</span>
+                                  <span className="text-text-secondary"> {row.city ? `- ${row.city}` : ''}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
