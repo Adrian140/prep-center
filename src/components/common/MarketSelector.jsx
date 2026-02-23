@@ -86,7 +86,7 @@ export default function MarketSelector() {
     const country = pending;
     const vat = normalizeVat(vatValue, country);
     if (!vat) {
-      setVatError(t('market.vatRequired', 'Completează codul TVA'));
+      setVatError(t('market.vatRequired', 'Please enter VAT number'));
       return;
     }
     setVatSaving(true);
@@ -107,7 +107,7 @@ export default function MarketSelector() {
     };
     const { error } = await supabaseHelpers.createBillingProfile(payload);
     if (error) {
-      setVatError(error.message || t('market.vatSaveError', 'Nu am putut salva TVA-ul'));
+      setVatError(error.message || t('market.vatSaveError', 'Could not save VAT.'));
       setVatSaving(false);
       return;
     }
@@ -185,7 +185,7 @@ export default function MarketSelector() {
             <p className="text-sm text-text-secondary">
               {t(
                 'market.promptBody',
-                'Vrei sa creezi un cont nou pentru aceasta tara sau sa folosesti aceleasi date ca in contul curent?'
+                'Do you want to create a new account for this country or use the same data from the current account?'
               )}
             </p>
             <div className="flex flex-wrap gap-2 justify-end">
@@ -193,19 +193,19 @@ export default function MarketSelector() {
                 onClick={() => setPending(null)}
                 className="px-3 py-1.5 rounded-lg border text-sm text-text-secondary"
               >
-                 {t('market.promptCancel', 'Anuleaza')}
+                 {t('market.promptCancel', 'Cancel')}
               </button>
               <button
                 onClick={confirmNewAccount}
                 className="px-3 py-1.5 rounded-lg border text-sm"
               >
-                {t('market.promptNew', 'Creeaza cont nou')}
+                {t('market.promptNew', 'Create new account')}
               </button>
               <button
                 onClick={confirmSameAccount}
                 className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm"
               >
-                {t('market.promptSame', 'Foloseste aceleasi date')}
+                {t('market.promptSame', 'Use same details')}
               </button>
             </div>
           </div>
@@ -216,11 +216,11 @@ export default function MarketSelector() {
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4">
             <div className="text-lg font-semibold text-text-primary">
-              {t('market.vatTitle', 'Adaugă cod TVA pentru ')}
+              {t('market.vatTitle', 'Add VAT code for ')}
               {pending}
             </div>
             <p className="text-sm text-text-secondary">
-              {t('market.vatSubtitle', 'Pentru acest depozit avem nevoie de codul TVA al țării selectate.')}
+              {t('market.vatSubtitle', 'For this warehouse we need the VAT number of the selected country.')}
             </p>
             <div className="space-y-2">
               <label className="block text-sm font-medium text-text-primary">
@@ -246,14 +246,14 @@ export default function MarketSelector() {
                 className="px-3 py-1.5 rounded-lg border text-sm text-text-secondary"
                 disabled={vatSaving}
               >
-                {t('common.cancel', 'Anuleaza')}
+                {t('common.cancel', 'Cancel')}
               </button>
               <button
                 onClick={saveVatProfile}
                 className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm disabled:opacity-60"
                 disabled={vatSaving}
               >
-                {vatSaving ? t('common.saving', 'Se salvează...') : t('market.vatSave', 'Salvează TVA')}
+                {vatSaving ? t('common.saving', 'Saving...') : t('market.vatSave', 'Save VAT')}
               </button>
             </div>
           </div>
