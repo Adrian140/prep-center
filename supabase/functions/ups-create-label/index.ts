@@ -247,6 +247,16 @@ serve(async (req) => {
 
   const shipFrom = order?.ship_from || {};
   const shipTo = order?.ship_to || {};
+  const shipFromAttention = String(
+    shipFrom.attention_name ||
+      [shipFrom.contact_first_name, shipFrom.contact_last_name].filter(Boolean).join(" ")
+  ).trim();
+  const shipToAttention = String(
+    shipTo.attention_name ||
+      [shipTo.contact_first_name, shipTo.contact_last_name].filter(Boolean).join(" ")
+  ).trim();
+  const shipFromName = String(shipFrom.company_name || shipFrom.name || shipFromAttention || "PrepCenter").trim();
+  const shipToName = String(shipTo.company_name || shipTo.name || shipToAttention || "Recipient").trim();
   const pkg = order?.package_data || {};
   const referenceCode = String(pkg.reference_code || order.external_order_id || "").trim();
   const deliveryConfirmationCode = String(pkg.delivery_confirmation || "").trim();
@@ -266,7 +276,8 @@ serve(async (req) => {
       Shipment: {
         Description: shipmentDescription,
         Shipper: {
-          Name: shipFrom.name || "PrepCenter",
+          Name: shipFromName,
+          ...(shipFromAttention ? { AttentionName: shipFromAttention } : {}),
           ShipperNumber: integration.ups_account_number || "",
           Address: {
             AddressLine: [shipFrom.address1 || ""],
@@ -275,8 +286,19 @@ serve(async (req) => {
             CountryCode: (shipFrom.country_code || "FR").toUpperCase()
           }
         },
+        ShipFrom: {
+          Name: shipFromName,
+          ...(shipFromAttention ? { AttentionName: shipFromAttention } : {}),
+          Address: {
+            AddressLine: [shipFrom.address1 || ""],
+            City: shipFrom.city || "",
+            PostalCode: shipFrom.postal_code || "",
+            CountryCode: (shipFrom.country_code || "FR").toUpperCase()
+          }
+        },
         ShipTo: {
-          Name: shipTo.name || "Recipient",
+          Name: shipToName,
+          ...(shipToAttention ? { AttentionName: shipToAttention } : {}),
           Address: {
             AddressLine: [shipTo.address1 || ""],
             City: shipTo.city || "",

@@ -71,14 +71,18 @@ const getGlobalCountryOptions = () => {
 
 const PREP_WAREHOUSES = {
   FR: {
-    name: 'EcomPrep Hub',
+    company_name: 'EcomPrep Hub',
+    contact_first_name: 'Adrian',
+    contact_last_name: 'Bucur',
     address1: '5 Rue des Enclos, Cellule 7',
     city: 'La Gouesniere',
     postal_code: '35350',
     country_code: 'FR'
   },
   DE: {
-    name: 'EcomPrep Hub',
+    company_name: 'EcomPrep Hub',
+    contact_first_name: 'Radu',
+    contact_last_name: 'Cenusa',
     address1: 'Zienestrasse 12',
     city: 'Wolfach',
     postal_code: '77709',
@@ -181,7 +185,9 @@ const buildInitialForm = () => ({
   integration_id: '',
   warehouse_country: 'FR',
   use_default_sender: true,
-  from_name: PREP_WAREHOUSES.FR.name,
+  from_company_name: PREP_WAREHOUSES.FR.company_name,
+  from_contact_first_name: PREP_WAREHOUSES.FR.contact_first_name,
+  from_contact_last_name: PREP_WAREHOUSES.FR.contact_last_name,
   from_address1: PREP_WAREHOUSES.FR.address1,
   from_city: PREP_WAREHOUSES.FR.city,
   from_postal_code: PREP_WAREHOUSES.FR.postal_code,
@@ -195,7 +201,9 @@ const buildInitialForm = () => ({
   declared_value: '',
   declared_currency: 'EUR',
   promo_code: '',
-  destination_name: '',
+  destination_company_name: '',
+  destination_contact_first_name: '',
+  destination_contact_last_name: '',
   destination_address1: '',
   destination_city: '',
   destination_postal_code: '',
@@ -246,7 +254,6 @@ export default function AdminUPS() {
   );
 
   const selectedIntegration = openedIntegrationId ? byIntegrationId[openedIntegrationId] : null;
-  const selectedWarehouse = PREP_WAREHOUSES[form.warehouse_country] || PREP_WAREHOUSES.FR;
 
   const clientOrders = useMemo(() => {
     if (!selectedIntegration) return [];
@@ -339,7 +346,7 @@ export default function AdminUPS() {
   }, []);
 
   const setField = (key, value) => {
-    if (['from_name', 'from_address1', 'from_city', 'from_postal_code', 'from_country_code'].includes(key)) {
+    if (['from_company_name', 'from_contact_first_name', 'from_contact_last_name', 'from_address1', 'from_city', 'from_postal_code', 'from_country_code'].includes(key)) {
       setSenderTouched(true);
     }
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -386,7 +393,9 @@ export default function AdminUPS() {
     const wh = PREP_WAREHOUSES[form.warehouse_country] || PREP_WAREHOUSES.FR;
     setForm((prev) => ({
       ...prev,
-      from_name: wh.name,
+      from_company_name: wh.company_name,
+      from_contact_first_name: wh.contact_first_name,
+      from_contact_last_name: wh.contact_last_name,
       from_address1: wh.address1,
       from_city: wh.city,
       from_postal_code: wh.postal_code,
@@ -512,8 +521,8 @@ export default function AdminUPS() {
       return;
     }
 
-    if (!form.destination_name || !form.destination_address1 || !form.destination_city || !form.destination_postal_code) {
-      setError('Completează adresa de destinație (nume, adresă, oraș, cod poștal).');
+    if (!form.destination_contact_first_name || !form.destination_contact_last_name || !form.destination_address1 || !form.destination_city || !form.destination_postal_code) {
+      setError('Completează destinația: contact (prenume + nume), adresă, oraș și cod poștal.');
       return;
     }
     const weight = asNumberOrNull(form.weight_kg);
@@ -545,14 +554,24 @@ export default function AdminUPS() {
         payment_type: 'BillShipper',
         currency: 'EUR',
         ship_from: {
-          name: String(form.from_name || '').trim(),
+          company_name: String(form.from_company_name || '').trim() || null,
+          contact_first_name: String(form.from_contact_first_name || '').trim(),
+          contact_last_name: String(form.from_contact_last_name || '').trim(),
+          attention_name: String(`${form.from_contact_first_name || ''} ${form.from_contact_last_name || ''}`).trim() || null,
+          name: String(form.from_company_name || '').trim() || String(`${form.from_contact_first_name || ''} ${form.from_contact_last_name || ''}`).trim(),
           address1: String(form.from_address1 || '').trim(),
           city: String(form.from_city || '').trim(),
           postal_code: String(form.from_postal_code || '').trim(),
           country_code: String(form.from_country_code || 'FR').trim().toUpperCase()
         },
         ship_to: {
-          name: String(form.destination_name || '').trim(),
+          company_name: String(form.destination_company_name || '').trim() || null,
+          contact_first_name: String(form.destination_contact_first_name || '').trim(),
+          contact_last_name: String(form.destination_contact_last_name || '').trim(),
+          attention_name: String(`${form.destination_contact_first_name || ''} ${form.destination_contact_last_name || ''}`).trim(),
+          name:
+            String(form.destination_company_name || '').trim() ||
+            String(`${form.destination_contact_first_name || ''} ${form.destination_contact_last_name || ''}`).trim(),
           address1: String(form.destination_address1 || '').trim(),
           city: String(form.destination_city || '').trim(),
           postal_code: String(form.destination_postal_code || '').trim(),
@@ -596,7 +615,9 @@ export default function AdminUPS() {
       setForm((prev) => ({
         ...prev,
         reference_code: '',
-        destination_name: '',
+        destination_company_name: '',
+        destination_contact_first_name: '',
+        destination_contact_last_name: '',
         destination_address1: '',
         destination_city: '',
         destination_postal_code: '',
@@ -751,7 +772,7 @@ export default function AdminUPS() {
                         </select>
                       </label>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <input disabled={Boolean(form.use_default_sender)} value={form.from_name} onChange={(e) => setField('from_name', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="From name" />
+                        <input disabled={Boolean(form.use_default_sender)} value={form.from_company_name} onChange={(e) => setField('from_company_name', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="Company (optional)" />
                         <input
                           list="ups-country-codes"
                           disabled={Boolean(form.use_default_sender)}
@@ -761,6 +782,8 @@ export default function AdminUPS() {
                           className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500"
                           placeholder="Country"
                         />
+                        <input disabled={Boolean(form.use_default_sender)} value={form.from_contact_first_name} onChange={(e) => setField('from_contact_first_name', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="Contact first name" />
+                        <input disabled={Boolean(form.use_default_sender)} value={form.from_contact_last_name} onChange={(e) => setField('from_contact_last_name', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="Contact last name" />
                         <input disabled={Boolean(form.use_default_sender)} value={form.from_address1} onChange={(e) => setField('from_address1', e.target.value)} className="px-3 py-2 border rounded-lg md:col-span-2 disabled:bg-gray-100 disabled:text-gray-500" placeholder="Address" />
                         <input disabled={Boolean(form.use_default_sender)} value={form.from_city} onChange={(e) => setField('from_city', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="City" />
                         <input disabled={Boolean(form.use_default_sender)} value={form.from_postal_code} onChange={(e) => setField('from_postal_code', e.target.value)} className="px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500" placeholder="Postal code" />
@@ -770,7 +793,11 @@ export default function AdminUPS() {
                     <div className="rounded-lg border p-4 space-y-3">
                       <h4 className="font-semibold text-text-primary">To (Destination)</h4>
                       <div className="grid grid-cols-1 gap-2">
-                        <input value={form.destination_name} onChange={(e) => setField('destination_name', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination name" required />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <input value={form.destination_contact_first_name} onChange={(e) => setField('destination_contact_first_name', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Contact first name" required />
+                          <input value={form.destination_contact_last_name} onChange={(e) => setField('destination_contact_last_name', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Contact last name" required />
+                        </div>
+                        <input value={form.destination_company_name} onChange={(e) => setField('destination_company_name', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Company (optional)" />
                         <input value={form.destination_address1} onChange={(e) => setField('destination_address1', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination address" required />
                         <div className="grid grid-cols-3 gap-2">
                           <div className="relative col-span-2">
