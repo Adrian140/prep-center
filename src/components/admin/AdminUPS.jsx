@@ -2,6 +2,56 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Loader2, PlusCircle, RefreshCw, X } from 'lucide-react';
 import { supabase, supabaseHelpers } from '@/config/supabase';
 
+const EUROPE_COUNTRIES = [
+  { code: 'AL', name: 'Albania' },
+  { code: 'AD', name: 'Andorra' },
+  { code: 'AT', name: 'Austria' },
+  { code: 'BY', name: 'Belarus' },
+  { code: 'BE', name: 'Belgium' },
+  { code: 'BA', name: 'Bosnia and Herzegovina' },
+  { code: 'BG', name: 'Bulgaria' },
+  { code: 'HR', name: 'Croatia' },
+  { code: 'CY', name: 'Cyprus' },
+  { code: 'CZ', name: 'Czech Republic' },
+  { code: 'DK', name: 'Denmark' },
+  { code: 'EE', name: 'Estonia' },
+  { code: 'FI', name: 'Finland' },
+  { code: 'FR', name: 'France' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'GR', name: 'Greece' },
+  { code: 'HU', name: 'Hungary' },
+  { code: 'IS', name: 'Iceland' },
+  { code: 'IE', name: 'Ireland' },
+  { code: 'IT', name: 'Italy' },
+  { code: 'XK', name: 'Kosovo' },
+  { code: 'LV', name: 'Latvia' },
+  { code: 'LI', name: 'Liechtenstein' },
+  { code: 'LT', name: 'Lithuania' },
+  { code: 'LU', name: 'Luxembourg' },
+  { code: 'MT', name: 'Malta' },
+  { code: 'MD', name: 'Moldova' },
+  { code: 'MC', name: 'Monaco' },
+  { code: 'ME', name: 'Montenegro' },
+  { code: 'NL', name: 'Netherlands' },
+  { code: 'MK', name: 'North Macedonia' },
+  { code: 'NO', name: 'Norway' },
+  { code: 'PL', name: 'Poland' },
+  { code: 'PT', name: 'Portugal' },
+  { code: 'RO', name: 'Romania' },
+  { code: 'SM', name: 'San Marino' },
+  { code: 'RS', name: 'Serbia' },
+  { code: 'SK', name: 'Slovakia' },
+  { code: 'SI', name: 'Slovenia' },
+  { code: 'ES', name: 'Spain' },
+  { code: 'SE', name: 'Sweden' },
+  { code: 'CH', name: 'Switzerland' },
+  { code: 'UA', name: 'Ukraine' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'VA', name: 'Vatican City' }
+];
+
+const COUNTRY_BY_CODE = EUROPE_COUNTRIES.reduce((acc, row) => ({ ...acc, [row.code]: row.name }), {});
+
 const PREP_WAREHOUSES = {
   FR: {
     name: 'Prep Center France',
@@ -32,6 +82,77 @@ const asNumberOrNull = (value) => {
   return Number.isFinite(number) ? number : null;
 };
 
+const normalizeText = (value) => String(value || '').trim().toLowerCase();
+
+const countryNameFromCode = (code) => COUNTRY_BY_CODE[String(code || '').trim().toUpperCase()] || String(code || '').trim().toUpperCase();
+
+const parseCountryInput = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const upper = raw.toUpperCase();
+  const byCode = EUROPE_COUNTRIES.find((row) => row.code === upper);
+  if (byCode) return byCode;
+
+  const normalized = normalizeText(raw);
+  const byNameExact = EUROPE_COUNTRIES.find((row) => normalizeText(row.name) === normalized);
+  if (byNameExact) return byNameExact;
+  const byNamePrefix = EUROPE_COUNTRIES.find((row) => normalizeText(row.name).startsWith(normalized));
+  if (byNamePrefix) return byNamePrefix;
+  return null;
+};
+
+const normalizePostalChars = (value) => String(value || '').trim().replace(/[\s-]+/g, '').toUpperCase();
+
+const canonicalPostalByCountry = (countryCode, postalCode) => {
+  const cc = String(countryCode || '').trim().toUpperCase();
+  const raw = String(postalCode || '').trim().replace(/[–—]/g, '-');
+  const compact = normalizePostalChars(raw);
+  if (!compact) return '';
+  if (cc === 'PT' && /^\d{7}$/.test(compact)) return `${compact.slice(0, 4)}-${compact.slice(4)}`;
+  if (cc === 'PL' && /^\d{5}$/.test(compact)) return `${compact.slice(0, 2)}-${compact.slice(2)}`;
+  if (cc === 'SE' && /^\d{5}$/.test(compact)) return `${compact.slice(0, 3)} ${compact.slice(3)}`;
+  if (cc === 'NL' && /^\d{4}[A-Z]{2}$/.test(compact)) return `${compact.slice(0, 4)} ${compact.slice(4)}`;
+  return raw.toUpperCase();
+};
+
+const postalFormatRules = {
+  PT: /^\d{4}[- ]?\d{3}$/,
+  PL: /^\d{2}[- ]?\d{3}$/,
+  SE: /^\d{3}[ ]?\d{2}$/,
+  NL: /^\d{4}[ ]?[A-Za-z]{2}$/
+};
+
+const validatePostalPattern = (countryCode, postalCode) => {
+  const cc = String(countryCode || '').trim().toUpperCase();
+  const normalized = String(postalCode || '').trim().replace(/[–—]/g, '-');
+  const rule = postalFormatRules[cc];
+  if (!rule) return { ok: true };
+  if (!rule.test(normalized)) {
+    if (cc === 'PT') return { ok: false, message: 'Format cod poștal PT invalid. Exemplu corect: 1000-001.' };
+    if (cc === 'PL') return { ok: false, message: 'Format cod poștal PL invalid. Exemplu corect: 00-001.' };
+    if (cc === 'SE') return { ok: false, message: 'Format cod poștal SE invalid. Exemplu corect: 123 45.' };
+    if (cc === 'NL') return { ok: false, message: 'Format cod poștal NL invalid. Exemplu corect: 1234 AB.' };
+    return { ok: false, message: `Format cod poștal invalid pentru ${cc}.` };
+  }
+  return { ok: true };
+};
+
+const buildPostalSearchPrefixes = (countryCode, postalInput) => {
+  const raw = String(postalInput || '').trim().replace(/[–—]/g, '-');
+  if (!raw) return [];
+  const canonical = canonicalPostalByCountry(countryCode, raw);
+  const compact = normalizePostalChars(raw);
+  const out = [];
+  [raw, canonical, compact].forEach((item) => {
+    const value = String(item || '').trim();
+    if (!value) return;
+    if (!out.includes(value)) out.push(value);
+  });
+  return out;
+};
+
+const postalEquals = (left, right) => normalizePostalChars(left) === normalizePostalChars(right);
+
 const buildInitialForm = () => ({
   integration_id: '',
   warehouse_country: 'FR',
@@ -55,6 +176,7 @@ const buildInitialForm = () => ({
   destination_city: '',
   destination_postal_code: '',
   destination_country_code: 'FR',
+  destination_country_name: countryNameFromCode('FR'),
   weight_kg: '',
   length_cm: '',
   width_cm: '',
@@ -73,7 +195,7 @@ export default function AdminUPS() {
   const [openedIntegrationId, setOpenedIntegrationId] = useState('');
   const [isClientWindowOpen, setIsClientWindowOpen] = useState(false);
   const [senderTouched, setSenderTouched] = useState(false);
-  const [countryOptions, setCountryOptions] = useState(['FR', 'DE', 'IT', 'ES', 'NL', 'BE', 'AT', 'PL', 'CZ']);
+  const [countryOptions, setCountryOptions] = useState(EUROPE_COUNTRIES);
   const [postalSuggestions, setPostalSuggestions] = useState([]);
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [form, setForm] = useState(buildInitialForm());
@@ -180,9 +302,9 @@ export default function AdminUPS() {
   const syncCityFromPostal = () => {
     const postal = String(form.destination_postal_code || '').trim();
     if (!postal) return;
-    const match = postalSuggestions.find((row) => String(row.postal_code || '').trim() === postal);
-    if (match?.city && !form.destination_city) {
-      setForm((prev) => ({ ...prev, destination_city: String(match.city).trim() }));
+    const matches = postalSuggestions.filter((row) => postalEquals(row.postal_code, postal));
+    if (matches.length === 1 && matches[0]?.city) {
+      setForm((prev) => ({ ...prev, destination_city: String(matches[0].city).trim() }));
     }
   };
 
@@ -210,10 +332,7 @@ export default function AdminUPS() {
 
   useEffect(() => {
     if (!isClientWindowOpen) return;
-    (async () => {
-      const { data } = await supabaseHelpers.listUpsPostalCountries();
-      if (Array.isArray(data) && data.length) setCountryOptions(data);
-    })();
+    setCountryOptions(EUROPE_COUNTRIES);
   }, [isClientWindowOpen]);
 
   useEffect(() => {
@@ -225,8 +344,20 @@ export default function AdminUPS() {
       return;
     }
     const t = setTimeout(async () => {
-      const { data } = await supabaseHelpers.searchUpsPostalCodes({ countryCode, postalPrefix, limit: 30 });
-      setPostalSuggestions(Array.isArray(data) ? data : []);
+      const prefixes = buildPostalSearchPrefixes(countryCode, postalPrefix);
+      const queries = prefixes.length ? prefixes : [postalPrefix];
+      const results = await Promise.all(queries.map((prefix) => supabaseHelpers.searchUpsPostalCodes({ countryCode, postalPrefix: prefix, limit: 40 })));
+      const merged = [];
+      const seen = new Set();
+      results.forEach((res) => {
+        (res?.data || []).forEach((row) => {
+          const key = `${row.country_code || ''}|${row.postal_code || ''}|${row.city || ''}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          merged.push(row);
+        });
+      });
+      setPostalSuggestions(merged.slice(0, 50));
     }, 180);
     return () => clearTimeout(t);
   }, [isClientWindowOpen, form.destination_country_code, form.destination_postal_code]);
@@ -275,6 +406,9 @@ export default function AdminUPS() {
     const postalCode = String(form.destination_postal_code || '').trim();
     if (!countryCode || !postalCode) return { ok: true };
 
+    const patternCheck = validatePostalPattern(countryCode, postalCode);
+    if (!patternCheck.ok) return patternCheck;
+
     const { count, error: countryCountError } = await supabase
       .from('ups_postal_codes')
       .select('id', { count: 'exact', head: true })
@@ -282,9 +416,14 @@ export default function AdminUPS() {
     if (countryCountError) return { ok: false, message: 'Nu am putut valida codul poștal UPS (eroare locală).' };
 
     if ((count || 0) > 0) {
-      const postalRes = await supabaseHelpers.listUpsPostalCodes({ countryCode, postalCode });
-      if (postalRes.error) return { ok: false, message: 'Nu am putut valida codul poștal UPS.' };
-      if (!postalRes.data?.length) {
+      const variants = buildPostalSearchPrefixes(countryCode, postalCode);
+      const checks = await Promise.all(
+        variants.map((candidate) => supabaseHelpers.listUpsPostalCodes({ countryCode, postalCode: candidate }))
+      );
+      const lookupError = checks.find((res) => res.error);
+      if (lookupError?.error) return { ok: false, message: 'Nu am putut valida codul poștal UPS.' };
+      const found = checks.some((res) => Array.isArray(res.data) && res.data.length > 0);
+      if (!found) {
         return { ok: false, message: `Codul poștal ${postalCode} (${countryCode}) nu există în cache-ul UPS local.` };
       }
     }
@@ -297,6 +436,11 @@ export default function AdminUPS() {
 
     if (!selectedIntegration) {
       setError('Deschide mai întâi clientul pentru care creezi eticheta.');
+      return;
+    }
+    const parsedCountry = parseCountryInput(form.destination_country_name || form.destination_country_code);
+    if (!parsedCountry?.code) {
+      setError('Selectează o țară validă din lista Europei.');
       return;
     }
     if (!selectedIntegration.ups_account_number) {
@@ -348,7 +492,7 @@ export default function AdminUPS() {
           address1: String(form.destination_address1 || '').trim(),
           city: String(form.destination_city || '').trim(),
           postal_code: String(form.destination_postal_code || '').trim(),
-          country_code: String(form.destination_country_code || 'FR').trim().toUpperCase()
+          country_code: parsedCountry.code
         },
         package_data: {
           weight_kg: weight,
@@ -392,7 +536,8 @@ export default function AdminUPS() {
         destination_address1: '',
         destination_city: '',
         destination_postal_code: '',
-        destination_country_code: 'FR',
+        destination_country_code: parsedCountry.code || 'FR',
+        destination_country_name: countryNameFromCode(parsedCountry.code || 'FR'),
         weight_kg: '',
         length_cm: '',
         width_cm: '',
@@ -574,12 +719,28 @@ export default function AdminUPS() {
                             required
                           />
                           <input
-                            list="ups-country-codes"
-                            value={form.destination_country_code}
-                            maxLength={2}
-                            onChange={(e) => setField('destination_country_code', e.target.value.toUpperCase())}
+                            list="ups-country-names"
+                            value={form.destination_country_name}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              const parsed = parseCountryInput(value);
+                              setForm((prev) => ({
+                                ...prev,
+                                destination_country_name: value,
+                                destination_country_code: parsed?.code || prev.destination_country_code
+                              }));
+                            }}
+                            onBlur={() => {
+                              const parsed = parseCountryInput(form.destination_country_name);
+                              if (!parsed) return;
+                              setForm((prev) => ({
+                                ...prev,
+                                destination_country_code: parsed.code,
+                                destination_country_name: parsed.name
+                              }));
+                            }}
                             className="px-3 py-2 border rounded-lg"
-                            placeholder="CC"
+                            placeholder="Country"
                             required
                           />
                         </div>
@@ -657,12 +818,12 @@ export default function AdminUPS() {
 
                 <div className="rounded-lg border p-4 h-fit">
                   <h4 className="font-semibold text-text-primary mb-3">Summary</h4>
-                  <div className="text-sm text-text-secondary space-y-2">
-                    <div><b>From:</b> {form.from_postal_code} {form.from_city}, {form.from_country_code}</div>
-                    <div><b>To:</b> {form.destination_postal_code || '-'} {form.destination_city || '-'}, {form.destination_country_code || '-'}</div>
-                    <div><b>Parcel:</b> {form.weight_kg || '0'} kg, {form.length_cm || 0} x {form.width_cm || 0} x {form.height_cm || 0} cm</div>
-                    <div><b>Service:</b> {form.service_code || '-'}</div>
-                    <div><b>Reference:</b> {form.reference_code || '-'}</div>
+                    <div className="text-sm text-text-secondary space-y-2">
+                      <div><b>From:</b> {form.from_postal_code} {form.from_city}, {form.from_country_code}</div>
+                      <div><b>To:</b> {form.destination_postal_code || '-'} {form.destination_city || '-'}, {form.destination_country_name || form.destination_country_code || '-'}</div>
+                      <div><b>Parcel:</b> {form.weight_kg || '0'} kg, {form.length_cm || 0} x {form.width_cm || 0} x {form.height_cm || 0} cm</div>
+                      <div><b>Service:</b> {form.service_code || '-'}</div>
+                      <div><b>Reference:</b> {form.reference_code || '-'}</div>
                     <div><b>Promo:</b> {form.promo_code || '-'}</div>
                   </div>
                   <button
@@ -677,8 +838,13 @@ export default function AdminUPS() {
               </div>
 
               <datalist id="ups-country-codes">
-                {countryOptions.map((code) => (
-                  <option key={code} value={code} />
+                {countryOptions.map((country) => (
+                  <option key={country.code} value={country.code} label={country.name} />
+                ))}
+              </datalist>
+              <datalist id="ups-country-names">
+                {countryOptions.map((country) => (
+                  <option key={`name-${country.code}`} value={country.name} label={country.code} />
                 ))}
               </datalist>
               <datalist id="ups-postal-suggestions">
