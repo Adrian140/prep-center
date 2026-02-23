@@ -41,18 +41,24 @@ const buildInitialForm = () => ({
   from_city: PREP_WAREHOUSES.FR.city,
   from_postal_code: PREP_WAREHOUSES.FR.postal_code,
   from_country_code: PREP_WAREHOUSES.FR.country_code,
-  external_order_id: '',
+  reference_code: '',
   service_code: '11',
+  packaging_type: '02',
+  shipment_description: '',
+  delivery_confirmation: '',
+  saturday_delivery: false,
+  declared_value: '',
+  declared_currency: 'EUR',
+  promo_code: '',
   destination_name: '',
   destination_address1: '',
   destination_city: '',
   destination_postal_code: '',
   destination_country_code: 'FR',
-  weight_kg: '1',
+  weight_kg: '',
   length_cm: '',
   width_cm: '',
-  height_cm: '',
-  promo_code: ''
+  height_cm: ''
 });
 
 export default function AdminUPS() {
@@ -295,6 +301,11 @@ export default function AdminUPS() {
       setError('Completează adresa de destinație (nume, adresă, oraș, cod poștal).');
       return;
     }
+    const weight = asNumberOrNull(form.weight_kg);
+    if (!weight || weight <= 0) {
+      setError('Completează greutatea coletului (kg).');
+      return;
+    }
 
     const postalCheck = await validateDestinationPostalCode();
     if (!postalCheck.ok) {
@@ -305,7 +316,7 @@ export default function AdminUPS() {
     setCreating(true);
     try {
       const externalOrderId =
-        String(form.external_order_id || '').trim() ||
+        String(form.reference_code || '').trim() ||
         `UPS-${new Date().toISOString().slice(0, 10)}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
       const createRes = await supabaseHelpers.createUpsShippingOrder({
@@ -315,7 +326,7 @@ export default function AdminUPS() {
         external_order_id: externalOrderId,
         status: 'pending',
         service_code: form.service_code || '11',
-        packaging_type: '02',
+        packaging_type: form.packaging_type || '02',
         payment_type: 'BillShipper',
         currency: 'EUR',
         ship_from: {
@@ -333,15 +344,22 @@ export default function AdminUPS() {
           country_code: String(form.destination_country_code || 'FR').trim().toUpperCase()
         },
         package_data: {
-          weight_kg: asNumberOrNull(form.weight_kg) || 1,
+          weight_kg: weight,
           length_cm: asNumberOrNull(form.length_cm),
           width_cm: asNumberOrNull(form.width_cm),
           height_cm: asNumberOrNull(form.height_cm),
-          promo_code: String(form.promo_code || '').trim() || null
+          promo_code: String(form.promo_code || '').trim() || null,
+          reference_code: String(form.reference_code || '').trim() || null,
+          shipment_description: String(form.shipment_description || '').trim() || null,
+          delivery_confirmation: String(form.delivery_confirmation || '').trim() || null,
+          saturday_delivery: Boolean(form.saturday_delivery),
+          declared_value: asNumberOrNull(form.declared_value),
+          declared_currency: String(form.declared_currency || 'EUR').trim().toUpperCase()
         },
         request_payload: {
           created_from: 'admin-ups-client-window',
-          promo_code: String(form.promo_code || '').trim() || null
+          promo_code: String(form.promo_code || '').trim() || null,
+          reference_code: String(form.reference_code || '').trim() || null
         }
       });
 
@@ -362,17 +380,22 @@ export default function AdminUPS() {
       setSuccess(`Eticheta UPS a fost creată pentru client. Tracking: ${labelRes.data?.tracking_number || '-'}`);
       setForm((prev) => ({
         ...prev,
-        external_order_id: '',
+        reference_code: '',
         destination_name: '',
         destination_address1: '',
         destination_city: '',
         destination_postal_code: '',
         destination_country_code: 'FR',
-        weight_kg: '1',
+        weight_kg: '',
         length_cm: '',
         width_cm: '',
         height_cm: '',
-        promo_code: ''
+        promo_code: '',
+        shipment_description: '',
+        delivery_confirmation: '',
+        saturday_delivery: false,
+        declared_value: '',
+        declared_currency: 'EUR'
       }));
       await refresh();
     } catch (error) {
@@ -568,18 +591,59 @@ export default function AdminUPS() {
 
                   <div className="rounded-lg border p-4">
                     <h4 className="font-semibold text-text-primary mb-3">Parcel & service</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2">
-                      <input value={form.external_order_id} onChange={(e) => setField('external_order_id', e.target.value)} className="px-3 py-2 border rounded-lg lg:col-span-2" placeholder="Order reference (optional)" />
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2">
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={form.weight_kg}
+                        onChange={(e) => setField('weight_kg', e.target.value)}
+                        className="px-3 py-2 border rounded-lg"
+                        placeholder="Weight kg"
+                        required
+                      />
+                      <div className="hidden md:block" />
+                      <input type="number" min="0" step="0.1" value={form.length_cm} onChange={(e) => setField('length_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Length cm" />
+                      <input type="number" min="0" step="0.1" value={form.width_cm} onChange={(e) => setField('width_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Width cm" />
+                      <input type="number" min="0" step="0.1" value={form.height_cm} onChange={(e) => setField('height_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Height cm" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
                       <select value={form.service_code} onChange={(e) => setField('service_code', e.target.value)} className="px-3 py-2 border rounded-lg">
                         <option value="11">UPS Standard (11)</option>
                         <option value="07">UPS Worldwide Express (07)</option>
                         <option value="08">UPS Worldwide Expedited (08)</option>
+                        <option value="65">UPS Saver (65)</option>
+                        <option value="54">UPS Worldwide Express Plus (54)</option>
                       </select>
                       <input value={form.promo_code} onChange={(e) => setField('promo_code', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Promo code" />
-                      <input type="number" min="0.01" step="0.01" value={form.weight_kg} onChange={(e) => setField('weight_kg', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Weight kg" required />
-                      <input type="number" min="0" step="0.1" value={form.length_cm} onChange={(e) => setField('length_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Length cm" />
-                      <input type="number" min="0" step="0.1" value={form.width_cm} onChange={(e) => setField('width_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Width cm" />
-                      <input type="number" min="0" step="0.1" value={form.height_cm} onChange={(e) => setField('height_cm', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Height cm" />
+                      <input value={form.reference_code} onChange={(e) => setField('reference_code', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Reference code" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <select value={form.packaging_type} onChange={(e) => setField('packaging_type', e.target.value)} className="px-3 py-2 border rounded-lg">
+                        <option value="02">Packaging: Customer Supplied (02)</option>
+                        <option value="01">Packaging: UPS Letter (01)</option>
+                        <option value="03">Packaging: Tube (03)</option>
+                        <option value="04">Packaging: Pak (04)</option>
+                        <option value="21">Packaging: UPS Express Box (21)</option>
+                        <option value="24">Packaging: UPS 25KG Box (24)</option>
+                        <option value="25">Packaging: UPS 10KG Box (25)</option>
+                        <option value="30">Packaging: Pallet (30)</option>
+                      </select>
+                      <select value={form.delivery_confirmation} onChange={(e) => setField('delivery_confirmation', e.target.value)} className="px-3 py-2 border rounded-lg">
+                        <option value="">Delivery confirmation: none</option>
+                        <option value="1">Delivery confirmation</option>
+                        <option value="2">Signature required</option>
+                        <option value="3">Adult signature required</option>
+                      </select>
+                      <label className="inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm">
+                        <input type="checkbox" checked={Boolean(form.saturday_delivery)} onChange={(e) => setField('saturday_delivery', e.target.checked)} />
+                        Saturday delivery
+                      </label>
+                      <input value={form.shipment_description} onChange={(e) => setField('shipment_description', e.target.value)} className="px-3 py-2 border rounded-lg md:col-span-2" placeholder="Shipment description (optional)" />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="number" min="0" step="0.01" value={form.declared_value} onChange={(e) => setField('declared_value', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Declared value" />
+                        <input value={form.declared_currency} maxLength={3} onChange={(e) => setField('declared_currency', e.target.value.toUpperCase())} className="px-3 py-2 border rounded-lg" placeholder="Currency" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -590,6 +654,8 @@ export default function AdminUPS() {
                     <div><b>From:</b> {form.from_postal_code} {form.from_city}, {form.from_country_code}</div>
                     <div><b>To:</b> {form.destination_postal_code || '-'} {form.destination_city || '-'}, {form.destination_country_code || '-'}</div>
                     <div><b>Parcel:</b> {form.weight_kg || '0'} kg, {form.length_cm || 0} x {form.width_cm || 0} x {form.height_cm || 0} cm</div>
+                    <div><b>Service:</b> {form.service_code || '-'}</div>
+                    <div><b>Reference:</b> {form.reference_code || '-'}</div>
                     <div><b>Promo:</b> {form.promo_code || '-'}</div>
                   </div>
                   <button

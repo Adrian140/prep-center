@@ -248,6 +248,12 @@ serve(async (req) => {
   const shipFrom = order?.ship_from || {};
   const shipTo = order?.ship_to || {};
   const pkg = order?.package_data || {};
+  const referenceCode = String(pkg.reference_code || order.external_order_id || "").trim();
+  const deliveryConfirmationCode = String(pkg.delivery_confirmation || "").trim();
+  const saturdayDelivery = Boolean(pkg.saturday_delivery);
+  const declaredValue = Number(pkg.declared_value || 0);
+  const declaredCurrency = String(pkg.declared_currency || order.currency || "EUR").trim().toUpperCase();
+  const shipmentDescription = String(pkg.shipment_description || "").trim() || "PrepCenter shipment";
 
   const shipmentPayload = {
     ShipmentRequest: {
@@ -258,7 +264,7 @@ serve(async (req) => {
         }
       },
       Shipment: {
-        Description: "PrepCenter shipment",
+        Description: shipmentDescription,
         Shipper: {
           Name: shipFrom.name || "PrepCenter",
           ShipperNumber: integration.ups_account_number || "",
@@ -289,8 +295,27 @@ serve(async (req) => {
         Service: {
           Code: String(order.service_code || "11")
         },
+        ReferenceNumber: referenceCode
+          ? {
+              Code: "PO",
+              Value: referenceCode
+            }
+          : undefined,
+        ShipmentServiceOptions:
+          deliveryConfirmationCode || saturdayDelivery
+            ? {
+                ...(deliveryConfirmationCode
+                  ? {
+                      DeliveryConfirmation: {
+                        DCISType: deliveryConfirmationCode
+                      }
+                    }
+                  : {}),
+                ...(saturdayDelivery ? { SaturdayDeliveryIndicator: "" } : {})
+              }
+            : undefined,
         Package: {
-          PackagingType: { Code: String(order.packaging_type || "02") },
+          PackagingType: { Code: String(order.packaging_type || pkg.packaging_type || "02") },
           PackageWeight: {
             UnitOfMeasurement: { Code: "KGS" },
             Weight: String(Math.max(0.01, Number(pkg.weight_kg || 1)))
@@ -302,6 +327,15 @@ serve(async (req) => {
                   Length: String(Number(pkg.length_cm)),
                   Width: String(Number(pkg.width_cm)),
                   Height: String(Number(pkg.height_cm))
+                }
+              : undefined,
+          PackageServiceOptions:
+            Number.isFinite(declaredValue) && declaredValue > 0
+              ? {
+                  DeclaredValue: {
+                    MonetaryValue: String(declaredValue.toFixed(2)),
+                    CurrencyCode: declaredCurrency || "EUR"
+                  }
                 }
               : undefined
         }
