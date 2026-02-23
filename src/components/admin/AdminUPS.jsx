@@ -54,14 +54,14 @@ const COUNTRY_BY_CODE = EUROPE_COUNTRIES.reduce((acc, row) => ({ ...acc, [row.co
 
 const PREP_WAREHOUSES = {
   FR: {
-    name: 'Prep Center France',
+    name: 'EcomPrep Hub',
     address1: '5 Rue des Enclos, Cellule 7',
     city: 'La Gouesniere',
     postal_code: '35350',
     country_code: 'FR'
   },
   DE: {
-    name: 'Prep Center Germany',
+    name: 'EcomPrep Hub',
     address1: 'Zienestrasse 12',
     city: 'Wolfach',
     postal_code: '77709',
