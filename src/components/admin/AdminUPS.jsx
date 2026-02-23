@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Loader2, PlusCircle, RefreshCw, X } from 'lucide-react';
 import { supabase, supabaseHelpers } from '@/config/supabase';
 
-const EUROPE_COUNTRIES = [
+const EUROPE_COUNTRIES_FALLBACK = [
   { code: 'AL', name: 'Albania' },
   { code: 'AD', name: 'Andorra' },
   { code: 'AT', name: 'Austria' },
@@ -50,7 +50,24 @@ const EUROPE_COUNTRIES = [
   { code: 'VA', name: 'Vatican City' }
 ];
 
-const COUNTRY_BY_CODE = EUROPE_COUNTRIES.reduce((acc, row) => ({ ...acc, [row.code]: row.name }), {});
+const getGlobalCountryOptions = () => {
+  try {
+    if (typeof Intl === 'undefined' || typeof Intl.DisplayNames === 'undefined') {
+      return EUROPE_COUNTRIES_FALLBACK;
+    }
+    const display = new Intl.DisplayNames(['en'], { type: 'region' });
+    const rawCodes = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('region') : [];
+    const known = Array.from(new Set(['GB', ...rawCodes.map((code) => String(code || '').toUpperCase())])).filter(Boolean);
+    const mapped = known
+      .map((code) => ({ code, name: display.of(code) || code }))
+      .filter((row) => row.name && row.name !== row.code)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (mapped.length >= 120) return mapped;
+  } catch (_) {
+    // fallback below
+  }
+  return EUROPE_COUNTRIES_FALLBACK;
+};
 
 const PREP_WAREHOUSES = {
   FR: {
@@ -84,19 +101,26 @@ const asNumberOrNull = (value) => {
 
 const normalizeText = (value) => String(value || '').trim().toLowerCase();
 
-const countryNameFromCode = (code) => COUNTRY_BY_CODE[String(code || '').trim().toUpperCase()] || String(code || '').trim().toUpperCase();
+const countryNameFromCode = (code, countryByCode) => countryByCode[String(code || '').trim().toUpperCase()] || String(code || '').trim().toUpperCase();
 
-const parseCountryInput = (value) => {
+const parseCountryInput = (value, countryOptions) => {
   const raw = String(value || '').trim();
   if (!raw) return null;
+  const countries = Array.isArray(countryOptions) && countryOptions.length ? countryOptions : EUROPE_COUNTRIES_FALLBACK;
+  const aliases = { UK: 'GB', EL: 'GR' };
+  const aliasCode = aliases[raw.toUpperCase()];
+  if (aliasCode) {
+    const aliasCountry = countries.find((row) => row.code === aliasCode);
+    if (aliasCountry) return aliasCountry;
+  }
   const upper = raw.toUpperCase();
-  const byCode = EUROPE_COUNTRIES.find((row) => row.code === upper);
+  const byCode = countries.find((row) => row.code === upper);
   if (byCode) return byCode;
 
   const normalized = normalizeText(raw);
-  const byNameExact = EUROPE_COUNTRIES.find((row) => normalizeText(row.name) === normalized);
+  const byNameExact = countries.find((row) => normalizeText(row.name) === normalized);
   if (byNameExact) return byNameExact;
-  const byNamePrefix = EUROPE_COUNTRIES.find((row) => normalizeText(row.name).startsWith(normalized));
+  const byNamePrefix = countries.find((row) => normalizeText(row.name).startsWith(normalized));
   if (byNamePrefix) return byNamePrefix;
   return null;
 };
@@ -176,7 +200,7 @@ const buildInitialForm = () => ({
   destination_city: '',
   destination_postal_code: '',
   destination_country_code: 'FR',
-  destination_country_name: countryNameFromCode('FR'),
+  destination_country_name: 'France',
   weight_kg: '',
   length_cm: '',
   width_cm: '',
@@ -195,10 +219,14 @@ export default function AdminUPS() {
   const [openedIntegrationId, setOpenedIntegrationId] = useState('');
   const [isClientWindowOpen, setIsClientWindowOpen] = useState(false);
   const [senderTouched, setSenderTouched] = useState(false);
-  const [countryOptions, setCountryOptions] = useState(EUROPE_COUNTRIES);
+  const [countryOptions, setCountryOptions] = useState(getGlobalCountryOptions());
   const [postalSuggestions, setPostalSuggestions] = useState([]);
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [form, setForm] = useState(buildInitialForm());
+  const countryByCode = useMemo(
+    () => countryOptions.reduce((acc, row) => ({ ...acc, [row.code]: row.name }), {}),
+    [countryOptions]
+  );
 
   const setSuccess = (message) => {
     setFlash(message);
@@ -332,7 +360,7 @@ export default function AdminUPS() {
 
   useEffect(() => {
     if (!isClientWindowOpen) return;
-    setCountryOptions(EUROPE_COUNTRIES);
+    setCountryOptions(getGlobalCountryOptions());
   }, [isClientWindowOpen]);
 
   useEffect(() => {
@@ -438,7 +466,7 @@ export default function AdminUPS() {
       setError('Deschide mai întâi clientul pentru care creezi eticheta.');
       return;
     }
-    const parsedCountry = parseCountryInput(form.destination_country_name || form.destination_country_code);
+    const parsedCountry = parseCountryInput(form.destination_country_name || form.destination_country_code, countryOptions);
     if (!parsedCountry?.code) {
       setError('Selectează o țară validă din lista Europei.');
       return;
@@ -537,7 +565,7 @@ export default function AdminUPS() {
         destination_city: '',
         destination_postal_code: '',
         destination_country_code: parsedCountry.code || 'FR',
-        destination_country_name: countryNameFromCode(parsedCountry.code || 'FR'),
+        destination_country_name: countryNameFromCode(parsedCountry.code || 'FR', countryByCode),
         weight_kg: '',
         length_cm: '',
         width_cm: '',
@@ -723,7 +751,7 @@ export default function AdminUPS() {
                             value={form.destination_country_name}
                             onChange={(e) => {
                               const value = e.target.value;
-                              const parsed = parseCountryInput(value);
+                              const parsed = parseCountryInput(value, countryOptions);
                               setForm((prev) => ({
                                 ...prev,
                                 destination_country_name: value,
@@ -731,7 +759,7 @@ export default function AdminUPS() {
                               }));
                             }}
                             onBlur={() => {
-                              const parsed = parseCountryInput(form.destination_country_name);
+                              const parsed = parseCountryInput(form.destination_country_name, countryOptions);
                               if (!parsed) return;
                               setForm((prev) => ({
                                 ...prev,
