@@ -9,31 +9,41 @@ const INTEGRATIONS = [
     id: 'amazon',
     title: 'Amazon Seller Central',
     subtitle: 'Conectari SP-API active/pending.',
-    settingField: 'amazon'
+    settingField: 'amazon',
+    logo: 'https://logo.clearbit.com/amazon.com',
+    fallbackLogo: '/branding/integrations/amazon.svg'
   },
   {
     id: 'profitPath',
     title: 'Profit Path',
     subtitle: 'Token + email pentru mapare PrepBusiness.',
-    settingField: 'profitPath'
+    settingField: 'profitPath',
+    logo: '/branding/integrations/profit-path.svg',
+    fallbackLogo: '/branding/integrations/profit-path.svg'
   },
   {
     id: 'arbitrageOne',
     title: 'Arbitrage One',
     subtitle: 'Email + Merchant ID pentru inbound sync.',
-    settingField: 'arbitrageOne'
+    settingField: 'arbitrageOne',
+    logo: 'https://logo.clearbit.com/arbitrageone.de',
+    fallbackLogo: '/branding/integrations/arbitrage-one.svg'
   },
   {
     id: 'ups',
     title: 'UPS',
     subtitle: 'Conectari UPS OAuth si status cont.',
-    settingField: 'ups'
+    settingField: 'ups',
+    logo: 'https://logo.clearbit.com/ups.com',
+    fallbackLogo: '/branding/integrations/ups.svg'
   },
   {
     id: 'qogita',
     title: 'Qogita',
     subtitle: 'Conexiuni Qogita active.',
-    settingField: 'qogita'
+    settingField: 'qogita',
+    logo: 'https://logo.clearbit.com/qogita.com',
+    fallbackLogo: '/branding/integrations/qogita.svg'
   }
 ];
 
@@ -86,7 +96,13 @@ function StatusBadge({ status }) {
   return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber-50 text-amber-700">Pending</span>;
 }
 
-function IntegrationPanel({ title, subtitle, open, onToggle, visible, onVisibilityChange, children }) {
+function IntegrationPanel({ title, subtitle, logo, fallbackLogo, open, onToggle, visible, onVisibilityChange, children }) {
+  const [imgSrc, setImgSrc] = useState(logo);
+
+  useEffect(() => {
+    setImgSrc(logo);
+  }, [logo]);
+
   return (
     <section className="bg-white border rounded-xl overflow-hidden">
       <button
@@ -94,6 +110,14 @@ function IntegrationPanel({ title, subtitle, open, onToggle, visible, onVisibili
         onClick={onToggle}
         className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
       >
+        <img
+          src={imgSrc}
+          alt={title}
+          onError={() => {
+            if (fallbackLogo && imgSrc !== fallbackLogo) setImgSrc(fallbackLogo);
+          }}
+          className="w-20 h-14 rounded-lg object-contain border bg-white p-1"
+        />
         <div className="flex-1 min-w-0">
           <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
           <p className="text-sm text-text-secondary">{subtitle}</p>
@@ -406,6 +430,8 @@ export default function AdminPrepBusinessIntegrations() {
               key={integration.id}
               title={integration.title}
               subtitle={integration.subtitle}
+              logo={integration.logo}
+              fallbackLogo={integration.fallbackLogo}
               open={openPanel === integration.id}
               onToggle={() => setOpenPanel((prev) => (prev === integration.id ? '' : integration.id))}
               visible={globalVisibility[integration.settingField] !== false}
