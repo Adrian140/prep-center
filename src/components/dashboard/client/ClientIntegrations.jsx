@@ -175,12 +175,14 @@ export default function ClientIntegrations() {
   const [qogitaListLoading, setQogitaListLoading] = useState(true);
   const [qogitaRefreshing, setQogitaRefreshing] = useState(false);
   const [pbEmail, setPbEmail] = useState('');
+  const [pbMerchantId, setPbMerchantId] = useState('');
   const [pbStatus, setPbStatus] = useState('pending');
   const [pbLastError, setPbLastError] = useState('');
   const [pbLoading, setPbLoading] = useState(true);
   const [pbSaving, setPbSaving] = useState(false);
   const [pbIntegration, setPbIntegration] = useState(null);
   const [ppToken, setPpToken] = useState('');
+  const [ppEmail, setPpEmail] = useState('');
   const [ppStatus, setPpStatus] = useState('pending');
   const [ppLastError, setPpLastError] = useState('');
   const [ppLoading, setPpLoading] = useState(true);
@@ -316,25 +318,32 @@ export default function ClientIntegrations() {
       if (error) {
         setPbIntegration(null);
         setPbEmail(defaultEmail);
+        setPbMerchantId('');
         setPbStatus('pending');
         setPbLastError(error.message || supportError);
         setPpToken('');
+        setPpEmail(defaultEmail);
         setPpStatus('pending');
         setPpLastError(error.message || supportError);
       } else if (data) {
         setPbIntegration(data);
-        setPbEmail(data.email_prep_business || data.email_arbitrage_one || defaultEmail);
+        const resolvedEmail = data.email_prep_business || data.email_arbitrage_one || defaultEmail;
+        setPbEmail(resolvedEmail);
+        setPbMerchantId(data.merchant_id || data.profit_path_token_id || '');
         setPbStatus(data.status || 'pending');
         setPbLastError(data.last_error || '');
-        setPpToken(data.profit_path_token_id || '');
+        setPpToken(data.profit_path_token_id || data.merchant_id || '');
+        setPpEmail(resolvedEmail);
         setPpStatus(data.status || 'pending');
         setPpLastError(data.last_error || '');
       } else {
         setPbIntegration(null);
         setPbEmail(defaultEmail);
+        setPbMerchantId('');
         setPbStatus('pending');
         setPbLastError('');
         setPpToken('');
+        setPpEmail(defaultEmail);
         setPpStatus('pending');
         setPpLastError('');
       }
@@ -431,6 +440,7 @@ export default function ClientIntegrations() {
     setPbSaving(true);
     setPbLastError('');
     const pb = (pbEmail || profile?.email || '').trim().toLowerCase();
+    const merchant = (pbMerchantId || '').trim();
     if (!pb) {
       setPbLastError(t('ClientIntegrations.prepbusiness.errors.emailRequired'));
       setPbSaving(false);
@@ -446,6 +456,7 @@ export default function ClientIntegrations() {
           company_id: profile?.company_id || null,
           email_arbitrage_one: pb,
           email_prep_business: pb,
+          merchant_id: merchant || pbIntegration?.merchant_id || ((ppToken || '').trim() || pbIntegration?.profit_path_token_id || null),
           profit_path_token_id: (ppToken || '').trim() || pbIntegration?.profit_path_token_id || null,
           status: pbIntegration?.status || 'pending',
           last_error: null,
@@ -461,6 +472,8 @@ export default function ClientIntegrations() {
       setPbLastError(error.message || supportError);
     } else {
       setPbIntegration(data);
+      setPpEmail(data?.email_prep_business || data?.email_arbitrage_one || pb);
+      setPbMerchantId(data?.merchant_id || merchant || '');
       setPbStatus(data?.status || 'pending');
       setPbLastError('');
       setFlash(t('ClientIntegrations.prepbusiness.flash.saved'));
@@ -475,6 +488,12 @@ export default function ClientIntegrations() {
     setPpSaving(true);
     setPpLastError('');
     const token = (ppToken || '').trim();
+    const email = (ppEmail || pbEmail || profile?.email || '').trim().toLowerCase();
+    if (!email) {
+      setPpLastError(t('ClientIntegrations.profitPath.errors.emailRequired'));
+      setPpSaving(false);
+      return;
+    }
     if (!token) {
       setPpLastError(t('ClientIntegrations.profitPath.errors.tokenRequired'));
       setPpSaving(false);
@@ -488,12 +507,9 @@ export default function ClientIntegrations() {
           id: pbIntegration?.id,
           user_id: user.id,
           company_id: profile?.company_id || null,
-          email_arbitrage_one:
-            pbIntegration?.email_arbitrage_one ||
-            ((pbEmail || profile?.email || '').trim().toLowerCase() || null),
-          email_prep_business:
-            pbIntegration?.email_prep_business ||
-            ((pbEmail || profile?.email || '').trim().toLowerCase() || null),
+          email_arbitrage_one: email,
+          email_prep_business: email,
+          merchant_id: pbIntegration?.merchant_id || token,
           profit_path_token_id: token,
           status: pbIntegration?.status || 'pending',
           last_error: null,
@@ -509,6 +525,9 @@ export default function ClientIntegrations() {
       setPpLastError(error.message || supportError);
     } else {
       setPbIntegration(data);
+      setPbEmail(data?.email_prep_business || data?.email_arbitrage_one || email);
+      setPpEmail(data?.email_prep_business || data?.email_arbitrage_one || email);
+      setPbMerchantId(data?.merchant_id || token);
       setPbStatus(data?.status || 'pending');
       setPpStatus(data?.status || 'pending');
       setPpLastError('');
@@ -672,6 +691,87 @@ export default function ClientIntegrations() {
       </IntegrationPanel>
 
       <IntegrationPanel
+        id="profit-path"
+        title={t('ClientIntegrations.profitPath.title')}
+        subtitle={t('ClientIntegrations.profitPath.desc')}
+        logo="/branding/integrations/profit-path.svg"
+        fallbackLogo="/branding/integrations/profit-path.svg"
+        openId={openIntegration}
+        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
+      >
+      <section className="border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.profitPath.title')}</h2>
+            <p className="text-sm text-text-secondary">
+              {t('ClientIntegrations.profitPath.desc')}
+            </p>
+          </div>
+          <div className="text-sm">
+            {ppStatus === 'active' || ppStatus === 'mapped' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                <CheckCircle className="w-4 h-4" /> {t('ClientIntegrations.status.active')}
+              </span>
+            ) : ppStatus === 'error' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
+                <AlertTriangle className="w-4 h-4" /> {t('ClientIntegrations.status.error')}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700">
+                <Loader2 className="w-4 h-4" /> {t('ClientIntegrations.status.pending')}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveProfitPath} className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">{t('ClientIntegrations.profitPath.emailLabel')}</label>
+            <input
+              type="email"
+              value={ppEmail}
+              onChange={(e) => setPpEmail(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+              placeholder={t('ClientIntegrations.profitPath.emailPlaceholder')}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">{t('ClientIntegrations.profitPath.tokenLabel')}</label>
+            <input
+              type="text"
+              value={ppToken}
+              onChange={(e) => setPpToken(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+              placeholder={t('ClientIntegrations.profitPath.tokenPlaceholder')}
+              required
+            />
+          </div>
+          <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
+            <p>{t('ClientIntegrations.profitPath.helper')}</p>
+            <p>{t('ClientIntegrations.profitPath.apiWhere')}</p>
+            <p>{t('ClientIntegrations.profitPath.apiMerchantId')}</p>
+          </div>
+          <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
+            <button
+              type="submit"
+              disabled={ppSaving || ppLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+            >
+              {ppSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+              {t('ClientIntegrations.profitPath.save')}
+            </button>
+          </div>
+        </form>
+
+        {ppLastError && (
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{ppLastError}</div>
+        )}
+
+      </section>
+      </IntegrationPanel>
+
+      <IntegrationPanel
         id="arbitrage-one"
         title={t('ClientIntegrations.prepbusiness.title')}
         subtitle={t('ClientIntegrations.prepbusiness.desc')}
@@ -721,6 +821,18 @@ export default function ClientIntegrations() {
               required
             />
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">
+              {t('ClientIntegrations.prepbusiness.merchantIdLabel')}
+            </label>
+            <input
+              type="text"
+              value={pbMerchantId}
+              onChange={(e) => setPbMerchantId(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+              placeholder={t('ClientIntegrations.prepbusiness.merchantIdPlaceholder')}
+            />
+          </div>
           <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
             <p>{t('ClientIntegrations.prepbusiness.clientStep')}</p>
             <p>{t('ClientIntegrations.prepbusiness.teamStep')}</p>
@@ -759,76 +871,6 @@ export default function ClientIntegrations() {
         onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
       >
         <ClientUpsIntegration user={user} profile={profile} />
-      </IntegrationPanel>
-
-      <IntegrationPanel
-        id="profit-path"
-        title={t('ClientIntegrations.profitPath.title')}
-        subtitle={t('ClientIntegrations.profitPath.desc')}
-        logo="/branding/integrations/profit-path.svg"
-        fallbackLogo="/branding/integrations/profit-path.svg"
-        openId={openIntegration}
-        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
-      >
-      <section className="border rounded-xl p-5 space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.profitPath.title')}</h2>
-            <p className="text-sm text-text-secondary">
-              {t('ClientIntegrations.profitPath.desc')}
-            </p>
-          </div>
-          <div className="text-sm">
-            {ppStatus === 'active' || ppStatus === 'mapped' ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
-                <CheckCircle className="w-4 h-4" /> {t('ClientIntegrations.status.active')}
-              </span>
-            ) : ppStatus === 'error' ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
-                <AlertTriangle className="w-4 h-4" /> {t('ClientIntegrations.status.error')}
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700">
-                <Loader2 className="w-4 h-4" /> {t('ClientIntegrations.status.pending')}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <form onSubmit={handleSaveProfitPath} className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-text-primary">{t('ClientIntegrations.profitPath.tokenLabel')}</label>
-            <input
-              type="text"
-              value={ppToken}
-              onChange={(e) => setPpToken(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg bg-white"
-              placeholder={t('ClientIntegrations.profitPath.tokenPlaceholder')}
-              required
-            />
-          </div>
-          <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
-            <p>{t('ClientIntegrations.profitPath.helper')}</p>
-            <p>{t('ClientIntegrations.profitPath.apiWhere')}</p>
-            <p>{t('ClientIntegrations.profitPath.apiMerchantId')}</p>
-          </div>
-          <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
-            <button
-              type="submit"
-              disabled={ppSaving || ppLoading}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
-            >
-              {ppSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-              {t('ClientIntegrations.profitPath.save')}
-            </button>
-          </div>
-        </form>
-
-        {ppLastError && (
-          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{ppLastError}</div>
-        )}
-
-      </section>
       </IntegrationPanel>
 
       <IntegrationPanel

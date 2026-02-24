@@ -17,6 +17,13 @@ const StatusBadge = ({ status }) => {
       </span>
     );
   }
+  if (status === 'inactive' || status === 'unassociated') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
+        Inactive
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-amber-50 text-amber-700">
       Pending
@@ -33,6 +40,8 @@ const fmt = (value) => {
   }
 };
 
+const rowKey = (row) => row.id || `user:${row.user_id || 'unknown'}`;
+
 export default function AdminPrepBusinessIntegrations() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,54 +57,77 @@ export default function AdminPrepBusinessIntegrations() {
     setRefreshing(true);
     setMessage('');
 
-    const { data, error } = await supabase
-      .from('prep_business_integrations')
-      .select('*')
-      .order('updated_at', { ascending: false });
+    const [{ data: integrations, error: integrationError }, { data: profiles, error: profilesError }] = await Promise.all([
+      supabase.from('prep_business_integrations').select('*').order('updated_at', { ascending: false }),
+      supabase
+        .from('profiles')
+        .select('id, first_name, last_name, company_name, store_name, email, company_id, account_type, is_admin')
+        .order('created_at', { ascending: false })
+    ]);
 
-    if (error) {
-      setMessage(error.message || 'Could not load integrations.');
+    if (integrationError || profilesError) {
+      setMessage(integrationError?.message || profilesError?.message || 'Could not load integrations.');
       setRows([]);
       setRefreshing(false);
       setLoading(false);
       return;
     }
 
-    const baseRows = data || [];
-    const userIds = Array.from(new Set(baseRows.map((r) => r.user_id).filter(Boolean)));
+    const clientProfiles = (profiles || []).filter(
+      (p) => p?.is_admin !== true && String(p?.account_type || '').toLowerCase() !== 'admin'
+    );
 
-    let profileMap = {};
-    if (userIds.length) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, company_name, store_name, email')
-        .in('id', userIds);
-      profileMap = Array.isArray(profiles)
-        ? profiles.reduce((acc, p) => {
-            acc[p.id] = p;
-            return acc;
-          }, {})
-        : {};
-    }
+    const byUserId = new Map();
+    (integrations || []).forEach((row) => {
+      if (row?.user_id && !byUserId.has(row.user_id)) byUserId.set(row.user_id, row);
+    });
 
-    const enriched = baseRows.map((row) => ({
-      ...row,
-      profile: profileMap[row.user_id] || null
-    }));
+    const mergedRows = clientProfiles.map((profile) => {
+      const integration = byUserId.get(profile.id);
+      if (integration) {
+        return {
+          ...integration,
+          profile,
+          _rowKey: rowKey(integration)
+        };
+      }
+      return {
+        id: null,
+        user_id: profile.id,
+        company_id: profile.company_id || null,
+        email_arbitrage_one: null,
+        email_prep_business: null,
+        merchant_id: null,
+        profit_path_token_id: null,
+        status: 'inactive',
+        last_error: null,
+        last_synced_at: null,
+        created_at: null,
+        updated_at: null,
+        profile,
+        _rowKey: `user:${profile.id}`
+      };
+    });
+
+    const unknownIntegrations = (integrations || [])
+      .filter((row) => row?.user_id && !clientProfiles.some((p) => p.id === row.user_id))
+      .map((row) => ({ ...row, profile: null, _rowKey: rowKey(row) }));
+
+    const enriched = [...mergedRows, ...unknownIntegrations];
 
     const merchantMap = {};
     const tokenMap = {};
     enriched.forEach((row) => {
-      merchantMap[row.id] = row.merchant_id ? String(row.merchant_id) : '';
-      tokenMap[row.id] = row.profit_path_token_id ? String(row.profit_path_token_id) : '';
+      merchantMap[row._rowKey] = row.merchant_id ? String(row.merchant_id) : '';
+      tokenMap[row._rowKey] = row.profit_path_token_id ? String(row.profit_path_token_id) : '';
     });
     setMerchantDrafts(merchantMap);
     setTokenDrafts(tokenMap);
 
     const sorted = enriched.sort((a, b) => {
-      const aPending = (a.status || 'pending') === 'pending' ? 1 : 0;
-      const bPending = (b.status || 'pending') === 'pending' ? 1 : 0;
-      if (aPending !== bPending) return bPending - aPending;
+      const aInactive = ['inactive', 'unassociated'].includes(a.status || '') ? 1 : 0;
+      const bInactive = ['inactive', 'unassociated'].includes(b.status || '') ? 1 : 0;
+      if (aInactive !== bInactive) return aInactive - bInactive;
       const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
       const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
       return bTime - aTime;
@@ -111,14 +143,34 @@ export default function AdminPrepBusinessIntegrations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const upsertIntegration = async (row, patch) => {
+    const payload = {
+      id: row?.id || undefined,
+      user_id: row?.user_id,
+      company_id: row?.company_id || row?.profile?.company_id || null,
+      email_arbitrage_one: row?.email_arbitrage_one || row?.email_prep_business || row?.profile?.email || null,
+      email_prep_business: row?.email_prep_business || row?.email_arbitrage_one || row?.profile?.email || null,
+      status: row?.status && !['inactive', 'unassociated'].includes(row.status) ? row.status : 'pending',
+      merchant_id: row?.merchant_id || null,
+      profit_path_token_id: row?.profit_path_token_id || null,
+      last_error: row?.last_error || null,
+      updated_at: new Date().toISOString(),
+      created_at: row?.created_at || new Date().toISOString(),
+      ...patch
+    };
+
+    const { error } = await supabase
+      .from('prep_business_integrations')
+      .upsert(payload, { onConflict: 'user_id' });
+    return { error };
+  };
+
   const handleConfirm = async (row) => {
-    if (!row?.id) return;
-    setConfirming(row.id);
+    if (!row?.user_id) return;
+    const key = row._rowKey;
+    setConfirming(key);
     try {
-      const { error } = await supabase
-        .from('prep_business_integrations')
-        .update({ status: 'mapped', last_error: null, updated_at: new Date().toISOString() })
-        .eq('id', row.id);
+      const { error } = await upsertIntegration(row, { status: 'mapped', last_error: null });
       if (error) throw error;
       await load();
     } catch (err) {
@@ -129,17 +181,16 @@ export default function AdminPrepBusinessIntegrations() {
   };
 
   const handleMerchantSave = async (row) => {
-    if (!row?.id) return;
-    const value = (merchantDrafts[row.id] || '').trim();
-    setSavingMerchant(row.id);
+    if (!row?.user_id) return;
+    const key = row._rowKey;
+    const value = (merchantDrafts[key] || '').trim();
+    setSavingMerchant(key);
     try {
-      const { error } = await supabase
-        .from('prep_business_integrations')
-        .update({
-          merchant_id: value || null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', row.id);
+      const tokenValue = (tokenDrafts[key] || '').trim();
+      const { error } = await upsertIntegration(row, {
+        merchant_id: value || null,
+        profit_path_token_id: tokenValue || value || row?.profit_path_token_id || null
+      });
       if (error) throw error;
       await load();
     } catch (err) {
@@ -150,17 +201,16 @@ export default function AdminPrepBusinessIntegrations() {
   };
 
   const handleTokenSave = async (row) => {
-    if (!row?.id) return;
-    const value = (tokenDrafts[row.id] || '').trim();
-    setSavingToken(row.id);
+    if (!row?.user_id) return;
+    const key = row._rowKey;
+    const value = (tokenDrafts[key] || '').trim();
+    setSavingToken(key);
     try {
-      const { error } = await supabase
-        .from('prep_business_integrations')
-        .update({
-          profit_path_token_id: value || null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', row.id);
+      const merchantValue = (merchantDrafts[key] || '').trim();
+      const { error } = await upsertIntegration(row, {
+        profit_path_token_id: value || null,
+        merchant_id: merchantValue || value || row?.merchant_id || null
+      });
       if (error) throw error;
       await load();
     } catch (err) {
@@ -176,7 +226,7 @@ export default function AdminPrepBusinessIntegrations() {
         <div>
           <h3 className="text-lg font-semibold text-text-primary">PrepBusiness Client Mapping (A1 + Profit Path)</h3>
           <p className="text-sm text-text-secondary">
-            Ambele integrări mapează clientul în același flux PrepBusiness.
+            Clients without setup are shown as inactive until they create their PrepBusiness account.
           </p>
         </div>
         <button
@@ -200,97 +250,100 @@ export default function AdminPrepBusinessIntegrations() {
           Loading integrations…
         </div>
       ) : rows.length === 0 ? (
-        <div className="text-sm text-text-secondary">No integrations yet.</div>
+        <div className="text-sm text-text-secondary">No clients found.</div>
       ) : (
         <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
-          {rows.map((row) => (
-            <div key={row.id} className="px-4 py-3 bg-white flex flex-wrap items-start gap-3">
-              <div className="flex-1 min-w-[240px]">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-text-primary">
-                    {row.email_prep_business || row.email_arbitrage_one || row.profit_path_token_id || 'Unknown mapping'}
-                  </span>
-                  <StatusBadge status={row.status} />
-                </div>
-                <div className="text-xs text-text-secondary">
-                  AO: {row.email_arbitrage_one || '—'} · PB: {row.email_prep_business || '—'}
-                </div>
-                <div className="text-xs text-text-secondary">
-                  Profit Path token: {row.profit_path_token_id || '—'}
-                </div>
-                <div className="text-xs text-text-secondary">
-                  Merchant: {row.merchant_id || '—'} · Last sync: {fmt(row.last_synced_at)} · Updated: {fmt(row.updated_at)}
-                </div>
-                {row.profile && (
+          {rows.map((row) => {
+            const key = row._rowKey;
+            return (
+              <div key={key} className="px-4 py-3 bg-white flex flex-wrap items-start gap-3">
+                <div className="flex-1 min-w-[240px]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-text-primary">
+                      {row.email_prep_business || row.email_arbitrage_one || row.profit_path_token_id || row.profile?.email || 'Unknown mapping'}
+                    </span>
+                    <StatusBadge status={row.status} />
+                  </div>
                   <div className="text-xs text-text-secondary">
-                    Client: {row.profile.company_name || row.profile.store_name || '—'} · {row.profile.email || '—'}
+                    AO: {row.email_arbitrage_one || '—'} · PB: {row.email_prep_business || '—'}
                   </div>
-                )}
-                {row.last_error && (
-                  <div className="text-xs text-red-600 mt-1 break-all">
-                    <AlertTriangle className="inline w-3 h-3 mr-1" />
-                    {row.last_error}
+                  <div className="text-xs text-text-secondary">
+                    Profit Path token: {row.profit_path_token_id || '—'}
                   </div>
-                )}
-              </div>
-              <div className="flex items-center gap-3 text-xs text-text-light flex-wrap">
-                <span>User: {row.user_id || '—'} · Company: {row.company_id || '—'}</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    className="w-36 px-2 py-1 border rounded text-xs"
-                    placeholder="Merchant ID"
-                    value={merchantDrafts[row.id] ?? ''}
-                    onChange={(e) =>
-                      setMerchantDrafts((prev) => ({ ...prev, [row.id]: e.target.value }))
-                    }
-                  />
-                  <button
-                    onClick={() => handleMerchantSave(row)}
-                    disabled={savingMerchant === row.id}
-                    className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
-                  >
-                    {savingMerchant === row.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                    Save ID
-                  </button>
+                  <div className="text-xs text-text-secondary">
+                    Merchant: {row.merchant_id || '—'} · Last sync: {fmt(row.last_synced_at)} · Updated: {fmt(row.updated_at)}
+                  </div>
+                  {row.profile && (
+                    <div className="text-xs text-text-secondary">
+                      Client: {row.profile.company_name || row.profile.store_name || '—'} · {row.profile.email || '—'}
+                    </div>
+                  )}
+                  {row.last_error && (
+                    <div className="text-xs text-red-600 mt-1 break-all">
+                      <AlertTriangle className="inline w-3 h-3 mr-1" />
+                      {row.last_error}
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    className="w-44 px-2 py-1 border rounded text-xs"
-                    placeholder="Profit Path token"
-                    value={tokenDrafts[row.id] ?? ''}
-                    onChange={(e) =>
-                      setTokenDrafts((prev) => ({ ...prev, [row.id]: e.target.value }))
-                    }
-                  />
-                  <button
-                    onClick={() => handleTokenSave(row)}
-                    disabled={savingToken === row.id}
-                    className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
-                  >
-                    {savingToken === row.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                    Save token
-                  </button>
+                <div className="flex items-center gap-3 text-xs text-text-light flex-wrap">
+                  <span>User: {row.user_id || '—'} · Company: {row.company_id || row.profile?.company_id || '—'}</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="w-36 px-2 py-1 border rounded text-xs"
+                      placeholder="Merchant ID"
+                      value={merchantDrafts[key] ?? ''}
+                      onChange={(e) =>
+                        setMerchantDrafts((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                    />
+                    <button
+                      onClick={() => handleMerchantSave(row)}
+                      disabled={savingMerchant === key}
+                      className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
+                    >
+                      {savingMerchant === key ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                      Save ID
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      className="w-44 px-2 py-1 border rounded text-xs"
+                      placeholder="Profit Path token"
+                      value={tokenDrafts[key] ?? ''}
+                      onChange={(e) =>
+                        setTokenDrafts((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                    />
+                    <button
+                      onClick={() => handleTokenSave(row)}
+                      disabled={savingToken === key}
+                      className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
+                    >
+                      {savingToken === key ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                      Save token
+                    </button>
+                  </div>
+                  {(row.status || 'pending') === 'pending' && (
+                    <button
+                      onClick={() => handleConfirm(row)}
+                      disabled={confirming === key}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-60"
+                    >
+                      {confirming === key ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-3 h-3" />
+                      )}
+                      Confirm account created
+                    </button>
+                  )}
                 </div>
-                {(row.status || 'pending') === 'pending' && (
-                  <button
-                    onClick={() => handleConfirm(row)}
-                    disabled={confirming === row.id}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-60"
-                  >
-                    {confirming === row.id ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <CheckCircle className="w-3 h-3" />
-                    )}
-                    Confirm account created
-                  </button>
-                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

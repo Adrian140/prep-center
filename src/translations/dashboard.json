@@ -743,7 +743,9 @@
         },
         "flash": {
           "saved": "Arbitrage One mapping saved. We will sync receptions automatically."
-        }
+        },
+        "merchantIdLabel": "Merchant ID (5 digits)",
+        "merchantIdPlaceholder": "e.g. 23214"
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -808,11 +810,14 @@
         "apiMerchantId": "Use the 5-digit Merchant ID shown in the Api tab (App / Merchant ID).",
         "save": "Save token",
         "errors": {
-          "tokenRequired": "Profit Path token is required."
+          "tokenRequired": "Profit Path token is required.",
+          "emailRequired": "Profit Path email is required."
         },
         "flash": {
           "saved": "Profit Path mapping saved. We will sync receptions automatically."
-        }
+        },
+        "emailLabel": "Profit Path account email",
+        "emailPlaceholder": "you@profitpath.com"
       }
     },
     "ClientAffiliates": {
@@ -1742,7 +1747,9 @@
         },
         "flash": {
           "saved": "Maparea Arbitrage One a fost salvată. Vom sincroniza automat recepțiile."
-        }
+        },
+        "merchantIdLabel": "Merchant ID (5 cifre)",
+        "merchantIdPlaceholder": "ex: 23214"
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -1807,11 +1814,14 @@
         "apiMerchantId": "Folosește Merchant ID-ul de 5 cifre din tab-ul Api (App / Merchant ID).",
         "save": "Salvează token",
         "errors": {
-          "tokenRequired": "Token-ul Profit Path este obligatoriu."
+          "tokenRequired": "Token-ul Profit Path este obligatoriu.",
+          "emailRequired": "Emailul Profit Path este obligatoriu."
         },
         "flash": {
           "saved": "Maparea Profit Path a fost salvată. Vom sincroniza automat recepțiile."
-        }
+        },
+        "emailLabel": "Email cont Profit Path",
+        "emailPlaceholder": "tu@profitpath.com"
       }
     },
     "ClientAffiliates": {
@@ -2789,7 +2799,9 @@
         },
         "flash": {
           "saved": "Le mapping Arbitrage One a été enregistré. Nous synchroniserons les réceptions automatiquement."
-        }
+        },
+        "merchantIdLabel": "Merchant ID (5 chiffres)",
+        "merchantIdPlaceholder": "ex : 23214"
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -2854,11 +2866,14 @@
         "apiMerchantId": "Utilisez le Merchant ID à 5 chiffres affiché dans l’onglet Api (App / Merchant ID).",
         "save": "Enregistrer le token",
         "errors": {
-          "tokenRequired": "Le token Profit Path est requis."
+          "tokenRequired": "Le token Profit Path est requis.",
+          "emailRequired": "L’e-mail Profit Path est requis."
         },
         "flash": {
           "saved": "Le mapping Profit Path a été enregistré. Nous synchroniserons les réceptions automatiquement."
-        }
+        },
+        "emailLabel": "Email du compte Profit Path",
+        "emailPlaceholder": "vous@profitpath.com"
       }
     },
     "reportsMenu": {
@@ -3706,7 +3721,9 @@
         },
         "flash": {
           "saved": "Arbitrage-One-Mapping gespeichert. Wir synchronisieren die Wareneingänge automatisch."
-        }
+        },
+        "merchantIdLabel": "Merchant ID (5-stellig)",
+        "merchantIdPlaceholder": "z. B. 23214"
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -3771,11 +3788,14 @@
         "apiMerchantId": "Verwende die 5-stellige Merchant ID aus dem Api-Tab (App / Merchant ID).",
         "save": "Token speichern",
         "errors": {
-          "tokenRequired": "Das Profit-Path-Token ist erforderlich."
+          "tokenRequired": "Das Profit-Path-Token ist erforderlich.",
+          "emailRequired": "Die Profit-Path-E-Mail ist erforderlich."
         },
         "flash": {
           "saved": "Profit-Path-Mapping gespeichert. Wir synchronisieren die Wareneingänge automatisch."
-        }
+        },
+        "emailLabel": "Profit-Path-Konto-E-Mail",
+        "emailPlaceholder": "du@profitpath.com"
       }
     },
     "reportsMenu": {
@@ -4623,7 +4643,9 @@
         },
         "flash": {
           "saved": "Mapping Arbitrage One salvato. Sincronizzeremo automaticamente le receptions."
-        }
+        },
+        "merchantIdLabel": "Merchant ID (5 cifre)",
+        "merchantIdPlaceholder": "es: 23214"
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -4688,11 +4710,14 @@
         "apiMerchantId": "Usa il Merchant ID a 5 cifre mostrato nella scheda Api (App / Merchant ID).",
         "save": "Salva token",
         "errors": {
-          "tokenRequired": "Il token Profit Path è obbligatorio."
+          "tokenRequired": "Il token Profit Path è obbligatorio.",
+          "emailRequired": "L’email Profit Path è obbligatoria."
         },
         "flash": {
           "saved": "Mapping Profit Path salvato. Sincronizzeremo automaticamente le receptions."
-        }
+        },
+        "emailLabel": "Email account Profit Path",
+        "emailPlaceholder": "tu@profitpath.com"
       }
     },
     "reportsMenu": {
@@ -5540,7 +5565,9 @@
         },
         "flash": {
           "saved": "El mapeo de Arbitrage One se guardó. Sincronizaremos las recepciones automáticamente."
-        }
+        },
+        "merchantIdLabel": "Merchant ID (5 dígitos)",
+        "merchantIdPlaceholder": "ej.: 23214"
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -5605,11 +5632,14 @@
         "apiMerchantId": "Usa el Merchant ID de 5 dígitos que aparece en la pestaña Api (App / Merchant ID).",
         "save": "Guardar token",
         "errors": {
-          "tokenRequired": "El token de Profit Path es obligatorio."
+          "tokenRequired": "El token de Profit Path es obligatorio.",
+          "emailRequired": "El correo de Profit Path es obligatorio."
         },
         "flash": {
           "saved": "El mapeo de Profit Path se guardó. Sincronizaremos las recepciones automáticamente."
-        }
+        },
+        "emailLabel": "Correo de la cuenta Profit Path",
+        "emailPlaceholder": "tu@profitpath.com"
       }
     },
     "reportsMenu": {
