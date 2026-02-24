@@ -1,0 +1,45 @@
+name: Sync PrepBusiness Inbounds
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+
+concurrency:
+  group: sync-prepbusiness-inbounds
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Supabase prepbusiness-sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE:-}" ]; then
+            echo "Missing secrets: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE"
+            exit 1
+          fi
+
+          ENDPOINT="${SUPABASE_URL%/}/functions/v1/prepbusiness-sync"
+          echo "Calling $ENDPOINT"
+
+          TMP_BODY="$(mktemp)"
+          HTTP_CODE=$(curl -sS -o "$TMP_BODY" -w "%{http_code}" \
+            -X POST "$ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE" \
+            --data '{}')
+
+          echo "HTTP $HTTP_CODE"
+          cat "$TMP_BODY"
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "prepbusiness-sync failed"
+            exit 1
+          fi

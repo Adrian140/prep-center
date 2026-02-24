@@ -71,6 +71,22 @@ async function resolveMerchantContext(payload: Record<string, unknown>) {
     if (data) {
       return { merchantId, companyId: data.company_id, userId: data.user_id, mapping: data };
     }
+
+    const { data: integrationByMerchant } = await supabase
+      .from("prep_business_integrations")
+      .select("*")
+      .ilike("merchant_id", String(merchantId))
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (integrationByMerchant) {
+      return {
+        merchantId: integrationByMerchant.merchant_id || merchantId,
+        companyId: integrationByMerchant.company_id,
+        userId: integrationByMerchant.user_id,
+        integration: integrationByMerchant
+      };
+    }
   }
 
   if (email) {
@@ -514,23 +530,67 @@ async function handleSync(req: Request) {
     return jsonResponse({ error: error.message || "Could not load prep_merchants." }, 500);
   }
 
+  const { data: integrationMerchants, error: integrationMerchantsError } = await supabase
+    .from("prep_business_integrations")
+    .select("id, merchant_id, company_id, user_id, last_synced_at, status")
+    .not("merchant_id", "is", null)
+    .in("status", ["active", "mapped", "pending"]);
+  if (integrationMerchantsError) {
+    return jsonResponse(
+      { error: integrationMerchantsError.message || "Could not load prep_business_integrations." },
+      500
+    );
+  }
+
+  const merchantMap = new Map<string, Record<string, unknown>>();
+  for (const row of merchants || []) {
+    const key = normalizeText((row as Record<string, unknown>).merchant_id);
+    if (!key) continue;
+    merchantMap.set(String(key), { ...(row as Record<string, unknown>) });
+  }
+  for (const row of integrationMerchants || []) {
+    const merchantId = normalizeText((row as Record<string, unknown>).merchant_id);
+    if (!merchantId) continue;
+    if (!merchantMap.has(String(merchantId))) {
+      merchantMap.set(String(merchantId), {
+        merchant_id: merchantId,
+        company_id: (row as Record<string, unknown>).company_id || null,
+        user_id: (row as Record<string, unknown>).user_id || null,
+        last_sync_at: (row as Record<string, unknown>).last_synced_at || null,
+        integration_id: (row as Record<string, unknown>).id || null
+      });
+      continue;
+    }
+    const current = merchantMap.get(String(merchantId)) || {};
+    merchantMap.set(String(merchantId), {
+      ...current,
+      integration_id: current.integration_id || (row as Record<string, unknown>).id || null,
+      company_id: current.company_id || (row as Record<string, unknown>).company_id || null,
+      user_id: current.user_id || (row as Record<string, unknown>).user_id || null,
+      last_sync_at: current.last_sync_at || (row as Record<string, unknown>).last_synced_at || null
+    });
+  }
+
+  const syncMerchants = Array.from(merchantMap.values());
+
   const results = [];
-  for (const merchant of merchants || []) {
+  for (const merchant of syncMerchants) {
     const since = merchant.last_sync_at ? String(merchant.last_sync_at) : null;
-    const inboundList = await fetchInbounds(merchant.merchant_id, since);
+    if (!merchant.merchant_id) continue;
+    const inboundList = await fetchInbounds(String(merchant.merchant_id), since);
     for (const inbound of inboundList) {
       const shipmentId = normalizeText((inbound as Record<string, unknown>)?.id || null);
       let items: Array<Record<string, unknown>> = [];
       let details: Record<string, unknown> | null = null;
       if (shipmentId) {
         try {
-          const rawItems = await fetchInboundItems(merchant.merchant_id, shipmentId);
+          const rawItems = await fetchInboundItems(String(merchant.merchant_id), shipmentId);
           items = mapInboundItems(rawItems as Array<Record<string, unknown>>);
         } catch (error) {
           console.warn("PrepBusiness items fetch failed", shipmentId, error?.message || error);
         }
         try {
-          details = await fetchInboundDetails(merchant.merchant_id, shipmentId) as Record<string, unknown>;
+          details = await fetchInboundDetails(String(merchant.merchant_id), shipmentId) as Record<string, unknown>;
         } catch (error) {
           console.warn("PrepBusiness shipment fetch failed", shipmentId, error?.message || error);
         }
@@ -556,10 +616,18 @@ async function handleSync(req: Request) {
       const result = await importInbound(payload as Record<string, unknown>);
       results.push(result);
     }
-    await supabase
-      .from("prep_merchants")
-      .update({ last_sync_at: new Date().toISOString() })
-      .eq("id", merchant.id);
+    if (merchant.id) {
+      await supabase
+        .from("prep_merchants")
+        .update({ last_sync_at: new Date().toISOString() })
+        .eq("id", merchant.id);
+    }
+    if (merchant.integration_id) {
+      await supabase
+        .from("prep_business_integrations")
+        .update({ last_synced_at: new Date().toISOString() })
+        .eq("id", merchant.integration_id);
+    }
   }
 
   return jsonResponse({ ok: true, mode: "api", imported: results.length, results });

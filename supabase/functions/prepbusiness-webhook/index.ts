@@ -68,6 +68,22 @@ async function resolveMerchantContext(payload: Record<string, unknown>) {
     if (data) {
       return { merchantId, companyId: data.company_id, userId: data.user_id, mapping: data };
     }
+
+    const { data: integrationByMerchant } = await supabase
+      .from("prep_business_integrations")
+      .select("*")
+      .ilike("merchant_id", String(merchantId))
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (integrationByMerchant) {
+      return {
+        merchantId: integrationByMerchant.merchant_id || merchantId,
+        companyId: integrationByMerchant.company_id,
+        userId: integrationByMerchant.user_id,
+        integration: integrationByMerchant
+      };
+    }
   }
 
   if (email) {
