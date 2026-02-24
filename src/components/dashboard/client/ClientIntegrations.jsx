@@ -187,6 +187,13 @@ export default function ClientIntegrations() {
   const [ppLastError, setPpLastError] = useState('');
   const [ppLoading, setPpLoading] = useState(true);
   const [ppSaving, setPpSaving] = useState(false);
+  const [visibility, setVisibility] = useState({
+    amazon: true,
+    profitPath: true,
+    arbitrageOne: true,
+    ups: true,
+    qogita: true
+  });
   const [openIntegration, setOpenIntegration] = useState('ups');
 
   const clientId = import.meta.env.VITE_SPAPI_CLIENT_ID || '';
@@ -352,6 +359,40 @@ export default function ClientIntegrations() {
     loadPrepBusiness();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, profile?.email, profile?.contact_email, profile?.company_email]);
+
+  useEffect(() => {
+    const loadVisibility = async () => {
+      if (!user?.id) return;
+      const { data } = await supabase
+        .from('client_integration_visibility')
+        .select('show_amazon, show_profit_path, show_arbitrage_one, show_ups, show_qogita')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!data) return;
+      setVisibility({
+        amazon: data.show_amazon !== false,
+        profitPath: data.show_profit_path !== false,
+        arbitrageOne: data.show_arbitrage_one !== false,
+        ups: data.show_ups !== false,
+        qogita: data.show_qogita !== false
+      });
+    };
+    loadVisibility();
+  }, [user?.id]);
+
+  useEffect(() => {
+    const order = ['amazon', 'profit-path', 'arbitrage-one', 'ups', 'qogita'];
+    const map = {
+      amazon: visibility.amazon,
+      'profit-path': visibility.profitPath,
+      'arbitrage-one': visibility.arbitrageOne,
+      ups: visibility.ups,
+      qogita: visibility.qogita
+    };
+    if (map[openIntegration]) return;
+    const firstVisible = order.find((id) => map[id]);
+    if (firstVisible) setOpenIntegration(firstVisible);
+  }, [visibility, openIntegration]);
 
   const removeIntegration = async (id) => {
     if (!window.confirm(t('ClientIntegrations.confirmDisconnect'))) return;
@@ -567,7 +608,7 @@ export default function ClientIntegrations() {
         </div>
       )}
 
-      <IntegrationPanel
+      {visibility.amazon && <IntegrationPanel
         id="amazon"
         title={t('ClientIntegrations.amazonTitle', 'Amazon Seller Central')}
         subtitle={t('ClientIntegrations.instructions')}
@@ -685,9 +726,9 @@ export default function ClientIntegrations() {
           )}
         </div>
       </section>
-      </IntegrationPanel>
+      </IntegrationPanel>}
 
-      <IntegrationPanel
+      {visibility.profitPath && <IntegrationPanel
         id="profit-path"
         title={t('ClientIntegrations.profitPath.title')}
         subtitle={t('ClientIntegrations.profitPath.desc')}
@@ -766,9 +807,9 @@ export default function ClientIntegrations() {
         )}
 
       </section>
-      </IntegrationPanel>
+      </IntegrationPanel>}
 
-      <IntegrationPanel
+      {visibility.arbitrageOne && <IntegrationPanel
         id="arbitrage-one"
         title={t('ClientIntegrations.prepbusiness.title')}
         subtitle={t('ClientIntegrations.prepbusiness.desc')}
@@ -856,9 +897,9 @@ export default function ClientIntegrations() {
         )}
 
       </section>
-      </IntegrationPanel>
+      </IntegrationPanel>}
 
-      <IntegrationPanel
+      {visibility.ups && <IntegrationPanel
         id="ups"
         title="UPS"
         subtitle="Conectare, etichete și facturi UPS"
@@ -868,9 +909,9 @@ export default function ClientIntegrations() {
         onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
       >
         <ClientUpsIntegration user={user} profile={profile} />
-      </IntegrationPanel>
+      </IntegrationPanel>}
 
-      <IntegrationPanel
+      {visibility.qogita && <IntegrationPanel
         id="qogita"
         title={t('ClientIntegrations.qogita.title')}
         subtitle={t('ClientIntegrations.qogita.desc')}
@@ -947,7 +988,7 @@ export default function ClientIntegrations() {
           )}
         </div>
       </section>
-      </IntegrationPanel>
+      </IntegrationPanel>}
 
       {showQogitaModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">

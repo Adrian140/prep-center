@@ -50,23 +50,28 @@ export default function AdminPrepBusinessIntegrations() {
   const [confirming, setConfirming] = useState(null);
   const [merchantDrafts, setMerchantDrafts] = useState({});
   const [tokenDrafts, setTokenDrafts] = useState({});
+  const [visibilityDrafts, setVisibilityDrafts] = useState({});
   const [savingMerchant, setSavingMerchant] = useState(null);
   const [savingToken, setSavingToken] = useState(null);
+  const [savingVisibility, setSavingVisibility] = useState(null);
 
   const load = async () => {
     setRefreshing(true);
     setMessage('');
 
-    const [{ data: integrations, error: integrationError }, { data: profiles, error: profilesError }] = await Promise.all([
+    const [{ data: integrations, error: integrationError }, { data: profiles, error: profilesError }, { data: visibilityRows, error: visibilityError }] = await Promise.all([
       supabase.from('prep_business_integrations').select('*').order('updated_at', { ascending: false }),
       supabase
         .from('profiles')
         .select('id, first_name, last_name, company_name, store_name, email, company_id, account_type, is_admin')
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('client_integration_visibility')
+        .select('user_id, show_amazon, show_profit_path, show_arbitrage_one, show_ups, show_qogita')
     ]);
 
-    if (integrationError || profilesError) {
-      setMessage(integrationError?.message || profilesError?.message || 'Could not load integrations.');
+    if (integrationError || profilesError || visibilityError) {
+      setMessage(integrationError?.message || profilesError?.message || visibilityError?.message || 'Could not load integrations.');
       setRows([]);
       setRefreshing(false);
       setLoading(false);
@@ -81,12 +86,24 @@ export default function AdminPrepBusinessIntegrations() {
     (integrations || []).forEach((row) => {
       if (row?.user_id && !byUserId.has(row.user_id)) byUserId.set(row.user_id, row);
     });
+    const visibilityByUser = new Map();
+    (visibilityRows || []).forEach((row) => {
+      if (row?.user_id) visibilityByUser.set(row.user_id, row);
+    });
 
     const mergedRows = clientProfiles.map((profile) => {
       const integration = byUserId.get(profile.id);
+      const vis = visibilityByUser.get(profile.id) || {};
       if (integration) {
         return {
           ...integration,
+          visibility: {
+            amazon: vis.show_amazon !== false,
+            profitPath: vis.show_profit_path !== false,
+            arbitrageOne: vis.show_arbitrage_one !== false,
+            ups: vis.show_ups !== false,
+            qogita: vis.show_qogita !== false
+          },
           profile,
           _rowKey: rowKey(integration)
         };
@@ -104,6 +121,13 @@ export default function AdminPrepBusinessIntegrations() {
         last_synced_at: null,
         created_at: null,
         updated_at: null,
+        visibility: {
+          amazon: vis.show_amazon !== false,
+          profitPath: vis.show_profit_path !== false,
+          arbitrageOne: vis.show_arbitrage_one !== false,
+          ups: vis.show_ups !== false,
+          qogita: vis.show_qogita !== false
+        },
         profile,
         _rowKey: `user:${profile.id}`
       };
@@ -111,18 +135,41 @@ export default function AdminPrepBusinessIntegrations() {
 
     const unknownIntegrations = (integrations || [])
       .filter((row) => row?.user_id && !clientProfiles.some((p) => p.id === row.user_id))
-      .map((row) => ({ ...row, profile: null, _rowKey: rowKey(row) }));
+      .map((row) => {
+        const vis = visibilityByUser.get(row.user_id) || {};
+        return {
+          ...row,
+          visibility: {
+            amazon: vis.show_amazon !== false,
+            profitPath: vis.show_profit_path !== false,
+            arbitrageOne: vis.show_arbitrage_one !== false,
+            ups: vis.show_ups !== false,
+            qogita: vis.show_qogita !== false
+          },
+          profile: null,
+          _rowKey: rowKey(row)
+        };
+      });
 
     const enriched = [...mergedRows, ...unknownIntegrations];
 
     const merchantMap = {};
     const tokenMap = {};
+    const visibilityMap = {};
     enriched.forEach((row) => {
       merchantMap[row._rowKey] = row.merchant_id ? String(row.merchant_id) : '';
       tokenMap[row._rowKey] = row.profit_path_token_id ? String(row.profit_path_token_id) : '';
+      visibilityMap[row._rowKey] = {
+        amazon: row.visibility?.amazon !== false,
+        profitPath: row.visibility?.profitPath !== false,
+        arbitrageOne: row.visibility?.arbitrageOne !== false,
+        ups: row.visibility?.ups !== false,
+        qogita: row.visibility?.qogita !== false
+      };
     });
     setMerchantDrafts(merchantMap);
     setTokenDrafts(tokenMap);
+    setVisibilityDrafts(visibilityMap);
 
     const sorted = enriched.sort((a, b) => {
       const aInactive = ['inactive', 'unassociated'].includes(a.status || '') ? 1 : 0;
@@ -220,6 +267,43 @@ export default function AdminPrepBusinessIntegrations() {
     }
   };
 
+  const handleVisibilitySave = async (row, patch) => {
+    if (!row?.user_id) return;
+    const key = row._rowKey;
+    setSavingVisibility(`${key}:${Object.keys(patch).join(',')}`);
+    try {
+      const current = visibilityDrafts[key] || {
+        amazon: true,
+        profitPath: true,
+        arbitrageOne: true,
+        ups: true,
+        qogita: true
+      };
+      const next = { ...current, ...patch };
+      const { error } = await supabase
+        .from('client_integration_visibility')
+        .upsert(
+          {
+            user_id: row.user_id,
+            company_id: row.company_id || row.profile?.company_id || null,
+            show_amazon: next.amazon,
+            show_profit_path: next.profitPath,
+            show_arbitrage_one: next.arbitrageOne,
+            show_ups: next.ups,
+            show_qogita: next.qogita,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: 'user_id' }
+        );
+      if (error) throw error;
+      setVisibilityDrafts((prev) => ({ ...prev, [key]: next }));
+    } catch (err) {
+      setMessage(err?.message || 'Could not save visibility setting.');
+    } finally {
+      setSavingVisibility(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -270,9 +354,18 @@ export default function AdminPrepBusinessIntegrations() {
                   <div className="text-xs text-text-secondary">
                     Profit Path token: {row.profit_path_token_id || '—'}
                   </div>
-                  <div className="text-xs text-text-secondary">
-                    Merchant: {row.merchant_id || '—'} · Last sync: {fmt(row.last_synced_at)} · Updated: {fmt(row.updated_at)}
-                  </div>
+                <div className="text-xs text-text-secondary">
+                  Merchant: {row.merchant_id || '—'} · Last sync: {fmt(row.last_synced_at)} · Updated: {fmt(row.updated_at)}
+                </div>
+                <div className="text-xs text-text-secondary">
+                  Visibility:
+                  {' '}
+                  {visibilityDrafts[key]?.amazon !== false ? 'Amazon ' : ''}
+                  {visibilityDrafts[key]?.profitPath !== false ? 'ProfitPath ' : ''}
+                  {visibilityDrafts[key]?.arbitrageOne !== false ? 'A1 ' : ''}
+                  {visibilityDrafts[key]?.ups !== false ? 'UPS ' : ''}
+                  {visibilityDrafts[key]?.qogita !== false ? 'Qogita' : ''}
+                </div>
                   {row.profile && (
                     <div className="text-xs text-text-secondary">
                       Client: {row.profile.company_name || row.profile.store_name || '—'} · {row.profile.email || '—'}
@@ -287,7 +380,7 @@ export default function AdminPrepBusinessIntegrations() {
                 </div>
                 <div className="flex items-center gap-3 text-xs text-text-light flex-wrap">
                   <span>User: {row.user_id || '—'} · Company: {row.company_id || row.profile?.company_id || '—'}</span>
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                     <input
                       type="text"
                       inputMode="numeric"
@@ -325,8 +418,29 @@ export default function AdminPrepBusinessIntegrations() {
                       {savingToken === key ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                       Save token
                     </button>
-                  </div>
-                  {(row.status || 'pending') === 'pending' && (
+                </div>
+                <div className="flex items-center gap-2 text-[11px]">
+                  {[
+                    ['amazon', 'Amazon'],
+                    ['profitPath', 'Profit Path'],
+                    ['arbitrageOne', 'A1'],
+                    ['ups', 'UPS'],
+                    ['qogita', 'Qogita']
+                  ].map(([field, label]) => (
+                    <label key={field} className="inline-flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={visibilityDrafts[key]?.[field] !== false}
+                        onChange={(e) =>
+                          handleVisibilitySave(row, { [field]: e.target.checked })
+                        }
+                        disabled={Boolean(savingVisibility)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                {(row.status || 'pending') === 'pending' && (
                     <button
                       onClick={() => handleConfirm(row)}
                       disabled={confirming === key}
