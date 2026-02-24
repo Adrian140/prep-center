@@ -735,7 +735,15 @@
         "save": "Save & activate",
         "helper": "Matches inbound shipments by email/merchant and auto-creates receptions in your workspace. Missing destination or tracking will be flagged as pending until you fill them.",
         "envHint": "",
-        "tagHint": ""
+        "tagHint": "",
+        "apiWhere": "In PrepBusiness go to Settings -> Api.",
+        "apiMerchantId": "Use the 5-digit Merchant ID shown in the Api tab (App / Merchant ID).",
+        "errors": {
+          "emailRequired": "Arbitrage One email is required."
+        },
+        "flash": {
+          "saved": "Arbitrage One mapping saved. We will sync receptions automatically."
+        }
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -788,6 +796,22 @@
           "connectError": "UPS connection failed.",
           "disconnectError": "Could not disconnect UPS.",
           "disconnected": "UPS has been disconnected."
+        }
+      },
+      "profitPath": {
+        "title": "Profit Path",
+        "desc": "Add your Profit Path token to map your PrepBusiness client correctly.",
+        "tokenLabel": "Profit Path token",
+        "tokenPlaceholder": "e.g. pp_live_...",
+        "helper": "This token is used only for client mapping and sync of final PrepBusiness data.",
+        "apiWhere": "In PrepBusiness go to Settings -> Api.",
+        "apiMerchantId": "Use the 5-digit Merchant ID shown in the Api tab (App / Merchant ID).",
+        "save": "Save token",
+        "errors": {
+          "tokenRequired": "Profit Path token is required."
+        },
+        "flash": {
+          "saved": "Profit Path mapping saved. We will sync receptions automatically."
         }
       }
     },
@@ -1710,7 +1734,15 @@
         "save": "Salvează și activează",
         "helper": "Asociază inbound shipments după email/merchant și creează automat recepțiile în workspace. Destinația sau tracking lipsă vor fi marcate ca pending.",
         "envHint": "",
-        "tagHint": ""
+        "tagHint": "",
+        "apiWhere": "În PrepBusiness mergi la Settings -> Api.",
+        "apiMerchantId": "Folosește Merchant ID-ul de 5 cifre din tab-ul Api (App / Merchant ID).",
+        "errors": {
+          "emailRequired": "Emailul pentru Arbitrage One este obligatoriu."
+        },
+        "flash": {
+          "saved": "Maparea Arbitrage One a fost salvată. Vom sincroniza automat recepțiile."
+        }
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -1763,6 +1795,22 @@
           "connectError": "Conectarea UPS a eșuat.",
           "disconnectError": "Nu am putut deconecta UPS.",
           "disconnected": "UPS a fost deconectat."
+        }
+      },
+      "profitPath": {
+        "title": "Profit Path",
+        "desc": "Adaugă token-ul Profit Path pentru maparea corectă a clientului în PrepBusiness.",
+        "tokenLabel": "Token Profit Path",
+        "tokenPlaceholder": "ex: pp_live_...",
+        "helper": "Token-ul este folosit doar pentru mapare client și sincronizarea datelor finale din PrepBusiness.",
+        "apiWhere": "În PrepBusiness mergi la Settings -> Api.",
+        "apiMerchantId": "Folosește Merchant ID-ul de 5 cifre din tab-ul Api (App / Merchant ID).",
+        "save": "Salvează token",
+        "errors": {
+          "tokenRequired": "Token-ul Profit Path este obligatoriu."
+        },
+        "flash": {
+          "saved": "Maparea Profit Path a fost salvată. Vom sincroniza automat recepțiile."
         }
       }
     },
@@ -2733,7 +2781,15 @@
         "save": "Enregistrer & activer",
         "helper": "Associe les inbound shipments par email/merchant et crée automatiquement les réceptions dans votre espace. Les destinations ou tracking manquants seront marqués en attente.",
         "envHint": "",
-        "tagHint": ""
+        "tagHint": "",
+        "apiWhere": "Dans PrepBusiness, allez à Settings -> Api.",
+        "apiMerchantId": "Utilisez le Merchant ID à 5 chiffres affiché dans l’onglet Api (App / Merchant ID).",
+        "errors": {
+          "emailRequired": "L’e-mail Arbitrage One est requis."
+        },
+        "flash": {
+          "saved": "Le mapping Arbitrage One a été enregistré. Nous synchroniserons les réceptions automatiquement."
+        }
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -2786,6 +2842,22 @@
           "connectError": "La connexion UPS a échoué.",
           "disconnectError": "Impossible de déconnecter UPS.",
           "disconnected": "UPS a été déconnecté."
+        }
+      },
+      "profitPath": {
+        "title": "Profit Path",
+        "desc": "Ajoutez votre token Profit Path pour mapper correctement votre client PrepBusiness.",
+        "tokenLabel": "Token Profit Path",
+        "tokenPlaceholder": "ex: pp_live_...",
+        "helper": "Ce token est utilisé uniquement pour le mapping client et la synchronisation des données finales PrepBusiness.",
+        "apiWhere": "Dans PrepBusiness, allez à Settings -> Api.",
+        "apiMerchantId": "Utilisez le Merchant ID à 5 chiffres affiché dans l’onglet Api (App / Merchant ID).",
+        "save": "Enregistrer le token",
+        "errors": {
+          "tokenRequired": "Le token Profit Path est requis."
+        },
+        "flash": {
+          "saved": "Le mapping Profit Path a été enregistré. Nous synchroniserons les réceptions automatiquement."
         }
       }
     },
@@ -3626,7 +3698,15 @@
         "save": "Speichern & aktivieren",
         "helper": "Ordnet Inbound-Sendungen per E-Mail/Merchant zu und erstellt automatisch Receptions. Fehlende Zielorte oder Tracking werden als ausstehend markiert.",
         "envHint": "",
-        "tagHint": ""
+        "tagHint": "",
+        "apiWhere": "In PrepBusiness gehe zu Settings -> Api.",
+        "apiMerchantId": "Verwende die 5-stellige Merchant ID aus dem Api-Tab (App / Merchant ID).",
+        "errors": {
+          "emailRequired": "Die Arbitrage-One-E-Mail ist erforderlich."
+        },
+        "flash": {
+          "saved": "Arbitrage-One-Mapping gespeichert. Wir synchronisieren die Wareneingänge automatisch."
+        }
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -3679,6 +3759,22 @@
           "connectError": "UPS-Verbindung fehlgeschlagen.",
           "disconnectError": "UPS konnte nicht getrennt werden.",
           "disconnected": "UPS wurde getrennt."
+        }
+      },
+      "profitPath": {
+        "title": "Profit Path",
+        "desc": "Füge dein Profit-Path-Token hinzu, um den PrepBusiness-Kunden korrekt zuzuordnen.",
+        "tokenLabel": "Profit-Path-Token",
+        "tokenPlaceholder": "z. B. pp_live_...",
+        "helper": "Dieses Token wird nur für Kunden-Mapping und die Synchronisierung finaler PrepBusiness-Daten verwendet.",
+        "apiWhere": "In PrepBusiness gehe zu Settings -> Api.",
+        "apiMerchantId": "Verwende die 5-stellige Merchant ID aus dem Api-Tab (App / Merchant ID).",
+        "save": "Token speichern",
+        "errors": {
+          "tokenRequired": "Das Profit-Path-Token ist erforderlich."
+        },
+        "flash": {
+          "saved": "Profit-Path-Mapping gespeichert. Wir synchronisieren die Wareneingänge automatisch."
         }
       }
     },
@@ -4519,7 +4615,15 @@
         "save": "Salva e attiva",
         "helper": "Abbina le spedizioni inbound per email/merchant e crea automaticamente le receptions. Destinazione o tracking mancanti saranno segnati come in attesa.",
         "envHint": "",
-        "tagHint": ""
+        "tagHint": "",
+        "apiWhere": "In PrepBusiness vai su Settings -> Api.",
+        "apiMerchantId": "Usa il Merchant ID a 5 cifre mostrato nella scheda Api (App / Merchant ID).",
+        "errors": {
+          "emailRequired": "L’email Arbitrage One è obbligatoria."
+        },
+        "flash": {
+          "saved": "Mapping Arbitrage One salvato. Sincronizzeremo automaticamente le receptions."
+        }
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -4572,6 +4676,22 @@
           "connectError": "Connessione UPS non riuscita.",
           "disconnectError": "Impossibile disconnettere UPS.",
           "disconnected": "UPS è stato disconnesso."
+        }
+      },
+      "profitPath": {
+        "title": "Profit Path",
+        "desc": "Aggiungi il token Profit Path per mappare correttamente il tuo cliente PrepBusiness.",
+        "tokenLabel": "Token Profit Path",
+        "tokenPlaceholder": "es: pp_live_...",
+        "helper": "Questo token è usato solo per il mapping cliente e la sincronizzazione dei dati finali PrepBusiness.",
+        "apiWhere": "In PrepBusiness vai su Settings -> Api.",
+        "apiMerchantId": "Usa il Merchant ID a 5 cifre mostrato nella scheda Api (App / Merchant ID).",
+        "save": "Salva token",
+        "errors": {
+          "tokenRequired": "Il token Profit Path è obbligatorio."
+        },
+        "flash": {
+          "saved": "Mapping Profit Path salvato. Sincronizzeremo automaticamente le receptions."
         }
       }
     },
@@ -5412,7 +5532,15 @@
         "save": "Guardar y activar",
         "helper": "Asocia los inbound shipments por email/merchant y crea recepciones automáticamente. Destino o tracking faltantes se marcarán como pendientes.",
         "envHint": "",
-        "tagHint": ""
+        "tagHint": "",
+        "apiWhere": "En PrepBusiness ve a Settings -> Api.",
+        "apiMerchantId": "Usa el Merchant ID de 5 dígitos que aparece en la pestaña Api (App / Merchant ID).",
+        "errors": {
+          "emailRequired": "El correo de Arbitrage One es obligatorio."
+        },
+        "flash": {
+          "saved": "El mapeo de Arbitrage One se guardó. Sincronizaremos las recepciones automáticamente."
+        }
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -5465,6 +5593,22 @@
           "connectError": "Falló la conexión UPS.",
           "disconnectError": "No se pudo desconectar UPS.",
           "disconnected": "UPS se ha desconectado."
+        }
+      },
+      "profitPath": {
+        "title": "Profit Path",
+        "desc": "Añade tu token de Profit Path para mapear correctamente tu cliente de PrepBusiness.",
+        "tokenLabel": "Token de Profit Path",
+        "tokenPlaceholder": "ej.: pp_live_...",
+        "helper": "Este token se usa solo para el mapeo del cliente y la sincronización de datos finales de PrepBusiness.",
+        "apiWhere": "En PrepBusiness ve a Settings -> Api.",
+        "apiMerchantId": "Usa el Merchant ID de 5 dígitos que aparece en la pestaña Api (App / Merchant ID).",
+        "save": "Guardar token",
+        "errors": {
+          "tokenRequired": "El token de Profit Path es obligatorio."
+        },
+        "flash": {
+          "saved": "El mapeo de Profit Path se guardó. Sincronizaremos las recepciones automáticamente."
         }
       }
     },

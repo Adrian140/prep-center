@@ -432,7 +432,7 @@ export default function ClientIntegrations() {
     setPbLastError('');
     const pb = (pbEmail || profile?.email || '').trim().toLowerCase();
     if (!pb) {
-      setPbLastError('PrepBusiness email is required.');
+      setPbLastError(t('ClientIntegrations.prepbusiness.errors.emailRequired'));
       setPbSaving(false);
       return;
     }
@@ -463,7 +463,7 @@ export default function ClientIntegrations() {
       setPbIntegration(data);
       setPbStatus(data?.status || 'pending');
       setPbLastError('');
-      setFlash('PrepBusiness integration saved. We will map and sync receptions automatically.');
+      setFlash(t('ClientIntegrations.prepbusiness.flash.saved'));
       setFlashType('success');
     }
     setPbSaving(false);
@@ -476,7 +476,7 @@ export default function ClientIntegrations() {
     setPpLastError('');
     const token = (ppToken || '').trim();
     if (!token) {
-      setPpLastError('Profit Path token ID is required.');
+      setPpLastError(t('ClientIntegrations.profitPath.errors.tokenRequired'));
       setPpSaving(false);
       return;
     }
@@ -512,7 +512,7 @@ export default function ClientIntegrations() {
       setPbStatus(data?.status || 'pending');
       setPpStatus(data?.status || 'pending');
       setPpLastError('');
-      setFlash('Profit Path integration saved. We will use this token for sync.');
+      setFlash(t('ClientIntegrations.profitPath.flash.saved'));
       setFlashType('success');
     }
     setPpSaving(false);
@@ -693,15 +693,15 @@ export default function ClientIntegrations() {
           <div className="text-sm">
             {pbStatus === 'active' || pbStatus === 'mapped' ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
-                <CheckCircle className="w-4 h-4" /> Active
+                <CheckCircle className="w-4 h-4" /> {t('ClientIntegrations.status.active')}
               </span>
             ) : pbStatus === 'error' ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
-                <AlertTriangle className="w-4 h-4" /> Error
+                <AlertTriangle className="w-4 h-4" /> {t('ClientIntegrations.status.error')}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700">
-                <Loader2 className="w-4 h-4" /> Pending
+                <Loader2 className="w-4 h-4" /> {t('ClientIntegrations.status.pending')}
               </span>
             )}
           </div>
@@ -724,6 +724,8 @@ export default function ClientIntegrations() {
           <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
             <p>{t('ClientIntegrations.prepbusiness.clientStep')}</p>
             <p>{t('ClientIntegrations.prepbusiness.teamStep')}</p>
+            <p>{t('ClientIntegrations.prepbusiness.apiWhere')}</p>
+            <p>{t('ClientIntegrations.prepbusiness.apiMerchantId')}</p>
           </div>
           <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
             <button
@@ -761,8 +763,8 @@ export default function ClientIntegrations() {
 
       <IntegrationPanel
         id="profit-path"
-        title="Profit Path"
-        subtitle="Conectează token-ul de client pentru sincronizare."
+        title={t('ClientIntegrations.profitPath.title')}
+        subtitle={t('ClientIntegrations.profitPath.desc')}
         logo="/branding/integrations/profit-path.svg"
         fallbackLogo="/branding/integrations/profit-path.svg"
         openId={openIntegration}
@@ -771,23 +773,23 @@ export default function ClientIntegrations() {
       <section className="border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-text-primary">Profit Path</h2>
+            <h2 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.profitPath.title')}</h2>
             <p className="text-sm text-text-secondary">
-              Introdu token ID-ul primit din Profit Path pentru a activa sincronizarea.
+              {t('ClientIntegrations.profitPath.desc')}
             </p>
           </div>
           <div className="text-sm">
             {ppStatus === 'active' || ppStatus === 'mapped' ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
-                <CheckCircle className="w-4 h-4" /> Active
+                <CheckCircle className="w-4 h-4" /> {t('ClientIntegrations.status.active')}
               </span>
             ) : ppStatus === 'error' ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
-                <AlertTriangle className="w-4 h-4" /> Error
+                <AlertTriangle className="w-4 h-4" /> {t('ClientIntegrations.status.error')}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700">
-                <Loader2 className="w-4 h-4" /> Pending
+                <Loader2 className="w-4 h-4" /> {t('ClientIntegrations.status.pending')}
               </span>
             )}
           </div>
@@ -795,18 +797,20 @@ export default function ClientIntegrations() {
 
         <form onSubmit={handleSaveProfitPath} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-text-primary">Profit Path token ID</label>
+            <label className="text-sm font-medium text-text-primary">{t('ClientIntegrations.profitPath.tokenLabel')}</label>
             <input
               type="text"
               value={ppToken}
               onChange={(e) => setPpToken(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg bg-white"
-              placeholder="Ex: pp_live_..."
+              placeholder={t('ClientIntegrations.profitPath.tokenPlaceholder')}
               required
             />
           </div>
           <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
-            <p>Token-ul este folosit de sistem pentru maparea și sincronizarea comenzilor tale.</p>
+            <p>{t('ClientIntegrations.profitPath.helper')}</p>
+            <p>{t('ClientIntegrations.profitPath.apiWhere')}</p>
+            <p>{t('ClientIntegrations.profitPath.apiMerchantId')}</p>
           </div>
           <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
             <button
@@ -815,7 +819,7 @@ export default function ClientIntegrations() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
             >
               {ppSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-              Save token
+              {t('ClientIntegrations.profitPath.save')}
             </button>
           </div>
         </form>
