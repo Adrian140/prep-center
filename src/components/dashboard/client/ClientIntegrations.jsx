@@ -362,23 +362,22 @@ export default function ClientIntegrations() {
 
   useEffect(() => {
     const loadVisibility = async () => {
-      if (!user?.id) return;
       const { data } = await supabase
-        .from('client_integration_visibility')
-        .select('show_amazon, show_profit_path, show_arbitrage_one, show_ups, show_qogita')
-        .eq('user_id', user.id)
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'integrations_visibility')
         .maybeSingle();
-      if (!data) return;
+      const value = data?.value || {};
       setVisibility({
-        amazon: data.show_amazon !== false,
-        profitPath: data.show_profit_path !== false,
-        arbitrageOne: data.show_arbitrage_one !== false,
-        ups: data.show_ups !== false,
-        qogita: data.show_qogita !== false
+        amazon: value.amazon !== false,
+        profitPath: value.profitPath !== false,
+        arbitrageOne: value.arbitrageOne !== false,
+        ups: value.ups !== false,
+        qogita: value.qogita !== false
       });
     };
     loadVisibility();
-  }, [user?.id]);
+  }, []);
 
   useEffect(() => {
     const order = ['amazon', 'profit-path', 'arbitrage-one', 'ups', 'qogita'];
