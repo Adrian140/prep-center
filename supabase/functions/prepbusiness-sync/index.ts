@@ -577,7 +577,19 @@ async function handleSync(req: Request) {
   for (const merchant of syncMerchants) {
     const since = merchant.last_sync_at ? String(merchant.last_sync_at) : null;
     if (!merchant.merchant_id) continue;
-    const inboundList = await fetchInbounds(String(merchant.merchant_id), since);
+
+    let inboundList: Array<Record<string, unknown>> = [];
+    try {
+      inboundList = await fetchInbounds(String(merchant.merchant_id), since);
+    } catch (error) {
+      console.error("PrepBusiness inbounds fetch failed", merchant.merchant_id, error?.message || error);
+      results.push({
+        error: `Fetch inbounds failed: ${String(error?.message || error)}`,
+        merchant_id: merchant.merchant_id
+      });
+      continue;
+    }
+
     for (const inbound of inboundList) {
       const shipmentId = normalizeText((inbound as Record<string, unknown>)?.id || null);
       let items: Array<Record<string, unknown>> = [];
@@ -613,9 +625,19 @@ async function handleSync(req: Request) {
         tracking_id: trackingIds.length ? trackingIds[0] : undefined,
         carrier: normalizeText((details as any)?.carrier) || normalizeText(carrier) || undefined
       };
-      const result = await importInbound(payload as Record<string, unknown>);
-      results.push(result);
+      try {
+        const result = await importInbound(payload as Record<string, unknown>);
+        results.push(result);
+      } catch (error) {
+        console.error("PrepBusiness import failed", merchant.merchant_id, shipmentId, error?.message || error);
+        results.push({
+          error: `Import failed: ${String(error?.message || error)}`,
+          merchant_id: merchant.merchant_id,
+          source_id: shipmentId
+        });
+      }
     }
+
     if (merchant.id) {
       await supabase
         .from("prep_merchants")
