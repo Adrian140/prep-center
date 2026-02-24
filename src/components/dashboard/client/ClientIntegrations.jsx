@@ -327,13 +327,12 @@ export default function ClientIntegrations() {
         setPpLastError(error.message || supportError);
       } else if (data) {
         setPbIntegration(data);
-        const resolvedEmail = data.email_prep_business || data.email_arbitrage_one || defaultEmail;
-        setPbEmail(resolvedEmail);
+        setPbEmail(data.email_arbitrage_one || defaultEmail);
         setPbMerchantId(data.merchant_id || data.profit_path_token_id || '');
         setPbStatus(data.status || 'pending');
         setPbLastError(data.last_error || '');
         setPpToken(data.profit_path_token_id || data.merchant_id || '');
-        setPpEmail(resolvedEmail);
+        setPpEmail(data.email_prep_business || defaultEmail);
         setPpStatus(data.status || 'pending');
         setPpLastError(data.last_error || '');
       } else {
@@ -455,7 +454,7 @@ export default function ClientIntegrations() {
           user_id: user.id,
           company_id: profile?.company_id || null,
           email_arbitrage_one: pb,
-          email_prep_business: pb,
+          email_prep_business: pbIntegration?.email_prep_business || null,
           merchant_id: merchant || pbIntegration?.merchant_id || ((ppToken || '').trim() || pbIntegration?.profit_path_token_id || null),
           profit_path_token_id: (ppToken || '').trim() || pbIntegration?.profit_path_token_id || null,
           status: pbIntegration?.status || 'pending',
@@ -472,7 +471,6 @@ export default function ClientIntegrations() {
       setPbLastError(error.message || supportError);
     } else {
       setPbIntegration(data);
-      setPpEmail(data?.email_prep_business || data?.email_arbitrage_one || pb);
       setPbMerchantId(data?.merchant_id || merchant || '');
       setPbStatus(data?.status || 'pending');
       setPbLastError('');
@@ -488,7 +486,7 @@ export default function ClientIntegrations() {
     setPpSaving(true);
     setPpLastError('');
     const token = (ppToken || '').trim();
-    const email = (ppEmail || pbEmail || profile?.email || '').trim().toLowerCase();
+    const email = (ppEmail || profile?.email || '').trim().toLowerCase();
     if (!email) {
       setPpLastError(t('ClientIntegrations.profitPath.errors.emailRequired'));
       setPpSaving(false);
@@ -507,7 +505,7 @@ export default function ClientIntegrations() {
           id: pbIntegration?.id,
           user_id: user.id,
           company_id: profile?.company_id || null,
-          email_arbitrage_one: email,
+          email_arbitrage_one: pbIntegration?.email_arbitrage_one || null,
           email_prep_business: email,
           merchant_id: pbIntegration?.merchant_id || token,
           profit_path_token_id: token,
@@ -525,8 +523,7 @@ export default function ClientIntegrations() {
       setPpLastError(error.message || supportError);
     } else {
       setPbIntegration(data);
-      setPbEmail(data?.email_prep_business || data?.email_arbitrage_one || email);
-      setPpEmail(data?.email_prep_business || data?.email_arbitrage_one || email);
+      setPpEmail(data?.email_prep_business || email);
       setPbMerchantId(data?.merchant_id || token);
       setPbStatus(data?.status || 'pending');
       setPpStatus(data?.status || 'pending');
