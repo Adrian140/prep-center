@@ -388,6 +388,7 @@ export default function ClientIntegrations() {
       ups: visibility.ups,
       qogita: visibility.qogita
     };
+    if (!openIntegration) return;
     if (map[openIntegration]) return;
     const firstVisible = order.find((id) => map[id]);
     if (firstVisible) setOpenIntegration(firstVisible);
