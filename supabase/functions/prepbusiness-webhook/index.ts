@@ -36,6 +36,19 @@ function encodeRemainingAction(sendToFba: boolean) {
   return sendToFba ? DIRECT_ACTION : HOLD_ACTION;
 }
 
+function normalizeReceivingStatus(value: unknown) {
+  const raw = String(normalizeText(value) || "").toLowerCase();
+  if (!raw) return "submitted";
+  const allowed = new Set(["draft", "submitted", "partial", "received", "processed", "cancelled"]);
+  if (allowed.has(raw)) return raw;
+  if (["cancel", "canceled", "void", "rejected"].includes(raw)) return "cancelled";
+  if (["done", "completed", "complete"].includes(raw)) return "processed";
+  if (["received_all", "delivered"].includes(raw)) return "received";
+  if (["new", "created", "open", "pending"].includes(raw)) return "draft";
+  if (["in_progress", "processing", "shipped", "in_transit"].includes(raw)) return "submitted";
+  return "submitted";
+}
+
 function isMissingColumnError(error: any, column: string) {
   if (!error) return false;
   const needle = column.toLowerCase();
@@ -256,7 +269,7 @@ async function importInbound(payload: Record<string, unknown>) {
   const header = await insertReceivingShipment({
     user_id: userId,
     company_id: companyId,
-    status: normalizeText(payload.status) || "submitted",
+    status: normalizeReceivingStatus(payload.status),
     created_at: new Date().toISOString(),
     destination_country: String(destinationCountry).toUpperCase(),
     warehouse_country: String(warehouseCountry).toUpperCase(),
