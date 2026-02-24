@@ -1,8 +1,61 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/config/supabase';
-import { AlertTriangle, CheckCircle, RefreshCw, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ChevronDown, Loader2, RefreshCw } from 'lucide-react';
 
-const StatusBadge = ({ status }) => {
+const INTEGRATIONS = [
+  {
+    id: 'amazon',
+    title: 'Amazon Seller Central',
+    subtitle: 'Conectari SP-API active/pending pe fiecare client.',
+    visibilityField: 'amazon'
+  },
+  {
+    id: 'profitPath',
+    title: 'Profit Path',
+    subtitle: 'Token + email folosite pentru mapare PrepBusiness.',
+    visibilityField: 'profitPath'
+  },
+  {
+    id: 'arbitrageOne',
+    title: 'Arbitrage One',
+    subtitle: 'Email + Merchant ID pentru import inbound in Receptions.',
+    visibilityField: 'arbitrageOne'
+  },
+  {
+    id: 'ups',
+    title: 'UPS',
+    subtitle: 'Conectari OAuth UPS si statusul contului.',
+    visibilityField: 'ups'
+  },
+  {
+    id: 'qogita',
+    title: 'Qogita',
+    subtitle: 'Conexiuni Qogita pentru import comenzi/shipments.',
+    visibilityField: 'qogita'
+  }
+];
+
+const fmt = (value) => {
+  if (!value) return '—';
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return String(value);
+  }
+};
+
+const displayClient = (profile) => {
+  if (!profile) return 'Client necunoscut';
+  return (
+    profile.company_name ||
+    profile.store_name ||
+    `${profile.first_name || ''} ${profile.last_name || ''}`.trim() ||
+    profile.email ||
+    profile.id
+  );
+};
+
+function StatusBadge({ status }) {
   if (status === 'active' || status === 'mapped') {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700">
@@ -18,169 +71,167 @@ const StatusBadge = ({ status }) => {
     );
   }
   if (status === 'inactive' || status === 'unassociated') {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
-        Inactive
-      </span>
-    );
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">Inactive</span>;
   }
+  return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber-50 text-amber-700">Pending</span>;
+}
+
+function IntegrationPanel({ title, subtitle, open, onToggle, children }) {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-amber-50 text-amber-700">
-      Pending
-    </span>
+    <section className="bg-white border rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
+          <p className="text-sm text-text-secondary">{subtitle}</p>
+        </div>
+        <ChevronDown className={`w-5 h-5 text-text-secondary transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <div className="px-5 pb-5">{children}</div>}
+    </section>
   );
-};
-
-const fmt = (value) => {
-  if (!value) return '—';
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return value;
-  }
-};
-
-const rowKey = (row) => row.id || `user:${row.user_id || 'unknown'}`;
+}
 
 export default function AdminPrepBusinessIntegrations() {
-  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState('');
-  const [confirming, setConfirming] = useState(null);
+  const [openPanel, setOpenPanel] = useState('profitPath');
+
+  const [profiles, setProfiles] = useState([]);
+  const [prepRowsByUser, setPrepRowsByUser] = useState({});
+  const [amazonByUser, setAmazonByUser] = useState({});
+  const [upsByUser, setUpsByUser] = useState({});
+  const [qogitaByUser, setQogitaByUser] = useState({});
+  const [visibilityByUser, setVisibilityByUser] = useState({});
+
   const [merchantDrafts, setMerchantDrafts] = useState({});
   const [tokenDrafts, setTokenDrafts] = useState({});
-  const [visibilityDrafts, setVisibilityDrafts] = useState({});
-  const [savingMerchant, setSavingMerchant] = useState(null);
-  const [savingToken, setSavingToken] = useState(null);
-  const [savingVisibility, setSavingVisibility] = useState(null);
+  const [savingMerchant, setSavingMerchant] = useState('');
+  const [savingToken, setSavingToken] = useState('');
+  const [savingVisibility, setSavingVisibility] = useState('');
 
   const load = async () => {
     setRefreshing(true);
     setMessage('');
 
-    const [{ data: integrations, error: integrationError }, { data: profiles, error: profilesError }, { data: visibilityRows, error: visibilityError }] = await Promise.all([
-      supabase.from('prep_business_integrations').select('*').order('updated_at', { ascending: false }),
+    const [
+      profilesRes,
+      prepRes,
+      amazonRes,
+      upsRes,
+      qogitaRes,
+      visibilityRes
+    ] = await Promise.all([
       supabase
         .from('profiles')
-        .select('id, first_name, last_name, company_name, store_name, email, company_id, account_type, is_admin')
+        .select('id, first_name, last_name, company_name, store_name, email, company_id, account_type, is_admin, created_at')
         .order('created_at', { ascending: false }),
+      supabase.from('prep_business_integrations').select('*'),
+      supabase
+        .from('amazon_integrations')
+        .select('id, user_id, status, last_error, marketplace_id, last_synced_at, updated_at, created_at'),
+      supabase
+        .from('ups_integrations')
+        .select('id, user_id, status, last_error, connected_at, last_synced_at, updated_at'),
+      supabase
+        .from('qogita_connections')
+        .select('id, user_id, status, qogita_email, expires_at, last_sync_at, updated_at, created_at'),
       supabase
         .from('client_integration_visibility')
-        .select('user_id, show_amazon, show_profit_path, show_arbitrage_one, show_ups, show_qogita')
+        .select('user_id, company_id, show_amazon, show_profit_path, show_arbitrage_one, show_ups, show_qogita')
     ]);
 
-    if (integrationError || profilesError || visibilityError) {
-      setMessage(integrationError?.message || profilesError?.message || visibilityError?.message || 'Could not load integrations.');
-      setRows([]);
+    const err =
+      profilesRes.error ||
+      prepRes.error ||
+      amazonRes.error ||
+      upsRes.error ||
+      qogitaRes.error ||
+      visibilityRes.error;
+
+    if (err) {
+      setMessage(err.message || 'Could not load integrations.');
       setRefreshing(false);
       setLoading(false);
       return;
     }
 
-    const clientProfiles = (profiles || []).filter(
-      (p) => p?.is_admin !== true && String(p?.account_type || '').toLowerCase() !== 'admin'
-    );
+    const clients = (profilesRes.data || [])
+      .filter((row) => row?.is_admin !== true && String(row?.account_type || '').toLowerCase() !== 'admin')
+      .sort((a, b) => displayClient(a).localeCompare(displayClient(b)));
 
-    const byUserId = new Map();
-    (integrations || []).forEach((row) => {
-      if (row?.user_id && !byUserId.has(row.user_id)) byUserId.set(row.user_id, row);
-    });
-    const visibilityByUser = new Map();
-    (visibilityRows || []).forEach((row) => {
-      if (row?.user_id) visibilityByUser.set(row.user_id, row);
+    const prepMap = {};
+    (prepRes.data || []).forEach((row) => {
+      if (row?.user_id && !prepMap[row.user_id]) prepMap[row.user_id] = row;
     });
 
-    const mergedRows = clientProfiles.map((profile) => {
-      const integration = byUserId.get(profile.id);
-      const vis = visibilityByUser.get(profile.id) || {};
-      if (integration) {
-        return {
-          ...integration,
-          visibility: {
-            amazon: vis.show_amazon !== false,
-            profitPath: vis.show_profit_path !== false,
-            arbitrageOne: vis.show_arbitrage_one !== false,
-            ups: vis.show_ups !== false,
-            qogita: vis.show_qogita !== false
-          },
-          profile,
-          _rowKey: rowKey(integration)
+    const amazonMap = {};
+    (amazonRes.data || []).forEach((row) => {
+      if (!row?.user_id) return;
+      if (!amazonMap[row.user_id]) {
+        amazonMap[row.user_id] = {
+          count: 0,
+          status: row.status || 'pending',
+          last_error: row.last_error || null,
+          last_synced_at: row.last_synced_at || null
         };
       }
-      return {
-        id: null,
-        user_id: profile.id,
-        company_id: profile.company_id || null,
-        email_arbitrage_one: null,
-        email_prep_business: null,
-        merchant_id: null,
-        profit_path_token_id: null,
-        status: 'inactive',
-        last_error: null,
-        last_synced_at: null,
-        created_at: null,
-        updated_at: null,
-        visibility: {
-          amazon: vis.show_amazon !== false,
-          profitPath: vis.show_profit_path !== false,
-          arbitrageOne: vis.show_arbitrage_one !== false,
-          ups: vis.show_ups !== false,
-          qogita: vis.show_qogita !== false
-        },
-        profile,
-        _rowKey: `user:${profile.id}`
-      };
+      const entry = amazonMap[row.user_id];
+      entry.count += 1;
+      if (row.status === 'error') entry.status = 'error';
+      if (entry.status !== 'error' && row.status === 'active') entry.status = 'active';
+      if (row.last_error) entry.last_error = row.last_error;
+      if (new Date(row.last_synced_at || 0).getTime() > new Date(entry.last_synced_at || 0).getTime()) {
+        entry.last_synced_at = row.last_synced_at;
+      }
     });
 
-    const unknownIntegrations = (integrations || [])
-      .filter((row) => row?.user_id && !clientProfiles.some((p) => p.id === row.user_id))
-      .map((row) => {
-        const vis = visibilityByUser.get(row.user_id) || {};
-        return {
-          ...row,
-          visibility: {
-            amazon: vis.show_amazon !== false,
-            profitPath: vis.show_profit_path !== false,
-            arbitrageOne: vis.show_arbitrage_one !== false,
-            ups: vis.show_ups !== false,
-            qogita: vis.show_qogita !== false
-          },
-          profile: null,
-          _rowKey: rowKey(row)
-        };
-      });
+    const upsMap = {};
+    (upsRes.data || []).forEach((row) => {
+      if (row?.user_id && !upsMap[row.user_id]) {
+        upsMap[row.user_id] = row;
+      }
+    });
 
-    const enriched = [...mergedRows, ...unknownIntegrations];
+    const qogitaMap = {};
+    (qogitaRes.data || []).forEach((row) => {
+      if (!row?.user_id) return;
+      if (!qogitaMap[row.user_id]) qogitaMap[row.user_id] = [];
+      qogitaMap[row.user_id].push(row);
+    });
+
+    const visMap = {};
+    (visibilityRes.data || []).forEach((row) => {
+      if (!row?.user_id) return;
+      visMap[row.user_id] = {
+        amazon: row.show_amazon !== false,
+        profitPath: row.show_profit_path !== false,
+        arbitrageOne: row.show_arbitrage_one !== false,
+        ups: row.show_ups !== false,
+        qogita: row.show_qogita !== false
+      };
+    });
 
     const merchantMap = {};
     const tokenMap = {};
-    const visibilityMap = {};
-    enriched.forEach((row) => {
-      merchantMap[row._rowKey] = row.merchant_id ? String(row.merchant_id) : '';
-      tokenMap[row._rowKey] = row.profit_path_token_id ? String(row.profit_path_token_id) : '';
-      visibilityMap[row._rowKey] = {
-        amazon: row.visibility?.amazon !== false,
-        profitPath: row.visibility?.profitPath !== false,
-        arbitrageOne: row.visibility?.arbitrageOne !== false,
-        ups: row.visibility?.ups !== false,
-        qogita: row.visibility?.qogita !== false
-      };
+    Object.entries(prepMap).forEach(([userId, row]) => {
+      merchantMap[userId] = row?.merchant_id ? String(row.merchant_id) : '';
+      tokenMap[userId] = row?.profit_path_token_id ? String(row.profit_path_token_id) : '';
     });
+
+    setProfiles(clients);
+    setPrepRowsByUser(prepMap);
+    setAmazonByUser(amazonMap);
+    setUpsByUser(upsMap);
+    setQogitaByUser(qogitaMap);
+    setVisibilityByUser(visMap);
     setMerchantDrafts(merchantMap);
     setTokenDrafts(tokenMap);
-    setVisibilityDrafts(visibilityMap);
 
-    const sorted = enriched.sort((a, b) => {
-      const aInactive = ['inactive', 'unassociated'].includes(a.status || '') ? 1 : 0;
-      const bInactive = ['inactive', 'unassociated'].includes(b.status || '') ? 1 : 0;
-      if (aInactive !== bInactive) return aInactive - bInactive;
-      const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
-      const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
-      return bTime - aTime;
-    });
-
-    setRows(sorted);
     setRefreshing(false);
     setLoading(false);
   };
@@ -190,89 +241,33 @@ export default function AdminPrepBusinessIntegrations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const upsertIntegration = async (row, patch) => {
-    const payload = {
-      id: row?.id || undefined,
-      user_id: row?.user_id,
-      company_id: row?.company_id || row?.profile?.company_id || null,
-      email_arbitrage_one: row?.email_arbitrage_one || row?.email_prep_business || row?.profile?.email || null,
-      email_prep_business: row?.email_prep_business || row?.email_arbitrage_one || row?.profile?.email || null,
-      status: row?.status && !['inactive', 'unassociated'].includes(row.status) ? row.status : 'pending',
-      merchant_id: row?.merchant_id || null,
-      profit_path_token_id: row?.profit_path_token_id || null,
-      last_error: row?.last_error || null,
-      updated_at: new Date().toISOString(),
-      created_at: row?.created_at || new Date().toISOString(),
-      ...patch
-    };
+  const rows = useMemo(() => {
+    return profiles.map((profile) => {
+      const prep = prepRowsByUser[profile.id] || null;
+      const vis = visibilityByUser[profile.id] || {
+        amazon: true,
+        profitPath: true,
+        arbitrageOne: true,
+        ups: true,
+        qogita: true
+      };
+      return {
+        profile,
+        prep,
+        amazon: amazonByUser[profile.id] || null,
+        ups: upsByUser[profile.id] || null,
+        qogita: qogitaByUser[profile.id] || [],
+        visibility: vis
+      };
+    });
+  }, [profiles, prepRowsByUser, amazonByUser, upsByUser, qogitaByUser, visibilityByUser]);
 
-    const { error } = await supabase
-      .from('prep_business_integrations')
-      .upsert(payload, { onConflict: 'user_id' });
-    return { error };
-  };
-
-  const handleConfirm = async (row) => {
-    if (!row?.user_id) return;
-    const key = row._rowKey;
-    setConfirming(key);
+  const upsertVisibility = async (profile, patch) => {
+    if (!profile?.id) return;
+    const key = `${profile.id}:${Object.keys(patch).join(',')}`;
+    setSavingVisibility(key);
     try {
-      const { error } = await upsertIntegration(row, { status: 'mapped', last_error: null });
-      if (error) throw error;
-      await load();
-    } catch (err) {
-      setMessage(err?.message || 'Could not confirm integration.');
-    } finally {
-      setConfirming(null);
-    }
-  };
-
-  const handleMerchantSave = async (row) => {
-    if (!row?.user_id) return;
-    const key = row._rowKey;
-    const value = (merchantDrafts[key] || '').trim();
-    setSavingMerchant(key);
-    try {
-      const tokenValue = (tokenDrafts[key] || '').trim();
-      const { error } = await upsertIntegration(row, {
-        merchant_id: value || null,
-        profit_path_token_id: tokenValue || value || row?.profit_path_token_id || null
-      });
-      if (error) throw error;
-      await load();
-    } catch (err) {
-      setMessage(err?.message || 'Could not save merchant id.');
-    } finally {
-      setSavingMerchant(null);
-    }
-  };
-
-  const handleTokenSave = async (row) => {
-    if (!row?.user_id) return;
-    const key = row._rowKey;
-    const value = (tokenDrafts[key] || '').trim();
-    setSavingToken(key);
-    try {
-      const merchantValue = (merchantDrafts[key] || '').trim();
-      const { error } = await upsertIntegration(row, {
-        profit_path_token_id: value || null,
-        merchant_id: merchantValue || value || row?.merchant_id || null
-      });
-      if (error) throw error;
-      await load();
-    } catch (err) {
-      setMessage(err?.message || 'Could not save Profit Path token.');
-    } finally {
-      setSavingToken(null);
-    }
-  };
-
-  const handleVisibilitySave = async (row, patch) => {
-    if (!row?.user_id) return;
-    const key = row._rowKey;
-    setSavingVisibility(`${key}:${Object.keys(patch).join(',')}`);
-    try {
-      const current = visibilityDrafts[key] || {
+      const current = visibilityByUser[profile.id] || {
         amazon: true,
         profitPath: true,
         arbitrageOne: true,
@@ -280,12 +275,13 @@ export default function AdminPrepBusinessIntegrations() {
         qogita: true
       };
       const next = { ...current, ...patch };
+
       const { error } = await supabase
         .from('client_integration_visibility')
         .upsert(
           {
-            user_id: row.user_id,
-            company_id: row.company_id || row.profile?.company_id || null,
+            user_id: profile.id,
+            company_id: profile.company_id || null,
             show_amazon: next.amazon,
             show_profit_path: next.profitPath,
             show_arbitrage_one: next.arbitrageOne,
@@ -296,22 +292,233 @@ export default function AdminPrepBusinessIntegrations() {
           { onConflict: 'user_id' }
         );
       if (error) throw error;
-      setVisibilityDrafts((prev) => ({ ...prev, [key]: next }));
+      setVisibilityByUser((prev) => ({ ...prev, [profile.id]: next }));
     } catch (err) {
       setMessage(err?.message || 'Could not save visibility setting.');
     } finally {
-      setSavingVisibility(null);
+      setSavingVisibility('');
     }
   };
 
+  const upsertPrep = async (profile, patch = {}) => {
+    const current = prepRowsByUser[profile.id] || {};
+    const payload = {
+      id: current.id || undefined,
+      user_id: profile.id,
+      company_id: current.company_id || profile.company_id || null,
+      email_arbitrage_one: current.email_arbitrage_one || current.email_prep_business || profile.email || null,
+      email_prep_business: current.email_prep_business || current.email_arbitrage_one || profile.email || null,
+      merchant_id: current.merchant_id || null,
+      profit_path_token_id: current.profit_path_token_id || null,
+      status: current.status && !['inactive', 'unassociated'].includes(current.status) ? current.status : 'pending',
+      last_error: current.last_error || null,
+      created_at: current.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      ...patch
+    };
+
+    const { data, error } = await supabase
+      .from('prep_business_integrations')
+      .upsert(payload, { onConflict: 'user_id' })
+      .select('*')
+      .maybeSingle();
+
+    if (error) throw error;
+
+    setPrepRowsByUser((prev) => ({ ...prev, [profile.id]: data || { ...payload, id: current.id || null } }));
+  };
+
+  const handleSaveMerchant = async (profile) => {
+    const userId = profile?.id;
+    if (!userId) return;
+    setSavingMerchant(userId);
+    try {
+      const merchantValue = String(merchantDrafts[userId] || '').trim();
+      const tokenValue = String(tokenDrafts[userId] || '').trim();
+      await upsertPrep(profile, {
+        merchant_id: merchantValue || null,
+        profit_path_token_id: tokenValue || merchantValue || null
+      });
+      await load();
+    } catch (err) {
+      setMessage(err?.message || 'Could not save merchant id.');
+    } finally {
+      setSavingMerchant('');
+    }
+  };
+
+  const handleSaveToken = async (profile) => {
+    const userId = profile?.id;
+    if (!userId) return;
+    setSavingToken(userId);
+    try {
+      const tokenValue = String(tokenDrafts[userId] || '').trim();
+      const merchantValue = String(merchantDrafts[userId] || '').trim();
+      await upsertPrep(profile, {
+        profit_path_token_id: tokenValue || null,
+        merchant_id: merchantValue || tokenValue || null
+      });
+      await load();
+    } catch (err) {
+      setMessage(err?.message || 'Could not save token.');
+    } finally {
+      setSavingToken('');
+    }
+  };
+
+  const renderVisibilityToggle = (row, field) => {
+    const checked = row.visibility?.[field] !== false;
+    const savingKey = `${row.profile.id}:${field}`;
+    return (
+      <label className="inline-flex items-center gap-2 text-xs">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={savingVisibility === savingKey}
+          onChange={(e) => upsertVisibility(row.profile, { [field]: e.target.checked })}
+        />
+        {checked ? 'Visible client' : 'Hidden client'}
+      </label>
+    );
+  };
+
+  const renderAmazonRows = () => (
+    <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
+      {rows.map((row) => (
+        <div key={`amazon-${row.profile.id}`} className="px-4 py-3 bg-white flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-[260px]">
+            <div className="font-medium text-text-primary">{displayClient(row.profile)}</div>
+            <div className="text-xs text-text-secondary">{row.profile.email || '—'}</div>
+            <div className="text-xs text-text-secondary">
+              Accounts: {row.amazon?.count || 0} · Last sync: {fmt(row.amazon?.last_synced_at)}
+            </div>
+            {row.amazon?.last_error && (
+              <div className="text-xs text-red-600 break-all mt-1">{row.amazon.last_error}</div>
+            )}
+          </div>
+          <StatusBadge status={row.amazon?.status || 'inactive'} />
+          {renderVisibilityToggle(row, 'amazon')}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderProfitPathRows = () => (
+    <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
+      {rows.map((row) => (
+        <div key={`pp-${row.profile.id}`} className="px-4 py-3 bg-white flex flex-wrap items-start gap-3">
+          <div className="flex-1 min-w-[280px]">
+            <div className="font-medium text-text-primary">{displayClient(row.profile)}</div>
+            <div className="text-xs text-text-secondary">Email: {row.prep?.email_prep_business || row.profile.email || '—'}</div>
+            <div className="text-xs text-text-secondary">Token: {row.prep?.profit_path_token_id || '—'}</div>
+            <div className="text-xs text-text-secondary">Merchant ID: {row.prep?.merchant_id || '—'}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              className="w-44 px-2 py-1 border rounded text-xs"
+              placeholder="Profit Path token"
+              value={tokenDrafts[row.profile.id] ?? ''}
+              onChange={(e) => setTokenDrafts((prev) => ({ ...prev, [row.profile.id]: e.target.value }))}
+            />
+            <button
+              onClick={() => handleSaveToken(row.profile)}
+              disabled={savingToken === row.profile.id}
+              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
+            >
+              {savingToken === row.profile.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+              Save token
+            </button>
+          </div>
+          <StatusBadge status={row.prep?.status || 'inactive'} />
+          {renderVisibilityToggle(row, 'profitPath')}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderArbitrageRows = () => (
+    <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
+      {rows.map((row) => (
+        <div key={`a1-${row.profile.id}`} className="px-4 py-3 bg-white flex flex-wrap items-start gap-3">
+          <div className="flex-1 min-w-[280px]">
+            <div className="font-medium text-text-primary">{displayClient(row.profile)}</div>
+            <div className="text-xs text-text-secondary">Email AO: {row.prep?.email_arbitrage_one || row.profile.email || '—'}</div>
+            <div className="text-xs text-text-secondary">Merchant ID: {row.prep?.merchant_id || '—'}</div>
+            <div className="text-xs text-text-secondary">Last sync: {fmt(row.prep?.last_synced_at)} · Updated: {fmt(row.prep?.updated_at)}</div>
+            {row.prep?.last_error && <div className="text-xs text-red-600 mt-1 break-all">{row.prep.last_error}</div>}
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              className="w-36 px-2 py-1 border rounded text-xs"
+              placeholder="Merchant ID"
+              value={merchantDrafts[row.profile.id] ?? ''}
+              onChange={(e) => setMerchantDrafts((prev) => ({ ...prev, [row.profile.id]: e.target.value }))}
+            />
+            <button
+              onClick={() => handleSaveMerchant(row.profile)}
+              disabled={savingMerchant === row.profile.id}
+              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
+            >
+              {savingMerchant === row.profile.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+              Save ID
+            </button>
+          </div>
+          <StatusBadge status={row.prep?.status || 'inactive'} />
+          {renderVisibilityToggle(row, 'arbitrageOne')}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderUpsRows = () => (
+    <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
+      {rows.map((row) => (
+        <div key={`ups-${row.profile.id}`} className="px-4 py-3 bg-white flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-[260px]">
+            <div className="font-medium text-text-primary">{displayClient(row.profile)}</div>
+            <div className="text-xs text-text-secondary">{row.profile.email || '—'}</div>
+            <div className="text-xs text-text-secondary">Connected: {fmt(row.ups?.connected_at)} · Last sync: {fmt(row.ups?.last_synced_at)}</div>
+            {row.ups?.last_error && <div className="text-xs text-red-600 mt-1 break-all">{row.ups.last_error}</div>}
+          </div>
+          <StatusBadge status={row.ups?.status || 'inactive'} />
+          {renderVisibilityToggle(row, 'ups')}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderQogitaRows = () => (
+    <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
+      {rows.map((row) => {
+        const connections = row.qogita || [];
+        const latest = connections[0] || null;
+        const status = latest?.status || (connections.length ? 'active' : 'inactive');
+        return (
+          <div key={`qogita-${row.profile.id}`} className="px-4 py-3 bg-white flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-[260px]">
+              <div className="font-medium text-text-primary">{displayClient(row.profile)}</div>
+              <div className="text-xs text-text-secondary">Connections: {connections.length}</div>
+              <div className="text-xs text-text-secondary">Email: {latest?.qogita_email || '—'} · Last sync: {fmt(latest?.last_sync_at)}</div>
+              {latest?.expires_at && (
+                <div className="text-xs text-text-secondary">Expires: {fmt(latest.expires_at)}</div>
+              )}
+            </div>
+            <StatusBadge status={status} />
+            {renderVisibilityToggle(row, 'qogita')}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold text-text-primary">PrepBusiness Client Mapping (A1 + Profit Path)</h3>
-          <p className="text-sm text-text-secondary">
-            Clients without setup are shown as inactive until they create their PrepBusiness account.
-          </p>
+          <h3 className="text-lg font-semibold text-text-primary">Admin Integrations</h3>
+          <p className="text-sm text-text-secondary">Panouri per integrare. In fiecare panel vezi toti clientii si setarea hide/unhide pentru acea integrare.</p>
         </div>
         <button
           onClick={load}
@@ -330,134 +537,25 @@ export default function AdminPrepBusinessIntegrations() {
 
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-text-secondary">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          Loading integrations…
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading integrations…
         </div>
-      ) : rows.length === 0 ? (
-        <div className="text-sm text-text-secondary">No clients found.</div>
       ) : (
-        <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
-          {rows.map((row) => {
-            const key = row._rowKey;
-            return (
-              <div key={key} className="px-4 py-3 bg-white flex flex-wrap items-start gap-3">
-                <div className="flex-1 min-w-[240px]">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-text-primary">
-                      {row.email_prep_business || row.email_arbitrage_one || row.profit_path_token_id || row.profile?.email || 'Unknown mapping'}
-                    </span>
-                    <StatusBadge status={row.status} />
-                  </div>
-                  <div className="text-xs text-text-secondary">
-                    AO: {row.email_arbitrage_one || '—'} · PB: {row.email_prep_business || '—'}
-                  </div>
-                  <div className="text-xs text-text-secondary">
-                    Profit Path token: {row.profit_path_token_id || '—'}
-                  </div>
-                <div className="text-xs text-text-secondary">
-                  Merchant: {row.merchant_id || '—'} · Last sync: {fmt(row.last_synced_at)} · Updated: {fmt(row.updated_at)}
-                </div>
-                <div className="text-xs text-text-secondary">
-                  Visibility:
-                  {' '}
-                  {visibilityDrafts[key]?.amazon !== false ? 'Amazon ' : ''}
-                  {visibilityDrafts[key]?.profitPath !== false ? 'ProfitPath ' : ''}
-                  {visibilityDrafts[key]?.arbitrageOne !== false ? 'A1 ' : ''}
-                  {visibilityDrafts[key]?.ups !== false ? 'UPS ' : ''}
-                  {visibilityDrafts[key]?.qogita !== false ? 'Qogita' : ''}
-                </div>
-                  {row.profile && (
-                    <div className="text-xs text-text-secondary">
-                      Client: {row.profile.company_name || row.profile.store_name || '—'} · {row.profile.email || '—'}
-                    </div>
-                  )}
-                  {row.last_error && (
-                    <div className="text-xs text-red-600 mt-1 break-all">
-                      <AlertTriangle className="inline w-3 h-3 mr-1" />
-                      {row.last_error}
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 text-xs text-text-light flex-wrap">
-                  <span>User: {row.user_id || '—'} · Company: {row.company_id || row.profile?.company_id || '—'}</span>
-                <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      className="w-36 px-2 py-1 border rounded text-xs"
-                      placeholder="Merchant ID"
-                      value={merchantDrafts[key] ?? ''}
-                      onChange={(e) =>
-                        setMerchantDrafts((prev) => ({ ...prev, [key]: e.target.value }))
-                      }
-                    />
-                    <button
-                      onClick={() => handleMerchantSave(row)}
-                      disabled={savingMerchant === key}
-                      className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
-                    >
-                      {savingMerchant === key ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                      Save ID
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      className="w-44 px-2 py-1 border rounded text-xs"
-                      placeholder="Profit Path token"
-                      value={tokenDrafts[key] ?? ''}
-                      onChange={(e) =>
-                        setTokenDrafts((prev) => ({ ...prev, [key]: e.target.value }))
-                      }
-                    />
-                    <button
-                      onClick={() => handleTokenSave(row)}
-                      disabled={savingToken === key}
-                      className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
-                    >
-                      {savingToken === key ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                      Save token
-                    </button>
-                </div>
-                <div className="flex items-center gap-2 text-[11px]">
-                  {[
-                    ['amazon', 'Amazon'],
-                    ['profitPath', 'Profit Path'],
-                    ['arbitrageOne', 'A1'],
-                    ['ups', 'UPS'],
-                    ['qogita', 'Qogita']
-                  ].map(([field, label]) => (
-                    <label key={field} className="inline-flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={visibilityDrafts[key]?.[field] !== false}
-                        onChange={(e) =>
-                          handleVisibilitySave(row, { [field]: e.target.checked })
-                        }
-                        disabled={Boolean(savingVisibility)}
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-                {(row.status || 'pending') === 'pending' && (
-                    <button
-                      onClick={() => handleConfirm(row)}
-                      disabled={confirming === key}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-60"
-                    >
-                      {confirming === key ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <CheckCircle className="w-3 h-3" />
-                      )}
-                      Confirm account created
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        <div className="space-y-3">
+          {INTEGRATIONS.map((integration) => (
+            <IntegrationPanel
+              key={integration.id}
+              title={integration.title}
+              subtitle={integration.subtitle}
+              open={openPanel === integration.id}
+              onToggle={() => setOpenPanel((prev) => (prev === integration.id ? '' : integration.id))}
+            >
+              {integration.id === 'amazon' && renderAmazonRows()}
+              {integration.id === 'profitPath' && renderProfitPathRows()}
+              {integration.id === 'arbitrageOne' && renderArbitrageRows()}
+              {integration.id === 'ups' && renderUpsRows()}
+              {integration.id === 'qogita' && renderQogitaRows()}
+            </IntegrationPanel>
+          ))}
         </div>
       )}
     </div>
