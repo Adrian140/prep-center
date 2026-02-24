@@ -206,7 +206,7 @@ useEffect(() => {
     { id: 'ups', label: 'UPS', icon: Truck },
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
     { id: 'boxes', label: 'Boxes', icon: Boxes },
-    { id: 'prep-business', label: 'Arbitrage One', icon: Link2 },
+    { id: 'prep-business', label: 'Arbitrage + Profit Path', icon: Link2 },
     { id: 'reviews', label: t('sidebar.reviews'), icon: Star },
     { id: 'user-guide', label: t('sidebar.userGuide'), icon: PlayCircle },
     { id: 'affiliates', label: t('sidebar.affiliates'), icon: Users },

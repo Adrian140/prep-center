@@ -180,6 +180,11 @@ export default function ClientIntegrations() {
   const [pbLoading, setPbLoading] = useState(true);
   const [pbSaving, setPbSaving] = useState(false);
   const [pbIntegration, setPbIntegration] = useState(null);
+  const [ppToken, setPpToken] = useState('');
+  const [ppStatus, setPpStatus] = useState('pending');
+  const [ppLastError, setPpLastError] = useState('');
+  const [ppLoading, setPpLoading] = useState(true);
+  const [ppSaving, setPpSaving] = useState(false);
   const [openIntegration, setOpenIntegration] = useState('ups');
 
   const clientId = import.meta.env.VITE_SPAPI_CLIENT_ID || '';
@@ -291,6 +296,7 @@ export default function ClientIntegrations() {
     const loadPrepBusiness = async () => {
       if (!user?.id) {
         setPbLoading(false);
+        setPpLoading(false);
         return;
       }
       setPbLoading(true);
@@ -312,18 +318,28 @@ export default function ClientIntegrations() {
         setPbEmail(defaultEmail);
         setPbStatus('pending');
         setPbLastError(error.message || supportError);
+        setPpToken('');
+        setPpStatus('pending');
+        setPpLastError(error.message || supportError);
       } else if (data) {
         setPbIntegration(data);
         setPbEmail(data.email_prep_business || data.email_arbitrage_one || defaultEmail);
         setPbStatus(data.status || 'pending');
         setPbLastError(data.last_error || '');
+        setPpToken(data.profit_path_token_id || '');
+        setPpStatus(data.status || 'pending');
+        setPpLastError(data.last_error || '');
       } else {
         setPbIntegration(null);
         setPbEmail(defaultEmail);
         setPbStatus('pending');
         setPbLastError('');
+        setPpToken('');
+        setPpStatus('pending');
+        setPpLastError('');
       }
       setPbLoading(false);
+      setPpLoading(false);
     };
     loadPrepBusiness();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -430,6 +446,7 @@ export default function ClientIntegrations() {
           company_id: profile?.company_id || null,
           email_arbitrage_one: pb,
           email_prep_business: pb,
+          profit_path_token_id: (ppToken || '').trim() || pbIntegration?.profit_path_token_id || null,
           status: pbIntegration?.status || 'pending',
           last_error: null,
           updated_at: new Date().toISOString(),
@@ -450,6 +467,55 @@ export default function ClientIntegrations() {
       setFlashType('success');
     }
     setPbSaving(false);
+  };
+
+  const handleSaveProfitPath = async (event) => {
+    event.preventDefault();
+    if (!user?.id) return;
+    setPpSaving(true);
+    setPpLastError('');
+    const token = (ppToken || '').trim();
+    if (!token) {
+      setPpLastError('Profit Path token ID is required.');
+      setPpSaving(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('prep_business_integrations')
+      .upsert(
+        {
+          id: pbIntegration?.id,
+          user_id: user.id,
+          company_id: profile?.company_id || null,
+          email_arbitrage_one:
+            pbIntegration?.email_arbitrage_one ||
+            ((pbEmail || profile?.email || '').trim().toLowerCase() || null),
+          email_prep_business:
+            pbIntegration?.email_prep_business ||
+            ((pbEmail || profile?.email || '').trim().toLowerCase() || null),
+          profit_path_token_id: token,
+          status: pbIntegration?.status || 'pending',
+          last_error: null,
+          updated_at: new Date().toISOString(),
+          created_at: pbIntegration?.created_at || new Date().toISOString()
+        },
+        { onConflict: 'user_id' }
+      )
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      setPpLastError(error.message || supportError);
+    } else {
+      setPbIntegration(data);
+      setPbStatus(data?.status || 'pending');
+      setPpStatus(data?.status || 'pending');
+      setPpLastError('');
+      setFlash('Profit Path integration saved. We will use this token for sync.');
+      setFlashType('success');
+    }
+    setPpSaving(false);
   };
 
   return (
@@ -691,6 +757,74 @@ export default function ClientIntegrations() {
         onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
       >
         <ClientUpsIntegration user={user} profile={profile} />
+      </IntegrationPanel>
+
+      <IntegrationPanel
+        id="profit-path"
+        title="Profit Path"
+        subtitle="Conectează token-ul de client pentru sincronizare."
+        logo="/branding/integrations/profit-path.svg"
+        fallbackLogo="/branding/integrations/profit-path.svg"
+        openId={openIntegration}
+        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
+      >
+      <section className="border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">Profit Path</h2>
+            <p className="text-sm text-text-secondary">
+              Introdu token ID-ul primit din Profit Path pentru a activa sincronizarea.
+            </p>
+          </div>
+          <div className="text-sm">
+            {ppStatus === 'active' || ppStatus === 'mapped' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                <CheckCircle className="w-4 h-4" /> Active
+              </span>
+            ) : ppStatus === 'error' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
+                <AlertTriangle className="w-4 h-4" /> Error
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700">
+                <Loader2 className="w-4 h-4" /> Pending
+              </span>
+            )}
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveProfitPath} className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">Profit Path token ID</label>
+            <input
+              type="text"
+              value={ppToken}
+              onChange={(e) => setPpToken(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+              placeholder="Ex: pp_live_..."
+              required
+            />
+          </div>
+          <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
+            <p>Token-ul este folosit de sistem pentru maparea și sincronizarea comenzilor tale.</p>
+          </div>
+          <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
+            <button
+              type="submit"
+              disabled={ppSaving || ppLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+            >
+              {ppSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+              Save token
+            </button>
+          </div>
+        </form>
+
+        {ppLastError && (
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{ppLastError}</div>
+        )}
+
+      </section>
       </IntegrationPanel>
 
       <IntegrationPanel

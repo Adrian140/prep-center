@@ -40,53 +40,68 @@ export default function AdminPrepBusinessIntegrations() {
   const [message, setMessage] = useState('');
   const [confirming, setConfirming] = useState(null);
   const [merchantDrafts, setMerchantDrafts] = useState({});
+  const [tokenDrafts, setTokenDrafts] = useState({});
   const [savingMerchant, setSavingMerchant] = useState(null);
+  const [savingToken, setSavingToken] = useState(null);
 
   const load = async () => {
     setRefreshing(true);
     setMessage('');
+
     const { data, error } = await supabase
       .from('prep_business_integrations')
       .select('*')
       .order('updated_at', { ascending: false });
+
     if (error) {
-      setMessage(error.message || 'Could not load PrepBusiness integrations.');
+      setMessage(error.message || 'Could not load integrations.');
       setRows([]);
-    } else {
-      const baseRows = data || [];
-      const userIds = Array.from(new Set(baseRows.map((r) => r.user_id).filter(Boolean)));
-      let profileMap = {};
-      if (userIds.length) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, company_name, store_name, email')
-          .in('id', userIds);
-        profileMap = Array.isArray(profiles)
-          ? profiles.reduce((acc, p) => {
-              acc[p.id] = p;
-              return acc;
-            }, {})
-          : {};
-      }
-      const enriched = baseRows.map((row) => ({
-        ...row,
-        profile: profileMap[row.user_id] || null
-      }));
-      const draftMap = {};
-      enriched.forEach((row) => {
-        draftMap[row.id] = row.merchant_id ? String(row.merchant_id) : '';
-      });
-      setMerchantDrafts(draftMap);
-      const sorted = enriched.sort((a, b) => {
-        const aPending = (a.status || 'pending') === 'pending' ? 1 : 0;
-        const bPending = (b.status || 'pending') === 'pending' ? 1 : 0;
-        if (aPending !== bPending) return bPending - aPending;
-        const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
-        const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
-        return bTime - aTime;
-      });
-      setRows(sorted);
+      setRefreshing(false);
+      setLoading(false);
+      return;
     }
+
+    const baseRows = data || [];
+    const userIds = Array.from(new Set(baseRows.map((r) => r.user_id).filter(Boolean)));
+
+    let profileMap = {};
+    if (userIds.length) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, company_name, store_name, email')
+        .in('id', userIds);
+      profileMap = Array.isArray(profiles)
+        ? profiles.reduce((acc, p) => {
+            acc[p.id] = p;
+            return acc;
+          }, {})
+        : {};
+    }
+
+    const enriched = baseRows.map((row) => ({
+      ...row,
+      profile: profileMap[row.user_id] || null
+    }));
+
+    const merchantMap = {};
+    const tokenMap = {};
+    enriched.forEach((row) => {
+      merchantMap[row.id] = row.merchant_id ? String(row.merchant_id) : '';
+      tokenMap[row.id] = row.profit_path_token_id ? String(row.profit_path_token_id) : '';
+    });
+    setMerchantDrafts(merchantMap);
+    setTokenDrafts(tokenMap);
+
+    const sorted = enriched.sort((a, b) => {
+      const aPending = (a.status || 'pending') === 'pending' ? 1 : 0;
+      const bPending = (b.status || 'pending') === 'pending' ? 1 : 0;
+      if (aPending !== bPending) return bPending - aPending;
+      const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
+      const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
+      return bTime - aTime;
+    });
+
+    setRows(sorted);
     setRefreshing(false);
     setLoading(false);
   };
@@ -121,7 +136,7 @@ export default function AdminPrepBusinessIntegrations() {
       const { error } = await supabase
         .from('prep_business_integrations')
         .update({
-          merchant_id: value ? value : null,
+          merchant_id: value || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', row.id);
@@ -134,13 +149,34 @@ export default function AdminPrepBusinessIntegrations() {
     }
   };
 
+  const handleTokenSave = async (row) => {
+    if (!row?.id) return;
+    const value = (tokenDrafts[row.id] || '').trim();
+    setSavingToken(row.id);
+    try {
+      const { error } = await supabase
+        .from('prep_business_integrations')
+        .update({
+          profit_path_token_id: value || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', row.id);
+      if (error) throw error;
+      await load();
+    } catch (err) {
+      setMessage(err?.message || 'Could not save Profit Path token.');
+    } finally {
+      setSavingToken(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-text-primary">Arbitrage One Integrations</h3>
+          <h3 className="text-lg font-semibold text-text-primary">PrepBusiness Client Mapping (A1 + Profit Path)</h3>
           <p className="text-sm text-text-secondary">
-            Email confirmări pentru importul din Arbitrage One (via PrepBusiness).
+            Ambele integrări mapează clientul în același flux PrepBusiness.
           </p>
         </div>
         <button
@@ -164,7 +200,7 @@ export default function AdminPrepBusinessIntegrations() {
           Loading integrations…
         </div>
       ) : rows.length === 0 ? (
-        <div className="text-sm text-text-secondary">No Arbitrage One integrations yet.</div>
+        <div className="text-sm text-text-secondary">No integrations yet.</div>
       ) : (
         <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
           {rows.map((row) => (
@@ -172,12 +208,15 @@ export default function AdminPrepBusinessIntegrations() {
               <div className="flex-1 min-w-[240px]">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-text-primary">
-                    {row.email_prep_business || row.email_arbitrage_one || 'Unknown email'}
+                    {row.email_prep_business || row.email_arbitrage_one || row.profit_path_token_id || 'Unknown mapping'}
                   </span>
                   <StatusBadge status={row.status} />
                 </div>
                 <div className="text-xs text-text-secondary">
                   AO: {row.email_arbitrage_one || '—'} · PB: {row.email_prep_business || '—'}
+                </div>
+                <div className="text-xs text-text-secondary">
+                  Profit Path token: {row.profit_path_token_id || '—'}
                 </div>
                 <div className="text-xs text-text-secondary">
                   Merchant: {row.merchant_id || '—'} · Last sync: {fmt(row.last_synced_at)} · Updated: {fmt(row.updated_at)}
@@ -194,7 +233,7 @@ export default function AdminPrepBusinessIntegrations() {
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-3 text-xs text-text-light">
+              <div className="flex items-center gap-3 text-xs text-text-light flex-wrap">
                 <span>User: {row.user_id || '—'} · Company: {row.company_id || '—'}</span>
                 <div className="flex items-center gap-2">
                   <input
@@ -212,10 +251,27 @@ export default function AdminPrepBusinessIntegrations() {
                     disabled={savingMerchant === row.id}
                     className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
                   >
-                    {savingMerchant === row.id ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : null}
+                    {savingMerchant === row.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                     Save ID
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    className="w-44 px-2 py-1 border rounded text-xs"
+                    placeholder="Profit Path token"
+                    value={tokenDrafts[row.id] ?? ''}
+                    onChange={(e) =>
+                      setTokenDrafts((prev) => ({ ...prev, [row.id]: e.target.value }))
+                    }
+                  />
+                  <button
+                    onClick={() => handleTokenSave(row)}
+                    disabled={savingToken === row.id}
+                    className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
+                  >
+                    {savingToken === row.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                    Save token
                   </button>
                 </div>
                 {(row.status || 'pending') === 'pending' && (
