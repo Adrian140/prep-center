@@ -443,6 +443,64 @@ async function fetchInbounds(merchantId: string, since: string | null) {
   return [];
 }
 
+async function syncPendingReceives() {
+  const { data: imports, error: importsError } = await supabase
+    .from("prep_business_imports")
+    .select("id, source_id, merchant_id, receiving_shipment_id, status")
+    .eq("status", "imported")
+    .not("source_id", "is", null)
+    .not("merchant_id", "is", null)
+    .not("receiving_shipment_id", "is", null)
+    .order("created_at", { ascending: true })
+    .limit(200);
+  if (importsError || !imports?.length) return [];
+
+  const results: Array<Record<string, unknown>> = [];
+  for (const row of imports) {
+    const receivingShipmentId = normalizeText((row as any).receiving_shipment_id);
+    const sourceId = normalizeText((row as any).source_id);
+    const merchantId = normalizeText((row as any).merchant_id);
+    if (!receivingShipmentId || !sourceId || !merchantId) continue;
+
+    const { data: shipment, error: shipmentError } = await supabase
+      .from("receiving_shipments")
+      .select("status")
+      .eq("id", receivingShipmentId)
+      .maybeSingle();
+    if (shipmentError || !shipment) continue;
+    if (String(shipment.status || "").toLowerCase() !== "received") continue;
+
+    const base = PREP_BASE_URL.replace(/\/+$/, "");
+    const url = `${base}/shipments/inbound/${sourceId}/receive`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${PREP_TOKEN}`,
+        "X-Api-Key": PREP_TOKEN,
+        "X-Selected-Client-Id": String(merchantId),
+        Accept: "application/json"
+      }
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      results.push({
+        error: `Receive sync failed: PrepBusiness API error ${resp.status}: ${text || resp.statusText}`,
+        source_id: sourceId,
+        merchant_id: merchantId
+      });
+      continue;
+    }
+
+    await supabase
+      .from("prep_business_imports")
+      .update({ status: "received" })
+      .eq("id", (row as any).id);
+    results.push({ ok: true, source_id: sourceId, merchant_id: merchantId, action: "receive-sync" });
+  }
+  return results;
+}
+
 async function handleSync(req: Request) {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -534,6 +592,8 @@ async function handleSync(req: Request) {
   if (!PREP_BASE_URL || !PREP_TOKEN) {
     return jsonResponse({ error: "Missing PREPBUSINESS_API_BASE_URL or PREPBUSINESS_API_TOKEN." }, 400);
   }
+
+  const receiveSyncResults = await syncPendingReceives();
 
   const { data: merchants, error } = await supabase
     .from("prep_merchants")
@@ -665,7 +725,14 @@ async function handleSync(req: Request) {
     }
   }
 
-  return jsonResponse({ ok: true, mode: "api", imported: results.length, results });
+  return jsonResponse({
+    ok: true,
+    mode: "api",
+    imported: results.length,
+    receive_synced: receiveSyncResults.length,
+    receive_results: receiveSyncResults,
+    results
+  });
 }
 
 serve(handleSync);
