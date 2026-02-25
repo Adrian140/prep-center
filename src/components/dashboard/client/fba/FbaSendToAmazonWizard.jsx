@@ -5087,12 +5087,22 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       );
     }
     if (stepKey === '1b') {
+      const rawStep1bError = planError || packingReadyError || packingSubmitError;
+      const step1bHasPackGroups = Array.isArray(packGroupsForUnits)
+        && packGroupsForUnits.some((g) => {
+          const id = g?.packingGroupId || g?.id || '';
+          return Boolean(id) && !String(id).toLowerCase().startsWith('fallback-');
+        });
+      const step1bHasPackingOptions = Array.isArray(packingOptions) && packingOptions.length > 0;
+      const suppressGenericStep1bError = rawStep1bError === 'Edge Function returned a non-2xx status code'
+        && step1bHasPackGroups
+        && step1bHasPackingOptions;
       return (
         <FbaStep1bPacking
           packGroups={packGroupsForUnits}
           packGroupsLoaded={packGroupsLoaded}
           loading={loadingPlan || packingRefreshLoading}
-          error={planError || packingReadyError || packingSubmitError}
+          error={suppressGenericStep1bError ? '' : rawStep1bError}
           onRetry={refreshPackingGroups}
           retryLoading={packingRefreshLoading}
           submitting={packingSubmitLoading}

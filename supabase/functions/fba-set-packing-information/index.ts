@@ -959,6 +959,7 @@ serve(async (req) => {
             : Array.isArray(body?.packingGroups)
             ? body.packingGroups.length
             : 0,
+          package_groupings_count: Array.isArray(body?.packageGroupings) ? body.packageGroupings.length : 0,
           timestamp: new Date().toISOString()
         },
         null,
@@ -991,6 +992,28 @@ serve(async (req) => {
         }))
       : [];
     const directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
+    const summarizePackageGroupings = (groups: any[] = []) =>
+      (Array.isArray(groups) ? groups : []).map((g: any) => {
+        const boxes = Array.isArray(g?.boxes) ? g.boxes : [];
+        const skuTotals: Record<string, number> = {};
+        boxes.forEach((b: any) => {
+          const boxQty = Number(b?.quantity || 1) || 1;
+          const items = Array.isArray(b?.items) ? b.items : [];
+          items.forEach((it: any) => {
+            const sku = String(it?.msku || "").trim();
+            const qty = Number(it?.quantity || 0) || 0;
+            if (!sku || qty <= 0) return;
+            skuTotals[sku] = (skuTotals[sku] || 0) + qty * boxQty;
+          });
+        });
+        return {
+          packingGroupId: g?.packingGroupId || g?.id || g?.groupId || null,
+          boxes: boxes.length,
+          boxQuantities: boxes.map((b: any) => Number(b?.quantity || 0) || 0),
+          contentSources: boxes.map((b: any) => b?.contentInformationSource || null),
+          skuTotals
+        };
+      });
     let expectedPackingGroupIds: string[] = [];
     let autoSwitchedToAccepted = false;
     let packageGroupings: any[] = [];
@@ -1056,6 +1079,23 @@ serve(async (req) => {
             : 0
         }))
       : [];
+    try {
+      console.log(
+        JSON.stringify(
+          {
+            tag: "setPackingInformation_input_debug",
+            traceId,
+            packingGroupsSummary,
+            mergedPackingGroupsSummary,
+            directGroupingsSummary: summarizePackageGroupings(directGroupings)
+          },
+          null,
+          2
+        )
+      );
+    } catch (_e) {
+      // no-op for logging failures
+    }
 
     if (!userIsAdmin) {
       const isOwner = !!reqData.user_id && reqData.user_id === user.id;
@@ -1301,16 +1341,38 @@ serve(async (req) => {
     }
 
     if (expectedPackingGroupIds.length && packageGroupings.length) {
-      packageGroupings = packageGroupings.map((g: any, idx: number) => {
-        const resolvedId =
-          expectedPackingGroupIds[idx] ||
-          g?.packingGroupId ||
-          g?.packing_group_id ||
-          g?.id ||
-          g?.groupId ||
-          null;
-        return { ...g, packingGroupId: resolvedId };
+      const expectedSet = new Set(expectedPackingGroupIds.map(String));
+      const providedResolvedIds = packageGroupings
+        .map((g: any) => g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null)
+        .filter(Boolean)
+        .map(String);
+      const usedExpected = new Set(providedResolvedIds.filter((id) => expectedSet.has(id)));
+      const missingExpected = expectedPackingGroupIds.map(String).filter((id) => !usedExpected.has(id));
+      let missingCursor = 0;
+
+      packageGroupings = packageGroupings.map((g: any) => {
+        const currentId = g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
+        if (currentId && expectedSet.has(String(currentId))) {
+          return { ...g, packingGroupId: String(currentId) };
+        }
+        const fallbackId = missingExpected[missingCursor++] || currentId || null;
+        return { ...g, packingGroupId: fallbackId ? String(fallbackId) : null };
       });
+    }
+    try {
+      console.log(
+        JSON.stringify(
+          {
+            tag: "setPackingInformation_effective_packageGroupings",
+            traceId,
+            summary: summarizePackageGroupings(packageGroupings)
+          },
+          null,
+          2
+        )
+      );
+    } catch (_e) {
+      // no-op for logging failures
     }
 
     // Validare minimă pe schema reală: packageGroupings[].boxes[].dimensions.unitOfMeasurement + weight.unit/value
@@ -1386,6 +1448,21 @@ serve(async (req) => {
     const extraSkus = Object.keys(summed).filter((sku) => !(sku in confirmed));
 
     if (mismatches.length || extraSkus.length) {
+      console.warn(
+        JSON.stringify(
+          {
+            tag: "setPackingInformation_qty_mismatch_debug",
+            traceId,
+            confirmed,
+            summed,
+            mismatches,
+            extraSkus,
+            packageGroupingsSummary: summarizePackageGroupings(packageGroupings)
+          },
+          null,
+          2
+        )
+      );
       return new Response(
         JSON.stringify({
           error: "Packing quantities mismatch between confirmed inventory (Step 1) and packing payload (Step 1b).",
