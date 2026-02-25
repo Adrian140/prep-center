@@ -573,6 +573,72 @@ async function handleSync(req: Request) {
     return jsonResponse({ ok: true, source_id: sourceId, merchant_id: merchantId });
   }
 
+  if (req.method === "POST" && ["archive", "delete"].includes(String(normalizeText(body.action) || "").toLowerCase())) {
+    if (!PREP_BASE_URL || !PREP_TOKEN) {
+      return jsonResponse({ error: "Missing PREPBUSINESS_API_BASE_URL or PREPBUSINESS_API_TOKEN." }, 400);
+    }
+
+    const receivingShipmentId = normalizeText(body.receiving_shipment_id) || normalizeText(body.receivingShipmentId);
+    let sourceId = normalizeText(body.source_id) || normalizeText(body.sourceId);
+    let merchantId = normalizeText(body.merchant_id) || normalizeText(body.merchantId);
+
+    if (!sourceId || !merchantId) {
+      if (!receivingShipmentId) {
+        return jsonResponse({ error: "Missing receiving_shipment_id or source_id." }, 400);
+      }
+      const { data, error } = await supabase
+        .from("prep_business_imports")
+        .select("source_id, merchant_id")
+        .eq("receiving_shipment_id", receivingShipmentId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error || !data) {
+        return jsonResponse({ error: "No PrepBusiness import found for receiving_shipment_id." }, 404);
+      }
+      sourceId = sourceId || normalizeText(data.source_id);
+      merchantId = merchantId || normalizeText(data.merchant_id);
+    }
+
+    if (!sourceId || !merchantId) {
+      return jsonResponse({ error: "Missing source_id or merchant_id for PrepBusiness archive." }, 400);
+    }
+
+    const numericSourceId = Number(sourceId);
+    const shipmentIds = Number.isFinite(numericSourceId) ? [numericSourceId] : [sourceId];
+
+    const base = PREP_BASE_URL.replace(/\/+$/, "");
+    const url = `${base}/shipments/inbound/batch/archive`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${PREP_TOKEN}`,
+        "X-Api-Key": PREP_TOKEN,
+        "X-Selected-Client-Id": String(merchantId),
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ shipment_ids: shipmentIds })
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      return jsonResponse({ error: `PrepBusiness API error ${resp.status}: ${text || resp.statusText}` }, 502);
+    }
+
+    await supabase
+      .from("prep_business_imports")
+      .update({ status: "archived" })
+      .eq("source_id", sourceId);
+
+    return jsonResponse({
+      ok: true,
+      action: "archive-sync",
+      source_id: sourceId,
+      merchant_id: merchantId
+    });
+  }
+
   const inbounds = Array.isArray(body.inbounds) ? body.inbounds : [];
   if (inbounds.length) {
     const results = [];

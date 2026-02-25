@@ -3274,6 +3274,43 @@ createReceivingShipment: async (shipmentData) => {
   },
 
   deleteReceivingShipment: async (shipmentId) => {
+    const { data: importRow, error: importLookupError } = await supabase
+      .from('prep_business_imports')
+      .select('source_id, merchant_id')
+      .eq('receiving_shipment_id', shipmentId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (importLookupError) {
+      return { data: null, error: importLookupError };
+    }
+
+    if (importRow?.source_id && importRow?.merchant_id) {
+      const { data: archiveData, error: archiveError } = await supabase.functions.invoke('prepbusiness-sync', {
+        body: {
+          action: 'archive',
+          receiving_shipment_id: shipmentId,
+          source_id: importRow.source_id,
+          merchant_id: importRow.merchant_id
+        }
+      });
+
+      if (archiveError) {
+        return {
+          data: null,
+          error: { message: `PrepBusiness archive failed: ${archiveError.message || 'Unknown error'}` }
+        };
+      }
+
+      if (archiveData?.error) {
+        return {
+          data: null,
+          error: { message: `PrepBusiness archive failed: ${archiveData.error}` }
+        };
+      }
+    }
+
     return await supabase
       .from('receiving_shipments')
       .delete()
