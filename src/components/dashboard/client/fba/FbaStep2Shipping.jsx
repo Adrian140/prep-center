@@ -77,6 +77,9 @@ export default function FbaStep2Shipping({
   const partneredMissingShipments = Array.isArray(shippingSummary?.partneredMissingShipments)
     ? shippingSummary.partneredMissingShipments.map((s) => String(s))
     : [];
+  const partneredMissingDetails = Array.isArray(shippingSummary?.partneredMissingDetails)
+    ? shippingSummary.partneredMissingDetails
+    : [];
   const shipmentIds = useMemo(
     () =>
       (Array.isArray(shipments) ? shipments : [])
@@ -503,9 +506,18 @@ export default function FbaStep2Shipping({
           {partneredAvailableForAny && partneredAvailableForAll === false && (
             <div className="text-xs text-amber-700 border border-amber-200 bg-amber-50 rounded-md px-3 py-2">
               Amazon partnered este disponibil doar pentru unele shipment-uri.
-              {partneredMissingShipments.length
-                ? ` Lipsă pentru: ${partneredMissingShipments.join(', ')}.`
-                : ''}
+              {partneredMissingDetails.length
+                ? ` Lipsă pentru: ${partneredMissingDetails
+                    .map((d) => {
+                      const group = d?.packingGroupId ? `packGroup ${d.packingGroupId}` : null;
+                      const shipment = d?.shipmentName || d?.shipmentId || null;
+                      return [group, shipment].filter(Boolean).join(' / ');
+                    })
+                    .filter(Boolean)
+                    .join(', ')}.`
+                : partneredMissingShipments.length
+                  ? ` Lipsă pentru: ${partneredMissingShipments.join(', ')}.`
+                  : ''}
             </div>
           )}
           {!hasSpdOptions && modeKeys.length > 1 && (

@@ -4184,6 +4184,15 @@ serve(async (req) => {
               : null
         ) ?? selectedOption?.charge ?? null
         : null;
+    const partneredMissingDetails = partneredMissingShipments.map((sid) => {
+      const sh =
+        placementShipments.find((s: any) => String(s?.shipmentId || s?.id || "") === String(sid)) || null;
+      return {
+        shipmentId: sid,
+        packingGroupId: sh?.packingGroupId || sh?.packing_group_id || null,
+        shipmentName: sh?.shipmentName || sh?.name || null
+      };
+    });
     const summary = {
       partneredAllowed: Boolean(partneredOpt),
       partneredAvailableForAll,
@@ -4207,6 +4216,19 @@ serve(async (req) => {
       nonPartneredChargeByShipment: Object.keys(nonPartneredChargeByShipment).length ? nonPartneredChargeByShipment : null,
       nonPartneredChargeTotal
     };
+    if (partneredAvailableForAny && !partneredAvailableForAll && partneredMissingDetails.length) {
+      const missingLabel = partneredMissingDetails
+        .map((d) => {
+          const group = d?.packingGroupId ? `packGroup ${d.packingGroupId}` : null;
+          const shipment = d?.shipmentName ? `${d.shipmentName}` : d?.shipmentId ? `${d.shipmentId}` : null;
+          return [group, shipment].filter(Boolean).join(" / ");
+        })
+        .filter(Boolean)
+        .join(", ");
+      summary["warnings"] = [
+        `PCP este disponibil doar parțial. Verifică shipment/pack group fără PCP (posibil hazmat/restricții carrier): ${missingLabel}.`
+      ];
+    }
     if (spdDiagnostic) {
       summary["spdDiagnostic"] = spdDiagnostic;
     }
@@ -4220,18 +4242,12 @@ serve(async (req) => {
       selectedSolution:
         selectedOption?.shippingSolution || selectedOption?.raw?.shippingSolution || null
     };
-    const partneredMissingDetails = partneredMissingShipments.map((sid) => {
-      const sh =
-        placementShipments.find((s: any) => String(s?.shipmentId || s?.id || "") === String(sid)) || null;
-      return {
-        shipmentId: sid,
-        packingGroupId: sh?.packingGroupId || sh?.packing_group_id || null,
-        shipmentName: sh?.shipmentName || sh?.name || null
-      };
-    });
     summaryWithSelection["partneredMissingDetails"] = partneredMissingDetails;
     if (spdWarnings.length) {
-      summary["warnings"] = spdWarnings;
+      summary["warnings"] = [...(Array.isArray(summary["warnings"]) ? summary["warnings"] : []), ...spdWarnings];
+    }
+    if (Array.isArray(summary["warnings"]) && summary["warnings"].length) {
+      summaryWithSelection["warnings"] = summary["warnings"];
     }
     if (!partneredOpt) {
       const suspectedReasons: string[] = [];
@@ -4652,19 +4668,6 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
-    if (selectedOption?.partnered && partneredMissingShipments.length) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "PCP nu este disponibil pentru toate pack groups/shipments. Alege non-partnered pentru acest plan sau separă shipment-ul care nu este eligibil PCP (ex: hazmat/restricții carrier).",
-          code: "PARTNERED_NOT_AVAILABLE_ALL_SHIPMENTS",
-          traceId,
-          missingShipments: partneredMissingDetails
-        }),
-        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
-      );
-    }
-
     if (!selectedOption?.id) {
       return new Response(
         JSON.stringify({
