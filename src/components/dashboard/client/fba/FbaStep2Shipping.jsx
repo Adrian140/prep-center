@@ -257,6 +257,28 @@ export default function FbaStep2Shipping({
     });
   }, [spdOptions, shipmentIds]);
   const hasSpdOptions = spdOptions.length > 0;
+  const partneredChargeByShipment = useMemo(() => {
+    const raw = shippingSummary?.partneredChargeByShipment;
+    if (!raw || typeof raw !== 'object') return null;
+    const out = {};
+    Object.entries(raw).forEach(([k, v]) => {
+      const num = Number(v);
+      if (k && Number.isFinite(num)) out[String(k)] = num;
+    });
+    return Object.keys(out).length ? out : null;
+  }, [shippingSummary]);
+  const partneredChargeTotal = useMemo(() => {
+    const direct = Number(shippingSummary?.partneredChargeTotal);
+    if (Number.isFinite(direct)) return direct;
+    if (partneredChargeByShipment && shipmentIds.length) {
+      const sum = shipmentIds.reduce((acc, sid) => {
+        const v = Number(partneredChargeByShipment[sid]);
+        return Number.isFinite(v) ? acc + v : acc;
+      }, 0);
+      return Number.isFinite(sum) && sum > 0 ? sum : null;
+    }
+    return null;
+  }, [shippingSummary, partneredChargeByShipment, shipmentIds]);
   const modeKeys = useMemo(
     () => ['SPD', 'LTL', 'FTL', 'OTHER'].filter((k) => (groupedOptions[k] || []).length > 0),
     [groupedOptions]
@@ -554,7 +576,11 @@ export default function FbaStep2Shipping({
                 {spdPartneredOptions.map((opt) => {
                   const carrierLabel = getCarrierLabel(opt);
                   const optionId = getOptionId(opt);
-                  const chargeText = Number.isFinite(opt?.charge) ? `€${opt.charge.toFixed(2)}` : '—';
+                  const effectiveCharge =
+                    shipmentIds.length > 1 && Number.isFinite(partneredChargeTotal)
+                      ? partneredChargeTotal
+                      : opt?.charge;
+                  const chargeText = Number.isFinite(effectiveCharge) ? `€${Number(effectiveCharge).toFixed(2)}` : '—';
                   const checked = Boolean(optionId) && optionId === selectedTransportationOptionId;
                   const partneredDisabled =
                     Boolean(opt?.partnered) &&
@@ -577,6 +603,9 @@ export default function FbaStep2Shipping({
                       <div className="text-xs text-slate-500">Amazon partnered carrier</div>
                       <div className="text-[11px] text-slate-400">AMAZON_PARTNERED_CARRIER</div>
                       <div className="mt-1 text-2xl font-semibold text-slate-800">{chargeText}</div>
+                      {shipmentIds.length > 1 && Number.isFinite(effectiveCharge) && (
+                        <div className="text-[11px] text-slate-500">Total for all shipments</div>
+                      )}
                     </label>
                   );
                 })}
