@@ -3927,7 +3927,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setShippingError('Selectează o opțiune de curier înainte de confirmare.');
       return;
     }
-    const enforcePartneredOnly = Boolean(forcePartneredOnly || selectedOpt?.partnered);
+    // Do not force PCP for every shipment just because the currently selected option is PCP.
+    // Some placement splits can be mixed (PCP available for one shipment, OYC only for another).
+    const enforcePartneredOnly = Boolean(forcePartneredOnly);
     const signature = selectedOptionSignatureRef.current || {};
     const optionShipmentId = String(selectedOpt?.shipmentId || selectedOpt?.raw?.shipmentId || '').trim();
     const shipmentIds = Array.isArray(shipments)

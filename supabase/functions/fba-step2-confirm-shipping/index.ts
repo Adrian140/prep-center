@@ -4902,6 +4902,19 @@ serve(async (req) => {
       let candidate = byId(confirmOptionId || null);
       if (!candidate) candidate = byId(selectedOption?.id || null);
       if (!candidate) candidate = matchBySignature(pool) || matchBySignature(normalized);
+      if (!candidate && !forcePartneredOnly) {
+        const available = (pool.length ? pool : normalized).filter(
+          (o) => String(o?.raw?.status || "AVAILABLE").toUpperCase() === "AVAILABLE"
+        );
+        if (available.length) {
+          const partneredAvailable = available.filter((o) => Boolean(o?.partnered));
+          const nonPartneredAvailable = available.filter((o) => !Boolean(o?.partnered));
+          // Keep selected intent when possible, but allow mixed PCP/OYC confirmations per shipment.
+          candidate = selectedOption?.partnered
+            ? partneredAvailable[0] || nonPartneredAvailable[0] || available[0] || null
+            : nonPartneredAvailable[0] || partneredAvailable[0] || available[0] || null;
+        }
+      }
       if (!candidate) return null;
       const statusUp = String(candidate?.raw?.status || "AVAILABLE").toUpperCase();
       if (statusUp !== "AVAILABLE") return null;
