@@ -2265,7 +2265,7 @@ export default function FbaStep1Inventory({
     (missingInboundPlan && !allowNoInboundPlan) ||
     !requestId ||
     !hasUnits ||
-    (!allowNoInboundPlan && !boxPlanValidation.isValid) ||
+    !boxPlanValidation.isValid ||
     (loadingPlan && skus.length === 0);
 
   const renderSkuRow = (sku, groupId = 'ungrouped', groupLabel = tr('allItems')) => {
