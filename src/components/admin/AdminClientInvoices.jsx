@@ -1,6 +1,6 @@
 // FILE: src/components/admin/AdminClientInvoices.jsx
 import React, { useEffect, useState } from 'react';
-import { Plus, Download, Eye, Calendar, FileText, Edit, Trash2, Save, X } from 'lucide-react';
+import { Plus, Download, Eye, Calendar, FileText, Edit, Trash2, Save, X, Mail } from 'lucide-react';
 import { supabase, supabaseHelpers } from '../../config/supabase';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 
@@ -18,6 +18,7 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadFile, setUploadFile] = useState(null);
   const [flash, setFlash] = useState('');
+  const [emailingId, setEmailingId] = useState(null);
 
   const [form, setForm] = useState({
     invoice_number: '',
@@ -170,6 +171,55 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
     if (!error && data?.signedUrl) window.open(data.signedUrl, '_blank');
   };
 
+  const sendInvoiceEmail = async (invoice) => {
+    if (!invoice?.file_path) {
+      setFlash('Email failed: missing PDF file.');
+      return;
+    }
+    const recipientEmail = String(invoice?.document_payload?.customerEmail || profile?.email || '').trim();
+    if (!recipientEmail) {
+      setFlash('Email failed: client email is missing.');
+      return;
+    }
+    setEmailingId(invoice.id);
+    try {
+      const { data: pdfBlob, error: downloadError } = await supabaseHelpers.downloadInvoice(invoice.file_path);
+      if (downloadError || !pdfBlob) throw downloadError || new Error('Could not load invoice PDF.');
+
+      const payload = invoice?.document_payload || {};
+      const billingProfile = payload?.billingProfile || {};
+      const net = Number(invoice.amount ?? payload?.totals?.net ?? 0) || 0;
+      const vat = Number(invoice.vat_amount ?? payload?.totals?.vat ?? 0) || 0;
+      const total = Number(payload?.totals?.gross ?? (net + vat)) || 0;
+      const looksProforma = String(invoice?.document_type || '').toLowerCase() === 'proforma'
+        || /\bPF\d+\b/.test(String(invoice?.invoice_number || '').toUpperCase());
+      const attachmentName = `${String(invoice?.invoice_number || invoice?.id || 'invoice').replace(/[^a-zA-Z0-9._-]/g, '_')}.pdf`;
+
+      const { error } = await supabaseHelpers.sendInvoiceEmail(
+        {
+          email: recipientEmail,
+          client_name: [billingProfile?.first_name, billingProfile?.last_name].filter(Boolean).join(' ') || [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null,
+          company_name: billingProfile?.company_name || profile?.company_name || null,
+          document_type: looksProforma ? 'proforma' : 'invoice',
+          invoice_number: invoice?.invoice_number || invoice?.id,
+          issue_date: invoice?.issue_date || null,
+          due_date: invoice?.due_date || payload?.dueDate || null,
+          net_amount: net,
+          vat_amount: vat,
+          total_amount: total,
+          attachment_filename: attachmentName
+        },
+        pdfBlob
+      );
+      if (error) throw error;
+      setFlash('Invoice email sent successfully.');
+    } catch (err) {
+      setFlash(err?.message || 'Email sending failed.');
+    } finally {
+      setEmailingId(null);
+    }
+  };
+
   // edit handlers
   const startEdit = (inv) => {
     setEditId(inv.id);
@@ -255,7 +305,7 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
       {/* flash */}
       {flash && (
         <div className={`px-4 py-3 rounded-lg ${
-          /success|updated|deleted|uploaded/i.test(flash)
+          /success|updated|deleted|uploaded|sent/i.test(flash)
             ? 'bg-green-50 border border-green-200 text-green-700'
             : 'bg-red-50 border border-red-200 text-red-700'
         }`}>
@@ -502,6 +552,14 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
                         Download
                       </button>
                     )}
+                    <button
+                      onClick={() => sendInvoiceEmail(inv)}
+                      disabled={!inv.file_path || emailingId === inv.id}
+                      className="flex items-center px-3 py-2 border border-emerald-300 text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors disabled:opacity-60"
+                    >
+                      <Mail className="w-4 h-4 mr-1" />
+                      {emailingId === inv.id ? 'Sending...' : 'Send email'}
+                    </button>
                     <button
                       onClick={() => startEdit(inv)}
                       className="flex items-center px-3 py-2 border rounded-lg hover:bg-gray-50"

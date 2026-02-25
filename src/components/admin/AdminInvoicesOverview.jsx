@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Download, Loader2, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
+import { Download, Loader2, Mail, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { supabase, supabaseHelpers } from '@/config/supabase';
@@ -110,11 +110,14 @@ export default function AdminInvoicesOverview() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [convertingId, setConvertingId] = useState(null);
+  const [emailingId, setEmailingId] = useState(null);
   const [rows, setRows] = useState([]);
   const [companyNames, setCompanyNames] = useState({});
   const [clientNames, setClientNames] = useState({});
+  const [clientProfiles, setClientProfiles] = useState({});
   const countryOptions = useMemo(
     () =>
       (availableMarkets || [])
@@ -239,10 +242,11 @@ export default function AdminInvoicesOverview() {
 
       if (!userIds.length) {
         setClientNames({});
+        setClientProfiles({});
       } else {
         const { data: users, error: usersError } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, email')
+          .select('id, first_name, last_name, email, company_name')
           .in('id', userIds);
         if (usersError) throw usersError;
 
@@ -255,12 +259,18 @@ export default function AdminInvoicesOverview() {
           return acc;
         }, {});
         setClientNames(userLookup);
+        const profileLookup = (users || []).reduce((acc, entry) => {
+          acc[entry.id] = entry;
+          return acc;
+        }, {});
+        setClientProfiles(profileLookup);
       }
     } catch (err) {
       setError(err?.message || t('adminInvoices.loadError'));
       setRows([]);
       setCompanyNames({});
       setClientNames({});
+      setClientProfiles({});
     } finally {
       setLoading(false);
     }
@@ -507,17 +517,24 @@ export default function AdminInvoicesOverview() {
           legalNote: ''
         };
 
+        const existingItems = Array.isArray(payload?.items)
+          ? payload.items.filter((item) => item && typeof item === 'object')
+          : [];
+        const fallbackService = String(payload?.description || row.description || '')
+          .replace(/^PROFORMA\s*\|\s*/i, '')
+          .trim() || 'Services';
+
         payload = {
           ...payload,
           issuerProfile,
           billingProfile,
           customerEmail: payload?.customerEmail || profile?.email || '',
           customerPhone: payload?.customerPhone || billingProfile?.phone || profile?.phone || '',
-          items: Array.isArray(payload?.items) && payload.items.length > 0
-            ? payload.items
+          items: existingItems.length > 0
+            ? existingItems
             : [
                 {
-                  service: `Converted from proforma ${row.invoice_number || row.id}`,
+                  service: fallbackService,
                   units: 1,
                   unitPrice: netAmount,
                   total: netAmount
@@ -597,32 +614,6 @@ export default function AdminInvoicesOverview() {
         throw new Error('Invoice conversion failed (missing final invoice row).');
       }
 
-      if (payload?.customerEmail) {
-        const emailRes = await supabaseHelpers.sendInvoiceEmail(
-          {
-            email: payload.customerEmail,
-            client_name: [payload?.billingProfile?.first_name, payload?.billingProfile?.last_name]
-              .filter(Boolean)
-              .join(' ') || null,
-            company_name: payload?.billingProfile?.company_name || null,
-            document_type: 'invoice',
-            invoice_number: finalInvoiceNumber,
-            issue_date: invoiceDate,
-            due_date: payload?.dueDate || null,
-            net_amount: roundMoney(row.amount ?? totals?.net ?? 0),
-            vat_amount: roundMoney(row.vat_amount ?? totals?.vat ?? 0),
-            total_amount: roundMoney(
-              totals?.gross ?? (Number(row.amount || 0) + Number(row.vat_amount || 0))
-            ),
-            attachment_filename: `${safeFileName(finalInvoiceNumber)}.pdf`
-          },
-          pdfBlob
-        );
-        if (emailRes?.error) {
-          console.error('sendInvoiceEmail on conversion error', emailRes.error);
-        }
-      }
-
       let { error: markError } = await supabase
         .from('invoices')
         .update({ status: 'converted', converted_to_invoice_id: finalRow.id })
@@ -669,6 +660,59 @@ export default function AdminInvoicesOverview() {
       setError(err?.message || t('adminInvoices.loadError'));
     } finally {
       setConvertingId(null);
+    }
+  };
+
+  const sendInvoiceEmail = async (row) => {
+    if (!row?.id || !row?.file_path) {
+      setError('Missing invoice PDF file. Cannot send email.');
+      return;
+    }
+    setError('');
+    setNotice('');
+    setEmailingId(row.id);
+    try {
+      const contact = clientProfiles[row.user_id] || {};
+      const payload = row?.document_payload || {};
+      const billingProfile = payload?.billingProfile || {};
+      const recipientEmail = String(payload?.customerEmail || contact?.email || '').trim();
+      if (!recipientEmail) {
+        throw new Error('Client email is missing.');
+      }
+
+      const { data: pdfBlob, error: downloadError } = await supabaseHelpers.downloadInvoice(row.file_path);
+      if (downloadError || !pdfBlob) {
+        throw downloadError || new Error('Could not download invoice PDF.');
+      }
+
+      const net = roundMoney(payload?.totals?.net ?? row.amount ?? 0);
+      const vat = roundMoney(payload?.totals?.vat ?? row.vat_amount ?? 0);
+      const total = roundMoney(payload?.totals?.gross ?? (Number(net) + Number(vat)));
+      const documentType = isProforma(row) ? 'proforma' : 'invoice';
+      const clientName = [billingProfile?.first_name, billingProfile?.last_name].filter(Boolean).join(' ').trim();
+
+      const emailRes = await supabaseHelpers.sendInvoiceEmail(
+        {
+          email: recipientEmail,
+          client_name: clientName || [contact?.first_name, contact?.last_name].filter(Boolean).join(' ').trim() || null,
+          company_name: billingProfile?.company_name || contact?.company_name || null,
+          document_type: documentType,
+          invoice_number: row.invoice_number || row.id,
+          issue_date: row.issue_date || null,
+          due_date: row.due_date || payload?.dueDate || null,
+          net_amount: net,
+          vat_amount: vat,
+          total_amount: total,
+          attachment_filename: `${safeFileName(row.invoice_number || row.id)}.pdf`
+        },
+        pdfBlob
+      );
+      if (emailRes?.error) throw emailRes.error;
+      setNotice(`Email sent: ${row.invoice_number || row.id}`);
+    } catch (err) {
+      setError(err?.message || 'Could not send invoice email.');
+    } finally {
+      setEmailingId(null);
     }
   };
 
@@ -755,6 +799,11 @@ export default function AdminInvoicesOverview() {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        {notice ? (
+          <div className="m-4 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+            {notice}
+          </div>
+        ) : null}
         {loading ? (
           <div className="py-16 flex items-center justify-center text-text-secondary">
             <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -780,6 +829,7 @@ export default function AdminInvoicesOverview() {
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.status')}</th>
                   <th className="px-4 py-3 text-left">Convert</th>
                   <th className="px-4 py-3 text-left">{t('adminInvoices.table.download')}</th>
+                  <th className="px-4 py-3 text-left">Email</th>
                   <th className="px-4 py-3 text-left">Delete</th>
                 </tr>
               </thead>
@@ -854,6 +904,18 @@ export default function AdminInvoicesOverview() {
                         >
                           <Download className="w-3.5 h-3.5" />
                           {t('adminInvoices.table.download')}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => sendInvoiceEmail(row)}
+                          disabled={!row.file_path || emailingId === row.id}
+                          className="inline-flex items-center gap-1 rounded border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          title={row.file_path ? 'Send email to client' : 'Invoice file missing'}
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          {emailingId === row.id ? 'Sending...' : 'Send email'}
                         </button>
                       </td>
                       <td className="px-4 py-3">
