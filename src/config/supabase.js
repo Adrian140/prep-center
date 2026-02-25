@@ -1680,6 +1680,8 @@ const items = (draftData.items || []).map((it) => ({
     const listSelect = `
       id,
       created_at,
+      completed_at,
+      confirmed_at,
       status,
       destination_country,
       warehouse_country,
@@ -2295,15 +2297,27 @@ createPrepItem: async (requestId, item) => {
       ? supabase.from('profiles').select('current_balance').eq('id', userId).maybeSingle()
       : Promise.resolve({ data: null, error: null });
 
-    const fbaLinesPromise = withCountry(
+    const fbaStandalonePromise = withCountry(
       withCompany(
         supabase
           .from('fba_lines')
           .select('total, unit_price, units, service_date, prep_request_id')
       )
     )
+      .is('prep_request_id', null)
       .gte('service_date', dateFrom)
       .lte('service_date', dateTo)
+      .limit(20000);
+    const finalizedPrepRequestsPromise = withCountry(
+      withCompany(
+        supabase
+          .from('prep_requests')
+          .select('id, completed_at, step4_confirmed_at, confirmed_at')
+          .eq('status', 'confirmed')
+      )
+    )
+      .gte('completed_at', startIso)
+      .lte('completed_at', endIso)
       .limit(20000);
     const fbmLinesPromise = withCountry(
       withCompany(
@@ -2326,7 +2340,7 @@ createPrepItem: async (requestId, item) => {
       .lte('service_date', dateTo)
       .limit(20000);
 
-    let [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, stockTotalByCountryRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaLinesRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
+    let [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, stockTotalByCountryRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaStandaloneRes, finalizedPrepRequestsRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
       stockPromise,
       stockAllPromise,
       clientStockPromise,
@@ -2338,14 +2352,15 @@ createPrepItem: async (requestId, item) => {
       receivingPromise,
       prepItemsPromise,
       receivingItemsPromise,
-      fbaLinesPromise,
+      fbaStandalonePromise,
+      finalizedPrepRequestsPromise,
       fbmLinesPromise,
       otherLinesPromise,
       balancePromise
     ]);
     let pendingItemsRes = await pendingItemsPromise;
-    if (fbaLinesRes?.error && isMissingColumnError(fbaLinesRes.error, 'prep_request_id')) {
-      fbaLinesRes = await withCountry(
+    if (fbaStandaloneRes?.error && isMissingColumnError(fbaStandaloneRes.error, 'prep_request_id')) {
+      fbaStandaloneRes = await withCountry(
         withCompany(
           supabase
             .from('fba_lines')
@@ -2354,6 +2369,19 @@ createPrepItem: async (requestId, item) => {
       )
         .gte('service_date', dateFrom)
         .lte('service_date', dateTo)
+        .limit(20000);
+    }
+    if (finalizedPrepRequestsRes?.error && isMissingColumnError(finalizedPrepRequestsRes.error, 'completed_at')) {
+      finalizedPrepRequestsRes = await withCountry(
+        withCompany(
+          supabase
+            .from('prep_requests')
+            .select('id, step4_confirmed_at, confirmed_at')
+            .eq('status', 'confirmed')
+        )
+      )
+        .gte('confirmed_at', startIso)
+        .lte('confirmed_at', endIso)
         .limit(20000);
     }
     const needsWarehouseRetry =
@@ -2495,39 +2523,53 @@ createPrepItem: async (requestId, item) => {
     const prepItemRows = Array.isArray(prepItemsRes.data) ? prepItemsRes.data : [];
     const pendingItemRows = Array.isArray(pendingItemsRes?.data) ? pendingItemsRes.data : [];
     const receivingItemRows = Array.isArray(receivingItemsRes.data) ? receivingItemsRes.data : [];
-    const fbaLines = Array.isArray(fbaLinesRes.data) ? fbaLinesRes.data : [];
+    const fbaStandaloneLines = Array.isArray(fbaStandaloneRes.data) ? fbaStandaloneRes.data : [];
+    const finalizedPrepRequestsRows = Array.isArray(finalizedPrepRequestsRes.data) ? finalizedPrepRequestsRes.data : [];
     const fbmLines = Array.isArray(fbmLinesRes.data) ? fbmLinesRes.data : [];
     const otherLines = Array.isArray(otherLinesRes.data) ? otherLinesRes.data : [];
-    const fbaPrepRequestIds = Array.from(
-      new Set(
-        fbaLines
-          .map((row) => row?.prep_request_id)
-          .filter(Boolean)
-      )
-    );
     const fbaFinalizedDateByRequestId = new Map();
+    finalizedPrepRequestsRows.forEach((row) => {
+      const effectiveDate = row?.completed_at || row?.step4_confirmed_at || row?.confirmed_at || null;
+      if (!effectiveDate) return;
+      fbaFinalizedDateByRequestId.set(row.id, String(effectiveDate).slice(0, 10));
+    });
+
+    const fbaPrepRequestIds = Array.from(fbaFinalizedDateByRequestId.keys());
+    const fbaPrepRequestLines = [];
     if (fbaPrepRequestIds.length) {
-      let prepDatesQuery = supabase
-        .from('prep_requests')
-        .select('id, step4_confirmed_at, confirmed_at')
-        .in('id', fbaPrepRequestIds)
-        .limit(20000);
-      if (companyId) prepDatesQuery = prepDatesQuery.eq('company_id', companyId);
-      if (marketCode) prepDatesQuery = prepDatesQuery.eq('warehouse_country', marketCode);
-      const prepDatesRes = await prepDatesQuery;
-      const prepDatesRows = Array.isArray(prepDatesRes.data) ? prepDatesRes.data : [];
-      prepDatesRows.forEach((row) => {
-        const effectiveDate = row?.step4_confirmed_at || row?.confirmed_at || null;
-        if (!effectiveDate) return;
-        fbaFinalizedDateByRequestId.set(row.id, String(effectiveDate).slice(0, 10));
-      });
+      const chunkSize = 500;
+      for (let i = 0; i < fbaPrepRequestIds.length; i += chunkSize) {
+        const idChunk = fbaPrepRequestIds.slice(i, i + chunkSize);
+        let chunkQuery = withCountry(
+          withCompany(
+            supabase
+              .from('fba_lines')
+              .select('total, unit_price, units, service_date, prep_request_id')
+          )
+        )
+          .in('prep_request_id', idChunk)
+          .limit(20000);
+        const chunkRes = await chunkQuery;
+        if (chunkRes?.error && !isMissingColumnError(chunkRes.error, 'prep_request_id')) {
+          throw chunkRes.error;
+        }
+        if (!chunkRes?.error) {
+          fbaPrepRequestLines.push(...(Array.isArray(chunkRes.data) ? chunkRes.data : []));
+        }
+      }
     }
-    const fbaLinesForFinance = fbaLines.map((row) => {
+
+    const isDateWithinRange = (value) => {
+      if (!value) return false;
+      const d = String(value).slice(0, 10);
+      return d >= dateFrom && d <= dateTo;
+    };
+    const fbaLinesForFinance = [...fbaStandaloneLines, ...fbaPrepRequestLines].map((row) => {
       const requestId = row?.prep_request_id || null;
       const finalizedDate = requestId ? fbaFinalizedDateByRequestId.get(requestId) : null;
       if (!finalizedDate) return row;
       return { ...row, service_date: finalizedDate };
-    });
+    }).filter((row) => isDateWithinRange(row?.service_date));
 
     const filterCompanyJoin = (rows, extractor) => {
       if (!companyId) return rows;

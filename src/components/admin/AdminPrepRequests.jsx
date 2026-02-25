@@ -255,6 +255,7 @@ export default function AdminPrepRequests() {
           <thead className="bg-gray-50 text-text-secondary">
             <tr>
               <th className="px-4 py-3 text-left">Creat la</th>
+              <th className="px-4 py-3 text-left">Finalizat la</th>
               <th className="px-4 py-3 text-left">Client</th>
               <th className="px-4 py-3 text-left">Store</th>
               <th className="px-4 py-3 text-left">Țara</th>
@@ -279,6 +280,11 @@ export default function AdminPrepRequests() {
               displayRows.map((r) => (
                 <tr key={r.id} className="border-t align-top">
                   <td className="px-4 py-3">{new Date(r.created_at).toLocaleString()}</td>
+                  <td className="px-4 py-3">
+                    {r.completed_at || r.step4_confirmed_at || r.confirmed_at
+                      ? new Date(r.completed_at || r.step4_confirmed_at || r.confirmed_at).toLocaleString()
+                      : '—'}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="font-semibold">
                       {r.client_company_name || r.company_name || r.client_name || '—'}
