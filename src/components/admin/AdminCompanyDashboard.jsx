@@ -320,23 +320,61 @@ export default function AdminCompanyDashboard() {
 
   const loadMonthFinance = async () => {
     if (!selectedCompany?.id) return;
-    const today = todayIso();
-    const monthStart = `${today.slice(0, 8)}01`;
-    const { data, error } = await supabaseHelpers.getClientAnalyticsSnapshot({
-      companyId: selectedCompany.id === 'ALL' ? null : selectedCompany.id,
-      userId: null,
-      country: currentMarket,
-      startDate: monthStart,
-      endDate: today
-    });
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+    const isAll = selectedCompany.id === 'ALL';
+    const companyId = isAll ? null : selectedCompany.id;
+    const withCompany = (query) => (companyId ? query.eq('company_id', companyId) : query);
+    const withCountry = (query) => (currentMarket ? query.eq('country', currentMarket) : query);
+
+    const [fbaRes, fbmRes, otherRes] = await Promise.all([
+      withCountry(
+        withCompany(
+          supabase
+            .from('fba_lines')
+            .select('total, unit_price, units')
+        )
+      )
+        .gte('service_date', monthStart)
+        .lte('service_date', monthEnd)
+        .limit(20000),
+      withCountry(
+        withCompany(
+          supabase
+            .from('fbm_lines')
+            .select('total, unit_price, orders_units')
+        )
+      )
+        .gte('service_date', monthStart)
+        .lte('service_date', monthEnd)
+        .limit(20000),
+      withCountry(
+        withCompany(
+          supabase
+            .from('other_lines')
+            .select('total, unit_price, units')
+        )
+      )
+        .gte('service_date', monthStart)
+        .lte('service_date', monthEnd)
+        .limit(20000)
+    ]);
+
+    const error = fbaRes?.error || fbmRes?.error || otherRes?.error;
     if (error) {
       setMonthFinance(null);
       return;
     }
-    const total =
-      Number(data?.finance?.prepAmounts?.fba || 0) +
-      Number(data?.finance?.prepAmounts?.fbm || 0) +
-      Number(data?.finance?.prepAmounts?.other || 0);
+
+    const sumRows = (rows, qtyField) =>
+      (Array.isArray(rows) ? rows : []).reduce((acc, row) => {
+        const qty = Number(row?.[qtyField] ?? 1) || 0;
+        const total = row?.total != null ? Number(row.total) || 0 : (Number(row?.unit_price) || 0) * qty;
+        return acc + total;
+      }, 0);
+
+    const total = sumRows(fbaRes.data, 'units') + sumRows(fbmRes.data, 'orders_units') + sumRows(otherRes.data, 'units');
     setMonthFinance({ total });
   };
 
