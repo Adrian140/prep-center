@@ -4220,6 +4220,16 @@ serve(async (req) => {
       selectedSolution:
         selectedOption?.shippingSolution || selectedOption?.raw?.shippingSolution || null
     };
+    const partneredMissingDetails = partneredMissingShipments.map((sid) => {
+      const sh =
+        placementShipments.find((s: any) => String(s?.shipmentId || s?.id || "") === String(sid)) || null;
+      return {
+        shipmentId: sid,
+        packingGroupId: sh?.packingGroupId || sh?.packing_group_id || null,
+        shipmentName: sh?.shipmentName || sh?.name || null
+      };
+    });
+    summaryWithSelection["partneredMissingDetails"] = partneredMissingDetails;
     if (spdWarnings.length) {
       summary["warnings"] = spdWarnings;
     }
@@ -4642,6 +4652,18 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
+    if (selectedOption?.partnered && partneredMissingShipments.length) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "PCP nu este disponibil pentru toate pack groups/shipments. Alege non-partnered pentru acest plan sau separă shipment-ul care nu este eligibil PCP (ex: hazmat/restricții carrier).",
+          code: "PARTNERED_NOT_AVAILABLE_ALL_SHIPMENTS",
+          traceId,
+          missingShipments: partneredMissingDetails
+        }),
+        { status: 409, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
+    }
 
     if (!selectedOption?.id) {
       return new Response(
@@ -4902,19 +4924,6 @@ serve(async (req) => {
       let candidate = byId(confirmOptionId || null);
       if (!candidate) candidate = byId(selectedOption?.id || null);
       if (!candidate) candidate = matchBySignature(pool) || matchBySignature(normalized);
-      if (!candidate && !forcePartneredOnly) {
-        const available = (pool.length ? pool : normalized).filter(
-          (o) => String(o?.raw?.status || "AVAILABLE").toUpperCase() === "AVAILABLE"
-        );
-        if (available.length) {
-          const partneredAvailable = available.filter((o) => Boolean(o?.partnered));
-          const nonPartneredAvailable = available.filter((o) => !Boolean(o?.partnered));
-          // Keep selected intent when possible, but allow mixed PCP/OYC confirmations per shipment.
-          candidate = selectedOption?.partnered
-            ? partneredAvailable[0] || nonPartneredAvailable[0] || available[0] || null
-            : nonPartneredAvailable[0] || partneredAvailable[0] || available[0] || null;
-        }
-      }
       if (!candidate) return null;
       const statusUp = String(candidate?.raw?.status || "AVAILABLE").toUpperCase();
       if (statusUp !== "AVAILABLE") return null;
